@@ -50,6 +50,14 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    // OSMDroid para OpenStreetMap
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+    // Servicios de Google Play para obtener la ubicación GPS
+    implementation("com.google.android.gms:play-services-location:21.2.0")
+    // Integración de ViewModel con Compose
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.preference.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
