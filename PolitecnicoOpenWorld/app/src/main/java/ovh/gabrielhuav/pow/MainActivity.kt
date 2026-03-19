@@ -32,15 +32,14 @@ class MainActivity : ComponentActivity() {
             permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
             fetchCurrentLocation()
         } else {
-            // Si el usuario deniega el permiso, lo mandamos a ESCOM por defecto
-            worldMapViewModel.updateLocation(19.5045, -99.1469)
+            // Si deniega el permiso, lo mandamos a ESCOM
+            worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Configuración obligatoria para OSMDroid (Políticas de OpenStreetMap)
         Configuration.getInstance().load(this, androidx.preference.PreferenceManager.getDefaultSharedPreferences(this))
         Configuration.getInstance().userAgentValue = packageName
 
@@ -54,7 +53,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Llamamos a nuestro Composable del mapa
                     WorldMapScreen(context = this, viewModel = worldMapViewModel)
                 }
             }
@@ -65,7 +63,6 @@ class MainActivity : ComponentActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             fetchCurrentLocation()
         } else {
-            // Pedimos permisos al usuario
             requestPermissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -79,15 +76,16 @@ class MainActivity : ComponentActivity() {
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null) {
-                    worldMapViewModel.updateLocation(location.latitude, location.longitude)
+                    worldMapViewModel.updateInitialLocation(location.latitude, location.longitude)
                 } else {
-                    // Si el GPS está apagado o no responde, fallback a ESCOM
-                    worldMapViewModel.updateLocation(19.5045, -99.1469)
+                    // Si el GPS no responde, fallback a ESCOM
+                    worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
                 }
             }
         } catch (e: SecurityException) {
             e.printStackTrace()
-            worldMapViewModel.updateLocation(19.5045, -99.1469)
+            // Fallback en caso de error de seguridad
+            worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
         }
     }
 }

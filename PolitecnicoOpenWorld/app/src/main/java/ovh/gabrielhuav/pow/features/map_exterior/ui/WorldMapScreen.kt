@@ -1,8 +1,12 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
 import android.content.Context
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -16,8 +20,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import org.osmdroid.views.overlay.Marker
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 
 @Composable
@@ -27,45 +32,66 @@ fun WorldMapScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding() // <- ESTO EVITA QUE CHOQUE CON LA BARRA DE ANDROID
+    ) {
         if (uiState.isLoadingLocation) {
-            // Pantalla de carga mientras obtenemos el GPS
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center)
-            )
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             Text(
-                text = "Buscando señal GPS...",
+                text = "Iniciando mundo...",
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 32.dp)
             )
         } else {
-            // Renderizamos el mapa de OSMDroid
+            // Renderizamos el mapa
             AndroidView(
                 factory = { ctx ->
                     MapView(ctx).apply {
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(true)
-
-                        // Configuración inicial de cámara
                         controller.setZoom(uiState.zoomLevel)
-                        uiState.currentLocation?.let { controller.setCenter(it) }
 
-                        // Capa para mostrar el "hombrecito" (Ubicación del usuario)
-                        val locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(ctx), this)
-                        locationOverlay.enableMyLocation()
-                        locationOverlay.enableFollowLocation() // Hace que la cámara siga al usuario
-                        overlays.add(locationOverlay)
+                        val playerMarker = Marker(this).apply {
+                            id = "PLAYER"
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                            title = "Tú"
+                        }
+                        overlays.add(playerMarker)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
-                    // Si cambia la ubicación en el ViewModel, movemos el mapa
-                    uiState.currentLocation?.let {
-                        view.controller.animateTo(it)
+                    uiState.currentLocation?.let { newLoc ->
+                        val marker = view.overlays.filterIsInstance<Marker>().find { it.id == "PLAYER" }
+                        marker?.position = newLoc
+                        view.controller.animateTo(newLoc)
                     }
                 }
             )
+
+            // CAPA DE CONTROLES (UI)
+            // Usamos un Row para poner uno a cada lado automáticamente
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, // Manda el D-pad a la Izq y Letras a la Der
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Cruceta Izquierda
+                DPadController(
+                    onDirectionPressed = { direction -> viewModel.moveCharacter(direction) }
+                )
+
+                // Botones Derecha
+                ActionButtonsController(
+                    onActionPressed = { action -> viewModel.executeAction(action) }
+                )
+            }
         }
     }
 }
