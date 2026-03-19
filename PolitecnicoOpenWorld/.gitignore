@@ -1,0 +1,68 @@
+# Entorno de desarrollo e IDE
+*.iml
+.gradle
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/captures
+.externalNativeBuild
+.cxx
+
+# Archivos locales (rutas del SDK, tokens locales, etc.)
+local.properties
+
+# Directorios de compilación (Abarca todos los módulos como app/build)
+build/
+
+# APKs y builds
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Firma y Play Store (¡IMPORTANTE!)
+*.jks
+*.keystore
+key.properties
+keystore.properties
+release/
+
+# Credenciales de API de Google Play y CI/CD (Service Accounts)
+*service-account*.json
+play-store-api.json
+api-*.json
+
+# Google Services (Firebase, Google Cloud)
+google-services.json
+google-services-*.json
+
+# Logs
+*.log
+*.log.*
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# NDK
+*.so
+*.o
+*.a
+
+# Variables de entorno
+*.env
+.env.*
+secrets.properties
+
+# Gradle cache local
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# MacOS adicional
+._*
+.Spotlight-V100
+.Trashes
