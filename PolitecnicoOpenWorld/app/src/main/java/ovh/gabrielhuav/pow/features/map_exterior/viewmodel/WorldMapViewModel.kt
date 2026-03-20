@@ -43,4 +43,97 @@ class WorldMapViewModel : ViewModel() {
         // Por ahora solo imprimimos en consola, aquí irá la lógica de interactuar, correr, etc.
         println("Acción ejecutada: $action")
     }
+
+    // Función para generar policías en puntos aleatorios cerca del jugador
+    private fun spawnRandomPolice(center: GeoPoint) {
+        val newPolice = (1..5).map { i ->
+            PoliceNPC(
+                id = "POLICE_$i",
+                location = GeoPoint(
+                    center.latitude + (Math.random() - 0.5) * 0.005,
+                    center.longitude + (Math.random() - 0.5) * 0.005
+                )
+            )
+        }
+        _uiState.value = _uiState.value.copy(policeNPCs = newPolice)
+    }
+
+    // Maneja el incremento de estrellas (30s de visión)
+    private fun incrementSearchTimer(limit: Int) {
+        val currentTimer = _uiState.value.timerSeconds + 1
+        if (currentTimer >= limit) {
+            val newLevel = (_uiState.value.searchLevel + 1).coerceAtMost(5)
+            _uiState.value = _uiState.value.copy(
+                searchLevel = newLevel,
+                timerSeconds = 0 // Reinicia el contador para la siguiente estrella
+            )
+        } else {
+            _uiState.value = _uiState.value.copy(timerSeconds = currentTimer)
+        }
+    }
+
+    // Maneja el enfriamiento (60s fuera de visión)
+    private fun decrementSearchTimer(limit: Int) {
+        val currentTimer = _uiState.value.timerSeconds + 1
+        if (currentTimer >= limit) {
+            _uiState.value = _uiState.value.copy(
+                searchLevel = 0, // Se pierden todas las estrellas
+                timerSeconds = 0
+            )
+        } else {
+            _uiState.value = _uiState.value.copy(timerSeconds = currentTimer)
+        }
+    }
+
+    // Lógica principal que debes llamar desde un Game Loop o un LaunchedEffect
+    fun updatePoliceSystem() {
+        val playerLoc = _uiState.value.currentLocation ?: return
+        val inVehicle = _uiState.value.isInVehicle
+
+        // 1. Generar si no existen
+        if (_uiState.value.policeNPCs.isEmpty()) {
+            spawnRandomPolice(playerLoc)
+        }
+
+        // 2. Actualizar cada policía
+        val updatedPolice = _uiState.value.policeNPCs.map { police ->
+            val distance = police.location.distanceToAsDouble(playerLoc)
+            val isVisible = distance < 70.0 // Rango de visión de 70 metros
+
+            if (inVehicle && isVisible) {
+                // LÓGICA DE PERSECUCIÓN: Se mueve hacia el jugador
+                val newLoc = moveTowards(police.location, playerLoc, 0.0001) // Velocidad de persecución
+                police.copy(location = newLoc, isChasing = true)
+            } else {
+                // MOVIMIENTO CONSTANTE (Patrullaje aleatorio suave)
+                val idleLoc = GeoPoint(
+                    police.location.latitude + (Math.random() - 0.5) * 0.00005,
+                    police.location.longitude + (Math.random() - 0.5) * 0.00005
+                )
+                police.copy(location = idleLoc, isChasing = false)
+            }
+        }
+
+        // 3. Actualizar temporizadores de estrellas
+        val anyPoliceChasing = updatedPolice.any { it.isChasing }
+        if (anyPoliceChasing) {
+            incrementSearchTimer(30)
+        } else if (_uiState.value.searchLevel > 0) {
+            decrementSearchTimer(60)
+        }
+
+        _uiState.value = _uiState.value.copy(policeNPCs = updatedPolice)
+    }
+
+    // Función auxiliar para calcular el movimiento hacia el objetivo
+    private fun moveTowards(current: GeoPoint, target: GeoPoint, speed: Double): GeoPoint {
+        val latDiff = target.latitude - current.latitude
+        val lonDiff = target.longitude - current.longitude
+        val angle = Math.atan2(latDiff, lonDiff)
+
+        return GeoPoint(
+            current.latitude + Math.sin(angle) * speed,
+            current.longitude + Math.cos(angle) * speed
+        )
+    }
 }
