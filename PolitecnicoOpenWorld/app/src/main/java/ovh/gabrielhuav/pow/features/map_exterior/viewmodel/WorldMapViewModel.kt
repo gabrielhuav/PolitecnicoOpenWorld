@@ -70,6 +70,17 @@ class WorldMapViewModel : ViewModel() {
         val start3 = GeoPoint(centerLocation.latitude + 0.001, centerLocation.longitude - 0.004)
         val end3 = GeoPoint(centerLocation.latitude - 0.001, centerLocation.longitude - 0.007)
         setupCarRoute("car_3", 1, start3, end3)
+
+        // Autobús 1 (Ruta larga hacia el Norte)
+        val startBus1 = GeoPoint(centerLocation.latitude + 0.004, centerLocation.longitude + 0.001)
+        val endBus1 = GeoPoint(centerLocation.latitude + 0.010, centerLocation.longitude + 0.002)
+        setupCarRoute("bus_1", 3, startBus1, endBus1) // <-- spriteType 3 es el Autobús
+
+        // Autobús 2 (Ruta hacia el Este)
+        val startBus2 = GeoPoint(centerLocation.latitude - 0.002, centerLocation.longitude + 0.005)
+        val endBus2 = GeoPoint(centerLocation.latitude - 0.001, centerLocation.longitude + 0.012)
+        setupCarRoute("bus_2", 3, startBus2, endBus2)
+
     }
 
     private fun setupCarRoute(carId: String, spriteType: Int, startPoint: GeoPoint, endPoint: GeoPoint) {
@@ -122,7 +133,7 @@ class WorldMapViewModel : ViewModel() {
                     val finalAngle = trueBearing + angleOffset
 
                     // === MOVIMIENTO ===
-                    val fraction = 0.02
+                    val fraction = 0.012
                     val newLat = currentPos.latitude + (targetPoint.latitude - currentPos.latitude) * fraction
                     val newLon = currentPos.longitude + (targetPoint.longitude - currentPos.longitude) * fraction
                     val newPosition = GeoPoint(newLat, newLon)
@@ -156,7 +167,7 @@ class WorldMapViewModel : ViewModel() {
                         }
                     }
                 }
-                delay(50)
+                delay(32) // 60 FPS
             }
         }
     }

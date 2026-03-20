@@ -35,23 +35,23 @@ fun WorldMapScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // Obtenemos las imagen original grande
+    // Obtenemos las imágenes originales
     val originalCar1 = ContextCompat.getDrawable(context, ovh.gabrielhuav.pow.R.drawable.ic_car)
-    val originalCar2 = ContextCompat.getDrawable(context, ovh.gabrielhuav.pow.R.drawable.ic_car2) // Tu nuevo auto
+    val originalCar2 = ContextCompat.getDrawable(context, ovh.gabrielhuav.pow.R.drawable.ic_car2)
+    val originalBus = ContextCompat.getDrawable(context, ovh.gabrielhuav.pow.R.drawable.ic_bus) // <-- EL AUTOBÚS
 
-    val tamanoDeseado = 30 // El tamaño que te había gustado
-
-    // Función rápida para hacer pequeñas las imágenes
-    fun scaleImage(drawable: android.graphics.drawable.Drawable?): android.graphics.drawable.Drawable? {
+    // Función modificada para permitir diferentes tamaños
+    fun scaleImage(drawable: android.graphics.drawable.Drawable?, tamano: Int): android.graphics.drawable.Drawable? {
         return if (drawable is BitmapDrawable) {
             val bitmap = drawable.bitmap
-            val scaledBitmap = Bitmap.createScaledBitmap(bitmap, tamanoDeseado, tamanoDeseado, true)
+            val scaledBitmap = Bitmap.createScaledBitmap(bitmap, tamano, tamano, true)
             BitmapDrawable(context.resources, scaledBitmap)
         } else drawable
     }
 
-    val scaledCar1 = scaleImage(originalCar1)
-    val scaledCar2 = scaleImage(originalCar2)
+    val scaledCar1 = scaleImage(originalCar1, 30) // Autos a 30px
+    val scaledCar2 = scaleImage(originalCar2, 30)
+    val scaledBus = scaleImage(originalBus, 45)  // <-- Autobuses un poco más grandes (45px)
 
     Box(
         modifier = Modifier
@@ -85,29 +85,49 @@ fun WorldMapScreen(
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
-                    // Actualizar la posición del jugador
                     uiState.currentLocation?.let { newLoc ->
-                        val marker = view.overlays.filterIsInstance<Marker>().find { it.id == "PLAYER" }
-                        marker?.position = newLoc
-                        view.controller.animateTo(newLoc)
-                    }
+                        val playerMarker = view.overlays.filterIsInstance<Marker>().find { it.id == "PLAYER" }
 
-                    // Limpiar los carritos anteriores para no duplicarlos si te mueves
-                    view.overlays.removeAll { it is Marker && it.id != "PLAYER" }
+                        // ¿La posición guardada en el dibujo es diferente a la nueva del estado?
+                        // (Es decir, ¿el jugador dio un paso o apenas apareció?)
+                        if (playerMarker?.position?.latitude != newLoc.latitude || playerMarker?.position?.longitude != newLoc.longitude) {
 
-                    // Dibujar todos los NPCs (autos) que están en el estado
-                    uiState.npcs.forEach { npc ->
-                        val npcMarker = Marker(view).apply {
-                            id = npc.id
-                            position = npc.position
-                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                            // Elegimos la imagen según el tipo de auto
-                            icon = if (npc.spriteType == 2) scaledCar2 else scaledCar1
-                            rotation = npc.rotation
-                            title = "Auto"
+                            playerMarker?.position = newLoc
+                            // Usamos animateTo para que la cámara siga al jugador suavemente cuando camina
+                            view.controller.setCenter(newLoc)
                         }
-                        view.overlays.add(npcMarker)
                     }
+
+                    uiState.npcs.forEach { npc ->
+                        // Buscamos si el auto ya está dibujado en el mapa
+                        val existingMarker = view.overlays.filterIsInstance<Marker>().find { it.id == npc.id }
+
+                        if (existingMarker != null) {
+                            // Si ya existe, SOLO le cambiamos las coordenadas y la rotación (súper rápido)
+                            existingMarker.position = npc.position
+                            existingMarker.rotation = npc.rotation
+                        } else {
+                            // Si no existe (es el primer segundo del juego), lo creamos
+                            val npcMarker = Marker(view).apply {
+                                id = npc.id
+                                position = npc.position
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                // Elegimos la imagen según el tipo (1=Auto1, 2=Auto2, 3=Autobús)
+                                icon = when (npc.spriteType) {
+                                    3 -> scaledBus
+                                    2 -> scaledCar2
+                                    else -> scaledCar1
+                                }
+                                rotation = npc.rotation
+                                title = "Auto"
+                            }
+                            view.overlays.add(npcMarker)
+                        }
+                    }
+
+                    // Limpieza de seguridad: Borrar marcadores de autos que ya terminaron su ruta
+                    val currentNpcIds = uiState.npcs.map { it.id }
+                    view.overlays.removeAll { it is Marker && it.id != "PLAYER" && it.id !in currentNpcIds }
 
                     // Refrescar el mapa para que aparezcan
                     view.invalidate()
