@@ -43,4 +43,16 @@ class WorldMapViewModel : ViewModel() {
         // Por ahora solo imprimimos en consola, aquí irá la lógica de interactuar, correr, etc.
         println("Acción ejecutada: $action")
     }
+
+    // --- FUNCIONES PARA CONFIGURACIÓN ---
+
+    fun toggleSettingsDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showSettingsDialog = show)
+    }
+
+    fun toggleMapProvider() {
+        val currentProvider = _uiState.value.mapProvider
+        val newProvider = if (currentProvider == MapProvider.OSM) MapProvider.GOOGLE else MapProvider.OSM
+        _uiState.value = _uiState.value.copy(mapProvider = newProvider)
+    }
 }
