@@ -60,15 +60,27 @@ class WorldMapViewModel : ViewModel() {
 
     // Maneja el incremento de estrellas (30s de visión)
     private fun incrementSearchTimer(limit: Int) {
-        val currentTimer = _uiState.value.timerSeconds + 1
+        val currentState = _uiState.value
+
+        // Si es la primera vez que nos ven (nivel 0), subimos a nivel 1 inmediatamente
+        if (currentState.searchLevel == 0) {
+            _uiState.value = currentState.copy(
+                searchLevel = 1,
+                timerSeconds = 0
+            )
+            return
+        }
+
+        // Para niveles superiores al 1, mantenemos la acumulación de tiempo
+        val currentTimer = currentState.timerSeconds + 1
         if (currentTimer >= limit) {
-            val newLevel = (_uiState.value.searchLevel + 1).coerceAtMost(5)
-            _uiState.value = _uiState.value.copy(
+            val newLevel = (currentState.searchLevel + 1).coerceAtMost(5)
+            _uiState.value = currentState.copy(
                 searchLevel = newLevel,
-                timerSeconds = 0 // Reinicia el contador para la siguiente estrella
+                timerSeconds = 0
             )
         } else {
-            _uiState.value = _uiState.value.copy(timerSeconds = currentTimer)
+            _uiState.value = currentState.copy(timerSeconds = currentTimer)
         }
     }
 

@@ -25,6 +25,7 @@ import org.osmdroid.views.overlay.Marker
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceStars
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 
 @Composable
@@ -97,6 +98,14 @@ fun WorldMapScreen(
                 view.invalidate()
                 }
             )
+
+            //Interfaz de Estrellas
+            if (uiState.searchLevel > 0) {
+                PoliceStars(
+                    searchLevel = uiState.searchLevel,
+                    modifier = Modifier.align(Alignment.TopCenter) // Centrado arriba
+                )
+            }
 
             // CAPA DE CONTROLES (UI)
             // Usamos un Row para poner uno a cada lado automáticamente
