@@ -35,22 +35,23 @@ fun WorldMapScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // Obtenemos la imagen original grande
-    val originalDrawable = ContextCompat.getDrawable(context, ovh.gabrielhuav.pow.R.drawable.ic_car)
+    // Obtenemos las imagen original grande
+    val originalCar1 = ContextCompat.getDrawable(context, ovh.gabrielhuav.pow.R.drawable.ic_car)
+    val originalCar2 = ContextCompat.getDrawable(context, ovh.gabrielhuav.pow.R.drawable.ic_car2) // Tu nuevo auto
 
-    //  Definimos el tamaño que queremos (por ejemplo, 100x100 pixeles es un buen tamaño inicial)
-    //    Si los ves muy chicos o muy grandes, cambia este número 100 por otro.
-    val tamanoDeseado = 30
+    val tamanoDeseado = 30 // El tamaño que te había gustado
 
-    // Convertimos y ajustamos el tamaño
-    val scaledCarDrawable = if (originalDrawable is BitmapDrawable) {
-        val bitmap = originalDrawable.bitmap
-        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, tamanoDeseado, tamanoDeseado, true)
-        BitmapDrawable(context.resources, scaledBitmap)
-    } else {
-        // Por si acaso no es un bitmap, devolvemos la original (poco probable)
-        originalDrawable
+    // Función rápida para hacer pequeñas las imágenes
+    fun scaleImage(drawable: android.graphics.drawable.Drawable?): android.graphics.drawable.Drawable? {
+        return if (drawable is BitmapDrawable) {
+            val bitmap = drawable.bitmap
+            val scaledBitmap = Bitmap.createScaledBitmap(bitmap, tamanoDeseado, tamanoDeseado, true)
+            BitmapDrawable(context.resources, scaledBitmap)
+        } else drawable
     }
+
+    val scaledCar1 = scaleImage(originalCar1)
+    val scaledCar2 = scaleImage(originalCar2)
 
     Box(
         modifier = Modifier
@@ -100,8 +101,9 @@ fun WorldMapScreen(
                             id = npc.id
                             position = npc.position
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                            // Aquí mandamos a llamar a la imagen del carrito
-                            icon = scaledCarDrawable
+                            // Elegimos la imagen según el tipo de auto
+                            icon = if (npc.spriteType == 2) scaledCar2 else scaledCar1
+                            rotation = npc.rotation
                             title = "Auto"
                         }
                         view.overlays.add(npcMarker)
