@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -31,6 +34,23 @@ fun WorldMapScreen(
     viewModel: WorldMapViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Obtenemos la imagen original grande
+    val originalDrawable = ContextCompat.getDrawable(context, ovh.gabrielhuav.pow.R.drawable.ic_car)
+
+    //  Definimos el tamaño que queremos (por ejemplo, 100x100 pixeles es un buen tamaño inicial)
+    //    Si los ves muy chicos o muy grandes, cambia este número 100 por otro.
+    val tamanoDeseado = 30
+
+    // Convertimos y ajustamos el tamaño
+    val scaledCarDrawable = if (originalDrawable is BitmapDrawable) {
+        val bitmap = originalDrawable.bitmap
+        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, tamanoDeseado, tamanoDeseado, true)
+        BitmapDrawable(context.resources, scaledBitmap)
+    } else {
+        // Por si acaso no es un bitmap, devolvemos la original (poco probable)
+        originalDrawable
+    }
 
     Box(
         modifier = Modifier
@@ -64,11 +84,31 @@ fun WorldMapScreen(
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
+                    // Actualizar la posición del jugador
                     uiState.currentLocation?.let { newLoc ->
                         val marker = view.overlays.filterIsInstance<Marker>().find { it.id == "PLAYER" }
                         marker?.position = newLoc
                         view.controller.animateTo(newLoc)
                     }
+
+                    // Limpiar los carritos anteriores para no duplicarlos si te mueves
+                    view.overlays.removeAll { it is Marker && it.id != "PLAYER" }
+
+                    // Dibujar todos los NPCs (autos) que están en el estado
+                    uiState.npcs.forEach { npc ->
+                        val npcMarker = Marker(view).apply {
+                            id = npc.id
+                            position = npc.position
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                            // Aquí mandamos a llamar a la imagen del carrito
+                            icon = scaledCarDrawable
+                            title = "Auto"
+                        }
+                        view.overlays.add(npcMarker)
+                    }
+
+                    // Refrescar el mapa para que aparezcan
+                    view.invalidate()
                 }
             )
 
