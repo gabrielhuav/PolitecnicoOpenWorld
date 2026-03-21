@@ -110,7 +110,37 @@ fun WorldMapScreen(
                             view.overlays.add(npcMarker)
                         }
 
-                        view.invalidate() // Forzar redibujado
+                        // ... (código de los NPCs que ya tienes) ...
+
+                        // 4. Limpiar Autos anteriores del mapa (para evitar que dejen una "estela")
+                        view.overlays.removeAll { it is Marker && it.id.startsWith("car_") }
+
+                        // 5. Dibujar Autos Actualizados
+                        uiState.cars.forEach { car ->
+                            val carMarker = Marker(view).apply {
+                                id = car.id
+                                // Transformamos tu MapLocation o GeoPoint a la posición del marcador
+                                position = GeoPoint(car.currentLocation.latitude, car.currentLocation.longitude)
+                                title = car.name
+
+                                // A los autos les ponemos el ancla en el centro para que se vean bien en la calle
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+
+
+                                val originalDrawable = ContextCompat.getDrawable(view.context, R.drawable.car_icon)
+
+                                // Opcional: Escalar el auto si tu imagen original es muy grande
+                                // Cambia el 80x80 por el tamaño que mejor se vea en tus calles
+                                val scaledBitmap = originalDrawable?.toBitmap(width = 80, height = 80)
+                                icon = BitmapDrawable(view.resources, scaledBitmap)
+                            }
+                            view.overlays.add(carMarker)
+                        }
+
+                        // Forzar el redibujado de la pantalla con los nuevos autos
+                        view.invalidate()
+
+
                     }
                 )
             } else {
