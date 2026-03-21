@@ -20,14 +20,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+import android.graphics.drawable.BitmapDrawable
+import androidx.core.graphics.drawable.toBitmap
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -73,11 +78,69 @@ fun WorldMapScreen(
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { view ->
+                        // 1. Actualizar Jugador
                         uiState.currentLocation?.let { newLoc ->
-                            val marker = view.overlays.filterIsInstance<Marker>().find { it.id == "PLAYER" }
-                            marker?.position = newLoc
-                            view.controller.animateTo(newLoc)
+                            // Asumiendo que currentLocation es MapLocation, lo adaptamos a GeoPoint.
+                            // Si en tu código sigue siendo GeoPoint, quita la conversión.
+                            val lat = (newLoc as? GeoPoint)?.latitude ?: (newLoc as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.latitude ?: 0.0
+                            val lon = (newLoc as? GeoPoint)?.longitude ?: (newLoc as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.longitude ?: 0.0
+                            val geoPoint = GeoPoint(lat, lon)
+
+                            val playerMarker = view.overlays.filterIsInstance<Marker>().find { it.id == "PLAYER" }
+                            playerMarker?.position = geoPoint
+                            view.controller.animateTo(geoPoint)
                         }
+
+                        // 2. Limpiar NPCs anteriores (conservando al PLAYER)
+                        view.overlays.removeAll { it is Marker && it.id != "PLAYER" }
+
+                        // 3. Dibujar NPCs Actualizados
+                        uiState.npcs.forEach { npc ->
+                            val npcMarker = Marker(view).apply {
+                                id = npc.id
+                                position = GeoPoint(npc.currentLocation.latitude, npc.currentLocation.longitude)
+                                title = npc.name
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+
+                                // OBTENER EL DIBUJO Y REDUCIR SU TAMAÑO (Cambia 60x60 por lo que prefieras)
+                                val originalDrawable = ContextCompat.getDrawable(view.context, R.drawable.person_icon)
+                                val scaledBitmap = originalDrawable?.toBitmap(width = 70, height = 70)
+                                icon = BitmapDrawable(view.resources, scaledBitmap)
+                            }
+                            view.overlays.add(npcMarker)
+                        }
+
+                        // ... (código de los NPCs que ya tienes) ...
+
+                        // 4. Limpiar Autos anteriores del mapa (para evitar que dejen una "estela")
+                        view.overlays.removeAll { it is Marker && it.id.startsWith("car_") }
+
+                        // 5. Dibujar Autos Actualizados
+                        uiState.cars.forEach { car ->
+                            val carMarker = Marker(view).apply {
+                                id = car.id
+                                // Transformamos tu MapLocation o GeoPoint a la posición del marcador
+                                position = GeoPoint(car.currentLocation.latitude, car.currentLocation.longitude)
+                                title = car.name
+
+                                // A los autos les ponemos el ancla en el centro para que se vean bien en la calle
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+
+
+                                val originalDrawable = ContextCompat.getDrawable(view.context, R.drawable.car_icon)
+
+                                // Opcional: Escalar el auto si tu imagen original es muy grande
+                                // Cambia el 80x80 por el tamaño que mejor se vea en tus calles
+                                val scaledBitmap = originalDrawable?.toBitmap(width = 80, height = 80)
+                                icon = BitmapDrawable(view.resources, scaledBitmap)
+                            }
+                            view.overlays.add(carMarker)
+                        }
+
+                        // Forzar el redibujado de la pantalla con los nuevos autos
+                        view.invalidate()
+
+
                     }
                 )
             } else {
@@ -88,13 +151,10 @@ fun WorldMapScreen(
                     AndroidView(
                         factory = { ctx ->
                             WebView(ctx).apply {
-                                // 1. Forzar medidas explícitas para evitar que el WebView mida 0x0
                                 layoutParams = android.view.ViewGroup.LayoutParams(
                                     android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                                     android.view.ViewGroup.LayoutParams.MATCH_PARENT
                                 )
-
-                                // 2. Forzar aceleración por hardware para evitar pantallas blancas en el emulador
                                 setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 
                                 settings.javaScriptEnabled = true
@@ -105,8 +165,13 @@ fun WorldMapScreen(
                                 webViewClient = WebViewClient()
                                 android.webkit.WebView.setWebContentsDebuggingEnabled(true)
 
-                                val initialLat = uiState.currentLocation?.latitude ?: 0.0
-                                val initialLng = uiState.currentLocation?.longitude ?: 0.0
+                                // Compatibilidad para extraer Lat/Lng
+                                val initialLat = (uiState.currentLocation as? GeoPoint)?.latitude
+                                    ?: (uiState.currentLocation as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.latitude
+                                    ?: 0.0
+                                val initialLng = (uiState.currentLocation as? GeoPoint)?.longitude
+                                    ?: (uiState.currentLocation as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.longitude
+                                    ?: 0.0
                                 val zoom = uiState.zoomLevel.toInt()
 
                                 val htmlData = """
@@ -125,6 +190,8 @@ fun WorldMapScreen(
                                             window.confirm = function() { return true; };
                                             
                                             var map;
+                                            var npcMarkers = {}; // Almacén de NPCs
+                                            
                                             function initMap() {
                                                 map = new google.maps.Map(document.getElementById('map'), {
                                                     center: {lat: $initialLat, lng: $initialLng},
@@ -135,16 +202,53 @@ fun WorldMapScreen(
                                                     mapTypeId: 'roadmap'
                                                 });
                                             }
+                                            
                                             function moveMap(lat, lng) {
                                                 if(map) { map.panTo({lat: lat, lng: lng}); }
                                             }
+
+                                            // FUNCIÓN PARA ACTUALIZAR NPCs DESDE COMPOSE
+                                            function updateNpcs(npcsJson) {
+                                                if(!map) return;
+                                                var npcs = JSON.parse(npcsJson);
+                                                var currentIds = {};
+                                                
+                                                npcs.forEach(function(npc) {
+                                                    currentIds[npc.id] = true;
+                                                    if(npcMarkers[npc.id]) {
+                                                        // Mover el NPC si ya existe
+                                                        npcMarkers[npc.id].setPosition({lat: npc.lat, lng: npc.lng});
+                                                    } else {
+                                                        // Crear el NPC si es nuevo (Usamos un circulo azul básico)
+                                                        var marker = new google.maps.Marker({
+                                                            position: {lat: npc.lat, lng: npc.lng},
+                                                            map: map,
+                                                            title: npc.name,
+                                                            icon: {
+                                                                path: google.maps.SymbolPath.CIRCLE,
+                                                                scale: 6,
+                                                                fillColor: '#0000FF',
+                                                                fillOpacity: 1,
+                                                                strokeColor: '#FFFFFF',
+                                                                strokeWeight: 2
+                                                            }
+                                                        });
+                                                        npcMarkers[npc.id] = marker;
+                                                    }
+                                                });
+                                                
+                                                // Eliminar NPCs que ya no están en la lista (despawn)
+                                                for (var id in npcMarkers) {
+                                                    if (!currentIds[id]) {
+                                                        npcMarkers[id].setMap(null);
+                                                        delete npcMarkers[id];
+                                                    }
+                                                }
+                                            }
                                 
-                                            // EL TRUCO DEFINITIVO: Clic automático en el botón "Aceptar"
                                             setInterval(function() {
                                                 var btn = document.querySelector('.dismissButton');
-                                                if (btn) {
-                                                    btn.click();
-                                                }
+                                                if (btn) { btn.click(); }
                                             }, 500);
                                         </script>
                                         <script src="https://maps.googleapis.com/maps/api/js?v=3.55&callback=initMap" async defer></script>
@@ -157,8 +261,19 @@ fun WorldMapScreen(
                         },
                         modifier = Modifier.fillMaxSize(),
                         update = { webView ->
+                            // 1. Mover el mapa (Jugador)
                             uiState.currentLocation?.let { newLoc ->
-                                webView.evaluateJavascript("moveMap(${newLoc.latitude}, ${newLoc.longitude})", null)
+                                val lat = (newLoc as? GeoPoint)?.latitude ?: (newLoc as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.latitude ?: 0.0
+                                val lon = (newLoc as? GeoPoint)?.longitude ?: (newLoc as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.longitude ?: 0.0
+                                webView.evaluateJavascript("moveMap($lat, $lon)", null)
+                            }
+
+                            // 2. Mover NPCs inyectando JSON
+                            if (uiState.npcs.isNotEmpty()) {
+                                val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
+                                    "{ \"id\": \"${npc.id}\", \"lat\": ${npc.currentLocation.latitude}, \"lng\": ${npc.currentLocation.longitude}, \"name\": \"${npc.name}\" }"
+                                }
+                                webView.evaluateJavascript("if(typeof updateNpcs === 'function') { updateNpcs('$npcsJson'); }", null)
                             }
                         }
                     )
