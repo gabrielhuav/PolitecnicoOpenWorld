@@ -5,25 +5,32 @@ import android.content.Context
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Marker
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
@@ -40,7 +47,7 @@ fun WorldMapScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .navigationBarsPadding() // <- ESTO EVITA QUE CHOQUE CON LA BARRA DE ANDROID
+            .systemBarsPadding()
     ) {
         if (uiState.isLoadingLocation) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -51,141 +58,154 @@ fun WorldMapScreen(
                     .padding(bottom = 32.dp)
             )
         } else {
-            // Renderización condicional basada en el proveedor
+            // ==========================================
+            // CAPA 1: EL MAPA
+            // ==========================================
             if (uiState.mapProvider == MapProvider.OSM) {
-                // ====================
-                // NATIVO: OSM DROID
-                // ====================
                 AndroidView(
                     factory = { ctx ->
                         MapView(ctx).apply {
                             setTileSource(TileSourceFactory.MAPNIK)
-                            setMultiTouchControls(true)
+                            setMultiTouchControls(false)
                             controller.setZoom(uiState.zoomLevel)
-
-                            val playerMarker = Marker(this).apply {
-                                id = "PLAYER"
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                title = "Tú"
-                            }
-                            overlays.add(playerMarker)
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { view ->
                         uiState.currentLocation?.let { newLoc ->
-                            val marker = view.overlays.filterIsInstance<Marker>().find { it.id == "PLAYER" }
-                            marker?.position = newLoc
-                            view.controller.animateTo(newLoc)
+                            view.controller.setCenter(newLoc)
+                        }
+                        if (view.zoomLevelDouble != uiState.zoomLevel) {
+                            view.controller.setZoom(uiState.zoomLevel)
                         }
                     }
                 )
             } else {
-                // ====================
-                // WEB: GOOGLE MAPS
-                // ====================
-                Box(modifier = Modifier.fillMaxSize()) {
-                    AndroidView(
-                        factory = { ctx ->
-                            WebView(ctx).apply {
-                                // 1. Forzar medidas explícitas para evitar que el WebView mida 0x0
-                                layoutParams = android.view.ViewGroup.LayoutParams(
-                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                                )
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            webViewClient = WebViewClient()
 
-                                // 2. Forzar aceleración por hardware para evitar pantallas blancas en el emulador
-                                setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                            val initialLat = uiState.currentLocation?.latitude ?: 0.0
+                            val initialLng = uiState.currentLocation?.longitude ?: 0.0
+                            val zoom = uiState.zoomLevel.toInt()
 
-                                settings.javaScriptEnabled = true
-                                settings.domStorageEnabled = true
-                                settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-
-                                webChromeClient = android.webkit.WebChromeClient()
-                                webViewClient = WebViewClient()
-                                android.webkit.WebView.setWebContentsDebuggingEnabled(true)
-
-                                val initialLat = uiState.currentLocation?.latitude ?: 0.0
-                                val initialLng = uiState.currentLocation?.longitude ?: 0.0
-                                val zoom = uiState.zoomLevel.toInt()
-
-                                val htmlData = """
-                                    <!DOCTYPE html>
-                                    <html>
-                                    <head>
-                                        <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
-                                        <style> 
-                                            body, html, #map { width: 100%; height: 100%; margin: 0; padding: 0; } 
-                                        </style>
-                                    </head>
-                                    <body>
-                                        <div id="map"></div>
-                                        <script>
-                                            window.alert = function() {}; 
-                                            window.confirm = function() { return true; };
+                            val htmlData = """
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+                                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                                    <style> 
+                                        body, html, #map { width: 100%; height: 100%; margin: 0; padding: 0; background-color: #2b2b2b; } 
+                                        .leaflet-control-attribution { display: none !important; }
+                                    </style>
+                                </head>
+                                <body>
+                                    <div id="map"></div>
+                                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                                    <script>
+                                        var map;
+                                        var currentTileLayer;
+                                        
+                                        function initMap() {
+                                            map = L.map('map', {
+                                                center: [$initialLat, $initialLng],
+                                                zoom: $zoom,
+                                                zoomControl: false,       
+                                                dragging: false,          
+                                                keyboard: false,
+                                                scrollWheelZoom: false,
+                                                doubleClickZoom: false,
+                                                touchZoom: false
+                                            });
                                             
-                                            var map;
-                                            function initMap() {
-                                                map = new google.maps.Map(document.getElementById('map'), {
-                                                    center: {lat: $initialLat, lng: $initialLng},
-                                                    zoom: $zoom,
-                                                    disableDefaultUI: true,
-                                                    gestureHandling: 'none',
-                                                    keyboardShortcuts: false,
-                                                    mapTypeId: 'roadmap'
-                                                });
+                                            currentTileLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                                                maxZoom: 22,
+                                                keepBuffer: 4 
+                                            }).addTo(map);
+                                        }
+                                        
+                                        function moveMap(lat, lng) {
+                                            if(map) { 
+                                                map.setView([lat, lng], map.getZoom(), {animate: false}); 
                                             }
-                                            function moveMap(lat, lng) {
-                                                if(map) { map.panTo({lat: lat, lng: lng}); }
-                                            }
-                                
-                                            // EL TRUCO DEFINITIVO: Clic automático en el botón "Aceptar"
-                                            setInterval(function() {
-                                                var btn = document.querySelector('.dismissButton');
-                                                if (btn) {
-                                                    btn.click();
-                                                }
-                                            }, 500);
-                                        </script>
-                                        <script src="https://maps.googleapis.com/maps/api/js?v=3.55&callback=initMap" async defer></script>
-                                    </body>
-                                    </html>
-                                """.trimIndent()
+                                        }
 
-                                loadDataWithBaseURL("https://example.com", htmlData, "text/html", "UTF-8", null)
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                        update = { webView ->
-                            uiState.currentLocation?.let { newLoc ->
-                                webView.evaluateJavascript("moveMap(${newLoc.latitude}, ${newLoc.longitude})", null)
-                            }
+                                        function setMapZoom(newZoom) {
+                                            if(map && map.getZoom() !== newZoom) {
+                                                map.setZoom(newZoom, {animate: false});
+                                            }
+                                        }
+                                        
+                                        function changeTileUrl(newUrl) {
+                                            if(currentTileLayer && currentTileLayer._url !== newUrl) {
+                                                currentTileLayer.setUrl(newUrl);
+                                            }
+                                        }
+                                        
+                                        initMap();
+                                    </script>
+                                </body>
+                                </html>
+                            """.trimIndent()
+
+                            loadDataWithBaseURL("https://example.com", htmlData, "text/html", "UTF-8", null)
                         }
-                    )
-                    // Personaje fijo en el centro de la pantalla para la vista Web
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Personaje Central",
-                            tint = Color.Red,
-                            modifier = Modifier.size(24.dp)
-                        )
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    update = { webView ->
+                        uiState.currentLocation?.let { newLoc ->
+                            webView.evaluateJavascript("if(typeof moveMap === 'function') moveMap(${newLoc.latitude}, ${newLoc.longitude});", null)
+                        }
+                        webView.evaluateJavascript("if(typeof setMapZoom === 'function') setMapZoom(${uiState.zoomLevel});", null)
+
+                        val tileUrl = when (uiState.mapProvider) {
+                            MapProvider.CARTO_DB_DARK -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                            MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                            MapProvider.ESRI -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+                            MapProvider.ESRI_SATELLITE -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                            MapProvider.OPEN_TOPO -> "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+                            MapProvider.OSM_WEB -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            else -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                        }
+                        webView.evaluateJavascript("if(typeof changeTileUrl === 'function') changeTileUrl('$tileUrl');", null)
                     }
-                }
+                )
             }
 
             // ==========================================
-            // CAPA DE CONTROLES (UI)
+            // CAPA 2: JUGADOR (Hombrecito Amarillo)
             // ==========================================
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(42.dp)
+                    .shadow(8.dp, CircleShape)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .border(2.dp, Color(0xFFE6A800), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Pegman Player",
+                    tint = Color(0xFFFFC107),
+                    modifier = Modifier.size(30.dp)
+                )
+            }
 
-            // 1. Botón de Configuración (Arriba a la derecha)
+            // ==========================================
+            // CAPA 3: CONTROLES DE UI
+            // ==========================================
             IconButton(
                 onClick = { viewModel.toggleSettingsDialog(true) },
                 modifier = Modifier
@@ -200,7 +220,30 @@ fun WorldMapScreen(
                 )
             }
 
-            // 2. Controles de Movimiento y Acción (Abajo)
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                IconButton(
+                    onClick = { viewModel.zoomIn() },
+                    modifier = Modifier
+                        .background(Color.White.copy(alpha = 0.8f), CircleShape)
+                        .size(48.dp)
+                ) {
+                    Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                }
+                IconButton(
+                    onClick = { viewModel.zoomOut() },
+                    modifier = Modifier
+                        .background(Color.White.copy(alpha = 0.8f), CircleShape)
+                        .size(48.dp)
+                ) {
+                    Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -218,35 +261,50 @@ fun WorldMapScreen(
             }
 
             // ==========================================
-            // DIÁLOGO DE CONFIGURACIÓN
+            // DIÁLOGO DE CONFIGURACIÓN (MENÚ DESPLEGABLE)
             // ==========================================
             if (uiState.showSettingsDialog) {
+                var isDropdownExpanded by remember { mutableStateOf(false) }
+
                 AlertDialog(
                     onDismissRequest = { viewModel.toggleSettingsDialog(false) },
-                    title = { Text(text = "Configuración del Juego") },
+                    title = { Text(text = "Ajustes del Juego") },
                     text = {
                         Column {
-                            Text(text = "Motor de renderizado del mapa exterior:")
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Button(
-                                onClick = { viewModel.toggleMapProvider() },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                val textoBoton = if (uiState.mapProvider == MapProvider.OSM) {
-                                    "Cambiar a Google Maps (Web)"
-                                } else {
-                                    "Cambiar a OSMDroid (Nativo)"
-                                }
-                                Text(textoBoton)
-                            }
-
+                            Text("Proveedor de Mapa exterior:", style = MaterialTheme.typography.labelLarge)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Actual: ${uiState.mapProvider.name}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.Gray
-                            )
+
+                            // Botón que abre el menú desplegable
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedButton(
+                                    onClick = { isDropdownExpanded = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(16.dp)
+                                ) {
+                                    Text(
+                                        text = uiState.mapProvider.displayName,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Cambiar")
+                                }
+
+                                // El menú flotante que sale de arriba hacia abajo
+                                DropdownMenu(
+                                    expanded = isDropdownExpanded,
+                                    onDismissRequest = { isDropdownExpanded = false },
+                                    modifier = Modifier.fillMaxWidth(0.7f) // Controla el ancho del menú
+                                ) {
+                                    MapProvider.entries.forEach { provider ->
+                                        DropdownMenuItem(
+                                            text = { Text(provider.displayName) },
+                                            onClick = {
+                                                viewModel.setMapProvider(provider)
+                                                isDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
                     },
                     confirmButton = {
