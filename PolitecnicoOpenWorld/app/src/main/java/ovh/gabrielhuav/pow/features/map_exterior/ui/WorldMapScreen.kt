@@ -2,25 +2,35 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.drawable.BitmapDrawable
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -31,8 +41,6 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsCont
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-import android.graphics.drawable.BitmapDrawable
-import androidx.core.graphics.drawable.toBitmap
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -45,7 +53,7 @@ fun WorldMapScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .navigationBarsPadding() // <- ESTO EVITA QUE CHOQUE CON LA BARRA DE ANDROID
+            .systemBarsPadding()
     ) {
         if (uiState.isLoadingLocation) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -56,43 +64,30 @@ fun WorldMapScreen(
                     .padding(bottom = 32.dp)
             )
         } else {
-            // Renderización condicional basada en el proveedor
+            // ==========================================
+            // CAPA 1: EL MAPA
+            // ==========================================
             if (uiState.mapProvider == MapProvider.OSM) {
-                // ====================
-                // NATIVO: OSM DROID
-                // ====================
                 AndroidView(
                     factory = { ctx ->
                         MapView(ctx).apply {
                             setTileSource(TileSourceFactory.MAPNIK)
-                            setMultiTouchControls(true)
+                            setMultiTouchControls(false)
                             controller.setZoom(uiState.zoomLevel)
-
-                            val playerMarker = Marker(this).apply {
-                                id = "PLAYER"
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                title = "Tú"
-                            }
-                            overlays.add(playerMarker)
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { view ->
                         // 1. Actualizar Jugador
                         uiState.currentLocation?.let { newLoc ->
-                            // Asumiendo que currentLocation es MapLocation, lo adaptamos a GeoPoint.
-                            // Si en tu código sigue siendo GeoPoint, quita la conversión.
-                            val lat = (newLoc as? GeoPoint)?.latitude ?: (newLoc as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.latitude ?: 0.0
-                            val lon = (newLoc as? GeoPoint)?.longitude ?: (newLoc as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.longitude ?: 0.0
-                            val geoPoint = GeoPoint(lat, lon)
-
-                            val playerMarker = view.overlays.filterIsInstance<Marker>().find { it.id == "PLAYER" }
-                            playerMarker?.position = geoPoint
-                            view.controller.animateTo(geoPoint)
+                            view.controller.setCenter(newLoc)
+                        }
+                        if (view.zoomLevelDouble != uiState.zoomLevel) {
+                            view.controller.setZoom(uiState.zoomLevel)
                         }
 
-                        // 2. Limpiar NPCs anteriores (conservando al PLAYER)
-                        view.overlays.removeAll { it is Marker && it.id != "PLAYER" }
+                        // 2. Limpiar NPCs anteriores
+                        view.overlays.removeAll { it is Marker && it.id != "PLAYER" && !(it.id?.startsWith("car_") ?: false) }
 
                         // 3. Dibujar NPCs Actualizados
                         uiState.npcs.forEach { npc ->
@@ -102,7 +97,6 @@ fun WorldMapScreen(
                                 title = npc.name
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
 
-                                // OBTENER EL DIBUJO Y REDUCIR SU TAMAÑO (Cambia 60x60 por lo que prefieras)
                                 val originalDrawable = ContextCompat.getDrawable(view.context, R.drawable.person_icon)
                                 val scaledBitmap = originalDrawable?.toBitmap(width = 70, height = 70)
                                 icon = BitmapDrawable(view.resources, scaledBitmap)
@@ -110,197 +104,229 @@ fun WorldMapScreen(
                             view.overlays.add(npcMarker)
                         }
 
-                        // ... (código de los NPCs que ya tienes) ...
-
-                        // 4. Limpiar Autos anteriores del mapa (para evitar que dejen una "estela")
-                        view.overlays.removeAll { it is Marker && it.id.startsWith("car_") }
+                        // 4. Limpiar Autos anteriores del mapa
+                        view.overlays.removeAll { it is Marker && it.id?.startsWith("car_") == true }
 
                         // 5. Dibujar Autos Actualizados
                         uiState.cars.forEach { car ->
                             val carMarker = Marker(view).apply {
                                 id = car.id
-                                // Transformamos tu MapLocation o GeoPoint a la posición del marcador
                                 position = GeoPoint(car.currentLocation.latitude, car.currentLocation.longitude)
                                 title = car.name
-
-                                // A los autos les ponemos el ancla en el centro para que se vean bien en la calle
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
 
-
                                 val originalDrawable = ContextCompat.getDrawable(view.context, R.drawable.car_icon)
-
-                                // Opcional: Escalar el auto si tu imagen original es muy grande
-                                // Cambia el 80x80 por el tamaño que mejor se vea en tus calles
                                 val scaledBitmap = originalDrawable?.toBitmap(width = 80, height = 80)
                                 icon = BitmapDrawable(view.resources, scaledBitmap)
                             }
                             view.overlays.add(carMarker)
                         }
 
-                        // Forzar el redibujado de la pantalla con los nuevos autos
                         view.invalidate()
-
-
                     }
                 )
             } else {
-                // ====================
-                // WEB: GOOGLE MAPS
-                // ====================
-                Box(modifier = Modifier.fillMaxSize()) {
-                    AndroidView(
-                        factory = { ctx ->
-                            WebView(ctx).apply {
-                                layoutParams = android.view.ViewGroup.LayoutParams(
-                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                                )
-                                setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            webViewClient = WebViewClient()
 
-                                settings.javaScriptEnabled = true
-                                settings.domStorageEnabled = true
-                                settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            val initialLat = uiState.currentLocation?.latitude ?: 0.0
+                            val initialLng = uiState.currentLocation?.longitude ?: 0.0
+                            val zoom = uiState.zoomLevel.toInt()
 
-                                webChromeClient = android.webkit.WebChromeClient()
-                                webViewClient = WebViewClient()
-                                android.webkit.WebView.setWebContentsDebuggingEnabled(true)
-
-                                // Compatibilidad para extraer Lat/Lng
-                                val initialLat = (uiState.currentLocation as? GeoPoint)?.latitude
-                                    ?: (uiState.currentLocation as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.latitude
-                                    ?: 0.0
-                                val initialLng = (uiState.currentLocation as? GeoPoint)?.longitude
-                                    ?: (uiState.currentLocation as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.longitude
-                                    ?: 0.0
-                                val zoom = uiState.zoomLevel.toInt()
-
-                                val htmlData = """
-                                    <!DOCTYPE html>
-                                    <html>
-                                    <head>
-                                        <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
-                                        <style> 
-                                            body, html, #map { width: 100%; height: 100%; margin: 0; padding: 0; } 
-                                        </style>
-                                    </head>
-                                    <body>
-                                        <div id="map"></div>
-                                        <script>
-                                            window.alert = function() {}; 
-                                            window.confirm = function() { return true; };
+                            val htmlData = """
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+                                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                                    <style> 
+                                        body, html, #map { width: 100%; height: 100%; margin: 0; padding: 0; background-color: #2b2b2b; } 
+                                        .leaflet-control-attribution { display: none !important; }
+                                    </style>
+                                </head>
+                                <body>
+                                    <div id="map"></div>
+                                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                                    <script>
+                                        var map;
+                                        var currentTileLayer;
+                                        var npcMarkers = {};
+                                        var carMarkers = {};
+                                        
+                                        function initMap() {
+                                            map = L.map('map', {
+                                                center: [$initialLat, $initialLng],
+                                                zoom: $zoom,
+                                                zoomControl: false,       
+                                                dragging: false,          
+                                                keyboard: false,
+                                                scrollWheelZoom: false,
+                                                doubleClickZoom: false,
+                                                touchZoom: false
+                                            });
                                             
-                                            var map;
-                                            var npcMarkers = {}; // Almacén de NPCs
-                                            
-                                            function initMap() {
-                                                map = new google.maps.Map(document.getElementById('map'), {
-                                                    center: {lat: $initialLat, lng: $initialLng},
-                                                    zoom: $zoom,
-                                                    disableDefaultUI: true,
-                                                    gestureHandling: 'none',
-                                                    keyboardShortcuts: false,
-                                                    mapTypeId: 'roadmap'
-                                                });
+                                            currentTileLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                                                maxZoom: 22,
+                                                keepBuffer: 4 
+                                            }).addTo(map);
+                                        }
+                                        
+                                        function moveMap(lat, lng) {
+                                            if(map) { 
+                                                map.setView([lat, lng], map.getZoom(), {animate: false}); 
                                             }
-                                            
-                                            function moveMap(lat, lng) {
-                                                if(map) { map.panTo({lat: lat, lng: lng}); }
-                                            }
+                                        }
 
-                                            // FUNCIÓN PARA ACTUALIZAR NPCs DESDE COMPOSE
-                                            function updateNpcs(npcsJson) {
-                                                if(!map) return;
-                                                var npcs = JSON.parse(npcsJson);
-                                                var currentIds = {};
-                                                
-                                                npcs.forEach(function(npc) {
-                                                    currentIds[npc.id] = true;
-                                                    if(npcMarkers[npc.id]) {
-                                                        // Mover el NPC si ya existe
-                                                        npcMarkers[npc.id].setPosition({lat: npc.lat, lng: npc.lng});
-                                                    } else {
-                                                        // Crear el NPC si es nuevo (Usamos un circulo azul básico)
-                                                        var marker = new google.maps.Marker({
-                                                            position: {lat: npc.lat, lng: npc.lng},
-                                                            map: map,
-                                                            title: npc.name,
-                                                            icon: {
-                                                                path: google.maps.SymbolPath.CIRCLE,
-                                                                scale: 6,
-                                                                fillColor: '#0000FF',
-                                                                fillOpacity: 1,
-                                                                strokeColor: '#FFFFFF',
-                                                                strokeWeight: 2
-                                                            }
-                                                        });
-                                                        npcMarkers[npc.id] = marker;
-                                                    }
-                                                });
-                                                
-                                                // Eliminar NPCs que ya no están en la lista (despawn)
-                                                for (var id in npcMarkers) {
-                                                    if (!currentIds[id]) {
-                                                        npcMarkers[id].setMap(null);
-                                                        delete npcMarkers[id];
-                                                    }
+                                        function setMapZoom(newZoom) {
+                                            if(map && map.getZoom() !== newZoom) {
+                                                map.setZoom(newZoom, {animate: false});
+                                            }
+                                        }
+                                        
+                                        function changeTileUrl(newUrl) {
+                                            if(currentTileLayer && currentTileLayer._url !== newUrl) {
+                                                currentTileLayer.setUrl(newUrl);
+                                            }
+                                        }
+
+                                        function updateNpcs(npcsJson) {
+                                            if(!map) return;
+                                            var npcs = JSON.parse(npcsJson);
+                                            var currentIds = {};
+                                            
+                                            npcs.forEach(function(npc) {
+                                                currentIds[npc.id] = true;
+                                                if(npcMarkers[npc.id]) {
+                                                    npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);
+                                                } else {
+                                                    var marker = L.circleMarker([npc.lat, npc.lng], {
+                                                        radius: 5,
+                                                        fillColor: '#3498DB',
+                                                        color: '#FFFFFF',
+                                                        weight: 2,
+                                                        opacity: 1,
+                                                        fillOpacity: 1
+                                                    }).addTo(map);
+                                                    marker.bindTooltip(npc.name);
+                                                    npcMarkers[npc.id] = marker;
+                                                }
+                                            });
+                                            
+                                            for (var id in npcMarkers) {
+                                                if (!currentIds[id]) {
+                                                    map.removeLayer(npcMarkers[id]);
+                                                    delete npcMarkers[id];
                                                 }
                                             }
-                                
-                                            setInterval(function() {
-                                                var btn = document.querySelector('.dismissButton');
-                                                if (btn) { btn.click(); }
-                                            }, 500);
-                                        </script>
-                                        <script src="https://maps.googleapis.com/maps/api/js?v=3.55&callback=initMap" async defer></script>
-                                    </body>
-                                    </html>
-                                """.trimIndent()
+                                        }
 
-                                loadDataWithBaseURL("https://example.com", htmlData, "text/html", "UTF-8", null)
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                        update = { webView ->
-                            // 1. Mover el mapa (Jugador)
-                            uiState.currentLocation?.let { newLoc ->
-                                val lat = (newLoc as? GeoPoint)?.latitude ?: (newLoc as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.latitude ?: 0.0
-                                val lon = (newLoc as? GeoPoint)?.longitude ?: (newLoc as? ovh.gabrielhuav.pow.domain.models.MapLocation)?.longitude ?: 0.0
-                                webView.evaluateJavascript("moveMap($lat, $lon)", null)
-                            }
+                                        function updateCars(carsJson) {
+                                            if(!map) return;
+                                            var cars = JSON.parse(carsJson);
+                                            var currentIds = {};
+                                            
+                                            cars.forEach(function(car) {
+                                                currentIds[car.id] = true;
+                                                if(carMarkers[car.id]) {
+                                                    carMarkers[car.id].setLatLng([car.lat, car.lng]);
+                                                } else {
+                                                    var marker = L.circleMarker([car.lat, car.lng], {
+                                                        radius: 7,
+                                                        fillColor: '#E74C3C',
+                                                        color: '#FFFFFF',
+                                                        weight: 2,
+                                                        opacity: 1,
+                                                        fillOpacity: 1
+                                                    }).addTo(map);
+                                                    marker.bindTooltip(car.name);
+                                                    carMarkers[car.id] = marker;
+                                                }
+                                            });
+                                            
+                                            for (var id in carMarkers) {
+                                                if (!currentIds[id]) {
+                                                    map.removeLayer(carMarkers[id]);
+                                                    delete carMarkers[id];
+                                                }
+                                            }
+                                        }
+                                        
+                                        initMap();
+                                    </script>
+                                </body>
+                                </html>
+                            """.trimIndent()
 
-                            // 2. Mover NPCs inyectando JSON
-                            if (uiState.npcs.isNotEmpty()) {
-                                val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
-                                    "{ \"id\": \"${npc.id}\", \"lat\": ${npc.currentLocation.latitude}, \"lng\": ${npc.currentLocation.longitude}, \"name\": \"${npc.name}\" }"
-                                }
-                                webView.evaluateJavascript("if(typeof updateNpcs === 'function') { updateNpcs('$npcsJson'); }", null)
-                            }
+                            loadDataWithBaseURL("https://example.com", htmlData, "text/html", "UTF-8", null)
                         }
-                    )
-                    // Personaje fijo en el centro de la pantalla para la vista Web
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Personaje Central",
-                            tint = Color.Red,
-                            modifier = Modifier.size(24.dp)
-                        )
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    update = { webView ->
+                        uiState.currentLocation?.let { newLoc ->
+                            webView.evaluateJavascript("if(typeof moveMap === 'function') moveMap(${newLoc.latitude}, ${newLoc.longitude});", null)
+                        }
+                        webView.evaluateJavascript("if(typeof setMapZoom === 'function') setMapZoom(${uiState.zoomLevel});", null)
+
+                        // Mover NPCs
+                        val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
+                            "{ \"id\": \"${npc.id}\", \"lat\": ${npc.currentLocation.latitude}, \"lng\": ${npc.currentLocation.longitude}, \"name\": \"${npc.name}\" }"
+                        }
+                        webView.evaluateJavascript("if(typeof updateNpcs === 'function') { updateNpcs('$npcsJson'); }", null)
+
+                        // Mover Autos
+                        val carsJson = uiState.cars.joinToString(prefix = "[", postfix = "]") { car ->
+                            "{ \"id\": \"${car.id}\", \"lat\": ${car.currentLocation.latitude}, \"lng\": ${car.currentLocation.longitude}, \"name\": \"${car.name}\" }"
+                        }
+                        webView.evaluateJavascript("if(typeof updateCars === 'function') { updateCars('$carsJson'); }", null)
+
+                        val tileUrl = when (uiState.mapProvider) {
+                            MapProvider.CARTO_DB_DARK -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                            MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                            MapProvider.ESRI -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+                            MapProvider.ESRI_SATELLITE -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                            MapProvider.OPEN_TOPO -> "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+                            MapProvider.OSM_WEB -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            else -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                        }
+                        webView.evaluateJavascript("if(typeof changeTileUrl === 'function') changeTileUrl('$tileUrl');", null)
                     }
-                }
+                )
             }
 
             // ==========================================
-            // CAPA DE CONTROLES (UI)
+            // CAPA 2: JUGADOR (Hombrecito Amarillo)
             // ==========================================
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(42.dp)
+                    .shadow(8.dp, CircleShape)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .border(2.dp, Color(0xFFE6A800), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Pegman Player",
+                    tint = Color(0xFFFFC107),
+                    modifier = Modifier.size(30.dp)
+                )
+            }
 
-            // 1. Botón de Configuración (Arriba a la derecha)
+            // ==========================================
+            // CAPA 3: CONTROLES DE UI
+            // ==========================================
             IconButton(
                 onClick = { viewModel.toggleSettingsDialog(true) },
                 modifier = Modifier
@@ -315,7 +341,30 @@ fun WorldMapScreen(
                 )
             }
 
-            // 2. Controles de Movimiento y Acción (Abajo)
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                IconButton(
+                    onClick = { viewModel.zoomIn() },
+                    modifier = Modifier
+                        .background(Color.White.copy(alpha = 0.8f), CircleShape)
+                        .size(48.dp)
+                ) {
+                    Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                }
+                IconButton(
+                    onClick = { viewModel.zoomOut() },
+                    modifier = Modifier
+                        .background(Color.White.copy(alpha = 0.8f), CircleShape)
+                        .size(48.dp)
+                ) {
+                    Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -333,35 +382,48 @@ fun WorldMapScreen(
             }
 
             // ==========================================
-            // DIÁLOGO DE CONFIGURACIÓN
+            // DIÁLOGO DE CONFIGURACIÓN (MENÚ DESPLEGABLE)
             // ==========================================
             if (uiState.showSettingsDialog) {
+                var isDropdownExpanded by remember { mutableStateOf(false) }
+
                 AlertDialog(
                     onDismissRequest = { viewModel.toggleSettingsDialog(false) },
-                    title = { Text(text = "Configuración del Juego") },
+                    title = { Text(text = "Ajustes del Juego") },
                     text = {
                         Column {
-                            Text(text = "Motor de renderizado del mapa exterior:")
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Button(
-                                onClick = { viewModel.toggleMapProvider() },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                val textoBoton = if (uiState.mapProvider == MapProvider.OSM) {
-                                    "Cambiar a Google Maps (Web)"
-                                } else {
-                                    "Cambiar a OSMDroid (Nativo)"
-                                }
-                                Text(textoBoton)
-                            }
-
+                            Text("Proveedor de Mapa exterior:", style = MaterialTheme.typography.labelLarge)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Actual: ${uiState.mapProvider.name}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.Gray
-                            )
+
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedButton(
+                                    onClick = { isDropdownExpanded = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(16.dp)
+                                ) {
+                                    Text(
+                                        text = uiState.mapProvider.displayName,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Cambiar")
+                                }
+
+                                DropdownMenu(
+                                    expanded = isDropdownExpanded,
+                                    onDismissRequest = { isDropdownExpanded = false },
+                                    modifier = Modifier.fillMaxWidth(0.7f)
+                                ) {
+                                    MapProvider.entries.forEach { provider ->
+                                        DropdownMenuItem(
+                                            text = { Text(provider.displayName) },
+                                            onClick = {
+                                                viewModel.setMapProvider(provider)
+                                                isDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
                     },
                     confirmButton = {

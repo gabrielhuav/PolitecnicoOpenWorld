@@ -70,9 +70,23 @@ class WorldMapViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(showSettingsDialog = show)
     }
 
-    fun toggleMapProvider() {
-        val currentProvider = _uiState.value.mapProvider
-        val newProvider = if (currentProvider == MapProvider.OSM) MapProvider.GOOGLE else MapProvider.OSM
-        _uiState.value = _uiState.value.copy(mapProvider = newProvider)
+    fun setMapProvider(provider: MapProvider) {
+        _uiState.value = _uiState.value.copy(
+            mapProvider = provider
+        )
+    }
+
+    fun zoomIn() {
+        val currentZoom = _uiState.value.zoomLevel
+        if (currentZoom < 22.0) {
+            _uiState.value = _uiState.value.copy(zoomLevel = currentZoom + 1.0)
+        }
+    }
+
+    fun zoomOut() {
+        val currentZoom = _uiState.value.zoomLevel
+        if (currentZoom > 2.0) {
+            _uiState.value = _uiState.value.copy(zoomLevel = currentZoom - 1.0)
+        }
     }
 }
