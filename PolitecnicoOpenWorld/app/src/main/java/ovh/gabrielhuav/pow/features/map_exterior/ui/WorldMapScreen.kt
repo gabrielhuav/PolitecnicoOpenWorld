@@ -68,6 +68,9 @@ fun WorldMapScreen(
             // CAPA 1: EL MAPA
             // ==========================================
             if (uiState.mapProvider == MapProvider.OSM) {
+                // ====================
+                // NATIVO: OSM DROID
+                // ====================
                 AndroidView(
                     factory = { ctx ->
                         MapView(ctx).apply {
@@ -86,8 +89,8 @@ fun WorldMapScreen(
                             view.controller.setZoom(uiState.zoomLevel)
                         }
 
-                        // 2. Limpiar NPCs anteriores
-                        view.overlays.removeAll { it is Marker && it.id != "PLAYER" && !(it.id?.startsWith("car_") ?: false) }
+                        // 2. Limpiar NPCs anteriores (conservando al PLAYER y a los AUTOS)
+                        view.overlays.removeAll { it is Marker && it.id != "PLAYER" && (it.id == null || !it.id.startsWith("car_")) }
 
                         // 3. Dibujar NPCs Actualizados
                         uiState.npcs.forEach { npc ->
@@ -105,7 +108,7 @@ fun WorldMapScreen(
                         }
 
                         // 4. Limpiar Autos anteriores del mapa
-                        view.overlays.removeAll { it is Marker && it.id?.startsWith("car_") == true }
+                        view.overlays.removeAll { it is Marker && it.id != null && it.id.startsWith("car_") }
 
                         // 5. Dibujar Autos Actualizados
                         uiState.cars.forEach { car ->
@@ -126,6 +129,9 @@ fun WorldMapScreen(
                     }
                 )
             } else {
+                // ====================
+                // WEB: LEAFLET (Google Maps, CartoDB, etc.)
+                // ====================
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
@@ -198,7 +204,7 @@ fun WorldMapScreen(
                                                 currentTileLayer.setUrl(newUrl);
                                             }
                                         }
-
+                                        
                                         function updateNpcs(npcsJson) {
                                             if(!map) return;
                                             var npcs = JSON.parse(npcsJson);
@@ -260,7 +266,7 @@ fun WorldMapScreen(
                                                 }
                                             }
                                         }
-                                        
+
                                         initMap();
                                     </script>
                                 </body>
@@ -272,23 +278,29 @@ fun WorldMapScreen(
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { webView ->
+                        // 1. Mover el jugador
                         uiState.currentLocation?.let { newLoc ->
                             webView.evaluateJavascript("if(typeof moveMap === 'function') moveMap(${newLoc.latitude}, ${newLoc.longitude});", null)
                         }
                         webView.evaluateJavascript("if(typeof setMapZoom === 'function') setMapZoom(${uiState.zoomLevel});", null)
 
-                        // Mover NPCs
-                        val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
-                            "{ \"id\": \"${npc.id}\", \"lat\": ${npc.currentLocation.latitude}, \"lng\": ${npc.currentLocation.longitude}, \"name\": \"${npc.name}\" }"
+                        // 2. Mover NPCs
+                        if (uiState.npcs.isNotEmpty()) {
+                            val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
+                                "{ \"id\": \"${npc.id}\", \"lat\": ${npc.currentLocation.latitude}, \"lng\": ${npc.currentLocation.longitude}, \"name\": \"${npc.name}\" }"
+                            }
+                            webView.evaluateJavascript("if(typeof updateNpcs === 'function') { updateNpcs('$npcsJson'); }", null)
                         }
-                        webView.evaluateJavascript("if(typeof updateNpcs === 'function') { updateNpcs('$npcsJson'); }", null)
 
-                        // Mover Autos
-                        val carsJson = uiState.cars.joinToString(prefix = "[", postfix = "]") { car ->
-                            "{ \"id\": \"${car.id}\", \"lat\": ${car.currentLocation.latitude}, \"lng\": ${car.currentLocation.longitude}, \"name\": \"${car.name}\" }"
+                        // 3. Mover Coches
+                        if (uiState.cars.isNotEmpty()) {
+                            val carsJson = uiState.cars.joinToString(prefix = "[", postfix = "]") { car ->
+                                "{ \"id\": \"${car.id}\", \"lat\": ${car.currentLocation.latitude}, \"lng\": ${car.currentLocation.longitude}, \"name\": \"${car.name}\" }"
+                            }
+                            webView.evaluateJavascript("if(typeof updateCars === 'function') { updateCars('$carsJson'); }", null)
                         }
-                        webView.evaluateJavascript("if(typeof updateCars === 'function') { updateCars('$carsJson'); }", null)
 
+                        // 4. Cambiar el proveedor de mapa web
                         val tileUrl = when (uiState.mapProvider) {
                             MapProvider.CARTO_DB_DARK -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                             MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -395,6 +407,7 @@ fun WorldMapScreen(
                             Text("Proveedor de Mapa exterior:", style = MaterialTheme.typography.labelLarge)
                             Spacer(modifier = Modifier.height(8.dp))
 
+                            // Botón que abre el menú desplegable
                             Box(modifier = Modifier.fillMaxWidth()) {
                                 OutlinedButton(
                                     onClick = { isDropdownExpanded = true },
@@ -408,10 +421,11 @@ fun WorldMapScreen(
                                     Icon(Icons.Default.ArrowDropDown, contentDescription = "Cambiar")
                                 }
 
+                                // El menú flotante que sale de arriba hacia abajo
                                 DropdownMenu(
                                     expanded = isDropdownExpanded,
                                     onDismissRequest = { isDropdownExpanded = false },
-                                    modifier = Modifier.fillMaxWidth(0.7f)
+                                    modifier = Modifier.fillMaxWidth(0.7f) // Controla el ancho del menú
                                 ) {
                                     MapProvider.entries.forEach { provider ->
                                         DropdownMenuItem(

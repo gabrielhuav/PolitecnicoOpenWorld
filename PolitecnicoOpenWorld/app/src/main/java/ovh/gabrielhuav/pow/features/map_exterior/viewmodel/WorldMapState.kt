@@ -1,8 +1,8 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.CarNpc
+import ovh.gabrielhuav.pow.domain.models.Npc
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
