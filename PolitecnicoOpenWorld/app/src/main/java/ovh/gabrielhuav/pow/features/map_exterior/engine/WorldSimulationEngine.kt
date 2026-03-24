@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.CarNpc
+import ovh.gabrielhuav.pow.domain.models.MapLocation
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.features.map_exterior.data.RoutingRepository
 import kotlin.math.atan2
@@ -18,7 +18,6 @@ import kotlin.math.hypot
 import kotlin.math.sin
 import kotlin.random.Random
 
-// Clase para empaquetar las listas de entidades que se enviarán al ViewModel
 data class SimulationState(
     val npcs: List<Npc> = emptyList(),
     val cars: List<CarNpc> = emptyList()
@@ -34,19 +33,25 @@ class WorldSimulationEngine(
     private var isRunning = false
 
     fun spawnEntitiesNearPlayer(lat: Double, lon: Double) {
-        val newNpcs = (1..8).map { i ->
+        val newNpcs = (1..NPC_COUNT).map { i ->
             Npc(
-                id = "npc_$i", name = "Estudiante $i",
-                currentLocation = GeoPoint(lat + (Math.random() - 0.5) * 0.002, lon + (Math.random() - 0.5) * 0.002),
-                speed = 0.000003
+                id = "npc_$i",
+                name = "Estudiante $i",
+                currentLocation = MapLocation(
+                    lat + (Math.random() - 0.5) * SPAWN_RADIUS_NPC,
+                    lon + (Math.random() - 0.5) * SPAWN_RADIUS_NPC
+                )
             )
         }
 
-        val newCars = (1..5).map { i ->
+        val newCars = (1..CAR_COUNT).map { i ->
             CarNpc(
-                id = "car_$i", name = "Auto $i",
-                currentLocation = GeoPoint(lat + (Math.random() - 0.5) * 0.004, lon + (Math.random() - 0.5) * 0.004),
-                speed = 0.000015
+                id = "car_$i",
+                name = "Auto $i",
+                currentLocation = MapLocation(
+                    lat + (Math.random() - 0.5) * SPAWN_RADIUS_CAR,
+                    lon + (Math.random() - 0.5) * SPAWN_RADIUS_CAR
+                )
             )
         }
 
@@ -58,7 +63,7 @@ class WorldSimulationEngine(
         isRunning = true
         scope.launch {
             while (isActive) {
-                delay(33) // ~30 FPS
+                delay(TICK_RATE_MS)
                 updateNpcsPosition()
                 updateCarsPosition()
             }
@@ -70,7 +75,7 @@ class WorldSimulationEngine(
             if ((npc.path.isEmpty() || npc.currentPathIndex >= npc.path.size) && !npc.isPlanningRoute) {
                 val thinkingNpc = npc.copy(isPlanningRoute = true)
                 scope.launch {
-                    val destination = getRandomNearbyPoint(thinkingNpc.currentLocation, 0.0015)
+                    val destination = getRandomNearbyPoint(thinkingNpc.currentLocation, WANDER_RADIUS_NPC)
                     val newPath = repository.fetchPedestrianRoute(thinkingNpc.currentLocation, destination)
                     updateNpcInState(thinkingNpc.id, newPath)
                 }
@@ -90,7 +95,7 @@ class WorldSimulationEngine(
             if ((car.path.isEmpty() || car.currentPathIndex >= car.path.size) && !car.isPlanningRoute) {
                 val thinkingCar = car.copy(isPlanningRoute = true)
                 scope.launch {
-                    val destination = getRandomNearbyPoint(thinkingCar.currentLocation, 0.004)
+                    val destination = getRandomNearbyPoint(thinkingCar.currentLocation, WANDER_RADIUS_CAR)
                     val newPath = repository.fetchDrivingRoute(thinkingCar.currentLocation, destination)
                     updateCarInState(thinkingCar.id, newPath)
                 }
@@ -105,8 +110,7 @@ class WorldSimulationEngine(
         _simulationState.update { it.copy(cars = updatedCars) }
     }
 
-    // Matemáticas de movimiento genéricas
-    private fun moveEntity(current: GeoPoint, path: List<GeoPoint>, index: Int, speed: Double): Pair<GeoPoint, Int>? {
+    private fun moveEntity(current: MapLocation, path: List<MapLocation>, index: Int, speed: Double): Pair<MapLocation, Int>? {
         if (index >= path.size) return null
         val target = path[index]
         val dx = target.longitude - current.longitude
@@ -115,25 +119,35 @@ class WorldSimulationEngine(
         if (hypot(dx, dy) < speed) return Pair(current, index + 1)
 
         val angle = atan2(dy, dx)
-        return Pair(GeoPoint(current.latitude + sin(angle) * speed, current.longitude + cos(angle) * speed), index)
+        return Pair(MapLocation(current.latitude + sin(angle) * speed, current.longitude + cos(angle) * speed), index)
     }
 
-    private fun updateNpcInState(id: String, newPath: List<GeoPoint>) {
+    private fun updateNpcInState(id: String, newPath: List<MapLocation>) {
         _simulationState.update { state ->
             state.copy(npcs = state.npcs.map { if (it.id == id) it.copy(path = newPath, currentPathIndex = 0, isPlanningRoute = false) else it })
         }
     }
 
-    private fun updateCarInState(id: String, newPath: List<GeoPoint>) {
+    private fun updateCarInState(id: String, newPath: List<MapLocation>) {
         _simulationState.update { state ->
             state.copy(cars = state.cars.map { if (it.id == id) it.copy(path = newPath, currentPathIndex = 0, isPlanningRoute = false) else it })
         }
     }
 
-    private fun getRandomNearbyPoint(origin: GeoPoint, radius: Double): GeoPoint {
-        return GeoPoint(
+    private fun getRandomNearbyPoint(origin: MapLocation, radius: Double): MapLocation {
+        return MapLocation(
             origin.latitude + Random.nextDouble(-radius, radius),
             origin.longitude + Random.nextDouble(-radius, radius)
         )
+    }
+
+    companion object {
+        const val TICK_RATE_MS = 33L // ~30 FPS
+        const val NPC_COUNT = 8
+        const val CAR_COUNT = 5
+        const val SPAWN_RADIUS_NPC = 0.002
+        const val SPAWN_RADIUS_CAR = 0.004
+        const val WANDER_RADIUS_NPC = 0.0015
+        const val WANDER_RADIUS_CAR = 0.004
     }
 }

@@ -66,15 +66,17 @@ class WorldMapViewModel : ViewModel() {
         println("Acción ejecutada: $action")
     }
 
+    // --- CONFIGURACIÓN DE LA UI ---
+
     fun toggleSettingsDialog(show: Boolean) {
         _uiState.value = _uiState.value.copy(showSettingsDialog = show)
     }
 
     fun setMapProvider(provider: MapProvider) {
-        _uiState.value = _uiState.value.copy(
-            mapProvider = provider
-        )
+        _uiState.value = _uiState.value.copy(mapProvider = provider)
     }
+
+    // --- CONTROLES DE ZOOM PARA LEAFLET Y OSM ---
 
     fun zoomIn() {
         val currentZoom = _uiState.value.zoomLevel

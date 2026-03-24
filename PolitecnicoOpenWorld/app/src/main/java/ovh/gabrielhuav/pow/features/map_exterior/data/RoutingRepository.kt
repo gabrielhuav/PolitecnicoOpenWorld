@@ -3,24 +3,24 @@ package ovh.gabrielhuav.pow.features.map_exterior.data
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.MapLocation
 import java.net.HttpURLConnection
 import java.net.URL
 
 class RoutingRepository {
 
-    suspend fun fetchPedestrianRoute(start: GeoPoint, end: GeoPoint): List<GeoPoint> {
+    suspend fun fetchPedestrianRoute(start: MapLocation, end: MapLocation): List<MapLocation> {
         return fetchRouteFromOSRM("foot", start, end)
     }
 
-    suspend fun fetchDrivingRoute(start: GeoPoint, end: GeoPoint): List<GeoPoint> {
+    suspend fun fetchDrivingRoute(start: MapLocation, end: MapLocation): List<MapLocation> {
         return fetchRouteFromOSRM("driving", start, end)
     }
 
     // Función genérica para no repetir código entre peatones y autos
-    private suspend fun fetchRouteFromOSRM(profile: String, start: GeoPoint, end: GeoPoint): List<GeoPoint> {
+    private suspend fun fetchRouteFromOSRM(profile: String, start: MapLocation, end: MapLocation): List<MapLocation> {
         return withContext(Dispatchers.IO) {
-            val path = mutableListOf<GeoPoint>()
+            val path = mutableListOf<MapLocation>()
             try {
                 val urlString = "https://router.project-osrm.org/route/v1/$profile/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson"
                 val url = URL(urlString)
@@ -39,8 +39,8 @@ class RoutingRepository {
 
                         for (i in 0 until coordinates.length()) {
                             val coord = coordinates.getJSONArray(i)
-                            // OSRM devuelve [longitud, latitud], GeoPoint usa (latitud, longitud)
-                            path.add(GeoPoint(coord.getDouble(1), coord.getDouble(0)))
+                            // OSRM devuelve [longitud, latitud], MapLocation usa (latitud, longitud)
+                            path.add(MapLocation(coord.getDouble(1), coord.getDouble(0)))
                         }
                     }
                 }

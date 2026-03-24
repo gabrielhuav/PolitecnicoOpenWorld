@@ -37,6 +37,7 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.domain.models.MapLocation
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
@@ -49,6 +50,14 @@ fun WorldMapScreen(
     viewModel: WorldMapViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // OPTIMIZACIÓN: Cachear Bitmaps en memoria (evita fugas y lag por recreación en cada frame)
+    val npcIcon = remember(context) {
+        ContextCompat.getDrawable(context, R.drawable.person_icon)?.toBitmap(width = 70, height = 70)
+    }
+    val carIcon = remember(context) {
+        ContextCompat.getDrawable(context, R.drawable.car_icon)?.toBitmap(width = 80, height = 80)
+    }
 
     Box(
         modifier = Modifier
@@ -68,9 +77,6 @@ fun WorldMapScreen(
             // CAPA 1: EL MAPA
             // ==========================================
             if (uiState.mapProvider == MapProvider.OSM) {
-                // ====================
-                // NATIVO: OSM DROID
-                // ====================
                 AndroidView(
                     factory = { ctx ->
                         MapView(ctx).apply {
@@ -81,46 +87,38 @@ fun WorldMapScreen(
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { view ->
-                        // 1. Actualizar Jugador
+                        // 1. Centrar Jugador
                         uiState.currentLocation?.let { newLoc ->
-                            view.controller.setCenter(newLoc)
+                            val geoPoint = GeoPoint(newLoc.latitude, newLoc.longitude)
+                            view.controller.setCenter(geoPoint)
                         }
                         if (view.zoomLevelDouble != uiState.zoomLevel) {
                             view.controller.setZoom(uiState.zoomLevel)
                         }
 
-                        // 2. Limpiar NPCs anteriores (conservando al PLAYER y a los AUTOS)
-                        view.overlays.removeAll { it is Marker && it.id != "PLAYER" && (it.id == null || !it.id.startsWith("car_")) }
+                        // 2. Limpiar marcadores existentes (evitar duplicados)
+                        view.overlays.removeAll { it is Marker && it.id != "PLAYER" }
 
-                        // 3. Dibujar NPCs Actualizados
+                        // 3. Dibujar NPCs
                         uiState.npcs.forEach { npc ->
                             val npcMarker = Marker(view).apply {
                                 id = npc.id
                                 position = GeoPoint(npc.currentLocation.latitude, npc.currentLocation.longitude)
                                 title = npc.name
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-
-                                val originalDrawable = ContextCompat.getDrawable(view.context, R.drawable.person_icon)
-                                val scaledBitmap = originalDrawable?.toBitmap(width = 70, height = 70)
-                                icon = BitmapDrawable(view.resources, scaledBitmap)
+                                npcIcon?.let { icon = BitmapDrawable(view.resources, it) }
                             }
                             view.overlays.add(npcMarker)
                         }
 
-                        // 4. Limpiar Autos anteriores del mapa
-                        view.overlays.removeAll { it is Marker && it.id != null && it.id.startsWith("car_") }
-
-                        // 5. Dibujar Autos Actualizados
+                        // 4. Dibujar Autos
                         uiState.cars.forEach { car ->
                             val carMarker = Marker(view).apply {
                                 id = car.id
                                 position = GeoPoint(car.currentLocation.latitude, car.currentLocation.longitude)
                                 title = car.name
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-
-                                val originalDrawable = ContextCompat.getDrawable(view.context, R.drawable.car_icon)
-                                val scaledBitmap = originalDrawable?.toBitmap(width = 80, height = 80)
-                                icon = BitmapDrawable(view.resources, scaledBitmap)
+                                carIcon?.let { icon = BitmapDrawable(view.resources, it) }
                             }
                             view.overlays.add(carMarker)
                         }
@@ -129,9 +127,6 @@ fun WorldMapScreen(
                     }
                 )
             } else {
-                // ====================
-                // WEB: LEAFLET (Google Maps, CartoDB, etc.)
-                // ====================
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
@@ -149,142 +144,19 @@ fun WorldMapScreen(
                             val initialLng = uiState.currentLocation?.longitude ?: 0.0
                             val zoom = uiState.zoomLevel.toInt()
 
-                            val htmlData = """
-                                <!DOCTYPE html>
-                                <html>
-                                <head>
-                                    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
-                                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-                                    <style> 
-                                        body, html, #map { width: 100%; height: 100%; margin: 0; padding: 0; background-color: #2b2b2b; } 
-                                        .leaflet-control-attribution { display: none !important; }
-                                    </style>
-                                </head>
-                                <body>
-                                    <div id="map"></div>
-                                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-                                    <script>
-                                        var map;
-                                        var currentTileLayer;
-                                        var npcMarkers = {};
-                                        var carMarkers = {};
-                                        
-                                        function initMap() {
-                                            map = L.map('map', {
-                                                center: [$initialLat, $initialLng],
-                                                zoom: $zoom,
-                                                zoomControl: false,       
-                                                dragging: false,          
-                                                keyboard: false,
-                                                scrollWheelZoom: false,
-                                                doubleClickZoom: false,
-                                                touchZoom: false
-                                            });
-                                            
-                                            currentTileLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-                                                maxZoom: 22,
-                                                keepBuffer: 4 
-                                            }).addTo(map);
-                                        }
-                                        
-                                        function moveMap(lat, lng) {
-                                            if(map) { 
-                                                map.setView([lat, lng], map.getZoom(), {animate: false}); 
-                                            }
-                                        }
-
-                                        function setMapZoom(newZoom) {
-                                            if(map && map.getZoom() !== newZoom) {
-                                                map.setZoom(newZoom, {animate: false});
-                                            }
-                                        }
-                                        
-                                        function changeTileUrl(newUrl) {
-                                            if(currentTileLayer && currentTileLayer._url !== newUrl) {
-                                                currentTileLayer.setUrl(newUrl);
-                                            }
-                                        }
-                                        
-                                        function updateNpcs(npcsJson) {
-                                            if(!map) return;
-                                            var npcs = JSON.parse(npcsJson);
-                                            var currentIds = {};
-                                            
-                                            npcs.forEach(function(npc) {
-                                                currentIds[npc.id] = true;
-                                                if(npcMarkers[npc.id]) {
-                                                    npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);
-                                                } else {
-                                                    var marker = L.circleMarker([npc.lat, npc.lng], {
-                                                        radius: 5,
-                                                        fillColor: '#3498DB',
-                                                        color: '#FFFFFF',
-                                                        weight: 2,
-                                                        opacity: 1,
-                                                        fillOpacity: 1
-                                                    }).addTo(map);
-                                                    marker.bindTooltip(npc.name);
-                                                    npcMarkers[npc.id] = marker;
-                                                }
-                                            });
-                                            
-                                            for (var id in npcMarkers) {
-                                                if (!currentIds[id]) {
-                                                    map.removeLayer(npcMarkers[id]);
-                                                    delete npcMarkers[id];
-                                                }
-                                            }
-                                        }
-
-                                        function updateCars(carsJson) {
-                                            if(!map) return;
-                                            var cars = JSON.parse(carsJson);
-                                            var currentIds = {};
-                                            
-                                            cars.forEach(function(car) {
-                                                currentIds[car.id] = true;
-                                                if(carMarkers[car.id]) {
-                                                    carMarkers[car.id].setLatLng([car.lat, car.lng]);
-                                                } else {
-                                                    var marker = L.circleMarker([car.lat, car.lng], {
-                                                        radius: 7,
-                                                        fillColor: '#E74C3C',
-                                                        color: '#FFFFFF',
-                                                        weight: 2,
-                                                        opacity: 1,
-                                                        fillOpacity: 1
-                                                    }).addTo(map);
-                                                    marker.bindTooltip(car.name);
-                                                    carMarkers[car.id] = marker;
-                                                }
-                                            });
-                                            
-                                            for (var id in carMarkers) {
-                                                if (!currentIds[id]) {
-                                                    map.removeLayer(carMarkers[id]);
-                                                    delete carMarkers[id];
-                                                }
-                                            }
-                                        }
-
-                                        initMap();
-                                    </script>
-                                </body>
-                                </html>
-                            """.trimIndent()
-
+                            val htmlData = getLeafletHtmlTemplate(initialLat, initialLng, zoom)
                             loadDataWithBaseURL("https://example.com", htmlData, "text/html", "UTF-8", null)
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { webView ->
-                        // 1. Mover el jugador
+                        // 1. Mover mapa (Player)
                         uiState.currentLocation?.let { newLoc ->
                             webView.evaluateJavascript("if(typeof moveMap === 'function') moveMap(${newLoc.latitude}, ${newLoc.longitude});", null)
                         }
                         webView.evaluateJavascript("if(typeof setMapZoom === 'function') setMapZoom(${uiState.zoomLevel});", null)
 
-                        // 2. Mover NPCs
+                        // 2. Inyectar listado de NPCs para dibujarlos
                         if (uiState.npcs.isNotEmpty()) {
                             val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
                                 "{ \"id\": \"${npc.id}\", \"lat\": ${npc.currentLocation.latitude}, \"lng\": ${npc.currentLocation.longitude}, \"name\": \"${npc.name}\" }"
@@ -292,7 +164,7 @@ fun WorldMapScreen(
                             webView.evaluateJavascript("if(typeof updateNpcs === 'function') { updateNpcs('$npcsJson'); }", null)
                         }
 
-                        // 3. Mover Coches
+                        // 3. Inyectar listado de Autos para dibujarlos
                         if (uiState.cars.isNotEmpty()) {
                             val carsJson = uiState.cars.joinToString(prefix = "[", postfix = "]") { car ->
                                 "{ \"id\": \"${car.id}\", \"lat\": ${car.currentLocation.latitude}, \"lng\": ${car.currentLocation.longitude}, \"name\": \"${car.name}\" }"
@@ -300,16 +172,8 @@ fun WorldMapScreen(
                             webView.evaluateJavascript("if(typeof updateCars === 'function') { updateCars('$carsJson'); }", null)
                         }
 
-                        // 4. Cambiar el proveedor de mapa web
-                        val tileUrl = when (uiState.mapProvider) {
-                            MapProvider.CARTO_DB_DARK -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                            MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                            MapProvider.ESRI -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-                            MapProvider.ESRI_SATELLITE -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                            MapProvider.OPEN_TOPO -> "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-                            MapProvider.OSM_WEB -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            else -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-                        }
+                        // 4. Cambiar el mapa dinámicamente
+                        val tileUrl = getTileUrlForProvider(uiState.mapProvider)
                         webView.evaluateJavascript("if(typeof changeTileUrl === 'function') changeTileUrl('$tileUrl');", null)
                     }
                 )
@@ -407,7 +271,6 @@ fun WorldMapScreen(
                             Text("Proveedor de Mapa exterior:", style = MaterialTheme.typography.labelLarge)
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Botón que abre el menú desplegable
                             Box(modifier = Modifier.fillMaxWidth()) {
                                 OutlinedButton(
                                     onClick = { isDropdownExpanded = true },
@@ -421,11 +284,10 @@ fun WorldMapScreen(
                                     Icon(Icons.Default.ArrowDropDown, contentDescription = "Cambiar")
                                 }
 
-                                // El menú flotante que sale de arriba hacia abajo
                                 DropdownMenu(
                                     expanded = isDropdownExpanded,
                                     onDismissRequest = { isDropdownExpanded = false },
-                                    modifier = Modifier.fillMaxWidth(0.7f) // Controla el ancho del menú
+                                    modifier = Modifier.fillMaxWidth(0.7f)
                                 ) {
                                     MapProvider.entries.forEach { provider ->
                                         DropdownMenuItem(
@@ -449,4 +311,142 @@ fun WorldMapScreen(
             }
         }
     }
+}
+
+private fun getTileUrlForProvider(provider: MapProvider): String {
+    return when (provider) {
+        MapProvider.CARTO_DB_DARK -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        MapProvider.ESRI -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+        MapProvider.ESRI_SATELLITE -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        MapProvider.OPEN_TOPO -> "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+        MapProvider.OSM_WEB -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        else -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+    }
+}
+
+private fun getLeafletHtmlTemplate(initialLat: Double, initialLng: Double, zoom: Int): String {
+    return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+            <style> 
+                body, html, #map { width: 100%; height: 100%; margin: 0; padding: 0; background-color: #2b2b2b; } 
+                .leaflet-control-attribution { display: none !important; }
+            </style>
+        </head>
+        <body>
+            <div id="map"></div>
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            <script>
+                var map;
+                var currentTileLayer;
+                var npcMarkers = {};
+                var carMarkers = {};
+                
+                function initMap() {
+                    map = L.map('map', {
+                        center: [$initialLat, $initialLng],
+                        zoom: $zoom,
+                        zoomControl: false,       
+                        dragging: false,          
+                        keyboard: false,
+                        scrollWheelZoom: false,
+                        doubleClickZoom: false,
+                        touchZoom: false
+                    });
+                    
+                    currentTileLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                        maxZoom: 22,
+                        keepBuffer: 4 
+                    }).addTo(map);
+                }
+                
+                function moveMap(lat, lng) {
+                    if(map) { 
+                        map.setView([lat, lng], map.getZoom(), {animate: false}); 
+                    }
+                }
+
+                function setMapZoom(newZoom) {
+                    if(map && map.getZoom() !== newZoom) {
+                        map.setZoom(newZoom, {animate: false});
+                    }
+                }
+                
+                function changeTileUrl(newUrl) {
+                    if(currentTileLayer && currentTileLayer._url !== newUrl) {
+                        currentTileLayer.setUrl(newUrl);
+                    }
+                }
+
+                function updateNpcs(npcsJson) {
+                    if(!map) return;
+                    var npcs = JSON.parse(npcsJson);
+                    var currentIds = {};
+                    
+                    npcs.forEach(function(npc) {
+                        currentIds[npc.id] = true;
+                        if(npcMarkers[npc.id]) {
+                            npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);
+                        } else {
+                            var marker = L.circleMarker([npc.lat, npc.lng], {
+                                radius: 5,
+                                fillColor: '#3498DB',
+                                color: '#FFFFFF',
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 1
+                            }).addTo(map);
+                            marker.bindTooltip(npc.name);
+                            npcMarkers[npc.id] = marker;
+                        }
+                    });
+                    
+                    for (var id in npcMarkers) {
+                        if (!currentIds[id]) {
+                            map.removeLayer(npcMarkers[id]);
+                            delete npcMarkers[id];
+                        }
+                    }
+                }
+
+                function updateCars(carsJson) {
+                    if(!map) return;
+                    var cars = JSON.parse(carsJson);
+                    var currentIds = {};
+                    
+                    cars.forEach(function(car) {
+                        currentIds[car.id] = true;
+                        if(carMarkers[car.id]) {
+                            carMarkers[car.id].setLatLng([car.lat, car.lng]);
+                        } else {
+                            var marker = L.circleMarker([car.lat, car.lng], {
+                                radius: 7,
+                                fillColor: '#E74C3C',
+                                color: '#FFFFFF',
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 1
+                            }).addTo(map);
+                            marker.bindTooltip(car.name);
+                            carMarkers[car.id] = marker;
+                        }
+                    });
+                    
+                    for (var id in carMarkers) {
+                        if (!currentIds[id]) {
+                            map.removeLayer(carMarkers[id]);
+                            delete carMarkers[id];
+                        }
+                    }
+                }
+                
+                initMap();
+            </script>
+        </body>
+        </html>
+    """.trimIndent()
 }
