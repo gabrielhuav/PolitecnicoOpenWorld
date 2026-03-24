@@ -2,7 +2,9 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
+import android.util.Base64
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
@@ -42,6 +44,15 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsCont
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+import java.io.ByteArrayOutputStream
+
+// Helper para convertir los XML Vectoriales (Bitmap) a un formato que el WebView entienda sin cargar archivos
+fun bitmapToBase64(bitmap: Bitmap?): String {
+    if (bitmap == null) return ""
+    val outputStream = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+    return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+}
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -51,13 +62,17 @@ fun WorldMapScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // OPTIMIZACIÓN: Cachear Bitmaps en memoria (evita fugas y lag por recreación en cada frame)
+    // 1. Cargamos el XML de Android a Bitmap (para OSMDroid)
     val npcIcon = remember(context) {
         ContextCompat.getDrawable(context, R.drawable.person_icon)?.toBitmap(width = 70, height = 70)
     }
     val carIcon = remember(context) {
         ContextCompat.getDrawable(context, R.drawable.car_icon)?.toBitmap(width = 80, height = 80)
     }
+
+    // 2. Convertimos el mismo Bitmap a Base64 para inyectarlo en el HTML (Leaflet)
+    val npcIconBase64 = remember(npcIcon) { "data:image/png;base64," + bitmapToBase64(npcIcon) }
+    val carIconBase64 = remember(carIcon) { "data:image/png;base64," + bitmapToBase64(carIcon) }
 
     Box(
         modifier = Modifier
@@ -87,7 +102,6 @@ fun WorldMapScreen(
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { view ->
-                        // 1. Centrar Jugador
                         uiState.currentLocation?.let { newLoc ->
                             val geoPoint = GeoPoint(newLoc.latitude, newLoc.longitude)
                             view.controller.setCenter(geoPoint)
@@ -96,10 +110,8 @@ fun WorldMapScreen(
                             view.controller.setZoom(uiState.zoomLevel)
                         }
 
-                        // 2. Limpiar marcadores existentes (evitar duplicados)
                         view.overlays.removeAll { it is Marker && it.id != "PLAYER" }
 
-                        // 3. Dibujar NPCs
                         uiState.npcs.forEach { npc ->
                             val npcMarker = Marker(view).apply {
                                 id = npc.id
@@ -111,7 +123,6 @@ fun WorldMapScreen(
                             view.overlays.add(npcMarker)
                         }
 
-                        // 4. Dibujar Autos
                         uiState.cars.forEach { car ->
                             val carMarker = Marker(view).apply {
                                 id = car.id
@@ -144,19 +155,18 @@ fun WorldMapScreen(
                             val initialLng = uiState.currentLocation?.longitude ?: 0.0
                             val zoom = uiState.zoomLevel.toInt()
 
-                            val htmlData = getLeafletHtmlTemplate(initialLat, initialLng, zoom)
+                            // Pasamos los Base64 dinámicamente
+                            val htmlData = getLeafletHtmlTemplate(initialLat, initialLng, zoom, npcIconBase64, carIconBase64)
                             loadDataWithBaseURL("https://example.com", htmlData, "text/html", "UTF-8", null)
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { webView ->
-                        // 1. Mover mapa (Player)
                         uiState.currentLocation?.let { newLoc ->
                             webView.evaluateJavascript("if(typeof moveMap === 'function') moveMap(${newLoc.latitude}, ${newLoc.longitude});", null)
                         }
                         webView.evaluateJavascript("if(typeof setMapZoom === 'function') setMapZoom(${uiState.zoomLevel});", null)
 
-                        // 2. Inyectar listado de NPCs para dibujarlos
                         if (uiState.npcs.isNotEmpty()) {
                             val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
                                 "{ \"id\": \"${npc.id}\", \"lat\": ${npc.currentLocation.latitude}, \"lng\": ${npc.currentLocation.longitude}, \"name\": \"${npc.name}\" }"
@@ -164,7 +174,6 @@ fun WorldMapScreen(
                             webView.evaluateJavascript("if(typeof updateNpcs === 'function') { updateNpcs('$npcsJson'); }", null)
                         }
 
-                        // 3. Inyectar listado de Autos para dibujarlos
                         if (uiState.cars.isNotEmpty()) {
                             val carsJson = uiState.cars.joinToString(prefix = "[", postfix = "]") { car ->
                                 "{ \"id\": \"${car.id}\", \"lat\": ${car.currentLocation.latitude}, \"lng\": ${car.currentLocation.longitude}, \"name\": \"${car.name}\" }"
@@ -172,7 +181,6 @@ fun WorldMapScreen(
                             webView.evaluateJavascript("if(typeof updateCars === 'function') { updateCars('$carsJson'); }", null)
                         }
 
-                        // 4. Cambiar el mapa dinámicamente
                         val tileUrl = getTileUrlForProvider(uiState.mapProvider)
                         webView.evaluateJavascript("if(typeof changeTileUrl === 'function') changeTileUrl('$tileUrl');", null)
                     }
@@ -258,7 +266,7 @@ fun WorldMapScreen(
             }
 
             // ==========================================
-            // DIÁLOGO DE CONFIGURACIÓN (MENÚ DESPLEGABLE)
+            // DIÁLOGO DE CONFIGURACIÓN
             // ==========================================
             if (uiState.showSettingsDialog) {
                 var isDropdownExpanded by remember { mutableStateOf(false) }
@@ -325,7 +333,7 @@ private fun getTileUrlForProvider(provider: MapProvider): String {
     }
 }
 
-private fun getLeafletHtmlTemplate(initialLat: Double, initialLng: Double, zoom: Int): String {
+private fun getLeafletHtmlTemplate(initialLat: Double, initialLng: Double, zoom: Int, npcBase64: String, carBase64: String): String {
     return """
         <!DOCTYPE html>
         <html>
@@ -345,6 +353,21 @@ private fun getLeafletHtmlTemplate(initialLat: Double, initialLng: Double, zoom:
                 var currentTileLayer;
                 var npcMarkers = {};
                 var carMarkers = {};
+                
+                // Usamos la imagen inyectada en Base64
+                var npcIconDef = L.icon({
+                    iconUrl: '$npcBase64',
+                    iconSize: [35, 35],
+                    iconAnchor: [17, 35],
+                    tooltipAnchor: [0, -35]
+                });
+
+                var carIconDef = L.icon({
+                    iconUrl: '$carBase64',
+                    iconSize: [45, 45],
+                    iconAnchor: [22, 22],
+                    tooltipAnchor: [0, -22]
+                });
                 
                 function initMap() {
                     map = L.map('map', {
@@ -392,14 +415,7 @@ private fun getLeafletHtmlTemplate(initialLat: Double, initialLng: Double, zoom:
                         if(npcMarkers[npc.id]) {
                             npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);
                         } else {
-                            var marker = L.circleMarker([npc.lat, npc.lng], {
-                                radius: 5,
-                                fillColor: '#3498DB',
-                                color: '#FFFFFF',
-                                weight: 2,
-                                opacity: 1,
-                                fillOpacity: 1
-                            }).addTo(map);
+                            var marker = L.marker([npc.lat, npc.lng], {icon: npcIconDef}).addTo(map);
                             marker.bindTooltip(npc.name);
                             npcMarkers[npc.id] = marker;
                         }
@@ -423,14 +439,7 @@ private fun getLeafletHtmlTemplate(initialLat: Double, initialLng: Double, zoom:
                         if(carMarkers[car.id]) {
                             carMarkers[car.id].setLatLng([car.lat, car.lng]);
                         } else {
-                            var marker = L.circleMarker([car.lat, car.lng], {
-                                radius: 7,
-                                fillColor: '#E74C3C',
-                                color: '#FFFFFF',
-                                weight: 2,
-                                opacity: 1,
-                                fillOpacity: 1
-                            }).addTo(map);
+                            var marker = L.marker([car.lat, car.lng], {icon: carIconDef}).addTo(map);
                             marker.bindTooltip(car.name);
                             carMarkers[car.id] = marker;
                         }
