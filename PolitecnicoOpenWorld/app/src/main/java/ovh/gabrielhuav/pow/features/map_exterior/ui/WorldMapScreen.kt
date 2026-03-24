@@ -82,25 +82,49 @@ fun WorldMapScreen(
                         }
 
                         // --- LÓGICA DE NPCs PARA OSMDROID ---
-                        // 1. Limpiamos solo los marcadores de NPCs
-                        view.overlays.removeAll { it is Marker && it.title == "NPC_MARKER" }
+                        // Mantenemos un caché de marcadores de NPCs asociado al MapView
+                        @Suppress("UNCHECKED_CAST")
+                        val npcMarkersCache = (view.tag as? MutableMap<String, Marker>)
+                            ?: mutableMapOf<String, Marker>().also { view.tag = it }
 
-                        // 2. Agregamos los NPCs actualizados
+                        // Conjunto de NPCs que siguen presentes en este frame
+                        val activeNpcIds = mutableSetOf<String>()
+
+                        // Actualizamos o creamos marcadores para los NPCs actuales
                         uiState.npcs.forEach { npc ->
-                            val npcMarker = Marker(view).apply {
-                                title = "NPC_MARKER"
-                                position = npc.location
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                rotation = npc.rotationAngle
+                            val npcId = npc.id.toString()
+                            activeNpcIds.add(npcId)
 
-                                val iconResId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
-                                if (iconResId != 0) {
-                                    icon = ContextCompat.getDrawable(context, iconResId)
-                                }
+                            val npcMarker = npcMarkersCache[npcId] ?: Marker(view).apply {
+                                title = "NPC_MARKER"
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                npcMarkersCache[npcId] = this
+                                view.overlays.add(this)
                             }
-                            view.overlays.add(npcMarker)
+
+                            // Actualizamos siempre la posición, rotación e icono
+                            npcMarker.position = npc.location
+                            npcMarker.rotation = npc.rotationAngle
+
+                            val iconResId = context.resources.getIdentifier(
+                                npc.type.drawableName,
+                                "drawable",
+                                context.packageName
+                            )
+                            if (iconResId != 0) {
+                                npcMarker.icon = ContextCompat.getDrawable(context, iconResId)
+                            }
                         }
 
+                        // Eliminamos marcadores de NPCs que ya no existen en el estado
+                        val iterator = npcMarkersCache.entries.iterator()
+                        while (iterator.hasNext()) {
+                            val entry = iterator.next()
+                            if (entry.key !in activeNpcIds) {
+                                view.overlays.remove(entry.value)
+                                iterator.remove()
+                            }
+                        }
                         view.invalidate() // Forzamos el redibujado de marcadores
                     }
                 )
