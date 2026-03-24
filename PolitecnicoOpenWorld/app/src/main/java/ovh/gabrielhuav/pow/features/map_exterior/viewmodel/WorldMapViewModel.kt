@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import org.osmdroid.util.GeoPoint
 
 enum class Direction { UP, DOWN, LEFT, RIGHT }
@@ -62,6 +63,25 @@ class WorldMapViewModel : ViewModel() {
         val currentZoom = _uiState.value.zoomLevel
         if (currentZoom > 2.0) {
             _uiState.value = _uiState.value.copy(zoomLevel = currentZoom - 1.0)
+        }
+    }
+    // Se agregan 3 funciones para la vida y habre de las barras.
+    fun takeDamage(amount: Float) {
+        _uiState.update { currentState ->
+            currentState.copy(health = (currentState.health - amount).coerceIn(0f, 1f))
+        }
+    }
+
+    fun consumeEnergy(amount: Float) {
+        _uiState.update { currentState ->
+            currentState.copy(hunger = (currentState.hunger - amount).coerceIn(0f, 1f))
+        }
+    }
+
+    fun eatFood() {
+        // Por ejemplo, recuperar 30% de hambre al comer unas gorditas afuera de ESCOM
+        _uiState.update { currentState ->
+            currentState.copy(hunger = (currentState.hunger + 0.3f).coerceIn(0f, 1f))
         }
     }
 }

@@ -35,6 +35,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsCont
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerStatsBar
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -202,6 +203,11 @@ fun WorldMapScreen(
                     modifier = Modifier.size(30.dp)
                 )
             }
+            PlayerStatsBar(
+                health = uiState.health,   // Cambiado de state a uiState
+                hunger = uiState.hunger,   // Cambiado de state a uiState
+                modifier = Modifier.align(Alignment.TopStart)
+            )
 
             // ==========================================
             // CAPA 3: CONTROLES DE UI
@@ -315,5 +321,6 @@ fun WorldMapScreen(
                 )
             }
         }
+
     }
 }

@@ -18,5 +18,8 @@ data class WorldMapState(
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = 18.0,
     val mapProvider: MapProvider = MapProvider.OSM,
-    val showSettingsDialog: Boolean = false
+    val showSettingsDialog: Boolean = false,
+    // Variables para la vida y hambre.
+    val health: Float = 1f, // Empieza al 100%
+    val hunger: Float = 1f  // Empieza al 100%
 )
