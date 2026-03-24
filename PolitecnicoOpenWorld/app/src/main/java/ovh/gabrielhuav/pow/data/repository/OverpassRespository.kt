@@ -29,18 +29,35 @@ class OverpassRepository {
 
         val urlString = "https://overpass-api.de/api/interpreter?data=${java.net.URLEncoder.encode(query, "UTF-8")}"
 
+        // Declaramos la conexión aquí fuera del bloque try para poder cerrarla en el finally
+        var connection: HttpURLConnection? = null
+
         try {
             val url = URL(urlString)
-            val connection = url.openConnection() as HttpURLConnection
+            connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.connectTimeout = 5000
+
+            // Sugerencia extra: Agregar User-Agent evita que Overpass te bloquee la conexión
+            connection.setRequestProperty("User-Agent", "PolitecnicoOpenWorld/1.0")
+
+            // CORRECCIÓN SOLICITADA EN EL PR:
+            connection.connectTimeout = 10000 // 5 segundos máximo para establecer la conexión
+            connection.readTimeout = 60000   // 60 segundos máximo para recibir la respuesta
 
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                // .use asegura que el inputStream se cierre automáticamente
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
                 return@withContext parseOverpassJson(response)
+            } else {
+                println("OverpassRepository - Error HTTP: ${connection.responseCode}")
             }
         } catch (e: Exception) {
+            println("OverpassRepository - Error de red: ${e.message}")
             e.printStackTrace()
+        } finally {
+            // CORRECCIÓN SOLICITADA EN EL PR:
+            // Desconecta la conexión garantizando la liberación de recursos, pase lo que pase
+            connection?.disconnect()
         }
 
         return@withContext emptyList()
@@ -48,6 +65,10 @@ class OverpassRepository {
 
     private fun parseOverpassJson(jsonString: String): List<MapWay> {
         val jsonObject = JSONObject(jsonString)
+
+        // Verificación de seguridad adicional: Evitar crash si Overpass responde con un error sin "elements"
+        if (!jsonObject.has("elements")) return emptyList()
+
         val elements = jsonObject.getJSONArray("elements")
 
         val nodesMap = mutableMapOf<Long, MapNode>()

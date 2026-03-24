@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update // Agregado para el StateFlow
 import org.osmdroid.util.GeoPoint
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext // Agregado para cambiar de hilo
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import kotlin.math.pow
@@ -40,7 +42,9 @@ class WorldMapViewModel : ViewModel() {
 
                     // 2. Actualizar la matemática de los NPCs
                     npcAiManager.updateNpcs(location)
-                    _uiState.value = _uiState.value.copy(npcs = npcAiManager.npcs.value)
+
+                    // CORRECCIÓN PR 1: Mutación atómica del estado
+                    _uiState.update { it.copy(npcs = npcAiManager.npcs.value) }
                 }
                 delay(33) // ~30 FPS para un movimiento fluido
             }
@@ -55,8 +59,14 @@ class WorldMapViewModel : ViewModel() {
             lastNetworkFetchLocation = currentLoc
             // Descargar en segundo plano sin detener el Game Loop
             viewModelScope.launch(Dispatchers.IO) {
+                // Se descarga la red en el hilo de IO (fondo)
                 val network = overpassRepository.fetchRoadNetwork(currentLoc.latitude, currentLoc.longitude)
-                npcAiManager.updateRoadNetwork(network)
+
+                // CORRECCIÓN PR 2: Cambiamos al hilo Main para actualizar el NpcAiManager de forma segura
+                // Esto confina la lectura y escritura al mismo Dispatcher evitando data races.
+                withContext(Dispatchers.Main) {
+                    npcAiManager.updateRoadNetwork(network)
+                }
             }
         }
     }
@@ -67,10 +77,12 @@ class WorldMapViewModel : ViewModel() {
 
     fun updateInitialLocation(latitude: Double, longitude: Double) {
         if (_uiState.value.isLoadingLocation) {
-            _uiState.value = _uiState.value.copy(
-                currentLocation = GeoPoint(latitude, longitude),
-                isLoadingLocation = false
-            )
+            _uiState.update {
+                it.copy(
+                    currentLocation = GeoPoint(latitude, longitude),
+                    isLoadingLocation = false
+                )
+            }
         }
     }
 
@@ -85,7 +97,7 @@ class WorldMapViewModel : ViewModel() {
             Direction.RIGHT -> GeoPoint(current.latitude, current.longitude + step)
         }
 
-        _uiState.value = _uiState.value.copy(currentLocation = newLocation)
+        _uiState.update { it.copy(currentLocation = newLocation) }
     }
 
     fun executeAction(action: GameAction) {
@@ -93,26 +105,22 @@ class WorldMapViewModel : ViewModel() {
     }
 
     fun toggleSettingsDialog(show: Boolean) {
-        _uiState.value = _uiState.value.copy(showSettingsDialog = show)
+        _uiState.update { it.copy(showSettingsDialog = show) }
     }
 
     fun setMapProvider(provider: MapProvider) {
-        _uiState.value = _uiState.value.copy(
-            mapProvider = provider
-        )
+        _uiState.update { it.copy(mapProvider = provider) }
     }
 
     fun zoomIn() {
-        val currentZoom = _uiState.value.zoomLevel
-        if (currentZoom < 22.0) {
-            _uiState.value = _uiState.value.copy(zoomLevel = currentZoom + 1.0)
+        _uiState.update {
+            if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it
         }
     }
 
     fun zoomOut() {
-        val currentZoom = _uiState.value.zoomLevel
-        if (currentZoom > 2.0) {
-            _uiState.value = _uiState.value.copy(zoomLevel = currentZoom - 1.0)
+        _uiState.update {
+            if (it.zoomLevel > 2.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it
         }
     }
 }

@@ -7,6 +7,7 @@ import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.NpcType
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.pow
@@ -19,7 +20,8 @@ class NpcAiManager {
     private val _npcs = MutableStateFlow<List<Npc>>(emptyList())
     val npcs: StateFlow<List<Npc>> = _npcs.asStateFlow()
 
-    private var cachedRoadNetwork: List<MapWay> = emptyList()
+    // CORRECCIÓN: Se usa AtomicReference para proteger la variable contra Race Conditions
+    private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
 
     private val maxNpcs = 20
     private val despawnDistance = 0.015 // ~1.5km para que no desaparezcan de la vista
@@ -29,35 +31,39 @@ class NpcAiManager {
     private val personSpeed = 0.000003
 
     fun updateRoadNetwork(newNetwork: List<MapWay>) {
-        cachedRoadNetwork = newNetwork
+        // CORRECCIÓN: Actualización atómica segura
+        cachedRoadNetwork.set(newNetwork)
     }
 
     fun updateNpcs(playerLocation: GeoPoint) {
-        if (cachedRoadNetwork.isEmpty()) return
+        // CORRECCIÓN: Tomamos una "fotografía" (snapshot) segura de la red en este milisegundo
+        val currentNetwork = cachedRoadNetwork.get()
+        if (currentNetwork.isEmpty()) return
 
         val currentList = _npcs.value.toMutableList()
 
-        // 1Eliminar NPCs ÚNICAMENTE si están realmente lejos del jugador
+        // 1. Eliminar NPCs ÚNICAMENTE si están realmente lejos del jugador
         currentList.removeAll {
             calculateDistance(it.location, playerLocation) > despawnDistance
         }
 
-        // Spawnear nuevos NPCs si faltan, pero ahora le pasamos la ubicación del jugador
+        // 2. Spawnear nuevos NPCs si faltan (usamos la snapshot de la red)
         while (currentList.size < maxNpcs) {
-            spawnNpcOnRoad(playerLocation)?.let { currentList.add(it) } ?: break
+            spawnNpcOnRoad(playerLocation, currentNetwork)?.let { currentList.add(it) } ?: break
         }
 
-        // Mover NPCs actuales
-        val updatedList = currentList.map { moveNpc(it) }
+        // 3. Mover NPCs actuales (usamos la snapshot de la red)
+        val updatedList = currentList.map { moveNpc(it, currentNetwork) }
         _npcs.value = updatedList
     }
 
-    private fun spawnNpcOnRoad(playerLocation: GeoPoint): Npc? {
+    // CORRECCIÓN: Pasamos el 'currentNetwork' por parámetro
+    private fun spawnNpcOnRoad(playerLocation: GeoPoint, network: List<MapWay>): Npc? {
         val npcType = if (Random.nextBoolean()) NpcType.CAR else NpcType.PERSON
         val assignedSpeed = if (npcType == NpcType.CAR) carSpeed else personSpeed
 
-        // Obtenemos todas las calles válidas según el tipo de NPC
-        val waysForType = cachedRoadNetwork.filter {
+        // Obtenemos todas las calles válidas según el tipo de NPC desde 'network'
+        val waysForType = network.filter {
             (npcType == NpcType.CAR && it.isForCars) || (npcType == NpcType.PERSON && it.isForPeople)
         }
 
@@ -69,10 +75,7 @@ class NpcAiManager {
             }
         }
 
-        // Si por alguna razón no hay calles cercanas (ej. el jugador está en el desierto),
-        // usamos la lista completa como plan de respaldo para no quedarnos sin NPCs.
         val validWays = if (closeWays.isNotEmpty()) closeWays else waysForType
-
         if (validWays.isEmpty()) return null
 
         val selectedWay = validWays.random()
@@ -91,30 +94,28 @@ class NpcAiManager {
         )
     }
 
-    private fun moveNpc(npc: Npc): Npc {
+    // CORRECCIÓN: Pasamos el 'currentNetwork' por parámetro
+    private fun moveNpc(npc: Npc, network: List<MapWay>): Npc {
         val way = npc.currentWay ?: return npc
 
         if (npc.targetNodeIndex < 0 || npc.targetNodeIndex >= way.nodes.size) {
-            // El NPC llegó al final de este segmento de calle.
             val currentNode = if (npc.targetNodeIndex < 0) way.nodes.first() else way.nodes.last()
 
-            // Buscamos otras calles que se conecten a este mismo punto (Intersecciones)
-            val connectedWays = cachedRoadNetwork.filter {
+            // Buscamos otras calles en la snapshot actual ('network')
+            val connectedWays = network.filter {
                 ((npc.type == NpcType.CAR && it.isForCars) || (npc.type == NpcType.PERSON && it.isForPeople)) &&
                         it.id != way.id &&
                         it.nodes.any { node -> node.id == currentNode.id }
             }
 
             if (connectedWays.isNotEmpty()) {
-                // Tomar una calle conectada al azar (Girar en la esquina)
                 val nextWay = connectedWays.random()
                 val nodeIndexInNextWay = nextWay.nodes.indexOfFirst { it.id == currentNode.id }
 
-                // Decidir hacia dónde avanzar en la nueva calle
                 val nextDirection = when (nodeIndexInNextWay) {
-                    0 -> 1 // Si está al inicio, solo puede ir adelante
-                    nextWay.nodes.size - 1 -> -1 // Si está al final, solo puede ir atrás
-                    else -> if (Random.nextBoolean()) 1 else -1 // Si está en medio, elige al azar
+                    0 -> 1
+                    nextWay.nodes.size - 1 -> -1
+                    else -> if (Random.nextBoolean()) 1 else -1
                 }
 
                 return npc.copy(
@@ -123,11 +124,9 @@ class NpcAiManager {
                     moveDirection = nextDirection
                 )
             } else {
-                // Callejón sin salida. Dar la vuelta completa (U-Turn).
                 val newDirection = npc.moveDirection * -1
                 val newTargetIndex = if (npc.targetNodeIndex < 0) 1 else way.nodes.size - 2
 
-                // Prevenir crasheos si la calle tiene solo 1 nodo (raro, pero posible en datos de mapa corruptos)
                 if (newTargetIndex < 0 || newTargetIndex >= way.nodes.size) return npc
 
                 return npc.copy(
@@ -137,13 +136,11 @@ class NpcAiManager {
             }
         }
 
-        // --- LÓGICA NORMAL DE AVANCE HACIA EL SIGUIENTE NODO ---
         val targetNode = way.nodes[npc.targetNodeIndex]
         val deltaLon = targetNode.lon - npc.location.longitude
         val deltaLat = targetNode.lat - npc.location.latitude
         val distanceToTarget = sqrt(deltaLon * deltaLon + deltaLat * deltaLat)
 
-        // Si ya llegó al nodo objetivo, pasamos al siguiente
         if (distanceToTarget < npc.speed) {
             return npc.copy(
                 location = GeoPoint(targetNode.lat, targetNode.lon),
@@ -151,11 +148,9 @@ class NpcAiManager {
             )
         }
 
-        // Movimiento matemático suave hacia el nodo
         val angleRadians = atan2(deltaLat, deltaLon)
         val newLat = npc.location.latitude + sin(angleRadians) * npc.speed
         val newLon = npc.location.longitude + cos(angleRadians) * npc.speed
-
         val rotationDegrees = Math.toDegrees(angleRadians).toFloat()
 
         return npc.copy(
