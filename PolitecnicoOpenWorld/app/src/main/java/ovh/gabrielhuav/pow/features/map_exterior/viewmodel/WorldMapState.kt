@@ -18,5 +18,6 @@ data class WorldMapState(
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = 18.0,
     val mapProvider: MapProvider = MapProvider.OSM,
-    val showSettingsDialog: Boolean = false
+    val showSettingsDialog: Boolean = false,
+    val centerTrigger: Long = 0L // Disparador para centrar la cámara
 )

@@ -64,4 +64,9 @@ class WorldMapViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(zoomLevel = currentZoom - 1.0)
         }
     }
+
+    // Nueva función para forzar el centrado en el jugador
+    fun centerOnPlayer() {
+        _uiState.value = _uiState.value.copy(centerTrigger = System.currentTimeMillis())
+    }
 }

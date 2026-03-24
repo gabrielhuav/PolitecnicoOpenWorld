@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
@@ -43,6 +45,13 @@ fun WorldMapScreen(
     viewModel: WorldMapViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Variables de memoria para no re-centrar el mapa al hacer zoom manual
+    var lastCenterTriggerOSM by remember { mutableStateOf(0L) }
+    var lastLocationOSM by remember { mutableStateOf<GeoPoint?>(null) }
+
+    var lastCenterTriggerWeb by remember { mutableStateOf(0L) }
+    var lastLocationWeb by remember { mutableStateOf<GeoPoint?>(null) }
 
     Box(
         modifier = Modifier
@@ -66,15 +75,21 @@ fun WorldMapScreen(
                     factory = { ctx ->
                         MapView(ctx).apply {
                             setTileSource(TileSourceFactory.MAPNIK)
-                            setMultiTouchControls(false)
+                            setMultiTouchControls(true) // Habilita desplazamiento libre y zoom con dedos
                             controller.setZoom(uiState.zoomLevel)
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { view ->
-                        uiState.currentLocation?.let { newLoc ->
-                            view.controller.setCenter(newLoc)
+                        // Lógica para centrar solo cuando se mueva el personaje o se presione el botón
+                        if (lastCenterTriggerOSM != uiState.centerTrigger) {
+                            uiState.currentLocation?.let { view.controller.animateTo(it) }
+                            lastCenterTriggerOSM = uiState.centerTrigger
+                        } else if (lastLocationOSM != uiState.currentLocation) {
+                            uiState.currentLocation?.let { view.controller.animateTo(it) }
+                            lastLocationOSM = uiState.currentLocation
                         }
+
                         if (view.zoomLevelDouble != uiState.zoomLevel) {
                             view.controller.setZoom(uiState.zoomLevel)
                         }
@@ -121,11 +136,11 @@ fun WorldMapScreen(
                                                 center: [$initialLat, $initialLng],
                                                 zoom: $zoom,
                                                 zoomControl: false,       
-                                                dragging: false,          
+                                                dragging: true,          // Habilita el desplazamiento manual
                                                 keyboard: false,
-                                                scrollWheelZoom: false,
-                                                doubleClickZoom: false,
-                                                touchZoom: false
+                                                scrollWheelZoom: true,   // Habilita zoom con rueda o gestos
+                                                doubleClickZoom: true,
+                                                touchZoom: true          // Habilita interacción con dedos
                                             });
                                             
                                             currentTileLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
@@ -163,9 +178,19 @@ fun WorldMapScreen(
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { webView ->
-                        uiState.currentLocation?.let { newLoc ->
-                            webView.evaluateJavascript("if(typeof moveMap === 'function') moveMap(${newLoc.latitude}, ${newLoc.longitude});", null)
+                        // Lógica de centrado respetuosa con el desplazamiento manual
+                        if (lastCenterTriggerWeb != uiState.centerTrigger) {
+                            uiState.currentLocation?.let { newLoc ->
+                                webView.evaluateJavascript("if(typeof moveMap === 'function') moveMap(${newLoc.latitude}, ${newLoc.longitude});", null)
+                            }
+                            lastCenterTriggerWeb = uiState.centerTrigger
+                        } else if (lastLocationWeb != uiState.currentLocation) {
+                            uiState.currentLocation?.let { newLoc ->
+                                webView.evaluateJavascript("if(typeof moveMap === 'function') moveMap(${newLoc.latitude}, ${newLoc.longitude});", null)
+                            }
+                            lastLocationWeb = uiState.currentLocation
                         }
+
                         webView.evaluateJavascript("if(typeof setMapZoom === 'function') setMapZoom(${uiState.zoomLevel});", null)
 
                         val tileUrl = when (uiState.mapProvider) {
@@ -226,6 +251,20 @@ fun WorldMapScreen(
                     .padding(end = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Nuevo Botón de Centrar Mapa
+                IconButton(
+                    onClick = { viewModel.centerOnPlayer() },
+                    modifier = Modifier
+                        .background(Color.White.copy(alpha = 0.8f), CircleShape)
+                        .size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Centrar en Jugador",
+                        tint = Color.Black
+                    )
+                }
+
                 IconButton(
                     onClick = { viewModel.zoomIn() },
                     modifier = Modifier
@@ -234,6 +273,7 @@ fun WorldMapScreen(
                 ) {
                     Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                 }
+
                 IconButton(
                     onClick = { viewModel.zoomOut() },
                     modifier = Modifier
@@ -261,7 +301,7 @@ fun WorldMapScreen(
             }
 
             // ==========================================
-            // DIÁLOGO DE CONFIGURACIÓN (MENÚ DESPLEGABLE)
+            // DIÁLOGO DE CONFIGURACIÓN
             // ==========================================
             if (uiState.showSettingsDialog) {
                 var isDropdownExpanded by remember { mutableStateOf(false) }
@@ -274,7 +314,6 @@ fun WorldMapScreen(
                             Text("Proveedor de Mapa exterior:", style = MaterialTheme.typography.labelLarge)
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Botón que abre el menú desplegable
                             Box(modifier = Modifier.fillMaxWidth()) {
                                 OutlinedButton(
                                     onClick = { isDropdownExpanded = true },
@@ -288,11 +327,10 @@ fun WorldMapScreen(
                                     Icon(Icons.Default.ArrowDropDown, contentDescription = "Cambiar")
                                 }
 
-                                // El menú flotante que sale de arriba hacia abajo
                                 DropdownMenu(
                                     expanded = isDropdownExpanded,
                                     onDismissRequest = { isDropdownExpanded = false },
-                                    modifier = Modifier.fillMaxWidth(0.7f) // Controla el ancho del menú
+                                    modifier = Modifier.fillMaxWidth(0.7f)
                                 ) {
                                     MapProvider.entries.forEach { provider ->
                                         DropdownMenuItem(
