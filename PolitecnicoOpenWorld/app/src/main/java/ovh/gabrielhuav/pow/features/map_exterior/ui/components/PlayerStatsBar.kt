@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import ovh.gabrielhuav.pow.R
-import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.*
 import androidx.compose.ui.draw.alpha
 
@@ -46,30 +45,38 @@ fun PlayerStatsBar(
     // ================= NUEVA LÓGICA DE PELIGRO =================
     val isStarving = hunger <= 0.2f // Peligro si el hambre es 20% o menos
 
-    // Creamos un bucle infinito para el latido
-    val infiniteTransition = rememberInfiniteTransition(label = "starving_pulse")
+    // Solo creamos y ejecutamos la animación infinita cuando el jugador está muriendo de hambre
+    val (pulseAlpha, dangerColor) = if (isStarving) {
+        // Creamos un bucle infinito para el latido
+        val infiniteTransition = rememberInfiniteTransition(label = "starving_pulse")
 
-    // Animamos la opacidad (alpha) para que el ícono de la gordita parpadee
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (isStarving) 0.3f else 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse // Va de 1f a 0.3f y de regreso
-        ),
-        label = "alpha_pulse"
-    )
+        // Animamos la opacidad (alpha) para que el ícono de la gordita parpadee
+        val animatedAlpha by infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 0.3f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(400, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse // Va de 1f a 0.3f y de regreso
+            ),
+            label = "alpha_pulse"
+        )
 
-    // Animamos el color de la barra: de naranja normal a rojo parpadeante
-    val dangerColor by infiniteTransition.animateColor(
-        initialValue = Color(0xFFFFB74D),
-        targetValue = if (isStarving) Color.Red else Color(0xFFFFB74D),
-        animationSpec = infiniteRepeatable(
-            animation = tween(400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "color_pulse"
-    )
+        // Animamos el color de la barra: de naranja normal a rojo parpadeante
+        val animatedColor by infiniteTransition.animateColor(
+            initialValue = Color(0xFFFFB74D),
+            targetValue = Color.Red,
+            animationSpec = infiniteRepeatable(
+                animation = tween(400, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "color_pulse"
+        )
+
+        animatedAlpha to animatedColor
+    } else {
+        // Sin peligro: valores constantes, sin animación infinita
+        1f to Color(0xFFFFB74D)
+    }
     // ===========================================================
 
     // Panel contenedor semitransparente

@@ -11,10 +11,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.update // Agregado para el StateFlow
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext // Agregado para cambiar de hilo
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
@@ -174,7 +170,7 @@ class WorldMapViewModel : ViewModel() {
             if (it.zoomLevel > 2.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it
         }
     }
-    // Se agregan 3 funciones para la vida y habre de las barras.
+    // Se agregan 3 funciones para gestionar la vida y el hambre de las barras.
     fun takeDamage(amount: Float) {
         _uiState.update { currentState ->
             currentState.copy(health = (currentState.health - amount).coerceIn(0f, 1f))
