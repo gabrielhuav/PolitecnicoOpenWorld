@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext // Agregado para cambiar de hilo
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
