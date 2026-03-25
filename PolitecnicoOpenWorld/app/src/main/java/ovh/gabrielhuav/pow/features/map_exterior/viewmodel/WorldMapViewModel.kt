@@ -178,9 +178,8 @@ class WorldMapViewModel : ViewModel() {
     }
 
     fun consumeEnergy(amount: Float) {
-        _uiState.update { currentState ->
-            currentState.copy(hunger = (currentState.hunger - amount).coerceIn(0f, 1f))
-        }
+        // Delegar en la misma lógica que usa el metabolismo para mantener consistencia
+        depleteHunger(amount)
     }
 
     fun eatFood() {
