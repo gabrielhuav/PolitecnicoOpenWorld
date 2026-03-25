@@ -18,6 +18,15 @@ import org.osmdroid.config.Configuration
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
+import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 class MainActivity : ComponentActivity() {
 
@@ -45,6 +54,7 @@ class MainActivity : ComponentActivity() {
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
+        // Comienza a pedir permisos y buscar ubicación en segundo plano
         checkPermissionsAndFetchLocation()
 
         setContent {
@@ -53,7 +63,65 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    WorldMapScreen(context = this, viewModel = worldMapViewModel)
+                    // 1. Inicializar el controlador de navegación
+                    val navController = rememberNavController()
+
+                    // 2. Configurar el NavHost. startDestination indica qué se abre primero.
+                    NavHost(
+                        navController = navController,
+                        startDestination = "main_menu"
+                    ) {
+
+                        // ==========================================
+                        // RUTA 1: MENÚ PRINCIPAL
+                        // ==========================================
+                        composable(
+                            route = "main_menu",
+                            // El menú se expande hacia la cámara y se desvanece (efecto de atravesarlo)
+                            exitTransition = {
+                                fadeOut(animationSpec = tween(700)) + scaleOut(
+                                    animationSpec = tween(700),
+                                    targetScale = 1.2f // Crece un 20% antes de desaparecer
+                                )
+                            }
+                        ) {
+                            // CORRECCIÓN: Aquí va MainMenuScreen
+                            MainMenuScreen(
+                                onNavigateToMap = {
+                                    navController.navigate("world_map") {
+                                        popUpTo("main_menu") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
+                        // ==========================================
+                        // RUTA 2: EL MAPA DEL JUEGO
+                        // ==========================================
+                        composable(
+                            route = "world_map",
+                            // El mapa comienza con un zoom cercano (1.2x) y se aleja a su tamaño normal (1.0x)
+                            enterTransition = {
+                                fadeIn(animationSpec = tween(1000)) + scaleIn(
+                                    animationSpec = tween(1000),
+                                    initialScale = 1.2f
+                                )
+                            }
+                        ) {
+                            // CORRECCIÓN: Aquí va WorldMapScreen con el callback para regresar al menú
+                            WorldMapScreen(
+                                context = this@MainActivity,
+                                viewModel = worldMapViewModel,
+                                onNavigateToMainMenu = {
+                                    // Navega al menú y limpia el historial para no amontonar mapas en memoria
+                                    navController.navigate("main_menu") {
+                                        popUpTo("main_menu") { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
