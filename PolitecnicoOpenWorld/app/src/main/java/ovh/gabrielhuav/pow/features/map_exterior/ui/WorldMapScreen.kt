@@ -40,7 +40,8 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 @Composable
 fun WorldMapScreen(
     context: Context,
-    viewModel: WorldMapViewModel = viewModel()
+    viewModel: WorldMapViewModel = viewModel(),
+    onNavigateToMainMenu: () -> Unit = {} // <-- NUEVO PARÁMETRO para regresar al menú
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -266,37 +267,69 @@ fun WorldMapScreen(
             if (uiState.showSettingsDialog) {
                 var isDropdownExpanded by remember { mutableStateOf(false) }
 
-                AlertDialog(
-                    onDismissRequest = { viewModel.toggleSettingsDialog(false) },
-                    title = { Text(text = "Ajustes del Juego") },
-                    text = {
-                        Column {
-                            Text("Proveedor de Mapa exterior:", style = MaterialTheme.typography.labelLarge)
-                            Spacer(modifier = Modifier.height(8.dp))
+                androidx.compose.ui.window.Dialog(onDismissRequest = { viewModel.toggleSettingsDialog(false) }) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))
+                                )
+                            )
+                            .border(2.dp, Color(0xFFD4AF37).copy(alpha = 0.5f), androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                            .padding(24.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "AJUSTES",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White,
+                                letterSpacing = 2.sp,
+                                modifier = Modifier.padding(bottom = 24.dp)
+                            )
 
-                            // Botón que abre el menú desplegable
+                            // Título del Dropdown
+                            Text(
+                                text = "PROVEEDOR DE MAPA",
+                                color = Color(0xFFD4AF37),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .align(Alignment.Start)
+                                    .padding(bottom = 8.dp)
+                            )
+
+                            // Dropdown estilizado
                             Box(modifier = Modifier.fillMaxWidth()) {
                                 OutlinedButton(
                                     onClick = { isDropdownExpanded = true },
                                     modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color.White,
+                                        containerColor = Color(0xFF2A1C21)
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6B1C3A)),
                                     contentPadding = PaddingValues(16.dp)
                                 ) {
                                     Text(
                                         text = uiState.mapProvider.displayName,
                                         modifier = Modifier.weight(1f)
                                     )
-                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Cambiar")
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Cambiar", tint = Color(0xFFD4AF37))
                                 }
 
-                                // El menú flotante que sale de arriba hacia abajo
                                 DropdownMenu(
                                     expanded = isDropdownExpanded,
                                     onDismissRequest = { isDropdownExpanded = false },
-                                    modifier = Modifier.fillMaxWidth(0.7f) // Controla el ancho del menú
+                                    modifier = Modifier.fillMaxWidth(0.7f).background(Color(0xFF2A1C21))
                                 ) {
                                     MapProvider.entries.forEach { provider ->
                                         DropdownMenuItem(
-                                            text = { Text(provider.displayName) },
+                                            text = { Text(provider.displayName, color = Color.White) },
                                             onClick = {
                                                 viewModel.setMapProvider(provider)
                                                 isDropdownExpanded = false
@@ -305,14 +338,46 @@ fun WorldMapScreen(
                                     }
                                 }
                             }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { viewModel.toggleSettingsDialog(false) }) {
-                            Text("Cerrar")
+
+                            Spacer(modifier = Modifier.height(32.dp))
+
+                            // Botón Regresar al Menú
+                            Button(
+                                onClick = {
+                                    viewModel.toggleSettingsDialog(false)
+                                    onNavigateToMainMenu()
+                                },
+                                shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFD32F2F), // Rojo de advertencia para salir
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                            ) {
+                                Text(text = "SALIR AL MENÚ", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Botón Continuar
+                            Button(
+                                onClick = { viewModel.toggleSettingsDialog(false) },
+                                shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF6B1C3A), // Guinda oficial
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                            ) {
+                                Text(text = "REANUDAR JUEGO", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            }
                         }
                     }
-                )
+                }
             }
         }
     }
