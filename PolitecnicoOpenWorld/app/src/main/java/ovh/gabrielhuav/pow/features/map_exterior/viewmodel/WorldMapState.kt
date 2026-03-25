@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.Npc
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
@@ -18,5 +19,6 @@ data class WorldMapState(
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = 18.0,
     val mapProvider: MapProvider = MapProvider.OSM,
-    val showSettingsDialog: Boolean = false
+    val showSettingsDialog: Boolean = false,
+    val npcs: List<Npc> = emptyList() // NUEVA PROPIEDAD
 )
