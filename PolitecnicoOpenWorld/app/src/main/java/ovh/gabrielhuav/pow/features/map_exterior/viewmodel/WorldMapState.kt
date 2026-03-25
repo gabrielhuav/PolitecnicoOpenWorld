@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.Npc
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
@@ -21,5 +22,6 @@ data class WorldMapState(
     val showSettingsDialog: Boolean = false,
     // Variables para la vida y hambre.
     val health: Float = 1f, // Empieza al 100%
-    val hunger: Float = 1f  // Empieza al 100%
+    val hunger: Float = 1f,  // Empieza al 100%
+    val npcs: List<Npc> = emptyList() // NUEVA PROPIEDAD
 )
