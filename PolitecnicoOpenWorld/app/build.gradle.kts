@@ -59,8 +59,6 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7") // Usa la versión más reciente
     implementation(libs.androidx.ui)
     implementation(libs.androidx.preference.ktx)
-    implementation(libs.androidx.room3.runtime)
-    implementation(libs.androidx.navigation.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

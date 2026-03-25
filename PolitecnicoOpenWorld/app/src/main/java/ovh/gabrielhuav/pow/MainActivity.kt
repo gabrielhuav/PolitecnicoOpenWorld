@@ -115,7 +115,8 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToMainMenu = {
                                     // Navega al menú y limpia el historial para no amontonar mapas en memoria
                                     navController.navigate("main_menu") {
-                                        popUpTo(0) { inclusive = true }
+                                        popUpTo("main_menu") { inclusive = true }
+                                        launchSingleTop = true
                                     }
                                 }
                             )

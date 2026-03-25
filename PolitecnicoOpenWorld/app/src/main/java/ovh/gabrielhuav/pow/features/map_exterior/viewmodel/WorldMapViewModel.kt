@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,14 +28,12 @@ class WorldMapViewModel : ViewModel() {
     private val overpassRepository = OverpassRepository()
 
     private var lastNetworkFetchLocation: GeoPoint? = null
+    private var gameLoopJob: Job? = null
 
-    init {
-        startGameLoop()
-    }
-
-    private fun startGameLoop() {
-        viewModelScope.launch {
-            while (true) {
+    fun startGameLoop() {
+        if (gameLoopJob?.isActive == true) return
+        gameLoopJob = viewModelScope.launch {
+            while (isActive) {
                 _uiState.value.currentLocation?.let { location ->
 
                     // 1. Validar si necesitamos descargar una nueva zona del mapa (Cada 500m)
@@ -49,6 +48,11 @@ class WorldMapViewModel : ViewModel() {
                 delay(33) // ~30 FPS para un movimiento fluido
             }
         }
+    }
+
+    fun stopGameLoop() {
+        gameLoopJob?.cancel()
+        gameLoopJob = null
     }
 
     private fun checkAndFetchRoadNetwork(currentLoc: GeoPoint) {
