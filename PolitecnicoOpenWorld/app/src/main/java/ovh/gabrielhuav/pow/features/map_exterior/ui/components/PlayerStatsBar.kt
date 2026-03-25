@@ -21,6 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import ovh.gabrielhuav.pow.R
+import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.*
+import androidx.compose.ui.draw.alpha
 
 @Composable
 fun PlayerStatsBar(
@@ -28,7 +31,7 @@ fun PlayerStatsBar(
     hunger: Float,
     modifier: Modifier = Modifier
 ) {
-    // 1. Animaciones para que la barra se mueva suavemente (dura medio segundo)
+    // 1. Animaciones de llenado/vaciado suave
     val animatedHealth by animateFloatAsState(
         targetValue = health,
         animationSpec = tween(durationMillis = 500),
@@ -40,21 +43,50 @@ fun PlayerStatsBar(
         label = "hungerAnimation"
     )
 
-    // 2. Panel contenedor semitransparente
+    // ================= NUEVA LÓGICA DE PELIGRO =================
+    val isStarving = hunger <= 0.2f // Peligro si el hambre es 20% o menos
+
+    // Creamos un bucle infinito para el latido
+    val infiniteTransition = rememberInfiniteTransition(label = "starving_pulse")
+
+    // Animamos la opacidad (alpha) para que el ícono de la gordita parpadee
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (isStarving) 0.3f else 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse // Va de 1f a 0.3f y de regreso
+        ),
+        label = "alpha_pulse"
+    )
+
+    // Animamos el color de la barra: de naranja normal a rojo parpadeante
+    val dangerColor by infiniteTransition.animateColor(
+        initialValue = Color(0xFFFFB74D),
+        targetValue = if (isStarving) Color.Red else Color(0xFFFFB74D),
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "color_pulse"
+    )
+    // ===========================================================
+
+    // Panel contenedor semitransparente
     Column(
         modifier = modifier
-            .padding(10.dp)
-            .fillMaxWidth(0.25f) // Un poco más ancho para acomodar los íconos
+            .padding(5.dp)
+            .fillMaxWidth(0.30f)
             .background(
-                color = Color(0x99000000), // Negro al 60% de opacidad
+                color = Color(0x99000000),
                 shape = RoundedCornerShape(12.dp)
             )
             .border(
                 width = 1.dp,
-                color = Color(0x4DFFFFFF), // Borde blanco muy sutil
+                color = if (isStarving) Color(0x80FF0000) else Color(0x4DFFFFFF), // El borde también se pone rojizo
                 shape = RoundedCornerShape(12.dp)
             )
-            .padding(10.dp) // Espaciado interno del panel
+            .padding(12.dp)
     ) {
         // ================= BARRA DE VIDA =================
         Row(
@@ -64,18 +96,17 @@ fun PlayerStatsBar(
             Icon(
                 imageVector = Icons.Default.Favorite,
                 contentDescription = "Vida",
-                tint = Color(0xFFFF4B4B), // Rojo vivo
+                tint = Color(0xFFFF4B4B),
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Barra personalizada con gradiente
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(14.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF333333)) // Color de fondo de la barra vacía
+                    .background(Color(0xFF333333))
             ) {
                 Box(
                     modifier = Modifier
@@ -95,22 +126,22 @@ fun PlayerStatsBar(
         // ================= BARRA DE HAMBRE =================
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().alpha(pulseAlpha) // Aplicamos el parpadeo a toda la fila
         ) {
+            // Tu ícono personalizado de la gordita
             Image(
                 painter = painterResource(id = R.drawable.icono_hambre1),
                 contentDescription = "Hambre",
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Barra personalizada con gradiente
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(14.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF333333)) // Color de fondo de la barra vacía
+                    .background(Color(0xFF333333))
             ) {
                 Box(
                     modifier = Modifier
@@ -118,7 +149,8 @@ fun PlayerStatsBar(
                         .fillMaxHeight()
                         .background(
                             brush = Brush.horizontalGradient(
-                                colors = listOf(Color(0xFFFFB74D), Color(0xFFFF6D00))
+                                // Usamos el color de peligro que calculamos arriba
+                                colors = listOf(dangerColor, Color(0xFFFF6D00))
                             )
                         )
                 )
