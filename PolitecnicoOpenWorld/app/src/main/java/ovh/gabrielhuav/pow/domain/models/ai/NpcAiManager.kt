@@ -1,8 +1,10 @@
 package ovh.gabrielhuav.pow.domain.models.ai
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.Npc
@@ -20,146 +22,114 @@ class NpcAiManager {
     private val _npcs = MutableStateFlow<List<Npc>>(emptyList())
     val npcs: StateFlow<List<Npc>> = _npcs.asStateFlow()
 
-    // CORRECCIÓN: Se usa AtomicReference para proteger la variable contra Race Conditions
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
 
-    private val maxNpcs = 20
-    private val despawnDistance = 0.015 // ~1.5km para que no desaparezcan de la vista
-    private val spawnDistance = 0.0025  // ~250 metros. Radio donde aparecerán los nuevos NPCs
+    private val maxNpcs = 40
+    private val despawnDistance = 0.003
+    private val spawnDistance   = 0.0015
 
-    private val carSpeed = 0.000015
-    private val personSpeed = 0.000003
+    private val carSpeed    = 0.000008
+    private val personSpeed = 0.0000015
+
+    @Volatile private var networkIsReady = false
 
     fun updateRoadNetwork(newNetwork: List<MapWay>) {
-        // CORRECCIÓN: Actualización atómica segura
         cachedRoadNetwork.set(newNetwork)
+        networkIsReady = newNetwork.isNotEmpty()
     }
 
-    fun updateNpcs(playerLocation: GeoPoint) {
-        // CORRECCIÓN: Tomamos una "fotografía" (snapshot) segura de la red en este milisegundo
+    suspend fun updateNpcs(playerLocation: GeoPoint) = withContext(Dispatchers.Default) {
         val currentNetwork = cachedRoadNetwork.get()
-        if (currentNetwork.isEmpty()) return
+        if (!networkIsReady || currentNetwork.isEmpty()) return@withContext
 
         val currentList = _npcs.value.toMutableList()
+        currentList.removeAll { calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude) > despawnDistance }
 
-        // 1. Eliminar NPCs ÚNICAMENTE si están realmente lejos del jugador
-        currentList.removeAll {
-            calculateDistance(it.location, playerLocation) > despawnDistance
-        }
-
-        // 2. Spawnear nuevos NPCs si faltan (usamos la snapshot de la red)
-        while (currentList.size < maxNpcs) {
-            spawnNpcOnRoad(playerLocation, currentNetwork)?.let { currentList.add(it) } ?: break
-        }
-
-        // 3. Mover NPCs actuales (usamos la snapshot de la red)
-        val updatedList = currentList.map { moveNpc(it, currentNetwork) }
-        _npcs.value = updatedList
-    }
-
-    // CORRECCIÓN: Pasamos el 'currentNetwork' por parámetro
-    private fun spawnNpcOnRoad(playerLocation: GeoPoint, network: List<MapWay>): Npc? {
-        val npcType = if (Random.nextBoolean()) NpcType.CAR else NpcType.PERSON
-        val assignedSpeed = if (npcType == NpcType.CAR) carSpeed else personSpeed
-
-        // Obtenemos todas las calles válidas según el tipo de NPC desde 'network'
-        val waysForType = network.filter {
-            (npcType == NpcType.CAR && it.isForCars) || (npcType == NpcType.PERSON && it.isForPeople)
-        }
-
-        // Filtramos para quedarnos SOLO con las calles que estén cerca del jugador
-        val closeWays = waysForType.filter { way ->
+        // OPTIMIZACIÓN COPILOT: Usamos tipos primitivos (Double) en lugar de instanciar miles de GeoPoints
+        val closeWays = currentNetwork.filter { way ->
             way.nodes.any { node ->
-                val nodeGeo = GeoPoint(node.lat, node.lon)
-                calculateDistance(nodeGeo, playerLocation) <= spawnDistance
+                calculateDistance(node.lat, node.lon, playerLocation.latitude, playerLocation.longitude) <= spawnDistance
             }
         }
 
-        val validWays = if (closeWays.isNotEmpty()) closeWays else waysForType
+        if (closeWays.isNotEmpty()) {
+            var attempts = 0
+            while (currentList.size < maxNpcs && attempts < 50) {
+                spawnNpcOnRoad(playerLocation, closeWays)?.let { currentList.add(it) }
+                    ?: run { attempts++ }
+            }
+        }
+
+        _npcs.value = currentList.map { moveNpc(it, currentNetwork) }
+    }
+
+    private fun spawnNpcOnRoad(playerLocation: GeoPoint, closeWays: List<MapWay>): Npc? {
+        val npcType = if (Random.nextFloat() < 0.6f) NpcType.CAR else NpcType.PERSON
+        val speed   = if (npcType == NpcType.CAR) carSpeed else personSpeed
+
+        val validWays = closeWays.filter {
+            (npcType == NpcType.CAR && it.isForCars) || (npcType == NpcType.PERSON && it.isForPeople)
+        }
+
         if (validWays.isEmpty()) return null
 
         val selectedWay = validWays.random()
-        val startIndex = Random.nextInt(selectedWay.nodes.size)
-        val startNode = selectedWay.nodes[startIndex]
+        val startIndex  = Random.nextInt(selectedWay.nodes.size)
+        val startNode   = selectedWay.nodes[startIndex]
+        val startGeo    = GeoPoint(startNode.lat, startNode.lon)
 
-        val moveDirection = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
+        if (calculateDistance(startGeo.latitude, startGeo.longitude, playerLocation.latitude, playerLocation.longitude) < 0.0002) return null
 
-        return Npc(
-            type = npcType,
-            location = GeoPoint(startNode.lat, startNode.lon),
-            speed = assignedSpeed,
-            currentWay = selectedWay,
-            targetNodeIndex = startIndex + moveDirection,
-            moveDirection = moveDirection
-        )
+        val dir = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
+        return Npc(type = npcType, location = startGeo, speed = speed,
+            currentWay = selectedWay, targetNodeIndex = startIndex + dir, moveDirection = dir)
     }
 
-    // CORRECCIÓN: Pasamos el 'currentNetwork' por parámetro
     private fun moveNpc(npc: Npc, network: List<MapWay>): Npc {
         val way = npc.currentWay ?: return npc
 
         if (npc.targetNodeIndex < 0 || npc.targetNodeIndex >= way.nodes.size) {
             val currentNode = if (npc.targetNodeIndex < 0) way.nodes.first() else way.nodes.last()
-
-            // Buscamos otras calles en la snapshot actual ('network')
             val connectedWays = network.filter {
                 ((npc.type == NpcType.CAR && it.isForCars) || (npc.type == NpcType.PERSON && it.isForPeople)) &&
-                        it.id != way.id &&
-                        it.nodes.any { node -> node.id == currentNode.id }
+                        it.id != way.id && it.nodes.any { n -> n.id == currentNode.id }
             }
-
             if (connectedWays.isNotEmpty()) {
-                val nextWay = connectedWays.random()
-                val nodeIndexInNextWay = nextWay.nodes.indexOfFirst { it.id == currentNode.id }
-
-                val nextDirection = when (nodeIndexInNextWay) {
+                val nextWay   = connectedWays.random()
+                val nodeIndex = nextWay.nodes.indexOfFirst { it.id == currentNode.id }
+                val nextDir   = when (nodeIndex) {
                     0 -> 1
                     nextWay.nodes.size - 1 -> -1
                     else -> if (Random.nextBoolean()) 1 else -1
                 }
-
-                return npc.copy(
-                    currentWay = nextWay,
-                    targetNodeIndex = nodeIndexInNextWay + nextDirection,
-                    moveDirection = nextDirection
-                )
+                return npc.copy(currentWay = nextWay,
+                    targetNodeIndex = nodeIndex + nextDir, moveDirection = nextDir)
             } else {
-                val newDirection = npc.moveDirection * -1
-                val newTargetIndex = if (npc.targetNodeIndex < 0) 1 else way.nodes.size - 2
-
-                if (newTargetIndex < 0 || newTargetIndex >= way.nodes.size) return npc
-
-                return npc.copy(
-                    targetNodeIndex = newTargetIndex,
-                    moveDirection = newDirection
-                )
+                val newDir   = npc.moveDirection * -1
+                val newIndex = if (npc.targetNodeIndex < 0) 1 else way.nodes.size - 2
+                if (newIndex < 0 || newIndex >= way.nodes.size) return npc
+                return npc.copy(targetNodeIndex = newIndex, moveDirection = newDir)
             }
         }
 
-        val targetNode = way.nodes[npc.targetNodeIndex]
-        val deltaLon = targetNode.lon - npc.location.longitude
-        val deltaLat = targetNode.lat - npc.location.latitude
-        val distanceToTarget = sqrt(deltaLon * deltaLon + deltaLat * deltaLat)
+        val target = way.nodes[npc.targetNodeIndex]
+        val dLon   = target.lon - npc.location.longitude
+        val dLat   = target.lat - npc.location.latitude
+        val dist   = sqrt(dLon * dLon + dLat * dLat)
 
-        if (distanceToTarget < npc.speed) {
-            return npc.copy(
-                location = GeoPoint(targetNode.lat, targetNode.lon),
-                targetNodeIndex = npc.targetNodeIndex + npc.moveDirection
-            )
+        if (dist < npc.speed) {
+            return npc.copy(location = GeoPoint(target.lat, target.lon),
+                targetNodeIndex = npc.targetNodeIndex + npc.moveDirection)
         }
 
-        val angleRadians = atan2(deltaLat, deltaLon)
-        val newLat = npc.location.latitude + sin(angleRadians) * npc.speed
-        val newLon = npc.location.longitude + cos(angleRadians) * npc.speed
-        val rotationDegrees = Math.toDegrees(angleRadians).toFloat()
-
-        return npc.copy(
-            location = GeoPoint(newLat, newLon),
-            rotationAngle = -rotationDegrees
-        )
+        val angle  = atan2(dLat, dLon)
+        val newLat = npc.location.latitude  + sin(angle) * npc.speed
+        val newLon = npc.location.longitude + cos(angle) * npc.speed
+        return npc.copy(location = GeoPoint(newLat, newLon),
+            rotationAngle = -Math.toDegrees(angle).toFloat())
     }
 
-    private fun calculateDistance(point1: GeoPoint, point2: GeoPoint): Double {
-        return sqrt((point1.latitude - point2.latitude).pow(2) + (point1.longitude - point2.longitude).pow(2))
-    }
+    // Sobrecarga de método usando dobles puros
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double =
+        sqrt((lat1 - lat2).pow(2) + (lon1 - lon2).pow(2))
 }
