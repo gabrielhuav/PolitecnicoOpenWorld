@@ -38,16 +38,18 @@ class NpcAiManager {
         networkIsReady = newNetwork.isNotEmpty()
     }
 
-    // OPTIMIZACIÓN COPILOT: Movido al hilo Dispatchers.Default (Multi-Core CPU) para no congelar la pantalla
     suspend fun updateNpcs(playerLocation: GeoPoint) = withContext(Dispatchers.Default) {
         val currentNetwork = cachedRoadNetwork.get()
         if (!networkIsReady || currentNetwork.isEmpty()) return@withContext
 
         val currentList = _npcs.value.toMutableList()
-        currentList.removeAll { calculateDistance(it.location, playerLocation) > despawnDistance }
+        currentList.removeAll { calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude) > despawnDistance }
 
+        // OPTIMIZACIÓN COPILOT: Usamos tipos primitivos (Double) en lugar de instanciar miles de GeoPoints
         val closeWays = currentNetwork.filter { way ->
-            way.nodes.any { node -> calculateDistance(GeoPoint(node.lat, node.lon), playerLocation) <= spawnDistance }
+            way.nodes.any { node ->
+                calculateDistance(node.lat, node.lon, playerLocation.latitude, playerLocation.longitude) <= spawnDistance
+            }
         }
 
         if (closeWays.isNotEmpty()) {
@@ -76,7 +78,7 @@ class NpcAiManager {
         val startNode   = selectedWay.nodes[startIndex]
         val startGeo    = GeoPoint(startNode.lat, startNode.lon)
 
-        if (calculateDistance(startGeo, playerLocation) < 0.0002) return null
+        if (calculateDistance(startGeo.latitude, startGeo.longitude, playerLocation.latitude, playerLocation.longitude) < 0.0002) return null
 
         val dir = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
         return Npc(type = npcType, location = startGeo, speed = speed,
@@ -127,6 +129,7 @@ class NpcAiManager {
             rotationAngle = -Math.toDegrees(angle).toFloat())
     }
 
-    private fun calculateDistance(p1: GeoPoint, p2: GeoPoint): Double =
-        sqrt((p1.latitude - p2.latitude).pow(2) + (p1.longitude - p2.longitude).pow(2))
+    // Sobrecarga de método usando dobles puros
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double =
+        sqrt((lat1 - lat2).pow(2) + (lon1 - lon2).pow(2))
 }
