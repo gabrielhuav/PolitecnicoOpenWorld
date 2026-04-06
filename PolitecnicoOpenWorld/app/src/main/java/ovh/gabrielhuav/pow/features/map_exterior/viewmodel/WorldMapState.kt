@@ -17,8 +17,9 @@ enum class MapProvider(val displayName: String) {
 data class WorldMapState(
     val currentLocation: GeoPoint? = null,
     val isLoadingLocation: Boolean = true,
-    val zoomLevel: Double = 18.0,
+    val zoomLevel: Double = 21.0, // <-- Zoom muy cercano estilo GTA
     val mapProvider: MapProvider = MapProvider.OSM,
     val showSettingsDialog: Boolean = false,
-    val npcs: List<Npc> = emptyList() // NUEVA PROPIEDAD
+    val npcs: List<Npc> = emptyList(),
+    val isRoadNetworkReady: Boolean = false
 )
