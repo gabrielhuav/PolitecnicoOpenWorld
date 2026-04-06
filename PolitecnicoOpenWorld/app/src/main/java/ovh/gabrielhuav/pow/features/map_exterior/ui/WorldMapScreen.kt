@@ -123,7 +123,8 @@ fun WorldMapScreen(
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
-                        settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                        // OPTIMIZACIÓN COPILOT: Cerrado a NEVER_ALLOW por seguridad
+                        settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
                         webViewClient = WebViewClient()
                         val lat = uiState.currentLocation?.latitude ?: 0.0
                         val lng = uiState.currentLocation?.longitude ?: 0.0

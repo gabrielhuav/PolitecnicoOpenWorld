@@ -51,7 +51,6 @@ class WorldMapViewModel : ViewModel() {
             }
             val initialLoc = _uiState.value.currentLocation!!
 
-            // OPTIMIZACIÓN COPILOT: Bucle de reintento si el fetch inicial falla
             var retryDelayMs = 1000L
             while (isActive && roadNetwork.isEmpty()) {
                 val initialNetwork = withContext(Dispatchers.IO) {
@@ -75,7 +74,7 @@ class WorldMapViewModel : ViewModel() {
                         _uiState.update { it.copy(isRoadNetworkReady = false) }
                     }
                     delay(retryDelayMs)
-                    retryDelayMs = (retryDelayMs * 2).coerceAtMost(10_000L) // Incrementa hasta 10 seg
+                    retryDelayMs = (retryDelayMs * 2).coerceAtMost(10_000L)
                 }
             }
 
@@ -106,16 +105,17 @@ class WorldMapViewModel : ViewModel() {
         val needsFetch = lastLoc == null || distance(lastLoc, currentLoc) > 0.005
 
         if (!needsFetch) return
-        lastNetworkFetchLocation = currentLoc
 
         viewModelScope.launch(Dispatchers.IO) {
             val network = overpassRepository.fetchRoadNetwork(
                 currentLoc.latitude, currentLoc.longitude
             )
             withContext(Dispatchers.Main) {
+                // OPTIMIZACIÓN COPILOT: Solo marcamos la zona como "revisada" si tuvo éxito
                 if (network.isNotEmpty()) {
                     roadNetwork = network
                     npcAiManager.updateRoadNetwork(network)
+                    lastNetworkFetchLocation = currentLoc
                 }
             }
         }
@@ -123,13 +123,15 @@ class WorldMapViewModel : ViewModel() {
 
     fun moveCharacter(direction: Direction) {
         val currentLoc = _uiState.value.currentLocation ?: return
-        val step = 0.000003
+
+        // OPTIMIZACIÓN COPILOT: Nombres explícitos en grados
+        val stepDegrees = 0.000003 // Aprox 0.3 metros
 
         val tempLocation = when (direction) {
-            Direction.UP    -> GeoPoint(currentLoc.latitude + step, currentLoc.longitude)
-            Direction.DOWN  -> GeoPoint(currentLoc.latitude - step, currentLoc.longitude)
-            Direction.LEFT  -> GeoPoint(currentLoc.latitude, currentLoc.longitude - step)
-            Direction.RIGHT -> GeoPoint(currentLoc.latitude, currentLoc.longitude + step)
+            Direction.UP    -> GeoPoint(currentLoc.latitude + stepDegrees, currentLoc.longitude)
+            Direction.DOWN  -> GeoPoint(currentLoc.latitude - stepDegrees, currentLoc.longitude)
+            Direction.LEFT  -> GeoPoint(currentLoc.latitude, currentLoc.longitude - stepDegrees)
+            Direction.RIGHT -> GeoPoint(currentLoc.latitude, currentLoc.longitude + stepDegrees)
         }
 
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
@@ -137,20 +139,20 @@ class WorldMapViewModel : ViewModel() {
         val nearestCenterLinePoint = getNearestPointOnNetwork(tempLocation)
         val distToCenter = distance(tempLocation, nearestCenterLinePoint)
 
-        val streetRadius = 0.000012
+        val streetRadiusDegrees = 0.000012 // Aprox 1.2 metros
 
-        if (distToCenter <= streetRadius) {
+        if (distToCenter <= streetRadiusDegrees) {
             _uiState.update { it.copy(currentLocation = tempLocation) }
         } else {
             val angle = atan2(tempLocation.latitude - nearestCenterLinePoint.latitude, tempLocation.longitude - nearestCenterLinePoint.longitude)
-            val edgeLat = nearestCenterLinePoint.latitude + sin(angle) * streetRadius
-            val edgeLon = nearestCenterLinePoint.longitude + cos(angle) * streetRadius
+            val edgeLat = nearestCenterLinePoint.latitude + sin(angle) * streetRadiusDegrees
+            val edgeLon = nearestCenterLinePoint.longitude + cos(angle) * streetRadiusDegrees
             _uiState.update { it.copy(currentLocation = GeoPoint(edgeLat, edgeLon)) }
         }
     }
 
     // ==========================================
-    // OPTIMIZACIÓN COPILOT: Spatial Indexing Grid
+    // Spatial Indexing Grid
     // ==========================================
     private data class NetworkSegment(
         val start: GeoPoint,

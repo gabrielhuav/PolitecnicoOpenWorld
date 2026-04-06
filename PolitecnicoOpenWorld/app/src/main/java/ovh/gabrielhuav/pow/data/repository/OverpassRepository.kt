@@ -36,6 +36,11 @@ class OverpassRepository {
             connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
 
+            // OPTIMIZACIÓN COPILOT: Timeouts y User-Agent para evitar cuelgues y bloqueos
+            connection.connectTimeout = 15000 // 15 segundos de límite para conectar
+            connection.readTimeout = 15000    // 15 segundos de límite para descargar
+            connection.setRequestProperty("User-Agent", "PolitecnicoOpenWorld/1.0 (Android Game)")
+
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
                 val parsed = parseOverpassJson(response)
