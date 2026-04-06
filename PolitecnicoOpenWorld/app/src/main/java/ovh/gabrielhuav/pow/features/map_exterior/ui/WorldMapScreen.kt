@@ -90,17 +90,21 @@ fun WorldMapScreen(
                         uiState.npcs.forEach { npc ->
                             val id = npc.id.toString()
                             activeIds.add(id)
+
+                            // OPTIMIZACIÓN COPILOT: Asignar el ícono SOLO una vez al momento de instanciar el Marker
                             val marker = cache[id] ?: Marker(view).apply {
                                 title = "NPC_MARKER"
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
+                                if (resId != 0) {
+                                    icon = ContextCompat.getDrawable(context, resId)
+                                }
                                 cache[id] = this
                                 view.overlays.add(this)
                             }
+                            // A partir de aquí solo actualizamos lo que realmente se mueve:
                             marker.position = npc.location
                             marker.rotation = npc.rotationAngle
-                            val resId = context.resources.getIdentifier(
-                                npc.type.drawableName, "drawable", context.packageName)
-                            if (resId != 0) marker.icon = ContextCompat.getDrawable(context, resId)
                         }
 
                         val iter = cache.entries.iterator()

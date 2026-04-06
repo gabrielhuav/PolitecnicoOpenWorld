@@ -13,6 +13,12 @@ class OverpassRepository {
 
     private val TAG = "OverpassRepository"
 
+    // OPTIMIZACIÓN COPILOT: Regex pre-compiladas en memoria una sola vez
+    companion object {
+        private val CAR_REGEX = Regex("primary|secondary|tertiary|residential|unclassified|service|living_street")
+        private val PEOPLE_REGEX = Regex("footway|pedestrian|path|residential|living_street|service")
+    }
+
     suspend fun fetchRoadNetwork(lat: Double, lon: Double): List<MapWay> = withContext(Dispatchers.IO) {
         val radius = 600
 
@@ -36,9 +42,8 @@ class OverpassRepository {
             connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
 
-            // OPTIMIZACIÓN COPILOT: Timeouts alineados con la query de Overpass
-            connection.connectTimeout = 15000 // 15s para establecer conexión inicial
-            connection.readTimeout = 30000    // 30s de límite para descargar (mayor al [timeout:25] de Overpass)
+            connection.connectTimeout = 15000
+            connection.readTimeout = 30000
             connection.setRequestProperty("User-Agent", "PolitecnicoOpenWorld/1.0 (Android Game)")
 
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
@@ -81,8 +86,8 @@ class OverpassRepository {
                 val tags    = if (element.has("tags")) element.getJSONObject("tags") else continue
                 val highway = if (tags.has("highway")) tags.getString("highway") else continue
 
-                val isForCars   = highway.matches("(primary|secondary|tertiary|residential|unclassified|service|living_street)".toRegex())
-                val isForPeople = highway.matches("(footway|pedestrian|path|residential|living_street|service)".toRegex())
+                val isForCars   = highway.matches(CAR_REGEX)
+                val isForPeople = highway.matches(PEOPLE_REGEX)
 
                 if (!isForCars && !isForPeople) continue
 

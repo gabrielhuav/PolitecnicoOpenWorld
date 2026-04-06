@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.floor
@@ -42,8 +43,8 @@ class WorldMapViewModel : ViewModel() {
 
     private var roadNetwork: List<MapWay> = emptyList()
 
-    // OPTIMIZACIÓN COPILOT: Prevención de tormentas de peticiones y bloqueos
-    private var isFetchingNetwork = false
+    // OPTIMIZACIÓN COPILOT: AtomicBoolean para evitar colisiones entre hilos
+    private val isFetchingNetwork = AtomicBoolean(false)
     private var lastFetchAttemptTimeMs = 0L
 
     fun startGameLoop() {
@@ -105,19 +106,16 @@ class WorldMapViewModel : ViewModel() {
     }
 
     private fun checkAndFetchRoadNetwork(currentLoc: GeoPoint) {
-        // Bloqueo estricto para no lanzar descargas paralelas
-        if (isFetchingNetwork) return
-
         val lastLoc = lastNetworkFetchLocation
         val needsFetch = lastLoc == null || distance(lastLoc, currentLoc) > 0.005
-
         if (!needsFetch) return
 
-        // Backoff de 10 segundos en caso de fallo para no hacer spam al servidor Overpass
         val now = System.currentTimeMillis()
         if (now - lastFetchAttemptTimeMs < 10000) return
 
-        isFetchingNetwork = true
+        // OPTIMIZACIÓN: Cambio atómico seguro
+        if (!isFetchingNetwork.compareAndSet(false, true)) return
+
         lastFetchAttemptTimeMs = now
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -133,8 +131,8 @@ class WorldMapViewModel : ViewModel() {
                     }
                 }
             } finally {
-                // Liberar el candado pase lo que pase (éxito, error o timeout)
-                isFetchingNetwork = false
+                // Liberar el candado de forma atómica
+                isFetchingNetwork.set(false)
             }
         }
     }
@@ -182,17 +180,13 @@ class WorldMapViewModel : ViewModel() {
 
     private val spatialCellSizeDegrees = 0.0025
     private var indexedRoadNetworkRef: List<MapWay>? = null
-    private var indexedRoadNetworkSegmentCount: Int = -1
     private var indexedSegments: List<NetworkSegment> = emptyList()
     private var segmentGrid: Map<Pair<Int, Int>, List<NetworkSegment>> = emptyMap()
 
     private fun ensureSpatialIndex() {
-        // OPTIMIZACIÓN COPILOT: Comprobación de referencia O(1) de forma inmediata
-        // Salida temprana antes de ejecutar sumOf (que es O(N))
         if (indexedRoadNetworkRef === roadNetwork) return
 
-        val currentSegmentCount = roadNetwork.sumOf { way -> max(0, way.nodes.size - 1) }
-
+        // OPTIMIZACIÓN COPILOT: Eliminamos el bucle O(N) que contaba nodos inútilmente.
         val newSegments = mutableListOf<NetworkSegment>()
         val newGrid = HashMap<Pair<Int, Int>, MutableList<NetworkSegment>>()
 
@@ -224,7 +218,6 @@ class WorldMapViewModel : ViewModel() {
             }
         }
         indexedRoadNetworkRef = roadNetwork
-        indexedRoadNetworkSegmentCount = currentSegmentCount
         indexedSegments = newSegments
         segmentGrid = newGrid
     }

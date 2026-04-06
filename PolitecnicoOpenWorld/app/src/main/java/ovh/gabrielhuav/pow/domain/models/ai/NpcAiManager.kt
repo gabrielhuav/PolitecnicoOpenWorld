@@ -1,8 +1,10 @@
 package ovh.gabrielhuav.pow.domain.models.ai
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.Npc
@@ -36,19 +38,18 @@ class NpcAiManager {
         networkIsReady = newNetwork.isNotEmpty()
     }
 
-    fun updateNpcs(playerLocation: GeoPoint) {
+    // OPTIMIZACIÓN COPILOT: Movido al hilo Dispatchers.Default (Multi-Core CPU) para no congelar la pantalla
+    suspend fun updateNpcs(playerLocation: GeoPoint) = withContext(Dispatchers.Default) {
         val currentNetwork = cachedRoadNetwork.get()
-        if (!networkIsReady || currentNetwork.isEmpty()) return
+        if (!networkIsReady || currentNetwork.isEmpty()) return@withContext
 
         val currentList = _npcs.value.toMutableList()
         currentList.removeAll { calculateDistance(it.location, playerLocation) > despawnDistance }
 
-        // OPTIMIZACIÓN COPILOT: Filtrar las calles cercanas una sola vez, no 50 veces.
         val closeWays = currentNetwork.filter { way ->
             way.nodes.any { node -> calculateDistance(GeoPoint(node.lat, node.lon), playerLocation) <= spawnDistance }
         }
 
-        // Solo entramos al bucle de intentos si realmente hay calles donde spawnear
         if (closeWays.isNotEmpty()) {
             var attempts = 0
             while (currentList.size < maxNpcs && attempts < 50) {
