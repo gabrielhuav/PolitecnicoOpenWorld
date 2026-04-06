@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.data.repository
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -10,14 +11,11 @@ import java.net.URL
 
 class OverpassRepository {
 
-    /**
-     * Descarga las calles en un radio de 600 metros.
-     * Radio reducido (800→600) para que la respuesta llegue más rápido.
-     */
+    private val TAG = "OverpassRepository"
+
     suspend fun fetchRoadNetwork(lat: Double, lon: Double): List<MapWay> = withContext(Dispatchers.IO) {
         val radius = 600
 
-        // Query simplificada: solo tipos de calle más comunes para reducir peso de respuesta
         val query = """
             [out:json][timeout:25];
             (
@@ -37,21 +35,18 @@ class OverpassRepository {
             val url = URL(urlString)
             connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.setRequestProperty("User-Agent", "PolitecnicoOpenWorld/1.0")
-            connection.connectTimeout = 15_000  // 15s para conectar
-            connection.readTimeout    = 30_000  // 30s para leer la respuesta
 
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
                 val parsed = parseOverpassJson(response)
-                println("OverpassRepository - OK: ${parsed.size} ways descargados")
+                Log.d(TAG, "OK: ${parsed.size} ways descargados")
                 parsed
             } else {
-                println("OverpassRepository - HTTP Error: ${connection.responseCode}")
+                Log.e(TAG, "HTTP Error: ${connection.responseCode}")
                 emptyList()
             }
         } catch (e: Exception) {
-            println("OverpassRepository - Excepción: ${e.javaClass.simpleName}: ${e.message}")
+            Log.e(TAG, "Excepción: ${e.javaClass.simpleName}: ${e.message}")
             emptyList()
         } finally {
             connection?.disconnect()
@@ -59,13 +54,12 @@ class OverpassRepository {
     }
 
     private fun parseOverpassJson(jsonString: String): List<MapWay> {
-        val jsonObject = JSONObject(jsonString)
-        if (!jsonObject.has("elements")) return emptyList()
-
-        val elements = jsonObject.getJSONArray("elements")
-        val nodesMap = mutableMapOf<Long, MapNode>()
         val ways = mutableListOf<MapWay>()
+        val nodesMap = mutableMapOf<Long, MapNode>()
+        val root = JSONObject(jsonString)
+        if (!root.has("elements")) return emptyList()
 
+        val elements = root.getJSONArray("elements")
         for (i in 0 until elements.length()) {
             val element = elements.getJSONObject(i)
             if (element.getString("type") == "node") {

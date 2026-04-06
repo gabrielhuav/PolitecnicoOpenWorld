@@ -18,6 +18,7 @@ import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -50,26 +51,33 @@ class WorldMapViewModel : ViewModel() {
             }
             val initialLoc = _uiState.value.currentLocation!!
 
-            val initialNetwork = withContext(Dispatchers.IO) {
-                overpassRepository.fetchRoadNetwork(initialLoc.latitude, initialLoc.longitude)
-            }
+            // OPTIMIZACIÓN COPILOT: Bucle de reintento si el fetch inicial falla
+            var retryDelayMs = 1000L
+            while (isActive && roadNetwork.isEmpty()) {
+                val initialNetwork = withContext(Dispatchers.IO) {
+                    overpassRepository.fetchRoadNetwork(initialLoc.latitude, initialLoc.longitude)
+                }
 
-            withContext(Dispatchers.Main) {
                 if (initialNetwork.isNotEmpty()) {
-                    roadNetwork = initialNetwork
-                    npcAiManager.updateRoadNetwork(initialNetwork)
-
-                    val forcedLocation = getNearestPointOnNetwork(initialLoc)
-
-                    _uiState.update { it.copy(
-                        currentLocation = forcedLocation,
-                        isRoadNetworkReady = true
-                    )}
+                    withContext(Dispatchers.Main) {
+                        roadNetwork = initialNetwork
+                        npcAiManager.updateRoadNetwork(initialNetwork)
+                        val forcedLocation = getNearestPointOnNetwork(initialLoc)
+                        _uiState.update { it.copy(
+                            currentLocation = forcedLocation,
+                            isRoadNetworkReady = true
+                        ) }
+                    }
+                    lastNetworkFetchLocation = initialLoc
+                    break
                 } else {
-                    _uiState.update { it.copy(isRoadNetworkReady = true) }
+                    withContext(Dispatchers.Main) {
+                        _uiState.update { it.copy(isRoadNetworkReady = false) }
+                    }
+                    delay(retryDelayMs)
+                    retryDelayMs = (retryDelayMs * 2).coerceAtMost(10_000L) // Incrementa hasta 10 seg
                 }
             }
-            lastNetworkFetchLocation = initialLoc
 
             while (isActive) {
                 _uiState.value.currentLocation?.let { location ->
@@ -124,23 +132,16 @@ class WorldMapViewModel : ViewModel() {
             Direction.RIGHT -> GeoPoint(currentLoc.latitude, currentLoc.longitude + step)
         }
 
-        // BLOQUEO ESTRICTO: Si no hay calles (falla de red o de carga), no te deja moverte
-        // Esto evita al 100% que salgas volando por los edificios si algo falla.
-        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) {
-            return
-        }
+        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
 
         val nearestCenterLinePoint = getNearestPointOnNetwork(tempLocation)
         val distToCenter = distance(tempLocation, nearestCenterLinePoint)
 
-        // Radio muy ajustado (Aprox 1.2 metros reales).
-        // Ya no abarcarás los edificios, pero puedes moverte para elegir en cruces.
         val streetRadius = 0.000012
 
         if (distToCenter <= streetRadius) {
             _uiState.update { it.copy(currentLocation = tempLocation) }
         } else {
-            // "Pared invisible": Te deslizas suavemente por el borde del asfalto sin salirte.
             val angle = atan2(tempLocation.latitude - nearestCenterLinePoint.latitude, tempLocation.longitude - nearestCenterLinePoint.longitude)
             val edgeLat = nearestCenterLinePoint.latitude + sin(angle) * streetRadius
             val edgeLon = nearestCenterLinePoint.longitude + cos(angle) * streetRadius
@@ -148,28 +149,98 @@ class WorldMapViewModel : ViewModel() {
         }
     }
 
-    private fun getNearestPointOnNetwork(targetLocation: GeoPoint): GeoPoint {
-        var bestDist = Double.MAX_VALUE
-        var bestPoint = targetLocation
+    // ==========================================
+    // OPTIMIZACIÓN COPILOT: Spatial Indexing Grid
+    // ==========================================
+    private data class NetworkSegment(
+        val start: GeoPoint,
+        val end: GeoPoint,
+        val minLat: Double,
+        val maxLat: Double,
+        val minLon: Double,
+        val maxLon: Double
+    )
+
+    private val spatialCellSizeDegrees = 0.0025
+    private var indexedRoadNetworkRef: List<MapWay>? = null
+    private var indexedRoadNetworkSegmentCount: Int = -1
+    private var indexedSegments: List<NetworkSegment> = emptyList()
+    private var segmentGrid: Map<Pair<Int, Int>, List<NetworkSegment>> = emptyMap()
+
+    private fun ensureSpatialIndex() {
+        val currentSegmentCount = roadNetwork.sumOf { way -> max(0, way.nodes.size - 1) }
+        if (indexedRoadNetworkRef === roadNetwork && indexedRoadNetworkSegmentCount == currentSegmentCount) return
+
+        val newSegments = mutableListOf<NetworkSegment>()
+        val newGrid = HashMap<Pair<Int, Int>, MutableList<NetworkSegment>>()
 
         for (way in roadNetwork) {
             for (i in 0 until way.nodes.size - 1) {
                 val n1 = way.nodes[i]
                 val n2 = way.nodes[i + 1]
-                val p = projectPointOnSegment(
-                    targetLocation,
-                    GeoPoint(n1.lat, n1.lon),
-                    GeoPoint(n2.lat, n2.lon)
+                val start = GeoPoint(n1.lat, n1.lon)
+                val end = GeoPoint(n2.lat, n2.lon)
+                val segment = NetworkSegment(
+                    start = start, end = end,
+                    minLat = min(start.latitude, end.latitude),
+                    maxLat = max(start.latitude, end.latitude),
+                    minLon = min(start.longitude, end.longitude),
+                    maxLon = max(start.longitude, end.longitude)
                 )
-                val d = distance(targetLocation, p)
-                if (d < bestDist) {
-                    bestDist = d
-                    bestPoint = p
+                newSegments += segment
+
+                val minCellLat = cellCoordinate(segment.minLat)
+                val maxCellLat = cellCoordinate(segment.maxLat)
+                val minCellLon = cellCoordinate(segment.minLon)
+                val maxCellLon = cellCoordinate(segment.maxLon)
+
+                for (cellLat in minCellLat..maxCellLat) {
+                    for (cellLon in minCellLon..maxCellLon) {
+                        newGrid.getOrPut(cellLat to cellLon) { mutableListOf() }.add(segment)
+                    }
                 }
+            }
+        }
+        indexedRoadNetworkRef = roadNetwork
+        indexedRoadNetworkSegmentCount = currentSegmentCount
+        indexedSegments = newSegments
+        segmentGrid = newGrid
+    }
+
+    private fun getCandidateSegments(targetLocation: GeoPoint): List<NetworkSegment> {
+        val centerLat = cellCoordinate(targetLocation.latitude)
+        val centerLon = cellCoordinate(targetLocation.longitude)
+        val candidates = LinkedHashSet<NetworkSegment>()
+
+        for (lat in (centerLat - 1)..(centerLat + 1)) {
+            for (lon in (centerLon - 1)..(centerLon + 1)) {
+                segmentGrid[lat to lon]?.let { candidates.addAll(it) }
+            }
+        }
+        return candidates.toList()
+    }
+
+    private fun cellCoordinate(value: Double): Int = floor(value / spatialCellSizeDegrees).toInt()
+
+    private fun getNearestPointOnNetwork(targetLocation: GeoPoint): GeoPoint {
+        ensureSpatialIndex()
+        val candidates = getCandidateSegments(targetLocation).ifEmpty { indexedSegments }
+        if (candidates.isEmpty()) return targetLocation
+
+        var bestDist = Double.MAX_VALUE
+        var bestPoint = targetLocation
+
+        for (segment in candidates) {
+            val p = projectPointOnSegment(targetLocation, segment.start, segment.end)
+            val d = distance(targetLocation, p)
+            if (d < bestDist) {
+                bestDist = d
+                bestPoint = p
             }
         }
         return bestPoint
     }
+    // ==========================================
 
     private fun projectPointOnSegment(p: GeoPoint, v: GeoPoint, w: GeoPoint): GeoPoint {
         val l2 = (w.latitude - v.latitude).pow(2) + (w.longitude - v.longitude).pow(2)
@@ -188,10 +259,7 @@ class WorldMapViewModel : ViewModel() {
     fun updateInitialLocation(latitude: Double, longitude: Double) {
         if (_uiState.value.isLoadingLocation) {
             _uiState.update {
-                it.copy(
-                    currentLocation = GeoPoint(latitude, longitude),
-                    isLoadingLocation = false
-                )
+                it.copy(currentLocation = GeoPoint(latitude, longitude), isLoadingLocation = false)
             }
         }
     }

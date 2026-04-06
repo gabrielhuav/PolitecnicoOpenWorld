@@ -23,7 +23,6 @@ class NpcAiManager {
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
 
     private val maxNpcs = 40
-    // Corregimos las matemáticas: Desaparecen a 300m, Aparecen a 150m (Garantiza que vivan)
     private val despawnDistance = 0.003
     private val spawnDistance   = 0.0015
 
@@ -42,43 +41,40 @@ class NpcAiManager {
         if (!networkIsReady || currentNetwork.isEmpty()) return
 
         val currentList = _npcs.value.toMutableList()
-
-        // Eliminar a los que se alejan mucho
         currentList.removeAll { calculateDistance(it.location, playerLocation) > despawnDistance }
 
-        var attempts = 0
-        while (currentList.size < maxNpcs && attempts < 50) {
-            spawnNpcOnRoad(playerLocation, currentNetwork)?.let { currentList.add(it) }
-                ?: run { attempts++ }
+        // OPTIMIZACIÓN COPILOT: Filtrar las calles cercanas una sola vez, no 50 veces.
+        val closeWays = currentNetwork.filter { way ->
+            way.nodes.any { node -> calculateDistance(GeoPoint(node.lat, node.lon), playerLocation) <= spawnDistance }
+        }
+
+        // Solo entramos al bucle de intentos si realmente hay calles donde spawnear
+        if (closeWays.isNotEmpty()) {
+            var attempts = 0
+            while (currentList.size < maxNpcs && attempts < 50) {
+                spawnNpcOnRoad(playerLocation, closeWays)?.let { currentList.add(it) }
+                    ?: run { attempts++ }
+            }
         }
 
         _npcs.value = currentList.map { moveNpc(it, currentNetwork) }
     }
 
-    private fun spawnNpcOnRoad(playerLocation: GeoPoint, network: List<MapWay>): Npc? {
+    private fun spawnNpcOnRoad(playerLocation: GeoPoint, closeWays: List<MapWay>): Npc? {
         val npcType = if (Random.nextFloat() < 0.6f) NpcType.CAR else NpcType.PERSON
         val speed   = if (npcType == NpcType.CAR) carSpeed else personSpeed
 
-        val waysForType = network.filter {
+        val validWays = closeWays.filter {
             (npcType == NpcType.CAR && it.isForCars) || (npcType == NpcType.PERSON && it.isForPeople)
         }
 
-        // Estrictamente buscar calles en el radio de aparición
-        val closeWays = waysForType.filter { way ->
-            way.nodes.any { node ->
-                calculateDistance(GeoPoint(node.lat, node.lon), playerLocation) <= spawnDistance
-            }
-        }
+        if (validWays.isEmpty()) return null
 
-        // Si no hay calles cerca, esperamos (no los enviamos lejos para que no se auto-destruyan)
-        if (closeWays.isEmpty()) return null
-
-        val selectedWay = closeWays.random()
+        val selectedWay = validWays.random()
         val startIndex  = Random.nextInt(selectedWay.nodes.size)
         val startNode   = selectedWay.nodes[startIndex]
         val startGeo    = GeoPoint(startNode.lat, startNode.lon)
 
-        // Evitar que aparezcan justo debajo del jugador
         if (calculateDistance(startGeo, playerLocation) < 0.0002) return null
 
         val dir = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
