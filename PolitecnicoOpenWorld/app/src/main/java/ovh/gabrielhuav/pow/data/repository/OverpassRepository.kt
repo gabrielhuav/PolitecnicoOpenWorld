@@ -49,7 +49,9 @@ class OverpassRepository {
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
                 val parsed = parseOverpassJson(response)
-                Log.d(TAG, "OK: ${parsed.size} ways descargados")
+                if (Log.isLoggable(TAG, Log.DEBUG)) {
+                    Log.d(TAG, "OK: ${parsed.size} ways descargados")
+                }
                 parsed
             } else {
                 Log.e(TAG, "HTTP Error: ${connection.responseCode}")
