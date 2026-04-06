@@ -42,6 +42,10 @@ class WorldMapViewModel : ViewModel() {
 
     private var roadNetwork: List<MapWay> = emptyList()
 
+    // OPTIMIZACIÓN COPILOT: Prevención de tormentas de peticiones y bloqueos
+    private var isFetchingNetwork = false
+    private var lastFetchAttemptTimeMs = 0L
+
     fun startGameLoop() {
         if (gameLoopJob?.isActive == true) return
         gameLoopJob = viewModelScope.launch {
@@ -101,22 +105,36 @@ class WorldMapViewModel : ViewModel() {
     }
 
     private fun checkAndFetchRoadNetwork(currentLoc: GeoPoint) {
+        // Bloqueo estricto para no lanzar descargas paralelas
+        if (isFetchingNetwork) return
+
         val lastLoc = lastNetworkFetchLocation
         val needsFetch = lastLoc == null || distance(lastLoc, currentLoc) > 0.005
 
         if (!needsFetch) return
 
+        // Backoff de 10 segundos en caso de fallo para no hacer spam al servidor Overpass
+        val now = System.currentTimeMillis()
+        if (now - lastFetchAttemptTimeMs < 10000) return
+
+        isFetchingNetwork = true
+        lastFetchAttemptTimeMs = now
+
         viewModelScope.launch(Dispatchers.IO) {
-            val network = overpassRepository.fetchRoadNetwork(
-                currentLoc.latitude, currentLoc.longitude
-            )
-            withContext(Dispatchers.Main) {
-                // OPTIMIZACIÓN COPILOT: Solo marcamos la zona como "revisada" si tuvo éxito
-                if (network.isNotEmpty()) {
-                    roadNetwork = network
-                    npcAiManager.updateRoadNetwork(network)
-                    lastNetworkFetchLocation = currentLoc
+            try {
+                val network = overpassRepository.fetchRoadNetwork(
+                    currentLoc.latitude, currentLoc.longitude
+                )
+                withContext(Dispatchers.Main) {
+                    if (network.isNotEmpty()) {
+                        roadNetwork = network
+                        npcAiManager.updateRoadNetwork(network)
+                        lastNetworkFetchLocation = currentLoc
+                    }
                 }
+            } finally {
+                // Liberar el candado pase lo que pase (éxito, error o timeout)
+                isFetchingNetwork = false
             }
         }
     }
@@ -124,8 +142,7 @@ class WorldMapViewModel : ViewModel() {
     fun moveCharacter(direction: Direction) {
         val currentLoc = _uiState.value.currentLocation ?: return
 
-        // OPTIMIZACIÓN COPILOT: Nombres explícitos en grados
-        val stepDegrees = 0.000003 // Aprox 0.3 metros
+        val stepDegrees = 0.000003
 
         val tempLocation = when (direction) {
             Direction.UP    -> GeoPoint(currentLoc.latitude + stepDegrees, currentLoc.longitude)
@@ -139,7 +156,7 @@ class WorldMapViewModel : ViewModel() {
         val nearestCenterLinePoint = getNearestPointOnNetwork(tempLocation)
         val distToCenter = distance(tempLocation, nearestCenterLinePoint)
 
-        val streetRadiusDegrees = 0.000012 // Aprox 1.2 metros
+        val streetRadiusDegrees = 0.000012
 
         if (distToCenter <= streetRadiusDegrees) {
             _uiState.update { it.copy(currentLocation = tempLocation) }
@@ -170,8 +187,11 @@ class WorldMapViewModel : ViewModel() {
     private var segmentGrid: Map<Pair<Int, Int>, List<NetworkSegment>> = emptyMap()
 
     private fun ensureSpatialIndex() {
+        // OPTIMIZACIÓN COPILOT: Comprobación de referencia O(1) de forma inmediata
+        // Salida temprana antes de ejecutar sumOf (que es O(N))
+        if (indexedRoadNetworkRef === roadNetwork) return
+
         val currentSegmentCount = roadNetwork.sumOf { way -> max(0, way.nodes.size - 1) }
-        if (indexedRoadNetworkRef === roadNetwork && indexedRoadNetworkSegmentCount == currentSegmentCount) return
 
         val newSegments = mutableListOf<NetworkSegment>()
         val newGrid = HashMap<Pair<Int, Int>, MutableList<NetworkSegment>>()

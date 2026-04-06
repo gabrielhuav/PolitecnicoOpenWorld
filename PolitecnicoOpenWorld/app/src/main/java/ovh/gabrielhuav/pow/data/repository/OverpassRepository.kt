@@ -36,9 +36,9 @@ class OverpassRepository {
             connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
 
-            // OPTIMIZACIÓN COPILOT: Timeouts y User-Agent para evitar cuelgues y bloqueos
-            connection.connectTimeout = 15000 // 15 segundos de límite para conectar
-            connection.readTimeout = 15000    // 15 segundos de límite para descargar
+            // OPTIMIZACIÓN COPILOT: Timeouts alineados con la query de Overpass
+            connection.connectTimeout = 15000 // 15s para establecer conexión inicial
+            connection.readTimeout = 30000    // 30s de límite para descargar (mayor al [timeout:25] de Overpass)
             connection.setRequestProperty("User-Agent", "PolitecnicoOpenWorld/1.0 (Android Game)")
 
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
