@@ -63,10 +63,12 @@ class WorldMapViewModel : ViewModel() {
                 }
 
                 if (initialNetwork.isNotEmpty()) {
+                    roadNetwork = initialNetwork
+                    npcAiManager.updateRoadNetwork(initialNetwork)
+                    val forcedLocation = withContext(Dispatchers.Default) {
+                        getNearestPointOnNetwork(initialLoc)
+                    }
                     withContext(Dispatchers.Main) {
-                        roadNetwork = initialNetwork
-                        npcAiManager.updateRoadNetwork(initialNetwork)
-                        val forcedLocation = getNearestPointOnNetwork(initialLoc)
                         _uiState.update { it.copy(
                             currentLocation = forcedLocation,
                             isRoadNetworkReady = true
