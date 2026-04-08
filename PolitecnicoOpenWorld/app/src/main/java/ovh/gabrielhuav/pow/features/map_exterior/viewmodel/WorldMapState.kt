@@ -17,9 +17,16 @@ enum class MapProvider(val displayName: String) {
 data class WorldMapState(
     val currentLocation: GeoPoint? = null,
     val isLoadingLocation: Boolean = true,
-    val zoomLevel: Double = 21.0, // <-- Zoom muy cercano estilo GTA
+    // Arrancamos en zoom 17 para que osmdroid descargue suficientes tiles alrededor.
+    // Una vez que la red de calles esté lista, el ViewModel hace zoom-in automático a 21.
+    val zoomLevel: Double = ZOOM_LOADING,
     val mapProvider: MapProvider = MapProvider.OSM,
     val showSettingsDialog: Boolean = false,
     val npcs: List<Npc> = emptyList(),
     val isRoadNetworkReady: Boolean = false
-)
+) {
+    companion object {
+        const val ZOOM_LOADING  = 17.0  // Zoom amplio — osmdroid descarga más tiles del área
+        const val ZOOM_GAMEPLAY = 21.0  // Zoom GTA una vez que todo está listo
+    }
+}
