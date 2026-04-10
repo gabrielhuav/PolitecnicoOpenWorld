@@ -9,6 +9,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 
 /**
  * WebViewClient que intercepta tiles del mapa WebView y los cachea en TileCache (SQLite/filesDir).
@@ -47,18 +48,15 @@ class CachingWebViewClient(
         Log.d(TAG, "Interceptando tile: $url")
 
         val providerKey = provider.name.lowercase()
-        // Usamos la URL completa como clave — más robusto que parsear z/x/y
-        val urlKey = url.hashCode().toString()
+        // SHA-256 del URL completo como clave — sin colisiones prácticas vs. hashCode()
+        val urlKey = sha256(url)
 
         // 1. Buscar en caché local
         val cached = tileCache.getTileByUrl(providerKey, urlKey)
         if (cached != null) {
             Log.d(TAG, "CACHE HIT: $url")
             onTileServed(true)
-            return WebResourceResponse(
-                guessMimeType(url), null,
-                ByteArrayInputStream(cached)
-            )
+            return buildResponse(guessMimeType(url), cached)
         }
 
         // 2. Descargar de la red y guardar en caché
@@ -67,16 +65,24 @@ class CachingWebViewClient(
         if (downloaded != null) {
             tileCache.putTileByUrl(providerKey, urlKey, downloaded)
             onTileServed(false)
-            return WebResourceResponse(
-                guessMimeType(url), null,
-                ByteArrayInputStream(downloaded)
-            )
+            return buildResponse(guessMimeType(url), downloaded)
         }
 
         // 3. Descarga falló — dejar que el WebView lo intente por su cuenta
         Log.w(TAG, "Descarga fallida, dejando pasar: $url")
         onTileServed(false)
         return null
+    }
+
+    /** Construye un WebResourceResponse con cabeceras CORS para que Leaflet acepte el tile. */
+    private fun buildResponse(mimeType: String, data: ByteArray): WebResourceResponse {
+        val headers = mapOf(
+            "Access-Control-Allow-Origin"  to "*",
+            "Access-Control-Allow-Methods" to "GET",
+            "Cache-Control"                to "max-age=2592000"  // 30 días
+        )
+        return WebResourceResponse(mimeType, "UTF-8", 200, "OK", headers,
+            ByteArrayInputStream(data))
     }
 
     private fun downloadTile(url: String): ByteArray? {
@@ -141,5 +147,10 @@ class CachingWebViewClient(
         url.contains(".jpg") || url.contains(".jpeg") -> "image/jpeg"
         url.contains(".webp")                          -> "image/webp"
         else                                           -> "image/png"
+    }
+
+    private fun sha256(input: String): String {
+        val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
     }
 }

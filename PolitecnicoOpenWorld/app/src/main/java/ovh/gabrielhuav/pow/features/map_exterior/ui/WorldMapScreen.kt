@@ -357,16 +357,18 @@ private fun CacheStatusWidget(
         )
 
         // Fila de mapa — solo si el proveedor no es OSM (osmdroid no reporta por tile)
-        val tileLabel = when (tileSource) {
-            TileSource.LOCAL_OSM   -> "Local (osmdroid)"
-            TileSource.LOCAL_CACHE -> "Local (caché)"
-            TileSource.NETWORK     -> "Red"
+        if (mapProvider != MapProvider.OSM) {
+            val tileLabel = when (tileSource) {
+                TileSource.LOCAL_OSM   -> "Local (osmdroid)"
+                TileSource.LOCAL_CACHE -> "Local (caché)"
+                TileSource.NETWORK     -> "Red"
+            }
+            val tileColor = when (tileSource) {
+                TileSource.LOCAL_OSM, TileSource.LOCAL_CACHE -> Color(0xFF4CAF50)
+                TileSource.NETWORK                           -> Color(0xFF2196F3)
+            }
+            CacheChip(label = "Mapa", text = tileLabel, color = tileColor, isLoading = false)
         }
-        val tileColor = when (tileSource) {
-            TileSource.LOCAL_OSM, TileSource.LOCAL_CACHE -> Color(0xFF4CAF50)
-            TileSource.NETWORK                           -> Color(0xFF2196F3)
-        }
-        CacheChip(label = "Mapa", text = tileLabel, color = tileColor, isLoading = false)
     }
 }
 

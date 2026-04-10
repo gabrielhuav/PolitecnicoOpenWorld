@@ -88,7 +88,7 @@ class TileCache(context: Context) {
     // ─── SQLITEOPENHELPER ─────────────────────────────────────────────────────────
 
     private inner class TileDatabase(dbFile: File) :
-        SQLiteOpenHelper(null, dbFile.absolutePath, null, 2) {
+        SQLiteOpenHelper(context.applicationContext, dbFile.absolutePath, null, 2) {
 
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL("""

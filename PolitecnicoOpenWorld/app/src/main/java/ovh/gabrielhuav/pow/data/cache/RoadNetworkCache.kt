@@ -80,6 +80,7 @@ class RoadNetworkCache(private val dao: RoadNetworkDao) {
             for ((pos, node) in way.nodes.withIndex()) {
                 nodeEntities.add(RoadNodeEntity(
                     wayId    = way.id,
+                    cellKey  = key,
                     nodeId   = node.id,
                     position = pos,
                     latInt   = (node.lat * 1_000_000).toLong(),

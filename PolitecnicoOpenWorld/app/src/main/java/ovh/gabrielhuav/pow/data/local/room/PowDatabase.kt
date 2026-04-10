@@ -16,7 +16,7 @@ import java.io.File
         RoadWayEntity::class,
         RoadNodeEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class PowDatabase : RoomDatabase() {

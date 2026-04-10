@@ -21,10 +21,9 @@ interface RoadNetworkDao {
     suspend fun getWaysForZone(cellKey: String): List<RoadWayEntity>
 
     @Query("""
-        SELECT rn.* FROM road_nodes rn
-        INNER JOIN road_ways rw ON rn.wayId = rw.wayId
-        WHERE rw.cellKey = :cellKey
-        ORDER BY rn.wayId, rn.position
+        SELECT * FROM road_nodes
+        WHERE cellKey = :cellKey
+        ORDER BY wayId, position
     """)
     suspend fun getNodesForZone(cellKey: String): List<RoadNodeEntity>
 

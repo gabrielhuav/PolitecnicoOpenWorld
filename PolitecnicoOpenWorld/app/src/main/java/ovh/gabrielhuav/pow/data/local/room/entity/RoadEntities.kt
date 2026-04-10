@@ -24,9 +24,14 @@ data class RoadZoneEntity(
 /**
  * Un segmento de calle (way de OSM).
  * Separado de los nodos para normalizar y ahorrar espacio.
+ *
+ * PK compuesta (cellKey, wayId): un mismo way de OSM puede cruzar varias zonas;
+ * con esta clave cada combinación zona+way es independiente, por lo que cachear
+ * una zona vecina no sobreescribe ni invalida los datos de otra zona.
  */
 @Entity(
     tableName = "road_ways",
+    primaryKeys = ["cellKey", "wayId"],
     foreignKeys = [ForeignKey(
         entity = RoadZoneEntity::class,
         parentColumns = ["cellKey"],
@@ -36,7 +41,7 @@ data class RoadZoneEntity(
     indices = [Index("cellKey")]
 )
 data class RoadWayEntity(
-    @PrimaryKey val wayId: Long,
+    val wayId: Long,
     val cellKey: String,
     val isForCars: Boolean,
     val isForPeople: Boolean
@@ -47,21 +52,25 @@ data class RoadWayEntity(
  * y eficiencia — evita el overhead de columnas REAL en SQLite.
  *
  * Ejemplo: lat 19.504512 → latInt 19504512
+ *
+ * cellKey se incluye para que la FK referencia la PK compuesta (cellKey, wayId)
+ * de road_ways, garantizando que el CASCADE borre los nodos correctos al eliminar
+ * una zona sin tocar los nodos de la misma way en otras zonas.
  */
 @Entity(
     tableName = "road_nodes",
     foreignKeys = [ForeignKey(
         entity = RoadWayEntity::class,
-        parentColumns = ["wayId"],
-        childColumns = ["wayId"],
+        parentColumns = ["cellKey", "wayId"],
+        childColumns  = ["cellKey", "wayId"],
         onDelete = ForeignKey.CASCADE
     )],
-    indices = [Index("wayId")]
+    indices = [Index("wayId"), Index("cellKey")]
 )
 data class RoadNodeEntity(
-    // PK compuesta: wayId + posición en la secuencia del way
     @PrimaryKey(autoGenerate = true) val nodeRowId: Long = 0,
     val wayId: Long,
+    val cellKey: String,    // Zona a la que pertenece este nodo (requerido por FK compuesta)
     val nodeId: Long,
     val position: Int,      // Orden del nodo dentro del way
     val latInt: Long,       // lat × 1_000_000
