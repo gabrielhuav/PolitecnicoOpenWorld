@@ -90,7 +90,7 @@ fun WorldMapScreen(
             return@Box
         }
 
-        // ─���─ CAPA 1: MAPA ────────────────────────────────────────────────────────
+        // ───── CAPA 1: MAPA ────────────────────────────────────────────────────────
         if (uiState.mapProvider == MapProvider.OSM) {
             AndroidView(
                 factory = { ctx ->

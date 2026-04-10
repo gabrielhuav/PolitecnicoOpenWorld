@@ -95,9 +95,7 @@ class WorldMapViewModel(
                 var retryMs = 1_000L
 
                 while (isActive && roadNetwork.isEmpty()) {
-                    val network = withContext(Dispatchers.IO) {
-                        overpassRepository.fetchRoadNetwork(initialLoc.latitude, initialLoc.longitude)
-                    }
+                    val network = overpassRepository.fetchRoadNetwork(initialLoc.latitude, initialLoc.longitude)
                     if (network.isNotEmpty()) {
                         // Marcar NETWORK mientras se usa, luego LOCAL_DB cuando ya esté guardado
                         _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }

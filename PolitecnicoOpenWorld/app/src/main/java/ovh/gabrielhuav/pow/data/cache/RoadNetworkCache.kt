@@ -48,6 +48,10 @@ class RoadNetworkCache(private val dao: RoadNetworkDao) {
         }
 
         val result = reconstituteNetwork(wayEntities, nodeEntities)
+        if (result.isEmpty()) {
+            Log.w(TAG, "Zona $key sin nodos válidos — se re-descargará")
+            return@withContext null
+        }
         Log.d(TAG, "HIT: $key → ${result.size} ways (${ageMs / 3_600_000}h de antigüedad)")
         result
     }
