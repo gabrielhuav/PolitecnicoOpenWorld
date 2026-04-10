@@ -29,12 +29,12 @@ data class WorldMapState(
     val isRoadNetworkReady: Boolean = false,
     val roadSource: RoadSource = RoadSource.LOADING,
     val tileSource: TileSource = TileSource.NETWORK,
-    val showCacheWidget: Boolean = true
+    val showCacheWidget: Boolean = true,
+    val showFpsWidget: Boolean = false // ← Agregado
 ) {
     companion object {
-        const val ZOOM_LOADING        = 17.0   // Zoom amplio durante carga
-        const val ZOOM_GAMEPLAY_OSM   = 21.0   // Zoom GTA para OSM nativo
-        const val ZOOM_GAMEPLAY_WEB   = 18.0   // Zoom más alejado para proveedores web
-        // (tiles web son más lentos de cargar)
+        const val ZOOM_LOADING        = 17.0
+        const val ZOOM_GAMEPLAY_OSM   = 21.0
+        const val ZOOM_GAMEPLAY_WEB   = 18.0
     }
 }

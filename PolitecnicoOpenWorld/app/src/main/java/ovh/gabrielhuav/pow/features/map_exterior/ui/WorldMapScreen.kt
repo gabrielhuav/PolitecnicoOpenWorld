@@ -48,14 +48,31 @@ fun WorldMapScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    // ── CÁLCULO DE FPS REAL (Solo se ejecuta si el widget está encendido) ──
+    var currentFps by remember { mutableIntStateOf(0) }
+    if (uiState.showFpsWidget) {
+        LaunchedEffect(Unit) {
+            var frameCount = 0
+            var lastTime = System.currentTimeMillis()
+            while (true) {
+                withFrameNanos {
+                    frameCount++
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastTime >= 1000) {
+                        currentFps = frameCount
+                        frameCount = 0
+                        lastTime = currentTime
+                    }
+                }
+            }
+        }
+    }
+
     DisposableEffect(Unit) {
         viewModel.startGameLoop()
         onDispose { viewModel.stopGameLoop() }
     }
 
-    // CachingWebViewClient: creado una sola vez.
-    // getCurrentProvider usa lambda que lee uiState en tiempo de ejecución,
-    // así siempre devuelve el proveedor actual aunque el usuario lo cambie.
     val tileCache = viewModel.tileCache
     val cachingClient = remember(tileCache) {
         CachingWebViewClient(
@@ -69,12 +86,11 @@ fun WorldMapScreen(
 
         if (uiState.isLoadingLocation) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            Text("Iniciando mundo...",
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp))
+            Text("Iniciando mundo...", modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp))
             return@Box
         }
 
-        // ─── CAPA 1: MAPA ─────────────────────────────────────────────────────────
+        // ─���─ CAPA 1: MAPA ────────────────────────────────────────────────────────
         if (uiState.mapProvider == MapProvider.OSM) {
             AndroidView(
                 factory = { ctx ->
@@ -136,8 +152,7 @@ fun WorldMapScreen(
                         webViewClient = cachingClient
                         val lat = uiState.currentLocation?.latitude ?: 0.0
                         val lng = uiState.currentLocation?.longitude ?: 0.0
-                        loadDataWithBaseURL(null, buildHtml(lat, lng, uiState.zoomLevel.toInt()),
-                            "text/html", "UTF-8", null)
+                        loadDataWithBaseURL(null, buildHtml(lat, lng, uiState.zoomLevel.toInt()), "text/html", "UTF-8", null)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -166,7 +181,7 @@ fun WorldMapScreen(
             )
         }
 
-        // ─── CAPA 2: JUGADOR ──────────────────────────────────────────────────────
+        // ─── CAPA 2: JUGADOR ────────────────────────────────────────────────────
         Box(
             modifier = Modifier.align(Alignment.Center).size(22.dp)
                 .shadow(2.dp, CircleShape).clip(CircleShape)
@@ -190,18 +205,27 @@ fun WorldMapScreen(
             }
         }
 
-        // ─── CAPA 4: WIDGET DE DIAGNÓSTICO DE CACHÉ ───────────────────────────────
-        AnimatedVisibility(
-            visible = uiState.showCacheWidget,
-            enter   = fadeIn(),
-            exit    = fadeOut(),
-            modifier = Modifier.align(Alignment.TopStart).padding(top = 64.dp, start = 12.dp)
+        // ─── CAPA 4: WIDGETS DE DIAGNÓSTICO DE CACHÉ Y FPS ─────────────────────────
+        Column(
+            modifier = Modifier.align(Alignment.TopStart).padding(top = 64.dp, start = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CacheStatusWidget(
-                roadSource  = uiState.roadSource,
-                tileSource  = uiState.tileSource,
-                mapProvider = uiState.mapProvider
-            )
+            AnimatedVisibility(visible = uiState.showCacheWidget, enter = fadeIn(), exit = fadeOut()) {
+                CacheStatusWidget(
+                    roadSource  = uiState.roadSource,
+                    tileSource  = uiState.tileSource,
+                    mapProvider = uiState.mapProvider
+                )
+            }
+
+            AnimatedVisibility(visible = uiState.showFpsWidget, enter = fadeIn(), exit = fadeOut()) {
+                CacheChip(
+                    label = "Rendimiento",
+                    text  = "$currentFps FPS",
+                    color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F),
+                    isLoading = false
+                )
+            }
         }
 
         // ─── CAPA 5: BOTÓN DE AJUSTES ─────────────────────────────────────────────
@@ -211,7 +235,7 @@ fun WorldMapScreen(
                 .background(Color.White.copy(alpha = 0.8f), CircleShape)
         ) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
 
-        // ─── CAPA 6: ZOOM ─────────────────────────────────────────────────────────
+        // ─── CAPA 6: ZOOM ─────────────────────────────────────────────────────
         Column(
             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -224,7 +248,7 @@ fun WorldMapScreen(
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
         }
 
-        // ─── CAPA 7: D-PAD ────────────────────────────────────────────────────────
+        // ─── CAPA 7: D-PAD ─────────────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
                 .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
@@ -235,7 +259,7 @@ fun WorldMapScreen(
             ActionButtonsController(onActionPressed = { viewModel.executeAction(it) })
         }
 
-        // ─── DIÁLOGO DE AJUSTES ───────────────────────────────────────────────────
+        // ─── DIÁLOGO DE AJUSTES IN-GAME ───────────────────────────────────────────────────
         if (uiState.showSettingsDialog) {
             var expanded by remember { mutableStateOf(false) }
             androidx.compose.ui.window.Dialog(onDismissRequest = { viewModel.toggleSettingsDialog(false) }) {
@@ -256,7 +280,7 @@ fun WorldMapScreen(
                         Text("PROVEEDOR DE MAPA", color = Color(0xFFD4AF37), fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp))
-                        Box(Modifier.fillMaxWidth()) {
+                        Box(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
                             OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = Color.White, containerColor = Color(0xFF2A1C21)),
@@ -278,8 +302,6 @@ fun WorldMapScreen(
                             }
                         }
 
-                        Spacer(Modifier.height(20.dp))
-
                         // ── Toggle widget de caché ──────────────────────────────
                         Row(
                             modifier = Modifier.fillMaxWidth()
@@ -290,20 +312,35 @@ fun WorldMapScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text("Widget de caché", color = Color.White,
-                                    fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Muestra fuente de datos en pantalla",
-                                    color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                                Text("Widget de caché", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Muestra fuente de datos", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
                             }
                             Switch(
                                 checked = uiState.showCacheWidget,
-                                onCheckedChange = { viewModel.toggleCacheWidget() },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor   = Color(0xFFD4AF37),
-                                    checkedTrackColor   = Color(0xFF6B1C3A),
-                                    uncheckedThumbColor = Color.Gray,
-                                    uncheckedTrackColor = Color(0xFF1A1A1A)
-                                )
+                                onCheckedChange = { viewModel.updateShowCacheWidget(it) }, // Agregaremos esta función al VM abajo
+                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+                            )
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // ── Toggle widget de FPS ──────────────────────────────
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF2A1C21))
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Widget de FPS", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Mide el rendimiento gráfico", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = uiState.showFpsWidget,
+                                onCheckedChange = { viewModel.updateShowFpsWidget(it) }, // Agregaremos esta función al VM abajo
+                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
                             )
                         }
 
@@ -329,7 +366,7 @@ fun WorldMapScreen(
     }
 }
 
-// ─── WIDGET DE DIAGNÓSTICO ────────────────────────────────────────────────────
+// ─── WIDGETS DE DIAGNÓSTICO (Originales intactos) ─────────────────────────────
 
 @Composable
 private fun CacheStatusWidget(
@@ -340,7 +377,6 @@ private fun CacheStatusWidget(
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Fila de calles
         CacheChip(
             label = "Calles",
             text  = when (roadSource) {
@@ -356,7 +392,6 @@ private fun CacheStatusWidget(
             isLoading = roadSource == RoadSource.LOADING
         )
 
-        // Fila de mapa — solo si el proveedor no es OSM (osmdroid no reporta por tile)
         if (mapProvider != MapProvider.OSM) {
             val tileLabel = when (tileSource) {
                 TileSource.LOCAL_OSM   -> "Local (osmdroid)"
@@ -373,12 +408,7 @@ private fun CacheStatusWidget(
 }
 
 @Composable
-private fun CacheChip(
-    label: String,
-    text: String,
-    color: Color,
-    isLoading: Boolean
-) {
+private fun CacheChip(label: String, text: String, color: Color, isLoading: Boolean) {
     Row(
         modifier = Modifier
             .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
@@ -387,23 +417,11 @@ private fun CacheChip(
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         if (isLoading) {
-            CircularProgressIndicator(
-                modifier  = Modifier.size(8.dp),
-                color     = color,
-                strokeWidth = 1.5.dp
-            )
+            CircularProgressIndicator(modifier = Modifier.size(8.dp), color = color, strokeWidth = 1.5.dp)
         } else {
-            Box(
-                Modifier.size(8.dp)
-                    .background(color, CircleShape)
-            )
+            Box(Modifier.size(8.dp).background(color, CircleShape))
         }
-        Text(
-            text       = "$label: $text",
-            color      = Color.White,
-            fontSize   = 11.sp,
-            fontWeight = FontWeight.Medium
-        )
+        Text(text = "$label: $text", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }
 

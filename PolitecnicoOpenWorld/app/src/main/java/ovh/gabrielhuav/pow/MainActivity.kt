@@ -72,9 +72,10 @@ class MainActivity : ComponentActivity() {
                             }
                         ) {
                             MainMenuScreen(
-                                // Recibe el provider elegido en el menú y lo aplica al ViewModel
-                                onNavigateToMap = { chosenProvider ->
+                                onNavigateToMap = { chosenProvider, cacheEnabled, fpsEnabled ->
                                     worldMapViewModel.setMapProvider(chosenProvider)
+                                    worldMapViewModel.toggleCacheWidget(cacheEnabled)
+                                    worldMapViewModel.toggleFpsWidget(fpsEnabled)
                                     navController.navigate("world_map") {
                                         popUpTo("main_menu") { inclusive = true }
                                     }

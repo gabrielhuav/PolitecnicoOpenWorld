@@ -4,5 +4,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 
 data class MainMenuState(
     val isLoading: Boolean = false,
-    val selectedProvider: MapProvider = MapProvider.OSM
+    val selectedProvider: MapProvider = MapProvider.OSM,
+    val showCacheWidget: Boolean = true,   // ← Agregado
+    val showFpsWidget: Boolean = false     // ← Agregado
 )
