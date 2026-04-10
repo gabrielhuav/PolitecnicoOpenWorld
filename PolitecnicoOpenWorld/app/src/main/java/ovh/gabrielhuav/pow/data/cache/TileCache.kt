@@ -22,10 +22,10 @@ import java.io.File
  *   data     BLOB  — bytes PNG/JPG del tile
  *   created_at INT — timestamp para TTL
  */
-class TileCache(context: Context) {
+class TileCache(private val appContext: Context) {
 
     private val TAG      = "TileCache"
-    private val tilesDir = File(context.filesDir, "mbtiles").also { it.mkdirs() }
+    private val tilesDir = File(appContext.filesDir, "mbtiles").also { it.mkdirs() }
 
     private val helpers     = HashMap<String, TileDatabase>()
     private val helpersLock = Any()
@@ -88,7 +88,7 @@ class TileCache(context: Context) {
     // ─── SQLITEOPENHELPER ─────────────────────────────────────────────────────────
 
     private inner class TileDatabase(dbFile: File) :
-        SQLiteOpenHelper(context.applicationContext, dbFile.absolutePath, null, 2) {
+        SQLiteOpenHelper(appContext.applicationContext, dbFile.absolutePath, null, 2) {
 
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL("""
