@@ -16,6 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
+import ovh.gabrielhuav.pow.data.cache.TileCache
+import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
@@ -33,222 +35,171 @@ enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
 
 class WorldMapViewModel(
-    private val roadNetworkCache: RoadNetworkCache
+    private val roadNetworkCache: RoadNetworkCache,
+    val tileCache: TileCache
 ) : ViewModel() {
 
-    // ─── FACTORY ─────────────────────────────────────────────────────────────────
-    /**
-     * Factory necesaria porque el ViewModel recibe un parámetro (Context para la caché).
-     * Se usa en WorldMapScreen: viewModel(factory = WorldMapViewModel.Factory(context))
-     */
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val appCtx = context.applicationContext
             return WorldMapViewModel(
-                roadNetworkCache = RoadNetworkCache(context.applicationContext)
+                roadNetworkCache = RoadNetworkCache(PowDatabase.getInstance(appCtx).roadNetworkDao()),
+                tileCache        = TileCache(appCtx)
             ) as T
         }
     }
 
-    // ─── STATE ───────────────────────────────────────────────────────────────────
     private val _uiState = MutableStateFlow(WorldMapState())
     val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
 
-    private val npcAiManager = NpcAiManager()
+    private val npcAiManager      = NpcAiManager()
     private val overpassRepository = OverpassRepository()
-
     private var roadNetwork: List<MapWay> = emptyList()
     private var lastNetworkFetchLocation: GeoPoint? = null
     private var gameLoopJob: Job? = null
     private var tickCount = 0
+    private val isFetchingNetwork  = AtomicBoolean(false)
+    private var lastFetchAttemptMs = 0L
 
-    // ─── CONTROL DE FETCH ────────────────────────────────────────────────────────
-    private val isFetchingNetwork = AtomicBoolean(false)
-    private var lastFetchAttemptTimeMs = 0L
-
-    /**
-     * Distancia mínima (en grados) que el jugador debe alejarse del último punto de
-     * descarga para considerar buscar datos nuevos.
-     *
-     * Con radio de descarga de 2000m (~0.018°), usamos 0.015° como umbral de re-fetch.
-     * Esto garantiza que siempre haya al menos ~300m de "buffer" de calles por delante.
-     */
-    private val REFETCH_DISTANCE_DEGREES = 0.015
-
-    /**
-     * Tiempo mínimo entre intentos de fetch fallidos (5 minutos).
-     * Evita martillear Overpass si el servidor está lento o sin conexión.
-     */
-    private val REFETCH_COOLDOWN_MS = 5 * 60 * 1000L
+    private val REFETCH_DISTANCE_DEG = 0.015
+    private val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
 
     // ─── GAME LOOP ───────────────────────────────────────────────────────────────
 
     fun startGameLoop() {
         if (gameLoopJob?.isActive == true) return
-
         gameLoopJob = viewModelScope.launch {
 
-            // Esperar a tener ubicación antes de hacer cualquier cosa
-            while (_uiState.value.currentLocation == null) {
-                delay(100)
-            }
+            while (_uiState.value.currentLocation == null) { delay(100) }
             val initialLoc = _uiState.value.currentLocation!!
 
-            // PASO 1: Intentar cargar desde caché (rápido, sin red)
-            val cachedNetwork = roadNetworkCache.get(initialLoc.latitude, initialLoc.longitude)
+            // Tiles OSM nativo → siempre local (osmdroid maneja su caché)
+            if (_uiState.value.mapProvider == MapProvider.OSM) {
+                _uiState.update { it.copy(tileSource = TileSource.LOCAL_OSM) }
+            }
 
-            if (cachedNetwork != null) {
-                // ¡HIT de caché! Arrancar inmediatamente sin tocar la red.
-                applyRoadNetwork(cachedNetwork, initialLoc)
+            // ── PASO 1: Intentar Room ──────────────────────────────────────────
+            val cached = roadNetworkCache.get(initialLoc.latitude, initialLoc.longitude)
+            if (cached != null) {
+                android.util.Log.d("WorldMapVM", "Room HIT inicio: ${roadNetworkCache.getStats()}")
+                // Marcar LOCAL_DB ANTES de applyRoadNetwork para que el widget ya lo muestre
+                _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                applyRoadNetwork(cached, initialLoc)
                 lastNetworkFetchLocation = initialLoc
-
-                // Log de diagnóstico
-                val stats = roadNetworkCache.getStats()
-                android.util.Log.d("WorldMapVM", "Caché HIT al iniciar. $stats")
             } else {
-                // MISS: Hay que descargar. Retry con backoff exponencial.
-                android.util.Log.d("WorldMapVM", "Caché MISS al iniciar. Descargando de Overpass...")
-                var retryDelayMs = 1_000L
+                // ── PASO 2: Overpass con backoff ───────────────────────────────
+                android.util.Log.d("WorldMapVM", "Room MISS inicio — Overpass")
+                _uiState.update { it.copy(roadSource = RoadSource.LOADING) }
+                var retryMs = 1_000L
 
                 while (isActive && roadNetwork.isEmpty()) {
                     val network = withContext(Dispatchers.IO) {
-                        overpassRepository.fetchRoadNetwork(
-                            initialLoc.latitude, initialLoc.longitude
-                        )
+                        overpassRepository.fetchRoadNetwork(initialLoc.latitude, initialLoc.longitude)
                     }
-
                     if (network.isNotEmpty()) {
-                        // Guardar en caché en background — no bloquea el game loop
-                        launch(Dispatchers.IO) {
-                            roadNetworkCache.put(initialLoc.latitude, initialLoc.longitude, network)
-                        }
+                        // Marcar NETWORK mientras se usa, luego LOCAL_DB cuando ya esté guardado
+                        _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
                         applyRoadNetwork(network, initialLoc)
                         lastNetworkFetchLocation = initialLoc
+
+                        // Guardar en Room y luego actualizar widget a LOCAL_DB
+                        launch(Dispatchers.IO) {
+                            roadNetworkCache.put(initialLoc.latitude, initialLoc.longitude, network)
+                            withContext(Dispatchers.Main) {
+                                _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                                android.util.Log.d("WorldMapVM", "Calles guardadas en Room ✓")
+                            }
+                        }
                         break
                     } else {
-                        withContext(Dispatchers.Main) {
-                            _uiState.update { it.copy(isRoadNetworkReady = false) }
-                        }
-                        delay(retryDelayMs)
-                        retryDelayMs = (retryDelayMs * 2).coerceAtMost(30_000L)
+                        _uiState.update { it.copy(isRoadNetworkReady = false) }
+                        delay(retryMs)
+                        retryMs = (retryMs * 2).coerceAtMost(30_000L)
                     }
                 }
             }
 
-            // PASO 2: Game loop principal — corre a ~30fps
+            // ── PASO 3: Game loop ~30fps ───────────────────────────────────────
             while (isActive) {
                 _uiState.value.currentLocation?.let { location ->
                     maybeRefetchRoadNetwork(location)
-
                     if (_uiState.value.isRoadNetworkReady) {
                         tickCount++
-                        // Actualizar NPCs cada 3 ticks (~100ms) para no sobrecargar la CPU
                         if (tickCount % 3 == 0) {
                             npcAiManager.updateNpcs(location)
                             _uiState.update { it.copy(npcs = npcAiManager.npcs.value) }
                         }
                     }
                 }
-                delay(33) // ~30fps
+                delay(33)
             }
         }
     }
 
-    fun stopGameLoop() {
-        gameLoopJob?.cancel()
-        gameLoopJob = null
-    }
+    fun stopGameLoop() { gameLoopJob?.cancel(); gameLoopJob = null }
 
-    /**
-     * Aplica una red de calles descargada o cargada desde caché al estado del juego.
-     * Siempre debe llamarse con la red ya validada (no vacía).
-     *
-     * ZOOM CINEMATOGRÁFICO:
-     * Al confirmar que las calles están listas, hacemos zoom-in progresivo de
-     * ZOOM_LOADING (17) → ZOOM_GAMEPLAY (21). Esto da el efecto de "acercarse a
-     * la calle" estilo GTA y garantiza que osmdroid haya tenido tiempo de cachear
-     * tiles a zoom 17 antes de pasar al zoom más cercano.
-     */
     private suspend fun applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
         roadNetwork = network
         npcAiManager.updateRoadNetwork(network)
-
-        val snappedLocation = withContext(Dispatchers.Default) {
-            getNearestPointOnNetwork(playerLocation)
-        }
-
+        val snapped = withContext(Dispatchers.Default) { getNearestPointOnNetwork(playerLocation) }
         withContext(Dispatchers.Main) {
-            _uiState.update {
-                it.copy(
-                    currentLocation = snappedLocation,
-                    isRoadNetworkReady = true
-                )
-            }
+            _uiState.update { it.copy(currentLocation = snapped, isRoadNetworkReady = true) }
         }
+        // Zoom-in cinematográfico: diferente según proveedor
+        // OSM nativo: 17 → 21 (tiles locales, rápido)
+        // Proveedores web: 17 → 18 (tiles remotos, menos zoom para cargar bien)
+        val targetZoom = if (_uiState.value.mapProvider.isWebProvider)
+            WorldMapState.ZOOM_GAMEPLAY_WEB
+        else
+            WorldMapState.ZOOM_GAMEPLAY_OSM
 
-        // Zoom-in cinematográfico: 17 → 18 → 19 → 20 → 21
-        // Solo si el usuario no hizo zoom manual antes de que terminara la carga
         if (_uiState.value.zoomLevel <= WorldMapState.ZOOM_LOADING) {
             var z = WorldMapState.ZOOM_LOADING + 1.0
-            while (z <= WorldMapState.ZOOM_GAMEPLAY) {
-                delay(120) // 120ms por paso → animación total ~480ms
-                withContext(Dispatchers.Main) {
-                    _uiState.update { it.copy(zoomLevel = z) }
-                }
+            while (z <= targetZoom) {
+                delay(120)
+                withContext(Dispatchers.Main) { _uiState.update { it.copy(zoomLevel = z) } }
                 z += 1.0
             }
         }
     }
 
-    /**
-     * Comprueba si hay que descargar una nueva zona y lanza la descarga si es necesario.
-     *
-     * LÓGICA (en orden de prioridad):
-     * 1. ¿El jugador sigue cerca del último punto de descarga? → No hacer nada.
-     * 2. ¿Estamos en cooldown por un intento fallido reciente? → No hacer nada.
-     * 3. ¿Ya hay una descarga en curso? → No duplicar.
-     * 4. ¿Hay datos en caché para esta nueva zona? → Cargar desde caché.
-     * 5. Sin caché → Llamar a Overpass.
-     */
     private fun maybeRefetchRoadNetwork(currentLoc: GeoPoint) {
-        val lastLoc = lastNetworkFetchLocation
-        val distanceMoved = if (lastLoc != null) distance(lastLoc, currentLoc) else Double.MAX_VALUE
-
-        if (distanceMoved < REFETCH_DISTANCE_DEGREES) return
+        val moved = if (lastNetworkFetchLocation != null)
+            distance(lastNetworkFetchLocation!!, currentLoc) else Double.MAX_VALUE
+        if (moved < REFETCH_DISTANCE_DEG) return
 
         val now = System.currentTimeMillis()
-        if (now - lastFetchAttemptTimeMs < REFETCH_COOLDOWN_MS) return
+        if (now - lastFetchAttemptMs < REFETCH_COOLDOWN_MS) return
         if (!isFetchingNetwork.compareAndSet(false, true)) return
-
-        lastFetchAttemptTimeMs = now
+        lastFetchAttemptMs = now
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Intentar caché primero (operación de disco, rápida)
                 val cached = roadNetworkCache.get(currentLoc.latitude, currentLoc.longitude)
-
                 if (cached != null) {
-                    android.util.Log.d("WorldMapVM", "Caché HIT al moverse a zona nueva.")
+                    android.util.Log.d("WorldMapVM", "Room HIT al moverse")
                     withContext(Dispatchers.Main) {
                         roadNetwork = cached
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
-                        // No reseteamos isRoadNetworkReady — ya estaba true
+                        _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                     }
                 } else {
-                    // Overpass como último recurso
-                    android.util.Log.d("WorldMapVM", "Caché MISS al moverse. Descargando...")
+                    android.util.Log.d("WorldMapVM", "Room MISS al moverse — Overpass")
+                    withContext(Dispatchers.Main) {
+                        _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
+                    }
                     val network = overpassRepository.fetchRoadNetwork(
-                        currentLoc.latitude, currentLoc.longitude
-                    )
+                        currentLoc.latitude, currentLoc.longitude)
                     if (network.isNotEmpty()) {
-                        // Guardar en caché para la próxima vez
                         roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
-
                         withContext(Dispatchers.Main) {
                             roadNetwork = network
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
+                            // Una vez guardado en Room, mostrar LOCAL_DB
+                            _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                         }
                     }
                 }
@@ -258,185 +209,132 @@ class WorldMapViewModel(
         }
     }
 
-    // ─── MOVIMIENTO DEL JUGADOR ───────────────────────────────────────────────────
+    // ─── NOTIFICACIÓN DE TILES (WebView) ─────────────────────────────────────────
+
+    fun notifyTileSource(fromCache: Boolean) {
+        if (_uiState.value.mapProvider == MapProvider.OSM) return
+        val source = if (fromCache) TileSource.LOCAL_CACHE else TileSource.NETWORK
+        if (_uiState.value.tileSource != source) {
+            _uiState.update { it.copy(tileSource = source) }
+        }
+    }
+
+    // ─── MOVIMIENTO ───────────────────────────────────────────────────────────────
 
     fun moveCharacter(direction: Direction) {
-        val currentLoc = _uiState.value.currentLocation ?: return
+        val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
-
-        val stepDegrees = 0.000003
-
-        val tempLocation = when (direction) {
-            Direction.UP    -> GeoPoint(currentLoc.latitude + stepDegrees, currentLoc.longitude)
-            Direction.DOWN  -> GeoPoint(currentLoc.latitude - stepDegrees, currentLoc.longitude)
-            Direction.LEFT  -> GeoPoint(currentLoc.latitude, currentLoc.longitude - stepDegrees)
-            Direction.RIGHT -> GeoPoint(currentLoc.latitude, currentLoc.longitude + stepDegrees)
+        val step = 0.000003
+        val temp = when (direction) {
+            Direction.UP    -> GeoPoint(loc.latitude + step, loc.longitude)
+            Direction.DOWN  -> GeoPoint(loc.latitude - step, loc.longitude)
+            Direction.LEFT  -> GeoPoint(loc.latitude, loc.longitude - step)
+            Direction.RIGHT -> GeoPoint(loc.latitude, loc.longitude + step)
         }
-
-        val nearestPoint = getNearestPointOnNetwork(tempLocation)
-        val distToCenter = distance(tempLocation, nearestPoint)
-        val streetRadiusDegrees = 0.000012
-
-        if (distToCenter <= streetRadiusDegrees) {
-            _uiState.update { it.copy(currentLocation = tempLocation) }
+        val nearest = getNearestPointOnNetwork(temp)
+        val dist    = distance(temp, nearest)
+        val radius  = 0.000012
+        if (dist <= radius) {
+            _uiState.update { it.copy(currentLocation = temp) }
         } else {
-            // Proyectar al borde de la calle más cercana
-            val angle = atan2(
-                tempLocation.latitude - nearestPoint.latitude,
-                tempLocation.longitude - nearestPoint.longitude
-            )
-            _uiState.update {
-                it.copy(
-                    currentLocation = GeoPoint(
-                        nearestPoint.latitude + sin(angle) * streetRadiusDegrees,
-                        nearestPoint.longitude + cos(angle) * streetRadiusDegrees
-                    )
-                )
-            }
+            val angle = atan2(temp.latitude - nearest.latitude, temp.longitude - nearest.longitude)
+            _uiState.update { it.copy(currentLocation = GeoPoint(
+                nearest.latitude  + sin(angle) * radius,
+                nearest.longitude + cos(angle) * radius
+            ))}
         }
     }
 
     // ─── SPATIAL INDEX ────────────────────────────────────────────────────────────
-    // Grid espacial para encontrar el segmento de calle más cercano en O(log N)
-    // en lugar de O(N), crítico cuando roadNetwork tiene miles de segmentos.
 
-    private data class NetworkSegment(
-        val start: GeoPoint,
-        val end: GeoPoint,
-        val minLat: Double, val maxLat: Double,
-        val minLon: Double, val maxLon: Double
-    )
+    private data class Seg(val s: GeoPoint, val e: GeoPoint,
+                           val minLat: Double, val maxLat: Double, val minLon: Double, val maxLon: Double)
 
-    private val SPATIAL_CELL_DEGREES = 0.0025
-    private var indexedRoadNetworkRef: List<MapWay>? = null
-    private var indexedSegments: List<NetworkSegment> = emptyList()
-    private var segmentGrid: Map<Long, List<NetworkSegment>> = emptyMap()
+    private val CELL = 0.0025
+    private var indexedRef: List<MapWay>?    = null
+    private var segs: List<Seg>              = emptyList()
+    private var grid: Map<Long, List<Seg>>   = emptyMap()
 
-    /**
-     * Reconstruye el índice espacial solo cuando la red de calles cambia.
-     * Usa una clave Long (cellLat * PRIME + cellLon) en lugar de Pair<Int,Int>
-     * para evitar el boxing/unboxing que tiene Pair con tipos primitivos.
-     */
-    private fun ensureSpatialIndex() {
-        if (indexedRoadNetworkRef === roadNetwork) return
-
-        val newSegments = ArrayList<NetworkSegment>(roadNetwork.sumOf { it.nodes.size })
-        // Long como clave elimina el overhead de Pair<Int,Int> (boxing)
-        val newGrid = HashMap<Long, MutableList<NetworkSegment>>()
-
+    private fun ensureIndex() {
+        if (indexedRef === roadNetwork) return
+        val newSegs = ArrayList<Seg>(roadNetwork.sumOf { it.nodes.size })
+        val newGrid = HashMap<Long, MutableList<Seg>>()
         for (way in roadNetwork) {
             for (i in 0 until way.nodes.size - 1) {
-                val n1 = way.nodes[i]
-                val n2 = way.nodes[i + 1]
-                val startLat = n1.lat; val startLon = n1.lon
-                val endLat   = n2.lat; val endLon   = n2.lon
-
-                val segment = NetworkSegment(
-                    start  = GeoPoint(startLat, startLon),
-                    end    = GeoPoint(endLat, endLon),
-                    minLat = min(startLat, endLat),
-                    maxLat = max(startLat, endLat),
-                    minLon = min(startLon, endLon),
-                    maxLon = max(startLon, endLon)
-                )
-                newSegments.add(segment)
-
-                val minCellLat = cellCoord(segment.minLat)
-                val maxCellLat = cellCoord(segment.maxLat)
-                val minCellLon = cellCoord(segment.minLon)
-                val maxCellLon = cellCoord(segment.maxLon)
-
-                for (cLat in minCellLat..maxCellLat) {
-                    for (cLon in minCellLon..maxCellLon) {
-                        newGrid.getOrPut(cellKey(cLat, cLon)) { mutableListOf() }.add(segment)
-                    }
-                }
+                val a = way.nodes[i]; val b = way.nodes[i + 1]
+                val seg = Seg(GeoPoint(a.lat, a.lon), GeoPoint(b.lat, b.lon),
+                    min(a.lat, b.lat), max(a.lat, b.lat), min(a.lon, b.lon), max(a.lon, b.lon))
+                newSegs.add(seg)
+                for (r in cell(seg.minLat)..cell(seg.maxLat))
+                    for (c in cell(seg.minLon)..cell(seg.maxLon))
+                        newGrid.getOrPut(pack(r, c)) { mutableListOf() }.add(seg)
             }
         }
-
-        indexedRoadNetworkRef = roadNetwork
-        indexedSegments = newSegments
-        segmentGrid = newGrid
+        indexedRef = roadNetwork; segs = newSegs; grid = newGrid
     }
 
-    private fun getCandidateSegments(loc: GeoPoint): List<NetworkSegment> {
-        val cLat = cellCoord(loc.latitude)
-        val cLon = cellCoord(loc.longitude)
-        val result = LinkedHashSet<NetworkSegment>()
-        for (dLat in -1..1) {
-            for (dLon in -1..1) {
-                segmentGrid[cellKey(cLat + dLat, cLon + dLon)]?.let { result.addAll(it) }
-            }
+    private fun candidates(loc: GeoPoint): List<Seg> {
+        val r = cell(loc.latitude); val c = cell(loc.longitude)
+        val res = LinkedHashSet<Seg>()
+        for (dr in -1..1) for (dc in -1..1) grid[pack(r + dr, c + dc)]?.let { res.addAll(it) }
+        return if (res.isNotEmpty()) res.toList() else segs
+    }
+
+    private fun pack(r: Int, c: Int): Long = r.toLong() * 1_000_003L + c.toLong()
+    private fun cell(v: Double): Int = floor(v / CELL).toInt()
+
+    private fun getNearestPointOnNetwork(t: GeoPoint): GeoPoint {
+        ensureIndex()
+        val cands = candidates(t); if (cands.isEmpty()) return t
+        var best = Double.MAX_VALUE; var pt = t
+        for (seg in cands) {
+            val p = project(t, seg.s, seg.e); val d = distance(t, p)
+            if (d < best) { best = d; pt = p }
         }
-        return if (result.isNotEmpty()) result.toList() else indexedSegments
+        return pt
     }
 
-    // Clave Long: evita boxing de Pair<Int,Int>. Número primo para reducir colisiones.
-    private fun cellKey(lat: Int, lon: Int): Long = lat.toLong() * 1_000_003L + lon.toLong()
-    private fun cellCoord(value: Double): Int = floor(value / SPATIAL_CELL_DEGREES).toInt()
-
-    private fun getNearestPointOnNetwork(target: GeoPoint): GeoPoint {
-        ensureSpatialIndex()
-        val candidates = getCandidateSegments(target)
-        if (candidates.isEmpty()) return target
-
-        var bestDist = Double.MAX_VALUE
-        var bestPoint = target
-
-        for (seg in candidates) {
-            val p = projectPointOnSegment(target, seg.start, seg.end)
-            val d = distance(target, p)
-            if (d < bestDist) { bestDist = d; bestPoint = p }
-        }
-        return bestPoint
-    }
-
-    private fun projectPointOnSegment(p: GeoPoint, v: GeoPoint, w: GeoPoint): GeoPoint {
+    private fun project(p: GeoPoint, v: GeoPoint, w: GeoPoint): GeoPoint {
         val l2 = (w.latitude - v.latitude).pow(2) + (w.longitude - v.longitude).pow(2)
         if (l2 == 0.0) return v
-        val t = ((p.latitude - v.latitude) * (w.latitude - v.latitude) +
-                (p.longitude - v.longitude) * (w.longitude - v.longitude)) / l2
-        val tc = max(0.0, min(1.0, t))
-        return GeoPoint(
-            v.latitude  + tc * (w.latitude  - v.latitude),
-            v.longitude + tc * (w.longitude - v.longitude)
-        )
+        val t = max(0.0, min(1.0, ((p.latitude - v.latitude) * (w.latitude - v.latitude) +
+                (p.longitude - v.longitude) * (w.longitude - v.longitude)) / l2))
+        return GeoPoint(v.latitude + t * (w.latitude - v.latitude),
+            v.longitude + t * (w.longitude - v.longitude))
     }
 
-    private fun distance(p1: GeoPoint, p2: GeoPoint): Double =
-        sqrt((p1.latitude - p2.latitude).pow(2) + (p1.longitude - p2.longitude).pow(2))
+    private fun distance(a: GeoPoint, b: GeoPoint): Double =
+        sqrt((a.latitude - b.latitude).pow(2) + (a.longitude - b.longitude).pow(2))
 
     // ─── API PÚBLICA ──────────────────────────────────────────────────────────────
 
-    fun updateInitialLocation(latitude: Double, longitude: Double) {
-        if (_uiState.value.isLoadingLocation) {
-            _uiState.update {
-                it.copy(
-                    currentLocation = GeoPoint(latitude, longitude),
-                    isLoadingLocation = false
-                )
-            }
-        }
+    fun updateInitialLocation(lat: Double, lon: Double) {
+        if (_uiState.value.isLoadingLocation)
+            _uiState.update { it.copy(currentLocation = GeoPoint(lat, lon), isLoadingLocation = false) }
     }
 
-    fun executeAction(action: GameAction) {
-        android.util.Log.d("GameAction", "Acción: $action")
-    }
+    fun executeAction(action: GameAction) { android.util.Log.d("GameAction", "$action") }
 
-    fun toggleSettingsDialog(show: Boolean) {
-        _uiState.update { it.copy(showSettingsDialog = show) }
-    }
+    fun toggleSettingsDialog(show: Boolean) = _uiState.update { it.copy(showSettingsDialog = show) }
 
     fun setMapProvider(provider: MapProvider) {
-        _uiState.update { it.copy(mapProvider = provider) }
+        val ts = if (provider == MapProvider.OSM) TileSource.LOCAL_OSM else TileSource.NETWORK
+        // Ajustar zoom al cambiar de proveedor si ya estamos en gameplay
+        val currentZoom = _uiState.value.zoomLevel
+        val newZoom = when {
+            provider == MapProvider.OSM && currentZoom < WorldMapState.ZOOM_GAMEPLAY_OSM ->
+                WorldMapState.ZOOM_GAMEPLAY_OSM
+            provider.isWebProvider && currentZoom > WorldMapState.ZOOM_GAMEPLAY_WEB ->
+                WorldMapState.ZOOM_GAMEPLAY_WEB
+            else -> currentZoom
+        }
+        _uiState.update { it.copy(mapProvider = provider, tileSource = ts, zoomLevel = newZoom) }
     }
 
-    fun zoomIn() {
-        _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
-    }
+    fun toggleCacheWidget() = _uiState.update { it.copy(showCacheWidget = !it.showCacheWidget) }
 
-    fun zoomOut() {
-        // Límite inferior: zoom 14 (más alejado que eso pierde el sentido de GTA)
-        _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
-    }
+    fun zoomIn()  = _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
+    fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
+
+    override fun onCleared() { super.onCleared(); tileCache.closeAll() }
 }

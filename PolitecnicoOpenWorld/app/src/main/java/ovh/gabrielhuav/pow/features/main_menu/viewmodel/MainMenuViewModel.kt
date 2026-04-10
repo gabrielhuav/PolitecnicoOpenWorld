@@ -4,15 +4,17 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
+
 
 class MainMenuViewModel : ViewModel() {
 
     private val _state = MutableStateFlow(MainMenuState())
     val state: StateFlow<MainMenuState> = _state.asStateFlow()
 
-    // Aquí iría la lógica si necesitaras cargar datos antes de iniciar
-    fun onStartGame() {
-        // Por ahora, no hace mucho, pero aquí podrías inicializar
-        // la base de datos local (Room) antes de cambiar de pantalla.
+    fun onStartGame() { /* futuro: inicializar Room antes de navegar */ }
+
+    fun setMapProvider(provider: MapProvider) {
+        _state.value = _state.value.copy(selectedProvider = provider)
     }
 }

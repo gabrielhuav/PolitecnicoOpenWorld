@@ -3,23 +3,20 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.WebView
-import android.webkit.WebViewClient
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,17 +34,16 @@ import org.osmdroid.views.overlay.Marker
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+import kotlin.math.abs
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun WorldMapScreen(
     context: Context,
-    // CAMBIO: Ahora usamos la Factory para que el ViewModel reciba el Context
-    // necesario para inicializar RoadNetworkCache.
-    viewModel: WorldMapViewModel = viewModel(
-        factory = WorldMapViewModel.Factory(context)
-    ),
+    viewModel: WorldMapViewModel = viewModel(factory = WorldMapViewModel.Factory(context)),
     onNavigateToMainMenu: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -57,18 +53,24 @@ fun WorldMapScreen(
         onDispose { viewModel.stopGameLoop() }
     }
 
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .systemBarsPadding()) {
+    // CachingWebViewClient: creado una sola vez.
+    // getCurrentProvider usa lambda que lee uiState en tiempo de ejecución,
+    // así siempre devuelve el proveedor actual aunque el usuario lo cambie.
+    val tileCache = viewModel.tileCache
+    val cachingClient = remember(tileCache) {
+        CachingWebViewClient(
+            tileCache          = tileCache,
+            getCurrentProvider = { viewModel.uiState.value.mapProvider },
+            onTileServed       = { fromCache -> viewModel.notifyTileSource(fromCache) }
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
 
         if (uiState.isLoadingLocation) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            Text(
-                "Iniciando mundo...",
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp)
-            )
+            Text("Iniciando mundo...",
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp))
             return@Box
         }
 
@@ -80,63 +82,40 @@ fun WorldMapScreen(
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(false)
                         setOnTouchListener { _, _ -> true }
-                        isClickable = false
-                        isFocusable = false
+                        isClickable = false; isFocusable = false
                         controller.setZoom(uiState.zoomLevel)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
                     uiState.currentLocation?.let { view.controller.setCenter(it) }
-
-                    // Durante el zoom-in cinematográfico usamos animateTo para suavizar.
-                    // En gameplay normal (pequeños ajustes de +/-1) usamos setZoom directo.
-                    val zoomDiff = kotlin.math.abs(view.zoomLevelDouble - uiState.zoomLevel)
-                    if (zoomDiff > 0.01) {
-                        if (zoomDiff > 1.5) {
-                            // Salto grande (zoom-in inicial): animar suavemente
-                            view.controller.animateTo(
-                                uiState.currentLocation,
-                                uiState.zoomLevel,
-                                120L
-                            )
-                        } else {
-                            // Ajuste manual de zoom (+/- botón): instantáneo
-                            view.controller.setZoom(uiState.zoomLevel)
-                        }
+                    val zoomDiff = abs(view.zoomLevelDouble - uiState.zoomLevel)
+                    when {
+                        zoomDiff < 0.01 -> {}
+                        zoomDiff > 1.5  -> view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
+                        else            -> view.controller.setZoom(uiState.zoomLevel)
                     }
-
                     if (uiState.isRoadNetworkReady) {
                         @Suppress("UNCHECKED_CAST")
-                        val cache = (view.tag as? MutableMap<String, Marker>)
+                        val markerCache = (view.tag as? MutableMap<String, Marker>)
                             ?: mutableMapOf<String, Marker>().also { view.tag = it }
                         val activeIds = mutableSetOf<String>()
-
                         uiState.npcs.forEach { npc ->
-                            val id = npc.id
-                            activeIds.add(id)
-
-                            val marker = cache[id] ?: Marker(view).apply {
+                            val id = npc.id; activeIds.add(id)
+                            val marker = markerCache[id] ?: Marker(view).apply {
                                 title = "NPC_MARKER"
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                                 val resId = context.resources.getIdentifier(
-                                    npc.type.drawableName, "drawable", context.packageName
-                                )
+                                    npc.type.drawableName, "drawable", context.packageName)
                                 if (resId != 0) icon = ContextCompat.getDrawable(context, resId)
-                                cache[id] = this
-                                view.overlays.add(this)
+                                markerCache[id] = this; view.overlays.add(this)
                             }
-                            marker.position = npc.location
-                            marker.rotation = npc.rotationAngle
+                            marker.position = npc.location; marker.rotation = npc.rotationAngle
                         }
-
-                        val iter = cache.entries.iterator()
+                        val iter = markerCache.entries.iterator()
                         while (iter.hasNext()) {
                             val e = iter.next()
-                            if (e.key !in activeIds) {
-                                view.overlays.remove(e.value)
-                                iter.remove()
-                            }
+                            if (e.key !in activeIds) { view.overlays.remove(e.value); iter.remove() }
                         }
                     }
                     view.invalidate()
@@ -148,36 +127,25 @@ fun WorldMapScreen(
                     WebView(ctx).apply {
                         layoutParams = android.view.ViewGroup.LayoutParams(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                        )
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
-                        settings.mixedContentMode =
-                            android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                        webViewClient = WebViewClient()
+                        settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                        webViewClient = cachingClient
                         val lat = uiState.currentLocation?.latitude ?: 0.0
                         val lng = uiState.currentLocation?.longitude ?: 0.0
-                        loadDataWithBaseURL(
-                            null,
-                            buildHtml(lat, lng, uiState.zoomLevel.toInt()),
-                            "text/html", "UTF-8", null
-                        )
+                        loadDataWithBaseURL(null, buildHtml(lat, lng, uiState.zoomLevel.toInt()),
+                            "text/html", "UTF-8", null)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { wv ->
                     uiState.currentLocation?.let {
-                        wv.evaluateJavascript(
-                            "if(typeof moveMap==='function')moveMap(${it.latitude},${it.longitude});",
-                            null
-                        )
+                        wv.evaluateJavascript("if(typeof moveMap==='function')moveMap(${it.latitude},${it.longitude});", null)
                     }
-                    wv.evaluateJavascript(
-                        "if(typeof setMapZoom==='function')setMapZoom(${uiState.zoomLevel.toInt()});",
-                        null
-                    )
+                    wv.evaluateJavascript("if(typeof setMapZoom==='function')setMapZoom(${uiState.zoomLevel.toInt()});", null)
                     val tileUrl = when (uiState.mapProvider) {
                         MapProvider.CARTO_DB_DARK  -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                         MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -187,101 +155,78 @@ fun WorldMapScreen(
                         MapProvider.OSM_WEB        -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                         else -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
                     }
-                    wv.evaluateJavascript(
-                        "if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null
-                    )
-                    wv.evaluateJavascript(
-                        "if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});",
-                        null
-                    )
+                    wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null)
+                    wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
                     val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
                         "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
                                 "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}'}"
                     }
-                    wv.evaluateJavascript(
-                        "if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null
-                    )
+                    wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
                 }
             )
         }
 
         // ─── CAPA 2: JUGADOR ──────────────────────────────────────────────────────
         Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .size(22.dp)
-                .shadow(2.dp, CircleShape)
-                .clip(CircleShape)
-                .background(Color.White)
-                .border(1.5.dp, Color(0xFFE6A800), CircleShape),
+            modifier = Modifier.align(Alignment.Center).size(22.dp)
+                .shadow(2.dp, CircleShape).clip(CircleShape)
+                .background(Color.White).border(1.5.dp, Color(0xFFE6A800), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                Icons.Default.Person, "Jugador",
-                tint = Color(0xFFFFC107),
-                modifier = Modifier.size(14.dp)
-            )
+            Icon(Icons.Default.Person, "Jugador", tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
         }
 
         // ─── CAPA 3: INDICADOR DE CARGA DE CALLES ────────────────────────────────
         if (!uiState.isRoadNetworkReady) {
             Row(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 72.dp)
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp)
                     .background(Color.Black.copy(alpha = 0.65f), CircleShape)
                     .padding(horizontal = 14.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                CircularProgressIndicator(
-                    Modifier.size(14.dp), Color(0xFFD4AF37), strokeWidth = 2.dp
-                )
-                Text(
-                    "Cargando calles...",
-                    color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
-                )
+                CircularProgressIndicator(Modifier.size(14.dp), Color(0xFFD4AF37), strokeWidth = 2.dp)
+                Text("Cargando calles...", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
-        // ─── CAPA 4: BOTÓN DE AJUSTES ─────────────────────────────────────────────
-        IconButton(
-            onClick = { viewModel.toggleSettingsDialog(true) },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-                .background(Color.White.copy(alpha = 0.8f), CircleShape)
+        // ─── CAPA 4: WIDGET DE DIAGNÓSTICO DE CACHÉ ───────────────────────────────
+        AnimatedVisibility(
+            visible = uiState.showCacheWidget,
+            enter   = fadeIn(),
+            exit    = fadeOut(),
+            modifier = Modifier.align(Alignment.TopStart).padding(top = 64.dp, start = 12.dp)
         ) {
-            Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black)
+            CacheStatusWidget(
+                roadSource  = uiState.roadSource,
+                tileSource  = uiState.tileSource,
+                mapProvider = uiState.mapProvider
+            )
         }
 
-        // ─── CAPA 5: ZOOM ─────────────────────────────────────────────────────────
+        // ─── CAPA 5: BOTÓN DE AJUSTES ─────────────────────────────────────────────
+        IconButton(
+            onClick = { viewModel.toggleSettingsDialog(true) },
+            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+                .background(Color.White.copy(alpha = 0.8f), CircleShape)
+        ) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
+
+        // ─── CAPA 6: ZOOM ─────────────────────────────────────────────────────────
         Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 16.dp),
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            IconButton(
-                onClick = { viewModel.zoomIn() },
-                modifier = Modifier
-                    .background(Color.White.copy(alpha = 0.8f), CircleShape)
-                    .size(48.dp)
+            IconButton(onClick = { viewModel.zoomIn() },
+                modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)
             ) { Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
-
-            IconButton(
-                onClick = { viewModel.zoomOut() },
-                modifier = Modifier
-                    .background(Color.White.copy(alpha = 0.8f), CircleShape)
-                    .size(48.dp)
+            IconButton(onClick = { viewModel.zoomOut() },
+                modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
         }
 
-        // ─── CAPA 6: D-PAD + BOTONES ──────────────────────────────────────────────
+        // ─── CAPA 7: D-PAD ────────────────────────────────────────────────────────
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
+            modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
                 .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -293,58 +238,36 @@ fun WorldMapScreen(
         // ─── DIÁLOGO DE AJUSTES ───────────────────────────────────────────────────
         if (uiState.showSettingsDialog) {
             var expanded by remember { mutableStateOf(false) }
-            androidx.compose.ui.window.Dialog(
-                onDismissRequest = { viewModel.toggleSettingsDialog(false) }
-            ) {
+            androidx.compose.ui.window.Dialog(onDismissRequest = { viewModel.toggleSettingsDialog(false) }) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                        .background(
-                            androidx.compose.ui.graphics.Brush.verticalGradient(
-                                listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))
-                            )
-                        )
-                        .border(
-                            2.dp, Color(0xFFD4AF37).copy(alpha = 0.5f),
-                            androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-                        )
+                    modifier = Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                            listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))))
+                        .border(2.dp, Color(0xFFD4AF37).copy(alpha = 0.5f), RoundedCornerShape(16.dp))
                         .padding(24.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "AJUSTES", fontSize = 24.sp, fontWeight = FontWeight.Black,
+                        Text("AJUSTES", fontSize = 24.sp, fontWeight = FontWeight.Black,
                             color = Color.White, letterSpacing = 2.sp,
-                            modifier = Modifier.padding(bottom = 24.dp)
-                        )
-                        Text(
-                            "PROVEEDOR DE MAPA", color = Color(0xFFD4AF37), fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 24.dp))
+
+                        // ── Selector de proveedor de mapa ──────────────────────
+                        Text("PROVEEDOR DE MAPA", color = Color(0xFFD4AF37), fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .align(Alignment.Start)
-                                .padding(bottom = 8.dp)
-                        )
+                            modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp))
                         Box(Modifier.fillMaxWidth()) {
-                            OutlinedButton(
-                                onClick = { expanded = true },
-                                modifier = Modifier.fillMaxWidth(),
+                            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color.White,
-                                    containerColor = Color(0xFF2A1C21)
-                                ),
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp, Color(0xFF6B1C3A)
-                                ),
+                                    contentColor = Color.White, containerColor = Color(0xFF2A1C21)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6B1C3A)),
                                 contentPadding = PaddingValues(16.dp)
                             ) {
                                 Text(uiState.mapProvider.displayName, Modifier.weight(1f))
                                 Icon(Icons.Default.ArrowDropDown, null, tint = Color(0xFFD4AF37))
                             }
-                            DropdownMenu(
-                                expanded, { expanded = false },
-                                Modifier
-                                    .fillMaxWidth(0.7f)
-                                    .background(Color(0xFF2A1C21))
+                            DropdownMenu(expanded, { expanded = false },
+                                Modifier.fillMaxWidth(0.7f).background(Color(0xFF2A1C21))
                             ) {
                                 MapProvider.entries.forEach { p ->
                                     DropdownMenuItem(
@@ -354,43 +277,131 @@ fun WorldMapScreen(
                                 }
                             }
                         }
-                        Spacer(Modifier.height(32.dp))
-                        Button(
-                            onClick = {
-                                viewModel.toggleSettingsDialog(false)
-                                onNavigateToMainMenu()
-                            },
-                            shape = androidx.compose.foundation.shape.CutCornerShape(
-                                topStart = 12.dp, bottomEnd = 12.dp
-                            ),
-                            colors = ButtonDefaults.buttonColors(Color(0xFFD32F2F), Color.White),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
+
+                        Spacer(Modifier.height(20.dp))
+
+                        // ── Toggle widget de caché ──────────────────────────────
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF2A1C21))
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("SALIR AL MENÚ", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Column {
+                                Text("Widget de caché", color = Color.White,
+                                    fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Muestra fuente de datos en pantalla",
+                                    color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = uiState.showCacheWidget,
+                                onCheckedChange = { viewModel.toggleCacheWidget() },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor   = Color(0xFFD4AF37),
+                                    checkedTrackColor   = Color(0xFF6B1C3A),
+                                    uncheckedThumbColor = Color.Gray,
+                                    uncheckedTrackColor = Color(0xFF1A1A1A)
+                                )
+                            )
                         }
+
+                        Spacer(Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { viewModel.toggleSettingsDialog(false); onNavigateToMainMenu() },
+                            shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp),
+                            colors = ButtonDefaults.buttonColors(Color(0xFFD32F2F), Color.White),
+                            modifier = Modifier.fillMaxWidth().height(50.dp)
+                        ) { Text("SALIR AL MENÚ", fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
                         Spacer(Modifier.height(12.dp))
                         Button(
                             onClick = { viewModel.toggleSettingsDialog(false) },
-                            shape = androidx.compose.foundation.shape.CutCornerShape(
-                                topStart = 12.dp, bottomEnd = 12.dp
-                            ),
+                            shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp),
                             colors = ButtonDefaults.buttonColors(Color(0xFF6B1C3A), Color.White),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                        ) {
-                            Text(
-                                "REANUDAR JUEGO",
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
-                        }
+                            modifier = Modifier.fillMaxWidth().height(50.dp)
+                        ) { Text("REANUDAR JUEGO", fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
                     }
                 }
             }
         }
+    }
+}
+
+// ─── WIDGET DE DIAGNÓSTICO ────────────────────────────────────────────────────
+
+@Composable
+private fun CacheStatusWidget(
+    roadSource: RoadSource,
+    tileSource: TileSource,
+    mapProvider: MapProvider
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        // Fila de calles
+        CacheChip(
+            label = "Calles",
+            text  = when (roadSource) {
+                RoadSource.LOADING   -> "Cargando..."
+                RoadSource.LOCAL_DB  -> "Local (BD)"
+                RoadSource.NETWORK   -> "Overpass API"
+            },
+            color = when (roadSource) {
+                RoadSource.LOADING   -> Color(0xFFD4AF37)
+                RoadSource.LOCAL_DB  -> Color(0xFF4CAF50)
+                RoadSource.NETWORK   -> Color(0xFF2196F3)
+            },
+            isLoading = roadSource == RoadSource.LOADING
+        )
+
+        // Fila de mapa — solo si el proveedor no es OSM (osmdroid no reporta por tile)
+        val tileLabel = when (tileSource) {
+            TileSource.LOCAL_OSM   -> "Local (osmdroid)"
+            TileSource.LOCAL_CACHE -> "Local (caché)"
+            TileSource.NETWORK     -> "Red"
+        }
+        val tileColor = when (tileSource) {
+            TileSource.LOCAL_OSM, TileSource.LOCAL_CACHE -> Color(0xFF4CAF50)
+            TileSource.NETWORK                           -> Color(0xFF2196F3)
+        }
+        CacheChip(label = "Mapa", text = tileLabel, color = tileColor, isLoading = false)
+    }
+}
+
+@Composable
+private fun CacheChip(
+    label: String,
+    text: String,
+    color: Color,
+    isLoading: Boolean
+) {
+    Row(
+        modifier = Modifier
+            .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier  = Modifier.size(8.dp),
+                color     = color,
+                strokeWidth = 1.5.dp
+            )
+        } else {
+            Box(
+                Modifier.size(8.dp)
+                    .background(color, CircleShape)
+            )
+        }
+        Text(
+            text       = "$label: $text",
+            color      = Color.White,
+            fontSize   = 11.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
