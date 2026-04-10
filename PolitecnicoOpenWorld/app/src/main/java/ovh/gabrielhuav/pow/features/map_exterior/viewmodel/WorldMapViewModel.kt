@@ -43,9 +43,10 @@ class WorldMapViewModel(
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             val appCtx = context.applicationContext
+            val database = PowDatabase.getInstance(appCtx)
             return WorldMapViewModel(
-                roadNetworkCache = RoadNetworkCache(PowDatabase.getInstance(appCtx).roadNetworkDao()),
-                tileCache        = TileCache(appCtx)
+                roadNetworkCache = RoadNetworkCache(database.roadNetworkDao()),
+                tileCache        = TileCache(database.mapTileDao())
             ) as T
         }
     }

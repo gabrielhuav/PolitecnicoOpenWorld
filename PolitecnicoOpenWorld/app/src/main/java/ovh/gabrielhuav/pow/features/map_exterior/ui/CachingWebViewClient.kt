@@ -11,78 +11,72 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
-/**
- * WebViewClient que intercepta tiles del mapa WebView y los cachea en TileCache (SQLite/filesDir).
- *
- * ESTRATEGIA SIMPLIFICADA:
- * En lugar de intentar parsear z/x/y de la URL (que falla con distintos formatos),
- * usamos la URL completa como clave de caché. Esto es más robusto y funciona con
- * cualquier proveedor sin necesidad de regex específicos por proveedor.
- *
- * CLAVE DE CACHÉ = hash de la URL completa del tile.
- */
 class CachingWebViewClient(
     private val tileCache: TileCache,
     private val getCurrentProvider: () -> MapProvider,
     private val onTileServed: (fromCache: Boolean) -> Unit
 ) : WebViewClient() {
 
-    private val TAG = "CachingWebViewClient"
+    private val TAG = "TileDebug_WebView"
+
+    private fun normalizeTileUrl(url: String): String {
+        // 1. Quitar parámetros de consulta (ej. ?v=123) que cambian dinámicamente
+        val withoutQuery = url.substringBefore("?")
+
+        // 2. Eliminar subdominios de balanceo de carga (a, b, c, d)
+        // Ejemplo: https://a.tile.openstreetmap.org/... -> https://tile.openstreetmap.org/...
+        // Esto asegura que el Hash sea idéntico sin importar de qué servidor rotativo venga
+        return withoutQuery.replace(Regex("://[a-d]\\."), "://")
+    }
 
     override fun shouldInterceptRequest(
         view: android.webkit.WebView?,
         request: WebResourceRequest?
     ): WebResourceResponse? {
-        val url      = request?.url?.toString() ?: return null
+        val rawUrl = request?.url?.toString() ?: return null
         val provider = getCurrentProvider()
 
-        // Solo interceptar para proveedores web (no OSM nativo que usa osmdroid)
-        if (provider == MapProvider.OSM) return null
+        if (provider == MapProvider.OSM || request.method != "GET") return null
 
-        // Filtro: solo interceptar peticiones que parecen tiles de imagen
-        if (!looksLikeTile(url)) {
-            Log.v(TAG, "Ignorando (no tile): $url")
+        // USAR LA NUEVA FUNCIÓN AQUÍ
+        val normalizedUrl = normalizeTileUrl(rawUrl)
+
+        if (!looksLikeTile(normalizedUrl)) {
             return null
         }
 
-        Log.d(TAG, "Interceptando tile: $url")
-
         val providerKey = provider.name.lowercase()
-        // SHA-256 del URL completo como clave — sin colisiones prácticas vs. hashCode()
-        val urlKey = sha256(url)
+        val urlKey = sha256(normalizedUrl) // Generamos el hash con la URL purificada
 
-        // 1. Buscar en caché local
+        // 1. Buscar en Caché Local
         val cached = tileCache.getTileByUrl(providerKey, urlKey)
-        if (cached != null) {
-            Log.d(TAG, "CACHE HIT: $url")
+        if (cached != null && cached.isNotEmpty()) {
+            Log.d(TAG, "🟢 HIT (Caché): $normalizedUrl")
             onTileServed(true)
-            return buildResponse(guessMimeType(url), cached)
+            return buildResponse(guessMimeType(normalizedUrl), cached)
         }
 
-        // 2. Descargar de la red y guardar en caché
-        Log.d(TAG, "CACHE MISS — descargando: $url")
-        val downloaded = downloadTile(url)
-        if (downloaded != null) {
+        // 2. Descargar de la red (usando la URL original para que la red funcione)
+        Log.d(TAG, "🔴 MISS (Red): $normalizedUrl")
+        val downloaded = downloadTile(rawUrl)
+
+        if (downloaded != null && downloaded.isNotEmpty()) {
             tileCache.putTileByUrl(providerKey, urlKey, downloaded)
             onTileServed(false)
-            return buildResponse(guessMimeType(url), downloaded)
+            return buildResponse(guessMimeType(normalizedUrl), downloaded)
         }
 
-        // 3. Descarga falló — dejar que el WebView lo intente por su cuenta
-        Log.w(TAG, "Descarga fallida, dejando pasar: $url")
         onTileServed(false)
         return null
     }
 
-    /** Construye un WebResourceResponse con cabeceras CORS para que Leaflet acepte el tile. */
     private fun buildResponse(mimeType: String, data: ByteArray): WebResourceResponse {
         val headers = mapOf(
             "Access-Control-Allow-Origin"  to "*",
             "Access-Control-Allow-Methods" to "GET",
-            "Cache-Control"                to "max-age=2592000"  // 30 días
+            "Cache-Control"                to "max-age=2592000"
         )
-        return WebResourceResponse(mimeType, "UTF-8", 200, "OK", headers,
-            ByteArrayInputStream(data))
+        return WebResourceResponse(mimeType, "UTF-8", 200, "OK", headers, ByteArrayInputStream(data))
     }
 
     private fun downloadTile(url: String): ByteArray? {
@@ -91,62 +85,48 @@ class CachingWebViewClient(
             connection = (URL(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 10_000
                 readTimeout    = 20_000
-                // Headers necesarios para algunos proveedores (ESRI, CartoDB)
-                setRequestProperty("User-Agent",
-                    "Mozilla/5.0 (Android) PolitecnicoOpenWorld/1.0")
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Android) PolitecnicoOpenWorld/1.0")
                 setRequestProperty("Accept", "image/png,image/webp,image/*,*/*")
                 setRequestProperty("Referer", "https://leafletjs.com/")
             }
+
             val code = connection.responseCode
-            Log.d(TAG, "HTTP $code para: $url")
+            Log.d(TAG, "Código HTTP $code al descargar $url")
+
             if (code == HttpURLConnection.HTTP_OK) {
                 connection.inputStream.readBytes()
             } else {
-                Log.w(TAG, "HTTP $code al descargar tile")
+                Log.e(TAG, "Error HTTP $code - No se pudo descargar la imagen")
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error descargando: ${e.message}")
+            Log.e(TAG, "Excepción al descargar tile: ${e.message}")
             null
         } finally {
             connection?.disconnect()
         }
     }
 
-    /**
-     * Determina si una URL parece ser un tile de mapa.
-     * Enfoque permisivo: mejor interceptar de más que de menos.
-     */
     private fun looksLikeTile(url: String): Boolean {
-        // Descartar claramente no-tiles
-        if (url.contains(".js"))   return false
-        if (url.contains(".css"))  return false
-        if (url.contains(".html")) return false
-        if (url.contains(".json")) return false
-        if (url.contains(".ico"))  return false
-        if (url.contains(".woff")) return false
+        // Ignoramos expresamente recursos estáticos del HTML/JS
+        if (url.contains(".js") || url.contains(".css") || url.contains(".html") || url.contains(".json") || url.contains(".ico")) return false
 
-        // Aceptar si contiene extensiones de imagen conocidas
-        if (url.contains(".png"))  return true
-        if (url.contains(".jpg"))  return true
-        if (url.contains(".jpeg")) return true
-        if (url.contains(".webp")) return true
+        // Si tiene extensión de imagen, seguro es tile
+        if (url.contains(".png") || url.contains(".jpg") || url.contains(".jpeg") || url.contains(".webp") || url.contains(".gif")) return true
 
-        // Aceptar URLs de proveedores conocidos sin extensión explícita
-        if (url.contains("tile"))         return true
-        if (url.contains("/vt/"))         return true
-        if (url.contains("MapServer"))    return true
-        if (url.contains("cartocdn"))     return true
-        if (url.contains("arcgisonline")) return true
-        if (url.contains("opentopomap")) return true
+        // Cadenas comunes en los subdominios de proveedores de mapas
+        if (url.contains("tile") || url.contains("/vt/") || url.contains("MapServer") || url.contains("cartocdn") || url.contains("arcgisonline") || url.contains("opentopomap")) return true
 
+        // En caso de duda (por ej: un proveedor extraño que usa URLs limpias),
+        // podrías cambiar esto a true temporalmente para probar, pero generaría falsos positivos.
         return false
     }
 
     private fun guessMimeType(url: String): String = when {
         url.contains(".jpg") || url.contains(".jpeg") -> "image/jpeg"
-        url.contains(".webp")                          -> "image/webp"
-        else                                           -> "image/png"
+        url.contains(".webp") -> "image/webp"
+        url.contains(".gif") -> "image/gif"
+        else -> "image/png"
     }
 
     private fun sha256(input: String): String {
