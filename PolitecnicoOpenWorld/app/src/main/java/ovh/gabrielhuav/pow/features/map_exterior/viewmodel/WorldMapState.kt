@@ -11,15 +11,30 @@ enum class MapProvider(val displayName: String) {
     CARTO_DB_LIGHT("CartoDB Claro (Web)"),
     ESRI("Esri World Street (Web)"),
     ESRI_SATELLITE("Esri Satélite (Web)"),
-    OPEN_TOPO("OpenTopoMap (Web)")
+    OPEN_TOPO("OpenTopoMap (Web)");
+
+    val isWebProvider: Boolean get() = this != OSM
 }
+
+enum class RoadSource { LOADING, LOCAL_DB, NETWORK }
+enum class TileSource  { LOCAL_OSM, LOCAL_CACHE, NETWORK }
 
 data class WorldMapState(
     val currentLocation: GeoPoint? = null,
     val isLoadingLocation: Boolean = true,
-    val zoomLevel: Double = 21.0, // <-- Zoom muy cercano estilo GTA
+    val zoomLevel: Double = ZOOM_LOADING,
     val mapProvider: MapProvider = MapProvider.OSM,
     val showSettingsDialog: Boolean = false,
     val npcs: List<Npc> = emptyList(),
-    val isRoadNetworkReady: Boolean = false
-)
+    val isRoadNetworkReady: Boolean = false,
+    val roadSource: RoadSource = RoadSource.LOADING,
+    val tileSource: TileSource = TileSource.NETWORK,
+    val showCacheWidget: Boolean = true,
+    val showFpsWidget: Boolean = false // ← Agregado
+) {
+    companion object {
+        const val ZOOM_LOADING        = 17.0
+        const val ZOOM_GAMEPLAY_OSM   = 21.0
+        const val ZOOM_GAMEPLAY_WEB   = 18.0
+    }
+}

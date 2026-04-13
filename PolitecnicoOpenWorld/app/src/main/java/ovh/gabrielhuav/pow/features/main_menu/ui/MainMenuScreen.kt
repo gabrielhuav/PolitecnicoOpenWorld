@@ -1,15 +1,25 @@
 package ovh.gabrielhuav.pow.features.main_menu.ui
 
 import android.content.res.Configuration
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -20,186 +30,172 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuState
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuViewModel
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 
 @Composable
 fun MainMenuScreen(
-    onNavigateToMap: () -> Unit,
+    onNavigateToMap: (MapProvider, Boolean, Boolean) -> Unit,
     viewModel: MainMenuViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
-
-    // Detectar la orientación de la pantalla
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF3B0D1B),
-            Color(0xFF0D0D11)
-        )
-    )
+    var showSettings by remember { mutableStateOf(false) }
+    val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(backgroundGradient)
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(bg)) {
         if (isLandscape) {
-            // DISEÑO HORIZONTAL: Pantalla dividida a la mitad
             Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
+                modifier = Modifier.fillMaxSize().padding(32.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Mitad Izquierda: Títulos
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "POLITÉCNICO",
-                        fontSize = 36.sp, // Ligeramente más pequeño en horizontal
-                        fontWeight = FontWeight.Black,
-                        color = Color.White,
-                        letterSpacing = 4.sp,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                    Text(
-                        text = "OPEN WORLD",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFD4AF37),
-                        letterSpacing = 8.sp,
-                    )
-                }
+                ) { TitleText(small = true) }
 
-                // Mitad Derecha: Lista de Botones con Scroll
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .verticalScroll(rememberScrollState()), // Permite deslizar si faltan botones
+                    modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    MenuButtonsList(state, viewModel, onNavigateToMap)
+                    MenuButtonsList(
+                        state = state,
+                        viewModel = viewModel,
+                        showSettings = showSettings,
+                        onToggleSettings = { showSettings = !showSettings },
+                        onNavigateToMap = { onNavigateToMap(state.selectedProvider, state.showCacheWidget, state.showFpsWidget) }
+                    )
                 }
             }
         } else {
-            // DISEÑO VERTICAL: Todo apilado con scroll
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp)
-                    .verticalScroll(rememberScrollState()), // Soluciona recortes en vertical
+                modifier = Modifier.fillMaxSize().padding(32.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = "POLITÉCNICO",
-                    fontSize = 42.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.White,
-                    letterSpacing = 4.sp,
-                    modifier = Modifier.padding(bottom = 4.dp)
+                TitleText(small = false)
+                Spacer(modifier = Modifier.height(48.dp))
+                MenuButtonsList(
+                    state = state,
+                    viewModel = viewModel,
+                    showSettings = showSettings,
+                    onToggleSettings = { showSettings = !showSettings },
+                    onNavigateToMap = { onNavigateToMap(state.selectedProvider, state.showCacheWidget, state.showFpsWidget) }
                 )
-                Text(
-                    text = "OPEN WORLD",
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFD4AF37),
-                    letterSpacing = 8.sp,
-                    modifier = Modifier.padding(bottom = 48.dp)
-                )
-
-                MenuButtonsList(state, viewModel, onNavigateToMap)
             }
         }
 
-        // Versión en la esquina inferior derecha
         Text(
-            text = "v0.1.0 - ESCOM Edition",
-            color = Color.White.copy(alpha = 0.3f),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
+            text = "v0.1.0 - ESCOM Edition", color = Color.White.copy(alpha = 0.3f),
+            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         )
     }
 }
 
-// Extraemos los botones a una función separada para no repetir código entre las orientaciones
 @Composable
-fun MenuButtonsList(
+private fun TitleText(small: Boolean) {
+    Text(
+        text = "POLITÉCNICO", fontSize = if (small) 36.sp else 42.sp,
+        fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 4.sp,
+        modifier = Modifier.padding(bottom = 4.dp)
+    )
+    Text(
+        text = "OPEN WORLD", fontSize = if (small) 22.sp else 26.sp,
+        fontWeight = FontWeight.Bold, color = Color(0xFFD4AF37), letterSpacing = 8.sp
+    )
+}
+
+@Composable
+private fun MenuButtonsList(
     state: MainMenuState,
     viewModel: MainMenuViewModel,
+    showSettings: Boolean,
+    onToggleSettings: () -> Unit,
     onNavigateToMap: () -> Unit
 ) {
     MenuButton(
         text = "INICIAR JUEGO",
-        onClick = {
-            viewModel.onStartGame()
-            onNavigateToMap()
-        },
+        onClick = { viewModel.onStartGame(); onNavigateToMap() },
         enabled = !state.isLoading
     )
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(Modifier.height(16.dp))
+    MenuButton(text = "CARGAR PARTIDA", onClick = {}, enabled = false)
+    Spacer(Modifier.height(16.dp))
+    MenuButton(text = "MULTIJUGADOR", onClick = {}, enabled = false)
+    Spacer(Modifier.height(16.dp))
     MenuButton(
-        text = "CARGAR PARTIDA",
-        onClick = { /* TODO */ },
-        enabled = false
+        text = if (showSettings) "CERRAR AJUSTES" else "AJUSTES",
+        onClick = onToggleSettings, enabled = true,
+        color = if (showSettings) Color(0xFF3A3A3A) else Color(0xFF6B1C3A)
     )
-    Spacer(modifier = Modifier.height(16.dp))
-    MenuButton(
-        text = "MULTIJUGADOR",
-        onClick = { /* TODO */ },
-        enabled = false
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    MenuButton(
-        text = "AJUSTES",
-        onClick = { /* TODO */ },
-        enabled = false
-    )
-}
 
-// Tu componente MenuButton se queda igual
-@Composable
-fun MenuButton(
-    text: String,
-    onClick: () -> Unit,
-    enabled: Boolean = true
-) {
-    val buttonShape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)
-
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        shape = buttonShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF6B1C3A),
-            contentColor = Color.White,
-            disabledContainerColor = Color(0xFF2A1C21),
-            disabledContentColor = Color.Gray
-        ),
-        modifier = Modifier
-            .fillMaxWidth(0.85f) // Un poco más ancho en relación a su contenedor
-            .height(56.dp)
-            .shadow(
-                elevation = if (enabled) 8.dp else 0.dp,
-                shape = buttonShape
-            )
+    AnimatedVisibility(
+        visible = showSettings, enter = fadeIn() + slideInVertically(), exit = fadeOut() + slideOutVertically()
     ) {
-        Text(
-            text = text,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp
+        SettingsPanel(
+            state = state,
+            onProviderChange = { viewModel.setMapProvider(it) },
+            onToggleCache = { viewModel.toggleCacheWidget(it) },
+            onToggleFps = { viewModel.toggleFpsWidget(it) }
         )
     }
+}
+
+@Composable
+private fun SettingsPanel(
+    state: MainMenuState,
+    onProviderChange: (MapProvider) -> Unit,
+    onToggleCache: (Boolean) -> Unit,
+    onToggleFps: (Boolean) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(0.85f).padding(top = 12.dp)
+            .clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10))
+            .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("AJUSTES DE PARTIDA", color = Color(0xFFD4AF37), fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text("Proveedor de mapa", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+        Box(Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White, containerColor = Color(0xFF2A1C21)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6B1C3A)),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Text(state.selectedProvider.displayName, Modifier.weight(1f), fontSize = 13.sp)
+                Icon(Icons.Default.ArrowDropDown, null, tint = Color(0xFFD4AF37))
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.fillMaxWidth(0.8f).background(Color(0xFF2A1C21))) {
+                MapProvider.entries.forEach { p ->
+                    DropdownMenuItem(text = { Text(p.displayName, color = Color.White, fontSize = 13.sp) }, onClick = { onProviderChange(p); expanded = false })
+                }
+            }
+        }
+
+        // Toggles
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Widget de Caché", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+            Switch(checked = state.showCacheWidget, onCheckedChange = { onToggleCache(it) })
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Widget de FPS", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+            Switch(checked = state.showFpsWidget, onCheckedChange = { onToggleFps(it) })
+        }
+    }
+}
+
+@Composable
+fun MenuButton(text: String, onClick: () -> Unit, enabled: Boolean = true, color: Color = Color(0xFF6B1C3A)) {
+    val shape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)
+    Button(
+        onClick = onClick, enabled = enabled, shape = shape,
+        colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White, disabledContainerColor = Color(0xFF2A1C21), disabledContentColor = Color.Gray),
+        modifier = Modifier.fillMaxWidth(0.85f).height(56.dp).shadow(elevation = if (enabled) 8.dp else 0.dp, shape = shape)
+    ) { Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) }
 }
