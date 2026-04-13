@@ -1,25 +1,15 @@
 package ovh.gabrielhuav.pow.features.main_menu.ui
 
 import android.content.res.Configuration
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -30,18 +20,19 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuState
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuViewModel
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 
 @Composable
 fun MainMenuScreen(
-    onNavigateToMap: (MapProvider, Boolean, Boolean) -> Unit,
-    viewModel: MainMenuViewModel = viewModel()
+    onNavigateToMap: () -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
+    // Instanciamos el ViewModel del menú principal
+    val viewModel: MainMenuViewModel = viewModel()
     val state by viewModel.state.collectAsState()
+
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    var showSettings by remember { mutableStateOf(false) }
     val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
 
     Box(modifier = Modifier.fillMaxSize().background(bg)) {
@@ -64,9 +55,8 @@ fun MainMenuScreen(
                     MenuButtonsList(
                         state = state,
                         viewModel = viewModel,
-                        showSettings = showSettings,
-                        onToggleSettings = { showSettings = !showSettings },
-                        onNavigateToMap = { onNavigateToMap(state.selectedProvider, state.showCacheWidget, state.showFpsWidget) }
+                        onNavigateToMap = onNavigateToMap,
+                        onNavigateToSettings = onNavigateToSettings
                     )
                 }
             }
@@ -81,9 +71,8 @@ fun MainMenuScreen(
                 MenuButtonsList(
                     state = state,
                     viewModel = viewModel,
-                    showSettings = showSettings,
-                    onToggleSettings = { showSettings = !showSettings },
-                    onNavigateToMap = { onNavigateToMap(state.selectedProvider, state.showCacheWidget, state.showFpsWidget) }
+                    onNavigateToMap = onNavigateToMap,
+                    onNavigateToSettings = onNavigateToSettings
                 )
             }
         }
@@ -113,13 +102,15 @@ private fun TitleText(small: Boolean) {
 private fun MenuButtonsList(
     state: MainMenuState,
     viewModel: MainMenuViewModel,
-    showSettings: Boolean,
-    onToggleSettings: () -> Unit,
-    onNavigateToMap: () -> Unit
+    onNavigateToMap: () -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
     MenuButton(
         text = "INICIAR JUEGO",
-        onClick = { viewModel.onStartGame(); onNavigateToMap() },
+        onClick = {
+            viewModel.onStartGame()
+            onNavigateToMap()
+        },
         enabled = !state.isLoading
     )
     Spacer(Modifier.height(16.dp))
@@ -127,67 +118,14 @@ private fun MenuButtonsList(
     Spacer(Modifier.height(16.dp))
     MenuButton(text = "MULTIJUGADOR", onClick = {}, enabled = false)
     Spacer(Modifier.height(16.dp))
+
+    // El botón ahora simplemente llama a la navegación
     MenuButton(
-        text = if (showSettings) "CERRAR AJUSTES" else "AJUSTES",
-        onClick = onToggleSettings, enabled = true,
-        color = if (showSettings) Color(0xFF3A3A3A) else Color(0xFF6B1C3A)
+        text = "AJUSTES",
+        onClick = onNavigateToSettings,
+        enabled = true,
+        color = Color(0xFF6B1C3A)
     )
-
-    AnimatedVisibility(
-        visible = showSettings, enter = fadeIn() + slideInVertically(), exit = fadeOut() + slideOutVertically()
-    ) {
-        SettingsPanel(
-            state = state,
-            onProviderChange = { viewModel.setMapProvider(it) },
-            onToggleCache = { viewModel.toggleCacheWidget(it) },
-            onToggleFps = { viewModel.toggleFpsWidget(it) }
-        )
-    }
-}
-
-@Composable
-private fun SettingsPanel(
-    state: MainMenuState,
-    onProviderChange: (MapProvider) -> Unit,
-    onToggleCache: (Boolean) -> Unit,
-    onToggleFps: (Boolean) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier.fillMaxWidth(0.85f).padding(top = 12.dp)
-            .clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10))
-            .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text("AJUSTES DE PARTIDA", color = Color(0xFFD4AF37), fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-        Text("Proveedor de mapa", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-        Box(Modifier.fillMaxWidth()) {
-            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White, containerColor = Color(0xFF2A1C21)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6B1C3A)),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Text(state.selectedProvider.displayName, Modifier.weight(1f), fontSize = 13.sp)
-                Icon(Icons.Default.ArrowDropDown, null, tint = Color(0xFFD4AF37))
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.fillMaxWidth(0.8f).background(Color(0xFF2A1C21))) {
-                MapProvider.entries.forEach { p ->
-                    DropdownMenuItem(text = { Text(p.displayName, color = Color.White, fontSize = 13.sp) }, onClick = { onProviderChange(p); expanded = false })
-                }
-            }
-        }
-
-        // Toggles
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Widget de Caché", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-            Switch(checked = state.showCacheWidget, onCheckedChange = { onToggleCache(it) })
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Widget de FPS", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-            Switch(checked = state.showFpsWidget, onCheckedChange = { onToggleFps(it) })
-        }
-    }
 }
 
 @Composable
