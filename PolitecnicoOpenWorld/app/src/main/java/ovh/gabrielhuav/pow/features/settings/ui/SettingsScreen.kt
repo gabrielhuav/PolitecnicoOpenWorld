@@ -159,6 +159,7 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
     var expanded by remember { mutableStateOf(false) }
     // NUEVO: Estado local para retener la selección antes de aplicarla
     var tempProvider by remember(current) { mutableStateOf(current) }
+    val hasPendingChange = tempProvider != current
 
     Column {
         Text("Proveedor de Mapa", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
@@ -198,24 +199,24 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
         ) {
             Button(
                 onClick = { onChanged(tempProvider) },
-                enabled = tempProvider != current,
+                enabled = hasPendingChange,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF6B1C3A),
                     disabledContainerColor = Color(0xFF2A1C21)
                 ),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Cambiar Mapa", color = if (tempProvider != current) Color.White else Color.Gray)
+                Text("Cambiar Mapa", color = if (hasPendingChange) Color.White else Color.Gray)
             }
 
             OutlinedButton(
                 onClick = { tempProvider = current },
-                enabled = tempProvider != current,
+                enabled = hasPendingChange,
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = Color.White,
                     disabledContentColor = Color.Gray
                 ),
-                border = BorderStroke(1.dp, if (tempProvider != current) Color(0xFFD4AF37) else Color(0xFF2A1C21)),
+                border = BorderStroke(1.dp, if (hasPendingChange) Color(0xFFD4AF37) else Color(0xFF2A1C21)),
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Restaurar Mapa")
