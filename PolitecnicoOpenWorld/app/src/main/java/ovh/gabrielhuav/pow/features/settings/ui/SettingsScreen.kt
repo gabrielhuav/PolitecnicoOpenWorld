@@ -157,6 +157,9 @@ private fun CategoryItem(category: SettingsCategory, isSelected: Boolean, onClic
 @Composable
 private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
+    // NUEVO: Estado local para retener la selección antes de aplicarla
+    var tempProvider by remember(current) { mutableStateOf(current) }
+
     Column {
         Text("Proveedor de Mapa", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
         Spacer(Modifier.height(8.dp))
@@ -165,7 +168,8 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White, containerColor = Color(0xFF2A1C21)),
                 border = BorderStroke(1.dp, Color(0xFF6B1C3A))
             ) {
-                Text(current.displayName, Modifier.weight(1f))
+                // CAMBIO: Mostrar el proveedor temporal en lugar del current
+                Text(tempProvider.displayName, Modifier.weight(1f))
                 Icon(Icons.Default.ArrowDropDown, null, tint = Color(0xFFD4AF37))
             }
             DropdownMenu(
@@ -176,9 +180,45 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
                 MapProvider.entries.forEach { provider ->
                     DropdownMenuItem(
                         text = { Text(provider.displayName, color = Color.White) },
-                        onClick = { onChanged(provider); expanded = false }
+                        onClick = {
+                            // CAMBIO: Solo actualizamos el estado temporal, no llamamos a onChanged aún
+                            tempProvider = provider
+                            expanded = false
+                        }
                     )
                 }
+            }
+        }
+
+        // NUEVO: Fila con los botones "Cambiar Mapa" y "Restaurar Mapa"
+        Spacer(Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(
+                onClick = { onChanged(tempProvider) },
+                enabled = tempProvider != current,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF6B1C3A),
+                    disabledContainerColor = Color(0xFF2A1C21)
+                ),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Cambiar Mapa", color = if (tempProvider != current) Color.White else Color.Gray)
+            }
+
+            OutlinedButton(
+                onClick = { tempProvider = current },
+                enabled = tempProvider != current,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.White,
+                    disabledContentColor = Color.Gray
+                ),
+                border = BorderStroke(1.dp, if (tempProvider != current) Color(0xFFD4AF37) else Color(0xFF2A1C21)),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Restaurar Mapa")
             }
         }
     }
