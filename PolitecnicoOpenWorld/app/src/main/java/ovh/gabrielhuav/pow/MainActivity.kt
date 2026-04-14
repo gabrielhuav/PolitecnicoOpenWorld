@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
                                 viewModel = worldMapViewModel,
                                 onNavigateToMainMenu = {
                                     navController.navigate("main_menu") {
-                                        popUpTo("main_menu") { inclusive = true }
+                                        popUpTo("world_map") { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 },
