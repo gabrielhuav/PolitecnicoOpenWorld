@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
                     // 1. EL ORQUESTADOR GLOBAL: Sincroniza los ajustes en segundo plano
                     // Esto evita recomposiciones destructivas al navegar.
                     val settingsState by settingsViewModel.state.collectAsState()
-                    LaunchedEffect(settingsState) {
+                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget) {
                         worldMapViewModel.setMapProvider(settingsState.mapProvider)
                         worldMapViewModel.toggleCacheWidget(settingsState.showCacheWidget)
                         worldMapViewModel.toggleFpsWidget(settingsState.showFpsWidget)
@@ -120,7 +120,7 @@ class MainActivity : ComponentActivity() {
                                 // NUEVO: Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {
                                     navController.navigate("main_menu") {
-                                        popUpTo(0) { inclusive = true } // Borra toda la pila (incluyendo el mapa)
+                                        popUpTo("main_menu") { inclusive = true } // Borra la pila de forma segura usando un destino existente
                                         launchSingleTop = true
                                     }
                                 }

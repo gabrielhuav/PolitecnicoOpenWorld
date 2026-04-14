@@ -140,7 +140,7 @@ fun SettingsScreen(
 }
 
 @Composable
-fun CategoryItem(category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit) {
+private fun CategoryItem(category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(8.dp))
             .clickable { onClick() }
@@ -155,7 +155,7 @@ fun CategoryItem(category: SettingsCategory, isSelected: Boolean, onClick: () ->
 }
 
 @Composable
-fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) -> Unit) {
+private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Column {
         Text("Proveedor de Mapa", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
@@ -185,7 +185,7 @@ fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) -> Unit) {
 }
 
 @Composable
-fun DiagnosticWidgetsSetting(
+private fun DiagnosticWidgetsSetting(
     cacheEnabled: Boolean,
     fpsEnabled: Boolean,
     onCacheToggled: (Boolean) -> Unit,
