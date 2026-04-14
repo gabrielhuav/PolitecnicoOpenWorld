@@ -44,7 +44,8 @@ import kotlin.math.abs
 fun WorldMapScreen(
     context: Context,
     viewModel: WorldMapViewModel = viewModel(factory = WorldMapViewModel.Factory(context)),
-    onNavigateToMainMenu: () -> Unit = {}
+    onNavigateToMainMenu: () -> Unit = {},
+    onNavigateToSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -230,11 +231,13 @@ fun WorldMapScreen(
 
         // ─── CAPA 5: BOTÓN DE AJUSTES ─────────────────────────────────────────────
         IconButton(
-            onClick = { viewModel.toggleSettingsDialog(true) },
+            // CAMBIO: Ahora llama a la función de navegación
+            onClick = onNavigateToSettings,
             modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
                 .background(Color.White.copy(alpha = 0.8f), CircleShape)
-        ) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
-
+        ) {
+            Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black)
+        }
         // ─── CAPA 6: ZOOM ─────────────────────────────────────────────────────
         Column(
             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
@@ -259,110 +262,6 @@ fun WorldMapScreen(
             ActionButtonsController(onActionPressed = { viewModel.executeAction(it) })
         }
 
-        // ─── DIÁLOGO DE AJUSTES IN-GAME ───────────────────────────────────────────────────
-        if (uiState.showSettingsDialog) {
-            var expanded by remember { mutableStateOf(false) }
-            androidx.compose.ui.window.Dialog(onDismissRequest = { viewModel.toggleSettingsDialog(false) }) {
-                Box(
-                    modifier = Modifier.fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(androidx.compose.ui.graphics.Brush.verticalGradient(
-                            listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))))
-                        .border(2.dp, Color(0xFFD4AF37).copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-                        .padding(24.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("AJUSTES", fontSize = 24.sp, fontWeight = FontWeight.Black,
-                            color = Color.White, letterSpacing = 2.sp,
-                            modifier = Modifier.padding(bottom = 24.dp))
-
-                        // ── Selector de proveedor de mapa ──────────────────────
-                        Text("PROVEEDOR DE MAPA", color = Color(0xFFD4AF37), fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp))
-                        Box(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color.White, containerColor = Color(0xFF2A1C21)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6B1C3A)),
-                                contentPadding = PaddingValues(16.dp)
-                            ) {
-                                Text(uiState.mapProvider.displayName, Modifier.weight(1f))
-                                Icon(Icons.Default.ArrowDropDown, null, tint = Color(0xFFD4AF37))
-                            }
-                            DropdownMenu(expanded, { expanded = false },
-                                Modifier.fillMaxWidth(0.7f).background(Color(0xFF2A1C21))
-                            ) {
-                                MapProvider.entries.forEach { p ->
-                                    DropdownMenuItem(
-                                        text = { Text(p.displayName, color = Color.White) },
-                                        onClick = { viewModel.setMapProvider(p); expanded = false }
-                                    )
-                                }
-                            }
-                        }
-
-                        // ── Toggle widget de caché ──────────────────────────────
-                        Row(
-                            modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF2A1C21))
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text("Widget de caché", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Muestra fuente de datos", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
-                            }
-                            Switch(
-                                checked = uiState.showCacheWidget,
-                                onCheckedChange = { viewModel.updateShowCacheWidget(it) }, // Agregaremos esta función al VM abajo
-                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
-                            )
-                        }
-
-                        Spacer(Modifier.height(8.dp))
-
-                        // ── Toggle widget de FPS ──────────────────────────────
-                        Row(
-                            modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF2A1C21))
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text("Widget de FPS", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Mide el rendimiento gráfico", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
-                            }
-                            Switch(
-                                checked = uiState.showFpsWidget,
-                                onCheckedChange = { viewModel.updateShowFpsWidget(it) }, // Agregaremos esta función al VM abajo
-                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
-                            )
-                        }
-
-                        Spacer(Modifier.height(24.dp))
-
-                        Button(
-                            onClick = { viewModel.toggleSettingsDialog(false); onNavigateToMainMenu() },
-                            shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp),
-                            colors = ButtonDefaults.buttonColors(Color(0xFFD32F2F), Color.White),
-                            modifier = Modifier.fillMaxWidth().height(50.dp)
-                        ) { Text("SALIR AL MENÚ", fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = { viewModel.toggleSettingsDialog(false) },
-                            shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp),
-                            colors = ButtonDefaults.buttonColors(Color(0xFF6B1C3A), Color.White),
-                            modifier = Modifier.fillMaxWidth().height(50.dp)
-                        ) { Text("REANUDAR JUEGO", fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
-                    }
-                }
-            }
-        }
     }
 }
 

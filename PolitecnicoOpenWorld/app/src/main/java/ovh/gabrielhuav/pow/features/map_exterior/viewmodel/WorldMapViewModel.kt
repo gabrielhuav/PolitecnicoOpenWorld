@@ -314,8 +314,6 @@ class WorldMapViewModel(
 
     fun executeAction(action: GameAction) { android.util.Log.d("GameAction", "$action") }
 
-    fun toggleSettingsDialog(show: Boolean) = _uiState.update { it.copy(showSettingsDialog = show) }
-
     fun setMapProvider(provider: MapProvider) {
         val ts = if (provider == MapProvider.OSM) TileSource.LOCAL_OSM else TileSource.NETWORK
         // Ajustar zoom al cambiar de proveedor si ya estamos en gameplay

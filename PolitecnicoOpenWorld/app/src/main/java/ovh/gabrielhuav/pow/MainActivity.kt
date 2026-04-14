@@ -24,18 +24,26 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.preference.PreferenceManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
+import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
+import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
 import java.io.File
+import androidx.compose.runtime.getValue
 
 class MainActivity : ComponentActivity() {
 
     private val worldMapViewModel: WorldMapViewModel by viewModels {
         WorldMapViewModel.Factory(this)
     }
+
+    // Instanciamos el ViewModel de los ajustes
+    private val settingsViewModel: SettingsViewModel by viewModels()
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -57,8 +65,18 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PolitecnicoOpenWorldTheme {
-                Surface(modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    // 1. EL ORQUESTADOR GLOBAL: Sincroniza los ajustes en segundo plano
+                    // Esto evita recomposiciones destructivas al navegar.
+                    val settingsState by settingsViewModel.state.collectAsState()
+                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget) {
+                        worldMapViewModel.setMapProvider(settingsState.mapProvider)
+                        worldMapViewModel.toggleCacheWidget(settingsState.showCacheWidget)
+                        worldMapViewModel.toggleFpsWidget(settingsState.showFpsWidget)
+                    }
 
                     val navController = rememberNavController()
 
@@ -72,12 +90,38 @@ class MainActivity : ComponentActivity() {
                             }
                         ) {
                             MainMenuScreen(
-                                onNavigateToMap = { chosenProvider, cacheEnabled, fpsEnabled ->
-                                    worldMapViewModel.setMapProvider(chosenProvider)
-                                    worldMapViewModel.toggleCacheWidget(cacheEnabled)
-                                    worldMapViewModel.toggleFpsWidget(fpsEnabled)
+                                onNavigateToMap = {
+                                    // Ya no sincronizamos aquí, el orquestador lo hace solo.
                                     navController.navigate("world_map") {
                                         popUpTo("main_menu") { inclusive = true }
+                                    }
+                                },
+                                onNavigateToSettings = {
+                                    navController.navigate("settings")
+                                }
+                            )
+                        }
+
+                        // NUEVO: Registramos la nueva ruta de Ajustes
+                        composable(route = "settings") {
+                            val settingsState by settingsViewModel.state.collectAsState()
+
+                            SettingsScreen(
+                                state = settingsState,
+                                onCategorySelected = { settingsViewModel.selectCategory(it) },
+                                onMapProviderChanged = { settingsViewModel.changeMapProvider(it) },
+                                onCacheToggled = { settingsViewModel.toggleCacheWidget(it) },
+                                onFpsToggled = { settingsViewModel.toggleFpsWidget(it) },
+                                onNavigateBack = {
+                                    if (navController.currentDestination?.route == "settings") {
+                                        navController.popBackStack()
+                                    }
+                                },
+                                // NUEVO: Lógica para regresar al menú principal limpiando el mapa
+                                onExitToMainMenu = {
+                                    navController.navigate("main_menu") {
+                                        popUpTo("main_menu") { inclusive = true } // Borra la pila de forma segura usando un destino existente
+                                        launchSingleTop = true
                                     }
                                 }
                             )
@@ -85,6 +129,8 @@ class MainActivity : ComponentActivity() {
 
                         composable(
                             route = "world_map",
+                            // 2. RESTAURAMOS LA ANIMACIÓN DE ENTRADA
+                            // Esto evita que el motor gráfico se congele al cambiar de pantalla.
                             enterTransition = {
                                 fadeIn(animationSpec = tween(1000)) +
                                         scaleIn(animationSpec = tween(1000), initialScale = 1.2f)
@@ -95,9 +141,12 @@ class MainActivity : ComponentActivity() {
                                 viewModel = worldMapViewModel,
                                 onNavigateToMainMenu = {
                                     navController.navigate("main_menu") {
-                                        popUpTo("main_menu") { inclusive = true }
+                                        popUpTo("world_map") { inclusive = true }
                                         launchSingleTop = true
                                     }
+                                },
+                                onNavigateToSettings = {
+                                    navController.navigate("settings")
                                 }
                             )
                         }
