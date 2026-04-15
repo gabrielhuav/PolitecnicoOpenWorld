@@ -27,7 +27,7 @@ class SettingsRepository(context: Context) {
             }
     }
 
-    fun getControlsScale(): Float = prefs.getFloat("CONTROLS_SCALE", 1.0f)
+    fun getControlsScale(): Float = prefs.getFloat("CONTROLS_SCALE", 1.0f).coerceIn(0.6f, 1.4f)
 
     fun getSwapControls(): Boolean = prefs.getBoolean("SWAP_CONTROLS", false)
 }

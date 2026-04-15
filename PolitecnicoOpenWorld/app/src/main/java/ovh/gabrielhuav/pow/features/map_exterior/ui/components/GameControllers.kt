@@ -56,14 +56,19 @@ fun JoystickController(
 ) {
     var offset by remember { mutableStateOf(Offset.Zero) }
     var isDragging by remember { mutableStateOf(false) }
+    val latestOffset by rememberUpdatedState(offset)
 
-    // Bucle continuo de movimiento a ~30 fps cuando se mantiene arrastrado
-    LaunchedEffect(isDragging, offset) {
-        if (isDragging && offset != Offset.Zero) {
-            // En Compose 'Y' crece hacia abajo, pero en GeoPoint 'Latitud' crece hacia arriba, por eso invertimos la 'y'
-            val angle = kotlin.math.atan2(-offset.y.toDouble(), offset.x.toDouble())
-            while (true) {
-                onMove(angle)
+    // Bucle continuo de movimiento a ~30 fps cuando se mantiene arrastrado.
+    // La clave es sólo 'isDragging' para que el efecto NO se reinicie con cada cambio de offset;
+    // leemos el offset más reciente a través de 'latestOffset' (rememberUpdatedState).
+    LaunchedEffect(isDragging) {
+        if (isDragging) {
+            while (isActive) {
+                if (latestOffset != Offset.Zero) {
+                    // En Compose 'Y' crece hacia abajo, pero en GeoPoint 'Latitud' crece hacia arriba, por eso invertimos la 'y'
+                    val angle = kotlin.math.atan2(-latestOffset.y.toDouble(), latestOffset.x.toDouble())
+                    onMove(angle)
+                }
                 kotlinx.coroutines.delay(33) // ~30 fps
             }
         }
