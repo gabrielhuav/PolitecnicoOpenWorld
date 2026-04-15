@@ -45,12 +45,15 @@ class WorldMapViewModel(
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (!modelClass.isAssignableFrom(WorldMapViewModel::class.java)) {
+                throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+            }
             val appCtx = context.applicationContext
             val database = PowDatabase.getInstance(appCtx)
             return WorldMapViewModel(
                 roadNetworkCache = RoadNetworkCache(database.roadNetworkDao()),
                 tileCache        = TileCache(database.mapTileDao()),
-                settingsRepository = SettingsRepository(appCtx) // <--- NUEVO
+                settingsRepository = SettingsRepository(appCtx)
             ) as T
         }
     }

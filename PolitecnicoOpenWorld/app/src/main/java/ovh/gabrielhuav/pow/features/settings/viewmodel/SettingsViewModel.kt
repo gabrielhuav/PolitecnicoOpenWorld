@@ -34,7 +34,7 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun toggleSwapControls(swap: Boolean) { _state.update { it.copy(swapControls = swap) } }
 
     // Función para guardar
-    fun saveSettingsToDisk() {
+    fun saveControlsSettings() {
         val currentState = _state.value
         repository.saveControlsSettings(
             type = currentState.controlType,
@@ -47,6 +47,9 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (!modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
+                throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+            }
             return SettingsViewModel(SettingsRepository(context.applicationContext)) as T
         }
     }
