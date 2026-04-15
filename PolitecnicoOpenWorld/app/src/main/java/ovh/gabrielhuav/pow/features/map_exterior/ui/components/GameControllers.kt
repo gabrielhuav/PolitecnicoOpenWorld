@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
@@ -69,7 +70,7 @@ fun JoystickController(
                     val angle = kotlin.math.atan2(-latestOffset.y.toDouble(), latestOffset.x.toDouble())
                     onMove(angle)
                 }
-                kotlinx.coroutines.delay(33) // ~30 fps
+                delay(33) // ~30 fps
             }
         }
     }
