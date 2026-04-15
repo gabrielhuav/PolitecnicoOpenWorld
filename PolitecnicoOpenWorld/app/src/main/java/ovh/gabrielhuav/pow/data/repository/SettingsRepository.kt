@@ -17,8 +17,14 @@ class SettingsRepository(context: Context) {
     }
 
     fun getControlType(): ControlType {
-        val savedType = prefs.getString("CONTROL_TYPE", ControlType.DPAD.name) ?: ControlType.DPAD.name
-        return ControlType.valueOf(savedType)
+        val defaultType = ControlType.DPAD
+        val savedType = prefs.getString("CONTROL_TYPE", defaultType.name) ?: defaultType.name
+
+        return runCatching { ControlType.valueOf(savedType) }
+            .getOrElse {
+                prefs.edit().putString("CONTROL_TYPE", defaultType.name).apply()
+                defaultType
+            }
     }
 
     fun getControlsScale(): Float = prefs.getFloat("CONTROLS_SCALE", 1.0f)
