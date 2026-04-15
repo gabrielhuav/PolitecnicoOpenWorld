@@ -257,7 +257,7 @@ fun WorldMapScreen(
         // ─── CAPA 7: CONTROLES DE JUEGO ─────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
+                .padding(bottom = 32.dp, start = 64.dp, end = 64.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {

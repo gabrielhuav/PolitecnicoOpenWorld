@@ -42,8 +42,10 @@ class MainActivity : ComponentActivity() {
         WorldMapViewModel.Factory(this)
     }
 
-    // Instanciamos el ViewModel de los ajustes
-    private val settingsViewModel: SettingsViewModel by viewModels()
+    // Instanciamos el ViewModel de los ajustes usando su Factory
+    private val settingsViewModel: SettingsViewModel by viewModels {
+        SettingsViewModel.Factory(this)
+    }
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -125,6 +127,19 @@ class MainActivity : ComponentActivity() {
                                     if (navController.currentDestination?.route == "settings") {
                                         navController.popBackStack()
                                     }
+                                },
+                                onSaveClicked = {
+                                    // 1. Guardar persistentemente en el dispositivo
+                                    settingsViewModel.saveSettingsToDisk()
+
+                                    // 2. Notificar al mapa
+                                    worldMapViewModel.updateControlSettings(
+                                        type = settingsState.controlType,
+                                        scale = settingsState.controlsScale,
+                                        swap = settingsState.swapControls
+                                    )
+
+                                    android.widget.Toast.makeText(this@MainActivity, "Configuración de controles guardada", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 // NUEVO: Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {

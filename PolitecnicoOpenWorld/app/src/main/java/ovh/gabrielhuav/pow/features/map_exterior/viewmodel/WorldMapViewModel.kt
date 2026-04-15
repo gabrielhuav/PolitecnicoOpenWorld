@@ -19,6 +19,7 @@ import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
 import ovh.gabrielhuav.pow.data.cache.TileCache
 import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
+import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
@@ -37,7 +38,8 @@ enum class GameAction { A, B, X, Y }
 
 class WorldMapViewModel(
     private val roadNetworkCache: RoadNetworkCache,
-    val tileCache: TileCache
+    val tileCache: TileCache,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     class Factory(private val context: Context) : ViewModelProvider.Factory {
@@ -47,12 +49,20 @@ class WorldMapViewModel(
             val database = PowDatabase.getInstance(appCtx)
             return WorldMapViewModel(
                 roadNetworkCache = RoadNetworkCache(database.roadNetworkDao()),
-                tileCache        = TileCache(database.mapTileDao())
+                tileCache        = TileCache(database.mapTileDao()),
+                settingsRepository = SettingsRepository(appCtx) // <--- NUEVO
             ) as T
         }
     }
 
-    private val _uiState = MutableStateFlow(WorldMapState())
+    // Ahora lee del repositorio
+    private val _uiState = MutableStateFlow(
+        WorldMapState(
+            controlType = settingsRepository.getControlType(),
+            controlsScale = settingsRepository.getControlsScale(),
+            swapControls = settingsRepository.getSwapControls()
+        )
+    )
     val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
 
     private val npcAiManager      = NpcAiManager()

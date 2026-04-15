@@ -33,6 +33,7 @@ fun SettingsScreen(
     onMapProviderChanged: (MapProvider) -> Unit,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
+    onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
     onSwapControlsToggled: (Boolean) -> Unit,
@@ -133,7 +134,8 @@ fun SettingsScreen(
                             isSwapped = state.swapControls,
                             onTypeChanged = onControlTypeChanged,
                             onScaleChanged = onControlsScaleChanged,
-                            onSwapChanged = onSwapControlsToggled
+                            onSwapChanged = onSwapControlsToggled,
+                            onSaveClicked = onSaveClicked
                         )
                     }
                     is SettingsCategory.Interface -> {
@@ -245,7 +247,8 @@ private fun ControlsSettingsConfig(
     isSwapped: Boolean,
     onTypeChanged: (ControlType) -> Unit,
     onScaleChanged: (Float) -> Unit,
-    onSwapChanged: (Boolean) -> Unit
+    onSwapChanged: (Boolean) -> Unit,
+    onSaveClicked: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
 
@@ -262,7 +265,7 @@ private fun ControlsSettingsConfig(
                             containerColor = if (type == option) Color(0xFF6B1C3A) else Color(0xFF2A1C21)
                         )
                     ) {
-                        Text(option.displayName, fontSize = 12.sp)
+                        Text(option.displayName, color = Color.White, fontSize = 12.sp)
                     }
                 }
             }
@@ -301,6 +304,17 @@ private fun ControlsSettingsConfig(
                     checkedTrackColor = Color(0xFF6B1C3A)
                 )
             )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Button(
+            onClick = onSaveClicked,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37))
+        ) {
+            Text("GUARDAR CONFIGURACIÓN", color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }
