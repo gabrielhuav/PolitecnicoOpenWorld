@@ -112,13 +112,27 @@ class MainActivity : ComponentActivity() {
                                 onMapProviderChanged = { settingsViewModel.changeMapProvider(it) },
                                 onCacheToggled = { settingsViewModel.toggleCacheWidget(it) },
                                 onFpsToggled = { settingsViewModel.toggleFpsWidget(it) },
+                                onControlTypeChanged = { settingsViewModel.changeControlType(it) },
+                                onControlsScaleChanged = { settingsViewModel.changeControlsScale(it) },
+                                onSwapControlsToggled = { settingsViewModel.toggleSwapControls(it) },
                                 onNavigateBack = {
+                                    // Antes de volver pasamos la configuracion de controles al mapa
+                                    worldMapViewModel.updateControlSettings(
+                                        type = settingsState.controlType,
+                                        scale = settingsState.controlsScale,
+                                        swap = settingsState.swapControls
+                                    )
                                     if (navController.currentDestination?.route == "settings") {
                                         navController.popBackStack()
                                     }
                                 },
                                 // NUEVO: Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {
+                                    worldMapViewModel.updateControlSettings(
+                                        type = settingsState.controlType,
+                                        scale = settingsState.controlsScale,
+                                        swap = settingsState.swapControls
+                                    )
                                     navController.navigate("main_menu") {
                                         popUpTo("main_menu") { inclusive = true } // Borra la pila de forma segura usando un destino existente
                                         launchSingleTop = true

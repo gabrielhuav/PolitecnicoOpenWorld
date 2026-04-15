@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
+import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsState
 
@@ -32,6 +33,9 @@ fun SettingsScreen(
     onMapProviderChanged: (MapProvider) -> Unit,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
+    onControlTypeChanged: (ControlType) -> Unit,
+    onControlsScaleChanged: (Float) -> Unit,
+    onSwapControlsToggled: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     onExitToMainMenu: () -> Unit
 ) {
@@ -121,6 +125,16 @@ fun SettingsScreen(
                 when (state.selectedCategory) {
                     is SettingsCategory.Map -> {
                         MapProviderSetting(state.mapProvider, onMapProviderChanged)
+                    }
+                    is SettingsCategory.Controls -> {
+                        ControlsSettingsConfig(
+                            type = state.controlType,
+                            scale = state.controlsScale,
+                            isSwapped = state.swapControls,
+                            onTypeChanged = onControlTypeChanged,
+                            onScaleChanged = onControlsScaleChanged,
+                            onSwapChanged = onSwapControlsToggled
+                        )
                     }
                     is SettingsCategory.Interface -> {
                         DiagnosticWidgetsSetting(
@@ -221,6 +235,72 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
             ) {
                 Text("Restaurar Mapa")
             }
+        }
+    }
+}
+@Composable
+private fun ControlsSettingsConfig(
+    type: ControlType,
+    scale: Float,
+    isSwapped: Boolean,
+    onTypeChanged: (ControlType) -> Unit,
+    onScaleChanged: (Float) -> Unit,
+    onSwapChanged: (Boolean) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+
+        // 1. Selector de Tipo
+        Column {
+            Text("Estilo de Movimiento", color = Color.White, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ControlType.entries.forEach { option ->
+                    Button(
+                        onClick = { onTypeChanged(option) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (type == option) Color(0xFF6B1C3A) else Color(0xFF2A1C21)
+                        )
+                    ) {
+                        Text(option.displayName, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        // 2. Deslizador de Tamaño
+        Column {
+            Text("Tamaño en Pantalla: ${(scale * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("No superará los límites de la pantalla.", color = Color.Gray, fontSize = 12.sp)
+            Slider(
+                value = scale,
+                onValueChange = onScaleChanged,
+                valueRange = 0.6f..1.4f, // Rango seguro para no salirse del teléfono
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFFD4AF37),
+                    activeTrackColor = Color(0xFF6B1C3A)
+                )
+            )
+        }
+
+        // 3. Inversión (Modo Zurdo)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text("Intercambiar Lados", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Mueve la acción a la izquierda", color = Color.Gray, fontSize = 12.sp)
+            }
+            Switch(
+                checked = isSwapped,
+                onCheckedChange = onSwapChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFD4AF37),
+                    checkedTrackColor = Color(0xFF6B1C3A)
+                )
+            )
         }
     }
 }

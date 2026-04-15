@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.Npc
+import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
@@ -30,7 +31,10 @@ data class WorldMapState(
     val roadSource: RoadSource = RoadSource.LOADING,
     val tileSource: TileSource = TileSource.NETWORK,
     val showCacheWidget: Boolean = true,
-    val showFpsWidget: Boolean = false // ← Agregado
+    val showFpsWidget: Boolean = false, // ← Agregado
+    val controlType: ControlType = ControlType.DPAD,
+    val controlsScale: Float = 1.0f,
+    val swapControls: Boolean = false
 ) {
     companion object {
         const val ZOOM_LOADING        = 17.0

@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
+import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
 
 class SettingsViewModel : ViewModel() {
@@ -27,5 +28,16 @@ class SettingsViewModel : ViewModel() {
 
     fun toggleFpsWidget(enabled: Boolean) {
         _state.update { it.copy(showFpsWidget = enabled) }
+    }
+
+    // Dentro de la clase SettingsViewModel añade:
+    fun changeControlType(type: ControlType) {
+        _state.update { it.copy(controlType = type) }
+    }
+    fun changeControlsScale(scale: Float) {
+        _state.update { it.copy(controlsScale = scale) }
+    }
+    fun toggleSwapControls(swap: Boolean) {
+        _state.update { it.copy(swapControls = swap) }
     }
 }

@@ -38,6 +38,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import kotlin.math.abs
+import androidx.compose.ui.draw.scale
+import ovh.gabrielhuav.pow.features.settings.models.ControlType
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -251,15 +254,43 @@ fun WorldMapScreen(
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
         }
 
-        // ─── CAPA 7: D-PAD ─────────────────────────────────────────────────────
+        // ─── CAPA 7: CONTROLES DE JUEGO ─────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
                 .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            DPadController(onDirectionPressed = { viewModel.moveCharacter(it) })
-            ActionButtonsController(onActionPressed = { viewModel.executeAction(it) })
+            // 1. Declaramos los composables como variables para ordenar condicionalmente
+            val movementComponent = @Composable {
+                if (uiState.controlType == ControlType.DPAD) {
+                    DPadController(
+                        modifier = Modifier.scale(uiState.controlsScale), // <-- Escala limpia
+                        onDirectionPressed = { viewModel.moveCharacter(it) }
+                    )
+                } else {
+                    JoystickController(
+                        modifier = Modifier.scale(uiState.controlsScale), // <-- Escala limpia
+                        onMove = { angle -> viewModel.moveCharacterByAngle(angle) }
+                    )
+                }
+            }
+
+            val actionComponent = @Composable {
+                ActionButtonsController(
+                    modifier = Modifier.scale(uiState.controlsScale),
+                    onActionPressed = { viewModel.executeAction(it) }
+                )
+            }
+
+            // 2. Comprobamos la opción de Modo Zurdo/Invertido
+            if (uiState.swapControls) {
+                actionComponent()
+                movementComponent()
+            } else {
+                movementComponent()
+                actionComponent()
+            }
         }
 
     }

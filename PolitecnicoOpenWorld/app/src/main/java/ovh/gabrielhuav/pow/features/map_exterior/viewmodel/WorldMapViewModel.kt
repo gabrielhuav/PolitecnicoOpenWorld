@@ -21,6 +21,7 @@ import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
+import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -242,6 +243,40 @@ class WorldMapViewModel(
                 nearest.longitude + cos(angle) * radius
             ))}
         }
+    }
+
+    // Movimiento por joystick
+    fun moveCharacterByAngle(angleRad: Double) {
+        val loc = _uiState.value.currentLocation ?: return
+        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
+
+        val step = 0.000003 // Misma velocidad estática que el D-Pad
+
+        // Calculamos el nuevo punto destino (Seno para Y/Latitud, Coseno para X/Longitud)
+        val temp = GeoPoint(
+            loc.latitude + sin(angleRad) * step,
+            loc.longitude + cos(angleRad) * step
+        )
+
+        // Lógica existente de Snap-to-Road (ajuste a la calle)
+        val nearest = getNearestPointOnNetwork(temp)
+        val dist = distance(temp, nearest)
+        val radius = 0.000012
+
+        if (dist <= radius) {
+            _uiState.update { it.copy(currentLocation = temp) }
+        } else {
+            val angle = atan2(temp.latitude - nearest.latitude, temp.longitude - nearest.longitude)
+            _uiState.update { it.copy(currentLocation = GeoPoint(
+                nearest.latitude + sin(angle) * radius,
+                nearest.longitude + cos(angle) * radius
+            ))}
+        }
+    }
+
+
+    fun updateControlSettings(type: ControlType, scale: Float, swap: Boolean) {
+        _uiState.update { it.copy(controlType = type, controlsScale = scale, swapControls = swap) }
     }
 
     // ─── SPATIAL INDEX ────────────────────────────────────────────────────────────
