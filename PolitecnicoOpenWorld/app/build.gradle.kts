@@ -64,7 +64,6 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     ksp(libs.androidx.room.compiler)
 
-    implementation(libs.androidx.ui)
     implementation(libs.androidx.preference.ktx)
 
     testImplementation(libs.junit)
