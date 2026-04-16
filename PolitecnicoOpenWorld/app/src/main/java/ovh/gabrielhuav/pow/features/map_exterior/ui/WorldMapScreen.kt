@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.WebView
@@ -254,23 +256,34 @@ fun WorldMapScreen(
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
         }
 
-        // ─── CAPA 7: CONTROLES DE JUEGO ─────────────────────────────────────────────
+        // ─── CAPA 7: CONTROLES DE JUEGO RESPONSIVOS ────────────────────────────────
+        val configuration = LocalConfiguration.current
+        val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+
+        // Límite de tamaño: 1.0f máximo en vertical, 1.4f máximo en horizontal
+        val maxScale = if (isPortrait) 1.0f else 1.4f
+        val effectiveScale = uiState.controlsScale.coerceAtMost(maxScale)
+
+        // Límite de márgenes: Pegados a la orilla (16.dp) en vertical, más centrados (64.dp) en horizontal
+        val sidePadding = if (isPortrait) 16.dp else 64.dp
+        // Levantamos un poco más los botones en vertical para mayor comodidad del pulgar
+        val bottomPadding = if (isPortrait) 48.dp else 32.dp
+
         Row(
             modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp, start = 64.dp, end = 64.dp),
+                .padding(bottom = bottomPadding, start = sidePadding, end = sidePadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. Declaramos los composables como variables para ordenar condicionalmente
             val movementComponent = @Composable {
                 if (uiState.controlType == ControlType.DPAD) {
                     DPadController(
-                        modifier = Modifier.scale(uiState.controlsScale), // <-- Escala limpia
+                        modifier = Modifier.scale(effectiveScale), // Usamos la escala limitada
                         onDirectionPressed = { viewModel.moveCharacter(it) }
                     )
                 } else {
                     JoystickController(
-                        modifier = Modifier.scale(uiState.controlsScale), // <-- Escala limpia
+                        modifier = Modifier.scale(effectiveScale), // Usamos la escala limitada
                         onMove = { angle -> viewModel.moveCharacterByAngle(angle) }
                     )
                 }
@@ -278,12 +291,11 @@ fun WorldMapScreen(
 
             val actionComponent = @Composable {
                 ActionButtonsController(
-                    modifier = Modifier.scale(uiState.controlsScale),
+                    modifier = Modifier.scale(effectiveScale),
                     onActionPressed = { viewModel.executeAction(it) }
                 )
             }
 
-            // 2. Comprobamos la opción de Modo Zurdo/Invertido
             if (uiState.swapControls) {
                 actionComponent()
                 movementComponent()
