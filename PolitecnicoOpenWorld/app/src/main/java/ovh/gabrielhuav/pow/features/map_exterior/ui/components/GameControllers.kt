@@ -37,10 +37,80 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
+// JoystickController
+@Composable
+fun JoystickController(
+    modifier: Modifier = Modifier,
+    onMove: (angleRad: Double) -> Unit
+) {
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var isDragging by remember { mutableStateOf(false) }
+    val latestOffset by rememberUpdatedState(offset)
+
+    // Bucle continuo de movimiento a ~30 fps cuando se mantiene arrastrado.
+    // La clave es sólo 'isDragging' para que el efecto NO se reinicie con cada cambio de offset;
+    // leemos el offset más reciente a través de 'latestOffset' (rememberUpdatedState).
+    LaunchedEffect(isDragging) {
+        if (isDragging) {
+            while (isActive) {
+                if (latestOffset != Offset.Zero) {
+                    // En Compose 'Y' crece hacia abajo, pero en GeoPoint 'Latitud' crece hacia arriba, por eso invertimos la 'y'
+                    val angle = kotlin.math.atan2(-latestOffset.y.toDouble(), latestOffset.x.toDouble())
+                    onMove(angle)
+                }
+                delay(33) // ~30 fps
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .size(120.dp) // Tamaño base, el scale() lo modificará
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.4f))
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { isDragging = true },
+                    onDragEnd = { isDragging = false; offset = Offset.Zero },
+                    onDragCancel = { isDragging = false; offset = Offset.Zero },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        val newOffset = offset + dragAmount
+                        val maxRadius = (size.width / 2f) - 24.dp.toPx() // 24 es el radio del botón interior
+                        val distance = sqrt(newOffset.x * newOffset.x + newOffset.y * newOffset.y)
+
+                        offset = if (distance > maxRadius) {
+                            newOffset * (maxRadius / distance)
+                        } else {
+                            newOffset
+                        }
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        // Círculo interior (El "pulgar" del joystick)
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.DarkGray.copy(alpha = 0.8f))
+        )
+    }
+}
 // ==========================================
 // CONTROL DIRECCIONAL (D-PAD)
 // ==========================================

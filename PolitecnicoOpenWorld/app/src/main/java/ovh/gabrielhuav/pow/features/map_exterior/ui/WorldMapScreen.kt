@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.WebView
@@ -38,6 +40,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import kotlin.math.abs
+import androidx.compose.ui.draw.scale
+import ovh.gabrielhuav.pow.features.settings.models.ControlType
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -251,15 +256,53 @@ fun WorldMapScreen(
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
         }
 
-        // ─── CAPA 7: D-PAD ─────────────────────────────────────────────────────
+        // ─── CAPA 7: CONTROLES DE JUEGO RESPONSIVOS ────────────────────────────────
+        val configuration = LocalConfiguration.current
+        val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+
+        // Límite de tamaño: 1.0f máximo en vertical, 1.4f máximo en horizontal
+        val maxScale = if (isPortrait) 1.0f else 1.4f
+        val effectiveScale = uiState.controlsScale.coerceAtMost(maxScale)
+
+        // Límite de márgenes: Pegados a la orilla (16.dp) en vertical, más centrados (64.dp) en horizontal
+        val sidePadding = if (isPortrait) 16.dp else 64.dp
+        // Levantamos un poco más los botones en vertical para mayor comodidad del pulgar
+        val bottomPadding = if (isPortrait) 48.dp else 32.dp
+
         Row(
             modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
+                .padding(bottom = bottomPadding, start = sidePadding, end = sidePadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            DPadController(onDirectionPressed = { viewModel.moveCharacter(it) })
-            ActionButtonsController(onActionPressed = { viewModel.executeAction(it) })
+            val movementComponent = @Composable {
+                if (uiState.controlType == ControlType.DPAD) {
+                    DPadController(
+                        modifier = Modifier.scale(effectiveScale), // Usamos la escala limitada
+                        onDirectionPressed = { viewModel.moveCharacter(it) }
+                    )
+                } else {
+                    JoystickController(
+                        modifier = Modifier.scale(effectiveScale), // Usamos la escala limitada
+                        onMove = { angle -> viewModel.moveCharacterByAngle(angle) }
+                    )
+                }
+            }
+
+            val actionComponent = @Composable {
+                ActionButtonsController(
+                    modifier = Modifier.scale(effectiveScale),
+                    onActionPressed = { viewModel.executeAction(it) }
+                )
+            }
+
+            if (uiState.swapControls) {
+                actionComponent()
+                movementComponent()
+            } else {
+                movementComponent()
+                actionComponent()
+            }
         }
 
     }

@@ -10,7 +10,6 @@ activityCompose = "1.12.4"
 composeBom = "2024.09.00"
 # Room 2.7.0 es la primera versión compatible con KSP2 y Kotlin 2.x
 roomVersion = "2.7.0"
-ui = "1.10.5"
 preferenceKtx = "1.2.1"
 
 [libraries]
@@ -31,9 +30,10 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
-androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preferenceKtx" }
 compose-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

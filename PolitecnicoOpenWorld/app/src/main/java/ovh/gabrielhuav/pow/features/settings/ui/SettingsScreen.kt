@@ -1,5 +1,8 @@
 package ovh.gabrielhuav.pow.features.settings.ui
 
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
+import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsState
 
@@ -32,6 +36,10 @@ fun SettingsScreen(
     onMapProviderChanged: (MapProvider) -> Unit,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
+    onSaveClicked: () -> Unit,
+    onControlTypeChanged: (ControlType) -> Unit,
+    onControlsScaleChanged: (Float) -> Unit,
+    onSwapControlsToggled: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     onExitToMainMenu: () -> Unit
 ) {
@@ -62,80 +70,111 @@ fun SettingsScreen(
         }
 
         Row(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp, vertical = 8.dp)) {
-            // Columna Izquierda: Categorías (Con Scroll)
-            Column(
-                modifier = Modifier
-                    .weight(0.3f)
-                    .fillMaxHeight()
-                    .verticalScroll(sidebarScrollState) // Habilita el desplazamiento vertical
-            ) {
-                val categories = listOf(
-                    SettingsCategory.Controls,
-                    SettingsCategory.Gameplay,
-                    SettingsCategory.Interface,
-                    SettingsCategory.Map
-                )
-                categories.forEach { category ->
-                    CategoryItem(
-                        category = category,
-                        isSelected = state.selectedCategory == category,
-                        onClick = { onCategorySelected(category) }
-                    )
-                }
+            val configuration = LocalConfiguration.current
+            val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
 
-                // Usamos altura fija en lugar de weight porque estamos dentro de un Scroll
-                Spacer(modifier = Modifier.height(32.dp))
+            if (isPortrait) {
+                // DISEÑO VERTICAL (PORTRAIT)
+                Column(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp, vertical = 8.dp)) {
 
-                // BOTÓN DE SALIR AL MENÚ PRINCIPAL
-                OutlinedButton(
-                    onClick = onExitToMainMenu,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
-                    border = BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.5f))
-                ) {
-                    Text("SALIR AL MENÚ", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            // Columna Derecha: Contenido (Con Scroll)
-            Column(
-                modifier = Modifier
-                    .weight(0.7f)
-                    .fillMaxHeight()
-                    .padding(start = 24.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF1A0A10))
-                    .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                    .padding(24.dp)
-                    .verticalScroll(contentScrollState) // Habilita el desplazamiento vertical
-            ) {
-                Text(
-                    text = state.selectedCategory.title.uppercase(),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-
-                when (state.selectedCategory) {
-                    is SettingsCategory.Map -> {
-                        MapProviderSetting(state.mapProvider, onMapProviderChanged)
+                    // Categorías estilo "Pestañas" con scroll horizontal
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface)
+                        categories.forEach { category ->
+                            CategoryItemHorizontal(
+                                category = category,
+                                isSelected = state.selectedCategory == category,
+                                onClick = { onCategorySelected(category) }
+                            )
+                        }
                     }
-                    is SettingsCategory.Interface -> {
-                        DiagnosticWidgetsSetting(
-                            cacheEnabled = state.showCacheWidget,
-                            fpsEnabled = state.showFpsWidget,
-                            onCacheToggled = onCacheToggled,
-                            onFpsToggled = onFpsToggled
-                        )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Contenido de la configuración
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF1A0A10))
+                            .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .padding(16.dp)
+                            .verticalScroll(contentScrollState)
+                    ) {
+                        Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Spacer(modifier = Modifier.height(24.dp))
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled)
                     }
-                    else -> {
-                        Text("Sin ajustes disponibles actualmente.", color = Color.Gray)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Botón de Salir abajo
+                    OutlinedButton(
+                        onClick = onExitToMainMenu,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
+                        border = BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.5f))
+                    ) {
+                        Text("SALIR AL MENÚ", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else {
+                // DISEÑO HORIZONTAL (LANDSCAPE)
+                Row(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Column(modifier = Modifier.weight(0.3f).fillMaxHeight().verticalScroll(sidebarScrollState)) {
+                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface)
+                        categories.forEach { category ->
+                            CategoryItem(category = category, isSelected = state.selectedCategory == category, onClick = { onCategorySelected(category) })
+                        }
+                        Spacer(modifier = Modifier.height(32.dp))
+                        OutlinedButton(
+                            onClick = onExitToMainMenu,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
+                            border = BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.5f))
+                        ) { Text("SALIR AL MENÚ", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                    }
+
+                    Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
+                        Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Spacer(modifier = Modifier.height(24.dp))
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled)
                     }
                 }
             }
         }
+    }
+}
+@Composable
+private fun CategoryItemHorizontal(category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .padding(end = 8.dp) // Mantiene la separación entre botones
+            .clip(RoundedCornerShape(8.dp)) // Cambiado a 8.dp para tener el diseño rectangular
+            .clickable { onClick() }
+            .background(if (isSelected) Color(0xFF6B1C3A) else Color.Transparent) // Fondo transparente al no estar seleccionado
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = category.icon,
+            contentDescription = null,
+            tint = if (isSelected) Color.White else Color.Gray,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = category.title,
+            color = if (isSelected) Color.White else Color.Gray,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp
+        )
     }
 }
 
@@ -153,7 +192,24 @@ private fun CategoryItem(category: SettingsCategory, isSelected: Boolean, onClic
         Text(category.title, color = if (isSelected) Color.White else Color.Gray, fontWeight = FontWeight.SemiBold)
     }
 }
-
+@Composable
+private fun SettingsContent(
+    state: SettingsState,
+    onMapProviderChanged: (MapProvider) -> Unit,
+    onCacheToggled: (Boolean) -> Unit,
+    onFpsToggled: (Boolean) -> Unit,
+    onSaveClicked: () -> Unit,
+    onControlTypeChanged: (ControlType) -> Unit,
+    onControlsScaleChanged: (Float) -> Unit,
+    onSwapControlsToggled: (Boolean) -> Unit
+) {
+    when (state.selectedCategory) {
+        is SettingsCategory.Map -> MapProviderSetting(state.mapProvider, onMapProviderChanged)
+        is SettingsCategory.Controls -> ControlsSettingsConfig(state.controlType, state.controlsScale, state.swapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
+        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, onCacheToggled, onFpsToggled)
+        else -> Text("Sin ajustes disponibles actualmente.", color = Color.Gray)
+    }
+}
 @Composable
 private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -221,6 +277,101 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
             ) {
                 Text("Restaurar Mapa")
             }
+        }
+    }
+}
+@Composable
+private fun ControlsSettingsConfig(
+    type: ControlType,
+    scale: Float,
+    isSwapped: Boolean,
+    onTypeChanged: (ControlType) -> Unit,
+    onScaleChanged: (Float) -> Unit,
+    onSwapChanged: (Boolean) -> Unit,
+    onSaveClicked: () -> Unit
+) {
+    // Detectar si estamos en vertical u horizontal para el tamaño máximo
+    val configuration = LocalConfiguration.current
+    val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+
+    // Calculamos el límite dinámico: 1.0f en vertical, 1.4f en horizontal
+    val maxScale = if (isPortrait) 1.0f else 1.4f
+    val safeScale = scale.coerceAtMost(maxScale) // Evita que se pase del límite actual
+
+    LaunchedEffect(scale, maxScale) {
+        if (scale > maxScale) {
+            onScaleChanged(safeScale)
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+
+        // 1. Selector de Tipo
+        Column {
+            Text("Estilo de Movimiento", color = Color.White, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ControlType.entries.forEach { option ->
+                    Button(
+                        onClick = { onTypeChanged(option) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (type == option) Color(0xFF6B1C3A) else Color(0xFF2A1C21)
+                        )
+                    ) {
+                        Text(option.displayName, color = Color.White, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        // 2. Deslizador de Tamaño (ACTUALIZADO CON RESPONSIVIDAD)
+        Column {
+            Text("Tamaño en Pantalla: ${(safeScale * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold)
+            Text(
+                text = if (isPortrait) "Límite ajustado a 100% por modo vertical." else "No superará los límites de la pantalla.",
+                color = Color.Gray,
+                fontSize = 12.sp
+            )
+            Slider(
+                value = safeScale,
+                onValueChange = onScaleChanged,
+                valueRange = 0.6f..maxScale, // El rango termina en el límite que calculamos arriba
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFFD4AF37),
+                    activeTrackColor = Color(0xFF6B1C3A)
+                )
+            )
+        }
+
+        // 3. Inversión (Modo Zurdo)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text("Intercambiar Lados", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Mueve la acción a la izquierda", color = Color.Gray, fontSize = 12.sp)
+            }
+            Switch(
+                checked = isSwapped,
+                onCheckedChange = onSwapChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFD4AF37),
+                    checkedTrackColor = Color(0xFF6B1C3A)
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = onSaveClicked,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37))
+        ) {
+            Text("GUARDAR CONFIGURACIÓN", color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }
