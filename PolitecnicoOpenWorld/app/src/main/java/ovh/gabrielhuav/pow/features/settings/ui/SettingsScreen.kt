@@ -298,6 +298,11 @@ private fun ControlsSettingsConfig(
     val maxScale = if (isPortrait) 1.0f else 1.4f
     val safeScale = scale.coerceAtMost(maxScale) // Evita que se pase del límite actual
 
+    LaunchedEffect(scale, maxScale) {
+        if (scale > maxScale) {
+            onScaleChanged(safeScale)
+        }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
 
         // 1. Selector de Tipo
