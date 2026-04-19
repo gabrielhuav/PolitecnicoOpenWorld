@@ -4,8 +4,11 @@ import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
-enum class MapProvider(val displayName: String) {
-    OSM("OSMDroid (Nativo)"),
+enum class MapProvider(
+    val displayName: String,
+    val supportsFreeNavigation: Boolean = false
+) {
+    OSM("OSMDroid (Nativo)", supportsFreeNavigation = true),
     OSM_WEB("OpenStreetMap (Web)"),
     GOOGLE_MAPS("Google Maps (Web)"),
     CARTO_DB_DARK("CartoDB Oscuro (Web)"),
@@ -31,10 +34,11 @@ data class WorldMapState(
     val roadSource: RoadSource = RoadSource.LOADING,
     val tileSource: TileSource = TileSource.NETWORK,
     val showCacheWidget: Boolean = true,
-    val showFpsWidget: Boolean = false, // ← Agregado
+    val showFpsWidget: Boolean = false,
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f,
-    val swapControls: Boolean = false
+    val swapControls: Boolean = false,
+    val freeNavigation: Boolean = false
 ) {
     companion object {
         const val ZOOM_LOADING        = 17.0

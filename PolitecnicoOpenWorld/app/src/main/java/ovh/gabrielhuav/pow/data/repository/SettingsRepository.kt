@@ -13,6 +13,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_SWAP_CONTROLS = "SWAP_CONTROLS"
         private const val SCALE_MIN = 0.6f
         private const val SCALE_MAX = 1.4f
+
+        private const val KEY_FREE_NAVIGATION = "FREE_NAVIGATION"
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -41,4 +43,10 @@ class SettingsRepository(context: Context) {
     fun getControlsScale(): Float = prefs.getFloat(KEY_CONTROLS_SCALE, 1.0f).coerceIn(SCALE_MIN, SCALE_MAX)
 
     fun getSwapControls(): Boolean = prefs.getBoolean(KEY_SWAP_CONTROLS, false)
+
+    fun saveFreeNavigation(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FREE_NAVIGATION, enabled).apply()
+    }
+
+    fun getFreeNavigation(): Boolean = prefs.getBoolean(KEY_FREE_NAVIGATION, false)
 }

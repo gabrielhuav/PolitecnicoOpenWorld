@@ -40,12 +40,12 @@ fun SettingsScreen(
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
     onSwapControlsToggled: (Boolean) -> Unit,
+    onFreeNavigationToggled: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     onExitToMainMenu: () -> Unit
 ) {
     val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
 
-    // Estados para recordar la posición del scroll
     val sidebarScrollState = rememberScrollState()
     val contentScrollState = rememberScrollState()
 
@@ -77,12 +77,16 @@ fun SettingsScreen(
                 // DISEÑO VERTICAL (PORTRAIT)
                 Column(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp, vertical = 8.dp)) {
 
-                    // Categorías estilo "Pestañas" con scroll horizontal
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface)
+                        val categories = listOf(
+                            SettingsCategory.Map,
+                            SettingsCategory.Controls,
+                            SettingsCategory.Gameplay,
+                            SettingsCategory.Interface
+                        )
                         categories.forEach { category ->
                             CategoryItemHorizontal(
                                 category = category,
@@ -94,7 +98,6 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Contenido de la configuración
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -105,14 +108,22 @@ fun SettingsScreen(
                             .padding(16.dp)
                             .verticalScroll(contentScrollState)
                     ) {
-                        Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            state.selectedCategory.title.uppercase(),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled)
+                        SettingsContent(
+                            state, onMapProviderChanged, onCacheToggled, onFpsToggled,
+                            onSaveClicked, onControlTypeChanged, onControlsScaleChanged,
+                            onSwapControlsToggled, onFreeNavigationToggled
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Botón de Salir abajo
                     OutlinedButton(
                         onClick = onExitToMainMenu,
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -127,9 +138,18 @@ fun SettingsScreen(
                 // DISEÑO HORIZONTAL (LANDSCAPE)
                 Row(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Column(modifier = Modifier.weight(0.3f).fillMaxHeight().verticalScroll(sidebarScrollState)) {
-                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface)
+                        val categories = listOf(
+                            SettingsCategory.Map,
+                            SettingsCategory.Controls,
+                            SettingsCategory.Gameplay,
+                            SettingsCategory.Interface
+                        )
                         categories.forEach { category ->
-                            CategoryItem(category = category, isSelected = state.selectedCategory == category, onClick = { onCategorySelected(category) })
+                            CategoryItem(
+                                category = category,
+                                isSelected = state.selectedCategory == category,
+                                onClick = { onCategorySelected(category) }
+                            )
                         }
                         Spacer(modifier = Modifier.height(32.dp))
                         OutlinedButton(
@@ -141,24 +161,41 @@ fun SettingsScreen(
                         ) { Text("SALIR AL MENÚ", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                     }
 
-                    Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
-                        Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Column(
+                        modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF1A0A10))
+                            .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .padding(24.dp)
+                            .verticalScroll(contentScrollState)
+                    ) {
+                        Text(
+                            state.selectedCategory.title.uppercase(),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled)
+                        SettingsContent(
+                            state, onMapProviderChanged, onCacheToggled, onFpsToggled,
+                            onSaveClicked, onControlTypeChanged, onControlsScaleChanged,
+                            onSwapControlsToggled, onFreeNavigationToggled
+                        )
                     }
                 }
             }
         }
     }
 }
+
 @Composable
 private fun CategoryItemHorizontal(category: SettingsCategory, isSelected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
-            .padding(end = 8.dp) // Mantiene la separación entre botones
-            .clip(RoundedCornerShape(8.dp)) // Cambiado a 8.dp para tener el diseño rectangular
+            .padding(end = 8.dp)
+            .clip(RoundedCornerShape(8.dp))
             .clickable { onClick() }
-            .background(if (isSelected) Color(0xFF6B1C3A) else Color.Transparent) // Fondo transparente al no estar seleccionado
+            .background(if (isSelected) Color(0xFF6B1C3A) else Color.Transparent)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -192,6 +229,7 @@ private fun CategoryItem(category: SettingsCategory, isSelected: Boolean, onClic
         Text(category.title, color = if (isSelected) Color.White else Color.Gray, fontWeight = FontWeight.SemiBold)
     }
 }
+
 @Composable
 private fun SettingsContent(
     state: SettingsState,
@@ -201,19 +239,29 @@ private fun SettingsContent(
     onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
-    onSwapControlsToggled: (Boolean) -> Unit
+    onSwapControlsToggled: (Boolean) -> Unit,
+    onFreeNavigationToggled: (Boolean) -> Unit
 ) {
     when (state.selectedCategory) {
         is SettingsCategory.Map -> MapProviderSetting(state.mapProvider, onMapProviderChanged)
-        is SettingsCategory.Controls -> ControlsSettingsConfig(state.controlType, state.controlsScale, state.swapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
-        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, onCacheToggled, onFpsToggled)
-        else -> Text("Sin ajustes disponibles actualmente.", color = Color.Gray)
+        is SettingsCategory.Controls -> ControlsSettingsConfig(
+            state.controlType, state.controlsScale, state.swapControls,
+            onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked
+        )
+        is SettingsCategory.Gameplay -> GameplayCategoryContent(
+            provider = state.mapProvider,
+            freeNavigation = state.freeNavigation,
+            onFreeNavigationToggled = onFreeNavigationToggled
+        )
+        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(
+            state.showCacheWidget, state.showFpsWidget, onCacheToggled, onFpsToggled
+        )
     }
 }
+
 @Composable
 private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    // NUEVO: Estado local para retener la selección antes de aplicarla
     var tempProvider by remember(current) { mutableStateOf(current) }
     val hasPendingChange = tempProvider != current
 
@@ -221,11 +269,14 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
         Text("Proveedor de Mapa", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
         Spacer(Modifier.height(8.dp))
         Box {
-            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White, containerColor = Color(0xFF2A1C21)),
+            OutlinedButton(
+                onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.White,
+                    containerColor = Color(0xFF2A1C21)
+                ),
                 border = BorderStroke(1.dp, Color(0xFF6B1C3A))
             ) {
-                // CAMBIO: Mostrar el proveedor temporal en lugar del current
                 Text(tempProvider.displayName, Modifier.weight(1f))
                 Icon(Icons.Default.ArrowDropDown, null, tint = Color(0xFFD4AF37))
             }
@@ -238,7 +289,6 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
                     DropdownMenuItem(
                         text = { Text(provider.displayName, color = Color.White) },
                         onClick = {
-                            // CAMBIO: Solo actualizamos el estado temporal, no llamamos a onChanged aún
                             tempProvider = provider
                             expanded = false
                         }
@@ -247,7 +297,6 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
             }
         }
 
-        // NUEVO: Fila con los botones "Cambiar Mapa" y "Restaurar Mapa"
         Spacer(Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -272,7 +321,10 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
                     contentColor = Color.White,
                     disabledContentColor = Color.Gray
                 ),
-                border = BorderStroke(1.dp, if (hasPendingChange) Color(0xFFD4AF37) else Color(0xFF2A1C21)),
+                border = BorderStroke(
+                    1.dp,
+                    if (hasPendingChange) Color(0xFFD4AF37) else Color(0xFF2A1C21)
+                ),
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Restaurar Mapa")
@@ -280,6 +332,7 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
         }
     }
 }
+
 @Composable
 private fun ControlsSettingsConfig(
     type: ControlType,
@@ -290,13 +343,11 @@ private fun ControlsSettingsConfig(
     onSwapChanged: (Boolean) -> Unit,
     onSaveClicked: () -> Unit
 ) {
-    // Detectar si estamos en vertical u horizontal para el tamaño máximo
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
 
-    // Calculamos el límite dinámico: 1.0f en vertical, 1.4f en horizontal
     val maxScale = if (isPortrait) 1.0f else 1.4f
-    val safeScale = scale.coerceAtMost(maxScale) // Evita que se pase del límite actual
+    val safeScale = scale.coerceAtMost(maxScale)
 
     LaunchedEffect(scale, maxScale) {
         if (scale > maxScale) {
@@ -305,7 +356,6 @@ private fun ControlsSettingsConfig(
     }
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
 
-        // 1. Selector de Tipo
         Column {
             Text("Estilo de Movimiento", color = Color.White, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
@@ -324,18 +374,22 @@ private fun ControlsSettingsConfig(
             }
         }
 
-        // 2. Deslizador de Tamaño (ACTUALIZADO CON RESPONSIVIDAD)
         Column {
-            Text("Tamaño en Pantalla: ${(safeScale * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold)
             Text(
-                text = if (isPortrait) "Límite ajustado a 100% por modo vertical." else "No superará los límites de la pantalla.",
+                "Tamaño en Pantalla: ${(safeScale * 100).toInt()}%",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (isPortrait) "Límite ajustado a 100% por modo vertical."
+                else "No superará los límites de la pantalla.",
                 color = Color.Gray,
                 fontSize = 12.sp
             )
             Slider(
                 value = safeScale,
                 onValueChange = onScaleChanged,
-                valueRange = 0.6f..maxScale, // El rango termina en el límite que calculamos arriba
+                valueRange = 0.6f..maxScale,
                 colors = SliderDefaults.colors(
                     thumbColor = Color(0xFFD4AF37),
                     activeTrackColor = Color(0xFF6B1C3A)
@@ -343,7 +397,6 @@ private fun ControlsSettingsConfig(
             )
         }
 
-        // 3. Inversión (Modo Zurdo)
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -377,6 +430,53 @@ private fun ControlsSettingsConfig(
 }
 
 @Composable
+private fun GameplayCategoryContent(
+    provider: MapProvider,
+    freeNavigation: Boolean,
+    onFreeNavigationToggled: (Boolean) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        // El toggle solo aparece si el proveedor actual soporta navegación libre.
+        // En esta fase inicial, solo MapProvider.OSM tiene supportsFreeNavigation = true.
+        if (provider.supportsFreeNavigation) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        "Navegación libre",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Desplaza con un dedo, zoom con dos. La ubicación del jugador se conserva.",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 12.sp
+                    )
+                }
+                Switch(
+                    checked = freeNavigation,
+                    onCheckedChange = onFreeNavigationToggled,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFFD4AF37),
+                        checkedTrackColor = Color(0xFF6B1C3A)
+                    )
+                )
+            }
+        } else {
+            Text(
+                "No hay ajustes de jugabilidad disponibles para el proveedor de mapa actual (${provider.displayName}).",
+                color = Color.Gray,
+                fontSize = 13.sp
+            )
+        }
+    }
+}
+
+@Composable
 private fun DiagnosticWidgetsSetting(
     cacheEnabled: Boolean,
     fpsEnabled: Boolean,
@@ -384,8 +484,11 @@ private fun DiagnosticWidgetsSetting(
     onFpsToggled: (Boolean) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Toggle de Caché
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Column {
                 Text("Widget de caché", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 Text("Muestra fuente de datos", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
@@ -393,12 +496,18 @@ private fun DiagnosticWidgetsSetting(
             Switch(
                 checked = cacheEnabled,
                 onCheckedChange = onCacheToggled,
-                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFD4AF37),
+                    checkedTrackColor = Color(0xFF6B1C3A)
+                )
             )
         }
 
-        // Toggle de FPS
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Column {
                 Text("Widget de FPS", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 Text("Mide el rendimiento gráfico", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
@@ -406,7 +515,10 @@ private fun DiagnosticWidgetsSetting(
             Switch(
                 checked = fpsEnabled,
                 onCheckedChange = onFpsToggled,
-                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFD4AF37),
+                    checkedTrackColor = Color(0xFF6B1C3A)
+                )
             )
         }
     }

@@ -63,7 +63,8 @@ class WorldMapViewModel(
         WorldMapState(
             controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
-            swapControls = settingsRepository.getSwapControls()
+            swapControls = settingsRepository.getSwapControls(),
+            freeNavigation = settingsRepository.getFreeNavigation()
         )
     )
     val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
@@ -377,6 +378,7 @@ class WorldMapViewModel(
     }
 
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
+    fun toggleFreeNavigation(enabled: Boolean) { _uiState.update { it.copy(freeNavigation = enabled) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
     fun updateShowCacheWidget(show: Boolean) = _uiState.update { it.copy(showCacheWidget = show) }
     fun updateShowFpsWidget(show: Boolean) = _uiState.update { it.copy(showFpsWidget = show) }

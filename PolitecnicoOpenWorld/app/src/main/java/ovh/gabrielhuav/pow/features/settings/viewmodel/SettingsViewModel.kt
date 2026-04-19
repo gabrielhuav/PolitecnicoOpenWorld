@@ -19,7 +19,8 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         SettingsState(
             controlType = repository.getControlType(),
             controlsScale = repository.getControlsScale(),
-            swapControls = repository.getSwapControls()
+            swapControls = repository.getSwapControls(),
+            freeNavigation = repository.getFreeNavigation()
         )
     )
     val state: StateFlow<SettingsState> = _state.asStateFlow()
@@ -42,6 +43,12 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
             swap = currentState.swapControls
         )
     }
+
+    fun toggleFreeNavigation(enabled: Boolean) {
+        _state.update { it.copy(freeNavigation = enabled) }
+        repository.saveFreeNavigation(enabled)
+    }
+
 
     // Factory para inyectar el contexto
     class Factory(private val context: Context) : ViewModelProvider.Factory {

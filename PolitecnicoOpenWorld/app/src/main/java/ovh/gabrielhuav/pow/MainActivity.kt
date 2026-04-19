@@ -74,10 +74,16 @@ class MainActivity : ComponentActivity() {
                     // 1. EL ORQUESTADOR GLOBAL: Sincroniza los ajustes en segundo plano
                     // Esto evita recomposiciones destructivas al navegar.
                     val settingsState by settingsViewModel.state.collectAsState()
-                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget) {
+                    LaunchedEffect(
+                        settingsState.mapProvider,
+                        settingsState.showCacheWidget,
+                        settingsState.showFpsWidget,
+                        settingsState.freeNavigation
+                    ) {
                         worldMapViewModel.setMapProvider(settingsState.mapProvider)
                         worldMapViewModel.toggleCacheWidget(settingsState.showCacheWidget)
                         worldMapViewModel.toggleFpsWidget(settingsState.showFpsWidget)
+                        worldMapViewModel.toggleFreeNavigation(settingsState.freeNavigation)
                     }
 
                     val navController = rememberNavController()
@@ -117,6 +123,7 @@ class MainActivity : ComponentActivity() {
                                 onControlTypeChanged = { settingsViewModel.changeControlType(it) },
                                 onControlsScaleChanged = { settingsViewModel.changeControlsScale(it) },
                                 onSwapControlsToggled = { settingsViewModel.toggleSwapControls(it) },
+                                onFreeNavigationToggled = { settingsViewModel.toggleFreeNavigation(it) },
                                 onNavigateBack = {
                                     if (navController.currentDestination?.route == "settings") {
                                         navController.popBackStack()
