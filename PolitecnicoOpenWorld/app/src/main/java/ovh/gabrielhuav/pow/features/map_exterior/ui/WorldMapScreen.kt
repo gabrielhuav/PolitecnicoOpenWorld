@@ -127,17 +127,28 @@ fun WorldMapScreen(
                             val marker = markerCache[id] ?: Marker(view).apply {
                                 title = "NPC_MARKER"
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                val resId = context.resources.getIdentifier(
-                                    npc.type.drawableName, "drawable", context.packageName)
-                                if (resId != 0) icon = ContextCompat.getDrawable(context, resId)
                                 markerCache[id] = this; view.overlays.add(this)
                             }
-                            marker.position = npc.location; marker.rotation = npc.rotationAngle
-                        }
-                        val iter = markerCache.entries.iterator()
-                        while (iter.hasNext()) {
-                            val e = iter.next()
-                            if (e.key !in activeIds) { view.overlays.remove(e.value); iter.remove() }
+                            if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
+                                val currentZoom = view.zoomLevelDouble
+
+                                // Calculamos la escala proporcional, pero:
+                                // coerceIn asegura que no sea menor a 0.3x (muy lejos) ni mayor a 1.8x (muy cerca)
+                                val dynamicScale = (1.6 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.3f, 1.8f)
+
+                                marker.icon = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
+                                    context, npc.rotationAngle, npc.carColor, dynamicScale
+                                )
+                                marker.setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
+                                marker.rotation = 0f
+                            } else {
+                                val resId = context.resources.getIdentifier(
+                                    npc.type.drawableName, "drawable", context.packageName)
+                                if (resId != 0) marker.icon = ContextCompat.getDrawable(context, resId)
+                                marker.rotation = npc.rotationAngle
+                            }
+
+                            marker.position = npc.location
                         }
                     }
                     view.invalidate()
@@ -178,9 +189,12 @@ fun WorldMapScreen(
                     }
                     wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null)
                     wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
+                    // Modifica la inyección del JSON a WebView para incluir el color HSV:
                     val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
+                        val hsv = FloatArray(3)
+                        android.graphics.Color.colorToHSV(npc.carColor, hsv)
                         "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}'}"
+                                "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}', hue:${hsv[0]}}"
                     }
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
                 }
@@ -367,49 +381,100 @@ private fun CacheChip(label: String, text: String, color: Color, isLoading: Bool
     }
 }
 
-private fun buildHtml(lat: Double, lng: Double, zoom: Int) = """
-<!DOCTYPE html><html>
+private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
+<!DOCTYPE html>
+<html>
 <head>
-    <meta name="viewport" content="initial-scale=1.0,user-scalable=no"/>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <style>body,html,#map{width:100%;height:100%;margin:0;padding:0;background:#2b2b2b;}
-    .leaflet-control-attribution{display:none!important;}
-    .npc-c{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}</style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background: #aad3df; overflow: hidden; }
+        #map { width: 100vw; height: 100vh; background: #aad3df; }
+        /* Evita que los iconos tengan bordes o fondos blancos */
+        .leaflet-marker-icon { background: none !important; border: none !important; }
+        .npc-c { pointer-events: none; display: flex; align-items: center; justify-content: center; }
+        
+        /* Filtro especial para teñir blanco preservando detalles oscuros */
+        .car-img { 
+            display: block; 
+            filter: sepia(100%) saturate(300%) brightness(0.9);
+        }
+    </style>
 </head>
 <body>
-<div id="map"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-var map,currentTileLayer,npcMarkers={},roadNetworkReady=false;
-function initMap(){
-    map=L.map('map',{center:[$lat,$lng],zoom:$zoom,zoomControl:false,dragging:false,
-        keyboard:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false});
-    currentTileLayer=L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-        {maxZoom:22,keepBuffer:4}).addTo(map);
-}
-function moveMap(lat,lng){if(map)map.setView([lat,lng],map.getZoom(),{animate:false});}
-function setMapZoom(z){if(map&&map.getZoom()!==z)map.setZoom(z,{animate:false});}
-function changeTileUrl(url){if(currentTileLayer&&currentTileLayer._url!==url)currentTileLayer.setUrl(url);}
-function setRoadNetworkReady(r){roadNetworkReady=r;}
-function updateNpcs(data){
-    if(!roadNetworkReady)return;
-    var ids=new Set(data.map(function(n){return n.id;}));
-    for(var id in npcMarkers){if(!ids.has(id)){map.removeLayer(npcMarkers[id]);delete npcMarkers[id];}}
-    data.forEach(function(npc){
-        if(npcMarkers[npc.id]){
-            npcMarkers[npc.id].setLatLng([npc.lat,npc.lng]);
-            var el=npcMarkers[npc.id].getElement();
-            if(el&&el.firstChild)el.firstChild.style.transform='rotate('+npc.rot+'deg)';
-        }else{
-            var sz=npc.type==='CAR'?48:24;
-            var url='file:///android_asset/'+npc.drawable+'.svg';
-            var html='<div class="npc-c" style="transform:rotate('+npc.rot+'deg)"><img src="'+url+'" width="'+sz+'" height="'+sz+'" style="display:block"></div>';
-            var icon=L.divIcon({html:html,className:'',iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
-            npcMarkers[npc.id]=L.marker([npc.lat,npc.lng],{icon:icon}).addTo(map);
+    <div id="map"></div>
+    <script>
+        var map = L.map('map', { 
+            zoomControl: false, 
+            attributionControl: false,
+            dragging: true 
+        }).setView([$lat, $lng], $zoom);
+
+        var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        var npcMarkers = {};
+
+        // --- FUNCIONES PUENTE PARA KOTLIN ---
+        function moveMap(lat, lng) { map.setView([lat, lng], map.getZoom(), { animate: false }); }
+        function setMapZoom(z) { map.setZoom(z, { animate: false }); }
+        function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
+        function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
+
+        function updateNpcs(data) {
+            var currentZoom = map.getZoom();
+            // Tamaño base 80px en zoom 19
+            var sz = 80 * Math.pow(2, currentZoom - 19);
+            sz = Math.max(15, Math.min(sz, 100)); 
+
+            var ids = new Set(data.map(function(n) { return n.id; }));
+            for (var id in npcMarkers) {
+                if (!ids.has(id)) { map.removeLayer(npcMarkers[id]); delete npcMarkers[id]; }
+            }
+
+            data.forEach(function(npc) {
+                // CORRECCIÓN CLAVE: Usamos npc.rot tal cual, sin sumarle ni restarle nada.
+                // El sprite 000 ya es Norte, y 0 grados en tu NpcAiManager también es Norte.
+                var rotAdjusted = npc.rot;
+                
+                var frame = Math.round(((rotAdjusted % 360) + 360) % 360 / 7.5) % 48;
+                var idx = String(frame).padStart(3, '0');
+                var url = 'file:///android_asset/VEHICLES/WHITE_SEDAN/White_SEDAN_CLEAN_All_' + idx + '.webp';
+
+                if (npcMarkers[npc.id]) {
+                    npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);
+                    var el = npcMarkers[npc.id].getElement();
+                    if (el) {
+                        var img = el.querySelector('img');
+                        if (npc.type === 'CAR' && img) {
+                            img.src = url;
+                            // Teñimos solo el color mediante el hue del NPC
+                            img.style.filter = 'sepia(100%) saturate(400%) hue-rotate(' + npc.hue + 'deg) brightness(1.0)';
+                            img.style.width = sz + 'px';
+                            img.style.height = sz + 'px';
+                        } else if (img) {
+                            img.style.transform = 'rotate(' + npc.rot + 'deg)';
+                        }
+                    }
+                } else {
+                    var html;
+                    if (npc.type === 'CAR') {
+                        var filterStyle = 'filter: sepia(100%) saturate(400%) hue-rotate(' + npc.hue + 'deg) brightness(1.0);';
+                        html = '<div class="npc-c"><img class="car-img" src="'+url+'" width="'+sz+'" height="'+sz+'" style="'+filterStyle+'"></div>';
+                    } else {
+                        var pUrl = 'file:///android_asset/' + npc.drawable + '.svg';
+                        html = '<div class="npc-c" style="transform:rotate('+npc.rot+'deg)"><img src="'+pUrl+'" width="24" height="24"></div>';
+                    }
+                    var icon = L.divIcon({ 
+                        html: html, 
+                        className: '', 
+                        iconSize: [sz, sz], 
+                        iconAnchor: [sz/2, sz/2] 
+                    });
+                    npcMarkers[npc.id] = L.marker([npc.lat, npc.lng], { icon: icon }).addTo(map);
+                }
+            });
         }
-    });
-}
-initMap();
-</script>
-</body></html>
+    </script>
+</body>
+</html>
 """.trimIndent()
