@@ -6,16 +6,31 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.util.LruCache
 import androidx.core.graphics.ColorUtils
 import kotlin.math.roundToInt
 
 object VehicleSpriteManager {
     private val sedanFrames = arrayOfNulls<Bitmap>(48)
 
+    // Cache key: (frameIndex, colorInt, discretizedZoom) -> tinted+scaled BitmapDrawable
+    // Zoom is discretized to steps of 0.05 to bound cache size while avoiding per-tick allocations.
+    private data class CacheKey(val frameIndex: Int, val colorInt: Int, val discretizedZoomStep: Int)
+
+    // 48 frames × ~4 common car colors × ~a few zoom levels fits well within 256 entries,
+    // while keeping memory usage bounded (each entry holds a single small scaled Bitmap).
+    private val drawableCache: LruCache<CacheKey, BitmapDrawable> = LruCache(256)
+
     fun getTintedCarNpc(context: Context, headingAngle: Float, colorInt: Int, zoomScale: Float): Drawable? {
         var angle = headingAngle % 360f
         if (angle < 0) angle += 360f
         val frameIndex = (angle / 7.5f).roundToInt() % 48
+
+        // Discretize zoom to steps of 0.05 to limit cache entries while avoiding per-tick re-allocs
+        val discretizedZoomStep = (zoomScale / 0.05f).roundToInt()
+        val key = CacheKey(frameIndex, colorInt, discretizedZoomStep)
+
+        drawableCache.get(key)?.let { return it }
 
         // Cargar el bitmap original en caché si no existe (sin escalar aún)
         if (sedanFrames[frameIndex] == null) {
@@ -37,13 +52,13 @@ object VehicleSpriteManager {
 
         val baseBitmap = sedanFrames[frameIndex] ?: return null
 
-        // Aplicar el nuevo tamaño dinámico basado en el zoom
+        // Aplicar el nuevo tamaño dinámico basado en el zoom.
+        // filter=false preserves pixel-art sharpness (nearest-neighbour scaling).
         val finalWidth = (baseBitmap.width * zoomScale).roundToInt().coerceAtLeast(1)
         val finalHeight = (baseBitmap.height * zoomScale).roundToInt().coerceAtLeast(1)
+        val scaledBitmap = Bitmap.createScaledBitmap(baseBitmap, finalWidth, finalHeight, false)
 
-        val scaledBitmap = Bitmap.createScaledBitmap(baseBitmap, finalWidth, finalHeight, true)
-
-        return BitmapDrawable(context.resources, scaledBitmap).apply {
+        val result = BitmapDrawable(context.resources, scaledBitmap).apply {
             // MAGIA DEL COLOR: Hacemos el color un 80% opaco (200/255)
             val translucentColor = ColorUtils.setAlphaComponent(colorInt, 200)
 
@@ -51,5 +66,7 @@ object VehicleSpriteManager {
             // y al tener opacidad 200, deja ver los faros blancos y llantas negras originales.
             colorFilter = PorterDuffColorFilter(translucentColor, PorterDuff.Mode.SRC_ATOP)
         }
+        drawableCache.put(key, result)
+        return result
     }
 }

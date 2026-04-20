@@ -13,5 +13,5 @@ data class Npc(
     var targetNodeIndex: Int = 0,
     var moveDirection: Int = 1,
     // NUEVO: Propiedad para el color aleatorio del coche
-    val carColor: Int = android.graphics.Color.WHITE
+    val carColor: Int = 0xFFFFFFFF.toInt()
 )
