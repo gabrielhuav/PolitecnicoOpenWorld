@@ -137,7 +137,7 @@ fun WorldMapScreen(
                                 val dynamicScale = (1.6 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.3f, 1.8f)
 
                                 marker.icon = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
-                                    context, npc.rotationAngle, npc.carColor, dynamicScale
+                                    context, npc.rotationAngle, npc.carColor, dynamicScale, npc.carModel
                                 )
                                 marker.setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
                                 marker.rotation = 0f
@@ -194,7 +194,8 @@ fun WorldMapScreen(
                         val hsv = FloatArray(3)
                         android.graphics.Color.colorToHSV(npc.carColor, hsv)
                         "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}', hue:${hsv[0]}}"
+                                "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}', " +
+                                "hue:${hsv[0]}, dir:'${npc.carModel.dirName}', prefix:'${npc.carModel.prefix}'}"
                     }
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
                 }
@@ -438,7 +439,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 
                 var frame = Math.round(((rotAdjusted % 360) + 360) % 360 / 7.5) % 48;
                 var idx = String(frame).padStart(3, '0');
-                var url = 'file:///android_asset/VEHICLES/WHITE_SEDAN/White_SEDAN_CLEAN_All_' + idx + '.webp';
+                var url = 'file:///android_asset/VEHICLES/' + npc.dir + '/' + npc.prefix + idx + '.webp';
 
                 if (npcMarkers[npc.id]) {
                     npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);

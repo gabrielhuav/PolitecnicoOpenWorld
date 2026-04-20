@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.CarModel
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.NpcType
@@ -95,7 +96,10 @@ class NpcAiManager {
         // Generar un color aleatorio para los vehículos
         val randomColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
 
-        // Al iniciar, le damos un ángulo inicial genérico (se corregirá en el primer frame de movimiento)
+        // Seleccionar un modelo de vehículo aleatorio
+        val randomModel = if (npcType == NpcType.CAR) CarModel.entries.random() else CarModel.SEDAN
+
+        // Al iniciar, le damos un ángulo inicial genérico
         return Npc(
             type = npcType,
             location = startGeo,
@@ -103,7 +107,8 @@ class NpcAiManager {
             currentWay = selectedWay,
             targetNodeIndex = startIndex + dir,
             moveDirection = dir,
-            carColor = randomColor
+            carColor = randomColor,
+            carModel = randomModel
         )
     }
 
