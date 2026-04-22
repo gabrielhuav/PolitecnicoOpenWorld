@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -40,6 +39,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import androidx.compose.ui.draw.scale
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
@@ -54,7 +54,10 @@ fun WorldMapScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // ── CÁLCULO DE FPS REAL (Solo se ejecuta si el widget está encendido) ──
+    // --- CACHÉ DE IMÁGENES PARA EL WEBVIEW ---
+    val base64Cache = remember { mutableMapOf<String, String>() }
+
+    // ── CÁLCULO DE FPS REAL ──
     var currentFps by remember { mutableIntStateOf(0) }
     if (uiState.showFpsWidget) {
         LaunchedEffect(Unit) {
@@ -98,6 +101,7 @@ fun WorldMapScreen(
 
         // ───── CAPA 1: MAPA ────────────────────────────────────────────────────────
         if (uiState.mapProvider == MapProvider.OSM) {
+            // ... (Bloque OSMDroid Original Intacto) ...
             AndroidView(
                 factory = { ctx ->
                     MapView(ctx).apply {
@@ -131,9 +135,6 @@ fun WorldMapScreen(
                             }
                             if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
                                 val currentZoom = view.zoomLevelDouble
-
-                                // Calculamos la escala proporcional, pero:
-                                // coerceIn asegura que no sea menor a 0.3x (muy lejos) ni mayor a 1.8x (muy cerca)
                                 val dynamicScale = (1.6 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.3f, 1.8f)
 
                                 marker.icon = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
@@ -178,6 +179,7 @@ fun WorldMapScreen(
                         wv.evaluateJavascript("if(typeof moveMap==='function')moveMap(${it.latitude},${it.longitude});", null)
                     }
                     wv.evaluateJavascript("if(typeof setMapZoom==='function')setMapZoom(${uiState.zoomLevel.toInt()});", null)
+
                     val tileUrl = when (uiState.mapProvider) {
                         MapProvider.CARTO_DB_DARK  -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                         MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -189,15 +191,50 @@ fun WorldMapScreen(
                     }
                     wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null)
                     wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
-                    // Modifica la inyección del JSON a WebView para incluir el color HSV:
+
+                    // --- LA INYECCIÓN MAESTRA: Kotlin genera la imagen y la pasa a JS ---
+                    // NUEVO: Obtenemos la densidad de tu pantalla (Ej. 2.75x) para generar gráficos Retina
+                    val screenDensity = context.resources.displayMetrics.density
+
                     val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
-                        val hsv = FloatArray(3)
-                        android.graphics.Color.colorToHSV(npc.carColor, hsv)
-                        "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}', " +
-                                "hue:${hsv[0]}, dir:'${npc.carModel.dirName}', prefix:'${npc.carModel.prefix}'}"
+                        if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
+                            val dynamicScale = (1.6 * Math.pow(2.0, uiState.zoomLevel - 19.0)).toFloat().coerceIn(0.3f, 1.8f)
+
+                            // NUEVO: El render original * la densidad = Calidad ultra nítida
+                            val renderScale = dynamicScale * screenDensity
+
+                            // Recrear la clave de caché exacta usando la escala de renderizado
+                            var angle = npc.rotationAngle % 360f
+                            if (angle < 0) angle += 360f
+                            val frameIndex = (angle / 7.5f).roundToInt() % 48
+                            val discretizedZoomStep = (renderScale / 0.05f).roundToInt()
+                            val cacheKey = "${npc.carModel.name}_${frameIndex}_${npc.carColor}_${discretizedZoomStep}"
+
+                            val base64Image = base64Cache.getOrPut(cacheKey) {
+                                val drawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
+                                    context, npc.rotationAngle, npc.carColor, renderScale, npc.carModel
+                                )
+                                val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                if (bitmap != null) {
+                                    val outputStream = java.io.ByteArrayOutputStream()
+                                    bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, outputStream)
+                                    "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
+                                } else {
+                                    ""
+                                }
+                            }
+
+                            // Mandamos el Base64 en Hi-Res, pero el CSS 'sz' sigue siendo el normal
+                            val sz = (80 * dynamicScale).toInt().coerceIn(15, 100)
+                            "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
+                                    "rot:${npc.rotationAngle},type:'CAR',base64:'$base64Image',sz:$sz}"
+                        } else {
+                            "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
+                                    "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}'}"
+                        }
                     }
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
+
                 }
             )
         }
@@ -251,13 +288,13 @@ fun WorldMapScreen(
 
         // ─── CAPA 5: BOTÓN DE AJUSTES ─────────────────────────────────────────────
         IconButton(
-            // CAMBIO: Ahora llama a la función de navegación
             onClick = onNavigateToSettings,
             modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
                 .background(Color.White.copy(alpha = 0.8f), CircleShape)
         ) {
             Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black)
         }
+
         // ─── CAPA 6: ZOOM ─────────────────────────────────────────────────────
         Column(
             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
@@ -275,13 +312,9 @@ fun WorldMapScreen(
         val configuration = LocalConfiguration.current
         val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
 
-        // Límite de tamaño: 1.0f máximo en vertical, 1.4f máximo en horizontal
         val maxScale = if (isPortrait) 1.0f else 1.4f
         val effectiveScale = uiState.controlsScale.coerceAtMost(maxScale)
-
-        // Límite de márgenes: Pegados a la orilla (16.dp) en vertical, más centrados (64.dp) en horizontal
         val sidePadding = if (isPortrait) 16.dp else 64.dp
-        // Levantamos un poco más los botones en vertical para mayor comodidad del pulgar
         val bottomPadding = if (isPortrait) 48.dp else 32.dp
 
         Row(
@@ -293,12 +326,12 @@ fun WorldMapScreen(
             val movementComponent = @Composable {
                 if (uiState.controlType == ControlType.DPAD) {
                     DPadController(
-                        modifier = Modifier.scale(effectiveScale), // Usamos la escala limitada
+                        modifier = Modifier.scale(effectiveScale),
                         onDirectionPressed = { viewModel.moveCharacter(it) }
                     )
                 } else {
                     JoystickController(
-                        modifier = Modifier.scale(effectiveScale), // Usamos la escala limitada
+                        modifier = Modifier.scale(effectiveScale),
                         onMove = { angle -> viewModel.moveCharacterByAngle(angle) }
                     )
                 }
@@ -319,11 +352,10 @@ fun WorldMapScreen(
                 actionComponent()
             }
         }
-
     }
 }
 
-// ─── WIDGETS DE DIAGNÓSTICO (Originales intactos) ─────────────────────────────
+// ─── WIDGETS DE DIAGNÓSTICO ─────────────────────────────
 
 @Composable
 private fun CacheStatusWidget(
@@ -392,15 +424,8 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
     <style>
         body { margin: 0; padding: 0; background: #aad3df; overflow: hidden; }
         #map { width: 100vw; height: 100vh; background: #aad3df; }
-        /* Evita que los iconos tengan bordes o fondos blancos */
         .leaflet-marker-icon { background: none !important; border: none !important; }
         .npc-c { pointer-events: none; display: flex; align-items: center; justify-content: center; }
-        
-        /* Filtro especial para teñir blanco preservando detalles oscuros */
-        .car-img { 
-            display: block; 
-            filter: sepia(100%) saturate(300%) brightness(0.9);
-        }
     </style>
 </head>
 <body>
@@ -415,52 +440,39 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         var npcMarkers = {};
 
-        // --- FUNCIONES PUENTE PARA KOTLIN ---
         function moveMap(lat, lng) { map.setView([lat, lng], map.getZoom(), { animate: false }); }
         function setMapZoom(z) { map.setZoom(z, { animate: false }); }
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
 
         function updateNpcs(data) {
-            var currentZoom = map.getZoom();
-            // Tamaño base 80px en zoom 19
-            var sz = 80 * Math.pow(2, currentZoom - 19);
-            sz = Math.max(15, Math.min(sz, 100)); 
-
             var ids = new Set(data.map(function(n) { return n.id; }));
             for (var id in npcMarkers) {
                 if (!ids.has(id)) { map.removeLayer(npcMarkers[id]); delete npcMarkers[id]; }
             }
 
             data.forEach(function(npc) {
-                // CORRECCIÓN CLAVE: Usamos npc.rot tal cual, sin sumarle ni restarle nada.
-                // El sprite 000 ya es Norte, y 0 grados en tu NpcAiManager también es Norte.
-                var rotAdjusted = npc.rot;
-                
-                var frame = Math.round(((rotAdjusted % 360) + 360) % 360 / 7.5) % 48;
-                var idx = String(frame).padStart(3, '0');
-                var url = 'file:///android_asset/VEHICLES/' + npc.dir + '/' + npc.prefix + idx + '.webp';
-
                 if (npcMarkers[npc.id]) {
                     npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);
                     var el = npcMarkers[npc.id].getElement();
                     if (el) {
                         var img = el.querySelector('img');
                         if (npc.type === 'CAR' && img) {
-                            img.src = url;
-                            // Teñimos solo el color mediante el hue del NPC
-                            img.style.filter = 'sepia(100%) saturate(400%) hue-rotate(' + npc.hue + 'deg) brightness(1.0)';
-                            img.style.width = sz + 'px';
-                            img.style.height = sz + 'px';
+                            // JS ahora solo dibuja la imagen enviada por Kotlin. Sin CSS complejo.
+                            img.src = npc.base64;
+                            img.style.width = npc.sz + 'px';
+                            img.style.height = npc.sz + 'px';
+                            el.style.width = npc.sz + 'px';
+                            el.style.height = npc.sz + 'px';
                         } else if (img) {
                             img.style.transform = 'rotate(' + npc.rot + 'deg)';
                         }
                     }
                 } else {
                     var html;
+                    var sz = npc.sz || 24; 
                     if (npc.type === 'CAR') {
-                        var filterStyle = 'filter: sepia(100%) saturate(400%) hue-rotate(' + npc.hue + 'deg) brightness(1.0);';
-                        html = '<div class="npc-c"><img class="car-img" src="'+url+'" width="'+sz+'" height="'+sz+'" style="'+filterStyle+'"></div>';
+                        html = '<div class="npc-c" style="width:'+sz+'px; height:'+sz+'px;"><img src="'+npc.base64+'" style="width:100%; height:100%;"></div>';
                     } else {
                         var pUrl = 'file:///android_asset/' + npc.drawable + '.svg';
                         html = '<div class="npc-c" style="transform:rotate('+npc.rot+'deg)"><img src="'+pUrl+'" width="24" height="24"></div>';
