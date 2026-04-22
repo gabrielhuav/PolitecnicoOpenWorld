@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -39,7 +40,6 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import kotlin.math.abs
-import kotlin.math.roundToInt
 import androidx.compose.ui.draw.scale
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
@@ -53,8 +53,13 @@ fun WorldMapScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val base64Cache = remember { mutableMapOf<String, String>() }
 
+    // Modo Calibración
+    var mapViewRef by remember { mutableStateOf<org.osmdroid.views.MapView?>(null) }
+    var selectedLandmark by remember { mutableStateOf<ovh.gabrielhuav.pow.domain.models.Landmark?>(null) }
+
+
+    // ── CÁLCULO DE FPS REAL (Solo se ejecuta si el widget está encendido) ──
     var currentFps by remember { mutableIntStateOf(0) }
     if (uiState.showFpsWidget) {
         LaunchedEffect(Unit) {
@@ -103,8 +108,7 @@ fun WorldMapScreen(
                     MapView(ctx).apply {
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(false)
-                        setOnTouchListener { _, _ -> true }
-                        isClickable = false; isFocusable = false
+                        // ¡BORRA LAS LÍNEAS DE setOnTouchListener y isClickable AQUÍ!
                         controller.setZoom(uiState.zoomLevel)
                     }
                 },
@@ -118,43 +122,120 @@ fun WorldMapScreen(
                         else            -> view.controller.setZoom(uiState.zoomLevel)
                     }
 
-                    if (uiState.isRoadNetworkReady) {
-                        @Suppress("UNCHECKED_CAST")
-                        val markerCache = (view.tag as? MutableMap<String, Marker>)
-                            ?: mutableMapOf<String, Marker>().also { view.tag = it }
+                    // Obtenemos el caché de marcadores
+                    @Suppress("UNCHECKED_CAST")
+                    val markerCache = (view.tag as? MutableMap<String, Marker>)
+                        ?: mutableMapOf<String, Marker>().also { view.tag = it }
+                    val activeIds = mutableSetOf<String>()
 
-                        // CULLING NATIVO: Dependemos enteramente del zoom real de la vista
+                    // Guardamos la referencia para usarla en los botones
+                    mapViewRef = view
+
+                    // 1. DIBUJAR EDIFICIOS (Landmarks)
+                    uiState.landmarks.forEach { landmark ->
+                        val id = landmark.id
+                        activeIds.add(id)
+                        val marker = markerCache[id] ?: Marker(view).apply {
+                            title = "LANDMARK_MARKER"
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+
+                            // 1. APLICAR ROTACIÓN INICIAL
+                            rotation = landmark.rotationAngle
+
+                            // --- MODO CALIBRACIÓN ---
+                            isDraggable = true
+
+                            // 2. ABRIR PANEL AL TOCAR
+                            setOnMarkerClickListener { clickedMarker, _ ->
+                                if (clickedMarker.isDraggable) {
+                                    selectedLandmark = landmark // Esto hará aparecer los botones
+                                    true
+                                } else false
+                            }
+
+                            // 3. ARRASTRAR (Mantenlo igual a como lo tenías en el código anterior)
+                            setOnMarkerDragListener(object : Marker.OnMarkerDragListener {
+                                override fun onMarkerDragStart(marker: Marker) {
+                                    marker.icon?.colorFilter = android.graphics.PorterDuffColorFilter(
+                                        android.graphics.Color.argb(180, 255, 0, 0),
+                                        android.graphics.PorterDuff.Mode.SRC_ATOP
+                                    )
+                                    view.invalidate()
+                                }
+                                override fun onMarkerDrag(marker: Marker) {
+                                    landmark.location = marker.position as org.osmdroid.util.GeoPoint
+                                }
+                                override fun onMarkerDragEnd(marker: Marker) {
+                                    marker.icon?.clearColorFilter()
+                                    view.invalidate()
+
+                                    // IMPRIMIR LA INFORMACIÓN COMPLETA PARA GUARDARLA
+                                    android.util.Log.e("POW_CALIBRACION",
+                                        "Coordenadas Finales: GeoPoint(${marker.position.latitude}, ${marker.position.longitude}), rotationAngle = ${landmark.rotationAngle}f"
+                                    )
+                                }
+                            })
+                            // ------------------------
+
+                            markerCache[id] = this
+                            view.overlays.add(this)
+                        }
+
                         val currentZoom = view.zoomLevelDouble
-                        val isZoomedIn = currentZoom >= 17.0
+                        val discretizedZoom = Math.round(currentZoom * 5.0) / 5.0
+                        val cacheKey = "scale_$discretizedZoom"
 
-                        val activeIds = mutableSetOf<String>()
+                        if (marker.snippet != cacheKey) {
+                            val dynamicScale = (landmark.scaleFactor * Math.pow(2.0, discretizedZoom - 19.0))
+                                .toFloat()
+                                .coerceIn(0.01f, 8.0f)
+
+                            try {
+                                context.assets.open(landmark.assetPath).use { inputStream ->
+                                    val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                                    val finalW = (bitmap.width * dynamicScale).toInt().coerceIn(1, 2048)
+                                    val finalH = (bitmap.height * dynamicScale).toInt().coerceIn(1, 2048)
+                                    val scaled = android.graphics.Bitmap.createScaledBitmap(bitmap, finalW, finalH, false)
+
+                                    // Asignamos la imagen limpia (se pintará de rojo automáticamente en el DragStart)
+                                    marker.icon = android.graphics.drawable.BitmapDrawable(context.resources, scaled)
+                                    marker.snippet = cacheKey
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                        marker.position = landmark.location
+                    }
+
+                    // 2. DIBUJAR NPCs (Solo si la red está lista)
+                    if (uiState.isRoadNetworkReady) {
                         uiState.npcs.forEach { npc ->
-                            val id = npc.id; activeIds.add(id)
+                            val id = npc.id
+                            activeIds.add(id)
                             val marker = markerCache[id] ?: Marker(view).apply {
                                 title = "NPC_MARKER"
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                markerCache[id] = this; view.overlays.add(this)
+                                markerCache[id] = this
+                                view.overlays.add(this)
                             }
 
-                            // 1. CULLING: Se dibuja solo si estamos cerca
-                            if (isZoomedIn) {
-                                marker.setAlpha(1f)
-                                if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
-                                    val dynamicScale = (1.6 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.1f, 1.8f)
-                                    marker.icon = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
-                                        context, npc.rotationAngle, npc.carColor, dynamicScale, npc.carModel
-                                    )
-                                    marker.rotation = 0f
-                                } else {
-                                    val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
-                                    if (resId != 0) marker.icon = ContextCompat.getDrawable(context, resId)
-                                    marker.rotation = npc.rotationAngle
-                                }
+                            if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
+                                val currentZoom = view.zoomLevelDouble
+                                val dynamicScale = (1.6 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.3f, 1.8f)
+
+                                marker.icon = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
+                                    context, npc.rotationAngle, npc.carColor, dynamicScale, npc.carModel
+                                )
+                                marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                marker.rotation = 0f
                             } else {
-                                marker.setAlpha(0f)
+                                val resId = context.resources.getIdentifier(
+                                    npc.type.drawableName, "drawable", context.packageName)
+                                if (resId != 0) marker.icon = androidx.core.content.ContextCompat.getDrawable(context, resId)
+                                marker.rotation = npc.rotationAngle
                             }
 
-                            // 2. ACTUALIZACIÓN PERSISTENTE: Siempre movemos el marcador, sea o no visible
                             marker.position = npc.location
                         }
                     }
@@ -185,7 +266,6 @@ fun WorldMapScreen(
                         wv.evaluateJavascript("if(typeof moveMap==='function')moveMap(${it.latitude},${it.longitude});", null)
                     }
                     wv.evaluateJavascript("if(typeof setMapZoom==='function')setMapZoom(${uiState.zoomLevel.toInt()});", null)
-
                     val tileUrl = when (uiState.mapProvider) {
                         MapProvider.CARTO_DB_DARK  -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                         MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -198,55 +278,36 @@ fun WorldMapScreen(
                     wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null)
                     wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
 
-                    // --- LA INYECCIÓN MAESTRA CORREGIDA ---
-                    val screenDensity = context.resources.displayMetrics.density
+                    // --- NUEVO: Inyección del JSON de Edificios (Landmarks) ---
+                    val landmarksJson = uiState.landmarks.joinToString(prefix = "[", postfix = "]") { landmark ->
+                        "{id:'${landmark.id}',lat:${landmark.location.latitude},lng:${landmark.location.longitude},asset:'${landmark.assetPath}',scale:${landmark.scaleFactor}}"
+                    }
+                    wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks($landmarksJson);", null)
 
-                    // Kotlin YA NO CALCULA escalas dinámicas que puedan quedarse estancadas.
-                    // Solo genera 1 imagen en ultra alta resolución (HiDPI pura) y se la avienta a JS.
-                    val highResRenderScale = 1.0f * screenDensity
-
+                    // Modifica la inyección del JSON a WebView para incluir el color HSV:
                     val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
-                        if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
-                            var angle = npc.rotationAngle % 360f
-                            if (angle < 0) angle += 360f
-                            val frameIndex = (angle / 7.5f).roundToInt() % 48
-
-                            // La caché ahora solo depende del coche y su rotación, ignorando el zoom de Compose
-                            val cacheKey = "${npc.carModel.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
-
-                            val base64Image = base64Cache.getOrPut(cacheKey) {
-                                val drawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
-                                    context, npc.rotationAngle, npc.carColor, highResRenderScale, npc.carModel
-                                )
-                                val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
-                                if (bitmap != null) {
-                                    val outputStream = java.io.ByteArrayOutputStream()
-                                    bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, outputStream)
-                                    "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
-                                } else { "" }
-                            }
-
-                            // NO MANDAMOS 'sz'. JS lo calculará en tiempo real basado en su propio pellizco (pinch zoom)
-                            "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                    "rot:${npc.rotationAngle},type:'CAR',base64:'$base64Image'}"
-                        } else {
-                            "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                    "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}'}"
-                        }
+                        val hsv = FloatArray(3)
+                        android.graphics.Color.colorToHSV(npc.carColor, hsv)
+                        "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
+                                "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}', " +
+                                "hue:${hsv[0]}, dir:'${npc.carModel.dirName}', prefix:'${npc.carModel.prefix}'}"
                     }
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
                 }
             )
         }
 
-        // ─── CAPA 2, 3, 4, 5, 6, 7 (Idénticas) ──────────────────────────────────
+        // ─── CAPA 2: JUGADOR ────────────────────────────────────────────────────
         Box(
             modifier = Modifier.align(Alignment.Center).size(22.dp)
                 .shadow(2.dp, CircleShape).clip(CircleShape)
                 .background(Color.White).border(1.5.dp, Color(0xFFE6A800), CircleShape),
             contentAlignment = Alignment.Center
-        ) { Icon(Icons.Default.Person, "Jugador", tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp)) }
+        ) {
+            Icon(Icons.Default.Person, "Jugador", tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
+        }
 
+        // ─── CAPA 3: INDICADOR DE CARGA DE CALLES ────────────────────────────────
         if (!uiState.isRoadNetworkReady) {
             Row(
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp)
@@ -260,73 +321,185 @@ fun WorldMapScreen(
             }
         }
 
+        // ─── CAPA 4: WIDGETS DE DIAGNÓSTICO DE CACHÉ Y FPS ─────────────────────────
         Column(
             modifier = Modifier.align(Alignment.TopStart).padding(top = 64.dp, start = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             AnimatedVisibility(visible = uiState.showCacheWidget, enter = fadeIn(), exit = fadeOut()) {
-                CacheStatusWidget(roadSource = uiState.roadSource, tileSource = uiState.tileSource, mapProvider = uiState.mapProvider)
+                CacheStatusWidget(
+                    roadSource  = uiState.roadSource,
+                    tileSource  = uiState.tileSource,
+                    mapProvider = uiState.mapProvider
+                )
             }
+
             AnimatedVisibility(visible = uiState.showFpsWidget, enter = fadeIn(), exit = fadeOut()) {
-                CacheChip(label = "Rendimiento", text = "$currentFps FPS", color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F), isLoading = false)
+                CacheChip(
+                    label = "Rendimiento",
+                    text  = "$currentFps FPS",
+                    color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F),
+                    isLoading = false
+                )
             }
         }
 
+        // ─── CAPA 5: BOTÓN DE AJUSTES ─────────────────────────────────────────────
         IconButton(
+            // CAMBIO: Ahora llama a la función de navegación
             onClick = onNavigateToSettings,
-            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).background(Color.White.copy(alpha = 0.8f), CircleShape)
-        ) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
-
+            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+                .background(Color.White.copy(alpha = 0.8f), CircleShape)
+        ) {
+            Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black)
+        }
+        // ─── CAPA 6: ZOOM ─────────────────────────────────────────────────────
         Column(
             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            IconButton(onClick = { viewModel.zoomIn() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)
+            IconButton(onClick = { viewModel.zoomIn() },
+                modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)
             ) { Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
-            IconButton(onClick = { viewModel.zoomOut() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)
+            IconButton(onClick = { viewModel.zoomOut() },
+                modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
         }
 
+        // ─── CAPA 7: CONTROLES DE JUEGO RESPONSIVOS ────────────────────────────────
         val configuration = LocalConfiguration.current
         val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+
+        // Límite de tamaño: 1.0f máximo en vertical, 1.4f máximo en horizontal
         val maxScale = if (isPortrait) 1.0f else 1.4f
         val effectiveScale = uiState.controlsScale.coerceAtMost(maxScale)
+
+        // Límite de márgenes: Pegados a la orilla (16.dp) en vertical, más centrados (64.dp) en horizontal
         val sidePadding = if (isPortrait) 16.dp else 64.dp
+        // Levantamos un poco más los botones en vertical para mayor comodidad del pulgar
         val bottomPadding = if (isPortrait) 48.dp else 32.dp
 
         Row(
-            modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding),
+            modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
+                .padding(bottom = bottomPadding, start = sidePadding, end = sidePadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             val movementComponent = @Composable {
                 if (uiState.controlType == ControlType.DPAD) {
-                    DPadController(modifier = Modifier.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
+                    DPadController(
+                        modifier = Modifier.scale(effectiveScale), // Usamos la escala limitada
+                        onDirectionPressed = { viewModel.moveCharacter(it) }
+                    )
                 } else {
-                    JoystickController(modifier = Modifier.scale(effectiveScale), onMove = { angle -> viewModel.moveCharacterByAngle(angle) })
+                    JoystickController(
+                        modifier = Modifier.scale(effectiveScale), // Usamos la escala limitada
+                        onMove = { angle -> viewModel.moveCharacterByAngle(angle) }
+                    )
                 }
             }
+
             val actionComponent = @Composable {
-                ActionButtonsController(modifier = Modifier.scale(effectiveScale), onActionPressed = { viewModel.executeAction(it) })
+                ActionButtonsController(
+                    modifier = Modifier.scale(effectiveScale),
+                    onActionPressed = { viewModel.executeAction(it) }
+                )
             }
-            if (uiState.swapControls) { actionComponent(); movementComponent() }
-            else { movementComponent(); actionComponent() }
+
+            if (uiState.swapControls) {
+                actionComponent()
+                movementComponent()
+            } else {
+                movementComponent()
+                actionComponent()
+            }
         }
+
+        // ─── CAPA 8: PANEL DE CALIBRACIÓN DE EDIFICIOS ─────────────────────────────
+        selectedLandmark?.let { lm ->
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 130.dp) // Aparecerá debajo del indicador de calles
+                    .shadow(8.dp, RoundedCornerShape(12.dp))
+                    .background(Color.White, RoundedCornerShape(12.dp))
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // BOTÓN IZQUIERDA
+                Button(
+                    onClick = {
+                        lm.rotationAngle = (lm.rotationAngle - 5f) % 360f
+                        // Actualizamos el marcador y repintamos
+                        @Suppress("UNCHECKED_CAST")
+                        val cache = mapViewRef?.tag as? MutableMap<String, Marker>
+                        cache?.get(lm.id)?.rotation = lm.rotationAngle
+                        mapViewRef?.invalidate()
+                        android.util.Log.e("POW_CALIBRACION", "Rotación: ${lm.rotationAngle}f")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+                ) { Text("↺ -5°") }
+
+                // BOTÓN DERECHA
+                Button(
+                    onClick = {
+                        lm.rotationAngle = (lm.rotationAngle + 5f) % 360f
+                        @Suppress("UNCHECKED_CAST")
+                        val cache = mapViewRef?.tag as? MutableMap<String, Marker>
+                        cache?.get(lm.id)?.rotation = lm.rotationAngle
+                        mapViewRef?.invalidate()
+                        android.util.Log.e("POW_CALIBRACION", "Rotación: ${lm.rotationAngle}f")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+                ) { Text("+5° ↻") }
+
+                // BOTÓN CERRAR PANEL
+                OutlinedButton(onClick = { selectedLandmark = null }) {
+                    Text("OK", color = Color.Black)
+                }
+            }
+        }
+
     }
 }
 
+// ─── WIDGETS DE DIAGNÓSTICO (Originales intactos) ─────────────────────────────
+
 @Composable
-private fun CacheStatusWidget(roadSource: RoadSource, tileSource: TileSource, mapProvider: MapProvider) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+private fun CacheStatusWidget(
+    roadSource: RoadSource,
+    tileSource: TileSource,
+    mapProvider: MapProvider
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         CacheChip(
             label = "Calles",
-            text  = when (roadSource) { RoadSource.LOADING -> "Cargando..."; RoadSource.LOCAL_DB -> "Local (BD)"; RoadSource.NETWORK -> "Overpass API" },
-            color = when (roadSource) { RoadSource.LOADING -> Color(0xFFD4AF37); RoadSource.LOCAL_DB -> Color(0xFF4CAF50); RoadSource.NETWORK -> Color(0xFF2196F3) },
+            text  = when (roadSource) {
+                RoadSource.LOADING   -> "Cargando..."
+                RoadSource.LOCAL_DB  -> "Local (BD)"
+                RoadSource.NETWORK   -> "Overpass API"
+            },
+            color = when (roadSource) {
+                RoadSource.LOADING   -> Color(0xFFD4AF37)
+                RoadSource.LOCAL_DB  -> Color(0xFF4CAF50)
+                RoadSource.NETWORK   -> Color(0xFF2196F3)
+            },
             isLoading = roadSource == RoadSource.LOADING
         )
+
         if (mapProvider != MapProvider.OSM) {
-            val tileLabel = when (tileSource) { TileSource.LOCAL_OSM -> "Local (osmdroid)"; TileSource.LOCAL_CACHE -> "Local (caché)"; TileSource.NETWORK -> "Red" }
-            val tileColor = when (tileSource) { TileSource.LOCAL_OSM, TileSource.LOCAL_CACHE -> Color(0xFF4CAF50); TileSource.NETWORK -> Color(0xFF2196F3) }
+            val tileLabel = when (tileSource) {
+                TileSource.LOCAL_OSM   -> "Local (osmdroid)"
+                TileSource.LOCAL_CACHE -> "Local (caché)"
+                TileSource.NETWORK     -> "Red"
+            }
+            val tileColor = when (tileSource) {
+                TileSource.LOCAL_OSM, TileSource.LOCAL_CACHE -> Color(0xFF4CAF50)
+                TileSource.NETWORK                           -> Color(0xFF2196F3)
+            }
             CacheChip(label = "Mapa", text = tileLabel, color = tileColor, isLoading = false)
         }
     }
@@ -335,12 +508,17 @@ private fun CacheStatusWidget(roadSource: RoadSource, tileSource: TileSource, ma
 @Composable
 private fun CacheChip(label: String, text: String, color: Color, isLoading: Boolean) {
     Row(
-        modifier = Modifier.background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(20.dp)).padding(horizontal = 10.dp, vertical = 5.dp),
+        modifier = Modifier
+            .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        if (isLoading) CircularProgressIndicator(modifier = Modifier.size(8.dp), color = color, strokeWidth = 1.5.dp)
-        else Box(Modifier.size(8.dp).background(color, CircleShape))
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.size(8.dp), color = color, strokeWidth = 1.5.dp)
+        } else {
+            Box(Modifier.size(8.dp).background(color, CircleShape))
+        }
         Text(text = "$label: $text", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }
@@ -355,8 +533,15 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
     <style>
         body { margin: 0; padding: 0; background: #aad3df; overflow: hidden; }
         #map { width: 100vw; height: 100vh; background: #aad3df; }
+        /* Evita que los iconos tengan bordes o fondos blancos */
         .leaflet-marker-icon { background: none !important; border: none !important; }
         .npc-c { pointer-events: none; display: flex; align-items: center; justify-content: center; }
+        
+        /* Filtro especial para teñir blanco preservando detalles oscuros */
+        .car-img { 
+            display: block; 
+            filter: sepia(100%) saturate(300%) brightness(0.9);
+        }
     </style>
 </head>
 <body>
@@ -371,96 +556,92 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         var npcMarkers = {};
 
-        // --- SISTEMA ANTI-DESINCRONIZACIÓN ---
-        // Detectamos si el usuario está pellizcando la pantalla
-        var isZooming = false;
-        map.on('zoomstart', function() { isZooming = true; });
-        map.on('zoomend', function() { isZooming = false; });
-
-        function moveMap(lat, lng) { 
-            if (!isZooming) { // Evitar tirones si el usuario está pellizcando
-                map.setView([lat, lng], map.getZoom(), { animate: false }); 
-            }
-        }
-        
-        function setMapZoom(z) { 
-            if (Math.abs(map.getZoom() - z) > 1.5) {
-                map.setZoom(z, { animate: false }); 
-            }
-        }
-        
+        // --- FUNCIONES PUENTE PARA KOTLIN ---
+        function moveMap(lat, lng) { map.setView([lat, lng], map.getZoom(), { animate: false }); }
+        function setMapZoom(z) { map.setZoom(z, { animate: false }); }
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
 
         function updateNpcs(data) {
-            // CRÍTICO: Si Leaflet está haciendo su animación CSS de zoom, pausamos las 
-            // actualizaciones de posición para evitar que las coordenadas se corrompan visualmente.
-            if (isZooming) return;
-
             var currentZoom = map.getZoom();
-            var isZoomedIn = currentZoom >= 15.0;
-            
-            // 1. CULLING Visual
-            var ids = new Set();
-            if (isZoomedIn) {
-                ids = new Set(data.map(function(n) { return n.id; }));
-            }
-            
+            // Tamaño base 80px en zoom 19
+            var sz = 80 * Math.pow(2, currentZoom - 19);
+            sz = Math.max(15, Math.min(sz, 100)); 
+
+            var ids = new Set(data.map(function(n) { return n.id; }));
             for (var id in npcMarkers) {
-                if (!ids.has(id)) { 
-                    map.removeLayer(npcMarkers[id]); 
-                    delete npcMarkers[id]; 
-                }
+                if (!ids.has(id)) { map.removeLayer(npcMarkers[id]); delete npcMarkers[id]; }
             }
-
-            if (!isZoomedIn) return;
-
-            var dynamicScale = 1.6 * Math.pow(2, currentZoom - 19);
-            dynamicScale = Math.max(0.1, Math.min(dynamicScale, 1.8));
-            var sz = Math.max(5, Math.round(80 * dynamicScale));
 
             data.forEach(function(npc) {
+                // CORRECCIÓN CLAVE: Usamos npc.rot tal cual, sin sumarle ni restarle nada.
+                // El sprite 000 ya es Norte, y 0 grados en tu NpcAiManager también es Norte.
+                var rotAdjusted = npc.rot;
+                
+                var frame = Math.round(((rotAdjusted % 360) + 360) % 360 / 7.5) % 48;
+                var idx = String(frame).padStart(3, '0');
+                var url = 'file:///android_asset/VEHICLES/' + npc.dir + '/' + npc.prefix + idx + '.webp';
+
                 if (npcMarkers[npc.id]) {
-                    // Actualizamos coordenada geográfica real
                     npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);
-                    
                     var el = npcMarkers[npc.id].getElement();
                     if (el) {
-                        var wrapper = el.querySelector('.npc-c');
                         var img = el.querySelector('img');
-                        
-                        if (npc.type === 'CAR' && img && wrapper) {
-                            if (img.src !== npc.base64) img.src = npc.base64;
-                            
-                            // Ajustamos tamaño dinámico usando estilos directos, SIN llamar a setIcon()
-                            wrapper.style.width = sz + 'px';
-                            wrapper.style.height = sz + 'px';
-                        } else if (wrapper) {
-                            // Para peatones u otros NPCs, rotamos el wrapper preservando el centrado
-                            wrapper.style.transform = 'translate(-50%, -50%) rotate(' + npc.rot + 'deg)';
+                        if (npc.type === 'CAR' && img) {
+                            img.src = url;
+                            // Teñimos solo el color mediante el hue del NPC
+                            img.style.filter = 'sepia(100%) saturate(400%) hue-rotate(' + npc.hue + 'deg) brightness(1.0)';
+                            img.style.width = sz + 'px';
+                            img.style.height = sz + 'px';
+                        } else if (img) {
+                            img.style.transform = 'rotate(' + npc.rot + 'deg)';
                         }
                     }
                 } else {
-                    var finalSz = (npc.type === 'CAR') ? sz : 24; 
-                    var html = '';
-                    
+                    var html;
                     if (npc.type === 'CAR') {
-                        // El truco del CSS: transform: translate(-50%, -50%) forzará a que el centro geográfico 
-                        // sea el centro exacto del vehículo.
-                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalSz+'px; height:'+finalSz+'px;"><img src="'+npc.base64+'" style="width:100%; height:100%; display:block;"></div>';
+                        var filterStyle = 'filter: sepia(100%) saturate(400%) hue-rotate(' + npc.hue + 'deg) brightness(1.0);';
+                        html = '<div class="npc-c"><img class="car-img" src="'+url+'" width="'+sz+'" height="'+sz+'" style="'+filterStyle+'"></div>';
                     } else {
                         var pUrl = 'file:///android_asset/' + npc.drawable + '.svg';
-                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate('+npc.rot+'deg); width:24px; height:24px;"><img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
+                        html = '<div class="npc-c" style="transform:rotate('+npc.rot+'deg)"><img src="'+pUrl+'" width="24" height="24"></div>';
                     }
-                    
                     var icon = L.divIcon({ 
                         html: html, 
                         className: '', 
-                        // TRUCO MAESTRO: Ancla 0x0. Le decimos a Leaflet que no calcule offsets.
-                        // Todo el centrado lo maneja el CSS translate(-50%, -50%) internamente.
-                        iconSize: [0, 0] 
+                        iconSize: [sz, sz], 
+                        iconAnchor: [sz/2, sz/2] 
                     });
                     npcMarkers[npc.id] = L.marker([npc.lat, npc.lng], { icon: icon }).addTo(map);
+                }
+            });
+        }
+        
+        var landmarkMarkers = {};
+        
+        function updateLandmarks(data) {
+            var currentZoom = map.getZoom();
+            data.forEach(function(l) {
+                // Misma lógica de escala que en Kotlin
+                var sz = 100 * l.scale * Math.pow(2, currentZoom - 19); 
+                var url = 'file:///android_asset/' + l.asset;
+                
+                if (landmarkMarkers[l.id]) {
+                    landmarkMarkers[l.id].setLatLng([l.lat, l.lng]);
+                    // Actualizar tamaño del icono
+                    var icon = L.icon({
+                        iconUrl: url,
+                        iconSize: [sz, sz],
+                        iconAnchor: [sz/2, sz]
+                    });
+                    landmarkMarkers[l.id].setIcon(icon);
+                } else {
+                    var icon = L.icon({
+                        iconUrl: url,
+                        iconSize: [sz, sz],
+                        iconAnchor: [sz/2, sz]
+                    });
+                    landmarkMarkers[l.id] = L.marker([l.lat, l.lng], { icon: icon }).addTo(map);
                 }
             });
         }

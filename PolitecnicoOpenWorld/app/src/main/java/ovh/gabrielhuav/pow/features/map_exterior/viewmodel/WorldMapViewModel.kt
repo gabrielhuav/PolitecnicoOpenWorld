@@ -20,6 +20,7 @@ import ovh.gabrielhuav.pow.data.cache.TileCache
 import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
+import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
@@ -61,11 +62,19 @@ class WorldMapViewModel(
     // Ahora lee del repositorio
     private val _uiState = MutableStateFlow(
         WorldMapState(
-            controlType = settingsRepository.getControlType(),
-            controlsScale = settingsRepository.getControlsScale(),
-            swapControls = settingsRepository.getSwapControls()
+            landmarks = listOf(
+                Landmark(
+                    id = "escom_main",
+                    name = "ESCOM IPN",
+                    location = GeoPoint(19.5041508, -99.1471029),
+                    rotationAngle = 0f, // <-- NUEVA LÍNEA
+                    assetPath = "BUILDINGS/IPN/building_escom.webp",
+                    scaleFactor = 0.15f
+                )
+            )
         )
     )
+
     val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
 
     private val npcAiManager      = NpcAiManager()

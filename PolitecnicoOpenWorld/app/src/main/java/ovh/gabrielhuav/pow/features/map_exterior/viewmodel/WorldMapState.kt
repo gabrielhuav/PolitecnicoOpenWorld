@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
@@ -22,6 +23,7 @@ enum class TileSource  { LOCAL_OSM, LOCAL_CACHE, NETWORK }
 
 data class WorldMapState(
     val currentLocation: GeoPoint? = null,
+    val landmarks: List<Landmark> = emptyList(), // Agrega esta línea
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = ZOOM_LOADING,
     val mapProvider: MapProvider = MapProvider.OSM,
@@ -35,6 +37,7 @@ data class WorldMapState(
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false
+
 ) {
     companion object {
         const val ZOOM_LOADING        = 17.0
