@@ -24,9 +24,16 @@ class NpcAiManager {
 
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
 
+    // --- CORRECCIÓN DE PERSISTENCIA Y SIMULACIÓN MACRO ---
+    // 1. Aumentamos la población para que el mundo sea más denso
     private val maxNpcs = 40
-    private val despawnDistance = 0.003
-    private val spawnDistance   = 0.0015
+
+    // 2. Aumentamos el radio de muerte (Despawn) a ~3.8 Kilómetros.
+    // ¡Los coches vivirán y se moverán en las sombras aunque la cámara esté alejadísima!
+    private val despawnDistance = 0.035
+
+    // 3. Aumentamos el radio de aparición a ~2.2 Kilómetros.
+    private val spawnDistance   = 0.0020
 
     private val carSpeed    = 0.000008
     private val personSpeed = 0.0000015
@@ -46,7 +53,7 @@ class NpcAiManager {
         withContext(Dispatchers.Default) {
             val currentNpcs = _npcs.value.toMutableList()
 
-            // Eliminar NPCs que se alejaron mucho
+            // Eliminar NPCs SOLO si salieron de nuestra macro-zona de 3.8 KM
             currentNpcs.removeAll { npc ->
                 calculateDistance(
                     npc.location.latitude, npc.location.longitude,
@@ -54,7 +61,7 @@ class NpcAiManager {
                 ) > despawnDistance
             }
 
-            // Generar nuevos NPCs si faltan
+            // Generar nuevos NPCs si faltan en nuestra zona de 2.2 KM
             val closeWays = currentNetwork.filter { way ->
                 way.nodes.any { node ->
                     calculateDistance(node.lat, node.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistance
@@ -67,7 +74,7 @@ class NpcAiManager {
                 }
             }
 
-            // Mover los NPCs existentes
+            // Mover TODOS los NPCs existentes (Persistencia incondicional)
             val updatedNpcs = currentNpcs.mapNotNull { moveNpc(it, currentNetwork) }
             _npcs.value = updatedNpcs
         }
@@ -88,18 +95,12 @@ class NpcAiManager {
         val startNode   = selectedWay.nodes[startIndex]
         val startGeo    = GeoPoint(startNode.lat, startNode.lon)
 
-        // Evitar generar NPCs encima del jugador
         if (calculateDistance(startGeo.latitude, startGeo.longitude, playerLocation.latitude, playerLocation.longitude) < 0.0002) return null
 
         val dir = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
-
-        // Generar un color aleatorio para los vehículos
         val randomColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
-
-        // Seleccionar un modelo de vehículo aleatorio
         val randomModel = if (npcType == NpcType.CAR) CarModel.entries.random() else CarModel.SEDAN
 
-        // Al iniciar, le damos un ángulo inicial genérico
         return Npc(
             type = npcType,
             location = startGeo,
@@ -115,13 +116,10 @@ class NpcAiManager {
     private fun moveNpc(npc: Npc, network: List<MapWay>): Npc? {
         val way = npc.currentWay ?: return null
 
-        // 1. ¿Llegó al final (o principio) de su calle actual?
+        // Intersecciones
         if (npc.targetNodeIndex < 0 || npc.targetNodeIndex >= way.nodes.size) {
-
-            // Descubrir en qué nodo exacto está parado en este momento
             val reachedNode = if (npc.targetNodeIndex < 0) way.nodes.first() else way.nodes.last()
 
-            // Buscar SOLO calles que compartan ESTE nodo específico
             val connectedWays = network.filter { w ->
                 w.id != way.id &&
                         w.nodes.any { it.id == reachedNode.id } &&
@@ -130,26 +128,21 @@ class NpcAiManager {
 
             if (connectedWays.isNotEmpty()) {
                 val nextWay = connectedWays.random()
-
-                // Encontrar en qué parte de la nueva calle está la intersección
                 val nodeIndexInNextWay = nextWay.nodes.indexOfFirst { it.id == reachedNode.id }
-
-                // Decidir hacia dónde girar (Si es inicio de calle -> adelante, si es final -> atrás)
                 val nextDir = when (nodeIndexInNextWay) {
                     0 -> 1
                     nextWay.nodes.size - 1 -> -1
-                    else -> if (Random.nextBoolean()) 1 else -1 // Intersección en forma de T o X
+                    else -> if (Random.nextBoolean()) 1 else -1
                 }
 
                 return npc.copy(
                     currentWay = nextWay,
                     targetNodeIndex = nodeIndexInNextWay + nextDir,
                     moveDirection = nextDir,
-                    // ANCLAJE ESTRÍCTO: Forzamos las coordenadas al nodo exacto para evitar que salgan de la calle
                     location = GeoPoint(reachedNode.lat, reachedNode.lon)
                 )
             } else {
-                // Callejón sin salida: Dar vuelta en U
+                // Callejón sin salida
                 val newDir   = npc.moveDirection * -1
                 val newIndex = if (npc.targetNodeIndex < 0) 1 else way.nodes.size - 2
                 if (newIndex < 0 || newIndex >= way.nodes.size) return npc
@@ -157,13 +150,12 @@ class NpcAiManager {
                 return npc.copy(
                     targetNodeIndex = newIndex,
                     moveDirection = newDir,
-                    // ANCLAJE ESTRÍCTO
                     location = GeoPoint(reachedNode.lat, reachedNode.lon)
                 )
             }
         }
 
-        // --- 2. Lógica de movimiento en ruta (frenado y giro) ---
+        // Lógica de Movimiento Físico
         val target = way.nodes[npc.targetNodeIndex]
         val dLon   = target.lon - npc.location.longitude
         val dLat   = target.lat - npc.location.latitude
@@ -180,10 +172,9 @@ class NpcAiManager {
         val speedFactor = (1.0f - (misalignment / 60f).toFloat()).coerceIn(0.15f, 1.0f)
         val actualSpeed = npc.speed * speedFactor
 
-        // Si ya llegó al siguiente nodo del camino, anclar posición y pasar al siguiente
         if (dist < actualSpeed) {
             return npc.copy(
-                location = GeoPoint(target.lat, target.lon), // ANCLAJE DURANTE LA RUTA
+                location = GeoPoint(target.lat, target.lon),
                 targetNodeIndex = npc.targetNodeIndex + npc.moveDirection,
                 rotationAngle = smoothedAngle
             )
@@ -197,7 +188,7 @@ class NpcAiManager {
             rotationAngle = smoothedAngle
         )
     }
-    
+
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val dLat = lat1 - lat2
         val dLon = lon1 - lon2
