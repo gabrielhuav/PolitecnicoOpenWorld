@@ -398,7 +398,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             if (isZooming) return;
 
             var currentZoom = map.getZoom();
-            var isZoomedIn = currentZoom >= 17.0;
+            var isZoomedIn = currentZoom >= 15.0;
             
             // 1. CULLING Visual
             var ids = new Set();
