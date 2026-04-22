@@ -7,7 +7,6 @@ import android.graphics.PorterDuffColorFilter
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.util.LruCache
-import androidx.core.graphics.ColorUtils
 import ovh.gabrielhuav.pow.domain.models.CarModel
 import kotlin.math.roundToInt
 
@@ -56,8 +55,7 @@ object VehicleSpriteManager {
         val scaledBitmap = Bitmap.createScaledBitmap(baseBitmap, finalWidth, finalHeight, false)
 
         val result = BitmapDrawable(context.resources, scaledBitmap).apply {
-            val translucentColor = ColorUtils.setAlphaComponent(colorInt, 200)
-            colorFilter = PorterDuffColorFilter(translucentColor, PorterDuff.Mode.SRC_ATOP)
+            colorFilter = PorterDuffColorFilter(colorInt, PorterDuff.Mode.SRC_ATOP)
         }
         drawableCache.put(key, result)
         return result

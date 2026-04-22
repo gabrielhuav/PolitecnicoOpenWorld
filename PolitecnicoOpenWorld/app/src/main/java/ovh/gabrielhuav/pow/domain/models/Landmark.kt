@@ -6,7 +6,7 @@ data class Landmark(
     val id: String,
     val name: String,
     var location: GeoPoint,
-    var rotationAngle: Float = 0f, // <-- NUEVA LÍNEA
+    var rotationAngle: Float = 0f,
     val assetPath: String,
     val scaleFactor: Float = 1.0f
 )

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -108,7 +107,6 @@ fun WorldMapScreen(
                     MapView(ctx).apply {
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(false)
-                        // ¡BORRA LAS LÍNEAS DE setOnTouchListener y isClickable AQUÍ!
                         controller.setZoom(uiState.zoomLevel)
                     }
                 },
@@ -142,40 +140,41 @@ fun WorldMapScreen(
                             // 1. APLICAR ROTACIÓN INICIAL
                             rotation = landmark.rotationAngle
 
-                            // --- MODO CALIBRACIÓN ---
-                            isDraggable = true
+                            if (ovh.gabrielhuav.pow.BuildConfig.DEBUG) {
+                                // --- MODO CALIBRACIÓN (solo en builds de debug) ---
+                                isDraggable = true
 
-                            // 2. ABRIR PANEL AL TOCAR
-                            setOnMarkerClickListener { clickedMarker, _ ->
-                                if (clickedMarker.isDraggable) {
-                                    selectedLandmark = landmark // Esto hará aparecer los botones
-                                    true
-                                } else false
+                                // 2. ABRIR PANEL AL TOCAR
+                                setOnMarkerClickListener { clickedMarker, _ ->
+                                    if (clickedMarker.isDraggable) {
+                                        selectedLandmark = landmark
+                                        true
+                                    } else false
+                                }
+
+                                // 3. ARRASTRAR
+                                setOnMarkerDragListener(object : Marker.OnMarkerDragListener {
+                                    override fun onMarkerDragStart(marker: Marker) {
+                                        marker.icon?.colorFilter = android.graphics.PorterDuffColorFilter(
+                                            android.graphics.Color.argb(180, 255, 0, 0),
+                                            android.graphics.PorterDuff.Mode.SRC_ATOP
+                                        )
+                                        view.invalidate()
+                                    }
+                                    override fun onMarkerDrag(marker: Marker) {
+                                        landmark.location = marker.position as org.osmdroid.util.GeoPoint
+                                    }
+                                    override fun onMarkerDragEnd(marker: Marker) {
+                                        marker.icon?.clearColorFilter()
+                                        view.invalidate()
+
+                                        // IMPRIMIR LA INFORMACIÓN COMPLETA PARA GUARDARLA
+                                        android.util.Log.e("POW_CALIBRACION",
+                                            "Coordenadas Finales: GeoPoint(${marker.position.latitude}, ${marker.position.longitude}), rotationAngle = ${landmark.rotationAngle}f"
+                                        )
+                                    }
+                                })
                             }
-
-                            // 3. ARRASTRAR (Mantenlo igual a como lo tenías en el código anterior)
-                            setOnMarkerDragListener(object : Marker.OnMarkerDragListener {
-                                override fun onMarkerDragStart(marker: Marker) {
-                                    marker.icon?.colorFilter = android.graphics.PorterDuffColorFilter(
-                                        android.graphics.Color.argb(180, 255, 0, 0),
-                                        android.graphics.PorterDuff.Mode.SRC_ATOP
-                                    )
-                                    view.invalidate()
-                                }
-                                override fun onMarkerDrag(marker: Marker) {
-                                    landmark.location = marker.position as org.osmdroid.util.GeoPoint
-                                }
-                                override fun onMarkerDragEnd(marker: Marker) {
-                                    marker.icon?.clearColorFilter()
-                                    view.invalidate()
-
-                                    // IMPRIMIR LA INFORMACIÓN COMPLETA PARA GUARDARLA
-                                    android.util.Log.e("POW_CALIBRACION",
-                                        "Coordenadas Finales: GeoPoint(${marker.position.latitude}, ${marker.position.longitude}), rotationAngle = ${landmark.rotationAngle}f"
-                                    )
-                                }
-                            })
-                            // ------------------------
 
                             markerCache[id] = this
                             view.overlays.add(this)
@@ -193,16 +192,27 @@ fun WorldMapScreen(
                             try {
                                 context.assets.open(landmark.assetPath).use { inputStream ->
                                     val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
-                                    val finalW = (bitmap.width * dynamicScale).toInt().coerceIn(1, 2048)
-                                    val finalH = (bitmap.height * dynamicScale).toInt().coerceIn(1, 2048)
-                                    val scaled = android.graphics.Bitmap.createScaledBitmap(bitmap, finalW, finalH, false)
+                                    if (bitmap == null) {
+                                        android.util.Log.e(
+                                            "POW_MAP",
+                                            "No se pudo decodificar el asset del landmark: ${landmark.assetPath}"
+                                        )
+                                    } else {
+                                        val finalW = (bitmap.width * dynamicScale).toInt().coerceIn(1, 2048)
+                                        val finalH = (bitmap.height * dynamicScale).toInt().coerceIn(1, 2048)
+                                        val scaled = android.graphics.Bitmap.createScaledBitmap(bitmap, finalW, finalH, false)
 
-                                    // Asignamos la imagen limpia (se pintará de rojo automáticamente en el DragStart)
-                                    marker.icon = android.graphics.drawable.BitmapDrawable(context.resources, scaled)
-                                    marker.snippet = cacheKey
+                                        // Asignamos la imagen limpia (se pintará de rojo automáticamente en el DragStart)
+                                        marker.icon = android.graphics.drawable.BitmapDrawable(context.resources, scaled)
+                                        marker.snippet = cacheKey
+                                    }
                                 }
                             } catch (e: Exception) {
-                                e.printStackTrace()
+                                android.util.Log.e(
+                                    "POW_MAP",
+                                    "Error cargando el asset del landmark: ${landmark.assetPath}",
+                                    e
+                                )
                             }
                         }
                         marker.position = landmark.location
@@ -240,6 +250,21 @@ fun WorldMapScreen(
                         }
                     }
                     view.invalidate()
+
+                    // Limpieza diferida: removemos overlays/cache de ids que ya no estén presentes.
+                    view.post {
+                        val staleIds = markerCache.keys.toSet() - activeIds
+                        var removedAnyMarker = false
+                        staleIds.forEach { staleId ->
+                            val staleMarker = markerCache.remove(staleId)
+                            if (staleMarker != null) {
+                                removedAnyMarker = view.overlays.remove(staleMarker) || removedAnyMarker
+                            }
+                        }
+                        if (removedAnyMarker) {
+                            view.invalidate()
+                        }
+                    }
                 }
             )
         } else {
@@ -278,21 +303,37 @@ fun WorldMapScreen(
                     wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null)
                     wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
 
-                    // --- NUEVO: Inyección del JSON de Edificios (Landmarks) ---
-                    val landmarksJson = uiState.landmarks.joinToString(prefix = "[", postfix = "]") { landmark ->
-                        "{id:'${landmark.id}',lat:${landmark.location.latitude},lng:${landmark.location.longitude},asset:'${landmark.assetPath}',scale:${landmark.scaleFactor}}"
+                    // Inyección del JSON de Edificios (Landmarks) usando org.json para evitar inyección de JS
+                    val landmarksJsonArray = org.json.JSONArray()
+                    uiState.landmarks.forEach { landmark ->
+                        landmarksJsonArray.put(org.json.JSONObject().apply {
+                            put("id", landmark.id)
+                            put("lat", landmark.location.latitude)
+                            put("lng", landmark.location.longitude)
+                            put("asset", landmark.assetPath)
+                            put("scale", landmark.scaleFactor)
+                        })
                     }
-                    wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks($landmarksJson);", null)
+                    wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks(${landmarksJsonArray});", null)
 
-                    // Modifica la inyección del JSON a WebView para incluir el color HSV:
-                    val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
+                    // Inyección del JSON de NPCs usando org.json para evitar inyección de JS
+                    val npcsJsonArray = org.json.JSONArray()
+                    uiState.npcs.forEach { npc ->
                         val hsv = FloatArray(3)
                         android.graphics.Color.colorToHSV(npc.carColor, hsv)
-                        "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}', " +
-                                "hue:${hsv[0]}, dir:'${npc.carModel.dirName}', prefix:'${npc.carModel.prefix}'}"
+                        npcsJsonArray.put(org.json.JSONObject().apply {
+                            put("id", npc.id)
+                            put("lat", npc.location.latitude)
+                            put("lng", npc.location.longitude)
+                            put("rot", npc.rotationAngle)
+                            put("type", npc.type.name)
+                            put("drawable", npc.type.drawableName)
+                            put("hue", hsv[0])
+                            put("dir", npc.carModel.dirName)
+                            put("prefix", npc.carModel.prefix)
+                        })
                     }
-                    wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
+                    wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs(${npcsJsonArray});", null)
                 }
             )
         }
@@ -415,48 +456,49 @@ fun WorldMapScreen(
             }
         }
 
-        // ─── CAPA 8: PANEL DE CALIBRACIÓN DE EDIFICIOS ─────────────────────────────
-        selectedLandmark?.let { lm ->
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 130.dp) // Aparecerá debajo del indicador de calles
-                    .shadow(8.dp, RoundedCornerShape(12.dp))
-                    .background(Color.White, RoundedCornerShape(12.dp))
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // BOTÓN IZQUIERDA
-                Button(
-                    onClick = {
-                        lm.rotationAngle = (lm.rotationAngle - 5f) % 360f
-                        // Actualizamos el marcador y repintamos
-                        @Suppress("UNCHECKED_CAST")
-                        val cache = mapViewRef?.tag as? MutableMap<String, Marker>
-                        cache?.get(lm.id)?.rotation = lm.rotationAngle
-                        mapViewRef?.invalidate()
-                        android.util.Log.e("POW_CALIBRACION", "Rotación: ${lm.rotationAngle}f")
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
-                ) { Text("↺ -5°") }
+        // ─── CAPA 8: PANEL DE CALIBRACIÓN DE EDIFICIOS (solo en DEBUG) ────────────
+        if (ovh.gabrielhuav.pow.BuildConfig.DEBUG) {
+            selectedLandmark?.let { lm ->
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 130.dp)
+                        .shadow(8.dp, RoundedCornerShape(12.dp))
+                        .background(Color.White, RoundedCornerShape(12.dp))
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // BOTÓN IZQUIERDA
+                    Button(
+                        onClick = {
+                            lm.rotationAngle = ((lm.rotationAngle - 5f) % 360f + 360f) % 360f
+                            @Suppress("UNCHECKED_CAST")
+                            val cache = mapViewRef?.tag as? MutableMap<String, Marker>
+                            cache?.get(lm.id)?.rotation = lm.rotationAngle
+                            mapViewRef?.invalidate()
+                            android.util.Log.e("POW_CALIBRACION", "Rotación: ${lm.rotationAngle}f")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+                    ) { Text("↺ -5°") }
 
-                // BOTÓN DERECHA
-                Button(
-                    onClick = {
-                        lm.rotationAngle = (lm.rotationAngle + 5f) % 360f
-                        @Suppress("UNCHECKED_CAST")
-                        val cache = mapViewRef?.tag as? MutableMap<String, Marker>
-                        cache?.get(lm.id)?.rotation = lm.rotationAngle
-                        mapViewRef?.invalidate()
-                        android.util.Log.e("POW_CALIBRACION", "Rotación: ${lm.rotationAngle}f")
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
-                ) { Text("+5° ↻") }
+                    // BOTÓN DERECHA
+                    Button(
+                        onClick = {
+                            lm.rotationAngle = ((lm.rotationAngle + 5f) % 360f + 360f) % 360f
+                            @Suppress("UNCHECKED_CAST")
+                            val cache = mapViewRef?.tag as? MutableMap<String, Marker>
+                            cache?.get(lm.id)?.rotation = lm.rotationAngle
+                            mapViewRef?.invalidate()
+                            android.util.Log.e("POW_CALIBRACION", "Rotación: ${lm.rotationAngle}f")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+                    ) { Text("+5° ↻") }
 
-                // BOTÓN CERRAR PANEL
-                OutlinedButton(onClick = { selectedLandmark = null }) {
-                    Text("OK", color = Color.Black)
+                    // BOTÓN CERRAR PANEL
+                    OutlinedButton(onClick = { selectedLandmark = null }) {
+                        Text("OK", color = Color.Black)
+                    }
                 }
             }
         }
@@ -558,7 +600,10 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 
         // --- FUNCIONES PUENTE PARA KOTLIN ---
         function moveMap(lat, lng) { map.setView([lat, lng], map.getZoom(), { animate: false }); }
-        function setMapZoom(z) { map.setZoom(z, { animate: false }); }
+        function setMapZoom(z) {
+            if (map.getZoom() === z) return;
+            map.setZoom(z, { animate: false });
+        }
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
 
@@ -593,6 +638,9 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                             img.style.filter = 'sepia(100%) saturate(400%) hue-rotate(' + npc.hue + 'deg) brightness(1.0)';
                             img.style.width = sz + 'px';
                             img.style.height = sz + 'px';
+                            // Actualizar también el contenedor Leaflet para que el click-area y el anclaje no queden desfasados
+                            el.style.width = sz + 'px';
+                            el.style.height = sz + 'px';
                         } else if (img) {
                             img.style.transform = 'rotate(' + npc.rot + 'deg)';
                         }
@@ -622,7 +670,8 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         function updateLandmarks(data) {
             var currentZoom = map.getZoom();
             data.forEach(function(l) {
-                // Misma lógica de escala que en Kotlin
+                // Escalado local para Leaflet: usa un tamaño base fijo ajustado por `l.scale`
+                // y por el zoom actual; el icono se renderiza como cuadrado.
                 var sz = 100 * l.scale * Math.pow(2, currentZoom - 19); 
                 var url = 'file:///android_asset/' + l.asset;
                 

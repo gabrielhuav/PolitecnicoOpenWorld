@@ -67,11 +67,14 @@ class WorldMapViewModel(
                     id = "escom_main",
                     name = "ESCOM IPN",
                     location = GeoPoint(19.5041508, -99.1471029),
-                    rotationAngle = 0f, // <-- NUEVA LÍNEA
+                    rotationAngle = 0f,
                     assetPath = "BUILDINGS/IPN/building_escom.webp",
                     scaleFactor = 0.15f
                 )
-            )
+            ),
+            controlType = settingsRepository.getControlType(),
+            controlsScale = settingsRepository.getControlsScale(),
+            swapControls = settingsRepository.getSwapControls()
         )
     )
 
