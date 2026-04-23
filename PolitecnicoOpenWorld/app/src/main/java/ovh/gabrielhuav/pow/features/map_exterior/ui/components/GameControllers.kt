@@ -48,16 +48,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Text
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+
+
+
 // JoystickController
 @Composable
 fun JoystickController(
@@ -169,7 +162,6 @@ private fun DPadButton(icon: androidx.compose.ui.graphics.vector.ImageVector, on
 @Composable
 fun ActionButtonsController(
     modifier: Modifier = Modifier,
-    // Eliminamos onActionPressed y dejamos solo el nuevo manejador unificado
     onActionChanged: (GameAction, Boolean) -> Unit
 ) {
     Box(
@@ -226,11 +218,11 @@ fun ActionButton(
 ) {
     Box(
         modifier = Modifier
-            .padding(4.dp) // Pequeño margen entre botones
+            .padding(4.dp)
             .size(48.dp)
             .clip(CircleShape)
             .background(color)
-            // AQUÍ INYECTAMOS LA DETECCIÓN DE MANTENER PRESIONADO
+            //  INYECTAMOS LA DETECCIÓN DE MANTENER PRESIONADO
             .detectHoldEvent { isPressed -> onHoldEvent(isPressed) },
         contentAlignment = Alignment.Center
     ) {
@@ -240,21 +232,6 @@ fun ActionButton(
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp
         )
-    }
-}
-
-@Composable
-private fun ActionButton(text: String, color: Color, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .clip(CircleShape)
-            .background(color.copy(alpha = 0.9f))
-            // Usamos un tap normal, las acciones no se repiten como el caminar
-            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(); onClick() } },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
     }
 }
 
