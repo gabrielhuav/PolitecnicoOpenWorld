@@ -85,9 +85,9 @@ fun PlayerCharacter(
                 currentImage = bitmapCache[assetPath]
 
                 val frameDelay = when (action) {
-                    PlayerAction.IDLE -> 1000L // 300ms = ~3.3 FPS (Respiración tranquila / estático)
-                    PlayerAction.WALK -> 100L // 100ms = 10 FPS (Caminata fluida)
-                    PlayerAction.SPECIAL -> 300L // 100ms = 10 FPS
+                    PlayerAction.IDLE -> 1000L // Respiración tranquila / estático
+                    PlayerAction.WALK -> 100L // Caminata fluida
+                    PlayerAction.SPECIAL -> 300L
                     PlayerAction.RUN -> 100L
                 }
 
