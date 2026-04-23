@@ -22,6 +22,7 @@ import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.atan2
@@ -32,6 +33,7 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.math.abs
 
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
@@ -237,7 +239,16 @@ class WorldMapViewModel(
     fun moveCharacter(direction: Direction) {
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
-        val step = 0.000003
+        // Determinar hacia dónde mira basado en D-Pad
+        val isMovingRight = when (direction) {
+            Direction.RIGHT -> true
+            Direction.LEFT -> false
+            else -> null // Si va arriba/abajo, mantiene la dirección actual
+        }
+        startMovementAction(isMovingRight)
+
+        val step = if (_uiState.value.isRunning) 0.000006 else 0.000003
+
         val temp = when (direction) {
             Direction.UP    -> GeoPoint(loc.latitude + step, loc.longitude)
             Direction.DOWN  -> GeoPoint(loc.latitude - step, loc.longitude)
@@ -263,7 +274,12 @@ class WorldMapViewModel(
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
 
-        val step = 0.000003 // Misma velocidad estática que el D-Pad
+        // Determinar hacia dónde mira basado en el Joystick (Coseno determina X/Longitud)
+        val dx = cos(angleRad)
+        val isMovingRight = if (abs(dx) > 0.01) dx > 0 else null
+        startMovementAction(isMovingRight)
+
+        val step = if (_uiState.value.isRunning) 0.000006 else 0.000003
 
         // Calculamos el nuevo punto destino (Seno para Y/Latitud, Coseno para X/Longitud)
         val temp = GeoPoint(
@@ -360,7 +376,37 @@ class WorldMapViewModel(
             _uiState.update { it.copy(currentLocation = GeoPoint(lat, lon), isLoadingLocation = false) }
     }
 
-    fun executeAction(action: GameAction) { android.util.Log.d("GameAction", "$action") }
+    fun updateActionState(action: GameAction, isPressed: Boolean) {
+        when (action) {
+            GameAction.A -> {
+                // Actualizamos el estado de correr inmediatamente
+                _uiState.update { it.copy(isRunning = isPressed) }
+
+                // Transición fluida: Si suelta el botón mientras se movía, lo regresamos a WALK.
+                // Si lo presiona mientras ya se estaba moviendo, lo pasamos a RUN.
+                val currentAction = _uiState.value.playerAction
+                if (isPressed && currentAction == PlayerAction.WALK) {
+                    _uiState.update { it.copy(playerAction = PlayerAction.RUN) }
+                } else if (!isPressed && currentAction == PlayerAction.RUN) {
+                    _uiState.update { it.copy(playerAction = PlayerAction.WALK) }
+                }
+            }
+            GameAction.B -> {
+                if (isPressed) {
+                    // MIENTRAS mantenga presionado, hace el ataque/acción especial
+                    _uiState.update { it.copy(playerAction = PlayerAction.SPECIAL) }
+                    idleJob?.cancel() // Evitamos que el sistema de inactividad interrumpa el golpe
+                } else {
+                    // AL SOLTAR, vuelve a IDLE (Si el usuario sigue moviendo el joystick,
+                    // el próximo tick del motor gráfico lo pasará a WALK automáticamente)
+                    _uiState.update { it.copy(playerAction = PlayerAction.IDLE) }
+                }
+            }
+            else -> {
+                android.util.Log.d("GameAction", "$action - isPressed: $isPressed")
+            }
+        }
+    }
 
     fun setMapProvider(provider: MapProvider) {
         val ts = if (provider == MapProvider.OSM) TileSource.LOCAL_OSM else TileSource.NETWORK
@@ -385,4 +431,28 @@ class WorldMapViewModel(
     fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
 
     override fun onCleared() { super.onCleared(); tileCache.closeAll() }
+
+    private var idleJob: Job? = null
+
+    private fun startMovementAction(isMovingRight: Boolean? = null) {
+        idleJob?.cancel()
+
+        val newFacingRight = isMovingRight ?: _uiState.value.isPlayerFacingRight
+        // Verificamos el estado de isRunning para saber qué acción ejecutar
+        val currentAction = if (_uiState.value.isRunning) PlayerAction.RUN else PlayerAction.WALK
+
+        // No interrumpimos la animación SPECIAL si el jugador está golpeando (opcional, puedes quitar esta validación si quieres cancelar el golpe al moverse)
+        if (_uiState.value.playerAction != PlayerAction.SPECIAL) {
+            if (_uiState.value.playerAction != currentAction || _uiState.value.isPlayerFacingRight != newFacingRight) {
+                _uiState.update {
+                    it.copy(playerAction = currentAction, isPlayerFacingRight = newFacingRight)
+                }
+            }
+        }
+
+        idleJob = viewModelScope.launch {
+            delay(150)
+            _uiState.update { it.copy(playerAction = PlayerAction.IDLE) }
+        }
+    }
 }

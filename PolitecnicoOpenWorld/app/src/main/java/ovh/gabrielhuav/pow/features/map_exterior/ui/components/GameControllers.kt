@@ -48,7 +48,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
-
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 // JoystickController
 @Composable
 fun JoystickController(
@@ -155,10 +164,13 @@ private fun DPadButton(icon: androidx.compose.ui.graphics.vector.ImageVector, on
 // ==========================================
 // BOTONES DE ACCIÓN (XBOX STYLE)
 // ==========================================
+
+
 @Composable
 fun ActionButtonsController(
     modifier: Modifier = Modifier,
-    onActionPressed: (GameAction) -> Unit
+    // Eliminamos onActionPressed y dejamos solo el nuevo manejador unificado
+    onActionChanged: (GameAction, Boolean) -> Unit
 ) {
     Box(
         modifier = modifier
@@ -169,17 +181,65 @@ fun ActionButtonsController(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             // Y - Amarillo
-            ActionButton(text = "Y", color = Color(0xFFF1C40F), onClick = { onActionPressed(GameAction.Y) })
+            ActionButton(
+                text = "Y",
+                color = Color(0xFFF1C40F),
+                onHoldEvent = { isPressed -> onActionChanged(GameAction.Y, isPressed) }
+            )
+
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // X - Azul
-                ActionButton(text = "X", color = Color(0xFF3498DB), onClick = { onActionPressed(GameAction.X) })
+                ActionButton(
+                    text = "X",
+                    color = Color(0xFF3498DB),
+                    onHoldEvent = { isPressed -> onActionChanged(GameAction.X, isPressed) }
+                )
+
                 Spacer(modifier = Modifier.size(48.dp))
-                // B - Rojo
-                ActionButton(text = "B", color = Color(0xFFE74C3C), onClick = { onActionPressed(GameAction.B) })
+
+                // B - Rojo (Ataque Especial)
+                ActionButton(
+                    text = "B",
+                    color = Color(0xFFE74C3C),
+                    onHoldEvent = { isPressed -> onActionChanged(GameAction.B, isPressed) }
+                )
             }
-            // A - Verde
-            ActionButton(text = "A", color = Color(0xFF2ECC71), onClick = { onActionPressed(GameAction.A) })
+
+            // A - Verde (Correr)
+            ActionButton(
+                text = "A",
+                color = Color(0xFF2ECC71),
+                onHoldEvent = { isPressed -> onActionChanged(GameAction.A, isPressed) }
+            )
         }
+    }
+}
+
+/**
+ * Componente individual del botón actualizado con el detector de gestos.
+ */
+@Composable
+fun ActionButton(
+    text: String,
+    color: Color,
+    onHoldEvent: (Boolean) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .padding(4.dp) // Pequeño margen entre botones
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(color)
+            // AQUÍ INYECTAMOS LA DETECCIÓN DE MANTENER PRESIONADO
+            .detectHoldEvent { isPressed -> onHoldEvent(isPressed) },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp
+        )
     }
 }
 
@@ -225,5 +285,20 @@ fun Modifier.repeatingClickable(
             waitForUpOrCancellation()
             job?.cancel() // Se detiene cuando sueltas el dedo
         }
+    }
+}
+
+/**
+ * Modificador personalizado que detecta el inicio y fin de una pulsación física.
+ */
+fun Modifier.detectHoldEvent(onHoldEvent: (isPressed: Boolean) -> Unit): Modifier = this.pointerInput(Unit) {
+    awaitEachGesture {
+        // 1. El usuario toca la pantalla
+        awaitFirstDown(requireUnconsumed = false)
+        onHoldEvent(true)
+
+        // 2. Esperamos a que levante el dedo o deslice fuera del área
+        waitForUpOrCancellation()
+        onHoldEvent(false)
     }
 }
