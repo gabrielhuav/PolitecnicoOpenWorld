@@ -240,12 +240,12 @@ fun WorldMapScreen(
         }
 
         // ─── CAPA 2, 3, 4, 5, 6, 7 (Idénticas) ──────────────────────────────────
-        Box(
-            modifier = Modifier.align(Alignment.Center).size(22.dp)
-                .shadow(2.dp, CircleShape).clip(CircleShape)
-                .background(Color.White).border(1.5.dp, Color(0xFFE6A800), CircleShape),
-            contentAlignment = Alignment.Center
-        ) { Icon(Icons.Default.Person, "Jugador", tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp)) }
+        ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
+            action = uiState.playerAction,
+            isFacingRight = uiState.isPlayerFacingRight,
+            zoomLevel = uiState.zoomLevel,
+            modifier = Modifier.align(Alignment.Center)
+        )
 
         if (!uiState.isRoadNetworkReady) {
             Row(
@@ -307,7 +307,12 @@ fun WorldMapScreen(
                 }
             }
             val actionComponent = @Composable {
-                ActionButtonsController(modifier = Modifier.scale(effectiveScale), onActionPressed = { viewModel.executeAction(it) })
+                ActionButtonsController(
+                    modifier = Modifier.scale(effectiveScale),
+                    onActionChanged = { action, isPressed ->
+                        viewModel.updateActionState(action, isPressed)
+                    }
+                )
             }
             if (uiState.swapControls) { actionComponent(); movementComponent() }
             else { movementComponent(); actionComponent() }

@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.Npc
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 enum class MapProvider(val displayName: String) {
@@ -34,7 +35,12 @@ data class WorldMapState(
     val showFpsWidget: Boolean = false, // ← Agregado
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f,
-    val swapControls: Boolean = false
+    val swapControls: Boolean = false,
+
+    // Control de los estados del personaje principal
+    val playerAction: PlayerAction = PlayerAction.IDLE,
+    val isPlayerFacingRight: Boolean = true,
+    val isRunning: Boolean = false
 ) {
     companion object {
         const val ZOOM_LOADING        = 17.0
