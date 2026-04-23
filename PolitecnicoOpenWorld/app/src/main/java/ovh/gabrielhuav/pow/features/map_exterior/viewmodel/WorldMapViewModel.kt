@@ -450,9 +450,13 @@ class WorldMapViewModel(
             }
         }
 
-        idleJob = viewModelScope.launch {
-            delay(150)
-            _uiState.update { it.copy(playerAction = PlayerAction.IDLE) }
+        if (_uiState.value.playerAction != PlayerAction.SPECIAL) {
+            idleJob = viewModelScope.launch {
+                delay(150)
+                if (_uiState.value.playerAction != PlayerAction.SPECIAL) {
+                    _uiState.update { it.copy(playerAction = PlayerAction.IDLE) }
+                }
+            }
         }
     }
 }
