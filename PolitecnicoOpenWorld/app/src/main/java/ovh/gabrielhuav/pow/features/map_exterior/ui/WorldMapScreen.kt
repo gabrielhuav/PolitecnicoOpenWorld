@@ -182,9 +182,9 @@ fun WorldMapScreen(
                 modifier = Modifier.fillMaxSize(),
                 update = { wv ->
                     uiState.currentLocation?.let {
-                        wv.evaluateJavascript("if(typeof moveMap==='function')moveMap(${it.latitude},${it.longitude});", null)
+                        // Combinamos Latitud, Longitud y Zoom en un solo disparo a JS
+                        wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
                     }
-                    wv.evaluateJavascript("if(typeof setMapZoom==='function')setMapZoom(${uiState.zoomLevel.toInt()});", null)
 
                     val tileUrl = when (uiState.mapProvider) {
                         MapProvider.CARTO_DB_DARK  -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -370,10 +370,14 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var map = L.map('map', { 
             zoomControl: false, 
             attributionControl: false,
-            dragging: true 
+            dragging: true,
+            maxZoom: 22
         }).setView([$lat, $lng], $zoom);
 
-        var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+            maxZoom: 22,         
+            maxNativeZoom: 18
+        }).addTo(map);
         var npcMarkers = {};
 
         // --- SISTEMA ANTI-DESINCRONIZACIÓN ---
@@ -382,15 +386,10 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         map.on('zoomstart', function() { isZooming = true; });
         map.on('zoomend', function() { isZooming = false; });
 
-        function moveMap(lat, lng) { 
+
+        function updateMapView(lat, lng, z) { 
             if (!isZooming) { // Evitar tirones si el usuario está pellizcando
-                map.setView([lat, lng], map.getZoom(), { animate: false }); 
-            }
-        }
-        
-        function setMapZoom(z) { 
-            if (Math.abs(map.getZoom() - z) > 1.5) {
-                map.setZoom(z, { animate: false }); 
+                map.setView([lat, lng], z, { animate: false }); 
             }
         }
         
