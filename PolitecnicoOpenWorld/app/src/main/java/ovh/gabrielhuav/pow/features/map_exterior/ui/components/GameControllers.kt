@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
+
+
 // JoystickController
 @Composable
 fun JoystickController(
@@ -155,10 +157,12 @@ private fun DPadButton(icon: androidx.compose.ui.graphics.vector.ImageVector, on
 // ==========================================
 // BOTONES DE ACCIÓN (XBOX STYLE)
 // ==========================================
+
+
 @Composable
 fun ActionButtonsController(
     modifier: Modifier = Modifier,
-    onActionPressed: (GameAction) -> Unit
+    onActionChanged: (GameAction, Boolean) -> Unit
 ) {
     Box(
         modifier = modifier
@@ -169,32 +173,65 @@ fun ActionButtonsController(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             // Y - Amarillo
-            ActionButton(text = "Y", color = Color(0xFFF1C40F), onClick = { onActionPressed(GameAction.Y) })
+            ActionButton(
+                text = "Y",
+                color = Color(0xFFF1C40F),
+                onHoldEvent = { isPressed -> onActionChanged(GameAction.Y, isPressed) }
+            )
+
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // X - Azul
-                ActionButton(text = "X", color = Color(0xFF3498DB), onClick = { onActionPressed(GameAction.X) })
+                ActionButton(
+                    text = "X",
+                    color = Color(0xFF3498DB),
+                    onHoldEvent = { isPressed -> onActionChanged(GameAction.X, isPressed) }
+                )
+
                 Spacer(modifier = Modifier.size(48.dp))
-                // B - Rojo
-                ActionButton(text = "B", color = Color(0xFFE74C3C), onClick = { onActionPressed(GameAction.B) })
+
+                // B - Rojo (Ataque Especial)
+                ActionButton(
+                    text = "B",
+                    color = Color(0xFFE74C3C),
+                    onHoldEvent = { isPressed -> onActionChanged(GameAction.B, isPressed) }
+                )
             }
-            // A - Verde
-            ActionButton(text = "A", color = Color(0xFF2ECC71), onClick = { onActionPressed(GameAction.A) })
+
+            // A - Verde (Correr)
+            ActionButton(
+                text = "A",
+                color = Color(0xFF2ECC71),
+                onHoldEvent = { isPressed -> onActionChanged(GameAction.A, isPressed) }
+            )
         }
     }
 }
 
+/**
+ * Componente individual del botón actualizado con el detector de gestos.
+ */
 @Composable
-private fun ActionButton(text: String, color: Color, onClick: () -> Unit) {
+fun ActionButton(
+    text: String,
+    color: Color,
+    onHoldEvent: (Boolean) -> Unit
+) {
     Box(
         modifier = Modifier
+            .padding(4.dp)
             .size(48.dp)
             .clip(CircleShape)
-            .background(color.copy(alpha = 0.9f))
-            // Usamos un tap normal, las acciones no se repiten como el caminar
-            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(); onClick() } },
+            .background(color)
+            //  INYECTAMOS LA DETECCIÓN DE MANTENER PRESIONADO
+            .detectHoldEvent { isPressed -> onHoldEvent(isPressed) },
         contentAlignment = Alignment.Center
     ) {
-        Text(text = text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text(
+            text = text,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp
+        )
     }
 }
 
@@ -225,5 +262,20 @@ fun Modifier.repeatingClickable(
             waitForUpOrCancellation()
             job?.cancel() // Se detiene cuando sueltas el dedo
         }
+    }
+}
+
+/**
+ * Modificador personalizado que detecta el inicio y fin de una pulsación física.
+ */
+fun Modifier.detectHoldEvent(onHoldEvent: (isPressed: Boolean) -> Unit): Modifier = this.pointerInput(Unit) {
+    awaitEachGesture {
+        // 1. El usuario toca la pantalla
+        awaitFirstDown(requireUnconsumed = false)
+        onHoldEvent(true)
+
+        // 2. Esperamos a que levante el dedo o deslice fuera del área
+        waitForUpOrCancellation()
+        onHoldEvent(false)
     }
 }
