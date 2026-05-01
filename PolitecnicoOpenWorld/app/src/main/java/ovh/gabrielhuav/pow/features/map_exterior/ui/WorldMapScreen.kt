@@ -76,6 +76,9 @@ fun WorldMapScreen(
 
     DisposableEffect(Unit) {
         viewModel.startGameLoop()
+        // ¡CONEXIÓN AUTOMÁTICA AL ABRIR EL MAPA!
+        // IMPORTANTE: Cambia "192.168.1.XX" por la IP que te dio ipconfig
+        viewModel.connectToMultiplayer("ws://192.168.1.29:8080")
         onDispose { viewModel.stopGameLoop() }
     }
 

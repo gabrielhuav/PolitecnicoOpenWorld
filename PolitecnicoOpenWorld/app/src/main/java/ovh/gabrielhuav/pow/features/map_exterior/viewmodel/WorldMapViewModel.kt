@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.Job
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import org.osmdroid.util.GeoPoint
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -18,9 +20,12 @@ import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
 import ovh.gabrielhuav.pow.data.cache.TileCache
 import ovh.gabrielhuav.pow.data.local.room.PowDatabase
+import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.MapWay
+import ovh.gabrielhuav.pow.domain.models.Npc
+import ovh.gabrielhuav.pow.domain.models.NpcType
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
@@ -37,6 +42,15 @@ import kotlin.math.abs
 
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
+
+// Clase de datos para el payload del servidor
+data class MultiplayerPlayer(
+    val id: String,
+    val x: Double,
+    val y: Double,
+    val action: String,
+    val facingRight: Boolean
+)
 
 class WorldMapViewModel(
     private val roadNetworkCache: RoadNetworkCache,
@@ -60,7 +74,6 @@ class WorldMapViewModel(
         }
     }
 
-    // Ahora lee del repositorio
     private val _uiState = MutableStateFlow(
         WorldMapState(
             controlType = settingsRepository.getControlType(),
@@ -82,6 +95,69 @@ class WorldMapViewModel(
     private val REFETCH_DISTANCE_DEG = 0.015
     private val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
 
+    // ─── WEBSOCKET MULTIJUGADOR ───────────────────────────────────────────────────
+
+    private var webSocketManager: WebSocketManager? = null
+    private val gson = Gson()
+    private val multiplayerPlayers = mutableMapOf<String, Npc>()
+    private val myPlayerId = "Player_${System.currentTimeMillis() % 10000}" // ID único temporal
+
+    fun connectToMultiplayer(serverUrl: String) {
+        if (webSocketManager != null) return
+
+        Log.d("WorldMapVM", "Iniciando conexión multijugador a $serverUrl")
+        webSocketManager = WebSocketManager(serverUrl)
+        webSocketManager?.connect()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            webSocketManager?.messagesFlow?.collect { messageJson ->
+                handleMultiplayerMessage(messageJson)
+            }
+        }
+    }
+
+    private fun handleMultiplayerMessage(messageJson: String) {
+        try {
+            // Revisa si es un mensaje de desconexión (si implementaste esa lógica en Node)
+            if (messageJson.contains("\"DISCONNECT\"")) {
+                val disconnectData = gson.fromJson(messageJson, Map::class.java)
+                val idToRemove = disconnectData["id"] as? String
+                if (idToRemove != null) {
+                    multiplayerPlayers.remove(idToRemove)
+                    updateNpcsState()
+                }
+                return
+            }
+
+            val playerData = gson.fromJson(messageJson, MultiplayerPlayer::class.java)
+
+            // Ignoramos nuestros propios mensajes en caso de que el servidor nos los rebote
+            if (playerData.id == myPlayerId) return
+
+            val calculatedRotation = if (playerData.facingRight) 0f else 180f
+
+            val otherPlayer = Npc(
+                id = playerData.id,
+                type = NpcType.PERSON,
+                location = GeoPoint(playerData.y, playerData.x),
+                rotationAngle = calculatedRotation,
+                speed = 0.0
+            )
+
+            multiplayerPlayers[playerData.id] = otherPlayer
+            updateNpcsState()
+
+        } catch (e: Exception) {
+            Log.e("WorldMapVM", "Error procesando JSON multijugador: ${e.message}")
+        }
+    }
+
+    private fun updateNpcsState() {
+        val aiNpcs = npcAiManager.npcs.value
+        val allNpcs = aiNpcs + multiplayerPlayers.values
+        _uiState.update { it.copy(npcs = allNpcs) }
+    }
+
     // ─── GAME LOOP ───────────────────────────────────────────────────────────────
 
     fun startGameLoop() {
@@ -91,39 +167,30 @@ class WorldMapViewModel(
             while (_uiState.value.currentLocation == null) { delay(100) }
             val initialLoc = _uiState.value.currentLocation!!
 
-            // Tiles OSM nativo → siempre local (osmdroid maneja su caché)
             if (_uiState.value.mapProvider == MapProvider.OSM) {
                 _uiState.update { it.copy(tileSource = TileSource.LOCAL_OSM) }
             }
 
-            // ── PASO 1: Intentar Room ──────────────────────────────────────────
             val cached = roadNetworkCache.get(initialLoc.latitude, initialLoc.longitude)
             if (cached != null) {
-                android.util.Log.d("WorldMapVM", "Room HIT inicio: ${roadNetworkCache.getStats()}")
-                // Marcar LOCAL_DB ANTES de applyRoadNetwork para que el widget ya lo muestre
                 _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                 applyRoadNetwork(cached, initialLoc)
                 lastNetworkFetchLocation = initialLoc
             } else {
-                // ── PASO 2: Overpass con backoff ───────────────────────────────
-                android.util.Log.d("WorldMapVM", "Room MISS inicio — Overpass")
                 _uiState.update { it.copy(roadSource = RoadSource.LOADING) }
                 var retryMs = 1_000L
 
                 while (isActive && roadNetwork.isEmpty()) {
                     val network = overpassRepository.fetchRoadNetwork(initialLoc.latitude, initialLoc.longitude)
                     if (network.isNotEmpty()) {
-                        // Marcar NETWORK mientras se usa, luego LOCAL_DB cuando ya esté guardado
                         _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
                         applyRoadNetwork(network, initialLoc)
                         lastNetworkFetchLocation = initialLoc
 
-                        // Guardar en Room y luego actualizar widget a LOCAL_DB
                         launch(Dispatchers.IO) {
                             roadNetworkCache.put(initialLoc.latitude, initialLoc.longitude, network)
                             withContext(Dispatchers.Main) {
                                 _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
-                                android.util.Log.d("WorldMapVM", "Calles guardadas en Room ✓")
                             }
                         }
                         break
@@ -135,7 +202,7 @@ class WorldMapViewModel(
                 }
             }
 
-            // ── PASO 3: Game loop ~30fps ───────────────────────────────────────
+            // Game loop principal ~30fps
             while (isActive) {
                 _uiState.value.currentLocation?.let { location ->
                     maybeRefetchRoadNetwork(location)
@@ -143,7 +210,21 @@ class WorldMapViewModel(
                         tickCount++
                         if (tickCount % 3 == 0) {
                             npcAiManager.updateNpcs(location)
-                            _uiState.update { it.copy(npcs = npcAiManager.npcs.value) }
+                            updateNpcsState()
+
+                            // BROADCAST MULTIJUGADOR: Enviamos nuestra posición al servidor
+                            webSocketManager?.let { ws ->
+                                val myData = MultiplayerPlayer(
+                                    id = myPlayerId,
+                                    x = location.longitude,
+                                    y = location.latitude,
+                                    action = _uiState.value.playerAction.name,
+                                    facingRight = _uiState.value.isPlayerFacingRight
+                                )
+                                launch(Dispatchers.IO) {
+                                    ws.sendMessage(gson.toJson(myData))
+                                }
+                            }
                         }
                     }
                 }
@@ -161,9 +242,6 @@ class WorldMapViewModel(
         withContext(Dispatchers.Main) {
             _uiState.update { it.copy(currentLocation = snapped, isRoadNetworkReady = true) }
         }
-        // Zoom-in cinematográfico: diferente según proveedor
-        // OSM nativo: 17 → 21 (tiles locales, rápido)
-        // Proveedores web: 17 → 18 (tiles remotos, menos zoom para cargar bien)
         val targetZoom = if (_uiState.value.mapProvider.isWebProvider)
             WorldMapState.ZOOM_GAMEPLAY_WEB
         else
@@ -193,7 +271,6 @@ class WorldMapViewModel(
             try {
                 val cached = roadNetworkCache.get(currentLoc.latitude, currentLoc.longitude)
                 if (cached != null) {
-                    android.util.Log.d("WorldMapVM", "Room HIT al moverse")
                     withContext(Dispatchers.Main) {
                         roadNetwork = cached
                         npcAiManager.updateRoadNetwork(cached)
@@ -201,7 +278,6 @@ class WorldMapViewModel(
                         _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                     }
                 } else {
-                    android.util.Log.d("WorldMapVM", "Room MISS al moverse — Overpass")
                     withContext(Dispatchers.Main) {
                         _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
                     }
@@ -213,7 +289,6 @@ class WorldMapViewModel(
                             roadNetwork = network
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
-                            // Una vez guardado en Room, mostrar LOCAL_DB
                             _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                         }
                     }
@@ -224,8 +299,6 @@ class WorldMapViewModel(
         }
     }
 
-    // ─── NOTIFICACIÓN DE TILES (WebView) ─────────────────────────────────────────
-
     fun notifyTileSource(fromCache: Boolean) {
         if (_uiState.value.mapProvider == MapProvider.OSM) return
         val source = if (fromCache) TileSource.LOCAL_CACHE else TileSource.NETWORK
@@ -234,16 +307,13 @@ class WorldMapViewModel(
         }
     }
 
-    // ─── MOVIMIENTO ───────────────────────────────────────────────────────────────
-
     fun moveCharacter(direction: Direction) {
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
-        // Determinar hacia dónde mira basado en D-Pad
         val isMovingRight = when (direction) {
             Direction.RIGHT -> true
             Direction.LEFT -> false
-            else -> null // Si va arriba/abajo, mantiene la dirección actual
+            else -> null
         }
         startMovementAction(isMovingRight)
 
@@ -269,25 +339,21 @@ class WorldMapViewModel(
         }
     }
 
-    // Movimiento por joystick
     fun moveCharacterByAngle(angleRad: Double) {
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
 
-        // Determinar hacia dónde mira basado en el Joystick (Coseno determina X/Longitud)
         val dx = cos(angleRad)
         val isMovingRight = if (abs(dx) > 0.01) dx > 0 else null
         startMovementAction(isMovingRight)
 
         val step = if (_uiState.value.isRunning) 0.000006 else 0.000003
 
-        // Calculamos el nuevo punto destino (Seno para Y/Latitud, Coseno para X/Longitud)
         val temp = GeoPoint(
             loc.latitude + sin(angleRad) * step,
             loc.longitude + cos(angleRad) * step
         )
 
-        // Lógica existente de Snap-to-Road (ajuste a la calle)
         val nearest = getNearestPointOnNetwork(temp)
         val dist = distance(temp, nearest)
         val radius = 0.000012
@@ -303,12 +369,9 @@ class WorldMapViewModel(
         }
     }
 
-
     fun updateControlSettings(type: ControlType, scale: Float, swap: Boolean) {
         _uiState.update { it.copy(controlType = type, controlsScale = scale, swapControls = swap) }
     }
-
-    // ─── SPATIAL INDEX ────────────────────────────────────────────────────────────
 
     private data class Seg(val s: GeoPoint, val e: GeoPoint,
                            val minLat: Double, val maxLat: Double, val minLon: Double, val maxLon: Double)
@@ -369,8 +432,6 @@ class WorldMapViewModel(
     private fun distance(a: GeoPoint, b: GeoPoint): Double =
         sqrt((a.latitude - b.latitude).pow(2) + (a.longitude - b.longitude).pow(2))
 
-    // ─── API PÚBLICA ──────────────────────────────────────────────────────────────
-
     fun updateInitialLocation(lat: Double, lon: Double) {
         if (_uiState.value.isLoadingLocation)
             _uiState.update { it.copy(currentLocation = GeoPoint(lat, lon), isLoadingLocation = false) }
@@ -379,11 +440,7 @@ class WorldMapViewModel(
     fun updateActionState(action: GameAction, isPressed: Boolean) {
         when (action) {
             GameAction.A -> {
-                // Actualizamos el estado de correr inmediatamente
                 _uiState.update { it.copy(isRunning = isPressed) }
-
-                // Transición fluida: Si suelta el botón mientras se movía, lo regresamos a WALK.
-                // Si lo presiona mientras ya se estaba moviendo, lo pasamos a RUN.
                 val currentAction = _uiState.value.playerAction
                 if (isPressed && currentAction == PlayerAction.WALK) {
                     _uiState.update { it.copy(playerAction = PlayerAction.RUN) }
@@ -393,24 +450,18 @@ class WorldMapViewModel(
             }
             GameAction.B -> {
                 if (isPressed) {
-                    // MIENTRAS mantenga presionado, hace el ataque/acción especial
                     _uiState.update { it.copy(playerAction = PlayerAction.SPECIAL) }
-                    idleJob?.cancel() // Evitamos que el sistema de inactividad interrumpa el golpe
+                    idleJob?.cancel()
                 } else {
-                    // AL SOLTAR, vuelve a IDLE (Si el usuario sigue moviendo el joystick,
-                    // el próximo tick del motor gráfico lo pasará a WALK automáticamente)
                     _uiState.update { it.copy(playerAction = PlayerAction.IDLE) }
                 }
             }
-            else -> {
-                android.util.Log.d("GameAction", "$action - isPressed: $isPressed")
-            }
+            else -> {}
         }
     }
 
     fun setMapProvider(provider: MapProvider) {
         val ts = if (provider == MapProvider.OSM) TileSource.LOCAL_OSM else TileSource.NETWORK
-        // Ajustar zoom al cambiar de proveedor si ya estamos en gameplay
         val currentZoom = _uiState.value.zoomLevel
         val newZoom = when {
             provider == MapProvider.OSM && currentZoom < WorldMapState.ZOOM_GAMEPLAY_OSM ->
@@ -430,7 +481,11 @@ class WorldMapViewModel(
     fun zoomIn()  = _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
     fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
 
-    override fun onCleared() { super.onCleared(); tileCache.closeAll() }
+    override fun onCleared() {
+        super.onCleared()
+        tileCache.closeAll()
+        webSocketManager?.disconnect()
+    }
 
     private var idleJob: Job? = null
 
@@ -438,10 +493,8 @@ class WorldMapViewModel(
         idleJob?.cancel()
 
         val newFacingRight = isMovingRight ?: _uiState.value.isPlayerFacingRight
-        // Verificamos el estado de isRunning para saber qué acción ejecutar
         val currentAction = if (_uiState.value.isRunning) PlayerAction.RUN else PlayerAction.WALK
 
-        // No interrumpimos la animación SPECIAL si el jugador está golpeando (opcional, puedes quitar esta validación si quieres cancelar el golpe al moverse)
         if (_uiState.value.playerAction != PlayerAction.SPECIAL) {
             if (_uiState.value.playerAction != currentAction || _uiState.value.isPlayerFacingRight != newFacingRight) {
                 _uiState.update {
