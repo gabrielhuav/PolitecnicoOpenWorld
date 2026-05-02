@@ -22,5 +22,17 @@ data class Npc(
     var targetNodeIndex: Int = 0,
     var moveDirection: Int = 1,
     val carColor: Int = 0xFFFFFFFF.toInt(),
-    val carModel: CarModel = CarModel.SEDAN // Propiedad añadida
+    val carModel: CarModel = CarModel.SEDAN,
+
+    val visuals: NpcVisuals = NpcVisuals(),
+    var isWalking: Boolean = false,
+    var isFacingLeft: Boolean = false
+)
+
+data class NpcVisuals(
+    val bodyType: Int = 1,
+    val hairType: Int = 1,
+    val hairColor: Int = android.graphics.Color.BLACK,
+    val shirtColor: Int = android.graphics.Color.WHITE,
+    val pantsColor: Int = android.graphics.Color.DKGRAY
 )

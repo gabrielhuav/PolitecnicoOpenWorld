@@ -32,6 +32,7 @@ fun PlayerCharacter(
     action: PlayerAction,
     isFacingRight: Boolean,
     zoomLevel: Double,
+    useWebScale: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val isZoomedIn = zoomLevel >= 18
@@ -97,14 +98,20 @@ fun PlayerCharacter(
         }
 
         currentImage?.let { img ->
-            val calculatedSize = (48.0 + ((zoomLevel - 18.0) * 16.0)).coerceIn(48.0, 90.0).dp
-            val visualCompensation = when (action) {
-                PlayerAction.IDLE -> 1.0f
-                PlayerAction.WALK -> 1.0f
-                PlayerAction.RUN -> 1.3f
-                PlayerAction.SPECIAL -> 1.15f
-            }
+            // Si es mapa web, usamos valores más grandes (64-120), si no, los originales (48-90)
+            val baseSize = if (useWebScale) 64.0 else 48.0
+            val maxSize = if (useWebScale) 120.0 else 90.0
+            val zoomFactor = if (useWebScale) 24.0 else 16.0
 
+            val calculatedSize = (baseSize + ((zoomLevel - 18.0) * zoomFactor)).coerceIn(baseSize, maxSize).dp
+
+            // Compensación visual mayor para el mapa web
+            val visualCompensation = when (action) {
+                PlayerAction.IDLE -> if (useWebScale) 1.05f else 1.0f
+                PlayerAction.WALK -> if (useWebScale) 1.05f else 1.0f
+                PlayerAction.RUN -> if (useWebScale) 1.3f else 1.3f
+                PlayerAction.SPECIAL -> if (useWebScale) 1.2f else 1.15f
+            }
             Image(
                 bitmap = img,
                 contentDescription = "Personaje Principal",

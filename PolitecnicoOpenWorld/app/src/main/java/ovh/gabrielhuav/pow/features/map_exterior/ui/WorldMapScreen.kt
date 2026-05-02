@@ -43,6 +43,7 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.draw.scale
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+import androidx.core.graphics.drawable.toDrawable
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -129,32 +130,42 @@ fun WorldMapScreen(
 
                         val activeIds = mutableSetOf<String>()
                         uiState.npcs.forEach { npc ->
-                            val id = npc.id; activeIds.add(id)
+                            val id = npc.id
+                            activeIds.add(id)
                             val marker = markerCache[id] ?: Marker(view).apply {
                                 title = "NPC_MARKER"
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                markerCache[id] = this; view.overlays.add(this)
+                                markerCache[id] = this
+                                view.overlays.add(this)
                             }
 
-                            // 1. CULLING: Se dibuja solo si estamos cerca
                             if (isZoomedIn) {
                                 marker.setAlpha(1f)
+
+                                // Calculamos la escala dinámica basada en el nivel de zoom actual de osmdroid
+                                val currentZoom = view.zoomLevelDouble
+                                val dynamicScale = (1.6 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.1f, 1.8f)
+
                                 if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
-                                    val dynamicScale = (1.6 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.1f, 1.8f)
                                     marker.icon = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
                                         context, npc.rotationAngle, npc.carColor, dynamicScale, npc.carModel
                                     )
                                     marker.rotation = 0f
                                 } else {
-                                    val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
-                                    if (resId != 0) marker.icon = ContextCompat.getDrawable(context, resId)
-                                    marker.rotation = npc.rotationAngle
+                                    // NUEVO: Implementación para peatones modulares con escalado dinámico
+                                    val pedestrianBitmap = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PedestrianSpriteManager.getPedestrianBitmap(
+                                        context, npc, dynamicScale
+                                    )
+                                    if (pedestrianBitmap != null) {
+                                        marker.icon = android.graphics.drawable.BitmapDrawable(context.resources, pedestrianBitmap)
+                                    }
+                                    // Ya no rotamos el marcador porque el espejeado se maneja en el bitmap
+                                    marker.rotation = 0f
                                 }
                             } else {
                                 marker.setAlpha(0f)
                             }
 
-                            // 2. ACTUALIZACIÓN PERSISTENTE: Siempre movemos el marcador, sea o no visible
                             marker.position = npc.location
                         }
                     }
@@ -211,7 +222,6 @@ fun WorldMapScreen(
                             if (angle < 0) angle += 360f
                             val frameIndex = (angle / 7.5f).roundToInt() % 48
 
-                            // La caché ahora solo depende del coche y su rotación, ignorando el zoom de Compose
                             val cacheKey = "${npc.carModel.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
 
                             val base64Image = base64Cache.getOrPut(cacheKey) {
@@ -226,13 +236,30 @@ fun WorldMapScreen(
                                 } else { "" }
                             }
 
-                            // NO MANDAMOS 'sz'. JS lo calculará en tiempo real basado en su propio pellizco (pinch zoom)
                             "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                    "rot:${npc.rotationAngle},type:'CAR',base64:'$base64Image'}"
+                                    "type:'CAR',base64:'$base64Image'}"
+                            // OJO: Ya no necesitamos mandar 'rot' porque la rotación viene incrustada en el píxel del Base64
                         } else {
+                            val frameCount = if (npc.isWalking) 6 else 4
+
+                            // CORRECCIÓN: Cambiado de 150L a 250L para empatar con el SpriteManager
+                            val frameIndex = ((System.currentTimeMillis() / 250L) % frameCount).toInt() + 1
+
+                            val cacheKey = "PERSON_${npc.visuals.bodyType}_${npc.visuals.hairType}_${npc.visuals.hairColor}_${npc.visuals.shirtColor}_${npc.isWalking}_${npc.isFacingLeft}_${frameIndex}"
+
+                            val base64Image = base64Cache.getOrPut(cacheKey) {
+                                val bitmap = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PedestrianSpriteManager.getPedestrianBitmap(context, npc, highResRenderScale)
+                                if (bitmap != null) {
+                                    val outputStream = java.io.ByteArrayOutputStream()
+                                    bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, outputStream)
+                                    "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
+                                } else { "" }
+                            }
+
                             "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                    "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}'}"
+                                    "type:'PERSON',base64:'$base64Image'}"
                         }
+
                     }
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
                 }
@@ -244,6 +271,8 @@ fun WorldMapScreen(
             action = uiState.playerAction,
             isFacingRight = uiState.isPlayerFacingRight,
             zoomLevel = uiState.zoomLevel,
+            // Activamos el escalado grande solo si el proveedor NO es OSM (es decir, es Web)
+            useWebScale = uiState.mapProvider != MapProvider.OSM,
             modifier = Modifier.align(Alignment.Center)
         )
 
@@ -361,7 +390,14 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         body { margin: 0; padding: 0; background: #aad3df; overflow: hidden; }
         #map { width: 100vw; height: 100vh; background: #aad3df; }
         .leaflet-marker-icon { background: none !important; border: none !important; }
-        .npc-c { pointer-events: none; display: flex; align-items: center; justify-content: center; }
+        .npc-c { 
+            pointer-events: none; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            /* AJUSTE 6: Asegurar que el contenido no se desborde */
+            overflow: visible !important; 
+        }      
     </style>
 </head>
 <body>
@@ -419,11 +455,16 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 
             if (!isZoomedIn) return;
 
+            // Calculamos el tamaño base según el zoom
             var dynamicScale = 1.6 * Math.pow(2, currentZoom - 19);
             dynamicScale = Math.max(0.1, Math.min(dynamicScale, 1.8));
             var sz = Math.max(5, Math.round(80 * dynamicScale));
 
             data.forEach(function(npc) {
+                // Hacemos que los peatones sean un 60% del tamaño del coche (ajusta el 0.6 a tu gusto)
+                var sizeMultiplier = (npc.type === 'CAR') ? 1.0 : 0.7;
+                var finalSz = Math.max(12, Math.round(sz * sizeMultiplier));
+
                 if (npcMarkers[npc.id]) {
                     // Actualizamos coordenada geográfica real
                     npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);
@@ -433,35 +474,28 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                         var wrapper = el.querySelector('.npc-c');
                         var img = el.querySelector('img');
                         
-                        if (npc.type === 'CAR' && img && wrapper) {
-                            if (img.src !== npc.base64) img.src = npc.base64;
+                        if (img && wrapper) {
+                            // 1. CORRECCIÓN MÁXIMA: Actualizar SIEMPRE el Base64 para que la animación corra (ambos)
+                            if (img.src !== npc.base64) {
+                                img.src = npc.base64;
+                            }
                             
-                            // Ajustamos tamaño dinámico usando estilos directos, SIN llamar a setIcon()
-                            wrapper.style.width = sz + 'px';
-                            wrapper.style.height = sz + 'px';
-                        } else if (wrapper) {
-                            // Para peatones u otros NPCs, rotamos el wrapper preservando el centrado
-                            wrapper.style.transform = 'translate(-50%, -50%) rotate(' + npc.rot + 'deg)';
+                            // 2. Actualizar tamaño en tiempo real si el usuario hace pinch-zoom
+                            wrapper.style.width = finalSz + 'px';
+                            wrapper.style.height = finalSz + 'px';
+                            
+                            // 3. Forzamos centrado estático. La rotación y espejeado ya vienen en la imagen Base64 desde Kotlin
+                            wrapper.style.transform = 'translate(-50%, -50%)';
                         }
                     }
                 } else {
-                    var finalSz = (npc.type === 'CAR') ? sz : 24; 
-                    var html = '';
-                    
-                    if (npc.type === 'CAR') {
-                        // El truco del CSS: transform: translate(-50%, -50%) forzará a que el centro geográfico 
-                        // sea el centro exacto del vehículo.
-                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalSz+'px; height:'+finalSz+'px;"><img src="'+npc.base64+'" style="width:100%; height:100%; display:block;"></div>';
-                    } else {
-                        var pUrl = 'file:///android_asset/' + npc.drawable + '.svg';
-                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate('+npc.rot+'deg); width:24px; height:24px;"><img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
-                    }
-                    
+                    // Creación del nuevo marcador
+                    var renderingStyle = (npc.type === 'PERSON') ? 'image-rendering: pixelated;' : '';
+                    var html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalSz+'px; height:'+finalSz+'px; overflow:visible;">'+'<img src="'+npc.base64+'" style="width:100%; height:auto; display:block; margin-top: -10%; '+renderingStyle+'"></div>';                    
                     var icon = L.divIcon({ 
                         html: html, 
                         className: '', 
-                        // TRUCO MAESTRO: Ancla 0x0. Le decimos a Leaflet que no calcule offsets.
-                        // Todo el centrado lo maneja el CSS translate(-50%, -50%) internamente.
+                        // Ancla 0x0. Le decimos a Leaflet que no calcule offsets. Todo es manejado por CSS translate
                         iconSize: [0, 0] 
                     });
                     npcMarkers[npc.id] = L.marker([npc.lat, npc.lng], { icon: icon }).addTo(map);

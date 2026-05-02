@@ -10,6 +10,7 @@ import ovh.gabrielhuav.pow.domain.models.CarModel
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.NpcVisuals
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -101,6 +102,30 @@ class NpcAiManager {
         val randomColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
         val randomModel = if (npcType == NpcType.CAR) CarModel.entries.random() else CarModel.SEDAN
 
+
+        // Visuales del npc aleatorios
+        val randomHairColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
+        val randomShirtColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
+
+        val totalHairTypes = 4
+
+        val pantsColors = listOf(
+            0xFF000080.toInt(), // Azul Marino
+            0xFF444444.toInt(), // Gris
+            0xFF000000.toInt(), // Negro
+            0xFFFFFFFF.toInt(), // Blanco
+            0xFFF5F5DC.toInt(), // Beige
+            0xFF4B2C20.toInt()  // Café
+        )
+
+        val randomVisuals = NpcVisuals(
+            bodyType = 1,
+            hairType = Random.nextInt(1, 4),
+            hairColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)),
+            shirtColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)),
+            pantsColor = pantsColors.random() // NUEVO: Color aleatorio de la lista
+        )
+
         return Npc(
             type = npcType,
             location = startGeo,
@@ -109,8 +134,11 @@ class NpcAiManager {
             targetNodeIndex = startIndex + dir,
             moveDirection = dir,
             carColor = randomColor,
-            carModel = randomModel
+            carModel = randomModel,
+            visuals = randomVisuals // Pasamos los visuales
         )
+
+
     }
 
     private fun moveNpc(npc: Npc, network: List<MapWay>): Npc? {
@@ -176,7 +204,9 @@ class NpcAiManager {
             return npc.copy(
                 location = GeoPoint(target.lat, target.lon),
                 targetNodeIndex = npc.targetNodeIndex + npc.moveDirection,
-                rotationAngle = smoothedAngle
+                rotationAngle = smoothedAngle,
+                isWalking = true, // Está moviéndose hacia el nodo
+                isFacingLeft = (dLon < 0) // Si la longitud objetivo es menor, va a la izquierda
             )
         }
 
@@ -185,7 +215,9 @@ class NpcAiManager {
 
         return npc.copy(
             location = GeoPoint(newLat, newLon),
-            rotationAngle = smoothedAngle
+            rotationAngle = smoothedAngle,
+            isWalking = true,
+            isFacingLeft = (dLon < 0)
         )
     }
 
