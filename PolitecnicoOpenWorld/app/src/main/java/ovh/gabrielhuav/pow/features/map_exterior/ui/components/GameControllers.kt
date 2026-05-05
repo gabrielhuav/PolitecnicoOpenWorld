@@ -79,7 +79,7 @@ fun JoystickController(
 
     Box(
         modifier = modifier
-            .size(120.dp) // Tamaño base, el scale() lo modificará
+            .size(180.dp) // Cambio a 180dp para que haga juego con los botones
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.4f))
             .pointerInput(Unit) {
@@ -119,14 +119,16 @@ fun JoystickController(
 @Composable
 fun DPadController(
     modifier: Modifier = Modifier,
+    // Agregamos opacidad como parámetro para conectarlo al tu menú
+    backgroundAlpha: Float = 0.6f,
     onDirectionPressed: (Direction) -> Unit
 ) {
     Box(
         modifier = modifier
+            .size(180.dp) // tamaño fijo estandarizado
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.6f))
-            .padding(8.dp),
-        contentAlignment = Alignment.Center
+            .background(Color.Black.copy(alpha = backgroundAlpha)),
+        contentAlignment = Alignment.Center // Centramos la cruz dentro del círculo de 180dp
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             DPadButton(icon = Icons.Default.KeyboardArrowUp, onClick = { onDirectionPressed(Direction.UP) })
@@ -162,13 +164,14 @@ private fun DPadButton(icon: androidx.compose.ui.graphics.vector.ImageVector, on
 @Composable
 fun ActionButtonsController(
     modifier: Modifier = Modifier,
+    backgroundAlpha: Float = 0.6f,
     onActionChanged: (GameAction, Boolean) -> Unit
 ) {
     Box(
         modifier = modifier
+            .size(180.dp) // tamaño fijo estandarizado igual al D-PAD
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.6f))
-            .padding(12.dp),
+            .background(Color.Black.copy(alpha = backgroundAlpha)),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
