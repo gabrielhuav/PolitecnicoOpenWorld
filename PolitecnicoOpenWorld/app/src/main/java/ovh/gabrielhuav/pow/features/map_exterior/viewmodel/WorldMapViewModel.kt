@@ -118,6 +118,8 @@ class WorldMapViewModel(
         if (webSocketManager == null) {
             Log.d("WorldMapVM", "Iniciando conexión multijugador a $serverUrl")
             webSocketManager = WebSocketManager(serverUrl)
+            // The SharedFlow never completes, so this collector remains active for the full
+            // ViewModel lifetime and will receive messages from any subsequent reconnects.
             viewModelScope.launch(Dispatchers.IO) {
                 webSocketManager?.messagesFlow?.collect { messageJson ->
                     handleMultiplayerMessage(messageJson)
@@ -149,11 +151,12 @@ class WorldMapViewModel(
             }
 
             if (msg.id == null || msg.id == myPlayerId) return
+            if (msg.x == null || msg.y == null) return
 
             val otherPlayer = Npc(
                 id = msg.id,
                 type = NpcType.PERSON,
-                location = GeoPoint(msg.y ?: 0.0, msg.x ?: 0.0),
+                location = GeoPoint(msg.y, msg.x),
                 rotationAngle = if (msg.facingRight == true) 0f else 180f,
                 speed = 0.0
             )
