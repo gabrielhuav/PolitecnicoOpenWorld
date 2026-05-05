@@ -24,6 +24,8 @@ class WebSocketManager(private val serverUrl: String) {
     private val _messagesFlow = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val messagesFlow: SharedFlow<String> = _messagesFlow.asSharedFlow()
 
+    fun isConnected(): Boolean = webSocket != null
+
     fun connect() {
         if (webSocket != null) {
             Log.d("WebSocket", "Ya hay una conexión activa.")

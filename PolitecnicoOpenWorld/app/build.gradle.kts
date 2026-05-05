@@ -19,12 +19,16 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"ws://192.168.1.29:8080\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"\"")
         }
     }
     compileOptions {
@@ -36,6 +40,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

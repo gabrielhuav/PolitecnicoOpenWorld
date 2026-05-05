@@ -65,28 +65,6 @@ class MainActivity : ComponentActivity() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         checkPermissionsAndFetchLocation()
 
-        // --- PRUEBA DE RED DE DEPURACIÓN ---
-        Thread {
-            try {
-                // 👇 REEMPLAZA CON TU IP 👇
-                val url = java.net.URL("http://192.168.1.29:8080/status")
-                val connection = url.openConnection() as java.net.HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 5000
-
-                val responseCode = connection.responseCode
-                if (responseCode == 200) {
-                    val response = connection.inputStream.bufferedReader().readText()
-                    android.util.Log.d("DEBUG_RED", "✅ ÉXITO conectando al servidor: $response")
-                } else {
-                    android.util.Log.e("DEBUG_RED", "⚠️ Servidor respondió con código: $responseCode")
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("DEBUG_RED", "❌ ERROR FATAL de red: ${e.message}")
-            }
-        }.start()
-        // -----------------------------------
-
         setContent {
             PolitecnicoOpenWorldTheme {
                 Surface(

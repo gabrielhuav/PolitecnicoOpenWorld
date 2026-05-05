@@ -29,6 +29,8 @@ import ovh.gabrielhuav.pow.domain.models.NpcType
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -50,6 +52,16 @@ data class MultiplayerPlayer(
     val y: Double,
     val action: String,
     val facingRight: Boolean
+)
+
+// Modelo unificado para todos los mensajes del servidor
+private data class ServerMessage(
+    val type: String? = null,
+    val id: String? = null,
+    val x: Double? = null,
+    val y: Double? = null,
+    val action: String? = null,
+    val facingRight: Boolean? = null
 )
 
 class WorldMapViewModel(
@@ -99,52 +111,54 @@ class WorldMapViewModel(
 
     private var webSocketManager: WebSocketManager? = null
     private val gson = Gson()
-    private val multiplayerPlayers = mutableMapOf<String, Npc>()
-    private val myPlayerId = "Player_${System.currentTimeMillis() % 10000}" // ID único temporal
+    private val multiplayerPlayers = ConcurrentHashMap<String, Npc>()
+    private val myPlayerId = "Player_${UUID.randomUUID()}"
 
     fun connectToMultiplayer(serverUrl: String) {
-        if (webSocketManager != null) return
-
-        Log.d("WorldMapVM", "Iniciando conexión multijugador a $serverUrl")
-        webSocketManager = WebSocketManager(serverUrl)
-        webSocketManager?.connect()
-
-        viewModelScope.launch(Dispatchers.IO) {
-            webSocketManager?.messagesFlow?.collect { messageJson ->
-                handleMultiplayerMessage(messageJson)
+        if (webSocketManager == null) {
+            Log.d("WorldMapVM", "Iniciando conexión multijugador a $serverUrl")
+            webSocketManager = WebSocketManager(serverUrl)
+            viewModelScope.launch(Dispatchers.IO) {
+                webSocketManager?.messagesFlow?.collect { messageJson ->
+                    handleMultiplayerMessage(messageJson)
+                }
             }
         }
+        if (webSocketManager?.isConnected() == false) {
+            webSocketManager?.connect()
+        }
+    }
+
+    fun disconnectFromMultiplayer() {
+        webSocketManager?.disconnect()
+        webSocketManager = null
+        multiplayerPlayers.clear()
+        updateNpcsState()
     }
 
     private fun handleMultiplayerMessage(messageJson: String) {
         try {
-            // Revisa si es un mensaje de desconexión (si implementaste esa lógica en Node)
-            if (messageJson.contains("\"DISCONNECT\"")) {
-                val disconnectData = gson.fromJson(messageJson, Map::class.java)
-                val idToRemove = disconnectData["id"] as? String
-                if (idToRemove != null) {
-                    multiplayerPlayers.remove(idToRemove)
+            val msg = gson.fromJson(messageJson, ServerMessage::class.java)
+
+            if (msg.type == "DISCONNECT") {
+                if (msg.id != null) {
+                    multiplayerPlayers.remove(msg.id)
                     updateNpcsState()
                 }
                 return
             }
 
-            val playerData = gson.fromJson(messageJson, MultiplayerPlayer::class.java)
-
-            // Ignoramos nuestros propios mensajes en caso de que el servidor nos los rebote
-            if (playerData.id == myPlayerId) return
-
-            val calculatedRotation = if (playerData.facingRight) 0f else 180f
+            if (msg.id == null || msg.id == myPlayerId) return
 
             val otherPlayer = Npc(
-                id = playerData.id,
+                id = msg.id,
                 type = NpcType.PERSON,
-                location = GeoPoint(playerData.y, playerData.x),
-                rotationAngle = calculatedRotation,
+                location = GeoPoint(msg.y ?: 0.0, msg.x ?: 0.0),
+                rotationAngle = if (msg.facingRight == true) 0f else 180f,
                 speed = 0.0
             )
 
-            multiplayerPlayers[playerData.id] = otherPlayer
+            multiplayerPlayers[msg.id] = otherPlayer
             updateNpcsState()
 
         } catch (e: Exception) {
@@ -154,7 +168,7 @@ class WorldMapViewModel(
 
     private fun updateNpcsState() {
         val aiNpcs = npcAiManager.npcs.value
-        val allNpcs = aiNpcs + multiplayerPlayers.values
+        val allNpcs = aiNpcs + multiplayerPlayers.values.toList()
         _uiState.update { it.copy(npcs = allNpcs) }
     }
 
@@ -221,9 +235,7 @@ class WorldMapViewModel(
                                     action = _uiState.value.playerAction.name,
                                     facingRight = _uiState.value.isPlayerFacingRight
                                 )
-                                launch(Dispatchers.IO) {
-                                    ws.sendMessage(gson.toJson(myData))
-                                }
+                                ws.sendMessage(gson.toJson(myData))
                             }
                         }
                     }

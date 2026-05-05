@@ -37,6 +37,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
+import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -76,10 +77,13 @@ fun WorldMapScreen(
 
     DisposableEffect(Unit) {
         viewModel.startGameLoop()
-        // ¡CONEXIÓN AUTOMÁTICA AL ABRIR EL MAPA!
-        // IMPORTANTE: Cambia "192.168.1.XX" por la IP que te dio ipconfig
-        viewModel.connectToMultiplayer("ws://192.168.1.29:8080")
-        onDispose { viewModel.stopGameLoop() }
+        if (BuildConfig.MULTIPLAYER_SERVER_URL.isNotBlank()) {
+            viewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL)
+        }
+        onDispose {
+            viewModel.stopGameLoop()
+            viewModel.disconnectFromMultiplayer()
+        }
     }
 
     val tileCache = viewModel.tileCache
