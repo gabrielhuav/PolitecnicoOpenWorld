@@ -50,11 +50,14 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 
+// constante compartida
+private val ControllerBaseSize = 180.dp
 
 // JoystickController
 @Composable
 fun JoystickController(
     modifier: Modifier = Modifier,
+    backgroundAlpha: Float = 0.4f,
     onMove: (angleRad: Double) -> Unit
 ) {
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -79,9 +82,9 @@ fun JoystickController(
 
     Box(
         modifier = modifier
-            .size(180.dp) // Cambio a 180dp para que haga juego con los botones
+            .size(ControllerBaseSize) // uso de constante
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.4f))
+            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f)))
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { isDragging = true },
@@ -119,16 +122,17 @@ fun JoystickController(
 @Composable
 fun DPadController(
     modifier: Modifier = Modifier,
-    // Agregamos opacidad como parámetro para conectarlo al tu menú
+    // Agregamos opacidad como parámetro para conectarlo al menú
     backgroundAlpha: Float = 0.6f,
     onDirectionPressed: (Direction) -> Unit
 ) {
     Box(
         modifier = modifier
-            .size(180.dp) // tamaño fijo estandarizado
+            .size(ControllerBaseSize) // uso de constante
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = backgroundAlpha)),
-        contentAlignment = Alignment.Center // Centramos la cruz dentro del círculo de 180dp
+            // se usa COERCEIN para seguridad
+            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
+        contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             DPadButton(icon = Icons.Default.KeyboardArrowUp, onClick = { onDirectionPressed(Direction.UP) })
@@ -169,9 +173,9 @@ fun ActionButtonsController(
 ) {
     Box(
         modifier = modifier
-            .size(180.dp) // tamaño fijo estandarizado igual al D-PAD
+            .size(ControllerBaseSize) // uso de constante
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = backgroundAlpha)),
+            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
