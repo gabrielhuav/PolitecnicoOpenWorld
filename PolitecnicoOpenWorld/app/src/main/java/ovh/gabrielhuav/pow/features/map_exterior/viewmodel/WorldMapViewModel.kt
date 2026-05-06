@@ -54,6 +54,18 @@ data class MultiplayerPlayer(
     val facingRight: Boolean
 )
 
+// Clase para empaquetar un NPC en el JSON
+data class MultiplayerNpc(
+    val id: String,
+    val x: Double,
+    val y: Double,
+    val rotation: Float,
+    val npcType: String,
+    val ownerId: String? = null,
+    val carModel: String? = null, // NUEVO: Modelo del coche
+    val carColor: Int? = null     // NUEVO: Color del coche
+)
+
 // Modelo unificado para todos los mensajes del servidor
 private data class ServerMessage(
     val type: String? = null,
@@ -61,7 +73,12 @@ private data class ServerMessage(
     val x: Double? = null,
     val y: Double? = null,
     val action: String? = null,
-    val facingRight: Boolean? = null
+    val facingRight: Boolean? = null,
+    val npc: MultiplayerNpc? = null,
+    val npcs: List<MultiplayerNpc>? = null,
+    val npcId: String? = null,
+    val orphanedNpcs: List<String>? = null,
+    val activeNpcIds: List<String>? = null
 )
 
 class WorldMapViewModel(
@@ -142,31 +159,96 @@ class WorldMapViewModel(
         try {
             val msg = gson.fromJson(messageJson, ServerMessage::class.java)
 
-            if (msg.type == "DISCONNECT") {
-                if (msg.id != null) {
-                    multiplayerPlayers.remove(msg.id)
+            when (msg.type) {
+                "SYNC_ALL_NPCS" -> {
+                    msg.npcs?.forEach { remoteNpc ->
+                        if (remoteNpc.ownerId != myPlayerId) {
+                            addRemoteEntity(remoteNpc)
+                        }
+                    }
                     updateNpcsState()
                 }
-                return
+
+                "NPC_SPAWN", "NPC_UPDATE" -> {
+                    msg.npc?.let {
+                        if (it.ownerId != myPlayerId) {
+                            addRemoteEntity(it)
+                            updateNpcsState()
+                        }
+                    }
+                }
+
+                "NPC_DESTROY" -> {
+                    msg.npcId?.let {
+                        multiplayerPlayers.remove(it)
+                        updateNpcsState()
+                    }
+                }
+
+                "DISCONNECT" -> {
+                    msg.id?.let { multiplayerPlayers.remove(it) }
+                    // Borrar NPCs que dependían del jugador que se fue
+                    msg.orphanedNpcs?.forEach { multiplayerPlayers.remove(it) }
+                    updateNpcsState()
+                }
+
+                "MASTER_SYNC_CHECK" -> {
+                    msg.activeNpcIds?.let { officialIds ->
+                        // LIMPIEZA ABSOLUTA: Si tenemos un NPC remoto dibujado que el servidor no reconoce, bórralo instantáneamente.
+                        val iterator = multiplayerPlayers.iterator()
+                        var stateChanged = false
+                        while (iterator.hasNext()) {
+                            val entry = iterator.next()
+                            val npc = entry.value as? Npc
+                            if (npc != null && npc.isRemote && !officialIds.contains(npc.id)) {
+                                iterator.remove()
+                                stateChanged = true
+                            }
+                        }
+                        if (stateChanged) updateNpcsState()
+                    }
+                }
+
+                else -> {
+                    // Si es una actualización de posición de otro JUGADOR (sin type específico)
+                    if (msg.id != null && msg.id != myPlayerId && msg.x != null && msg.y != null) {
+                        val otherPlayer = Npc(
+                            id = msg.id,
+                            type = NpcType.PERSON,
+                            location = GeoPoint(msg.y, msg.x),
+                            rotationAngle = if (msg.facingRight == true) 0f else 180f,
+                            speed = 0.0,
+                            isRemote = true
+                        )
+                        multiplayerPlayers[msg.id] = otherPlayer
+                        updateNpcsState()
+                    }
+                }
             }
-
-            if (msg.id == null || msg.id == myPlayerId) return
-            if (msg.x == null || msg.y == null) return
-
-            val otherPlayer = Npc(
-                id = msg.id,
-                type = NpcType.PERSON,
-                location = GeoPoint(msg.y, msg.x),
-                rotationAngle = if (msg.facingRight == true) 0f else 180f,
-                speed = 0.0
-            )
-
-            multiplayerPlayers[msg.id] = otherPlayer
-            updateNpcsState()
-
         } catch (e: Exception) {
-            Log.e("WorldMapVM", "Error procesando JSON multijugador: ${e.message}")
+            Log.e("WorldMapVM", "Error procesando JSON: ${e.message}")
         }
+    }
+
+    // Función auxiliar para convertir el JSON en objeto Npc
+    private fun addRemoteEntity(remote: MultiplayerNpc) {
+        val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
+
+        // Interpretar el modelo y el color, o usar defaults si fallara
+        val cModel = try { remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) } ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN }
+        val cColor = remote.carColor ?: 0xFFFFFFFF.toInt()
+
+        multiplayerPlayers[remote.id] = Npc(
+            id = remote.id,
+            type = npcType,
+            location = GeoPoint(remote.y, remote.x),
+            rotationAngle = remote.rotation,
+            speed = 0.0,
+            isRemote = true,
+            ownerId = remote.ownerId,
+            carModel = cModel, // APLICAMOS EL MODELO
+            carColor = cColor  // APLICAMOS EL COLOR
+        )
     }
 
     private fun updateNpcsState() {
@@ -239,6 +321,35 @@ class WorldMapViewModel(
                                     facingRight = _uiState.value.isPlayerFacingRight
                                 )
                                 ws.sendMessage(gson.toJson(myData))
+                                // 1. Notificar NPCs que deben ser borrados (Despawn local)
+                                synchronized(npcAiManager.pendingDespawns) {
+                                    while (npcAiManager.pendingDespawns.isNotEmpty()) {
+                                        val idToRemove = npcAiManager.pendingDespawns.removeAt(0)
+                                        ws.sendMessage(gson.toJson(mapOf(
+                                            "type" to "NPC_DESTROY",
+                                            "npcId" to idToRemove
+                                        )))
+                                    }
+                                }
+
+                                // 2. Enviar actualización de tus NPCs LOCALES
+                                val myLocalNpcs = npcAiManager.npcs.value.filter { !it.isRemote }
+                                myLocalNpcs.forEach { localNpc ->
+                                    val npcMsg = mapOf(
+                                        "type" to "NPC_UPDATE",
+                                        "npc" to MultiplayerNpc(
+                                            id = localNpc.id,
+                                            x = localNpc.location.longitude,
+                                            y = localNpc.location.latitude,
+                                            rotation = localNpc.rotationAngle,
+                                            npcType = localNpc.type.name,
+                                            ownerId = myPlayerId,
+                                            carModel = localNpc.carModel.name, // ENVIAMOS EL MODELO
+                                            carColor = localNpc.carColor       // ENVIAMOS EL COLOR
+                                        )
+                                    )
+                                    ws.sendMessage(gson.toJson(npcMsg))
+                                }
                             }
                         }
                     }

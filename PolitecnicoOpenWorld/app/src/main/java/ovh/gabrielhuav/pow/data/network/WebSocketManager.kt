@@ -12,13 +12,13 @@ class WebSocketManager(private val serverUrl: String) {
 
     private var webSocket: WebSocket? = null
 
-    // Usamos Dispatcher por defecto pero aseguramos que acepte conexiones Cleartext
+    // CORRECCIÓN CLAVE: 0 significa "Sin límite de tiempo de espera" (Infinito)
     private val client = OkHttpClient.Builder()
         .connectionSpecs(listOf(ConnectionSpec.CLEARTEXT, ConnectionSpec.MODERN_TLS))
-        .readTimeout(10, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .pingInterval(15, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.MILLISECONDS)  // Evita que Android cierre el socket si no hay tráfico
+        .writeTimeout(0, TimeUnit.MILLISECONDS) // Evita que Android cierre el socket al escribir
+        .pingInterval(25, TimeUnit.SECONDS)     // El cliente manda latidos para mantener la red abierta
         .build()
 
     private val _messagesFlow = MutableSharedFlow<String>(extraBufferCapacity = 64)
