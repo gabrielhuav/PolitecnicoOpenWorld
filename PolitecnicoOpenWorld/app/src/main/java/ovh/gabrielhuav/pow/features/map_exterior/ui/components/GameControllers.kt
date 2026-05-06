@@ -50,11 +50,14 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 
+// constante compartida
+private val ControllerBaseSize = 180.dp
 
 // JoystickController
 @Composable
 fun JoystickController(
     modifier: Modifier = Modifier,
+    backgroundAlpha: Float = 0.4f,
     onMove: (angleRad: Double) -> Unit
 ) {
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -79,9 +82,9 @@ fun JoystickController(
 
     Box(
         modifier = modifier
-            .size(120.dp) // Tamaño base, el scale() lo modificará
+            .size(ControllerBaseSize) // uso de constante
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.4f))
+            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f)))
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { isDragging = true },
@@ -119,13 +122,16 @@ fun JoystickController(
 @Composable
 fun DPadController(
     modifier: Modifier = Modifier,
+    // Agregamos opacidad como parámetro para conectarlo al menú
+    backgroundAlpha: Float = 0.6f,
     onDirectionPressed: (Direction) -> Unit
 ) {
     Box(
         modifier = modifier
+            .size(ControllerBaseSize) // uso de constante
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.6f))
-            .padding(8.dp),
+            // se usa COERCEIN para seguridad
+            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -162,13 +168,14 @@ private fun DPadButton(icon: androidx.compose.ui.graphics.vector.ImageVector, on
 @Composable
 fun ActionButtonsController(
     modifier: Modifier = Modifier,
+    backgroundAlpha: Float = 0.6f,
     onActionChanged: (GameAction, Boolean) -> Unit
 ) {
     Box(
         modifier = modifier
+            .size(ControllerBaseSize) // uso de constante
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.6f))
-            .padding(12.dp),
+            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
