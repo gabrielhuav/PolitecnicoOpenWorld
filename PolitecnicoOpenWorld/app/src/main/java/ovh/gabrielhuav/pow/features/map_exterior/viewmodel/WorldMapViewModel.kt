@@ -217,7 +217,7 @@ class WorldMapViewModel(
                 "MASTER_SYNC_CHECK" -> {
                     msg.activeNpcIds?.let { officialIds ->
                         // Convert to Set for O(1) lookups inside the loop.
-                        val officialSet = officialIds.toHashSet()
+                        val officialSet = officialIds.toSet()
                         // LIMPIEZA ABSOLUTA: Si tenemos un NPC remoto dibujado que el servidor no reconoce, bórralo instantáneamente.
                         val iterator = remoteEntities.iterator()
                         var stateChanged = false

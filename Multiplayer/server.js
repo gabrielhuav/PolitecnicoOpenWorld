@@ -106,7 +106,16 @@ wss.on('connection', (ws, req) => {
                 // Use the server-generated sessionId as the canonical key so that
                 // two clients with identical display names cannot overwrite each other.
                 ws.playerId = ws.sessionId;
-                players.set(ws.sessionId, { ...data, id: ws.sessionId });
+                // Only store explicitly allowed fields to prevent clients from injecting
+                // arbitrary properties into the server's player state.
+                players.set(ws.sessionId, {
+                    id: ws.sessionId,
+                    displayName: typeof data.displayName === 'string' ? data.displayName : '',
+                    x: typeof data.x === 'number' ? data.x : 0,
+                    y: typeof data.y === 'number' ? data.y : 0,
+                    action: typeof data.action === 'string' ? data.action : '',
+                    facingRight: typeof data.facingRight === 'boolean' ? data.facingRight : true
+                });
                 // Broadcast with the authoritative session ID so other clients can
                 // use it for entity ownership checks.
                 broadcastToOthers(ws, JSON.stringify({ ...data, id: ws.sessionId }));
