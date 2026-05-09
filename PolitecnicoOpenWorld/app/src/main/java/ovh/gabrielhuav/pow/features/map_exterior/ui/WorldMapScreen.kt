@@ -77,12 +77,10 @@ fun WorldMapScreen(
 
     DisposableEffect(Unit) {
         viewModel.startGameLoop()
-        if (BuildConfig.MULTIPLAYER_SERVER_URL.isNotBlank()) {
-            viewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL)
-        }
+        // Ya no conectamos automáticamente aquí, el MainActivity se encarga de eso.
         onDispose {
             viewModel.stopGameLoop()
-            viewModel.disconnectFromMultiplayer()
+            viewModel.disconnectFromMultiplayer() // Desconecta al salir al menú
         }
     }
 

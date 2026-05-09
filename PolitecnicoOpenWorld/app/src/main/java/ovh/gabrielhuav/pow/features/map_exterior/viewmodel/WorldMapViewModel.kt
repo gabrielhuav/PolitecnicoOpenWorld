@@ -124,14 +124,15 @@ class WorldMapViewModel(
     private val REFETCH_DISTANCE_DEG = 0.015
     private val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
 
-    // ─── WEBSOCKET MULTIJUGADOR ───────────────────────────────────────────────────
+// ─── WEBSOCKET MULTIJUGADOR ───────────────────────────────────────────────────
 
     private var webSocketManager: WebSocketManager? = null
     private val gson = Gson()
     private val multiplayerPlayers = ConcurrentHashMap<String, Npc>()
-    private val myPlayerId = "Player_${UUID.randomUUID()}"
+    private var myPlayerId = "Player_${UUID.randomUUID()}" // Cambiado a 'var'
 
-    fun connectToMultiplayer(serverUrl: String) {
+    fun connectToMultiplayer(serverUrl: String, playerName: String) {
+        myPlayerId = playerName // Asignar el nombre elegido
         if (webSocketManager == null) {
             Log.d("WorldMapVM", "Iniciando conexión multijugador a $serverUrl")
             webSocketManager = WebSocketManager(serverUrl)

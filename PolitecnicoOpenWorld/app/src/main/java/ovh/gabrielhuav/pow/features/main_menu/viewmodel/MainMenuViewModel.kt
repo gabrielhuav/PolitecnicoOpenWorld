@@ -21,4 +21,8 @@ class MainMenuViewModel : ViewModel() {
     // Funciones para sincronizar widgets
     fun toggleCacheWidget(show: Boolean) = _state.update { it.copy(showCacheWidget = show) }
     fun toggleFpsWidget(show: Boolean) = _state.update { it.copy(showFpsWidget = show) }
+
+    // Funciones para el Multijugador
+    fun updateShowMultiplayerDialog(show: Boolean) = _state.update { it.copy(showMultiplayerDialog = show) }
+    fun updatePlayerName(name: String) = _state.update { it.copy(playerName = name) }
 }

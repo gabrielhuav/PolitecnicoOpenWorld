@@ -92,8 +92,14 @@ class MainActivity : ComponentActivity() {
                             }
                         ) {
                             MainMenuScreen(
-                                onNavigateToMap = {
-                                    // Ya no sincronizamos aquí, el orquestador lo hace solo.
+                                onNavigateToMap = { isMultiplayer, playerName ->
+                                    if (isMultiplayer && !playerName.isNullOrBlank()) {
+                                        // Usando la variable de entorno de Gradle (BuildConfig)
+                                        worldMapViewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL, playerName)
+                                    } else {
+                                        worldMapViewModel.disconnectFromMultiplayer()
+                                    }
+
                                     navController.navigate("world_map") {
                                         popUpTo("main_menu") { inclusive = true }
                                     }

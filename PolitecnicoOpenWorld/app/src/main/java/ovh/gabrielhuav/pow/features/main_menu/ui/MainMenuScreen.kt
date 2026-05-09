@@ -23,7 +23,7 @@ import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuViewModel
 
 @Composable
 fun MainMenuScreen(
-    onNavigateToMap: () -> Unit,
+    onNavigateToMap: (isMultiplayer: Boolean, playerName: String?) -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     // Instanciamos el ViewModel del menú principal
@@ -82,6 +82,37 @@ fun MainMenuScreen(
             fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         )
+
+        // DIÁLOGO PARA NOMBRE DE MULTIJUGADOR
+        if (state.showMultiplayerDialog) {
+            AlertDialog(
+                onDismissRequest = { viewModel.updateShowMultiplayerDialog(false) },
+                title = { Text("Conectar a Servidor") },
+                text = {
+                    OutlinedTextField(
+                        value = state.playerName,
+                        onValueChange = { viewModel.updatePlayerName(it) },
+                        label = { Text("Nombre de Usuario") },
+                        singleLine = true
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.updateShowMultiplayerDialog(false)
+                            // Si lo deja vacío, le asignamos uno temporal
+                            val finalName = state.playerName.ifBlank { "Jugador_${(1000..9999).random()}" }
+                            onNavigateToMap(true, finalName)
+                        }
+                    ) { Text("Conectar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.updateShowMultiplayerDialog(false) }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -102,21 +133,27 @@ private fun TitleText(small: Boolean) {
 private fun MenuButtonsList(
     state: MainMenuState,
     viewModel: MainMenuViewModel,
-    onNavigateToMap: () -> Unit,
+    onNavigateToMap: (isMultiplayer: Boolean, playerName: String?) -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     MenuButton(
         text = "INICIAR JUEGO",
         onClick = {
             viewModel.onStartGame()
-            onNavigateToMap()
+            onNavigateToMap(false, null) // Iniciar sin multijugador
         },
         enabled = !state.isLoading
     )
     Spacer(Modifier.height(16.dp))
     MenuButton(text = "CARGAR PARTIDA", onClick = {}, enabled = false)
     Spacer(Modifier.height(16.dp))
-    MenuButton(text = "MULTIJUGADOR", onClick = {}, enabled = false)
+
+    // Habilitado y ahora abre el diálogo
+    MenuButton(
+        text = "MULTIJUGADOR",
+        onClick = { viewModel.updateShowMultiplayerDialog(true) },
+        enabled = true
+    )
     Spacer(Modifier.height(16.dp))
 
     // El botón ahora simplemente llama a la navegación
