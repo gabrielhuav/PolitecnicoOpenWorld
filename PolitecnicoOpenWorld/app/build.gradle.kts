@@ -9,6 +9,13 @@ android {
     namespace = "ovh.gabrielhuav.pow"
     compileSdk = 36
 
+    // Read developer-specific server URL from local.properties; fall back to emulator default.
+    val localProps = java.util.Properties().also { props ->
+        val f = rootProject.file("local.properties")
+        if (f.exists()) props.load(f.inputStream())
+    }
+    val multiplayerUrl = localProps.getProperty("multiplayer.server.url", "ws://10.0.2.2:8080")
+
     defaultConfig {
         applicationId = "ovh.gabrielhuav.pow"
         minSdk = 24
@@ -20,7 +27,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"ws://10.100.65.133:8080\"")
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"$multiplayerUrl\"")
         }
         release {
             isMinifyEnabled = false

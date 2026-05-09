@@ -37,7 +37,6 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
-import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import kotlin.math.abs
 import kotlin.math.roundToInt

@@ -180,6 +180,8 @@ class NpcAiManager {
     }
 
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        return sqrt((lat1 - lat2) * (lat1 - lat2) + (lon1 - lon2) * (cos(lat1 * Math.PI / 180) * (lon1 - lon2)))
+        val dLat = lat1 - lat2
+        val dLon = (lon1 - lon2) * cos(lat1 * Math.PI / 180)
+        return sqrt(dLat * dLat + dLon * dLon)
     }
 }

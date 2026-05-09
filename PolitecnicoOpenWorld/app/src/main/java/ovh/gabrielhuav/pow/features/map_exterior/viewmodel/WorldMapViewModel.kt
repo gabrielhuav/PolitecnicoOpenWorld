@@ -48,6 +48,7 @@ enum class GameAction { A, B, X, Y }
 // Clase de datos para el payload del servidor
 data class MultiplayerPlayer(
     val id: String,
+    val displayName: String = "",
     val x: Double,
     val y: Double,
     val action: String,
@@ -70,6 +71,7 @@ data class MultiplayerNpc(
 private data class ServerMessage(
     val type: String? = null,
     val id: String? = null,
+    val sessionId: String? = null,
     val x: Double? = null,
     val y: Double? = null,
     val action: String? = null,
@@ -128,11 +130,16 @@ class WorldMapViewModel(
 
     private var webSocketManager: WebSocketManager? = null
     private val gson = Gson()
-    private val multiplayerPlayers = ConcurrentHashMap<String, Npc>()
-    private var myPlayerId = "Player_${UUID.randomUUID()}" // Cambiado a 'var'
+    // Stable UUID that uniquely identifies this client for the lifetime of the ViewModel.
+    // Updated to the server-assigned session ID upon receiving SESSION_INIT.
+    private var myPlayerUUID = "Player_${UUID.randomUUID()}"
+    // Display name chosen by the user (separate from the immutable UUID).
+    private var myPlayerDisplayName = ""
+    // Stores remote players AND NPC entities received from the server.
+    private val remoteEntities = ConcurrentHashMap<String, Npc>()
 
     fun connectToMultiplayer(serverUrl: String, playerName: String) {
-        myPlayerId = playerName // Asignar el nombre elegido
+        myPlayerDisplayName = playerName
         if (webSocketManager == null) {
             Log.d("WorldMapVM", "Iniciando conexión multijugador a $serverUrl")
             webSocketManager = WebSocketManager(serverUrl)
@@ -152,7 +159,7 @@ class WorldMapViewModel(
     fun disconnectFromMultiplayer() {
         webSocketManager?.disconnect()
         webSocketManager = null
-        multiplayerPlayers.clear()
+        remoteEntities.clear()
         updateNpcsState()
     }
 
@@ -161,9 +168,14 @@ class WorldMapViewModel(
             val msg = gson.fromJson(messageJson, ServerMessage::class.java)
 
             when (msg.type) {
+                "SESSION_INIT" -> {
+                    // Adopt the server-assigned session ID as our authoritative player ID.
+                    msg.sessionId?.let { myPlayerUUID = it }
+                }
+
                 "SYNC_ALL_NPCS" -> {
                     msg.npcs?.forEach { remoteNpc ->
-                        if (remoteNpc.ownerId != myPlayerId) {
+                        if (remoteNpc.ownerId != myPlayerUUID) {
                             addRemoteEntity(remoteNpc)
                         }
                     }
@@ -172,36 +184,47 @@ class WorldMapViewModel(
 
                 "NPC_SPAWN", "NPC_UPDATE" -> {
                     msg.npc?.let {
-                        if (it.ownerId != myPlayerId) {
+                        if (it.ownerId != myPlayerUUID) {
                             addRemoteEntity(it)
                             updateNpcsState()
                         }
                     }
                 }
 
+                "NPC_BATCH_UPDATE" -> {
+                    msg.npcs?.forEach { remoteNpc ->
+                        if (remoteNpc.ownerId != myPlayerUUID) {
+                            addRemoteEntity(remoteNpc)
+                        }
+                    }
+                    updateNpcsState()
+                }
+
                 "NPC_DESTROY" -> {
                     msg.npcId?.let {
-                        multiplayerPlayers.remove(it)
+                        remoteEntities.remove(it)
                         updateNpcsState()
                     }
                 }
 
                 "DISCONNECT" -> {
-                    msg.id?.let { multiplayerPlayers.remove(it) }
+                    msg.id?.let { remoteEntities.remove(it) }
                     // Borrar NPCs que dependían del jugador que se fue
-                    msg.orphanedNpcs?.forEach { multiplayerPlayers.remove(it) }
+                    msg.orphanedNpcs?.forEach { remoteEntities.remove(it) }
                     updateNpcsState()
                 }
 
                 "MASTER_SYNC_CHECK" -> {
                     msg.activeNpcIds?.let { officialIds ->
+                        // Convert to Set for O(1) lookups inside the loop.
+                        val officialSet = officialIds.toHashSet()
                         // LIMPIEZA ABSOLUTA: Si tenemos un NPC remoto dibujado que el servidor no reconoce, bórralo instantáneamente.
-                        val iterator = multiplayerPlayers.iterator()
+                        val iterator = remoteEntities.iterator()
                         var stateChanged = false
                         while (iterator.hasNext()) {
                             val entry = iterator.next()
-                            val npc = entry.value as? Npc
-                            if (npc != null && npc.isRemote && !officialIds.contains(npc.id)) {
+                            val npc = entry.value
+                            if (npc.isRemote && !officialSet.contains(npc.id)) {
                                 iterator.remove()
                                 stateChanged = true
                             }
@@ -212,7 +235,7 @@ class WorldMapViewModel(
 
                 else -> {
                     // Si es una actualización de posición de otro JUGADOR (sin type específico)
-                    if (msg.id != null && msg.id != myPlayerId && msg.x != null && msg.y != null) {
+                    if (msg.id != null && msg.id != myPlayerUUID && msg.x != null && msg.y != null) {
                         val otherPlayer = Npc(
                             id = msg.id,
                             type = NpcType.PERSON,
@@ -221,7 +244,7 @@ class WorldMapViewModel(
                             speed = 0.0,
                             isRemote = true
                         )
-                        multiplayerPlayers[msg.id] = otherPlayer
+                        remoteEntities[msg.id] = otherPlayer
                         updateNpcsState()
                     }
                 }
@@ -239,7 +262,7 @@ class WorldMapViewModel(
         val cModel = try { remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) } ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN }
         val cColor = remote.carColor ?: 0xFFFFFFFF.toInt()
 
-        multiplayerPlayers[remote.id] = Npc(
+        remoteEntities[remote.id] = Npc(
             id = remote.id,
             type = npcType,
             location = GeoPoint(remote.y, remote.x),
@@ -247,14 +270,14 @@ class WorldMapViewModel(
             speed = 0.0,
             isRemote = true,
             ownerId = remote.ownerId,
-            carModel = cModel, // APLICAMOS EL MODELO
-            carColor = cColor  // APLICAMOS EL COLOR
+            carModel = cModel,
+            carColor = cColor
         )
     }
 
     private fun updateNpcsState() {
         val aiNpcs = npcAiManager.npcs.value
-        val allNpcs = aiNpcs + multiplayerPlayers.values.toList()
+        val allNpcs = aiNpcs + remoteEntities.values.toList()
         _uiState.update { it.copy(npcs = allNpcs) }
     }
 
@@ -309,13 +332,17 @@ class WorldMapViewModel(
                     if (_uiState.value.isRoadNetworkReady) {
                         tickCount++
                         if (tickCount % 3 == 0) {
+                            // Sync remote entities into AI manager so spawn/despawn limits
+                            // account for server-driven NPCs and players.
+                            npcAiManager.setRemoteNpcs(remoteEntities.values.toList())
                             npcAiManager.updateNpcs(location)
                             updateNpcsState()
 
                             // BROADCAST MULTIJUGADOR: Enviamos nuestra posición al servidor
                             webSocketManager?.let { ws ->
                                 val myData = MultiplayerPlayer(
-                                    id = myPlayerId,
+                                    id = myPlayerUUID,
+                                    displayName = myPlayerDisplayName,
                                     x = location.longitude,
                                     y = location.latitude,
                                     action = _uiState.value.playerAction.name,
@@ -333,23 +360,25 @@ class WorldMapViewModel(
                                     }
                                 }
 
-                                // 2. Enviar actualización de tus NPCs LOCALES
+                                // 2. Enviar actualización de NPCs LOCALES en un único mensaje batch.
                                 val myLocalNpcs = npcAiManager.npcs.value.filter { !it.isRemote }
-                                myLocalNpcs.forEach { localNpc ->
-                                    val npcMsg = mapOf(
-                                        "type" to "NPC_UPDATE",
-                                        "npc" to MultiplayerNpc(
+                                if (myLocalNpcs.isNotEmpty()) {
+                                    val npcBatch = myLocalNpcs.map { localNpc ->
+                                        MultiplayerNpc(
                                             id = localNpc.id,
                                             x = localNpc.location.longitude,
                                             y = localNpc.location.latitude,
                                             rotation = localNpc.rotationAngle,
                                             npcType = localNpc.type.name,
-                                            ownerId = myPlayerId,
-                                            carModel = localNpc.carModel.name, // ENVIAMOS EL MODELO
-                                            carColor = localNpc.carColor       // ENVIAMOS EL COLOR
+                                            ownerId = myPlayerUUID,
+                                            carModel = localNpc.carModel.name,
+                                            carColor = localNpc.carColor
                                         )
-                                    )
-                                    ws.sendMessage(gson.toJson(npcMsg))
+                                    }
+                                    ws.sendMessage(gson.toJson(mapOf(
+                                        "type" to "NPC_BATCH_UPDATE",
+                                        "npcs" to npcBatch
+                                    )))
                                 }
                             }
                         }

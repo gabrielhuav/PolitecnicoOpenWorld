@@ -81,6 +81,11 @@ wss.on('connection', (ws, req) => {
 
     console.log(`[+] Cliente conectado. ID Sesión: ${ws.sessionId}`);
 
+    // Inform the client of its server-assigned session ID so it can use it
+    // as the authoritative player identifier (prevents collisions from
+    // two clients choosing the same display name).
+    ws.send(JSON.stringify({ type: 'SESSION_INIT', sessionId: ws.sessionId }));
+
     ws.on('pong', () => {
         ws.isAlive = true;
     });
@@ -97,17 +102,31 @@ wss.on('connection', (ws, req) => {
         try {
             const data = JSON.parse(messageAsString);
 
-            if (data && data.id && (!data.type || data.type === "PLAYER_UPDATE")) {
-                ws.playerId = data.id;
-                players.set(data.id, data);
-                broadcastToOthers(ws, messageAsString);
+            if (data && (!data.type || data.type === "PLAYER_UPDATE")) {
+                // Use the server-generated sessionId as the canonical key so that
+                // two clients with identical display names cannot overwrite each other.
+                ws.playerId = ws.sessionId;
+                players.set(ws.sessionId, { ...data, id: ws.sessionId });
+                // Broadcast with the authoritative session ID so other clients can
+                // use it for entity ownership checks.
+                broadcastToOthers(ws, JSON.stringify({ ...data, id: ws.sessionId }));
             } 
             else if (data && (data.type === "NPC_SPAWN" || data.type === "NPC_UPDATE")) {
                 if (data.npc && data.npc.id) {
-                    npcs.set(data.npc.id, { ...data.npc, ownerId: ws.playerId });
+                    npcs.set(data.npc.id, { ...data.npc, ownerId: ws.sessionId });
                     broadcastToOthers(ws, messageAsString);
                 }
             } 
+            else if (data && data.type === "NPC_BATCH_UPDATE") {
+                if (data.npcs && Array.isArray(data.npcs)) {
+                    data.npcs.forEach(npc => {
+                        if (npc.id) {
+                            npcs.set(npc.id, { ...npc, ownerId: ws.sessionId });
+                        }
+                    });
+                    broadcastToOthers(ws, messageAsString);
+                }
+            }
             else if (data && data.type === "NPC_DESTROY") {
                 if (data.npcId) {
                     npcs.delete(data.npcId);
@@ -121,23 +140,21 @@ wss.on('connection', (ws, req) => {
 
     ws.on('close', () => {
         console.log(`[-] Cliente desconectado. ID Sesión: ${ws.sessionId}`);
-        if (ws.playerId) {
-            players.delete(ws.playerId);
-            const npcsToDelete = [];
-            for (const [npcId, npcData] of npcs.entries()) {
-                if (npcData.ownerId === ws.playerId) {
-                    npcsToDelete.push(npcId);
-                    npcs.delete(npcId);
-                }
+        players.delete(ws.sessionId);
+        const npcsToDelete = [];
+        for (const [npcId, npcData] of npcs.entries()) {
+            if (npcData.ownerId === ws.sessionId) {
+                npcsToDelete.push(npcId);
+                npcs.delete(npcId);
             }
-
-            const disconnectMessage = JSON.stringify({
-                 type: "DISCONNECT",
-                 id: ws.playerId,
-                 orphanedNpcs: npcsToDelete
-            });
-            broadcastAll(disconnectMessage);
         }
+
+        const disconnectMessage = JSON.stringify({
+             type: "DISCONNECT",
+             id: ws.sessionId,
+             orphanedNpcs: npcsToDelete
+        });
+        broadcastAll(disconnectMessage);
     });
 });
 
