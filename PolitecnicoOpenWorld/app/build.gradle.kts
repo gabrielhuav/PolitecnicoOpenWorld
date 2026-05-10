@@ -20,7 +20,11 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"ws://192.168.1.68:8080\"")
+            val multiplayerServerUrl = providers
+                .gradleProperty("MULTIPLAYER_SERVER_URL")
+                .orElse("ws://10.0.2.2:8080")
+                .get()
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"$multiplayerServerUrl\"")
         }
         release {
             isMinifyEnabled = false

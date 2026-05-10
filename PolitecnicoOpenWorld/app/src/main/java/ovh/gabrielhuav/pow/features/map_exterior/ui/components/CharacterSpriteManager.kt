@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.util.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -12,14 +14,18 @@ import ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig
 import java.io.InputStream
 
 object CharacterSpriteManager {
-    private val animationCache = mutableMapOf<String, List<ImageBitmap>>()
-    private val hairCache = mutableMapOf<Int, ImageBitmap>()
-    // 🟢 NUEVO: Caché para que el procesamiento de píxeles se haga 1 sola vez y no dé lag
-    private val assembledCache = mutableMapOf<String, Bitmap>()
+    private val animationCache = object : LruCache<String, List<ImageBitmap>>(24) {}
+    private val hairCache = object : LruCache<Int, ImageBitmap>(12) {}
+    private val assembledCache = object : LruCache<String, Bitmap>(8 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount / 1024
+    }
+    private val drawableCache = object : LruCache<String, BitmapDrawable>(12 * 1024) {
+        override fun sizeOf(key: String, value: BitmapDrawable): Int = value.bitmap.allocationByteCount / 1024
+    }
 
     fun getAnimationFrames(context: Context, folder: String, prefix: String, frameCount: Int = 8): List<ImageBitmap> {
         val cacheKey = "${folder}_${prefix}"
-        if (animationCache.containsKey(cacheKey)) return animationCache[cacheKey]!!
+        animationCache.get(cacheKey)?.let { return it }
 
         val frames = mutableListOf<ImageBitmap>()
         for (i in 1..frameCount) {
@@ -29,19 +35,30 @@ object CharacterSpriteManager {
                 inputStream.close()
             } catch (e: Exception) { break }
         }
-        animationCache[cacheKey] = frames
+        animationCache.put(cacheKey, frames)
         return frames
     }
 
     fun getHairSprite(context: Context, hairId: Int): ImageBitmap? {
-        if (hairCache.containsKey(hairId)) return hairCache[hairId]
+        hairCache.get(hairId)?.let { return it }
         return try {
             val inputStream: InputStream = context.assets.open("assetsNPC/cabello/hair_$hairId.webp")
             val bmp = BitmapFactory.decodeStream(inputStream).asImageBitmap()
-            hairCache[hairId] = bmp
+            hairCache.put(hairId, bmp)
             inputStream.close()
             bmp
         } catch (e: Exception) { null }
+    }
+
+    fun getFrameIndex(
+        context: Context,
+        visualConfig: CharacterVisualConfig,
+        isMoving: Boolean,
+        timeMs: Long
+    ): Int? {
+        val frames = getAnimationFrames(context, visualConfig.bodyFolder, visualConfig.bodyPrefix)
+        if (frames.isEmpty()) return null
+        return computeFrameIndex(visualConfig.bodyPrefix, frames.size, isMoving, timeMs)
     }
 
     fun generateAssembledBitmap(
@@ -50,13 +67,10 @@ object CharacterSpriteManager {
         val frames = getAnimationFrames(context, visualConfig.bodyFolder, visualConfig.bodyPrefix)
         if (frames.isEmpty()) return null
 
-        val frameIndex = if (isMoving) ((timeMs / 220) % frames.size).toInt() else {
-            if (visualConfig.bodyPrefix == "p_mult_" && frames.size >= 7) 6 else 0
-        }
+        val frameIndex = computeFrameIndex(visualConfig.bodyPrefix, frames.size, isMoving, timeMs)
 
-        // Llave única para reutilizar el personaje ya pintado
-        val cacheKey = "${visualConfig.bodyPrefix}_${frameIndex}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${visualConfig.hairColor.value}"
-        if (assembledCache.containsKey(cacheKey)) return assembledCache[cacheKey]
+        val cacheKey = "${visualConfig.bodyFolder}_${visualConfig.bodyPrefix}_${visualConfig.hairId}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${visualConfig.hairColor.value}_${frameIndex}"
+        assembledCache.get(cacheKey)?.let { return it }
 
         val baseBitmap = frames[frameIndex].asAndroidBitmap()
 
@@ -73,7 +87,7 @@ object CharacterSpriteManager {
             canvas.drawBitmap(tintedHair, 0f, 0f, null)
         }
 
-        assembledCache[cacheKey] = resultBitmap
+        assembledCache.put(cacheKey, resultBitmap)
         return resultBitmap
     }
 
@@ -84,9 +98,6 @@ object CharacterSpriteManager {
         val b = (android.graphics.Color.blue(basePixel) * android.graphics.Color.blue(tintColor)) / 255
         return android.graphics.Color.argb(a, r, g, b)
     }
-
-
-    private val drawableCache = mutableMapOf<String, android.graphics.drawable.BitmapDrawable>()
 
     /**
      * Genera un Drawable escalado y espejeado nativamente para los marcadores de OSMDroid.
@@ -103,16 +114,11 @@ object CharacterSpriteManager {
         val baseBitmap = generateAssembledBitmap(context, visualConfig, isMoving, timeMs) ?: return null
         val roundedScale = Math.round(scale * 20f) / 20f
 
-        val frames = getAnimationFrames(context, visualConfig.bodyFolder, visualConfig.bodyPrefix)
-        val frameDuration = 220L
-        val frameIndex = if (isMoving) ((timeMs / frameDuration) % frames.size).toInt() else {
-            if (visualConfig.bodyPrefix == "p_mult_" && frames.size >= 7) 6 else 0
-        }
+        val frameIndex = getFrameIndex(context, visualConfig, isMoving, timeMs) ?: return null
 
-        // 🟢 Llave única de caché, ahora incluye el nombre para no cruzar imágenes de jugadores
-        val cacheKey = "${visualConfig.bodyPrefix}_${frameIndex}_${visualConfig.shirtColor.value}_${isFacingRight}_${roundedScale}_${displayName ?: "none"}"
+        val cacheKey = "${visualConfig.bodyFolder}_${visualConfig.bodyPrefix}_${visualConfig.hairId}_${visualConfig.hairColor.value}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${frameIndex}_${isFacingRight}_${roundedScale}_${displayName ?: "none"}"
 
-        if (drawableCache.containsKey(cacheKey)) return drawableCache[cacheKey]
+        drawableCache.get(cacheKey)?.let { return it }
 
         // 1. Matriz para el personaje (Escala y Espejeo)
         val matrix = android.graphics.Matrix()
@@ -164,9 +170,24 @@ object CharacterSpriteManager {
             scaledBmp // Si no hay nombre, el BMP sigue normal
         }
 
-        val drawable = android.graphics.drawable.BitmapDrawable(context.resources, finalBmp)
-        drawableCache[cacheKey] = drawable
+        val drawable = BitmapDrawable(context.resources, finalBmp)
+        drawableCache.put(cacheKey, drawable)
         return drawable
+    }
+
+    fun clearCaches() {
+        animationCache.evictAll()
+        hairCache.evictAll()
+        assembledCache.evictAll()
+        drawableCache.evictAll()
+    }
+
+    private fun computeFrameIndex(bodyPrefix: String, frameCount: Int, isMoving: Boolean, timeMs: Long): Int {
+        return if (isMoving) {
+            ((timeMs / 220L) % frameCount).toInt()
+        } else {
+            if (bodyPrefix == "p_mult_" && frameCount >= 7) 6 else 0
+        }
     }
 
     // Cambia estas funciones dentro de CharacterSpriteManager.kt

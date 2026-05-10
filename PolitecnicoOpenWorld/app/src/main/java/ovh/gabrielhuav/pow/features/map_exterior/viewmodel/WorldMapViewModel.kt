@@ -41,9 +41,6 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.abs
-import androidx.compose.ui.graphics.Color
-import ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig
-import kotlin.random.Random
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
 
@@ -284,14 +281,17 @@ class WorldMapViewModel(
 
         val visualConfig = if (npcType == NpcType.PERSON) {
             ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
-                bodyFolder = "otherPlayer",
-                bodyPrefix = "p_mult_",
+                bodyFolder = "npc_walk_1",
+                bodyPrefix = "npc_walk_1_",
                 hairId = 1,
-                hairColor = androidx.compose.ui.graphics.Color.White,       // 🟢 AGREGADO: Cabello base
+                hairColor = androidx.compose.ui.graphics.Color.White,
                 shirtColor = androidx.compose.ui.graphics.Color.LightGray,
-                pantsColor = androidx.compose.ui.graphics.Color.DarkGray    // 🟢 AGREGADO: Pantalón oscuro
+                pantsColor = androidx.compose.ui.graphics.Color.DarkGray
             )
         } else null
+
+        val isMoving = npcType == NpcType.PERSON
+        val facingRight = cos(Math.toRadians(remote.rotation.toDouble())) >= 0
 
 
         remoteEntities[remote.id] = Npc(
@@ -301,10 +301,11 @@ class WorldMapViewModel(
             rotationAngle = remote.rotation,
             speed = 0.0,
             isRemote = true,
+            isMoving = isMoving,
+            facingRight = facingRight,
             ownerId = remote.ownerId,
             carModel = cModel,
             carColor = cColor,
-            // 🟢 ASIGNAMOS EL VISUAL CONFIG
             visualConfig = visualConfig
         )
     }
@@ -313,71 +314,6 @@ class WorldMapViewModel(
         val aiNpcs = npcAiManager.npcs.value
         val allNpcs = aiNpcs + remoteEntities.values.toList()
         _uiState.update { it.copy(npcs = allNpcs) }
-    }
-
-    // Lista de colores para darle variedad a las playeras
-    private val availableShirtColors = listOf(
-        Color.Red, Color.Blue, Color.Green, Color.Yellow,
-        Color.Cyan, Color.Magenta, Color.White, Color.DarkGray
-    )
-
-    /**
-     * Genera un NPC con atributos modulares aleatorios.
-     */
-    private val formalPantsColors = listOf(
-        Color(0xFF000080), // Azul Marino
-        Color(0xFF3E2723), // Café Oscuro
-        Color(0xFF000000), // Negro
-        Color(0xFFFFFFFF), // Blanco
-        Color(0xFF808080)  // Gris
-    )
-
-    fun generateRandomNpc(id: String, startX: Double, startY: Double): Npc {
-        val randomColor = availableShirtColors.random()
-        val randomHair = kotlin.random.Random.nextInt(1, 4)
-
-        val visualConfig = CharacterVisualConfig(
-            bodyFolder = "npc_walk_1",
-            bodyPrefix = "npc_walk_1_",
-            hairId = (1..3).random(),
-            hairColor = Color((0..255).random(), (0..255).random(), (0..255).random()),
-            shirtColor = Color((0..255).random(), (0..255).random(), (0..255).random()),
-            pantsColor = formalPantsColors.random() // Colores formales
-        )
-
-        return Npc(
-            id = id,
-            type = ovh.gabrielhuav.pow.domain.models.NpcType.PERSON,
-            location = org.osmdroid.util.GeoPoint(startY, startX), // startY = Lat, startX = Lng
-            speed = 0.5, // Única velocidad
-            isMoving = true,
-            facingRight = true,
-            visualConfig = visualConfig
-        )
-    }
-    /**
-     * Genera el aspecto para el jugador multijugador entrante
-     */
-    fun createMultiplayerEntity(id: String, startX: Double, startY: Double): Npc {
-        val visualConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
-            bodyFolder = "otherPlayer",
-            bodyPrefix = "p_mult_",
-            hairId = 1,
-            hairColor = androidx.compose.ui.graphics.Color.White,
-            shirtColor = androidx.compose.ui.graphics.Color.Blue,
-            pantsColor = androidx.compose.ui.graphics.Color.DarkGray
-        )
-
-        return Npc(
-            id = id,
-            type = ovh.gabrielhuav.pow.domain.models.NpcType.PERSON,
-            location = org.osmdroid.util.GeoPoint(startY, startX), // startY = Lat, startX = Lng
-            speed = 0.0,
-            isRemote = true, // Es importante para saber que lo controla otro jugador por red
-            isMoving = false,
-            facingRight = true,
-            visualConfig = visualConfig
-        )
     }
 
     // ─── GAME LOOP ───────────────────────────────────────────────────────────────

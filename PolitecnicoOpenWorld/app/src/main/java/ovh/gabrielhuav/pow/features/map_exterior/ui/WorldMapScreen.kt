@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.WebView
+import com.google.gson.Gson
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -43,11 +44,6 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.draw.scale
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.withTransform
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.drawDynamicCharacter
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -59,6 +55,7 @@ fun WorldMapScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val base64Cache = remember { mutableMapOf<String, String>() }
+    val gson = remember { Gson() }
 
     var currentFps by remember { mutableIntStateOf(0) }
     if (uiState.showFpsWidget) {
@@ -95,9 +92,6 @@ fun WorldMapScreen(
             onTileServed       = { fromCache -> viewModel.notifyTileSource(fromCache) }
         )
     }
-    //Referencia para el Canvas
-    var mapViewRef by remember { mutableStateOf<MapView?>(null) }
-
     Box(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
 
         if (uiState.isLoadingLocation) {
@@ -115,7 +109,6 @@ fun WorldMapScreen(
                         setOnTouchListener { _, _ -> true }
                         isClickable = false; isFocusable = false
                         controller.setZoom(uiState.zoomLevel)
-                        mapViewRef = this
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -255,10 +248,7 @@ fun WorldMapScreen(
                     // Solo genera 1 imagen en ultra alta resolución (HiDPI pura) y se la avienta a JS.
                     val highResRenderScale = 1.0f * screenDensity
 
-                    val npcsJson = uiState.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
-                        // Filtro de null a string seguro
-                        val nameStr = npc.displayName?.let { "'$it'" } ?: "null"
-
+                    val npcPayloads = uiState.npcs.map { npc ->
                         if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
                             var angle = npc.rotationAngle % 360f
                             if (angle < 0) angle += 360f
@@ -277,19 +267,27 @@ fun WorldMapScreen(
                                 } else { "" }
                             }
 
-                            // Pasamos el 'name' al JS
-                            "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                    "rot:${npc.rotationAngle},type:'CAR',base64:'$base64Image', name:$nameStr}"
+                            NpcWebPayload(
+                                id = npc.id,
+                                lat = npc.location.latitude,
+                                lng = npc.location.longitude,
+                                rot = npc.rotationAngle,
+                                type = "CAR",
+                                base64 = base64Image,
+                                name = npc.displayName
+                            )
 
                         } else if (npc.visualConfig != null) {
                             val timeMs = System.currentTimeMillis()
                             val currentlyMoving = npc.speed > 0 || npc.isMoving
-                            val frameIndex = if(currentlyMoving) ((timeMs / 150) % 6).toInt() else 0
-                            val cacheKey = "npc_mod_${npc.id}_${currentlyMoving}_$frameIndex"
+                            val visualConfig = npc.visualConfig!!
+                            val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
+                                .getFrameIndex(context, visualConfig, currentlyMoving, timeMs) ?: 0
+                            val cacheKey = "npc_mod_${visualConfig.bodyFolder}_${visualConfig.bodyPrefix}_${visualConfig.hairId}_${visualConfig.hairColor.value}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${npc.facingRight}_${frameIndex}_${screenDensity}"
 
                             val base64Image = base64Cache.getOrPut(cacheKey) {
                                 val bitmap = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.generateAssembledBitmap(
-                                    context, npc.visualConfig!!, currentlyMoving, timeMs
+                                    context, visualConfig, currentlyMoving, timeMs
                                 )
                                 if (bitmap != null) {
                                     val outputStream = java.io.ByteArrayOutputStream()
@@ -300,15 +298,30 @@ fun WorldMapScreen(
 
                             val flipScale = if (npc.facingRight) 1 else -1
 
-                            // Pasamos el 'name' al JS
-                            "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                    "rot:0, type:'MODULAR', flip:$flipScale, base64:'$base64Image', name:$nameStr}"
+                            NpcWebPayload(
+                                id = npc.id,
+                                lat = npc.location.latitude,
+                                lng = npc.location.longitude,
+                                rot = 0f,
+                                type = "MODULAR",
+                                base64 = base64Image,
+                                flip = flipScale,
+                                name = npc.displayName
+                            )
 
                         } else {
-                            "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +
-                                    "rot:${npc.rotationAngle},type:'${npc.type.name}',drawable:'${npc.type.drawableName}', name:$nameStr}"
+                            NpcWebPayload(
+                                id = npc.id,
+                                lat = npc.location.latitude,
+                                lng = npc.location.longitude,
+                                rot = npc.rotationAngle,
+                                type = npc.type.name,
+                                drawable = npc.type.drawableName,
+                                name = npc.displayName
+                            )
                         }
                     }
+                    val npcsJson = gson.toJson(npcPayloads)
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
                 }
             )
@@ -424,6 +437,18 @@ private fun CacheChip(label: String, text: String, color: Color, isLoading: Bool
     }
 }
 
+private data class NpcWebPayload(
+    val id: String,
+    val lat: Double,
+    val lng: Double,
+    val rot: Float,
+    val type: String,
+    val base64: String? = null,
+    val drawable: String? = null,
+    val flip: Int? = null,
+    val name: String? = null
+)
+
 private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <!DOCTYPE html>
 <html>
@@ -469,6 +494,12 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, function(char) {
+                var replacements = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+                return replacements[char] || char;
+            });
+        }
 
         function updateNpcs(data) {
             // CRÍTICO: Si Leaflet está haciendo su animación CSS de zoom, pausamos
@@ -504,13 +535,14 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 // Etiqueta flotante NameTag
                 var nameTagHtml = '';
                 if (npc.name) {
+                    var safeName = escapeHtml(npc.name);
                     nameTagHtml = '<div style="position:absolute; top:-28px; ' + 
                   'left:50%; transform:translateX(-50%); ' +
                   'color:#D4AF37; ' + 
                   'background:rgba(0,0,0,0.65); padding:2px 6px; border-radius:4px; ' +
                   'font-size:16px; ' + 
                   'font-weight:bold; white-space:nowrap; text-shadow:1px 1px 0 #000; z-index:100;">' + 
-                  npc.name + '</div>';
+                  safeName + '</div>';
                 }
 
                 if (npcMarkers[npc.id]) {
