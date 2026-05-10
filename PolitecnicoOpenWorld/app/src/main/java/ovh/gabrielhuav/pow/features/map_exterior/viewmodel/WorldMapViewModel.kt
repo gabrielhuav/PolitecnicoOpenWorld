@@ -240,14 +240,16 @@ class WorldMapViewModel(
                     // Si es una actualización de posición de otro JUGADOR (sin type específico)
                     if (msg.id != null && msg.id != myPlayerUUID && msg.x != null && msg.y != null) {
 
-                        // 1. Configuramos su aspecto de multijugador (Player con colores base)
+                        //  Verificamos si el servidor nos dice que está caminando o corriendo
+                        val isRemoteMoving = msg.action == "WALK" || msg.action == "RUN"
+
                         val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
                             bodyFolder = "otherPlayer",
                             bodyPrefix = "p_mult_",
                             hairId = 1,
-                            hairColor = androidx.compose.ui.graphics.Color.White,     //Cabello base
-                            shirtColor = androidx.compose.ui.graphics.Color.Cyan,     // Playera
-                            pantsColor = androidx.compose.ui.graphics.Color.DarkGray  //Pantalón oscuro
+                            hairColor = androidx.compose.ui.graphics.Color.White,
+                            shirtColor = androidx.compose.ui.graphics.Color.Cyan,
+                            pantsColor = androidx.compose.ui.graphics.Color.DarkGray
                         )
 
                         val otherPlayer = Npc(
@@ -255,9 +257,9 @@ class WorldMapViewModel(
                             type = NpcType.PERSON,
                             location = GeoPoint(msg.y, msg.x),
                             rotationAngle = 0f,
-                            speed = 0.0, // Su velocidad original
+                            speed = 0.0,
                             isRemote = true,
-                            isMoving = true,
+                            isMoving = isRemoteMoving, // 🟢 AHORA ES DINÁMICO
                             facingRight = msg.facingRight == true,
                             visualConfig = multiplayerConfig,
                             displayName = msg.displayName

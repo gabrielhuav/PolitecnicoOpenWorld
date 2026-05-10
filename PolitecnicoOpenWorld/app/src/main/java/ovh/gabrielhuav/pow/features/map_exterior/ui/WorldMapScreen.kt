@@ -84,7 +84,6 @@ fun WorldMapScreen(
         // Ya no conectamos automáticamente aquí, el MainActivity se encarga de eso.
         onDispose {
             viewModel.stopGameLoop()
-            viewModel.disconnectFromMultiplayer() // Desconecta al salir al menú
         }
     }
 
@@ -168,8 +167,7 @@ fun WorldMapScreen(
                                 if (npc.visualConfig != null) {
                                     marker.setAlpha(1f)
                                     val currentlyMoving = npc.speed > 0 || npc.isMoving
-                                    val normalizedAngle = (npc.rotationAngle % 360f + 360f) % 360f
-                                    val isFacingRight = normalizedAngle in 0f..180f
+                                    val isFacingRight = npc.facingRight
 
                                     // ESCALA NATIVA: 0.28 hace match exacto con el tamaño del jugador
                                     val spriteScale = (0.18 * Math.pow(2.0, currentZoom - 18.5)).toFloat().coerceIn(0.15f, 0.35f)
@@ -300,9 +298,7 @@ fun WorldMapScreen(
                                 } else { "" }
                             }
 
-                            val normalizedAngle = (npc.rotationAngle % 360f + 360f) % 360f
-                            val isFacingRight = normalizedAngle in 0f..180f
-                            val flipScale = if (isFacingRight) 1 else -1
+                            val flipScale = if (npc.facingRight) 1 else -1
 
                             // Pasamos el 'name' al JS
                             "{id:'${npc.id}',lat:${npc.location.latitude},lng:${npc.location.longitude}," +

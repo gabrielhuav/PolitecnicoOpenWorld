@@ -143,8 +143,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 // NUEVO: Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {
+                                    worldMapViewModel.disconnectFromMultiplayer() // 🟢 AGREGADO AQUÍ
                                     navController.navigate("main_menu") {
-                                        popUpTo("main_menu") { inclusive = true } // Borra la pila de forma segura usando un destino existente
+                                        popUpTo("main_menu") { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 }
@@ -164,6 +165,7 @@ class MainActivity : ComponentActivity() {
                                 context = this@MainActivity,
                                 viewModel = worldMapViewModel,
                                 onNavigateToMainMenu = {
+                                    worldMapViewModel.disconnectFromMultiplayer()
                                     navController.navigate("main_menu") {
                                         popUpTo("world_map") { inclusive = true }
                                         launchSingleTop = true
@@ -171,7 +173,8 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToSettings = {
                                     navController.navigate("settings")
-                                }
+                                },
+
                             )
                         }
                     }

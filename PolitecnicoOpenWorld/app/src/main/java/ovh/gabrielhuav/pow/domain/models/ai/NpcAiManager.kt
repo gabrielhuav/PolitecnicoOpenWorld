@@ -195,14 +195,16 @@ class NpcAiManager {
         val angle = atan2(dLat, dLon)
         val targetAngle = -Math.toDegrees(angle).toFloat()
 
+        val isFacingRight = cos(angle) >= 0
+
         val diff = (targetAngle - npc.rotationAngle + 540) % 360 - 180
         val smoothedAngle = (npc.rotationAngle + diff * 0.20f + 360) % 360
         val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
 
         return if (dist < actualSpeed) {
-            npc.copy(location = GeoPoint(target.lat, target.lon), targetNodeIndex = npc.targetNodeIndex + npc.moveDirection, rotationAngle = smoothedAngle)
+            npc.copy(location = GeoPoint(target.lat, target.lon), targetNodeIndex = npc.targetNodeIndex + npc.moveDirection, rotationAngle = smoothedAngle, facingRight = isFacingRight)
         } else {
-            npc.copy(location = GeoPoint(npc.location.latitude + sin(angle) * actualSpeed, npc.location.longitude + cos(angle) * actualSpeed), rotationAngle = smoothedAngle)
+            npc.copy(location = GeoPoint(npc.location.latitude + sin(angle) * actualSpeed, npc.location.longitude + cos(angle) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight)
         }
     }
 

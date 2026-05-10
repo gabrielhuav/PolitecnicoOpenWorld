@@ -131,7 +131,7 @@ object CharacterSpriteManager {
             val textPaint = android.graphics.Paint().apply {
                 color = android.graphics.Color.BLACK
                 // Hacemos que el texto se adapte inteligentemente, sin ser demasiado pequeño
-                textSize = 45f * roundedScale.coerceAtLeast(0.4f)
+                textSize = 50f * roundedScale.coerceAtLeast(0.4f)
                 isAntiAlias = true
                 textAlign = android.graphics.Paint.Align.CENTER
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
