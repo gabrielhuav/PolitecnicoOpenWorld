@@ -118,9 +118,34 @@ class NpcAiManager {
         val startIndex  = Random.nextInt(selectedWay.nodes.size)
         val startNode   = selectedWay.nodes[startIndex]
 
-        if (calculateDistance(startNode.lat, startNode.lon, playerLocation.latitude, playerLocation.longitude) < 0.0002) return null
+        val distToPlayer = calculateDistance(startNode.lat, startNode.lon, playerLocation.latitude, playerLocation.longitude)
+        if (distToPlayer < 0.0001 || distToPlayer > 0.0008) return null
 
         val dir = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
+
+        val visualConfig = if (npcType == NpcType.PERSON) {
+            val colors = listOf(
+                androidx.compose.ui.graphics.Color.Red,
+                androidx.compose.ui.graphics.Color.Blue,
+                androidx.compose.ui.graphics.Color.Green,
+                androidx.compose.ui.graphics.Color.Yellow,
+                androidx.compose.ui.graphics.Color.Cyan,
+                androidx.compose.ui.graphics.Color.Magenta,
+                androidx.compose.ui.graphics.Color.White,
+                androidx.compose.ui.graphics.Color.DarkGray
+            )
+            ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+                bodyFolder = "npc_walk_1",
+                bodyPrefix = "npc_walk_1_",
+                hairId = Random.nextInt(1, 5),
+                shirtColor = colors.random(),
+                hairColor = colors.random(),
+                pantsColor = colors.random()
+            )
+        } else {
+            null // Los coches no usan este sistema visual
+        }
+
         return Npc(
             type = npcType,
             location = GeoPoint(startNode.lat, startNode.lon),
@@ -130,7 +155,9 @@ class NpcAiManager {
             moveDirection = dir,
             carColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)),
             carModel = CarModel.entries.random(),
-            isRemote = false
+            isRemote = false,
+            // 🟢 ASIGNAMOS EL VISUAL CONFIG AL MODELO
+            visualConfig = visualConfig
         )
     }
 

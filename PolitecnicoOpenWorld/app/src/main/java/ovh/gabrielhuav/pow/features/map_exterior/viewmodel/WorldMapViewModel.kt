@@ -41,7 +41,9 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.abs
-
+import androidx.compose.ui.graphics.Color
+import ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig
+import kotlin.random.Random
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
 
@@ -236,13 +238,27 @@ class WorldMapViewModel(
                 else -> {
                     // Si es una actualización de posición de otro JUGADOR (sin type específico)
                     if (msg.id != null && msg.id != myPlayerUUID && msg.x != null && msg.y != null) {
+
+                        // 1. Configuramos su aspecto de multijugador (Player con colores base)
+                        val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+                            bodyFolder = "otherPlayer",
+                            bodyPrefix = "p_mult_",
+                            hairId = 1,
+                            hairColor = androidx.compose.ui.graphics.Color.White,     //Cabello base
+                            shirtColor = androidx.compose.ui.graphics.Color.Cyan,     // Playera
+                            pantsColor = androidx.compose.ui.graphics.Color.DarkGray  //Pantalón oscuro
+                        )
+
                         val otherPlayer = Npc(
                             id = msg.id,
                             type = NpcType.PERSON,
                             location = GeoPoint(msg.y, msg.x),
-                            rotationAngle = if (msg.facingRight == true) 0f else 180f,
-                            speed = 0.0,
-                            isRemote = true
+                            rotationAngle = 0f,
+                            speed = 0.0, // Su velocidad original
+                            isRemote = true,
+                            isMoving = true,
+                            facingRight = msg.facingRight == true,
+                            visualConfig = multiplayerConfig
                         )
                         remoteEntities[msg.id] = otherPlayer
                         updateNpcsState()
@@ -258,9 +274,21 @@ class WorldMapViewModel(
     private fun addRemoteEntity(remote: MultiplayerNpc) {
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
 
-        // Interpretar el modelo y el color, o usar defaults si fallara
+        // Interpretar el modelo y el color
         val cModel = try { remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) } ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN }
         val cColor = remote.carColor ?: 0xFFFFFFFF.toInt()
+
+        val visualConfig = if (npcType == NpcType.PERSON) {
+            ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+                bodyFolder = "otherPlayer",
+                bodyPrefix = "p_mult_",
+                hairId = 1,
+                hairColor = androidx.compose.ui.graphics.Color.White,       // 🟢 AGREGADO: Cabello base
+                shirtColor = androidx.compose.ui.graphics.Color.LightGray,
+                pantsColor = androidx.compose.ui.graphics.Color.DarkGray    // 🟢 AGREGADO: Pantalón oscuro
+            )
+        } else null
+
 
         remoteEntities[remote.id] = Npc(
             id = remote.id,
@@ -271,7 +299,9 @@ class WorldMapViewModel(
             isRemote = true,
             ownerId = remote.ownerId,
             carModel = cModel,
-            carColor = cColor
+            carColor = cColor,
+            // 🟢 ASIGNAMOS EL VISUAL CONFIG
+            visualConfig = visualConfig
         )
     }
 
@@ -279,6 +309,71 @@ class WorldMapViewModel(
         val aiNpcs = npcAiManager.npcs.value
         val allNpcs = aiNpcs + remoteEntities.values.toList()
         _uiState.update { it.copy(npcs = allNpcs) }
+    }
+
+    // Lista de colores para darle variedad a las playeras
+    private val availableShirtColors = listOf(
+        Color.Red, Color.Blue, Color.Green, Color.Yellow,
+        Color.Cyan, Color.Magenta, Color.White, Color.DarkGray
+    )
+
+    /**
+     * Genera un NPC con atributos modulares aleatorios.
+     */
+    private val formalPantsColors = listOf(
+        Color(0xFF000080), // Azul Marino
+        Color(0xFF3E2723), // Café Oscuro
+        Color(0xFF000000), // Negro
+        Color(0xFFFFFFFF), // Blanco
+        Color(0xFF808080)  // Gris
+    )
+
+    fun generateRandomNpc(id: String, startX: Double, startY: Double): Npc {
+        val randomColor = availableShirtColors.random()
+        val randomHair = kotlin.random.Random.nextInt(1, 4)
+
+        val visualConfig = CharacterVisualConfig(
+            bodyFolder = "npc_walk_1",
+            bodyPrefix = "npc_walk_1_",
+            hairId = (1..3).random(),
+            hairColor = Color((0..255).random(), (0..255).random(), (0..255).random()),
+            shirtColor = Color((0..255).random(), (0..255).random(), (0..255).random()),
+            pantsColor = formalPantsColors.random() // Colores formales
+        )
+
+        return Npc(
+            id = id,
+            type = ovh.gabrielhuav.pow.domain.models.NpcType.PERSON,
+            location = org.osmdroid.util.GeoPoint(startY, startX), // startY = Lat, startX = Lng
+            speed = 0.5, // Única velocidad
+            isMoving = true,
+            facingRight = true,
+            visualConfig = visualConfig
+        )
+    }
+    /**
+     * Genera el aspecto para el jugador multijugador entrante
+     */
+    fun createMultiplayerEntity(id: String, startX: Double, startY: Double): Npc {
+        val visualConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+            bodyFolder = "otherPlayer",
+            bodyPrefix = "p_mult_",
+            hairId = 1,
+            hairColor = androidx.compose.ui.graphics.Color.White,
+            shirtColor = androidx.compose.ui.graphics.Color.Blue,
+            pantsColor = androidx.compose.ui.graphics.Color.DarkGray
+        )
+
+        return Npc(
+            id = id,
+            type = ovh.gabrielhuav.pow.domain.models.NpcType.PERSON,
+            location = org.osmdroid.util.GeoPoint(startY, startX), // startY = Lat, startX = Lng
+            speed = 0.0,
+            isRemote = true, // Es importante para saber que lo controla otro jugador por red
+            isMoving = false,
+            facingRight = true,
+            visualConfig = visualConfig
+        )
     }
 
     // ─── GAME LOOP ───────────────────────────────────────────────────────────────

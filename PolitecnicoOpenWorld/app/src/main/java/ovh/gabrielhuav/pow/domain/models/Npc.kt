@@ -24,5 +24,10 @@ data class Npc(
     val carColor: Int = 0xFFFFFFFF.toInt(),
     val carModel: CarModel = CarModel.SEDAN,
     val isRemote: Boolean = false, // Indica si el servidor nos mandó este NPC
-    val ownerId: String? = null    // El ID del jugador que controla la IA de este NPC
+    val ownerId: String? = null,    // El ID del jugador que controla la IA de este NPC
+
+
+    var isMoving: Boolean = false,
+    var facingRight: Boolean = true,
+    var visualConfig: CharacterVisualConfig? = null // Nullable para que no exploten los autos
 )

@@ -20,7 +20,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"ws://192.168.1.19:8080\"")
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"ws://192.168.1.68:8080\"")
         }
         release {
             isMinifyEnabled = false
