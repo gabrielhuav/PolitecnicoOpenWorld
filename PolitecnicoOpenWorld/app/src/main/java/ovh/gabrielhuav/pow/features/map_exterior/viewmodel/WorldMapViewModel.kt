@@ -378,7 +378,6 @@ class WorldMapViewModel(
             }
 
             // Game loop principal ~30fps
-// Game loop principal ~30fps
             while (isActive) {
                 try { // 🛡ESCUDO ANTI-CRASHEO INICIADO
                     _uiState.value.currentLocation?.let { location ->

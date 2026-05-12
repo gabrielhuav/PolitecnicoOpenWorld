@@ -54,7 +54,7 @@ function broadcastAll(messageAsString) {
 // --- Mecanismo de latidos (heartbeat) para detectar clientes caídos ---
 // Cada 30 segundos se envía un ping a cada cliente.
 // Si falla el pong o se superan 6 fallos (3 minutos), se termina la conexión.
-setInterval(() => {
+const heartbeatInterval = setInterval(() => {
     wss.clients.forEach((ws) => {
         if (ws.missedPings === undefined) ws.missedPings = 0;
         if (ws.isAlive === false) {
@@ -71,7 +71,7 @@ setInterval(() => {
 // --- Recolector de basura (Garbage Collector) para NPCs huérfanos ---
 // Cada 5 segundos se revisan los NPCs. Si un NPC lleva más de 15 segundos
 // sin actualizarse (lastUpdated), se elimina y se notifica a todos.
-setInterval(() => {
+const npcGcInterval = setInterval(() => {
     const now = Date.now();
     const npcsToDelete = [];
     for (const [npcId, npcData] of npcs.entries()) {
@@ -88,7 +88,7 @@ setInterval(() => {
 // --- Sincronización maestra periódica ---
 // Cada 5 segundos se envía a todos los clientes la lista de IDs de NPCs activos.
 // Esto ayuda a los clientes a reconciliar su estado local con el servidor.
-setInterval(() => {
+const masterSyncInterval = setInterval(() => {
     if (wss.clients.size > 0) {
         broadcastAll(JSON.stringify({
             type: "MASTER_SYNC_CHECK",
@@ -218,8 +218,12 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Limpieza del intervalo principal al cerrar el servidor (precaución)
-server.on('close', () => clearInterval(interval));
+// Limpieza de intervalos al cerrar el servidor (precaución)
+server.on('close', () => {
+    clearInterval(heartbeatInterval);
+    clearInterval(npcGcInterval);
+    clearInterval(masterSyncInterval);
+});
 
 // Iniciar el servidor
 server.listen(PORT, () => {
