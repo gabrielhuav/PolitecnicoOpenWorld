@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.CarModel
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
@@ -40,7 +41,14 @@ data class WorldMapState(
     // Control de los estados del personaje principal
     val playerAction: PlayerAction = PlayerAction.IDLE,
     val isPlayerFacingRight: Boolean = true,
-    val isRunning: Boolean = false
+    val isRunning: Boolean = false,
+
+    val drivingCarModel: CarModel? = null,
+    val drivingCarColor: Int? = null,
+    // Guardar la velocidad original para restaurarla
+    val pedestrianSpeed: Double = 0.000002, // Tu velocidad base
+    val playerAngle: Float = 90f
+
 ) {
     companion object {
         const val ZOOM_LOADING        = 17.0

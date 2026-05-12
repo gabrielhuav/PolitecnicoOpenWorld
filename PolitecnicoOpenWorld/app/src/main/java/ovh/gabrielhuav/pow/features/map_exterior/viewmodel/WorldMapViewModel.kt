@@ -23,6 +23,7 @@ import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
+import ovh.gabrielhuav.pow.domain.models.CarModel
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.NpcType
@@ -41,6 +42,10 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sqrt
+
+
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
 
@@ -507,6 +512,16 @@ class WorldMapViewModel(
             else -> null
         }
         startMovementAction(isMovingRight)
+        startMovementAction(isMovingRight)
+
+        // 🟢 CALCULAR Y ACTUALIZAR ÁNGULO D-PAD
+        val newAngle = when (direction) {
+            Direction.UP -> 0f
+            Direction.RIGHT -> 90f
+            Direction.DOWN -> 180f
+            Direction.LEFT -> 270f
+        }
+        _uiState.update { it.copy(playerAngle = newAngle) }
 
         val step = if (_uiState.value.isRunning) 0.000006 else 0.000003
 
@@ -537,6 +552,12 @@ class WorldMapViewModel(
         val dx = cos(angleRad)
         val isMovingRight = if (abs(dx) > 0.01) dx > 0 else null
         startMovementAction(isMovingRight)
+
+        // 🟢 CALCULAR Y ACTUALIZAR ÁNGULO JOYSTICK (Rotación libre 360°)
+        val degrees = Math.toDegrees(angleRad).toFloat()
+        // Convertimos el ángulo matemático al ángulo de la brújula (0 = Arriba, 90 = Derecha)
+        val spriteAngle = (90f - degrees + 360f) % 360f
+        _uiState.update { it.copy(playerAngle = spriteAngle) }
 
         val step = if (_uiState.value.isRunning) 0.000006 else 0.000003
 
@@ -702,5 +723,73 @@ class WorldMapViewModel(
                 }
             }
         }
+    }
+
+    // Agrega esta función en tu WorldMapViewModel
+    fun onInteractButtonPressed() {
+        val currentState = _uiState.value
+        val playerLocation = currentState.currentLocation ?: return
+        val isDriving = currentState.drivingCarModel != null
+
+        if (isDriving) {
+            // --- BAJARSE DEL AUTO ---
+            val abandonedCar = Npc(
+                type = NpcType.CAR,
+                location = GeoPoint(playerLocation.latitude, playerLocation.longitude),
+                speed = 0.0,
+                rotationAngle = currentState.playerAngle,
+                carColor = currentState.drivingCarColor ?: 0xFFFFFFFF.toInt(),
+                carModel = currentState.drivingCarModel ?: CarModel.SEDAN,
+                isMoving = false
+            )
+
+            npcAiManager.addSpecificNpc(abandonedCar)
+
+            // Usamos .update para modificar el StateFlow de forma segura
+            _uiState.update {
+                it.copy(
+                    drivingCarModel = null,
+                    drivingCarColor = null
+                )
+            }
+
+        } else {
+            // --- SUBIRSE AL AUTO ---
+            val interactDistance = 0.0003
+
+            val nearbyCar = npcAiManager.npcs.value
+                .filter { it.type == NpcType.CAR }
+                .minByOrNull {
+                    calculateDistance(
+                        it.location.latitude, it.location.longitude,
+                        playerLocation.latitude, playerLocation.longitude
+                    )
+                }
+
+            if (nearbyCar != null) {
+                val dist = calculateDistance(
+                    nearbyCar.location.latitude, nearbyCar.location.longitude,
+                    playerLocation.latitude, playerLocation.longitude
+                )
+
+                if (dist <= interactDistance) {
+                    npcAiManager.removeNpc(nearbyCar.id)
+
+                    // Usamos .update para modificar el StateFlow de forma segura
+                    _uiState.update {
+                        it.copy(
+                            drivingCarModel = nearbyCar.carModel,
+                            drivingCarColor = nearbyCar.carColor
+                        )
+                    }
+                }
+            }
+        }
+    }
+    // Helper matemático para calcular distancia (ponlo al final de tu ViewModel)
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val dLat = lat1 - lat2
+        val dLon = (lon1 - lon2) * cos(lat1 * Math.PI / 180)
+        return sqrt(dLat * dLat + dLon * dLon)
     }
 }

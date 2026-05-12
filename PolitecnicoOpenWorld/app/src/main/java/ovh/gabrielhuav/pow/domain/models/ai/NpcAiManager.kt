@@ -44,6 +44,14 @@ class NpcAiManager {
         _npcs.value = currentLocals + remoteList
     }
 
+    fun removeNpc(npcId: String) {
+        _npcs.value = _npcs.value.filter { it.id != npcId }
+    }
+
+    fun addSpecificNpc(npc: Npc) {
+        _npcs.value = _npcs.value + npc
+    }
+
     suspend fun updateNpcs(playerLocation: GeoPoint) {
         if (!networkIsReady) return
         val currentNetwork = cachedRoadNetwork.get()

@@ -44,6 +44,7 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.draw.scale
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -331,6 +332,9 @@ fun WorldMapScreen(
             action = uiState.playerAction,
             isFacingRight = uiState.isPlayerFacingRight,
             zoomLevel = uiState.zoomLevel,
+            drivingCarModel = uiState.drivingCarModel,
+            drivingCarColor = uiState.drivingCarColor,
+            playerAngle = uiState.playerAngle, // 🟢 PASAMOS EL ÁNGULO
             modifier = Modifier.align(Alignment.Center)
         )
 
@@ -397,7 +401,13 @@ fun WorldMapScreen(
                 ActionButtonsController(
                     modifier = Modifier.scale(effectiveScale),
                     onActionChanged = { action, isPressed ->
-                        viewModel.updateActionState(action, isPressed)
+                        // Interceptamos la X solo cuando se presiona (no cuando se suelta)
+                        if (isPressed && action == GameAction.X) {
+                            viewModel.onInteractButtonPressed()
+                        } else {
+                            // Los demás botones (A, B, Y) o cuando sueltas la X siguen igual
+                            viewModel.updateActionState(action, isPressed)
+                        }
                     }
                 )
             }
