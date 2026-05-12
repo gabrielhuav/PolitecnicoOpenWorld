@@ -42,15 +42,12 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.sqrt
-
-
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
 
 // Clase de datos para el payload del servidor
 data class MultiplayerPlayer(
+    val type: String = "PLAYER_UPDATE",
     val id: String,
     val displayName: String = "",
     val x: Double,
@@ -67,8 +64,12 @@ data class MultiplayerNpc(
     val rotation: Float,
     val npcType: String,
     val ownerId: String? = null,
-    val carModel: String? = null, // NUEVO: Modelo del coche
-    val carColor: Int? = null     // NUEVO: Color del coche
+    val carModel: String? = null,
+    val carColor: Int? = null,
+    val hairId: Int? = null,
+    val hairColor: Long? = null,
+    val shirtColor: Long? = null,
+    val pantsColor: Long? = null
 )
 
 // Modelo unificado para todos los mensajes del servidor
@@ -85,7 +86,8 @@ private data class ServerMessage(
     val npcs: List<MultiplayerNpc>? = null,
     val npcId: String? = null,
     val orphanedNpcs: List<String>? = null,
-    val activeNpcIds: List<String>? = null
+    val activeNpcIds: List<String>? = null,
+    val isZoneHost: Boolean? = null
 )
 
 class WorldMapViewModel(
@@ -168,6 +170,7 @@ class WorldMapViewModel(
         updateNpcsState()
     }
 
+    private var isServerDelegatedHost = true
     private fun handleMultiplayerMessage(messageJson: String) {
         try {
             val msg = gson.fromJson(messageJson, ServerMessage::class.java)
@@ -185,6 +188,14 @@ class WorldMapViewModel(
                         }
                     }
                     updateNpcsState()
+                }
+
+                "ROLE_UPDATE" -> {
+                    // EL SERVIDOR TE DA O TE QUITA EL PODER
+                    msg.isZoneHost?.let {
+                        isServerDelegatedHost = it
+                        Log.d("Multiplayer", "Mi rol en esta zona ahora es Host: $it")
+                    }
                 }
 
                 "NPC_SPAWN", "NPC_UPDATE" -> {
@@ -221,17 +232,17 @@ class WorldMapViewModel(
 
                 "MASTER_SYNC_CHECK" -> {
                     msg.activeNpcIds?.let { officialIds ->
-                        // Convert to Set for O(1) lookups inside the loop.
                         val officialSet = officialIds.toSet()
-                        // LIMPIEZA ABSOLUTA: Si tenemos un NPC remoto dibujado que el servidor no reconoce, bórralo instantáneamente.
-                        val iterator = remoteEntities.iterator()
                         var stateChanged = false
+                        val iterator = remoteEntities.iterator()
                         while (iterator.hasNext()) {
                             val entry = iterator.next()
-                            val npc = entry.value
-                            if (npc.isRemote && !officialSet.contains(npc.id)) {
-                                iterator.remove()
-                                stateChanged = true
+                            // Protegemos firmemente a los jugadores reales
+                            if (entry.value.displayName.isNullOrEmpty()) {
+                                if (!officialSet.contains(entry.key)) {
+                                    iterator.remove()
+                                    stateChanged = true
+                                }
                             }
                         }
                         if (stateChanged) updateNpcsState()
@@ -280,7 +291,7 @@ class WorldMapViewModel(
     private fun addRemoteEntity(remote: MultiplayerNpc) {
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
 
-        // Interpretar el modelo y el color
+        // Interpretar el modelo y el color de autos
         val cModel = try { remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) } ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN }
         val cColor = remote.carColor ?: 0xFFFFFFFF.toInt()
 
@@ -288,39 +299,40 @@ class WorldMapViewModel(
             ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
                 bodyFolder = "npc_walk_1",
                 bodyPrefix = "npc_walk_1_",
-                hairId = 1,
-                hairColor = androidx.compose.ui.graphics.Color.White,
-                shirtColor = androidx.compose.ui.graphics.Color.LightGray,
-                pantsColor = androidx.compose.ui.graphics.Color.DarkGray
+                hairId = remote.hairId ?: 1,
+                hairColor = remote.hairColor?.let { androidx.compose.ui.graphics.Color(it.toULong()) } ?: androidx.compose.ui.graphics.Color.White,
+                shirtColor = remote.shirtColor?.let { androidx.compose.ui.graphics.Color(it.toULong()) } ?: androidx.compose.ui.graphics.Color.LightGray,
+                pantsColor = remote.pantsColor?.let { androidx.compose.ui.graphics.Color(it.toULong()) } ?: androidx.compose.ui.graphics.Color.DarkGray
             )
         } else null
 
         val isMoving = npcType == NpcType.PERSON
         val facingRight = cos(Math.toRadians(remote.rotation.toDouble())) >= 0
 
+        // Asignar velocidad real para que el nuevo Host pueda moverlos
+        val restoredSpeed = if (npcType == NpcType.CAR) 0.000015 else 0.000004
 
         remoteEntities[remote.id] = Npc(
             id = remote.id,
             type = npcType,
             location = GeoPoint(remote.y, remote.x),
             rotationAngle = remote.rotation,
-            speed = 0.0,
+            speed = restoredSpeed,
             isRemote = true,
             isMoving = isMoving,
             facingRight = facingRight,
             ownerId = remote.ownerId,
             carModel = cModel,
             carColor = cColor,
-            visualConfig = visualConfig
+            visualConfig = visualConfig,
+            displayName = null // Aseguramos que no se confundan con jugadores
         )
     }
 
     private fun updateNpcsState() {
-        val aiNpcs = npcAiManager.npcs.value
-        val allNpcs = aiNpcs + remoteEntities.values.toList()
-        _uiState.update { it.copy(npcs = allNpcs) }
+        // La FUENTE ÚNICA DE LA VERDAD. Se dibuja lo que el servidor diga, nada más.
+        _uiState.update { it.copy(npcs = remoteEntities.values.toList()) }
     }
-
     // ─── GAME LOOP ───────────────────────────────────────────────────────────────
 
     fun startGameLoop() {
@@ -366,63 +378,83 @@ class WorldMapViewModel(
             }
 
             // Game loop principal ~30fps
+// Game loop principal ~30fps
             while (isActive) {
-                _uiState.value.currentLocation?.let { location ->
-                    maybeRefetchRoadNetwork(location)
-                    if (_uiState.value.isRoadNetworkReady) {
-                        tickCount++
-                        if (tickCount % 3 == 0) {
-                            // Sync remote entities into AI manager so spawn/despawn limits
-                            // account for server-driven NPCs and players.
-                            npcAiManager.setRemoteNpcs(remoteEntities.values.toList())
-                            npcAiManager.updateNpcs(location)
-                            updateNpcsState()
+                try { // 🛡ESCUDO ANTI-CRASHEO INICIADO
+                    _uiState.value.currentLocation?.let { location ->
+                        maybeRefetchRoadNetwork(location)
+                        if (_uiState.value.isRoadNetworkReady) {
+                            tickCount++
+                            if (tickCount % 3 == 0) {
+                                // 1. Damos SOLO los NPCs a la IA (Filtrando posibles jugadores basura)
+                                val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
+                                npcAiManager.setServerNpcs(npcOnlyList)
 
-                            // BROADCAST MULTIJUGADOR: Enviamos nuestra posición al servidor
-                            webSocketManager?.let { ws ->
-                                val myData = MultiplayerPlayer(
-                                    id = myPlayerUUID,
-                                    displayName = myPlayerDisplayName,
-                                    x = location.longitude,
-                                    y = location.latitude,
-                                    action = _uiState.value.playerAction.name,
-                                    facingRight = _uiState.value.isPlayerFacingRight
-                                )
-                                ws.sendMessage(gson.toJson(myData))
-                                // 1. Notificar NPCs que deben ser borrados (Despawn local)
-                                synchronized(npcAiManager.pendingDespawns) {
-                                    while (npcAiManager.pendingDespawns.isNotEmpty()) {
-                                        val idToRemove = npcAiManager.pendingDespawns.removeAt(0)
-                                        ws.sendMessage(gson.toJson(mapOf(
-                                            "type" to "NPC_DESTROY",
-                                            "npcId" to idToRemove
-                                        )))
+                                // 2. IA procesa físicas
+                                npcAiManager.updateNpcs(location, isServerDelegatedHost)
+                                val processedNpcs = npcAiManager.getServerNpcs()
+
+                                // 3. Aplicar cambios locales
+                                if (isServerDelegatedHost) {
+                                    synchronized(npcAiManager.pendingDespawns) {
+                                        npcAiManager.pendingDespawns.forEach { remoteEntities.remove(it) }
                                     }
+                                    processedNpcs.forEach { remoteEntities[it.id] = it }
                                 }
+                                updateNpcsState()
 
-                                // 2. Enviar actualización de NPCs LOCALES en un único mensaje batch.
-                                val myLocalNpcs = npcAiManager.npcs.value.filter { !it.isRemote }
-                                if (myLocalNpcs.isNotEmpty()) {
-                                    val npcBatch = myLocalNpcs.map { localNpc ->
-                                        MultiplayerNpc(
-                                            id = localNpc.id,
-                                            x = localNpc.location.longitude,
-                                            y = localNpc.location.latitude,
-                                            rotation = localNpc.rotationAngle,
-                                            npcType = localNpc.type.name,
-                                            ownerId = myPlayerUUID,
-                                            carModel = localNpc.carModel.name,
-                                            carColor = localNpc.carColor
-                                        )
+                                // 4. Enviar datos por red
+                                webSocketManager?.let { ws ->
+                                    // Envolvemos todo el envío de red en un bloque seguro
+                                    viewModelScope.launch(Dispatchers.IO) {
+                                        try {
+                                            val myData = MultiplayerPlayer(
+                                                id = myPlayerUUID, displayName = myPlayerDisplayName,
+                                                x = location.longitude, y = location.latitude,
+                                                action = _uiState.value.playerAction.name,
+                                                facingRight = _uiState.value.isPlayerFacingRight
+                                            )
+                                            ws.sendMessage(gson.toJson(myData))
+
+                                            if (isServerDelegatedHost) {
+                                                val despawnsToSend = synchronized(npcAiManager.pendingDespawns) {
+                                                    val list = npcAiManager.pendingDespawns.toList()
+                                                    npcAiManager.pendingDespawns.clear()
+                                                    list
+                                                }
+
+                                                despawnsToSend.forEach { idToRemove ->
+                                                    ws.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to idToRemove)))
+                                                }
+
+                                                if (processedNpcs.isNotEmpty()) {
+                                                    val npcBatch = processedNpcs.map { npc ->
+                                                        MultiplayerNpc(
+                                                            id = npc.id, x = npc.location.longitude, y = npc.location.latitude,
+                                                            rotation = npc.rotationAngle, npcType = npc.type.name,
+                                                            ownerId = myPlayerUUID, carModel = npc.carModel?.name, carColor = npc.carColor,
+                                                            hairId = npc.visualConfig?.hairId,
+                                                            hairColor = npc.visualConfig?.hairColor?.value?.toLong(),
+                                                            shirtColor = npc.visualConfig?.shirtColor?.value?.toLong(),
+                                                            pantsColor = npc.visualConfig?.pantsColor?.value?.toLong()
+                                                        )
+                                                    }
+                                                    ws.sendMessage(gson.toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
+                                                }
+                                            } else {
+                                                synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.clear() }
+                                            }
+                                        } catch (e: Exception) {
+                                            Log.e("Network", "Error al enviar datos: ${e.message}")
+                                        }
                                     }
-                                    ws.sendMessage(gson.toJson(mapOf(
-                                        "type" to "NPC_BATCH_UPDATE",
-                                        "npcs" to npcBatch
-                                    )))
                                 }
                             }
                         }
                     }
+                } catch (e: Exception) {
+                    // Si algo explota (ej. concurrencia), el loop sobrevive y continúa en el próximo frame
+                    Log.e("GameLoop", "Crasheo evitado en el ciclo principal: ${e.message}")
                 }
                 delay(33)
             }
@@ -757,7 +789,7 @@ class WorldMapViewModel(
             // --- SUBIRSE AL AUTO ---
             val interactDistance = 0.0003
 
-            val nearbyCar = npcAiManager.npcs.value
+            val nearbyCar = npcAiManager.getServerNpcs()
                 .filter { it.type == NpcType.CAR }
                 .minByOrNull {
                     calculateDistance(
