@@ -23,6 +23,7 @@ import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
+import ovh.gabrielhuav.pow.domain.models.CarModel
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.NpcType
@@ -131,6 +132,17 @@ class WorldMapViewModel(
 
     private val REFETCH_DISTANCE_DEG = 0.015
     private val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
+
+    // Variables de Control para Vehículos
+    var isSteeringLeftPressed = false
+    var isSteeringRightPressed = false
+    var isGasPressed = false
+    var isBrakePressed = false
+
+    private val MAX_SPEED = 0.000030
+    private val ACCELERATION = 0.000001
+    private val BRAKING_FRICTION = 0.000002
+    private val INTERACT_RADIUS = 0.0005 // Rango para detectar autos
 
 // ─── WEBSOCKET MULTIJUGADOR ───────────────────────────────────────────────────
 
@@ -381,6 +393,45 @@ class WorldMapViewModel(
             while (isActive) {
                 try { // 🛡ESCUDO ANTI-CRASHEO INICIADO
                     _uiState.value.currentLocation?.let { location ->
+
+                        // --- LÓGICA DE CONDUCCIÓN DEL JUGADOR ---
+                        if (_uiState.value.isDriving) {
+                            var currentSpeed = _uiState.value.vehicleSpeed
+                            var currentRotation = _uiState.value.vehicleRotation
+
+                            // Dirección (Flechas)
+                            if (isSteeringLeftPressed && currentSpeed != 0.0) currentRotation -= 5f
+                            if (isSteeringRightPressed && currentSpeed != 0.0) currentRotation += 5f
+
+                            // Acelerador y Freno
+                            if (isGasPressed) {
+                                currentSpeed = (currentSpeed + ACCELERATION).coerceAtMost(MAX_SPEED)
+                            } else if (isBrakePressed) {
+                                // Frena o da reversa
+                                currentSpeed -= BRAKING_FRICTION
+                                if (currentSpeed < -MAX_SPEED / 2) currentSpeed = -MAX_SPEED / 2 // Límite de reversa
+                            } else {
+                                // Fricción natural al soltar pedales
+                                if (currentSpeed > 0) currentSpeed = (currentSpeed - (ACCELERATION / 2)).coerceAtLeast(0.0)
+                                if (currentSpeed < 0) currentSpeed = (currentSpeed + (ACCELERATION / 2)).coerceAtMost(0.0)
+                            }
+
+                            // Calcular nueva posición trigonométrica
+                            val angleRad = Math.toRadians((-currentRotation + 90.0)).toFloat()
+                            val dx = kotlin.math.cos(angleRad) * currentSpeed
+                            val dy = kotlin.math.sin(angleRad) * currentSpeed
+
+                            val newLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
+
+                            _uiState.update {
+                                it.copy(
+                                    currentLocation = newLoc, // Aplica el snap-to-road si quieres que no se salgan de la calle
+                                    vehicleSpeed = currentSpeed,
+                                    vehicleRotation = (currentRotation + 360) % 360f
+                                )
+                            }
+                        }
+
                         maybeRefetchRoadNetwork(location)
                         if (_uiState.value.isRoadNetworkReady) {
                             tickCount++
@@ -739,4 +790,83 @@ class WorldMapViewModel(
             }
         }
     }
+    fun onInteractButtonPressed() { // Llamar cuando se presiona 'Y'
+        val loc = _uiState.value.currentLocation ?: return
+
+        if (!_uiState.value.isDriving) {
+            // --- 1. INTENTAR ABORDAR (A PIE -> AUTO) ---
+            // Buscar el coche más cercano usando la función distance() que ya tienes
+            val nearbyCarEntry = remoteEntities.entries
+                .filter { it.value.type == NpcType.CAR && distance(loc, it.value.location) <= INTERACT_RADIUS }
+                .minByOrNull { distance(loc, it.value.location) }
+
+            if (nearbyCarEntry != null) {
+                val carId = nearbyCarEntry.key
+                val carNpc = nearbyCarEntry.value
+
+                // Eliminar el auto del mundo (lo 'absorbe' el jugador)
+                remoteEntities.remove(carId)
+
+                // Spawn del conductor desalojado (Punto 4)
+                spawnOustedDriver(carNpc.location)
+
+                // Actualizar estado a conduciendo
+                _uiState.update {
+                    it.copy(
+                        isDriving = true,
+                        currentVehicleModel = carNpc.carModel,
+                        currentVehicleColor = carNpc.carColor,
+                        vehicleRotation = carNpc.rotationAngle,
+                        vehicleSpeed = 0.0
+                    )
+                }
+                updateNpcsState()
+            }
+        } else {
+            // --- 5. PERSISTENCIA: BAJAR DEL AUTO (AUTO -> A PIE) ---
+            val abandonedCar = Npc(
+                id = UUID.randomUUID().toString(),
+                type = NpcType.CAR,
+                location = loc,
+                rotationAngle = _uiState.value.vehicleRotation, // Mantiene el ángulo exacto
+                speed = 0.0, // Se queda quieto
+                isMoving = false,
+                carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
+                carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt()
+            )
+
+            // Colocar el auto de vuelta en el mapa
+            remoteEntities[abandonedCar.id] = abandonedCar
+
+            // Volver a pie
+            _uiState.update {
+                it.copy(
+                    isDriving = false,
+                    currentVehicleModel = null,
+                    currentVehicleColor = null,
+                    vehicleSpeed = 0.0
+                )
+            }
+            updateNpcsState()
+        }
+    }
+
+    // Genera un NPC peatón asustado/desalojado al lado del auto
+    private fun spawnOustedDriver(carLocation: GeoPoint) {
+        val offsetLoc = GeoPoint(carLocation.latitude + 0.00005, carLocation.longitude + 0.00005)
+        val driver = Npc(
+            id = UUID.randomUUID().toString(),
+            type = NpcType.PERSON,
+            location = offsetLoc,
+            speed = 0.000002, // Huye corriendo
+            isMoving = true,
+            // Asignar un visualConfig aleatorio usando tu modelo CharacterVisualConfig
+        )
+        remoteEntities[driver.id] = driver
+    }
+
+    fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
+    fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed }
+    fun accelerate(pressed: Boolean) { isGasPressed = pressed }
+    fun brake(pressed: Boolean) { isBrakePressed = pressed }
 }

@@ -35,15 +35,19 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehiclePedalsController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSteeringController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.draw.scale
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -328,9 +332,7 @@ fun WorldMapScreen(
         }
         // ─── CAPA 2, 3, 4, 5, 6, 7 (Idénticas) ──────────────────────────────────
         ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
-            action = uiState.playerAction,
-            isFacingRight = uiState.isPlayerFacingRight,
-            zoomLevel = uiState.zoomLevel,
+            uiState = uiState, // PASAMOS TODO EL ESTADO AQUÍ AHORA
             modifier = Modifier.align(Alignment.Center)
         )
 
@@ -386,23 +388,49 @@ fun WorldMapScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val movementComponent = @Composable {
-                if (uiState.controlType == ControlType.DPAD) {
-                    DPadController(modifier = Modifier.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
-                } else {
-                    JoystickController(modifier = Modifier.scale(effectiveScale), onMove = { angle -> viewModel.moveCharacterByAngle(angle) })
+            if (uiState.isDriving) {
+                // --- ESQUEMA DE CONDUCCIÓN ---
+                val steeringComponent = @Composable {
+                    VehicleSteeringController(
+                        modifier = Modifier.scale(effectiveScale),
+                        onSteerLeft = { viewModel.steerLeft(it) },
+                        onSteerRight = { viewModel.steerRight(it) }
+                    )
                 }
-            }
-            val actionComponent = @Composable {
-                ActionButtonsController(
-                    modifier = Modifier.scale(effectiveScale),
-                    onActionChanged = { action, isPressed ->
-                        viewModel.updateActionState(action, isPressed)
+                val pedalsComponent = @Composable {
+                    VehiclePedalsController(
+                        modifier = Modifier.scale(effectiveScale),
+                        onAccelerate = { viewModel.accelerate(it) },
+                        onBrake = { viewModel.brake(it) },
+                        onExit = { viewModel.onInteractButtonPressed() }
+                    )
+                }
+                if (uiState.swapControls) { pedalsComponent(); steeringComponent() }
+                else { steeringComponent(); pedalsComponent() }
+            } else {
+                // --- ESQUEMA A PIE ---
+                val movementComponent = @Composable {
+                    if (uiState.controlType == ControlType.DPAD) {
+                        DPadController(modifier = Modifier.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
+                    } else {
+                        JoystickController(modifier = Modifier.scale(effectiveScale), onMove = { angle -> viewModel.moveCharacterByAngle(angle) })
                     }
-                )
+                }
+                val actionComponent = @Composable {
+                    ActionButtonsController(
+                        modifier = Modifier.scale(effectiveScale),
+                        onActionChanged = { action, isPressed ->
+                            // ¡AQUÍ ESTÁ LA MAGIA PARA SUBIR AL AUTO!
+                            if (action == GameAction.Y && isPressed) {
+                                viewModel.onInteractButtonPressed()
+                            }
+                            viewModel.updateActionState(action, isPressed)
+                        }
+                    )
+                }
+                if (uiState.swapControls) { actionComponent(); movementComponent() }
+                else { movementComponent(); actionComponent() }
             }
-            if (uiState.swapControls) { actionComponent(); movementComponent() }
-            else { movementComponent(); actionComponent() }
         }
     }
 }
