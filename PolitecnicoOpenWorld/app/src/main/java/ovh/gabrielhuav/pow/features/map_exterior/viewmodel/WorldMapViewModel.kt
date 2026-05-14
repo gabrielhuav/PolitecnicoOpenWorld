@@ -707,6 +707,20 @@ class WorldMapViewModel(
 
     fun zoomIn()  = _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
     fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
+    
+    fun centerOnPlayer() {
+        // Desactiva modo pan SOLO cuando el usuario presiona FAB
+        _uiState.update { it.copy(isUserPanningMap = false) }
+    }
+    
+    fun onMapPanStart() {
+        _uiState.update { it.copy(isUserPanningMap = true) }
+    }
+    
+    fun onMapPanEnd() {
+        // Pan terminó, pero el mapa se queda donde está
+        // isUserPanningMap permanece true hasta que el usuario presione FAB
+    }
 
     override fun onCleared() {
         super.onCleared()

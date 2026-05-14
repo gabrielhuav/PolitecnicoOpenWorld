@@ -40,7 +40,10 @@ data class WorldMapState(
     // Control de los estados del personaje principal
     val playerAction: PlayerAction = PlayerAction.IDLE,
     val isPlayerFacingRight: Boolean = true,
-    val isRunning: Boolean = false
+    val isRunning: Boolean = false,
+    
+    // Control de seguimiento del mapa
+    val isUserPanningMap: Boolean = false
 ) {
     companion object {
         const val ZOOM_LOADING        = 17.0

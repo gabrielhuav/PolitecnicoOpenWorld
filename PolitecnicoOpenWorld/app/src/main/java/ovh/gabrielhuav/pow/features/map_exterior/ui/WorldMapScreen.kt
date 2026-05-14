@@ -101,24 +101,42 @@ fun WorldMapScreen(
         }
 // ───── CAPA 1: MAPA ────────────────────────────────────────────────────────
         if (uiState.mapProvider == MapProvider.OSM) {
+            var lastCenter by remember { mutableStateOf<org.osmdroid.util.GeoPoint?>(null) }
+            
             AndroidView(
                 factory = { ctx ->
                     MapView(ctx).apply {
                         setTileSource(TileSourceFactory.MAPNIK)
-                        setMultiTouchControls(false)
-                        setOnTouchListener { _, _ -> true }
+                        setMultiTouchControls(true)
                         isClickable = false; isFocusable = false
                         controller.setZoom(uiState.zoomLevel)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
-                    uiState.currentLocation?.let { view.controller.setCenter(it) }
-                    val zoomDiff = kotlin.math.abs(view.zoomLevelDouble - uiState.zoomLevel)
-                    when {
-                        zoomDiff < 0.01 -> {}
-                        zoomDiff > 1.5  -> view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
-                        else            -> view.controller.setZoom(uiState.zoomLevel)
+                    val currentCenter = view.mapCenter as? org.osmdroid.util.GeoPoint
+                    
+                    // Detectar si el mapa ha sido movido por el usuario
+                    if (lastCenter != null && lastCenter != currentCenter && uiState.isUserPanningMap == false) {
+                        viewModel.onMapPanStart()
+                    }
+                    lastCenter = currentCenter
+                    
+                    // Solo actualizar el centro del mapa si el usuario NO está haciendo pan
+                    if (!uiState.isUserPanningMap) {
+                        uiState.currentLocation?.let { view.controller.setCenter(it) }
+                        val zoomDiff = kotlin.math.abs(view.zoomLevelDouble - uiState.zoomLevel)
+                        when {
+                            zoomDiff < 0.01 -> {}
+                            zoomDiff > 1.5  -> view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
+                            else            -> view.controller.setZoom(uiState.zoomLevel)
+                        }
+                    } else {
+                        // Si está panning, solo actualizar zoom si cambió significativamente
+                        val zoomDiff = kotlin.math.abs(view.zoomLevelDouble - uiState.zoomLevel)
+                        if (zoomDiff > 0.01) {
+                            view.controller.setZoom(uiState.zoomLevel)
+                        }
                     }
 
                     if (uiState.isRoadNetworkReady) {
@@ -216,6 +234,20 @@ fun WorldMapScreen(
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
                         settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                        
+                        // Agregar JavaScript Bridge para comunicación bidireccional
+                        addJavascriptInterface(object {
+                            @android.webkit.JavascriptInterface
+                            fun notifyMapPanStart() {
+                                viewModel.onMapPanStart()
+                            }
+                            
+                            @android.webkit.JavascriptInterface
+                            fun notifyMapPanEnd() {
+                                viewModel.onMapPanEnd()
+                            }
+                        }, "Android")
+                        
                         webViewClient = cachingClient
                         val lat = uiState.currentLocation?.latitude ?: 0.0
                         val lng = uiState.currentLocation?.longitude ?: 0.0
@@ -224,9 +256,17 @@ fun WorldMapScreen(
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { wv ->
-                    uiState.currentLocation?.let {
-                        // Combinamos Latitud, Longitud y Zoom en un solo disparo a JS
-                        wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
+                    // Si el usuario deja de hacer pan, salir del modo exploración en JS
+                    if (!uiState.isUserPanningMap) {
+                        wv.evaluateJavascript("if(typeof exitExplorationMode==='function')exitExplorationMode();", null)
+                    }
+                    
+                    // Solo actualizar la vista del mapa si el usuario NO está haciendo pan
+                    if (!uiState.isUserPanningMap) {
+                        uiState.currentLocation?.let {
+                            // Combinamos Latitud, Longitud y Zoom en un solo disparo a JS
+                            wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
+                        }
                     }
 
                     val tileUrl = when (uiState.mapProvider) {
@@ -327,12 +367,15 @@ fun WorldMapScreen(
             )
         }
         // ─── CAPA 2, 3, 4, 5, 6, 7 (Idénticas) ──────────────────────────────────
-        ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
-            action = uiState.playerAction,
-            isFacingRight = uiState.isPlayerFacingRight,
-            zoomLevel = uiState.zoomLevel,
-            modifier = Modifier.align(Alignment.Center)
-        )
+        // Mostrar el icono del personaje solo si NO está haciendo pan/zoom
+        if (!uiState.isUserPanningMap) {
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
+                action = uiState.playerAction,
+                isFacingRight = uiState.isPlayerFacingRight,
+                zoomLevel = uiState.zoomLevel,
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
 
         if (!uiState.isRoadNetworkReady) {
             Row(
@@ -372,6 +415,8 @@ fun WorldMapScreen(
             ) { Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
             IconButton(onClick = { viewModel.zoomOut() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
+            IconButton(onClick = { viewModel.centerOnPlayer() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)
+            ) { Icon(Icons.Default.Person, "Centrar en personaje", tint = Color.Black) }
         }
 
         val configuration = LocalConfiguration.current
@@ -479,17 +524,31 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         }).addTo(map);
         var npcMarkers = {};
 
-        // --- SISTEMA ANTI-DESINCRONIZACIÓN ---
-        // Detectamos si el usuario está pellizcando la pantalla
+        // --- SISTEMA DE DETECCIÓN DE PAN/ZOOM Y NOTIFICACIÓN A KOTLIN ---
         var isZooming = false;
+        var isExplorationMode = false; // Permanente hasta que el usuario presione FAB
+        
         map.on('zoomstart', function() { isZooming = true; });
         map.on('zoomend', function() { isZooming = false; });
+        
+        map.on('dragstart', function() { 
+            isExplorationMode = true;
+            if (window.Android) window.Android.notifyMapPanStart();
+        });
+        map.on('dragend', function() { 
+            if (window.Android) window.Android.notifyMapPanEnd();
+        });
 
 
         function updateMapView(lat, lng, z) { 
-            if (!isZooming) { // Evitar tirones si el usuario está pellizcando
+            if (!isZooming && !isExplorationMode) { // No actualizar si está en modo exploración
                 map.setView([lat, lng], z, { animate: false }); 
             }
+        }
+        
+        // Función para salir del modo exploración (llamada desde el botón FAB)
+        function exitExplorationMode() {
+            isExplorationMode = false;
         }
         
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
