@@ -35,8 +35,10 @@ fun PlayerCharacter(
     modifier: Modifier = Modifier
 ) {
     val zoomLevel = uiState.zoomLevel
-    val isZoomedIn = zoomLevel >= 18
+    val isZoomedIn = zoomLevel >= 16.5
     val context = LocalContext.current
+
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
 
     if (!isZoomedIn) {
         // --- MARCADOR ALEJADO ---
@@ -68,10 +70,9 @@ fun PlayerCharacter(
             // Como tus sprites a 0° miran hacia la derecha, usamos 270° (o -90°)
             // para obligar a que la parte delantera apunte siempre hacia arriba.
             val visualRotation = 270f
+            val dynamicScale = (1.4 * Math.pow(2.0, zoomLevel - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
 
-            val dynamicScale = (1.4 * Math.pow(2.0, zoomLevel - 19.0)).toFloat().coerceIn(0.2f, 2.5f)
-            val baseSizeDp = 110.0
-            val calculatedSize = (baseSizeDp * dynamicScale).dp
+
 
             val bitmapKey = "${carModel.name}_${visualRotation}_${carColor}_${dynamicScale}"
             var carImage by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -91,10 +92,13 @@ fun PlayerCharacter(
             }
 
             carImage?.let { img ->
+                val exactWidthDp = (img.width / density).dp
+                val exactHeightDp = (img.height / density).dp
+
                 Image(
                     bitmap = img,
                     contentDescription = "Player Vehicle",
-                    modifier = modifier.size(calculatedSize)
+                    modifier = modifier.size(exactWidthDp, exactHeightDp)
                 )
             }
 
@@ -150,7 +154,7 @@ fun PlayerCharacter(
             }
 
             currentImage?.let { img ->
-                val calculatedSize = (48.0 + ((zoomLevel - 18.0) * 16.0)).coerceIn(48.0, 90.0).dp
+                val calculatedSize = (24.0 + ((zoomLevel - 18.0) * 8.0)).coerceIn(16.0, 40.0).dp
                 val visualCompensation = when (action) {
                     PlayerAction.IDLE -> 1.0f
                     PlayerAction.WALK -> 1.0f
