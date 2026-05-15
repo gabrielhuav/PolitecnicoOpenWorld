@@ -118,6 +118,12 @@ fun WorldMapScreen(
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
                     uiState.currentLocation?.let { view.controller.setCenter(it) }
+
+                    // --- CÁMARA ESTILO GPS CORREGIDA ---
+                    // Compensamos el desfase matemático: 90f - rotación
+                    view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
+                    // -------------------------
+
                     val zoomDiff = kotlin.math.abs(view.zoomLevelDouble - uiState.zoomLevel)
                     when {
                         zoomDiff < 0.01 -> {}
@@ -229,9 +235,13 @@ fun WorldMapScreen(
                 modifier = Modifier.fillMaxSize(),
                 update = { wv ->
                     uiState.currentLocation?.let {
-                        // Combinamos Latitud, Longitud y Zoom en un solo disparo a JS
                         wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
                     }
+
+                    // --- CÁMARA ESTILO GPS PARA LA WEB CORREGIDA ---
+                    val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
+                    wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
+                    // -------------------------------------
 
                     val tileUrl = when (uiState.mapProvider) {
                         MapProvider.CARTO_DB_DARK  -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -486,13 +496,22 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #aad3df; overflow: hidden; }
-        #map { width: 100vw; height: 100vh; background: #aad3df; }
+        
+        /* Wrapper sobredimensionado para absorber la rotación sin mostrar esquinas vacías */
+        #map-wrapper { 
+            position: absolute; 
+            top: -50%; left: -50%; 
+            width: 200vw; height: 200vh; 
+            transform-origin: center center;
+        }
+        #map { width: 100%; height: 100%; background: transparent; }
+        
         .leaflet-marker-icon { background: none !important; border: none !important; }
         .npc-c { pointer-events: none; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
-    <div id="map"></div>
+    <div id="map-wrapper"><div id="map"></div></div>
     <script>
         var map = L.map('map', { 
             zoomControl: false, 
@@ -508,15 +527,21 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var npcMarkers = {};
 
         // --- SISTEMA ANTI-DESINCRONIZACIÓN ---
-        // Detectamos si el usuario está pellizcando la pantalla
         var isZooming = false;
         map.on('zoomstart', function() { isZooming = true; });
         map.on('zoomend', function() { isZooming = false; });
 
-
         function updateMapView(lat, lng, z) { 
             if (!isZooming) { // Evitar tirones si el usuario está pellizcando
                 map.setView([lat, lng], z, { animate: false }); 
+            }
+        }
+        
+        // NUEVA FUNCIÓN PARA ROTAR EL MAPA COMPLETO
+        function setMapRotation(deg) {
+            var wrapper = document.getElementById('map-wrapper');
+            if (wrapper) {
+                wrapper.style.transform = 'rotate(' + deg + 'deg)';
             }
         }
         

@@ -63,23 +63,24 @@ fun PlayerCharacter(
             // ==========================================
             val carModel = uiState.currentVehicleModel ?: CarModel.SEDAN
             val carColor = uiState.currentVehicleColor ?: 0xFFFFFFFF.toInt()
-            val rotation = uiState.vehicleRotation
 
-            // Escalado dinámico usando la misma matemática del mapa
+            // CORRECCIÓN VISUAL:
+            // Como tus sprites a 0° miran hacia la derecha, usamos 270° (o -90°)
+            // para obligar a que la parte delantera apunte siempre hacia arriba.
+            val visualRotation = 270f
+
             val dynamicScale = (1.4 * Math.pow(2.0, zoomLevel - 19.0)).toFloat().coerceIn(0.2f, 2.5f)
-            val baseSizeDp = 110.0 // Tamaño base aproximado para el auto
+            val baseSizeDp = 110.0
             val calculatedSize = (baseSizeDp * dynamicScale).dp
 
-            val bitmapKey = "${carModel.name}_${rotation}_${carColor}_${dynamicScale}"
+            val bitmapKey = "${carModel.name}_${visualRotation}_${carColor}_${dynamicScale}"
             var carImage by remember { mutableStateOf<ImageBitmap?>(null) }
             var lastKey by remember { mutableStateOf("") }
 
             if (lastKey != bitmapKey) {
-                // 2. CORRECCIÓN: Pasamos los argumentos en el mismo orden que en WorldMapScreen
-                // context, rotationAngle, carColor, scale, carModel
                 val drawable = VehicleSpriteManager.getTintedCarNpc(
                     context,
-                    rotation,
+                    visualRotation, // Usamos los 90 grados fijos
                     carColor,
                     dynamicScale,
                     carModel

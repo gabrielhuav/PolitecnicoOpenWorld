@@ -400,32 +400,54 @@ class WorldMapViewModel(
                             var currentRotation = _uiState.value.vehicleRotation
 
                             // Dirección (Flechas)
-                            if (isSteeringLeftPressed && currentSpeed != 0.0) currentRotation -= 5f
-                            if (isSteeringRightPressed && currentSpeed != 0.0) currentRotation += 5f
+                            if (isSteeringLeftPressed && currentSpeed != 0.0) currentRotation -= 2f
+                            if (isSteeringRightPressed && currentSpeed != 0.0) currentRotation += 2f
 
                             // Acelerador y Freno
                             if (isGasPressed) {
                                 currentSpeed = (currentSpeed + ACCELERATION).coerceAtMost(MAX_SPEED)
                             } else if (isBrakePressed) {
-                                // Frena o da reversa
                                 currentSpeed -= BRAKING_FRICTION
-                                if (currentSpeed < -MAX_SPEED / 2) currentSpeed = -MAX_SPEED / 2 // Límite de reversa
+                                if (currentSpeed < -MAX_SPEED / 2) currentSpeed = -MAX_SPEED / 2
                             } else {
-                                // Fricción natural al soltar pedales
                                 if (currentSpeed > 0) currentSpeed = (currentSpeed - (ACCELERATION / 2)).coerceAtLeast(0.0)
                                 if (currentSpeed < 0) currentSpeed = (currentSpeed + (ACCELERATION / 2)).coerceAtMost(0.0)
                             }
 
-                            // Calcular nueva posición trigonométrica
-                            val angleRad = Math.toRadians((-currentRotation + 90.0)).toFloat()
-                            val dx = kotlin.math.cos(angleRad) * currentSpeed
-                            val dy = kotlin.math.sin(angleRad) * currentSpeed
+                            // 1. Calcular nueva posición trigonométrica temporal
+                            // 1. CORRECCIÓN DEFINITIVA: Trigonometría Geográfica (0° = Norte/Arriba)
+                            val angleRad = Math.toRadians(currentRotation.toDouble())
 
-                            val newLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
+                            // El eje X (Longitud) se calcula con el Seno
+                            val dx = kotlin.math.sin(angleRad) * currentSpeed
+                            // El eje Y (Latitud) se calcula con el Coseno
+                            val dy = kotlin.math.cos(angleRad) * currentSpeed
+
+                            val tempLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
+
+                            // 2. RESTRICCIÓN DE MAPA (NavMesh / Network)
+                            val nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
+                            val distToRoad = distance(tempLoc, nearestRoadPoint)
+                            val maxRoadRadius = 0.000025 // Tolerancia de salida de calle (ajustable)
+
+                            val finalLoc = if (distToRoad <= maxRoadRadius) {
+                                tempLoc // Flujo normal, está dentro del asfalto
+                            } else {
+                                // Se salió del camino, lo obligamos a quedarse en el borde
+                                val angleBack = atan2(tempLoc.latitude - nearestRoadPoint.latitude, tempLoc.longitude - nearestRoadPoint.longitude)
+
+                                // (Opcional) Penalización de choque: Pierde velocidad si intenta salirse de la calle
+                                currentSpeed *= 0.8
+
+                                GeoPoint(
+                                    nearestRoadPoint.latitude + sin(angleBack) * maxRoadRadius,
+                                    nearestRoadPoint.longitude + cos(angleBack) * maxRoadRadius
+                                )
+                            }
 
                             _uiState.update {
                                 it.copy(
-                                    currentLocation = newLoc, // Aplica el snap-to-road si quieres que no se salgan de la calle
+                                    currentLocation = finalLoc, // Posición bloqueada a la calle
                                     vehicleSpeed = currentSpeed,
                                     vehicleRotation = (currentRotation + 360) % 360f
                                 )
@@ -790,12 +812,11 @@ class WorldMapViewModel(
             }
         }
     }
-    fun onInteractButtonPressed() { // Llamar cuando se presiona 'Y'
+    fun onInteractButtonPressed() {
         val loc = _uiState.value.currentLocation ?: return
 
         if (!_uiState.value.isDriving) {
             // --- 1. INTENTAR ABORDAR (A PIE -> AUTO) ---
-            // Buscar el coche más cercano usando la función distance() que ya tienes
             val nearbyCarEntry = remoteEntities.entries
                 .filter { it.value.type == NpcType.CAR && distance(loc, it.value.location) <= INTERACT_RADIUS }
                 .minByOrNull { distance(loc, it.value.location) }
@@ -804,20 +825,21 @@ class WorldMapViewModel(
                 val carId = nearbyCarEntry.key
                 val carNpc = nearbyCarEntry.value
 
-                // Eliminar el auto del mundo (lo 'absorbe' el jugador)
                 remoteEntities.remove(carId)
 
-                // Spawn del conductor desalojado (Punto 4)
-                spawnOustedDriver(carNpc.location)
+                // LÓGICA DE INSTANCIACIÓN: Solo asustamos al conductor la primera vez
+                if (carNpc.isFirstTimeBoarded) {
+                    spawnOustedDriver(carNpc.location)
+                }
 
-                // Actualizar estado a conduciendo
                 _uiState.update {
                     it.copy(
                         isDriving = true,
                         currentVehicleModel = carNpc.carModel,
                         currentVehicleColor = carNpc.carColor,
                         vehicleRotation = carNpc.rotationAngle,
-                        vehicleSpeed = 0.0
+                        vehicleSpeed = 0.0,
+                        vehicleIsFirstTimeBoarded = false // A partir de ahora, ya es un auto robado
                     )
                 }
                 updateNpcsState()
@@ -828,43 +850,67 @@ class WorldMapViewModel(
                 id = UUID.randomUUID().toString(),
                 type = NpcType.CAR,
                 location = loc,
-                rotationAngle = _uiState.value.vehicleRotation, // Mantiene el ángulo exacto
-                speed = 0.0, // Se queda quieto
+                rotationAngle = _uiState.value.vehicleRotation,
+                speed = 0.0,
                 isMoving = false,
                 carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
-                carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt()
+                carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt(),
+                // Hereda el estado de que ya fue robado
+                isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded
             )
 
-            // Colocar el auto de vuelta en el mapa
             remoteEntities[abandonedCar.id] = abandonedCar
 
-            // Volver a pie
             _uiState.update {
                 it.copy(
                     isDriving = false,
                     currentVehicleModel = null,
                     currentVehicleColor = null,
-                    vehicleSpeed = 0.0
+                    vehicleSpeed = 0.0,
+                    vehicleIsFirstTimeBoarded = true
                 )
             }
             updateNpcsState()
         }
     }
-
     // Genera un NPC peatón asustado/desalojado al lado del auto
     private fun spawnOustedDriver(carLocation: GeoPoint) {
         val offsetLoc = GeoPoint(carLocation.latitude + 0.00005, carLocation.longitude + 0.00005)
+
+        // Generamos características físicas aleatorias para el NPC
+        val randomHairId = (1..5).random()
+        val randomHairColor = listOf(
+            androidx.compose.ui.graphics.Color.Black,
+            androidx.compose.ui.graphics.Color.DarkGray,
+            androidx.compose.ui.graphics.Color(0xFF8B4513), // Café
+            androidx.compose.ui.graphics.Color(0xFFDAA520)  // Rubio
+        ).random()
+        val randomShirtColor = listOf(
+            androidx.compose.ui.graphics.Color.White,
+            androidx.compose.ui.graphics.Color.Red,
+            androidx.compose.ui.graphics.Color.Blue,
+            androidx.compose.ui.graphics.Color.Green
+        ).random()
+
+        val visualConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+            bodyFolder = "npc_walk_1",
+            bodyPrefix = "npc_walk_1_",
+            hairId = randomHairId,
+            hairColor = randomHairColor,
+            shirtColor = randomShirtColor,
+            pantsColor = androidx.compose.ui.graphics.Color.DarkGray
+        )
+
         val driver = Npc(
             id = UUID.randomUUID().toString(),
             type = NpcType.PERSON,
             location = offsetLoc,
-            speed = 0.000002, // Huye corriendo
+            speed = 0.000004, // Corre rápido
             isMoving = true,
-            // Asignar un visualConfig aleatorio usando tu modelo CharacterVisualConfig
+            visualConfig = visualConfig // Asignamos el look procedural
         )
         remoteEntities[driver.id] = driver
     }
-
     fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
     fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed }
     fun accelerate(pressed: Boolean) { isGasPressed = pressed }

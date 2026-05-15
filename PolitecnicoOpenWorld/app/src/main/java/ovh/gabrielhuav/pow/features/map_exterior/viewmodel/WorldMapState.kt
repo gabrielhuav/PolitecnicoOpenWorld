@@ -46,8 +46,9 @@ data class WorldMapState(
     val currentVehicleModel: CarModel? = null,
     val currentVehicleColor: Int? = null,
     val vehicleSpeed: Double = 0.0,
-    val vehicleRotation: Float = 0f // Para los 48 frames del coche
-) {
+    val vehicleRotation: Float = 0f, // Para los 48 frames del coche
+    val vehicleIsFirstTimeBoarded: Boolean = true
+    ) {
     companion object {
         const val ZOOM_LOADING        = 17.0
         const val ZOOM_GAMEPLAY_OSM   = 21.0
