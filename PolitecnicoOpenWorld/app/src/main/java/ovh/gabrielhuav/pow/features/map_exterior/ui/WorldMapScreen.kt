@@ -707,9 +707,12 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                         var img = el.querySelector('img');
                         
                         if ((npc.type === 'CAR' || npc.type === 'MODULAR') && img && wrapper) {
-                            // Leemos la imagen desde la RAM del navegador
                             var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
-                            if (cachedImg && img.src !== cachedImg) img.src = cachedImg;
+                            
+                            // SI LA IMAGEN NO HA LLEGADO, SALTAMOS ESTE COCHE (Evita el fantasma)
+                            if (!cachedImg) return; 
+
+                            if (img.src !== cachedImg) img.src = cachedImg;
                             // Asignamos las dimensiones calculadas al contenedor
                             wrapper.style.width = finalW + 'px';
                             wrapper.style.height = finalH + 'px';
@@ -722,6 +725,10 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                     var html = '';
                     if (npc.type === 'CAR' || npc.type === 'MODULAR') {
                         var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
+                        
+                        // SI LA IMAGEN NO HA LLEGADO, SALTAMOS ESTE COCHE
+                        if (!cachedImg) return;
+
                         var flipStyle = (npc.flip !== undefined) ? 'transform: scaleX(' + npc.flip + ');' : '';
                         html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px;">' + nameTagHtml + '<img src="'+cachedImg+'" style="width:100%; height:100%; display:block; ' + flipStyle + '"></div>';
                     } else {

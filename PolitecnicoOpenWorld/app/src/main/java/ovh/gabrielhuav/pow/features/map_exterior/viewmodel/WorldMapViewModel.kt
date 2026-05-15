@@ -139,9 +139,9 @@ class WorldMapViewModel(
     var isGasPressed = false
     var isBrakePressed = false
 
-    private val MAX_SPEED = 0.000020
-    private val ACCELERATION = 0.0000006
-    private val BRAKING_FRICTION = 0.000002
+    private val MAX_SPEED = 0.000017
+    private val ACCELERATION = 0.0000003
+    private val BRAKING_FRICTION = 0.000001
     private val INTERACT_RADIUS = 0.0005 // Rango para detectar autos
 
 // ─── WEBSOCKET MULTIJUGADOR ───────────────────────────────────────────────────
