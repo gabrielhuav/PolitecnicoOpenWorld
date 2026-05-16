@@ -963,6 +963,8 @@ class WorldMapViewModel(
                     )
                 }
 
+                android.util.Log.d("Landmarks", "Cargados ${domainLandmarks.size} landmarks desde Room")
+
                 _uiState.update { currentState ->
                     currentState.copy(landmarks = domainLandmarks)
                 }

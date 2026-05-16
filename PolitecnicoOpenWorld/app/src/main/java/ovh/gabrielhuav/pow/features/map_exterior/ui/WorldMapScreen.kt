@@ -266,6 +266,87 @@ fun WorldMapScreen(
                             marker.position = org.osmdroid.util.GeoPoint(npc.location.latitude, npc.location.longitude)
                         }
                     }
+                    // ─── DIBUJADO DE LANDMARKS ───────────────────────────────────────────────
+                    if (uiState.landmarks.isNotEmpty()) {
+                        @Suppress("UNCHECKED_CAST")
+                        val landmarkCache = (view.getTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag) as? MutableMap<String, Marker>)
+                            ?: mutableMapOf<String, Marker>().also {
+                                view.setTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag, it)
+                            }
+
+                        uiState.landmarks.forEach { landmark ->
+                            val isNew = !landmarkCache.containsKey(landmark.id)
+                            val marker = landmarkCache[landmark.id] ?: Marker(view).apply {
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                isFlat = false
+                                title = "LANDMARK_${landmark.name}"
+                                landmarkCache[landmark.id] = this
+                                view.overlays.add(0, this)
+                                android.util.Log.d("Landmarks", "✅ Marker CREADO para ${landmark.name} en ${landmark.location}")
+                            }
+
+                            if (isNew) {
+                                android.util.Log.d("Landmarks", "🟡 Es nuevo. Cargando asset: ${landmark.assetPath}")
+                            }
+
+                            if (isNew) {
+                                android.util.Log.d("Landmarks", "🟡 Antes del try-catch")
+                                try {
+                                    // 1. Primera pasada: leer dimensiones SIN cargar pixels (gratis en memoria)
+                                    android.util.Log.d("Landmarks", "🟡 Leyendo dimensiones del WEBP...")
+                                    val opts = android.graphics.BitmapFactory.Options().apply {
+                                        inJustDecodeBounds = true
+                                    }
+                                    context.assets.open(landmark.assetPath).use { stream ->
+                                        android.graphics.BitmapFactory.decodeStream(stream, null, opts)
+                                    }
+                                    android.util.Log.d("Landmarks", "🟡 Dimensiones originales: ${opts.outWidth}x${opts.outHeight}")
+
+                                    if (opts.outWidth <= 0 || opts.outHeight <= 0) {
+                                        android.util.Log.e("Landmarks", "❌ Dimensiones inválidas. ¿El asset existe o el WEBP es válido?")
+                                    } else {
+                                        // 2. Calcular inSampleSize: si el original es muy grande, lo cargamos reducido
+                                        val maxDim = 1024
+                                        var sampleSize = 1
+                                        while (opts.outWidth / sampleSize > maxDim || opts.outHeight / sampleSize > maxDim) {
+                                            sampleSize *= 2
+                                        }
+                                        android.util.Log.d("Landmarks", "🟡 Usando inSampleSize=$sampleSize")
+
+                                        // 3. Segunda pasada: cargar el bitmap reducido
+                                        val realOpts = android.graphics.BitmapFactory.Options().apply {
+                                            inSampleSize = sampleSize
+                                            inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+                                        }
+                                        val bmp = context.assets.open(landmark.assetPath).use { stream ->
+                                            android.graphics.BitmapFactory.decodeStream(stream, null, realOpts)
+                                        }
+
+                                        if (bmp != null) {
+                                            android.util.Log.d("Landmarks", "✅ Bitmap cargado: ${bmp.width}x${bmp.height}, escala=${landmark.scaleFactor}")
+                                            val scaledW = (bmp.width * landmark.scaleFactor).toInt().coerceAtLeast(1)
+                                            val scaledH = (bmp.height * landmark.scaleFactor).toInt().coerceAtLeast(1)
+                                            val scaled = if (scaledW == bmp.width && scaledH == bmp.height) {
+                                                bmp
+                                            } else {
+                                                android.graphics.Bitmap.createScaledBitmap(bmp, scaledW, scaledH, true)
+                                            }
+                                            marker.icon = android.graphics.drawable.BitmapDrawable(context.resources, scaled)
+                                            android.util.Log.d("Landmarks", "✅ Icon final asignado: ${scaledW}x${scaledH}px")
+                                        } else {
+                                            android.util.Log.e("Landmarks", "❌ Bitmap NULL después de decode (segunda pasada)")
+                                        }
+                                    }
+                                } catch (e: Throwable) {
+                                    // CRÍTICO: Throwable y no Exception, para atrapar OutOfMemoryError.
+                                    android.util.Log.e("Landmarks", "❌ ${e.javaClass.simpleName}: ${e.message}", e)
+                                }
+                            }
+                            marker.position = landmark.location
+                            marker.rotation = landmark.rotationAngle
+                        }
+                    }
+
                     view.invalidate()
                 }
             )
