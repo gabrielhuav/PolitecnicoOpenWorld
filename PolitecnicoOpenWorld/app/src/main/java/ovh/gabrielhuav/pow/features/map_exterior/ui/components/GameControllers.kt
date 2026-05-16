@@ -275,7 +275,7 @@ fun VehiclePedalsController(
     backgroundAlpha: Float = 0.6f,
     onAccelerate: (Boolean) -> Unit,
     onBrake: (Boolean) -> Unit,
-    onExit: () -> Unit
+    onExit: (Boolean) -> Unit // CAMBIADO: Ahora recibe el estado de pulsación
 ) {
     Box(
         modifier = modifier
@@ -288,9 +288,8 @@ fun VehiclePedalsController(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Botón Y para bajarse (Se dispara solo al presionar)
             VehicleButton(text = "SALIR (Y)", color = Color(0xFFF1C40F)) { isPressed ->
-                if (isPressed) onExit()
+                onExit(isPressed) // CAMBIADO: Pasamos el estado directamente
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 VehicleButton(text = "FRENO", color = Color(0xFFE74C3C), onHoldEvent = onBrake)

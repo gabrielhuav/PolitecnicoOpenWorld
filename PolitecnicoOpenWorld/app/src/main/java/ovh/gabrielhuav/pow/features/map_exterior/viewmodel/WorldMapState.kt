@@ -53,5 +53,6 @@ data class WorldMapState(
     val vehicleSpeed: Double = 0.0,
     val vehicleRotation: Float = 0f, // Para los 48 frames del coche
     val vehicleIsFirstTimeBoarded: Boolean = true,
-    val landmarks: List<Landmark> = emptyList()
+    val landmarks: List<Landmark> = emptyList(),
+    val showTeleportMenu: Boolean = false // Estado para mostrar el menú de teletransporte
 )

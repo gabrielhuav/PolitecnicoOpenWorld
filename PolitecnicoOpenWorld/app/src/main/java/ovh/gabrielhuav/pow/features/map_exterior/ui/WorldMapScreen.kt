@@ -46,6 +46,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.draw.scale
+import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 
@@ -66,6 +67,10 @@ fun WorldMapScreen(
     // Recuerda qué imágenes ya cruzaron el puente a JavaScript
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
+
+    // Controladores de tiempo para el botón Y
+    val coroutineScope = rememberCoroutineScope()
+    var yButtonHoldJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
 // 1. EFECTO DE CARGA: Se ejecuta SIEMPRE una sola vez al iniciar la pantalla
     LaunchedEffect(Unit) {
@@ -468,6 +473,34 @@ fun WorldMapScreen(
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
         }
 
+        // =====================================================================
+        // BLOQUE DEL MENÚ DE TELETRANSPORTE
+        // =====================================================================
+        if (uiState.showTeleportMenu) {
+            AlertDialog(
+                onDismissRequest = { viewModel.toggleTeleportMenu(false) },
+                title = { Text("Menú de Viaje Rápido", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Selecciona tu destino:")
+
+                        Button(
+                            onClick = { viewModel.teleportTo(19.505700, -99.145618) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("ESCOM")
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.toggleTeleportMenu(false) }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
+        }
+        // =====================================================================
+
         val configuration = LocalConfiguration.current
         val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
         val maxScale = if (isPortrait) 1.0f else 1.4f
@@ -492,12 +525,27 @@ fun WorldMapScreen(
                         onSteerRight = { viewModel.steerRight(it) }
                     )
                 }
+                // ESQUEMA DE CONDUCCIÓN (VehiclePedalsController)
                 val pedalsComponent = @Composable {
                     VehiclePedalsController(
                         modifier = Modifier.scale(effectiveScale),
                         onAccelerate = { viewModel.accelerate(it) },
                         onBrake = { viewModel.brake(it) },
-                        onExit = { viewModel.onInteractButtonPressed() }
+                        onExit = { isPressed ->
+                            if (isPressed) {
+                                // Acción normal inmediata (bajar del auto)
+                                viewModel.onInteractButtonPressed()
+                                // Iniciar temporizador de 3 segundos
+                                yButtonHoldJob?.cancel()
+                                yButtonHoldJob = coroutineScope.launch {
+                                    kotlinx.coroutines.delay(3000)
+                                    viewModel.toggleTeleportMenu(true)
+                                }
+                            } else {
+                                // Si suelta el botón antes, se cancela el menú
+                                yButtonHoldJob?.cancel()
+                            }
+                        }
                     )
                 }
                 if (uiState.swapControls) { pedalsComponent(); steeringComponent() }
@@ -515,9 +563,20 @@ fun WorldMapScreen(
                     ActionButtonsController(
                         modifier = Modifier.scale(effectiveScale),
                         onActionChanged = { action, isPressed ->
-                            // SUBIR AL AUTO con Y
-                            if (action == GameAction.Y && isPressed) {
-                                viewModel.onInteractButtonPressed()
+                            if (action == GameAction.Y) {
+                                if (isPressed) {
+                                    // Acción normal inmediata (subir al auto)
+                                    viewModel.onInteractButtonPressed()
+                                    // Iniciar temporizador de 3 segundos
+                                    yButtonHoldJob?.cancel()
+                                    yButtonHoldJob = coroutineScope.launch {
+                                        kotlinx.coroutines.delay(3000)
+                                        viewModel.toggleTeleportMenu(true)
+                                    }
+                                } else {
+                                    // Si suelta el botón antes, se cancela el menú
+                                    yButtonHoldJob?.cancel()
+                                }
                             }
                             viewModel.updateActionState(action, isPressed)
                         }

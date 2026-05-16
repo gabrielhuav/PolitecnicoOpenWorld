@@ -1011,6 +1011,20 @@ class WorldMapViewModel(
         remoteEntities[driver.id] = driver
     }
 
+    fun toggleTeleportMenu(show: Boolean) {
+        _uiState.update { it.copy(showTeleportMenu = show) }
+    }
+
+    fun teleportTo(lat: Double, lon: Double) {
+        val newLocation = GeoPoint(lat, lon)
+        _uiState.update {
+            it.copy(
+                currentLocation = newLocation,
+                showTeleportMenu = false // Cerramos el menú tras hacer TP
+            )
+        }
+    }
+
     fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
     fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed }
     fun accelerate(pressed: Boolean) { isGasPressed = pressed }
