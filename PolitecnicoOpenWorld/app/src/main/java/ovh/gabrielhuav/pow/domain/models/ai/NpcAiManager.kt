@@ -20,6 +20,14 @@ import kotlin.random.Random
 
 class NpcAiManager {
 
+    companion object {
+        // Velocidades canónicas de NPCs. Expuestas para que el ViewModel pueda usarlas
+        // al "adoptar" NPCs remotos y no haya nunca desincronización entre el spawner local
+        // y los NPCs adoptados desde la red.
+        const val CAR_SPEED = 0.000008
+        const val PERSON_SPEED = 0.0000015
+    }
+
     private val _npcs = MutableStateFlow<List<Npc>>(emptyList())
     val npcs: StateFlow<List<Npc>> = _npcs.asStateFlow()
 
@@ -30,8 +38,8 @@ class NpcAiManager {
     private val despawnDistance = 0.035
     private val spawnDistance   = 0.0060
 
-    private val carSpeed    = 0.000008
-    private val personSpeed = 0.0000015
+    private val carSpeed    = CAR_SPEED
+    private val personSpeed = PERSON_SPEED
 
     @Volatile private var networkIsReady = false
 

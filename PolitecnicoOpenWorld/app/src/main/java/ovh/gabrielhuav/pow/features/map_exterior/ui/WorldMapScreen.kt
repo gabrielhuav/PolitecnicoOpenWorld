@@ -61,9 +61,9 @@ fun WorldMapScreen(
     val base64Cache = remember { mutableMapOf<String, String>() }
     val widthCache = remember { mutableMapOf<String, Float>() }
     val heightCache = remember { mutableMapOf<String, Float>() }
-    // NUEVO: Caché para salvar la memoria RAM en OSMDroid
+    // Caché para salvar la memoria RAM en OSMDroid
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
-    // NUEVO: Recuerda qué imágenes ya cruzaron el puente a JavaScript
+    // Recuerda qué imágenes ya cruzaron el puente a JavaScript
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
 
@@ -86,13 +86,9 @@ fun WorldMapScreen(
         }
     }
 
-    DisposableEffect(Unit) {
-        viewModel.startGameLoop()
-        // Ya no conectamos automáticamente aquí, el MainActivity se encarga de eso.
-        onDispose {
-            viewModel.stopGameLoop()
-        }
-    }
+    // NOTA: El game loop ya NO se controla aquí. Se inicia en el `init` del ViewModel y
+    // se cancela en `onCleared`. Esto evita que navegar a Settings y volver detenga a
+    // los NPCs, porque el loop ya no depende del ciclo de vida del Composable.
 
     val tileCache = viewModel.tileCache
     val cachingClient = remember(tileCache) {
@@ -154,15 +150,13 @@ fun WorldMapScreen(
                         val highResRenderScale = 1.0f * screenDensity
 
                         // 1. LIMPIEZA DE DESCONECTADOS/ELIMINADOS
-                        // Extraemos los IDs que existen actualmente en el estado
                         val currentNpcIds = uiState.npcs.map { it.id }.toSet()
                         val iterator = markerCache.iterator()
                         while (iterator.hasNext()) {
                             val entry = iterator.next()
-                            // Si el marcador en caché ya no existe en la lista de NPCs, lo borramos
                             if (!currentNpcIds.contains(entry.key)) {
-                                view.overlays.remove(entry.value) // Se quita del mapa visual
-                                iterator.remove()                 // Se quita de la memoria
+                                view.overlays.remove(entry.value)
+                                iterator.remove()
                             }
                         }
 
@@ -192,7 +186,6 @@ fun WorldMapScreen(
 
                                     val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}"
 
-                                    // ¡MAGIA! Solo procesa la imagen si no existe en la memoria RAM
                                     val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                         val baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getModularNpcDrawable(
                                             context = context,
@@ -218,7 +211,6 @@ fun WorldMapScreen(
 
                                     val cacheKey = "CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${dynamicScale}"
 
-                                    // ¡MAGIA! Solo procesa el auto y tintado si no existe en la memoria RAM
                                     val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                         val baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
                                             context, npc.rotationAngle, npc.carColor, highResRenderScale, npc.carModel
@@ -306,9 +298,6 @@ fun WorldMapScreen(
 
                     // --- LA INYECCIÓN MAESTRA CORREGIDA ---
                     val screenDensity = context.resources.displayMetrics.density
-
-                    // Kotlin YA NO CALCULA escalas dinámicas que puedan quedarse estancadas.
-                    // Solo genera 1 imagen en ultra alta resolución (HiDPI pura) y se la avienta a JS.
                     val highResRenderScale = 1.0f * screenDensity
 
                     val npcPayloads = uiState.npcs.map { npc ->
@@ -331,7 +320,6 @@ fun WorldMapScreen(
                                 val bitmap =
                                     (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
                                 if (bitmap != null) {
-                                    // MAGIA: Guardamos el tamaño real de la imagen dividido por la densidad
                                     widthCache[cacheKey] = (bitmap.width / screenDensity) / screenDensity
                                     heightCache[cacheKey] = (bitmap.height / screenDensity) / screenDensity
 
@@ -349,7 +337,7 @@ fun WorldMapScreen(
                                     ""
                                 }
                             }
-                            // 🚀 MAGIA WEB: Si la web no conoce esta imagen, se la enviamos para que la guarde
+                            // MAGIA WEB: Si la web no conoce esta imagen, se la enviamos para que la guarde
                             if (!registeredWebImages.contains(cacheKey) && base64Image.isNotEmpty()) {
                                 wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                 registeredWebImages.add(cacheKey)
@@ -358,7 +346,7 @@ fun WorldMapScreen(
                             NpcWebPayload(
                                 id = npc.id, lat = npc.location.latitude, lng = npc.location.longitude,
                                 rot = npc.rotationAngle, type = "CAR",
-                                imageKey = cacheKey, // Solo enviamos la llave
+                                imageKey = cacheKey,
                                 name = npc.displayName,
                                 width = widthCache[cacheKey], height = heightCache[cacheKey]
                             )
@@ -380,7 +368,7 @@ fun WorldMapScreen(
                                     "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
                                 } else { "" }
                             }
-                            // 🚀 MAGIA WEB
+                            // MAGIA WEB
                             if (!registeredWebImages.contains(cacheKey) && base64Image.isNotEmpty()) {
                                 wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                 registeredWebImages.add(cacheKey)
@@ -391,7 +379,7 @@ fun WorldMapScreen(
                             NpcWebPayload(
                                 id = npc.id, lat = npc.location.latitude, lng = npc.location.longitude,
                                 rot = 0f, type = "MODULAR",
-                                imageKey = cacheKey, // Solo enviamos la llave
+                                imageKey = cacheKey,
                                 flip = flipScale, name = npc.displayName
                             )
 
@@ -414,7 +402,7 @@ fun WorldMapScreen(
         }
         // ─── CAPA 2, 3, 4, 5, 6, 7 (Idénticas) ──────────────────────────────────
         ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
-            uiState = uiState, // PASAMOS TODO EL ESTADO AQUÍ AHORA
+            uiState = uiState,
             modifier = Modifier.align(Alignment.Center)
         )
 
@@ -518,7 +506,7 @@ fun WorldMapScreen(
                     ActionButtonsController(
                         modifier = Modifier.scale(effectiveScale),
                         onActionChanged = { action, isPressed ->
-                            // ¡AQUÍ ESTÁ LA MAGIA PARA SUBIR AL AUTO!
+                            // SUBIR AL AUTO con Y
                             if (action == GameAction.Y && isPressed) {
                                 viewModel.onInteractButtonPressed()
                             }
@@ -573,7 +561,7 @@ private data class NpcWebPayload(
     val lng: Double,
     val rot: Float,
     val type: String,
-    val imageKey: String? = null, // ¡CAMBIO MAGISTRAL! Solo mandamos la llave
+    val imageKey: String? = null,
     val drawable: String? = null,
     val flip: Int? = null,
     val name: String? = null,
@@ -626,12 +614,12 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         map.on('zoomend', function() { isZooming = false; });
 
         function updateMapView(lat, lng, z) { 
-            if (!isZooming) { // Evitar tirones si el usuario está pellizcando
+            if (!isZooming) {
                 map.setView([lat, lng], z, { animate: false }); 
             }
         }
         
-        // NUEVA FUNCIÓN PARA ROTAR EL MAPA COMPLETO
+        // ROTACIÓN DEL MAPA COMPLETO
         function setMapRotation(deg) {
             var wrapper = document.getElementById('map-wrapper');
             if (wrapper) {
@@ -649,13 +637,11 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         }
 
         function updateNpcs(data) {
-            // CRÍTICO: Si Leaflet está haciendo su animación CSS de zoom, pausamos
             if (isZooming) return;
         
             var currentZoom = map.getZoom();
             var isZoomedIn = currentZoom >= 16.5;
             
-            // 1. CULLING Visual (Limpieza de marcadores fuera de rango)
             var ids = new Set();
             if (isZoomedIn) {
                 ids = new Set(data.map(function(n) { return n.id; }));
@@ -670,7 +656,6 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         
             if (!isZoomedIn) return;
         
-            // Escala del Sprite base (tamaño para un auto)
             var dynamicScale = 1.4 * Math.pow(2, currentZoom - 19);
             dynamicScale = Math.max(0.2, Math.min(dynamicScale, 1.4));
             
@@ -678,11 +663,9 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 var finalW, finalH;
                 
                 if (npc.type === 'CAR') {
-                    // ¡USAMOS LAS DIMENSIONES MATEMÁTICAS EXACTAS DE KOTLIN!
                     finalW = Math.round(npc.width * dynamicScale);
                     finalH = Math.round(npc.height * dynamicScale);
                 } else if (npc.type === 'MODULAR') {
-                    // Matemática de escala para peatones idéntica a PlayerCharacter.kt
                     var personSz = 24.0 + ((currentZoom - 18.0) * 8.0);
                     var sz = Math.max(16, Math.min(personSz, 40));
                     finalW = sz;
@@ -692,7 +675,6 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                     finalH = 24;
                 }
         
-                // Etiqueta flotante NameTag
                 var nameTagHtml = '';
                 if (npc.name) {
                     var safeName = escapeHtml(npc.name);
@@ -709,11 +691,9 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                         if ((npc.type === 'CAR' || npc.type === 'MODULAR') && img && wrapper) {
                             var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
                             
-                            // SI LA IMAGEN NO HA LLEGADO, SALTAMOS ESTE COCHE (Evita el fantasma)
                             if (!cachedImg) return; 
 
                             if (img.src !== cachedImg) img.src = cachedImg;
-                            // Asignamos las dimensiones calculadas al contenedor
                             wrapper.style.width = finalW + 'px';
                             wrapper.style.height = finalH + 'px';
                             if (npc.flip !== undefined) img.style.transform = 'scaleX(' + npc.flip + ')';
@@ -726,7 +706,6 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                     if (npc.type === 'CAR' || npc.type === 'MODULAR') {
                         var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
                         
-                        // SI LA IMAGEN NO HA LLEGADO, SALTAMOS ESTE COCHE
                         if (!cachedImg) return;
 
                         var flipStyle = (npc.flip !== undefined) ? 'transform: scaleX(' + npc.flip + ');' : '';
@@ -756,7 +735,6 @@ private class ExactSizeDrawable(
     override fun getIntrinsicWidth() = exactWidthPx
     override fun getIntrinsicHeight() = exactHeightPx
     override fun draw(canvas: android.graphics.Canvas) {
-        // Usamos getBounds() explícitamente para evitar confusión en el compilador
         val b = this.getBounds()
         base.setBounds(b.left, b.top, b.right, b.bottom)
         base.draw(canvas)

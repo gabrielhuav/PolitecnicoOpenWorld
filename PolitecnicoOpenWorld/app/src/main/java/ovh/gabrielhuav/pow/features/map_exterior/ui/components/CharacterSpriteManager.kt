@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
+import android.util.Log
 import android.util.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -14,6 +15,8 @@ import ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig
 import java.io.InputStream
 
 object CharacterSpriteManager {
+    private const val TAG = "CharacterSpriteMgr"
+
     private val animationCache = object : LruCache<String, List<ImageBitmap>>(24) {}
     private val hairCache = object : LruCache<Int, ImageBitmap>(12) {}
     private val assembledCache = object : LruCache<String, Bitmap>(8 * 1024) {
@@ -63,32 +66,43 @@ object CharacterSpriteManager {
 
     fun generateAssembledBitmap(
         context: Context, visualConfig: CharacterVisualConfig, isMoving: Boolean, timeMs: Long
-    ): Bitmap? {
+    ): Bitmap? = try {
         val frames = getAnimationFrames(context, visualConfig.bodyFolder, visualConfig.bodyPrefix)
-        if (frames.isEmpty()) return null
+        if (frames.isEmpty()) {
+            null
+        } else {
+            val frameIndex = computeFrameIndex(visualConfig.bodyPrefix, frames.size, isMoving, timeMs)
 
-        val frameIndex = computeFrameIndex(visualConfig.bodyPrefix, frames.size, isMoving, timeMs)
+            val cacheKey = "${visualConfig.bodyFolder}_${visualConfig.bodyPrefix}_${visualConfig.hairId}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${visualConfig.hairColor.value}_${frameIndex}"
+            val cached = assembledCache.get(cacheKey)
+            if (cached != null) {
+                cached
+            } else {
+                val baseBitmap = frames[frameIndex].asAndroidBitmap()
 
-        val cacheKey = "${visualConfig.bodyFolder}_${visualConfig.bodyPrefix}_${visualConfig.hairId}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${visualConfig.hairColor.value}_${frameIndex}"
-        assembledCache.get(cacheKey)?.let { return it }
+                // 1. Pintamos el cuerpo de forma inteligente
+                val tintedBody = tintSmartPixels(baseBitmap, visualConfig.shirtColor.toArgb(), visualConfig.pantsColor.toArgb())
 
-        val baseBitmap = frames[frameIndex].asAndroidBitmap()
+                val resultBitmap = Bitmap.createBitmap(tintedBody.width, tintedBody.height, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(resultBitmap)
+                canvas.drawBitmap(tintedBody, 0f, 0f, null)
 
-        // 🟢 1. Pintamos el cuerpo de forma inteligente
-        val tintedBody = tintSmartPixels(baseBitmap, visualConfig.shirtColor.toArgb(), visualConfig.pantsColor.toArgb())
+                // 2. Pintamos y agregamos el cabello
+                getHairSprite(context, visualConfig.hairId)?.let {
+                    val tintedHair = tintSmartPixels(it.asAndroidBitmap(), visualConfig.hairColor.toArgb(), null)
+                    canvas.drawBitmap(tintedHair, 0f, 0f, null)
+                }
 
-        val resultBitmap = Bitmap.createBitmap(tintedBody.width, tintedBody.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(resultBitmap)
-        canvas.drawBitmap(tintedBody, 0f, 0f, null)
-
-        // 🟢 2. Pintamos y agregamos el cabello
-        getHairSprite(context, visualConfig.hairId)?.let {
-            val tintedHair = tintSmartPixels(it.asAndroidBitmap(), visualConfig.hairColor.toArgb(), null)
-            canvas.drawBitmap(tintedHair, 0f, 0f, null)
+                assembledCache.put(cacheKey, resultBitmap)
+                resultBitmap
+            }
         }
-
-        assembledCache.put(cacheKey, resultBitmap)
-        return resultBitmap
+    } catch (e: Exception) {
+        // Si algún color viene corrupto (p.ej. deserialización defectuosa desde la red),
+        // toArgb() puede explotar con ArrayIndexOutOfBoundsException. Atrapamos para que
+        // un NPC malo no tire toda la app.
+        Log.e(TAG, "Error generando bitmap del personaje: ${e.javaClass.simpleName}: ${e.message}")
+        null
     }
 
     private fun applyMultiply(basePixel: Int, tintColor: Int): Int {
@@ -109,70 +123,78 @@ object CharacterSpriteManager {
         isFacingRight: Boolean,
         timeMs: Long,
         scale: Float,
-        displayName: String? = null // 🟢 NUEVO PARÁMETRO
-    ): android.graphics.drawable.Drawable? {
-        val baseBitmap = generateAssembledBitmap(context, visualConfig, isMoving, timeMs) ?: return null
-        val roundedScale = Math.round(scale * 20f) / 20f
-
-        val frameIndex = getFrameIndex(context, visualConfig, isMoving, timeMs) ?: return null
-
-        val cacheKey = "${visualConfig.bodyFolder}_${visualConfig.bodyPrefix}_${visualConfig.hairId}_${visualConfig.hairColor.value}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${frameIndex}_${isFacingRight}_${roundedScale}_${displayName ?: "none"}"
-
-        drawableCache.get(cacheKey)?.let { return it }
-
-        // 1. Matriz para el personaje (Escala y Espejeo)
-        val matrix = android.graphics.Matrix()
-        matrix.postScale(roundedScale, roundedScale)
-        if (!isFacingRight) {
-            matrix.postScale(-1f, 1f)
-        }
-
-        val scaledBmp = Bitmap.createBitmap(
-            baseBitmap, 0, 0, baseBitmap.width, baseBitmap.height, matrix, true
-        )
-
-        // 2. 🟢 Dibujo Combinado: Texto sobre el Personaje
-        val finalBmp = if (!displayName.isNullOrBlank()) {
-            // Configurar el estilo del texto
-            val textPaint = android.graphics.Paint().apply {
-                color = android.graphics.Color.BLACK
-                // Hacemos que el texto se adapte inteligentemente, sin ser demasiado pequeño
-                textSize = 50f * roundedScale.coerceAtLeast(0.4f)
-                isAntiAlias = true
-                textAlign = android.graphics.Paint.Align.CENTER
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                setShadowLayer(4f, 1f, 1f, android.graphics.Color.YELLOW) // Borde para legibilidad
-            }
-
-            val textHeight = textPaint.descent() - textPaint.ascent()
-            val textWidth = textPaint.measureText(displayName)
-
-            // Creamos un Canvas más grande que cubra tanto texto como sprite
-            val totalWidth = maxOf(scaledBmp.width, textWidth.toInt() + 20)
-            val paddingY = 8
-            val totalHeight = scaledBmp.height + textHeight.toInt() + paddingY
-
-            val compositeBmp = Bitmap.createBitmap(totalWidth, totalHeight, Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(compositeBmp)
-
-            // Dibujamos el texto (centrado arriba)
-            val textX = totalWidth / 2f
-            val textY = textHeight - textPaint.descent()
-            canvas.drawText(displayName, textX, textY, textPaint)
-
-            // Dibujamos al personaje (centrado abajo del texto)
-            val charX = (totalWidth - scaledBmp.width) / 2f
-            val charY = textHeight + paddingY
-            canvas.drawBitmap(scaledBmp, charX, charY, null)
-
-            compositeBmp
+        displayName: String? = null
+    ): android.graphics.drawable.Drawable? = try {
+        val baseBitmap = generateAssembledBitmap(context, visualConfig, isMoving, timeMs)
+        if (baseBitmap == null) {
+            null
         } else {
-            scaledBmp // Si no hay nombre, el BMP sigue normal
-        }
+            val roundedScale = Math.round(scale * 20f) / 20f
 
-        val drawable = BitmapDrawable(context.resources, finalBmp)
-        drawableCache.put(cacheKey, drawable)
-        return drawable
+            val frameIndex = getFrameIndex(context, visualConfig, isMoving, timeMs)
+            if (frameIndex == null) {
+                null
+            } else {
+                val cacheKey = "${visualConfig.bodyFolder}_${visualConfig.bodyPrefix}_${visualConfig.hairId}_${visualConfig.hairColor.value}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${frameIndex}_${isFacingRight}_${roundedScale}_${displayName ?: "none"}"
+
+                val cachedDrawable = drawableCache.get(cacheKey)
+                if (cachedDrawable != null) {
+                    cachedDrawable
+                } else {
+                    // 1. Matriz para el personaje (Escala y Espejeo)
+                    val matrix = android.graphics.Matrix()
+                    matrix.postScale(roundedScale, roundedScale)
+                    if (!isFacingRight) {
+                        matrix.postScale(-1f, 1f)
+                    }
+
+                    val scaledBmp = Bitmap.createBitmap(
+                        baseBitmap, 0, 0, baseBitmap.width, baseBitmap.height, matrix, true
+                    )
+
+                    // 2. Dibujo Combinado: Texto sobre el Personaje
+                    val finalBmp = if (!displayName.isNullOrBlank()) {
+                        val textPaint = android.graphics.Paint().apply {
+                            color = android.graphics.Color.BLACK
+                            textSize = 50f * roundedScale.coerceAtLeast(0.4f)
+                            isAntiAlias = true
+                            textAlign = android.graphics.Paint.Align.CENTER
+                            typeface = android.graphics.Typeface.DEFAULT_BOLD
+                            setShadowLayer(4f, 1f, 1f, android.graphics.Color.YELLOW)
+                        }
+
+                        val textHeight = textPaint.descent() - textPaint.ascent()
+                        val textWidth = textPaint.measureText(displayName)
+
+                        val totalWidth = maxOf(scaledBmp.width, textWidth.toInt() + 20)
+                        val paddingY = 8
+                        val totalHeight = scaledBmp.height + textHeight.toInt() + paddingY
+
+                        val compositeBmp = Bitmap.createBitmap(totalWidth, totalHeight, Bitmap.Config.ARGB_8888)
+                        val canvas = android.graphics.Canvas(compositeBmp)
+
+                        val textX = totalWidth / 2f
+                        val textY = textHeight - textPaint.descent()
+                        canvas.drawText(displayName, textX, textY, textPaint)
+
+                        val charX = (totalWidth - scaledBmp.width) / 2f
+                        val charY = textHeight + paddingY
+                        canvas.drawBitmap(scaledBmp, charX, charY, null)
+
+                        compositeBmp
+                    } else {
+                        scaledBmp
+                    }
+
+                    val drawable = BitmapDrawable(context.resources, finalBmp)
+                    drawableCache.put(cacheKey, drawable)
+                    drawable
+                }
+            }
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "Error generando drawable NPC modular: ${e.javaClass.simpleName}: ${e.message}")
+        null
     }
 
     fun clearCaches() {
@@ -190,7 +212,6 @@ object CharacterSpriteManager {
         }
     }
 
-    // Cambia estas funciones dentro de CharacterSpriteManager.kt
     private fun tintSmartPixels(baseBitmap: Bitmap, color1: Int, color2: Int?): Bitmap {
         val width = baseBitmap.width
         val height = baseBitmap.height
@@ -207,7 +228,6 @@ object CharacterSpriteManager {
             val b = android.graphics.Color.blue(pixel)
 
             // 1. FILTRO DE GRISES: Para NO pintar la piel (que tiene tonos rojizos/cálidos)
-            // En un gris puro, la diferencia entre R, G y B es casi cero.
             val diff = maxOf(r, g, b) - minOf(r, g, b)
             if (diff > 15) continue // Si tiene "color" (como la piel), NO LO PINTES
 
