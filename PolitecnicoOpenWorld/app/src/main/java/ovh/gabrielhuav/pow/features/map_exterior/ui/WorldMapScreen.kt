@@ -204,8 +204,11 @@ fun WorldMapScreen(
                                     marker.rotation = 0f
 
                                 } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
+                                    // 1. Usar el ángulo directo del NPC (limpiando cualquier remanente desfasado)
                                     var angle = npc.rotationAngle % 360f
                                     if (angle < 0) angle += 360f
+
+                                    // 2. Calcular el frame index base de tus 48 imágenes
                                     val frameIndex = (angle / 7.5f).roundToInt() % 48
                                     val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
 
@@ -213,7 +216,7 @@ fun WorldMapScreen(
 
                                     val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                         val baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
-                                            context, npc.rotationAngle, npc.carColor, highResRenderScale, npc.carModel
+                                            context, angle, npc.carColor, highResRenderScale, npc.carModel
                                         )
                                         baseDrawable?.let { drawable ->
                                             val baseWidthDp = (drawable.intrinsicWidth / screenDensity) / screenDensity
@@ -227,7 +230,7 @@ fun WorldMapScreen(
                                     }
 
                                     marker.icon = cachedIcon
-                                    marker.rotation = 0f
+                                    marker.rotation = 0f // Al ser flat = true, hereda la rotación del mapa perfectamente
 
                                 } else {
                                     // SVG Clásicos
@@ -302,21 +305,21 @@ fun WorldMapScreen(
 
                     val npcPayloads = uiState.npcs.map { npc ->
                         if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
+                            // Ángulo crudo, sin offset adicional
                             var angle = npc.rotationAngle % 360f
                             if (angle < 0) angle += 360f
+
                             val frameIndex = (angle / 7.5f).roundToInt() % 48
-                            val cacheKey =
-                                "${npc.carModel.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
+                            val cacheKey = "${npc.carModel.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
 
                             val base64Image = base64Cache.getOrPut(cacheKey) {
-                                val drawable =
-                                    ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
-                                        context,
-                                        npc.rotationAngle,
-                                        npc.carColor,
-                                        highResRenderScale,
-                                        npc.carModel
-                                    )
+                                val drawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
+                                    context,
+                                    angle,
+                                    npc.carColor,
+                                    highResRenderScale,
+                                    npc.carModel
+                                )
                                 val bitmap =
                                     (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
                                 if (bitmap != null) {

@@ -156,7 +156,12 @@ wss.on('connection', (ws) => {
                     y: typeof data.y === 'number' ? data.y : 0,
                     action: typeof data.action === 'string' ? data.action : '',
                     facingRight: typeof data.facingRight === 'boolean' ? data.facingRight : true,
-                    isHost: ws.isHost
+                    isHost: ws.isHost,
+                    // Agrega los nuevos atributos del vehículo:
+                    isDriving: typeof data.isDriving === 'boolean' ? data.isDriving : false,
+                    carModel: typeof data.carModel === 'string' ? data.carModel : null,
+                    carColor: typeof data.carColor === 'number' ? data.carColor : null,
+                    vehicleRotation: typeof data.vehicleRotation === 'number' ? data.vehicleRotation : 0
                 });
 
                 broadcastToOthers(ws, JSON.stringify({ ...data, id: ws.sessionId }));

@@ -54,7 +54,12 @@ data class MultiplayerPlayer(
     val x: Double,
     val y: Double,
     val action: String,
-    val facingRight: Boolean
+    val facingRight: Boolean,
+    // Nuevos campos para sincronizar vehículos:
+    val isDriving: Boolean = false,
+    val carModel: String? = null,
+    val carColor: Int? = null,
+    val vehicleRotation: Float? = null
 )
 
 // Clase para empaquetar un NPC en el JSON.
@@ -89,6 +94,11 @@ private data class ServerMessage(
     val action: String? = null,
     val facingRight: Boolean? = null,
     val displayName: String? = null,
+    // Nuevos campos para sincronizar vehículos:
+    val isDriving: Boolean? = null,
+    val carModel: String? = null,
+    val carColor: Int? = null,
+    val vehicleRotation: Float? = null,
     val npc: MultiplayerNpc? = null,
     val npcs: List<MultiplayerNpc>? = null,
     val npcId: String? = null,
@@ -279,10 +289,11 @@ class WorldMapViewModel(
                 }
 
                 else -> {
-                    // Si es una actualización de posición de otro JUGADOR (sin type específico)
+                    // Si es una actualización de posición de otro JUGADOR
                     if (msg.id != null && msg.id != myPlayerUUID && msg.x != null && msg.y != null) {
 
                         val isRemoteMoving = msg.action == "WALK" || msg.action == "RUN"
+                        val isRemoteDriving = msg.isDriving == true
 
                         val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
                             bodyFolder = "otherPlayer",
@@ -293,16 +304,26 @@ class WorldMapViewModel(
                             pantsColor = androidx.compose.ui.graphics.Color.DarkGray
                         )
 
+                        // CORRECCIÓN: Se asigna SEDAN por defecto si es nulo, para respetar el tipo 'CarModel'
+                        val remoteCarModel = try {
+                            msg.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) }
+                                ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
+                        } catch(e: Exception) {
+                            ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
+                        }
+
                         val otherPlayer = Npc(
                             id = msg.id,
-                            type = NpcType.PERSON,
+                            type = if (isRemoteDriving) NpcType.CAR else NpcType.PERSON,
                             location = GeoPoint(msg.y, msg.x),
-                            rotationAngle = 0f,
+                            rotationAngle = if (isRemoteDriving) ((msg.vehicleRotation ?: 0f) + 270f) % 360f else 0f,
                             speed = 0.0,
                             isRemote = true,
-                            isMoving = isRemoteMoving,
+                            isMoving = isRemoteMoving || isRemoteDriving,
                             facingRight = msg.facingRight == true,
-                            visualConfig = multiplayerConfig,
+                            carModel = remoteCarModel, // <- El compilador ya aceptará esto
+                            carColor = msg.carColor ?: 0xFFFFFFFF.toInt(),
+                            visualConfig = if (!isRemoteDriving) multiplayerConfig else null,
                             displayName = msg.displayName
                         )
                         remoteEntities[msg.id] = otherPlayer
@@ -502,10 +523,16 @@ class WorldMapViewModel(
                                     viewModelScope.launch(Dispatchers.IO) {
                                         try {
                                             val myData = MultiplayerPlayer(
-                                                id = myPlayerUUID, displayName = myPlayerDisplayName,
-                                                x = location.longitude, y = location.latitude,
+                                                id = myPlayerUUID,
+                                                displayName = myPlayerDisplayName,
+                                                x = location.longitude,
+                                                y = location.latitude,
                                                 action = _uiState.value.playerAction.name,
-                                                facingRight = _uiState.value.isPlayerFacingRight
+                                                facingRight = _uiState.value.isPlayerFacingRight,
+                                                isDriving = _uiState.value.isDriving,
+                                                carModel = _uiState.value.currentVehicleModel?.name,
+                                                carColor = _uiState.value.currentVehicleColor,
+                                                vehicleRotation = _uiState.value.vehicleRotation
                                             )
                                             ws.sendMessage(gson.toJson(myData))
 
@@ -865,9 +892,10 @@ class WorldMapViewModel(
                         isDriving = true,
                         currentVehicleModel = carNpc.carModel,
                         currentVehicleColor = carNpc.carColor,
-                        vehicleRotation = carNpc.rotationAngle,
+                        // CONVERSIÓN: De Sprite (NPC) a Jugador Local
+                        vehicleRotation = (carNpc.rotationAngle + 90f) % 360f,
                         vehicleSpeed = 0.0,
-                        vehicleIsFirstTimeBoarded = false // A partir de ahora, ya es un auto robado
+                        vehicleIsFirstTimeBoarded = false
                     )
                 }
                 updateNpcsState()
@@ -878,7 +906,8 @@ class WorldMapViewModel(
                 id = UUID.randomUUID().toString(),
                 type = NpcType.CAR,
                 location = loc,
-                rotationAngle = _uiState.value.vehicleRotation,
+                // CONVERSIÓN: De Jugador Local a Sprite (NPC abandonado)
+                rotationAngle = (_uiState.value.vehicleRotation + 270f) % 360f,
                 speed = 0.0,
                 isMoving = false,
                 carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
