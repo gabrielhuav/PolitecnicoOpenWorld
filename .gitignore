@@ -1,12 +1,9 @@
 # Entorno de desarrollo e IDE
 *.iml
 .gradle
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+.idea/
+!.idea/codeStyles/
+!.idea/runConfigurations/
 .DS_Store
 /captures
 .externalNativeBuild
