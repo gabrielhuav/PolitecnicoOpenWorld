@@ -5,6 +5,8 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 data class MainMenuState(
     val isLoading: Boolean = false,
     val selectedProvider: MapProvider = MapProvider.OSM,
-    val showCacheWidget: Boolean = true,   // ← Agregado
-    val showFpsWidget: Boolean = false     // ← Agregado
+    val showCacheWidget: Boolean = true,
+    val showFpsWidget: Boolean = false,
+    val showMultiplayerDialog: Boolean = false, // ← Controla el diálogo
+    val playerName: String = ""                 // ← Guarda el nombre
 )

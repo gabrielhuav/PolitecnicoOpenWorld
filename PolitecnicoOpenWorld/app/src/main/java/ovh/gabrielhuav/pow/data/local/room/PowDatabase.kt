@@ -6,10 +6,12 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import ovh.gabrielhuav.pow.data.local.room.dao.MapTileDao
 import ovh.gabrielhuav.pow.data.local.room.dao.RoadNetworkDao
+import ovh.gabrielhuav.pow.data.local.room.dao.LandmarkDao
 import ovh.gabrielhuav.pow.data.local.room.entity.MapTileEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadNodeEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadWayEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadZoneEntity
+import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import java.io.File
 
 @Database(
@@ -17,15 +19,17 @@ import java.io.File
         RoadZoneEntity::class,
         RoadWayEntity::class,
         RoadNodeEntity::class,
-        MapTileEntity::class
+        MapTileEntity::class,
+        LandmarkEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class PowDatabase : RoomDatabase() {
 
     abstract fun roadNetworkDao(): RoadNetworkDao
     abstract fun mapTileDao(): MapTileDao
+    abstract fun landmarkDao(): LandmarkDao
 
     companion object {
         @Volatile
@@ -45,9 +49,7 @@ abstract class PowDatabase : RoomDatabase() {
                 context.applicationContext,
                 PowDatabase::class.java,
                 dbFile.absolutePath
-            )
-                .fallbackToDestructiveMigration(dropAllTables = true)
-                .build()
+            ).fallbackToDestructiveMigration().build()
         }
     }
 }
