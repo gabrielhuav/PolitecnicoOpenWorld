@@ -11,6 +11,5 @@ data class LandmarkEntity(
     val latitude: Double,
     val longitude: Double,
     val assetPath: String,    // ej. "BUILDINGS/IPN/building_escom.webp"
-    val width: Float = 1f,    // Escala del edificio a lo ancho
-    val height: Float = 1f    // Escala del edificio a lo alto
+    val scaleFactor: Float = 0.15f  // Escala uniforme del edificio
 )

@@ -21,8 +21,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import android.graphics.BitmapFactory
-import android.graphics.drawable.BitmapDrawable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -48,7 +46,6 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.platform.LocalContext
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 
@@ -69,9 +66,6 @@ fun WorldMapScreen(
     // Recuerda qué imágenes ya cruzaron el puente a JavaScript
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
-
-// Asegúrate de tener el contexto disponible antes de los LaunchedEffect
-    val context = LocalContext.current
 
 // 1. EFECTO DE CARGA: Se ejecuta SIEMPRE una sola vez al iniciar la pantalla
     LaunchedEffect(Unit) {

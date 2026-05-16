@@ -947,8 +947,7 @@ class WorldMapViewModel(
                         latitude = 19.504505,
                         longitude = -99.146911,
                         assetPath = "BUILDINGS/IPN/building_escom.webp",
-                        width = 300f,
-                        height = 300f
+                        scaleFactor = 0.15f
                     )
                     dao.insertLandmarks(listOf(escomDefault))
                     entities = dao.getAllLandmarks()
@@ -960,7 +959,7 @@ class WorldMapViewModel(
                         name = entity.name,
                         location = GeoPoint(entity.latitude, entity.longitude),
                         assetPath = entity.assetPath,
-                        scaleFactor = entity.width
+                        scaleFactor = entity.scaleFactor
                     )
                 }
 

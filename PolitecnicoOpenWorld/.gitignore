@@ -11,6 +11,8 @@
 /.idea/deviceManager.xml
 /.idea/vcs.xml
 /.idea/markdown.xml
+/.idea/planningMode.xml
+/.idea/appInsightsSettings.xml
 .DS_Store
 /captures
 .externalNativeBuild
