@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -43,21 +44,20 @@ import ovh.gabrielhuav.pow.domain.models.Landmark
 @Composable
 fun DesignerPanel(
     landmark: Landmark,
-    onMove: (dLatMeters: Double, dLonMeters: Double) -> Unit,
-    onRotate: (angle: Float) -> Unit,
-    onScale: (scale: Float) -> Unit,
+    onMove: (Double, Double) -> Unit,
+    onRotate: (Float) -> Unit,
+    onScale: (Float) -> Unit,
     onDelete: () -> Unit,
+    onSave: () -> Unit,
     onDeselect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.Black.copy(alpha = 0.88f))
+            .background(Color(0xFF1E1E24).copy(alpha = 0.95f), RoundedCornerShape(12.dp))
             .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(12.dp))
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         // Encabezado: nombre + cerrar
         Row(
@@ -148,16 +148,34 @@ fun DesignerPanel(
             )
         }
 
-        // Botón eliminar
-        Button(
-            onClick = onDelete,
-            modifier = Modifier.fillMaxWidth().height(36.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
-            shape = RoundedCornerShape(8.dp)
+// Reemplaza el antiguo botón único de eliminar por este bloque de acciones:
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Default.Delete, null, tint = Color.White, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("ELIMINAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            // Botón eliminar
+            Button(
+                onClick = onDelete,
+                modifier = Modifier.weight(1f).height(36.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.Delete, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("ELIMINAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+
+            // Botón guardar
+            Button(
+                onClick = onSave,
+                modifier = Modifier.weight(1f).height(36.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)), // Color verde de confirmación
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("GUARDAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

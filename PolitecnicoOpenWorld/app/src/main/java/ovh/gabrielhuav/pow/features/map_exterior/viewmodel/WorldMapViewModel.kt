@@ -1066,6 +1066,37 @@ class WorldMapViewModel(
         }
     }
 
+    fun saveSelectedLandmark(context: Context) {
+        val id = _uiState.value.selectedLandmarkId ?: return
+        val currentLandmark = _uiState.value.landmarks.find { it.id == id } ?: return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dao = PowDatabase.getInstance(context).landmarkDao()
+
+                // Mapear el objeto de dominio (Landmark) de regreso a la Entidad (LandmarkEntity)
+                val updatedEntity = LandmarkEntity(
+                    id = currentLandmark.id,
+                    name = currentLandmark.name,
+                    latitude = currentLandmark.location.latitude,
+                    longitude = currentLandmark.location.longitude,
+                    assetPath = currentLandmark.assetPath,
+                    scaleFactor = currentLandmark.scaleFactor,
+                    rotationAngle = currentLandmark.rotationAngle
+                )
+
+                // Ejecutar el update en la base de datos
+                dao.updateLandmark(updatedEntity)
+
+                // Opcional: Deseleccionar el asset automáticamente al guardar
+                // _uiState.update { it.copy(selectedLandmarkId = null) }
+
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error al actualizar landmark", e)
+            }
+        }
+    }
+
     // Genera un NPC peatón asustado/desalojado al lado del auto
     private fun spawnOustedDriver(carLocation: GeoPoint) {
         val offsetLoc = GeoPoint(carLocation.latitude + 0.00005, carLocation.longitude + 0.00005)

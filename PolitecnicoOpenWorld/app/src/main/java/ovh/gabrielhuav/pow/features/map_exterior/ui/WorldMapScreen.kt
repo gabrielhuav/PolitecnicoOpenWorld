@@ -130,13 +130,20 @@ fun WorldMapScreen(
                     MapView(ctx).apply {
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(false)
-                        setOnTouchListener { _, _ -> true }
-                        isClickable = false; isFocusable = false
+                        //setOnTouchListener { _, _ -> true }
+                        //isClickable = false; isFocusable = false
                         controller.setZoom(uiState.zoomLevel)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
+                    if (uiState.isDesignerMode) {
+                        view.setOnTouchListener(null) // Permitimos que detecte tu dedo
+                        view.isClickable = true
+                    } else {
+                        view.setOnTouchListener { _, _ -> true } // Bloqueamos el mapa en modo juego
+                        view.isClickable = false
+                    }
                     uiState.currentLocation?.let { view.controller.setCenter(it) }
 
                     view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
@@ -615,6 +622,7 @@ fun WorldMapScreen(
                 onRotate = { angle -> viewModel.rotateSelectedLandmark(angle) },
                 onScale = { scale -> viewModel.scaleSelectedLandmark(scale) },
                 onDelete = { viewModel.deleteSelectedLandmark(context) },
+                onSave = { viewModel.saveSelectedLandmark(context) },
                 onDeselect = { viewModel.selectLandmark(null) },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
