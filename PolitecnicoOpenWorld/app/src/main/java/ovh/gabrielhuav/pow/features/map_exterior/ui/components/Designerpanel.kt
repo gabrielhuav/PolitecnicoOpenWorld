@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,9 +14,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -30,17 +31,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ovh.gabrielhuav.pow.domain.models.Landmark
 
-/**
- * Panel flotante que se muestra cuando hay un landmark seleccionado en modo diseñador.
- * Permite ajustar posición, rotación, escala y eliminar.
- */
 @Composable
 fun DesignerPanel(
     landmark: Landmark,
@@ -52,6 +49,8 @@ fun DesignerPanel(
     onDeselect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val moveStep = 0.0001
+
     Column(
         modifier = modifier
             .background(Color(0xFF1E1E24).copy(alpha = 0.95f), RoundedCornerShape(12.dp))
@@ -59,83 +58,46 @@ fun DesignerPanel(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Encabezado: nombre + cerrar
+        // ─── HEADER ───
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "📐 ${landmark.name}",
-                color = Color(0xFFD4AF37),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text("MODO DISEÑADOR", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold)
             IconButton(
                 onClick = onDeselect,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(24.dp)
             ) {
-                Icon(Icons.Default.Close, "Deseleccionar", tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Close, "Cerrar", tint = Color.White)
             }
         }
 
-        // Coordenadas y rotación actuales
-        Text(
-            text = "Lat: ${"%.6f".format(landmark.location.latitude)}  Lon: ${"%.6f".format(landmark.location.longitude)}",
-            color = Color.White.copy(alpha = 0.85f),
-            fontSize = 10.sp
-        )
-        Text(
-            text = "Rot: ${landmark.rotationAngle.toInt()}°   Escala: ${"%.2f".format(landmark.scaleFactor)}x",
-            color = Color.White.copy(alpha = 0.85f),
-            fontSize = 10.sp
-        )
-
-        // Cruz de movimiento. Cada toque mueve ~1 metro.
-        // 1 metro ≈ 0.0000090° latitud, ≈ 0.0000095° longitud a la latitud de CDMX.
-        Text("Mover", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        // ─── CONTROLES DE MOVIMIENTO ───
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Mover en pasos de 1 metro
-            MoveBtn("←", 24.dp) { onMove(0.0, -0.0000095) }
-            MoveBtn("↑", 24.dp) { onMove(0.0000090, 0.0) }
-            MoveBtn("↓", 24.dp) { onMove(-0.0000090, 0.0) }
-            MoveBtn("→", 24.dp) { onMove(0.0, 0.0000095) }
-            Spacer(Modifier.width(8.dp))
-            // Pasos de 5 metros para movimientos más rápidos
-            MoveBtn("←5", 32.dp) { onMove(0.0, -0.0000475) }
-            MoveBtn("↑5", 32.dp) { onMove(0.0000450, 0.0) }
-            MoveBtn("↓5", 32.dp) { onMove(-0.0000450, 0.0) }
-            MoveBtn("→5", 32.dp) { onMove(0.0, 0.0000475) }
+            MoveBtn("Izquierda", 40.dp) { onMove(0.0, -moveStep) }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                MoveBtn("Arriba", 40.dp) { onMove(moveStep, 0.0) }
+                MoveBtn("Abajo", 40.dp) { onMove(-moveStep, 0.0) }
+            }
+            MoveBtn("Derecha", 40.dp) { onMove(0.0, moveStep) }
         }
 
-        // Rotación
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Rotación", color = Color.White, fontSize = 11.sp, modifier = Modifier.width(70.dp))
-            Slider(
-                value = landmark.rotationAngle,
-                onValueChange = onRotate,
-                valueRange = 0f..360f,
-                colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFFD4AF37),
-                    activeTrackColor = Color(0xFF6B1C3A)
-                ),
-                modifier = Modifier.weight(1f)
+        // ─── SLIDERS (Escala y Rotación) ───
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = "ESCALA: ${String.format("%.2f", landmark.scaleFactor)}x",
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
             )
-        }
-
-        // Escala
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Escala", color = Color.White, fontSize = 11.sp, modifier = Modifier.width(70.dp))
             Slider(
                 value = landmark.scaleFactor,
                 onValueChange = onScale,
@@ -144,16 +106,34 @@ fun DesignerPanel(
                     thumbColor = Color(0xFFD4AF37),
                     activeTrackColor = Color(0xFF6B1C3A)
                 ),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxWidth().height(24.dp)
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = "ROTACIÓN: ${landmark.rotationAngle.toInt()}°",
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Slider(
+                value = landmark.rotationAngle,
+                onValueChange = onRotate,
+                valueRange = 0f..360f,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFFD4AF37),
+                    activeTrackColor = Color(0xFF6B1C3A)
+                ),
+                modifier = Modifier.fillMaxWidth().height(24.dp)
             )
         }
 
-// Reemplaza el antiguo botón único de eliminar por este bloque de acciones:
+        // ─── BOTONES DE ACCIÓN ───
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Botón eliminar
             Button(
                 onClick = onDelete,
                 modifier = Modifier.weight(1f).height(36.dp),
@@ -165,11 +145,10 @@ fun DesignerPanel(
                 Text("ELIMINAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
 
-            // Botón guardar
             Button(
                 onClick = onSave,
                 modifier = Modifier.weight(1f).height(36.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)), // Color verde de confirmación
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
@@ -181,14 +160,21 @@ fun DesignerPanel(
 }
 
 @Composable
-private fun MoveBtn(label: String, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+private fun MoveBtn(label: String, size: Dp, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         modifier = Modifier.size(width = size + 4.dp, height = 32.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
         shape = RoundedCornerShape(6.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+        contentPadding = PaddingValues(0.dp)
     ) {
-        Text(label, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        val icon = when (label) {
+            "Arriba" -> Icons.Default.KeyboardArrowUp
+            "Abajo" -> Icons.Default.KeyboardArrowDown
+            "Izquierda" -> Icons.Default.KeyboardArrowLeft
+            else -> Icons.Default.KeyboardArrowRight
+        }
+        Icon(icon, contentDescription = label, tint = Color.White)
     }
 }
+

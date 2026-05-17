@@ -47,10 +47,15 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
+import org.osmdroid.util.BoundingBox
+import org.osmdroid.views.overlay.GroundOverlay
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
+import kotlin.math.atan2
 import androidx.compose.ui.draw.scale
 import kotlinx.coroutines.launch
+import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 
@@ -144,6 +149,7 @@ fun WorldMapScreen(
                         view.setOnTouchListener { _, _ -> true } // Bloqueamos el mapa en modo juego
                         view.isClickable = false
                     }
+                    //view.overlays.clear()
                     uiState.currentLocation?.let { view.controller.setCenter(it) }
 
                     view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
@@ -269,101 +275,158 @@ fun WorldMapScreen(
 
                     // ─── DIBUJADO DE LANDMARKS (con soporte de modo diseñador) ────────
                     @Suppress("UNCHECKED_CAST")
-                    val landmarkCache = (view.getTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag) as? MutableMap<Long, Marker>)
-                        ?: mutableMapOf<Long, Marker>().also {
+                    // Cambiamos el caché para que guarde una lista de Overlays genéricos por cada ID
+                    val landmarkCache = (view.getTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag) as? MutableMap<Long, MutableList<org.osmdroid.views.overlay.Overlay>>)
+                        ?: mutableMapOf<Long, MutableList<org.osmdroid.views.overlay.Overlay>>().also {
                             view.setTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag, it)
                         }
 
-                    // Limpieza de landmarks borrados
-                    val currentLandmarkIds = uiState.landmarks.map { it.id }.toSet()
-                    val lIter = landmarkCache.iterator()
-                    while (lIter.hasNext()) {
-                        val entry = lIter.next()
-                        if (!currentLandmarkIds.contains(entry.key)) {
-                            view.overlays.remove(entry.value)
-                            lIter.remove()
+                    val currentIds = uiState.landmarks.map { it.id }.toSet()
+
+                    // 1. Limpiar estructuras que fueron eliminadas de la base de datos
+                    val iterator = landmarkCache.iterator()
+                    while (iterator.hasNext()) {
+                        val entry = iterator.next()
+                        if (!currentIds.contains(entry.key)) {
+                            // Quitamos del mapa todos los overlays asociados a este ID borrado
+                            entry.value.forEach { overlay -> view.overlays.remove(overlay) }
+                            iterator.remove()
                         }
                     }
 
+                    // 2. Actualizar o agregar landmarks
                     uiState.landmarks.forEach { landmark ->
-                        val isSelected = uiState.isDesignerMode && uiState.selectedLandmarkId == landmark.id
+                        // Obtenemos o creamos la lista de overlays para este landmark
+                        val overlays = landmarkCache.getOrPut(landmark.id) { mutableListOf() }
 
-                        val marker = landmarkCache[landmark.id] ?: Marker(view).apply {
-                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                            isFlat = true
-                            title = "LANDMARK_${landmark.name}"
-                            landmarkCache[landmark.id] = this
-                            view.overlays.add(0, this)
-                        }
+                        // ===== LÓGICA ESPECIAL PARA ESCOM (Polígono fijo) =====
+                        if (landmark.name.contains("escom", ignoreCase = true)) {
 
-                        // Hacemos clickable solo en modo diseñador. Esto permite seleccionar
-                        // tocándolo para empezar a editar.
-                        marker.setOnMarkerClickListener { _, _ ->
+                            // 1. Obtener imagen de la caché
+                            val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
+                                val inputStream = context.assets.open(landmark.assetPath)
+                                val decoded = android.graphics.BitmapFactory.decodeStream(inputStream)
+                                inputStream.close()
+                                decoded
+                            }
+
+                            // 2. Crear o recuperar el GroundOverlay
+                            val existingOverlay = overlays.filterIsInstance<org.osmdroid.views.overlay.GroundOverlay>().firstOrNull()
+                            val groundOverlay = existingOverlay ?: org.osmdroid.views.overlay.GroundOverlay().apply {
+                                overlays.add(this)
+                                view.overlays.add(0, this) // Se añade al fondo
+                            }
+
+                            // 3. Posición conectada a la base de datos (¡Esto hace que funcionen los botones de mover!)
+                            val centerLat = landmark.location.latitude
+                            val centerLon = landmark.location.longitude
+                            val center = org.osmdroid.util.GeoPoint(centerLat, centerLon)
+
+                            // Medidas físicas reales del polígono GeoJSON convertido a Metros
+                            val baseWidthMeters = 212.7f
+                            val baseHeightMeters = 263.0f
+
+                            // 4. Calcular los 4 corners basados en centro, dimensiones y rotación
+                            // (osmdroid core GroundOverlay requiere 4 puntos para soportar rotación)
+                            val halfW = (baseWidthMeters * landmark.scaleFactor) / 2.0
+                            val halfH = (baseHeightMeters * landmark.scaleFactor) / 2.0
+                            val d = sqrt(halfW * halfW + halfH * halfH)
+                            val theta = Math.toDegrees(atan2(halfW, halfH))
+
+                            val pTL = center.destinationPoint(d, landmark.rotationAngle.toDouble() - theta)
+                            val pTR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + theta)
+                            val pBR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 - theta)
+                            val pBL = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 + theta)
+
+                            groundOverlay.setPosition(pTL, pTR, pBR, pBL)
+
+                            // 5. Redibujar imagen
+                            groundOverlay.setImage(bitmap)
+
+                            // b) PIN DE CONTROL (Modo Diseñador)
+                            val existingControl = overlays.filterIsInstance<Marker>().firstOrNull()
                             if (uiState.isDesignerMode) {
-                                viewModel.selectLandmark(landmark.id)
-                                true
+                                val controlMarker = existingControl ?: Marker(view).apply {
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)
+                                    overlays.add(this)
+                                    view.overlays.add(this)
+                                }
+
+                                controlMarker.position = center
+
+                                if (uiState.selectedLandmarkId == landmark.id) {
+                                    controlMarker.icon?.setTint(android.graphics.Color.RED)
+                                } else {
+                                    controlMarker.icon?.setTintList(null)
+                                }
+
+                                controlMarker.setOnMarkerClickListener { _, _ ->
+                                    viewModel.selectLandmark(landmark.id)
+                                    true
+                                }
+
+                                // BONUS: Reactivamos poder arrastrar la estructura directamente con el dedo
+                                controlMarker.isDraggable = true
+                                controlMarker.setOnMarkerDragListener(object : Marker.OnMarkerDragListener {
+                                    override fun onMarkerDragStart(marker: Marker) {
+                                        viewModel.selectLandmark(landmark.id)
+                                    }
+                                    override fun onMarkerDrag(marker: Marker) {
+                                        val dLat = marker.position.latitude - landmark.location.latitude
+                                        val dLon = marker.position.longitude - landmark.location.longitude
+                                        viewModel.moveSelectedLandmark(dLat, dLon)
+                                    }
+                                    override fun onMarkerDragEnd(marker: Marker) {}
+                                })
+
                             } else {
-                                false
+                                existingControl?.let {
+                                    view.overlays.remove(it)
+                                    overlays.remove(it)
+                                }
                             }
-                        }
 
-                        // Construimos llave de caché que invalide al cambiar escala o selección
-                        val cacheKey = "LM_${landmark.id}_${landmark.assetPath}_${landmark.scaleFactor}_${isSelected}"
+                        } else {
+                            // ===== LÓGICA NORMAL PARA LOS DEMÁS ASSETS =====
+                            val existingMarker = overlays.filterIsInstance<Marker>().firstOrNull()
+                            val marker = existingMarker ?: Marker(view).apply {
+                                overlays.add(this) // Lo registramos
+                                view.overlays.add(this) // Lo pintamos
+                            }
 
-                        if (marker.icon == null || marker.title != cacheKey) {
+                            marker.position = GeoPoint(landmark.location.latitude, landmark.location.longitude)
+                            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+
                             try {
-                                // Pasada 1: leer dimensiones
-                                val opts = android.graphics.BitmapFactory.Options().apply {
-                                    inJustDecodeBounds = true
+                                val inputStream = context.assets.open(landmark.assetPath)
+                                val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                                val baseDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+
+                                val widthPx = (60 * landmark.scaleFactor * context.resources.displayMetrics.density).toInt()
+                                val heightPx = (60 * landmark.scaleFactor * context.resources.displayMetrics.density).toInt()
+
+                                marker.icon = ExactSizeDrawable(baseDrawable, widthPx, heightPx)
+                                inputStream.close()
+                            } catch (e: Exception) {
+                                marker.icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_compass)
+                            }
+
+                            if (uiState.isDesignerMode && uiState.selectedLandmarkId == landmark.id) {
+                                marker.icon?.setTint(android.graphics.Color.RED)
+                            } else {
+                                marker.icon?.setTintList(null)
+                            }
+
+                            marker.setOnMarkerClickListener { _, _ ->
+                                if (uiState.isDesignerMode) {
+                                    viewModel.selectLandmark(landmark.id)
+                                    true
+                                } else {
+                                    false
                                 }
-                                context.assets.open(landmark.assetPath).use { stream ->
-                                    android.graphics.BitmapFactory.decodeStream(stream, null, opts)
-                                }
-
-                                if (opts.outWidth > 0 && opts.outHeight > 0) {
-                                    val maxDim = 1024
-                                    var sampleSize = 1
-                                    while (opts.outWidth / sampleSize > maxDim || opts.outHeight / sampleSize > maxDim) {
-                                        sampleSize *= 2
-                                    }
-
-                                    // Cache del bitmap base decodificado, indexado por assetPath+sampleSize
-                                    val baseKey = "${landmark.assetPath}_$sampleSize"
-                                    val baseBmp = landmarkBitmapCache.getOrPut(baseKey) {
-                                        val realOpts = android.graphics.BitmapFactory.Options().apply {
-                                            inSampleSize = sampleSize
-                                            inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
-                                        }
-                                        context.assets.open(landmark.assetPath).use { stream ->
-                                            android.graphics.BitmapFactory.decodeStream(stream, null, realOpts)
-                                        } ?: return@getOrPut android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
-                                    }
-
-                                    val scaledW = (baseBmp.width * landmark.scaleFactor).toInt().coerceAtLeast(1)
-                                    val scaledH = (baseBmp.height * landmark.scaleFactor).toInt().coerceAtLeast(1)
-                                    val scaled = if (scaledW == baseBmp.width && scaledH == baseBmp.height) {
-                                        baseBmp
-                                    } else {
-                                        android.graphics.Bitmap.createScaledBitmap(baseBmp, scaledW, scaledH, true)
-                                    }
-
-                                    val drawable = android.graphics.drawable.BitmapDrawable(context.resources, scaled)
-
-                                    // Tinte rojo si está seleccionado
-                                    if (isSelected) {
-                                        drawable.setTint(android.graphics.Color.argb(180, 255, 60, 60))
-                                        drawable.setTintMode(android.graphics.PorterDuff.Mode.MULTIPLY)
-                                    }
-
-                                    marker.icon = drawable
-                                    marker.title = cacheKey
-                                }
-                            } catch (e: Throwable) {
-                                android.util.Log.e("Landmarks", "Error cargando ${landmark.assetPath}: ${e.message}")
                             }
                         }
-                        marker.position = landmark.location
-                        marker.rotation = landmark.rotationAngle
                     }
 
                     view.invalidate()
