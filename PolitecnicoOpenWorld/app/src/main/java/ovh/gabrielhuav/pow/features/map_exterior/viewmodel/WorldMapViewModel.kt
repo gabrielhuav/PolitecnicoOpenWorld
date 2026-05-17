@@ -33,6 +33,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import ovh.gabrielhuav.pow.domain.models.Landmark
+import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -955,11 +956,12 @@ class WorldMapViewModel(
 
                 val domainLandmarks = entities.map { entity ->
                     Landmark(
-                        id = entity.id.toString(),
+                        id = entity.id,
                         name = entity.name,
                         location = GeoPoint(entity.latitude, entity.longitude),
                         assetPath = entity.assetPath,
-                        scaleFactor = entity.scaleFactor
+                        scaleFactor = entity.scaleFactor,
+                        rotationAngle = entity.rotationAngle
                     )
                 }
 
@@ -970,6 +972,96 @@ class WorldMapViewModel(
                 }
             } catch (e: Exception) {
                 Log.e("WorldMapViewModel", "Error al cargar las estructuras estáticas", e)
+            }
+        }
+    }
+
+    // ─── MODO DISEÑADOR ──────────────────────────────────────────────────────
+
+    fun toggleDesignerMode(isDesigner: Boolean) {
+        _uiState.update { it.copy(isDesignerMode = isDesigner, selectedLandmarkId = if (!isDesigner) null else it.selectedLandmarkId) }
+    }
+
+    fun showAssetPicker(show: Boolean) {
+        _uiState.update { it.copy(showAssetPicker = show) }
+    }
+
+    fun selectLandmark(id: Long?) {
+        _uiState.update { it.copy(selectedLandmarkId = id) }
+    }
+
+    fun addLandmarkAtPlayer(context: Context, template: LandmarkAssetTemplate) {
+        val playerLoc = _uiState.value.currentLocation ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dao = PowDatabase.getInstance(context).landmarkDao()
+                val newEntity = LandmarkEntity(
+                    name = template.displayName,
+                    latitude = playerLoc.latitude,
+                    longitude = playerLoc.longitude,
+                    assetPath = template.assetPath,
+                    scaleFactor = template.defaultScale,
+                    rotationAngle = 0f
+                )
+                val newId = dao.insertLandmark(newEntity)
+
+                // Recargar para que aparezca en el mapa
+                loadLandmarks(context)
+
+                _uiState.update { it.copy(showAssetPicker = false, selectedLandmarkId = newId) }
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error al agregar landmark", e)
+            }
+        }
+    }
+
+    fun moveSelectedLandmark(dLat: Double, dLon: Double) {
+        val id = _uiState.value.selectedLandmarkId ?: return
+        _uiState.update { state ->
+            val updated = state.landmarks.map {
+                if (it.id == id) {
+                    it.copy(location = GeoPoint(it.location.latitude + dLat, it.location.longitude + dLon))
+                } else it
+            }
+            state.copy(landmarks = updated)
+        }
+    }
+
+    fun rotateSelectedLandmark(angle: Float) {
+        val id = _uiState.value.selectedLandmarkId ?: return
+        _uiState.update { state ->
+            val updated = state.landmarks.map {
+                if (it.id == id) it.copy(rotationAngle = angle)
+                else it
+            }
+            state.copy(landmarks = updated)
+        }
+    }
+
+    fun scaleSelectedLandmark(scale: Float) {
+        val id = _uiState.value.selectedLandmarkId ?: return
+        _uiState.update { state ->
+            val updated = state.landmarks.map {
+                if (it.id == id) it.copy(scaleFactor = scale)
+                else it
+            }
+            state.copy(landmarks = updated)
+        }
+    }
+
+    fun deleteSelectedLandmark(context: Context) {
+        val id = _uiState.value.selectedLandmarkId ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dao = PowDatabase.getInstance(context).landmarkDao()
+                val entity = dao.getLandmarkById(id)
+                if (entity != null) {
+                    dao.deleteLandmark(entity)
+                    loadLandmarks(context)
+                    _uiState.update { it.copy(selectedLandmarkId = null) }
+                }
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error al borrar landmark", e)
             }
         }
     }

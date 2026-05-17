@@ -51,8 +51,13 @@ data class WorldMapState(
     val currentVehicleModel: CarModel? = null,
     val currentVehicleColor: Int? = null,
     val vehicleSpeed: Double = 0.0,
-    val vehicleRotation: Float = 0f, // Para los 48 frames del coche
+    val vehicleRotation: Float = 0f,
     val vehicleIsFirstTimeBoarded: Boolean = true,
     val landmarks: List<Landmark> = emptyList(),
-    val showTeleportMenu: Boolean = false // Estado para mostrar el menú de teletransporte
+    val showTeleportMenu: Boolean = false,
+
+    // ─── MODO DISEÑADOR ──────────────────────────────────────────────────────
+    val isDesignerMode: Boolean = false,
+    val selectedLandmarkId: Long? = null,     // null = nada seleccionado
+    val showAssetPicker: Boolean = false      // diálogo para agregar nuevo asset
 )

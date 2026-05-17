@@ -22,7 +22,7 @@ import java.io.File
         MapTileEntity::class,
         LandmarkEntity::class
     ],
-    version = 6,
+    version = 7,  // ← Subido de 6 a 7 porque LandmarkEntity ganó la columna rotationAngle
     exportSchema = false
 )
 abstract class PowDatabase : RoomDatabase() {
