@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -74,6 +76,14 @@ fun WorldMapScreen(
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
+
+    // Launchers para Exportar e Importar archivos JSON en el dispositivo
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let { viewModel.exportLandmarksToUri(context, it) }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { viewModel.importLandmarksFromUri(context, it) }
+    }
 
     // Controladores de tiempo para el botón Y
     val coroutineScope = rememberCoroutineScope()
@@ -686,6 +696,8 @@ fun WorldMapScreen(
                 onScale = { scale -> viewModel.scaleSelectedLandmark(scale) },
                 onDelete = { viewModel.deleteSelectedLandmark(context) },
                 onSave = { viewModel.saveSelectedLandmark(context) },
+                onExport = { exportLauncher.launch("landmarks_config.json") },
+                onImport = { importLauncher.launch(arrayOf("application/json", "*/*")) },
                 onDeselect = { viewModel.selectLandmark(null) },
                 modifier = Modifier
                     .align(Alignment.TopCenter)

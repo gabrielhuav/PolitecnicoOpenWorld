@@ -1066,6 +1066,48 @@ class WorldMapViewModel(
         }
     }
 
+    fun exportLandmarksToUri(context: Context, uri: android.net.Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dao = PowDatabase.getInstance(context).landmarkDao()
+                val entities = dao.getAllLandmarks()
+                val jsonString = Gson().toJson(entities)
+
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(jsonString.toByteArray())
+                }
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error al guardar JSON en archivo", e)
+            }
+        }
+    }
+
+    fun importLandmarksFromUri(context: Context, uri: android.net.Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val jsonString = inputStream?.bufferedReader().use { it?.readText() } ?: return@launch
+
+                val type = object : com.google.gson.reflect.TypeToken<List<LandmarkEntity>>() {}.type
+                val importedEntities: List<LandmarkEntity> = Gson().fromJson(jsonString, type)
+
+                val dao = PowDatabase.getInstance(context).landmarkDao()
+
+                // Eliminar estructuras actuales
+                val currentLandmarks = dao.getAllLandmarks()
+                currentLandmarks.forEach { dao.deleteLandmark(it) }
+
+                // Insertar desde el JSON (se insertan con su ID original para respetar el maestro)
+                dao.insertLandmarks(importedEntities)
+
+                // Recargar en el mapa
+                loadLandmarks(context)
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error al importar JSON desde archivo", e)
+            }
+        }
+    }
+
     fun saveSelectedLandmark(context: Context) {
         val id = _uiState.value.selectedLandmarkId ?: return
         val currentLandmark = _uiState.value.landmarks.find { it.id == id } ?: return
