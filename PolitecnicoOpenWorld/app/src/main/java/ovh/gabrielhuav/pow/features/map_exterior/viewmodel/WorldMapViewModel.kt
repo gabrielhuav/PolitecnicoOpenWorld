@@ -125,7 +125,6 @@ class WorldMapViewModel(
 
     var showHealthBar by mutableStateOf(false)
         private set
-    private var hasShownInitialHealthBar by mutableStateOf(false)
     var damagePulseTrigger by mutableStateOf(0) // Cambia para disparar la animación de golpe
         private set
 
