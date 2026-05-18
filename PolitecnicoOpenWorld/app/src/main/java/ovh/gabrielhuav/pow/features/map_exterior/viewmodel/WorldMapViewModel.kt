@@ -1283,9 +1283,14 @@ class WorldMapViewModel(
 
             val playerLoc = _uiState.value.currentLocation ?: return@launch
 
-            // Solo atacamos si NO está muriendo, está en rango, Y ES UNA PERSONA
+            // Solo atacamos NPCs reales: no muriendo, en rango, de tipo PERSON y sin displayName de jugador remoto
             val targetNpcEntry = remoteEntities.entries
-                .filter { !it.value.isDying && it.value.type == NpcType.PERSON && distance(playerLoc, it.value.location) <= ATTACK_RADIUS }
+                .filter {
+                    !it.value.isDying &&
+                        it.value.type == NpcType.PERSON &&
+                        (it.value.displayName?.isBlank() != false) &&
+                        distance(playerLoc, it.value.location) <= ATTACK_RADIUS
+                }
                 .minByOrNull { distance(playerLoc, it.value.location) }
 
             if (targetNpcEntry != null) {
