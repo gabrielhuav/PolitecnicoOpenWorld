@@ -529,10 +529,6 @@ class WorldMapViewModel(
 
                         maybeRefetchRoadNetwork(location)
                         if (_uiState.value.isRoadNetworkReady) {
-                            fun showInitialHealthBar() {
-                                showHealthBar = true
-                                startHealthBarTimer(4000L)
-                            }
                             tickCount++
                             if (tickCount % 3 == 0) {
                                 // 1. Damos SOLO los NPCs a la IA (Filtrando posibles jugadores basura)
