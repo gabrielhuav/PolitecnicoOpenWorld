@@ -1227,11 +1227,13 @@ class WorldMapViewModel(
                 if (uncollected.isNotEmpty()) {
                     val itemToSpawn = uncollected.random()
 
-                    val signLat = if (Math.random() > 0.5) 1.0 else -1.0
-                    val signLon = if (Math.random() > 0.5) 1.0 else -1.0
-
-                    val offsetLat = playerLat + signLat * (0.0030 + Math.random() * 0.0030)
-                    val offsetLon = playerLon + signLon * (0.0030 + Math.random() * 0.0030)
+                    val bearing = Math.random() * 2 * Math.PI
+                    val distanceMeters = 300.0 + Math.random() * 300.0 // 300m – 600m
+                    val clampedLat = playerLat.coerceIn(-85.0, 85.0)
+                    val deltaLat = (distanceMeters * Math.cos(bearing)) / 111000.0
+                    val deltaLon = (distanceMeters * Math.sin(bearing)) / (111000.0 * Math.cos(Math.toRadians(clampedLat)))
+                    val offsetLat = playerLat + deltaLat
+                    val offsetLon = playerLon + deltaLon
 
                     val tempLoc = org.osmdroid.util.GeoPoint(offsetLat, offsetLon)
 

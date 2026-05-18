@@ -111,7 +111,7 @@ fun CollectibleCard(item: CollectibleEntity) {
         if (bitmap != null) {
             Image(
                 bitmap = bitmap,
-                contentDescription = item.name,
+                contentDescription = if (item.isCollected) item.name else "Coleccionable desconocido",
                 modifier = Modifier.size(70.dp),
                 colorFilter = if (!item.isCollected) ColorFilter.tint(Color.Black) else null
             )

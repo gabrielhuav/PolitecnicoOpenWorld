@@ -76,10 +76,6 @@ fun WorldMapScreen(
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
-    // Caché para los Sprites de los coleccionables
-    val collectibleBitmaps = remember { mutableMapOf<String, ImageBitmap>() }
-    // : Caché para los marcadores del mapa
-    val collectibleMarkerCache = remember { mutableMapOf<String, Marker>() }
     // Launchers para Exportar e Importar archivos JSON en el dispositivo
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { viewModel.exportLandmarksToUri(context, it) }
@@ -286,6 +282,12 @@ fun WorldMapScreen(
                         }
                         // ─── DIBUJADO DE COLECCIONABLES ──────────────────────────────────
                         val activeCollectibleIds = uiState.activeCollectibles.map { it.id }.toSet()
+
+                        @Suppress("UNCHECKED_CAST")
+                        val collectibleMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag) as? MutableMap<String, Marker>)
+                            ?: mutableMapOf<String, Marker>().also {
+                                view.setTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag, it)
+                            }
 
                         // 1. Limpieza de coleccionables que ya fueron recogidos
                         val colIterator = collectibleMarkerCache.iterator()
