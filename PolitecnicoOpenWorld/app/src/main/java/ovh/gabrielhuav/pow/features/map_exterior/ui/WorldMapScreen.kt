@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Architecture
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -56,7 +57,11 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.math.atan2
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.launch
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
@@ -94,6 +99,14 @@ fun WorldMapScreen(
     // que cada movimiento de slider gaste decenas de MB en re-decodificar WEBPs.
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap>() }
 
+    // Estado de seguimiento del personaje en el mapa OSM
+    // followingPlayerState se expone como MutableState para que el MapListener lo lea en tiempo real
+    val followingPlayerState = remember { mutableStateOf(true) }
+    var isFollowingPlayer by followingPlayerState
+    var osmMapViewRef by remember { mutableStateOf<MapView?>(null) }
+    val currentPlayerLocationState = remember { mutableStateOf<GeoPoint?>(null) }
+    val playerScreenOffsetState = remember { mutableStateOf(IntOffset.Zero) }
+
     LaunchedEffect(Unit) {
         viewModel.loadLandmarks(context)
     }
@@ -115,6 +128,20 @@ fun WorldMapScreen(
                 }
             }
         }
+    }
+
+    // Cuando el personaje se mueve en modo libre, recalcula su posición en pantalla
+    LaunchedEffect(Unit) {
+        snapshotFlow { Pair(currentPlayerLocationState.value, followingPlayerState.value) }
+            .collect { (loc, following) ->
+                if (!following) {
+                    val mapView = osmMapViewRef ?: return@collect
+                    if (loc == null || mapView.width == 0 || mapView.height == 0) return@collect
+                    val pt = android.graphics.Point()
+                    mapView.projection.toPixels(loc, pt)
+                    playerScreenOffsetState.value = IntOffset(pt.x - mapView.width / 2, pt.y - mapView.height / 2)
+                }
+            }
     }
 
     val tileCache = viewModel.tileCache
@@ -145,30 +172,59 @@ fun WorldMapScreen(
                     MapView(ctx).apply {
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(false)
-                        //setOnTouchListener { _, _ -> true }
-                        //isClickable = false; isFocusable = false
                         controller.setZoom(uiState.zoomLevel)
-                    }
+                        val self = this
+                        addMapListener(object : MapListener {
+                            private fun recalcOffset() {
+                                if (!followingPlayerState.value) {
+                                    val loc = currentPlayerLocationState.value ?: return
+                                    if (self.width == 0 || self.height == 0) return
+                                    val pt = android.graphics.Point()
+                                    self.projection.toPixels(loc, pt)
+                                    playerScreenOffsetState.value = IntOffset(
+                                        pt.x - self.width / 2,
+                                        pt.y - self.height / 2
+                                    )
+                                }
+                            }
+                            override fun onScroll(event: ScrollEvent?): Boolean { recalcOffset(); return false }
+                            override fun onZoom(event: ZoomEvent?): Boolean { recalcOffset(); return false }
+                        })
+                    }.also { osmMapViewRef = it }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
                     if (uiState.isDesignerMode) {
-                        view.setOnTouchListener(null) // Permitimos que detecte tu dedo
+                        view.setOnTouchListener(null)
                         view.isClickable = true
                     } else {
-                        view.setOnTouchListener { _, _ -> true } // Bloqueamos el mapa en modo juego
-                        view.isClickable = false
+                        // Permite arrastrar el mapa libremente; al tocar, desactiva el seguimiento del personaje
+                        view.setOnTouchListener { _, event ->
+                            if (event.action == android.view.MotionEvent.ACTION_DOWN ||
+                                event.action == android.view.MotionEvent.ACTION_MOVE) {
+                                isFollowingPlayer = false
+                            }
+                            false // No consumir el evento; el MapView lo procesa normalmente
+                        }
+                        view.isClickable = true
                     }
-                    //view.overlays.clear()
-                    uiState.currentLocation?.let { view.controller.setCenter(it) }
+
+                    // Mantener la ubicación actual accesible para el MapListener
+                    currentPlayerLocationState.value = uiState.currentLocation
+
+                    if (isFollowingPlayer) {
+                        playerScreenOffsetState.value = IntOffset.Zero
+                        uiState.currentLocation?.let { view.controller.setCenter(it) }
+                    }
 
                     view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
 
                     val zoomDiff = kotlin.math.abs(view.zoomLevelDouble - uiState.zoomLevel)
                     when {
                         zoomDiff < 0.01 -> {}
-                        zoomDiff > 1.5  -> view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
-                        else            -> view.controller.setZoom(uiState.zoomLevel)
+                        zoomDiff > 1.5 && isFollowingPlayer -> view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
+                        zoomDiff >= 0.01 -> view.controller.setZoom(uiState.zoomLevel)
+                        else -> {}
                     }
 
                     if (uiState.isRoadNetworkReady) {
@@ -554,9 +610,13 @@ fun WorldMapScreen(
         }
 
         // ─── CAPA 2: Personaje principal ────────────────────────────────────
+        // Cuando el mapa está en modo libre, se desplaza con un offset para
+        // permanecer fijo en su posición geográfica mientras el mapa se mueve.
         ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
             uiState = uiState,
-            modifier = Modifier.align(Alignment.Center)
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset { playerScreenOffsetState.value }
         )
 
         if (!uiState.isRoadNetworkReady) {
@@ -654,6 +714,24 @@ fun WorldMapScreen(
                 .background(Color.White.copy(alpha = 0.8f), CircleShape)
                 .size(48.dp)
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
+
+            // Botón de centrar: visible solo cuando el usuario alejó el mapa del personaje
+            AnimatedVisibility(visible = !uiState.isDesignerMode && !isFollowingPlayer, enter = fadeIn(), exit = fadeOut()) {
+                IconButton(
+                    onClick = {
+                        isFollowingPlayer = true
+                        playerScreenOffsetState.value = IntOffset.Zero
+                        uiState.currentLocation?.let { loc ->
+                            osmMapViewRef?.controller?.animateTo(loc, uiState.zoomLevel, 400L)
+                        }
+                    },
+                    modifier = Modifier
+                        .background(Color.White, CircleShape)
+                        .size(48.dp)
+                ) {
+                    Icon(Icons.Default.MyLocation, contentDescription = "Centrar en personaje", tint = Color(0xFF1976D2))
+                }
+            }
         }
 
         // Menú de teletransporte
