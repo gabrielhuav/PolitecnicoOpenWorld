@@ -8,12 +8,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -23,7 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import ovh.gabrielhuav.pow.data.local.room.entity.CollectibleEntity
+import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 
 @Composable
@@ -38,7 +43,7 @@ fun CollectiblesScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(bg)
-            .padding(16.dp)
+            .padding(16.dp) // Opcional: usar windowInsetsPadding(WindowInsets.safeDrawing) si quieres soportar notches
     ) {
         // --- CABECERA ESTILO MAIN MENU ---
         Row(
@@ -71,12 +76,14 @@ fun CollectiblesScreen(
             }
         }
 
-        // --- CUADRÍCULA ---
+        // --- CUADRÍCULA CORREGIDA ---
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            // CAMBIO CLAVE: Adaptive ajusta automáticamente las columnas según el ancho de pantalla
+            columns = GridCells.Adaptive(minSize = 150.dp),
             contentPadding = PaddingValues(bottom = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize()
         ) {
             items(collectibles) { item ->
                 CollectibleCard(item)
@@ -140,6 +147,87 @@ fun CollectibleCard(item: CollectibleEntity) {
                 textAlign = TextAlign.Center,
                 lineHeight = 14.sp
             )
+        }
+    }
+}
+
+@Composable
+fun CollectibleClaimDialog(
+    collectible: ActiveCollectible,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val bitmap = remember(collectible.assetPath) {
+        try {
+            context.assets.open(collectible.assetPath).use {
+                BitmapFactory.decodeStream(it).asImageBitmap()
+            }
+        } catch (e: Exception) { null }
+    }
+
+    Dialog(onDismissRequest = { /* Obligar a presionar botón */ }) {
+        val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
+        val shape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)
+
+        Box(
+            modifier = Modifier
+                // CAMBIO 1: Responsividad en el ancho
+                .fillMaxWidth(0.9f)
+                .widthIn(max = 400.dp)
+                .background(bg, shape = shape)
+                .border(2.dp, Color(0xFFD4AF37), shape)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                // CAMBIO 2: Agregar scroll vertical para que no se corte en Landscape
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "¡NUEVO COLECCIONABLE!",
+                    color = Color(0xFFD4AF37),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    letterSpacing = 2.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap,
+                        contentDescription = collectible.name,
+                        modifier = Modifier.size(110.dp)
+                    )
+                }
+
+                Text(
+                    text = collectible.name.uppercase(),
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 20.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = collectible.description,
+                    color = Color.LightGray,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A), contentColor = Color.White),
+                    shape = shape,
+                    modifier = Modifier.fillMaxWidth().height(48.dp).shadow(8.dp, shape)
+                ) {
+                    Text("CONTINUAR", fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                }
+            }
         }
     }
 }

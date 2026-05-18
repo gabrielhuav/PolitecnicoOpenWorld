@@ -5,7 +5,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -45,7 +47,9 @@ fun CollectibleClaimDialog(
 
         Box(
             modifier = Modifier
-                .width(320.dp)
+                // CAMBIO 1: Hacemos el ancho responsivo para que se adapte al celular
+                .fillMaxWidth(0.9f)
+                .widthIn(max = 400.dp)
                 .background(bg, shape = shape)
                 .border(2.dp, Color(0xFFD4AF37), shape) // Borde dorado
                 .padding(24.dp),
@@ -53,7 +57,9 @@ fun CollectibleClaimDialog(
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                // CAMBIO 2: Agregamos scroll vertical a la columna interna
+                modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
                 Text(
                     text = "¡NUEVO COLECCIONABLE!",
