@@ -1309,14 +1309,12 @@ class WorldMapViewModel(
                     delay(1000L) // Espera a que termine el fade-out
                     remoteEntities.remove(npcId)
 
-                    if (isServerDelegatedHost) {
-                        try {
-                            webSocketManager?.sendMessage(
-                                gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
-                            )
-                        } catch (e: Exception) {
-                            Log.e("Combat", "Error enviando NPC_DESTROY: ${e.message}")
-                        }
+                    try {
+                        webSocketManager?.sendMessage(
+                            gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
+                        )
+                    } catch (e: Exception) {
+                        Log.e("Combat", "Error enviando NPC_DESTROY: ${e.message}")
                     }
                     updateNpcsState()
                 } else {
