@@ -12,6 +12,8 @@ import ovh.gabrielhuav.pow.data.local.room.entity.RoadNodeEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadWayEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadZoneEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
+import ovh.gabrielhuav.pow.data.local.room.dao.CollectibleDao
+import ovh.gabrielhuav.pow.data.local.room.entity.CollectibleEntity
 import java.io.File
 
 @Database(
@@ -20,9 +22,10 @@ import java.io.File
         RoadWayEntity::class,
         RoadNodeEntity::class,
         MapTileEntity::class,
-        LandmarkEntity::class
+        LandmarkEntity::class,
+        CollectibleEntity::class
     ],
-    version = 7,  // ← Subido de 6 a 7 porque LandmarkEntity ganó la columna rotationAngle
+    version = 8,
     exportSchema = false
 )
 abstract class PowDatabase : RoomDatabase() {
@@ -30,6 +33,8 @@ abstract class PowDatabase : RoomDatabase() {
     abstract fun roadNetworkDao(): RoadNetworkDao
     abstract fun mapTileDao(): MapTileDao
     abstract fun landmarkDao(): LandmarkDao
+
+    abstract fun collectibleDao(): CollectibleDao
 
     companion object {
         @Volatile

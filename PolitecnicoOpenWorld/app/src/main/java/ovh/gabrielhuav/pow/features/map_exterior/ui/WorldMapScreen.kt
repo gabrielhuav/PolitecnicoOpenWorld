@@ -56,10 +56,10 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.math.atan2
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -76,7 +76,10 @@ fun WorldMapScreen(
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
-
+    // Caché para los Sprites de los coleccionables
+    val collectibleBitmaps = remember { mutableMapOf<String, ImageBitmap>() }
+    // : Caché para los marcadores del mapa
+    val collectibleMarkerCache = remember { mutableMapOf<String, Marker>() }
     // Launchers para Exportar e Importar archivos JSON en el dispositivo
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { viewModel.exportLandmarksToUri(context, it) }
@@ -280,6 +283,73 @@ fun WorldMapScreen(
                             }
 
                             marker.position = org.osmdroid.util.GeoPoint(npc.location.latitude, npc.location.longitude)
+                        }
+                        // ─── DIBUJADO DE COLECCIONABLES ──────────────────────────────────
+                        val activeCollectibleIds = uiState.activeCollectibles.map { it.id }.toSet()
+
+                        // 1. Limpieza de coleccionables que ya fueron recogidos
+                        val colIterator = collectibleMarkerCache.iterator()
+                        while (colIterator.hasNext()) {
+                            val entry = colIterator.next()
+                            if (!activeCollectibleIds.contains(entry.key)) {
+                                view.overlays.remove(entry.value)
+                                colIterator.remove()
+                            }
+                        }
+
+                        // 2. Actualización y dibujado
+                        uiState.activeCollectibles.forEach { collectible ->
+                            val id = collectible.id
+                            val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
+                                title = "COLLECTIBLE"
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                isFlat = true
+                                collectibleMarkerCache[id] = this
+                                view.overlays.add(this)
+                            }
+
+                            if (isZoomedIn) {
+                                marker.setAlpha(1f)
+                                // Hacer que crezcan con el zoom (mismo tamaño que los NPCs)
+                                val sizeDp = (30.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(20.0f, 50.0f)
+                                val exactPixels = (sizeDp * screenDensity).toInt()
+
+                                val cacheKey = "COL_${collectible.assetPath}_${exactPixels}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    val bitmap = try {
+                                        android.graphics.BitmapFactory.decodeStream(context.assets.open(collectible.assetPath))
+                                    } catch (e: Exception) { null }
+
+                                    if (bitmap != null) {
+                                        // A. Crear el círculo amarillo de fondo (Brillo)
+                                        val glowShape = android.graphics.drawable.ShapeDrawable(android.graphics.drawable.shapes.OvalShape()).apply {
+                                            paint.color = android.graphics.Color.argb(160, 255, 235, 59) // Amarillo semitransparente
+                                        }
+
+                                        // B. El sprite original
+                                        val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+
+                                        // C. Juntarlos en un LayerDrawable
+                                        val layerDrawable = android.graphics.drawable.LayerDrawable(arrayOf(glowShape, spriteDrawable))
+
+                                        // Darle margen al sprite para que el fondo amarillo sobresalga como un aura
+                                        val padding = exactPixels / 6
+                                        layerDrawable.setLayerInset(1, padding, padding, padding, padding)
+
+                                        ExactSizeDrawable(layerDrawable, exactPixels, exactPixels)
+                                    } else {
+                                        ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                    }
+                                }
+                                marker.icon = cachedIcon
+
+                                // Detalle extra: Hacer que el objeto gire sobre sí mismo para llamar la atención
+                                marker.rotation = ((System.currentTimeMillis() / 15) % 360).toFloat()
+                            } else {
+                                marker.setAlpha(0f)
+                            }
+
+                            marker.position = org.osmdroid.util.GeoPoint(collectible.latitude, collectible.longitude)
                         }
                     }
 
@@ -777,6 +847,9 @@ fun WorldMapScreen(
                                     }
                                 }
                                 viewModel.updateActionState(action, isPressed)
+                            },
+                            onClaimCollectiblePressed = {
+                                viewModel.onClaimCollectiblePressed()
                             }
                         )
                     }
@@ -785,6 +858,37 @@ fun WorldMapScreen(
                 }
             }
         }
+    }
+    // ─── UI SUPERPUESTA: AVISO DE COLECCIONABLE CERCANO ───────────────────────
+    uiState.interactionPrompt?.let { promptText ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 70.dp), // Separado del borde superior para no tapar notch
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Text(
+                text = promptText,
+                color = Color.White,
+                fontWeight = FontWeight.Black,
+                fontSize = 16.sp,
+                letterSpacing = 2.sp,
+                modifier = Modifier
+                    .background(
+                        color = Color(0xFF3B0D1B).copy(alpha = 0.85f), // Guinda traslúcido
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
+            )
+        }
+    }
+
+    // ─── POP-UP DE RECOMPENSA (COLECCIONABLE) ─────────────────────────────────
+    uiState.showClaimedPopupFor?.let { collectible ->
+        ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog(
+            collectible = collectible,
+            onDismiss = { viewModel.dismissClaimedPopup() }
+        )
     }
 }
 

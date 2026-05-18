@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.CarModel
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.Landmark
@@ -59,5 +60,14 @@ data class WorldMapState(
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
     val selectedLandmarkId: Long? = null,     // null = nada seleccionado
-    val showAssetPicker: Boolean = false      // diálogo para agregar nuevo asset
+    val showAssetPicker: Boolean = false,      // diálogo para agregar nuevo asset
+
+    // Coleccionables
+    // Lista de objetos dibujados actualmente en el mapa
+    val activeCollectibles: List<ActiveCollectible> = emptyList(),
+    // El objeto que el jugador tiene lo suficientemente cerca para reclamar
+    val nearbyCollectible: ActiveCollectible? = null,
+    // El objeto que acabamos de recoger para mostrar el Pop-up divertido
+    val showClaimedPopupFor: ActiveCollectible? = null,
+    val interactionPrompt: String? = null // Para mostrar texto 3 segundos
 )
