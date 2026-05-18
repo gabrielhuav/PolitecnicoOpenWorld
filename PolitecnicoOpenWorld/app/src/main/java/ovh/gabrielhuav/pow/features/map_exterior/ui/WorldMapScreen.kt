@@ -89,12 +89,11 @@ fun WorldMapScreen(
     var yButtonHoldJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     // Cache de bitmaps de landmarks (sin tinte) por (assetPath, scale).
-    // Reutilizar bitmaps decodificados al cambiar escala es lo único que evita
-    // que cada movimiento de slider gaste decenas de MB en re-decodificar WEBPs.
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap>() }
 
     LaunchedEffect(Unit) {
         viewModel.loadLandmarks(context)
+        viewModel.showInitialHealthBar()
     }
 
     var currentFps by remember { mutableIntStateOf(0) }
@@ -144,8 +143,6 @@ fun WorldMapScreen(
                     MapView(ctx).apply {
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(false)
-                        //setOnTouchListener { _, _ -> true }
-                        //isClickable = false; isFocusable = false
                         controller.setZoom(uiState.zoomLevel)
                     }
                 },
@@ -158,7 +155,6 @@ fun WorldMapScreen(
                         view.setOnTouchListener { _, _ -> true } // Bloqueamos el mapa en modo juego
                         view.isClickable = false
                     }
-                    //view.overlays.clear()
                     uiState.currentLocation?.let { view.controller.setCenter(it) }
 
                     view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
@@ -192,19 +188,26 @@ fun WorldMapScreen(
                             }
                         }
 
-                        // Dibujado de NPCs (sin cambios respecto a la versión previa)
+                        // ─── DIBUJADO OPTIMIZADO DE NPCs ───
                         uiState.npcs.forEach { npc ->
                             val id = npc.id
+                            // REGLA DE ORO: Reciclamos el marcador, no creamos uno nuevo.
                             val marker = markerCache[id] ?: Marker(view).apply {
                                 title = "NPC_MARKER"
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                setInfoWindow(null)
                                 isFlat = true
                                 markerCache[id] = this
                                 view.overlays.add(this)
                             }
 
                             if (isZoomedIn) {
-                                marker.setAlpha(1f)
+                                // --- 1. EFECTO VISUAL DE MUERTE (FADE-OUT) ---
+                                if (npc.isDying) {
+                                    marker.setAlpha(0.3f)
+                                } else {
+                                    marker.setAlpha(1f)
+                                }
 
                                 if (npc.visualConfig != null) {
                                     val currentlyMoving = npc.speed > 0 || npc.isMoving
@@ -214,10 +217,11 @@ fun WorldMapScreen(
                                     val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
                                         .getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
 
-                                    val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}"
+                                    // Integramos la vida y estado en la clave de caché para que se pinte solo 1 vez
+                                    val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
 
                                     val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                        val baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getModularNpcDrawable(
+                                        var baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getModularNpcDrawable(
                                             context = context,
                                             visualConfig = npc.visualConfig!!,
                                             isMoving = currentlyMoving,
@@ -226,6 +230,9 @@ fun WorldMapScreen(
                                             scale = highResRenderScale,
                                             displayName = npc.displayName
                                         )
+
+                                        baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
+
                                         baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                             ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                     }
@@ -240,12 +247,15 @@ fun WorldMapScreen(
                                     val frameIndex = (angle / 7.5f).roundToInt() % 48
                                     val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
 
-                                    val cacheKey = "CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${dynamicScale}"
+                                    val cacheKey = "CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
 
                                     val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                        val baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
+                                        var baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
                                             context, angle, npc.carColor, highResRenderScale, npc.carModel
                                         )
+
+                                        baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
+
                                         baseDrawable?.let { drawable ->
                                             val baseWidthDp = (drawable.intrinsicWidth / screenDensity) / screenDensity
                                             val baseHeightDp = (drawable.intrinsicHeight / screenDensity) / screenDensity
@@ -261,10 +271,13 @@ fun WorldMapScreen(
                                     marker.rotation = 0f
 
                                 } else {
-                                    val cacheKey = "SVG_${npc.type.name}"
+                                    val cacheKey = "SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
                                     val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                         val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
-                                        val baseDrawable = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
+                                        var baseDrawable = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
+
+                                        baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
+
                                         baseDrawable?.let {
                                             val exactPixels = (24 * screenDensity).toInt()
                                             ExactSizeDrawable(it, exactPixels, exactPixels)
@@ -563,7 +576,7 @@ fun WorldMapScreen(
                             if (angle < 0) angle += 360f
 
                             val frameIndex = (angle / 7.5f).roundToInt() % 48
-                            val cacheKey = "${npc.carModel.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
+                            val cacheKey = "${npc.carModel?.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
 
                             val base64Image = base64Cache.getOrPut(cacheKey) {
                                 val drawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
@@ -628,7 +641,10 @@ fun WorldMapScreen(
         // ─── CAPA 2: Personaje principal ────────────────────────────────────
         ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
             uiState = uiState,
-            modifier = Modifier.align(Alignment.Center)
+            modifier = Modifier.align(Alignment.Center),
+            health = viewModel.playerHealth,
+            showHealthBar = viewModel.showHealthBar,
+            damagePulseTrigger = viewModel.damagePulseTrigger
         )
 
         if (!uiState.isRoadNetworkReady) {
@@ -926,6 +942,54 @@ private fun CacheChip(label: String, text: String, color: Color, isLoading: Bool
     }
 }
 
+// Función auxiliar puramente matemática para inyectar la barra de vida a los sprites en memoria
+private fun drawHealthBarOnDrawable(
+    context: Context,
+    original: android.graphics.drawable.Drawable?,
+    health: Float,
+    isDying: Boolean
+): android.graphics.drawable.Drawable? {
+    if (original !is android.graphics.drawable.BitmapDrawable || health >= 100f || isDying) {
+        return original
+    }
+
+    val originalBitmap = original.bitmap
+    val mutableBitmap = originalBitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
+    val canvas = android.graphics.Canvas(mutableBitmap)
+    val paint = android.graphics.Paint()
+
+    // 🌟 NUEVO TAMAÑO: 95% del ancho y 24 píxeles de grosor para máxima visibilidad
+    val barWidth = mutableBitmap.width * 0.95f
+    val barHeight = 100f
+    val left = (mutableBitmap.width - barWidth) / 2f
+    val top = 0f // Pegada completamente al techo del sprite
+
+    // Dibujamos el fondo negro (marco grueso)
+    paint.color = android.graphics.Color.BLACK
+    canvas.drawRect(left, top, left + barWidth, top + barHeight, paint)
+
+    // Color según el nivel de vida
+    paint.color = when {
+        health > 60f -> android.graphics.Color.GREEN
+        health > 30f -> android.graphics.Color.YELLOW
+        else -> android.graphics.Color.RED
+    }
+
+    // 🌟 Borde interior: Restamos 6 píxeles al ancho y damos un offset de +3
+    // para crear un contorno negro tipo RPG muy marcado
+    val healthWidth = (barWidth - 6f) * (health / 100f)
+    if (healthWidth > 0) {
+        canvas.drawRect(
+            left + 3f,
+            top + 3f,
+            left + 3f + healthWidth,
+            top + barHeight - 3f,
+            paint
+        )
+    }
+
+    return android.graphics.drawable.BitmapDrawable(context.resources, mutableBitmap)
+}
 private data class NpcWebPayload(
     val id: String, val lat: Double, val lng: Double, val rot: Float, val type: String,
     val imageKey: String? = null, val drawable: String? = null, val flip: Int? = null,

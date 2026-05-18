@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -49,6 +50,8 @@ import kotlin.math.abs
 import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
 
@@ -120,6 +123,18 @@ class WorldMapViewModel(
     private val collectibleRepository: CollectibleRepository
 ) : ViewModel() {
 
+    var playerHealth by mutableStateOf(100f)
+        private set
+    val maxPlayerHealth = 100f
+
+    var showHealthBar by mutableStateOf(false)
+        private set
+    var damagePulseTrigger by mutableStateOf(0) // Cambia para disparar la animación de golpe
+        private set
+
+    private var healthBarJob: Job? = null
+
+
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -168,6 +183,14 @@ class WorldMapViewModel(
     private val ACCELERATION = 0.0000003
     private val BRAKING_FRICTION = 0.000001
     private val INTERACT_RADIUS = 0.0005 // Rango para detectar autos
+
+    private val PLAYER_PUNCH_DAMAGE = 15f
+
+    private var lastAttackTime = 0L
+
+    private val ATTACK_COOLDOWN_MS = 2400L // Tiempo entre cada puñetazo para sincronizar con la animación
+
+    private val ATTACK_RADIUS = 0.00015     // Radio geográfico de alcance del golpe (corta distancia)
 
     // El game loop arranca aquí, atado al ciclo de vida del ViewModel (no del Composable).
     // Así, navegar a Settings y volver no detiene a los NPCs.
@@ -454,6 +477,11 @@ class WorldMapViewModel(
                         }
                         // Revisamos constantemente si estamos parados sobre él
                         checkCollectibleProximity(location.latitude, location.longitude)
+
+                        // --- CONDICIÓN DE COMBATE ---
+                        if (_uiState.value.playerAction == PlayerAction.SPECIAL) {
+                            performPlayerAttack()
+                        }
 
                         // --- LÓGICA DE CONDUCCIÓN DEL JUGADOR ---
                         if (_uiState.value.isDriving) {
@@ -1310,5 +1338,104 @@ class WorldMapViewModel(
 
     fun dismissClaimedPopup() {
         _uiState.update { it.copy(showClaimedPopupFor = null) }
+    }
+    fun takeDamage(amount: Float) {
+        playerHealth = (playerHealth - amount).coerceAtLeast(0f)
+        damagePulseTrigger++ // Dispara el efecto visual
+        showHealthBar = true
+
+        // Si la vida es menor al 30%, no ocultamos la barra (estado crítico)
+        if (playerHealth > 30f) {
+            startHealthBarTimer(3000L) // Ocultar después de 3 segundos de no recibir daño
+        } else {
+            healthBarJob?.cancel() // Se queda visible permanentemente
+        }
+
+        if (playerHealth <= 0f) {
+            triggerWastedSequence() // Lógica futura para morir
+        }
+    }
+
+    fun heal(amount: Float) {
+        playerHealth = (playerHealth + amount).coerceAtMost(maxPlayerHealth)
+        showHealthBar = true
+
+        // Si la vida sigue en el rango crítico, no ocultamos la barra
+        if (playerHealth > 30f) {
+            startHealthBarTimer(3000L)
+        } else {
+            healthBarJob?.cancel()
+        }
+    }
+
+    private fun startHealthBarTimer(delayMillis: Long) {
+        healthBarJob?.cancel()
+        healthBarJob = viewModelScope.launch {
+            delay(delayMillis)
+            showHealthBar = false
+        }
+    }
+
+    private fun triggerWastedSequence() {
+        // Aquí implementaremos la Fase 3: Pantalla "WASTED" y búsqueda de hospital
+    }
+
+    fun showInitialHealthBar() {
+        showHealthBar = true
+        startHealthBarTimer(4000L)
+    }
+
+    fun performPlayerAttack() {
+        val now = System.currentTimeMillis()
+        if (now - lastAttackTime < ATTACK_COOLDOWN_MS) return
+        lastAttackTime = now
+
+
+        // 🌟 Envolvemos en una corrutina para sincronizar con la animación visual
+        viewModelScope.launch(Dispatchers.Default) {
+
+            delay(300L) // Esperamos 300ms a que el puño "conecte" en la animación
+
+            val playerLoc = _uiState.value.currentLocation ?: return@launch
+
+            // Solo atacamos NPCs reales: no muriendo, en rango, de tipo PERSON y sin displayName de jugador remoto
+            val targetNpcEntry = remoteEntities.entries
+                .filter {
+                    !it.value.isDying &&
+                        it.value.type == NpcType.PERSON &&
+                        (it.value.displayName?.isBlank() != false) &&
+                        distance(playerLoc, it.value.location) <= ATTACK_RADIUS
+                }
+                .minByOrNull { distance(playerLoc, it.value.location) }
+
+            if (targetNpcEntry != null) {
+                val npcId = targetNpcEntry.key
+                val currentNpc = targetNpcEntry.value
+
+                val damage = PLAYER_PUNCH_DAMAGE
+                val newHealth = (currentNpc.health - damage).coerceAtLeast(0f)
+
+                if (newHealth <= 0f) {
+                    // Inicia muerte progresiva
+                    remoteEntities[npcId] = currentNpc.copy(health = 0f, isDying = true)
+                    updateNpcsState()
+
+                    delay(1000L) // Espera a que termine el fade-out
+                    remoteEntities.remove(npcId)
+
+                    try {
+                        webSocketManager?.sendMessage(
+                            gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
+                        )
+                    } catch (e: Exception) {
+                        Log.e("Combat", "Error enviando NPC_DESTROY: ${e.message}")
+                    }
+                    updateNpcsState()
+                } else {
+                    remoteEntities[npcId] = currentNpc.copy(health = newHealth)
+                    updateNpcsState()
+                }
+            }
+        }
     }
 }
