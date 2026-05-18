@@ -1250,7 +1250,13 @@ class WorldMapViewModel(
     fun heal(amount: Float) {
         playerHealth = (playerHealth + amount).coerceAtMost(maxPlayerHealth)
         showHealthBar = true
-        startHealthBarTimer(3000L)
+
+        // Si la vida sigue en el rango crítico, no ocultamos la barra
+        if (playerHealth > 30f) {
+            startHealthBarTimer(3000L)
+        } else {
+            healthBarJob?.cancel()
+        }
     }
 
     private fun startHealthBarTimer(delayMillis: Long) {
