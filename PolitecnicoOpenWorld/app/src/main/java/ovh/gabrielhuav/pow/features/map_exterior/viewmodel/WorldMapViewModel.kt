@@ -32,8 +32,10 @@ import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
+import ovh.gabrielhuav.pow.data.local.room.entity.WaypointEntity
 import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
+import ovh.gabrielhuav.pow.domain.models.Waypoint
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -1196,4 +1198,74 @@ class WorldMapViewModel(
     fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed }
     fun accelerate(pressed: Boolean) { isGasPressed = pressed }
     fun brake(pressed: Boolean) { isBrakePressed = pressed }
+
+    // ─── WAYPOINTS ───────────────────────────────────────────────────────────
+
+    fun loadWaypoints(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dao = PowDatabase.getInstance(context).waypointDao()
+                val waypoints = dao.getAllWaypoints().map { entity ->
+                    Waypoint(
+                        id = entity.id,
+                        name = entity.name,
+                        location = GeoPoint(entity.latitude, entity.longitude),
+                        createdAt = entity.createdAt
+                    )
+                }
+                _uiState.update { it.copy(waypoints = waypoints) }
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error al cargar waypoints", e)
+            }
+        }
+    }
+
+    fun addWaypoint(context: Context, name: String) {
+        val loc = _uiState.value.currentLocation ?: return
+        _uiState.update { it.copy(showAddWaypointDialog = false) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dao = PowDatabase.getInstance(context).waypointDao()
+                dao.insertWaypoint(
+                    WaypointEntity(
+                        name = name.trim(),
+                        latitude = loc.latitude,
+                        longitude = loc.longitude
+                    )
+                )
+                loadWaypoints(context)
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error al guardar waypoint", e)
+            }
+        }
+    }
+
+    fun deleteWaypoint(context: Context, id: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dao = PowDatabase.getInstance(context).waypointDao()
+                dao.deleteWaypointById(id)
+                _uiState.update { state ->
+                    state.copy(
+                        selectedWaypointId = if (state.selectedWaypointId == id) null else state.selectedWaypointId
+                    )
+                }
+                loadWaypoints(context)
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error al eliminar waypoint", e)
+            }
+        }
+    }
+
+    fun selectWaypoint(id: Long?) {
+        _uiState.update { it.copy(selectedWaypointId = id) }
+    }
+
+    fun toggleWaypointList(show: Boolean) {
+        _uiState.update { it.copy(showWaypointList = show, selectedWaypointId = null) }
+    }
+
+    fun toggleAddWaypointDialog(show: Boolean) {
+        _uiState.update { it.copy(showAddWaypointDialog = show) }
+    }
 }

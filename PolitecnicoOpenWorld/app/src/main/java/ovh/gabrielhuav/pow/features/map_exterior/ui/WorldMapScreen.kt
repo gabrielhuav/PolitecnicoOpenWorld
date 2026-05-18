@@ -17,8 +17,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Architecture
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,12 +41,14 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AddWaypointDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehiclePedalsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSteeringController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.WaypointListDialog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
@@ -109,6 +113,7 @@ fun WorldMapScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadLandmarks(context)
+        viewModel.loadWaypoints(context)
     }
 
     var currentFps by remember { mutableIntStateOf(0) }
@@ -495,6 +500,47 @@ fun WorldMapScreen(
                         }
                     }
 
+                    // ─── DIBUJADO DE WAYPOINTS ────────────────────────────────────────────
+                    @Suppress("UNCHECKED_CAST")
+                    val waypointMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.waypoint_cache_tag) as? MutableMap<Long, Marker>)
+                        ?: mutableMapOf<Long, Marker>().also { view.setTag(ovh.gabrielhuav.pow.R.id.waypoint_cache_tag, it) }
+
+                    val currentWaypointIds = uiState.waypoints.map { it.id }.toSet()
+                    val waypointIterator = waypointMarkerCache.iterator()
+                    while (waypointIterator.hasNext()) {
+                        val entry = waypointIterator.next()
+                        if (!currentWaypointIds.contains(entry.key)) {
+                            view.overlays.remove(entry.value)
+                            waypointIterator.remove()
+                        }
+                    }
+
+                    val screenDensity = context.resources.displayMetrics.density
+                    val pinSizePx = (28 * screenDensity).toInt()
+
+                    uiState.waypoints.forEach { waypoint ->
+                        val marker = waypointMarkerCache.getOrPut(waypoint.id) {
+                            Marker(view).apply {
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                view.overlays.add(this)
+                            }
+                        }
+                        marker.position = GeoPoint(waypoint.location.latitude, waypoint.location.longitude)
+
+                        val isSelected = uiState.selectedWaypointId == waypoint.id
+                        val pinColor = if (isSelected) android.graphics.Color.rgb(211, 47, 47) else android.graphics.Color.rgb(255, 107, 53)
+                        val cacheKey = "waypoint_pin_${pinColor}_${pinSizePx}"
+                        val pinIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                            createWaypointPinBitmap(context, pinColor, pinSizePx)
+                        }
+                        marker.icon = pinIcon
+
+                        marker.setOnMarkerClickListener { _, _ ->
+                            viewModel.selectWaypoint(if (isSelected) null else waypoint.id)
+                            true
+                        }
+                    }
+
                     view.invalidate()
                 }
             )
@@ -692,10 +738,27 @@ fun WorldMapScreen(
             if (uiState.isDesignerMode) {
                 IconButton(
                     onClick = { viewModel.showAssetPicker(true) },
-                    modifier = Modifier
-                        .background(Color(0xFF4CAF50), CircleShape)
+                    modifier = Modifier.background(Color(0xFF4CAF50), CircleShape)
                 ) {
                     Icon(Icons.Default.Add, "Agregar Asset", tint = Color.White)
+                }
+            }
+
+            // Botón para guardar waypoint en posición actual
+            if (!uiState.isDesignerMode) {
+                IconButton(
+                    onClick = { viewModel.toggleAddWaypointDialog(true) },
+                    modifier = Modifier.background(Color(0xFFFF6B35), CircleShape)
+                ) {
+                    Icon(Icons.Default.Place, "Guardar waypoint aquí", tint = Color.White)
+                }
+
+                // Botón para ver lista de waypoints
+                IconButton(
+                    onClick = { viewModel.toggleWaypointList(true) },
+                    modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)
+                ) {
+                    Icon(Icons.Default.Bookmarks, "Mis waypoints", tint = Color(0xFFFF6B35))
                 }
             }
         }
@@ -751,6 +814,28 @@ fun WorldMapScreen(
                 confirmButton = {
                     TextButton(onClick = { viewModel.toggleTeleportMenu(false) }) { Text("Cancelar") }
                 }
+            )
+        }
+
+        // ─── DIÁLOGOS DE WAYPOINTS ────────────────────────────────────────────
+        if (uiState.showAddWaypointDialog) {
+            AddWaypointDialog(
+                onConfirm = { name -> viewModel.addWaypoint(context, name) },
+                onDismiss = { viewModel.toggleAddWaypointDialog(false) }
+            )
+        }
+
+        if (uiState.showWaypointList) {
+            WaypointListDialog(
+                waypoints = uiState.waypoints,
+                onGoTo = { waypoint ->
+                    isFollowingPlayer = false
+                    playerScreenOffsetState.value = IntOffset.Zero
+                    osmMapViewRef?.controller?.animateTo(waypoint.location, uiState.zoomLevel, 500L)
+                    viewModel.toggleWaypointList(false)
+                },
+                onDelete = { id -> viewModel.deleteWaypoint(context, id) },
+                onDismiss = { viewModel.toggleWaypointList(false) }
             )
         }
 
@@ -989,6 +1074,26 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 </body>
 </html>
 """.trimIndent()
+
+private fun createWaypointPinBitmap(
+    context: android.content.Context,
+    color: Int,
+    sizePx: Int
+): android.graphics.drawable.Drawable {
+    val bitmap = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+
+    // Círculo exterior (color del pin)
+    paint.color = color
+    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, paint)
+
+    // Círculo interior blanco
+    paint.color = android.graphics.Color.WHITE
+    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 5f, paint)
+
+    return android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+}
 
 private class ExactSizeDrawable(
     private val base: android.graphics.drawable.Drawable,

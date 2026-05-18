@@ -2,8 +2,9 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.CarModel
-import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.Landmark
+import ovh.gabrielhuav.pow.domain.models.Npc
+import ovh.gabrielhuav.pow.domain.models.Waypoint
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
@@ -58,6 +59,12 @@ data class WorldMapState(
 
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
-    val selectedLandmarkId: Long? = null,     // null = nada seleccionado
-    val showAssetPicker: Boolean = false      // diálogo para agregar nuevo asset
+    val selectedLandmarkId: Long? = null,
+    val showAssetPicker: Boolean = false,
+
+    // ─── WAYPOINTS ───────────────────────────────────────────────────────────
+    val waypoints: List<Waypoint> = emptyList(),
+    val showWaypointList: Boolean = false,
+    val showAddWaypointDialog: Boolean = false,
+    val selectedWaypointId: Long? = null
 )

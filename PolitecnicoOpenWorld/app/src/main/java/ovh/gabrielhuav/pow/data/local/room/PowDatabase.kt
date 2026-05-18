@@ -4,14 +4,16 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import ovh.gabrielhuav.pow.data.local.room.dao.LandmarkDao
 import ovh.gabrielhuav.pow.data.local.room.dao.MapTileDao
 import ovh.gabrielhuav.pow.data.local.room.dao.RoadNetworkDao
-import ovh.gabrielhuav.pow.data.local.room.dao.LandmarkDao
+import ovh.gabrielhuav.pow.data.local.room.dao.WaypointDao
+import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.MapTileEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadNodeEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadWayEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadZoneEntity
-import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
+import ovh.gabrielhuav.pow.data.local.room.entity.WaypointEntity
 import java.io.File
 
 @Database(
@@ -20,9 +22,10 @@ import java.io.File
         RoadWayEntity::class,
         RoadNodeEntity::class,
         MapTileEntity::class,
-        LandmarkEntity::class
+        LandmarkEntity::class,
+        WaypointEntity::class
     ],
-    version = 7,  // ← Subido de 6 a 7 porque LandmarkEntity ganó la columna rotationAngle
+    version = 8,  // ← Subido de 7 a 8 por la nueva tabla "waypoints"
     exportSchema = false
 )
 abstract class PowDatabase : RoomDatabase() {
@@ -30,6 +33,7 @@ abstract class PowDatabase : RoomDatabase() {
     abstract fun roadNetworkDao(): RoadNetworkDao
     abstract fun mapTileDao(): MapTileDao
     abstract fun landmarkDao(): LandmarkDao
+    abstract fun waypointDao(): WaypointDao
 
     companion object {
         @Volatile
