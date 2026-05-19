@@ -21,11 +21,16 @@ import kotlin.random.Random
 class NpcAiManager {
 
     companion object {
-        // Velocidades canónicas de NPCs. Expuestas para que el ViewModel pueda usarlas
-        // al "adoptar" NPCs remotos y no haya nunca desincronización entre el spawner local
-        // y los NPCs adoptados desde la red.
+        // Velocidades canónicas de NPCs.
         const val CAR_SPEED = 0.000008
         const val PERSON_SPEED = 0.0000015
+        
+        // --- SISTEMA DE DOBLE CARRIL ---
+        // Desplazamiento lateral para separar el tráfico de ida y vuelta.
+        const val LANE_OFFSET = 0.000025 
+        
+        // Distancia a la que un coche empieza a acelerar si tiene a otro detrás.
+        const val CAR_SAFE_DISTANCE = 0.00015 
     }
 
     private val _npcs = MutableStateFlow<List<Npc>>(emptyList())
@@ -69,7 +74,7 @@ class NpcAiManager {
         if (currentNetwork.isEmpty()) return
 
         withContext(Dispatchers.Default) {
-            // 1. Despawn por distancia (SOLO limpiamos localmente, SIN MANDAR MENSAJE AL SERVIDOR)
+            // 1. Despawn por distancia
             val toRemove = serverNpcs.filter {
                 it.displayName.isNullOrEmpty() &&
                         calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude) > despawnDistance
@@ -98,12 +103,19 @@ class NpcAiManager {
                 }
             }
 
-            // 3. Movimiento de sobrevivientes (EXCLUYENDO OTROS JUGADORES)
+            // 3. Movimiento de sobrevivientes
             val updated = serverNpcs.mapNotNull { npc ->
                 if (!npc.displayName.isNullOrEmpty()) {
                     npc // Si es un jugador real, no lo tocamos.
                 } else {
-                    val moved = moveNpc(npc, currentNetwork)
+                    // --- LÓGICA DE VELOCIDAD AJUSTADA (SOLO CARROS) ---
+                    val finalSpeed = if (npc.type == NpcType.CAR) {
+                        getAdjustedCarSpeed(npc, serverNpcs)
+                    } else {
+                        npc.speed
+                    }
+
+                    val moved = moveNpc(npc.copy(speed = finalSpeed), currentNetwork)
                     if (moved == null) {
                         synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
                     }
@@ -112,6 +124,48 @@ class NpcAiManager {
             }
             serverNpcs.clear()
             serverNpcs.addAll(updated)
+        }
+    }
+
+    /**
+     * Calcula la velocidad. Si un coche tiene a otro detrás muy cerca, acelera para mantener distancia.
+     */
+    private fun getAdjustedCarSpeed(me: Npc, allNpcs: List<Npc>): Double {
+        if (me.currentWay == null) return me.speed
+
+        val someoneBehind = allNpcs.any { other ->
+            other.id != me.id &&
+            other.type == NpcType.CAR &&
+            other.currentWay?.id == me.currentWay.id &&
+            other.moveDirection == me.moveDirection &&
+            isNpcBehind(other, me) &&
+            calculateDistance(me.location.latitude, me.location.longitude, other.location.latitude, other.location.longitude) < CAR_SAFE_DISTANCE
+        }
+
+        return if (someoneBehind) CAR_SPEED * 1.8 else CAR_SPEED
+    }
+
+    private fun isNpcBehind(other: Npc, me: Npc): Boolean {
+        if (other.currentWay == null || me.currentWay == null) return false
+        
+        return if (me.moveDirection == 1) {
+            if (other.targetNodeIndex < me.targetNodeIndex) true
+            else if (other.targetNodeIndex > me.targetNodeIndex) false
+            else {
+                val targetNode = me.currentWay.nodes[me.targetNodeIndex]
+                val myDist = calculateDistance(me.location.latitude, me.location.longitude, targetNode.lat, targetNode.lon)
+                val otherDist = calculateDistance(other.location.latitude, other.location.longitude, targetNode.lat, targetNode.lon)
+                otherDist > myDist
+            }
+        } else {
+            if (other.targetNodeIndex > me.targetNodeIndex) true
+            else if (other.targetNodeIndex < me.targetNodeIndex) false
+            else {
+                val targetNode = me.currentWay.nodes[me.targetNodeIndex]
+                val myDist = calculateDistance(me.location.latitude, me.location.longitude, targetNode.lat, targetNode.lon)
+                val otherDist = calculateDistance(other.location.latitude, other.location.longitude, targetNode.lat, targetNode.lon)
+                otherDist > myDist
+            }
         }
     }
 
@@ -153,7 +207,7 @@ class NpcAiManager {
                 pantsColor = colors.random()
             )
         } else {
-            null // Los coches no usan este sistema visual
+            null
         }
 
         return Npc(
@@ -175,18 +229,14 @@ class NpcAiManager {
         var nodeIndex = npc.targetNodeIndex
         var direction = npc.moveDirection
 
-        // RECONSTRUCCIÓN DE RUTA (ADOPCIÓN)
-        // Si el NPC viene del servidor, no tiene calle asignada localmente. Lo pegamos a la más cercana.
         if (way == null) {
             val validWays = network.filter {
                 (npc.type == NpcType.CAR && it.isForCars) || (npc.type == NpcType.PERSON && it.isForPeople)
             }
             if (validWays.isEmpty()) return null
-
             var closestWay: MapWay? = null
             var closestDist = Double.MAX_VALUE
             var bestNodeIdx = 0
-
             for (w in validWays) {
                 w.nodes.forEachIndexed { idx, node ->
                     val dist = calculateDistance(npc.location.latitude, npc.location.longitude, node.lat, node.lon)
@@ -197,17 +247,13 @@ class NpcAiManager {
                     }
                 }
             }
-            // Si está a menos de ~200 metros de una calle, lo adoptamos. Si está en la nada, muere.
             if (closestWay != null && closestDist < 0.002) {
                 way = closestWay
                 nodeIndex = bestNodeIdx
                 direction = if (bestNodeIdx >= closestWay.nodes.size / 2) -1 else 1
-            } else {
-                return null
-            }
+            } else return null
         }
 
-        // Lógica normal de movimiento
         if (nodeIndex < 0 || nodeIndex >= way.nodes.size) {
             val reachedNode = if (nodeIndex < 0) way.nodes.first() else way.nodes.last()
             val connectedWays = network.filter { w ->
@@ -232,9 +278,36 @@ class NpcAiManager {
             }
         }
 
-        val target = way.nodes[nodeIndex]
-        val dLon = target.lon - npc.location.longitude
-        val dLat = target.lat - npc.location.latitude
+        // --- LÓGICA DE DOBLE CARRIL (OFFSET VIRTUAL) ---
+        val baseTarget = way.nodes[nodeIndex]
+        val prevLat: Double
+        val prevLon: Double
+        val prevIdx = nodeIndex - direction
+        if (prevIdx in way.nodes.indices) {
+            val p = way.nodes[prevIdx]
+            prevLat = p.lat
+            prevLon = p.lon
+        } else {
+            prevLat = npc.location.latitude
+            prevLon = npc.location.longitude
+        }
+
+        val segLat = baseTarget.lat - prevLat
+        val segLon = baseTarget.lon - prevLon
+        val segAngle = atan2(segLat, segLon)
+
+        var finalTargetLat = baseTarget.lat
+        var finalTargetLon = baseTarget.lon
+
+        // Aplicamos el desplazamiento de carril solo a vehículos
+        if (npc.type == NpcType.CAR) {
+            val offsetAngle = segAngle - (Math.PI / 2)
+            finalTargetLat += sin(offsetAngle) * LANE_OFFSET
+            finalTargetLon += cos(offsetAngle) * LANE_OFFSET
+        }
+
+        val dLon = finalTargetLon - npc.location.longitude
+        val dLat = finalTargetLat - npc.location.latitude
         val dist = sqrt(dLon * dLon + dLat * dLat)
         val angle = atan2(dLat, dLon)
         val targetAngle = -Math.toDegrees(angle).toFloat()
@@ -245,7 +318,7 @@ class NpcAiManager {
         val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
 
         return if (dist < actualSpeed) {
-            npc.copy(currentWay = way, location = GeoPoint(target.lat, target.lon), targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight)
+            npc.copy(currentWay = way, location = GeoPoint(finalTargetLat, finalTargetLon), targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight)
         } else {
             npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(npc.location.latitude + sin(angle) * actualSpeed, npc.location.longitude + cos(angle) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight)
         }
