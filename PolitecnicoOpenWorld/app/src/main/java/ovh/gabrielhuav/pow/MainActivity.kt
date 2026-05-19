@@ -74,10 +74,16 @@ class MainActivity : ComponentActivity() {
                     // 1. EL ORQUESTADOR GLOBAL: Sincroniza los ajustes en segundo plano
                     // Esto evita recomposiciones destructivas al navegar.
                     val settingsState by settingsViewModel.state.collectAsState()
-                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget) {
+                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.pinchZoomEnabled) {
                         worldMapViewModel.setMapProvider(settingsState.mapProvider)
                         worldMapViewModel.toggleCacheWidget(settingsState.showCacheWidget)
                         worldMapViewModel.toggleFpsWidget(settingsState.showFpsWidget)
+                        worldMapViewModel.updateControlSettings(
+                            type = settingsState.controlType,
+                            scale = settingsState.controlsScale,
+                            swap = settingsState.swapControls,
+                            pinchZoom = settingsState.pinchZoomEnabled
+                        )
                     }
 
                     val navController = rememberNavController()
@@ -123,6 +129,7 @@ class MainActivity : ComponentActivity() {
                                 onControlTypeChanged = { settingsViewModel.changeControlType(it) },
                                 onControlsScaleChanged = { settingsViewModel.changeControlsScale(it) },
                                 onSwapControlsToggled = { settingsViewModel.toggleSwapControls(it) },
+                                onPinchZoomToggled = { settingsViewModel.togglePinchZoom(it) },
                                 onNavigateBack = {
                                     if (navController.currentDestination?.route == "settings") {
                                         navController.popBackStack()
@@ -136,7 +143,8 @@ class MainActivity : ComponentActivity() {
                                     worldMapViewModel.updateControlSettings(
                                         type = settingsState.controlType,
                                         scale = settingsState.controlsScale,
-                                        swap = settingsState.swapControls
+                                        swap = settingsState.swapControls,
+                                        pinchZoom = settingsState.pinchZoomEnabled
                                     )
 
                                     android.widget.Toast.makeText(this@MainActivity, "Configuración de controles guardada", android.widget.Toast.LENGTH_SHORT).show()

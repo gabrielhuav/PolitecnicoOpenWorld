@@ -59,5 +59,6 @@ data class WorldMapState(
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
     val selectedLandmarkId: Long? = null,     // null = nada seleccionado
-    val showAssetPicker: Boolean = false      // diálogo para agregar nuevo asset
+    val showAssetPicker: Boolean = false,     // diálogo para agregar nuevo asset
+    val pinchZoomEnabled: Boolean = false
 )

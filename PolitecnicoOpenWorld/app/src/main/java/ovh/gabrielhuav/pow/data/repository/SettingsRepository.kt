@@ -11,18 +11,20 @@ class SettingsRepository(context: Context) {
         private const val KEY_CONTROL_TYPE = "CONTROL_TYPE"
         private const val KEY_CONTROLS_SCALE = "CONTROLS_SCALE"
         private const val KEY_SWAP_CONTROLS = "SWAP_CONTROLS"
+        private const val KEY_PINCH_ZOOM = "PINCH_ZOOM"
         private const val SCALE_MIN = 0.6f
         private const val SCALE_MAX = 1.4f
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun saveControlsSettings(type: ControlType, scale: Float, swap: Boolean) {
+    fun saveControlsSettings(type: ControlType, scale: Float, swap: Boolean, pinchZoom: Boolean) {
         val clampedScale = scale.coerceIn(SCALE_MIN, SCALE_MAX)
         prefs.edit().apply {
             putString(KEY_CONTROL_TYPE, type.name)
             putFloat(KEY_CONTROLS_SCALE, clampedScale)
             putBoolean(KEY_SWAP_CONTROLS, swap)
+            putBoolean(KEY_PINCH_ZOOM, pinchZoom)
             apply()
         }
     }
@@ -41,4 +43,6 @@ class SettingsRepository(context: Context) {
     fun getControlsScale(): Float = prefs.getFloat(KEY_CONTROLS_SCALE, 1.0f).coerceIn(SCALE_MIN, SCALE_MAX)
 
     fun getSwapControls(): Boolean = prefs.getBoolean(KEY_SWAP_CONTROLS, false)
+
+    fun getPinchZoomEnabled(): Boolean = prefs.getBoolean(KEY_PINCH_ZOOM, false)
 }

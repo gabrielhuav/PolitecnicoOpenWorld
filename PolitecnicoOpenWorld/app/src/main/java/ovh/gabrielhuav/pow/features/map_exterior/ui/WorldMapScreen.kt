@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
 import android.annotation.SuppressLint
 import android.content.Context
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import com.google.gson.Gson
 import androidx.compose.animation.AnimatedVisibility
@@ -145,13 +146,26 @@ fun WorldMapScreen(
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(false)
                         controller.setZoom(uiState.zoomLevel)
+                        // Sincroniza el zoom al ViewModel cuando el usuario pellizca
+                        addMapListener(object : org.osmdroid.events.MapListener {
+                            override fun onScroll(event: org.osmdroid.events.ScrollEvent?) = false
+                            override fun onZoom(event: org.osmdroid.events.ZoomEvent?): Boolean {
+                                event?.let { viewModel.updateZoomLevel(it.zoomLevel) }
+                                return false
+                            }
+                        })
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
+                    view.setMultiTouchControls(uiState.pinchZoomEnabled)
                     if (uiState.isDesignerMode) {
                         view.setOnTouchListener(null) // Permitimos que detecte tu dedo
                         view.isClickable = true
+                    } else if (uiState.pinchZoomEnabled) {
+                        // Permite gestos de dos dedos (pellizco), bloquea arrastre de un dedo
+                        view.setOnTouchListener { _, event -> event.pointerCount < 2 }
+                        view.isClickable = false
                     } else {
                         view.setOnTouchListener { _, _ -> true } // Bloqueamos el mapa en modo juego
                         view.isClickable = false
@@ -421,18 +435,22 @@ fun WorldMapScreen(
                             marker.position = GeoPoint(landmark.location.latitude, landmark.location.longitude)
                             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
 
-                            try {
-                                val inputStream = context.assets.open(landmark.assetPath)
-                                val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
-                                val baseDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
-
-                                val widthPx = (60 * landmark.scaleFactor * context.resources.displayMetrics.density).toInt()
-                                val heightPx = (60 * landmark.scaleFactor * context.resources.displayMetrics.density).toInt()
-
-                                marker.icon = ExactSizeDrawable(baseDrawable, widthPx, heightPx)
-                                inputStream.close()
-                            } catch (e: Exception) {
-                                marker.icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_compass)
+                            // Usamos landmarkBitmapCache para no abrir el asset en cada recomposición
+                            if (marker.icon == null || !landmarkBitmapCache.containsKey(landmark.assetPath)) {
+                                try {
+                                    val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
+                                        context.assets.open(landmark.assetPath).use { stream ->
+                                            android.graphics.BitmapFactory.decodeStream(stream)
+                                        }
+                                    }
+                                    val baseDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                                    val density = context.resources.displayMetrics.density
+                                    val widthPx = (60 * landmark.scaleFactor * density).toInt()
+                                    val heightPx = (60 * landmark.scaleFactor * density).toInt()
+                                    marker.icon = ExactSizeDrawable(baseDrawable, widthPx, heightPx)
+                                } catch (e: Exception) {
+                                    marker.icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_compass)
+                                }
                             }
 
                             if (uiState.isDesignerMode && uiState.selectedLandmarkId == landmark.id) {
@@ -452,7 +470,9 @@ fun WorldMapScreen(
                         }
                     }
 
-                    view.invalidate()
+                    if (uiState.npcs.isNotEmpty() || uiState.currentLocation != null) {
+                        view.invalidate()
+                    }
                 }
             )
         } else {
@@ -469,6 +489,10 @@ fun WorldMapScreen(
                         settings.allowFileAccess = true
                         settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
                         webViewClient = cachingClient
+                        addJavascriptInterface(
+                            ZoomBridge { zoom -> viewModel.updateZoomLevel(zoom.toDouble()) },
+                            "Android"
+                        )
                         val lat = uiState.currentLocation?.latitude ?: 0.0
                         val lng = uiState.currentLocation?.longitude ?: 0.0
                         loadDataWithBaseURL(null, buildHtml(lat, lng, uiState.zoomLevel.toInt()), "text/html", "UTF-8", null)
@@ -494,6 +518,7 @@ fun WorldMapScreen(
                     }
                     wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null)
                     wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
+                    wv.evaluateJavascript("if(typeof setPinchZoom==='function')setPinchZoom(${uiState.pinchZoomEnabled});", null)
 
                     val screenDensity = context.resources.displayMetrics.density
                     val highResRenderScale = 1.0f * screenDensity
@@ -908,16 +933,17 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <body>
     <div id="map-wrapper"><div id="map"></div></div>
     <script>
-        var map = L.map('map', { zoomControl: false, attributionControl: false, dragging: true, maxZoom: 22 }).setView([$lat, $lng], $zoom);
+        var map = L.map('map', { zoomControl: false, attributionControl: false, dragging: true, touchZoom: false, maxZoom: 22 }).setView([$lat, $lng], $zoom);
         var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 18 }).addTo(map);
         var npcMarkers = {};
         var isZooming = false;
         map.on('zoomstart', function() { isZooming = true; });
-        map.on('zoomend', function() { isZooming = false; });
+        map.on('zoomend', function() { isZooming = false; if(typeof Android !== 'undefined') Android.onZoomChange(map.getZoom()); });
         function updateMapView(lat, lng, z) { if (!isZooming) map.setView([lat, lng], z, { animate: false }); }
         function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
+        function setPinchZoom(enabled) { if(enabled) map.touchZoom.enable(); else map.touchZoom.disable(); }
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c; }); }
         function updateNpcs(data) {
             if (isZooming) return;
@@ -975,6 +1001,11 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 </body>
 </html>
 """.trimIndent()
+
+private class ZoomBridge(private val callback: (Float) -> Unit) {
+    @JavascriptInterface
+    fun onZoomChange(zoom: Float) = callback(zoom)
+}
 
 private class ExactSizeDrawable(
     private val base: android.graphics.drawable.Drawable,

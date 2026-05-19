@@ -3,6 +3,8 @@ package ovh.gabrielhuav.pow.data.cache
 import android.util.Log
 import ovh.gabrielhuav.pow.data.local.room.dao.MapTileDao
 import ovh.gabrielhuav.pow.data.local.room.entity.MapTileEntity
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 class TileCache(private val mapTileDao: MapTileDao) {
 
@@ -11,6 +13,12 @@ class TileCache(private val mapTileDao: MapTileDao) {
     companion object {
         private const val MAX_TILES_PER_PROVIDER = 8_000
     }
+
+    // Contador en memoria por proveedor: evita un COUNT(*) de Room en cada guardado
+    private val countByProvider = ConcurrentHashMap<String, AtomicLong>()
+
+    private fun getCount(provider: String): Long =
+        countByProvider.getOrPut(provider) { AtomicLong(mapTileDao.getCount(provider)) }.get()
 
     fun getTileByUrl(provider: String, urlKey: String): ByteArray? {
         return try {
@@ -30,13 +38,13 @@ class TileCache(private val mapTileDao: MapTileDao) {
 
     fun putTileByUrl(provider: String, urlKey: String, data: ByteArray) {
         try {
-            Log.d(TAG, "Intentando guardar en Room provider=$provider, hash=$urlKey, bytes=${data.size}")
-            val count = mapTileDao.getCount(provider)
-            Log.d(TAG, "Conteo actual de tiles para $provider: $count")
+            val counter = countByProvider.getOrPut(provider) { AtomicLong(mapTileDao.getCount(provider)) }
+            val count = counter.get()
 
             if (count >= MAX_TILES_PER_PROVIDER) {
                 val evict = MAX_TILES_PER_PROVIDER / 10
                 mapTileDao.deleteOldestTiles(provider, evict)
+                counter.addAndGet(-evict.toLong())
                 Log.d(TAG, "LRU: $evict tiles eliminados para $provider")
             }
 
@@ -47,6 +55,7 @@ class TileCache(private val mapTileDao: MapTileDao) {
                 createdAtMs = System.currentTimeMillis()
             )
             mapTileDao.insertTile(entity)
+            counter.incrementAndGet()
             Log.d(TAG, "¡Guardado exitoso en Room para $urlKey!")
         } catch (e: Exception) {
             Log.e(TAG, "Excepción al escribir en Room (putTileByUrl): ${e.stackTraceToString()}")
