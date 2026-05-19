@@ -70,10 +70,18 @@ fun WorldMapScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val base64Cache = remember { mutableMapOf<String, String>() }
+
+    // Usamos un LruCache para los Drawables nativos para evitar fugas de memoria por acumulación de bitmaps.
+    val nativeDrawableCache = remember {
+        object : android.util.LruCache<String, android.graphics.drawable.Drawable>(64) {}
+    }
+
+    val base64Cache = remember {
+        object : android.util.LruCache<String, String>(64) {}
+    }
+
     val widthCache = remember { mutableMapOf<String, Float>() }
     val heightCache = remember { mutableMapOf<String, Float>() }
-    val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
     // Launchers para Exportar e Importar archivos JSON en el dispositivo
@@ -92,7 +100,7 @@ fun WorldMapScreen(
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap>() }
 
     LaunchedEffect(Unit) {
-        viewModel.loadLandmarks(context)
+        viewModel.loadLandmarks()
         viewModel.showInitialHealthBar()
     }
 
@@ -144,7 +152,12 @@ fun WorldMapScreen(
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(false)
                         controller.setZoom(uiState.zoomLevel)
+                        // IMPORTANTE: Prevenir fugas de memoria en osmdroid
+                        setHasTransientState(true)
                     }
+                },
+                onRelease = { view ->
+                    view.onDetach()
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { view ->
@@ -217,10 +230,12 @@ fun WorldMapScreen(
                                     val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
                                         .getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
 
-                                    // Integramos la vida y estado en la clave de caché para que se pinte solo 1 vez
-                                    val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
+                                    // Redondeamos la vida para evitar explosión de caché (cada 5%)
+                                    val roundedHealth = (npc.health / 5).toInt() * 5
+                                    val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${roundedHealth}_D${npc.isDying}"
 
-                                    val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    var cachedIcon = nativeDrawableCache.get(cacheKey)
+                                    if (cachedIcon == null) {
                                         var baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getModularNpcDrawable(
                                             context = context,
                                             visualConfig = npc.visualConfig!!,
@@ -233,8 +248,9 @@ fun WorldMapScreen(
 
                                         baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
 
-                                        baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                        cachedIcon = baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                             ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                        nativeDrawableCache.put(cacheKey, cachedIcon)
                                     }
 
                                     marker.icon = cachedIcon
@@ -247,16 +263,18 @@ fun WorldMapScreen(
                                     val frameIndex = (angle / 7.5f).roundToInt() % 48
                                     val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
 
-                                    val cacheKey = "CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
+                                    val roundedHealth = (npc.health / 5).toInt() * 5
+                                    val cacheKey = "CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${roundedHealth}_D${npc.isDying}"
 
-                                    val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    var cachedIcon = nativeDrawableCache.get(cacheKey)
+                                    if (cachedIcon == null) {
                                         var baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
                                             context, angle, npc.carColor, highResRenderScale, npc.carModel
                                         )
 
                                         baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
 
-                                        baseDrawable?.let { drawable ->
+                                        cachedIcon = baseDrawable?.let { drawable ->
                                             val baseWidthDp = (drawable.intrinsicWidth / screenDensity) / screenDensity
                                             val baseHeightDp = (drawable.intrinsicHeight / screenDensity) / screenDensity
 
@@ -265,23 +283,27 @@ fun WorldMapScreen(
 
                                             ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
                                         } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                        nativeDrawableCache.put(cacheKey, cachedIcon)
                                     }
 
                                     marker.icon = cachedIcon
                                     marker.rotation = 0f
 
                                 } else {
-                                    val cacheKey = "SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
-                                    val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    val roundedHealth = (npc.health / 5).toInt() * 5
+                                    val cacheKey = "SVG_${npc.type.name}_H${roundedHealth}_D${npc.isDying}"
+                                    var cachedIcon = nativeDrawableCache.get(cacheKey)
+                                    if (cachedIcon == null) {
                                         val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
                                         var baseDrawable = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
 
                                         baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
 
-                                        baseDrawable?.let {
+                                        cachedIcon = baseDrawable?.let {
                                             val exactPixels = (24 * screenDensity).toInt()
                                             ExactSizeDrawable(it, exactPixels, exactPixels)
                                         } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                        nativeDrawableCache.put(cacheKey, cachedIcon)
                                     }
 
                                     marker.icon = cachedIcon
@@ -330,12 +352,13 @@ fun WorldMapScreen(
                                 val exactPixels = (sizeDp * screenDensity).toInt()
 
                                 val cacheKey = "COL_${collectible.assetPath}_${exactPixels}"
-                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                var cachedIcon = nativeDrawableCache.get(cacheKey)
+                                if (cachedIcon == null) {
                                     val bitmap = try {
                                         android.graphics.BitmapFactory.decodeStream(context.assets.open(collectible.assetPath))
                                     } catch (e: Exception) { null }
 
-                                    if (bitmap != null) {
+                                    cachedIcon = if (bitmap != null) {
                                         // A. Crear el círculo amarillo de fondo (Brillo)
                                         val glowShape = android.graphics.drawable.ShapeDrawable(android.graphics.drawable.shapes.OvalShape()).apply {
                                             paint.color = android.graphics.Color.argb(160, 255, 235, 59) // Amarillo semitransparente
@@ -355,6 +378,7 @@ fun WorldMapScreen(
                                     } else {
                                         ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                     }
+                                    nativeDrawableCache.put(cacheKey, cachedIcon)
                                 }
                                 marker.icon = cachedIcon
 
@@ -547,6 +571,14 @@ fun WorldMapScreen(
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
+                onRelease = { wv ->
+                    wv.stopLoading()
+                    wv.clearHistory()
+                    wv.clearCache(true)
+                    wv.loadUrl("about:blank")
+                    wv.onPause()
+                    wv.destroy()
+                },
                 update = { wv ->
                     uiState.currentLocation?.let {
                         wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
@@ -578,18 +610,20 @@ fun WorldMapScreen(
                             val frameIndex = (angle / 7.5f).roundToInt() % 48
                             val cacheKey = "${npc.carModel?.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
 
-                            val base64Image = base64Cache.getOrPut(cacheKey) {
+                            var base64Image = base64Cache.get(cacheKey)
+                            if (base64Image == null) {
                                 val drawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
                                     context, angle, npc.carColor, highResRenderScale, npc.carModel
                                 )
                                 val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
-                                if (bitmap != null) {
+                                base64Image = if (bitmap != null) {
                                     widthCache[cacheKey] = (bitmap.width / screenDensity) / screenDensity
                                     heightCache[cacheKey] = (bitmap.height / screenDensity) / screenDensity
                                     val outputStream = java.io.ByteArrayOutputStream()
                                     bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, outputStream)
                                     "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
                                 } else ""
+                                base64Cache.put(cacheKey, base64Image)
                             }
                             if (!registeredWebImages.contains(cacheKey) && base64Image.isNotEmpty()) {
                                 wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
@@ -610,13 +644,15 @@ fun WorldMapScreen(
                                 .getFrameIndex(context, visualConfig, currentlyMoving, timeMs) ?: 0
                             val cacheKey = "npc_mod_${visualConfig.bodyFolder}_${visualConfig.bodyPrefix}_${visualConfig.hairId}_${visualConfig.hairColor.value}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${npc.facingRight}_${frameIndex}_${screenDensity}"
 
-                            val base64Image = base64Cache.getOrPut(cacheKey) {
+                            var base64Image = base64Cache.get(cacheKey)
+                            if (base64Image == null) {
                                 val bitmap = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.generateAssembledBitmap(context, visualConfig, currentlyMoving, timeMs)
-                                if (bitmap != null) {
+                                base64Image = if (bitmap != null) {
                                     val outputStream = java.io.ByteArrayOutputStream()
                                     bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, outputStream)
                                     "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
                                 } else ""
+                                base64Cache.put(cacheKey, base64Image)
                             }
                             if (!registeredWebImages.contains(cacheKey) && base64Image.isNotEmpty()) {
                                 wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
@@ -768,7 +804,7 @@ fun WorldMapScreen(
         if (uiState.showAssetPicker) {
             AssetPickerDialog(
                 onAssetSelected = { template ->
-                    viewModel.addLandmarkAtPlayer(context, template)
+                    viewModel.addLandmarkAtPlayer(template)
                 },
                 onDismiss = { viewModel.showAssetPicker(false) }
             )
@@ -782,8 +818,8 @@ fun WorldMapScreen(
                 onMove = { dLat, dLon -> viewModel.moveSelectedLandmark(dLat, dLon) },
                 onRotate = { angle -> viewModel.rotateSelectedLandmark(angle) },
                 onScale = { scale -> viewModel.scaleSelectedLandmark(scale) },
-                onDelete = { viewModel.deleteSelectedLandmark(context) },
-                onSave = { viewModel.saveSelectedLandmark(context) },
+                onDelete = { viewModel.deleteSelectedLandmark() },
+                onSave = { viewModel.saveSelectedLandmark() },
                 onExport = { exportLauncher.launch("landmarks_config.json") },
                 onImport = { importLauncher.launch(arrayOf("application/json", "*/*")) },
                 onDeselect = { viewModel.selectLandmark(null) },

@@ -52,7 +52,7 @@ import kotlin.math.sqrt
 
 
 // constante compartida
-private val ControllerBaseSize = 180.dp
+private val ControllerBaseSize = 150.dp
 
 // JoystickController
 @Composable
@@ -176,7 +176,7 @@ fun ActionButtonsController(
     // Usamos el tamaño constante que ya tienes definido en tu archivo
     Box(
         modifier = modifier
-            .size(160.dp) // Reemplaza esto por tu constante ControllerBaseSize si te marca error
+            .size(150.dp)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
         contentAlignment = Alignment.Center

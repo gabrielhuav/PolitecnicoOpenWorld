@@ -120,7 +120,8 @@ class WorldMapViewModel(
     private val roadNetworkCache: RoadNetworkCache,
     val tileCache: TileCache,
     private val settingsRepository: SettingsRepository,
-    private val collectibleRepository: CollectibleRepository
+    private val collectibleRepository: CollectibleRepository,
+    private val landmarkDao: ovh.gabrielhuav.pow.data.local.room.dao.LandmarkDao
 ) : ViewModel() {
 
     var playerHealth by mutableStateOf(100f)
@@ -147,7 +148,8 @@ class WorldMapViewModel(
                 roadNetworkCache = RoadNetworkCache(database.roadNetworkDao()),
                 tileCache        = TileCache(database.mapTileDao()),
                 settingsRepository = SettingsRepository(appCtx),
-                collectibleRepository = CollectibleRepository(database.collectibleDao())
+                collectibleRepository = CollectibleRepository(database.collectibleDao()),
+                landmarkDao = database.landmarkDao()
             ) as T
         }
     }
@@ -427,40 +429,48 @@ class WorldMapViewModel(
 
     fun startGameLoop() {
         if (gameLoopJob?.isActive == true) return
-        gameLoopJob = viewModelScope.launch {
+        gameLoopJob = viewModelScope.launch(Dispatchers.Default) {
 
             while (_uiState.value.currentLocation == null) { delay(100) }
             val initialLoc = _uiState.value.currentLocation!!
 
-            if (_uiState.value.mapProvider == MapProvider.OSM) {
-                _uiState.update { it.copy(tileSource = TileSource.LOCAL_OSM) }
+            withContext(Dispatchers.Main) {
+                if (_uiState.value.mapProvider == MapProvider.OSM) {
+                    _uiState.update { it.copy(tileSource = TileSource.LOCAL_OSM) }
+                }
             }
 
             val cached = roadNetworkCache.get(initialLoc.latitude, initialLoc.longitude)
             if (cached != null) {
-                _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                }
                 applyRoadNetwork(cached, initialLoc)
                 lastNetworkFetchLocation = initialLoc
             } else {
-                _uiState.update { it.copy(roadSource = RoadSource.LOADING) }
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(roadSource = RoadSource.LOADING) }
+                }
                 var retryMs = 1_000L
 
                 while (isActive && roadNetwork.isEmpty()) {
                     val network = overpassRepository.fetchRoadNetwork(initialLoc.latitude, initialLoc.longitude)
                     if (network.isNotEmpty()) {
-                        _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
+                        withContext(Dispatchers.Main) {
+                            _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
+                        }
                         applyRoadNetwork(network, initialLoc)
                         lastNetworkFetchLocation = initialLoc
 
-                        launch(Dispatchers.IO) {
-                            roadNetworkCache.put(initialLoc.latitude, initialLoc.longitude, network)
-                            withContext(Dispatchers.Main) {
-                                _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
-                            }
+                        roadNetworkCache.put(initialLoc.latitude, initialLoc.longitude, network)
+                        withContext(Dispatchers.Main) {
+                            _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                         }
                         break
                     } else {
-                        _uiState.update { it.copy(isRoadNetworkReady = false) }
+                        withContext(Dispatchers.Main) {
+                            _uiState.update { it.copy(isRoadNetworkReady = false) }
+                        }
                         delay(retryMs)
                         retryMs = (retryMs * 2).coerceAtMost(30_000L)
                     }
@@ -469,30 +479,25 @@ class WorldMapViewModel(
 
             // Game loop principal ~30fps
             while (isActive) {
-                try { // ESCUDO ANTI-CRASHEO INICIADO
-                    _uiState.value.currentLocation?.let { location ->
-                        // Intentamos generar uno si no hay ninguno (1 de cada 30 ticks para no saturar)
+                try {
+                    val currentState = _uiState.value
+                    currentState.currentLocation?.let { location ->
                         if (tickCount % 30 == 0) {
                             trySpawningCollectible(location.latitude, location.longitude)
                         }
-                        // Revisamos constantemente si estamos parados sobre él
                         checkCollectibleProximity(location.latitude, location.longitude)
 
-                        // --- CONDICIÓN DE COMBATE ---
-                        if (_uiState.value.playerAction == PlayerAction.SPECIAL) {
+                        if (currentState.playerAction == PlayerAction.SPECIAL) {
                             performPlayerAttack()
                         }
 
-                        // --- LÓGICA DE CONDUCCIÓN DEL JUGADOR ---
-                        if (_uiState.value.isDriving) {
-                            var currentSpeed = _uiState.value.vehicleSpeed
-                            var currentRotation = _uiState.value.vehicleRotation
+                        if (currentState.isDriving) {
+                            var currentSpeed = currentState.vehicleSpeed
+                            var currentRotation = currentState.vehicleRotation
 
-                            // Dirección (Flechas)
                             if (isSteeringLeftPressed && currentSpeed != 0.0) currentRotation -= 2f
                             if (isSteeringRightPressed && currentSpeed != 0.0) currentRotation += 2f
 
-                            // Acelerador y Freno
                             if (isGasPressed) {
                                 currentSpeed = (currentSpeed + ACCELERATION).coerceAtMost(MAX_SPEED)
                             } else if (isBrakePressed) {
@@ -503,122 +508,108 @@ class WorldMapViewModel(
                                 if (currentSpeed < 0) currentSpeed = (currentSpeed + (ACCELERATION / 2)).coerceAtMost(0.0)
                             }
 
-                            // CORRECCIÓN DEFINITIVA: Trigonometría Geográfica (0° = Norte/Arriba)
                             val angleRad = Math.toRadians(currentRotation.toDouble())
-
-                            // El eje X (Longitud) se calcula con el Seno
                             val dx = kotlin.math.sin(angleRad) * currentSpeed
-                            // El eje Y (Latitud) se calcula con el Coseno
                             val dy = kotlin.math.cos(angleRad) * currentSpeed
 
                             val tempLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
-
-                            // RESTRICCIÓN DE MAPA (NavMesh / Network)
                             val nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
                             val distToRoad = distance(tempLoc, nearestRoadPoint)
-                            val maxRoadRadius = 0.000025 // Tolerancia de salida de calle (ajustable)
+                            val maxRoadRadius = 0.000025
 
                             val finalLoc = if (distToRoad <= maxRoadRadius) {
-                                tempLoc // Flujo normal, está dentro del asfalto
+                                tempLoc
                             } else {
-                                // Se salió del camino, lo obligamos a quedarse en el borde
                                 val angleBack = atan2(tempLoc.latitude - nearestRoadPoint.latitude, tempLoc.longitude - nearestRoadPoint.longitude)
-
-                                // Penalización de choque: Pierde velocidad si intenta salirse de la calle
                                 currentSpeed *= 0.8
-
                                 GeoPoint(
                                     nearestRoadPoint.latitude + sin(angleBack) * maxRoadRadius,
                                     nearestRoadPoint.longitude + cos(angleBack) * maxRoadRadius
                                 )
                             }
 
-                            _uiState.update {
-                                it.copy(
-                                    currentLocation = finalLoc,
-                                    vehicleSpeed = currentSpeed,
-                                    vehicleRotation = (currentRotation + 360) % 360f
-                                )
+                            withContext(Dispatchers.Main) {
+                                _uiState.update {
+                                    it.copy(
+                                        currentLocation = finalLoc,
+                                        vehicleSpeed = currentSpeed,
+                                        vehicleRotation = (currentRotation + 360) % 360f
+                                    )
+                                }
                             }
                         }
 
                         maybeRefetchRoadNetwork(location)
-                        if (_uiState.value.isRoadNetworkReady) {
+                        if (currentState.isRoadNetworkReady) {
                             tickCount++
                             if (tickCount % 3 == 0) {
-                                // 1. Damos SOLO los NPCs a la IA (Filtrando posibles jugadores basura)
                                 val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
                                 npcAiManager.setServerNpcs(npcOnlyList)
 
-                                // 2. IA procesa físicas
                                 npcAiManager.updateNpcs(location, isServerDelegatedHost)
                                 val processedNpcs = npcAiManager.getServerNpcs()
 
-                                // 3. Aplicar cambios locales
                                 if (isServerDelegatedHost) {
                                     synchronized(npcAiManager.pendingDespawns) {
                                         npcAiManager.pendingDespawns.forEach { remoteEntities.remove(it) }
                                     }
                                     processedNpcs.forEach { remoteEntities[it.id] = it }
                                 }
-                                updateNpcsState()
+                                withContext(Dispatchers.Main) {
+                                    updateNpcsState()
+                                }
 
-                                // 4. Enviar datos por red
                                 webSocketManager?.let { ws ->
-                                    // Envolvemos todo el envío de red en un bloque seguro
-                                    viewModelScope.launch(Dispatchers.IO) {
-                                        try {
-                                            val myData = MultiplayerPlayer(
-                                                id = myPlayerUUID,
-                                                displayName = myPlayerDisplayName,
-                                                x = location.longitude,
-                                                y = location.latitude,
-                                                action = _uiState.value.playerAction.name,
-                                                facingRight = _uiState.value.isPlayerFacingRight,
-                                                isDriving = _uiState.value.isDriving,
-                                                carModel = _uiState.value.currentVehicleModel?.name,
-                                                carColor = _uiState.value.currentVehicleColor,
-                                                vehicleRotation = _uiState.value.vehicleRotation
-                                            )
-                                            ws.sendMessage(gson.toJson(myData))
+                                    try {
+                                        val myData = MultiplayerPlayer(
+                                            id = myPlayerUUID,
+                                            displayName = myPlayerDisplayName,
+                                            x = location.longitude,
+                                            y = location.latitude,
+                                            action = currentState.playerAction.name,
+                                            facingRight = currentState.isPlayerFacingRight,
+                                            isDriving = currentState.isDriving,
+                                            carModel = currentState.currentVehicleModel?.name,
+                                            carColor = currentState.currentVehicleColor,
+                                            vehicleRotation = currentState.vehicleRotation
+                                        )
+                                        ws.sendMessage(gson.toJson(myData))
 
-                                            if (isServerDelegatedHost) {
-                                                val despawnsToSend = synchronized(npcAiManager.pendingDespawns) {
-                                                    val list = npcAiManager.pendingDespawns.toList()
-                                                    npcAiManager.pendingDespawns.clear()
-                                                    list
-                                                }
-
-                                                despawnsToSend.forEach { idToRemove ->
-                                                    ws.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to idToRemove)))
-                                                }
-
-                                                if (processedNpcs.isNotEmpty()) {
-                                                    // Colores serializados como Int ARGB para evitar corrupción de ColorSpace.
-                                                    val npcBatch = processedNpcs.map { npc ->
-                                                        MultiplayerNpc(
-                                                            id = npc.id,
-                                                            x = npc.location.longitude,
-                                                            y = npc.location.latitude,
-                                                            rotation = npc.rotationAngle,
-                                                            npcType = npc.type.name,
-                                                            ownerId = myPlayerUUID,
-                                                            carModel = npc.carModel?.name,
-                                                            carColor = npc.carColor,
-                                                            hairId = npc.visualConfig?.hairId,
-                                                            hairColor = npc.visualConfig?.hairColor?.toArgb(),
-                                                            shirtColor = npc.visualConfig?.shirtColor?.toArgb(),
-                                                            pantsColor = npc.visualConfig?.pantsColor?.toArgb()
-                                                        )
-                                                    }
-                                                    ws.sendMessage(gson.toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
-                                                }
-                                            } else {
-                                                synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.clear() }
+                                        if (isServerDelegatedHost) {
+                                            val despawnsToSend = synchronized(npcAiManager.pendingDespawns) {
+                                                val list = npcAiManager.pendingDespawns.toList()
+                                                npcAiManager.pendingDespawns.clear()
+                                                list
                                             }
-                                        } catch (e: Exception) {
-                                            Log.e("Network", "Error al enviar datos: ${e.message}")
+
+                                            despawnsToSend.forEach { idToRemove ->
+                                                ws.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to idToRemove)))
+                                            }
+
+                                            if (processedNpcs.isNotEmpty()) {
+                                                val npcBatch = processedNpcs.map { npc ->
+                                                    MultiplayerNpc(
+                                                        id = npc.id,
+                                                        x = npc.location.longitude,
+                                                        y = npc.location.latitude,
+                                                        rotation = npc.rotationAngle,
+                                                        npcType = npc.type.name,
+                                                        ownerId = myPlayerUUID,
+                                                        carModel = npc.carModel?.name,
+                                                        carColor = npc.carColor,
+                                                        hairId = npc.visualConfig?.hairId,
+                                                        hairColor = npc.visualConfig?.hairColor?.toArgb(),
+                                                        shirtColor = npc.visualConfig?.shirtColor?.toArgb(),
+                                                        pantsColor = npc.visualConfig?.pantsColor?.toArgb()
+                                                    )
+                                                }
+                                                ws.sendMessage(gson.toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
+                                            }
+                                        } else {
+                                            synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.clear() }
                                         }
+                                    } catch (e: Exception) {
+                                        Log.e("Network", "Error al enviar datos: ${e.message}")
                                     }
                                 }
                             }
@@ -780,22 +771,26 @@ class WorldMapViewModel(
     private var segs: List<Seg>              = emptyList()
     private var grid: Map<Long, List<Seg>>   = emptyMap()
 
+    private val indexLock = Any()
     private fun ensureIndex() {
-        if (indexedRef === roadNetwork) return
-        val newSegs = ArrayList<Seg>(roadNetwork.sumOf { it.nodes.size })
-        val newGrid = HashMap<Long, MutableList<Seg>>()
-        for (way in roadNetwork) {
-            for (i in 0 until way.nodes.size - 1) {
-                val a = way.nodes[i]; val b = way.nodes[i + 1]
-                val seg = Seg(GeoPoint(a.lat, a.lon), GeoPoint(b.lat, b.lon),
-                    min(a.lat, b.lat), max(a.lat, b.lat), min(a.lon, b.lon), max(a.lon, b.lon))
-                newSegs.add(seg)
-                for (r in cell(seg.minLat)..cell(seg.maxLat))
-                    for (c in cell(seg.minLon)..cell(seg.maxLon))
-                        newGrid.getOrPut(pack(r, c)) { mutableListOf() }.add(seg)
+        synchronized(indexLock) {
+            if (indexedRef === roadNetwork) return
+            val currentRoadNetwork = roadNetwork
+            val newSegs = ArrayList<Seg>(currentRoadNetwork.sumOf { it.nodes.size })
+            val newGrid = HashMap<Long, MutableList<Seg>>()
+            for (way in currentRoadNetwork) {
+                for (i in 0 until way.nodes.size - 1) {
+                    val a = way.nodes[i]; val b = way.nodes[i + 1]
+                    val seg = Seg(GeoPoint(a.lat, a.lon), GeoPoint(b.lat, b.lon),
+                        min(a.lat, b.lat), max(a.lat, b.lat), min(a.lon, b.lon), max(a.lon, b.lon))
+                    newSegs.add(seg)
+                    for (r in cell(seg.minLat)..cell(seg.maxLat))
+                        for (c in cell(seg.minLon)..cell(seg.maxLon))
+                            newGrid.getOrPut(pack(r, c)) { mutableListOf() }.add(seg)
+                }
             }
+            indexedRef = currentRoadNetwork; segs = newSegs; grid = newGrid
         }
-        indexedRef = roadNetwork; segs = newSegs; grid = newGrid
     }
 
     private fun candidates(loc: GeoPoint): List<Seg> {
@@ -884,8 +879,12 @@ class WorldMapViewModel(
         super.onCleared()
         stopGameLoop()
         messagesCollectorJob?.cancel()
+        healthBarJob?.cancel()
+        promptJob?.cancel()
+        idleJob?.cancel()
         tileCache.closeAll()
         webSocketManager?.disconnect()
+        remoteEntities.clear()
     }
 
     private var idleJob: Job? = null
@@ -978,12 +977,10 @@ class WorldMapViewModel(
         }
     }
 
-    fun loadLandmarks(context: Context) {
+    fun loadLandmarks() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val database = PowDatabase.getInstance(context)
-                val dao = database.landmarkDao()
-                var entities = dao.getAllLandmarks()
+                var entities = landmarkDao.getAllLandmarks()
 
                 if (entities.isEmpty()) {
                     val escomDefault = LandmarkEntity(
@@ -993,8 +990,8 @@ class WorldMapViewModel(
                         assetPath = "BUILDINGS/IPN/building_escom.webp",
                         scaleFactor = 0.15f
                     )
-                    dao.insertLandmarks(listOf(escomDefault))
-                    entities = dao.getAllLandmarks()
+                    landmarkDao.insertLandmarks(listOf(escomDefault))
+                    entities = landmarkDao.getAllLandmarks()
                 }
 
                 val domainLandmarks = entities.map { entity ->
@@ -1033,11 +1030,10 @@ class WorldMapViewModel(
         _uiState.update { it.copy(selectedLandmarkId = id) }
     }
 
-    fun addLandmarkAtPlayer(context: Context, template: LandmarkAssetTemplate) {
+    fun addLandmarkAtPlayer(template: LandmarkAssetTemplate) {
         val playerLoc = _uiState.value.currentLocation ?: return
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val dao = PowDatabase.getInstance(context).landmarkDao()
                 val newEntity = LandmarkEntity(
                     name = template.displayName,
                     latitude = playerLoc.latitude,
@@ -1046,10 +1042,10 @@ class WorldMapViewModel(
                     scaleFactor = template.defaultScale,
                     rotationAngle = 0f
                 )
-                val newId = dao.insertLandmark(newEntity)
+                val newId = landmarkDao.insertLandmark(newEntity)
 
                 // Recargar para que aparezca en el mapa
-                loadLandmarks(context)
+                loadLandmarks()
 
                 _uiState.update { it.copy(showAssetPicker = false, selectedLandmarkId = newId) }
             } catch (e: Exception) {
@@ -1092,15 +1088,14 @@ class WorldMapViewModel(
         }
     }
 
-    fun deleteSelectedLandmark(context: Context) {
+    fun deleteSelectedLandmark() {
         val id = _uiState.value.selectedLandmarkId ?: return
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val dao = PowDatabase.getInstance(context).landmarkDao()
-                val entity = dao.getLandmarkById(id)
+                val entity = landmarkDao.getLandmarkById(id)
                 if (entity != null) {
-                    dao.deleteLandmark(entity)
-                    loadLandmarks(context)
+                    landmarkDao.deleteLandmark(entity)
+                    loadLandmarks()
                     _uiState.update { it.copy(selectedLandmarkId = null) }
                 }
             } catch (e: Exception) {
@@ -1134,31 +1129,27 @@ class WorldMapViewModel(
                 val type = object : com.google.gson.reflect.TypeToken<List<LandmarkEntity>>() {}.type
                 val importedEntities: List<LandmarkEntity> = Gson().fromJson(jsonString, type)
 
-                val dao = PowDatabase.getInstance(context).landmarkDao()
-
                 // Eliminar estructuras actuales
-                val currentLandmarks = dao.getAllLandmarks()
-                currentLandmarks.forEach { dao.deleteLandmark(it) }
+                val currentLandmarks = landmarkDao.getAllLandmarks()
+                currentLandmarks.forEach { landmarkDao.deleteLandmark(it) }
 
                 // Insertar desde el JSON (se insertan con su ID original para respetar el maestro)
-                dao.insertLandmarks(importedEntities)
+                landmarkDao.insertLandmarks(importedEntities)
 
                 // Recargar en el mapa
-                loadLandmarks(context)
+                loadLandmarks()
             } catch (e: Exception) {
                 Log.e("WorldMapViewModel", "Error al importar JSON desde archivo", e)
             }
         }
     }
 
-    fun saveSelectedLandmark(context: Context) {
+    fun saveSelectedLandmark() {
         val id = _uiState.value.selectedLandmarkId ?: return
         val currentLandmark = _uiState.value.landmarks.find { it.id == id } ?: return
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val dao = PowDatabase.getInstance(context).landmarkDao()
-
                 // Mapear el objeto de dominio (Landmark) de regreso a la Entidad (LandmarkEntity)
                 val updatedEntity = LandmarkEntity(
                     id = currentLandmark.id,
@@ -1171,11 +1162,7 @@ class WorldMapViewModel(
                 )
 
                 // Ejecutar el update en la base de datos
-                dao.updateLandmark(updatedEntity)
-
-                // Opcional: Deseleccionar el asset automáticamente al guardar
-                // _uiState.update { it.copy(selectedLandmarkId = null) }
-
+                landmarkDao.updateLandmark(updatedEntity)
             } catch (e: Exception) {
                 Log.e("WorldMapViewModel", "Error al actualizar landmark", e)
             }
