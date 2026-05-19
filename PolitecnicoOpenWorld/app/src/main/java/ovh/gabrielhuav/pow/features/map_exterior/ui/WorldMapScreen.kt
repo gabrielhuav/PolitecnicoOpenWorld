@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.WebView
+import android.webkit.JavascriptInterface
 import com.google.gson.Gson
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -123,7 +124,14 @@ fun WorldMapScreen(
             onTileServed       = { fromCache -> viewModel.notifyTileSource(fromCache) }
         )
     }
+    val webViewRef = remember { mutableStateOf<WebView?>(null) }
 
+    // Sincronizar salida del modo exploración con el WebView (llama a exitExplorationMode JS)
+    LaunchedEffect(uiState.isUserPanningMap) {
+        if (!uiState.isUserPanningMap) {
+            webViewRef.value?.evaluateJavascript("if(typeof exitExplorationMode==='function')exitExplorationMode();", null)
+        }
+    }
     Box(modifier = Modifier
         .fillMaxSize()
         .systemBarsPadding()) {
@@ -142,7 +150,7 @@ fun WorldMapScreen(
                 factory = { ctx ->
                     MapView(ctx).apply {
                         setTileSource(TileSourceFactory.MAPNIK)
-                        setMultiTouchControls(false)
+                        setMultiTouchControls(true)  // Permite zoom/pan del usuario
                         controller.setZoom(uiState.zoomLevel)
                     }
                 },
@@ -152,17 +160,31 @@ fun WorldMapScreen(
                         view.setOnTouchListener(null) // Permitimos que detecte tu dedo
                         view.isClickable = true
                     } else {
-                        view.setOnTouchListener { _, _ -> true } // Bloqueamos el mapa en modo juego
+                        // Permitir pan del mapa en gameplay pero notificar al ViewModel
+                        view.setOnTouchListener { _, event ->
+                            when (event.action) {
+                                android.view.MotionEvent.ACTION_MOVE -> viewModel.onMapPanStart()
+                                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> viewModel.onMapPanEnd()
+                            }
+                            false
+                        }
                         view.isClickable = false
                     }
-                    uiState.currentLocation?.let { view.controller.setCenter(it) }
+                    // Solo centrar el mapa si el usuario no está haciendo pan/exploración
+                    if (!uiState.isUserPanningMap) {
+                        uiState.currentLocation?.let { view.controller.setCenter(it) }
+                    }
 
                     view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
 
                     val zoomDiff = kotlin.math.abs(view.zoomLevelDouble - uiState.zoomLevel)
                     when {
                         zoomDiff < 0.01 -> {}
-                        zoomDiff > 1.5  -> view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
+                        zoomDiff > 1.5  -> {
+                            if (!uiState.isUserPanningMap) {
+                                view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
+                            }
+                        }
                         else            -> view.controller.setZoom(uiState.zoomLevel)
                     }
 
@@ -541,15 +563,22 @@ fun WorldMapScreen(
                         settings.allowFileAccess = true
                         settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
                         webViewClient = cachingClient
+                        // Bridge para notificar a ViewModel sobre pan/drag del mapa
+                        addJavascriptInterface(MapJsBridge(viewModel), "Android")
                         val lat = uiState.currentLocation?.latitude ?: 0.0
                         val lng = uiState.currentLocation?.longitude ?: 0.0
                         loadDataWithBaseURL(null, buildHtml(lat, lng, uiState.zoomLevel.toInt()), "text/html", "UTF-8", null)
+                        webViewRef.value = this
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { wv ->
-                    uiState.currentLocation?.let {
-                        wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
+                    // Mantener referencia para controles externos (FAB -> salir de modo exploración)
+                    webViewRef.value = wv
+                    if (!uiState.isUserPanningMap) {
+                        uiState.currentLocation?.let {
+                            wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
+                        }
                     }
 
                     val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
@@ -639,13 +668,16 @@ fun WorldMapScreen(
         }
 
         // ─── CAPA 2: Personaje principal ────────────────────────────────────
-        ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
-            uiState = uiState,
-            modifier = Modifier.align(Alignment.Center),
-            health = viewModel.playerHealth,
-            showHealthBar = viewModel.showHealthBar,
-            damagePulseTrigger = viewModel.damagePulseTrigger
-        )
+        // Mostrar el sprite solo si NO está en modo exploración/pan del mapa
+        if (!uiState.isUserPanningMap) {
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
+                uiState = uiState,
+                modifier = Modifier.align(Alignment.Center),
+                health = viewModel.playerHealth,
+                showHealthBar = viewModel.showHealthBar,
+                damagePulseTrigger = viewModel.damagePulseTrigger
+            )
+        }
 
         if (!uiState.isRoadNetworkReady) {
             Row(
@@ -742,6 +774,17 @@ fun WorldMapScreen(
                 .background(Color.White.copy(alpha = 0.8f), CircleShape)
                 .size(48.dp)
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
+            // Botón FAB para centrar cámara en el jugador (salir del modo exploración)
+            if (uiState.isUserPanningMap) {
+                IconButton(
+                    onClick = { viewModel.centerOnPlayer() },
+                    modifier = Modifier
+                        .background(Color(0xFF2196F3), CircleShape)
+                        .size(48.dp)
+                ) {
+                    Icon(Icons.Default.Person, "Centrar en personaje", tint = Color.White)
+                }
+            }
         }
 
         // Menú de teletransporte
@@ -1020,10 +1063,20 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var isZooming = false;
         map.on('zoomstart', function() { isZooming = true; });
         map.on('zoomend', function() { isZooming = false; });
+        // Detectar arrastres del usuario y notificar a la app nativa
+        map.on('dragstart', function() {
+            isExplorationMode = true;
+            if (window.Android && window.Android.notifyMapPanStart) window.Android.notifyMapPanStart();
+        });
+        map.on('dragend', function() {
+            if (window.Android && window.Android.notifyMapPanEnd) window.Android.notifyMapPanEnd();
+        });
         function updateMapView(lat, lng, z) { if (!isZooming) map.setView([lat, lng], z, { animate: false }); }
         function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
+        // Salir del modo de exploración (llamado desde el FAB nativo)
+        function exitExplorationMode() { isExplorationMode = false; }
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c; }); }
         function updateNpcs(data) {
             if (isZooming) return;
@@ -1081,6 +1134,18 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 </body>
 </html>
 """.trimIndent()
+
+private class MapJsBridge(private val vm: WorldMapViewModel) {
+    @JavascriptInterface
+    fun notifyMapPanStart() {
+        vm.onMapPanStart()
+    }
+
+    @JavascriptInterface
+    fun notifyMapPanEnd() {
+        vm.onMapPanEnd()
+    }
+}
 
 private class ExactSizeDrawable(
     private val base: android.graphics.drawable.Drawable,

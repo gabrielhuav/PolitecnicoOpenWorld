@@ -57,6 +57,10 @@ data class WorldMapState(
     val landmarks: List<Landmark> = emptyList(),
     val showTeleportMenu: Boolean = false,
 
+    // Control de seguimiento del mapa: true cuando el usuario ha empezado a hacer pan/zoom
+    // y no debe ser reposicionado automáticamente hasta que el usuario presione el FAB.
+    val isUserPanningMap: Boolean = false,
+
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
     val selectedLandmarkId: Long? = null,     // null = nada seleccionado

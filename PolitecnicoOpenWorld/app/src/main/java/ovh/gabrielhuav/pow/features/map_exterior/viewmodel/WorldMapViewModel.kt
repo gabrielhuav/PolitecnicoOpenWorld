@@ -880,6 +880,22 @@ class WorldMapViewModel(
     fun zoomIn()  = _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
     fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
 
+    // Centro en el jugador y sale del modo de exploración (navegación libre)
+    fun centerOnPlayer() {
+        _uiState.update { it.copy(isUserPanningMap = false) }
+    }
+
+    // Llamado cuando el usuario empieza a arrastrar/poner pan en el mapa
+    fun onMapPanStart() {
+        _uiState.update { it.copy(isUserPanningMap = true) }
+    }
+
+    // Llamado cuando el usuario termina el arrastre; mantenemos el modo exploración
+    // activo hasta que el usuario presione el botón FAB para volver al seguimiento.
+    fun onMapPanEnd() {
+        // Intencionalmente vacío
+    }
+
     override fun onCleared() {
         super.onCleared()
         stopGameLoop()
