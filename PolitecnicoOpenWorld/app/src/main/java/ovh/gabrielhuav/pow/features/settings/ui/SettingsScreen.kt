@@ -40,6 +40,7 @@ fun SettingsScreen(
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
     onSwapControlsToggled: (Boolean) -> Unit,
+    onPinchZoomToggled: (Boolean) -> Unit = {},
     onNavigateBack: () -> Unit,
     onExitToMainMenu: () -> Unit
 ) {
@@ -107,7 +108,7 @@ fun SettingsScreen(
                     ) {
                         Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onPinchZoomToggled)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -144,7 +145,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
                         Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onPinchZoomToggled)
                     }
                 }
             }
@@ -201,11 +202,12 @@ private fun SettingsContent(
     onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
-    onSwapControlsToggled: (Boolean) -> Unit
+    onSwapControlsToggled: (Boolean) -> Unit,
+    onPinchZoomToggled: (Boolean) -> Unit
 ) {
     when (state.selectedCategory) {
         is SettingsCategory.Map -> MapProviderSetting(state.mapProvider, onMapProviderChanged)
-        is SettingsCategory.Controls -> ControlsSettingsConfig(state.controlType, state.controlsScale, state.swapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
+        is SettingsCategory.Controls -> ControlsSettingsConfig(state.controlType, state.controlsScale, state.swapControls, state.pinchZoomEnabled, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onPinchZoomToggled, onSaveClicked)
         is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, onCacheToggled, onFpsToggled)
         else -> Text("Sin ajustes disponibles actualmente.", color = Color.Gray)
     }
@@ -285,9 +287,11 @@ private fun ControlsSettingsConfig(
     type: ControlType,
     scale: Float,
     isSwapped: Boolean,
+    pinchZoomEnabled: Boolean,
     onTypeChanged: (ControlType) -> Unit,
     onScaleChanged: (Float) -> Unit,
     onSwapChanged: (Boolean) -> Unit,
+    onPinchZoomChanged: (Boolean) -> Unit,
     onSaveClicked: () -> Unit
 ) {
     // Detectar si estamos en vertical u horizontal para el tamaño máximo
@@ -356,6 +360,26 @@ private fun ControlsSettingsConfig(
             Switch(
                 checked = isSwapped,
                 onCheckedChange = onSwapChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFD4AF37),
+                    checkedTrackColor = Color(0xFF6B1C3A)
+                )
+            )
+        }
+
+        // 4. Zoom con pellizco
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text("Zoom con pellizco", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Acerca/aleja el mapa con dos dedos", color = Color.Gray, fontSize = 12.sp)
+            }
+            Switch(
+                checked = pinchZoomEnabled,
+                onCheckedChange = onPinchZoomChanged,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFFD4AF37),
                     checkedTrackColor = Color(0xFF6B1C3A)

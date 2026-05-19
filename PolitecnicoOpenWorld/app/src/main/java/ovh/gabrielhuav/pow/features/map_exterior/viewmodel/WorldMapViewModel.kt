@@ -151,7 +151,8 @@ class WorldMapViewModel(
         WorldMapState(
             controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
-            swapControls = settingsRepository.getSwapControls()
+            swapControls = settingsRepository.getSwapControls(),
+            pinchZoomEnabled = settingsRepository.getPinchZoomEnabled()
         )
     )
     val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
@@ -753,8 +754,12 @@ class WorldMapViewModel(
         }
     }
 
-    fun updateControlSettings(type: ControlType, scale: Float, swap: Boolean) {
-        _uiState.update { it.copy(controlType = type, controlsScale = scale, swapControls = swap) }
+    fun updateControlSettings(type: ControlType, scale: Float, swap: Boolean, pinchZoom: Boolean) {
+        _uiState.update { it.copy(controlType = type, controlsScale = scale, swapControls = swap, pinchZoomEnabled = pinchZoom) }
+    }
+
+    fun updateZoomLevel(zoom: Double) {
+        _uiState.update { it.copy(zoomLevel = zoom) }
     }
 
     private data class Seg(val s: GeoPoint, val e: GeoPoint,

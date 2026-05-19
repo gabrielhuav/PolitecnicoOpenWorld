@@ -19,7 +19,8 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         SettingsState(
             controlType = repository.getControlType(),
             controlsScale = repository.getControlsScale(),
-            swapControls = repository.getSwapControls()
+            swapControls = repository.getSwapControls(),
+            pinchZoomEnabled = repository.getPinchZoomEnabled()
         )
     )
     val state: StateFlow<SettingsState> = _state.asStateFlow()
@@ -32,6 +33,7 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun changeControlType(type: ControlType) { _state.update { it.copy(controlType = type) } }
     fun changeControlsScale(scale: Float) { _state.update { it.copy(controlsScale = scale) } }
     fun toggleSwapControls(swap: Boolean) { _state.update { it.copy(swapControls = swap) } }
+    fun togglePinchZoom(enabled: Boolean) { _state.update { it.copy(pinchZoomEnabled = enabled) } }
 
     // Función para guardar
     fun saveControlsSettings() {
@@ -39,7 +41,8 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         repository.saveControlsSettings(
             type = currentState.controlType,
             scale = currentState.controlsScale,
-            swap = currentState.swapControls
+            swap = currentState.swapControls,
+            pinchZoom = currentState.pinchZoomEnabled
         )
     }
 

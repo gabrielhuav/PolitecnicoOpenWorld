@@ -4,6 +4,10 @@ import android.util.Log
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebViewClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.data.cache.TileCache
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import java.io.ByteArrayInputStream
@@ -18,6 +22,8 @@ class CachingWebViewClient(
 ) : WebViewClient() {
 
     private val TAG = "TileDebug_WebView"
+    private val cacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val sha256Digest = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
 
     private fun normalizeTileUrl(url: String): String {
         // 1. Quitar parámetros de consulta (ej. ?v=123) que cambian dinámicamente
@@ -61,7 +67,8 @@ class CachingWebViewClient(
         val downloaded = downloadTile(rawUrl)
 
         if (downloaded != null && downloaded.isNotEmpty()) {
-            tileCache.putTileByUrl(providerKey, urlKey, downloaded)
+            // Guardamos en caché de forma asíncrona para no bloquear al WebView
+            cacheScope.launch { tileCache.putTileByUrl(providerKey, urlKey, downloaded) }
             onTileServed(false)
             return buildResponse(guessMimeType(normalizedUrl), downloaded)
         }
@@ -130,7 +137,9 @@ class CachingWebViewClient(
     }
 
     private fun sha256(input: String): String {
-        val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
+        val digest = sha256Digest.get()!!
+        digest.reset()
+        val bytes = digest.digest(input.toByteArray(Charsets.UTF_8))
         return bytes.joinToString("") { "%02x".format(it) }
     }
 }
