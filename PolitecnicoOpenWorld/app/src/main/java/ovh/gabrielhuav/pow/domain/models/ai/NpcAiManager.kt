@@ -37,6 +37,10 @@ class NpcAiManager {
     private val maxNpcs = 40
     private val despawnDistance = 0.035
     private val spawnDistance   = 0.0060
+    
+    // Umbrales al cuadrado para optimizar comparaciones evitando raíces cuadradas
+    private val despawnDistanceSq = despawnDistance * despawnDistance
+    private val spawnDistanceSq   = spawnDistance * spawnDistance
 
     private val carSpeed    = CAR_SPEED
     private val personSpeed = PERSON_SPEED
@@ -69,39 +73,48 @@ class NpcAiManager {
         if (currentNetwork.isEmpty()) return
 
         withContext(Dispatchers.Default) {
-            // 1. Despawn por distancia (SOLO limpiamos localmente, SIN MANDAR MENSAJE AL SERVIDOR)
-            val toRemove = serverNpcs.filter {
-                it.displayName.isNullOrEmpty() &&
-                        calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude) > despawnDistance
+            // Trabajamos sobre una copia local para evitar el overhead de CopyOnWriteArrayList en cada operación
+            val workingList = serverNpcs.toMutableList()
+
+            // 1. Despawn por distancia (Optimizado: removeIf + Distancia al cuadrado)
+            workingList.removeAll { npc ->
+                npc.displayName.isNullOrEmpty() &&
+                        calculateDistanceSq(npc.location.latitude, npc.location.longitude, playerLocation.latitude, playerLocation.longitude) > despawnDistanceSq
             }
-            serverNpcs.removeAll(toRemove)
 
             // 2. Control de Población
-            val currentNpcsCount = serverNpcs.count { it.displayName.isNullOrEmpty() }
+            val currentNpcsCount = workingList.count { it.displayName.isNullOrEmpty() }
             if (currentNpcsCount > maxNpcs) {
                 val excess = currentNpcsCount - maxNpcs
-                val sorted = serverNpcs.filter { it.displayName.isNullOrEmpty() }.sortedByDescending {
-                    calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude)
+                val toAnnihilate = workingList
+                    .filter { it.displayName.isNullOrEmpty() }
+                    .sortedByDescending {
+                        calculateDistanceSq(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude)
+                    }
+                    .take(excess)
+                
+                val toAnnihilateIds = toAnnihilate.map { it.id }.toSet()
+                workingList.removeAll { it.id in toAnnihilateIds }
+                
+                synchronized(pendingDespawns) {
+                    pendingDespawns.addAll(toAnnihilateIds)
                 }
-                val toAnnihilate = sorted.take(excess)
-                serverNpcs.removeAll(toAnnihilate)
-                toAnnihilate.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
             } else if (currentNpcsCount < maxNpcs) {
                 val closeWays = currentNetwork.filter { way ->
-                    way.nodes.any { calculateDistance(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistance }
+                    way.nodes.any { calculateDistanceSq(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistanceSq }
                 }
                 if (closeWays.isNotEmpty()) {
                     val numToSpawn = minOf(2, maxNpcs - currentNpcsCount)
                     for (i in 0 until numToSpawn) {
-                        spawnNpcOnRoad(playerLocation, closeWays)?.let { serverNpcs.add(it) }
+                        spawnNpcOnRoad(playerLocation, closeWays)?.let { workingList.add(it) }
                     }
                 }
             }
 
-            // 3. Movimiento de sobrevivientes (EXCLUYENDO OTROS JUGADORES)
-            val updated = serverNpcs.mapNotNull { npc ->
+            // 3. Movimiento de sobrevivientes
+            val updated = workingList.mapNotNull { npc ->
                 if (!npc.displayName.isNullOrEmpty()) {
-                    npc // Si es un jugador real, no lo tocamos.
+                    npc
                 } else {
                     val moved = moveNpc(npc, currentNetwork)
                     if (moved == null) {
@@ -110,6 +123,8 @@ class NpcAiManager {
                     moved
                 }
             }
+            
+            // Actualización única de la lista atómica al final
             serverNpcs.clear()
             serverNpcs.addAll(updated)
         }
@@ -128,8 +143,9 @@ class NpcAiManager {
         val startIndex  = Random.nextInt(selectedWay.nodes.size)
         val startNode   = selectedWay.nodes[startIndex]
 
-        val distToPlayer = calculateDistance(startNode.lat, startNode.lon, playerLocation.latitude, playerLocation.longitude)
-        if (distToPlayer < 0.0002 || distToPlayer > 0.0040) return null
+        val distToPlayerSq = calculateDistanceSq(startNode.lat, startNode.lon, playerLocation.latitude, playerLocation.longitude)
+        // Umbrales: 0.0002 -> 4e-8, 0.0040 -> 1.6e-5
+        if (distToPlayerSq < 0.00000004 || distToPlayerSq > 0.000016) return null
 
         val dir = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
 
@@ -153,7 +169,7 @@ class NpcAiManager {
                 pantsColor = colors.random()
             )
         } else {
-            null // Los coches no usan este sistema visual
+            null
         }
 
         return Npc(
@@ -175,8 +191,6 @@ class NpcAiManager {
         var nodeIndex = npc.targetNodeIndex
         var direction = npc.moveDirection
 
-        // RECONSTRUCCIÓN DE RUTA (ADOPCIÓN)
-        // Si el NPC viene del servidor, no tiene calle asignada localmente. Lo pegamos a la más cercana.
         if (way == null) {
             val validWays = network.filter {
                 (npc.type == NpcType.CAR && it.isForCars) || (npc.type == NpcType.PERSON && it.isForPeople)
@@ -184,21 +198,21 @@ class NpcAiManager {
             if (validWays.isEmpty()) return null
 
             var closestWay: MapWay? = null
-            var closestDist = Double.MAX_VALUE
+            var closestDistSq = Double.MAX_VALUE
             var bestNodeIdx = 0
 
             for (w in validWays) {
                 w.nodes.forEachIndexed { idx, node ->
-                    val dist = calculateDistance(npc.location.latitude, npc.location.longitude, node.lat, node.lon)
-                    if (dist < closestDist) {
-                        closestDist = dist
+                    val distSq = calculateDistanceSq(npc.location.latitude, npc.location.longitude, node.lat, node.lon)
+                    if (distSq < closestDistSq) {
+                        closestDistSq = distSq
                         closestWay = w
                         bestNodeIdx = idx
                     }
                 }
             }
-            // Si está a menos de ~200 metros de una calle, lo adoptamos. Si está en la nada, muere.
-            if (closestWay != null && closestDist < 0.002) {
+            // 0.002 -> 0.000004
+            if (closestWay != null && closestDistSq < 0.000004) {
                 way = closestWay
                 nodeIndex = bestNodeIdx
                 direction = if (bestNodeIdx >= closestWay.nodes.size / 2) -1 else 1
@@ -207,7 +221,6 @@ class NpcAiManager {
             }
         }
 
-        // Lógica normal de movimiento
         if (nodeIndex < 0 || nodeIndex >= way.nodes.size) {
             val reachedNode = if (nodeIndex < 0) way.nodes.first() else way.nodes.last()
             val connectedWays = network.filter { w ->
@@ -235,7 +248,9 @@ class NpcAiManager {
         val target = way.nodes[nodeIndex]
         val dLon = target.lon - npc.location.longitude
         val dLat = target.lat - npc.location.latitude
-        val dist = sqrt(dLon * dLon + dLat * dLat)
+        
+        // En movimiento lineal, el cálculo simplificado es suficiente
+        val distSq = dLon * dLon + dLat * dLat
         val angle = atan2(dLat, dLon)
         val targetAngle = -Math.toDegrees(angle).toFloat()
         val isFacingRight = cos(angle) >= 0
@@ -244,16 +259,20 @@ class NpcAiManager {
         val smoothedAngle = (npc.rotationAngle + diff * 0.20f + 360) % 360
         val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
 
-        return if (dist < actualSpeed) {
+        return if (distSq < actualSpeed * actualSpeed) {
             npc.copy(currentWay = way, location = GeoPoint(target.lat, target.lon), targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight)
         } else {
             npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(npc.location.latitude + sin(angle) * actualSpeed, npc.location.longitude + cos(angle) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight)
         }
     }
 
-    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    private fun calculateDistanceSq(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val dLat = lat1 - lat2
-        val dLon = (lon1 - lon2) * cos(lat1 * Math.PI / 180)
-        return sqrt(dLat * dLat + dLon * dLon)
+        val dLon = (lon1 - lon2) * cos(lat1 * Math.PI / 180.0)
+        return dLat * dLat + dLon * dLon
+    }
+
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        return sqrt(calculateDistanceSq(lat1, lon1, lat2, lon2))
     }
 }
