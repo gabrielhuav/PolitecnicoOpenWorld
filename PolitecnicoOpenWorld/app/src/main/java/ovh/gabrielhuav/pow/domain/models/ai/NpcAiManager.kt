@@ -69,10 +69,15 @@ class NpcAiManager {
         if (currentNetwork.isEmpty()) return
 
         withContext(Dispatchers.Default) {
+            // OPTIMIZACION: Precalcular valores para evitar operaciones matematicas repetidas (coseno y raiz cuadrada)
+            val playerCosLat = cos(playerLocation.latitude * Math.PI / 180)
+            val despawnDistanceSq = despawnDistance * despawnDistance
+            val spawnDistanceSq = spawnDistance * spawnDistance
+
             // 1. Despawn por distancia (SOLO limpiamos localmente, SIN MANDAR MENSAJE AL SERVIDOR)
             val toRemove = serverNpcs.filter {
                 it.displayName.isNullOrEmpty() &&
-                        calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude) > despawnDistance
+                        calculateDistanceSqFast(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude, playerCosLat) > despawnDistanceSq
             }
             serverNpcs.removeAll(toRemove)
 
@@ -81,14 +86,14 @@ class NpcAiManager {
             if (currentNpcsCount > maxNpcs) {
                 val excess = currentNpcsCount - maxNpcs
                 val sorted = serverNpcs.filter { it.displayName.isNullOrEmpty() }.sortedByDescending {
-                    calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude)
+                    calculateDistanceSqFast(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude, playerCosLat)
                 }
                 val toAnnihilate = sorted.take(excess)
                 serverNpcs.removeAll(toAnnihilate)
                 toAnnihilate.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
             } else if (currentNpcsCount < maxNpcs) {
                 val closeWays = currentNetwork.filter { way ->
-                    way.nodes.any { calculateDistance(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistance }
+                    way.nodes.any { calculateDistanceSqFast(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude, playerCosLat) < spawnDistanceSq }
                 }
                 if (closeWays.isNotEmpty()) {
                     val numToSpawn = minOf(2, maxNpcs - currentNpcsCount)
@@ -128,8 +133,10 @@ class NpcAiManager {
         val startIndex  = Random.nextInt(selectedWay.nodes.size)
         val startNode   = selectedWay.nodes[startIndex]
 
-        val distToPlayer = calculateDistance(startNode.lat, startNode.lon, playerLocation.latitude, playerLocation.longitude)
-        if (distToPlayer < 0.0002 || distToPlayer > 0.0040) return null
+        // OPTIMIZACION: Utilizar distancia cuadrada para evitar la raíz cuadrada
+        val playerCosLat = cos(playerLocation.latitude * Math.PI / 180)
+        val distToPlayerSq = calculateDistanceSqFast(startNode.lat, startNode.lon, playerLocation.latitude, playerLocation.longitude, playerCosLat)
+        if (distToPlayerSq < (0.0002 * 0.0002) || distToPlayerSq > (0.0040 * 0.0040)) return null
 
         val dir = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
 
@@ -184,21 +191,23 @@ class NpcAiManager {
             if (validWays.isEmpty()) return null
 
             var closestWay: MapWay? = null
-            var closestDist = Double.MAX_VALUE
+            var closestDistSq = Double.MAX_VALUE
             var bestNodeIdx = 0
+
+            val npcCosLat = cos(npc.location.latitude * Math.PI / 180)
 
             for (w in validWays) {
                 w.nodes.forEachIndexed { idx, node ->
-                    val dist = calculateDistance(npc.location.latitude, npc.location.longitude, node.lat, node.lon)
-                    if (dist < closestDist) {
-                        closestDist = dist
+                    val distSq = calculateDistanceSqFast(npc.location.latitude, npc.location.longitude, node.lat, node.lon, npcCosLat)
+                    if (distSq < closestDistSq) {
+                        closestDistSq = distSq
                         closestWay = w
                         bestNodeIdx = idx
                     }
                 }
             }
             // Si está a menos de ~200 metros de una calle, lo adoptamos. Si está en la nada, muere.
-            if (closestWay != null && closestDist < 0.002) {
+            if (closestWay != null && closestDistSq < (0.002 * 0.002)) {
                 way = closestWay
                 nodeIndex = bestNodeIdx
                 direction = if (bestNodeIdx >= closestWay.nodes.size / 2) -1 else 1
@@ -255,5 +264,11 @@ class NpcAiManager {
         val dLat = lat1 - lat2
         val dLon = (lon1 - lon2) * cos(lat1 * Math.PI / 180)
         return sqrt(dLat * dLat + dLon * dLon)
+    }
+
+    private fun calculateDistanceSqFast(lat1: Double, lon1: Double, lat2: Double, lon2: Double, cosLat: Double): Double {
+        val dLat = lat1 - lat2
+        val dLon = (lon1 - lon2) * cosLat
+        return dLat * dLat + dLon * dLon
     }
 }
