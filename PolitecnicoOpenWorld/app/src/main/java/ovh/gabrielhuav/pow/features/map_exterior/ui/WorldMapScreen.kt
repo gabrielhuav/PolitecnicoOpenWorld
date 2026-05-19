@@ -34,6 +34,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -126,6 +129,30 @@ fun WorldMapScreen(
         )
     }
 
+    // Optimización mediante un ciclo de vida
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var mapViewInstance by remember { mutableStateOf<MapView?>(null) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> mapViewInstance?.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapViewInstance?.onPause()
+                Lifecycle.Event.ON_DESTROY -> {
+                    mapViewInstance?.onDetach()
+                    mapViewInstance = null
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapViewInstance?.onDetach()
+            mapViewInstance = null
+        }
+    }
+
     Box(modifier = Modifier
         .fillMaxSize()
         .systemBarsPadding()) {
@@ -145,9 +172,8 @@ fun WorldMapScreen(
                     MapView(ctx).apply {
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(false)
-                        //setOnTouchListener { _, _ -> true }
-                        //isClickable = false; isFocusable = false
                         controller.setZoom(uiState.zoomLevel)
+                        mapViewInstance = this // Referencia para el ciclo de vida
                     }
                 },
                 modifier = Modifier.fillMaxSize(),

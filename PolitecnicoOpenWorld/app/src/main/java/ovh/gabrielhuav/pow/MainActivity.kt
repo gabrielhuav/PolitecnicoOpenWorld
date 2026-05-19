@@ -13,7 +13,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import org.osmdroid.config.Configuration
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
@@ -47,13 +51,14 @@ class MainActivity : ComponentActivity() {
         SettingsViewModel.Factory(this)
     }
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
-            fetchCurrentLocation()
+            startLocationUpdates()
         } else {
             worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
         }
@@ -63,7 +68,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         configureOsmdroid()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        checkPermissionsAndFetchLocation()
+
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                for (location in locationResult.locations) {
+                    worldMapViewModel.updateInitialLocation(location.latitude, location.longitude)
+                }
+            }
+        }
+
+        checkPermissionsAndStartUpdates()
 
         setContent {
             PolitecnicoOpenWorldTheme {
@@ -199,10 +213,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkPermissionsAndFetchLocation() {
+    private fun checkPermissionsAndStartUpdates() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             == PackageManager.PERMISSION_GRANTED) {
-            fetchCurrentLocation()
+            startLocationUpdates()
         } else {
             requestPermissionLauncher.launch(arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
@@ -211,16 +225,34 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun fetchCurrentLocation() {
+    private fun startLocationUpdates() {
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 5000) // 5 segundos
+            .setMinUpdateIntervalMillis(2000)
+            .build()
+
         try {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null)
-                    worldMapViewModel.updateInitialLocation(location.latitude, location.longitude)
-                else
-                    worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
-            }
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                mainLooper
+            )
         } catch (e: SecurityException) {
             worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (::locationCallback.isInitialized) {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED) {
+            startLocationUpdates()
         }
     }
 }
