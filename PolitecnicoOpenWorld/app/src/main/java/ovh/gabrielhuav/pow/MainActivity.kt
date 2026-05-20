@@ -113,7 +113,6 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToSettings = {
                                     navController.navigate("settings")
                                 },
-                                // 👇 ESTO ES LO QUE FALTABA AGREGAR 👇
                                 onNavigateToCollectibles = {
                                     navController.navigate("collectibles")
                                 }

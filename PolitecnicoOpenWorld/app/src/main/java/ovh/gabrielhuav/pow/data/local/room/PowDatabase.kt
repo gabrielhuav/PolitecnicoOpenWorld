@@ -72,7 +72,7 @@ abstract class PowDatabase : RoomDatabase() {
                 PowDatabase::class.java,
                 dbFile.absolutePath
             )
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_7_8)
                 .build()
         }
     }

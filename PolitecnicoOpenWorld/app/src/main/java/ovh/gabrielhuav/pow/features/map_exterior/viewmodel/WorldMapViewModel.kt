@@ -583,7 +583,7 @@ class WorldMapViewModel(
                                                 carColor = _uiState.value.currentVehicleColor,
                                                 vehicleRotation = _uiState.value.vehicleRotation
                                             )
-                                            ws.sendMessage(com.google.gson.Gson().toJson(myData))
+                                            ws.sendMessage(gson.toJson(myData))
 
                                             if (isServerDelegatedHost) {
                                                 val despawnsToSend = synchronized(npcAiManager.pendingDespawns) {
@@ -593,7 +593,7 @@ class WorldMapViewModel(
                                                 }
 
                                                 despawnsToSend.forEach { idToRemove ->
-                                                    ws.sendMessage(com.google.gson.Gson().toJson(mapOf("type" to "NPC_DESTROY", "npcId" to idToRemove)))
+                                                    ws.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to idToRemove)))
                                                 }
 
                                                 if (processedNpcs.isNotEmpty()) {
@@ -614,7 +614,7 @@ class WorldMapViewModel(
                                                             pantsColor = npc.visualConfig?.pantsColor?.toArgb()
                                                         )
                                                     }
-                                                    ws.sendMessage(com.google.gson.Gson().toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
+                                                    ws.sendMessage(gson.toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
                                                 }
                                             } else {
                                                 synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.clear() }
@@ -1248,13 +1248,11 @@ class WorldMapViewModel(
 
     // ─── SISTEMA DE COLECCIONABLES ───────────────────────────────────────────────
 
-    private var isSpawningCollectible = false
+    private val isSpawningCollectible = AtomicBoolean(false)
 
     private fun trySpawningCollectible(playerLat: Double, playerLon: Double) {
         // Si ya hay un coleccionable activo, o ya estamos calculando uno, salimos.
-        if (_uiState.value.activeCollectibles.isNotEmpty() || isSpawningCollectible) return
-
-        isSpawningCollectible = true
+        if (_uiState.value.activeCollectibles.isNotEmpty() || !isSpawningCollectible.compareAndSet(false, true)) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val uncollected = collectibleRepository.getUncollectedCollectibles()
@@ -1288,7 +1286,7 @@ class WorldMapViewModel(
                     }
                 }
             } finally {
-                isSpawningCollectible = false
+                isSpawningCollectible.set(false)
             }
         }
     }

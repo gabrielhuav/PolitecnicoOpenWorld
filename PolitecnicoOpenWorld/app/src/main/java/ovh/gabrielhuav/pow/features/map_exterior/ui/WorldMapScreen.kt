@@ -56,8 +56,8 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.math.atan2
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
@@ -653,7 +653,7 @@ fun WorldMapScreen(
                     }
                     val npcsJson = gson.toJson(npcPayloads)
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
-                    wv.evaluateJavascript("javascript:updateCollectibles('$collectiblesJson');", null)
+                    wv.evaluateJavascript("javascript:updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
                 }
             )
         }
