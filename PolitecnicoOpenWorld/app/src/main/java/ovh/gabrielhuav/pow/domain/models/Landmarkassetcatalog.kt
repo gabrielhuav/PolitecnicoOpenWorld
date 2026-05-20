@@ -1,24 +1,48 @@
 package ovh.gabrielhuav.pow.domain.models
 
-/**
- * Entrada del catálogo de assets disponibles en el modo diseñador.
- * Agrega más entradas a [AVAILABLE_ASSETS] cuando metas nuevos WEBP a /assets.
- */
+import android.content.Context
+import android.util.Log
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+
+// 1. El modelo de datos actualizado con ancho y alto
 data class LandmarkAssetTemplate(
-    val displayName: String,       // Lo que ve el usuario en el selector
-    val assetPath: String,         // Ruta relativa dentro de /assets
-    val defaultScale: Float = 0.15f
+    val id: String,
+    val displayName: String,
+    val assetPath: String,
+    val defaultScale: Float = 0.15f,
+    val baseWidthMeters: Float,
+    val baseHeightMeters: Float
 )
 
-object LandmarkAssetCatalog {
-    val AVAILABLE_ASSETS: List<LandmarkAssetTemplate> = listOf(
-        LandmarkAssetTemplate(
-            displayName = "ESCOM",
-            assetPath = "BUILDINGS/IPN/building_escom.webp",
-            defaultScale = 0.15f
-        )
-        // Agregar aquí nuevos edificios cuando estén disponibles, por ejemplo:
-        // LandmarkAssetTemplate("ESIA", "BUILDINGS/IPN/building_esia.webp", 0.15f),
-        // LandmarkAssetTemplate("ESFM", "BUILDINGS/IPN/building_esfm.webp", 0.15f),
-    )
+// 2. El Gestor que lee el JSON
+object LandmarkCatalogManager {
+    // Aquí se guardará la lista de edificios disponibles en memoria
+    var availableAssets: List<LandmarkAssetTemplate> = emptyList()
+        private set
+    @Volatile
+    private var isLoaded: Boolean = false
+
+    // Esta función lee el archivo JSON y lo convierte a la lista de Kotlin
+    @Synchronized
+    fun loadCatalog(context: Context) {
+        // Si ya intentó cargarse, no volvemos a leer el archivo
+        if (isLoaded) return
+
+        try {
+            // Abrimos y leemos el archivo que creaste en la carpeta assets/
+            val jsonString = context.assets.open("buildings_catalog.json").bufferedReader().use { it.readText() }
+
+            // Usamos Gson para convertir el texto JSON a una lista de objetos LandmarkAssetTemplate
+            val listType = object : TypeToken<List<LandmarkAssetTemplate>>() {}.type
+            availableAssets = Gson().fromJson<List<LandmarkAssetTemplate>>(jsonString, listType) ?: emptyList()
+
+            Log.d("CatalogManager", "Catálogo cargado exitosamente con ${availableAssets.size} edificios.")
+        } catch (e: Exception) {
+            Log.e("CatalogManager", "Error al leer buildings_catalog.json", e)
+            availableAssets = emptyList()
+        } finally {
+            isLoaded = true
+        }
+    }
 }

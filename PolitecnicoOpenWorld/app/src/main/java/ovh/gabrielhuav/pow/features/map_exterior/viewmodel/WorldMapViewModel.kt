@@ -987,6 +987,9 @@ class WorldMapViewModel(
     fun loadLandmarks(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Cargamos el catálogo JSON a memoria
+                ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.loadCatalog(context)
+
                 val database = PowDatabase.getInstance(context)
                 val dao = database.landmarkDao()
                 var entities = dao.getAllLandmarks()
@@ -1003,14 +1006,23 @@ class WorldMapViewModel(
                     entities = dao.getAllLandmarks()
                 }
 
+                val templatesByAssetPath = ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.availableAssets
+                    .associateBy { it.assetPath }
+
                 val domainLandmarks = entities.map { entity ->
+                    // 1. Buscamos este edificio en el catálogo JSON usando su assetPath
+                    val template = templatesByAssetPath[entity.assetPath]
+                    // 2. Creamos el Landmark inyectándole las medidas que encontramos en el JSON
                     Landmark(
                         id = entity.id,
                         name = entity.name,
                         location = GeoPoint(entity.latitude, entity.longitude),
                         assetPath = entity.assetPath,
                         scaleFactor = entity.scaleFactor,
-                        rotationAngle = entity.rotationAngle
+                        rotationAngle = entity.rotationAngle,
+                        // Si lo encuentra usa las medidas del JSON, si no, usa 100.0 por defecto para que no truene
+                        baseWidthMeters = template?.baseWidthMeters ?: 100f,
+                        baseHeightMeters = template?.baseHeightMeters ?: 100f
                     )
                 }
 
