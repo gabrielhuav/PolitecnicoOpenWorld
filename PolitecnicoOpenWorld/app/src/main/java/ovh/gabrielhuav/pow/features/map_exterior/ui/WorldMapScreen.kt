@@ -57,9 +57,9 @@ import kotlin.math.sqrt
 import kotlin.math.atan2
 import androidx.compose.ui.draw.scale
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -76,7 +76,6 @@ fun WorldMapScreen(
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
-
     // Launchers para Exportar e Importar archivos JSON en el dispositivo
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { viewModel.exportLandmarksToUri(context, it) }
@@ -294,6 +293,95 @@ fun WorldMapScreen(
 
                             marker.position = org.osmdroid.util.GeoPoint(npc.location.latitude, npc.location.longitude)
                         }
+                        // ─── DIBUJADO DE COLECCIONABLES ──────────────────────────────────
+                        val activeCollectibleIds = uiState.activeCollectibles.map { it.id }.toSet()
+
+                        @Suppress("UNCHECKED_CAST")
+                        val collectibleMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag) as? MutableMap<String, Marker>)
+                            ?: mutableMapOf<String, Marker>().also {
+                                view.setTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag, it)
+                            }
+
+                        // 1. Limpieza de coleccionables que ya fueron recogidos
+                        val colIterator = collectibleMarkerCache.iterator()
+                        while (colIterator.hasNext()) {
+                            val entry = colIterator.next()
+                            if (!activeCollectibleIds.contains(entry.key)) {
+                                view.overlays.remove(entry.value)
+                                colIterator.remove()
+                            }
+                        }
+
+                        // 2. Actualización y dibujado
+                        // ─── DIBUJADO DE COLECCIONABLES ─────────────────────────────────
+
+                        uiState.activeCollectibles.forEach { collectible ->
+                            val id = collectible.id
+                            val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
+                                title = "COLLECTIBLE"
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                isFlat = true
+                                collectibleMarkerCache[id] = this
+                                view.overlays.add(this)
+                            }
+
+                            if (isZoomedIn) {
+                                marker.setAlpha(1f)
+                                // TAMAÑO FIJO MUY PEQUEÑO - Sin escalado dinámico
+                                val exactPixels = (22 * screenDensity).toInt() // Solo 18dp fijos
+
+                                val cacheKey = "COL_${collectible.assetPath}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    try {
+                                        val bitmap = android.graphics.BitmapFactory.decodeStream(
+                                            context.assets.open(collectible.assetPath)
+                                        )
+
+                                        if (bitmap != null) {
+                                            // Glow amarillo muy sutil
+                                            val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
+                                                shape = android.graphics.drawable.GradientDrawable.OVAL
+                                                setSize(exactPixels, exactPixels)
+                                                setColor(android.graphics.Color.argb(100, 255, 235, 59)) // Más transparente
+                                            }
+
+                                            // Sprite escalado para ocupar ~65% del círculo
+                                            val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                                            val spriteSize = (exactPixels * 0.90).toInt()
+                                            spriteDrawable.setFilterBitmap(false)
+
+                                            // Combinar en LayerDrawable
+                                            val layers = arrayOf<android.graphics.drawable.Drawable>(
+                                                glowDrawable,
+                                                spriteDrawable
+                                            )
+                                            val layerDrawable = android.graphics.drawable.LayerDrawable(layers)
+
+                                            // Centrar el sprite dentro del glow
+                                            val inset = ((exactPixels - spriteSize) / 2).toInt()
+                                            layerDrawable.setLayerInset(1, inset, inset, inset, inset)
+
+                                            ExactSizeDrawable(layerDrawable, exactPixels, exactPixels)
+                                        } else {
+                                            ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                        }
+                                    } catch (e: Exception) {
+                                        ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                    }
+                                }
+
+                                marker.icon = cachedIcon
+                                // Rotación muy lenta para destacar
+                                marker.rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
+                            } else {
+                                marker.setAlpha(0f)
+                            }
+
+                            marker.position = org.osmdroid.util.GeoPoint(
+                                collectible.latitude,
+                                collectible.longitude
+                            )
+                        }
                     }
 
                     // ─── DIBUJADO DE LANDMARKS (con soporte de modo diseñador) ────────
@@ -457,6 +545,9 @@ fun WorldMapScreen(
             )
         } else {
             // (Rama WebView intacta - los landmarks aún no se ven en proveedores web)
+            val collectiblesJson = remember(uiState.activeCollectibles) {
+                com.google.gson.Gson().toJson(uiState.activeCollectibles)
+            }
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
@@ -562,6 +653,7 @@ fun WorldMapScreen(
                     }
                     val npcsJson = gson.toJson(npcPayloads)
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
+                    wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
                 }
             )
         }
@@ -793,6 +885,9 @@ fun WorldMapScreen(
                                     }
                                 }
                                 viewModel.updateActionState(action, isPressed)
+                            },
+                            onClaimCollectiblePressed = {
+                                viewModel.onClaimCollectiblePressed()
                             }
                         )
                     }
@@ -801,6 +896,37 @@ fun WorldMapScreen(
                 }
             }
         }
+    }
+    // ─── UI SUPERPUESTA: AVISO DE COLECCIONABLE CERCANO ───────────────────────
+    uiState.interactionPrompt?.let { promptText ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 70.dp), // Separado del borde superior para no tapar notch
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Text(
+                text = promptText,
+                color = Color.White,
+                fontWeight = FontWeight.Black,
+                fontSize = 16.sp,
+                letterSpacing = 2.sp,
+                modifier = Modifier
+                    .background(
+                        color = Color(0xFF3B0D1B).copy(alpha = 0.85f), // Guinda traslúcido
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
+            )
+        }
+    }
+
+    // ─── POP-UP DE RECOMPENSA (COLECCIONABLE) ─────────────────────────────────
+    uiState.showClaimedPopupFor?.let { collectible ->
+        ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog(
+            collectible = collectible,
+            onDismiss = { viewModel.dismissClaimedPopup() }
+        )
     }
 }
 
@@ -919,6 +1045,63 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c; }); }
+        var collectibleMarkers = {};
+
+        function updateCollectibles(jsonStr) {
+            var data = JSON.parse(jsonStr);
+            
+            // Limpiar marcadores existentes
+            for (var key in collectibleMarkers) {
+                map.removeLayer(collectibleMarkers[key]);
+            }
+            collectibleMarkers = {};
+        
+            data.forEach(function(col) {
+                var pUrl = 'file:///android_asset/' + col.assetPath;
+                
+                // TAMAÑO ULTRA PEQUEÑO: Contenedor de 20px
+                var containerSize = 20;
+                var iconSize = 14; // El asset ocupa 14px dentro del círculo
+                
+                var html = '<div style="' +
+                    'position:relative; ' +
+                    'width:' + containerSize + 'px; ' +
+                    'height:' + containerSize + 'px; ' +
+                    'display:flex; ' +
+                    'justify-content:center; ' +
+                    'align-items:center;' +
+                '">' +
+                    // Círculo amarillo de fondo
+                    '<div style="' +
+                        'position:absolute; ' +
+                        'width:100%; ' +
+                        'height:100%; ' +
+                        'background:radial-gradient(circle, rgba(255,235,59,0.5) 0%, rgba(255,235,59,0) 60%); ' +
+                        'border-radius:50%;' +
+                    '"></div>' +
+                    // Imagen del coleccionable
+                    '<img src="' + pUrl + '" style="' +
+                        'position:relative; ' +
+                        'width:' + iconSize + 'px; ' +
+                        'height:' + iconSize + 'px; ' +
+                        'object-fit:contain; ' +
+                        'image-rendering:pixelated;' +
+                    '">' +
+                '</div>';
+                
+                var icon = L.divIcon({ 
+                    html: html, 
+                    className: '', 
+                    iconSize: [containerSize, containerSize], 
+                    iconAnchor: [containerSize/2, containerSize/2] 
+                });
+                
+                collectibleMarkers[col.id] = L.marker(
+                    [col.latitude, col.longitude], 
+                    { icon: icon, interactive: false }
+                ).addTo(map);
+            });
+        }
         function updateNpcs(data) {
             if (isZooming) return;
             var currentZoom = map.getZoom();

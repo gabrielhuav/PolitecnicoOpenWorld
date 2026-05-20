@@ -8,6 +8,20 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import org.osmdroid.config.Configuration
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
+import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
+import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
+import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -53,6 +67,10 @@ class MainActivity : ComponentActivity() {
     // Instanciamos el ViewModel de los ajustes usando su Factory
     private val settingsViewModel: SettingsViewModel by viewModels {
         SettingsViewModel.Factory(this)
+    }
+
+    private val collectiblesViewModel: CollectiblesViewModel by viewModels {
+        CollectiblesViewModel.Factory(this)
     }
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
@@ -114,9 +132,13 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToSettings = {
                                     navController.navigate("settings")
+                                },
+                                onNavigateToCollectibles = {
+                                    navController.navigate("collectibles")
                                 }
                             )
                         }
+
 
                         // NUEVO: Registramos la nueva ruta de Ajustes
                         composable(route = "settings") {
@@ -219,6 +241,15 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToMainMenu = navigateBackToMainMenu,
                                 onNavigateToSettings = {
                                     navController.navigate("settings")
+                                }
+                            )
+                        }
+
+                        composable(route = "collectibles") {
+                            CollectiblesScreen(
+                                viewModel = collectiblesViewModel,
+                                onBack = {
+                                    navController.popBackStack()
                                 }
                             )
                         }
