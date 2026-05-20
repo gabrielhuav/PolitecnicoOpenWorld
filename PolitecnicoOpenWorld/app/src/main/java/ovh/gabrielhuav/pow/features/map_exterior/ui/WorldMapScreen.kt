@@ -315,7 +315,6 @@ fun WorldMapScreen(
                         // 2. Actualización y dibujado
                         // ─── DIBUJADO DE COLECCIONABLES ─────────────────────────────────
 
-                        // ─── DIBUJADO DE COLECCIONABLES (TAMAÑO ULTRA REDUCIDO) ─────
                         uiState.activeCollectibles.forEach { collectible ->
                             val id = collectible.id
                             val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
@@ -329,7 +328,7 @@ fun WorldMapScreen(
                             if (isZoomedIn) {
                                 marker.setAlpha(1f)
                                 // TAMAÑO FIJO MUY PEQUEÑO - Sin escalado dinámico
-                                val exactPixels = (18 * screenDensity).toInt() // Solo 18dp fijos
+                                val exactPixels = (22 * screenDensity).toInt() // Solo 18dp fijos
 
                                 val cacheKey = "COL_${collectible.assetPath}"
                                 val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
@@ -348,7 +347,7 @@ fun WorldMapScreen(
 
                                             // Sprite escalado para ocupar ~65% del círculo
                                             val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
-                                            val spriteSize = (exactPixels * 0.65).toInt()
+                                            val spriteSize = (exactPixels * 0.90).toInt()
                                             spriteDrawable.setFilterBitmap(false)
 
                                             // Combinar en LayerDrawable
