@@ -19,6 +19,8 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
+import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
+import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -45,6 +47,10 @@ class MainActivity : ComponentActivity() {
     // Instanciamos el ViewModel de los ajustes usando su Factory
     private val settingsViewModel: SettingsViewModel by viewModels {
         SettingsViewModel.Factory(this)
+    }
+
+    private val collectiblesViewModel: CollectiblesViewModel by viewModels {
+        CollectiblesViewModel.Factory(this)
     }
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
@@ -106,9 +112,13 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToSettings = {
                                     navController.navigate("settings")
+                                },
+                                onNavigateToCollectibles = {
+                                    navController.navigate("collectibles")
                                 }
                             )
                         }
+
 
                         // NUEVO: Registramos la nueva ruta de Ajustes
                         composable(route = "settings") {
@@ -175,6 +185,15 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("settings")
                                 },
 
+                            )
+                        }
+
+                        composable(route = "collectibles") {
+                            CollectiblesScreen(
+                                viewModel = collectiblesViewModel,
+                                onBack = {
+                                    navController.popBackStack()
+                                }
                             )
                         }
                     }
