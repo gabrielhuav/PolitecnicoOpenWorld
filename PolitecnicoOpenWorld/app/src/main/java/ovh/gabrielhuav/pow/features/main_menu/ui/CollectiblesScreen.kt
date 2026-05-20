@@ -132,12 +132,16 @@ fun CollectiblesScreen(
 @Composable
 fun CollectibleCard(item: CollectibleEntity, onClick: () -> Unit) {
     val context = LocalContext.current
-    val bitmap = remember(item.assetPath) {
-        try {
-            context.assets.open(item.assetPath).use {
-                BitmapFactory.decodeStream(it).asImageBitmap()
-            }
-        } catch (e: Exception) { null }
+    val bitmap = remember(item.isCollected, item.assetPath) {
+        if (!item.isCollected) {
+            null
+        } else {
+            try {
+                context.assets.open(item.assetPath).use {
+                    BitmapFactory.decodeStream(it).asImageBitmap()
+                }
+            } catch (e: Exception) { null }
+        }
     }
 
     val shape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)

@@ -51,8 +51,11 @@ fun CollectibleClaimDialog(
 
     // EL SECRETO: Desactivar el ancho restrictivo por defecto de la plataforma
     Dialog(
-        onDismissRequest = { /* Bloquear cierre con un toque normal */ },
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
+        )
     ) {
         val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
         val shape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)

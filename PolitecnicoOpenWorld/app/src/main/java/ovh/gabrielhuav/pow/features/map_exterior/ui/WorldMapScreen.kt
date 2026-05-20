@@ -653,7 +653,7 @@ fun WorldMapScreen(
                     }
                     val npcsJson = gson.toJson(npcPayloads)
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
-                    wv.evaluateJavascript("updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
+                    wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
                 }
             )
         }

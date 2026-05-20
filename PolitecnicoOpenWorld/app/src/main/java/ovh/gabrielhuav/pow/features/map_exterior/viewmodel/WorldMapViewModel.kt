@@ -475,7 +475,7 @@ class WorldMapViewModel(
                 try { // --- 2. ESCUDO ANTI-CRASHEO GLOBAL INICIADO ---
                     _uiState.value.currentLocation?.let { location ->
                         // Intentamos generar uno si no hay ninguno (1 de cada 30 ticks para no saturar)
-                        if (tickCount % 30 == 0L) {
+                        if (_uiState.value.isRoadNetworkReady && roadNetwork.isNotEmpty() && tickCount % 30 == 0L) {
                             trySpawningCollectible(location.latitude, location.longitude)
                         }
                         // Revisamos constantemente si estamos parados sobre él
@@ -1251,6 +1251,7 @@ class WorldMapViewModel(
     private val isSpawningCollectible = AtomicBoolean(false)
 
     private fun trySpawningCollectible(playerLat: Double, playerLon: Double) {
+        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
         // Si ya hay un coleccionable activo, o ya estamos calculando uno, salimos.
         if (_uiState.value.activeCollectibles.isNotEmpty() || !isSpawningCollectible.compareAndSet(false, true)) return
         viewModelScope.launch(Dispatchers.IO) {
@@ -1317,7 +1318,9 @@ class WorldMapViewModel(
             }
         } else {
             if (_uiState.value.nearbyCollectible != null) {
-                _uiState.update { it.copy(nearbyCollectible = null) }
+                promptJob?.cancel()
+                promptJob = null
+                _uiState.update { it.copy(nearbyCollectible = null, interactionPrompt = null) }
             }
         }
     }
@@ -1329,10 +1332,13 @@ class WorldMapViewModel(
             collectibleRepository.claimCollectible(itemToClaim.id)
 
             withContext(Dispatchers.Main) {
+                promptJob?.cancel()
+                promptJob = null
                 _uiState.update {
                     it.copy(
                         activeCollectibles = emptyList(), // Lo quitamos del mapa
                         nearbyCollectible = null,         // Ya no está cerca
+                        interactionPrompt = null,
                         showClaimedPopupFor = itemToClaim // Mostramos la tarjeta divertida
                     )
                 }
