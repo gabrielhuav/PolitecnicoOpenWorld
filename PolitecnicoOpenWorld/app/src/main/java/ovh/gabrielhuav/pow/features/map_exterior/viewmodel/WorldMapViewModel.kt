@@ -1006,10 +1006,12 @@ class WorldMapViewModel(
                     entities = dao.getAllLandmarks()
                 }
 
+                val templatesByAssetPath = ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.availableAssets
+                    .associateBy { it.assetPath }
+
                 val domainLandmarks = entities.map { entity ->
                     // 1. Buscamos este edificio en el catálogo JSON usando su assetPath
-                    val template = ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.availableAssets
-                        .find { it.assetPath == entity.assetPath }
+                    val template = templatesByAssetPath[entity.assetPath]
                     // 2. Creamos el Landmark inyectándole las medidas que encontramos en el JSON
                     Landmark(
                         id = entity.id,

@@ -89,7 +89,7 @@ fun WorldMapScreen(
     var yButtonHoldJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     // Cache de bitmaps de landmarks (sin tinte) por (assetPath, scale).
-    val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap>() }
+    val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap?>() }
 
     LaunchedEffect(Unit) {
         viewModel.loadLandmarks(context)
@@ -410,11 +410,16 @@ fun WorldMapScreen(
 
                         // 1. Obtener imagen de la caché
                         val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
-                            val inputStream = context.assets.open(landmark.assetPath)
-                            val decoded = android.graphics.BitmapFactory.decodeStream(inputStream)
-                            inputStream.close()
-                            decoded
+                            try {
+                                context.assets.open(landmark.assetPath).use { inputStream ->
+                                    android.graphics.BitmapFactory.decodeStream(inputStream)
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("WorldMapScreen", "No se pudo cargar asset: ${landmark.assetPath}", e)
+                                null
+                            }
                         }
+                        if (bitmap == null) return@forEach
 
                         // 2. Crear o recuperar el GroundOverlay (El que se ancla geográficamente)
                         val existingOverlay = overlays.filterIsInstance<org.osmdroid.views.overlay.GroundOverlay>().firstOrNull()
@@ -449,7 +454,10 @@ fun WorldMapScreen(
                         if (uiState.isDesignerMode) {
                             val controlMarker = existingControl ?: org.osmdroid.views.overlay.Marker(view).apply {
                                 setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
-                                icon = androidx.core.content.ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)
+                                icon = androidx.core.content.ContextCompat.getDrawable(
+                                    context,
+                                    android.R.drawable.ic_menu_edit
+                                )?.mutate()
                                 overlays.add(this)
                                 view.overlays.add(this)
                             }
@@ -457,6 +465,7 @@ fun WorldMapScreen(
                             controlMarker.position = center
 
                             // Pinta el ícono de rojo si está seleccionado
+                            controlMarker.icon = controlMarker.icon?.mutate()
                             if (uiState.selectedLandmarkId == landmark.id) {
                                 controlMarker.icon?.setTint(android.graphics.Color.RED)
                             } else {
@@ -737,6 +746,7 @@ fun WorldMapScreen(
         // ─── DIÁLOGO DE SELECCIÓN DE ASSET ────────────────────────────────────
         if (uiState.showAssetPicker) {
             AssetPickerDialog(
+                context = context,
                 onAssetSelected = { template ->
                     viewModel.addLandmarkAtPlayer(context, template)
                 },

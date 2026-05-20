@@ -20,11 +20,14 @@ object LandmarkCatalogManager {
     // Aquí se guardará la lista de edificios disponibles en memoria
     var availableAssets: List<LandmarkAssetTemplate> = emptyList()
         private set
+    @Volatile
+    private var isLoaded: Boolean = false
 
     // Esta función lee el archivo JSON y lo convierte a la lista de Kotlin
+    @Synchronized
     fun loadCatalog(context: Context) {
-        // Si ya tiene datos, no volvemos a leer el archivo para ahorrar memoria
-        if (availableAssets.isNotEmpty()) return
+        // Si ya intentó cargarse, no volvemos a leer el archivo
+        if (isLoaded) return
 
         try {
             // Abrimos y leemos el archivo que creaste en la carpeta assets/
@@ -32,12 +35,14 @@ object LandmarkCatalogManager {
 
             // Usamos Gson para convertir el texto JSON a una lista de objetos LandmarkAssetTemplate
             val listType = object : TypeToken<List<LandmarkAssetTemplate>>() {}.type
-            availableAssets = Gson().fromJson(jsonString, listType)
+            availableAssets = Gson().fromJson<List<LandmarkAssetTemplate>>(jsonString, listType) ?: emptyList()
 
             Log.d("CatalogManager", "Catálogo cargado exitosamente con ${availableAssets.size} edificios.")
         } catch (e: Exception) {
             Log.e("CatalogManager", "Error al leer buildings_catalog.json", e)
             availableAssets = emptyList()
+        } finally {
+            isLoaded = true
         }
     }
 }
