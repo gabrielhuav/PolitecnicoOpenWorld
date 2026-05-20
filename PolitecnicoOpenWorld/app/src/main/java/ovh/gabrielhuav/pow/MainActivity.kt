@@ -200,7 +200,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Interceptar el botón de atrás nativo
-                            BackHandler {
+                            BackHandler(enabled = !showExitDialog) {
                                 showExitDialog = true
                             }
 
