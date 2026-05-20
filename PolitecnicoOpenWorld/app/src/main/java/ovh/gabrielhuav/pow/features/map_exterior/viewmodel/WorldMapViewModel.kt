@@ -425,11 +425,13 @@ class WorldMapViewModel(
     }
     // ─── GAME LOOP ───────────────────────────────────────────────────────────────
 
-    fun startGameLoop() {
+    private fun startGameLoop() {
         if (gameLoopJob?.isActive == true) return
-        gameLoopJob = viewModelScope.launch {
 
-            while (_uiState.value.currentLocation == null) { delay(100) }
+        // --- 1. OPTIMIZACIÓN GLOBAL: Corremos el Loop en el CPU (Default) y no en la Interfaz ---
+        gameLoopJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+
+            while (_uiState.value.currentLocation == null) { kotlinx.coroutines.delay(100) }
             val initialLoc = _uiState.value.currentLocation!!
 
             if (_uiState.value.mapProvider == MapProvider.OSM) {
@@ -452,27 +454,28 @@ class WorldMapViewModel(
                         applyRoadNetwork(network, initialLoc)
                         lastNetworkFetchLocation = initialLoc
 
-                        launch(Dispatchers.IO) {
+                        launch(kotlinx.coroutines.Dispatchers.IO) {
                             roadNetworkCache.put(initialLoc.latitude, initialLoc.longitude, network)
-                            withContext(Dispatchers.Main) {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                             }
                         }
                         break
                     } else {
                         _uiState.update { it.copy(isRoadNetworkReady = false) }
-                        delay(retryMs)
+                        kotlinx.coroutines.delay(retryMs)
                         retryMs = (retryMs * 2).coerceAtMost(30_000L)
                     }
                 }
             }
 
             // Game loop principal ~30fps
+            var tickCount = 0L
             while (isActive) {
-                try { // ESCUDO ANTI-CRASHEO INICIADO
+                try { // --- 2. ESCUDO ANTI-CRASHEO GLOBAL INICIADO ---
                     _uiState.value.currentLocation?.let { location ->
                         // Intentamos generar uno si no hay ninguno (1 de cada 30 ticks para no saturar)
-                        if (tickCount % 30 == 0) {
+                        if (_uiState.value.isRoadNetworkReady && roadNetwork.isNotEmpty() && tickCount % 30 == 0L) {
                             trySpawningCollectible(location.latitude, location.longitude)
                         }
                         // Revisamos constantemente si estamos parados sobre él
@@ -511,7 +514,7 @@ class WorldMapViewModel(
                             // El eje Y (Latitud) se calcula con el Coseno
                             val dy = kotlin.math.cos(angleRad) * currentSpeed
 
-                            val tempLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
+                            val tempLoc = org.osmdroid.util.GeoPoint(location.latitude + dy, location.longitude + dx)
 
                             // RESTRICCIÓN DE MAPA (NavMesh / Network)
                             val nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
@@ -522,14 +525,14 @@ class WorldMapViewModel(
                                 tempLoc // Flujo normal, está dentro del asfalto
                             } else {
                                 // Se salió del camino, lo obligamos a quedarse en el borde
-                                val angleBack = atan2(tempLoc.latitude - nearestRoadPoint.latitude, tempLoc.longitude - nearestRoadPoint.longitude)
+                                val angleBack = kotlin.math.atan2(tempLoc.latitude - nearestRoadPoint.latitude, tempLoc.longitude - nearestRoadPoint.longitude)
 
                                 // Penalización de choque: Pierde velocidad si intenta salirse de la calle
                                 currentSpeed *= 0.8
 
-                                GeoPoint(
-                                    nearestRoadPoint.latitude + sin(angleBack) * maxRoadRadius,
-                                    nearestRoadPoint.longitude + cos(angleBack) * maxRoadRadius
+                                org.osmdroid.util.GeoPoint(
+                                    nearestRoadPoint.latitude + kotlin.math.sin(angleBack) * maxRoadRadius,
+                                    nearestRoadPoint.longitude + kotlin.math.cos(angleBack) * maxRoadRadius
                                 )
                             }
 
@@ -545,7 +548,7 @@ class WorldMapViewModel(
                         maybeRefetchRoadNetwork(location)
                         if (_uiState.value.isRoadNetworkReady) {
                             tickCount++
-                            if (tickCount % 3 == 0) {
+                            if (tickCount % 3 == 0L) {
                                 // 1. Damos SOLO los NPCs a la IA (Filtrando posibles jugadores basura)
                                 val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
                                 npcAiManager.setServerNpcs(npcOnlyList)
@@ -566,7 +569,7 @@ class WorldMapViewModel(
                                 // 4. Enviar datos por red
                                 webSocketManager?.let { ws ->
                                     // Envolvemos todo el envío de red en un bloque seguro
-                                    viewModelScope.launch(Dispatchers.IO) {
+                                    launch(kotlinx.coroutines.Dispatchers.IO) {
                                         try {
                                             val myData = MultiplayerPlayer(
                                                 id = myPlayerUUID,
@@ -617,17 +620,20 @@ class WorldMapViewModel(
                                                 synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.clear() }
                                             }
                                         } catch (e: Exception) {
-                                            Log.e("Network", "Error al enviar datos: ${e.message}")
+                                            android.util.Log.e("Network", "Error al enviar datos: ${e.message}")
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e // Necesario para que la corrutina pueda detenerse si el usuario cierra la app
                 } catch (e: Exception) {
-                    Log.e("GameLoop", "Crasheo evitado en el ciclo principal: ${e.message}")
+                    android.util.Log.e("GameLoop", "Crasheo evitado en el ciclo principal: ${e.message}")
+                    // Continuamos para evitar que se muera el juego
                 }
-                delay(33)
+                kotlinx.coroutines.delay(33) // Cierra el while en ~30fps
             }
         }
     }
@@ -997,6 +1003,9 @@ class WorldMapViewModel(
     fun loadLandmarks(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Cargamos el catálogo JSON a memoria
+                ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.loadCatalog(context)
+
                 val database = PowDatabase.getInstance(context)
                 val dao = database.landmarkDao()
                 var entities = dao.getAllLandmarks()
@@ -1013,14 +1022,23 @@ class WorldMapViewModel(
                     entities = dao.getAllLandmarks()
                 }
 
+                val templatesByAssetPath = ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.availableAssets
+                    .associateBy { it.assetPath }
+
                 val domainLandmarks = entities.map { entity ->
+                    // 1. Buscamos este edificio en el catálogo JSON usando su assetPath
+                    val template = templatesByAssetPath[entity.assetPath]
+                    // 2. Creamos el Landmark inyectándole las medidas que encontramos en el JSON
                     Landmark(
                         id = entity.id,
                         name = entity.name,
                         location = GeoPoint(entity.latitude, entity.longitude),
                         assetPath = entity.assetPath,
                         scaleFactor = entity.scaleFactor,
-                        rotationAngle = entity.rotationAngle
+                        rotationAngle = entity.rotationAngle,
+                        // Si lo encuentra usa las medidas del JSON, si no, usa 100.0 por defecto para que no truene
+                        baseWidthMeters = template?.baseWidthMeters ?: 100f,
+                        baseHeightMeters = template?.baseHeightMeters ?: 100f
                     )
                 }
 
@@ -1258,13 +1276,12 @@ class WorldMapViewModel(
 
     // ─── SISTEMA DE COLECCIONABLES ───────────────────────────────────────────────
 
-    private var isSpawningCollectible = false
+    private val isSpawningCollectible = AtomicBoolean(false)
 
     private fun trySpawningCollectible(playerLat: Double, playerLon: Double) {
+        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
         // Si ya hay un coleccionable activo, o ya estamos calculando uno, salimos.
-        if (_uiState.value.activeCollectibles.isNotEmpty() || isSpawningCollectible) return
-
-        isSpawningCollectible = true
+        if (_uiState.value.activeCollectibles.isNotEmpty() || !isSpawningCollectible.compareAndSet(false, true)) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val uncollected = collectibleRepository.getUncollectedCollectibles()
@@ -1298,7 +1315,7 @@ class WorldMapViewModel(
                     }
                 }
             } finally {
-                isSpawningCollectible = false
+                isSpawningCollectible.set(false)
             }
         }
     }
@@ -1329,7 +1346,9 @@ class WorldMapViewModel(
             }
         } else {
             if (_uiState.value.nearbyCollectible != null) {
-                _uiState.update { it.copy(nearbyCollectible = null) }
+                promptJob?.cancel()
+                promptJob = null
+                _uiState.update { it.copy(nearbyCollectible = null, interactionPrompt = null) }
             }
         }
     }
@@ -1341,10 +1360,13 @@ class WorldMapViewModel(
             collectibleRepository.claimCollectible(itemToClaim.id)
 
             withContext(Dispatchers.Main) {
+                promptJob?.cancel()
+                promptJob = null
                 _uiState.update {
                     it.copy(
                         activeCollectibles = emptyList(), // Lo quitamos del mapa
                         nearbyCollectible = null,         // Ya no está cerca
+                        interactionPrompt = null,
                         showClaimedPopupFor = itemToClaim // Mostramos la tarjeta divertida
                     )
                 }
