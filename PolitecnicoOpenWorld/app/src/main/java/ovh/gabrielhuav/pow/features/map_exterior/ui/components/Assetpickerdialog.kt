@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ovh.gabrielhuav.pow.domain.models.LandmarkAssetCatalog
 import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
 
 @Composable
@@ -35,7 +34,7 @@ fun AssetPickerDialog(
                     fontSize = 12.sp,
                     color = Color.Gray
                 )
-                LandmarkAssetCatalog.AVAILABLE_ASSETS.forEach { template ->
+                ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.availableAssets.forEach { template ->
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
