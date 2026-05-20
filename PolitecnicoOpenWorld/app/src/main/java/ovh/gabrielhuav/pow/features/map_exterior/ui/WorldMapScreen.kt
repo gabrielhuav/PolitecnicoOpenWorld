@@ -313,6 +313,9 @@ fun WorldMapScreen(
                         }
 
                         // 2. Actualización y dibujado
+                        // ─── DIBUJADO DE COLECCIONABLES ─────────────────────────────────
+
+                        // ─── DIBUJADO DE COLECCIONABLES (TAMAÑO ULTRA REDUCIDO) ─────
                         uiState.activeCollectibles.forEach { collectible ->
                             val id = collectible.id
                             val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
@@ -325,46 +328,60 @@ fun WorldMapScreen(
 
                             if (isZoomedIn) {
                                 marker.setAlpha(1f)
-                                // Hacer que crezcan con el zoom (mismo tamaño que los NPCs)
-                                val sizeDp = (30.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(20.0f, 50.0f)
-                                val exactPixels = (sizeDp * screenDensity).toInt()
+                                // TAMAÑO FIJO MUY PEQUEÑO - Sin escalado dinámico
+                                val exactPixels = (18 * screenDensity).toInt() // Solo 18dp fijos
 
-                                val cacheKey = "COL_${collectible.assetPath}_${exactPixels}"
+                                val cacheKey = "COL_${collectible.assetPath}"
                                 val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                    val bitmap = try {
-                                        android.graphics.BitmapFactory.decodeStream(context.assets.open(collectible.assetPath))
-                                    } catch (e: Exception) { null }
+                                    try {
+                                        val bitmap = android.graphics.BitmapFactory.decodeStream(
+                                            context.assets.open(collectible.assetPath)
+                                        )
 
-                                    if (bitmap != null) {
-                                        // A. Crear el círculo amarillo de fondo (Brillo)
-                                        val glowShape = android.graphics.drawable.ShapeDrawable(android.graphics.drawable.shapes.OvalShape()).apply {
-                                            paint.color = android.graphics.Color.argb(160, 255, 235, 59) // Amarillo semitransparente
+                                        if (bitmap != null) {
+                                            // Glow amarillo muy sutil
+                                            val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
+                                                shape = android.graphics.drawable.GradientDrawable.OVAL
+                                                setSize(exactPixels, exactPixels)
+                                                setColor(android.graphics.Color.argb(100, 255, 235, 59)) // Más transparente
+                                            }
+
+                                            // Sprite escalado para ocupar ~65% del círculo
+                                            val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                                            val spriteSize = (exactPixels * 0.65).toInt()
+                                            spriteDrawable.setFilterBitmap(false)
+
+                                            // Combinar en LayerDrawable
+                                            val layers = arrayOf<android.graphics.drawable.Drawable>(
+                                                glowDrawable,
+                                                spriteDrawable
+                                            )
+                                            val layerDrawable = android.graphics.drawable.LayerDrawable(layers)
+
+                                            // Centrar el sprite dentro del glow
+                                            val inset = ((exactPixels - spriteSize) / 2).toInt()
+                                            layerDrawable.setLayerInset(1, inset, inset, inset, inset)
+
+                                            ExactSizeDrawable(layerDrawable, exactPixels, exactPixels)
+                                        } else {
+                                            ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                         }
-
-                                        // B. El sprite original
-                                        val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
-
-                                        // C. Juntarlos en un LayerDrawable
-                                        val layerDrawable = android.graphics.drawable.LayerDrawable(arrayOf(glowShape, spriteDrawable))
-
-                                        // Darle margen al sprite para que el fondo amarillo sobresalga como un aura
-                                        val padding = exactPixels / 6
-                                        layerDrawable.setLayerInset(1, padding, padding, padding, padding)
-
-                                        ExactSizeDrawable(layerDrawable, exactPixels, exactPixels)
-                                    } else {
+                                    } catch (e: Exception) {
                                         ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                     }
                                 }
-                                marker.icon = cachedIcon
 
-                                // Detalle extra: Hacer que el objeto gire sobre sí mismo para llamar la atención
-                                marker.rotation = ((System.currentTimeMillis() / 15) % 360).toFloat()
+                                marker.icon = cachedIcon
+                                // Rotación muy lenta para destacar
+                                marker.rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
                             } else {
                                 marker.setAlpha(0f)
                             }
 
-                            marker.position = org.osmdroid.util.GeoPoint(collectible.latitude, collectible.longitude)
+                            marker.position = org.osmdroid.util.GeoPoint(
+                                collectible.latitude,
+                                collectible.longitude
+                            )
                         }
                     }
 
@@ -529,6 +546,9 @@ fun WorldMapScreen(
             )
         } else {
             // (Rama WebView intacta - los landmarks aún no se ven en proveedores web)
+            val collectiblesJson = remember(uiState.activeCollectibles) {
+                com.google.gson.Gson().toJson(uiState.activeCollectibles)
+            }
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
@@ -634,6 +654,7 @@ fun WorldMapScreen(
                     }
                     val npcsJson = gson.toJson(npcPayloads)
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
+                    wv.evaluateJavascript("javascript:updateCollectibles('$collectiblesJson');", null)
                 }
             )
         }
@@ -1025,6 +1046,63 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c; }); }
+        var collectibleMarkers = {};
+
+        function updateCollectibles(jsonStr) {
+            var data = JSON.parse(jsonStr);
+            
+            // Limpiar marcadores existentes
+            for (var key in collectibleMarkers) {
+                map.removeLayer(collectibleMarkers[key]);
+            }
+            collectibleMarkers = {};
+        
+            data.forEach(function(col) {
+                var pUrl = 'file:///android_asset/' + col.assetPath;
+                
+                // TAMAÑO ULTRA PEQUEÑO: Contenedor de 20px
+                var containerSize = 20;
+                var iconSize = 14; // El asset ocupa 14px dentro del círculo
+                
+                var html = '<div style="' +
+                    'position:relative; ' +
+                    'width:' + containerSize + 'px; ' +
+                    'height:' + containerSize + 'px; ' +
+                    'display:flex; ' +
+                    'justify-content:center; ' +
+                    'align-items:center;' +
+                '">' +
+                    // Círculo amarillo de fondo
+                    '<div style="' +
+                        'position:absolute; ' +
+                        'width:100%; ' +
+                        'height:100%; ' +
+                        'background:radial-gradient(circle, rgba(255,235,59,0.5) 0%, rgba(255,235,59,0) 60%); ' +
+                        'border-radius:50%;' +
+                    '"></div>' +
+                    // Imagen del coleccionable
+                    '<img src="' + pUrl + '" style="' +
+                        'position:relative; ' +
+                        'width:' + iconSize + 'px; ' +
+                        'height:' + iconSize + 'px; ' +
+                        'object-fit:contain; ' +
+                        'image-rendering:pixelated;' +
+                    '">' +
+                '</div>';
+                
+                var icon = L.divIcon({ 
+                    html: html, 
+                    className: '', 
+                    iconSize: [containerSize, containerSize], 
+                    iconAnchor: [containerSize/2, containerSize/2] 
+                });
+                
+                collectibleMarkers[col.id] = L.marker(
+                    [col.latitude, col.longitude], 
+                    { icon: icon, interactive: false }
+                ).addTo(map);
+            });
+        }
         function updateNpcs(data) {
             if (isZooming) return;
             var currentZoom = map.getZoom();
