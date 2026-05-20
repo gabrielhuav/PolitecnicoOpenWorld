@@ -168,6 +168,17 @@ class MainActivity : ComponentActivity() {
                                         scaleIn(animationSpec = tween(1000), initialScale = 1.2f)
                             }
                         ) {
+                            // Lógica compartida para volver al menú principal
+                            val navigateBackToMainMenu = remember {
+                                {
+                                    worldMapViewModel.disconnectFromMultiplayer()
+                                    navController.navigate("main_menu") {
+                                        popUpTo("world_map") { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            }
+
                             // Diálogo de confirmación para salir del mapa
                             var showExitDialog by remember { mutableStateOf(false) }
 
@@ -179,11 +190,7 @@ class MainActivity : ComponentActivity() {
                                     confirmButton = {
                                         TextButton(onClick = {
                                             showExitDialog = false
-                                            worldMapViewModel.disconnectFromMultiplayer()
-                                            navController.navigate("main_menu") {
-                                                popUpTo("world_map") { inclusive = true }
-                                                launchSingleTop = true
-                                            }
+                                            navigateBackToMainMenu()
                                         }) {
                                             Text("Volver al Menú")
                                         }
@@ -207,17 +214,10 @@ class MainActivity : ComponentActivity() {
                             WorldMapScreen(
                                 context = this@MainActivity,
                                 viewModel = worldMapViewModel,
-                                onNavigateToMainMenu = {
-                                    worldMapViewModel.disconnectFromMultiplayer()
-                                    navController.navigate("main_menu") {
-                                        popUpTo("world_map") { inclusive = true }
-                                        launchSingleTop = true
-                                    }
-                                },
+                                onNavigateToMainMenu = navigateBackToMainMenu,
                                 onNavigateToSettings = {
                                     navController.navigate("settings")
-                                },
-
+                                }
                             )
                         }
                     }
