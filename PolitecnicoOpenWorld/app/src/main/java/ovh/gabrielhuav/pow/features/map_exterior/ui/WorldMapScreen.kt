@@ -57,6 +57,9 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.math.atan2
 import androidx.compose.ui.draw.scale
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+import org.osmdroid.util.GeoPoint
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
@@ -77,6 +80,25 @@ fun WorldMapScreen(
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
+    // Launchers para Exportar e Importar archivos JSON en el dispositivo
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let { viewModel.exportLandmarksToUri(context, it) }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { viewModel.importLandmarksFromUri(context, it) }
+    }
+
+    // Controladores de tiempo para el botón Y
+    val coroutineScope = rememberCoroutineScope()
+    var yButtonHoldJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+    // Cache de bitmaps de landmarks (sin tinte) por (assetPath, scale).
+    val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap?>() }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadLandmarks(context)
+        viewModel.showInitialHealthBar()
+    }
     // Launchers para Exportar e Importar archivos JSON en el dispositivo
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { viewModel.exportLandmarksToUri(context, it) }
@@ -335,6 +357,212 @@ fun WorldMapScreen(
                         }
 
                         // 2. Actualización y dibujado
+                        // ─── DIBUJADO DE COLECCIONABLES ─────────────────────────────────
+
+                        uiState.activeCollectibles.forEach { collectible ->
+                            val id = collectible.id
+                            val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
+                                title = "COLLECTIBLE"
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                isFlat = true
+                                collectibleMarkerCache[id] = this
+                                view.overlays.add(this)
+                            }
+
+                            if (isZoomedIn) {
+                                marker.setAlpha(1f)
+                                // TAMAÑO FIJO MUY PEQUEÑO - Sin escalado dinámico
+                                val exactPixels = (22 * screenDensity).toInt() // Solo 18dp fijos
+
+                                val cacheKey = "COL_${collectible.assetPath}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    try {
+                                        val bitmap = android.graphics.BitmapFactory.decodeStream(
+                                            context.assets.open(collectible.assetPath)
+                                        )
+
+                                        if (bitmap != null) {
+                                            // Glow amarillo muy sutil
+                                            val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
+                                                shape = android.graphics.drawable.GradientDrawable.OVAL
+                                                setSize(exactPixels, exactPixels)
+                                                setColor(android.graphics.Color.argb(100, 255, 235, 59)) // Más transparente
+                                            }
+
+                                            // Sprite escalado para ocupar ~65% del círculo
+                                            val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                                            val spriteSize = (exactPixels * 0.90).toInt()
+                                            spriteDrawable.setFilterBitmap(false)
+
+                                            // Combinar en LayerDrawable
+                                            val layers = arrayOf<android.graphics.drawable.Drawable>(
+                                                glowDrawable,
+                                                spriteDrawable
+                                            )
+                                            val layerDrawable = android.graphics.drawable.LayerDrawable(layers)
+
+                                            // Centrar el sprite dentro del glow
+                                            val inset = ((exactPixels - spriteSize) / 2).toInt()
+                                            layerDrawable.setLayerInset(1, inset, inset, inset, inset)
+
+                                            ExactSizeDrawable(layerDrawable, exactPixels, exactPixels)
+                                        } else {
+                                            ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                        }
+                                    } catch (e: Exception) {
+                                        ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                    }
+                                }
+
+                                marker.icon = cachedIcon
+                                // Rotación muy lenta para destacar
+                                marker.rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
+                            } else {
+                                marker.setAlpha(0f)
+                            }
+
+                            marker.position = org.osmdroid.util.GeoPoint(
+                                collectible.latitude,
+                                collectible.longitude
+                            )
+                        }
+                    }
+
+                    // ─── DIBUJADO DE LANDMARKS (con soporte de modo diseñador) ────────
+                    @Suppress("UNCHECKED_CAST")
+                    // Cambiamos el caché para que guarde una lista de Overlays genéricos por cada ID
+                    val landmarkCache = (view.getTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag) as? MutableMap<Long, MutableList<org.osmdroid.views.overlay.Overlay>>)
+                        ?: mutableMapOf<Long, MutableList<org.osmdroid.views.overlay.Overlay>>().also {
+                            view.setTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag, it)
+                        }
+
+                    val currentIds = uiState.landmarks.map { it.id }.toSet()
+
+                    // 1. Limpiar estructuras que fueron eliminadas de la base de datos
+                    val iterator = landmarkCache.iterator()
+                    while (iterator.hasNext()) {
+                        val entry = iterator.next()
+                        if (!currentIds.contains(entry.key)) {
+                            // Quitamos del mapa todos los overlays asociados a este ID borrado
+                            entry.value.forEach { overlay -> view.overlays.remove(overlay) }
+                            iterator.remove()
+                        }
+                    }
+
+                    uiState.landmarks.forEach { landmark ->
+                        val overlays = landmarkCache.getOrPut(landmark.id) { mutableListOf() }
+
+                        // 1. Obtener imagen de la caché
+                        val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
+                            try {
+                                context.assets.open(landmark.assetPath).use { inputStream ->
+                                    android.graphics.BitmapFactory.decodeStream(inputStream)
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("WorldMapScreen", "No se pudo cargar asset: ${landmark.assetPath}", e)
+                                null
+                            }
+                        }
+                        if (bitmap == null) return@forEach
+
+                        // 2. Crear o recuperar el GroundOverlay (El que se ancla geográficamente)
+                        val existingOverlay = overlays.filterIsInstance<org.osmdroid.views.overlay.GroundOverlay>().firstOrNull()
+                        val groundOverlay = existingOverlay ?: org.osmdroid.views.overlay.GroundOverlay().apply {
+                            overlays.add(this)
+                            view.overlays.add(0, this) // El 0 asegura que el edificio se dibuje debajo de tu personaje
+                        }
+
+                        // 3. Matemáticas genéricas usando el ancho y alto del JSON
+                        val centerLat = landmark.location.latitude
+                        val centerLon = landmark.location.longitude
+                        val center = org.osmdroid.util.GeoPoint(centerLat, centerLon)
+
+                        // Uso las propiedades dinámicas del modelo para calcular el tamaño real
+                        val halfW = (landmark.baseWidthMeters * landmark.scaleFactor) / 2.0
+                        val halfH = (landmark.baseHeightMeters * landmark.scaleFactor) / 2.0
+                        val d = kotlin.math.sqrt(halfW * halfW + halfH * halfH)
+                        val theta = Math.toDegrees(kotlin.math.atan2(halfW, halfH))
+
+                        // Calculamos las 4 esquinas del polígono
+                        val pTL = center.destinationPoint(d, landmark.rotationAngle.toDouble() - theta)
+                        val pTR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + theta)
+                        val pBR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 - theta)
+                        val pBL = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 + theta)
+
+                        // Aplicamos las esquinas y la imagen
+                        groundOverlay.setPosition(pTL, pTR, pBR, pBL)
+                        groundOverlay.setImage(bitmap)
+
+                        // 4. Controles del Modo Diseñador (Esto aplica para cualquier edificio)
+                        val existingControl = overlays.filterIsInstance<org.osmdroid.views.overlay.Marker>().firstOrNull()
+                        if (uiState.isDesignerMode) {
+                            val controlMarker = existingControl ?: org.osmdroid.views.overlay.Marker(view).apply {
+                                setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
+                                icon = androidx.core.content.ContextCompat.getDrawable(
+                                    context,
+                                    android.R.drawable.ic_menu_edit
+                                )?.mutate()
+                                overlays.add(this)
+                                view.overlays.add(this)
+                            }
+
+                            controlMarker.position = center
+
+                            // Pinta el ícono de rojo si está seleccionado
+                            controlMarker.icon = controlMarker.icon?.mutate()
+                            if (uiState.selectedLandmarkId == landmark.id) {
+                                controlMarker.icon?.setTint(android.graphics.Color.RED)
+                            } else {
+                                controlMarker.icon?.setTintList(null)
+                            }
+
+                            controlMarker.setOnMarkerClickListener { _, _ ->
+                                viewModel.selectLandmark(landmark.id)
+                                true
+                            }
+
+                            controlMarker.isDraggable = true
+                            controlMarker.setOnMarkerDragListener(object : org.osmdroid.views.overlay.Marker.OnMarkerDragListener {
+                                override fun onMarkerDragStart(marker: org.osmdroid.views.overlay.Marker) {
+                                    viewModel.selectLandmark(landmark.id)
+                                }
+                                override fun onMarkerDrag(marker: org.osmdroid.views.overlay.Marker) {
+                                    val dLat = marker.position.latitude - landmark.location.latitude
+                                    val dLon = marker.position.longitude - landmark.location.longitude
+                                    viewModel.moveSelectedLandmark(dLat, dLon)
+                                }
+                                override fun onMarkerDragEnd(marker: org.osmdroid.views.overlay.Marker) {}
+                            })
+
+                        } else {
+                            // Limpia el control si apagas el modo diseñador
+                            existingControl?.let {
+                                view.overlays.remove(it)
+                                overlays.remove(it)
+                            }
+                        }
+                    }
+
+                        // ─── DIBUJADO DE COLECCIONABLES ──────────────────────────────────
+                        val activeCollectibleIds = uiState.activeCollectibles.map { it.id }.toSet()
+
+                        @Suppress("UNCHECKED_CAST")
+                        val collectibleMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag) as? MutableMap<String, Marker>)
+                            ?: mutableMapOf<String, Marker>().also {
+                                view.setTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag, it)
+                            }
+
+                        // 1. Limpieza de coleccionables que ya fueron recogidos
+                        val colIterator = collectibleMarkerCache.iterator()
+                        while (colIterator.hasNext()) {
+                            val entry = colIterator.next()
+                            if (!activeCollectibleIds.contains(entry.key)) {
+                                view.overlays.remove(entry.value)
+                                colIterator.remove()
+                            }
+                        }
+
+                        // 2. Actualización y dibujado
                         uiState.activeCollectibles.forEach { collectible ->
                             val id = collectible.id
                             val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
@@ -551,6 +779,10 @@ fun WorldMapScreen(
             )
         } else {
             // (Rama WebView intacta - los landmarks aún no se ven en proveedores web)
+            val collectiblesJson = remember(uiState.activeCollectibles) {
+                com.google.gson.Gson().toJson(uiState.activeCollectibles)
+            }
+            // (Rama WebView intacta - los landmarks aún no se ven en proveedores web)
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
@@ -663,6 +895,7 @@ fun WorldMapScreen(
                     }
                     val npcsJson = gson.toJson(npcPayloads)
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
+                    wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
                 }
             )
         }
@@ -807,6 +1040,45 @@ fun WorldMapScreen(
             )
         }
 
+        // ─── DIÁLOGO DE SELECCIÓN DE ASSET ────────────────────────────────────
+        if (uiState.showAssetPicker) {
+            AssetPickerDialog(
+                context = context,
+                onAssetSelected = { template ->
+                    viewModel.addLandmarkAtPlayer(context, template)
+                },
+                onDismiss = { viewModel.showAssetPicker(false) }
+            )
+        }
+
+        // ─── PANEL DE DISEÑADOR (cuando hay un landmark seleccionado) ─────────
+        val selectedLandmark = uiState.landmarks.find { it.id == uiState.selectedLandmarkId }
+        if (uiState.isDesignerMode && selectedLandmark != null) {
+            DesignerPanel(
+                landmark = selectedLandmark,
+                onMove = { dLat, dLon -> viewModel.moveSelectedLandmark(dLat, dLon) },
+                onRotate = { angle -> viewModel.rotateSelectedLandmark(angle) },
+                onScale = { scale -> viewModel.scaleSelectedLandmark(scale) },
+                onDelete = { viewModel.deleteSelectedLandmark(context) },
+                onSave = { viewModel.saveSelectedLandmark(context) },
+                onExport = { exportLauncher.launch("landmarks_config.json") },
+                onImport = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+                onDeselect = { viewModel.selectLandmark(null) },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 130.dp, start = 12.dp, end = 12.dp)
+                    .fillMaxWidth(0.9f)
+            )
+        }
+
+        // ─── CONTROLES INFERIORES (ocultos en modo diseñador para no estorbar) ───
+        if (!uiState.isDesignerMode) {
+            val configuration = LocalConfiguration.current
+            val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+            val maxScale = if (isPortrait) 1.0f else 1.4f
+            val effectiveScale = uiState.controlsScale.coerceAtMost(maxScale)
+            val sidePadding = if (isPortrait) 16.dp else 64.dp
+            val bottomPadding = if (isPortrait) 48.dp else 32.dp
         // ─── DIÁLOGO DE SELECCIÓN DE ASSET ────────────────────────────────────
         if (uiState.showAssetPicker) {
             AssetPickerDialog(
@@ -1078,6 +1350,66 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         // Salir del modo de exploración (llamado desde el FAB nativo)
         function exitExplorationMode() { isExplorationMode = false; }
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c; }); }
+        var collectibleMarkers = {};
+
+        function updateCollectibles(jsonStr) {
+            var data = JSON.parse(jsonStr);
+            
+            // Limpiar marcadores existentes
+            for (var key in collectibleMarkers) {
+                map.removeLayer(collectibleMarkers[key]);
+            }
+            collectibleMarkers = {};
+        
+            data.forEach(function(col) {
+                var pUrl = 'file:///android_asset/' + col.assetPath;
+                
+                // TAMAÑO ULTRA PEQUEÑO: Contenedor de 20px
+                var containerSize = 20;
+                var iconSize = 14; // El asset ocupa 14px dentro del círculo
+                
+                var html = '<div style="' +
+                    'position:relative; ' +
+                    'width:' + containerSize + 'px; ' +
+                    'height:' + containerSize + 'px; ' +
+                    'display:flex; ' +
+                    'justify-content:center; ' +
+                    'align-items:center;' +
+                '">' +
+                    // Círculo amarillo de fondo
+                    '<div style="' +
+                        'position:absolute; ' +
+                        'width:100%; ' +
+                        'height:100%; ' +
+                        'background:radial-gradient(circle, rgba(255,235,59,0.5) 0%, rgba(255,235,59,0) 60%); ' +
+                        'border-radius:50%;' +
+                    '"></div>' +
+                    // Imagen del coleccionable
+                    '<img src="' + pUrl + '" style="' +
+                        'position:relative; ' +
+                        'width:' + iconSize + 'px; ' +
+                        'height:' + iconSize + 'px; ' +
+                        'object-fit:contain; ' +
+                        'image-rendering:pixelated;' +
+                    '">' +
+                '</div>';
+                
+                var icon = L.divIcon({ 
+                    html: html, 
+                    className: '', 
+                    iconSize: [containerSize, containerSize], 
+                    iconAnchor: [containerSize/2, containerSize/2] 
+                });
+                
+                collectibleMarkers[col.id] = L.marker(
+                    [col.latitude, col.longitude], 
+                    { icon: icon, interactive: false }
+                ).addTo(map);
+            });
+        }
+        // Salir del modo de exploración (llamado desde el FAB nativo)
+        function exitExplorationMode() { isExplorationMode = false; }
+        function escapeHtml(value) { return String(value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c; }); }
         function updateNpcs(data) {
             if (isZooming) return;
             var currentZoom = map.getZoom();
@@ -1134,6 +1466,36 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 </body>
 </html>
 """.trimIndent()
+
+private class MapJsBridge(private val vm: WorldMapViewModel) {
+    @JavascriptInterface
+    fun notifyMapPanStart() {
+        vm.onMapPanStart()
+    }
+
+    @JavascriptInterface
+    fun notifyMapPanEnd() {
+        vm.onMapPanEnd()
+    }
+}
+
+private class ExactSizeDrawable(
+    private val base: android.graphics.drawable.Drawable,
+    private val exactWidthPx: Int,
+    private val exactHeightPx: Int
+) : android.graphics.drawable.Drawable() {
+    override fun getIntrinsicWidth() = exactWidthPx
+    override fun getIntrinsicHeight() = exactHeightPx
+    override fun draw(canvas: android.graphics.Canvas) {
+        val b = this.getBounds()
+        base.setBounds(b.left, b.top, b.right, b.bottom)
+        base.draw(canvas)
+    }
+    override fun setAlpha(alpha: Int) { base.alpha = alpha }
+    override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { base.colorFilter = colorFilter }
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity() = base.opacity
+}
 
 private class MapJsBridge(private val vm: WorldMapViewModel) {
     @JavascriptInterface

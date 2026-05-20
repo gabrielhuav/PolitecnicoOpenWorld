@@ -1,0 +1,18 @@
+[
+  {
+    "id": "escom_main",
+    "displayName": "Edificio ESCOM",
+    "assetPath": "BUILDINGS/IPN/building_escom.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 212.7,
+    "baseHeightMeters": 263.0
+  },
+  {
+    "id": "pt_zacatenco",
+    "displayName": "Plaza Torres",
+    "assetPath": "BUILDINGS/IPN/plaza_torres.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 180.5,
+    "baseHeightMeters": 150.0
+  }
+]

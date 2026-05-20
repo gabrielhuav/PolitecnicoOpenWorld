@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -169,11 +170,12 @@ private fun DPadButton(icon: androidx.compose.ui.graphics.vector.ImageVector, on
 fun ActionButtonsController(
     modifier: Modifier = Modifier,
     backgroundAlpha: Float = 0.6f,
-    onActionChanged: (GameAction, Boolean) -> Unit
+    onActionChanged: (GameAction, Boolean) -> Unit,
+    onClaimCollectiblePressed: () -> Unit // <--- Parámetro recibido
 ) {
     Box(
         modifier = modifier
-            .size(ControllerBaseSize) // uso de constante
+            .size(ControllerBaseSize)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
         contentAlignment = Alignment.Center
@@ -191,7 +193,15 @@ fun ActionButtonsController(
                 ActionButton(
                     text = "X",
                     color = Color(0xFF3498DB),
-                    onHoldEvent = { isPressed -> onActionChanged(GameAction.X, isPressed) }
+                    onHoldEvent = { isPressed ->
+                        // Mantiene el comportamiento original de tu juego
+                        onActionChanged(GameAction.X, isPressed)
+
+                        // Intenta recoger el coleccionable solo al bajar el dedo
+                        if (isPressed) {
+                            onClaimCollectiblePressed()
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.size(48.dp))
@@ -243,7 +253,87 @@ fun ActionButton(
 }
 
 // ==========================================
-// MODIFICADOR: HOLD-TO-MOVE
+// CONTROLES DE VEHÍCULO (NUEVOS)
+// ==========================================
+
+@Composable
+fun VehicleSteeringController(
+    modifier: Modifier = Modifier,
+    backgroundAlpha: Float = 0.6f,
+    onSteerLeft: (Boolean) -> Unit,
+    onSteerRight: (Boolean) -> Unit
+) {
+    Box(
+        modifier = modifier
+            .size(ControllerBaseSize)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            // Reutilizamos tu detectHoldEvent!
+            VehicleButton(icon = Icons.Default.KeyboardArrowLeft, onHoldEvent = onSteerLeft)
+            VehicleButton(icon = Icons.Default.KeyboardArrowRight, onHoldEvent = onSteerRight)
+        }
+    }
+}
+
+@Composable
+fun VehiclePedalsController(
+    modifier: Modifier = Modifier,
+    backgroundAlpha: Float = 0.6f,
+    onAccelerate: (Boolean) -> Unit,
+    onBrake: (Boolean) -> Unit,
+    onExit: (Boolean) -> Unit // CAMBIADO: Ahora recibe el estado de pulsación
+) {
+    Box(
+        modifier = modifier
+            .size(ControllerBaseSize)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            VehicleButton(text = "SALIR (Y)", color = Color(0xFFF1C40F)) { isPressed ->
+                onExit(isPressed) // CAMBIADO: Pasamos el estado directamente
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                VehicleButton(text = "FRENO", color = Color(0xFFE74C3C), onHoldEvent = onBrake)
+                VehicleButton(text = "GAS", color = Color(0xFF2ECC71), onHoldEvent = onAccelerate)
+            }
+        }
+    }
+}
+
+@Composable
+fun VehicleButton(
+    text: String = "",
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    color: Color = Color.DarkGray.copy(alpha = 0.8f),
+    onHoldEvent: (Boolean) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .padding(4.dp)
+            .size(56.dp)
+            .clip(CircleShape)
+            .background(color)
+            .detectHoldEvent(onHoldEvent),
+        contentAlignment = Alignment.Center
+    ) {
+        if (icon != null) {
+            Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(36.dp))
+        } else {
+            Text(text = text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        }
+    }
+}
+
+// ==========================================
+// MODIFICADORES
 // ==========================================
 // Este código permite que al mantener apretado, la acción se repita cada X milisegundos
 fun Modifier.repeatingClickable(
