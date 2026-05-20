@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -169,7 +170,7 @@ class MainActivity : ComponentActivity() {
                             }
                         ) {
                             // Lógica compartida para volver al menú principal
-                            val navigateBackToMainMenu = remember {
+                            val navigateBackToMainMenu = remember(worldMapViewModel, navController) {
                                 {
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     navController.navigate("main_menu") {
@@ -185,22 +186,23 @@ class MainActivity : ComponentActivity() {
                             if (showExitDialog) {
                                 AlertDialog(
                                     onDismissRequest = { showExitDialog = false },
-                                    title = { Text("¿Qué deseas hacer?") },
-                                    text = { Text("¿Quieres volver al menú principal o salir de la aplicación?") },
+                                    title = { Text(stringResource(R.string.exit_dialog_title)) },
+                                    text = { Text(stringResource(R.string.exit_dialog_text)) },
                                     confirmButton = {
                                         TextButton(onClick = {
                                             showExitDialog = false
                                             navigateBackToMainMenu()
                                         }) {
-                                            Text("Volver al Menú")
+                                            Text(stringResource(R.string.exit_dialog_confirm))
                                         }
                                     },
                                     dismissButton = {
                                         TextButton(onClick = {
                                             showExitDialog = false
+                                            worldMapViewModel.disconnectFromMultiplayer()
                                             this@MainActivity.finish()
                                         }) {
-                                            Text("Salir")
+                                            Text(stringResource(R.string.exit_dialog_dismiss))
                                         }
                                     }
                                 )

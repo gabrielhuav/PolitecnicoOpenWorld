@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">PolitecnicoOpenWorld</string>
+    <string name="exit_dialog_title">¿Qué deseas hacer?</string>
+    <string name="exit_dialog_text">¿Quieres volver al menú principal o salir de la aplicación?</string>
+    <string name="exit_dialog_confirm">Volver al Menú</string>
+    <string name="exit_dialog_dismiss">Salir</string>
 </resources>
