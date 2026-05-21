@@ -12,7 +12,15 @@
     "displayName": "Plaza Torres",
     "assetPath": "BUILDINGS/IPN/plaza_torres.webp",
     "defaultScale": 0.15,
-    "baseWidthMeters": 180.5,
-    "baseHeightMeters": 150.0
+    "baseWidthMeters": 497.42,
+    "baseHeightMeters": 279.95
+  },
+  {
+    "id": "cic_edif",
+    "displayName": "CIC",
+    "assetPath": "BUILDINGS/IPN/cic_edificios.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 200,
+    "baseHeightMeters": 168.87
   }
 ]

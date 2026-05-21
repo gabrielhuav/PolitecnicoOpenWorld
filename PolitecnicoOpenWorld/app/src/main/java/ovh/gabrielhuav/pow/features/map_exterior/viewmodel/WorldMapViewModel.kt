@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.update
 import org.osmdroid.util.GeoPoint
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import ovh.gabrielhuav.pow.domain.models.Landmark
+import ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager
 import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -987,32 +989,41 @@ class WorldMapViewModel(
     fun loadLandmarks(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Cargamos el catálogo JSON a memoria
-                ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.loadCatalog(context)
+                // 1. Cargamos el catálogo de plantillas (medidas) a memoria
+                LandmarkCatalogManager.loadCatalog(context)
 
-                val database = PowDatabase.getInstance(context)
+                val database = ovh.gabrielhuav.pow.data.local.room.PowDatabase.getInstance(context)
                 val dao = database.landmarkDao()
                 var entities = dao.getAllLandmarks()
 
+                // 2. Si la base de datos está vacía (primera instalación)
                 if (entities.isEmpty()) {
-                    val escomDefault = LandmarkEntity(
-                        name = "ESCOM",
-                        latitude = 19.504505,
-                        longitude = -99.146911,
-                        assetPath = "BUILDINGS/IPN/building_escom.webp",
-                        scaleFactor = 0.15f
-                    )
-                    dao.insertLandmarks(listOf(escomDefault))
-                    entities = dao.getAllLandmarks()
+                    try {
+                        // Leemos el mapa completo que acomodaste y exportaste
+                        val jsonString = context.assets.open("default_landmarks.json").bufferedReader().use { it.readText() }
+
+                        // Convertimos ese JSON en una lista de LandmarkEntity listos para BD
+                        val type = object : TypeToken<List<LandmarkEntity>>() {}.type
+                        val defaultEntities: List<LandmarkEntity> = Gson().fromJson(jsonString, type)
+
+                        // Insertamos todos los edificios de golpe
+                        dao.insertLandmarks(defaultEntities)
+                        entities = dao.getAllLandmarks() // Recargamos la variable con la BD ya llena
+
+                        Log.d("WorldMapViewModel", "Mapa sembrado con éxito desde default_landmarks.json con ${entities.size} edificios.")
+                    } catch (e: java.io.FileNotFoundException) {
+                        Log.w("WorldMapViewModel", "Archivo default_landmarks.json no encontrado. El mapa iniciará vacío.")
+                        // NOTA: Si aún no creas el archivo, la app no tronará, simplemente el mapa no tendrá edificios.
+                    } catch (e: Exception) {
+                        Log.e("WorldMapViewModel", "Error leyendo default_landmarks.json", e)
+                    }
                 }
 
-                val templatesByAssetPath = ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.availableAssets
-                    .associateBy { it.assetPath }
-
+                // 3. Fusionamos los datos de Room con las medidas del Catálogo
                 val domainLandmarks = entities.map { entity ->
-                    // 1. Buscamos este edificio en el catálogo JSON usando su assetPath
-                    val template = templatesByAssetPath[entity.assetPath]
-                    // 2. Creamos el Landmark inyectándole las medidas que encontramos en el JSON
+                    val template = LandmarkCatalogManager.availableAssets
+                        .find { it.assetPath == entity.assetPath }
+
                     Landmark(
                         id = entity.id,
                         name = entity.name,
@@ -1020,19 +1031,20 @@ class WorldMapViewModel(
                         assetPath = entity.assetPath,
                         scaleFactor = entity.scaleFactor,
                         rotationAngle = entity.rotationAngle,
-                        // Si lo encuentra usa las medidas del JSON, si no, usa 100.0 por defecto para que no truene
+                        // Valores fallback de 100f para evitar crasheos si falta una plantilla
                         baseWidthMeters = template?.baseWidthMeters ?: 100f,
                         baseHeightMeters = template?.baseHeightMeters ?: 100f
                     )
                 }
 
-                android.util.Log.d("Landmarks", "Cargados ${domainLandmarks.size} landmarks desde Room")
+                Log.d("Landmarks", "Enviando ${domainLandmarks.size} landmarks a la Interfaz Gráfica")
 
+                // 4. Actualizamos el UI para que el mapa dibuje todo
                 _uiState.update { currentState ->
                     currentState.copy(landmarks = domainLandmarks)
                 }
             } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error al cargar las estructuras estáticas", e)
+                Log.e("WorldMapViewModel", "Error fatal al cargar las estructuras estáticas", e)
             }
         }
     }
