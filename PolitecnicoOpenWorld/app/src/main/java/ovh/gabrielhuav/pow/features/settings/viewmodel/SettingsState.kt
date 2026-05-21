@@ -11,6 +11,5 @@ data class SettingsState(
     val showFpsWidget: Boolean = false,
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f, // Rango recomendado: 0.6f a 1.4f
-    val swapControls: Boolean = false, // false = Izq: Movimiento, Der: Acción
-    val showWastedScreen: Boolean = false
+    val swapControls: Boolean = false // false = Izq: Movimiento, Der: Acción
 )
