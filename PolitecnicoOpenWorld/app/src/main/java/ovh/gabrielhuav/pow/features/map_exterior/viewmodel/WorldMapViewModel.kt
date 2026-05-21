@@ -1504,7 +1504,9 @@ class WorldMapViewModel(
                             webSocketManager?.sendMessage(
                                 gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
                             )
-                        } catch (e: Exception) {}
+                        } catch (e: Exception) {
+                            Log.e("Combat", "Error enviando NPC_DESTROY para npcId=$npcId", e)
+                        }
                         updateNpcsState()
                     } else {
                         remoteEntities[npcId] = currentNpc.copy(health = newHealth)
