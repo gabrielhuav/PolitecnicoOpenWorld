@@ -180,6 +180,11 @@ wss.on('connection', (ws) => {
                     broadcastToOthers(ws, messageAsString);
                 }
             }
+            else if (data && data.type === "PLAYER_DAMAGE") {
+                if (data.targetId) {
+                    broadcastToOthers(ws, messageAsString);
+                }
+            }
             else if (data && data.type === "NPC_DESTROY") {
                 if (data.npcId) {
                     npcs.delete(data.npcId);

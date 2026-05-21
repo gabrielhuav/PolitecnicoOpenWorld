@@ -20,8 +20,8 @@ android {
 
     buildTypes {
         debug {
-            // Actualizado para apuntar al servidor alojado en Render (usa wss:// por el HTTPS)
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
+            // Actualizado con la URL de tu nuevo servidor en Render
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://pruebasservidorpow.onrender.com\"")
         }
         release {
             isMinifyEnabled = false
@@ -29,8 +29,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Si también quieres que la versión de producción se conecte al servidor de Render:
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
+            // Actualizado también para producción
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://pruebasservidorpow.onrender.com\"")
         }
     }
 

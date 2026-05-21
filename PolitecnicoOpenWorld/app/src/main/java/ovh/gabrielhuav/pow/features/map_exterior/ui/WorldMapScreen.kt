@@ -34,6 +34,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -56,9 +59,9 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.math.atan2
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.font.FontFamily
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -855,6 +858,42 @@ fun WorldMapScreen(
                     else { movementComponent(); actionComponent() }
                 }
             }
+        }
+    }
+    // --- SECUENCIA WASTED (TIPO GTA) ---
+    if (uiState.showWastedScreen) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0x99000000)) // Fondo negro semi-transparente
+                // .clickable intercepts touches so the player can't move while dead
+                .clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                    onClick = {} // Absorbe el toque pero no hace nada
+                )
+        ) {
+            // Animación para que el texto se haga grande lentamente
+            var scale by remember { mutableStateOf(0.5f) }
+            LaunchedEffect(Unit) {
+                androidx.compose.animation.core.animate(
+                    initialValue = 0.5f,
+                    targetValue = 1.3f,
+                    animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)
+                ) { value, _ -> scale = value }
+            }
+
+            Text(
+                text = "WASTED",
+                color = Color(0xFFD32F2F), // Rojo oscuro clásico
+                fontSize = 60.sp,
+                fontWeight = FontWeight.ExtraBold,
+                fontFamily = FontFamily.Serif, // Si tienes la fuente "Pricedown", úsala aquí
+                letterSpacing = 6.sp,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .scale(scale)
+            )
         }
     }
     // ─── UI SUPERPUESTA: AVISO DE COLECCIONABLE CERCANO ───────────────────────
