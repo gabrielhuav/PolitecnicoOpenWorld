@@ -57,18 +57,18 @@ object VehicleSpriteManager {
         val pixels = IntArray(finalWidth * finalHeight)
         scaledBitmap.getPixels(pixels, 0, finalWidth, 0, 0, finalWidth, finalHeight)
 
-        val targetR = android.graphics.Color.red(colorInt)
-        val targetG = android.graphics.Color.green(colorInt)
-        val targetB = android.graphics.Color.blue(colorInt)
+        val targetR = (colorInt ushr 16) and 0xFF
+        val targetG = (colorInt ushr 8) and 0xFF
+        val targetB = colorInt and 0xFF
 
         for (i in pixels.indices) {
             val p = pixels[i]
-            val a = android.graphics.Color.alpha(p)
+            val a = p ushr 24
             if (a == 0) continue // Ignorar pixeles transparentes
 
-            val r = android.graphics.Color.red(p)
-            val g = android.graphics.Color.green(p)
-            val b = android.graphics.Color.blue(p)
+            val r = (p ushr 16) and 0xFF
+            val g = (p ushr 8) and 0xFF
+            val b = p and 0xFF
 
             // 1. SATURACIÓN: Si el pixel ya tiene un color fuerte (luces rojas/intermitentes), lo conservamos
             val maxColor = maxOf(r, g, b)
@@ -110,7 +110,7 @@ object VehicleSpriteManager {
                 val finalG = (g + factor * (multG - g)).toInt()
                 val finalB = (b + factor * (multB - b)).toInt()
 
-                pixels[i] = android.graphics.Color.argb(a, finalR, finalG, finalB)
+                pixels[i] = (a shl 24) or (finalR shl 16) or (finalG shl 8) or finalB
             } else {
                 pixels[i] = p
             }
