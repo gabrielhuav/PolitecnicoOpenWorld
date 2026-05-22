@@ -11,6 +11,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,6 +61,7 @@ import androidx.compose.ui.draw.scale
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -733,12 +736,11 @@ fun WorldMapScreen(
                         Text("Selecciona tu estatua o destino:", fontSize = 14.sp)
 
                         // El LazyColumn permite que la lista sea scrolleable si agregas muchas zonas
-                        androidx.compose.foundation.lazy.LazyColumn(
+                        LazyColumn(
                             modifier = Modifier.fillMaxHeight(0.5f), // Limita la altura a la mitad de la pantalla
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(ovh.gabrielhuav.pow.domain.models.TeleportCatalog.ZONAS.size) { index ->
-                                val zone = ovh.gabrielhuav.pow.domain.models.TeleportCatalog.ZONAS[index]
+                            items(TeleportCatalog.zones) { zone ->
                                 Button(
                                     onClick = { viewModel.teleportTo(zone.latitude, zone.longitude) },
                                     modifier = Modifier.fillMaxWidth()

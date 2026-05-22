@@ -9,7 +9,7 @@ data class TeleportZone(
 
 // Catálogo global. Aquí agregarás todos tus nuevos destinos.
 object TeleportCatalog {
-    val ZONAS = listOf(
+    val zones = listOf(
         TeleportZone("ESCOM", 19.504505, -99.146911),
         TeleportZone("Plaza Torres", 19.506750, -99.144139),
         TeleportZone("FES ARAGON", 19.475167, -99.047444),

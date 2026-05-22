@@ -707,6 +707,11 @@ class WorldMapViewModel(
                         }
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error refetching road network", e)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _uiState.update { it.copy(isRoadNetworkReady = true) }
+                }
             } finally {
                 isFetchingNetwork.set(false)
             }
@@ -1027,9 +1032,9 @@ class WorldMapViewModel(
                 }
 
                 // 3. Fusionamos los datos de Room con las medidas del Catálogo
+                val templatesByAssetPath = LandmarkCatalogManager.availableAssets.associateBy { it.assetPath }
                 val domainLandmarks = entities.map { entity ->
-                    val template = LandmarkCatalogManager.availableAssets
-                        .find { it.assetPath == entity.assetPath }
+                    val template = templatesByAssetPath[entity.assetPath]
 
                     Landmark(
                         id = entity.id,
@@ -1274,6 +1279,7 @@ class WorldMapViewModel(
 
         // Forzamos al motor a descargar los caminos de esta nueva zona inmediatamente
         lastNetworkFetchLocation = null
+        lastFetchAttemptMs = 0L
     }
 
     fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
