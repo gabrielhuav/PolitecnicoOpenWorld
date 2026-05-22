@@ -18,6 +18,7 @@ object VehicleSpriteManager {
     // Se aumenta ligeramente el caché para soportar las variaciones de modelos
     private val drawableCache: LruCache<CacheKey, BitmapDrawable> = LruCache(512)
 
+    @Synchronized
     fun getTintedCarNpc(context: Context, headingAngle: Float, colorInt: Int, zoomScale: Float, carModel: CarModel): Drawable? {
         var angle = headingAngle % 360f
         if (angle < 0) angle += 360f

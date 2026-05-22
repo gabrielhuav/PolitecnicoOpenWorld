@@ -26,6 +26,7 @@ object CharacterSpriteManager {
         override fun sizeOf(key: String, value: BitmapDrawable): Int = value.bitmap.allocationByteCount / 1024
     }
 
+    @Synchronized
     fun getAnimationFrames(context: Context, folder: String, prefix: String, frameCount: Int = 8): List<ImageBitmap> {
         val cacheKey = "${folder}_${prefix}"
         animationCache.get(cacheKey)?.let { return it }
@@ -42,6 +43,7 @@ object CharacterSpriteManager {
         return frames
     }
 
+    @Synchronized
     fun getHairSprite(context: Context, hairId: Int): ImageBitmap? {
         hairCache.get(hairId)?.let { return it }
         return try {
@@ -64,6 +66,7 @@ object CharacterSpriteManager {
         return computeFrameIndex(visualConfig.bodyPrefix, frames.size, isMoving, timeMs)
     }
 
+    @Synchronized
     fun generateAssembledBitmap(
         context: Context, visualConfig: CharacterVisualConfig, isMoving: Boolean, timeMs: Long
     ): Bitmap? = try {
@@ -116,6 +119,7 @@ object CharacterSpriteManager {
     /**
      * Genera un Drawable escalado y espejeado nativamente para los marcadores de OSMDroid.
      */
+    @Synchronized
     fun getModularNpcDrawable(
         context: Context,
         visualConfig: CharacterVisualConfig,
