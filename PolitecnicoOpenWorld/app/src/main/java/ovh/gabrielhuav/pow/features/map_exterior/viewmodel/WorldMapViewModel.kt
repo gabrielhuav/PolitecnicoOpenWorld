@@ -378,8 +378,8 @@ class WorldMapViewModel(
                             carColor = msg.carColor ?: 0xFFFFFFFF.toInt(),
                             visualConfig = if (!isRemoteDriving) multiplayerConfig else null,
                             displayName = msg.displayName,
-                            health = msg.health ?: 100f, // NUEVO: Vida del otro jugador
-                            isDying = (msg.health ?: 100f) <= 0f // NUEVO: Determina si muere
+                            health = msg.health ?: 100f,
+                            isDying = (msg.health ?: 100f) <= 0f
                         )
                         remoteEntities[msg.id] = otherPlayer
                         updateNpcsState()
@@ -1419,7 +1419,6 @@ class WorldMapViewModel(
         }
     }
 
-    // Asegúrate de tener este bloque en tu ViewModel
     private fun triggerWastedSequence() {
         viewModelScope.launch(Dispatchers.Main) {
             _uiState.update { it.copy(showWastedScreen = true) }
@@ -1429,7 +1428,7 @@ class WorldMapViewModel(
 
             // BUSCAR EL MÁS CERCANO:
             val nearestHospital = hospitalRespawnPoints.minByOrNull {
-                // Usamos la función distancia que ya tienes en el ViewModel
+                // Usamos la función distancia que ya se tiene en el ViewModel
                 distance(deathLoc, it)
             } ?: hospitalRespawnPoints.first()
 

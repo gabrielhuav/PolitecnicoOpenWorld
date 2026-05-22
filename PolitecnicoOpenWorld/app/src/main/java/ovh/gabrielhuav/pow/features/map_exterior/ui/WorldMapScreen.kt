@@ -865,15 +865,13 @@ fun WorldMapScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0x99000000)) // Fondo negro semi-transparente
-                // .clickable intercepts touches so the player can't move while dead
+                .background(Color(0x99000000))
                 .clickable(
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                     indication = null,
-                    onClick = {} // Absorbe el toque pero no hace nada
+                    onClick = {}
                 )
         ) {
-            // Animación para que el texto se haga grande lentamente
             var scale by remember { mutableStateOf(0.5f) }
             LaunchedEffect(Unit) {
                 androidx.compose.animation.core.animate(
@@ -885,10 +883,10 @@ fun WorldMapScreen(
 
             Text(
                 text = "WASTED",
-                color = Color(0xFFD32F2F), // Rojo oscuro clásico
+                color = Color(0xFFD32F2F),
                 fontSize = 60.sp,
                 fontWeight = FontWeight.ExtraBold,
-                fontFamily = FontFamily.Serif, // Si tienes la fuente "Pricedown", úsala aquí
+                fontFamily = FontFamily.Serif,
                 letterSpacing = 6.sp,
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -901,7 +899,7 @@ fun WorldMapScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 70.dp), // Separado del borde superior para no tapar notch
+                .padding(top = 70.dp),
             contentAlignment = Alignment.TopCenter
         ) {
             Text(
@@ -912,7 +910,7 @@ fun WorldMapScreen(
                 letterSpacing = 2.sp,
                 modifier = Modifier
                     .background(
-                        color = Color(0xFF3B0D1B).copy(alpha = 0.85f), // Guinda traslúcido
+                        color = Color(0xFF3B0D1B).copy(alpha = 0.85f),
                         shape = RoundedCornerShape(8.dp)
                     )
                     .padding(horizontal = 24.dp, vertical = 12.dp)

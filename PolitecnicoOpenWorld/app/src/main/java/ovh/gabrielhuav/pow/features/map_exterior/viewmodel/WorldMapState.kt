@@ -69,6 +69,6 @@ data class WorldMapState(
     val nearbyCollectible: ActiveCollectible? = null,
     // El objeto que acabamos de recoger para mostrar el Pop-up divertido
     val showClaimedPopupFor: ActiveCollectible? = null,
-    val interactionPrompt: String? = null, // Para mostrar texto 3 segundos
+    val interactionPrompt: String? = null,
     val showWastedScreen: Boolean = false
 )
