@@ -12,7 +12,31 @@
     "displayName": "Plaza Torres",
     "assetPath": "BUILDINGS/IPN/plaza_torres.webp",
     "defaultScale": 0.15,
-    "baseWidthMeters": 180.5,
-    "baseHeightMeters": 150.0
+    "baseWidthMeters": 497.42,
+    "baseHeightMeters": 279.95
+  },
+  {
+    "id": "cic_edif",
+    "displayName": "CIC",
+    "assetPath": "BUILDINGS/IPN/cic_edificios.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 200,
+    "baseHeightMeters": 168.87
+  },
+  {
+    "id": "fes-aragon",
+    "displayName": "FES ARAGON",
+    "assetPath": "BUILDINGS/IPN/fes_aragon.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 786.88,
+    "baseHeightMeters": 425
+  },
+  {
+    "id": "coyote-neza",
+    "displayName": "COYOTE DE NEZA",
+    "assetPath": "BUILDINGS/IPN/coyote_de_neza.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 151,
+    "baseHeightMeters": 123.56
   }
 ]

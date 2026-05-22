@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.update
 import org.osmdroid.util.GeoPoint
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import ovh.gabrielhuav.pow.domain.models.Landmark
+import ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager
 import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -662,7 +664,7 @@ class WorldMapViewModel(
         }
     }
 
-    private fun maybeRefetchRoadNetwork(currentLoc: GeoPoint) {
+    private fun maybeRefetchRoadNetwork(currentLoc: org.osmdroid.util.GeoPoint) {
         val moved = if (lastNetworkFetchLocation != null)
             distance(lastNetworkFetchLocation!!, currentLoc) else Double.MAX_VALUE
         if (moved < REFETCH_DISTANCE_DEG) return
@@ -672,31 +674,43 @@ class WorldMapViewModel(
         if (!isFetchingNetwork.compareAndSet(false, true)) return
         lastFetchAttemptMs = now
 
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val cached = roadNetworkCache.get(currentLoc.latitude, currentLoc.longitude)
                 if (cached != null) {
-                    withContext(Dispatchers.Main) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         roadNetwork = cached
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
-                        _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                        // AÑADIDO: Liberar controles (isRoadNetworkReady = true)
+                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                     }
                 } else {
-                    withContext(Dispatchers.Main) {
-                        _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.NETWORK) }
                     }
                     val network = overpassRepository.fetchRoadNetwork(
                         currentLoc.latitude, currentLoc.longitude)
                     if (network.isNotEmpty()) {
                         roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
-                        withContext(Dispatchers.Main) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             roadNetwork = network
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
-                            _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                            // AÑADIDO: Liberar controles tras descargar de internet
+                            _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
+                        }
+                    } else {
+                        // AÑADIDO: Si la zona no tiene caminos (campo abierto), liberar de todas formas para no trabar el juego
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            _uiState.update { it.copy(isRoadNetworkReady = true) }
                         }
                     }
+                }
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error refetching road network", e)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _uiState.update { it.copy(isRoadNetworkReady = true) }
                 }
             } finally {
                 isFetchingNetwork.set(false)
@@ -987,32 +1001,41 @@ class WorldMapViewModel(
     fun loadLandmarks(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Cargamos el catálogo JSON a memoria
-                ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.loadCatalog(context)
+                // 1. Cargamos el catálogo de plantillas (medidas) a memoria
+                LandmarkCatalogManager.loadCatalog(context)
 
-                val database = PowDatabase.getInstance(context)
+                val database = ovh.gabrielhuav.pow.data.local.room.PowDatabase.getInstance(context)
                 val dao = database.landmarkDao()
                 var entities = dao.getAllLandmarks()
 
+                // 2. Si la base de datos está vacía (primera instalación)
                 if (entities.isEmpty()) {
-                    val escomDefault = LandmarkEntity(
-                        name = "ESCOM",
-                        latitude = 19.504505,
-                        longitude = -99.146911,
-                        assetPath = "BUILDINGS/IPN/building_escom.webp",
-                        scaleFactor = 0.15f
-                    )
-                    dao.insertLandmarks(listOf(escomDefault))
-                    entities = dao.getAllLandmarks()
+                    try {
+                        // Leemos el mapa completo que acomodaste y exportaste
+                        val jsonString = context.assets.open("default_landmarks.json").bufferedReader().use { it.readText() }
+
+                        // Convertimos ese JSON en una lista de LandmarkEntity listos para BD
+                        val type = object : TypeToken<List<LandmarkEntity>>() {}.type
+                        val defaultEntities: List<LandmarkEntity> = Gson().fromJson(jsonString, type)
+
+                        // Insertamos todos los edificios de golpe
+                        dao.insertLandmarks(defaultEntities)
+                        entities = dao.getAllLandmarks() // Recargamos la variable con la BD ya llena
+
+                        Log.d("WorldMapViewModel", "Mapa sembrado con éxito desde default_landmarks.json con ${entities.size} edificios.")
+                    } catch (e: java.io.FileNotFoundException) {
+                        Log.w("WorldMapViewModel", "Archivo default_landmarks.json no encontrado. El mapa iniciará vacío.")
+                        // NOTA: Si aún no creas el archivo, la app no tronará, simplemente el mapa no tendrá edificios.
+                    } catch (e: Exception) {
+                        Log.e("WorldMapViewModel", "Error leyendo default_landmarks.json", e)
+                    }
                 }
 
-                val templatesByAssetPath = ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.availableAssets
-                    .associateBy { it.assetPath }
-
+                // 3. Fusionamos los datos de Room con las medidas del Catálogo
+                val templatesByAssetPath = LandmarkCatalogManager.availableAssets.associateBy { it.assetPath }
                 val domainLandmarks = entities.map { entity ->
-                    // 1. Buscamos este edificio en el catálogo JSON usando su assetPath
                     val template = templatesByAssetPath[entity.assetPath]
-                    // 2. Creamos el Landmark inyectándole las medidas que encontramos en el JSON
+
                     Landmark(
                         id = entity.id,
                         name = entity.name,
@@ -1020,19 +1043,20 @@ class WorldMapViewModel(
                         assetPath = entity.assetPath,
                         scaleFactor = entity.scaleFactor,
                         rotationAngle = entity.rotationAngle,
-                        // Si lo encuentra usa las medidas del JSON, si no, usa 100.0 por defecto para que no truene
+                        // Valores fallback de 100f para evitar crasheos si falta una plantilla
                         baseWidthMeters = template?.baseWidthMeters ?: 100f,
                         baseHeightMeters = template?.baseHeightMeters ?: 100f
                     )
                 }
 
-                android.util.Log.d("Landmarks", "Cargados ${domainLandmarks.size} landmarks desde Room")
+                Log.d("Landmarks", "Enviando ${domainLandmarks.size} landmarks a la Interfaz Gráfica")
 
+                // 4. Actualizamos el UI para que el mapa dibuje todo
                 _uiState.update { currentState ->
                     currentState.copy(landmarks = domainLandmarks)
                 }
             } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error al cargar las estructuras estáticas", e)
+                Log.e("WorldMapViewModel", "Error fatal al cargar las estructuras estáticas", e)
             }
         }
     }
@@ -1244,13 +1268,18 @@ class WorldMapViewModel(
     }
 
     fun teleportTo(lat: Double, lon: Double) {
-        val newLocation = GeoPoint(lat, lon)
+        val newLocation = org.osmdroid.util.GeoPoint(lat, lon)
         _uiState.update {
             it.copy(
                 currentLocation = newLocation,
-                showTeleportMenu = false // Cerramos el menú tras hacer TP
+                showTeleportMenu = false, // Cerramos el menú
+                isRoadNetworkReady = false // BLOQUEAMOS el joystick temporalmente
             )
         }
+
+        // Forzamos al motor a descargar los caminos de esta nueva zona inmediatamente
+        lastNetworkFetchLocation = null
+        lastFetchAttemptMs = 0L
     }
 
     fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
