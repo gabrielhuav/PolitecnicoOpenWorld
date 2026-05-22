@@ -11,6 +11,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,6 +50,15 @@ import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.GroundOverlay
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.*
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.*
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
+import kotlin.math.atan2
+import androidx.compose.ui.draw.scale
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import kotlin.math.*
 
@@ -67,7 +79,7 @@ fun WorldMapScreen(
     val gson = remember { Gson() }
     val coroutineScope = rememberCoroutineScope()
     var yButtonHoldJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    
+
     // Launchers para Exportar e Importar archivos JSON en el dispositivo
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { viewModel.exportLandmarksToUri(context, it) }
@@ -196,7 +208,7 @@ fun WorldMapScreen(
                             view.setTag(ovh.gabrielhuav.pow.R.id.dest_marker_tag, this)
                             view.overlays.add(this)
                         }
-                    
+
                     if (uiState.destinationMarker != null) {
                         destMarker.position = uiState.destinationMarker
                         destMarker.setAlpha(1f)
@@ -212,7 +224,7 @@ fun WorldMapScreen(
                             view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag, this)
                             view.overlays.add(0, this)
                         }
-                    
+
                     if (uiState.destinationMarker != null && uiState.routeWaypoints.isNotEmpty() && uiState.showDestinationRoute) {
                         routeOverlay.setPoints(uiState.routeWaypoints)
                         routeOverlay.isEnabled = true
@@ -413,7 +425,7 @@ fun WorldMapScreen(
 
                     uiState.landmarks.forEach { landmark ->
                         val overlays = landmarkCache.getOrPut(landmark.id) { mutableListOf() }
-                        
+
                         if (landmark.name.contains("escom", ignoreCase = true)) {
                             val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
                                 try {
@@ -525,12 +537,12 @@ fun WorldMapScreen(
                             wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
                         }
                     }
-                    
+
                     // Mostrar personaje en el mapa cuando está en navegación libre
                     uiState.currentLocation?.let {
                         wv.evaluateJavascript("if(typeof updatePlayerMarker==='function')updatePlayerMarker(${it.latitude}, ${it.longitude}, ${uiState.isUserPanningMap});", null)
                     }
-                    
+
                     val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
                     wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
                     val tileUrl = when (uiState.mapProvider) {
@@ -594,7 +606,7 @@ fun WorldMapScreen(
                     }
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs(${gson.toJson(npcPayloads)});", null)
                     wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
-                    
+
                     // ─── ACTUALIZAR DESTINO Y RUTA ───────────────────────────────────
                     // Actualizar marcador de destino
                     val destMarker = uiState.destinationMarker
@@ -603,16 +615,16 @@ fun WorldMapScreen(
                     } else {
                         wv.evaluateJavascript("if(typeof clearDestinationMarker==='function')clearDestinationMarker();", null)
                     }
-                    
+
                     // Actualizar modo de colocación
                     wv.evaluateJavascript("if(typeof updateDestinationPlacingMode==='function')updateDestinationPlacingMode(${uiState.isTargetingWaypoint});", null)
-                    
+
                     // Actualizar ruta
                     if (uiState.destinationMarker != null && uiState.routeWaypoints.isNotEmpty() && uiState.showDestinationRoute) {
                         val currentLoc = uiState.currentLocation
                         if (currentLoc != null) {
-                            val routeJson = uiState.routeWaypoints.map { 
-                                mapOf("lat" to it.latitude, "lng" to it.longitude) 
+                            val routeJson = uiState.routeWaypoints.map {
+                                mapOf("lat" to it.latitude, "lng" to it.longitude)
                             }.let { gson.toJson(it) }
                             // Pasar el JSON como un objeto JavaScript directo (no como cadena)
                             wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(${currentLoc.latitude}, ${currentLoc.longitude}, $routeJson, true);", null)
@@ -713,7 +725,7 @@ fun WorldMapScreen(
             if (uiState.isUserPanningMap) {
                 IconButton(onClick = { viewModel.centerOnPlayer() }, modifier = Modifier.background(Color(0xFF2196F3), CircleShape).size(48.dp)) { Icon(Icons.Default.Person, "Centrar en personaje", tint = Color.White) }
             }
-            
+
             // ─── BOTONES DE NAVEGACIÓN / DESTINO ──────────────────────────────
             // SOLO MOSTRAR EN NAVEGACIÓN LIBRE
             if (uiState.isUserPanningMap && !uiState.isDesignerMode && !uiState.isDriving) {
@@ -733,7 +745,7 @@ fun WorldMapScreen(
                         tint = Color.White
                     )
                 }
-                
+
                 // Botón para limpiar waypoint (solo visible si existe y NO estamos apuntando)
                 if (uiState.destinationMarker != null && !uiState.isTargetingWaypoint) {
                     IconButton(
@@ -793,6 +805,7 @@ fun WorldMapScreen(
                         Text("CANCELAR", fontWeight = FontWeight.Bold)
                     }
 
+        // ─── MENÚ DE VIAJE RÁPIDO (TELEPORT) DINÁMICO ─────────────────────────────────────
                     Button(
                         onClick = {
                             if (uiState.mapProvider == MapProvider.OSM) {
@@ -817,11 +830,21 @@ fun WorldMapScreen(
         if (uiState.showTeleportMenu) {
             AlertDialog(
                 onDismissRequest = { viewModel.toggleTeleportMenu(false) },
-                title = { Text("Menú de Viaje Rápido", fontWeight = FontWeight.Bold) },
+                title = { Text("Puntos de Teletransporte", fontWeight = FontWeight.Bold) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Selecciona tu destino:")
-                        Button(onClick = { viewModel.teleportTo(19.505700, -99.145618) }, modifier = Modifier.fillMaxWidth()) { Text("ESCOM") }
+                        Text("Selecciona tu estatua o destino:", fontSize = 14.sp)
+
+                        // El LazyColumn permite que la lista sea scrolleable si agregas muchas zonas
+                        LazyColumn(
+                            modifier = Modifier.fillMaxHeight(0.5f), // Limita la altura a la mitad de la pantalla
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(TeleportCatalog.zones) { zone ->
+                        Button(onClick = { viewModel.teleportTo(zone.latitude, zone.longitude) }, modifier = Modifier.fillMaxWidth()) { Text(zone.name)
+                                }
+                            }
+                        }
                     }
                 },
                 confirmButton = { TextButton(onClick = { viewModel.toggleTeleportMenu(false) }) { Text("Cancelar") } }

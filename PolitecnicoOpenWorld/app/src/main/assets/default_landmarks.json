@@ -1,0 +1,47 @@
+[
+  {
+    "assetPath": "BUILDINGS/IPN/building_escom.webp",
+    "id": 1,
+    "latitude": 19.504594288807827,
+    "longitude": -99.14653364364555,
+    "name": "Edificio ESCOM",
+    "rotationAngle": 23.80093,
+    "scaleFactor": 0.75418174
+  },
+  {
+    "assetPath": "BUILDINGS/IPN/plaza_torres.webp",
+    "id": 2,
+    "latitude": 19.506550602943516,
+    "longitude": -99.14413948878561,
+    "name": "Plaza Torres",
+    "rotationAngle": 0.0,
+    "scaleFactor": 1.0029263
+  },
+  {
+    "assetPath": "BUILDINGS/IPN/cic_edificios.webp",
+    "id": 3,
+    "latitude": 19.503193905236063,
+    "longitude": -99.14718337104783,
+    "name": "CIC",
+    "rotationAngle": 23.587322,
+    "scaleFactor": 0.80067044
+  },
+  {
+    "assetPath": "BUILDINGS/IPN/coyote_de_neza.webp",
+    "id": 4,
+    "latitude": 19.39979136155635,
+    "longitude": -99.02897079430511,
+    "name": "COYOTE DE NEZA",
+    "rotationAngle": 0.0,
+    "scaleFactor": 1.4665562
+  },
+  {
+    "assetPath": "BUILDINGS/IPN/fes_aragon.webp",
+    "id": 5,
+    "latitude": 19.474867,
+    "longitude": -99.04334399999986,
+    "name": "FES ARAGON",
+    "rotationAngle": 11.769556,
+    "scaleFactor": 1.0136231
+  }
+]
