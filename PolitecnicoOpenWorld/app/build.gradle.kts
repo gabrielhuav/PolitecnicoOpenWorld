@@ -21,7 +21,7 @@ android {
     buildTypes {
         debug {
             // Actualizado con la URL de tu nuevo servidor en Render
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://pruebasservidorpow.onrender.com\"")
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
         }
         release {
             isMinifyEnabled = false
@@ -30,7 +30,7 @@ android {
                 "proguard-rules.pro"
             )
             // Actualizado también para producción
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://pruebasservidorpow.onrender.com\"")
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
         }
     }
 
