@@ -72,7 +72,8 @@ data class MultiplayerPlayer(
     val isDriving: Boolean = false,
     val carModel: String? = null,
     val carColor: Int? = null,
-    val vehicleRotation: Float? = null
+    val vehicleRotation: Float? = null,
+    val health: Float = 100f
 )
 
 // Clase para empaquetar un NPC en el JSON.
@@ -117,7 +118,10 @@ private data class ServerMessage(
     val npcId: String? = null,
     val orphanedNpcs: List<String>? = null,
     val activeNpcIds: List<String>? = null,
-    val isZoneHost: Boolean? = null
+    val isZoneHost: Boolean? = null,
+    val health: Float? = null,
+    val targetId: String? = null,
+    val damage: Float? = null,
 )
 
 class WorldMapViewModel(
@@ -195,6 +199,13 @@ class WorldMapViewModel(
     private val ATTACK_COOLDOWN_MS = 2400L // Tiempo entre cada puñetazo para sincronizar con la animación
 
     private val ATTACK_RADIUS = 0.00015     // Radio geográfico de alcance del golpe (corta distancia)
+
+    // 🏥 Coordenadas reales de Hospitales / Servicios Médicos (Ejemplo en IPN Zacatenco)
+    private val hospitalRespawnPoints = listOf(
+        GeoPoint(19.5034, -99.1469), // Servicio Médico cerca de ESCOM
+        GeoPoint(19.4990, -99.1350), // Centro Médico alterno 1
+        GeoPoint(19.5070, -99.1400)  // Centro Médico alterno 2
+    )
 
     // El game loop arranca aquí, atado al ciclo de vida del ViewModel (no del Composable).
     // Así, navegar a Settings y volver no detiene a los NPCs.
@@ -327,6 +338,13 @@ class WorldMapViewModel(
                     }
                 }
 
+                "PLAYER_DAMAGE" -> {
+                    // Si el golpe era para nosotros, recibimos el daño localmente
+                    if (msg.targetId == myPlayerUUID && msg.damage != null) {
+                        takeDamage(msg.damage)
+                    }
+                }
+
                 else -> {
                     // Si es una actualización de posición de otro JUGADOR
                     if (msg.id != null && msg.id != myPlayerUUID && msg.x != null && msg.y != null) {
@@ -363,7 +381,9 @@ class WorldMapViewModel(
                             carModel = remoteCarModel, // <- El compilador ya aceptará esto
                             carColor = msg.carColor ?: 0xFFFFFFFF.toInt(),
                             visualConfig = if (!isRemoteDriving) multiplayerConfig else null,
-                            displayName = msg.displayName
+                            displayName = msg.displayName,
+                            health = msg.health ?: 100f,
+                            isDying = (msg.health ?: 100f) <= 0f
                         )
                         remoteEntities[msg.id] = otherPlayer
                         updateNpcsState()
@@ -585,7 +605,8 @@ class WorldMapViewModel(
                                                 isDriving = _uiState.value.isDriving,
                                                 carModel = _uiState.value.currentVehicleModel?.name,
                                                 carColor = _uiState.value.currentVehicleColor,
-                                                vehicleRotation = _uiState.value.vehicleRotation
+                                                vehicleRotation = _uiState.value.vehicleRotation,
+                                                health = playerHealth
                                             )
                                             ws.sendMessage(gson.toJson(myData))
 
@@ -1484,7 +1505,27 @@ class WorldMapViewModel(
     }
 
     private fun triggerWastedSequence() {
-        // Aquí implementaremos la Fase 3: Pantalla "WASTED" y búsqueda de hospital
+        viewModelScope.launch(Dispatchers.Main) {
+            _uiState.update { it.copy(showWastedScreen = true) }
+            delay(4000L) // Tiempo del WASTED
+
+            val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
+
+            // BUSCAR EL MÁS CERCANO:
+            val nearestHospital = hospitalRespawnPoints.minByOrNull {
+                // Usamos la función distancia que ya se tiene en el ViewModel
+                distance(deathLoc, it)
+            } ?: hospitalRespawnPoints.first()
+
+            // TELETRANSPORTE
+            _uiState.update {
+                it.copy(
+                    currentLocation = nearestHospital,
+                    showWastedScreen = false
+                )
+            }
+            playerHealth = maxPlayerHealth // Vida restaurada
+        }
     }
 
     fun showInitialHealthBar() {
@@ -1499,47 +1540,63 @@ class WorldMapViewModel(
 
         // 🌟 Envolvemos en una corrutina para sincronizar con la animación visual
         viewModelScope.launch(Dispatchers.Default) {
-
-            delay(300L) // Esperamos 300ms a que el puño "conecte" en la animación
+            delay(300L) // Esperamos 300ms a que el puño "conecte"
 
             val playerLoc = _uiState.value.currentLocation ?: return@launch
 
-            // Solo atacamos NPCs reales: no muriendo, en rango, de tipo PERSON y sin displayName de jugador remoto
+            // 1. Quitamos la restricción del displayName para que sí detecte jugadores reales
             val targetNpcEntry = remoteEntities.entries
                 .filter {
                     !it.value.isDying &&
-                        it.value.type == NpcType.PERSON &&
-                        (it.value.displayName?.isBlank() != false) &&
-                        distance(playerLoc, it.value.location) <= ATTACK_RADIUS
+                            it.value.type == NpcType.PERSON &&
+                            distance(playerLoc, it.value.location) <= ATTACK_RADIUS
                 }
                 .minByOrNull { distance(playerLoc, it.value.location) }
 
             if (targetNpcEntry != null) {
                 val npcId = targetNpcEntry.key
                 val currentNpc = targetNpcEntry.value
+                val isRemotePlayer = !currentNpc.displayName.isNullOrBlank()
 
-                val damage = PLAYER_PUNCH_DAMAGE
-                val newHealth = (currentNpc.health - damage).coerceAtLeast(0f)
-
-                if (newHealth <= 0f) {
-                    // Inicia muerte progresiva
-                    remoteEntities[npcId] = currentNpc.copy(health = 0f, isDying = true)
-                    updateNpcsState()
-
-                    delay(1000L) // Espera a que termine el fade-out
-                    remoteEntities.remove(npcId)
-
+                if (isRemotePlayer) {
+                    // 2. ES UN JUGADOR REAL: Disparamos el WebSocket
                     try {
                         webSocketManager?.sendMessage(
-                            gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
+                            gson.toJson(
+                                mapOf(
+                                    "type" to "PLAYER_DAMAGE",
+                                    "targetId" to npcId,
+                                    "damage" to PLAYER_PUNCH_DAMAGE
+                                )
+                            )
                         )
                     } catch (e: Exception) {
-                        Log.e("Combat", "Error enviando NPC_DESTROY: ${e.message}")
+                        Log.e("Combat", "Error enviando PLAYER_DAMAGE: ${e.message}")
                     }
-                    updateNpcsState()
                 } else {
-                    remoteEntities[npcId] = currentNpc.copy(health = newHealth)
-                    updateNpcsState()
+                    // 3. ES UN NPC: Lógica local (se mantiene intacta)
+                    val damage = PLAYER_PUNCH_DAMAGE
+                    val newHealth = (currentNpc.health - damage).coerceAtLeast(0f)
+
+                    if (newHealth <= 0f) {
+                        remoteEntities[npcId] = currentNpc.copy(health = 0f, isDying = true)
+                        updateNpcsState()
+
+                        delay(1000L)
+                        remoteEntities.remove(npcId)
+
+                        try {
+                            webSocketManager?.sendMessage(
+                                gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
+                            )
+                        } catch (e: Exception) {
+                            Log.e("Combat", "Error enviando NPC_DESTROY para npcId=$npcId", e)
+                        }
+                        updateNpcsState()
+                    } else {
+                        remoteEntities[npcId] = currentNpc.copy(health = newHealth)
+                        updateNpcsState()
+                    }
                 }
             }
         }

@@ -68,6 +68,7 @@ data class WorldMapState(
     val nearbyCollectible: ActiveCollectible? = null,
     val showClaimedPopupFor: ActiveCollectible? = null,
     val interactionPrompt: String? = null,
+    val showWastedScreen: Boolean = false,
 
     // ─── WAYPOINTS ───────────────────────────────────────────────────────────
     val waypoints: List<Waypoint> = emptyList(),
