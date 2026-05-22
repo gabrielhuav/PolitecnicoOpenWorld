@@ -26,6 +26,7 @@ object CharacterSpriteManager {
         override fun sizeOf(key: String, value: BitmapDrawable): Int = value.bitmap.allocationByteCount / 1024
     }
 
+    @Synchronized
     fun getAnimationFrames(context: Context, folder: String, prefix: String, frameCount: Int = 8): List<ImageBitmap> {
         val cacheKey = "${folder}_${prefix}"
         animationCache.get(cacheKey)?.let { return it }
@@ -42,6 +43,7 @@ object CharacterSpriteManager {
         return frames
     }
 
+    @Synchronized
     fun getHairSprite(context: Context, hairId: Int): ImageBitmap? {
         hairCache.get(hairId)?.let { return it }
         return try {
@@ -64,6 +66,7 @@ object CharacterSpriteManager {
         return computeFrameIndex(visualConfig.bodyPrefix, frames.size, isMoving, timeMs)
     }
 
+    @Synchronized
     fun generateAssembledBitmap(
         context: Context, visualConfig: CharacterVisualConfig, isMoving: Boolean, timeMs: Long
     ): Bitmap? = try {
@@ -106,16 +109,17 @@ object CharacterSpriteManager {
     }
 
     private fun applyMultiply(basePixel: Int, tintColor: Int): Int {
-        val a = android.graphics.Color.alpha(basePixel)
-        val r = (android.graphics.Color.red(basePixel) * android.graphics.Color.red(tintColor)) / 255
-        val g = (android.graphics.Color.green(basePixel) * android.graphics.Color.green(tintColor)) / 255
-        val b = (android.graphics.Color.blue(basePixel) * android.graphics.Color.blue(tintColor)) / 255
-        return android.graphics.Color.argb(a, r, g, b)
+        val a = basePixel ushr 24
+        val r = (((basePixel ushr 16) and 0xFF) * ((tintColor ushr 16) and 0xFF)) / 255
+        val g = (((basePixel ushr 8) and 0xFF) * ((tintColor ushr 8) and 0xFF)) / 255
+        val b = ((basePixel and 0xFF) * (tintColor and 0xFF)) / 255
+        return (a shl 24) or (r shl 16) or (g shl 8) or b
     }
 
     /**
      * Genera un Drawable escalado y espejeado nativamente para los marcadores de OSMDroid.
      */
+    @Synchronized
     fun getModularNpcDrawable(
         context: Context,
         visualConfig: CharacterVisualConfig,
@@ -220,15 +224,17 @@ object CharacterSpriteManager {
 
         for (i in pixels.indices) {
             val pixel = pixels[i]
-            val a = android.graphics.Color.alpha(pixel)
+            val a = pixel ushr 24
             if (a < 50) continue // Ignorar píxeles casi transparentes
 
-            val r = android.graphics.Color.red(pixel)
-            val g = android.graphics.Color.green(pixel)
-            val b = android.graphics.Color.blue(pixel)
+            val r = (pixel ushr 16) and 0xFF
+            val g = (pixel ushr 8) and 0xFF
+            val b = pixel and 0xFF
 
             // 1. FILTRO DE GRISES: Para NO pintar la piel (que tiene tonos rojizos/cálidos)
-            val diff = maxOf(r, g, b) - minOf(r, g, b)
+            val maxC = maxOf(r, g, b)
+            val minC = minOf(r, g, b)
+            val diff = maxC - minC
             if (diff > 15) continue // Si tiene "color" (como la piel), NO LO PINTES
 
             // 2. SEPARACIÓN POR BRILLO (Luminancia)
