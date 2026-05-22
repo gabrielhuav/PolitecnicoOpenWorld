@@ -481,6 +481,14 @@ class WorldMapViewModel(
                         }
                         // Revisamos constantemente si estamos parados sobre él
                         checkCollectibleProximity(location.latitude, location.longitude)
+                        
+                        // Verificamos si llegamos al destino
+                        checkDestinationArrival()
+                        
+                        // Recalculamos la ruta cada 30 ticks (aproximadamente 1 segundo a 30fps)
+                        if (tickCount % 30 == 0L && _uiState.value.destinationMarker != null) {
+                            updateDestinationRoute()
+                        }
 
                         // --- CONDICIÓN DE COMBATE ---
                         if (_uiState.value.playerAction == PlayerAction.SPECIAL) {
@@ -715,6 +723,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacter(direction: Direction) {
+        if (_uiState.value.isUserPanningMap) return // No mover si estamos explorando el mapa
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
         val isMovingRight = when (direction) {
@@ -747,6 +756,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacterByAngle(angleRad: Double) {
+        if (_uiState.value.isUserPanningMap) return // No mover si estamos explorando el mapa
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
 
@@ -1476,6 +1486,168 @@ class WorldMapViewModel(
                     updateNpcsState()
                 }
             }
+        }
+    }
+
+    // ─── SISTEMA DE NAVEGACIÓN / MARCADOR DE DESTINO ─────────────────────────────
+
+    /**
+     * Alterna el modo de apuntado de waypoint (centro de pantalla).
+     */
+    fun toggleWaypointTargeting(active: Boolean) {
+        _uiState.update { it.copy(isTargetingWaypoint = active) }
+    }
+
+    /**
+     * Coloca el marcador de destino (waypoint) en las coordenadas especificadas.
+     * Si ya existe un marcador anterior, lo reemplaza.
+     * También inicia el cálculo de la ruta.
+     */
+    fun placeDestinationMarker(latitude: Double, longitude: Double) {
+        Log.d("Navigation", "Colocando waypoint en: $latitude, $longitude")
+        val newDestination = GeoPoint(latitude, longitude)
+        _uiState.update { it.copy(
+            destinationMarker = newDestination,
+            isTargetingWaypoint = false,
+            routeWaypoints = emptyList() // Se recalculará
+        ) }
+        updateDestinationRoute()
+    }
+
+    /**
+     * Elimina el marcador de destino y la ruta asociada.
+     */
+    fun clearDestinationMarker() {
+        _uiState.update { it.copy(
+            destinationMarker = null,
+            isTargetingWaypoint = false,
+            routeWaypoints = emptyList()
+        ) }
+    }
+
+    /**
+     * Alterna la visibilidad de la ruta sin eliminar el destino.
+     */
+    fun toggleDestinationRoute(show: Boolean) {
+        _uiState.update { it.copy(showDestinationRoute = show) }
+    }
+
+    /**
+     * Calcula la ruta desde la posición actual al marcador de destino.
+     * Utiliza la red de caminos disponible para seguir las calles.
+     * Se ejecuta de forma asincrónica en background.
+     */
+    private fun updateDestinationRoute() {
+        val destination = _uiState.value.destinationMarker ?: return
+        val currentLoc = _uiState.value.currentLocation ?: return
+
+        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) {
+            // Si aún no está lista la red de caminos, reintentar más tarde
+            viewModelScope.launch {
+                delay(1000)
+                if (_uiState.value.destinationMarker != null) {
+                    updateDestinationRoute()
+                }
+            }
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.Default) {
+            try {
+                Log.d("Navigation", "Calculando ruta...")
+                val route = calculateRouteOnNetwork(currentLoc, destination, roadNetwork)
+                Log.d("Navigation", "Ruta calculada con ${route.size} puntos")
+                
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(routeWaypoints = if (route.isNotEmpty()) route else listOf(currentLoc, destination)) }
+                    
+                    val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
+                    if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) {
+                        Log.d("Navigation", "Destino alcanzado (Meters: $distToDestinationMeters)")
+                        clearDestinationMarker()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("Navigation", "Error calculando ruta: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Calcula una ruta simple desde origen a destino siguiendo la red de caminos.
+     * Implementación básica: encuentra puntos cercanos en la red y conecta
+     */
+    private fun calculateRouteOnNetwork(
+        from: GeoPoint,
+        to: GeoPoint,
+        network: List<MapWay>
+    ): List<GeoPoint> {
+        if (network.isEmpty()) {
+            return listOf(from, to)
+        }
+
+        val route = mutableListOf<GeoPoint>()
+        route.add(from)
+
+        val startPoint = getNearestPointOnNetwork(from)
+        val endPoint = getNearestPointOnNetwork(to)
+
+        // Búsqueda simplificada: encontrar nodos que reduzcan la distancia al destino
+        var current = startPoint
+        val visitedNodes = mutableSetOf<String>()
+        val maxSteps = 20
+        
+        for (step in 0 until maxSteps) {
+            val distToTarget = distance(current, endPoint)
+            if (distToTarget < 0.0005) break
+
+            var bestNext: GeoPoint? = null
+            var bestDist = distToTarget
+
+            // Buscar en los caminos cercanos
+            for (way in network) {
+                for (node in way.nodes) {
+                    val nodePt = GeoPoint(node.lat, node.lon)
+                    val nodeKey = "${node.lat},${node.lon}"
+                    if (visitedNodes.contains(nodeKey)) continue
+
+                    val dFromCurrent = distance(current, nodePt)
+                    if (dFromCurrent < 0.003) { // Rango de búsqueda
+                        val dToTarget = distance(nodePt, endPoint)
+                        if (dToTarget < bestDist) {
+                            bestDist = dToTarget
+                            bestNext = nodePt
+                        }
+                    }
+                }
+            }
+
+            if (bestNext != null) {
+                current = bestNext
+                visitedNodes.add("${current.latitude},${current.longitude}")
+                route.add(current)
+            } else {
+                break 
+            }
+        }
+
+        route.add(endPoint)
+        route.add(to)
+        return route.distinctBy { "${it.latitude},${it.longitude}" }
+    }
+
+    /**
+     * Verifica si el personaje ha llegado al destino.
+     * Se llama constantemente desde el game loop.
+     */
+    fun checkDestinationArrival() {
+        val destination = _uiState.value.destinationMarker ?: return
+        val currentLoc = _uiState.value.currentLocation ?: return
+
+        val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
+        if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) {
+            // El personaje llegó!
+            clearDestinationMarker()
         }
     }
 }

@@ -17,16 +17,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Architecture
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -108,6 +112,7 @@ fun WorldMapScreen(
         )
     }
     val webViewRef = remember { mutableStateOf<WebView?>(null) }
+    val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     LaunchedEffect(uiState.isUserPanningMap) {
         if (!uiState.isUserPanningMap) {
@@ -135,6 +140,7 @@ fun WorldMapScreen(
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(true)
                         controller.setZoom(uiState.zoomLevel)
+                        nativeMapRef.value = this
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -158,6 +164,61 @@ fun WorldMapScreen(
                     }
 
                     view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
+
+                    // ─── DIBUJADO DE PLAYER Y DESTINO (NATIVO) ──────────────────────
+                    if (uiState.isUserPanningMap) {
+                        @Suppress("UNCHECKED_CAST")
+                        val playerMarker = (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag) as? Marker)
+                            ?: Marker(view).apply {
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                val dot = android.graphics.drawable.GradientDrawable().apply {
+                                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                                    setColor(android.graphics.Color.GREEN)
+                                    setStroke(4, android.graphics.Color.WHITE)
+                                    setSize(40, 40)
+                                }
+                                icon = dot
+                                view.setTag(ovh.gabrielhuav.pow.R.id.player_marker_tag, this)
+                                view.overlays.add(this)
+                            }
+                        uiState.currentLocation?.let { playerMarker.position = it; playerMarker.setAlpha(1f) }
+                    } else {
+                        (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag) as? Marker)?.setAlpha(0f)
+                    }
+
+                    // Marcador de Destino
+                    val destMarker = (view.getTag(ovh.gabrielhuav.pow.R.id.dest_marker_tag) as? Marker)
+                        ?: Marker(view).apply {
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                            // Usamos un icono de marcador más estándar
+                            icon = ContextCompat.getDrawable(context, android.R.drawable.ic_dialog_map)
+                            icon?.setTint(android.graphics.Color.RED)
+                            view.setTag(ovh.gabrielhuav.pow.R.id.dest_marker_tag, this)
+                            view.overlays.add(this)
+                        }
+                    
+                    if (uiState.destinationMarker != null) {
+                        destMarker.position = uiState.destinationMarker
+                        destMarker.setAlpha(1f)
+                    } else {
+                        destMarker.setAlpha(0f)
+                    }
+
+                    // Ruta (Polyline)
+                    val routeOverlay = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag) as? org.osmdroid.views.overlay.Polyline)
+                        ?: org.osmdroid.views.overlay.Polyline().apply {
+                            outlinePaint.color = android.graphics.Color.BLUE
+                            outlinePaint.strokeWidth = 5f
+                            view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag, this)
+                            view.overlays.add(0, this)
+                        }
+                    
+                    if (uiState.destinationMarker != null && uiState.routeWaypoints.isNotEmpty() && uiState.showDestinationRoute) {
+                        routeOverlay.setPoints(uiState.routeWaypoints)
+                        routeOverlay.isEnabled = true
+                    } else {
+                        routeOverlay.isEnabled = false
+                    }
 
                     val zoomDiff = abs(view.zoomLevelDouble - uiState.zoomLevel)
                     when {
@@ -464,6 +525,12 @@ fun WorldMapScreen(
                             wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
                         }
                     }
+                    
+                    // Mostrar personaje en el mapa cuando está en navegación libre
+                    uiState.currentLocation?.let {
+                        wv.evaluateJavascript("if(typeof updatePlayerMarker==='function')updatePlayerMarker(${it.latitude}, ${it.longitude}, ${uiState.isUserPanningMap});", null)
+                    }
+                    
                     val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
                     wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
                     val tileUrl = when (uiState.mapProvider) {
@@ -527,11 +594,38 @@ fun WorldMapScreen(
                     }
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs(${gson.toJson(npcPayloads)});", null)
                     wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
+                    
+                    // ─── ACTUALIZAR DESTINO Y RUTA ───────────────────────────────────
+                    // Actualizar marcador de destino
+                    val destMarker = uiState.destinationMarker
+                    if (destMarker != null) {
+                        wv.evaluateJavascript("if(typeof updateDestinationMarker==='function')updateDestinationMarker(${destMarker.latitude}, ${destMarker.longitude});", null)
+                    } else {
+                        wv.evaluateJavascript("if(typeof clearDestinationMarker==='function')clearDestinationMarker();", null)
+                    }
+                    
+                    // Actualizar modo de colocación
+                    wv.evaluateJavascript("if(typeof updateDestinationPlacingMode==='function')updateDestinationPlacingMode(${uiState.isTargetingWaypoint});", null)
+                    
+                    // Actualizar ruta
+                    if (uiState.destinationMarker != null && uiState.routeWaypoints.isNotEmpty() && uiState.showDestinationRoute) {
+                        val currentLoc = uiState.currentLocation
+                        if (currentLoc != null) {
+                            val routeJson = uiState.routeWaypoints.map { 
+                                mapOf("lat" to it.latitude, "lng" to it.longitude) 
+                            }.let { gson.toJson(it) }
+                            // Pasar el JSON como un objeto JavaScript directo (no como cadena)
+                            wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(${currentLoc.latitude}, ${currentLoc.longitude}, $routeJson, true);", null)
+                        }
+                    } else {
+                        wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(0, 0, [], false);", null)
+                    }
                 }
             )
         }
 
-        // ─── CAPA 2: Personaje principal ────────────────────────────────────
+        // NOTA: El personaje se renderiza en el centro de la pantalla SOLO cuando NO está en navegación libre
+        // Durante navegación libre, se muestra en el mapa en su última posición
         if (!uiState.isUserPanningMap) {
             PlayerCharacter(
                 uiState = uiState,
@@ -618,6 +712,105 @@ fun WorldMapScreen(
             IconButton(onClick = { viewModel.zoomOut() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
             if (uiState.isUserPanningMap) {
                 IconButton(onClick = { viewModel.centerOnPlayer() }, modifier = Modifier.background(Color(0xFF2196F3), CircleShape).size(48.dp)) { Icon(Icons.Default.Person, "Centrar en personaje", tint = Color.White) }
+            }
+            
+            // ─── BOTONES DE NAVEGACIÓN / DESTINO ──────────────────────────────
+            // SOLO MOSTRAR EN NAVEGACIÓN LIBRE
+            if (uiState.isUserPanningMap && !uiState.isDesignerMode && !uiState.isDriving) {
+                // Botón para iniciar el modo de apuntado de waypoint
+                IconButton(
+                    onClick = { viewModel.toggleWaypointTargeting(!uiState.isTargetingWaypoint) },
+                    modifier = Modifier
+                        .background(
+                            if (uiState.isTargetingWaypoint) Color(0xFFFF5722) else Color(0xFF4CAF50),
+                            CircleShape
+                        )
+                        .size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        "Apuntar waypoint",
+                        tint = Color.White
+                    )
+                }
+                
+                // Botón para limpiar waypoint (solo visible si existe y NO estamos apuntando)
+                if (uiState.destinationMarker != null && !uiState.isTargetingWaypoint) {
+                    IconButton(
+                        onClick = { viewModel.clearDestinationMarker() },
+                        modifier = Modifier
+                            .background(Color(0xFFE53935), CircleShape)
+                            .size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Eliminar destino",
+                            tint = Color.White,
+                            modifier = Modifier.rotate(45f)
+                        )
+                    }
+                }
+            }
+        }
+
+        // ─── UI DE APUNTADO DE WAYPOINT ─────────────────────────────────────
+        if (uiState.isTargetingWaypoint) {
+            // Icono de Waypoint al centro de la pantalla
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                // El icono del pin que "apunta"
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = Color(0xFFF44336),
+                        modifier = Modifier
+                            .size(48.dp)
+                            .graphicsLayer {
+                                translationY = -24.dp.toPx() // Ajustar para que la punta esté al centro
+                            }
+                    )
+                    // Punto de mira pequeño
+                    Box(modifier = Modifier.size(4.dp).background(Color.White, CircleShape))
+                }
+            }
+
+            // Botones de acción inferiores para el Waypoint
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 120.dp), // Por encima de los controles normales
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Button(
+                        onClick = { viewModel.toggleWaypointTargeting(false) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Text("CANCELAR", fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (uiState.mapProvider == MapProvider.OSM) {
+                                nativeMapRef.value?.let { mv ->
+                                    val center = mv.mapCenter
+                                    viewModel.placeDestinationMarker(center.latitude, center.longitude)
+                                }
+                            } else {
+                                webViewRef.value?.evaluateJavascript("if(window.Android && window.Android.notifyCenterForWaypoint) { var c = map.getCenter(); window.Android.notifyCenterForWaypoint(c.lat, c.lng); }", null)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                        shape = RoundedCornerShape(24.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                    ) {
+                        Text("ESTABLECER DESTINO", fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
 
@@ -863,6 +1056,101 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
             });
         }
+        
+        // ─── INDICADOR DE POSICIÓN DEL PERSONAJE EN NAVEGACIÓN LIBRE ──────────────────────────
+        var playerMarker = null;
+        function updatePlayerMarker(lat, lng, isInFreeNavigation) {
+            if (!isInFreeNavigation) {
+                if (playerMarker) { map.removeLayer(playerMarker); playerMarker = null; }
+                return;
+            }
+            if (lat === null || lng === null) return;
+            if (!playerMarker) {
+                var html = '<div style="position:relative; width:40px; height:40px; display:flex; justify-content:center; align-items:center;">' +
+                    '<div style="width:20px; height:20px; background:radial-gradient(circle at 30% 30%, #4CAF50, #2E7D32); border-radius:50%; border:3px solid #FFF; box-shadow: 0 2px 8px rgba(0,0,0,0.4);"></div>' +
+                    '</div>';
+                var icon = L.divIcon({ html: html, className: '', iconSize: [40, 40], iconAnchor: [20, 20] });
+                playerMarker = L.marker([lat, lng], { icon: icon, interactive: false, zIndexOffset: 1000 }).addTo(map);
+            } else {
+                playerMarker.setLatLng([lat, lng]);
+            }
+        }
+        
+        // ─── SISTEMA DE NAVEGACIÓN / MARCADOR DE DESTINO ──────────────────────────
+        var destinationMarker = null;
+        var destinationRoute = null;
+        var isPlacingDestinationMarker = false;
+        
+        function updateDestinationPlacingMode(isPlacing) {
+            isPlacingDestinationMarker = isPlacing;
+            var mapElement = document.getElementById('map');
+            if (mapElement) {
+                mapElement.style.cursor = isPlacing ? 'crosshair' : 'grab';
+            }
+        }
+        
+        function updateDestinationMarker(lat, lng) {
+            if (!destinationMarker) {
+                var html = '<div style="position:relative; width:32px; height:40px; display:flex; justify-content:center; align-items:flex-start;">' +
+                    '<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.3));">' +
+                    '<path d="M16 0C9.4 0 4 5.4 4 12c0 7 12 25 12 25s12-18 12-25c0-6.6-5.4-12-12-12z" fill="#F44336"/>' +
+                    '<circle cx="16" cy="12" r="5" fill="#FFF"/>' +
+                    '</svg></div>';
+                var icon = L.divIcon({ html: html, className: '', iconSize: [32, 40], iconAnchor: [16, 40] });
+                destinationMarker = L.marker([lat, lng], { icon: icon, draggable: false, zIndexOffset: 900 }).addTo(map);
+            } else {
+                destinationMarker.setLatLng([lat, lng]);
+            }
+        }
+        
+        function updateDestinationRoute(playerLat, playerLng, routePoints, showRoute) {
+            if (destinationRoute) {
+                map.removeLayer(destinationRoute);
+                destinationRoute = null;
+            }
+            
+            if (showRoute && routePoints && routePoints.length > 0) {
+                var points = [[playerLat, playerLng]];
+                for (var i = 0; i < routePoints.length; i++) {
+                    var pt = routePoints[i];
+                    if (pt && typeof pt.lat !== 'undefined' && typeof pt.lng !== 'undefined') {
+                        points.push([pt.lat, pt.lng]);
+                    }
+                }
+                
+                if (points.length > 1) {
+                    destinationRoute = L.polyline(points, {
+                        color: '#2196F3',
+                        weight: 3,
+                        opacity: 0.7,
+                        dashArray: '5, 5',
+                        lineCap: 'round',
+                        lineJoin: 'round'
+                    }).addTo(map);
+                }
+            }
+        }
+        
+        function clearDestinationMarker() {
+            if (destinationMarker) {
+                map.removeLayer(destinationMarker);
+                destinationMarker = null;
+            }
+            if (destinationRoute) {
+                map.removeLayer(destinationRoute);
+                destinationRoute = null;
+            }
+            isPlacingDestinationMarker = false;
+            updateDestinationPlacingMode(false);
+        }
+        
+        map.on('click', function(e) {
+            if (isPlacingDestinationMarker && window.Android && window.Android.notifyMapClick) {
+                window.Android.notifyMapClick(e.latlng.lat, e.latlng.lng);
+                isPlacingDestinationMarker = false;
+                updateDestinationPlacingMode(false);
+            }
+        });
     </script>
 </body>
 </html>
@@ -871,6 +1159,12 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 private class MapJsBridge(private val vm: WorldMapViewModel) {
     @JavascriptInterface fun notifyMapPanStart() { vm.onMapPanStart() }
     @JavascriptInterface fun notifyMapPanEnd() { vm.onMapPanEnd() }
+    @JavascriptInterface fun notifyMapClick(latitude: Double, longitude: Double) {
+        vm.placeDestinationMarker(latitude, longitude)
+    }
+    @JavascriptInterface fun notifyCenterForWaypoint(latitude: Double, longitude: Double) {
+        vm.placeDestinationMarker(latitude, longitude)
+    }
 }
 
 private class ExactSizeDrawable(

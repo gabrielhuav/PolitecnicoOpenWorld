@@ -73,5 +73,19 @@ data class WorldMapState(
     val nearbyCollectible: ActiveCollectible? = null,
     // El objeto que acabamos de recoger para mostrar el Pop-up divertido
     val showClaimedPopupFor: ActiveCollectible? = null,
-    val interactionPrompt: String? = null // Para mostrar texto 3 segundos
+    val interactionPrompt: String? = null, // Para mostrar texto 3 segundos
+
+    // ─── NAVEGACIÓN / MARCADOR DE DESTINO ──────────────────────────────────
+    // Coordenada del marcador de destino (como en Google Maps)
+    val destinationMarker: GeoPoint? = null,
+    // Si está activo el modo de colocación de marcador (el icono aparece al centro para apuntar)
+    val isPlacingDestinationMarker: Boolean = false,
+    // Indica si el usuario está activamente moviendo el mapa para centrar el waypoint
+    val isTargetingWaypoint: Boolean = false,
+    // Lista de puntos (waypoints) que conforman la ruta desde el personaje al destino
+    val routeWaypoints: List<GeoPoint> = emptyList(),
+    // Si mostrar/ocultar la ruta visualmente
+    val showDestinationRoute: Boolean = true,
+    // Distancia en metros a la que se considera que el personaje llegó al destino
+    val destinationArrivalThreshold: Double = 20.0
 )
