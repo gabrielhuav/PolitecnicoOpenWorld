@@ -170,11 +170,12 @@ private fun DPadButton(icon: androidx.compose.ui.graphics.vector.ImageVector, on
 fun ActionButtonsController(
     modifier: Modifier = Modifier,
     backgroundAlpha: Float = 0.6f,
-    onActionChanged: (GameAction, Boolean) -> Unit
+    onActionChanged: (GameAction, Boolean) -> Unit,
+    onClaimCollectiblePressed: () -> Unit // <--- Parámetro recibido
 ) {
     Box(
         modifier = modifier
-            .size(ControllerBaseSize) // uso de constante
+            .size(ControllerBaseSize)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
         contentAlignment = Alignment.Center
@@ -192,7 +193,15 @@ fun ActionButtonsController(
                 ActionButton(
                     text = "X",
                     color = Color(0xFF3498DB),
-                    onHoldEvent = { isPressed -> onActionChanged(GameAction.X, isPressed) }
+                    onHoldEvent = { isPressed ->
+                        // Mantiene el comportamiento original de tu juego
+                        onActionChanged(GameAction.X, isPressed)
+
+                        // Intenta recoger el coleccionable solo al bajar el dedo
+                        if (isPressed) {
+                            onClaimCollectiblePressed()
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.size(48.dp))

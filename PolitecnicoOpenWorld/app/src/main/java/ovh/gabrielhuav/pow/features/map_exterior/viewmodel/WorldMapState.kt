@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.CarModel
 import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.domain.models.Npc
@@ -61,6 +62,12 @@ data class WorldMapState(
     val isDesignerMode: Boolean = false,
     val selectedLandmarkId: Long? = null,
     val showAssetPicker: Boolean = false,
+
+    // ─── COLECCIONABLES ──────────────────────────────────────────────────────
+    val activeCollectibles: List<ActiveCollectible> = emptyList(),
+    val nearbyCollectible: ActiveCollectible? = null,
+    val showClaimedPopupFor: ActiveCollectible? = null,
+    val interactionPrompt: String? = null,
 
     // ─── WAYPOINTS ───────────────────────────────────────────────────────────
     val waypoints: List<Waypoint> = emptyList(),

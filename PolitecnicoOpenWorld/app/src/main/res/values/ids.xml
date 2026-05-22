@@ -2,4 +2,5 @@
 <resources>
     <item name="landmark_cache_tag" type="id" />
     <item name="waypoint_cache_tag" type="id" />
+    <item name="collectible_cache_tag" type="id" />
 </resources>
