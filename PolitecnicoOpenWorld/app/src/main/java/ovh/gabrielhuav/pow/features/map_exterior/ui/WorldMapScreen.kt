@@ -723,18 +723,30 @@ fun WorldMapScreen(
             ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
         }
 
-        // Menú de teletransporte
+        // ─── MENÚ DE VIAJE RÁPIDO (TELEPORT) DINÁMICO ─────────────────────────────────────
         if (uiState.showTeleportMenu) {
             AlertDialog(
                 onDismissRequest = { viewModel.toggleTeleportMenu(false) },
-                title = { Text("Menú de Viaje Rápido", fontWeight = FontWeight.Bold) },
+                title = { Text("Puntos de Teletransporte", fontWeight = FontWeight.Bold) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Selecciona tu destino:")
-                        Button(
-                            onClick = { viewModel.teleportTo(19.505700, -99.145618) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("ESCOM") }
+                        Text("Selecciona tu estatua o destino:", fontSize = 14.sp)
+
+                        // El LazyColumn permite que la lista sea scrolleable si agregas muchas zonas
+                        androidx.compose.foundation.lazy.LazyColumn(
+                            modifier = Modifier.fillMaxHeight(0.5f), // Limita la altura a la mitad de la pantalla
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(ovh.gabrielhuav.pow.domain.models.TeleportCatalog.ZONAS.size) { index ->
+                                val zone = ovh.gabrielhuav.pow.domain.models.TeleportCatalog.ZONAS[index]
+                                Button(
+                                    onClick = { viewModel.teleportTo(zone.latitude, zone.longitude) },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(zone.name)
+                                }
+                            }
+                        }
                     }
                 },
                 confirmButton = {

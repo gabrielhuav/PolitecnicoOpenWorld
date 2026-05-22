@@ -664,7 +664,7 @@ class WorldMapViewModel(
         }
     }
 
-    private fun maybeRefetchRoadNetwork(currentLoc: GeoPoint) {
+    private fun maybeRefetchRoadNetwork(currentLoc: org.osmdroid.util.GeoPoint) {
         val moved = if (lastNetworkFetchLocation != null)
             distance(lastNetworkFetchLocation!!, currentLoc) else Double.MAX_VALUE
         if (moved < REFETCH_DISTANCE_DEG) return
@@ -674,29 +674,36 @@ class WorldMapViewModel(
         if (!isFetchingNetwork.compareAndSet(false, true)) return
         lastFetchAttemptMs = now
 
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val cached = roadNetworkCache.get(currentLoc.latitude, currentLoc.longitude)
                 if (cached != null) {
-                    withContext(Dispatchers.Main) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         roadNetwork = cached
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
-                        _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                        // AÑADIDO: Liberar controles (isRoadNetworkReady = true)
+                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                     }
                 } else {
-                    withContext(Dispatchers.Main) {
-                        _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.NETWORK) }
                     }
                     val network = overpassRepository.fetchRoadNetwork(
                         currentLoc.latitude, currentLoc.longitude)
                     if (network.isNotEmpty()) {
                         roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
-                        withContext(Dispatchers.Main) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             roadNetwork = network
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
-                            _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                            // AÑADIDO: Liberar controles tras descargar de internet
+                            _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
+                        }
+                    } else {
+                        // AÑADIDO: Si la zona no tiene caminos (campo abierto), liberar de todas formas para no trabar el juego
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            _uiState.update { it.copy(isRoadNetworkReady = true) }
                         }
                     }
                 }
@@ -1256,13 +1263,17 @@ class WorldMapViewModel(
     }
 
     fun teleportTo(lat: Double, lon: Double) {
-        val newLocation = GeoPoint(lat, lon)
+        val newLocation = org.osmdroid.util.GeoPoint(lat, lon)
         _uiState.update {
             it.copy(
                 currentLocation = newLocation,
-                showTeleportMenu = false // Cerramos el menú tras hacer TP
+                showTeleportMenu = false, // Cerramos el menú
+                isRoadNetworkReady = false // BLOQUEAMOS el joystick temporalmente
             )
         }
+
+        // Forzamos al motor a descargar los caminos de esta nueva zona inmediatamente
+        lastNetworkFetchLocation = null
     }
 
     fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
