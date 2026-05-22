@@ -73,9 +73,9 @@ fun WorldMapScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val base64Cache = remember { mutableMapOf<String, String>() }
-    val widthCache = remember { mutableMapOf<String, Float>() }
-    val heightCache = remember { mutableMapOf<String, Float>() }
+    val base64Cache = remember { java.util.concurrent.ConcurrentHashMap<String, String>() }
+    val widthCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
+    val heightCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
@@ -559,20 +559,24 @@ fun WorldMapScreen(
                             val frameIndex = (angle / 7.5f).roundToInt() % 48
                             val cacheKey = "${npc.carModel?.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
 
-                            val base64Image = base64Cache.getOrPut(cacheKey) {
-                                val drawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
-                                    context, angle, npc.carColor, highResRenderScale, npc.carModel
-                                )
-                                val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
-                                if (bitmap != null) {
-                                    widthCache[cacheKey] = (bitmap.width / screenDensity) / screenDensity
-                                    heightCache[cacheKey] = (bitmap.height / screenDensity) / screenDensity
-                                    val outputStream = java.io.ByteArrayOutputStream()
-                                    bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, outputStream)
-                                    "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
-                                } else ""
+                            val base64Image = base64Cache[cacheKey]
+                            if (base64Image == null) {
+                                base64Cache[cacheKey] = ""
+                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                    val drawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
+                                        context, angle, npc.carColor, highResRenderScale, npc.carModel
+                                    )
+                                    val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                    if (bitmap != null) {
+                                        widthCache[cacheKey] = (bitmap.width / screenDensity) / screenDensity
+                                        heightCache[cacheKey] = (bitmap.height / screenDensity) / screenDensity
+                                        val outputStream = java.io.ByteArrayOutputStream()
+                                        bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, outputStream)
+                                        base64Cache[cacheKey] = "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
+                                    }
+                                }
                             }
-                            if (!registeredWebImages.contains(cacheKey) && base64Image.isNotEmpty()) {
+                            if (base64Image != null && base64Image.isNotEmpty() && !registeredWebImages.contains(cacheKey)) {
                                 wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                 registeredWebImages.add(cacheKey)
                             }
@@ -591,15 +595,19 @@ fun WorldMapScreen(
                                 .getFrameIndex(context, visualConfig, currentlyMoving, timeMs) ?: 0
                             val cacheKey = "npc_mod_${visualConfig.bodyFolder}_${visualConfig.bodyPrefix}_${visualConfig.hairId}_${visualConfig.hairColor.value}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${npc.facingRight}_${frameIndex}_${screenDensity}"
 
-                            val base64Image = base64Cache.getOrPut(cacheKey) {
-                                val bitmap = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.generateAssembledBitmap(context, visualConfig, currentlyMoving, timeMs)
-                                if (bitmap != null) {
-                                    val outputStream = java.io.ByteArrayOutputStream()
-                                    bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, outputStream)
-                                    "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
-                                } else ""
+                            val base64Image = base64Cache[cacheKey]
+                            if (base64Image == null) {
+                                base64Cache[cacheKey] = ""
+                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                    val bitmap = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.generateAssembledBitmap(context, visualConfig, currentlyMoving, timeMs)
+                                    if (bitmap != null) {
+                                        val outputStream = java.io.ByteArrayOutputStream()
+                                        bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, outputStream)
+                                        base64Cache[cacheKey] = "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
+                                    }
+                                }
                             }
-                            if (!registeredWebImages.contains(cacheKey) && base64Image.isNotEmpty()) {
+                            if (base64Image != null && base64Image.isNotEmpty() && !registeredWebImages.contains(cacheKey)) {
                                 wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                 registeredWebImages.add(cacheKey)
                             }
