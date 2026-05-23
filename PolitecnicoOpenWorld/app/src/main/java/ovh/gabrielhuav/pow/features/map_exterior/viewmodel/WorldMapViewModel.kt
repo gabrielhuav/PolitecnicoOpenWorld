@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.update
 import org.osmdroid.util.GeoPoint
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import ovh.gabrielhuav.pow.domain.models.Landmark
+import ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager
 import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -68,7 +70,8 @@ data class MultiplayerPlayer(
     val isDriving: Boolean = false,
     val carModel: String? = null,
     val carColor: Int? = null,
-    val vehicleRotation: Float? = null
+    val vehicleRotation: Float? = null,
+    val health: Float = 100f
 )
 
 // Clase para empaquetar un NPC en el JSON.
@@ -113,7 +116,10 @@ private data class ServerMessage(
     val npcId: String? = null,
     val orphanedNpcs: List<String>? = null,
     val activeNpcIds: List<String>? = null,
-    val isZoneHost: Boolean? = null
+    val isZoneHost: Boolean? = null,
+    val health: Float? = null,
+    val targetId: String? = null,
+    val damage: Float? = null,
 )
 
 class WorldMapViewModel(
@@ -191,6 +197,13 @@ class WorldMapViewModel(
     private val ATTACK_COOLDOWN_MS = 2400L // Tiempo entre cada puñetazo para sincronizar con la animación
 
     private val ATTACK_RADIUS = 0.00015     // Radio geográfico de alcance del golpe (corta distancia)
+
+    // 🏥 Coordenadas reales de Hospitales / Servicios Médicos (Ejemplo en IPN Zacatenco)
+    private val hospitalRespawnPoints = listOf(
+        GeoPoint(19.5034, -99.1469), // Servicio Médico cerca de ESCOM
+        GeoPoint(19.4990, -99.1350), // Centro Médico alterno 1
+        GeoPoint(19.5070, -99.1400)  // Centro Médico alterno 2
+    )
 
     // El game loop arranca aquí, atado al ciclo de vida del ViewModel (no del Composable).
     // Así, navegar a Settings y volver no detiene a los NPCs.
@@ -323,6 +336,13 @@ class WorldMapViewModel(
                     }
                 }
 
+                "PLAYER_DAMAGE" -> {
+                    // Si el golpe era para nosotros, recibimos el daño localmente
+                    if (msg.targetId == myPlayerUUID && msg.damage != null) {
+                        takeDamage(msg.damage)
+                    }
+                }
+
                 else -> {
                     // Si es una actualización de posición de otro JUGADOR
                     if (msg.id != null && msg.id != myPlayerUUID && msg.x != null && msg.y != null) {
@@ -359,7 +379,9 @@ class WorldMapViewModel(
                             carModel = remoteCarModel, // <- El compilador ya aceptará esto
                             carColor = msg.carColor ?: 0xFFFFFFFF.toInt(),
                             visualConfig = if (!isRemoteDriving) multiplayerConfig else null,
-                            displayName = msg.displayName
+                            displayName = msg.displayName,
+                            health = msg.health ?: 100f,
+                            isDying = (msg.health ?: 100f) <= 0f
                         )
                         remoteEntities[msg.id] = otherPlayer
                         updateNpcsState()
@@ -581,7 +603,8 @@ class WorldMapViewModel(
                                                 isDriving = _uiState.value.isDriving,
                                                 carModel = _uiState.value.currentVehicleModel?.name,
                                                 carColor = _uiState.value.currentVehicleColor,
-                                                vehicleRotation = _uiState.value.vehicleRotation
+                                                vehicleRotation = _uiState.value.vehicleRotation,
+                                                health = playerHealth
                                             )
                                             ws.sendMessage(gson.toJson(myData))
 
@@ -662,7 +685,7 @@ class WorldMapViewModel(
         }
     }
 
-    private fun maybeRefetchRoadNetwork(currentLoc: GeoPoint) {
+    private fun maybeRefetchRoadNetwork(currentLoc: org.osmdroid.util.GeoPoint) {
         val moved = if (lastNetworkFetchLocation != null)
             distance(lastNetworkFetchLocation!!, currentLoc) else Double.MAX_VALUE
         if (moved < REFETCH_DISTANCE_DEG) return
@@ -672,31 +695,43 @@ class WorldMapViewModel(
         if (!isFetchingNetwork.compareAndSet(false, true)) return
         lastFetchAttemptMs = now
 
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val cached = roadNetworkCache.get(currentLoc.latitude, currentLoc.longitude)
                 if (cached != null) {
-                    withContext(Dispatchers.Main) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         roadNetwork = cached
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
-                        _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                        // AÑADIDO: Liberar controles (isRoadNetworkReady = true)
+                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                     }
                 } else {
-                    withContext(Dispatchers.Main) {
-                        _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.NETWORK) }
                     }
                     val network = overpassRepository.fetchRoadNetwork(
                         currentLoc.latitude, currentLoc.longitude)
                     if (network.isNotEmpty()) {
                         roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
-                        withContext(Dispatchers.Main) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             roadNetwork = network
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
-                            _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                            // AÑADIDO: Liberar controles tras descargar de internet
+                            _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
+                        }
+                    } else {
+                        // AÑADIDO: Si la zona no tiene caminos (campo abierto), liberar de todas formas para no trabar el juego
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            _uiState.update { it.copy(isRoadNetworkReady = true) }
                         }
                     }
+                }
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error refetching road network", e)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _uiState.update { it.copy(isRoadNetworkReady = true) }
                 }
             } finally {
                 isFetchingNetwork.set(false)
@@ -1003,32 +1038,41 @@ class WorldMapViewModel(
     fun loadLandmarks(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Cargamos el catálogo JSON a memoria
-                ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.loadCatalog(context)
+                // 1. Cargamos el catálogo de plantillas (medidas) a memoria
+                LandmarkCatalogManager.loadCatalog(context)
 
-                val database = PowDatabase.getInstance(context)
+                val database = ovh.gabrielhuav.pow.data.local.room.PowDatabase.getInstance(context)
                 val dao = database.landmarkDao()
                 var entities = dao.getAllLandmarks()
 
+                // 2. Si la base de datos está vacía (primera instalación)
                 if (entities.isEmpty()) {
-                    val escomDefault = LandmarkEntity(
-                        name = "ESCOM",
-                        latitude = 19.504505,
-                        longitude = -99.146911,
-                        assetPath = "BUILDINGS/IPN/building_escom.webp",
-                        scaleFactor = 0.15f
-                    )
-                    dao.insertLandmarks(listOf(escomDefault))
-                    entities = dao.getAllLandmarks()
+                    try {
+                        // Leemos el mapa completo que acomodaste y exportaste
+                        val jsonString = context.assets.open("default_landmarks.json").bufferedReader().use { it.readText() }
+
+                        // Convertimos ese JSON en una lista de LandmarkEntity listos para BD
+                        val type = object : TypeToken<List<LandmarkEntity>>() {}.type
+                        val defaultEntities: List<LandmarkEntity> = Gson().fromJson(jsonString, type)
+
+                        // Insertamos todos los edificios de golpe
+                        dao.insertLandmarks(defaultEntities)
+                        entities = dao.getAllLandmarks() // Recargamos la variable con la BD ya llena
+
+                        Log.d("WorldMapViewModel", "Mapa sembrado con éxito desde default_landmarks.json con ${entities.size} edificios.")
+                    } catch (e: java.io.FileNotFoundException) {
+                        Log.w("WorldMapViewModel", "Archivo default_landmarks.json no encontrado. El mapa iniciará vacío.")
+                        // NOTA: Si aún no creas el archivo, la app no tronará, simplemente el mapa no tendrá edificios.
+                    } catch (e: Exception) {
+                        Log.e("WorldMapViewModel", "Error leyendo default_landmarks.json", e)
+                    }
                 }
 
-                val templatesByAssetPath = ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager.availableAssets
-                    .associateBy { it.assetPath }
-
+                // 3. Fusionamos los datos de Room con las medidas del Catálogo
+                val templatesByAssetPath = LandmarkCatalogManager.availableAssets.associateBy { it.assetPath }
                 val domainLandmarks = entities.map { entity ->
-                    // 1. Buscamos este edificio en el catálogo JSON usando su assetPath
                     val template = templatesByAssetPath[entity.assetPath]
-                    // 2. Creamos el Landmark inyectándole las medidas que encontramos en el JSON
+
                     Landmark(
                         id = entity.id,
                         name = entity.name,
@@ -1036,19 +1080,20 @@ class WorldMapViewModel(
                         assetPath = entity.assetPath,
                         scaleFactor = entity.scaleFactor,
                         rotationAngle = entity.rotationAngle,
-                        // Si lo encuentra usa las medidas del JSON, si no, usa 100.0 por defecto para que no truene
+                        // Valores fallback de 100f para evitar crasheos si falta una plantilla
                         baseWidthMeters = template?.baseWidthMeters ?: 100f,
                         baseHeightMeters = template?.baseHeightMeters ?: 100f
                     )
                 }
 
-                android.util.Log.d("Landmarks", "Cargados ${domainLandmarks.size} landmarks desde Room")
+                Log.d("Landmarks", "Enviando ${domainLandmarks.size} landmarks a la Interfaz Gráfica")
 
+                // 4. Actualizamos el UI para que el mapa dibuje todo
                 _uiState.update { currentState ->
                     currentState.copy(landmarks = domainLandmarks)
                 }
             } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error al cargar las estructuras estáticas", e)
+                Log.e("WorldMapViewModel", "Error fatal al cargar las estructuras estáticas", e)
             }
         }
     }
@@ -1260,13 +1305,18 @@ class WorldMapViewModel(
     }
 
     fun teleportTo(lat: Double, lon: Double) {
-        val newLocation = GeoPoint(lat, lon)
+        val newLocation = org.osmdroid.util.GeoPoint(lat, lon)
         _uiState.update {
             it.copy(
                 currentLocation = newLocation,
-                showTeleportMenu = false // Cerramos el menú tras hacer TP
+                showTeleportMenu = false, // Cerramos el menú
+                isRoadNetworkReady = false // BLOQUEAMOS el joystick temporalmente
             )
         }
+
+        // Forzamos al motor a descargar los caminos de esta nueva zona inmediatamente
+        lastNetworkFetchLocation = null
+        lastFetchAttemptMs = 0L
     }
 
     fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
@@ -1415,7 +1465,27 @@ class WorldMapViewModel(
     }
 
     private fun triggerWastedSequence() {
-        // Aquí implementaremos la Fase 3: Pantalla "WASTED" y búsqueda de hospital
+        viewModelScope.launch(Dispatchers.Main) {
+            _uiState.update { it.copy(showWastedScreen = true) }
+            delay(4000L) // Tiempo del WASTED
+
+            val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
+
+            // BUSCAR EL MÁS CERCANO:
+            val nearestHospital = hospitalRespawnPoints.minByOrNull {
+                // Usamos la función distancia que ya se tiene en el ViewModel
+                distance(deathLoc, it)
+            } ?: hospitalRespawnPoints.first()
+
+            // TELETRANSPORTE
+            _uiState.update {
+                it.copy(
+                    currentLocation = nearestHospital,
+                    showWastedScreen = false
+                )
+            }
+            playerHealth = maxPlayerHealth // Vida restaurada
+        }
     }
 
     fun showInitialHealthBar() {
@@ -1428,50 +1498,64 @@ class WorldMapViewModel(
         if (now - lastAttackTime < ATTACK_COOLDOWN_MS) return
         lastAttackTime = now
 
-
-        // 🌟 Envolvemos en una corrutina para sincronizar con la animación visual
         viewModelScope.launch(Dispatchers.Default) {
-
-            delay(300L) // Esperamos 300ms a que el puño "conecte" en la animación
+            delay(300L) // Esperamos 300ms a que el puño "conecte"
 
             val playerLoc = _uiState.value.currentLocation ?: return@launch
 
-            // Solo atacamos NPCs reales: no muriendo, en rango, de tipo PERSON y sin displayName de jugador remoto
+            // 1. Quitamos la restricción del displayName para que sí detecte jugadores reales
             val targetNpcEntry = remoteEntities.entries
                 .filter {
                     !it.value.isDying &&
-                        it.value.type == NpcType.PERSON &&
-                        (it.value.displayName?.isBlank() != false) &&
-                        distance(playerLoc, it.value.location) <= ATTACK_RADIUS
+                            it.value.type == NpcType.PERSON &&
+                            distance(playerLoc, it.value.location) <= ATTACK_RADIUS
                 }
                 .minByOrNull { distance(playerLoc, it.value.location) }
 
             if (targetNpcEntry != null) {
                 val npcId = targetNpcEntry.key
                 val currentNpc = targetNpcEntry.value
+                val isRemotePlayer = !currentNpc.displayName.isNullOrBlank()
 
-                val damage = PLAYER_PUNCH_DAMAGE
-                val newHealth = (currentNpc.health - damage).coerceAtLeast(0f)
-
-                if (newHealth <= 0f) {
-                    // Inicia muerte progresiva
-                    remoteEntities[npcId] = currentNpc.copy(health = 0f, isDying = true)
-                    updateNpcsState()
-
-                    delay(1000L) // Espera a que termine el fade-out
-                    remoteEntities.remove(npcId)
-
+                if (isRemotePlayer) {
+                    // 2. ES UN JUGADOR REAL: Disparamos el WebSocket
                     try {
                         webSocketManager?.sendMessage(
-                            gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
+                            gson.toJson(
+                                mapOf(
+                                    "type" to "PLAYER_DAMAGE",
+                                    "targetId" to npcId,
+                                    "damage" to PLAYER_PUNCH_DAMAGE
+                                )
+                            )
                         )
                     } catch (e: Exception) {
-                        Log.e("Combat", "Error enviando NPC_DESTROY: ${e.message}")
+                        Log.e("Combat", "Error enviando PLAYER_DAMAGE: ${e.message}")
                     }
-                    updateNpcsState()
                 } else {
-                    remoteEntities[npcId] = currentNpc.copy(health = newHealth)
-                    updateNpcsState()
+                    // 3. ES UN NPC: Lógica local (se mantiene intacta)
+                    val damage = PLAYER_PUNCH_DAMAGE
+                    val newHealth = (currentNpc.health - damage).coerceAtLeast(0f)
+
+                    if (newHealth <= 0f) {
+                        remoteEntities[npcId] = currentNpc.copy(health = 0f, isDying = true)
+                        updateNpcsState()
+
+                        delay(1000L)
+                        remoteEntities.remove(npcId)
+
+                        try {
+                            webSocketManager?.sendMessage(
+                                gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
+                            )
+                        } catch (e: Exception) {
+                            Log.e("Combat", "Error enviando NPC_DESTROY para npcId=$npcId", e)
+                        }
+                        updateNpcsState()
+                    } else {
+                        remoteEntities[npcId] = currentNpc.copy(health = newHealth)
+                        updateNpcsState()
+                    }
                 }
             }
         }
