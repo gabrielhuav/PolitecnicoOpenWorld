@@ -305,7 +305,7 @@ fun WorldMapScreen(
                                         }
 
                                         marker.icon = cachedIcon
-                                        marker.rotation = npc.rotationAngle
+                                        marker.rotation = 0f
                                     }
                                 } else {
                                     marker.setAlpha(0f)
@@ -621,7 +621,7 @@ fun WorldMapScreen(
                             com.google.maps.android.compose.Marker(
                                 state = MarkerState(position = LatLng(npc.location.latitude, npc.location.longitude)),
                                 icon = iconDescriptor,
-                                rotation = if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) 0f else npc.rotationAngle,
+                                rotation = 0f,
                                 anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                                 flat = true,
                                 alpha = if (npc.isDying) 0.5f else 1.0f
@@ -1351,7 +1351,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                             wrapper.style.height = finalH + 'px';
                             if (npc.flip !== undefined) img.style.transform = 'scaleX(' + npc.flip + ')';
                         } else if (wrapper && npc.type !== 'CAR' && npc.type !== 'MODULAR') {
-                            wrapper.style.transform = 'translate(-50%, -50%) rotate(' + npc.rot + 'deg)';
+                            wrapper.style.transform = 'translate(-50%, -50%) rotate(0deg)';
                         }
                     }
                 } else {
@@ -1363,7 +1363,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                         html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px;">' + nameTagHtml + '<img src="'+cachedImg+'" style="width:100%; height:100%; display:block; ' + flipStyle + '"></div>';
                     } else {
                         var pUrl = 'file:///android_asset/' + npc.drawable + '.svg';
-                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate('+npc.rot+'deg); width:24px; height:24px;">' + nameTagHtml + '<img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
+                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate(0deg); width:24px; height:24px;">' + nameTagHtml + '<img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
                     }
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0, 0] });
                     npcMarkers[npc.id] = L.marker([npc.lat, npc.lng], { icon: icon }).addTo(map);
