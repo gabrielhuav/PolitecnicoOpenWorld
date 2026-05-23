@@ -5,10 +5,5 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     // KSP debe declararse aquí también con apply false
     alias(libs.plugins.ksp) apply false
-}
-
-buildscript {
-    dependencies {
-        classpath("com.google.android.libraries.mapsplatform.secrets-gradle-plugin:secrets-gradle-plugin:2.0.1")
-    }
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin") version "2.0.1" apply false
 }

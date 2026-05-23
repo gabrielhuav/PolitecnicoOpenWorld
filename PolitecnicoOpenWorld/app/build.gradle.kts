@@ -102,6 +102,5 @@ secrets {
 
     // Configure which keys should be ignored by the plugin by providing regular expressions.
     // "sdk.dir" is ignored by default.
-    ignoreList.add("keyToIgnore") // Ignore the key "keyToIgnore"
     ignoreList.add("sdk.*")       // Ignore all keys matching the regexp "sdk.*"
 }

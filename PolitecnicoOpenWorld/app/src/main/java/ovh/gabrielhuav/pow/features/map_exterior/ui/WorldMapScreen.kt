@@ -47,7 +47,6 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.GroundOverlay
 import com.google.maps.android.compose.GroundOverlayPosition
-import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -66,18 +65,15 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import org.osmdroid.util.BoundingBox
-import org.osmdroid.views.overlay.GroundOverlay
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.math.atan2
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.maps.android.compose.MapProperties
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
@@ -531,17 +527,21 @@ fun WorldMapScreen(
                 val cameraPositionState = rememberCameraPositionState()
 
                 // Sincronizar cámara con la ubicación actual del jugador, zoom y rotación
-                SideEffect {
-                    val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
-                    val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
-                    val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
-                    
-                    cameraPositionState.position = CameraPosition.builder()
+                val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
+                val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
+                val targetZoom = uiState.zoomLevel.toFloat()
+                val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
+                
+                LaunchedEffect(targetLat, targetLng, targetZoom, targetBearing) {
+                    val newPosition = CameraPosition.builder()
                         .target(LatLng(targetLat, targetLng))
-                        .zoom(uiState.zoomLevel.toFloat())
+                        .zoom(targetZoom)
                         .bearing(targetBearing)
                         .tilt(0f)
                         .build()
+                    cameraPositionState.move(
+                        com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(newPosition)
+                    )
                 }
 
                 val propiedadesMap = remember {
@@ -636,6 +636,11 @@ fun WorldMapScreen(
                                 )
 
                                 // Detectar arrastre y actualizar el ViewModel
+                                LaunchedEffect(markerState.dragState) {
+                                    if (markerState.dragState == com.google.maps.android.compose.DragState.START || markerState.dragState == com.google.maps.android.compose.DragState.DRAG) {
+                                        viewModel.selectLandmark(landmark.id)
+                                    }
+                                }
                                 LaunchedEffect(markerState.position) {
                                     if (markerState.dragState == com.google.maps.android.compose.DragState.DRAG) {
                                         val dLat = markerState.position.latitude - landmark.location.latitude
