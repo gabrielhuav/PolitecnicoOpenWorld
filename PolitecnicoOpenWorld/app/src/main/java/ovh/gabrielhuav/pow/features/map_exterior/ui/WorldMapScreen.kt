@@ -521,14 +521,21 @@ fun WorldMapScreen(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+
+                        // Configuración de permisos expandida
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
+                        settings.allowFileAccessFromFileURLs = true
+                        settings.allowUniversalAccessFromFileURLs = true
                         settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+
                         webViewClient = cachingClient
                         val lat = uiState.currentLocation?.latitude ?: 0.0
                         val lng = uiState.currentLocation?.longitude ?: 0.0
-                        loadDataWithBaseURL(null, buildHtml(lat, lng, uiState.zoomLevel.toInt()), "text/html", "UTF-8", null)
+
+                        // Usamos un origen local en lugar de 'null' para evitar bloqueos CORS
+                        loadDataWithBaseURL("https://localhost/", buildHtml(lat, lng, uiState.zoomLevel.toInt()), "text/html", "UTF-8", null)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -628,6 +635,22 @@ fun WorldMapScreen(
                     val npcsJson = gson.toJson(npcPayloads)
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
                     wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
+
+                    // Sincronización de Landmarks (Edificios)
+                    val landmarksPayload = uiState.landmarks.map {
+                        LandmarkWebPayload(
+                            id = it.id.toString(),
+                            lat = it.location.latitude,
+                            lng = it.location.longitude,
+                            rotation = it.rotationAngle,
+                            widthMeters = it.baseWidthMeters,
+                            heightMeters = it.baseHeightMeters,
+                            scale = it.scaleFactor,
+                            assetPath = it.assetPath
+                        )
+                    }
+                    val landmarksJson = gson.toJson(landmarksPayload)
+                    wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks(${JSONObject.quote(landmarksJson)});", null)
                 }
             )
         }
@@ -1036,6 +1059,17 @@ private data class NpcWebPayload(
     val name: String? = null, val width: Float? = null, val height: Float? = null
 )
 
+private data class LandmarkWebPayload(
+    val id: String, // Cambio de Long a String, evita que JavaScript corrompa los IDs de Kotlin si son números muy grandes
+    val lat: Double,
+    val lng: Double,
+    val rotation: Float,
+    val widthMeters: Float,
+    val heightMeters: Float,
+    val scale: Float,
+    val assetPath: String
+)
+
 private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <!DOCTYPE html>
 <html>
@@ -1056,17 +1090,94 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
     <script>
         var map = L.map('map', { zoomControl: false, attributionControl: false, dragging: true, maxZoom: 22 }).setView([$lat, $lng], $zoom);
         var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 18 }).addTo(map);
+        
         var npcMarkers = {};
+        var collectibleMarkers = {};
+        var landmarkMarkers = {};
+
         var isZooming = false;
         map.on('zoomstart', function() { isZooming = true; });
         map.on('zoomend', function() { isZooming = false; });
+        
+        map.on('zoom', function() { resizeLandmarks(); });
+
         function updateMapView(lat, lng, z) { if (!isZooming) map.setView([lat, lng], z, { animate: false }); }
         function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c; }); }
-        var collectibleMarkers = {};
 
+        // --- NUEVA LÓGICA DE EDIFICIOS ---
+        function updateLandmarks(jsonStr) {
+            var data = JSON.parse(jsonStr);
+            var currentIds = new Set(data.map(function(l){ return String(l.id); })); 
+
+            for (var id in landmarkMarkers) {
+                if (!currentIds.has(id)) {
+                    map.removeLayer(landmarkMarkers[id]);
+                    delete landmarkMarkers[id];
+                }
+            }
+
+            data.forEach(function(lm) {
+                var pUrl = 'file:///android_asset/' + lm.assetPath;
+                var exactWidthMeters = lm.widthMeters * lm.scale;
+                var exactHeightMeters = lm.heightMeters * lm.scale;
+
+                if (landmarkMarkers[lm.id]) {
+                    landmarkMarkers[lm.id].setLatLng([lm.lat, lm.lng]);
+                    var el = landmarkMarkers[lm.id].getElement();
+                    if (el) {
+                        var wrapper = el.querySelector('.lm-c');
+                        if (wrapper) {
+                            wrapper.dataset.wMeters = exactWidthMeters;
+                            wrapper.dataset.hMeters = exactHeightMeters;
+                            wrapper.dataset.rot = lm.rotation;
+                            wrapper.dataset.lat = lm.lat;
+                        }
+                    }
+                } else {
+                    var html = '<div class="lm-c" ' +
+                               'data-w-meters="' + exactWidthMeters + '" ' +
+                               'data-h-meters="' + exactHeightMeters + '" ' +
+                               'data-rot="' + lm.rotation + '" ' +
+                               'data-lat="' + lm.lat + '" ' +
+                               'style="position:absolute; transform: translate(-50%, -50%) rotate('+lm.rotation+'deg); pointer-events: none; z-index: -100;">' +
+                               '<img src="'+pUrl+'" style="width:100%; height:100%; display:block; object-fit:fill;">' +
+                               '</div>';
+                    var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
+                    
+                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, zIndexOffset: -2000, interactive: false }).addTo(map);
+                    landmarkMarkers[lm.id] = marker;
+                }
+            });
+            resizeLandmarks();
+        }
+
+        function resizeLandmarks() {
+            var zoom = map.getZoom();
+            var elements = document.querySelectorAll('.lm-c');
+            
+            // BUCLE FOR SEGURO
+            for (var i = 0; i < elements.length; i++) {
+                var wrapper = elements[i];
+                var wMeters = parseFloat(wrapper.dataset.wMeters);
+                var hMeters = parseFloat(wrapper.dataset.hMeters);
+                var lat = parseFloat(wrapper.dataset.lat);
+                var rot = parseFloat(wrapper.dataset.rot);
+
+                var pixelsPerMeter = (256 * Math.pow(2, zoom)) / (40075016 * Math.cos(lat * Math.PI / 180));
+                
+                var wPx = wMeters * pixelsPerMeter;
+                var hPx = hMeters * pixelsPerMeter;
+
+                wrapper.style.width = wPx + 'px';
+                wrapper.style.height = hPx + 'px';
+                wrapper.style.transform = 'translate(-50%, -50%) rotate(' + rot + 'deg)';
+            }
+        }
+
+        // --- TU LÓGICA ORIGINAL RESTAURADA EXACTAMENTE ---
         function updateCollectibles(jsonStr) {
             var data = JSON.parse(jsonStr);
             
@@ -1075,7 +1186,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 map.removeLayer(collectibleMarkers[key]);
             }
             collectibleMarkers = {};
-        
+
             data.forEach(function(col) {
                 var pUrl = 'file:///android_asset/' + col.assetPath;
                 
@@ -1122,6 +1233,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 ).addTo(map);
             });
         }
+        
         function updateNpcs(data) {
             if (isZooming) return;
             var currentZoom = map.getZoom();
