@@ -42,8 +42,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -59,11 +57,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.math.atan2
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontFamily
-import kotlinx.coroutines.launch
-import org.json.JSONObject
-import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import kotlin.math.*
