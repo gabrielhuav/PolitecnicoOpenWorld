@@ -58,6 +58,10 @@ data class WorldMapState(
     val landmarks: List<Landmark> = emptyList(),
     val showTeleportMenu: Boolean = false,
 
+    // Control de seguimiento del mapa: true cuando el usuario ha empezado a hacer pan/zoom
+    // y no debe ser reposicionado automáticamente hasta que el usuario presione el FAB.
+    val isUserPanningMap: Boolean = false,
+
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
     val selectedLandmarkId: Long? = null,
@@ -70,9 +74,16 @@ data class WorldMapState(
     val interactionPrompt: String? = null,
     val showWastedScreen: Boolean = false,
 
-    // ─── WAYPOINTS ───────────────────────────────────────────────────────────
+    // ─── WAYPOINTS (marcadores personalizados guardados por el jugador) ─────────
     val waypoints: List<Waypoint> = emptyList(),
     val showWaypointList: Boolean = false,
     val showAddWaypointDialog: Boolean = false,
-    val selectedWaypointId: Long? = null
+    val selectedWaypointId: Long? = null,
+
+    // ─── NAVEGACIÓN / MARCADOR DE DESTINO ──────────────────────────────────────
+    val destinationMarker: GeoPoint? = null,
+    val isTargetingWaypoint: Boolean = false,
+    val routeWaypoints: List<GeoPoint> = emptyList(),
+    val showDestinationRoute: Boolean = true,
+    val destinationArrivalThreshold: Double = 20.0
 )
