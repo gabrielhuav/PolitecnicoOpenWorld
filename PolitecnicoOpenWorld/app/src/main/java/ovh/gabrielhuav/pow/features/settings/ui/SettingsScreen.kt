@@ -290,19 +290,25 @@ private fun ControlsSettingsConfig(
     onSwapChanged: (Boolean) -> Unit,
     onSaveClicked: () -> Unit
 ) {
+    // ESTADOS TEMPORALES: Retienen el cambio localmente hasta que se presione GUARDAR
+    var tempType by remember(type) { mutableStateOf(type) }
+    var tempScale by remember(scale) { mutableStateOf(scale) }
+    var tempIsSwapped by remember(isSwapped) { mutableStateOf(isSwapped) }
+
     // Detectar si estamos en vertical u horizontal para el tamaño máximo
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
 
     // Calculamos el límite dinámico: 1.0f en vertical, 1.4f en horizontal
     val maxScale = if (isPortrait) 1.0f else 1.4f
-    val safeScale = scale.coerceAtMost(maxScale) // Evita que se pase del límite actual
 
-    LaunchedEffect(scale, maxScale) {
-        if (scale > maxScale) {
-            onScaleChanged(safeScale)
+    // Ajustar tempScale si excede el máximo permitido por la orientación actual
+    LaunchedEffect(maxScale) {
+        if (tempScale > maxScale) {
+            tempScale = maxScale
         }
     }
+
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
 
         // 1. Selector de Tipo
@@ -312,10 +318,10 @@ private fun ControlsSettingsConfig(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ControlType.entries.forEach { option ->
                     Button(
-                        onClick = { onTypeChanged(option) },
+                        onClick = { tempType = option },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (type == option) Color(0xFF6B1C3A) else Color(0xFF2A1C21)
+                            containerColor = if (tempType == option) Color(0xFF6B1C3A) else Color(0xFF2A1C21)
                         )
                     ) {
                         Text(option.displayName, color = Color.White, fontSize = 12.sp)
@@ -324,18 +330,18 @@ private fun ControlsSettingsConfig(
             }
         }
 
-        // 2. Deslizador de Tamaño (ACTUALIZADO CON RESPONSIVIDAD)
+        // 2. Deslizador de Tamaño
         Column {
-            Text("Tamaño en Pantalla: ${(safeScale * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("Tamaño en Pantalla: ${(tempScale * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold)
             Text(
                 text = if (isPortrait) "Límite ajustado a 100% por modo vertical." else "No superará los límites de la pantalla.",
                 color = Color.Gray,
                 fontSize = 12.sp
             )
             Slider(
-                value = safeScale,
-                onValueChange = onScaleChanged,
-                valueRange = 0.6f..maxScale, // El rango termina en el límite que calculamos arriba
+                value = tempScale,
+                onValueChange = { tempScale = it },
+                valueRange = 0.6f..maxScale,
                 colors = SliderDefaults.colors(
                     thumbColor = Color(0xFFD4AF37),
                     activeTrackColor = Color(0xFF6B1C3A)
@@ -354,8 +360,8 @@ private fun ControlsSettingsConfig(
                 Text("Mueve la acción a la izquierda", color = Color.Gray, fontSize = 12.sp)
             }
             Switch(
-                checked = isSwapped,
-                onCheckedChange = onSwapChanged,
+                checked = tempIsSwapped,
+                onCheckedChange = { tempIsSwapped = it },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFFD4AF37),
                     checkedTrackColor = Color(0xFF6B1C3A)
@@ -366,7 +372,13 @@ private fun ControlsSettingsConfig(
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = onSaveClicked,
+            onClick = {
+                // Sincronizar los estados temporales con el ViewModel justo antes de guardar persistentemente
+                onTypeChanged(tempType)
+                onScaleChanged(tempScale)
+                onSwapChanged(tempIsSwapped)
+                onSaveClicked()
+            },
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37))

@@ -149,11 +149,12 @@ class MainActivity : ComponentActivity() {
                                     // 1. Guardar persistentemente en el dispositivo
                                     settingsViewModel.saveControlsSettings()
 
-                                    // 2. Notificar al mapa
+                                    // 2. Notificar al mapa (usamos el valor actual del ViewModel para asegurar que tiene los cambios recientes)
+                                    val currentState = settingsViewModel.state.value
                                     worldMapViewModel.updateControlSettings(
-                                        type = settingsState.controlType,
-                                        scale = settingsState.controlsScale,
-                                        swap = settingsState.swapControls
+                                        type = currentState.controlType,
+                                        scale = currentState.controlsScale,
+                                        swap = currentState.swapControls
                                     )
 
                                     android.widget.Toast.makeText(this@MainActivity, "Configuración de controles guardada", android.widget.Toast.LENGTH_SHORT).show()

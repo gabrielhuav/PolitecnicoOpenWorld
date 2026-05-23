@@ -151,6 +151,8 @@ fun WorldMapScreen(
                         setTileSource(TileSourceFactory.MAPNIK)
                         setMultiTouchControls(false)
                         controller.setZoom(uiState.zoomLevel)
+                        // Fondo oscuro para evitar gaps al rotar
+                        setBackgroundColor(android.graphics.Color.parseColor("#0D0D11"))
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -1044,8 +1046,17 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #aad3df; overflow: hidden; }
-        #map-wrapper { position: absolute; top: -50%; left: -50%; width: 200vw; height: 200vh; transform-origin: center center; }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #0D0D11; overflow: hidden; }
+        #map-wrapper { 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            width: 250vmax; 
+            height: 250vmax; 
+            margin-left: -125vmax; 
+            margin-top: -125vmax;
+            transform-origin: center center; 
+        }
         #map { width: 100%; height: 100%; background: transparent; }
         .leaflet-marker-icon { background: none !important; border: none !important; }
         .npc-c { pointer-events: none; display: flex; align-items: center; justify-content: center; }
