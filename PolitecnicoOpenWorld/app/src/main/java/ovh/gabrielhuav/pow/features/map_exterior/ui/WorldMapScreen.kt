@@ -567,29 +567,34 @@ fun WorldMapScreen(
                 ) {
                     // ─── DIBUJADO DE LANDMARKS (Primero para que queden abajo) ───
                     uiState.landmarks.forEach { landmark ->
-                        // 1. Asegurar que el bitmap esté cargado en caché
-                        val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
-                            try {
-                                context.assets.open(landmark.assetPath).use { inputStream ->
-                                    android.graphics.BitmapFactory.decodeStream(inputStream)
+                        key(landmark.id) {
+                            // 1. Asegurar que el bitmap esté cargado en caché
+                            val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
+                                try {
+                                    context.assets.open(landmark.assetPath).use { inputStream ->
+                                        android.graphics.BitmapFactory.decodeStream(inputStream)
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("WorldMapScreen", "No se pudo cargar asset: ${landmark.assetPath}", e)
+                                    null
                                 }
-                            } catch (e: Exception) {
-                                android.util.Log.e("WorldMapScreen", "No se pudo cargar asset: ${landmark.assetPath}", e)
-                                null
                             }
-                        }
 
-                        if (bitmap != null) {
-                            val center = LatLng(landmark.location.latitude, landmark.location.longitude)
-                            val widthMeters = (landmark.baseWidthMeters * landmark.scaleFactor).toFloat()
-                            val heightMeters = (landmark.baseHeightMeters * landmark.scaleFactor).toFloat()
+                            if (bitmap != null) {
+                                val center = LatLng(landmark.location.latitude, landmark.location.longitude)
+                                val widthMeters = (landmark.baseWidthMeters * landmark.scaleFactor).toFloat()
+                                val heightMeters = (landmark.baseHeightMeters * landmark.scaleFactor).toFloat()
 
-                            GroundOverlay(
-                                position = GroundOverlayPosition.create(center, widthMeters, heightMeters),
-                                image = BitmapDescriptorFactory.fromBitmap(bitmap),
-                                bearing = landmark.rotationAngle,
-                                transparency = 0f
-                            )
+                                val descriptor = googleMapsIconCache.getOrPut("LANDMARK_${landmark.assetPath}") {
+                                    BitmapDescriptorFactory.fromBitmap(bitmap)
+                                }
+
+                                GroundOverlay(
+                                    position = GroundOverlayPosition.create(center, widthMeters, heightMeters),
+                                    image = descriptor,
+                                    bearing = landmark.rotationAngle,
+                                    transparency = 0f
+                                )
 
                             // 4. Controles del Modo Diseñador
                             if (uiState.isDesignerMode) {
@@ -641,18 +646,21 @@ fun WorldMapScreen(
                             }
                         }
                     }
+                    }
 
                     // ─── DIBUJADO DE NPCs (Peatones y Carros) ───
                     if (uiState.zoomLevel >= 15.5) {
                         val screenDensity = context.resources.displayMetrics.density
                         val timeMs = System.currentTimeMillis()
                         val currentZoom = uiState.zoomLevel
+                        // Usar un nivel de zoom redondeado para calcular tamaños y evitar generar bitmaps en cada frame del zoom
+                        val renderZoom = kotlin.math.round(currentZoom * 2) / 2.0
 
                         uiState.npcs.forEach { npc ->
                             val cacheKey = when {
                                 npc.visualConfig != null -> {
                                     val currentlyMoving = npc.speed > 0 || npc.isMoving
-                                    val personSzDp = (24.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
+                                    val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                     val exactPixels = (personSzDp * screenDensity).toInt()
                                     val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                     val config = npc.visualConfig!!
@@ -662,7 +670,7 @@ fun WorldMapScreen(
                                     var angle = npc.rotationAngle % 360f
                                     if (angle < 0) angle += 360f
                                     val frameIndex = (angle / 7.5f).roundToInt() % 48
-                                    val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+                                    val dynamicScale = (1.4 * Math.pow(2.0, renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                     "GM_CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
                                 }
                                 else -> "GM_SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
@@ -672,7 +680,7 @@ fun WorldMapScreen(
                                 val drawable = when {
                                     npc.visualConfig != null -> {
                                         val currentlyMoving = npc.speed > 0 || npc.isMoving
-                                        val personSzDp = (24.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
+                                        val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                         val exactPixels = (personSzDp * screenDensity).toInt()
                                         var d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getModularNpcDrawable(
                                             context, npc.visualConfig!!, currentlyMoving, npc.facingRight, timeMs, 1.0f * screenDensity, npc.displayName
@@ -681,7 +689,7 @@ fun WorldMapScreen(
                                         d?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                     }
                                     npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR -> {
-                                        val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+                                        val dynamicScale = (1.4 * Math.pow(2.0, renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                         var d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
                                             context, npc.rotationAngle, npc.carColor, 1.0f * screenDensity, npc.carModel
                                         )
@@ -712,14 +720,20 @@ fun WorldMapScreen(
                                 else BitmapDescriptorFactory.defaultMarker()
                             }
 
-                            com.google.maps.android.compose.Marker(
-                                state = MarkerState(position = LatLng(npc.location.latitude, npc.location.longitude)),
-                                icon = iconDescriptor,
-                                rotation = 0f,
-                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
-                                flat = true,
-                                alpha = if (npc.isDying) 0.5f else 1.0f
-                            )
+                            key(npc.id) {
+                                val position = LatLng(npc.location.latitude, npc.location.longitude)
+                                val markerState = remember { MarkerState(position = position) }
+                                markerState.position = position
+
+                                com.google.maps.android.compose.Marker(
+                                    state = markerState,
+                                    icon = iconDescriptor,
+                                    rotation = 0f,
+                                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                    flat = true,
+                                    alpha = if (npc.isDying) 0.5f else 1.0f
+                                )
+                            }
                         }
                     }
 
@@ -756,13 +770,19 @@ fun WorldMapScreen(
                                 }
                             }
 
-                            com.google.maps.android.compose.Marker(
-                                state = MarkerState(position = LatLng(collectible.latitude, collectible.longitude)),
-                                icon = iconDescriptor,
-                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
-                                flat = true,
-                                rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
-                            )
+                            key(collectible.id) {
+                                val position = LatLng(collectible.latitude, collectible.longitude)
+                                val markerState = remember { MarkerState(position = position) }
+                                markerState.position = position
+
+                                com.google.maps.android.compose.Marker(
+                                    state = markerState,
+                                    icon = iconDescriptor,
+                                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                    flat = true,
+                                    rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
+                                )
+                            }
                         }
                     }
                 }
