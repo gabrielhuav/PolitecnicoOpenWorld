@@ -551,25 +551,38 @@ fun WorldMapScreen(
             }
             MapProvider.GOOGLE_MAPS_NATIVE -> {
                 val escom = LatLng(19.505411765791404, -99.14526888961194)
-                val cameraPositionState = rememberCameraPositionState()
+                // Inicializamos con una posición por defecto segura
+                val cameraPositionState = rememberCameraPositionState {
+                    position = CameraPosition.fromLatLngZoom(escom, 18f)
+                }
 
-                if (!uiState.isUserPanningMap) {
-                    val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
-                    val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
-                    val targetZoom = uiState.zoomLevel.toFloat()
-                    val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
+                // USO CORRECTO DE EFFECT: Esto reacciona solo cuando cambia la ubicación
+                LaunchedEffect(uiState.currentLocation, uiState.isDriving, uiState.zoomLevel) {
+                    if (!uiState.isUserPanningMap) {
+                        val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
+                        val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
+                        val targetZoom = uiState.zoomLevel.toFloat()
+                        val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
 
-                    val newPosition = CameraPosition.builder()
-                        .target(LatLng(targetLat, targetLng))
-                        .zoom(targetZoom)
-                        .bearing(targetBearing)
-                        .tilt(0f)
-                        .build()
-                    cameraPositionState.position = newPosition
+                        val newPosition = CameraPosition.builder()
+                            .target(LatLng(targetLat, targetLng))
+                            .zoom(targetZoom)
+                            .bearing(targetBearing)
+                            .tilt(0f)
+                            .build()
+
+                        cameraPositionState.animate(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(newPosition), 120)
+                    }
                 }
 
                 val propiedadesMap = remember {
-                    MapProperties(mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, ovh.gabrielhuav.pow.R.raw.estilo_google_maps))
+                    try {
+                        MapProperties(
+                            mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, ovh.gabrielhuav.pow.R.raw.estilo_google_maps)
+                        )
+                    } catch (e: Exception) {
+                        MapProperties() // Fallback si el JSON falla
+                    }
                 }
 
                 GoogleMap(
