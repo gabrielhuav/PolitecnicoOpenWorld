@@ -693,20 +693,25 @@ class WorldMapViewModel(
         val now = System.currentTimeMillis()
         if (now - lastFetchAttemptMs < REFETCH_COOLDOWN_MS) return
         if (!isFetchingNetwork.compareAndSet(false, true)) return
-        lastFetchAttemptMs = now
+        // BUG FIX: lastFetchAttemptMs se actualizaba antes de verificar el caché,
+        // bloqueando innecesariamente re-intentos durante 5 min incluso en cache HITs.
+        // Ahora solo se actualiza cuando realmente se hace una petición a la red.
 
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val cached = roadNetworkCache.get(currentLoc.latitude, currentLoc.longitude)
                 if (cached != null) {
+                    // Cache HIT: no consumimos el cooldown, dejamos que el jugador
+                    // pueda volver a cruzar esta zona sin esperar 5 minutos.
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         roadNetwork = cached
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
-                        // AÑADIDO: Liberar controles (isRoadNetworkReady = true)
                         _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                     }
                 } else {
+                    // Solo actualizamos el cooldown cuando vamos a la red
+                    lastFetchAttemptMs = now
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.NETWORK) }
                     }
