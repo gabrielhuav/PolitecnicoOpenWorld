@@ -518,16 +518,20 @@ fun WorldMapScreen(
                 val escom = LatLng(19.505411765791404, -99.14526888961194)
                 val cameraPositionState = rememberCameraPositionState()
 
-                SideEffect {
+                // Sincronizar cámara con la ubicación actual del jugador, zoom y rotación
+                if (!uiState.isUserPanningMap) {
                     val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
                     val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
+                    val targetZoom = uiState.zoomLevel.toFloat()
                     val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
-                    cameraPositionState.position = CameraPosition.builder()
+                    
+                    val newPosition = CameraPosition.builder()
                         .target(LatLng(targetLat, targetLng))
-                        .zoom(uiState.zoomLevel.toFloat())
+                        .zoom(targetZoom)
                         .bearing(targetBearing)
                         .tilt(0f)
                         .build()
+                    cameraPositionState.position = newPosition
                 }
 
                 val propiedadesMap = remember {
@@ -541,30 +545,41 @@ fun WorldMapScreen(
                     uiSettings = MapUiSettings(
                         zoomGesturesEnabled = false,
                         zoomControlsEnabled = false,
-                        scrollGesturesEnabled = uiState.isDesignerMode,
+                        scrollGesturesEnabled = uiState.isDesignerMode || uiState.isUserPanningMap,
                         tiltGesturesEnabled = false,
                         rotationGesturesEnabled = false
                     )
                 ) {
+                    // ─── DIBUJADO DE LANDMARKS (Primero para que queden abajo) ───
                     uiState.landmarks.forEach { landmark ->
-                        val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
-                            try { context.assets.open(landmark.assetPath).use { android.graphics.BitmapFactory.decodeStream(it) } } catch (e: Exception) { null }
-                        }
-                        if (bitmap != null) {
-                            val center = LatLng(landmark.location.latitude, landmark.location.longitude)
-                            val widthMeters = (landmark.baseWidthMeters * landmark.scaleFactor).toFloat()
-                            val heightMeters = (landmark.baseHeightMeters * landmark.scaleFactor).toFloat()
+                        key(landmark.id) {
+                            val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
+                                try {
+                                    context.assets.open(landmark.assetPath).use { inputStream ->
+                                        android.graphics.BitmapFactory.decodeStream(inputStream)
+                                    }
+                                } catch (e: Exception) { null }
+                            }
 
-                            GroundOverlay(
-                                position = GroundOverlayPosition.create(center, widthMeters, heightMeters),
-                                image = BitmapDescriptorFactory.fromBitmap(bitmap),
-                                bearing = landmark.rotationAngle,
-                                transparency = 0f
-                            )
+                            if (bitmap != null) {
+                                val center = LatLng(landmark.location.latitude, landmark.location.longitude)
+                                val widthMeters = (landmark.baseWidthMeters * landmark.scaleFactor).toFloat()
+                                val heightMeters = (landmark.baseHeightMeters * landmark.scaleFactor).toFloat()
+
+                                val descriptor = googleMapsIconCache.getOrPut("LANDMARK_${landmark.assetPath}") {
+                                    BitmapDescriptorFactory.fromBitmap(bitmap)
+                                }
+
+                                GroundOverlay(
+                                    position = GroundOverlayPosition.create(center, widthMeters, heightMeters),
+                                    image = descriptor,
+                                    bearing = landmark.rotationAngle,
+                                    transparency = 0f
+                                )
 
                             if (uiState.isDesignerMode) {
                                 val markerState = remember(landmark.id) { MarkerState(position = center) }
-                                LaunchedEffect(center) { markerState.position = center }
+                                markerState.position = center
                                 val pencilIcon = remember(uiState.selectedLandmarkId == landmark.id) {
                                     val drawable = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)?.mutate()
                                     if (uiState.selectedLandmarkId == landmark.id) drawable?.setTint(android.graphics.Color.RED)
@@ -588,6 +603,7 @@ fun WorldMapScreen(
                             }
                         }
                     }
+                    }
 
                     if (uiState.zoomLevel >= 15.5) {
                         val screenDensity = context.resources.displayMetrics.density
@@ -596,6 +612,7 @@ fun WorldMapScreen(
                         val renderZoom = round(currentZoom * 2) / 2.0
 
                         uiState.npcs.forEach { npc ->
+                          key(npc.id) {
                             val qHealth = npc.health.toInt()
                             val cacheKey = when {
                                 npc.visualConfig != null -> {
@@ -652,25 +669,34 @@ fun WorldMapScreen(
                                 } else null
                                 if (bitmap != null) BitmapDescriptorFactory.fromBitmap(bitmap) else BitmapDescriptorFactory.defaultMarker()
                             }
+                            val position = LatLng(npc.location.latitude, npc.location.longitude)
+                            val markerState = remember { MarkerState(position = position) }
+                            markerState.position = position
+
                             com.google.maps.android.compose.Marker(
-                                state = MarkerState(position = LatLng(npc.location.latitude, npc.location.longitude)),
+                                state = markerState,
                                 icon = iconDescriptor,
                                 rotation = 0f,
                                 anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                                 flat = true,
                                 alpha = if (npc.isDying) 0.5f else 1.0f
                             )
+                          }
                         }
                     }
 
                     if (uiState.zoomLevel >= 16.0) {
                         uiState.activeCollectibles.forEach { collectible ->
+                          key(collectible.id) {
                             val screenDensity = context.resources.displayMetrics.density
                             val exactPixels = (22 * screenDensity).toInt()
                             val cacheKey = "GM_COL_${collectible.assetPath}"
+                            
                             val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
                                 try {
-                                    val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open(collectible.assetPath))
+                                    val bitmap = context.assets.open(collectible.assetPath).use {
+                                        android.graphics.BitmapFactory.decodeStream(it)
+                                    }
                                     if (bitmap != null) {
                                         val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
                                             shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -690,13 +716,18 @@ fun WorldMapScreen(
                                     } else BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)
                                 } catch (e: Exception) { BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW) }
                             }
+                            val position = LatLng(collectible.latitude, collectible.longitude)
+                            val markerState = remember { MarkerState(position = position) }
+                            markerState.position = position
+
                             com.google.maps.android.compose.Marker(
-                                state = MarkerState(position = LatLng(collectible.latitude, collectible.longitude)),
+                                state = markerState,
                                 icon = iconDescriptor,
                                 anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                                 flat = true,
                                 rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
                             )
+                          }
                         }
                     }
                 }
