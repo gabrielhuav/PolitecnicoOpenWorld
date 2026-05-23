@@ -50,14 +50,6 @@ import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.GroundOverlay
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.*
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.*
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
-import kotlin.math.atan2
-import androidx.compose.ui.draw.scale
-import kotlinx.coroutines.launch
-import org.json.JSONObject
-import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import kotlin.math.*
