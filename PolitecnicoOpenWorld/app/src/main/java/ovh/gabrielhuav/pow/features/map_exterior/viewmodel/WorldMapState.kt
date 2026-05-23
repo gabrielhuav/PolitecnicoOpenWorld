@@ -14,6 +14,7 @@ const val ZOOM_GAMEPLAY_WEB = 19.0 // Nivel de zoom para los proveedores Web
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
+    GOOGLE_MAPS_NATIVE("Google Maps (Nativo)"),
     OSM_WEB("OpenStreetMap (Web)"),
     GOOGLE_MAPS("Google Maps (Web)"),
     CARTO_DB_DARK("CartoDB Oscuro (Web)"),
@@ -22,7 +23,7 @@ enum class MapProvider(val displayName: String) {
     ESRI_SATELLITE("Esri Satélite (Web)"),
     OPEN_TOPO("OpenTopoMap (Web)");
 
-    val isWebProvider: Boolean get() = this != OSM
+    val isWebProvider: Boolean get() = this != OSM && this != GOOGLE_MAPS_NATIVE
 }
 
 enum class RoadSource { LOADING, LOCAL_DB, NETWORK }

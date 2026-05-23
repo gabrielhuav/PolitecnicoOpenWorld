@@ -42,6 +42,16 @@ import androidx.compose.foundation.clickable
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.GroundOverlay
+import com.google.maps.android.compose.GroundOverlayPosition
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapUiSettings
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
@@ -82,6 +92,7 @@ fun WorldMapScreen(
     val heightCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
+    val googleMapsIconCache = remember { mutableMapOf<String, com.google.android.gms.maps.model.BitmapDescriptor>() }
     val gson = remember { Gson() }
     // Launchers para Exportar e Importar archivos JSON en el dispositivo
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -144,426 +155,525 @@ fun WorldMapScreen(
         }
 
         // ───── CAPA 1: MAPA ────────────────────────────────────────────────────
-        if (uiState.mapProvider == MapProvider.OSM) {
-            AndroidView(
-                factory = { ctx ->
-                    MapView(ctx).apply {
-                        setTileSource(TileSourceFactory.MAPNIK)
-                        setMultiTouchControls(false)
-                        controller.setZoom(uiState.zoomLevel)
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-                update = { view ->
-                    if (uiState.isDesignerMode) {
-                        view.setOnTouchListener(null) // Permitimos que detecte tu dedo
-                        view.isClickable = true
-                    } else {
-                        view.setOnTouchListener { _, _ -> true } // Bloqueamos el mapa en modo juego
-                        view.isClickable = false
-                    }
-                    uiState.currentLocation?.let { view.controller.setCenter(it) }
+        when (uiState.mapProvider) {
+            MapProvider.OSM -> {
+                AndroidView(
+                    factory = { ctx ->
+                        MapView(ctx).apply {
+                            setTileSource(TileSourceFactory.MAPNIK)
+                            setMultiTouchControls(false)
+                            controller.setZoom(uiState.zoomLevel)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    update = { view ->
+                        if (uiState.isDesignerMode) {
+                            view.setOnTouchListener(null) // Permitimos que detecte tu dedo
+                            view.isClickable = true
+                        } else {
+                            view.setOnTouchListener { _, _ -> true } // Bloqueamos el mapa en modo juego
+                            view.isClickable = false
+                        }
+                        uiState.currentLocation?.let { view.controller.setCenter(it) }
 
-                    view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
+                        view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
 
-                    val zoomDiff = kotlin.math.abs(view.zoomLevelDouble - uiState.zoomLevel)
-                    when {
-                        zoomDiff < 0.01 -> {}
-                        zoomDiff > 1.5  -> view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
-                        else            -> view.controller.setZoom(uiState.zoomLevel)
-                    }
+                        val zoomDiff = kotlin.math.abs(view.zoomLevelDouble - uiState.zoomLevel)
+                        when {
+                            zoomDiff < 0.01 -> {}
+                            zoomDiff > 1.5  -> view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
+                            else            -> view.controller.setZoom(uiState.zoomLevel)
+                        }
 
-                    if (uiState.isRoadNetworkReady) {
+                        if (uiState.isRoadNetworkReady) {
+                            @Suppress("UNCHECKED_CAST")
+                            val markerCache = (view.tag as? MutableMap<String, Marker>)
+                                ?: mutableMapOf<String, Marker>().also { view.tag = it }
+
+                            val currentZoom = view.zoomLevelDouble
+                            val isZoomedIn = currentZoom >= 16.5
+                            val timeMs = System.currentTimeMillis()
+                            val screenDensity = context.resources.displayMetrics.density
+                            val highResRenderScale = 1.0f * screenDensity
+
+                            // Limpieza de NPCs desconectados
+                            val currentNpcIds = uiState.npcs.map { it.id }.toSet()
+                            val iterator = markerCache.iterator()
+                            while (iterator.hasNext()) {
+                                val entry = iterator.next()
+                                if (!currentNpcIds.contains(entry.key)) {
+                                    view.overlays.remove(entry.value)
+                                    iterator.remove()
+                                }
+                            }
+
+                            // ─── DIBUJADO OPTIMIZADO DE NPCs ───
+                            uiState.npcs.forEach { npc ->
+                                val id = npc.id
+                                // REGLA DE ORO: Reciclamos el marcador, no creamos uno nuevo.
+                                val marker = markerCache[id] ?: Marker(view).apply {
+                                    title = "NPC_MARKER"
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    setInfoWindow(null)
+                                    isFlat = true
+                                    markerCache[id] = this
+                                    view.overlays.add(this)
+                                }
+
+                                if (isZoomedIn) {
+                                    // --- 1. EFECTO VISUAL DE MUERTE (FADE-OUT) ---
+                                    if (npc.isDying) {
+                                        marker.setAlpha(0.3f)
+                                    } else {
+                                        marker.setAlpha(1f)
+                                    }
+
+                                    if (npc.visualConfig != null) {
+                                        val currentlyMoving = npc.speed > 0 || npc.isMoving
+                                        val personSzDp = (24.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
+                                        val exactPixels = (personSzDp * screenDensity).toInt()
+
+                                        val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
+                                            .getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
+
+                                        // Integramos la vida y estado en la clave de caché para que se pinte solo 1 vez
+                                        val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
+
+                                        val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                            var baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getModularNpcDrawable(
+                                                context = context,
+                                                visualConfig = npc.visualConfig!!,
+                                                isMoving = currentlyMoving,
+                                                isFacingRight = npc.facingRight,
+                                                timeMs = timeMs,
+                                                scale = highResRenderScale,
+                                                displayName = npc.displayName
+                                            )
+
+                                            baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
+
+                                            baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                                ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                        }
+
+                                        marker.icon = cachedIcon
+                                        marker.rotation = 0f
+
+                                    } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
+                                        var angle = npc.rotationAngle % 360f
+                                        if (angle < 0) angle += 360f
+
+                                        val frameIndex = (angle / 7.5f).roundToInt() % 48
+                                        val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+
+                                        val cacheKey = "CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
+
+                                        val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                            var baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
+                                                context, angle, npc.carColor, highResRenderScale, npc.carModel
+                                            )
+
+                                            baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
+
+                                            baseDrawable?.let { drawable ->
+                                                val baseWidthDp = (drawable.intrinsicWidth / screenDensity) / screenDensity
+                                                val baseHeightDp = (drawable.intrinsicHeight / screenDensity) / screenDensity
+
+                                                val finalWidthPx = (baseWidthDp * dynamicScale * screenDensity).toInt()
+                                                val finalHeightPx = (baseHeightDp * dynamicScale * screenDensity).toInt()
+
+                                                ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
+                                            } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                        }
+
+                                        marker.icon = cachedIcon
+                                        marker.rotation = 0f
+
+                                    } else {
+                                        val cacheKey = "SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
+                                        val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                            val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
+                                            var baseDrawable = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
+
+                                            baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
+
+                                            baseDrawable?.let {
+                                                val exactPixels = (24 * screenDensity).toInt()
+                                                ExactSizeDrawable(it, exactPixels, exactPixels)
+                                            } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                        }
+
+                                        marker.icon = cachedIcon
+                                        marker.rotation = npc.rotationAngle
+                                    }
+                                } else {
+                                    marker.setAlpha(0f)
+                                }
+
+                                marker.position = org.osmdroid.util.GeoPoint(npc.location.latitude, npc.location.longitude)
+                            }
+                            // ─── DIBUJADO DE COLECCIONABLES ──────────────────────────────────
+                            val activeCollectibleIds = uiState.activeCollectibles.map { it.id }.toSet()
+
+                            @Suppress("UNCHECKED_CAST")
+                            val collectibleMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag) as? MutableMap<String, Marker>)
+                                ?: mutableMapOf<String, Marker>().also {
+                                    view.setTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag, it)
+                                }
+
+                            // 1. Limpieza de coleccionables que ya fueron recogidos
+                            val colIterator = collectibleMarkerCache.iterator()
+                            while (colIterator.hasNext()) {
+                                val entry = colIterator.next()
+                                if (!activeCollectibleIds.contains(entry.key)) {
+                                    view.overlays.remove(entry.value)
+                                    colIterator.remove()
+                                }
+                            }
+
+                            // 2. Actualización y dibujado
+                            // ─── DIBUJADO DE COLECCIONABLES ─────────────────────────────────
+
+                            uiState.activeCollectibles.forEach { collectible ->
+                                val id = collectible.id
+                                val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
+                                    title = "COLLECTIBLE"
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    isFlat = true
+                                    collectibleMarkerCache[id] = this
+                                    view.overlays.add(this)
+                                }
+
+                                if (isZoomedIn) {
+                                    marker.setAlpha(1f)
+                                    // TAMAÑO FIJO MUY PEQUEÑO - Sin escalado dinámico
+                                    val exactPixels = (22 * screenDensity).toInt() // Solo 18dp fijos
+
+                                    val cacheKey = "COL_${collectible.assetPath}"
+                                    val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                        try {
+                                            val bitmap = android.graphics.BitmapFactory.decodeStream(
+                                                context.assets.open(collectible.assetPath)
+                                            )
+
+                                            if (bitmap != null) {
+                                                // Glow amarillo muy sutil
+                                                val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
+                                                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                                                    setSize(exactPixels, exactPixels)
+                                                    setColor(android.graphics.Color.argb(100, 255, 235, 59)) // Más transparente
+                                                }
+
+                                                // Sprite escalado para ocupar ~65% del círculo
+                                                val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                                                val spriteSize = (exactPixels * 0.90).toInt()
+                                                spriteDrawable.setFilterBitmap(false)
+
+                                                // Combinar en LayerDrawable
+                                                val layers = arrayOf<android.graphics.drawable.Drawable>(
+                                                    glowDrawable,
+                                                    spriteDrawable
+                                                )
+                                                val layerDrawable = android.graphics.drawable.LayerDrawable(layers)
+
+                                                // Centrar el sprite dentro del glow
+                                                val inset = ((exactPixels - spriteSize) / 2).toInt()
+                                                layerDrawable.setLayerInset(1, inset, inset, inset, inset)
+
+                                                ExactSizeDrawable(layerDrawable, exactPixels, exactPixels)
+                                            } else {
+                                                ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                            }
+                                        } catch (e: Exception) {
+                                            ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                        }
+                                    }
+
+                                    marker.icon = cachedIcon
+                                    // Rotación muy lenta para destacar
+                                    marker.rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
+                                } else {
+                                    marker.setAlpha(0f)
+                                }
+
+                                marker.position = org.osmdroid.util.GeoPoint(
+                                    collectible.latitude,
+                                    collectible.longitude
+                                )
+                            }
+                        }
+
+                        // ─── DIBUJADO DE LANDMARKS (con soporte de modo diseñador) ────────
                         @Suppress("UNCHECKED_CAST")
-                        val markerCache = (view.tag as? MutableMap<String, Marker>)
-                            ?: mutableMapOf<String, Marker>().also { view.tag = it }
+                        // Cambiamos el caché para que guarde una lista de Overlays genéricos por cada ID
+                        val landmarkCache = (view.getTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag) as? MutableMap<Long, MutableList<org.osmdroid.views.overlay.Overlay>>)
+                            ?: mutableMapOf<Long, MutableList<org.osmdroid.views.overlay.Overlay>>().also {
+                                view.setTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag, it)
+                            }
 
-                        val currentZoom = view.zoomLevelDouble
-                        val isZoomedIn = currentZoom >= 16.5
-                        val timeMs = System.currentTimeMillis()
-                        val screenDensity = context.resources.displayMetrics.density
-                        val highResRenderScale = 1.0f * screenDensity
+                        val currentIds = uiState.landmarks.map { it.id }.toSet()
 
-                        // Limpieza de NPCs desconectados
-                        val currentNpcIds = uiState.npcs.map { it.id }.toSet()
-                        val iterator = markerCache.iterator()
+                        // 1. Limpiar estructuras que fueron eliminadas de la base de datos
+                        val iterator = landmarkCache.iterator()
                         while (iterator.hasNext()) {
                             val entry = iterator.next()
-                            if (!currentNpcIds.contains(entry.key)) {
-                                view.overlays.remove(entry.value)
+                            if (!currentIds.contains(entry.key)) {
+                                // Quitamos del mapa todos los overlays asociados a este ID borrado
+                                entry.value.forEach { overlay -> view.overlays.remove(overlay) }
                                 iterator.remove()
                             }
                         }
 
-                        // ─── DIBUJADO OPTIMIZADO DE NPCs ───
-                        uiState.npcs.forEach { npc ->
-                            val id = npc.id
-                            // REGLA DE ORO: Reciclamos el marcador, no creamos uno nuevo.
-                            val marker = markerCache[id] ?: Marker(view).apply {
-                                title = "NPC_MARKER"
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                setInfoWindow(null)
-                                isFlat = true
-                                markerCache[id] = this
-                                view.overlays.add(this)
+                        uiState.landmarks.forEach { landmark ->
+                            val overlays = landmarkCache.getOrPut(landmark.id) { mutableListOf() }
+
+                            // 1. Obtener imagen de la caché
+                            val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
+                                try {
+                                    context.assets.open(landmark.assetPath).use { inputStream ->
+                                        android.graphics.BitmapFactory.decodeStream(inputStream)
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("WorldMapScreen", "No se pudo cargar asset: ${landmark.assetPath}", e)
+                                    null
+                                }
+                            }
+                            if (bitmap == null) return@forEach
+
+                            // 2. Crear o recuperar el GroundOverlay (El que se ancla geográficamente)
+                            val existingOverlay = overlays.filterIsInstance<org.osmdroid.views.overlay.GroundOverlay>().firstOrNull()
+                            val groundOverlay = existingOverlay ?: org.osmdroid.views.overlay.GroundOverlay().apply {
+                                overlays.add(this)
+                                view.overlays.add(0, this) // El 0 asegura que el edificio se dibuje debajo de tu personaje
                             }
 
-                            if (isZoomedIn) {
-                                // --- 1. EFECTO VISUAL DE MUERTE (FADE-OUT) ---
-                                if (npc.isDying) {
-                                    marker.setAlpha(0.3f)
-                                } else {
-                                    marker.setAlpha(1f)
+                            // 3. Matemáticas genéricas usando el ancho y alto del JSON
+                            val centerLat = landmark.location.latitude
+                            val centerLon = landmark.location.longitude
+                            val center = org.osmdroid.util.GeoPoint(centerLat, centerLon)
+
+                            // Uso las propiedades dinámicas del modelo para calcular el tamaño real
+                            val halfW = (landmark.baseWidthMeters * landmark.scaleFactor) / 2.0
+                            val halfH = (landmark.baseHeightMeters * landmark.scaleFactor) / 2.0
+                            val d = kotlin.math.sqrt(halfW * halfW + halfH * halfH)
+                            val theta = Math.toDegrees(kotlin.math.atan2(halfW, halfH))
+
+                            // Calculamos las 4 esquinas del polígono
+                            val pTL = center.destinationPoint(d, landmark.rotationAngle.toDouble() - theta)
+                            val pTR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + theta)
+                            val pBR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 - theta)
+                            val pBL = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 + theta)
+
+                            // Aplicamos las esquinas y la imagen
+                            groundOverlay.setPosition(pTL, pTR, pBR, pBL)
+                            groundOverlay.setImage(bitmap)
+
+                            // 4. Controles del Modo Diseñador (Esto aplica para cualquier edificio)
+                            val existingControl = overlays.filterIsInstance<org.osmdroid.views.overlay.Marker>().firstOrNull()
+                            if (uiState.isDesignerMode) {
+                                val controlMarker = existingControl ?: org.osmdroid.views.overlay.Marker(view).apply {
+                                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
+                                    icon = androidx.core.content.ContextCompat.getDrawable(
+                                        context,
+                                        android.R.drawable.ic_menu_edit
+                                    )?.mutate()
+                                    overlays.add(this)
+                                    view.overlays.add(this)
                                 }
 
-                                if (npc.visualConfig != null) {
+                                controlMarker.position = center
+
+                                // Pinta el ícono de rojo si está seleccionado
+                                controlMarker.icon = controlMarker.icon?.mutate()
+                                if (uiState.selectedLandmarkId == landmark.id) {
+                                    controlMarker.icon?.setTint(android.graphics.Color.RED)
+                                } else {
+                                    controlMarker.icon?.setTintList(null)
+                                }
+
+                                controlMarker.setOnMarkerClickListener { _, _ ->
+                                    viewModel.selectLandmark(landmark.id)
+                                    true
+                                }
+
+                                controlMarker.isDraggable = true
+                                controlMarker.setOnMarkerDragListener(object : org.osmdroid.views.overlay.Marker.OnMarkerDragListener {
+                                    override fun onMarkerDragStart(marker: org.osmdroid.views.overlay.Marker) {
+                                        viewModel.selectLandmark(landmark.id)
+                                    }
+                                    override fun onMarkerDrag(marker: org.osmdroid.views.overlay.Marker) {
+                                        val dLat = marker.position.latitude - landmark.location.latitude
+                                        val dLon = marker.position.longitude - landmark.location.longitude
+                                        viewModel.moveSelectedLandmark(dLat, dLon)
+                                    }
+                                    override fun onMarkerDragEnd(marker: org.osmdroid.views.overlay.Marker) {}
+                                })
+
+                            } else {
+                                // Limpia el control si apagas el modo diseñador
+                                existingControl?.let {
+                                    view.overlays.remove(it)
+                                    overlays.remove(it)
+                                }
+                            }
+                        }
+
+                        view.invalidate()
+                    }
+                )
+            }
+            MapProvider.GOOGLE_MAPS_NATIVE -> {
+                val escom = LatLng(19.5045, -99.1469)
+                val cameraPositionState = rememberCameraPositionState()
+
+                // Sincronizar cámara con la ubicación actual del jugador y el zoom del ViewModel
+                LaunchedEffect(uiState.currentLocation, uiState.zoomLevel) {
+                    val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
+                    val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
+                    
+                    cameraPositionState.position = CameraPosition.fromLatLngZoom(
+                        LatLng(targetLat, targetLng),
+                        uiState.zoomLevel.toFloat()
+                    )
+                }
+
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState,
+                    uiSettings = MapUiSettings(
+                        zoomGesturesEnabled = true, // Permitimos pinch-to-zoom
+                        zoomControlsEnabled = false,
+                        scrollGesturesEnabled = uiState.isDesignerMode,
+                        tiltGesturesEnabled = false
+                    )
+                ) {
+                    // ─── DIBUJADO DE NPCs ───
+                    if (uiState.zoomLevel >= 16.5) {
+                        uiState.npcs.forEach { npc ->
+                            val screenDensity = context.resources.displayMetrics.density
+                            val timeMs = System.currentTimeMillis()
+                            val currentZoom = uiState.zoomLevel
+
+                            val iconDescriptor = remember(npc.id, npc.health, npc.isDying, currentZoom) {
+                                val cacheKey = if (npc.visualConfig != null) {
                                     val currentlyMoving = npc.speed > 0 || npc.isMoving
                                     val personSzDp = (24.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                     val exactPixels = (personSzDp * screenDensity).toInt()
-
-                                    val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
-                                        .getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
-
-                                    // Integramos la vida y estado en la clave de caché para que se pinte solo 1 vez
-                                    val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
-
-                                    val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                        var baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getModularNpcDrawable(
-                                            context = context,
-                                            visualConfig = npc.visualConfig!!,
-                                            isMoving = currentlyMoving,
-                                            isFacingRight = npc.facingRight,
-                                            timeMs = timeMs,
-                                            scale = highResRenderScale,
-                                            displayName = npc.displayName
-                                        )
-
-                                        baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-
-                                        baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
-                                            ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
-                                    }
-
-                                    marker.icon = cachedIcon
-                                    marker.rotation = 0f
-
+                                    val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
+                                    "GM_PED_${npc.visualConfig!!.bodyFolder}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
                                 } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
-                                    var angle = npc.rotationAngle % 360f
-                                    if (angle < 0) angle += 360f
-
-                                    val frameIndex = (angle / 7.5f).roundToInt() % 48
-                                    val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
-
-                                    val cacheKey = "CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
-
-                                    val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                        var baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
-                                            context, angle, npc.carColor, highResRenderScale, npc.carModel
-                                        )
-
-                                        baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-
-                                        baseDrawable?.let { drawable ->
-                                            val baseWidthDp = (drawable.intrinsicWidth / screenDensity) / screenDensity
-                                            val baseHeightDp = (drawable.intrinsicHeight / screenDensity) / screenDensity
-
-                                            val finalWidthPx = (baseWidthDp * dynamicScale * screenDensity).toInt()
-                                            val finalHeightPx = (baseHeightDp * dynamicScale * screenDensity).toInt()
-
-                                            ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
-                                        } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
-                                    }
-
-                                    marker.icon = cachedIcon
-                                    marker.rotation = 0f
-
+                                    "GM_CAR_${npc.carModel?.name}_${npc.carColor}_H${npc.health}_D${npc.isDying}"
                                 } else {
-                                    val cacheKey = "SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
-                                    val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                        val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
-                                        var baseDrawable = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
-
-                                        baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-
-                                        baseDrawable?.let {
-                                            val exactPixels = (24 * screenDensity).toInt()
-                                            ExactSizeDrawable(it, exactPixels, exactPixels)
-                                        } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
-                                    }
-
-                                    marker.icon = cachedIcon
-                                    marker.rotation = npc.rotationAngle
-                                }
-                            } else {
-                                marker.setAlpha(0f)
-                            }
-
-                            marker.position = org.osmdroid.util.GeoPoint(npc.location.latitude, npc.location.longitude)
-                        }
-                        // ─── DIBUJADO DE COLECCIONABLES ──────────────────────────────────
-                        val activeCollectibleIds = uiState.activeCollectibles.map { it.id }.toSet()
-
-                        @Suppress("UNCHECKED_CAST")
-                        val collectibleMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag) as? MutableMap<String, Marker>)
-                            ?: mutableMapOf<String, Marker>().also {
-                                view.setTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag, it)
-                            }
-
-                        // 1. Limpieza de coleccionables que ya fueron recogidos
-                        val colIterator = collectibleMarkerCache.iterator()
-                        while (colIterator.hasNext()) {
-                            val entry = colIterator.next()
-                            if (!activeCollectibleIds.contains(entry.key)) {
-                                view.overlays.remove(entry.value)
-                                colIterator.remove()
-                            }
-                        }
-
-                        // 2. Actualización y dibujado
-                        // ─── DIBUJADO DE COLECCIONABLES ─────────────────────────────────
-
-                        uiState.activeCollectibles.forEach { collectible ->
-                            val id = collectible.id
-                            val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
-                                title = "COLLECTIBLE"
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                isFlat = true
-                                collectibleMarkerCache[id] = this
-                                view.overlays.add(this)
-                            }
-
-                            if (isZoomedIn) {
-                                marker.setAlpha(1f)
-                                // TAMAÑO FIJO MUY PEQUEÑO - Sin escalado dinámico
-                                val exactPixels = (22 * screenDensity).toInt() // Solo 18dp fijos
-
-                                val cacheKey = "COL_${collectible.assetPath}"
-                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                    try {
-                                        val bitmap = android.graphics.BitmapFactory.decodeStream(
-                                            context.assets.open(collectible.assetPath)
-                                        )
-
-                                        if (bitmap != null) {
-                                            // Glow amarillo muy sutil
-                                            val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
-                                                shape = android.graphics.drawable.GradientDrawable.OVAL
-                                                setSize(exactPixels, exactPixels)
-                                                setColor(android.graphics.Color.argb(100, 255, 235, 59)) // Más transparente
-                                            }
-
-                                            // Sprite escalado para ocupar ~65% del círculo
-                                            val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
-                                            val spriteSize = (exactPixels * 0.90).toInt()
-                                            spriteDrawable.setFilterBitmap(false)
-
-                                            // Combinar en LayerDrawable
-                                            val layers = arrayOf<android.graphics.drawable.Drawable>(
-                                                glowDrawable,
-                                                spriteDrawable
-                                            )
-                                            val layerDrawable = android.graphics.drawable.LayerDrawable(layers)
-
-                                            // Centrar el sprite dentro del glow
-                                            val inset = ((exactPixels - spriteSize) / 2).toInt()
-                                            layerDrawable.setLayerInset(1, inset, inset, inset, inset)
-
-                                            ExactSizeDrawable(layerDrawable, exactPixels, exactPixels)
-                                        } else {
-                                            ContextCompat.getDrawable(context, android.R.color.transparent)!!
-                                        }
-                                    } catch (e: Exception) {
-                                        ContextCompat.getDrawable(context, android.R.color.transparent)!!
-                                    }
+                                    "GM_SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
                                 }
 
-                                marker.icon = cachedIcon
-                                // Rotación muy lenta para destacar
-                                marker.rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
-                            } else {
-                                marker.setAlpha(0f)
+                                // Intentamos usar el caché de drawables nativos
+                                val drawable = nativeDrawableCache[cacheKey] ?: run {
+                                    // Si no está en caché, lo generamos (simplificado para Google Maps para evitar lag)
+                                    val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
+                                    val base = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
+                                    drawHealthBarOnDrawable(context, base, npc.health, npc.isDying)
+                                }
+
+                                if (drawable is android.graphics.drawable.BitmapDrawable) {
+                                    BitmapDescriptorFactory.fromBitmap(drawable.bitmap)
+                                } else {
+                                    BitmapDescriptorFactory.defaultMarker()
+                                }
                             }
 
-                            marker.position = org.osmdroid.util.GeoPoint(
-                                collectible.latitude,
-                                collectible.longitude
+                            com.google.maps.android.compose.Marker(
+                                state = MarkerState(position = LatLng(npc.location.latitude, npc.location.longitude)),
+                                icon = iconDescriptor,
+                                rotation = npc.rotationAngle,
+                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                flat = true,
+                                alpha = if (npc.isDying) 0.5f else 1.0f
                             )
                         }
                     }
 
-                    // ─── DIBUJADO DE LANDMARKS (con soporte de modo diseñador) ────────
-                    @Suppress("UNCHECKED_CAST")
-                    // Cambiamos el caché para que guarde una lista de Overlays genéricos por cada ID
-                    val landmarkCache = (view.getTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag) as? MutableMap<Long, MutableList<org.osmdroid.views.overlay.Overlay>>)
-                        ?: mutableMapOf<Long, MutableList<org.osmdroid.views.overlay.Overlay>>().also {
-                            view.setTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag, it)
-                        }
-
-                    val currentIds = uiState.landmarks.map { it.id }.toSet()
-
-                    // 1. Limpiar estructuras que fueron eliminadas de la base de datos
-                    val iterator = landmarkCache.iterator()
-                    while (iterator.hasNext()) {
-                        val entry = iterator.next()
-                        if (!currentIds.contains(entry.key)) {
-                            // Quitamos del mapa todos los overlays asociados a este ID borrado
-                            entry.value.forEach { overlay -> view.overlays.remove(overlay) }
-                            iterator.remove()
-                        }
-                    }
-
+                    // ─── DIBUJADO DE LANDMARKS ───
                     uiState.landmarks.forEach { landmark ->
-                        val overlays = landmarkCache.getOrPut(landmark.id) { mutableListOf() }
+                        val bitmap = landmarkBitmapCache[landmark.assetPath]
+                        if (bitmap != null) {
+                            val center = LatLng(landmark.location.latitude, landmark.location.longitude)
 
-                        // 1. Obtener imagen de la caché
-                        val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
-                            try {
-                                context.assets.open(landmark.assetPath).use { inputStream ->
-                                    android.graphics.BitmapFactory.decodeStream(inputStream)
-                                }
-                            } catch (e: Exception) {
-                                android.util.Log.e("WorldMapScreen", "No se pudo cargar asset: ${landmark.assetPath}", e)
-                                null
-                            }
-                        }
-                        if (bitmap == null) return@forEach
+                            // Calculamos el bounding box simplificado para Google Maps GroundOverlay
+                            // (Aproximación rectangular ya que Google Maps GroundOverlay no usa 4 esquinas arbitrarias fácilmente)
+                            val halfW = (landmark.baseWidthMeters * landmark.scaleFactor) / 111111.0
+                            val halfH = (landmark.baseHeightMeters * landmark.scaleFactor) / 111111.0
 
-                        // 2. Crear o recuperar el GroundOverlay (El que se ancla geográficamente)
-                        val existingOverlay = overlays.filterIsInstance<org.osmdroid.views.overlay.GroundOverlay>().firstOrNull()
-                        val groundOverlay = existingOverlay ?: org.osmdroid.views.overlay.GroundOverlay().apply {
-                            overlays.add(this)
-                            view.overlays.add(0, this) // El 0 asegura que el edificio se dibuje debajo de tu personaje
-                        }
+                            val bounds = LatLngBounds(
+                                LatLng(center.latitude - halfH, center.longitude - halfW),
+                                LatLng(center.latitude + halfH, center.longitude + halfW)
+                            )
 
-                        // 3. Matemáticas genéricas usando el ancho y alto del JSON
-                        val centerLat = landmark.location.latitude
-                        val centerLon = landmark.location.longitude
-                        val center = org.osmdroid.util.GeoPoint(centerLat, centerLon)
-
-                        // Uso las propiedades dinámicas del modelo para calcular el tamaño real
-                        val halfW = (landmark.baseWidthMeters * landmark.scaleFactor) / 2.0
-                        val halfH = (landmark.baseHeightMeters * landmark.scaleFactor) / 2.0
-                        val d = kotlin.math.sqrt(halfW * halfW + halfH * halfH)
-                        val theta = Math.toDegrees(kotlin.math.atan2(halfW, halfH))
-
-                        // Calculamos las 4 esquinas del polígono
-                        val pTL = center.destinationPoint(d, landmark.rotationAngle.toDouble() - theta)
-                        val pTR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + theta)
-                        val pBR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 - theta)
-                        val pBL = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 + theta)
-
-                        // Aplicamos las esquinas y la imagen
-                        groundOverlay.setPosition(pTL, pTR, pBR, pBL)
-                        groundOverlay.setImage(bitmap)
-
-                        // 4. Controles del Modo Diseñador (Esto aplica para cualquier edificio)
-                        val existingControl = overlays.filterIsInstance<org.osmdroid.views.overlay.Marker>().firstOrNull()
-                        if (uiState.isDesignerMode) {
-                            val controlMarker = existingControl ?: org.osmdroid.views.overlay.Marker(view).apply {
-                                setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
-                                icon = androidx.core.content.ContextCompat.getDrawable(
-                                    context,
-                                    android.R.drawable.ic_menu_edit
-                                )?.mutate()
-                                overlays.add(this)
-                                view.overlays.add(this)
-                            }
-
-                            controlMarker.position = center
-
-                            // Pinta el ícono de rojo si está seleccionado
-                            controlMarker.icon = controlMarker.icon?.mutate()
-                            if (uiState.selectedLandmarkId == landmark.id) {
-                                controlMarker.icon?.setTint(android.graphics.Color.RED)
-                            } else {
-                                controlMarker.icon?.setTintList(null)
-                            }
-
-                            controlMarker.setOnMarkerClickListener { _, _ ->
-                                viewModel.selectLandmark(landmark.id)
-                                true
-                            }
-
-                            controlMarker.isDraggable = true
-                            controlMarker.setOnMarkerDragListener(object : org.osmdroid.views.overlay.Marker.OnMarkerDragListener {
-                                override fun onMarkerDragStart(marker: org.osmdroid.views.overlay.Marker) {
-                                    viewModel.selectLandmark(landmark.id)
-                                }
-                                override fun onMarkerDrag(marker: org.osmdroid.views.overlay.Marker) {
-                                    val dLat = marker.position.latitude - landmark.location.latitude
-                                    val dLon = marker.position.longitude - landmark.location.longitude
-                                    viewModel.moveSelectedLandmark(dLat, dLon)
-                                }
-                                override fun onMarkerDragEnd(marker: org.osmdroid.views.overlay.Marker) {}
-                            })
-
-                        } else {
-                            // Limpia el control si apagas el modo diseñador
-                            existingControl?.let {
-                                view.overlays.remove(it)
-                                overlays.remove(it)
-                            }
+                            GroundOverlay(
+                                position = GroundOverlayPosition.create(bounds),
+                                image = BitmapDescriptorFactory.fromBitmap(bitmap),
+                                bearing = landmark.rotationAngle,
+                                transparency = 0f
+                            )
                         }
                     }
-
-                    view.invalidate()
                 }
-            )
-        } else {
-            // (Rama WebView intacta - los landmarks aún no se ven en proveedores web)
-            val collectiblesJson = remember(uiState.activeCollectibles) {
-                com.google.gson.Gson().toJson(uiState.activeCollectibles)
             }
-            AndroidView(
-                factory = { ctx ->
-                    WebView(ctx).apply {
-                        layoutParams = android.view.ViewGroup.LayoutParams(
-                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                            android.view.ViewGroup.LayoutParams.MATCH_PARENT)
-                        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.allowFileAccess = true
-                        settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                        webViewClient = cachingClient
-                        val lat = uiState.currentLocation?.latitude ?: 0.0
-                        val lng = uiState.currentLocation?.longitude ?: 0.0
-                        loadDataWithBaseURL(null, buildHtml(lat, lng, uiState.zoomLevel.toInt()), "text/html", "UTF-8", null)
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-                update = { wv ->
-                    uiState.currentLocation?.let {
-                        wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
-                    }
+            else -> {
+                // (Rama WebView intacta - los landmarks aún no se ven en proveedores web)
+                val collectiblesJson = remember(uiState.activeCollectibles) {
+                    com.google.gson.Gson().toJson(uiState.activeCollectibles)
+                }
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                            setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.allowFileAccess = true
+                            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                            webViewClient = cachingClient
+                            val lat = uiState.currentLocation?.latitude ?: 0.0
+                            val lng = uiState.currentLocation?.longitude ?: 0.0
+                            loadDataWithBaseURL(null, buildHtml(lat, lng, uiState.zoomLevel.toInt()), "text/html", "UTF-8", null)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    update = { wv ->
+                        uiState.currentLocation?.let {
+                            wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
+                        }
 
-                    val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
-                    wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
+                        val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
+                        wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
 
-                    val tileUrl = when (uiState.mapProvider) {
-                        MapProvider.CARTO_DB_DARK  -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                        MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                        MapProvider.ESRI           -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-                        MapProvider.ESRI_SATELLITE -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                        MapProvider.OPEN_TOPO      -> "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-                        MapProvider.OSM_WEB        -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        else -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-                    }
-                    wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null)
-                    wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
+                        val tileUrl = when (uiState.mapProvider) {
+                            MapProvider.CARTO_DB_DARK  -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                            MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                            MapProvider.ESRI           -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+                            MapProvider.ESRI_SATELLITE -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                            MapProvider.OPEN_TOPO      -> "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+                            MapProvider.OSM_WEB        -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            else -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                        }
+                        wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null)
+                        wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
 
-                    val screenDensity = context.resources.displayMetrics.density
-                    val highResRenderScale = 1.0f * screenDensity
+                        val screenDensity = context.resources.displayMetrics.density
+                        val highResRenderScale = 1.0f * screenDensity
 
-                    val npcPayloads = uiState.npcs.map { npc ->
-                        if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
-                            var angle = npc.rotationAngle % 360f
-                            if (angle < 0) angle += 360f
+                        val npcPayloads = uiState.npcs.map { npc ->
+                            if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
+                                var angle = npc.rotationAngle % 360f
+                                if (angle < 0) angle += 360f
 
-                            val frameIndex = (angle / 7.5f).roundToInt() % 48
-                            val cacheKey = "${npc.carModel?.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
+                                val frameIndex = (angle / 7.5f).roundToInt() % 48
+                                val cacheKey = "${npc.carModel?.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
 
-                            val base64Image = base64Cache[cacheKey]
+                                val base64Image = base64Cache[cacheKey]
                             if (base64Image == null) {
                                 base64Cache[cacheKey] = ""
                                 coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
@@ -627,10 +737,11 @@ fun WorldMapScreen(
                     }
                     val npcsJson = gson.toJson(npcPayloads)
                     wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
-                    wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
+                    wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${org.json.JSONObject.quote(collectiblesJson)});", null)
                 }
             )
         }
+    }
 
         // ─── CAPA 2: Personaje principal ────────────────────────────────────
         ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
