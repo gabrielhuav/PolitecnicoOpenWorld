@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -523,72 +524,150 @@ fun WorldMapScreen(
                 )
             }
             MapProvider.GOOGLE_MAPS_NATIVE -> {
-                val escom = LatLng(19.5045, -99.1469)
+                val escom = LatLng(19.505411765791404, -99.14526888961194)
                 val cameraPositionState = rememberCameraPositionState()
 
-                // Sincronizar cámara con la ubicación actual del jugador y el zoom del ViewModel
-                LaunchedEffect(uiState.currentLocation, uiState.zoomLevel) {
+                // Sincronizar cámara con la ubicación actual del jugador, zoom y rotación
+                LaunchedEffect(uiState.currentLocation, uiState.zoomLevel, uiState.vehicleRotation, uiState.isDriving) {
                     val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
                     val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
+                    val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
                     
-                    cameraPositionState.position = CameraPosition.fromLatLngZoom(
-                        LatLng(targetLat, targetLng),
-                        uiState.zoomLevel.toFloat()
-                    )
+                    cameraPositionState.position = CameraPosition.Builder()
+                        .target(LatLng(targetLat, targetLng))
+                        .zoom(uiState.zoomLevel.toFloat())
+                        .bearing(targetBearing)
+                        .tilt(0f)
+                        .build()
                 }
 
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
                     uiSettings = MapUiSettings(
-                        zoomGesturesEnabled = true, // Permitimos pinch-to-zoom
+                        zoomGesturesEnabled = true,
                         zoomControlsEnabled = false,
-                        scrollGesturesEnabled = uiState.isDesignerMode,
-                        tiltGesturesEnabled = false
+                        scrollGesturesEnabled = true,
+                        tiltGesturesEnabled = false,
+                        rotationGesturesEnabled = false
                     )
                 ) {
-                    // ─── DIBUJADO DE NPCs ───
-                    if (uiState.zoomLevel >= 16.5) {
+                    // ─── DIBUJADO DE NPCs (Peatones y Carros) ───
+                    if (uiState.zoomLevel >= 15.5) {
                         uiState.npcs.forEach { npc ->
                             val screenDensity = context.resources.displayMetrics.density
                             val timeMs = System.currentTimeMillis()
                             val currentZoom = uiState.zoomLevel
 
-                            val iconDescriptor = remember(npc.id, npc.health, npc.isDying, currentZoom) {
-                                val cacheKey = if (npc.visualConfig != null) {
+                            val cacheKey = when {
+                                npc.visualConfig != null -> {
                                     val currentlyMoving = npc.speed > 0 || npc.isMoving
                                     val personSzDp = (24.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                     val exactPixels = (personSzDp * screenDensity).toInt()
                                     val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                     "GM_PED_${npc.visualConfig!!.bodyFolder}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
-                                } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
-                                    "GM_CAR_${npc.carModel?.name}_${npc.carColor}_H${npc.health}_D${npc.isDying}"
-                                } else {
-                                    "GM_SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
                                 }
+                                npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR -> {
+                                    val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+                                    "GM_CAR_${npc.carModel?.name}_${npc.carColor}_${npc.rotationAngle}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
+                                }
+                                else -> "GM_SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
+                            }
 
-                                // Intentamos usar el caché de drawables nativos
-                                val drawable = nativeDrawableCache[cacheKey] ?: run {
-                                    // Si no está en caché, lo generamos (simplificado para Google Maps para evitar lag)
-                                    val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
-                                    val base = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
-                                    drawHealthBarOnDrawable(context, base, npc.health, npc.isDying)
+                            val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
+                                val drawable = when {
+                                    npc.visualConfig != null -> {
+                                        val currentlyMoving = npc.speed > 0 || npc.isMoving
+                                        val personSzDp = (24.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
+                                        val exactPixels = (personSzDp * screenDensity).toInt()
+                                        var d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getModularNpcDrawable(
+                                            context, npc.visualConfig!!, currentlyMoving, npc.facingRight, timeMs, 1.0f * screenDensity, npc.displayName
+                                        )
+                                        d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
+                                        d?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                    }
+                                    npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR -> {
+                                        val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+                                        var d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
+                                            context, npc.rotationAngle, npc.carColor, 1.0f * screenDensity, npc.carModel
+                                        )
+                                        d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
+                                        d?.let {
+                                            val fw = ((it.intrinsicWidth / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
+                                            val fh = ((it.intrinsicHeight / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
+                                            ExactSizeDrawable(it, fw, fh)
+                                        }
+                                    }
+                                    else -> {
+                                        val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
+                                        var d = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
+                                        d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
+                                        d?.let { ExactSizeDrawable(it, (24 * screenDensity).toInt(), (24 * screenDensity).toInt()) }
+                                    }
                                 }
-
-                                if (drawable is android.graphics.drawable.BitmapDrawable) {
-                                    BitmapDescriptorFactory.fromBitmap(drawable.bitmap)
-                                } else {
-                                    BitmapDescriptorFactory.defaultMarker()
-                                }
+                                
+                                val bitmap = if (drawable != null) {
+                                    val bm = android.graphics.Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, android.graphics.Bitmap.Config.ARGB_8888)
+                                    val canvas = android.graphics.Canvas(bm)
+                                    drawable.setBounds(0, 0, canvas.width, canvas.height)
+                                    drawable.draw(canvas)
+                                    bm
+                                } else null
+                                
+                                if (bitmap != null) BitmapDescriptorFactory.fromBitmap(bitmap)
+                                else BitmapDescriptorFactory.defaultMarker()
                             }
 
                             com.google.maps.android.compose.Marker(
                                 state = MarkerState(position = LatLng(npc.location.latitude, npc.location.longitude)),
                                 icon = iconDescriptor,
-                                rotation = npc.rotationAngle,
+                                rotation = if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) 0f else npc.rotationAngle,
                                 anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                                 flat = true,
                                 alpha = if (npc.isDying) 0.5f else 1.0f
+                            )
+                        }
+                    }
+
+                    // ─── DIBUJADO DE COLECCIONABLES ───
+                    if (uiState.zoomLevel >= 16.0) {
+                        uiState.activeCollectibles.forEach { collectible ->
+                            val screenDensity = context.resources.displayMetrics.density
+                            val exactPixels = (22 * screenDensity).toInt()
+                            val cacheKey = "GM_COL_${collectible.assetPath}"
+                            
+                            val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
+                                try {
+                                    val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open(collectible.assetPath))
+                                    if (bitmap != null) {
+                                        val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
+                                            shape = android.graphics.drawable.GradientDrawable.OVAL
+                                            setSize(exactPixels, exactPixels)
+                                            setColor(android.graphics.Color.argb(100, 255, 235, 59))
+                                        }
+                                        val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                                        val spriteSize = (exactPixels * 0.90).toInt()
+                                        val layerDrawable = android.graphics.drawable.LayerDrawable(arrayOf(glowDrawable, spriteDrawable))
+                                        val inset = ((exactPixels - spriteSize) / 2)
+                                        layerDrawable.setLayerInset(1, inset, inset, inset, inset)
+                                        
+                                        val finalBm = android.graphics.Bitmap.createBitmap(exactPixels, exactPixels, android.graphics.Bitmap.Config.ARGB_8888)
+                                        val canvas = android.graphics.Canvas(finalBm)
+                                        layerDrawable.setBounds(0, 0, exactPixels, exactPixels)
+                                        layerDrawable.draw(canvas)
+                                        BitmapDescriptorFactory.fromBitmap(finalBm)
+                                    } else BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)
+                                } catch (e: Exception) {
+                                    BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)
+                                }
+                            }
+
+                            com.google.maps.android.compose.Marker(
+                                state = MarkerState(position = LatLng(collectible.latitude, collectible.longitude)),
+                                icon = iconDescriptor,
+                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                flat = true,
+                                rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
                             )
                         }
                     }
@@ -598,9 +677,6 @@ fun WorldMapScreen(
                         val bitmap = landmarkBitmapCache[landmark.assetPath]
                         if (bitmap != null) {
                             val center = LatLng(landmark.location.latitude, landmark.location.longitude)
-
-                            // Calculamos el bounding box simplificado para Google Maps GroundOverlay
-                            // (Aproximación rectangular ya que Google Maps GroundOverlay no usa 4 esquinas arbitrarias fácilmente)
                             val halfW = (landmark.baseWidthMeters * landmark.scaleFactor) / 111111.0
                             val halfH = (landmark.baseHeightMeters * landmark.scaleFactor) / 111111.0
 
@@ -807,6 +883,15 @@ fun WorldMapScreen(
                 modifier = Modifier
                     .background(Color.White.copy(alpha = 0.8f), CircleShape)
             ) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
+
+            // Botón para ir a ESCOM
+            IconButton(
+                onClick = { viewModel.teleportTo(19.5045, -99.1469) },
+                modifier = Modifier
+                    .background(Color(0xFF3B0D1B).copy(alpha = 0.8f), CircleShape) // Guinda IPN
+            ) {
+                Icon(Icons.Default.School, "Ir a ESCOM", tint = Color.White)
+            }
 
             // Toggle modo diseñador
             IconButton(
