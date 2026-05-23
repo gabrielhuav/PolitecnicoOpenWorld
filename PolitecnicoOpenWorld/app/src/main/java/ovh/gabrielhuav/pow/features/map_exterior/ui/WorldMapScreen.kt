@@ -72,7 +72,10 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.math.atan2
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.maps.android.compose.MapProperties
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.osmdroid.util.GeoPoint
@@ -528,12 +531,12 @@ fun WorldMapScreen(
                 val cameraPositionState = rememberCameraPositionState()
 
                 // Sincronizar cámara con la ubicación actual del jugador, zoom y rotación
-                LaunchedEffect(uiState.currentLocation, uiState.zoomLevel, uiState.vehicleRotation, uiState.isDriving) {
+                SideEffect {
                     val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
                     val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
                     val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
                     
-                    cameraPositionState.position = CameraPosition.Builder()
+                    cameraPositionState.position = CameraPosition.builder()
                         .target(LatLng(targetLat, targetLng))
                         .zoom(uiState.zoomLevel.toFloat())
                         .bearing(targetBearing)
@@ -541,35 +544,126 @@ fun WorldMapScreen(
                         .build()
                 }
 
+                val propiedadesMap = remember {
+                    MapProperties(
+                        mapStyleOptions = MapStyleOptions.loadRawResourceStyle(
+                            context,
+                            ovh.gabrielhuav.pow.R.raw.estilo_google_maps
+                        )
+                    )
+                }
+
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
+                    properties = propiedadesMap,
                     uiSettings = MapUiSettings(
-                        zoomGesturesEnabled = true,
+                        zoomGesturesEnabled = false, // Deshabilitar zoom con dedos
                         zoomControlsEnabled = false,
-                        scrollGesturesEnabled = true,
+                        scrollGesturesEnabled = uiState.isDesignerMode, // Habilitar arrastre solo en modo diseñador para mover marcadores
                         tiltGesturesEnabled = false,
                         rotationGesturesEnabled = false
                     )
                 ) {
+                    // ─── DIBUJADO DE LANDMARKS (Primero para que queden abajo) ───
+                    uiState.landmarks.forEach { landmark ->
+                        // 1. Asegurar que el bitmap esté cargado en caché
+                        val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
+                            try {
+                                context.assets.open(landmark.assetPath).use { inputStream ->
+                                    android.graphics.BitmapFactory.decodeStream(inputStream)
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("WorldMapScreen", "No se pudo cargar asset: ${landmark.assetPath}", e)
+                                null
+                            }
+                        }
+
+                        if (bitmap != null) {
+                            val center = LatLng(landmark.location.latitude, landmark.location.longitude)
+                            val widthMeters = (landmark.baseWidthMeters * landmark.scaleFactor).toFloat()
+                            val heightMeters = (landmark.baseHeightMeters * landmark.scaleFactor).toFloat()
+
+                            GroundOverlay(
+                                position = GroundOverlayPosition.create(center, widthMeters, heightMeters),
+                                image = BitmapDescriptorFactory.fromBitmap(bitmap),
+                                bearing = landmark.rotationAngle,
+                                transparency = 0f
+                            )
+
+                            // 4. Controles del Modo Diseñador
+                            if (uiState.isDesignerMode) {
+                                val markerState = remember(landmark.id) { MarkerState(position = center) }
+
+                                // Sincronizar posición del marcador con el estado (por si se mueve con botones o panel)
+                                LaunchedEffect(center) {
+                                    markerState.position = center
+                                }
+
+                                // Generar icono de lápiz (con tinte rojo si está seleccionado)
+                                val pencilIcon = remember(uiState.selectedLandmarkId == landmark.id) {
+                                    val drawable = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)?.mutate()
+                                    if (uiState.selectedLandmarkId == landmark.id) {
+                                        drawable?.setTint(android.graphics.Color.RED)
+                                    } else {
+                                        drawable?.setTintList(null)
+                                    }
+                                    
+                                    val bm = android.graphics.Bitmap.createBitmap(
+                                        drawable?.intrinsicWidth ?: 1,
+                                        drawable?.intrinsicHeight ?: 1,
+                                        android.graphics.Bitmap.Config.ARGB_8888
+                                    )
+                                    val canvas = android.graphics.Canvas(bm)
+                                    drawable?.setBounds(0, 0, bm.width, bm.height)
+                                    drawable?.draw(canvas)
+                                    BitmapDescriptorFactory.fromBitmap(bm)
+                                }
+
+                                com.google.maps.android.compose.Marker(
+                                    state = markerState,
+                                    draggable = true,
+                                    icon = pencilIcon,
+                                    onClick = {
+                                        viewModel.selectLandmark(landmark.id)
+                                        true
+                                    }
+                                )
+
+                                // Detectar arrastre y actualizar el ViewModel
+                                LaunchedEffect(markerState.position) {
+                                    if (markerState.dragState == com.google.maps.android.compose.DragState.DRAG) {
+                                        val dLat = markerState.position.latitude - landmark.location.latitude
+                                        val dLon = markerState.position.longitude - landmark.location.longitude
+                                        viewModel.moveSelectedLandmark(dLat, dLon)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // ─── DIBUJADO DE NPCs (Peatones y Carros) ───
                     if (uiState.zoomLevel >= 15.5) {
-                        uiState.npcs.forEach { npc ->
-                            val screenDensity = context.resources.displayMetrics.density
-                            val timeMs = System.currentTimeMillis()
-                            val currentZoom = uiState.zoomLevel
+                        val screenDensity = context.resources.displayMetrics.density
+                        val timeMs = System.currentTimeMillis()
+                        val currentZoom = uiState.zoomLevel
 
+                        uiState.npcs.forEach { npc ->
                             val cacheKey = when {
                                 npc.visualConfig != null -> {
                                     val currentlyMoving = npc.speed > 0 || npc.isMoving
                                     val personSzDp = (24.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                     val exactPixels = (personSzDp * screenDensity).toInt()
                                     val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
-                                    "GM_PED_${npc.visualConfig!!.bodyFolder}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
+                                    val config = npc.visualConfig!!
+                                    "GM_PED_${config.bodyFolder}_${config.hairId}_${config.hairColor.value}_${config.shirtColor.value}_${config.pantsColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
                                 }
                                 npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR -> {
+                                    var angle = npc.rotationAngle % 360f
+                                    if (angle < 0) angle += 360f
+                                    val frameIndex = (angle / 7.5f).roundToInt() % 48
                                     val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
-                                    "GM_CAR_${npc.carModel?.name}_${npc.carColor}_${npc.rotationAngle}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
+                                    "GM_CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
                                 }
                                 else -> "GM_SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
                             }
@@ -668,28 +762,6 @@ fun WorldMapScreen(
                                 anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                                 flat = true,
                                 rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
-                            )
-                        }
-                    }
-
-                    // ─── DIBUJADO DE LANDMARKS ───
-                    uiState.landmarks.forEach { landmark ->
-                        val bitmap = landmarkBitmapCache[landmark.assetPath]
-                        if (bitmap != null) {
-                            val center = LatLng(landmark.location.latitude, landmark.location.longitude)
-                            val halfW = (landmark.baseWidthMeters * landmark.scaleFactor) / 111111.0
-                            val halfH = (landmark.baseHeightMeters * landmark.scaleFactor) / 111111.0
-
-                            val bounds = LatLngBounds(
-                                LatLng(center.latitude - halfH, center.longitude - halfW),
-                                LatLng(center.latitude + halfH, center.longitude + halfW)
-                            )
-
-                            GroundOverlay(
-                                position = GroundOverlayPosition.create(bounds),
-                                image = BitmapDescriptorFactory.fromBitmap(bitmap),
-                                bearing = landmark.rotationAngle,
-                                transparency = 0f
                             )
                         }
                     }
@@ -1250,7 +1322,17 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <body>
     <div id="map-wrapper"><div id="map"></div></div>
     <script>
-        var map = L.map('map', { zoomControl: false, attributionControl: false, dragging: true, maxZoom: 22 }).setView([$lat, $lng], $zoom);
+        var map = L.map('map', { 
+            zoomControl: false, 
+            attributionControl: false, 
+            dragging: false, 
+            touchZoom: false,
+            doubleClickZoom: false,
+            scrollWheelZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            maxZoom: 22 
+        }).setView([$lat, $lng], $zoom);
         var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 18 }).addTo(map);
         var npcMarkers = {};
         var isZooming = false;
