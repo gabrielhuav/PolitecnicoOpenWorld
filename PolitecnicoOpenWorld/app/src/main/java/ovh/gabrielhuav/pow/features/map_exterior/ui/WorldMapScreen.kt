@@ -42,6 +42,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -50,6 +55,15 @@ import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.GroundOverlay
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.*
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.*
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
+import kotlin.math.atan2
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.font.FontFamily
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import kotlin.math.*
@@ -63,9 +77,9 @@ fun WorldMapScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val base64Cache = remember { mutableMapOf<String, String>() }
-    val widthCache = remember { mutableMapOf<String, Float>() }
-    val heightCache = remember { mutableMapOf<String, Float>() }
+    val base64Cache = remember { java.util.concurrent.ConcurrentHashMap<String, String>() }
+    val widthCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
+    val heightCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val gson = remember { Gson() }
@@ -558,18 +572,22 @@ fun WorldMapScreen(
                             if (angle < 0) angle += 360f
                             val frameIndex = (angle / 7.5f).roundToInt() % 48
                             val cacheKey = "${npc.carModel?.name}_${frameIndex}_${npc.carColor}_${density}"
-                            val base64Image = base64Cache.getOrPut(cacheKey) {
-                                val drawable = VehicleSpriteManager.getTintedCarNpc(context, angle, npc.carColor, highResRenderScale, npc.carModel)
-                                val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                            val base64Image = base64Cache[cacheKey]
+                            if (base64Image == null) {
+                                base64Cache[cacheKey] = ""
+                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                    val drawable = VehicleSpriteManager.getTintedCarNpc(context, angle, npc.carColor, highResRenderScale, npc.carModel)
+                                    val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
                                 if (bitmap != null) {
                                     widthCache[cacheKey] = (bitmap.width / density) / density
-                                    heightCache[cacheKey] = (bitmap.height / density) / density
-                                    val out = java.io.ByteArrayOutputStream()
-                                    bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, out)
-                                    "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
-                                } else ""
+                                        heightCache[cacheKey] = (bitmap.height / density) / density
+                                        val out = java.io.ByteArrayOutputStream()
+                                        bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, out)
+                                        base64Cache[cacheKey] = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                    }
+                                }
                             }
-                            if (!registeredWebImages.contains(cacheKey) && base64Image.isNotEmpty()) {
+                            if (base64Image != null && base64Image.isNotEmpty() && !registeredWebImages.contains(cacheKey)) {
                                 wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                 registeredWebImages.add(cacheKey)
                             }
@@ -579,15 +597,19 @@ fun WorldMapScreen(
                             val config = npc.visualConfig!!
                             val frameIndex = CharacterSpriteManager.getFrameIndex(context, config, currentlyMoving, System.currentTimeMillis()) ?: 0
                             val cacheKey = "npc_mod_${config.bodyFolder}_${config.hairId}_${npc.facingRight}_${frameIndex}_${density}"
-                            val base64Image = base64Cache.getOrPut(cacheKey) {
-                                val bitmap = CharacterSpriteManager.generateAssembledBitmap(context, config, currentlyMoving, System.currentTimeMillis())
-                                if (bitmap != null) {
-                                    val out = java.io.ByteArrayOutputStream()
-                                    bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
-                                    "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
-                                } else ""
+                            val base64Image = base64Cache[cacheKey]
+                            if (base64Image == null) {
+                                base64Cache[cacheKey] = ""
+                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                    val bitmap = CharacterSpriteManager.generateAssembledBitmap(context, config, currentlyMoving, System.currentTimeMillis())
+                                    if (bitmap != null) {
+                                        val out = java.io.ByteArrayOutputStream()
+                                        bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
+                                        base64Cache[cacheKey] = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                    }
+                                }
                             }
-                            if (!registeredWebImages.contains(cacheKey) && base64Image.isNotEmpty()) {
+                            if (base64Image != null && base64Image.isNotEmpty() && !registeredWebImages.contains(cacheKey)) {
                                 wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                 registeredWebImages.add(cacheKey)
                             }
@@ -908,7 +930,41 @@ fun WorldMapScreen(
             }
         }
     }
+    // --- SECUENCIA WASTED (TIPO GTA) ---
+    if (uiState.showWastedScreen) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0x99000000))
+                .clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+        ) {
+            var scale by remember { mutableStateOf(0.5f) }
+            LaunchedEffect(Unit) {
+                androidx.compose.animation.core.animate(
+                    initialValue = 0.5f,
+                    targetValue = 1.3f,
+                    animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)
+                ) { value, _ -> scale = value }
+            }
 
+            Text(
+                text = "WASTED",
+                color = Color(0xFFD32F2F),
+                fontSize = 60.sp,
+                fontWeight = FontWeight.ExtraBold,
+                fontFamily = FontFamily.Serif,
+                letterSpacing = 6.sp,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .scale(scale)
+            )
+        }
+    }
+    // ─── UI SUPERPUESTA: AVISO DE COLECCIONABLE CERCANO ───────────────────────
     uiState.interactionPrompt?.let { promptText ->
         Box(modifier = Modifier.fillMaxSize().padding(top = 70.dp), contentAlignment = Alignment.TopCenter) {
             Text(text = promptText, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp,
