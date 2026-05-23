@@ -90,6 +90,7 @@ fun WorldMapScreen(
 
     // Cache de bitmaps de landmarks (sin tinte) por assetPath.
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap?>() }
+    var hasTriggeredNativePan by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadLandmarks(context)
@@ -163,8 +164,19 @@ fun WorldMapScreen(
                     } else {
                         view.setOnTouchListener { _, event ->
                             when (event.action) {
-                                android.view.MotionEvent.ACTION_MOVE -> viewModel.onMapPanStart()
-                                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> viewModel.onMapPanEnd()
+                                android.view.MotionEvent.ACTION_DOWN -> hasTriggeredNativePan = false
+                                android.view.MotionEvent.ACTION_MOVE -> {
+                                    if (!hasTriggeredNativePan) {
+                                        viewModel.onMapPanStart()
+                                        hasTriggeredNativePan = true
+                                    }
+                                }
+                                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                                    if (hasTriggeredNativePan) {
+                                        viewModel.onMapPanEnd()
+                                        hasTriggeredNativePan = false
+                                    }
+                                }
                             }
                             false
                         }
@@ -211,8 +223,12 @@ fun WorldMapScreen(
 
                     if (uiState.destinationMarker != null) {
                         destMarker.position = uiState.destinationMarker
+                        destMarker.isEnabled = true
+                        destMarker.isDraggable = false
                         destMarker.setAlpha(1f)
                     } else {
+                        destMarker.isEnabled = false
+                        destMarker.closeInfoWindow()
                         destMarker.setAlpha(0f)
                     }
 
@@ -426,7 +442,7 @@ fun WorldMapScreen(
                     uiState.landmarks.forEach { landmark ->
                         val overlays = landmarkCache.getOrPut(landmark.id) { mutableListOf() }
 
-                        if (landmark.name.contains("escom", ignoreCase = true)) {
+                        if (landmark.baseWidthMeters > 0f && landmark.baseHeightMeters > 0f) {
                             val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
                                 try {
                                     context.assets.open(landmark.assetPath).use { inputStream ->
@@ -443,8 +459,8 @@ fun WorldMapScreen(
                                 }
 
                             val center = org.osmdroid.util.GeoPoint(landmark.location.latitude, landmark.location.longitude)
-                            val baseWidthMeters = 212.7f
-                            val baseHeightMeters = 263.0f
+                            val baseWidthMeters = landmark.baseWidthMeters
+                            val baseHeightMeters = landmark.baseHeightMeters
                             val halfW = (baseWidthMeters * landmark.scaleFactor) / 2.0
                             val halfH = (baseHeightMeters * landmark.scaleFactor) / 2.0
                             val d = sqrt(halfW * halfW + halfH * halfH)
@@ -1175,7 +1191,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             }
             
             if (showRoute && routePoints && routePoints.length > 0) {
-                var points = [[playerLat, playerLng]];
+                var points = [];
                 for (var i = 0; i < routePoints.length; i++) {
                     var pt = routePoints[i];
                     if (pt && typeof pt.lat !== 'undefined' && typeof pt.lng !== 'undefined') {

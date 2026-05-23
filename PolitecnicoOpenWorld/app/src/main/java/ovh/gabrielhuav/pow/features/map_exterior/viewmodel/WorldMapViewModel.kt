@@ -170,6 +170,9 @@ class WorldMapViewModel(
     private val npcAiManager      = NpcAiManager()
     private val overpassRepository = OverpassRepository()
     private var roadNetwork: List<MapWay> = emptyList()
+    private var roadNetworkNodeGrid: Map<Pair<Int, Int>, List<GeoPoint>> = emptyMap()
+    private var routeCalculationJob: Job? = null
+    private var routeRetryJob: Job? = null
     private var lastNetworkFetchLocation: GeoPoint? = null
     private var gameLoopJob: Job? = null
     private var tickCount = 0
@@ -178,6 +181,7 @@ class WorldMapViewModel(
 
     private val REFETCH_DISTANCE_DEG = 0.015
     private val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
+    private val ROAD_NODE_GRID_SIZE_DEG = 0.001
 
     // Variables de Control para Vehículos
     var isSteeringLeftPressed = false
@@ -652,7 +656,7 @@ class WorldMapViewModel(
                                                 synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.clear() }
                                             }
                                         } catch (e: Exception) {
-                                            android.util.Log.e("Network", "Error al enviar datos: ${e.message}")
+                                            Log.e("Network", "Error al enviar datos: ${e.message}")
                                         }
                                     }
                                 }
@@ -662,8 +666,6 @@ class WorldMapViewModel(
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e // Necesario para que la corrutina pueda detenerse si el usuario cierra la app
                 } catch (e: Exception) {
-                    android.util.Log.e("GameLoop", "Crasheo evitado en el ciclo principal: ${e.message}")
-                    // Continuamos para evitar que se muera el juego
                     Log.e("GameLoop", "Crasheo evitado en el ciclo principal: ${e.message}")
                 }
                 kotlinx.coroutines.delay(33) // Cierra el while en ~30fps
@@ -675,6 +677,7 @@ class WorldMapViewModel(
 
     private suspend fun applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
         roadNetwork = network
+        rebuildRoadNodeGrid(network)
         npcAiManager.updateRoadNetwork(network)
         val snapped = withContext(Dispatchers.Default) { getNearestPointOnNetwork(playerLocation) }
         withContext(Dispatchers.Main) {
@@ -952,6 +955,8 @@ class WorldMapViewModel(
     override fun onCleared() {
         super.onCleared()
         stopGameLoop()
+        routeCalculationJob?.cancel()
+        routeRetryJob?.cancel()
         messagesCollectorJob?.cancel()
         tileCache.closeAll()
         webSocketManager?.disconnect()
@@ -1589,6 +1594,8 @@ class WorldMapViewModel(
      */
     fun placeDestinationMarker(latitude: Double, longitude: Double) {
         Log.d("Navigation", "Colocando waypoint en: $latitude, $longitude")
+        routeRetryJob?.cancel()
+        routeCalculationJob?.cancel()
         val newDestination = GeoPoint(latitude, longitude)
         _uiState.update { it.copy(
             destinationMarker = newDestination,
@@ -1602,6 +1609,8 @@ class WorldMapViewModel(
      * Elimina el marcador de destino y la ruta asociada.
      */
     fun clearDestinationMarker() {
+        routeRetryJob?.cancel()
+        routeCalculationJob?.cancel()
         _uiState.update { it.copy(
             destinationMarker = null,
             isTargetingWaypoint = false,
@@ -1627,8 +1636,10 @@ class WorldMapViewModel(
 
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) {
             // Si aún no está lista la red de caminos, reintentar más tarde
-            viewModelScope.launch {
+            if (routeRetryJob?.isActive == true) return
+            routeRetryJob = viewModelScope.launch {
                 delay(1000)
+                routeRetryJob = null
                 if (_uiState.value.destinationMarker != null) {
                     updateDestinationRoute()
                 }
@@ -1636,7 +1647,14 @@ class WorldMapViewModel(
             return
         }
 
-        viewModelScope.launch(Dispatchers.Default) {
+        if (routeCalculationJob?.isActive == true) {
+            return
+        }
+
+        routeRetryJob?.cancel()
+        routeRetryJob = null
+
+        routeCalculationJob = viewModelScope.launch(Dispatchers.Default) {
             try {
                 Log.d("Navigation", "Calculando ruta...")
                 val route = calculateRouteOnNetwork(currentLoc, destination, roadNetwork)
@@ -1653,6 +1671,8 @@ class WorldMapViewModel(
                 }
             } catch (e: Exception) {
                 Log.e("Navigation", "Error calculando ruta: ${e.message}")
+            } finally {
+                routeCalculationJob = null
             }
         }
     }
@@ -1688,20 +1708,18 @@ class WorldMapViewModel(
             var bestNext: GeoPoint? = null
             var bestDist = distToTarget
 
-            // Buscar en los caminos cercanos
-            for (way in network) {
-                for (node in way.nodes) {
-                    val nodePt = GeoPoint(node.lat, node.lon)
-                    val nodeKey = "${node.lat},${node.lon}"
-                    if (visitedNodes.contains(nodeKey)) continue
+            // Buscar en nodos cercanos mediante índice espacial
+            val candidateNodes = nearbyRoadNodes(current)
+            for (nodePt in candidateNodes) {
+                val nodeKey = "${nodePt.latitude},${nodePt.longitude}"
+                if (visitedNodes.contains(nodeKey)) continue
 
-                    val dFromCurrent = distance(current, nodePt)
-                    if (dFromCurrent < 0.003) { // Rango de búsqueda
-                        val dToTarget = distance(nodePt, endPoint)
-                        if (dToTarget < bestDist) {
-                            bestDist = dToTarget
-                            bestNext = nodePt
-                        }
+                val dFromCurrent = distance(current, nodePt)
+                if (dFromCurrent < 0.003) { // Rango de búsqueda
+                    val dToTarget = distance(nodePt, endPoint)
+                    if (dToTarget < bestDist) {
+                        bestDist = dToTarget
+                        bestNext = nodePt
                     }
                 }
             }
@@ -1718,6 +1736,40 @@ class WorldMapViewModel(
         route.add(endPoint)
         route.add(to)
         return route.distinctBy { "${it.latitude},${it.longitude}" }
+    }
+
+    private fun rebuildRoadNodeGrid(network: List<MapWay>) {
+        val uniqueNodes = linkedMapOf<String, GeoPoint>()
+        network.forEach { way ->
+            way.nodes.forEach { node ->
+                val key = "${node.lat},${node.lon}"
+                if (!uniqueNodes.containsKey(key)) {
+                    uniqueNodes[key] = GeoPoint(node.lat, node.lon)
+                }
+            }
+        }
+
+        roadNetworkNodeGrid = uniqueNodes.values.groupBy { point ->
+            val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+            val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+            latCell to lonCell
+        }
+    }
+
+    private fun nearbyRoadNodes(point: GeoPoint): List<GeoPoint> {
+        if (roadNetworkNodeGrid.isEmpty()) return emptyList()
+
+        val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+        val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+
+        val nearby = mutableListOf<GeoPoint>()
+        for (latOffset in -1..1) {
+            for (lonOffset in -1..1) {
+                roadNetworkNodeGrid[(latCell + latOffset) to (lonCell + lonOffset)]?.let { nearby.addAll(it) }
+            }
+        }
+        if (nearby.isNotEmpty()) return nearby
+        return roadNetworkNodeGrid.values.flatten()
     }
 
     /**

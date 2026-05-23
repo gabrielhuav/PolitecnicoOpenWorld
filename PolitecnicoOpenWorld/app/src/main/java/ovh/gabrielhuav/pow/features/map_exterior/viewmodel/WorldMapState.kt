@@ -79,8 +79,6 @@ data class WorldMapState(
     // ─── NAVEGACIÓN / MARCADOR DE DESTINO ──────────────────────────────────
     // Coordenada del marcador de destino (como en Google Maps)
     val destinationMarker: GeoPoint? = null,
-    // Si está activo el modo de colocación de marcador (el icono aparece al centro para apuntar)
-    val isPlacingDestinationMarker: Boolean = false,
     // Indica si el usuario está activamente moviendo el mapa para centrar el waypoint
     val isTargetingWaypoint: Boolean = false,
     // Lista de puntos (waypoints) que conforman la ruta desde el personaje al destino
