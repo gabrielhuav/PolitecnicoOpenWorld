@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.update
 import org.osmdroid.util.GeoPoint
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +35,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import ovh.gabrielhuav.pow.domain.models.Landmark
+import ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager
 import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -46,6 +49,11 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.abs
+import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
+import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
 
@@ -62,7 +70,8 @@ data class MultiplayerPlayer(
     val isDriving: Boolean = false,
     val carModel: String? = null,
     val carColor: Int? = null,
-    val vehicleRotation: Float? = null
+    val vehicleRotation: Float? = null,
+    val health: Float = 100f
 )
 
 // Clase para empaquetar un NPC en el JSON.
@@ -107,14 +116,30 @@ private data class ServerMessage(
     val npcId: String? = null,
     val orphanedNpcs: List<String>? = null,
     val activeNpcIds: List<String>? = null,
-    val isZoneHost: Boolean? = null
+    val isZoneHost: Boolean? = null,
+    val health: Float? = null,
+    val targetId: String? = null,
+    val damage: Float? = null,
 )
 
 class WorldMapViewModel(
     private val roadNetworkCache: RoadNetworkCache,
     val tileCache: TileCache,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val collectibleRepository: CollectibleRepository
 ) : ViewModel() {
+
+    var playerHealth by mutableStateOf(100f)
+        private set
+    val maxPlayerHealth = 100f
+
+    var showHealthBar by mutableStateOf(false)
+        private set
+    var damagePulseTrigger by mutableStateOf(0) // Cambia para disparar la animación de golpe
+        private set
+
+    private var healthBarJob: Job? = null
+
 
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -127,7 +152,8 @@ class WorldMapViewModel(
             return WorldMapViewModel(
                 roadNetworkCache = RoadNetworkCache(database.roadNetworkDao()),
                 tileCache        = TileCache(database.mapTileDao()),
-                settingsRepository = SettingsRepository(appCtx)
+                settingsRepository = SettingsRepository(appCtx),
+                collectibleRepository = CollectibleRepository(database.collectibleDao())
             ) as T
         }
     }
@@ -144,6 +170,9 @@ class WorldMapViewModel(
     private val npcAiManager      = NpcAiManager()
     private val overpassRepository = OverpassRepository()
     private var roadNetwork: List<MapWay> = emptyList()
+    private var roadNetworkNodeGrid: Map<Pair<Int, Int>, List<GeoPoint>> = emptyMap()
+    private var routeCalculationJob: Job? = null
+    private var routeRetryJob: Job? = null
     private var lastNetworkFetchLocation: GeoPoint? = null
     private var gameLoopJob: Job? = null
     private var tickCount = 0
@@ -152,6 +181,7 @@ class WorldMapViewModel(
 
     private val REFETCH_DISTANCE_DEG = 0.015
     private val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
+    private val ROAD_NODE_GRID_SIZE_DEG = 0.001
 
     // Variables de Control para Vehículos
     var isSteeringLeftPressed = false
@@ -164,9 +194,28 @@ class WorldMapViewModel(
     private val BRAKING_FRICTION = 0.000001
     private val INTERACT_RADIUS = 0.0005 // Rango para detectar autos
 
+    private val PLAYER_PUNCH_DAMAGE = 15f
+
+    private var lastAttackTime = 0L
+
+    private val ATTACK_COOLDOWN_MS = 2400L // Tiempo entre cada puñetazo para sincronizar con la animación
+
+    private val ATTACK_RADIUS = 0.00015     // Radio geográfico de alcance del golpe (corta distancia)
+
+    // 🏥 Coordenadas reales de Hospitales / Servicios Médicos (Ejemplo en IPN Zacatenco)
+    private val hospitalRespawnPoints = listOf(
+        GeoPoint(19.5034, -99.1469), // Servicio Médico cerca de ESCOM
+        GeoPoint(19.4990, -99.1350), // Centro Médico alterno 1
+        GeoPoint(19.5070, -99.1400)  // Centro Médico alterno 2
+    )
+
     // El game loop arranca aquí, atado al ciclo de vida del ViewModel (no del Composable).
     // Así, navegar a Settings y volver no detiene a los NPCs.
     init {
+        // Inicializa la base de datos de coleccionables de forma segura en background
+        viewModelScope.launch(Dispatchers.IO) {
+            collectibleRepository.initializeDefaultCollectiblesIfNeeded()
+        }
         startGameLoop()
     }
 
@@ -291,6 +340,13 @@ class WorldMapViewModel(
                     }
                 }
 
+                "PLAYER_DAMAGE" -> {
+                    // Si el golpe era para nosotros, recibimos el daño localmente
+                    if (msg.targetId == myPlayerUUID && msg.damage != null) {
+                        takeDamage(msg.damage)
+                    }
+                }
+
                 else -> {
                     // Si es una actualización de posición de otro JUGADOR
                     if (msg.id != null && msg.id != myPlayerUUID && msg.x != null && msg.y != null) {
@@ -327,7 +383,9 @@ class WorldMapViewModel(
                             carModel = remoteCarModel, // <- El compilador ya aceptará esto
                             carColor = msg.carColor ?: 0xFFFFFFFF.toInt(),
                             visualConfig = if (!isRemoteDriving) multiplayerConfig else null,
-                            displayName = msg.displayName
+                            displayName = msg.displayName,
+                            health = msg.health ?: 100f,
+                            isDying = (msg.health ?: 100f) <= 0f
                         )
                         remoteEntities[msg.id] = otherPlayer
                         updateNpcsState()
@@ -393,11 +451,13 @@ class WorldMapViewModel(
     }
     // ─── GAME LOOP ───────────────────────────────────────────────────────────────
 
-    fun startGameLoop() {
+    private fun startGameLoop() {
         if (gameLoopJob?.isActive == true) return
-        gameLoopJob = viewModelScope.launch {
 
-            while (_uiState.value.currentLocation == null) { delay(100) }
+        // --- 1. OPTIMIZACIÓN GLOBAL: Corremos el Loop en el CPU (Default) y no en la Interfaz ---
+        gameLoopJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+
+            while (_uiState.value.currentLocation == null) { kotlinx.coroutines.delay(100) }
             val initialLoc = _uiState.value.currentLocation!!
 
             if (_uiState.value.mapProvider == MapProvider.OSM) {
@@ -420,25 +480,46 @@ class WorldMapViewModel(
                         applyRoadNetwork(network, initialLoc)
                         lastNetworkFetchLocation = initialLoc
 
-                        launch(Dispatchers.IO) {
+                        launch(kotlinx.coroutines.Dispatchers.IO) {
                             roadNetworkCache.put(initialLoc.latitude, initialLoc.longitude, network)
-                            withContext(Dispatchers.Main) {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                             }
                         }
                         break
                     } else {
                         _uiState.update { it.copy(isRoadNetworkReady = false) }
-                        delay(retryMs)
+                        kotlinx.coroutines.delay(retryMs)
                         retryMs = (retryMs * 2).coerceAtMost(30_000L)
                     }
                 }
             }
 
             // Game loop principal ~30fps
+            var tickCount = 0L
             while (isActive) {
                 try { // ESCUDO ANTI-CRASHEO INICIADO
                     _uiState.value.currentLocation?.let { location ->
+
+                        // Intentamos generar uno si no hay ninguno (1 de cada 30 ticks para no saturar)
+                        if (tickCount % 30 == 0L) {
+                            trySpawningCollectible(location.latitude, location.longitude)
+                        }
+                        // Revisamos constantemente si estamos parados sobre él
+                        checkCollectibleProximity(location.latitude, location.longitude)
+                        
+                        // Verificamos si llegamos al destino
+                        checkDestinationArrival()
+                        
+                        // Recalculamos la ruta cada 30 ticks (aproximadamente 1 segundo a 30fps)
+                        if (tickCount % 30 == 0L && _uiState.value.destinationMarker != null) {
+                            updateDestinationRoute()
+                        }
+
+                        // --- CONDICIÓN DE COMBATE ---
+                        if (_uiState.value.playerAction == PlayerAction.SPECIAL) {
+                            performPlayerAttack()
+                        }
 
                         // --- LÓGICA DE CONDUCCIÓN DEL JUGADOR ---
                         if (_uiState.value.isDriving) {
@@ -502,7 +583,7 @@ class WorldMapViewModel(
                         maybeRefetchRoadNetwork(location)
                         if (_uiState.value.isRoadNetworkReady) {
                             tickCount++
-                            if (tickCount % 3 == 0) {
+                            if (tickCount % 3 == 0L) {
                                 // 1. Damos SOLO los NPCs a la IA (Filtrando posibles jugadores basura)
                                 val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
                                 npcAiManager.setServerNpcs(npcOnlyList)
@@ -523,7 +604,7 @@ class WorldMapViewModel(
                                 // 4. Enviar datos por red
                                 webSocketManager?.let { ws ->
                                     // Envolvemos todo el envío de red en un bloque seguro
-                                    viewModelScope.launch(Dispatchers.IO) {
+                                    launch(kotlinx.coroutines.Dispatchers.IO) {
                                         try {
                                             val myData = MultiplayerPlayer(
                                                 id = myPlayerUUID,
@@ -535,7 +616,8 @@ class WorldMapViewModel(
                                                 isDriving = _uiState.value.isDriving,
                                                 carModel = _uiState.value.currentVehicleModel?.name,
                                                 carColor = _uiState.value.currentVehicleColor,
-                                                vehicleRotation = _uiState.value.vehicleRotation
+                                                vehicleRotation = _uiState.value.vehicleRotation,
+                                                health = playerHealth
                                             )
                                             ws.sendMessage(gson.toJson(myData))
 
@@ -581,10 +663,12 @@ class WorldMapViewModel(
                             }
                         }
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e // Necesario para que la corrutina pueda detenerse si el usuario cierra la app
                 } catch (e: Exception) {
                     Log.e("GameLoop", "Crasheo evitado en el ciclo principal: ${e.message}")
                 }
-                delay(33)
+                kotlinx.coroutines.delay(33) // Cierra el while en ~30fps
             }
         }
     }
@@ -593,6 +677,7 @@ class WorldMapViewModel(
 
     private suspend fun applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
         roadNetwork = network
+        rebuildRoadNodeGrid(network)
         npcAiManager.updateRoadNetwork(network)
         val snapped = withContext(Dispatchers.Default) { getNearestPointOnNetwork(playerLocation) }
         withContext(Dispatchers.Main) {
@@ -613,7 +698,7 @@ class WorldMapViewModel(
         }
     }
 
-    private fun maybeRefetchRoadNetwork(currentLoc: GeoPoint) {
+    private fun maybeRefetchRoadNetwork(currentLoc: org.osmdroid.util.GeoPoint) {
         val moved = if (lastNetworkFetchLocation != null)
             distance(lastNetworkFetchLocation!!, currentLoc) else Double.MAX_VALUE
         if (moved < REFETCH_DISTANCE_DEG) return
@@ -623,31 +708,43 @@ class WorldMapViewModel(
         if (!isFetchingNetwork.compareAndSet(false, true)) return
         lastFetchAttemptMs = now
 
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val cached = roadNetworkCache.get(currentLoc.latitude, currentLoc.longitude)
                 if (cached != null) {
-                    withContext(Dispatchers.Main) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         roadNetwork = cached
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
-                        _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                        // AÑADIDO: Liberar controles (isRoadNetworkReady = true)
+                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                     }
                 } else {
-                    withContext(Dispatchers.Main) {
-                        _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.NETWORK) }
                     }
                     val network = overpassRepository.fetchRoadNetwork(
                         currentLoc.latitude, currentLoc.longitude)
                     if (network.isNotEmpty()) {
                         roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
-                        withContext(Dispatchers.Main) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             roadNetwork = network
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
-                            _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
+                            // AÑADIDO: Liberar controles tras descargar de internet
+                            _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
+                        }
+                    } else {
+                        // AÑADIDO: Si la zona no tiene caminos (campo abierto), liberar de todas formas para no trabar el juego
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            _uiState.update { it.copy(isRoadNetworkReady = true) }
                         }
                     }
+                }
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error refetching road network", e)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _uiState.update { it.copy(isRoadNetworkReady = true) }
                 }
             } finally {
                 isFetchingNetwork.set(false)
@@ -664,6 +761,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacter(direction: Direction) {
+        if (_uiState.value.isUserPanningMap) return // No mover si estamos explorando el mapa
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
         val isMovingRight = when (direction) {
@@ -696,6 +794,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacterByAngle(angleRad: Double) {
+        if (_uiState.value.isUserPanningMap) return // No mover si estamos explorando el mapa
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
 
@@ -837,9 +936,27 @@ class WorldMapViewModel(
     fun zoomIn()  = _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
     fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
 
+    // Centro en el jugador y sale del modo de exploración (navegación libre)
+    fun centerOnPlayer() {
+        _uiState.update { it.copy(isUserPanningMap = false) }
+    }
+
+    // Llamado cuando el usuario empieza a arrastrar/poner pan en el mapa
+    fun onMapPanStart() {
+        _uiState.update { it.copy(isUserPanningMap = true) }
+    }
+
+    // Llamado cuando el usuario termina el arrastre; mantenemos el modo exploración
+    // activo hasta que el usuario presione el botón FAB para volver al seguimiento.
+    fun onMapPanEnd() {
+        // Intencionalmente vacío
+    }
+
     override fun onCleared() {
         super.onCleared()
         stopGameLoop()
+        routeCalculationJob?.cancel()
+        routeRetryJob?.cancel()
         messagesCollectorJob?.cancel()
         tileCache.closeAll()
         webSocketManager?.disconnect()
@@ -938,40 +1055,62 @@ class WorldMapViewModel(
     fun loadLandmarks(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val database = PowDatabase.getInstance(context)
+                // 1. Cargamos el catálogo de plantillas (medidas) a memoria
+                LandmarkCatalogManager.loadCatalog(context)
+
+                val database = ovh.gabrielhuav.pow.data.local.room.PowDatabase.getInstance(context)
                 val dao = database.landmarkDao()
                 var entities = dao.getAllLandmarks()
 
+                // 2. Si la base de datos está vacía (primera instalación)
                 if (entities.isEmpty()) {
-                    val escomDefault = LandmarkEntity(
-                        name = "ESCOM",
-                        latitude = 19.504505,
-                        longitude = -99.146911,
-                        assetPath = "BUILDINGS/IPN/building_escom.webp",
-                        scaleFactor = 0.15f
-                    )
-                    dao.insertLandmarks(listOf(escomDefault))
-                    entities = dao.getAllLandmarks()
+                    try {
+                        // Leemos el mapa completo que acomodaste y exportaste
+                        val jsonString = context.assets.open("default_landmarks.json").bufferedReader().use { it.readText() }
+
+                        // Convertimos ese JSON en una lista de LandmarkEntity listos para BD
+                        val type = object : TypeToken<List<LandmarkEntity>>() {}.type
+                        val defaultEntities: List<LandmarkEntity> = Gson().fromJson(jsonString, type)
+
+                        // Insertamos todos los edificios de golpe
+                        dao.insertLandmarks(defaultEntities)
+                        entities = dao.getAllLandmarks() // Recargamos la variable con la BD ya llena
+
+                        Log.d("WorldMapViewModel", "Mapa sembrado con éxito desde default_landmarks.json con ${entities.size} edificios.")
+                    } catch (e: java.io.FileNotFoundException) {
+                        Log.w("WorldMapViewModel", "Archivo default_landmarks.json no encontrado. El mapa iniciará vacío.")
+                        // NOTA: Si aún no creas el archivo, la app no tronará, simplemente el mapa no tendrá edificios.
+                    } catch (e: Exception) {
+                        Log.e("WorldMapViewModel", "Error leyendo default_landmarks.json", e)
+                    }
                 }
 
+                // 3. Fusionamos los datos de Room con las medidas del Catálogo
+                val templatesByAssetPath = LandmarkCatalogManager.availableAssets.associateBy { it.assetPath }
                 val domainLandmarks = entities.map { entity ->
+                    val template = templatesByAssetPath[entity.assetPath]
+
                     Landmark(
                         id = entity.id,
                         name = entity.name,
                         location = GeoPoint(entity.latitude, entity.longitude),
                         assetPath = entity.assetPath,
                         scaleFactor = entity.scaleFactor,
-                        rotationAngle = entity.rotationAngle
+                        rotationAngle = entity.rotationAngle,
+                        // Valores fallback de 100f para evitar crasheos si falta una plantilla
+                        baseWidthMeters = template?.baseWidthMeters ?: 100f,
+                        baseHeightMeters = template?.baseHeightMeters ?: 100f
                     )
                 }
 
-                android.util.Log.d("Landmarks", "Cargados ${domainLandmarks.size} landmarks desde Room")
+                Log.d("Landmarks", "Enviando ${domainLandmarks.size} landmarks a la Interfaz Gráfica")
 
+                // 4. Actualizamos el UI para que el mapa dibuje todo
                 _uiState.update { currentState ->
                     currentState.copy(landmarks = domainLandmarks)
                 }
             } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error al cargar las estructuras estáticas", e)
+                Log.e("WorldMapViewModel", "Error fatal al cargar las estructuras estáticas", e)
             }
         }
     }
@@ -1183,17 +1322,468 @@ class WorldMapViewModel(
     }
 
     fun teleportTo(lat: Double, lon: Double) {
-        val newLocation = GeoPoint(lat, lon)
+        val newLocation = org.osmdroid.util.GeoPoint(lat, lon)
         _uiState.update {
             it.copy(
                 currentLocation = newLocation,
-                showTeleportMenu = false // Cerramos el menú tras hacer TP
+                showTeleportMenu = false, // Cerramos el menú
+                isRoadNetworkReady = false // BLOQUEAMOS el joystick temporalmente
             )
         }
+
+        // Forzamos al motor a descargar los caminos de esta nueva zona inmediatamente
+        lastNetworkFetchLocation = null
+        lastFetchAttemptMs = 0L
     }
 
     fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
     fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed }
     fun accelerate(pressed: Boolean) { isGasPressed = pressed }
     fun brake(pressed: Boolean) { isBrakePressed = pressed }
+
+    // ─── SISTEMA DE COLECCIONABLES ───────────────────────────────────────────────
+
+    private val isSpawningCollectible = AtomicBoolean(false)
+
+    private fun trySpawningCollectible(playerLat: Double, playerLon: Double) {
+        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
+        // Si ya hay un coleccionable activo, o ya estamos calculando uno, salimos.
+        if (_uiState.value.activeCollectibles.isNotEmpty() || !isSpawningCollectible.compareAndSet(false, true)) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val uncollected = collectibleRepository.getUncollectedCollectibles()
+                if (uncollected.isNotEmpty()) {
+                    val itemToSpawn = uncollected.random()
+
+                    val bearing = Math.random() * 2 * Math.PI
+                    val distanceMeters = 300.0 + Math.random() * 300.0 // 300m – 600m
+                    val clampedLat = playerLat.coerceIn(-85.0, 85.0)
+                    val deltaLat = (distanceMeters * Math.cos(bearing)) / 111000.0
+                    val deltaLon = (distanceMeters * Math.sin(bearing)) / (111000.0 * Math.cos(Math.toRadians(clampedLat)))
+                    val offsetLat = playerLat + deltaLat
+                    val offsetLon = playerLon + deltaLon
+
+                    val tempLoc = org.osmdroid.util.GeoPoint(offsetLat, offsetLon)
+
+                    // USAMOS LA FUNCIÓN DE TU VIEWMODEL QUE SÍ EXISTE
+                    val spawnNode = getNearestPointOnNetwork(tempLoc)
+
+                    val activeItem = ActiveCollectible(
+                        id = itemToSpawn.id,
+                        name = itemToSpawn.name,
+                        description = itemToSpawn.description,
+                        assetPath = itemToSpawn.assetPath,
+                        latitude = spawnNode.latitude,   // En GeoPoint es .latitude
+                        longitude = spawnNode.longitude  // y .longitude
+                    )
+
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _uiState.update { it.copy(activeCollectibles = listOf(activeItem)) }
+                    }
+                }
+            } finally {
+                isSpawningCollectible.set(false)
+            }
+        }
+    }
+
+    private var promptJob: kotlinx.coroutines.Job? = null
+
+    private fun checkCollectibleProximity(playerLat: Double, playerLon: Double) {
+        val activeItem = _uiState.value.activeCollectibles.firstOrNull() ?: return
+
+        val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
+        val itemGeo = org.osmdroid.util.GeoPoint(activeItem.latitude, activeItem.longitude)
+        val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
+
+        val INTERACT_RADIUS_METERS = 15.0
+
+        if (distanceInMeters <= INTERACT_RADIUS_METERS) {
+            if (_uiState.value.nearbyCollectible?.id != activeItem.id) {
+                // El jugador acaba de entrar a la zona del objeto
+                _uiState.update { it.copy(nearbyCollectible = activeItem) }
+
+                // Mostrar aviso arriba por 3 segundos
+                promptJob?.cancel()
+                promptJob = viewModelScope.launch {
+                    _uiState.update { it.copy(interactionPrompt = "PRESIONA X PARA RECOGER") }
+                    kotlinx.coroutines.delay(3000)
+                    _uiState.update { it.copy(interactionPrompt = null) }
+                }
+            }
+        } else {
+            if (_uiState.value.nearbyCollectible != null) {
+                promptJob?.cancel()
+                promptJob = null
+                _uiState.update { it.copy(nearbyCollectible = null, interactionPrompt = null) }
+            }
+        }
+    }
+    // Se llama cuando el usuario presiona el botón X (o el botón que designes)
+    fun onClaimCollectiblePressed() {
+        val itemToClaim = _uiState.value.nearbyCollectible ?: return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            collectibleRepository.claimCollectible(itemToClaim.id)
+
+            withContext(Dispatchers.Main) {
+                promptJob?.cancel()
+                promptJob = null
+                _uiState.update {
+                    it.copy(
+                        activeCollectibles = emptyList(), // Lo quitamos del mapa
+                        nearbyCollectible = null,         // Ya no está cerca
+                        interactionPrompt = null,
+                        showClaimedPopupFor = itemToClaim // Mostramos la tarjeta divertida
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissClaimedPopup() {
+        _uiState.update { it.copy(showClaimedPopupFor = null) }
+    }
+    fun takeDamage(amount: Float) {
+        playerHealth = (playerHealth - amount).coerceAtLeast(0f)
+        damagePulseTrigger++ // Dispara el efecto visual
+        showHealthBar = true
+
+        // Si la vida es menor al 30%, no ocultamos la barra (estado crítico)
+        if (playerHealth > 30f) {
+            startHealthBarTimer(3000L) // Ocultar después de 3 segundos de no recibir daño
+        } else {
+            healthBarJob?.cancel() // Se queda visible permanentemente
+        }
+
+        if (playerHealth <= 0f) {
+            triggerWastedSequence() // Lógica futura para morir
+        }
+    }
+
+    fun heal(amount: Float) {
+        playerHealth = (playerHealth + amount).coerceAtMost(maxPlayerHealth)
+        showHealthBar = true
+
+        // Si la vida sigue en el rango crítico, no ocultamos la barra
+        if (playerHealth > 30f) {
+            startHealthBarTimer(3000L)
+        } else {
+            healthBarJob?.cancel()
+        }
+    }
+
+    private fun startHealthBarTimer(delayMillis: Long) {
+        healthBarJob?.cancel()
+        healthBarJob = viewModelScope.launch {
+            delay(delayMillis)
+            showHealthBar = false
+        }
+    }
+
+    private fun triggerWastedSequence() {
+        viewModelScope.launch(Dispatchers.Main) {
+            _uiState.update { it.copy(showWastedScreen = true) }
+            delay(4000L) // Tiempo del WASTED
+
+            val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
+
+            // BUSCAR EL MÁS CERCANO:
+            val nearestHospital = hospitalRespawnPoints.minByOrNull {
+                // Usamos la función distancia que ya se tiene en el ViewModel
+                distance(deathLoc, it)
+            } ?: hospitalRespawnPoints.first()
+
+            // TELETRANSPORTE
+            _uiState.update {
+                it.copy(
+                    currentLocation = nearestHospital,
+                    showWastedScreen = false
+                )
+            }
+            playerHealth = maxPlayerHealth // Vida restaurada
+        }
+    }
+
+    fun showInitialHealthBar() {
+        showHealthBar = true
+        startHealthBarTimer(4000L)
+    }
+
+    fun performPlayerAttack() {
+        val now = System.currentTimeMillis()
+        if (now - lastAttackTime < ATTACK_COOLDOWN_MS) return
+        lastAttackTime = now
+
+        viewModelScope.launch(Dispatchers.Default) {
+            delay(300L) // Esperamos 300ms a que el puño "conecte"
+
+            val playerLoc = _uiState.value.currentLocation ?: return@launch
+
+            // 1. Quitamos la restricción del displayName para que sí detecte jugadores reales
+            val targetNpcEntry = remoteEntities.entries
+                .filter {
+                    !it.value.isDying &&
+                            it.value.type == NpcType.PERSON &&
+                            distance(playerLoc, it.value.location) <= ATTACK_RADIUS
+                }
+                .minByOrNull { distance(playerLoc, it.value.location) }
+
+            if (targetNpcEntry != null) {
+                val npcId = targetNpcEntry.key
+                val currentNpc = targetNpcEntry.value
+                val isRemotePlayer = !currentNpc.displayName.isNullOrBlank()
+
+                if (isRemotePlayer) {
+                    // 2. ES UN JUGADOR REAL: Disparamos el WebSocket
+                    try {
+                        webSocketManager?.sendMessage(
+                            gson.toJson(
+                                mapOf(
+                                    "type" to "PLAYER_DAMAGE",
+                                    "targetId" to npcId,
+                                    "damage" to PLAYER_PUNCH_DAMAGE
+                                )
+                            )
+                        )
+                    } catch (e: Exception) {
+                        Log.e("Combat", "Error enviando PLAYER_DAMAGE: ${e.message}")
+                    }
+                } else {
+                    // 3. ES UN NPC: Lógica local (se mantiene intacta)
+                    val damage = PLAYER_PUNCH_DAMAGE
+                    val newHealth = (currentNpc.health - damage).coerceAtLeast(0f)
+
+                    if (newHealth <= 0f) {
+                        remoteEntities[npcId] = currentNpc.copy(health = 0f, isDying = true)
+                        updateNpcsState()
+
+                        delay(1000L)
+                        remoteEntities.remove(npcId)
+
+                        try {
+                            webSocketManager?.sendMessage(
+                                gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
+                            )
+                        } catch (e: Exception) {
+                            Log.e("Combat", "Error enviando NPC_DESTROY para npcId=$npcId", e)
+                        }
+                        updateNpcsState()
+                    } else {
+                        remoteEntities[npcId] = currentNpc.copy(health = newHealth)
+                        updateNpcsState()
+                    }
+                }
+            }
+        }
+    }
+
+    // ─── SISTEMA DE NAVEGACIÓN / MARCADOR DE DESTINO ─────────────────────────────
+
+    /**
+     * Alterna el modo de apuntado de waypoint (centro de pantalla).
+     */
+    fun toggleWaypointTargeting(active: Boolean) {
+        _uiState.update { it.copy(isTargetingWaypoint = active) }
+    }
+
+    /**
+     * Coloca el marcador de destino (waypoint) en las coordenadas especificadas.
+     * Si ya existe un marcador anterior, lo reemplaza.
+     * También inicia el cálculo de la ruta.
+     */
+    fun placeDestinationMarker(latitude: Double, longitude: Double) {
+        Log.d("Navigation", "Colocando waypoint en: $latitude, $longitude")
+        routeRetryJob?.cancel()
+        routeCalculationJob?.cancel()
+        val newDestination = GeoPoint(latitude, longitude)
+        _uiState.update { it.copy(
+            destinationMarker = newDestination,
+            isTargetingWaypoint = false,
+            routeWaypoints = emptyList() // Se recalculará
+        ) }
+        updateDestinationRoute()
+    }
+
+    /**
+     * Elimina el marcador de destino y la ruta asociada.
+     */
+    fun clearDestinationMarker() {
+        routeRetryJob?.cancel()
+        routeCalculationJob?.cancel()
+        _uiState.update { it.copy(
+            destinationMarker = null,
+            isTargetingWaypoint = false,
+            routeWaypoints = emptyList()
+        ) }
+    }
+
+    /**
+     * Alterna la visibilidad de la ruta sin eliminar el destino.
+     */
+    fun toggleDestinationRoute(show: Boolean) {
+        _uiState.update { it.copy(showDestinationRoute = show) }
+    }
+
+    /**
+     * Calcula la ruta desde la posición actual al marcador de destino.
+     * Utiliza la red de caminos disponible para seguir las calles.
+     * Se ejecuta de forma asincrónica en background.
+     */
+    private fun updateDestinationRoute() {
+        val destination = _uiState.value.destinationMarker ?: return
+        val currentLoc = _uiState.value.currentLocation ?: return
+
+        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) {
+            // Si aún no está lista la red de caminos, reintentar más tarde
+            if (routeRetryJob?.isActive == true) return
+            routeRetryJob = viewModelScope.launch {
+                delay(1000)
+                routeRetryJob = null
+                if (_uiState.value.destinationMarker != null) {
+                    updateDestinationRoute()
+                }
+            }
+            return
+        }
+
+        if (routeCalculationJob?.isActive == true) {
+            return
+        }
+
+        routeRetryJob?.cancel()
+        routeRetryJob = null
+
+        routeCalculationJob = viewModelScope.launch(Dispatchers.Default) {
+            try {
+                Log.d("Navigation", "Calculando ruta...")
+                val route = calculateRouteOnNetwork(currentLoc, destination, roadNetwork)
+                Log.d("Navigation", "Ruta calculada con ${route.size} puntos")
+                
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(routeWaypoints = if (route.isNotEmpty()) route else listOf(currentLoc, destination)) }
+                    
+                    val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
+                    if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) {
+                        Log.d("Navigation", "Destino alcanzado (Meters: $distToDestinationMeters)")
+                        clearDestinationMarker()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("Navigation", "Error calculando ruta: ${e.message}")
+            } finally {
+                routeCalculationJob = null
+            }
+        }
+    }
+
+    /**
+     * Calcula una ruta simple desde origen a destino siguiendo la red de caminos.
+     * Implementación básica: encuentra puntos cercanos en la red y conecta
+     */
+    private fun calculateRouteOnNetwork(
+        from: GeoPoint,
+        to: GeoPoint,
+        network: List<MapWay>
+    ): List<GeoPoint> {
+        if (network.isEmpty()) {
+            return listOf(from, to)
+        }
+
+        val route = mutableListOf<GeoPoint>()
+        route.add(from)
+
+        val startPoint = getNearestPointOnNetwork(from)
+        val endPoint = getNearestPointOnNetwork(to)
+
+        // Búsqueda simplificada: encontrar nodos que reduzcan la distancia al destino
+        var current = startPoint
+        val visitedNodes = mutableSetOf<String>()
+        val maxSteps = 20
+        
+        for (step in 0 until maxSteps) {
+            val distToTarget = distance(current, endPoint)
+            if (distToTarget < 0.0005) break
+
+            var bestNext: GeoPoint? = null
+            var bestDist = distToTarget
+
+            // Buscar en nodos cercanos mediante índice espacial
+            val candidateNodes = nearbyRoadNodes(current)
+            for (nodePt in candidateNodes) {
+                val nodeKey = "${nodePt.latitude},${nodePt.longitude}"
+                if (visitedNodes.contains(nodeKey)) continue
+
+                val dFromCurrent = distance(current, nodePt)
+                if (dFromCurrent < 0.003) { // Rango de búsqueda
+                    val dToTarget = distance(nodePt, endPoint)
+                    if (dToTarget < bestDist) {
+                        bestDist = dToTarget
+                        bestNext = nodePt
+                    }
+                }
+            }
+
+            if (bestNext != null) {
+                current = bestNext
+                visitedNodes.add("${current.latitude},${current.longitude}")
+                route.add(current)
+            } else {
+                break 
+            }
+        }
+
+        route.add(endPoint)
+        route.add(to)
+        return route.distinctBy { "${it.latitude},${it.longitude}" }
+    }
+
+    private fun rebuildRoadNodeGrid(network: List<MapWay>) {
+        val uniqueNodes = linkedMapOf<String, GeoPoint>()
+        network.forEach { way ->
+            way.nodes.forEach { node ->
+                val key = "${node.lat},${node.lon}"
+                if (!uniqueNodes.containsKey(key)) {
+                    uniqueNodes[key] = GeoPoint(node.lat, node.lon)
+                }
+            }
+        }
+
+        roadNetworkNodeGrid = uniqueNodes.values.groupBy { point ->
+            val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+            val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+            latCell to lonCell
+        }
+    }
+
+    private fun nearbyRoadNodes(point: GeoPoint): List<GeoPoint> {
+        if (roadNetworkNodeGrid.isEmpty()) return emptyList()
+
+        val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+        val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+
+        val nearby = mutableListOf<GeoPoint>()
+        for (latOffset in -1..1) {
+            for (lonOffset in -1..1) {
+                roadNetworkNodeGrid[(latCell + latOffset) to (lonCell + lonOffset)]?.let { nearby.addAll(it) }
+            }
+        }
+        if (nearby.isNotEmpty()) return nearby
+        return roadNetworkNodeGrid.values.flatten()
+    }
+
+    /**
+     * Verifica si el personaje ha llegado al destino.
+     * Se llama constantemente desde el game loop.
+     */
+    fun checkDestinationArrival() {
+        val destination = _uiState.value.destinationMarker ?: return
+        val currentLoc = _uiState.value.currentLocation ?: return
+
+        val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
+        if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) {
+            // El personaje llegó!
+            clearDestinationMarker()
+        }
+    }
 }
