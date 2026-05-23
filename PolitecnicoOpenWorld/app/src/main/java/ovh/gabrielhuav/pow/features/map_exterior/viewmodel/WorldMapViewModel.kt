@@ -170,6 +170,9 @@ class WorldMapViewModel(
     private val npcAiManager      = NpcAiManager()
     private val overpassRepository = OverpassRepository()
     private var roadNetwork: List<MapWay> = emptyList()
+    private var roadNetworkNodeGrid: Map<Pair<Int, Int>, List<GeoPoint>> = emptyMap()
+    private var routeCalculationJob: Job? = null
+    private var routeRetryJob: Job? = null
     private var lastNetworkFetchLocation: GeoPoint? = null
     private var gameLoopJob: Job? = null
     private var tickCount = 0
@@ -178,6 +181,7 @@ class WorldMapViewModel(
 
     private val REFETCH_DISTANCE_DEG = 0.015
     private val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
+    private val ROAD_NODE_GRID_SIZE_DEG = 0.001
 
     // Variables de Control para Vehículos
     var isSteeringLeftPressed = false
@@ -494,14 +498,23 @@ class WorldMapViewModel(
             // Game loop principal ~30fps
             var tickCount = 0L
             while (isActive) {
-                try { // --- 2. ESCUDO ANTI-CRASHEO GLOBAL INICIADO ---
+                try { // ESCUDO ANTI-CRASHEO INICIADO
                     _uiState.value.currentLocation?.let { location ->
+
                         // Intentamos generar uno si no hay ninguno (1 de cada 30 ticks para no saturar)
-                        if (_uiState.value.isRoadNetworkReady && roadNetwork.isNotEmpty() && tickCount % 30 == 0L) {
+                        if (tickCount % 30 == 0L) {
                             trySpawningCollectible(location.latitude, location.longitude)
                         }
                         // Revisamos constantemente si estamos parados sobre él
                         checkCollectibleProximity(location.latitude, location.longitude)
+                        
+                        // Verificamos si llegamos al destino
+                        checkDestinationArrival()
+                        
+                        // Recalculamos la ruta cada 30 ticks (aproximadamente 1 segundo a 30fps)
+                        if (tickCount % 30 == 0L && _uiState.value.destinationMarker != null) {
+                            updateDestinationRoute()
+                        }
 
                         // --- CONDICIÓN DE COMBATE ---
                         if (_uiState.value.playerAction == PlayerAction.SPECIAL) {
@@ -536,7 +549,7 @@ class WorldMapViewModel(
                             // El eje Y (Latitud) se calcula con el Coseno
                             val dy = kotlin.math.cos(angleRad) * currentSpeed
 
-                            val tempLoc = org.osmdroid.util.GeoPoint(location.latitude + dy, location.longitude + dx)
+                            val tempLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
 
                             // RESTRICCIÓN DE MAPA (NavMesh / Network)
                             val nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
@@ -547,14 +560,14 @@ class WorldMapViewModel(
                                 tempLoc // Flujo normal, está dentro del asfalto
                             } else {
                                 // Se salió del camino, lo obligamos a quedarse en el borde
-                                val angleBack = kotlin.math.atan2(tempLoc.latitude - nearestRoadPoint.latitude, tempLoc.longitude - nearestRoadPoint.longitude)
+                                val angleBack = atan2(tempLoc.latitude - nearestRoadPoint.latitude, tempLoc.longitude - nearestRoadPoint.longitude)
 
                                 // Penalización de choque: Pierde velocidad si intenta salirse de la calle
                                 currentSpeed *= 0.8
 
-                                org.osmdroid.util.GeoPoint(
-                                    nearestRoadPoint.latitude + kotlin.math.sin(angleBack) * maxRoadRadius,
-                                    nearestRoadPoint.longitude + kotlin.math.cos(angleBack) * maxRoadRadius
+                                GeoPoint(
+                                    nearestRoadPoint.latitude + sin(angleBack) * maxRoadRadius,
+                                    nearestRoadPoint.longitude + cos(angleBack) * maxRoadRadius
                                 )
                             }
 
@@ -643,7 +656,7 @@ class WorldMapViewModel(
                                                 synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.clear() }
                                             }
                                         } catch (e: Exception) {
-                                            android.util.Log.e("Network", "Error al enviar datos: ${e.message}")
+                                            Log.e("Network", "Error al enviar datos: ${e.message}")
                                         }
                                     }
                                 }
@@ -653,8 +666,7 @@ class WorldMapViewModel(
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e // Necesario para que la corrutina pueda detenerse si el usuario cierra la app
                 } catch (e: Exception) {
-                    android.util.Log.e("GameLoop", "Crasheo evitado en el ciclo principal: ${e.message}")
-                    // Continuamos para evitar que se muera el juego
+                    Log.e("GameLoop", "Crasheo evitado en el ciclo principal: ${e.message}")
                 }
                 kotlinx.coroutines.delay(33) // Cierra el while en ~30fps
             }
@@ -665,6 +677,7 @@ class WorldMapViewModel(
 
     private suspend fun applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
         roadNetwork = network
+        rebuildRoadNodeGrid(network)
         npcAiManager.updateRoadNetwork(network)
         val snapped = withContext(Dispatchers.Default) { getNearestPointOnNetwork(playerLocation) }
         withContext(Dispatchers.Main) {
@@ -748,6 +761,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacter(direction: Direction) {
+        if (_uiState.value.isUserPanningMap) return // No mover si estamos explorando el mapa
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
         val isMovingRight = when (direction) {
@@ -780,6 +794,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacterByAngle(angleRad: Double) {
+        if (_uiState.value.isUserPanningMap) return // No mover si estamos explorando el mapa
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
 
@@ -921,9 +936,27 @@ class WorldMapViewModel(
     fun zoomIn()  = _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
     fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
 
+    // Centro en el jugador y sale del modo de exploración (navegación libre)
+    fun centerOnPlayer() {
+        _uiState.update { it.copy(isUserPanningMap = false) }
+    }
+
+    // Llamado cuando el usuario empieza a arrastrar/poner pan en el mapa
+    fun onMapPanStart() {
+        _uiState.update { it.copy(isUserPanningMap = true) }
+    }
+
+    // Llamado cuando el usuario termina el arrastre; mantenemos el modo exploración
+    // activo hasta que el usuario presione el botón FAB para volver al seguimiento.
+    fun onMapPanEnd() {
+        // Intencionalmente vacío
+    }
+
     override fun onCleared() {
         super.onCleared()
         stopGameLoop()
+        routeCalculationJob?.cancel()
+        routeRetryJob?.cancel()
         messagesCollectorJob?.cancel()
         tileCache.closeAll()
         webSocketManager?.disconnect()
@@ -1542,6 +1575,215 @@ class WorldMapViewModel(
                     }
                 }
             }
+        }
+    }
+
+    // ─── SISTEMA DE NAVEGACIÓN / MARCADOR DE DESTINO ─────────────────────────────
+
+    /**
+     * Alterna el modo de apuntado de waypoint (centro de pantalla).
+     */
+    fun toggleWaypointTargeting(active: Boolean) {
+        _uiState.update { it.copy(isTargetingWaypoint = active) }
+    }
+
+    /**
+     * Coloca el marcador de destino (waypoint) en las coordenadas especificadas.
+     * Si ya existe un marcador anterior, lo reemplaza.
+     * También inicia el cálculo de la ruta.
+     */
+    fun placeDestinationMarker(latitude: Double, longitude: Double) {
+        Log.d("Navigation", "Colocando waypoint en: $latitude, $longitude")
+        routeRetryJob?.cancel()
+        routeCalculationJob?.cancel()
+        val newDestination = GeoPoint(latitude, longitude)
+        _uiState.update { it.copy(
+            destinationMarker = newDestination,
+            isTargetingWaypoint = false,
+            routeWaypoints = emptyList() // Se recalculará
+        ) }
+        updateDestinationRoute()
+    }
+
+    /**
+     * Elimina el marcador de destino y la ruta asociada.
+     */
+    fun clearDestinationMarker() {
+        routeRetryJob?.cancel()
+        routeCalculationJob?.cancel()
+        _uiState.update { it.copy(
+            destinationMarker = null,
+            isTargetingWaypoint = false,
+            routeWaypoints = emptyList()
+        ) }
+    }
+
+    /**
+     * Alterna la visibilidad de la ruta sin eliminar el destino.
+     */
+    fun toggleDestinationRoute(show: Boolean) {
+        _uiState.update { it.copy(showDestinationRoute = show) }
+    }
+
+    /**
+     * Calcula la ruta desde la posición actual al marcador de destino.
+     * Utiliza la red de caminos disponible para seguir las calles.
+     * Se ejecuta de forma asincrónica en background.
+     */
+    private fun updateDestinationRoute() {
+        val destination = _uiState.value.destinationMarker ?: return
+        val currentLoc = _uiState.value.currentLocation ?: return
+
+        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) {
+            // Si aún no está lista la red de caminos, reintentar más tarde
+            if (routeRetryJob?.isActive == true) return
+            routeRetryJob = viewModelScope.launch {
+                delay(1000)
+                routeRetryJob = null
+                if (_uiState.value.destinationMarker != null) {
+                    updateDestinationRoute()
+                }
+            }
+            return
+        }
+
+        if (routeCalculationJob?.isActive == true) {
+            return
+        }
+
+        routeRetryJob?.cancel()
+        routeRetryJob = null
+
+        routeCalculationJob = viewModelScope.launch(Dispatchers.Default) {
+            try {
+                Log.d("Navigation", "Calculando ruta...")
+                val route = calculateRouteOnNetwork(currentLoc, destination, roadNetwork)
+                Log.d("Navigation", "Ruta calculada con ${route.size} puntos")
+                
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(routeWaypoints = if (route.isNotEmpty()) route else listOf(currentLoc, destination)) }
+                    
+                    val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
+                    if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) {
+                        Log.d("Navigation", "Destino alcanzado (Meters: $distToDestinationMeters)")
+                        clearDestinationMarker()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("Navigation", "Error calculando ruta: ${e.message}")
+            } finally {
+                routeCalculationJob = null
+            }
+        }
+    }
+
+    /**
+     * Calcula una ruta simple desde origen a destino siguiendo la red de caminos.
+     * Implementación básica: encuentra puntos cercanos en la red y conecta
+     */
+    private fun calculateRouteOnNetwork(
+        from: GeoPoint,
+        to: GeoPoint,
+        network: List<MapWay>
+    ): List<GeoPoint> {
+        if (network.isEmpty()) {
+            return listOf(from, to)
+        }
+
+        val route = mutableListOf<GeoPoint>()
+        route.add(from)
+
+        val startPoint = getNearestPointOnNetwork(from)
+        val endPoint = getNearestPointOnNetwork(to)
+
+        // Búsqueda simplificada: encontrar nodos que reduzcan la distancia al destino
+        var current = startPoint
+        val visitedNodes = mutableSetOf<String>()
+        val maxSteps = 20
+        
+        for (step in 0 until maxSteps) {
+            val distToTarget = distance(current, endPoint)
+            if (distToTarget < 0.0005) break
+
+            var bestNext: GeoPoint? = null
+            var bestDist = distToTarget
+
+            // Buscar en nodos cercanos mediante índice espacial
+            val candidateNodes = nearbyRoadNodes(current)
+            for (nodePt in candidateNodes) {
+                val nodeKey = "${nodePt.latitude},${nodePt.longitude}"
+                if (visitedNodes.contains(nodeKey)) continue
+
+                val dFromCurrent = distance(current, nodePt)
+                if (dFromCurrent < 0.003) { // Rango de búsqueda
+                    val dToTarget = distance(nodePt, endPoint)
+                    if (dToTarget < bestDist) {
+                        bestDist = dToTarget
+                        bestNext = nodePt
+                    }
+                }
+            }
+
+            if (bestNext != null) {
+                current = bestNext
+                visitedNodes.add("${current.latitude},${current.longitude}")
+                route.add(current)
+            } else {
+                break 
+            }
+        }
+
+        route.add(endPoint)
+        route.add(to)
+        return route.distinctBy { "${it.latitude},${it.longitude}" }
+    }
+
+    private fun rebuildRoadNodeGrid(network: List<MapWay>) {
+        val uniqueNodes = linkedMapOf<String, GeoPoint>()
+        network.forEach { way ->
+            way.nodes.forEach { node ->
+                val key = "${node.lat},${node.lon}"
+                if (!uniqueNodes.containsKey(key)) {
+                    uniqueNodes[key] = GeoPoint(node.lat, node.lon)
+                }
+            }
+        }
+
+        roadNetworkNodeGrid = uniqueNodes.values.groupBy { point ->
+            val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+            val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+            latCell to lonCell
+        }
+    }
+
+    private fun nearbyRoadNodes(point: GeoPoint): List<GeoPoint> {
+        if (roadNetworkNodeGrid.isEmpty()) return emptyList()
+
+        val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+        val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+
+        val nearby = mutableListOf<GeoPoint>()
+        for (latOffset in -1..1) {
+            for (lonOffset in -1..1) {
+                roadNetworkNodeGrid[(latCell + latOffset) to (lonCell + lonOffset)]?.let { nearby.addAll(it) }
+            }
+        }
+        if (nearby.isNotEmpty()) return nearby
+        return roadNetworkNodeGrid.values.flatten()
+    }
+
+    /**
+     * Verifica si el personaje ha llegado al destino.
+     * Se llama constantemente desde el game loop.
+     */
+    fun checkDestinationArrival() {
+        val destination = _uiState.value.destinationMarker ?: return
+        val currentLoc = _uiState.value.currentLocation ?: return
+
+        val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
+        if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) {
+            // El personaje llegó!
+            clearDestinationMarker()
         }
     }
 }
