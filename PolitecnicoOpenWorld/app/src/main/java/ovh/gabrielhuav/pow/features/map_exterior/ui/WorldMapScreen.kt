@@ -92,7 +92,13 @@ fun WorldMapScreen(
     val heightCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
-    val googleMapsIconCache = remember { mutableMapOf<String, com.google.android.gms.maps.model.BitmapDescriptor>() }
+    val googleMapsIconCache = remember { 
+        object : java.util.LinkedHashMap<String, com.google.android.gms.maps.model.BitmapDescriptor>(150, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, com.google.android.gms.maps.model.BitmapDescriptor>?): Boolean {
+                return size > 2000
+            }
+        }
+    }
     val gson = remember { Gson() }
     // Launchers para Exportar e Importar archivos JSON en el dispositivo
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -352,9 +358,9 @@ fun WorldMapScreen(
                                     val cacheKey = "COL_${collectible.assetPath}"
                                     val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                         try {
-                                            val bitmap = android.graphics.BitmapFactory.decodeStream(
-                                                context.assets.open(collectible.assetPath)
-                                            )
+                                            val bitmap = context.assets.open(collectible.assetPath).use {
+                                                android.graphics.BitmapFactory.decodeStream(it)
+                                            }
 
                                             if (bitmap != null) {
                                                 // Glow amarillo muy sutil
@@ -532,17 +538,13 @@ fun WorldMapScreen(
                 val targetZoom = uiState.zoomLevel.toFloat()
                 val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
                 
-                LaunchedEffect(targetLat, targetLng, targetZoom, targetBearing) {
-                    val newPosition = CameraPosition.builder()
-                        .target(LatLng(targetLat, targetLng))
-                        .zoom(targetZoom)
-                        .bearing(targetBearing)
-                        .tilt(0f)
-                        .build()
-                    cameraPositionState.move(
-                        com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(newPosition)
-                    )
-                }
+                val newPosition = CameraPosition.builder()
+                    .target(LatLng(targetLat, targetLng))
+                    .zoom(targetZoom)
+                    .bearing(targetBearing)
+                    .tilt(0f)
+                    .build()
+                cameraPositionState.position = newPosition
 
                 val propiedadesMap = remember {
                     MapProperties(
@@ -599,11 +601,7 @@ fun WorldMapScreen(
                             // 4. Controles del Modo Diseñador
                             if (uiState.isDesignerMode) {
                                 val markerState = remember(landmark.id) { MarkerState(position = center) }
-
-                                // Sincronizar posición del marcador con el estado (por si se mueve con botones o panel)
-                                LaunchedEffect(center) {
-                                    markerState.position = center
-                                }
+                                markerState.position = center
 
                                 // Generar icono de lápiz (con tinte rojo si está seleccionado)
                                 val pencilIcon = remember(uiState.selectedLandmarkId == landmark.id) {
@@ -662,6 +660,7 @@ fun WorldMapScreen(
                         val renderZoom = kotlin.math.round(currentZoom * 2) / 2.0
 
                         uiState.npcs.forEach { npc ->
+                            val qHealth = npc.health.toInt()
                             val cacheKey = when {
                                 npc.visualConfig != null -> {
                                     val currentlyMoving = npc.speed > 0 || npc.isMoving
@@ -669,16 +668,16 @@ fun WorldMapScreen(
                                     val exactPixels = (personSzDp * screenDensity).toInt()
                                     val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                     val config = npc.visualConfig!!
-                                    "GM_PED_${config.bodyFolder}_${config.hairId}_${config.hairColor.value}_${config.shirtColor.value}_${config.pantsColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
+                                    "GM_PED_${config.bodyFolder}_${config.hairId}_${config.hairColor.value}_${config.shirtColor.value}_${config.pantsColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${qHealth}_D${npc.isDying}"
                                 }
                                 npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR -> {
                                     var angle = npc.rotationAngle % 360f
                                     if (angle < 0) angle += 360f
                                     val frameIndex = (angle / 7.5f).roundToInt() % 48
                                     val dynamicScale = (1.4 * Math.pow(2.0, renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
-                                    "GM_CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
+                                    "GM_CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
                                 }
-                                else -> "GM_SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
+                                else -> "GM_SVG_${npc.type.name}_H${qHealth}_D${npc.isDying}"
                             }
 
                             val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
@@ -751,7 +750,9 @@ fun WorldMapScreen(
                             
                             val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
                                 try {
-                                    val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open(collectible.assetPath))
+                                    val bitmap = context.assets.open(collectible.assetPath).use {
+                                        android.graphics.BitmapFactory.decodeStream(it)
+                                    }
                                     if (bitmap != null) {
                                         val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
                                             shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -819,6 +820,8 @@ fun WorldMapScreen(
                         uiState.currentLocation?.let {
                             wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
                         }
+
+                        wv.evaluateJavascript("if(typeof setDesignerMode==='function')setDesignerMode(${uiState.isDesignerMode});", null)
 
                         val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
                         wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
@@ -1364,6 +1367,17 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         map.on('zoomstart', function() { isZooming = true; });
         map.on('zoomend', function() { isZooming = false; });
         function updateMapView(lat, lng, z) { if (!isZooming) map.setView([lat, lng], z, { animate: false }); }
+        function setDesignerMode(isDesigner) {
+            if (isDesigner) {
+                map.dragging.enable();
+                map.touchZoom.enable();
+                map.scrollWheelZoom.enable();
+            } else {
+                map.dragging.disable();
+                map.touchZoom.disable();
+                map.scrollWheelZoom.disable();
+            }
+        }
         function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
