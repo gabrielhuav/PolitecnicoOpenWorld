@@ -2,4 +2,7 @@
 <resources>
     <item name="landmark_cache_tag" type="id" />
     <item name="collectible_cache_tag" type="id" />
+    <item name="player_marker_tag" type="id" />
+    <item name="dest_marker_tag" type="id" />
+    <item name="route_overlay_tag" type="id" />
 </resources>

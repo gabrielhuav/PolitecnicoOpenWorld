@@ -1,16 +1,16 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
-import android.content.res.Configuration
-import androidx.compose.ui.platform.LocalConfiguration
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import com.google.gson.Gson
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.*
@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Architecture
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
@@ -26,23 +27,29 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import com.google.gson.Gson
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Overlay
+import org.osmdroid.views.overlay.Polyline
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.GroundOverlay
@@ -50,31 +57,16 @@ import com.google.maps.android.compose.GroundOverlayPosition
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapUiSettings
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehiclePedalsController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSteeringController
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
-import org.osmdroid.util.BoundingBox
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
-import kotlin.math.atan2
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.text.font.FontFamily
-import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.maps.android.compose.MapProperties
-import kotlinx.coroutines.launch
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.*
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.*
+import ovh.gabrielhuav.pow.domain.models.NpcType
+import org.osmdroid.util.BoundingBox
+import kotlin.math.*
+import androidx.compose.ui.text.font.FontFamily
 import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
@@ -100,6 +92,9 @@ fun WorldMapScreen(
         }
     }
     val gson = remember { Gson() }
+    val coroutineScope = rememberCoroutineScope()
+    var yButtonHoldJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
     // Launchers para Exportar e Importar archivos JSON en el dispositivo
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { viewModel.exportLandmarksToUri(context, it) }
@@ -108,12 +103,9 @@ fun WorldMapScreen(
         uri?.let { viewModel.importLandmarksFromUri(context, it) }
     }
 
-    // Controladores de tiempo para el botón Y
-    val coroutineScope = rememberCoroutineScope()
-    var yButtonHoldJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-
-    // Cache de bitmaps de landmarks (sin tinte) por (assetPath, scale).
+    // Cache de bitmaps de landmarks (sin tinte) por assetPath.
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap?>() }
+    var hasTriggeredNativePan by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadLandmarks(context)
@@ -147,6 +139,14 @@ fun WorldMapScreen(
             onTileServed       = { fromCache -> viewModel.notifyTileSource(fromCache) }
         )
     }
+    val webViewRef = remember { mutableStateOf<WebView?>(null) }
+    val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
+
+    LaunchedEffect(uiState.isUserPanningMap) {
+        if (!uiState.isUserPanningMap) {
+            webViewRef.value?.evaluateJavascript("if(typeof exitExplorationMode==='function')exitExplorationMode();", null)
+        }
+    }
 
     Box(modifier = Modifier
         .fillMaxSize()
@@ -167,27 +167,110 @@ fun WorldMapScreen(
                     factory = { ctx ->
                         MapView(ctx).apply {
                             setTileSource(TileSourceFactory.MAPNIK)
-                            setMultiTouchControls(false)
+                            setMultiTouchControls(true)
                             controller.setZoom(uiState.zoomLevel)
+                            nativeMapRef.value = this
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { view ->
                         if (uiState.isDesignerMode) {
-                            view.setOnTouchListener(null) // Permitimos que detecte tu dedo
+                            view.setOnTouchListener(null)
                             view.isClickable = true
                         } else {
-                            view.setOnTouchListener { _, _ -> true } // Bloqueamos el mapa en modo juego
+                            view.setOnTouchListener { _, event ->
+                                when (event.action) {
+                                    android.view.MotionEvent.ACTION_DOWN -> hasTriggeredNativePan = false
+                                    android.view.MotionEvent.ACTION_MOVE -> {
+                                        if (!hasTriggeredNativePan) {
+                                            viewModel.onMapPanStart()
+                                            hasTriggeredNativePan = true
+                                        }
+                                    }
+                                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                                        if (hasTriggeredNativePan) {
+                                            viewModel.onMapPanEnd()
+                                            hasTriggeredNativePan = false
+                                        }
+                                    }
+                                }
+                                false
+                            }
                             view.isClickable = false
                         }
-                        uiState.currentLocation?.let { view.controller.setCenter(it) }
+
+                        if (!uiState.isUserPanningMap) {
+                            uiState.currentLocation?.let { view.controller.setCenter(it) }
+                        }
 
                         view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
 
-                        val zoomDiff = kotlin.math.abs(view.zoomLevelDouble - uiState.zoomLevel)
+                        // ─── DIBUJADO DE PLAYER Y DESTINO (NATIVO) ──────────────────────
+                        if (uiState.isUserPanningMap) {
+                            @Suppress("UNCHECKED_CAST")
+                            val playerMarker = (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag) as? Marker)
+                                ?: Marker(view).apply {
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    val dot = android.graphics.drawable.GradientDrawable().apply {
+                                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                                        setColor(android.graphics.Color.GREEN)
+                                        setStroke(4, android.graphics.Color.WHITE)
+                                        setSize(40, 40)
+                                    }
+                                    icon = dot
+                                    view.setTag(ovh.gabrielhuav.pow.R.id.player_marker_tag, this)
+                                    view.overlays.add(this)
+                                }
+                            uiState.currentLocation?.let { playerMarker.position = it; playerMarker.setAlpha(1f) }
+                        } else {
+                            (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag) as? Marker)?.setAlpha(0f)
+                        }
+
+                        // Marcador de Destino
+                        val destMarker = (view.getTag(ovh.gabrielhuav.pow.R.id.dest_marker_tag) as? Marker)
+                            ?: Marker(view).apply {
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                icon = ContextCompat.getDrawable(context, android.R.drawable.ic_dialog_map)
+                                icon?.setTint(android.graphics.Color.RED)
+                                view.setTag(ovh.gabrielhuav.pow.R.id.dest_marker_tag, this)
+                                view.overlays.add(this)
+                            }
+
+                        if (uiState.destinationMarker != null) {
+                            destMarker.position = uiState.destinationMarker
+                            destMarker.isEnabled = true
+                            destMarker.isDraggable = false
+                            destMarker.setAlpha(1f)
+                        } else {
+                            destMarker.isEnabled = false
+                            destMarker.closeInfoWindow()
+                            destMarker.setAlpha(0f)
+                        }
+
+                        // Ruta (Polyline)
+                        val routeOverlay = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag) as? Polyline)
+                            ?: Polyline().apply {
+                                outlinePaint.color = android.graphics.Color.BLUE
+                                outlinePaint.strokeWidth = 5f
+                                view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag, this)
+                                view.overlays.add(0, this)
+                            }
+
+                        if (uiState.destinationMarker != null && uiState.routeWaypoints.isNotEmpty() && uiState.showDestinationRoute) {
+                            routeOverlay.setPoints(uiState.routeWaypoints)
+                            routeOverlay.isEnabled = true
+                        } else {
+                            routeOverlay.isEnabled = false
+                        }
+
+                        val zoomDiff = abs(view.zoomLevelDouble - uiState.zoomLevel)
                         when {
                             zoomDiff < 0.01 -> {}
-                            zoomDiff > 1.5  -> view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
+                            zoomDiff > 1.5  -> {
+                                if (!uiState.isUserPanningMap) {
+                                    view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
+                                }
+                            }
                             else            -> view.controller.setZoom(uiState.zoomLevel)
                         }
 
@@ -216,7 +299,6 @@ fun WorldMapScreen(
                             // ─── DIBUJADO OPTIMIZADO DE NPCs ───
                             uiState.npcs.forEach { npc ->
                                 val id = npc.id
-                                // REGLA DE ORO: Reciclamos el marcador, no creamos uno nuevo.
                                 val marker = markerCache[id] ?: Marker(view).apply {
                                     title = "NPC_MARKER"
                                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -227,7 +309,6 @@ fun WorldMapScreen(
                                 }
 
                                 if (isZoomedIn) {
-                                    // --- 1. EFECTO VISUAL DE MUERTE (FADE-OUT) ---
                                     if (npc.isDying) {
                                         marker.setAlpha(0.3f)
                                     } else {
@@ -239,14 +320,11 @@ fun WorldMapScreen(
                                         val personSzDp = (24.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                         val exactPixels = (personSzDp * screenDensity).toInt()
 
-                                        val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
-                                            .getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
-
-                                        // Integramos la vida y estado en la clave de caché para que se pinte solo 1 vez
+                                        val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                         val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
 
                                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                            var baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getModularNpcDrawable(
+                                            var baseDrawable = CharacterSpriteManager.getModularNpcDrawable(
                                                 context = context,
                                                 visualConfig = npc.visualConfig!!,
                                                 isMoving = currentlyMoving,
@@ -255,79 +333,61 @@ fun WorldMapScreen(
                                                 scale = highResRenderScale,
                                                 displayName = npc.displayName
                                             )
-
                                             baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-
                                             baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                                 ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                         }
-
                                         marker.icon = cachedIcon
                                         marker.rotation = 0f
 
-                                    } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
+                                    } else if (npc.type == NpcType.CAR) {
                                         var angle = npc.rotationAngle % 360f
                                         if (angle < 0) angle += 360f
-
                                         val frameIndex = (angle / 7.5f).roundToInt() % 48
-                                        val dynamicScale = (1.4 * Math.pow(2.0, currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
-
-                                        val cacheKey = "CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
+                                        val dynamicScale = (1.4 * 2.0.pow(currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+                                        val cacheKey = "CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
 
                                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                            var baseDrawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
+                                            var baseDrawable = VehicleSpriteManager.getTintedCarNpc(
                                                 context, angle, npc.carColor, highResRenderScale, npc.carModel
                                             )
-
                                             baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-
                                             baseDrawable?.let { drawable ->
                                                 val baseWidthDp = (drawable.intrinsicWidth / screenDensity) / screenDensity
                                                 val baseHeightDp = (drawable.intrinsicHeight / screenDensity) / screenDensity
-
                                                 val finalWidthPx = (baseWidthDp * dynamicScale * screenDensity).toInt()
                                                 val finalHeightPx = (baseHeightDp * dynamicScale * screenDensity).toInt()
-
                                                 ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
                                             } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                         }
-
                                         marker.icon = cachedIcon
                                         marker.rotation = 0f
-
                                     } else {
                                         val cacheKey = "SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
                                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                             val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
                                             var baseDrawable = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
-
                                             baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-
                                             baseDrawable?.let {
                                                 val exactPixels = (24 * screenDensity).toInt()
                                                 ExactSizeDrawable(it, exactPixels, exactPixels)
                                             } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                         }
-
                                         marker.icon = cachedIcon
                                         marker.rotation = 0f
                                     }
                                 } else {
                                     marker.setAlpha(0f)
                                 }
-
-                                marker.position = org.osmdroid.util.GeoPoint(npc.location.latitude, npc.location.longitude)
+                                marker.position = GeoPoint(npc.location.latitude, npc.location.longitude)
                             }
-                            // ─── DIBUJADO DE COLECCIONABLES ──────────────────────────────────
-                            val activeCollectibleIds = uiState.activeCollectibles.map { it.id }.toSet()
 
+                            // ─── DIBUJADO DE COLECCIONABLES ───
+                            val activeCollectibleIds = uiState.activeCollectibles.map { it.id }.toSet()
                             @Suppress("UNCHECKED_CAST")
                             val collectibleMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag) as? MutableMap<String, Marker>)
-                                ?: mutableMapOf<String, Marker>().also {
-                                    view.setTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag, it)
-                                }
+                                ?: mutableMapOf<String, Marker>().also { view.setTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag, it) }
 
-                            // 1. Limpieza de coleccionables que ya fueron recogidos
                             val colIterator = collectibleMarkerCache.iterator()
                             while (colIterator.hasNext()) {
                                 val entry = colIterator.next()
@@ -336,9 +396,6 @@ fun WorldMapScreen(
                                     colIterator.remove()
                                 }
                             }
-
-                            // 2. Actualización y dibujado
-                            // ─── DIBUJADO DE COLECCIONABLES ─────────────────────────────────
 
                             uiState.activeCollectibles.forEach { collectible ->
                                 val id = collectible.id
@@ -352,178 +409,107 @@ fun WorldMapScreen(
 
                                 if (isZoomedIn) {
                                     marker.setAlpha(1f)
-                                    // TAMAÑO FIJO MUY PEQUEÑO - Sin escalado dinámico
-                                    val exactPixels = (22 * screenDensity).toInt() // Solo 18dp fijos
-
+                                    val exactPixels = (22 * screenDensity).toInt()
                                     val cacheKey = "COL_${collectible.assetPath}"
                                     val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                         try {
-                                            val bitmap = context.assets.open(collectible.assetPath).use {
-                                                android.graphics.BitmapFactory.decodeStream(it)
-                                            }
-
+                                            val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open(collectible.assetPath))
                                             if (bitmap != null) {
-                                                // Glow amarillo muy sutil
                                                 val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
                                                     shape = android.graphics.drawable.GradientDrawable.OVAL
                                                     setSize(exactPixels, exactPixels)
-                                                    setColor(android.graphics.Color.argb(100, 255, 235, 59)) // Más transparente
+                                                    setColor(android.graphics.Color.argb(100, 255, 235, 59))
                                                 }
-
-                                                // Sprite escalado para ocupar ~65% del círculo
                                                 val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
                                                 val spriteSize = (exactPixels * 0.90).toInt()
                                                 spriteDrawable.setFilterBitmap(false)
-
-                                                // Combinar en LayerDrawable
-                                                val layers = arrayOf<android.graphics.drawable.Drawable>(
-                                                    glowDrawable,
-                                                    spriteDrawable
-                                                )
-                                                val layerDrawable = android.graphics.drawable.LayerDrawable(layers)
-
-                                                // Centrar el sprite dentro del glow
-                                                val inset = ((exactPixels - spriteSize) / 2).toInt()
+                                                val layerDrawable = android.graphics.drawable.LayerDrawable(arrayOf(glowDrawable, spriteDrawable))
+                                                val inset = ((exactPixels - spriteSize) / 2)
                                                 layerDrawable.setLayerInset(1, inset, inset, inset, inset)
-
                                                 ExactSizeDrawable(layerDrawable, exactPixels, exactPixels)
-                                            } else {
-                                                ContextCompat.getDrawable(context, android.R.color.transparent)!!
-                                            }
+                                            } else ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                         } catch (e: Exception) {
                                             ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                         }
                                     }
-
                                     marker.icon = cachedIcon
-                                    // Rotación muy lenta para destacar
                                     marker.rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
                                 } else {
                                     marker.setAlpha(0f)
                                 }
-
-                                marker.position = org.osmdroid.util.GeoPoint(
-                                    collectible.latitude,
-                                    collectible.longitude
-                                )
+                                marker.position = GeoPoint(collectible.latitude, collectible.longitude)
                             }
                         }
 
                         // ─── DIBUJADO DE LANDMARKS (con soporte de modo diseñador) ────────
                         @Suppress("UNCHECKED_CAST")
-                        // Cambiamos el caché para que guarde una lista de Overlays genéricos por cada ID
-                        val landmarkCache = (view.getTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag) as? MutableMap<Long, MutableList<org.osmdroid.views.overlay.Overlay>>)
-                            ?: mutableMapOf<Long, MutableList<org.osmdroid.views.overlay.Overlay>>().also {
-                                view.setTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag, it)
-                            }
+                        val landmarkCache = (view.getTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag) as? MutableMap<Long, MutableList<Overlay>>)
+                            ?: mutableMapOf<Long, MutableList<Overlay>>().also { view.setTag(ovh.gabrielhuav.pow.R.id.landmark_cache_tag, it) }
 
                         val currentIds = uiState.landmarks.map { it.id }.toSet()
-
-                        // 1. Limpiar estructuras que fueron eliminadas de la base de datos
-                        val iterator = landmarkCache.iterator()
-                        while (iterator.hasNext()) {
-                            val entry = iterator.next()
+                        val landmarkIterator = landmarkCache.iterator()
+                        while (landmarkIterator.hasNext()) {
+                            val entry = landmarkIterator.next()
                             if (!currentIds.contains(entry.key)) {
-                                // Quitamos del mapa todos los overlays asociados a este ID borrado
                                 entry.value.forEach { overlay -> view.overlays.remove(overlay) }
-                                iterator.remove()
+                                landmarkIterator.remove()
                             }
                         }
 
                         uiState.landmarks.forEach { landmark ->
                             val overlays = landmarkCache.getOrPut(landmark.id) { mutableListOf() }
-
-                            // 1. Obtener imagen de la caché
                             val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
                                 try {
-                                    context.assets.open(landmark.assetPath).use { inputStream ->
-                                        android.graphics.BitmapFactory.decodeStream(inputStream)
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("WorldMapScreen", "No se pudo cargar asset: ${landmark.assetPath}", e)
-                                    null
-                                }
+                                    context.assets.open(landmark.assetPath).use { android.graphics.BitmapFactory.decodeStream(it) }
+                                } catch (e: Exception) { null }
                             }
                             if (bitmap == null) return@forEach
 
-                            // 2. Crear o recuperar el GroundOverlay (El que se ancla geográficamente)
-                            val existingOverlay = overlays.filterIsInstance<org.osmdroid.views.overlay.GroundOverlay>().firstOrNull()
-                            val groundOverlay = existingOverlay ?: org.osmdroid.views.overlay.GroundOverlay().apply {
-                                overlays.add(this)
-                                view.overlays.add(0, this) // El 0 asegura que el edificio se dibuje debajo de tu personaje
-                            }
+                            val groundOverlay = overlays.filterIsInstance<org.osmdroid.views.overlay.GroundOverlay>().firstOrNull()
+                                ?: org.osmdroid.views.overlay.GroundOverlay().apply {
+                                    overlays.add(this)
+                                    view.overlays.add(0, this)
+                                }
 
-                            // 3. Matemáticas genéricas usando el ancho y alto del JSON
-                            val centerLat = landmark.location.latitude
-                            val centerLon = landmark.location.longitude
-                            val center = org.osmdroid.util.GeoPoint(centerLat, centerLon)
-
-                            // Uso las propiedades dinámicas del modelo para calcular el tamaño real
+                            val center = GeoPoint(landmark.location.latitude, landmark.location.longitude)
                             val halfW = (landmark.baseWidthMeters * landmark.scaleFactor) / 2.0
                             val halfH = (landmark.baseHeightMeters * landmark.scaleFactor) / 2.0
-                            val d = kotlin.math.sqrt(halfW * halfW + halfH * halfH)
-                            val theta = Math.toDegrees(kotlin.math.atan2(halfW, halfH))
+                            val d = sqrt(halfW * halfW + halfH * halfH)
+                            val theta = Math.toDegrees(atan2(halfW, halfH))
 
-                            // Calculamos las 4 esquinas del polígono
                             val pTL = center.destinationPoint(d, landmark.rotationAngle.toDouble() - theta)
                             val pTR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + theta)
                             val pBR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 - theta)
                             val pBL = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 + theta)
 
-                            // Aplicamos las esquinas y la imagen
                             groundOverlay.setPosition(pTL, pTR, pBR, pBL)
                             groundOverlay.setImage(bitmap)
 
-                            // 4. Controles del Modo Diseñador (Esto aplica para cualquier edificio)
-                            val existingControl = overlays.filterIsInstance<org.osmdroid.views.overlay.Marker>().firstOrNull()
+                            val existingControl = overlays.filterIsInstance<Marker>().firstOrNull()
                             if (uiState.isDesignerMode) {
-                                val controlMarker = existingControl ?: org.osmdroid.views.overlay.Marker(view).apply {
-                                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
-                                    icon = androidx.core.content.ContextCompat.getDrawable(
-                                        context,
-                                        android.R.drawable.ic_menu_edit
-                                    )?.mutate()
+                                val controlMarker = existingControl ?: Marker(view).apply {
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)?.mutate()
                                     overlays.add(this)
                                     view.overlays.add(this)
                                 }
-
                                 controlMarker.position = center
+                                if (uiState.selectedLandmarkId == landmark.id) controlMarker.icon?.setTint(android.graphics.Color.RED)
+                                else controlMarker.icon?.setTintList(null)
 
-                                // Pinta el ícono de rojo si está seleccionado
-                                controlMarker.icon = controlMarker.icon?.mutate()
-                                if (uiState.selectedLandmarkId == landmark.id) {
-                                    controlMarker.icon?.setTint(android.graphics.Color.RED)
-                                } else {
-                                    controlMarker.icon?.setTintList(null)
-                                }
-
-                                controlMarker.setOnMarkerClickListener { _, _ ->
-                                    viewModel.selectLandmark(landmark.id)
-                                    true
-                                }
-
+                                controlMarker.setOnMarkerClickListener { _, _ -> viewModel.selectLandmark(landmark.id); true }
                                 controlMarker.isDraggable = true
-                                controlMarker.setOnMarkerDragListener(object : org.osmdroid.views.overlay.Marker.OnMarkerDragListener {
-                                    override fun onMarkerDragStart(marker: org.osmdroid.views.overlay.Marker) {
-                                        viewModel.selectLandmark(landmark.id)
+                                controlMarker.setOnMarkerDragListener(object : Marker.OnMarkerDragListener {
+                                    override fun onMarkerDragStart(marker: Marker) { viewModel.selectLandmark(landmark.id) }
+                                    override fun onMarkerDrag(marker: Marker) {
+                                        viewModel.moveSelectedLandmark(marker.position.latitude - landmark.location.latitude, marker.position.longitude - landmark.location.longitude)
                                     }
-                                    override fun onMarkerDrag(marker: org.osmdroid.views.overlay.Marker) {
-                                        val dLat = marker.position.latitude - landmark.location.latitude
-                                        val dLon = marker.position.longitude - landmark.location.longitude
-                                        viewModel.moveSelectedLandmark(dLat, dLon)
-                                    }
-                                    override fun onMarkerDragEnd(marker: org.osmdroid.views.overlay.Marker) {}
+                                    override fun onMarkerDragEnd(marker: Marker) {}
                                 })
-
                             } else {
-                                // Limpia el control si apagas el modo diseñador
-                                existingControl?.let {
-                                    view.overlays.remove(it)
-                                    overlays.remove(it)
-                                }
+                                existingControl?.let { view.overlays.remove(it); overlays.remove(it) }
                             }
                         }
-
                         view.invalidate()
                     }
                 )
@@ -532,27 +518,20 @@ fun WorldMapScreen(
                 val escom = LatLng(19.505411765791404, -99.14526888961194)
                 val cameraPositionState = rememberCameraPositionState()
 
-                // Sincronizar cámara con la ubicación actual del jugador, zoom y rotación
-                val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
-                val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
-                val targetZoom = uiState.zoomLevel.toFloat()
-                val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
-                
-                val newPosition = CameraPosition.builder()
-                    .target(LatLng(targetLat, targetLng))
-                    .zoom(targetZoom)
-                    .bearing(targetBearing)
-                    .tilt(0f)
-                    .build()
-                cameraPositionState.position = newPosition
+                SideEffect {
+                    val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
+                    val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
+                    val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
+                    cameraPositionState.position = CameraPosition.builder()
+                        .target(LatLng(targetLat, targetLng))
+                        .zoom(uiState.zoomLevel.toFloat())
+                        .bearing(targetBearing)
+                        .tilt(0f)
+                        .build()
+                }
 
                 val propiedadesMap = remember {
-                    MapProperties(
-                        mapStyleOptions = MapStyleOptions.loadRawResourceStyle(
-                            context,
-                            ovh.gabrielhuav.pow.R.raw.estilo_google_maps
-                        )
-                    )
+                    MapProperties(mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, ovh.gabrielhuav.pow.R.raw.estilo_google_maps))
                 }
 
                 GoogleMap(
@@ -560,104 +539,61 @@ fun WorldMapScreen(
                     cameraPositionState = cameraPositionState,
                     properties = propiedadesMap,
                     uiSettings = MapUiSettings(
-                        zoomGesturesEnabled = false, // Deshabilitar zoom con dedos
+                        zoomGesturesEnabled = false,
                         zoomControlsEnabled = false,
-                        scrollGesturesEnabled = uiState.isDesignerMode, // Habilitar arrastre solo en modo diseñador para mover marcadores
+                        scrollGesturesEnabled = uiState.isDesignerMode,
                         tiltGesturesEnabled = false,
                         rotationGesturesEnabled = false
                     )
                 ) {
-                    // ─── DIBUJADO DE LANDMARKS (Primero para que queden abajo) ───
                     uiState.landmarks.forEach { landmark ->
-                        key(landmark.id) {
-                            // 1. Asegurar que el bitmap esté cargado en caché
-                            val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
-                                try {
-                                    context.assets.open(landmark.assetPath).use { inputStream ->
-                                        android.graphics.BitmapFactory.decodeStream(inputStream)
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("WorldMapScreen", "No se pudo cargar asset: ${landmark.assetPath}", e)
-                                    null
-                                }
-                            }
+                        val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
+                            try { context.assets.open(landmark.assetPath).use { android.graphics.BitmapFactory.decodeStream(it) } } catch (e: Exception) { null }
+                        }
+                        if (bitmap != null) {
+                            val center = LatLng(landmark.location.latitude, landmark.location.longitude)
+                            val widthMeters = (landmark.baseWidthMeters * landmark.scaleFactor).toFloat()
+                            val heightMeters = (landmark.baseHeightMeters * landmark.scaleFactor).toFloat()
 
-                            if (bitmap != null) {
-                                val center = LatLng(landmark.location.latitude, landmark.location.longitude)
-                                val widthMeters = (landmark.baseWidthMeters * landmark.scaleFactor).toFloat()
-                                val heightMeters = (landmark.baseHeightMeters * landmark.scaleFactor).toFloat()
+                            GroundOverlay(
+                                position = GroundOverlayPosition.create(center, widthMeters, heightMeters),
+                                image = BitmapDescriptorFactory.fromBitmap(bitmap),
+                                bearing = landmark.rotationAngle,
+                                transparency = 0f
+                            )
 
-                                val descriptor = googleMapsIconCache.getOrPut("LANDMARK_${landmark.assetPath}") {
-                                    BitmapDescriptorFactory.fromBitmap(bitmap)
-                                }
-
-                                GroundOverlay(
-                                    position = GroundOverlayPosition.create(center, widthMeters, heightMeters),
-                                    image = descriptor,
-                                    bearing = landmark.rotationAngle,
-                                    transparency = 0f
-                                )
-
-                            // 4. Controles del Modo Diseñador
                             if (uiState.isDesignerMode) {
                                 val markerState = remember(landmark.id) { MarkerState(position = center) }
-                                markerState.position = center
-
-                                // Generar icono de lápiz (con tinte rojo si está seleccionado)
+                                LaunchedEffect(center) { markerState.position = center }
                                 val pencilIcon = remember(uiState.selectedLandmarkId == landmark.id) {
                                     val drawable = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)?.mutate()
-                                    if (uiState.selectedLandmarkId == landmark.id) {
-                                        drawable?.setTint(android.graphics.Color.RED)
-                                    } else {
-                                        drawable?.setTintList(null)
-                                    }
-                                    
-                                    val bm = android.graphics.Bitmap.createBitmap(
-                                        drawable?.intrinsicWidth ?: 1,
-                                        drawable?.intrinsicHeight ?: 1,
-                                        android.graphics.Bitmap.Config.ARGB_8888
-                                    )
+                                    if (uiState.selectedLandmarkId == landmark.id) drawable?.setTint(android.graphics.Color.RED)
+                                    val bm = android.graphics.Bitmap.createBitmap(drawable!!.intrinsicWidth, drawable.intrinsicHeight, android.graphics.Bitmap.Config.ARGB_8888)
                                     val canvas = android.graphics.Canvas(bm)
-                                    drawable?.setBounds(0, 0, bm.width, bm.height)
-                                    drawable?.draw(canvas)
+                                    drawable.setBounds(0, 0, bm.width, bm.height)
+                                    drawable.draw(canvas)
                                     BitmapDescriptorFactory.fromBitmap(bm)
                                 }
-
                                 com.google.maps.android.compose.Marker(
                                     state = markerState,
                                     draggable = true,
                                     icon = pencilIcon,
-                                    onClick = {
-                                        viewModel.selectLandmark(landmark.id)
-                                        true
-                                    }
+                                    onClick = { viewModel.selectLandmark(landmark.id); true }
                                 )
-
-                                // Detectar arrastre y actualizar el ViewModel
-                                LaunchedEffect(markerState.dragState) {
-                                    if (markerState.dragState == com.google.maps.android.compose.DragState.START || markerState.dragState == com.google.maps.android.compose.DragState.DRAG) {
-                                        viewModel.selectLandmark(landmark.id)
-                                    }
-                                }
                                 LaunchedEffect(markerState.position) {
                                     if (markerState.dragState == com.google.maps.android.compose.DragState.DRAG) {
-                                        val dLat = markerState.position.latitude - landmark.location.latitude
-                                        val dLon = markerState.position.longitude - landmark.location.longitude
-                                        viewModel.moveSelectedLandmark(dLat, dLon)
+                                        viewModel.moveSelectedLandmark(markerState.position.latitude - landmark.location.latitude, markerState.position.longitude - landmark.location.longitude)
                                     }
                                 }
                             }
                         }
                     }
-                    }
 
-                    // ─── DIBUJADO DE NPCs (Peatones y Carros) ───
                     if (uiState.zoomLevel >= 15.5) {
                         val screenDensity = context.resources.displayMetrics.density
                         val timeMs = System.currentTimeMillis()
                         val currentZoom = uiState.zoomLevel
-                        // Usar un nivel de zoom redondeado para calcular tamaños y evitar generar bitmaps en cada frame del zoom
-                        val renderZoom = kotlin.math.round(currentZoom * 2) / 2.0
+                        val renderZoom = round(currentZoom * 2) / 2.0
 
                         uiState.npcs.forEach { npc ->
                             val qHealth = npc.health.toInt()
@@ -666,16 +602,16 @@ fun WorldMapScreen(
                                     val currentlyMoving = npc.speed > 0 || npc.isMoving
                                     val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                     val exactPixels = (personSzDp * screenDensity).toInt()
-                                    val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
+                                    val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                     val config = npc.visualConfig!!
                                     "GM_PED_${config.bodyFolder}_${config.hairId}_${config.hairColor.value}_${config.shirtColor.value}_${config.pantsColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${qHealth}_D${npc.isDying}"
                                 }
-                                npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR -> {
+                                npc.type == NpcType.CAR -> {
                                     var angle = npc.rotationAngle % 360f
                                     if (angle < 0) angle += 360f
                                     val frameIndex = (angle / 7.5f).roundToInt() % 48
-                                    val dynamicScale = (1.4 * Math.pow(2.0, renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
-                                    "GM_CAR_${npc.carModel?.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
+                                    val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+                                    "GM_CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
                                 }
                                 else -> "GM_SVG_${npc.type.name}_H${qHealth}_D${npc.isDying}"
                             }
@@ -686,17 +622,13 @@ fun WorldMapScreen(
                                         val currentlyMoving = npc.speed > 0 || npc.isMoving
                                         val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                         val exactPixels = (personSzDp * screenDensity).toInt()
-                                        var d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.getModularNpcDrawable(
-                                            context, npc.visualConfig!!, currentlyMoving, npc.facingRight, timeMs, 1.0f * screenDensity, npc.displayName
-                                        )
+                                        var d = CharacterSpriteManager.getModularNpcDrawable(context, npc.visualConfig!!, currentlyMoving, npc.facingRight, timeMs, screenDensity, npc.displayName)
                                         d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
                                         d?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                     }
-                                    npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR -> {
-                                        val dynamicScale = (1.4 * Math.pow(2.0, renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
-                                        var d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
-                                            context, npc.rotationAngle, npc.carColor, 1.0f * screenDensity, npc.carModel
-                                        )
+                                    npc.type == NpcType.CAR -> {
+                                        val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+                                        var d = VehicleSpriteManager.getTintedCarNpc(context, npc.rotationAngle, npc.carColor, screenDensity, npc.carModel)
                                         d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
                                         d?.let {
                                             val fw = ((it.intrinsicWidth / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
@@ -711,7 +643,6 @@ fun WorldMapScreen(
                                         d?.let { ExactSizeDrawable(it, (24 * screenDensity).toInt(), (24 * screenDensity).toInt()) }
                                     }
                                 }
-                                
                                 val bitmap = if (drawable != null) {
                                     val bm = android.graphics.Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, android.graphics.Bitmap.Config.ARGB_8888)
                                     val canvas = android.graphics.Canvas(bm)
@@ -719,40 +650,27 @@ fun WorldMapScreen(
                                     drawable.draw(canvas)
                                     bm
                                 } else null
-                                
-                                if (bitmap != null) BitmapDescriptorFactory.fromBitmap(bitmap)
-                                else BitmapDescriptorFactory.defaultMarker()
+                                if (bitmap != null) BitmapDescriptorFactory.fromBitmap(bitmap) else BitmapDescriptorFactory.defaultMarker()
                             }
-
-                            key(npc.id) {
-                                val position = LatLng(npc.location.latitude, npc.location.longitude)
-                                val markerState = remember { MarkerState(position = position) }
-                                markerState.position = position
-
-                                com.google.maps.android.compose.Marker(
-                                    state = markerState,
-                                    icon = iconDescriptor,
-                                    rotation = 0f,
-                                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
-                                    flat = true,
-                                    alpha = if (npc.isDying) 0.5f else 1.0f
-                                )
-                            }
+                            com.google.maps.android.compose.Marker(
+                                state = MarkerState(position = LatLng(npc.location.latitude, npc.location.longitude)),
+                                icon = iconDescriptor,
+                                rotation = 0f,
+                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                flat = true,
+                                alpha = if (npc.isDying) 0.5f else 1.0f
+                            )
                         }
                     }
 
-                    // ─── DIBUJADO DE COLECCIONABLES ───
                     if (uiState.zoomLevel >= 16.0) {
                         uiState.activeCollectibles.forEach { collectible ->
                             val screenDensity = context.resources.displayMetrics.density
                             val exactPixels = (22 * screenDensity).toInt()
                             val cacheKey = "GM_COL_${collectible.assetPath}"
-                            
                             val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
                                 try {
-                                    val bitmap = context.assets.open(collectible.assetPath).use {
-                                        android.graphics.BitmapFactory.decodeStream(it)
-                                    }
+                                    val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open(collectible.assetPath))
                                     if (bitmap != null) {
                                         val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
                                             shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -764,68 +682,54 @@ fun WorldMapScreen(
                                         val layerDrawable = android.graphics.drawable.LayerDrawable(arrayOf(glowDrawable, spriteDrawable))
                                         val inset = ((exactPixels - spriteSize) / 2)
                                         layerDrawable.setLayerInset(1, inset, inset, inset, inset)
-                                        
                                         val finalBm = android.graphics.Bitmap.createBitmap(exactPixels, exactPixels, android.graphics.Bitmap.Config.ARGB_8888)
                                         val canvas = android.graphics.Canvas(finalBm)
                                         layerDrawable.setBounds(0, 0, exactPixels, exactPixels)
                                         layerDrawable.draw(canvas)
                                         BitmapDescriptorFactory.fromBitmap(finalBm)
                                     } else BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)
-                                } catch (e: Exception) {
-                                    BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)
-                                }
+                                } catch (e: Exception) { BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW) }
                             }
-
-                            key(collectible.id) {
-                                val position = LatLng(collectible.latitude, collectible.longitude)
-                                val markerState = remember { MarkerState(position = position) }
-                                markerState.position = position
-
-                                com.google.maps.android.compose.Marker(
-                                    state = markerState,
-                                    icon = iconDescriptor,
-                                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
-                                    flat = true,
-                                    rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
-                                )
-                            }
+                            com.google.maps.android.compose.Marker(
+                                state = MarkerState(position = LatLng(collectible.latitude, collectible.longitude)),
+                                icon = iconDescriptor,
+                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                flat = true,
+                                rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
+                            )
                         }
                     }
                 }
             }
             else -> {
-                // (Rama WebView intacta - los landmarks aún no se ven en proveedores web)
-                val collectiblesJson = remember(uiState.activeCollectibles) {
-                    com.google.gson.Gson().toJson(uiState.activeCollectibles)
-                }
+                val collectiblesJson = remember(uiState.activeCollectibles) { gson.toJson(uiState.activeCollectibles) }
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
-                            layoutParams = android.view.ViewGroup.LayoutParams(
-                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                            layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                             setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
                             settings.allowFileAccess = true
                             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
                             webViewClient = cachingClient
+                            addJavascriptInterface(MapJsBridge(viewModel), "Android")
                             val lat = uiState.currentLocation?.latitude ?: 0.0
                             val lng = uiState.currentLocation?.longitude ?: 0.0
                             loadDataWithBaseURL(null, buildHtml(lat, lng, uiState.zoomLevel.toInt()), "text/html", "UTF-8", null)
+                            webViewRef.value = this
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
                     update = { wv ->
-                        uiState.currentLocation?.let {
-                            wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null)
+                        webViewRef.value = wv
+                        if (!uiState.isUserPanningMap) {
+                            uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null) }
                         }
-
+                        uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updatePlayerMarker==='function')updatePlayerMarker(${it.latitude}, ${it.longitude}, ${uiState.isUserPanningMap});", null) }
                         wv.evaluateJavascript("if(typeof setDesignerMode==='function')setDesignerMode(${uiState.isDesignerMode});", null)
-
                         val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
                         wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
-
                         val tileUrl = when (uiState.mapProvider) {
                             MapProvider.CARTO_DB_DARK  -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                             MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -838,203 +742,147 @@ fun WorldMapScreen(
                         wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null)
                         wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
 
-                        val screenDensity = context.resources.displayMetrics.density
-                        val highResRenderScale = 1.0f * screenDensity
-
+                        val density = context.resources.displayMetrics.density
+                        val highResRenderScale = 1.0f * density
                         val npcPayloads = uiState.npcs.map { npc ->
-                            if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR) {
+                            if (npc.type == NpcType.CAR) {
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
-
                                 val frameIndex = (angle / 7.5f).roundToInt() % 48
-                                val cacheKey = "${npc.carModel?.name}_${frameIndex}_${npc.carColor}_${screenDensity}"
-
+                                val cacheKey = "${npc.carModel.name}_${frameIndex}_${npc.carColor}_${density}"
                                 val base64Image = base64Cache[cacheKey]
-                            if (base64Image == null) {
-                                base64Cache[cacheKey] = ""
-                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
-                                    val drawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.getTintedCarNpc(
-                                        context, angle, npc.carColor, highResRenderScale, npc.carModel
-                                    )
-                                    val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
-                                    if (bitmap != null) {
-                                        widthCache[cacheKey] = (bitmap.width / screenDensity) / screenDensity
-                                        heightCache[cacheKey] = (bitmap.height / screenDensity) / screenDensity
-                                        val outputStream = java.io.ByteArrayOutputStream()
-                                        bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, outputStream)
-                                        base64Cache[cacheKey] = "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
+                                if (base64Image == null) {
+                                    base64Cache[cacheKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val drawable = VehicleSpriteManager.getTintedCarNpc(context, angle, npc.carColor, highResRenderScale, npc.carModel)
+                                        val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                        if (bitmap != null) {
+                                            widthCache[cacheKey] = (bitmap.width / density) / density
+                                            heightCache[cacheKey] = (bitmap.height / density) / density
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, out)
+                                            base64Cache[cacheKey] = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                        }
                                     }
                                 }
-                            }
-                            if (base64Image != null && base64Image.isNotEmpty() && !registeredWebImages.contains(cacheKey)) {
-                                wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
-                                registeredWebImages.add(cacheKey)
-                            }
-
-                            NpcWebPayload(
-                                id = npc.id, lat = npc.location.latitude, lng = npc.location.longitude,
-                                rot = npc.rotationAngle, type = "CAR",
-                                imageKey = cacheKey, name = npc.displayName,
-                                width = widthCache[cacheKey], height = heightCache[cacheKey]
-                            )
-                        } else if (npc.visualConfig != null) {
-                            val timeMs = System.currentTimeMillis()
-                            val currentlyMoving = npc.speed > 0 || npc.isMoving
-                            val visualConfig = npc.visualConfig!!
-                            val frameIndex = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
-                                .getFrameIndex(context, visualConfig, currentlyMoving, timeMs) ?: 0
-                            val cacheKey = "npc_mod_${visualConfig.bodyFolder}_${visualConfig.bodyPrefix}_${visualConfig.hairId}_${visualConfig.hairColor.value}_${visualConfig.shirtColor.value}_${visualConfig.pantsColor.value}_${npc.facingRight}_${frameIndex}_${screenDensity}"
-
-                            val base64Image = base64Cache[cacheKey]
-                            if (base64Image == null) {
-                                base64Cache[cacheKey] = ""
-                                coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
-                                    val bitmap = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.generateAssembledBitmap(context, visualConfig, currentlyMoving, timeMs)
-                                    if (bitmap != null) {
-                                        val outputStream = java.io.ByteArrayOutputStream()
-                                        bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, outputStream)
-                                        base64Cache[cacheKey] = "data:image/webp;base64," + android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
+                                if (!base64Image.isNullOrEmpty() && !registeredWebImages.contains(cacheKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
+                                    registeredWebImages.add(cacheKey)
+                                }
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, "CAR", cacheKey, null, null, npc.displayName, widthCache[cacheKey], heightCache[cacheKey])
+                            } else if (npc.visualConfig != null) {
+                                val currentlyMoving = npc.speed > 0 || npc.isMoving
+                                val config = npc.visualConfig!!
+                                val frameIndex = CharacterSpriteManager.getFrameIndex(context, config, currentlyMoving, System.currentTimeMillis()) ?: 0
+                                val cacheKey = "npc_mod_${config.bodyFolder}_${config.hairId}_${npc.facingRight}_${frameIndex}_${density}"
+                                val base64Image = base64Cache[cacheKey]
+                                if (base64Image == null) {
+                                    base64Cache[cacheKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val bitmap = CharacterSpriteManager.generateAssembledBitmap(context, config, currentlyMoving, System.currentTimeMillis())
+                                        if (bitmap != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
+                                            base64Cache[cacheKey] = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                        }
                                     }
                                 }
+                                if (!base64Image.isNullOrEmpty() && !registeredWebImages.contains(cacheKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
+                                    registeredWebImages.add(cacheKey)
+                                }
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, if (npc.facingRight) 1 else -1, npc.displayName)
+                            } else {
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, npc.type.name, null, npc.type.drawableName, null, npc.displayName)
                             }
-                            if (base64Image != null && base64Image.isNotEmpty() && !registeredWebImages.contains(cacheKey)) {
-                                wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
-                                registeredWebImages.add(cacheKey)
-                            }
-                            val flipScale = if (npc.facingRight) 1 else -1
-                            NpcWebPayload(
-                                id = npc.id, lat = npc.location.latitude, lng = npc.location.longitude,
-                                rot = 0f, type = "MODULAR", imageKey = cacheKey, flip = flipScale, name = npc.displayName
-                            )
-                        } else {
-                            NpcWebPayload(id = npc.id, lat = npc.location.latitude, lng = npc.location.longitude,
-                                rot = npc.rotationAngle, type = npc.type.name, drawable = npc.type.drawableName, name = npc.displayName)
                         }
+                        wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs(${gson.toJson(npcPayloads)});", null)
+                        wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
+                        val destMarker = uiState.destinationMarker
+                        if (destMarker != null) wv.evaluateJavascript("if(typeof updateDestinationMarker==='function')updateDestinationMarker(${destMarker.latitude}, ${destMarker.longitude});", null)
+                        else wv.evaluateJavascript("if(typeof clearDestinationMarker==='function')clearDestinationMarker();", null)
+                        wv.evaluateJavascript("if(typeof updateDestinationPlacingMode==='function')updateDestinationPlacingMode(${uiState.isTargetingWaypoint});", null)
+                        if (uiState.destinationMarker != null && uiState.routeWaypoints.isNotEmpty() && uiState.showDestinationRoute) {
+                            val currentLoc = uiState.currentLocation
+                            if (currentLoc != null) {
+                                val routeJson = uiState.routeWaypoints.map { mapOf("lat" to it.latitude, "lng" to it.longitude) }.let { gson.toJson(it) }
+                                wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(${currentLoc.latitude}, ${currentLoc.longitude}, $routeJson, true);", null)
+                            }
+                        } else wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(0, 0, [], false);", null)
                     }
-                    val npcsJson = gson.toJson(npcPayloads)
-                    wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs($npcsJson);", null)
-                    wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${org.json.JSONObject.quote(collectiblesJson)});", null)
-                }
-            )
+                )
+            }
         }
-    }
 
-        // ─── CAPA 2: Personaje principal ────────────────────────────────────
-        ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter(
-            uiState = uiState,
-            modifier = Modifier.align(Alignment.Center),
-            health = viewModel.playerHealth,
-            showHealthBar = viewModel.showHealthBar,
-            damagePulseTrigger = viewModel.damagePulseTrigger
-        )
+        if (!uiState.isUserPanningMap) {
+            PlayerCharacter(uiState = uiState, modifier = Modifier.align(Alignment.Center), health = viewModel.playerHealth, showHealthBar = viewModel.showHealthBar, damagePulseTrigger = viewModel.damagePulseTrigger)
+        }
 
         if (!uiState.isRoadNetworkReady) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 72.dp)
-                    .background(Color.Black.copy(alpha = 0.65f), CircleShape)
-                    .padding(horizontal = 14.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp).background(Color.Black.copy(alpha = 0.65f), CircleShape).padding(horizontal = 14.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CircularProgressIndicator(Modifier.size(14.dp), Color(0xFFD4AF37), strokeWidth = 2.dp)
                 Text("Cargando calles...", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 64.dp, start = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            AnimatedVisibility(visible = uiState.showCacheWidget, enter = fadeIn(), exit = fadeOut()) {
-                CacheStatusWidget(roadSource = uiState.roadSource, tileSource = uiState.tileSource, mapProvider = uiState.mapProvider)
-            }
-            AnimatedVisibility(visible = uiState.showFpsWidget, enter = fadeIn(), exit = fadeOut()) {
-                CacheChip(label = "Rendimiento", text = "$currentFps FPS", color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F), isLoading = false)
-            }
-            // Indicador de modo diseñador activo
+        Column(modifier = Modifier.align(Alignment.TopStart).padding(top = 64.dp, start = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AnimatedVisibility(visible = uiState.showCacheWidget, enter = fadeIn(), exit = fadeOut()) { CacheStatusWidget(roadSource = uiState.roadSource, tileSource = uiState.tileSource, mapProvider = uiState.mapProvider) }
+            AnimatedVisibility(visible = uiState.showFpsWidget, enter = fadeIn(), exit = fadeOut()) { CacheChip(label = "Rendimiento", text = "$currentFps FPS", color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F), isLoading = false) }
             AnimatedVisibility(visible = uiState.isDesignerMode, enter = fadeIn(), exit = fadeOut()) {
-                Row(
-                    modifier = Modifier
-                        .background(Color(0xFFD4AF37).copy(alpha = 0.85f), CircleShape)
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
+                Row(modifier = Modifier.background(Color(0xFFD4AF37).copy(alpha = 0.85f), CircleShape).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(Icons.Default.Architecture, null, tint = Color.Black, modifier = Modifier.size(14.dp))
                     Text("DISEÑADOR", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
-        // Botones superiores derechos: Settings + toggle de modo diseñador
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.End
-        ) {
-            IconButton(
-                onClick = onNavigateToSettings,
-                modifier = Modifier
-                    .background(Color.White.copy(alpha = 0.8f), CircleShape)
-            ) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
-
-            // Botón para ir a ESCOM
-            IconButton(
-                onClick = { viewModel.teleportTo(19.5045, -99.1469) },
-                modifier = Modifier
-                    .background(Color(0xFF3B0D1B).copy(alpha = 0.8f), CircleShape) // Guinda IPN
-            ) {
-                Icon(Icons.Default.School, "Ir a ESCOM", tint = Color.White)
-            }
-
-            // Toggle modo diseñador
-            IconButton(
-                onClick = { viewModel.toggleDesignerMode(!uiState.isDesignerMode) },
-                modifier = Modifier
-                    .background(
-                        if (uiState.isDesignerMode) Color(0xFFD4AF37)
-                        else Color.White.copy(alpha = 0.8f),
-                        CircleShape
-                    )
-            ) {
-                Icon(Icons.Default.Architecture, "Modo Diseñador", tint = Color.Black)
-            }
-
-            // Botón "+" para agregar nuevo asset (solo en modo diseñador)
+        Column(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
+            IconButton(onClick = onNavigateToSettings, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
+            IconButton(onClick = { viewModel.teleportTo(19.5045, -99.1469) }, modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.School, "Ir a ESCOM", tint = Color.White) }
+            IconButton(onClick = { viewModel.toggleDesignerMode(!uiState.isDesignerMode) }, modifier = Modifier.background(if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Architecture, "Modo Diseñador", tint = Color.Black) }
             if (uiState.isDesignerMode) {
-                IconButton(
-                    onClick = { viewModel.showAssetPicker(true) },
-                    modifier = Modifier
-                        .background(Color(0xFF4CAF50), CircleShape)
-                ) {
-                    Icon(Icons.Default.Add, "Agregar Asset", tint = Color.White)
+                IconButton(onClick = { viewModel.showAssetPicker(true) }, modifier = Modifier.background(Color(0xFF4CAF50), CircleShape)) { Icon(Icons.Default.Add, "Agregar Asset", tint = Color.White) }
+            }
+        }
+
+        Column(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            IconButton(onClick = { viewModel.zoomIn() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) { Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
+            IconButton(onClick = { viewModel.zoomOut() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
+            if (uiState.isUserPanningMap) {
+                IconButton(onClick = { viewModel.centerOnPlayer() }, modifier = Modifier.background(Color(0xFF2196F3), CircleShape).size(48.dp)) { Icon(Icons.Default.Person, "Centrar en personaje", tint = Color.White) }
+            }
+            if (uiState.isUserPanningMap && !uiState.isDesignerMode && !uiState.isDriving) {
+                IconButton(onClick = { viewModel.toggleWaypointTargeting(!uiState.isTargetingWaypoint) }, modifier = Modifier.background(if (uiState.isTargetingWaypoint) Color(0xFFFF5722) else Color(0xFF4CAF50), CircleShape).size(48.dp)) { Icon(Icons.Default.LocationOn, "Apuntar waypoint", tint = Color.White) }
+                if (uiState.destinationMarker != null && !uiState.isTargetingWaypoint) {
+                    IconButton(onClick = { viewModel.clearDestinationMarker() }, modifier = Modifier.background(Color(0xFFE53935), CircleShape).size(48.dp)) { Icon(imageVector = Icons.Default.Add, contentDescription = "Eliminar destino", tint = Color.White, modifier = Modifier.rotate(45f)) }
                 }
             }
         }
 
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            IconButton(onClick = { viewModel.zoomIn() }, modifier = Modifier
-                .background(Color.White.copy(alpha = 0.8f), CircleShape)
-                .size(48.dp)
-            ) { Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
-            IconButton(onClick = { viewModel.zoomOut() }, modifier = Modifier
-                .background(Color.White.copy(alpha = 0.8f), CircleShape)
-                .size(48.dp)
-            ) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
+        if (uiState.isTargetingWaypoint) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFFF44336), modifier = Modifier.size(48.dp).graphicsLayer { translationY = -24.dp.toPx() })
+                    Box(modifier = Modifier.size(4.dp).background(Color.White, CircleShape))
+                }
+            }
+            Box(modifier = Modifier.fillMaxSize().padding(bottom = 120.dp), contentAlignment = Alignment.BottomCenter) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Button(onClick = { viewModel.toggleWaypointTargeting(false) }, colors = ButtonDefaults.buttonColors(containerColor = Color.Gray), shape = RoundedCornerShape(24.dp)) { Text("CANCELAR", fontWeight = FontWeight.Bold) }
+                    Button(onClick = {
+                        if (uiState.mapProvider == MapProvider.OSM) {
+                            nativeMapRef.value?.let { mv ->
+                                val center = mv.mapCenter
+                                viewModel.placeDestinationMarker(center.latitude, center.longitude)
+                            }
+                        } else {
+                            webViewRef.value?.evaluateJavascript("if(window.Android && window.Android.notifyCenterForWaypoint) { var c = map.getCenter(); window.Android.notifyCenterForWaypoint(c.lat, c.lng); }", null)
+                        }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)), shape = RoundedCornerShape(24.dp), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)) { Text("ESTABLECER DESTINO", fontWeight = FontWeight.Bold) }
+                }
+            }
         }
 
-        // ─── MENÚ DE VIAJE RÁPIDO (TELEPORT) DINÁMICO ─────────────────────────────────────
         if (uiState.showTeleportMenu) {
             AlertDialog(
                 onDismissRequest = { viewModel.toggleTeleportMenu(false) },
@@ -1042,41 +890,21 @@ fun WorldMapScreen(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Selecciona tu estatua o destino:", fontSize = 14.sp)
-
-                        // El LazyColumn permite que la lista sea scrolleable si agregas muchas zonas
-                        LazyColumn(
-                            modifier = Modifier.fillMaxHeight(0.5f), // Limita la altura a la mitad de la pantalla
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        LazyColumn(modifier = Modifier.fillMaxHeight(0.5f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(TeleportCatalog.zones) { zone ->
-                                Button(
-                                    onClick = { viewModel.teleportTo(zone.latitude, zone.longitude) },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(zone.name)
-                                }
+                                Button(onClick = { viewModel.teleportTo(zone.latitude, zone.longitude) }, modifier = Modifier.fillMaxWidth()) { Text(zone.name) }
                             }
                         }
                     }
                 },
-                confirmButton = {
-                    TextButton(onClick = { viewModel.toggleTeleportMenu(false) }) { Text("Cancelar") }
-                }
+                confirmButton = { TextButton(onClick = { viewModel.toggleTeleportMenu(false) }) { Text("Cancelar") } }
             )
         }
 
-        // ─── DIÁLOGO DE SELECCIÓN DE ASSET ────────────────────────────────────
         if (uiState.showAssetPicker) {
-            AssetPickerDialog(
-                context = context,
-                onAssetSelected = { template ->
-                    viewModel.addLandmarkAtPlayer(context, template)
-                },
-                onDismiss = { viewModel.showAssetPicker(false) }
-            )
+            AssetPickerDialog(context = context, onAssetSelected = { viewModel.addLandmarkAtPlayer(context, it) }, onDismiss = { viewModel.showAssetPicker(false) })
         }
 
-        // ─── PANEL DE DISEÑADOR (cuando hay un landmark seleccionado) ─────────
         val selectedLandmark = uiState.landmarks.find { it.id == uiState.selectedLandmarkId }
         if (uiState.isDesignerMode && selectedLandmark != null) {
             DesignerPanel(
@@ -1089,14 +917,10 @@ fun WorldMapScreen(
                 onExport = { exportLauncher.launch("landmarks_config.json") },
                 onImport = { importLauncher.launch(arrayOf("application/json", "*/*")) },
                 onDeselect = { viewModel.selectLandmark(null) },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 130.dp, start = 12.dp, end = 12.dp)
-                    .fillMaxWidth(0.9f)
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 130.dp, start = 12.dp, end = 12.dp).fillMaxWidth(0.9f)
             )
         }
 
-        // ─── CONTROLES INFERIORES (ocultos en modo diseñador para no estorbar) ───
         if (!uiState.isDesignerMode) {
             val configuration = LocalConfiguration.current
             val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
@@ -1105,156 +929,65 @@ fun WorldMapScreen(
             val sidePadding = if (isPortrait) 16.dp else 64.dp
             val bottomPadding = if (isPortrait) 48.dp else 32.dp
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomPadding, start = sidePadding, end = sidePadding),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (uiState.isDriving) {
-                    val steeringComponent = @Composable {
-                        VehicleSteeringController(
-                            modifier = Modifier.scale(effectiveScale),
-                            onSteerLeft = { viewModel.steerLeft(it) },
-                            onSteerRight = { viewModel.steerRight(it) }
-                        )
+                    val steeringComponent = @Composable { VehicleSteeringController(modifier = Modifier.scale(effectiveScale), onSteerLeft = { viewModel.steerLeft(it) }, onSteerRight = { viewModel.steerRight(it) }) }
+                    val pedalsComponent = @Composable { VehiclePedalsController(modifier = Modifier.scale(effectiveScale), onAccelerate = { viewModel.accelerate(it) }, onBrake = { viewModel.brake(it) }, onExit = { isPressed ->
+                        if (isPressed) {
+                            viewModel.onInteractButtonPressed()
+                            yButtonHoldJob?.cancel()
+                            yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
+                        } else { yButtonHoldJob?.cancel() }
+                    }) }
+                    if (uiState.swapControls) { pedalsComponent(); steeringComponent() } else { steeringComponent(); pedalsComponent() }
+                } else {
+                    val movementComponent = @Composable {
+                        if (uiState.controlType == ControlType.DPAD) DPadController(modifier = Modifier.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
+                        else JoystickController(modifier = Modifier.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
                     }
-                    val pedalsComponent = @Composable {
-                        VehiclePedalsController(
-                            modifier = Modifier.scale(effectiveScale),
-                            onAccelerate = { viewModel.accelerate(it) },
-                            onBrake = { viewModel.brake(it) },
-                            onExit = { isPressed ->
+                    val actionComponent = @Composable {
+                        ActionButtonsController(modifier = Modifier.scale(effectiveScale), onActionChanged = { action, isPressed ->
+                            if (action == GameAction.Y) {
                                 if (isPressed) {
                                     viewModel.onInteractButtonPressed()
                                     yButtonHoldJob?.cancel()
-                                    yButtonHoldJob = coroutineScope.launch {
-                                        kotlinx.coroutines.delay(3000)
-                                        viewModel.toggleTeleportMenu(true)
-                                    }
-                                } else {
-                                    yButtonHoldJob?.cancel()
-                                }
+                                    yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
+                                } else { yButtonHoldJob?.cancel() }
                             }
-                        )
+                            viewModel.updateActionState(action, isPressed)
+                        }, onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() })
                     }
-                    if (uiState.swapControls) { pedalsComponent(); steeringComponent() }
-                    else { steeringComponent(); pedalsComponent() }
-                } else {
-                    val movementComponent = @Composable {
-                        if (uiState.controlType == ControlType.DPAD) {
-                            DPadController(modifier = Modifier.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
-                        } else {
-                            JoystickController(modifier = Modifier.scale(effectiveScale), onMove = { angle -> viewModel.moveCharacterByAngle(angle) })
-                        }
-                    }
-                    val actionComponent = @Composable {
-                        ActionButtonsController(
-                            modifier = Modifier.scale(effectiveScale),
-                            onActionChanged = { action, isPressed ->
-                                if (action == GameAction.Y) {
-                                    if (isPressed) {
-                                        viewModel.onInteractButtonPressed()
-                                        yButtonHoldJob?.cancel()
-                                        yButtonHoldJob = coroutineScope.launch {
-                                            kotlinx.coroutines.delay(3000)
-                                            viewModel.toggleTeleportMenu(true)
-                                        }
-                                    } else {
-                                        yButtonHoldJob?.cancel()
-                                    }
-                                }
-                                viewModel.updateActionState(action, isPressed)
-                            },
-                            onClaimCollectiblePressed = {
-                                viewModel.onClaimCollectiblePressed()
-                            }
-                        )
-                    }
-                    if (uiState.swapControls) { actionComponent(); movementComponent() }
-                    else { movementComponent(); actionComponent() }
+                    if (uiState.swapControls) { actionComponent(); movementComponent() } else { movementComponent(); actionComponent() }
                 }
             }
         }
     }
-    // --- SECUENCIA WASTED (TIPO GTA) ---
+
     if (uiState.showWastedScreen) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0x99000000))
-                .clickable(
-                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
-        ) {
+        Box(modifier = Modifier.fillMaxSize().background(Color(0x99000000)).clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = {})) {
             var scale by remember { mutableStateOf(0.5f) }
             LaunchedEffect(Unit) {
-                androidx.compose.animation.core.animate(
-                    initialValue = 0.5f,
-                    targetValue = 1.3f,
-                    animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)
-                ) { value, _ -> scale = value }
+                androidx.compose.animation.core.animate(initialValue = 0.5f, targetValue = 1.3f, animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)) { value, _ -> scale = value }
             }
-
-            Text(
-                text = "WASTED",
-                color = Color(0xFFD32F2F),
-                fontSize = 60.sp,
-                fontWeight = FontWeight.ExtraBold,
-                fontFamily = FontFamily.Serif,
-                letterSpacing = 6.sp,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .scale(scale)
-            )
+            Text(text = "WASTED", color = Color(0xFFD32F2F), fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale))
         }
     }
-    // ─── UI SUPERPUESTA: AVISO DE COLECCIONABLE CERCANO ───────────────────────
+
     uiState.interactionPrompt?.let { promptText ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 70.dp),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            Text(
-                text = promptText,
-                color = Color.White,
-                fontWeight = FontWeight.Black,
-                fontSize = 16.sp,
-                letterSpacing = 2.sp,
-                modifier = Modifier
-                    .background(
-                        color = Color(0xFF3B0D1B).copy(alpha = 0.85f),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
-            )
+        Box(modifier = Modifier.fillMaxSize().padding(top = 70.dp), contentAlignment = Alignment.TopCenter) {
+            Text(text = promptText, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp, modifier = Modifier.background(color = Color(0xFF3B0D1B).copy(alpha = 0.85f), shape = RoundedCornerShape(8.dp)).padding(horizontal = 24.dp, vertical = 12.dp))
         }
     }
 
-    // ─── POP-UP DE RECOMPENSA (COLECCIONABLE) ─────────────────────────────────
     uiState.showClaimedPopupFor?.let { collectible ->
-        ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog(
-            collectible = collectible,
-            onDismiss = { viewModel.dismissClaimedPopup() }
-        )
+        CollectibleClaimDialog(collectible = collectible, onDismiss = { viewModel.dismissClaimedPopup() })
     }
 }
 
 @Composable
 private fun CacheStatusWidget(roadSource: RoadSource, tileSource: TileSource, mapProvider: MapProvider) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        CacheChip(
-            label = "Calles",
-            text  = when (roadSource) { RoadSource.LOADING -> "Cargando..."; RoadSource.LOCAL_DB -> "Local (BD)"; RoadSource.NETWORK -> "Overpass API" },
-            color = when (roadSource) { RoadSource.LOADING -> Color(0xFFD4AF37); RoadSource.LOCAL_DB -> Color(0xFF4CAF50); RoadSource.NETWORK -> Color(0xFF2196F3) },
-            isLoading = roadSource == RoadSource.LOADING
-        )
+        CacheChip(label = "Calles", text  = when (roadSource) { RoadSource.LOADING -> "Cargando..."; RoadSource.LOCAL_DB -> "Local (BD)"; RoadSource.NETWORK -> "Overpass API" }, color = when (roadSource) { RoadSource.LOADING -> Color(0xFFD4AF37); RoadSource.LOCAL_DB -> Color(0xFF4CAF50); RoadSource.NETWORK -> Color(0xFF2196F3) }, isLoading = roadSource == RoadSource.LOADING)
         if (mapProvider != MapProvider.OSM) {
             val tileLabel = when (tileSource) { TileSource.LOCAL_OSM -> "Local (osmdroid)"; TileSource.LOCAL_CACHE -> "Local (caché)"; TileSource.NETWORK -> "Red" }
             val tileColor = when (tileSource) { TileSource.LOCAL_OSM, TileSource.LOCAL_CACHE -> Color(0xFF4CAF50); TileSource.NETWORK -> Color(0xFF2196F3) }
@@ -1265,72 +998,31 @@ private fun CacheStatusWidget(roadSource: RoadSource, tileSource: TileSource, ma
 
 @Composable
 private fun CacheChip(label: String, text: String, color: Color, isLoading: Boolean) {
-    Row(
-        modifier = Modifier
-            .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
+    Row(modifier = Modifier.background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(20.dp)).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (isLoading) CircularProgressIndicator(modifier = Modifier.size(8.dp), color = color, strokeWidth = 1.5.dp)
         else Box(Modifier.size(8.dp).background(color, CircleShape))
         Text(text = "$label: $text", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }
 
-// Función auxiliar puramente matemática para inyectar la barra de vida a los sprites en memoria
-private fun drawHealthBarOnDrawable(
-    context: Context,
-    original: android.graphics.drawable.Drawable?,
-    health: Float,
-    isDying: Boolean
-): android.graphics.drawable.Drawable? {
-    if (original !is android.graphics.drawable.BitmapDrawable || health >= 100f || isDying) {
-        return original
-    }
-
-    val originalBitmap = original.bitmap
-    val mutableBitmap = originalBitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
+private fun drawHealthBarOnDrawable(context: Context, original: android.graphics.drawable.Drawable?, health: Float, isDying: Boolean): android.graphics.drawable.Drawable? {
+    if (original !is android.graphics.drawable.BitmapDrawable || health >= 100f || isDying) return original
+    val mutableBitmap = original.bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
     val canvas = android.graphics.Canvas(mutableBitmap)
     val paint = android.graphics.Paint()
-
-    // 🌟 NUEVO TAMAÑO: 95% del ancho y 24 píxeles de grosor para máxima visibilidad
     val barWidth = mutableBitmap.width * 0.95f
-    val barHeight = 100f
+    val barHeight = 10f
     val left = (mutableBitmap.width - barWidth) / 2f
-    val top = 0f // Pegada completamente al techo del sprite
-
-    // Dibujamos el fondo negro (marco grueso)
+    val top = 0f
     paint.color = android.graphics.Color.BLACK
     canvas.drawRect(left, top, left + barWidth, top + barHeight, paint)
-
-    // Color según el nivel de vida
-    paint.color = when {
-        health > 60f -> android.graphics.Color.GREEN
-        health > 30f -> android.graphics.Color.YELLOW
-        else -> android.graphics.Color.RED
-    }
-
-    // 🌟 Borde interior: Restamos 6 píxeles al ancho y damos un offset de +3
-    // para crear un contorno negro tipo RPG muy marcado
+    paint.color = when { health > 60f -> android.graphics.Color.GREEN; health > 30f -> android.graphics.Color.YELLOW; else -> android.graphics.Color.RED }
     val healthWidth = (barWidth - 6f) * (health / 100f)
-    if (healthWidth > 0) {
-        canvas.drawRect(
-            left + 3f,
-            top + 3f,
-            left + 3f + healthWidth,
-            top + barHeight - 3f,
-            paint
-        )
-    }
-
+    if (healthWidth > 0) canvas.drawRect(left + 3f, top + 3f, left + 3f + healthWidth, top + barHeight - 3f, paint)
     return android.graphics.drawable.BitmapDrawable(context.resources, mutableBitmap)
 }
-private data class NpcWebPayload(
-    val id: String, val lat: Double, val lng: Double, val rot: Float, val type: String,
-    val imageKey: String? = null, val drawable: String? = null, val flip: Int? = null,
-    val name: String? = null, val width: Float? = null, val height: Float? = null
-)
+
+private data class NpcWebPayload(val id: String, val lat: Double, val lng: Double, val rot: Float, val type: String, val imageKey: String? = null, val drawable: String? = null, val flip: Int? = null, val name: String? = null, val width: Float? = null, val height: Float? = null)
 
 private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <!DOCTYPE html>
@@ -1364,9 +1056,17 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 18 }).addTo(map);
         var npcMarkers = {};
         var isZooming = false;
+        var isExplorationMode = false;
         map.on('zoomstart', function() { isZooming = true; });
         map.on('zoomend', function() { isZooming = false; });
-        function updateMapView(lat, lng, z) { if (!isZooming) map.setView([lat, lng], z, { animate: false }); }
+        map.on('dragstart', function() {
+            isExplorationMode = true;
+            if (window.Android && window.Android.notifyMapPanStart) window.Android.notifyMapPanStart();
+        });
+        map.on('dragend', function() {
+            if (window.Android && window.Android.notifyMapPanEnd) window.Android.notifyMapPanEnd();
+        });
+        function updateMapView(lat, lng, z) { if (!isZooming && !isExplorationMode) map.setView([lat, lng], z, { animate: false }); }
         function setDesignerMode(isDesigner) {
             if (isDesigner) {
                 map.dragging.enable();
@@ -1381,62 +1081,23 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
+        function exitExplorationMode() { isExplorationMode = false; }
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c; }); }
         var collectibleMarkers = {};
-
         function updateCollectibles(jsonStr) {
             var data = JSON.parse(jsonStr);
-            
-            // Limpiar marcadores existentes
-            for (var key in collectibleMarkers) {
-                map.removeLayer(collectibleMarkers[key]);
-            }
+            for (var key in collectibleMarkers) { map.removeLayer(collectibleMarkers[key]); }
             collectibleMarkers = {};
-        
             data.forEach(function(col) {
                 var pUrl = 'file:///android_asset/' + col.assetPath;
-                
-                // TAMAÑO ULTRA PEQUEÑO: Contenedor de 20px
                 var containerSize = 20;
-                var iconSize = 14; // El asset ocupa 14px dentro del círculo
-                
-                var html = '<div style="' +
-                    'position:relative; ' +
-                    'width:' + containerSize + 'px; ' +
-                    'height:' + containerSize + 'px; ' +
-                    'display:flex; ' +
-                    'justify-content:center; ' +
-                    'align-items:center;' +
-                '">' +
-                    // Círculo amarillo de fondo
-                    '<div style="' +
-                        'position:absolute; ' +
-                        'width:100%; ' +
-                        'height:100%; ' +
-                        'background:radial-gradient(circle, rgba(255,235,59,0.5) 0%, rgba(255,235,59,0) 60%); ' +
-                        'border-radius:50%;' +
-                    '"></div>' +
-                    // Imagen del coleccionable
-                    '<img src="' + pUrl + '" style="' +
-                        'position:relative; ' +
-                        'width:' + iconSize + 'px; ' +
-                        'height:' + iconSize + 'px; ' +
-                        'object-fit:contain; ' +
-                        'image-rendering:pixelated;' +
-                    '">' +
+                var iconSize = 14;
+                var html = '<div style="position:relative; width:' + containerSize + 'px; height:' + containerSize + 'px; display:flex; justify-content:center; align-items:center;">' +
+                    '<div style="position:absolute; width:100%; height:100%; background:radial-gradient(circle, rgba(255,235,59,0.5) 0%, rgba(255,235,59,0) 60%); border-radius:50%;"></div>' +
+                    '<img src="' + pUrl + '" style="position:relative; width:' + iconSize + 'px; height:' + iconSize + 'px; object-fit:contain; image-rendering:pixelated;">' +
                 '</div>';
-                
-                var icon = L.divIcon({ 
-                    html: html, 
-                    className: '', 
-                    iconSize: [containerSize, containerSize], 
-                    iconAnchor: [containerSize/2, containerSize/2] 
-                });
-                
-                collectibleMarkers[col.id] = L.marker(
-                    [col.latitude, col.longitude], 
-                    { icon: icon, interactive: false }
-                ).addTo(map);
+                var icon = L.divIcon({ html: html, className: '', iconSize: [containerSize, containerSize], iconAnchor: [containerSize/2, containerSize/2] });
+                collectibleMarkers[col.id] = L.marker([col.latitude, col.longitude], { icon: icon, interactive: false }).addTo(map);
             });
         }
         function updateNpcs(data) {
@@ -1491,10 +1152,105 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
             });
         }
+        var playerMarker = null;
+        function updatePlayerMarker(lat, lng, isInFreeNavigation) {
+            if (!isInFreeNavigation) {
+                if (playerMarker) { map.removeLayer(playerMarker); playerMarker = null; }
+                return;
+            }
+            if (lat === null || lng === null) return;
+            if (!playerMarker) {
+                var html = '<div style="position:relative; width:40px; height:40px; display:flex; justify-content:center; align-items:center;">' +
+                    '<div style="width:20px; height:20px; background:radial-gradient(circle at 30% 30%, #4CAF50, #2E7D32); border-radius:50%; border:3px solid #FFF; box-shadow: 0 2px 8px rgba(0,0,0,0.4);"></div>' +
+                    '</div>';
+                var icon = L.divIcon({ html: html, className: '', iconSize: [40, 40], iconAnchor: [20, 20] });
+                playerMarker = L.marker([lat, lng], { icon: icon, interactive: false, zIndexOffset: 1000 }).addTo(map);
+            } else {
+                playerMarker.setLatLng([lat, lng]);
+            }
+        }
+        var destinationMarker = null;
+        var destinationRoute = null;
+        var isPlacingDestinationMarker = false;
+        function updateDestinationPlacingMode(isPlacing) {
+            isPlacingDestinationMarker = isPlacing;
+            var mapElement = document.getElementById('map');
+            if (mapElement) {
+                mapElement.style.cursor = isPlacing ? 'crosshair' : 'grab';
+            }
+        }
+        function updateDestinationMarker(lat, lng) {
+            if (!destinationMarker) {
+                var html = '<div style="position:relative; width:32px; height:40px; display:flex; justify-content:center; align-items:flex-start;">' +
+                    '<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.3));">' +
+                    '<path d="M16 0C9.4 0 4 5.4 4 12c0 7 12 25 12 25s12-18 12-25c0-6.6-5.4-12-12-12z" fill="#F44336"/>' +
+                    '<circle cx="16" cy="12" r="5" fill="#FFF"/>' +
+                    '</svg></div>';
+                var icon = L.divIcon({ html: html, className: '', iconSize: [32, 40], iconAnchor: [16, 40] });
+                destinationMarker = L.marker([lat, lng], { icon: icon, draggable: false, zIndexOffset: 900 }).addTo(map);
+            } else {
+                destinationMarker.setLatLng([lat, lng]);
+            }
+        }
+        function updateDestinationRoute(playerLat, playerLng, routePoints, showRoute) {
+            if (destinationRoute) {
+                map.removeLayer(destinationRoute);
+                destinationRoute = null;
+            }
+            if (showRoute && routePoints && routePoints.length > 0) {
+                var points = [];
+                for (var i = 0; i < routePoints.length; i++) {
+                    var pt = routePoints[i];
+                    if (pt && typeof pt.lat !== 'undefined' && typeof pt.lng !== 'undefined') {
+                        points.push([pt.lat, pt.lng]);
+                    }
+                }
+                if (points.length > 1) {
+                    destinationRoute = L.polyline(points, {
+                        color: '#2196F3',
+                        weight: 3,
+                        opacity: 0.7,
+                        dashArray: '5, 5',
+                        lineCap: 'round',
+                        lineJoin: 'round'
+                    }).addTo(map);
+                }
+            }
+        }
+        function clearDestinationMarker() {
+            if (destinationMarker) {
+                map.removeLayer(destinationMarker);
+                destinationMarker = null;
+            }
+            if (destinationRoute) {
+                map.removeLayer(destinationRoute);
+                destinationRoute = null;
+            }
+            isPlacingDestinationMarker = false;
+            updateDestinationPlacingMode(false);
+        }
+        map.on('click', function(e) {
+            if (isPlacingDestinationMarker && window.Android && window.Android.notifyMapClick) {
+                window.Android.notifyMapClick(e.latlng.lat, e.latlng.lng);
+                isPlacingDestinationMarker = false;
+                updateDestinationPlacingMode(false);
+            }
+        });
     </script>
 </body>
 </html>
 """.trimIndent()
+
+private class MapJsBridge(private val vm: WorldMapViewModel) {
+    @JavascriptInterface fun notifyMapPanStart() { vm.onMapPanStart() }
+    @JavascriptInterface fun notifyMapPanEnd() { vm.onMapPanEnd() }
+    @JavascriptInterface fun notifyMapClick(latitude: Double, longitude: Double) {
+        vm.placeDestinationMarker(latitude, longitude)
+    }
+    @JavascriptInterface fun notifyCenterForWaypoint(latitude: Double, longitude: Double) {
+        vm.placeDestinationMarker(latitude, longitude)
+    }
+}
 
 private class ExactSizeDrawable(
     private val base: android.graphics.drawable.Drawable,
@@ -1510,6 +1266,5 @@ private class ExactSizeDrawable(
     }
     override fun setAlpha(alpha: Int) { base.alpha = alpha }
     override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { base.colorFilter = colorFilter }
-    @Deprecated("Deprecated in Java")
-    override fun getOpacity() = base.opacity
+    @Deprecated("Deprecated in Java") override fun getOpacity() = base.opacity
 }

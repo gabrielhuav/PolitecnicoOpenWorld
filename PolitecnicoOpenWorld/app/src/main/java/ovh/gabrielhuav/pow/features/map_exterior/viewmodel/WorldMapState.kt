@@ -58,6 +58,10 @@ data class WorldMapState(
     val landmarks: List<Landmark> = emptyList(),
     val showTeleportMenu: Boolean = false,
 
+    // Control de seguimiento del mapa: true cuando el usuario ha empezado a hacer pan/zoom
+    // y no debe ser reposicionado automáticamente hasta que el usuario presione el FAB.
+    val isUserPanningMap: Boolean = false,
+
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
     val selectedLandmarkId: Long? = null,     // null = nada seleccionado
@@ -71,5 +75,17 @@ data class WorldMapState(
     // El objeto que acabamos de recoger para mostrar el Pop-up divertido
     val showClaimedPopupFor: ActiveCollectible? = null,
     val interactionPrompt: String? = null,
-    val showWastedScreen: Boolean = false
+    val showWastedScreen: Boolean = false,
+
+    // ─── NAVEGACIÓN / MARCADOR DE DESTINO ──────────────────────────────────
+    // Coordenada del marcador de destino (como en Google Maps)
+    val destinationMarker: GeoPoint? = null,
+    // Indica si el usuario está activamente moviendo el mapa para centrar el waypoint
+    val isTargetingWaypoint: Boolean = false,
+    // Lista de puntos (waypoints) que conforman la ruta desde el personaje al destino
+    val routeWaypoints: List<GeoPoint> = emptyList(),
+    // Si mostrar/ocultar la ruta visualmente
+    val showDestinationRoute: Boolean = true,
+    // Distancia en metros a la que se considera que el personaje llegó al destino
+    val destinationArrivalThreshold: Double = 20.0
 )
