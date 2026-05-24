@@ -23,8 +23,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +57,7 @@ fun ZombieHud(
 
     Box(Modifier.fillMaxSize()) {
 
-        // ─── BARRA SUPERIOR: vida del jugador + info de zona ───
+        // ─── BARRA SUPERIOR ────────────────────────────────
         Column(
             modifier = Modifier.align(Alignment.TopStart).systemBarsPadding().padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -73,39 +73,45 @@ fun ZombieHud(
                             .padding(horizontal = 12.dp, vertical = 6.dp))
                 }
             }
-            // Barra de vida del jugador FIJA en el HUD
             PlayerHealthBarFixed(health = state.playerHealth)
         }
 
-        // ─── CONTROLES (cruceta izq / acciones der) ────────────
-        val sidePadding = if (isPortrait) 16.dp else 48.dp
-        val bottomPadding = if (isPortrait) 40.dp else 24.dp
-        val maxScale = if (isPortrait) 1.0f else 1.4f
-        val scale = state.controlsScale.coerceAtMost(maxScale)
+        // ─── CONTROLES: cruceta IZQ + acciones DER ──────────
+        // Clave de la corrección: usamos Modifier.scale (que NO rompe el layout
+        // como graphicsLayer al posicionar) y reducimos el padding lateral para
+        // que AMBOS controles quepan siempre dentro de la pantalla.
+        val sidePadding = if (isPortrait) 8.dp else 32.dp
+        val bottomPadding = if (isPortrait) 32.dp else 20.dp
+        // Escala segura: en vertical no agrandamos para que el lado derecho no
+        // se salga; el usuario puede subirla desde Ajustes hasta el límite.
+        val maxScale = if (isPortrait) 0.95f else 1.3f
+        val scale = state.controlsScale.coerceIn(0.6f, maxScale)
 
         Row(
-            modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                .padding(bottom = bottomPadding, start = sidePadding, end = sidePadding).systemBarsPadding(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(bottom = bottomPadding, start = sidePadding, end = sidePadding)
+                .systemBarsPadding(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             val movement = @Composable {
                 if (state.controlType == ControlType.DPAD)
-                    DPadController(modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale),
-                        onDirectionPressed = onMoveDir)
+                    DPadController(modifier = Modifier.scale(scale), onDirectionPressed = onMoveDir)
                 else
-                    JoystickController(modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale),
-                        onMove = onMoveAngle)
+                    JoystickController(modifier = Modifier.scale(scale), onMove = onMoveAngle)
             }
+            // ── BOTONES DE ACCIÓN ESTILO XBOX (A / X / B / Y) ──
             val actions = @Composable {
                 ActionButtonsController(
-                    modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale),
+                    modifier = Modifier.scale(scale),
                     onActionChanged = { action, pressed ->
                         when (action) {
-                            GameAction.A -> onRun(pressed)            // A = correr
-                            GameAction.X -> if (pressed) onInteract() // X = interactuar
-                            GameAction.B -> onSpecial(pressed)        // B = golpear/especial
-                            GameAction.Y -> if (pressed) onSecondary()// Y = acción secundaria
+                            GameAction.A -> onRun(pressed)             // A = correr
+                            GameAction.X -> if (pressed) onInteract()  // X = interactuar
+                            GameAction.B -> onSpecial(pressed)         // B = golpear/especial
+                            GameAction.Y -> if (pressed) onSecondary() // Y = secundaria
                         }
                     },
                     onClaimCollectiblePressed = { onInteract() }
@@ -119,10 +125,8 @@ fun ZombieHud(
 @Composable
 private fun PlayerHealthBarFixed(health: Float) {
     Box(
-        modifier = Modifier.width(180.dp).height(18.dp)
-            .clip(RoundedCornerShape(9.dp))
-            .background(Color.Black.copy(alpha = 0.6f))
-            .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(9.dp))
+        modifier = Modifier.width(180.dp).height(18.dp).clip(RoundedCornerShape(9.dp))
+            .background(Color.Black.copy(alpha = 0.6f)).border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(9.dp))
     ) {
         LinearProgressIndicator(
             progress = (health / 100f).coerceIn(0f, 1f),
@@ -135,35 +139,27 @@ private fun PlayerHealthBarFixed(health: Float) {
     }
 }
 
-/** Indicador pulsante sobre cada puerta/hitbox del mapa. */
 @Composable
 fun DoorIndicator(label: String, kind: DoorKind, modifier: Modifier = Modifier) {
     val infinite = rememberInfiniteTransition(label = "door")
-    val pulse by infinite.animateFloat(
-        initialValue = 0.7f, targetValue = 1.25f,
-        animationSpec = infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "pulse"
-    )
+    val pulse by infinite.animateFloat(0.7f, 1.25f,
+        infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "pulse")
     val color = when (kind) {
         DoorKind.TO_WORLD -> Color(0xFF2196F3)
         DoorKind.EXIT_NEXT, DoorKind.EXIT_PREV -> Color(0xFFFF9800)
         else -> Color(0xFFD4AF37)
     }
     Box(modifier = modifier.size(80.dp), contentAlignment = Alignment.Center) {
-        // halo pulsante
         Box(Modifier.scale(pulse).size(64.dp).clip(CircleShape).background(color.copy(alpha = 0.25f)))
-        Box(Modifier.size(30.dp).clip(CircleShape).background(color.copy(alpha = 0.85f))
-            .border(2.dp, Color.White, CircleShape))
+        Box(Modifier.size(30.dp).clip(CircleShape).background(color.copy(alpha = 0.85f)).border(2.dp, Color.White, CircleShape))
         if (label.isNotEmpty()) {
             Text(label, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.offset(y = 26.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                modifier = Modifier.offset(y = 26.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
                     .padding(horizontal = 6.dp, vertical = 2.dp))
         }
     }
 }
 
-/** Item en el suelo, con brillo cuando el jugador está cerca. */
 @Composable
 fun GroundItem(assetPath: String, highlighted: Boolean, modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -172,28 +168,26 @@ fun GroundItem(assetPath: String, highlighted: Boolean, modifier: Modifier = Mod
         catch (e: Exception) { null }
     }
     val infinite = rememberInfiniteTransition(label = "item")
-    val glow by infinite.animateFloat(0.8f, 1.2f,
-        infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "glow")
+    val glow by infinite.animateFloat(0.8f, 1.2f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "glow")
     Box(modifier = modifier.size(32.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.scale(if (highlighted) glow else 1f).size(28.dp).clip(CircleShape)
-            .background(Color(0x88FFEB3B)))
+        Box(Modifier.scale(if (highlighted) glow else 1f).size(28.dp).clip(CircleShape).background(Color(0x88FFEB3B)))
         bmp?.let { Image(it, "item", modifier = Modifier.size(20.dp)) }
+            ?: Box(Modifier.size(18.dp).clip(CircleShape).background(Color(0xFFFFC107)))
     }
 }
 
-/** Zombi: sprite z_walk + barra de vida flotante anclada (ya viene en px de pantalla). */
 @Composable
 fun ZombieView(
     frameIndex: Int, facingRight: Boolean, isDying: Boolean,
     health: Float, maxHealth: Float, sizePx: Float, modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val density = androidx.compose.ui.platform.LocalDensity.current
+    val density = LocalDensity.current
     val frame = remember(frameIndex) { ZombieSpriteManager.getFrame(context, frameIndex) }
     val sizeDp = with(density) { sizePx.toDp() }
 
     Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.TopCenter) {
-        // Barra de vida flotante (anclada arriba del sprite, escala con la cámara)
+        // Barra de vida flotante
         if (health < maxHealth && !isDying) {
             Box(
                 modifier = Modifier.offset(y = (-6).dp).fillMaxWidth(0.7f).height(4.dp)
@@ -207,29 +201,34 @@ fun ZombieView(
                 )
             }
         }
-        frame?.let {
-            Image(it, "Zombi", modifier = Modifier.fillMaxSize().graphicsLayer {
+        // Sprite o FALLBACK VISIBLE (círculo verde con borde) si el asset no carga
+        if (frame != null) {
+            Image(frame, "Zombi", modifier = Modifier.fillMaxSize().graphicsLayer {
                 scaleX = if (facingRight) 1f else -1f
                 alpha = if (isDying) 0.35f else 1f
             })
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(top = 6.dp).clip(CircleShape)
+                    .background(Color(0xFF4CAF50).copy(alpha = if (isDying) 0.35f else 0.9f))
+                    .border(2.dp, Color(0xFF1B5E20), CircleShape)
+            )
         }
     }
 }
 
-/** Jugador: reutiliza assets lazaro* y cambia con PlayerAction en tiempo real. */
 @Composable
 fun PlayerView(
     action: PlayerAction, facingRight: Boolean, damagePulse: Int,
     sizePx: Float, modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val density = androidx.compose.ui.platform.LocalDensity.current
+    val density = LocalDensity.current
     val sizeDp = with(density) { sizePx.toDp() }
     var frame by remember { mutableIntStateOf(1) }
     var image by remember { mutableStateOf<ImageBitmap?>(null) }
     val cache = remember { mutableMapOf<String, ImageBitmap?>() }
 
-    // Sacudida al recibir daño
     val shake by animateFloatAsState(
         targetValue = if (damagePulse % 2 == 0) 0f else 8f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy, stiffness = Spring.StiffnessHigh),
@@ -259,8 +258,10 @@ fun PlayerView(
     }
 
     Box(modifier = modifier.size(sizeDp).graphicsLayer { translationX = shake }, contentAlignment = Alignment.Center) {
-        image?.let {
-            Image(it, "Jugador", modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
+        if (image != null) {
+            Image(image!!, "Jugador", modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
+        } else {
+            Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFFD91B5B)).border(2.dp, Color.White, CircleShape))
         }
     }
 }

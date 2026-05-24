@@ -131,6 +131,11 @@ class WorldMapViewModel(
     private var healthBarJob: Job? = null
     private var promptJob: Job? = null
 
+    // ─── FLAG: tras el video, navegar al minijuego de zombis ──────────────────
+    // En lugar de entrar a un interior concreto, la mano lleva al minijuego.
+    var pendingZombieMinigame: Boolean = false
+        private set
+
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -1501,25 +1506,28 @@ class WorldMapViewModel(
     }
 
     /**
-     * Spawnea UNA ZombiHand por cada edificio interior, en su coordenada fija.
-     * Antes spawneaba 1 sola en un nodo aleatorio dentro del bounding box.
+     * Spawnea UNA SOLA ZombiHand cerca del jugador (o en el centro de ESCOM).
+     * Al interactuar con ella, lleva al minijuego de zombis (que arranca en el
+     * lobby = croquis del campus). Antes spawneaba 6 manos, una por edificio.
      */
-    fun spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 6) {
-        val buildings = InteriorBuilding.entries
+    fun spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 1) {
+        val center = _uiState.value.currentLocation
+            ?: GeoPoint(ESCOM_BASE_LAT, ESCOM_BASE_LON)
 
-        val spawnedList = buildings.map { building ->
-            ActiveCollectible(
-                id = "escom_hand_${building.id}",
-                name = "Objeto Misterioso ESCOM",
-                // Guardamos el id del edificio en description para recuperarlo en handleInteraction
-                description = "INTERIOR_TARGET:${building.id}",
-                assetPath = "ZOMBIS_MOD/zombi_hand.webp",
-                latitude = building.location.latitude,
-                longitude = building.location.longitude
-            )
-        }
+        // Anclamos la mano a la calle más cercana para que sea alcanzable
+        val spawnPoint = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(center) else center
 
-        _escomItems.value = spawnedList
+        val hand = ActiveCollectible(
+            id = "escom_hand_lobby",
+            name = "Objeto Misterioso ESCOM",
+            // El destino ya no es un edificio: el minijuego arranca en el lobby
+            description = "INTERIOR_TARGET:lobby",
+            assetPath = "ZOMBIS_MOD/zombi_hand.webp",
+            latitude = spawnPoint.latitude,
+            longitude = spawnPoint.longitude
+        )
+
+        _escomItems.value = listOf(hand)
         _uiState.update { it.copy(isZombieHandSpawned = true) }
     }
 
@@ -1535,24 +1543,24 @@ class WorldMapViewModel(
         }
     }
 
+    /**
+     * Interacción con la mano: en lugar de entrar a un interior concreto, marca
+     * el flag pendingZombieMinigame para que, tras el video, WorldMapScreen
+     * navegue a la ruta "zombie_minigame".
+     */
     fun handleInteraction() {
         val nearby = _uiState.value.nearbyCollectible ?: return
 
         if (nearby.name == "Objeto Misterioso ESCOM") {
-            // Decodificamos el edificio de destino desde el campo description
-            val targetId = nearby.description.removePrefix("INTERIOR_TARGET:")
-            val target = InteriorBuilding.fromId(targetId)
-
-            if (target != null) {
-                _uiState.update {
-                    it.copy(
-                        showZombiVideo = true,
-                        pendingInteriorDestination = target
-                    )
-                }
-            } else {
-                Log.w("Interior", "Mano sin destino válido: id=$targetId")
-                _uiState.update { it.copy(showZombiVideo = true) }
+            // La mano lleva al minijuego de zombis (arranca en el lobby/croquis).
+            // Mostramos el video de carga y dejamos un destino placeholder no nulo
+            // para que el LaunchedEffect de WorldMapScreen se dispare al terminar.
+            pendingZombieMinigame = true
+            _uiState.update {
+                it.copy(
+                    showZombiVideo = true,
+                    pendingInteriorDestination = InteriorBuilding.EDIFICIO
+                )
             }
         } else {
             onClaimCollectiblePressed()
@@ -1569,6 +1577,9 @@ class WorldMapViewModel(
     fun clearPendingInteriorDestination() {
         _uiState.update { it.copy(pendingInteriorDestination = null) }
     }
+
+    /** Limpia el flag tras navegar al minijuego de zombis. */
+    fun clearPendingZombieMinigame() { pendingZombieMinigame = false }
 
     fun toggleInteriorDebugOverlay(show: Boolean) {
         _uiState.update { it.copy(showInteriorDebugOverlay = show) }

@@ -160,12 +160,19 @@ fun WorldMapScreen(
         viewModel.showInitialHealthBar()
     }
 
-    // Cuando el video de carga termina y hay un destino pendiente, navegar al interior.
+    // Cuando el video de carga termina y hay un destino pendiente, navegar.
+    // Si la interacción fue con la mano (pendingZombieMinigame), vamos al minijuego
+    // de zombis (que arranca en el lobby/croquis). Si no, al interior normal.
     LaunchedEffect(uiState.showZombiVideo, uiState.pendingInteriorDestination) {
         val target = uiState.pendingInteriorDestination
         if (target != null && !uiState.showZombiVideo) {
             viewModel.clearPendingInteriorDestination()
-            onNavigateToInterior(target.routeName)
+            if (viewModel.pendingZombieMinigame) {
+                viewModel.clearPendingZombieMinigame()
+                onNavigateToInterior("zombie_minigame")
+            } else {
+                onNavigateToInterior(target.routeName)
+            }
         }
     }
 
