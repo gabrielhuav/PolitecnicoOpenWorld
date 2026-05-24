@@ -1,4 +1,3 @@
-// domain/models/zombie/ZombieModels.kt
 package ovh.gabrielhuav.pow.domain.models.zombie
 
 import java.util.UUID
@@ -34,12 +33,25 @@ data class InteractableItem(
     val collected: Boolean = false
 )
 
+/** Proyectil disparado por el jugador en modo arma. Coordenadas en px de mundo. */
+data class Projectile(
+    val id: String = UUID.randomUUID().toString(),
+    val x: Float,
+    val y: Float,
+    val dirX: Float,   // vector unitario de dirección
+    val dirY: Float,
+    val bornAtMs: Long
+)
+
+/** Modo de combate del jugador. */
+enum class CombatMode { MELEE, RANGED }
+
 enum class ZoneType { LOBBY, BUILDING }
 
 /**
  * Zona del minijuego. Topología hub-and-spoke:
- *  - LOBBY: croquis del campus, con 6 puertas a edificios + 1 puerta al mapa.
- *  - BUILDING: dos puertas "EXIT" (siguiente / anterior) + zombis.
+ *  - LOBBY: croquis del campus, con puertas a edificios + 1 puerta al mapa.
+ *  - BUILDING: puertas "EXIT" (siguiente / anterior / lobby) + zombis.
  *
  * worldWidth/worldHeight definen el tamaño base de la imagen en px de mundo.
  * Las hitboxes y spawns se expresan como fracción [0,1] y se convierten a px
@@ -52,11 +64,11 @@ data class ZombieRoom(
     val displayName: String,
     val worldWidth: Float = 2000f,
     val worldHeight: Float = 2000f,
-    val zoom: Float = 2.2f,            // ← nivel de zoom propio de la zona
+    val zoom: Float = 2.2f,            // nivel de zoom propio de la zona
     val playerSpawnFrac: NormPoint = NormPoint(0.5f, 0.85f),
     val doors: List<ZoneDoor> = emptyList(),
     val zombieCount: Int = 0,
-    val collisionGridFrac: List<NormRect> = emptyList()
+    val collisionGridFrac: List<NormRect> = emptyList() // zonas NO caminables (frac)
 )
 
 /** Puerta interactiva. targetRoomId == EXIT_TO_WORLD sale al mapa principal. */

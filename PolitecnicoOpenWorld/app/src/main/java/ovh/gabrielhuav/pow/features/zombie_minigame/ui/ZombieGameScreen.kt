@@ -1,10 +1,13 @@
-// features/zombie_minigame/ui/ZombieGameScreen.kt
 package ovh.gabrielhuav.pow.features.zombie_minigame.ui
 
 import android.graphics.BitmapFactory
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,6 +16,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -29,10 +34,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.draw.scale
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,7 +43,6 @@ import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.ZombieGameViewModel
 import kotlin.math.max
 
-private const val ZOOM = 2.2f
 private const val ZOMBIE_SPRITE_BASE = 60f
 private const val PLAYER_SPRITE_BASE = 56f
 
@@ -79,12 +79,7 @@ fun ZombieGameScreen(
             val viewportHpx = with(density) { maxHeight.toPx() }
 
             val cam = remember(state.playerX, state.playerY, viewportWpx, viewportHpx, room.id) {
-                computeCamera(
-                    state.playerX, state.playerY,
-                    room.worldWidth, room.worldHeight,
-                    viewportWpx, viewportHpx,
-                    room.zoom            // ← antes era ZOOM
-                )
+                computeCamera(state.playerX, state.playerY, room.worldWidth, room.worldHeight, viewportWpx, viewportHpx, room.zoom)
             }
 
             // ─── CAPA DEL MUNDO (fondo) ─────────────────────────
@@ -134,6 +129,20 @@ fun ZombieGameScreen(
                 )
             }
 
+            // Proyectiles (balas)
+            val bulletSize = 10f * cam.scale
+            state.projectiles.forEach { p ->
+                Box(
+                    modifier = Modifier.absoluteOffset(
+                        x = with(density) { toScreenX(p.x).toDp() } - with(density) { (bulletSize / 2).toDp() },
+                        y = with(density) { toScreenY(p.y).toDp() } - with(density) { (bulletSize / 2).toDp() }
+                    ).size(with(density) { bulletSize.toDp() })
+                        .clip(CircleShape)
+                        .background(Color(0xFFFFEB3B))
+                        .border(1.dp, Color(0xFFFF6F00), CircleShape)
+                )
+            }
+
             // Zombis
             val zSize = ZOMBIE_SPRITE_BASE * cam.scale
             state.zombies.forEach { z ->
@@ -175,29 +184,33 @@ fun ZombieGameScreen(
             onRun = viewModel::setRunning,
             onInteract = viewModel::onInteract,
             onSpecial = viewModel::setSpecial,
-            onSecondary = viewModel::onSecondaryAction
+            onSecondaryPressed = viewModel::onSecondaryPressed,
+            onSecondaryReleased = viewModel::onSecondaryReleased,
+            onSelectMode = viewModel::selectCombatMode,
+            onDismissWeaponMenu = viewModel::dismissWeaponMenu
         )
 
         (state.nearbyDoorLabel ?: state.pickupToast)?.let { prompt ->
-            Box(Modifier.fillMaxSize().padding(top = 90.dp), Alignment.TopCenter) {
+            Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
                 Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
                     modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 18.dp, vertical = 9.dp))
             }
         }
 
+        // ─── VICTORIA ───────────────────────────────────────
         if (state.showVictoryScreen) {
             Box(Modifier.fillMaxSize().background(Color(0xCC000000)), Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Congratulations", color = Color(0xFFD4AF37), fontSize = 44.sp,
                         fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(12.dp))
-                    Text("Edificio despejado. Volviendo al lobby...", color = Color.White, fontSize = 16.sp)
+                    Text("Edificio despejado. Usa las salidas EXIT para continuar.", color = Color.White, fontSize = 16.sp)
                 }
             }
         }
 
-        // ─── PANTALLA WASTED (muerte) ──────────────────────
+        // ─── WASTED (muerte) ────────────────────────────────
         if (state.showWastedScreen) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color(0x99000000)),

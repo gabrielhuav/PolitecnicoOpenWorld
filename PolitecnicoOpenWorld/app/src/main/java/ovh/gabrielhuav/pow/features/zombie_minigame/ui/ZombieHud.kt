@@ -1,4 +1,3 @@
-// features/zombie_minigame/ui/ZombieHud.kt
 package ovh.gabrielhuav.pow.features.zombie_minigame.ui
 
 import android.content.res.Configuration
@@ -10,8 +9,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import ovh.gabrielhuav.pow.domain.models.zombie.CombatMode
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
@@ -50,7 +53,10 @@ fun ZombieHud(
     onRun: (Boolean) -> Unit,
     onInteract: () -> Unit,
     onSpecial: (Boolean) -> Unit,
-    onSecondary: () -> Unit
+    onSecondaryPressed: () -> Unit,
+    onSecondaryReleased: () -> Unit,
+    onSelectMode: (CombatMode) -> Unit,
+    onDismissWeaponMenu: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
@@ -74,16 +80,19 @@ fun ZombieHud(
                 }
             }
             PlayerHealthBarFixed(health = state.playerHealth)
+            // Chip del modo de combate
+            Text(
+                text = "MODO: ${if (state.combatMode == CombatMode.MELEE) "GOLPE" else "ARMA"}  (mantén Y)",
+                color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .background(Color(0xFF2A1C21).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            )
         }
 
-        // ─── CONTROLES: cruceta IZQ + acciones DER ──────────
-        // Clave de la corrección: usamos Modifier.scale (que NO rompe el layout
-        // como graphicsLayer al posicionar) y reducimos el padding lateral para
-        // que AMBOS controles quepan siempre dentro de la pantalla.
+        // ─── CONTROLES ─────────────────────────────────────
         val sidePadding = if (isPortrait) 8.dp else 32.dp
         val bottomPadding = if (isPortrait) 32.dp else 20.dp
-        // Escala segura: en vertical no agrandamos para que el lado derecho no
-        // se salga; el usuario puede subirla desde Ajustes hasta el límite.
         val maxScale = if (isPortrait) 0.95f else 1.3f
         val scale = state.controlsScale.coerceIn(0.6f, maxScale)
 
@@ -102,16 +111,15 @@ fun ZombieHud(
                 else
                     JoystickController(modifier = Modifier.scale(scale), onMove = onMoveAngle)
             }
-            // ── BOTONES DE ACCIÓN ESTILO XBOX (A / X / B / Y) ──
             val actions = @Composable {
                 ActionButtonsController(
                     modifier = Modifier.scale(scale),
                     onActionChanged = { action, pressed ->
                         when (action) {
-                            GameAction.A -> onRun(pressed)             // A = correr
-                            GameAction.X -> if (pressed) onInteract()  // X = interactuar
-                            GameAction.B -> onSpecial(pressed)         // B = golpear/especial
-                            GameAction.Y -> if (pressed) onSecondary() // Y = secundaria
+                            GameAction.A -> onRun(pressed)
+                            GameAction.X -> if (pressed) onInteract()
+                            GameAction.B -> onSpecial(pressed)
+                            GameAction.Y -> if (pressed) onSecondaryPressed() else onSecondaryReleased()
                         }
                     },
                     onClaimCollectiblePressed = { onInteract() }
@@ -119,6 +127,42 @@ fun ZombieHud(
             }
             if (state.swapControls) { actions(); movement() } else { movement(); actions() }
         }
+
+        // ─── MENÚ DE ARMAS (mantener Y) ─────────────────────
+        if (state.showWeaponMenu) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color(0x88000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier
+                        .background(Color(0xFF1E1E24), RoundedCornerShape(16.dp))
+                        .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(16.dp))
+                        .padding(24.dp)
+                ) {
+                    Text("MODO DE COMBATE", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    WeaponMenuButton("GOLPE", state.combatMode == CombatMode.MELEE) { onSelectMode(CombatMode.MELEE) }
+                    WeaponMenuButton("ARMA", state.combatMode == CombatMode.RANGED) { onSelectMode(CombatMode.RANGED) }
+                    TextButton(onClick = onDismissWeaponMenu) { Text("Cerrar", color = Color.White) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeaponMenuButton(label: String, selected: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) Color(0xFF6B1C3A) else Color(0xFF2A1C21)
+        ),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.width(180.dp).height(48.dp)
+    ) {
+        Text(label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
     }
 }
 
@@ -187,7 +231,6 @@ fun ZombieView(
     val sizeDp = with(density) { sizePx.toDp() }
 
     Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.TopCenter) {
-        // Barra de vida flotante
         if (health < maxHealth && !isDying) {
             Box(
                 modifier = Modifier.offset(y = (-6).dp).fillMaxWidth(0.7f).height(4.dp)
@@ -201,7 +244,6 @@ fun ZombieView(
                 )
             }
         }
-        // Sprite o FALLBACK VISIBLE (círculo verde con borde) si el asset no carga
         if (frame != null) {
             Image(frame, "Zombi", modifier = Modifier.fillMaxSize().graphicsLayer {
                 scaleX = if (facingRight) 1f else -1f
