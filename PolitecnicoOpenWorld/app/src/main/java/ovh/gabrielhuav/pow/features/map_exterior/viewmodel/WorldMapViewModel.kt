@@ -1285,17 +1285,32 @@ class WorldMapViewModel(
     }
 
     private fun checkCollectibleProximity(playerLat: Double, playerLon: Double) {
-        val activeItem = _uiState.value.activeCollectibles.firstOrNull() ?: return
+        // 1. Unificamos las listas temporalmente para la búsqueda
+        val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value
+
+        // 2. Buscamos el item más cercano entre todas las listas
         val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
+        val activeItem = allPossibleItems.minByOrNull {
+            playerGeo.distanceToAsDouble(org.osmdroid.util.GeoPoint(it.latitude, it.longitude))
+        } ?: return
+
         val itemGeo = org.osmdroid.util.GeoPoint(activeItem.latitude, activeItem.longitude)
         val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
         val INTERACT_RADIUS_METERS = 15.0
+
         if (distanceInMeters <= INTERACT_RADIUS_METERS) {
             if (_uiState.value.nearbyCollectible?.id != activeItem.id) {
                 _uiState.update { it.copy(nearbyCollectible = activeItem) }
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
-                    _uiState.update { it.copy(interactionPrompt = "PRESIONA X PARA RECOGER") }
+                    // Aquí aplicamos la lógica de texto que definimos
+                    val promptText = if (activeItem.name == "Objeto Misterioso ESCOM") {
+                        "PRESIONA X PARA INTERACTUAR"
+                    } else {
+                        "PRESIONA X PARA RECOGER"
+                    }
+
+                    _uiState.update { it.copy(interactionPrompt = promptText) }
                     kotlinx.coroutines.delay(3000)
                     _uiState.update { it.copy(interactionPrompt = null) }
                 }
@@ -1311,6 +1326,10 @@ class WorldMapViewModel(
 
     fun onClaimCollectiblePressed() {
         val itemToClaim = _uiState.value.nearbyCollectible ?: return
+
+        if (itemToClaim.name == "Objeto Misterioso ESCOM") {
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
             collectibleRepository.claimCollectible(itemToClaim.id)
             withContext(Dispatchers.Main) {
@@ -1598,6 +1617,22 @@ class WorldMapViewModel(
             _escomItems.update { currentList -> currentList.filter { it.id != itemToCollect.id } }
         }
     }
+    fun handleInteraction() {
+        val nearby = _uiState.value.nearbyCollectible ?: return
+
+        if (nearby.name == "Objeto Misterioso ESCOM") {
+            // Disparamos el video
+            _uiState.update { it.copy(showZombiVideo = true) }
+        } else {
+            // Comportamiento normal para coleccionables
+            onClaimCollectiblePressed()
+        }
+    }
+
+    fun dismissVideo() {
+        _uiState.update { it.copy(showZombiVideo = false) }
+    }
+
 
     fun checkDestinationArrival() {
         val destination = _uiState.value.destinationMarker ?: return

@@ -473,7 +473,8 @@ fun WorldMapScreen(
                                         }
                                     }
                                     marker.icon = cachedIcon
-                                    marker.rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
+                                    val isHand = collectible.name == "Objeto Misterioso ESCOM"
+                                    marker.rotation = if (isHand) 0f else ((System.currentTimeMillis() / 30) % 360).toFloat()
                                 } else {
                                     marker.setAlpha(0f)
                                 }
@@ -1057,7 +1058,7 @@ fun WorldMapScreen(
                             onActionChanged = { action, isPressed ->
                                 // Si presionan X, solo llamamos a la nueva función de recolección
                                 if (action == GameAction.X && isPressed) {
-                                    viewModel.collectEscomItem()
+                                    viewModel.handleInteraction()
                                 }
 
                                 // Si presionan Y, solo llamamos a la función de vehículos
@@ -1089,6 +1090,12 @@ fun WorldMapScreen(
             }
             Text(text = "WASTED", color = Color(0xFFD32F2F), fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale))
         }
+    }
+    if (uiState.showZombiVideo) {
+        ZombiVideoPlayer(
+            context = context,
+            onDismiss = { viewModel.dismissVideo() }
+        )
     }
 
     uiState.interactionPrompt?.let { promptText ->
@@ -1476,4 +1483,47 @@ private class ExactSizeDrawable(
     override fun setAlpha(alpha: Int) { base.alpha = alpha }
     override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { base.colorFilter = colorFilter }
     @Deprecated("Deprecated in Java") override fun getOpacity() = base.opacity
+}
+fun getAssetFile(context: Context, assetPath: String, fileName: String): java.io.File {
+    val file = java.io.File(context.cacheDir, fileName)
+    if (!file.exists()) {
+        context.assets.open(assetPath).use { input ->
+            file.outputStream().use { output -> input.copyTo(output) }
+        }
+    }
+    return file
+}
+
+@Composable
+fun ZombiVideoPlayer(context: Context, onDismiss: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .clickable { onDismiss() }
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                android.widget.VideoView(ctx).apply {
+                    val file = getAssetFile(ctx, "ZOMBIS_MOD/Carga_Mod_Zombi.mp4", "temp_zombi_carga.mp4")
+                    setVideoPath(file.absolutePath)
+
+                    // IMPORTANTE: Asegurar que el video tenga foco
+                    requestFocus()
+
+                    setOnCompletionListener { onDismiss() }
+
+                    // Manejo de errores básico
+                    setOnErrorListener { _, what, extra ->
+                        Log.e("VideoPlayer", "Error de video: $what, $extra")
+                        onDismiss()
+                        true
+                    }
+
+                    start()
+                }
+            },
+            modifier = Modifier.align(Alignment.Center)
+        )
+    }
 }
