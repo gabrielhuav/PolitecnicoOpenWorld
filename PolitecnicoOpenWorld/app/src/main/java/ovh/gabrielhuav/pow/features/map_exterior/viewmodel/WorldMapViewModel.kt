@@ -27,6 +27,7 @@ import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.CarModel
+import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.NpcType
@@ -57,7 +58,6 @@ import androidx.compose.runtime.setValue
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
 
-// Clase de datos para el payload del servidor
 data class MultiplayerPlayer(
     val type: String = "PLAYER_UPDATE",
     val id: String,
@@ -66,7 +66,6 @@ data class MultiplayerPlayer(
     val y: Double,
     val action: String,
     val facingRight: Boolean,
-    // Nuevos campos para sincronizar vehículos:
     val isDriving: Boolean = false,
     val carModel: String? = null,
     val carColor: Int? = null,
@@ -74,13 +73,6 @@ data class MultiplayerPlayer(
     val health: Float = 100f
 )
 
-// Clase para empaquetar un NPC en el JSON.
-//
-// IMPORTANTE: hairColor / shirtColor / pantsColor se serializan como Int ARGB (no como
-// Long con el valor ULong interno de Compose Color). El valor de Compose Color codifica
-// el ColorSpace en los bits altos; serializarlo como Long y reconstruir con Color(ULong)
-// puede producir un ColorSpace inválido y hacer crashear toArgb() con
-// ArrayIndexOutOfBoundsException. Usar Int ARGB es seguro y siempre interpreta sRGB.
 data class MultiplayerNpc(
     val id: String,
     val x: Double,
@@ -96,7 +88,6 @@ data class MultiplayerNpc(
     val pantsColor: Int? = null
 )
 
-// Modelo unificado para todos los mensajes del servidor
 private data class ServerMessage(
     val type: String? = null,
     val id: String? = null,
@@ -106,7 +97,6 @@ private data class ServerMessage(
     val action: String? = null,
     val facingRight: Boolean? = null,
     val displayName: String? = null,
-    // Nuevos campos para sincronizar vehículos:
     val isDriving: Boolean? = null,
     val carModel: String? = null,
     val carColor: Int? = null,
@@ -135,7 +125,7 @@ class WorldMapViewModel(
 
     var showHealthBar by mutableStateOf(false)
         private set
-    var damagePulseTrigger by mutableStateOf(0) // Cambia para disparar la animación de golpe
+    var damagePulseTrigger by mutableStateOf(0)
         private set
 
     private var healthBarJob: Job? = null
@@ -183,7 +173,6 @@ class WorldMapViewModel(
     private val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
     private val ROAD_NODE_GRID_SIZE_DEG = 0.001
 
-    // Variables de Control para Vehículos
     var isSteeringLeftPressed = false
     var isSteeringRightPressed = false
     var isGasPressed = false
@@ -192,38 +181,27 @@ class WorldMapViewModel(
     private val MAX_SPEED = 0.000017
     private val ACCELERATION = 0.0000003
     private val BRAKING_FRICTION = 0.000001
-    private val INTERACT_RADIUS = 0.0005 // Rango para detectar autos
+    private val INTERACT_RADIUS = 0.0005
 
     private val PLAYER_PUNCH_DAMAGE = 15f
-
     private var lastAttackTime = 0L
+    private val ATTACK_COOLDOWN_MS = 2400L
+    private val ATTACK_RADIUS = 0.00015
 
-    private val ATTACK_COOLDOWN_MS = 2400L // Tiempo entre cada puñetazo para sincronizar con la animación
-
-    private val ATTACK_RADIUS = 0.00015     // Radio geográfico de alcance del golpe (corta distancia)
-
-    // 🏥 Coordenadas reales de Hospitales / Servicios Médicos (Ejemplo en IPN Zacatenco)
     private val hospitalRespawnPoints = listOf(
-        GeoPoint(19.5034, -99.1469), // Servicio Médico cerca de ESCOM
-        GeoPoint(19.4990, -99.1350), // Centro Médico alterno 1
-        GeoPoint(19.5070, -99.1400)  // Centro Médico alterno 2
+        GeoPoint(19.5034, -99.1469),
+        GeoPoint(19.4990, -99.1350),
+        GeoPoint(19.5070, -99.1400)
     )
 
-    // Coordenadas base de ESCOM IPN
     private val ESCOM_BASE_LAT = 19.50456
     private val ESCOM_BASE_LON = -99.14674
-
-    // Rango de tolerancia (0.001 equivale aprox a 111 metros)
     private val ESCOM_OFFSET = 0.001
 
-    // Estado de los items instanciados
     private val _escomItems = MutableStateFlow<List<ActiveCollectible>>(emptyList())
     val escomItems: StateFlow<List<ActiveCollectible>> = _escomItems.asStateFlow()
 
-    // El game loop arranca aquí, atado al ciclo de vida del ViewModel (no del Composable).
-    // Así, navegar a Settings y volver no detiene a los NPCs.
     init {
-        // Inicializa la base de datos de coleccionables de forma segura en background
         viewModelScope.launch(Dispatchers.IO) {
             collectibleRepository.initializeDefaultCollectiblesIfNeeded()
         }
@@ -235,12 +213,8 @@ class WorldMapViewModel(
     private var webSocketManager: WebSocketManager? = null
     private var messagesCollectorJob: Job? = null
     private val gson = Gson()
-    // Stable UUID that uniquely identifies this client for the lifetime of the ViewModel.
-    // Updated to the server-assigned session ID upon receiving SESSION_INIT.
     private var myPlayerUUID = "Player_${UUID.randomUUID()}"
-    // Display name chosen by the user (separate from the immutable UUID).
     private var myPlayerDisplayName = ""
-    // Stores remote players AND NPC entities received from the server.
     private val remoteEntities = ConcurrentHashMap<String, Npc>()
 
     fun connectToMultiplayer(serverUrl: String, playerName: String) {
@@ -248,9 +222,6 @@ class WorldMapViewModel(
         if (webSocketManager == null) {
             Log.d("WorldMapVM", "Iniciando conexión multijugador a $serverUrl")
             webSocketManager = WebSocketManager(serverUrl)
-            // Cancelamos cualquier collector previo antes de lanzar uno nuevo, para evitar
-            // que se acumulen tras varios connect/disconnect (causaba doble procesado de
-            // cada mensaje del servidor en sesiones largas).
             messagesCollectorJob?.cancel()
             messagesCollectorJob = viewModelScope.launch(Dispatchers.IO) {
                 webSocketManager?.messagesFlow?.collect { messageJson ->
@@ -279,7 +250,6 @@ class WorldMapViewModel(
 
             when (msg.type) {
                 "SESSION_INIT" -> {
-                    // Adopt the server-assigned session ID as our authoritative player ID.
                     msg.sessionId?.let { myPlayerUUID = it }
                 }
 
@@ -293,7 +263,6 @@ class WorldMapViewModel(
                 }
 
                 "ROLE_UPDATE" -> {
-                    // EL SERVIDOR TE DA O TE QUITA EL PODER
                     msg.isZoneHost?.let {
                         isServerDelegatedHost = it
                         Log.d("Multiplayer", "Mi rol en esta zona ahora es Host: $it")
@@ -327,7 +296,6 @@ class WorldMapViewModel(
 
                 "DISCONNECT" -> {
                     msg.id?.let { remoteEntities.remove(it) }
-                    // Borrar NPCs que dependían del jugador que se fue
                     msg.orphanedNpcs?.forEach { remoteEntities.remove(it) }
                     updateNpcsState()
                 }
@@ -339,7 +307,6 @@ class WorldMapViewModel(
                         val iterator = remoteEntities.iterator()
                         while (iterator.hasNext()) {
                             val entry = iterator.next()
-                            // Protegemos firmemente a los jugadores reales
                             if (entry.value.displayName.isNullOrEmpty()) {
                                 if (!officialSet.contains(entry.key)) {
                                     iterator.remove()
@@ -352,14 +319,12 @@ class WorldMapViewModel(
                 }
 
                 "PLAYER_DAMAGE" -> {
-                    // Si el golpe era para nosotros, recibimos el daño localmente
                     if (msg.targetId == myPlayerUUID && msg.damage != null) {
                         takeDamage(msg.damage)
                     }
                 }
 
                 else -> {
-                    // Si es una actualización de posición de otro JUGADOR
                     if (msg.id != null && msg.id != myPlayerUUID && msg.x != null && msg.y != null) {
 
                         val isRemoteMoving = msg.action == "WALK" || msg.action == "RUN"
@@ -374,7 +339,6 @@ class WorldMapViewModel(
                             pantsColor = androidx.compose.ui.graphics.Color.DarkGray
                         )
 
-                        // CORRECCIÓN: Se asigna SEDAN por defecto si es nulo, para respetar el tipo 'CarModel'
                         val remoteCarModel = try {
                             msg.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) }
                                 ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
@@ -391,7 +355,7 @@ class WorldMapViewModel(
                             isRemote = true,
                             isMoving = isRemoteMoving || isRemoteDriving,
                             facingRight = msg.facingRight == true,
-                            carModel = remoteCarModel, // <- El compilador ya aceptará esto
+                            carModel = remoteCarModel,
                             carColor = msg.carColor ?: 0xFFFFFFFF.toInt(),
                             visualConfig = if (!isRemoteDriving) multiplayerConfig else null,
                             displayName = msg.displayName,
@@ -408,7 +372,6 @@ class WorldMapViewModel(
         }
     }
 
-    // Función auxiliar para convertir el JSON en objeto Npc
     private fun addRemoteEntity(remote: MultiplayerNpc) {
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
 
@@ -418,9 +381,6 @@ class WorldMapViewModel(
         } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN }
         val cColor = remote.carColor ?: 0xFFFFFFFF.toInt()
 
-        // Reconstrucción de colores: los campos llegan como Int ARGB (ver MultiplayerNpc).
-        // Color(Int) interpreta el entero como ARGB sRGB sin tocar bits de ColorSpace,
-        // por lo que es seguro vs. Color(ULong) que asume el formato binario interno.
         val visualConfig = if (npcType == NpcType.PERSON) {
             ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
                 bodyFolder = "npc_walk_1",
@@ -435,8 +395,6 @@ class WorldMapViewModel(
         val isMoving = npcType == NpcType.PERSON
         val facingRight = cos(Math.toRadians(remote.rotation.toDouble())) >= 0
 
-        // Velocidad canónica de NpcAiManager. Antes había constantes locales distintas que
-        // aceleraban los NPCs adoptados cada vez que entraba un nuevo jugador a la zona.
         val restoredSpeed = if (npcType == NpcType.CAR) NpcAiManager.CAR_SPEED else NpcAiManager.PERSON_SPEED
 
         remoteEntities[remote.id] = Npc(
@@ -452,20 +410,19 @@ class WorldMapViewModel(
             carModel = cModel,
             carColor = cColor,
             visualConfig = visualConfig,
-            displayName = null // Aseguramos que no se confundan con jugadores
+            displayName = null
         )
     }
 
     private fun updateNpcsState() {
-        // La FUENTE ÚNICA DE LA VERDAD. Se dibuja lo que el servidor diga, nada más.
         _uiState.update { it.copy(npcs = remoteEntities.values.toList()) }
     }
+
     // ─── GAME LOOP ───────────────────────────────────────────────────────────────
 
     private fun startGameLoop() {
         if (gameLoopJob?.isActive == true) return
 
-        // --- 1. OPTIMIZACIÓN GLOBAL: Corremos el Loop en el CPU (Default) y no en la Interfaz ---
         gameLoopJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
 
             while (_uiState.value.currentLocation == null) { kotlinx.coroutines.delay(100) }
@@ -506,48 +463,38 @@ class WorldMapViewModel(
                 }
             }
 
-            // Game loop principal ~30fps
             var tickCount = 0L
             while (isActive) {
-                try { // ESCUDO ANTI-CRASHEO INICIADO
+                try {
                     _uiState.value.currentLocation?.let { location ->
                         val inside = isInsideEscom(location.latitude, location.longitude)
 
-                        // Si el jugador sale de la zona, reseteamos el flag
                         if (!inside && _uiState.value.isZombieHandSpawned) {
                             _uiState.update { it.copy(isZombieHandSpawned = false) }
                         }
 
-                        // Intentamos generar uno si no hay ninguno (1 de cada 30 ticks para no saturar)
                         if (tickCount % 30 == 0L) {
                             trySpawningCollectible(location.latitude, location.longitude)
                         }
-                        // Revisamos constantemente si estamos parados sobre él
                         checkCollectibleProximity(location.latitude, location.longitude)
 
-                        // Verificamos si llegamos al destino
                         checkDestinationArrival()
 
-                        // Recalculamos la ruta cada 30 ticks (aproximadamente 1 segundo a 30fps)
                         if (tickCount % 30 == 0L && _uiState.value.destinationMarker != null) {
                             updateDestinationRoute()
                         }
 
-                        // --- CONDICIÓN DE COMBATE ---
                         if (_uiState.value.playerAction == PlayerAction.SPECIAL) {
                             performPlayerAttack()
                         }
 
-                        // --- LÓGICA DE CONDUCCIÓN DEL JUGADOR ---
                         if (_uiState.value.isDriving) {
                             var currentSpeed = _uiState.value.vehicleSpeed
                             var currentRotation = _uiState.value.vehicleRotation
 
-                            // Dirección (Flechas)
                             if (isSteeringLeftPressed && currentSpeed != 0.0) currentRotation -= 2f
                             if (isSteeringRightPressed && currentSpeed != 0.0) currentRotation += 2f
 
-                            // Acelerador y Freno
                             if (isGasPressed) {
                                 currentSpeed = (currentSpeed + ACCELERATION).coerceAtMost(MAX_SPEED)
                             } else if (isBrakePressed) {
@@ -558,30 +505,21 @@ class WorldMapViewModel(
                                 if (currentSpeed < 0) currentSpeed = (currentSpeed + (ACCELERATION / 2)).coerceAtMost(0.0)
                             }
 
-                            // CORRECCIÓN DEFINITIVA: Trigonometría Geográfica (0° = Norte/Arriba)
                             val angleRad = Math.toRadians(currentRotation.toDouble())
-
-                            // El eje X (Longitud) se calcula con el Seno
                             val dx = kotlin.math.sin(angleRad) * currentSpeed
-                            // El eje Y (Latitud) se calcula con el Coseno
                             val dy = kotlin.math.cos(angleRad) * currentSpeed
 
                             val tempLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
 
-                            // RESTRICCIÓN DE MAPA (NavMesh / Network)
                             val nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
                             val distToRoad = distance(tempLoc, nearestRoadPoint)
-                            val maxRoadRadius = 0.000025 // Tolerancia de salida de calle (ajustable)
+                            val maxRoadRadius = 0.000025
 
                             val finalLoc = if (distToRoad <= maxRoadRadius) {
-                                tempLoc // Flujo normal, está dentro del asfalto
+                                tempLoc
                             } else {
-                                // Se salió del camino, lo obligamos a quedarse en el borde
                                 val angleBack = atan2(tempLoc.latitude - nearestRoadPoint.latitude, tempLoc.longitude - nearestRoadPoint.longitude)
-
-                                // Penalización de choque: Pierde velocidad si intenta salirse de la calle
                                 currentSpeed *= 0.8
-
                                 GeoPoint(
                                     nearestRoadPoint.latitude + sin(angleBack) * maxRoadRadius,
                                     nearestRoadPoint.longitude + cos(angleBack) * maxRoadRadius
@@ -601,15 +539,12 @@ class WorldMapViewModel(
                         if (_uiState.value.isRoadNetworkReady) {
                             tickCount++
                             if (tickCount % 3 == 0L) {
-                                // 1. Damos SOLO los NPCs a la IA (Filtrando posibles jugadores basura)
                                 val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
                                 npcAiManager.setServerNpcs(npcOnlyList)
 
-                                // 2. IA procesa físicas
                                 npcAiManager.updateNpcs(location, isServerDelegatedHost)
                                 val processedNpcs = npcAiManager.getServerNpcs()
 
-                                // 3. Aplicar cambios locales
                                 if (isServerDelegatedHost) {
                                     synchronized(npcAiManager.pendingDespawns) {
                                         npcAiManager.pendingDespawns.forEach { remoteEntities.remove(it) }
@@ -618,9 +553,7 @@ class WorldMapViewModel(
                                 }
                                 updateNpcsState()
 
-                                // 4. Enviar datos por red
                                 webSocketManager?.let { ws ->
-                                    // Envolvemos todo el envío de red en un bloque seguro
                                     launch(kotlinx.coroutines.Dispatchers.IO) {
                                         try {
                                             val myData = MultiplayerPlayer(
@@ -650,7 +583,6 @@ class WorldMapViewModel(
                                                 }
 
                                                 if (processedNpcs.isNotEmpty()) {
-                                                    // Colores serializados como Int ARGB para evitar corrupción de ColorSpace.
                                                     val npcBatch = processedNpcs.map { npc ->
                                                         MultiplayerNpc(
                                                             id = npc.id,
@@ -681,11 +613,11 @@ class WorldMapViewModel(
                         }
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e // Necesario para que la corrutina pueda detenerse si el usuario cierra la app
+                    throw e
                 } catch (e: Exception) {
                     Log.e("GameLoop", "Crasheo evitado en el ciclo principal: ${e.message}")
                 }
-                kotlinx.coroutines.delay(33) // Cierra el while en ~30fps
+                kotlinx.coroutines.delay(33)
             }
         }
     }
@@ -696,7 +628,7 @@ class WorldMapViewModel(
         roadNetwork = network
         rebuildRoadNodeGrid(network)
         npcAiManager.updateRoadNetwork(network)
-        spawnEscomItems(network, cantidad = 1)
+        spawnEscomItems(network)
         val snapped = withContext(Dispatchers.Default) { getNearestPointOnNetwork(playerLocation) }
         withContext(Dispatchers.Main) {
             _uiState.update { it.copy(currentLocation = snapped, isRoadNetworkReady = true) }
@@ -739,7 +671,6 @@ class WorldMapViewModel(
                             Log.d("DEBUG_ESCOM", "Red cargada tras teleport, spawneando...")
                             spawnEscomItems(roadNetwork)
                         }
-                        // AÑADIDO: Liberar controles (isRoadNetworkReady = true)
                         _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                     }
                 } else {
@@ -754,11 +685,9 @@ class WorldMapViewModel(
                             roadNetwork = network
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
-                            // AÑADIDO: Liberar controles tras descargar de internet
                             _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                         }
                     } else {
-                        // AÑADIDO: Si la zona no tiene caminos (campo abierto), liberar de todas formas para no trabar el juego
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             _uiState.update { it.copy(isRoadNetworkReady = true) }
                         }
@@ -784,7 +713,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacter(direction: Direction) {
-        if (_uiState.value.isUserPanningMap) return // No mover si estamos explorando el mapa
+        if (_uiState.value.isUserPanningMap) return
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
         val isMovingRight = when (direction) {
@@ -817,7 +746,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacterByAngle(angleRad: Double) {
-        if (_uiState.value.isUserPanningMap) return // No mover si estamos explorando el mapa
+        if (_uiState.value.isUserPanningMap) return
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
 
@@ -996,14 +925,12 @@ class WorldMapViewModel(
     fun onInteractButtonPressed() {
         val loc = _uiState.value.currentLocation ?: return
 
-        // --- INTENTAR ABORDAR (A PIE -> AUTO) ---
         if (!_uiState.value.isDriving) {
             val nearbyCarEntry = remoteEntities.entries
                 .filter { it.value.type == NpcType.CAR && distance(loc, it.value.location) <= INTERACT_RADIUS }
                 .minByOrNull { distance(loc, it.value.location) }
 
             if (nearbyCarEntry != null) {
-                // ... (tu lógica original de subirse al auto)
                 val carId = nearbyCarEntry.key
                 val carNpc = nearbyCarEntry.value
                 remoteEntities.remove(carId)
@@ -1012,7 +939,6 @@ class WorldMapViewModel(
                 updateNpcsState()
             }
         } else {
-            // --- PERSISTENCIA: BAJAR DEL AUTO ---
             val abandonedCar = Npc(
                 id = UUID.randomUUID().toString(),
                 type = NpcType.CAR,
@@ -1296,10 +1222,8 @@ class WorldMapViewModel(
     }
 
     private fun checkCollectibleProximity(playerLat: Double, playerLon: Double) {
-        // 1. Unificamos las listas temporalmente para la búsqueda
         val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value
 
-        // 2. Buscamos el item más cercano entre todas las listas
         val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
         val activeItem = allPossibleItems.minByOrNull {
             playerGeo.distanceToAsDouble(org.osmdroid.util.GeoPoint(it.latitude, it.longitude))
@@ -1314,7 +1238,6 @@ class WorldMapViewModel(
                 _uiState.update { it.copy(nearbyCollectible = activeItem) }
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
-                    // Aquí aplicamos la lógica de texto que definimos
                     val promptText = if (activeItem.name == "Objeto Misterioso ESCOM") {
                         "PRESIONA X PARA INTERACTUAR"
                     } else {
@@ -1577,32 +1500,25 @@ class WorldMapViewModel(
         return roadNetworkNodeGrid.values.flatten()
     }
 
-    fun spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 1) {
-        val allNodes = roadNetwork.flatMap { it.nodes }
+    /**
+     * Spawnea UNA ZombiHand por cada edificio interior, en su coordenada fija.
+     * Antes spawneaba 1 sola en un nodo aleatorio dentro del bounding box.
+     */
+    fun spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 6) {
+        val buildings = InteriorBuilding.entries
 
-        val validNodes = allNodes.filter { node ->
-            node.lat in (ESCOM_BASE_LAT - ESCOM_OFFSET)..(ESCOM_BASE_LAT + ESCOM_OFFSET) &&
-                    node.lon in (ESCOM_BASE_LON - ESCOM_OFFSET)..(ESCOM_BASE_LON + ESCOM_OFFSET)
-        }
-
-        if (validNodes.isEmpty()) return
-
-        val spawnedList = mutableListOf<ActiveCollectible>()
-        for (i in 0 until cantidad) {
-            val randomNode = validNodes.random()
-            spawnedList.add(
-                ActiveCollectible(
-                    id = "escom_item_${System.currentTimeMillis()}_$i",
-                    name = "Objeto Misterioso ESCOM",
-                    description = "¡Has encontrado un objeto secreto en ESCOM!",
-                    assetPath = "ZOMBIS_MOD/zombi_hand.webp",
-                    latitude = randomNode.lat,
-                    longitude = randomNode.lon
-                )
+        val spawnedList = buildings.map { building ->
+            ActiveCollectible(
+                id = "escom_hand_${building.id}",
+                name = "Objeto Misterioso ESCOM",
+                // Guardamos el id del edificio en description para recuperarlo en handleInteraction
+                description = "INTERIOR_TARGET:${building.id}",
+                assetPath = "ZOMBIS_MOD/zombi_hand.webp",
+                latitude = building.location.latitude,
+                longitude = building.location.longitude
             )
         }
 
-        // Actualizamos el estado
         _escomItems.value = spawnedList
         _uiState.update { it.copy(isZombieHandSpawned = true) }
     }
@@ -1618,20 +1534,44 @@ class WorldMapViewModel(
             _escomItems.update { currentList -> currentList.filter { it.id != itemToCollect.id } }
         }
     }
+
     fun handleInteraction() {
         val nearby = _uiState.value.nearbyCollectible ?: return
 
         if (nearby.name == "Objeto Misterioso ESCOM") {
-            // Disparamos el video
-            _uiState.update { it.copy(showZombiVideo = true) }
+            // Decodificamos el edificio de destino desde el campo description
+            val targetId = nearby.description.removePrefix("INTERIOR_TARGET:")
+            val target = InteriorBuilding.fromId(targetId)
+
+            if (target != null) {
+                _uiState.update {
+                    it.copy(
+                        showZombiVideo = true,
+                        pendingInteriorDestination = target
+                    )
+                }
+            } else {
+                Log.w("Interior", "Mano sin destino válido: id=$targetId")
+                _uiState.update { it.copy(showZombiVideo = true) }
+            }
         } else {
-            // Comportamiento normal para coleccionables
             onClaimCollectiblePressed()
         }
     }
 
     fun dismissVideo() {
         _uiState.update { it.copy(showZombiVideo = false) }
+        // pendingInteriorDestination queda intacto: WorldMapScreen lo observará
+        // y disparará la navegación. La pantalla lo limpiará con
+        // clearPendingInteriorDestination() después de navegar.
+    }
+
+    fun clearPendingInteriorDestination() {
+        _uiState.update { it.copy(pendingInteriorDestination = null) }
+    }
+
+    fun toggleInteriorDebugOverlay(show: Boolean) {
+        _uiState.update { it.copy(showInteriorDebugOverlay = show) }
     }
 
     fun teleportToLocation(newLat: Double, newLon: Double) {
@@ -1642,18 +1582,15 @@ class WorldMapViewModel(
                 currentLocation = GeoPoint(newLat, newLon),
                 showTeleportMenu = false,
                 isRoadNetworkReady = false,
-                // Resetear flag si nos teletransportamos fuera
                 isZombieHandSpawned = if (!insideEscom) false else currentState.isZombieHandSpawned
             )
         }
 
-        // Ya NO llamamos a spawn aquí. Dejaremos que el sistema lo haga al terminar de cargar.
         lastNetworkFetchLocation = null
         lastFetchAttemptMs = 0L
     }
 
     private fun isInsideEscom(lat: Double, lon: Double): Boolean {
-        // Usando tus constantes existentes ESCOM_BASE_LAT/LON
         return abs(lat - ESCOM_BASE_LAT) < ESCOM_OFFSET &&
                 abs(lon - ESCOM_BASE_LON) < ESCOM_OFFSET
     }

@@ -88,6 +88,8 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polyline
+import ovh.gabrielhuav.pow.domain.models.EscomBoundingBox
+import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
 import ovh.gabrielhuav.pow.domain.models.NpcType
 import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
@@ -121,7 +123,8 @@ fun WorldMapScreen(
     context: Context,
     viewModel: WorldMapViewModel = viewModel(factory = WorldMapViewModel.Factory(context)),
     onNavigateToMainMenu: () -> Unit = {},
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToInterior: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val escomItems by viewModel.escomItems.collectAsState()
@@ -155,6 +158,15 @@ fun WorldMapScreen(
     LaunchedEffect(Unit) {
         viewModel.loadLandmarks(context)
         viewModel.showInitialHealthBar()
+    }
+
+    // Cuando el video de carga termina y hay un destino pendiente, navegar al interior.
+    LaunchedEffect(uiState.showZombiVideo, uiState.pendingInteriorDestination) {
+        val target = uiState.pendingInteriorDestination
+        if (target != null && !uiState.showZombiVideo) {
+            viewModel.clearPendingInteriorDestination()
+            onNavigateToInterior(target.routeName)
+        }
     }
 
     var currentFps by remember { mutableIntStateOf(0) }
@@ -550,18 +562,59 @@ fun WorldMapScreen(
                                 existingControl?.let { view.overlays.remove(it); overlays.remove(it) }
                             }
                         }
+
+                        // ─── OVERLAY DEBUG DE INTERIORES ──────────────────────────
+                        @Suppress("UNCHECKED_CAST")
+                        val debugMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 100 }) as? MutableMap<String, Marker>)
+                            ?: mutableMapOf<String, Marker>().also {
+                                view.setTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 100 }, it)
+                            }
+
+                        if (uiState.showInteriorDebugOverlay) {
+                            InteriorBuilding.entries.forEach { b ->
+                                val marker = debugMarkerCache[b.id] ?: Marker(view).apply {
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    val dot = android.graphics.drawable.GradientDrawable().apply {
+                                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                                        setColor(android.graphics.Color.YELLOW)
+                                        setStroke(3, android.graphics.Color.BLACK)
+                                        setSize(28, 28)
+                                    }
+                                    icon = dot
+                                    title = b.displayName
+                                    debugMarkerCache[b.id] = this
+                                    view.overlays.add(this)
+                                }
+                                marker.position = b.location
+                                marker.setAlpha(1f)
+                            }
+
+                            val bbox = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }) as? Polyline)
+                                ?: Polyline().apply {
+                                    outlinePaint.color = android.graphics.Color.YELLOW
+                                    outlinePaint.strokeWidth = 4f
+                                    outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                                    view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }, this)
+                                    view.overlays.add(this)
+                                }
+                            val bb = EscomBoundingBox
+                            bbox.setPoints(listOf(bb.topLeft, bb.topRight, bb.bottomRight, bb.bottomLeft, bb.topLeft))
+                            bbox.isEnabled = true
+                        } else {
+                            debugMarkerCache.values.forEach { it.setAlpha(0f) }
+                            (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }) as? Polyline)?.isEnabled = false
+                        }
+
                         view.invalidate()
                     }
                 )
             }
             MapProvider.GOOGLE_MAPS_NATIVE -> {
                 val escom = LatLng(19.505411765791404, -99.14526888961194)
-                // Inicializamos con una posición por defecto segura
                 val cameraPositionState = rememberCameraPositionState {
                     position = CameraPosition.fromLatLngZoom(escom, 18f)
                 }
 
-                // USO CORRECTO DE EFFECT: Esto reacciona solo cuando cambia la ubicación
                 LaunchedEffect(uiState.currentLocation, uiState.isDriving, uiState.zoomLevel) {
                     if (!uiState.isUserPanningMap) {
                         val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
@@ -586,7 +639,7 @@ fun WorldMapScreen(
                             mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, ovh.gabrielhuav.pow.R.raw.estilo_google_maps)
                         )
                     } catch (e: Exception) {
-                        MapProperties() // Fallback si el JSON falla
+                        MapProperties()
                     }
                 }
 
@@ -947,6 +1000,7 @@ fun WorldMapScreen(
             IconButton(onClick = onNavigateToSettings, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
             IconButton(onClick = { viewModel.teleportTo(19.5045, -99.1469) }, modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.School, "Ir a ESCOM", tint = Color.White) }
             IconButton(onClick = { viewModel.toggleDesignerMode(!uiState.isDesignerMode) }, modifier = Modifier.background(if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Architecture, "Modo Diseñador", tint = Color.Black) }
+            IconButton(onClick = { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) }, modifier = Modifier.background(if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.LocationOn, "Debug Interiores", tint = Color.Black) }
             if (uiState.isDesignerMode) {
                 IconButton(onClick = { viewModel.showAssetPicker(true) }, modifier = Modifier.background(Color(0xFF4CAF50), CircleShape)) { Icon(Icons.Default.Add, "Agregar Asset", tint = Color.White) }
             }
@@ -1056,12 +1110,9 @@ fun WorldMapScreen(
                         ActionButtonsController(
                             modifier = Modifier.scale(effectiveScale),
                             onActionChanged = { action, isPressed ->
-                                // Si presionan X, solo llamamos a la nueva función de recolección
                                 if (action == GameAction.X && isPressed) {
                                     viewModel.handleInteraction()
                                 }
-
-                                // Si presionan Y, solo llamamos a la función de vehículos
                                 if (action == GameAction.Y) {
                                     if (isPressed) {
                                         viewModel.onInteractButtonPressed()
@@ -1507,19 +1558,13 @@ fun ZombiVideoPlayer(context: Context, onDismiss: () -> Unit) {
                 android.widget.VideoView(ctx).apply {
                     val file = getAssetFile(ctx, "ZOMBIS_MOD/Carga_Mod_Zombi.mp4", "temp_zombi_carga.mp4")
                     setVideoPath(file.absolutePath)
-
-                    // IMPORTANTE: Asegurar que el video tenga foco
                     requestFocus()
-
                     setOnCompletionListener { onDismiss() }
-
-                    // Manejo de errores básico
                     setOnErrorListener { _, what, extra ->
                         Log.e("VideoPlayer", "Error de video: $what, $extra")
                         onDismiss()
                         true
                     }
-
                     start()
                 }
             },
