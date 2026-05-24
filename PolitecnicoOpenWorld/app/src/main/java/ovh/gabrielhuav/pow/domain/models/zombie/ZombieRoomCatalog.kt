@@ -1,157 +1,90 @@
 // domain/models/zombie/ZombieRoomCatalog.kt
 package ovh.gabrielhuav.pow.domain.models.zombie
 
-import ovh.gabrielhuav.pow.features.interior.viewmodel.CollisionGrid
-
 /**
- * Topología hub-and-spoke:
+ * Lobby (hub) + 6 edificios. Cada edificio enlaza al siguiente y al anterior
+ * mediante sus dos puertas "EXIT", y además ambas permiten volver al lobby con
+ * el botón Y, así que nunca te quedas atorado.
  *
- *      [Auditorio]   [Biblioteca]   [Cafetería]
- *            \            |            /
- *             \           |           /
- *              +------- LOBBY -------+   ──► (salir al mapa principal)
- *             /           |           \
- *            /            |            \
- *   [Estacionamiento]  [Edificio]   [Palapas]
- *
- * - Desde el LOBBY (croquis del campus building_escom.webp) entras a cualquier
- *   edificio cruzando su puerta, o sales al mapa con la puerta "__WORLD__".
- * - Desde cada EDIFICIO, su única puerta te devuelve al LOBBY.
- * - Nunca te quedas atorado: toda zona tiene al menos una puerta de retorno.
+ * NOTA: los buildings encadenan EXIT_NEXT/EXIT_PREV formando un anillo entre
+ * ellos. El lobby es el punto de entrada y de salida al mapa.
  */
 object ZombieRoomCatalog {
 
     const val LOBBY_ID = "lobby_campus"
     const val EXIT_TO_WORLD = "__WORLD__"
 
-    // ─── PUERTAS DEL LOBBY ─────────────────────────────────
-    // Posiciones normalizadas sobre el croquis building_escom.webp. El edificio
-    // principal forma una "H/cruz" vertical en el centro; estas hitboxes caen
-    // sobre las distintas alas. Ajusta con debugHitboxes=true.
+    private val buildingOrder = listOf(
+        "za_auditorio", "za_biblioteca", "za_cafeteria",
+        "za_edificio", "za_estacionamiento", "za_palapas"
+    )
+
+    // Puertas del lobby: 6 edificios + salida al mapa
     private val lobbyDoors = listOf(
-        ZoneDoor(NormRect(0.34f, 0.13f, 0.50f, 0.23f), "za_auditorio",       "Auditorio"),
-        ZoneDoor(NormRect(0.22f, 0.38f, 0.34f, 0.50f), "za_biblioteca",      "Biblioteca"),
-        ZoneDoor(NormRect(0.50f, 0.38f, 0.62f, 0.50f), "za_cafeteria",       "Cafetería"),
-        ZoneDoor(NormRect(0.38f, 0.55f, 0.54f, 0.68f), "za_edificio",        "Edificio Principal"),
-        ZoneDoor(NormRect(0.22f, 0.62f, 0.34f, 0.74f), "za_estacionamiento", "Estacionamiento"),
-        ZoneDoor(NormRect(0.50f, 0.62f, 0.62f, 0.74f), "za_palapas",         "Palapas"),
-        // Puerta de salida al mapa principal (borde inferior, sobre la entrada
-        // "CAMPUS ESCOM (IPN)" del croquis)
-        ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD,        "Salir al mapa")
+        ZoneDoor(NormRect(0.34f, 0.13f, 0.50f, 0.23f), "za_auditorio", "Auditorio", DoorKind.TO_BUILDING),
+        ZoneDoor(NormRect(0.22f, 0.38f, 0.34f, 0.50f), "za_biblioteca", "Biblioteca", DoorKind.TO_BUILDING),
+        ZoneDoor(NormRect(0.50f, 0.38f, 0.62f, 0.50f), "za_cafeteria", "Cafetería", DoorKind.TO_BUILDING),
+        ZoneDoor(NormRect(0.38f, 0.55f, 0.54f, 0.68f), "za_edificio", "Edificio Principal", DoorKind.TO_BUILDING),
+        ZoneDoor(NormRect(0.22f, 0.62f, 0.34f, 0.74f), "za_estacionamiento", "Estacionamiento", DoorKind.TO_BUILDING),
+        ZoneDoor(NormRect(0.50f, 0.62f, 0.62f, 0.74f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
+        ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
     )
 
-    // Hitbox estándar de regreso al lobby para los edificios
-    private val backToLobbyDoor = ZoneDoor(
-        NormRect(0.82f, 0.40f, 0.98f, 0.60f), LOBBY_ID, "Volver al Lobby"
-    )
-
-    val rooms: List<ZombieRoom> = listOf(
-        // ─── EL LOBBY (HUB) ─────────────────────────────────
-        ZombieRoom(
-            id = LOBBY_ID,
-            type = ZoneType.LOBBY,
-            backgroundAsset = "ZOMBIS_MOD/interiores/building_escom.webp",
-            displayName = "Campus ESCOM",
-            playerSpawn = NormPoint(0.50f, 0.86f),  // cerca de la entrada inferior
-            doors = lobbyDoors,
-            zombieSpawns = emptyList()              // el hub es seguro
-        ),
-
-        // ─── EDIFICIOS (SPOKES) ─────────────────────────────
-        ZombieRoom(
-            id = "za_auditorio",
-            type = ZoneType.BUILDING,
-            backgroundAsset = "ZOMBIS_MOD/interiores/za_auditorio.webp",
-            displayName = "Auditorio",
-            playerSpawn = NormPoint(0.15f, 0.50f),
-            doors = listOf(backToLobbyDoor),
-            zombieSpawns = listOf(NormPoint(0.6f, 0.3f), NormPoint(0.7f, 0.7f), NormPoint(0.5f, 0.5f))
-        ),
-        ZombieRoom(
-            id = "za_biblioteca",
-            type = ZoneType.BUILDING,
-            backgroundAsset = "ZOMBIS_MOD/interiores/za_biblioteca.webp",
-            displayName = "Biblioteca",
-            playerSpawn = NormPoint(0.15f, 0.50f),
-            doors = listOf(backToLobbyDoor),
-            zombieSpawns = listOf(NormPoint(0.55f, 0.35f), NormPoint(0.75f, 0.55f), NormPoint(0.4f, 0.7f))
-        ),
-        ZombieRoom(
-            id = "za_cafeteria",
-            type = ZoneType.BUILDING,
-            backgroundAsset = "ZOMBIS_MOD/interiores/za_cafeteria.webp",
-            displayName = "Cafetería",
-            playerSpawn = NormPoint(0.15f, 0.50f),
-            doors = listOf(backToLobbyDoor),
-            zombieSpawns = listOf(NormPoint(0.6f, 0.4f), NormPoint(0.5f, 0.6f))
-        ),
-        ZombieRoom(
-            id = "za_edificio",
-            type = ZoneType.BUILDING,
-            backgroundAsset = "ZOMBIS_MOD/interiores/za_edificio.webp",
-            displayName = "Edificio Principal",
-            playerSpawn = NormPoint(0.15f, 0.50f),
-            doors = listOf(backToLobbyDoor),
-            zombieSpawns = listOf(NormPoint(0.6f, 0.3f), NormPoint(0.7f, 0.6f), NormPoint(0.45f, 0.5f), NormPoint(0.55f, 0.75f))
-        ),
-        ZombieRoom(
-            id = "za_estacionamiento",
-            type = ZoneType.BUILDING,
-            backgroundAsset = "ZOMBIS_MOD/interiores/za_estacionamiento.webp",
-            displayName = "Estacionamiento",
-            playerSpawn = NormPoint(0.15f, 0.50f),
-            doors = listOf(backToLobbyDoor),
-            zombieSpawns = listOf(NormPoint(0.6f, 0.4f), NormPoint(0.75f, 0.7f))
-        ),
-        ZombieRoom(
-            id = "za_palapas",
-            type = ZoneType.BUILDING,
-            backgroundAsset = "ZOMBIS_MOD/interiores/za_palapas.webp",
-            displayName = "Palapas",
-            playerSpawn = NormPoint(0.15f, 0.50f),
-            doors = listOf(backToLobbyDoor),
-            zombieSpawns = listOf(NormPoint(0.6f, 0.5f), NormPoint(0.5f, 0.3f))
+    private fun buildingDoors(index: Int): List<ZoneDoor> {
+        val next = buildingOrder[(index + 1) % buildingOrder.size]
+        val prev = buildingOrder[(index - 1 + buildingOrder.size) % buildingOrder.size]
+        return listOf(
+            // EXIT derecha → siguiente edificio
+            ZoneDoor(NormRect(0.88f, 0.42f, 0.99f, 0.58f), next, "EXIT →", DoorKind.EXIT_NEXT),
+            // EXIT izquierda → edificio anterior
+            ZoneDoor(NormRect(0.01f, 0.42f, 0.12f, 0.58f), prev, "← EXIT", DoorKind.EXIT_PREV),
+            // Puerta inferior → volver al lobby (siempre disponible)
+            ZoneDoor(NormRect(0.42f, 0.90f, 0.58f, 0.99f), LOBBY_ID, "Lobby", DoorKind.GENERIC)
         )
-    )
+    }
 
-    private val roomsById: Map<String, ZombieRoom> = rooms.associateBy { it.id }
-    fun roomById(id: String): ZombieRoom? = roomsById[id]
-    fun indexOfRoom(id: String): Int = rooms.indexOfFirst { it.id == id }
+    private fun buildingDisplayName(id: String): String = when (id) {
+        "za_auditorio" -> "Auditorio"
+        "za_biblioteca" -> "Biblioteca"
+        "za_cafeteria" -> "Cafetería"
+        "za_edificio" -> "Edificio Principal"
+        "za_estacionamiento" -> "Estacionamiento"
+        else -> "Palapas"
+    }
 
-    /**
-     * Matriz de colisión por zona (mismo orden que [rooms]).
-     * - El lobby es totalmente caminable (sin borde) para poder llegar a las
-     *   puertas en cualquier extremo del croquis.
-     * - Los edificios usan borde de paredes con boquete abierto sobre cada puerta.
-     */
-    val collisionGrids: List<CollisionGrid> = rooms.map { room ->
-        when (room.type) {
-            ZoneType.LOBBY -> fullyWalkableGrid()
-            ZoneType.BUILDING -> gridWithDoorOpenings(room.doors.map { it.hitbox })
+    val rooms: List<ZombieRoom> = buildList {
+        add(
+            ZombieRoom(
+                id = LOBBY_ID,
+                type = ZoneType.LOBBY,
+                backgroundAsset = "ZOMBIS_MOD/interiores/building_escom.webp",
+                displayName = "Campus ESCOM",
+                // El croquis es vertical (más alto que ancho)
+                worldWidth = 1700f,
+                worldHeight = 2100f,
+                playerSpawnFrac = NormPoint(0.50f, 0.86f),
+                doors = lobbyDoors,
+                zombieCount = 0
+            )
+        )
+        buildingOrder.forEachIndexed { i, id ->
+            add(
+                ZombieRoom(
+                    id = id,
+                    type = ZoneType.BUILDING,
+                    backgroundAsset = "ZOMBIS_MOD/interiores/$id.webp",
+                    displayName = buildingDisplayName(id),
+                    worldWidth = 1920f,
+                    worldHeight = 1080f,
+                    playerSpawnFrac = NormPoint(0.50f, 0.80f),
+                    doors = buildingDoors(i),
+                    zombieCount = 4 + (i % 3)   // 4..6 zombis por edificio
+                )
+            )
         }
     }
 
-    private fun fullyWalkableGrid(): CollisionGrid {
-        val g = Array(CollisionGrid.ROWS) { IntArray(CollisionGrid.COLS) { 1 } }
-        return CollisionGrid(g)
-    }
-
-    private fun gridWithDoorOpenings(doorHitboxes: List<NormRect>): CollisionGrid {
-        val rows = CollisionGrid.ROWS
-        val cols = CollisionGrid.COLS
-        val g = Array(rows) { row ->
-            IntArray(cols) { col ->
-                if (row == 0 || row == rows - 1 || col == 0 || col == cols - 1) 0 else 1
-            }
-        }
-        // Abrir boquete caminable sobre cada puerta para poder alcanzarla
-        for (hb in doorHitboxes) {
-            val cStart = (hb.left * cols).toInt().coerceIn(0, cols - 1)
-            val cEnd = (hb.right * cols).toInt().coerceIn(0, cols - 1)
-            val rStart = (hb.top * rows).toInt().coerceIn(0, rows - 1)
-            val rEnd = (hb.bottom * rows).toInt().coerceIn(0, rows - 1)
-            for (r in rStart..rEnd) for (c in cStart..cEnd) g[r][c] = 1
-        }
-        return CollisionGrid(g)
-    }
+    private val byId = rooms.associateBy { it.id }
+    fun roomById(id: String) = byId[id]
+    fun indexOfRoom(id: String) = rooms.indexOfFirst { it.id == id }
 }
