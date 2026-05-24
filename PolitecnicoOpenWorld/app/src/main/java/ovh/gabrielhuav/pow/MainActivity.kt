@@ -48,6 +48,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
+import ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
 
@@ -284,6 +285,21 @@ class MainActivity : ComponentActivity() {
                         composable(route = "interior_palapas") {
                             PalapasScreen(
                                 onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+
+                        // ─── MINIJUEGO DE ZOMBIS ──────────────────────────────────
+                        // Anillo circular de cuartos con IA de zombis, combate mutuo
+                        // y pantalla de victoria. Al ganar (o al salir), se hace
+                        // popBackStack hasta world_map para preservar el open world.
+                        // debugHitboxes = true para calibrar exitHitbox y ver la
+                        // matriz de colisión pintada sobre cada cuarto.
+                        composable(route = "zombie_minigame") {
+                            ZombieGameScreen(
+                                onExitToWorld = {
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
+                                debugHitboxes = false
                             )
                         }
                     }
