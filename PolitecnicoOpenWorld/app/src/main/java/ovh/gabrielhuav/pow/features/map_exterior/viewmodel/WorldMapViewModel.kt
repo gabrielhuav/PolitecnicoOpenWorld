@@ -511,6 +511,12 @@ class WorldMapViewModel(
             while (isActive) {
                 try { // ESCUDO ANTI-CRASHEO INICIADO
                     _uiState.value.currentLocation?.let { location ->
+                        val inside = isInsideEscom(location.latitude, location.longitude)
+
+                        // Si el jugador sale de la zona, reseteamos el flag
+                        if (!inside && _uiState.value.isZombieHandSpawned) {
+                            _uiState.update { it.copy(isZombieHandSpawned = false) }
+                        }
 
                         // Intentamos generar uno si no hay ninguno (1 de cada 30 ticks para no saturar)
                         if (tickCount % 30 == 0L) {
@@ -728,6 +734,11 @@ class WorldMapViewModel(
                         roadNetwork = cached
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
+                        val inside = isInsideEscom(currentLoc.latitude, currentLoc.longitude)
+                        if (inside && !_uiState.value.isZombieHandSpawned) {
+                            Log.d("DEBUG_ESCOM", "Red cargada tras teleport, spawneando...")
+                            spawnEscomItems(roadNetwork)
+                        }
                         // AÑADIDO: Liberar controles (isRoadNetworkReady = true)
                         _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                     }
@@ -1566,29 +1577,16 @@ class WorldMapViewModel(
         return roadNetworkNodeGrid.values.flatten()
     }
 
-    fun spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 5) {
-        // Tomamos todos los nodos de todas las carreteras disponibles
+    fun spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 1) {
         val allNodes = roadNetwork.flatMap { it.nodes }
 
-        // Log de emergencia para ver qué coordenadas reales estamos recibiendo
-        if (allNodes.isNotEmpty()) {
-            val sample = allNodes.first()
-            Log.d("DEBUG_ESCOM", "Ejemplo de nodo recibido: Lat=${sample.lat}, Lon=${sample.lon}")
-        }
-
-        // Filtro temporal: quitamos el isForPeople para descartar que ese sea el problema
-        // y aplicamos un filtro mucho más amplio solo para ver si encuentra algo
         val validNodes = allNodes.filter { node ->
             node.lat in (ESCOM_BASE_LAT - ESCOM_OFFSET)..(ESCOM_BASE_LAT + ESCOM_OFFSET) &&
                     node.lon in (ESCOM_BASE_LON - ESCOM_OFFSET)..(ESCOM_BASE_LON + ESCOM_OFFSET)
         }
 
-        Log.d("DEBUG_ESCOM", "Nodos encontrados en rango amplio: ${validNodes.size}")
+        if (validNodes.isEmpty()) return
 
-        if (validNodes.isEmpty()) {
-            Log.e("DEBUG_ESCOM", "Aún no encuentra nada. Revisa que roadNetwork no esté vacío.")
-            return
-        }
         val spawnedList = mutableListOf<ActiveCollectible>()
         for (i in 0 until cantidad) {
             val randomNode = validNodes.random()
@@ -1603,7 +1601,10 @@ class WorldMapViewModel(
                 )
             )
         }
+
+        // Actualizamos el estado
         _escomItems.value = spawnedList
+        _uiState.update { it.copy(isZombieHandSpawned = true) }
     }
 
     fun collectEscomItem() {
@@ -1631,6 +1632,30 @@ class WorldMapViewModel(
 
     fun dismissVideo() {
         _uiState.update { it.copy(showZombiVideo = false) }
+    }
+
+    fun teleportToLocation(newLat: Double, newLon: Double) {
+        val insideEscom = isInsideEscom(newLat, newLon)
+
+        _uiState.update { currentState ->
+            currentState.copy(
+                currentLocation = GeoPoint(newLat, newLon),
+                showTeleportMenu = false,
+                isRoadNetworkReady = false,
+                // Resetear flag si nos teletransportamos fuera
+                isZombieHandSpawned = if (!insideEscom) false else currentState.isZombieHandSpawned
+            )
+        }
+
+        // Ya NO llamamos a spawn aquí. Dejaremos que el sistema lo haga al terminar de cargar.
+        lastNetworkFetchLocation = null
+        lastFetchAttemptMs = 0L
+    }
+
+    private fun isInsideEscom(lat: Double, lon: Double): Boolean {
+        // Usando tus constantes existentes ESCOM_BASE_LAT/LON
+        return abs(lat - ESCOM_BASE_LAT) < ESCOM_OFFSET &&
+                abs(lon - ESCOM_BASE_LON) < ESCOM_OFFSET
     }
 
 

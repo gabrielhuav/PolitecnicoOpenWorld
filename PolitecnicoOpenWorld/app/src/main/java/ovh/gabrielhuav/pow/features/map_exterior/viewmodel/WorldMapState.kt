@@ -88,5 +88,6 @@ data class WorldMapState(
     val showDestinationRoute: Boolean = true,
     // Distancia en metros a la que se considera que el personaje llegó al destino
     val destinationArrivalThreshold: Double = 20.0,
-    val showZombiVideo: Boolean = false
+    val showZombiVideo: Boolean = false,
+    val isZombieHandSpawned: Boolean = false
 )
