@@ -47,29 +47,33 @@ class ZombieGameViewModel(
     private var idleJob: Job? = null
 
     private companion object {
-        const val PLAYER_WALK_STEP = 7f      // px de mundo / tick
+        const val PLAYER_WALK_STEP = 7f
         const val PLAYER_RUN_STEP = 13f
-        const val PLAYER_RADIUS = 28f        // hitbox del jugador (px)
+        const val PLAYER_RADIUS = 28f
 
-        const val ZOMBIE_SPEED = 2.4f        // px / tick (lento)
+        const val ZOMBIE_SPEED = 1.3f   // caminata lenta (antes 2.4f)
         const val ZOMBIE_FRAME_COUNT = 9
         const val ZOMBIE_FRAME_INTERVAL_MS = 140L
         const val ZOMBIE_RADIUS = 30f
 
-        const val CONTACT_DIST = 56f         // suma de radios aprox
+        const val CONTACT_DIST = 56f
         const val ZOMBIE_DAMAGE = 12f
-        const val ZOMBIE_DAMAGE_COOLDOWN_MS = 3000L  // ← 3 s por zombi
+        const val ZOMBIE_DAMAGE_COOLDOWN_MS = 3000L  // 3 s por zombi
 
         const val PLAYER_PUNCH_DAMAGE = 34f
         const val PLAYER_ATTACK_RADIUS = 120f
         const val PLAYER_ATTACK_COOLDOWN_MS = 600L
 
-        const val SPAWN_RADIUS_MIN = 280f    // radio de aparición alrededor del jugador
+        const val SPAWN_RADIUS_MIN = 280f
         const val SPAWN_RADIUS_MAX = 520f
 
         const val TICK_MS = 33L
         const val DOOR_COOLDOWN_MS = 900L
         const val ITEM_PICKUP_DIST = 70f
+
+        // Offset al reaparecer junto a una puerta del lobby, para no re-disparar
+        // la transición de entrada nada más aparecer.
+        const val RETURN_SPAWN_OFFSET = 40f
 
         val LOOT_ASSETS = listOf(
             "coleccionables/colec_5.webp" to "Laptop escomia",
@@ -79,6 +83,8 @@ class ZombieGameViewModel(
 
     private var lastPlayerAttackMs = 0L
     private var lastDoorTransitionMs = 0L
+    // Id de la última zona desde la que se navegó (continuidad de posición)
+    private var lastRoomId: String? = null
 
     init {
         loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
@@ -88,7 +94,6 @@ class ZombieGameViewModel(
     // ─── ACCESO ────────────────────────────────────────────
     private fun currentRoom(): ZombieRoom = ZombieRoomCatalog.rooms[_state.value.currentRoomIndex]
 
-    /** Rectángulos NO caminables (px de mundo) de la zona actual. */
     private fun currentBlockers(): List<WorldRect> {
         val r = currentRoom()
         return r.collisionGridFrac.map { it.toWorldRect(r.worldWidth, r.worldHeight) }
@@ -101,18 +106,45 @@ class ZombieGameViewModel(
         return currentBlockers().none { it.contains(x, y) }
     }
 
+    /**
+     * Calcula el punto de reaparición sobre la puerta del lobby que lleva al
+     * edificio [fromBuildingId]. Devuelve null si no aplica.
+     * Se aparece un poco hacia el CENTRO del mapa respecto a la puerta para no
+     * re-disparar la transición de entrada.
+     */
+    private fun spawnAtLobbyDoorFor(fromBuildingId: String): Pair<Float, Float>? {
+        val lobby = ZombieRoomCatalog.roomById(ZombieRoomCatalog.LOBBY_ID) ?: return null
+        val door = lobby.doors.firstOrNull { it.targetRoomId == fromBuildingId } ?: return null
+        val hb = door.hitboxFrac.toWorldRect(lobby.worldWidth, lobby.worldHeight)
+
+        val cx = hb.centerX()
+        val cy = hb.centerY()
+        // Empujamos hacia el centro del mapa para caer en zona caminable y no
+        // exactamente sobre la hitbox de la puerta.
+        val mapCx = lobby.worldWidth / 2f
+        val mapCy = lobby.worldHeight / 2f
+        val dirX = if (mapCx >= cx) 1f else -1f
+        val dirY = if (mapCy >= cy) 1f else -1f
+
+        val sx = (cx + dirX * RETURN_SPAWN_OFFSET).coerceIn(RETURN_SPAWN_OFFSET, lobby.worldWidth - RETURN_SPAWN_OFFSET)
+        val sy = (cy + dirY * RETURN_SPAWN_OFFSET).coerceIn(RETURN_SPAWN_OFFSET, lobby.worldHeight - RETURN_SPAWN_OFFSET)
+        return sx to sy
+    }
+
     // ─── CARGA DE ZONA ─────────────────────────────────────
     private fun loadRoom(index: Int) {
         val room = ZombieRoomCatalog.rooms[index]
         val now = System.currentTimeMillis()
         lastDoorTransitionMs = now
 
-        val spawnX = room.playerSpawnFrac.x * room.worldWidth
-        val spawnY = room.playerSpawnFrac.y * room.worldHeight
+        // Spawn: si hay uno pendiente (continuidad), lo usamos; si no, el de la zona.
+        val pendingX = _state.value.pendingSpawnX
+        val pendingY = _state.value.pendingSpawnY
+        val spawnX = pendingX ?: (room.playerSpawnFrac.x * room.worldWidth)
+        val spawnY = pendingY ?: (room.playerSpawnFrac.y * room.worldHeight)
 
-        // Spawn de zombis por radio alrededor del jugador
         val zombies = if (room.type == ZoneType.BUILDING && room.zombieCount > 0) {
-            val lootIndex = Random.nextInt(room.zombieCount)  // un zombi lleva loot
+            val lootIndex = Random.nextInt(room.zombieCount)
             (0 until room.zombieCount).map { i ->
                 val (zx, zy) = spawnAroundPlayer(spawnX, spawnY, room)
                 ZombieEntity(
@@ -128,6 +160,9 @@ class ZombieGameViewModel(
                 currentRoomIndex = index,
                 playerX = spawnX,
                 playerY = spawnY,
+                // Consumimos el spawn pendiente para futuras cargas
+                pendingSpawnX = null,
+                pendingSpawnY = null,
                 zombies = zombies,
                 items = emptyList(),
                 totalZombies = zombies.size,
@@ -159,8 +194,22 @@ class ZombieGameViewModel(
             _state.update { it.copy(isExitingToWorld = true) }
             return
         }
+
+        val fromRoom = currentRoom()
         val idx = ZombieRoomCatalog.indexOfRoom(targetRoomId)
-        if (idx >= 0) loadRoom(idx)
+        if (idx < 0) return
+        val targetRoom = ZombieRoomCatalog.rooms[idx]
+
+        // ── CONTINUIDAD: volver al LOBBY desde un EDIFICIO → aparecer en la
+        //    puerta de ESE edificio, no en el spawn por defecto del lobby.
+        if (targetRoom.type == ZoneType.LOBBY && fromRoom.type == ZoneType.BUILDING) {
+            spawnAtLobbyDoorFor(fromRoom.id)?.let { (sx, sy) ->
+                _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
+            }
+        }
+
+        lastRoomId = fromRoom.id
+        loadRoom(idx)
     }
 
     // ─── GAME LOOP ─────────────────────────────────────────
@@ -174,9 +223,60 @@ class ZombieGameViewModel(
         }
     }
 
+    /**
+     * El jugador murió en un edificio: lo devolvemos al lobby con la vida al máximo,
+     * apareciendo junto a la puerta del edificio donde cayó (continuidad de posición).
+     */
+    private fun respawnInLobbyFromDeath() {
+        val diedInRoom = currentRoom()
+        // Restauramos vida ya, para que el HUD no muestre 0 durante la transición
+        _state.update { it.copy(playerHealth = 100f) }
+
+        // Posición de aparición: junto a la puerta del lobby que lleva a ese edificio
+        spawnAtLobbyDoorFor(diedInRoom.id)?.let { (sx, sy) ->
+            _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
+        }
+        lastRoomId = diedInRoom.id
+        loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+    }
+
+    /**
+     * Secuencia de muerte estilo "WASTED" (igual que el mapa principal):
+     *  1. Congela el juego y muestra el overlay WASTED.
+     *  2. Tras unos segundos, transporta al lobby con la vida restaurada,
+     *     apareciendo junto a la puerta del edificio donde murió.
+     */
+    private fun triggerWastedSequence() {
+        // Evita disparar dos veces si ya está en curso
+        if (_state.value.showWastedScreen) return
+
+        val diedInRoom = currentRoom()
+        _state.update { it.copy(showWastedScreen = true, playerHealth = 0f) }
+
+        viewModelScope.launch {
+            delay(4000L)  // duración del overlay (igual que el WASTED del mapa)
+
+            // Si murió en el lobby (no debería, no hay zombis), solo revive ahí.
+            if (diedInRoom.type == ZoneType.LOBBY) {
+                _state.update { it.copy(showWastedScreen = false, playerHealth = 100f) }
+                return@launch
+            }
+
+            // Posición de reaparición: junto a la puerta del edificio donde cayó
+            spawnAtLobbyDoorFor(diedInRoom.id)?.let { (sx, sy) ->
+                _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
+            }
+            lastRoomId = diedInRoom.id
+
+            // Restauramos vida y quitamos el overlay ANTES de cargar la zona
+            _state.update { it.copy(showWastedScreen = false, playerHealth = 100f) }
+            loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+        }
+    }
+
     private fun tick() {
         val s = _state.value
-        if (s.showVictoryScreen || s.isExitingToWorld) return
+        if (s.showVictoryScreen || s.showWastedScreen || s.isExitingToWorld) return
         val now = System.currentTimeMillis()
         val room = ZombieRoomCatalog.rooms[s.currentRoomIndex]
         val blockers = room.collisionGridFrac.map { it.toWorldRect(room.worldWidth, room.worldHeight) }
@@ -184,7 +284,6 @@ class ZombieGameViewModel(
         var newHealth = s.playerHealth
         var pulse = s.damagePulseTrigger
 
-        // 1. Mover + animar zombis; resolver daño con cooldown POR ZOMBI
         val movedZombies = s.zombies.map { z ->
             if (z.isDying) return@map z
             val moved = moveZombie(z, s.playerX, s.playerY, now, room, blockers)
@@ -196,10 +295,24 @@ class ZombieGameViewModel(
             } else moved
         }
 
-        // 2. Respawn in-situ si muere
-        if (newHealth <= 0f) newHealth = 100f
+        // ─── MUERTE → REGRESO AL LOBBY ───
+        // Si la vida llega a 0, mandamos al jugador de vuelta al lobby con la vida
+        // restaurada (en lugar de revivir in-situ). Marcamos un flag para no
+        // procesar más este tick.
 
-        // 3. Item cercano (para prompt de recoger)
+        if (newHealth <= 0f) {
+            triggerWastedSequence()
+            val room = ZombieRoomCatalog.rooms[s.currentRoomIndex]
+            // Si ya estamos en el lobby, simplemente restauramos vida en el sitio.
+            if (room.type == ZoneType.LOBBY) {
+                _state.update { it.copy(playerHealth = 100f, damagePulseTrigger = pulse) }
+            } else {
+                respawnInLobbyFromDeath()
+            }
+            return
+        }
+
+
         val nearItem = s.items.firstOrNull {
             !it.collected && hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
         }
@@ -209,12 +322,12 @@ class ZombieGameViewModel(
                 zombies = movedZombies,
                 playerHealth = newHealth.coerceIn(0f, 100f),
                 damagePulseTrigger = pulse,
-                showPlayerHealthBar = if (pulse != it.damagePulseTrigger) true else it.showPlayerHealthBar,
                 zombiesRemaining = movedZombies.count { z -> !z.isDying },
                 nearbyItemId = nearItem?.id
             )
         }
     }
+
 
     private fun moveZombie(
         z: ZombieEntity, px: Float, py: Float, now: Long,
@@ -277,10 +390,6 @@ class ZombieGameViewModel(
         }
     }
 
-    /**
-     * Al morir un zombi: si era portador de loot, instancia un InteractableItem
-     * en las coordenadas EXACTAS de su muerte. Luego comprueba victoria.
-     */
     private fun onZombieDeath(dead: ZombieEntity) {
         _state.update { cur ->
             val remaining = cur.zombies.filter { it.id != dead.id }
@@ -294,10 +403,14 @@ class ZombieGameViewModel(
             val won = room.type == ZoneType.BUILDING && alive == 0 && cur.totalZombies > 0
             cur.copy(zombies = remaining, items = newItems, zombiesRemaining = alive, showVictoryScreen = won)
         }
+
+        // Al despejar el edificio: mostramos "Congratulations" un momento y luego
+        // ocultamos el overlay. El jugador SE QUEDA en el edificio y decide a dónde
+        // ir usando las puertas EXIT (siguiente, anterior o volver al lobby).
         if (_state.value.showVictoryScreen) {
             viewModelScope.launch {
                 delay(3000L)
-                loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+                _state.update { it.copy(showVictoryScreen = false) }
             }
         }
     }
@@ -305,7 +418,6 @@ class ZombieGameViewModel(
     // ─── INTERACCIÓN (botón X) ─────────────────────────────
     fun onInteract() {
         val s = _state.value
-        // Prioridad 1: recoger item
         val itemId = s.nearbyItemId
         if (itemId != null) {
             val item = s.items.firstOrNull { it.id == itemId } ?: return
@@ -322,7 +434,6 @@ class ZombieGameViewModel(
             }
             return
         }
-        // Prioridad 2: cruzar puerta cercana
         val room = currentRoom()
         val door = room.doors.firstOrNull {
             it.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight)
@@ -417,7 +528,7 @@ class ZombieGameViewModel(
         }
     }
 
-    fun onSecondaryAction() { /* slot Y reservado: futura mecánica */ }
+    fun onSecondaryAction() { /* slot Y reservado */ }
 
     fun consumeExit() { gameLoopJob?.cancel() }
 

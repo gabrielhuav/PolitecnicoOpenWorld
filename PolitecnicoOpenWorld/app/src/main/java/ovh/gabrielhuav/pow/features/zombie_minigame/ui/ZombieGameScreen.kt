@@ -29,6 +29,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.scale
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -75,7 +79,12 @@ fun ZombieGameScreen(
             val viewportHpx = with(density) { maxHeight.toPx() }
 
             val cam = remember(state.playerX, state.playerY, viewportWpx, viewportHpx, room.id) {
-                computeCamera(state.playerX, state.playerY, room.worldWidth, room.worldHeight, viewportWpx, viewportHpx, ZOOM)
+                computeCamera(
+                    state.playerX, state.playerY,
+                    room.worldWidth, room.worldHeight,
+                    viewportWpx, viewportHpx,
+                    room.zoom            // ← antes era ZOOM
+                )
             }
 
             // ─── CAPA DEL MUNDO (fondo) ─────────────────────────
@@ -185,6 +194,32 @@ fun ZombieGameScreen(
                     Spacer(Modifier.height(12.dp))
                     Text("Edificio despejado. Volviendo al lobby...", color = Color.White, fontSize = 16.sp)
                 }
+            }
+        }
+
+        // ─── PANTALLA WASTED (muerte) ──────────────────────
+        if (state.showWastedScreen) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color(0x99000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                var wastedScale by remember { mutableFloatStateOf(0.5f) }
+                LaunchedEffect(Unit) {
+                    animate(
+                        initialValue = 0.5f,
+                        targetValue = 1.3f,
+                        animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)
+                    ) { value, _ -> wastedScale = value }
+                }
+                Text(
+                    text = "WASTED",
+                    color = Color(0xFFD32F2F),
+                    fontSize = 60.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontFamily = FontFamily.Serif,
+                    letterSpacing = 6.sp,
+                    modifier = Modifier.scale(wastedScale)
+                )
             }
         }
     }

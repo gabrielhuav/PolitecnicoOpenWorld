@@ -474,8 +474,18 @@ class WorldMapViewModel(
                     _uiState.value.currentLocation?.let { location ->
                         val inside = isInsideEscom(location.latitude, location.longitude)
 
-                        if (!inside && _uiState.value.isZombieHandSpawned) {
-                            _uiState.update { it.copy(isZombieHandSpawned = false) }
+                        // Sincroniza la mano con la zona ESCOM:
+                        //  - Si salgo de ESCOM: borro la mano (lista + flag).
+                        //  - Si entro a ESCOM y aún no hay mano: la genero.
+                        if (!inside) {
+                            if (_uiState.value.isZombieHandSpawned || _escomItems.value.isNotEmpty()) {
+                                _escomItems.value = emptyList()
+                                _uiState.update { it.copy(isZombieHandSpawned = false) }
+                            }
+                        } else {
+                            if (!_uiState.value.isZombieHandSpawned && _uiState.value.isRoadNetworkReady) {
+                                spawnEscomItems(roadNetwork)
+                            }
                         }
 
                         if (tickCount % 30 == 0L) {
@@ -633,7 +643,16 @@ class WorldMapViewModel(
         roadNetwork = network
         rebuildRoadNodeGrid(network)
         npcAiManager.updateRoadNetwork(network)
-        spawnEscomItems(network)
+
+        // Solo intentamos spawnear la mano si estamos en ESCOM.
+        // (spawnEscomItems igual se autoprotege, esto solo evita la llamada inútil.)
+        if (isInsideEscom(playerLocation.latitude, playerLocation.longitude)) {
+            spawnEscomItems(network)
+        } else {
+            _escomItems.value = emptyList()
+            _uiState.update { it.copy(isZombieHandSpawned = false) }
+        }
+
         val snapped = withContext(Dispatchers.Default) { getNearestPointOnNetwork(playerLocation) }
         withContext(Dispatchers.Main) {
             _uiState.update { it.copy(currentLocation = snapped, isRoadNetworkReady = true) }
@@ -1510,17 +1529,28 @@ class WorldMapViewModel(
      * Al interactuar con ella, lleva al minijuego de zombis (que arranca en el
      * lobby = croquis del campus). Antes spawneaba 6 manos, una por edificio.
      */
+    /**
+     * Spawnea UNA SOLA ZombiHand, pero SOLO si el jugador está dentro de ESCOM.
+     * Si no está en ESCOM, no hace nada (y deja la lista vacía).
+     */
     fun spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 1) {
-        val center = _uiState.value.currentLocation
-            ?: GeoPoint(ESCOM_BASE_LAT, ESCOM_BASE_LON)
+        val center = _uiState.value.currentLocation ?: return
 
-        // Anclamos la mano a la calle más cercana para que sea alcanzable
+        // ── GUARDA CLAVE: nada de manos fuera de ESCOM ──
+        if (!isInsideEscom(center.latitude, center.longitude)) {
+            _escomItems.value = emptyList()
+            _uiState.update { it.copy(isZombieHandSpawned = false) }
+            return
+        }
+
+        // Evita duplicar si ya hay una mano spawneada
+        if (_uiState.value.isZombieHandSpawned && _escomItems.value.isNotEmpty()) return
+
         val spawnPoint = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(center) else center
 
         val hand = ActiveCollectible(
             id = "escom_hand_lobby",
             name = "Objeto Misterioso ESCOM",
-            // El destino ya no es un edificio: el minijuego arranca en el lobby
             description = "INTERIOR_TARGET:lobby",
             assetPath = "ZOMBIS_MOD/zombi_hand.webp",
             latitude = spawnPoint.latitude,

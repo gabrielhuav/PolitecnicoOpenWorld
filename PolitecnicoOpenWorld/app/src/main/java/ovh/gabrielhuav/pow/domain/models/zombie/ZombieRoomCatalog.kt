@@ -1,11 +1,6 @@
 // domain/models/zombie/ZombieRoomCatalog.kt
 package ovh.gabrielhuav.pow.domain.models.zombie
 
-/**
- * Lobby (croquis del campus) + 6 edificios encadenados.
- * El minijuego arranca SIEMPRE en el lobby. Desde el lobby entras a un edificio,
- * y desde cada edificio puedes ir al siguiente, al anterior, o volver al lobby.
- */
 object ZombieRoomCatalog {
 
     const val LOBBY_ID = "lobby_campus"
@@ -30,9 +25,13 @@ object ZombieRoomCatalog {
         val next = buildingOrder[(index + 1) % buildingOrder.size]
         val prev = buildingOrder[(index - 1 + buildingOrder.size) % buildingOrder.size]
         return listOf(
-            ZoneDoor(NormRect(0.88f, 0.42f, 0.99f, 0.58f), next, "EXIT →", DoorKind.EXIT_NEXT),
-            ZoneDoor(NormRect(0.01f, 0.42f, 0.12f, 0.58f), prev, "← EXIT", DoorKind.EXIT_PREV),
-            ZoneDoor(NormRect(0.42f, 0.90f, 0.58f, 0.99f), LOBBY_ID, "Lobby", DoorKind.GENERIC)
+            // ── PRIORIDAD: la puerta al LOBBY va PRIMERO y centrada abajo, bien
+            //    separada de las laterales, para que firstOrNull la elija. ──
+            ZoneDoor(NormRect(0.40f, 0.86f, 0.60f, 0.99f), LOBBY_ID, "Volver al Lobby", DoorKind.GENERIC),
+            // EXIT derecha → siguiente edificio (centrada verticalmente, lejos de abajo)
+            ZoneDoor(NormRect(0.90f, 0.38f, 0.99f, 0.56f), next, "EXIT →", DoorKind.EXIT_NEXT),
+            // EXIT izquierda → edificio anterior
+            ZoneDoor(NormRect(0.01f, 0.38f, 0.10f, 0.56f), prev, "← EXIT", DoorKind.EXIT_PREV)
         )
     }
 
@@ -50,11 +49,12 @@ object ZombieRoomCatalog {
             ZombieRoom(
                 id = LOBBY_ID,
                 type = ZoneType.LOBBY,
-                // ── RUTA CORRECTA DEL CROQUIS ──
+                // ── EL LOBBY USA EL CROQUIS DEL CAMPUS ──
                 backgroundAsset = "BUILDINGS/IPN/building_escom.webp",
                 displayName = "Campus ESCOM",
                 worldWidth = 1700f,
                 worldHeight = 2100f,
+                zoom = 2.2f,
                 playerSpawnFrac = NormPoint(0.50f, 0.86f),
                 doors = lobbyDoors,
                 zombieCount = 0
@@ -69,6 +69,7 @@ object ZombieRoomCatalog {
                     displayName = buildingDisplayName(id),
                     worldWidth = 1920f,
                     worldHeight = 1080f,
+                    zoom = 1.3f,
                     playerSpawnFrac = NormPoint(0.50f, 0.80f),
                     doors = buildingDoors(i),
                     zombieCount = 4 + (i % 3)

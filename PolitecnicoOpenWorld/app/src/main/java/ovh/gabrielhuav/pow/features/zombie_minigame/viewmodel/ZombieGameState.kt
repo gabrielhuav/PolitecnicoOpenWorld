@@ -9,6 +9,12 @@ import ovh.gabrielhuav.pow.features.settings.models.ControlType
 data class ZombieGameState(
     val currentRoomIndex: Int = 0,
 
+    // ─── Continuidad de posición ───────────────────────────
+    // Spawn forzado (px de mundo) al cargar la próxima zona. Si es null, se usa
+    // el playerSpawnFrac por defecto de la zona.
+    val pendingSpawnX: Float? = null,
+    val pendingSpawnY: Float? = null,
+
     // ─── Jugador (px de mundo) ─────────────────────────────
     val playerX: Float = 0f,
     val playerY: Float = 0f,
@@ -27,6 +33,7 @@ data class ZombieGameState(
 
     // ─── Flujo ─────────────────────────────────────────────
     val showVictoryScreen: Boolean = false,
+    val showWastedScreen: Boolean = false,   // ← overlay de muerte
     val isExitingToWorld: Boolean = false,
     val nearbyDoorLabel: String? = null,
     val nearbyItemId: String? = null,
@@ -40,12 +47,10 @@ data class ZombieGameState(
 )
 
 /**
- * Estado de cámara calculado por frame. Vive aparte del game state porque
- * depende del tamaño del viewport (que solo conoce la UI). La UI lo recalcula
- * con remember/derivedStateOf a partir de la posición del jugador.
+ * Transformación de cámara calculada por frame en la UI.
  */
 data class CameraTransform(
-    val offsetX: Float,   // traslación en px de pantalla (ya con zoom aplicado)
+    val offsetX: Float,
     val offsetY: Float,
-    val scale: Float      // zoom * fitScale
+    val scale: Float
 )

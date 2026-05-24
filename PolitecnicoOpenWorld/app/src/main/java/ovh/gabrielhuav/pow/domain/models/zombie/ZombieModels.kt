@@ -52,10 +52,11 @@ data class ZombieRoom(
     val displayName: String,
     val worldWidth: Float = 2000f,
     val worldHeight: Float = 2000f,
+    val zoom: Float = 2.2f,            // ← nivel de zoom propio de la zona
     val playerSpawnFrac: NormPoint = NormPoint(0.5f, 0.85f),
     val doors: List<ZoneDoor> = emptyList(),
-    val zombieCount: Int = 0,          // cuántos zombis spawnean por radio
-    val collisionGridFrac: List<NormRect> = emptyList() // zonas NO caminables (frac)
+    val zombieCount: Int = 0,
+    val collisionGridFrac: List<NormRect> = emptyList()
 )
 
 /** Puerta interactiva. targetRoomId == EXIT_TO_WORLD sale al mapa principal. */
