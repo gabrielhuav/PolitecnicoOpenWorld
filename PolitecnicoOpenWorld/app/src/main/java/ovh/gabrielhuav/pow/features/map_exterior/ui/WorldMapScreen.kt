@@ -113,6 +113,7 @@ import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
+import android.util.Log
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -123,6 +124,8 @@ fun WorldMapScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val escomItems by viewModel.escomItems.collectAsState()
+    val allCollectibles = uiState.activeCollectibles + escomItems
     val base64Cache = remember { java.util.concurrent.ConcurrentHashMap<String, String>() }
     val widthCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
     val heightCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
@@ -319,7 +322,7 @@ fun WorldMapScreen(
                                 ?: mutableMapOf<String, Marker>().also { view.tag = it }
 
                             val currentZoom = view.zoomLevelDouble
-                            val isZoomedIn = currentZoom >= 16.5
+                            val isZoomedIn = currentZoom >= 16
                             val timeMs = System.currentTimeMillis()
                             val screenDensity = context.resources.displayMetrics.density
                             val highResRenderScale = 1.0f * screenDensity
@@ -419,7 +422,7 @@ fun WorldMapScreen(
                                 marker.position = GeoPoint(npc.location.latitude, npc.location.longitude)
                             }
 
-                            val activeCollectibleIds = uiState.activeCollectibles.map { it.id }.toSet()
+                            val activeCollectibleIds = allCollectibles.map { it.id }.toSet()
                             @Suppress("UNCHECKED_CAST")
                             val collectibleMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag) as? MutableMap<String, Marker>)
                                 ?: mutableMapOf<String, Marker>().also { view.setTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag, it) }
@@ -433,7 +436,8 @@ fun WorldMapScreen(
                                 }
                             }
 
-                            uiState.activeCollectibles.forEach { collectible ->
+                            allCollectibles.forEach { collectible ->
+                                Log.d("DEBUG_RENDER", "Intentando dibujar coleccionable: ${collectible.name} en ${collectible.latitude}")
                                 val id = collectible.id
                                 val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
                                     title = "COLLECTIBLE"
@@ -732,7 +736,7 @@ fun WorldMapScreen(
                     }
 
                     if (uiState.zoomLevel >= 16.0) {
-                        uiState.activeCollectibles.forEach { collectible ->
+                        allCollectibles.forEach { collectible ->
                             key(collectible.id) {
                                 val screenDensity = context.resources.displayMetrics.density
                                 val exactPixels = (22 * screenDensity).toInt()
@@ -779,7 +783,7 @@ fun WorldMapScreen(
                 }
             }
             else -> {
-                val collectiblesJson = remember(uiState.activeCollectibles) { gson.toJson(uiState.activeCollectibles) }
+                val collectiblesJson = remember(allCollectibles) { gson.toJson(allCollectibles) }
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
@@ -1048,16 +1052,28 @@ fun WorldMapScreen(
                         else JoystickController(modifier = Modifier.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
                     }
                     val actionComponent = @Composable {
-                        ActionButtonsController(modifier = Modifier.scale(effectiveScale), onActionChanged = { action, isPressed ->
-                            if (action == GameAction.Y) {
-                                if (isPressed) {
-                                    viewModel.onInteractButtonPressed()
-                                    yButtonHoldJob?.cancel()
-                                    yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
-                                } else { yButtonHoldJob?.cancel() }
-                            }
-                            viewModel.updateActionState(action, isPressed)
-                        }, onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() })
+                        ActionButtonsController(
+                            modifier = Modifier.scale(effectiveScale),
+                            onActionChanged = { action, isPressed ->
+                                // Si presionan X, solo llamamos a la nueva función de recolección
+                                if (action == GameAction.X && isPressed) {
+                                    viewModel.collectEscomItem()
+                                }
+
+                                // Si presionan Y, solo llamamos a la función de vehículos
+                                if (action == GameAction.Y) {
+                                    if (isPressed) {
+                                        viewModel.onInteractButtonPressed()
+                                        yButtonHoldJob?.cancel()
+                                        yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
+                                    } else {
+                                        yButtonHoldJob?.cancel()
+                                    }
+                                }
+                                viewModel.updateActionState(action, isPressed)
+                            },
+                            onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() }
+                        )
                     }
                     if (uiState.swapControls) { actionComponent(); movementComponent() } else { movementComponent(); actionComponent() }
                 }
