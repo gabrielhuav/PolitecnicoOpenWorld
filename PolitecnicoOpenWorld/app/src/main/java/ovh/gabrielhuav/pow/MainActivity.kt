@@ -35,6 +35,12 @@ import androidx.preference.PreferenceManager
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
+import ovh.gabrielhuav.pow.features.interior.ui.AuditorioScreen
+import ovh.gabrielhuav.pow.features.interior.ui.BibliotecaScreen
+import ovh.gabrielhuav.pow.features.interior.ui.CafeteriaScreen
+import ovh.gabrielhuav.pow.features.interior.ui.EdificioScreen
+import ovh.gabrielhuav.pow.features.interior.ui.EstacionamientoScreen
+import ovh.gabrielhuav.pow.features.interior.ui.PalapasScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
@@ -42,6 +48,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
+import ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
 
@@ -127,7 +134,7 @@ class MainActivity : ComponentActivity() {
                         }
 
 
-                        // NUEVO: Registramos la nueva ruta de Ajustes
+                        // Registramos la ruta de Ajustes
                         composable(route = "settings") {
                             val settingsState by settingsViewModel.state.collectAsState()
 
@@ -158,9 +165,9 @@ class MainActivity : ComponentActivity() {
 
                                     android.widget.Toast.makeText(this@MainActivity, "Configuración de controles guardada", android.widget.Toast.LENGTH_SHORT).show()
                                 },
-                                // NUEVO: Lógica para regresar al menú principal limpiando el mapa
+                                // Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {
-                                    worldMapViewModel.disconnectFromMultiplayer() // 🟢 AGREGADO AQUÍ
+                                    worldMapViewModel.disconnectFromMultiplayer()
                                     navController.navigate("main_menu") {
                                         popUpTo("main_menu") { inclusive = true }
                                         launchSingleTop = true
@@ -171,7 +178,7 @@ class MainActivity : ComponentActivity() {
 
                         composable(
                             route = "world_map",
-                            // 2. RESTAURAMOS LA ANIMACIÓN DE ENTRADA
+                            // RESTAURAMOS LA ANIMACIÓN DE ENTRADA
                             // Esto evita que el motor gráfico se congele al cambiar de pantalla.
                             enterTransition = {
                                 fadeIn(animationSpec = tween(1000)) +
@@ -228,6 +235,11 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToMainMenu = navigateBackToMainMenu,
                                 onNavigateToSettings = {
                                     navController.navigate("settings")
+                                },
+                                // Callback que se dispara cuando el video de ZombiHand
+                                // termina y hay un edificio destino pendiente.
+                                onNavigateToInterior = { routeName ->
+                                    navController.navigate(routeName)
                                 }
                             )
                         }
@@ -238,6 +250,56 @@ class MainActivity : ComponentActivity() {
                                 onBack = {
                                     navController.popBackStack()
                                 }
+                            )
+                        }
+
+                        // ─── INTERIORES ZOMBIE ────────────────────────────────────
+                        // Cada edificio es un destino independiente. Al hacer back o
+                        // tocar el botón de salir, se hace popBackStack hasta world_map
+                        // (sin inclusive) para preservar el estado del open world.
+                        composable(route = "interior_auditorio") {
+                            AuditorioScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+                        composable(route = "interior_biblioteca") {
+                            BibliotecaScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+                        composable(route = "interior_cafeteria") {
+                            CafeteriaScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+                        composable(route = "interior_edificio") {
+                            EdificioScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+                        composable(route = "interior_estacionamiento") {
+                            EstacionamientoScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+                        composable(route = "interior_palapas") {
+                            PalapasScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+
+                        // ─── MINIJUEGO DE ZOMBIS ──────────────────────────────────
+                        // Anillo circular de cuartos con IA de zombis, combate mutuo
+                        // y pantalla de victoria. Al ganar (o al salir), se hace
+                        // popBackStack hasta world_map para preservar el open world.
+                        // debugHitboxes = true para calibrar exitHitbox y ver la
+                        // matriz de colisión pintada sobre cada cuarto.
+                        composable(route = "zombie_minigame") {
+                            ZombieGameScreen(
+                                onExitToWorld = {
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
+                                debugHitboxes = false
                             )
                         }
                     }

@@ -99,6 +99,8 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polyline
+import ovh.gabrielhuav.pow.domain.models.EscomBoundingBox
+import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
 import ovh.gabrielhuav.pow.domain.models.NpcType
 import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
@@ -126,6 +128,7 @@ import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
+import android.util.Log
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -133,9 +136,12 @@ fun WorldMapScreen(
     context: Context,
     viewModel: WorldMapViewModel = viewModel(factory = WorldMapViewModel.Factory(context)),
     onNavigateToMainMenu: () -> Unit = {},
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToInterior: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val escomItems by viewModel.escomItems.collectAsState()
+    val allCollectibles = uiState.activeCollectibles + escomItems
     val base64Cache = remember { java.util.concurrent.ConcurrentHashMap<String, String>() }
     val widthCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
     val heightCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
@@ -177,6 +183,22 @@ fun WorldMapScreen(
         viewModel.loadLandmarks(context)
         viewModel.loadWaypoints(context)
         viewModel.showInitialHealthBar()
+    }
+
+    // Cuando el video de carga termina y hay un destino pendiente, navegar.
+    // Si la interacción fue con la mano (pendingZombieMinigame), vamos al minijuego
+    // de zombis (que arranca en el lobby/croquis). Si no, al interior normal.
+    LaunchedEffect(uiState.showZombiVideo, uiState.pendingInteriorDestination) {
+        val target = uiState.pendingInteriorDestination
+        if (target != null && !uiState.showZombiVideo) {
+            viewModel.clearPendingInteriorDestination()
+            if (viewModel.pendingZombieMinigame) {
+                viewModel.clearPendingZombieMinigame()
+                onNavigateToInterior("zombie_minigame")
+            } else {
+                onNavigateToInterior(target.routeName)
+            }
+        }
     }
 
     var currentFps by remember { mutableIntStateOf(0) }
@@ -394,7 +416,7 @@ fun WorldMapScreen(
                                 ?: mutableMapOf<String, Marker>().also { view.tag = it }
 
                             val currentZoom = view.zoomLevelDouble
-                            val isZoomedIn = currentZoom >= 16.5
+                            val isZoomedIn = currentZoom >= 16
                             val timeMs = System.currentTimeMillis()
                             val screenDensity = context.resources.displayMetrics.density
                             val highResRenderScale = 1.0f * screenDensity
@@ -494,7 +516,7 @@ fun WorldMapScreen(
                                 marker.position = GeoPoint(npc.location.latitude, npc.location.longitude)
                             }
 
-                            val activeCollectibleIds = uiState.activeCollectibles.map { it.id }.toSet()
+                            val activeCollectibleIds = allCollectibles.map { it.id }.toSet()
                             @Suppress("UNCHECKED_CAST")
                             val collectibleMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag) as? MutableMap<String, Marker>)
                                 ?: mutableMapOf<String, Marker>().also { view.setTag(ovh.gabrielhuav.pow.R.id.collectible_cache_tag, it) }
@@ -508,7 +530,8 @@ fun WorldMapScreen(
                                 }
                             }
 
-                            uiState.activeCollectibles.forEach { collectible ->
+                            allCollectibles.forEach { collectible ->
+                                Log.d("DEBUG_RENDER", "Intentando dibujar coleccionable: ${collectible.name} en ${collectible.latitude}")
                                 val id = collectible.id
                                 val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
                                     title = "COLLECTIBLE"
@@ -544,7 +567,8 @@ fun WorldMapScreen(
                                         }
                                     }
                                     marker.icon = cachedIcon
-                                    marker.rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
+                                    val isHand = collectible.name == "Objeto Misterioso ESCOM"
+                                    marker.rotation = if (isHand) 0f else ((System.currentTimeMillis() / 30) % 360).toFloat()
                                 } else {
                                     marker.setAlpha(0f)
                                 }
@@ -659,6 +683,48 @@ fun WorldMapScreen(
                                 viewModel.selectWaypoint(if (isSelected) null else waypoint.id)
                                 true
                             }
+                        }
+
+                        // ─── OVERLAY DEBUG DE INTERIORES ──────────────────────────
+                        @Suppress("UNCHECKED_CAST")
+                        val debugMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 100 }) as? MutableMap<String, Marker>)
+                            ?: mutableMapOf<String, Marker>().also {
+                                view.setTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 100 }, it)
+                            }
+
+                        if (uiState.showInteriorDebugOverlay) {
+                            InteriorBuilding.entries.forEach { b ->
+                                val marker = debugMarkerCache[b.id] ?: Marker(view).apply {
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    val dot = android.graphics.drawable.GradientDrawable().apply {
+                                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                                        setColor(android.graphics.Color.YELLOW)
+                                        setStroke(3, android.graphics.Color.BLACK)
+                                        setSize(28, 28)
+                                    }
+                                    icon = dot
+                                    title = b.displayName
+                                    debugMarkerCache[b.id] = this
+                                    view.overlays.add(this)
+                                }
+                                marker.position = b.location
+                                marker.setAlpha(1f)
+                            }
+
+                            val bbox = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }) as? Polyline)
+                                ?: Polyline().apply {
+                                    outlinePaint.color = android.graphics.Color.YELLOW
+                                    outlinePaint.strokeWidth = 4f
+                                    outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                                    view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }, this)
+                                    view.overlays.add(this)
+                                }
+                            val bb = EscomBoundingBox
+                            bbox.setPoints(listOf(bb.topLeft, bb.topRight, bb.bottomRight, bb.bottomLeft, bb.topLeft))
+                            bbox.isEnabled = true
+                        } else {
+                            debugMarkerCache.values.forEach { it.setAlpha(0f) }
+                            (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }) as? Polyline)?.isEnabled = false
                         }
 
                         view.invalidate()
@@ -850,7 +916,7 @@ fun WorldMapScreen(
                     }
 
                     if (uiState.zoomLevel >= 16.0) {
-                        uiState.activeCollectibles.forEach { collectible ->
+                        allCollectibles.forEach { collectible ->
                             key(collectible.id) {
                                 val screenDensity = context.resources.displayMetrics.density
                                 val exactPixels = (22 * screenDensity).toInt()
@@ -897,7 +963,7 @@ fun WorldMapScreen(
                 }
             }
             else -> {
-                val collectiblesJson = remember(uiState.activeCollectibles) { gson.toJson(uiState.activeCollectibles) }
+                val collectiblesJson = remember(allCollectibles) { gson.toJson(allCollectibles) }
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
@@ -1072,6 +1138,7 @@ fun WorldMapScreen(
             IconButton(onClick = onNavigateToSettings, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
             IconButton(onClick = { viewModel.teleportTo(19.5045, -99.1469) }, modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.School, "Ir a ESCOM", tint = Color.White) }
             IconButton(onClick = { viewModel.toggleDesignerMode(!uiState.isDesignerMode); showNavMenu = false }, modifier = Modifier.background(if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Architecture, "Modo Diseñador", tint = Color.Black) }
+            IconButton(onClick = { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) }, modifier = Modifier.background(if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.LocationOn, "Debug Interiores", tint = Color.Black) }
             if (uiState.isDesignerMode) {
                 IconButton(onClick = { viewModel.showAssetPicker(true) }, modifier = Modifier.background(Color(0xFF4CAF50), CircleShape)) { Icon(Icons.Default.Add, "Agregar Asset", tint = Color.White) }
             }
@@ -1290,16 +1357,25 @@ fun WorldMapScreen(
                         else JoystickController(modifier = Modifier.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
                     }
                     val actionComponent = @Composable {
-                        ActionButtonsController(modifier = Modifier.scale(effectiveScale), onActionChanged = { action, isPressed ->
-                            if (action == GameAction.Y) {
-                                if (isPressed) {
-                                    viewModel.onInteractButtonPressed()
-                                    yButtonHoldJob?.cancel()
-                                    yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
-                                } else { yButtonHoldJob?.cancel() }
-                            }
-                            viewModel.updateActionState(action, isPressed)
-                        }, onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() })
+                        ActionButtonsController(
+                            modifier = Modifier.scale(effectiveScale),
+                            onActionChanged = { action, isPressed ->
+                                if (action == GameAction.X && isPressed) {
+                                    viewModel.handleInteraction()
+                                }
+                                if (action == GameAction.Y) {
+                                    if (isPressed) {
+                                        viewModel.onInteractButtonPressed()
+                                        yButtonHoldJob?.cancel()
+                                        yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
+                                    } else {
+                                        yButtonHoldJob?.cancel()
+                                    }
+                                }
+                                viewModel.updateActionState(action, isPressed)
+                            },
+                            onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() }
+                        )
                     }
                     if (uiState.swapControls) { actionComponent(); movementComponent() } else { movementComponent(); actionComponent() }
                 }
@@ -1315,6 +1391,12 @@ fun WorldMapScreen(
             }
             Text(text = "WASTED", color = Color(0xFFD32F2F), fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale))
         }
+    }
+    if (uiState.showZombiVideo) {
+        ZombiVideoPlayer(
+            context = context,
+            onDismiss = { viewModel.dismissVideo() }
+        )
     }
 
     uiState.interactionPrompt?.let { promptText ->
@@ -1738,4 +1820,41 @@ private class ExactSizeDrawable(
     override fun setAlpha(alpha: Int) { base.alpha = alpha }
     override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { base.colorFilter = colorFilter }
     @Deprecated("Deprecated in Java") override fun getOpacity() = base.opacity
+}
+fun getAssetFile(context: Context, assetPath: String, fileName: String): java.io.File {
+    val file = java.io.File(context.cacheDir, fileName)
+    if (!file.exists()) {
+        context.assets.open(assetPath).use { input ->
+            file.outputStream().use { output -> input.copyTo(output) }
+        }
+    }
+    return file
+}
+
+@Composable
+fun ZombiVideoPlayer(context: Context, onDismiss: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .clickable { onDismiss() }
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                android.widget.VideoView(ctx).apply {
+                    val file = getAssetFile(ctx, "ZOMBIS_MOD/Carga_Mod_Zombi.mp4", "temp_zombi_carga.mp4")
+                    setVideoPath(file.absolutePath)
+                    requestFocus()
+                    setOnCompletionListener { onDismiss() }
+                    setOnErrorListener { _, what, extra ->
+                        Log.e("VideoPlayer", "Error de video: $what, $extra")
+                        onDismiss()
+                        true
+                    }
+                    start()
+                }
+            },
+            modifier = Modifier.align(Alignment.Center)
+        )
+    }
 }
