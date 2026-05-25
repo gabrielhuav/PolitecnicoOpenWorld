@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
@@ -102,6 +103,56 @@ fun ZombieGameScreen(
                             room.doors.forEach { d ->
                                 val r = d.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight)
                                 drawRect(Color(0x5500FF00), Offset(r.left, r.top), Size(r.right - r.left, r.bottom - r.top))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ─── CAPA DE ILUMINACIÓN DINÁMICA (auras) ───────────
+            // Se dibuja DESPUÉS del fondo y ANTES de las entidades, dentro de
+            // las mismas transformaciones de cámara (translate + scale) para que
+            // las auras se muevan junto con el zoom y el desplazamiento del mapa.
+            // Solo en edificios (los cuartos "oscuros"); el lobby se deja claro.
+            if (room.type == ZoneType.BUILDING) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    translate(cam.offsetX, cam.offsetY) {
+                        scale(cam.scale, cam.scale, pivot = Offset.Zero) {
+
+                            // Aura del jugador: amarillo cálido, radio ~2.5x su tamaño base.
+                            val playerLightRadius = PLAYER_SPRITE_BASE * 2.5f
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0x80FFF59D), // amarillo translúcido en el centro
+                                        Color(0x33FFEB3B),
+                                        Color.Transparent  // se desvanece en el borde
+                                    ),
+                                    center = Offset(state.playerX, state.playerY),
+                                    radius = playerLightRadius
+                                ),
+                                radius = playerLightRadius,
+                                center = Offset(state.playerX, state.playerY)
+                            )
+
+                            // Aura verde tóxico anclada a cada zombi vivo.
+                            val zombieLightRadius = ZOMBIE_SPRITE_BASE * 2f
+                            state.zombies.forEach { z ->
+                                if (!z.isDying) {
+                                    drawCircle(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(
+                                                Color(0x6676FF03), // verde tóxico translúcido
+                                                Color(0x2664DD17),
+                                                Color.Transparent
+                                            ),
+                                            center = Offset(z.x, z.y),
+                                            radius = zombieLightRadius
+                                        ),
+                                        radius = zombieLightRadius,
+                                        center = Offset(z.x, z.y)
+                                    )
+                                }
                             }
                         }
                     }

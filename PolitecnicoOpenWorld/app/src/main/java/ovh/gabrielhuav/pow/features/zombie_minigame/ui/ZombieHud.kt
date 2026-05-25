@@ -30,6 +30,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -203,6 +205,12 @@ private fun PlayerHealthBarFixed(health: Float) {
     }
 }
 
+/**
+ * REQUERIMIENTO 1: Indicador de puerta con etiqueta SIEMPRE en una sola línea.
+ * El contenedor usa wrapContentSize y el Text usa maxLines=1 + softWrap=false +
+ * wrapContentWidth(unbounded=true) para permitir que la etiqueta exceda el ancho
+ * del indicador circular sin partirse en varias líneas.
+ */
 @Composable
 fun DoorIndicator(label: String, kind: DoorKind, modifier: Modifier = Modifier) {
     val infinite = rememberInfiniteTransition(label = "door")
@@ -213,32 +221,49 @@ fun DoorIndicator(label: String, kind: DoorKind, modifier: Modifier = Modifier) 
         DoorKind.EXIT_NEXT, DoorKind.EXIT_PREV -> Color(0xFFFF9800)
         else -> Color(0xFFD4AF37)
     }
-    Box(modifier = modifier.size(80.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.scale(pulse).size(64.dp).clip(CircleShape).background(color.copy(alpha = 0.25f)))
-        Box(Modifier.size(30.dp).clip(CircleShape).background(color.copy(alpha = 0.85f)).border(2.dp, Color.White, CircleShape))
+
+    Column(
+        modifier = modifier.wrapContentSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Indicador circular pulsante
+        Box(
+            modifier = Modifier.size(64.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(Modifier.scale(pulse).size(64.dp).clip(CircleShape).background(color.copy(alpha = 0.25f)))
+            Box(Modifier.size(30.dp).clip(CircleShape).background(color.copy(alpha = 0.85f)).border(2.dp, Color.White, CircleShape))
+        }
+
         if (label.isNotEmpty()) {
-            Text(label, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.offset(y = 26.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp))
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Visible,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .offset(y = (-8).dp)
+                    .wrapContentWidth(unbounded = true)
+                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            )
         }
     }
 }
 
 /**
- * Item de habilidad en el suelo. Intenta cargar
- * assets/ZOMBIS_MOD/interactuables/int_{assetKey}.webp.
- * Si falla, dibuja un fallback con Canvas:
- *   - Buffs (no trampa): círculo verde con cruz blanca.
- *   - Trampas: triángulo rojo invertido con signo de exclamación.
+ * REQUERIMIENTO 2: Item de habilidad en el suelo, renderizado EXCLUSIVAMENTE
+ * con Canvas. No carga ningún asset .webp; todos los íconos son vectoriales:
+ *   - RELOJ_ARENA: reloj de arena estilizado (dos triángulos opuestos + tapas).
+ *   - Trampas (ADRENALINA / FURIA): triángulo rojo invertido con signo "!".
+ *   - Buffs (CURA_TOTAL / DEBILIDAD / FUERZA_BRUTA): círculo verde con cruz blanca.
  */
 @Composable
 fun SkillGroundItem(effect: SkillEffect, highlighted: Boolean, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val assetPath = "ZOMBIS_MOD/interactuables/int_${effect.assetKey}.webp"
-    val bmp = remember(assetPath) {
-        try { context.assets.open(assetPath).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
-        catch (e: Exception) { null }
-    }
     val infinite = rememberInfiniteTransition(label = "skill")
     val glow by infinite.animateFloat(0.85f, 1.2f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "glow")
 
@@ -250,15 +275,34 @@ fun SkillGroundItem(effect: SkillEffect, highlighted: Boolean, modifier: Modifie
                     (if (effect.isTrap) Color(0xFFFF5252) else Color(0xFF69F0AE)).copy(alpha = 0.30f)
                 )
         )
-        if (bmp != null) {
-            Image(bmp, effect.displayName, modifier = Modifier.size(26.dp))
-        } else {
-            // ── FALLBACK CANVAS (requerimiento 2) ──
-            Canvas(modifier = Modifier.size(26.dp)) {
-                val w = size.width
-                val h = size.height
-                if (effect.isTrap) {
-                    // Triángulo rojo invertido
+
+        Canvas(modifier = Modifier.size(26.dp)) {
+            val w = size.width
+            val h = size.height
+            when {
+                effect == SkillEffect.RELOJ_ARENA -> {
+                    // Reloj de arena: dos triángulos opuestos formando un moño.
+                    val sand = Color(0xFF5C6BC0)
+                    val topTri = Path().apply {
+                        moveTo(w * 0.18f, h * 0.12f)
+                        lineTo(w * 0.82f, h * 0.12f)
+                        lineTo(w * 0.5f, h * 0.5f)
+                        close()
+                    }
+                    val bottomTri = Path().apply {
+                        moveTo(w * 0.5f, h * 0.5f)
+                        lineTo(w * 0.18f, h * 0.88f)
+                        lineTo(w * 0.82f, h * 0.88f)
+                        close()
+                    }
+                    drawPath(topTri, sand)
+                    drawPath(bottomTri, sand)
+                    // Tapas blancas arriba y abajo
+                    drawLine(Color.White, Offset(w * 0.15f, h * 0.12f), Offset(w * 0.85f, h * 0.12f), strokeWidth = w * 0.08f)
+                    drawLine(Color.White, Offset(w * 0.15f, h * 0.88f), Offset(w * 0.85f, h * 0.88f), strokeWidth = w * 0.08f)
+                }
+                effect.isTrap -> {
+                    // Triángulo rojo invertido (alerta) con signo de exclamación
                     val path = Path().apply {
                         moveTo(w * 0.05f, h * 0.15f)
                         lineTo(w * 0.95f, h * 0.15f)
@@ -266,7 +310,6 @@ fun SkillGroundItem(effect: SkillEffect, highlighted: Boolean, modifier: Modifie
                         close()
                     }
                     drawPath(path, Color(0xFFD32F2F))
-                    // Signo de exclamación blanco
                     drawLine(
                         Color.White,
                         start = Offset(w * 0.5f, h * 0.30f),
@@ -274,18 +317,17 @@ fun SkillGroundItem(effect: SkillEffect, highlighted: Boolean, modifier: Modifie
                         strokeWidth = w * 0.10f
                     )
                     drawCircle(Color.White, radius = w * 0.05f, center = Offset(w * 0.5f, h * 0.70f))
-                } else {
-                    // Círculo verde con cruz blanca (curación / buff)
+                }
+                else -> {
+                    // Buff / curación: círculo verde con cruz blanca
                     drawCircle(Color(0xFF2E7D32), radius = w * 0.48f, center = Offset(w * 0.5f, h * 0.5f))
                     val armT = w * 0.14f
-                    // brazo vertical
                     drawLine(
                         Color.White,
                         start = Offset(w * 0.5f, h * 0.25f),
                         end = Offset(w * 0.5f, h * 0.75f),
                         strokeWidth = armT
                     )
-                    // brazo horizontal
                     drawLine(
                         Color.White,
                         start = Offset(w * 0.25f, h * 0.5f),
