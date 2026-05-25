@@ -56,7 +56,9 @@ data class ZombieGameState(
     val controlType: ControlType = ControlType.JOYSTICK,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val remotePlayers: List<RemoteZombiePlayer> = emptyList()
+
 )
 
 data class CameraTransform(
