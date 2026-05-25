@@ -1114,29 +1114,45 @@ fun WorldMapScreen(
             }
         }
 
-        Column(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            IconButton(onClick = { viewModel.zoomIn() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) { Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
-            IconButton(onClick = { viewModel.zoomOut() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
-            // Botón de centrar: visible cuando el mapa fue desplazado del personaje
-            // Funciona para todos los proveedores de mapa
-            AnimatedVisibility(visible = !uiState.isDesignerMode && (!isFollowingPlayer || uiState.isUserPanningMap), enter = fadeIn(), exit = fadeOut()) {
-                IconButton(
-                    onClick = {
-                        isFollowingPlayer = true
-                        playerScreenOffsetState.value = IntOffset.Zero
-                        showNavMenu = false
-                        viewModel.centerOnPlayer()
-                        uiState.currentLocation?.let { loc ->
-                            // OSM: animar la cámara directamente
-                            osmMapViewRef?.controller?.animateTo(loc, uiState.zoomLevel, 400L)
-                            // Google Maps y WebView: el LaunchedEffect reacciona a isUserPanningMap=false
-                            // y re-centra automáticamente en el siguiente tick
-                        }
-                    },
-                    modifier = Modifier.background(Color(0xFF2196F3), CircleShape).size(48.dp)
-                ) {
-                    Icon(Icons.Default.MyLocation, contentDescription = "Centrar en personaje", tint = Color.White)
-                }
+        // Botón de centrar: al centro-derecha, visible solo cuando se hizo panning
+        // Se mantiene separado de los botones de zoom para no chocar con el nav menu
+        AnimatedVisibility(
+            visible = !uiState.isDesignerMode && (!isFollowingPlayer || uiState.isUserPanningMap),
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            IconButton(
+                onClick = {
+                    isFollowingPlayer = true
+                    playerScreenOffsetState.value = IntOffset.Zero
+                    showNavMenu = false
+                    viewModel.centerOnPlayer()
+                    uiState.currentLocation?.let { loc ->
+                        osmMapViewRef?.controller?.animateTo(loc, uiState.zoomLevel, 400L)
+                    }
+                },
+                modifier = Modifier.background(Color(0xFF2196F3), CircleShape).size(48.dp)
+            ) {
+                Icon(Icons.Default.MyLocation, contentDescription = "Centrar en personaje", tint = Color.White)
+            }
+        }
+
+        // Botones de zoom — esquina inferior derecha, sobre los controles del juego
+        // Posición fija que nunca choca con el menú de navegación expandible
+        val configuration = LocalConfiguration.current
+        val zoomBottomPadding = if (configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT) 210.dp else 130.dp
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = zoomBottomPadding),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            IconButton(onClick = { viewModel.zoomIn() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) {
+                Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            }
+            IconButton(onClick = { viewModel.zoomOut() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) {
+                Text("−", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             }
         }
 
@@ -1251,7 +1267,6 @@ fun WorldMapScreen(
         }
 
         if (!uiState.isDesignerMode) {
-            val configuration = LocalConfiguration.current
             val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
             val maxScale = if (isPortrait) 1.0f else 1.4f
             val effectiveScale = uiState.controlsScale.coerceAtMost(maxScale)
