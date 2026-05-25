@@ -1445,6 +1445,26 @@ class WorldMapViewModel(
 
     // ─── WAYPOINTS ───────────────────────────────────────────────────────────────
 
+    fun loadWaypoints(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dao = PowDatabase.getInstance(context).waypointDao()
+                val entities = dao.getAllWaypoints()
+                val waypoints = entities.map { entity ->
+                    ovh.gabrielhuav.pow.domain.models.Waypoint(
+                        id = entity.id,
+                        name = entity.name,
+                        location = org.osmdroid.util.GeoPoint(entity.latitude, entity.longitude),
+                        createdAt = entity.createdAt
+                    )
+                }
+                _uiState.update { it.copy(waypoints = waypoints) }
+            } catch (e: Exception) {
+                Log.e("WorldMapViewModel", "Error al cargar waypoints", e)
+            }
+        }
+    }
+
     fun addWaypoint(context: Context, name: String) {
         val loc = _uiState.value.currentLocation ?: return
         _uiState.update { it.copy(showAddWaypointDialog = false) }

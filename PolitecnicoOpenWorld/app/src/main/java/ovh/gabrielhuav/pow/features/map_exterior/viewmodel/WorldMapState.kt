@@ -3,9 +3,8 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.CarModel
-import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.Waypoint
+import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
@@ -15,6 +14,7 @@ const val ZOOM_GAMEPLAY_WEB = 19.0 // Nivel de zoom para los proveedores Web
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
+    GOOGLE_MAPS_NATIVE("Google Maps (Nativo)"),
     OSM_WEB("OpenStreetMap (Web)"),
     GOOGLE_MAPS("Google Maps (Web)"),
     CARTO_DB_DARK("CartoDB Oscuro (Web)"),
@@ -23,7 +23,7 @@ enum class MapProvider(val displayName: String) {
     ESRI_SATELLITE("Esri Satélite (Web)"),
     OPEN_TOPO("OpenTopoMap (Web)");
 
-    val isWebProvider: Boolean get() = this != OSM
+    val isWebProvider: Boolean get() = this != OSM && this != GOOGLE_MAPS_NATIVE
 }
 
 enum class RoadSource { LOADING, LOCAL_DB, NETWORK }
@@ -64,26 +64,28 @@ data class WorldMapState(
 
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
-    val selectedLandmarkId: Long? = null,
-    val showAssetPicker: Boolean = false,
+    val selectedLandmarkId: Long? = null,     // null = nada seleccionado
+    val showAssetPicker: Boolean = false,      // diálogo para agregar nuevo asset
 
-    // ─── COLECCIONABLES ──────────────────────────────────────────────────────
+    // Coleccionables
+    // Lista de objetos dibujados actualmente en el mapa
     val activeCollectibles: List<ActiveCollectible> = emptyList(),
+    // El objeto que el jugador tiene lo suficientemente cerca para reclamar
     val nearbyCollectible: ActiveCollectible? = null,
+    // El objeto que acabamos de recoger para mostrar el Pop-up divertido
     val showClaimedPopupFor: ActiveCollectible? = null,
     val interactionPrompt: String? = null,
     val showWastedScreen: Boolean = false,
 
-    // ─── WAYPOINTS (marcadores personalizados guardados por el jugador) ─────────
-    val waypoints: List<Waypoint> = emptyList(),
-    val showWaypointList: Boolean = false,
-    val showAddWaypointDialog: Boolean = false,
-    val selectedWaypointId: Long? = null,
-
-    // ─── NAVEGACIÓN / MARCADOR DE DESTINO ──────────────────────────────────────
+    // ─── NAVEGACIÓN / MARCADOR DE DESTINO ──────────────────────────────────
+    // Coordenada del marcador de destino (como en Google Maps)
     val destinationMarker: GeoPoint? = null,
+    // Indica si el usuario está activamente moviendo el mapa para centrar el waypoint
     val isTargetingWaypoint: Boolean = false,
+    // Lista de puntos (waypoints) que conforman la ruta desde el personaje al destino
     val routeWaypoints: List<GeoPoint> = emptyList(),
+    // Si mostrar/ocultar la ruta visualmente
     val showDestinationRoute: Boolean = true,
+    // Distancia en metros a la que se considera que el personaje llegó al destino
     val destinationArrivalThreshold: Double = 20.0
 )
