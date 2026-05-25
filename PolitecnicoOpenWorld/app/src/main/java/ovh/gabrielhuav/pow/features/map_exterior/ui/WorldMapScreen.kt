@@ -132,12 +132,60 @@ fun WorldMapScreen(
     val base64Cache = remember { java.util.concurrent.ConcurrentHashMap<String, String>() }
     val widthCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
     val heightCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
+    fun readExactSizeDimension(drawable: android.graphics.drawable.Drawable, names: List<String>): Int? {
+        return names.firstNotNullOfOrNull { name ->
+            runCatching {
+                val method = drawable.javaClass.methods.firstOrNull {
+                    it.parameterCount == 0 && it.name.equals(name, ignoreCase = true)
+                }
+                val methodValue = (method?.invoke(drawable) as? Number)?.toInt()
+                if (methodValue != null) {
+                    methodValue
+                } else {
+                    val field = drawable.javaClass.declaredFields.firstOrNull {
+                        it.name.equals(name, ignoreCase = true)
+                    }
+                    field?.let {
+                        it.isAccessible = true
+                        (it.get(drawable) as? Number)?.toInt()
+                    }
+                }
+            }.getOrNull()?.takeIf { it > 0 }
+        }
+    }
+    fun estimatedDrawableBytes(drawable: android.graphics.drawable.Drawable): Int {
+        (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let { bitmap ->
+            return bitmap.byteCount
+        }
+
+        if (drawable is ExactSizeDrawable) {
+            val targetWidth = readExactSizeDimension(drawable, listOf("getTargetWidth", "targetWidth", "width"))
+            val targetHeight = readExactSizeDimension(drawable, listOf("getTargetHeight", "targetHeight", "height"))
+            if (targetWidth != null && targetHeight != null) {
+                return targetWidth * targetHeight * 4
+            }
+        }
+
+        val currentDrawable = drawable.current
+        if (currentDrawable != null && currentDrawable !== drawable) {
+            val currentBytes = estimatedDrawableBytes(currentDrawable)
+            if (currentBytes > 0) {
+                return currentBytes
+            }
+        }
+
+        val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 1
+        val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 1
+        return width * height * 4
+    }
+    fun estimatedDrawableSizeKb(drawable: android.graphics.drawable.Drawable): Int {
+        val computedKb = (estimatedDrawableBytes(drawable) + 1023) / 1024
+        return maxOf(1, computedKb)
+    }
     val nativeDrawableCache = remember {
         object : android.util.LruCache<String, android.graphics.drawable.Drawable>(20 * 1024) {
             override fun sizeOf(key: String, value: android.graphics.drawable.Drawable): Int {
-                val bmp = (value as? android.graphics.drawable.BitmapDrawable)?.bitmap
-                    ?: (value as? ExactSizeDrawable)?.let { null }
-                return (bmp?.byteCount ?: (value.intrinsicWidth * value.intrinsicHeight * 4)) / 1024
+                return estimatedDrawableSizeKb(value)
             }
         }
     }
