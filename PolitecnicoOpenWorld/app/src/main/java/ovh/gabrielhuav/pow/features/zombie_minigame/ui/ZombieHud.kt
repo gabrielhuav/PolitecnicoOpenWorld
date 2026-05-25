@@ -3,6 +3,7 @@ package ovh.gabrielhuav.pow.features.zombie_minigame.ui
 import android.content.res.Configuration
 import android.graphics.BitmapFactory
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,8 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
@@ -34,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.domain.models.zombie.CombatMode
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
+import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
@@ -80,7 +84,6 @@ fun ZombieHud(
                 }
             }
             PlayerHealthBarFixed(health = state.playerHealth)
-            // Chip del modo de combate
             Text(
                 text = "MODO: ${if (state.combatMode == CombatMode.MELEE) "GOLPE" else "ARMA"}  (mantén Y)",
                 color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
@@ -88,6 +91,23 @@ fun ZombieHud(
                     .background(Color(0xFF2A1C21).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             )
+            // Chips de efectos activos
+            if (state.activeEffects.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    state.activeEffects.forEach { ae ->
+                        Text(
+                            ae.effect.displayName,
+                            color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .background(
+                                    if (ae.effect.isTrap) Color(0xFFE57373) else Color(0xFF81C784),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
         }
 
         // ─── CONTROLES ─────────────────────────────────────
@@ -128,7 +148,7 @@ fun ZombieHud(
             if (state.swapControls) { actions(); movement() } else { movement(); actions() }
         }
 
-        // ─── MENÚ DE ARMAS (mantener Y) ─────────────────────
+        // ─── MENÚ DE ARMAS ─────────────────────────────────
         if (state.showWeaponMenu) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color(0x88000000)),
@@ -204,19 +224,77 @@ fun DoorIndicator(label: String, kind: DoorKind, modifier: Modifier = Modifier) 
     }
 }
 
+/**
+ * Item de habilidad en el suelo. Intenta cargar
+ * assets/ZOMBIS_MOD/interactuables/int_{assetKey}.webp.
+ * Si falla, dibuja un fallback con Canvas:
+ *   - Buffs (no trampa): círculo verde con cruz blanca.
+ *   - Trampas: triángulo rojo invertido con signo de exclamación.
+ */
 @Composable
-fun GroundItem(assetPath: String, highlighted: Boolean, modifier: Modifier = Modifier) {
+fun SkillGroundItem(effect: SkillEffect, highlighted: Boolean, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val assetPath = "ZOMBIS_MOD/interactuables/int_${effect.assetKey}.webp"
     val bmp = remember(assetPath) {
         try { context.assets.open(assetPath).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
         catch (e: Exception) { null }
     }
-    val infinite = rememberInfiniteTransition(label = "item")
-    val glow by infinite.animateFloat(0.8f, 1.2f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "glow")
-    Box(modifier = modifier.size(32.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.scale(if (highlighted) glow else 1f).size(28.dp).clip(CircleShape).background(Color(0x88FFEB3B)))
-        bmp?.let { Image(it, "item", modifier = Modifier.size(20.dp)) }
-            ?: Box(Modifier.size(18.dp).clip(CircleShape).background(Color(0xFFFFC107)))
+    val infinite = rememberInfiniteTransition(label = "skill")
+    val glow by infinite.animateFloat(0.85f, 1.2f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "glow")
+
+    Box(modifier = modifier.size(36.dp), contentAlignment = Alignment.Center) {
+        // Halo
+        Box(
+            Modifier.scale(if (highlighted) glow else 1f).size(34.dp).clip(CircleShape)
+                .background(
+                    (if (effect.isTrap) Color(0xFFFF5252) else Color(0xFF69F0AE)).copy(alpha = 0.30f)
+                )
+        )
+        if (bmp != null) {
+            Image(bmp, effect.displayName, modifier = Modifier.size(26.dp))
+        } else {
+            // ── FALLBACK CANVAS (requerimiento 2) ──
+            Canvas(modifier = Modifier.size(26.dp)) {
+                val w = size.width
+                val h = size.height
+                if (effect.isTrap) {
+                    // Triángulo rojo invertido
+                    val path = Path().apply {
+                        moveTo(w * 0.05f, h * 0.15f)
+                        lineTo(w * 0.95f, h * 0.15f)
+                        lineTo(w * 0.5f, h * 0.95f)
+                        close()
+                    }
+                    drawPath(path, Color(0xFFD32F2F))
+                    // Signo de exclamación blanco
+                    drawLine(
+                        Color.White,
+                        start = Offset(w * 0.5f, h * 0.30f),
+                        end = Offset(w * 0.5f, h * 0.58f),
+                        strokeWidth = w * 0.10f
+                    )
+                    drawCircle(Color.White, radius = w * 0.05f, center = Offset(w * 0.5f, h * 0.70f))
+                } else {
+                    // Círculo verde con cruz blanca (curación / buff)
+                    drawCircle(Color(0xFF2E7D32), radius = w * 0.48f, center = Offset(w * 0.5f, h * 0.5f))
+                    val armT = w * 0.14f
+                    // brazo vertical
+                    drawLine(
+                        Color.White,
+                        start = Offset(w * 0.5f, h * 0.25f),
+                        end = Offset(w * 0.5f, h * 0.75f),
+                        strokeWidth = armT
+                    )
+                    // brazo horizontal
+                    drawLine(
+                        Color.White,
+                        start = Offset(w * 0.25f, h * 0.5f),
+                        end = Offset(w * 0.75f, h * 0.5f),
+                        strokeWidth = armT
+                    )
+                }
+            }
+        }
     }
 }
 

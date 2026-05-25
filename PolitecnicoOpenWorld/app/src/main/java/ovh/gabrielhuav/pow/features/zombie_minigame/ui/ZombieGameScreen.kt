@@ -5,14 +5,16 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,7 +24,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.CameraTransform
@@ -105,6 +111,36 @@ fun ZombieGameScreen(
             fun toScreenX(wx: Float) = cam.offsetX + wx * cam.scale
             fun toScreenY(wy: Float) = cam.offsetY + wy * cam.scale
 
+            // ─── REQUERIMIENTO 5: LÍNEA PUNTEADA DE SALIDA ──────
+            // Se dibuja del jugador a cada puerta EXIT. Visible solo los
+            // primeros 2 s tras spawnear (state.showExitGuide).
+            if (state.showExitGuide) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val px = toScreenX(state.playerX)
+                    val py = toScreenY(state.playerY)
+                    val dash = PathEffect.dashPathEffect(floatArrayOf(24f, 18f), 0f)
+                    room.doors.forEach { d ->
+                        if (d.kind == DoorKind.EXIT_NEXT || d.kind == DoorKind.EXIT_PREV || d.kind == DoorKind.GENERIC) {
+                            val r = d.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight)
+                            val ex = toScreenX(r.centerX())
+                            val ey = toScreenY(r.centerY())
+                            val color = when (d.kind) {
+                                DoorKind.EXIT_NEXT, DoorKind.EXIT_PREV -> Color(0xFFFF9800)
+                                else -> Color(0xFFD4AF37)
+                            }
+                            drawLine(
+                                color = color,
+                                start = Offset(px, py),
+                                end = Offset(ex, ey),
+                                strokeWidth = 6f,
+                                pathEffect = dash,
+                                cap = StrokeCap.Round
+                            )
+                        }
+                    }
+                }
+            }
+
             // Indicadores de puertas
             room.doors.forEach { door ->
                 val r = door.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight)
@@ -117,19 +153,19 @@ fun ZombieGameScreen(
                 )
             }
 
-            // Items en el suelo
+            // Items en el suelo (SkillItems con icono/fallback)
             state.items.forEach { item ->
-                GroundItem(
-                    assetPath = item.assetPath,
+                SkillGroundItem(
+                    effect = item.effect,
                     highlighted = state.nearbyItemId == item.id,
                     modifier = Modifier.absoluteOffset(
-                        x = with(density) { toScreenX(item.x).toDp() } - 16.dp,
-                        y = with(density) { toScreenY(item.y).toDp() } - 16.dp
+                        x = with(density) { toScreenX(item.x).toDp() } - 18.dp,
+                        y = with(density) { toScreenY(item.y).toDp() } - 18.dp
                     )
                 )
             }
 
-            // Proyectiles (balas)
+            // Proyectiles
             val bulletSize = 10f * cam.scale
             state.projectiles.forEach { p ->
                 Box(
@@ -190,11 +226,49 @@ fun ZombieGameScreen(
             onDismissWeaponMenu = viewModel::dismissWeaponMenu
         )
 
-        (state.nearbyDoorLabel ?: state.pickupToast)?.let { prompt ->
+        (state.nearbyDoorLabel ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
             Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
                 Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
                     modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 18.dp, vertical = 9.dp))
+            }
+        }
+
+        // ─── REQUERIMIENTO 1: DIÁLOGO DE CONFIRMACIÓN DE SALIDA ──
+        if (state.showExitToLobbyDialog) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color(0xAA000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.82f)
+                        .background(Color(0xFF1E1E24), RoundedCornerShape(16.dp))
+                        .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(16.dp))
+                        .padding(24.dp)
+                ) {
+                    Text("Volver al Lobby", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(
+                        "¿Estás seguro de que quieres volver al lobby? Perderás el progreso de este edificio.",
+                        color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = { viewModel.dismissExitToLobby() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("No", color = Color.White, fontWeight = FontWeight.Bold) }
+                        Button(
+                            onClick = { viewModel.confirmExitToLobby() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Sí", color = Color.White, fontWeight = FontWeight.Bold) }
+                    }
+                }
             }
         }
 
@@ -210,7 +284,7 @@ fun ZombieGameScreen(
             }
         }
 
-        // ─── WASTED (muerte) ────────────────────────────────
+        // ─── WASTED ─────────────────────────────────────────
         if (state.showWastedScreen) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color(0x99000000)),
@@ -243,6 +317,8 @@ private fun computeCamera(
     viewW: Float, viewH: Float, zoom: Float
 ): CameraTransform {
     if (viewW <= 0f || viewH <= 0f) return CameraTransform(0f, 0f, 1f)
+    // fitScale = max(...) → equivalente matemático de ContentScale.Crop:
+    // llena la pantalla recortando lo que sobre, SIN deformar el aspect ratio.
     val fitScale = max(viewW / worldW, viewH / worldH)
     val scale = fitScale * zoom
     val scaledW = worldW * scale
