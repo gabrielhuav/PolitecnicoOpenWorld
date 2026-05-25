@@ -90,5 +90,11 @@ data class WorldMapState(
     // ─── MODO DEBUG DE INTERIORES ────────────────────────────────────────
     // Cuando está activado, se pintan los 6 marcadores fijos de los edificios
     // y el bounding box de ESCOM sobre el mapa, para ajustar coordenadas.
-    val showInteriorDebugOverlay: Boolean = false
+    val showInteriorDebugOverlay: Boolean = false,
+
+    // ─── MIS WAYPOINTS (GUARDADOS) ───────────────────────────────────────────
+    val waypoints: List<ovh.gabrielhuav.pow.domain.models.Waypoint> = emptyList(),
+    val showAddWaypointDialog: Boolean = false,
+    val showWaypointList: Boolean = false,
+    val selectedWaypointId: Long? = null
 )
