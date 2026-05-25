@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -62,7 +63,8 @@ fun AddWaypointDialog(
 @Composable
 fun WaypointListDialog(
     waypoints: List<Waypoint>,
-    onGoTo: (Waypoint) -> Unit,
+    onGoTo: (Waypoint) -> Unit,       // Trazar ruta al waypoint
+    onNavigate: (Waypoint) -> Unit,   // Mover cámara al waypoint (ver en mapa)
     onDelete: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -91,6 +93,7 @@ fun WaypointListDialog(
                             waypoint = waypoint,
                             dateText = dateFormat.format(Date(waypoint.createdAt)),
                             onGoTo = { onGoTo(waypoint) },
+                            onNavigate = { onNavigate(waypoint) },
                             onDelete = { onDelete(waypoint.id) }
                         )
                     }
@@ -108,6 +111,7 @@ private fun WaypointItem(
     waypoint: Waypoint,
     dateText: String,
     onGoTo: () -> Unit,
+    onNavigate: () -> Unit,
     onDelete: () -> Unit
 ) {
     Row(
@@ -116,7 +120,7 @@ private fun WaypointItem(
             .background(Color(0xFFF5F5F5), RoundedCornerShape(10.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box(
             modifier = Modifier
@@ -132,8 +136,14 @@ private fun WaypointItem(
             Text(dateText, color = Color.Gray, fontSize = 11.sp)
         }
 
+        // Trazar ruta al waypoint
         IconButton(onClick = onGoTo, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.MyLocation, "Ir al waypoint", tint = Color(0xFF1976D2), modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Navigation, "Trazar ruta", tint = Color(0xFF4CAF50), modifier = Modifier.size(20.dp))
+        }
+
+        // Ver en mapa (mover cámara)
+        IconButton(onClick = onNavigate, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.MyLocation, "Ver en mapa", tint = Color(0xFF1976D2), modifier = Modifier.size(20.dp))
         }
 
         IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {

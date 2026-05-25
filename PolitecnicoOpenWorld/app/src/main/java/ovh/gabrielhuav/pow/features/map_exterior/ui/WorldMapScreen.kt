@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.School
@@ -81,6 +83,7 @@ import com.google.gson.Gson
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.GroundOverlay
 import com.google.maps.android.compose.GroundOverlayPosition
+import com.google.maps.android.compose.MapEffect
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MarkerState
@@ -167,6 +170,9 @@ fun WorldMapScreen(
     val currentPlayerLocationState = remember { mutableStateOf<GeoPoint?>(null) }
     val playerScreenOffsetState = remember { mutableStateOf(IntOffset.Zero) }
 
+    // Menú de navegación expandible (waypoints + destino)
+    var showNavMenu by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         viewModel.loadLandmarks(context)
         viewModel.loadWaypoints(context)
@@ -206,6 +212,13 @@ fun WorldMapScreen(
             }
     }
 
+    // Cerrar el menú de navegación cuando se activa el modo de apuntado o se abren diálogos
+    LaunchedEffect(uiState.isTargetingWaypoint, uiState.showAddWaypointDialog, uiState.showWaypointList) {
+        if (uiState.isTargetingWaypoint || uiState.showAddWaypointDialog || uiState.showWaypointList) {
+            showNavMenu = false
+        }
+    }
+
     val tileCache = viewModel.tileCache
     val cachingClient = remember(tileCache) {
         CachingWebViewClient(
@@ -216,6 +229,12 @@ fun WorldMapScreen(
     }
     val webViewRef = remember { mutableStateOf<WebView?>(null) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
+
+    // CameraPositionState para Google Maps — definida aquí para que el botón recenter pueda accederla
+    val googleMapsEscom = LatLng(19.505411765791404, -99.14526888961194)
+    val googleMapsCameraState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(googleMapsEscom, 18f)
+    }
 
     LaunchedEffect(uiState.isUserPanningMap) {
         if (!uiState.isUserPanningMap) {
@@ -647,28 +666,18 @@ fun WorldMapScreen(
                 )
             }
             MapProvider.GOOGLE_MAPS_NATIVE -> {
-                val escom = LatLng(19.505411765791404, -99.14526888961194)
-                // Inicializamos con una posición por defecto segura
-                val cameraPositionState = rememberCameraPositionState {
-                    position = CameraPosition.fromLatLngZoom(escom, 18f)
-                }
-
-                // USO CORRECTO DE EFFECT: Esto reacciona solo cuando cambia la ubicación
-                LaunchedEffect(uiState.currentLocation, uiState.isDriving, uiState.zoomLevel) {
-                    if (!uiState.isUserPanningMap) {
-                        val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
-                        val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
-                        val targetZoom = uiState.zoomLevel.toFloat()
-                        val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
-
+                // Seguir al jugador cuando no se está haciendo panning
+                LaunchedEffect(uiState.currentLocation, uiState.isDriving, uiState.zoomLevel, uiState.isUserPanningMap) {
+                    if (!uiState.isUserPanningMap && isFollowingPlayer) {
+                        val targetLat = uiState.currentLocation?.latitude ?: googleMapsEscom.latitude
+                        val targetLng = uiState.currentLocation?.longitude ?: googleMapsEscom.longitude
                         val newPosition = CameraPosition.builder()
                             .target(LatLng(targetLat, targetLng))
-                            .zoom(targetZoom)
-                            .bearing(targetBearing)
+                            .zoom(uiState.zoomLevel.toFloat())
+                            .bearing(if (uiState.isDriving) uiState.vehicleRotation else 0f)
                             .tilt(0f)
                             .build()
-
-                        cameraPositionState.animate(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(newPosition), 120)
+                        googleMapsCameraState.animate(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(newPosition), 120)
                     }
                 }
 
@@ -678,22 +687,34 @@ fun WorldMapScreen(
                             mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, ovh.gabrielhuav.pow.R.raw.estilo_google_maps)
                         )
                     } catch (e: Exception) {
-                        MapProperties() // Fallback si el JSON falla
+                        MapProperties()
                     }
                 }
 
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
-                    cameraPositionState = cameraPositionState,
+                    cameraPositionState = googleMapsCameraState,
                     properties = propiedadesMap,
                     uiSettings = MapUiSettings(
                         zoomGesturesEnabled = false,
                         zoomControlsEnabled = false,
-                        scrollGesturesEnabled = uiState.isDesignerMode || uiState.isUserPanningMap,
+                        scrollGesturesEnabled = !uiState.isDriving, // siempre habilitado (excepto manejando)
                         tiltGesturesEnabled = false,
                         rotationGesturesEnabled = false
                     )
                 ) {
+                    // Detectar panning del USUARIO (REASON_GESTURE = 1) vs animación programática
+                    // Esto evita el bug donde el seguimiento del jugador desactiva su propio seguimiento
+                    MapEffect(Unit) { gmap ->
+                        gmap.setOnCameraMoveStartedListener { reason ->
+                            val isUserGesture = reason == com.google.android.gms.maps.GoogleMap.OnCameraMoveStartedListener.REASON_GESTURE
+                            if (isUserGesture && !uiState.isDesignerMode) {
+                                followingPlayerState.value = false
+                                viewModel.onMapPanStart()
+                            }
+                        }
+                    }
+
                     uiState.landmarks.forEach { landmark ->
                         key(landmark.id) {
                             val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
@@ -1020,7 +1041,10 @@ fun WorldMapScreen(
             uiState = uiState,
             modifier = Modifier
                 .align(Alignment.Center)
-                .offset { playerScreenOffsetState.value },
+                .graphicsLayer {
+                    translationX = playerScreenOffsetState.value.x.toFloat()
+                    translationY = playerScreenOffsetState.value.y.toFloat()
+                },
             health = viewModel.playerHealth,
             showHealthBar = viewModel.showHealthBar,
             damagePulseTrigger = viewModel.damagePulseTrigger
@@ -1047,20 +1071,46 @@ fun WorldMapScreen(
         Column(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
             IconButton(onClick = onNavigateToSettings, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
             IconButton(onClick = { viewModel.teleportTo(19.5045, -99.1469) }, modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.School, "Ir a ESCOM", tint = Color.White) }
-            IconButton(onClick = { viewModel.toggleDesignerMode(!uiState.isDesignerMode) }, modifier = Modifier.background(if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Architecture, "Modo Diseñador", tint = Color.Black) }
+            IconButton(onClick = { viewModel.toggleDesignerMode(!uiState.isDesignerMode); showNavMenu = false }, modifier = Modifier.background(if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Architecture, "Modo Diseñador", tint = Color.Black) }
             if (uiState.isDesignerMode) {
                 IconButton(onClick = { viewModel.showAssetPicker(true) }, modifier = Modifier.background(Color(0xFF4CAF50), CircleShape)) { Icon(Icons.Default.Add, "Agregar Asset", tint = Color.White) }
             }
-            // Botones de waypoints (solo cuando no estamos en modo diseñador)
+            // ── HUB DE NAVEGACIÓN ── un solo icono que despliega todas las opciones de navegación
             if (!uiState.isDesignerMode) {
                 IconButton(
-                    onClick = { viewModel.toggleAddWaypointDialog(true) },
-                    modifier = Modifier.background(Color(0xFFFF6B35), CircleShape)
-                ) { Icon(Icons.Default.Place, "Guardar waypoint aquí", tint = Color.White) }
-                IconButton(
-                    onClick = { viewModel.toggleWaypointList(true) },
-                    modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)
-                ) { Icon(Icons.Default.Bookmarks, "Mis waypoints", tint = Color(0xFFFF6B35)) }
+                    onClick = { showNavMenu = !showNavMenu },
+                    modifier = Modifier
+                        .background(if (showNavMenu) Color(0xFFFF6B35) else Color.White.copy(alpha = 0.9f), CircleShape)
+                        .size(48.dp)
+                ) {
+                    Icon(Icons.Default.Navigation, "Navegación", tint = if (showNavMenu) Color.White else Color(0xFFFF6B35))
+                }
+                AnimatedVisibility(visible = showNavMenu, enter = fadeIn(tween(150)), exit = fadeOut(tween(150))) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
+                        // 1. Guardar posición actual como waypoint
+                        IconButton(
+                            onClick = { viewModel.toggleAddWaypointDialog(true); showNavMenu = false },
+                            modifier = Modifier.background(Color(0xFFFF6B35), CircleShape)
+                        ) { Icon(Icons.Default.Place, "Guardar waypoint aquí", tint = Color.White) }
+                        // 2. Ver lista de waypoints guardados
+                        IconButton(
+                            onClick = { viewModel.toggleWaypointList(true); showNavMenu = false },
+                            modifier = Modifier.background(Color.White.copy(alpha = 0.9f), CircleShape)
+                        ) { Icon(Icons.Default.Bookmarks, "Mis waypoints", tint = Color(0xFFFF6B35)) }
+                        // 3. Fijar/cancelar modo de selección de destino (disponible siempre)
+                        IconButton(
+                            onClick = { viewModel.toggleWaypointTargeting(!uiState.isTargetingWaypoint); showNavMenu = false },
+                            modifier = Modifier.background(if (uiState.isTargetingWaypoint) Color(0xFFFF5722) else Color(0xFF4CAF50), CircleShape)
+                        ) { Icon(Icons.Default.LocationOn, if (uiState.isTargetingWaypoint) "Cancelar destino" else "Fijar destino en mapa", tint = Color.White) }
+                        // 4. Limpiar destino activo (solo si hay uno)
+                        if (uiState.destinationMarker != null && !uiState.isTargetingWaypoint) {
+                            IconButton(
+                                onClick = { viewModel.clearDestinationMarker(); showNavMenu = false },
+                                modifier = Modifier.background(Color(0xFFE53935), CircleShape)
+                            ) { Icon(Icons.Default.Add, "Eliminar destino", tint = Color.White, modifier = Modifier.rotate(45f)) }
+                        }
+                    }
+                }
             }
         }
 
@@ -1068,32 +1118,24 @@ fun WorldMapScreen(
             IconButton(onClick = { viewModel.zoomIn() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) { Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
             IconButton(onClick = { viewModel.zoomOut() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
             // Botón de centrar: visible cuando el mapa fue desplazado del personaje
+            // Funciona para todos los proveedores de mapa
             AnimatedVisibility(visible = !uiState.isDesignerMode && (!isFollowingPlayer || uiState.isUserPanningMap), enter = fadeIn(), exit = fadeOut()) {
                 IconButton(
                     onClick = {
                         isFollowingPlayer = true
                         playerScreenOffsetState.value = IntOffset.Zero
+                        showNavMenu = false
                         viewModel.centerOnPlayer()
                         uiState.currentLocation?.let { loc ->
+                            // OSM: animar la cámara directamente
                             osmMapViewRef?.controller?.animateTo(loc, uiState.zoomLevel, 400L)
+                            // Google Maps y WebView: el LaunchedEffect reacciona a isUserPanningMap=false
+                            // y re-centra automáticamente en el siguiente tick
                         }
                     },
                     modifier = Modifier.background(Color(0xFF2196F3), CircleShape).size(48.dp)
                 ) {
                     Icon(Icons.Default.MyLocation, contentDescription = "Centrar en personaje", tint = Color.White)
-                }
-            }
-            // Botones de navegación libre (destino y limpiar marcador)
-            if ((uiState.isUserPanningMap || !isFollowingPlayer) && !uiState.isDesignerMode && !uiState.isDriving) {
-                IconButton(
-                    onClick = { viewModel.toggleWaypointTargeting(!uiState.isTargetingWaypoint) },
-                    modifier = Modifier.background(if (uiState.isTargetingWaypoint) Color(0xFFFF5722) else Color(0xFF4CAF50), CircleShape).size(48.dp)
-                ) { Icon(Icons.Default.LocationOn, "Fijar destino", tint = Color.White) }
-                if (uiState.destinationMarker != null && !uiState.isTargetingWaypoint) {
-                    IconButton(
-                        onClick = { viewModel.clearDestinationMarker() },
-                        modifier = Modifier.background(Color(0xFFE53935), CircleShape).size(48.dp)
-                    ) { Icon(imageVector = Icons.Default.Add, contentDescription = "Eliminar destino", tint = Color.White, modifier = Modifier.rotate(45f)) }
                 }
             }
         }
@@ -1109,13 +1151,20 @@ fun WorldMapScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Button(onClick = { viewModel.toggleWaypointTargeting(false) }, colors = ButtonDefaults.buttonColors(containerColor = Color.Gray), shape = RoundedCornerShape(24.dp)) { Text("CANCELAR", fontWeight = FontWeight.Bold) }
                     Button(onClick = {
-                        if (uiState.mapProvider == MapProvider.OSM) {
-                            nativeMapRef.value?.let { mv ->
-                                val center = mv.mapCenter
+                        when (uiState.mapProvider) {
+                            MapProvider.OSM -> {
+                                nativeMapRef.value?.let { mv ->
+                                    val center = mv.mapCenter
+                                    viewModel.placeDestinationMarker(center.latitude, center.longitude)
+                                }
+                            }
+                            MapProvider.GOOGLE_MAPS_NATIVE -> {
+                                val center = googleMapsCameraState.position.target
                                 viewModel.placeDestinationMarker(center.latitude, center.longitude)
                             }
-                        } else {
-                            webViewRef.value?.evaluateJavascript("if(window.Android && window.Android.notifyCenterForWaypoint) { var c = map.getCenter(); window.Android.notifyCenterForWaypoint(c.lat, c.lng); }", null)
+                            else -> {
+                                webViewRef.value?.evaluateJavascript("if(window.Android && window.Android.notifyCenterForWaypoint) { var c = map.getCenter(); window.Android.notifyCenterForWaypoint(c.lat, c.lng); }", null)
+                            }
                         }
                     }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)), shape = RoundedCornerShape(24.dp), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)) { Text("ESTABLECER DESTINO", fontWeight = FontWeight.Bold) }
                 }
@@ -1152,9 +1201,28 @@ fun WorldMapScreen(
             WaypointListDialog(
                 waypoints = uiState.waypoints,
                 onGoTo = { waypoint ->
+                    // Trazar la ruta desde el jugador al waypoint (funciona en todos los mapas)
+                    viewModel.placeDestinationMarker(waypoint.location.latitude, waypoint.location.longitude)
+                    viewModel.toggleWaypointList(false)
+                },
+                onNavigate = { waypoint ->
+                    // Mover la cámara al waypoint sin trazar ruta
                     isFollowingPlayer = false
                     playerScreenOffsetState.value = IntOffset.Zero
-                    osmMapViewRef?.controller?.animateTo(waypoint.location, uiState.zoomLevel, 500L)
+                    viewModel.onMapPanStart()
+                    when (uiState.mapProvider) {
+                        MapProvider.OSM -> osmMapViewRef?.controller?.animateTo(waypoint.location, uiState.zoomLevel, 500L)
+                        MapProvider.GOOGLE_MAPS_NATIVE -> coroutineScope.launch {
+                            googleMapsCameraState.animate(
+                                com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(
+                                    LatLng(waypoint.location.latitude, waypoint.location.longitude), uiState.zoomLevel.toFloat()
+                                ), 500
+                            )
+                        }
+                        else -> webViewRef.value?.evaluateJavascript(
+                            "if(typeof updateMapView==='function')updateMapView(${waypoint.location.latitude}, ${waypoint.location.longitude}, ${uiState.zoomLevel.toInt()});", null
+                        )
+                    }
                     viewModel.toggleWaypointList(false)
                 },
                 onDelete = { id -> viewModel.deleteWaypoint(context, id) },
@@ -1314,16 +1382,16 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <body>
     <div id="map-wrapper"><div id="map"></div></div>
     <script>
-        var map = L.map('map', { 
-            zoomControl: false, 
-            attributionControl: false, 
-            dragging: false, 
+        var map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false,
+            dragging: true,
             touchZoom: false,
             doubleClickZoom: false,
             scrollWheelZoom: false,
             boxZoom: false,
             keyboard: false,
-            maxZoom: 22 
+            maxZoom: 22
         }).setView([$lat, $lng], $zoom);
         var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 18 }).addTo(map);
         
@@ -1349,12 +1417,12 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         function updateMapView(lat, lng, z) { if (!isZooming && !isExplorationMode) map.setView([lat, lng], z, { animate: false }); }
         
         function setDesignerMode(isDesigner) {
+            // El arrastre (dragging) siempre está habilitado para panning libre.
+            // En modo diseñador también se habilita el zoom táctil.
             if (isDesigner) {
-                map.dragging.enable();
                 map.touchZoom.enable();
                 map.scrollWheelZoom.enable();
             } else {
-                map.dragging.disable();
                 map.touchZoom.disable();
                 map.scrollWheelZoom.disable();
             }
