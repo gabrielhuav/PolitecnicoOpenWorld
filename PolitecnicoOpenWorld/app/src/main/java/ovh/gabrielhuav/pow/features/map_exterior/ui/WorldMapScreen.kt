@@ -132,7 +132,15 @@ fun WorldMapScreen(
     val base64Cache = remember { java.util.concurrent.ConcurrentHashMap<String, String>() }
     val widthCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
     val heightCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
-    val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
+    val nativeDrawableCache = remember {
+        object : android.util.LruCache<String, android.graphics.drawable.Drawable>(20 * 1024) {
+            override fun sizeOf(key: String, value: android.graphics.drawable.Drawable): Int {
+                val bmp = (value as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                    ?: (value as? ExactSizeDrawable)?.let { null }
+                return (bmp?.byteCount ?: (value.intrinsicWidth * value.intrinsicHeight * 4)) / 1024
+            }
+        }
+    }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val googleMapsIconCache = remember {
         object : java.util.LinkedHashMap<String, com.google.android.gms.maps.model.BitmapDescriptor>(150, 0.75f, true) {
@@ -382,7 +390,7 @@ fun WorldMapScreen(
                                         val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                         val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
 
-                                        val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                        val cachedIcon = nativeDrawableCache.get(cacheKey) ?: run {
                                             var baseDrawable = CharacterSpriteManager.getModularNpcDrawable(
                                                 context = context,
                                                 visualConfig = npc.visualConfig!!,
@@ -393,8 +401,10 @@ fun WorldMapScreen(
                                                 displayName = npc.displayName
                                             )
                                             baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-                                            baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                            val v = baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                                 ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                            nativeDrawableCache.put(cacheKey, v)
+                                            v
                                         }
                                         marker.icon = cachedIcon
                                         marker.rotation = 0f
@@ -406,31 +416,35 @@ fun WorldMapScreen(
                                         val dynamicScale = (1.4 * 2.0.pow(currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                         val cacheKey = "CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
 
-                                        val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                        val cachedIcon = nativeDrawableCache.get(cacheKey) ?: run {
                                             var baseDrawable = VehicleSpriteManager.getTintedCarNpc(
                                                 context, angle, npc.carColor, highResRenderScale, npc.carModel
                                             )
                                             baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-                                            baseDrawable?.let { drawable ->
+                                            val v = baseDrawable?.let { drawable ->
                                                 val baseWidthDp = (drawable.intrinsicWidth / screenDensity) / screenDensity
                                                 val baseHeightDp = (drawable.intrinsicHeight / screenDensity) / screenDensity
                                                 val finalWidthPx = (baseWidthDp * dynamicScale * screenDensity).toInt()
                                                 val finalHeightPx = (baseHeightDp * dynamicScale * screenDensity).toInt()
                                                 ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
                                             } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                            nativeDrawableCache.put(cacheKey, v)
+                                            v
                                         }
                                         marker.icon = cachedIcon
                                         marker.rotation = 0f
                                     } else {
                                         val cacheKey = "SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
-                                        val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                        val cachedIcon = nativeDrawableCache.get(cacheKey) ?: run {
                                             val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
                                             var baseDrawable = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
                                             baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-                                            baseDrawable?.let {
+                                            val v = baseDrawable?.let {
                                                 val exactPixels = (24 * screenDensity).toInt()
                                                 ExactSizeDrawable(it, exactPixels, exactPixels)
                                             } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                            nativeDrawableCache.put(cacheKey, v)
+                                            v
                                         }
                                         marker.icon = cachedIcon
                                         marker.rotation = 0f
@@ -470,7 +484,7 @@ fun WorldMapScreen(
                                     marker.setAlpha(1f)
                                     val exactPixels = (22 * screenDensity).toInt()
                                     val cacheKey = "COL_${collectible.assetPath}"
-                                    val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    val cachedIcon = nativeDrawableCache.get(cacheKey) ?: run {
                                         try {
                                             val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open(collectible.assetPath))
                                             if (bitmap != null) {
@@ -489,7 +503,7 @@ fun WorldMapScreen(
                                             } else ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                         } catch (e: Exception) {
                                             ContextCompat.getDrawable(context, android.R.color.transparent)!!
-                                        }
+                                        }.also { nativeDrawableCache.put(cacheKey, it) }
                                     }
                                     marker.icon = cachedIcon
                                     val isHand = collectible.name == "Objeto Misterioso ESCOM"
