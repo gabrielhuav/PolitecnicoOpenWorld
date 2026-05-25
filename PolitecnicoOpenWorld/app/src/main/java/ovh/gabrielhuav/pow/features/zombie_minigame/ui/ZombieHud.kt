@@ -84,6 +84,13 @@ fun ZombieHud(
                         modifier = Modifier.background(Color(0xFFD32F2F).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
                             .padding(horizontal = 12.dp, vertical = 6.dp))
                 }
+                // Indicador de jugadores conectados en la sala (multijugador)
+                if (state.remotePlayers.isNotEmpty()) {
+                    Text("JUGADORES: ${state.remotePlayers.size + 1}", color = Color.White, fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.background(Color(0xFF2196F3).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp))
+                }
             }
             PlayerHealthBarFixed(health = state.playerHealth)
             Text(
@@ -424,6 +431,75 @@ fun PlayerView(
             Image(image!!, "Jugador", modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
         } else {
             Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFFD91B5B)).border(2.dp, Color.White, CircleShape))
+        }
+    }
+}
+
+/**
+ * Jugador remoto (multijugador). Reusa el mismo sprite del jugador principal,
+ * pero le añade una etiqueta de nombre flotante y un borde de color distinto
+ * para diferenciarlo del jugador local de un vistazo.
+ */
+@Composable
+fun RemotePlayerView(
+    name: String,
+    action: PlayerAction,
+    facingRight: Boolean,
+    sizePx: Float,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val sizeDp = with(density) { sizePx.toDp() }
+    var frame by remember { mutableIntStateOf(1) }
+    var image by remember { mutableStateOf<ImageBitmap?>(null) }
+    val cache = remember { mutableMapOf<String, ImageBitmap?>() }
+
+    LaunchedEffect(action) {
+        frame = 1
+        while (true) {
+            val maxFrames = if (action == PlayerAction.SPECIAL) 8 else 6
+            val path = when (action) {
+                PlayerAction.IDLE -> "PRINCIPAL/lazaroIdle/lazaro_i_$frame.webp"
+                PlayerAction.WALK -> "PRINCIPAL/lazaroWalk/lazaro_w_$frame.webp"
+                PlayerAction.SPECIAL -> "PRINCIPAL/lazaroSpecial/lazaro_s_$frame.webp"
+                PlayerAction.RUN -> "PRINCIPAL/lazaroRun/lazaro_r_$frame.webp"
+            }
+            if (!cache.containsKey(path)) {
+                cache[path] = withContext(Dispatchers.IO) {
+                    try { context.assets.open(path).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
+                    catch (e: Exception) { null }
+                }
+            }
+            image = cache[path]
+            delay(if (action == PlayerAction.IDLE) 1000L else 100L)
+            frame = (frame % maxFrames) + 1
+        }
+    }
+
+    Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.TopCenter) {
+        // Etiqueta de nombre, siempre en una sola línea.
+        if (name.isNotBlank()) {
+            Text(
+                text = name,
+                color = Color(0xFF64B5F6),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Visible,
+                modifier = Modifier
+                    .offset(y = (-12).dp)
+                    .wrapContentWidth(unbounded = true)
+                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 5.dp, vertical = 1.dp)
+            )
+        }
+        if (image != null) {
+            Image(image!!, "Jugador remoto",
+                modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
+        } else {
+            Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFF2196F3)).border(2.dp, Color.White, CircleShape))
         }
     }
 }

@@ -56,10 +56,15 @@ private const val PLAYER_SPRITE_BASE = 56f
 @Composable
 fun ZombieGameScreen(
     onExitToWorld: () -> Unit,
+    isMultiplayer: Boolean,
+    playerName: String,
     debugHitboxes: Boolean = false
 ) {
     val context = LocalContext.current
-    val viewModel: ZombieGameViewModel = viewModel(factory = ZombieGameViewModel.Factory(context))
+    val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.ZOMBIE_SERVER_URL else null
+    val viewModel: ZombieGameViewModel = viewModel(
+        factory = ZombieGameViewModel.Factory(context, serverUrl, playerName)
+    )
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current
 
@@ -119,7 +124,7 @@ fun ZombieGameScreen(
                     translate(cam.offsetX, cam.offsetY) {
                         scale(cam.scale, cam.scale, pivot = Offset.Zero) {
 
-                            // Aura del jugador: amarillo cálido, radio ~2.5x su tamaño base.
+                            // Aura del jugador local: amarillo cálido, radio ~2.5x su tamaño base.
                             val playerLightRadius = PLAYER_SPRITE_BASE * 2.5f
                             drawCircle(
                                 brush = Brush.radialGradient(
@@ -134,6 +139,23 @@ fun ZombieGameScreen(
                                 radius = playerLightRadius,
                                 center = Offset(state.playerX, state.playerY)
                             )
+
+                            // Aura de los jugadores remotos: mismo amarillo cálido.
+                            state.remotePlayers.forEach { rp ->
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            Color(0x80FFF59D),
+                                            Color(0x33FFEB3B),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(rp.x, rp.y),
+                                        radius = playerLightRadius
+                                    ),
+                                    radius = playerLightRadius,
+                                    center = Offset(rp.x, rp.y)
+                                )
+                            }
 
                             // Aura verde tóxico anclada a cada zombi vivo.
                             val zombieLightRadius = ZOMBIE_SPRITE_BASE * 2f
@@ -204,7 +226,7 @@ fun ZombieGameScreen(
                 )
             }
 
-            // Items en el suelo (SkillItems con icono/fallback)
+            // Items en el suelo (SkillItems dibujados con Canvas)
             state.items.forEach { item ->
                 SkillGroundItem(
                     effect = item.effect,
@@ -245,7 +267,26 @@ fun ZombieGameScreen(
                 }
             }
 
-            // Jugador
+            // ─── JUGADORES REMOTOS (multijugador) ───────────────
+            // Misma proyección de cámara que el resto de entidades, por lo que
+            // se mueven con el zoom y el desplazamiento. Llevan etiqueta de nombre.
+            val rpSize = PLAYER_SPRITE_BASE * cam.scale
+            state.remotePlayers.forEach { rp ->
+                key(rp.id) {
+                    RemotePlayerView(
+                        name = rp.displayName,
+                        action = rp.action,
+                        facingRight = rp.facingRight,
+                        sizePx = rpSize,
+                        modifier = Modifier.absoluteOffset(
+                            x = with(density) { toScreenX(rp.x).toDp() } - with(density) { (rpSize / 2).toDp() },
+                            y = with(density) { toScreenY(rp.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                        )
+                    )
+                }
+            }
+
+            // Jugador local
             val pSize = PLAYER_SPRITE_BASE * cam.scale
             PlayerView(
                 action = state.playerAction, facingRight = state.isPlayerFacingRight,

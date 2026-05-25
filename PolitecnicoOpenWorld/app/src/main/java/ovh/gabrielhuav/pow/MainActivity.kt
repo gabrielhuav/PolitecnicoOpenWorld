@@ -295,10 +295,13 @@ class MainActivity : ComponentActivity() {
                         // debugHitboxes = true para calibrar exitHitbox y ver la
                         // matriz de colisión pintada sobre cada cuarto.
                         composable(route = "zombie_minigame") {
+                            val wmState by worldMapViewModel.uiState.collectAsState()
                             ZombieGameScreen(
                                 onExitToWorld = {
                                     navController.popBackStack("world_map", inclusive = false)
                                 },
+                                isMultiplayer = wmState.isMultiplayer,
+                                playerName = wmState.playerName,
                                 debugHitboxes = false
                             )
                         }

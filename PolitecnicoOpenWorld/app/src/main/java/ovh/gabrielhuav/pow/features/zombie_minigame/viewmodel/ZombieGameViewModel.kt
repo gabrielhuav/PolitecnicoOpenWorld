@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.zombie.ActiveEffect
 import ovh.gabrielhuav.pow.domain.models.zombie.CombatMode
@@ -26,6 +28,8 @@ import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -33,7 +37,11 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 class ZombieGameViewModel(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    // URL del servidor de zombis. null = partida offline (un jugador), idéntica
+    // a como funcionaba antes de añadir multijugador.
+    private val serverUrl: String?,
+    private val playerName: String
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -49,6 +57,15 @@ class ZombieGameViewModel(
     private var gameLoopJob: Job? = null
     private var idleJob: Job? = null
     private var exitGuideJob: Job? = null
+
+    // ─── Red multijugador (Fase 0) ─────────────────────────
+    private val gson = Gson()
+    private var wsManager: WebSocketManager? = null
+    private var wsCollectorJob: Job? = null
+    private var mySessionId: String = "ZPlayer_${UUID.randomUUID()}"
+    private val remotePlayers = ConcurrentHashMap<String, RemoteZombiePlayer>()
+    private var lastNetSendMs = 0L
+    private val isMultiplayer: Boolean get() = serverUrl != null
 
     private companion object {
         const val PLAYER_WALK_STEP = 7f
@@ -93,6 +110,9 @@ class ZombieGameViewModel(
         const val ZOMBIE_DMG_FURY_FACTOR = 2.0f   // Furia (trampa)
         const val ZOMBIE_DMG_WEAK_FACTOR = 0.4f   // Debilidad
         const val PLAYER_DMG_BRUTE_FACTOR = 2.2f  // Fuerza Bruta
+
+        // Red
+        const val NET_SEND_INTERVAL_MS = 100L
     }
 
     private var lastPlayerAttackMs = 0L
@@ -103,6 +123,105 @@ class ZombieGameViewModel(
     init {
         loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
         startGameLoop()
+        connectIfNeeded()
+    }
+
+    // ─── CONEXIÓN MULTIJUGADOR ─────────────────────────────
+    private fun connectIfNeeded() {
+        val url = serverUrl ?: return
+        wsManager = WebSocketManager(url)
+        wsCollectorJob = viewModelScope.launch(Dispatchers.IO) {
+            wsManager?.messagesFlow?.collect { handleServerMessage(it) }
+        }
+        wsManager?.connect()
+        // Pequeño retraso para que el socket abra antes del primer JOIN_ROOM.
+        viewModelScope.launch {
+            delay(600)
+            sendJoinRoom()
+        }
+    }
+
+    private fun sendJoinRoom() {
+        if (!isMultiplayer) return
+        val room = currentRoom()
+        wsManager?.sendMessage(
+            gson.toJson(
+                mapOf(
+                    "type" to "JOIN_ROOM",
+                    "roomId" to room.id,
+                    "displayName" to playerName,
+                    "x" to _state.value.playerX,
+                    "y" to _state.value.playerY
+                )
+            )
+        )
+    }
+
+    private fun handleServerMessage(json: String) {
+        try {
+            val msg = gson.fromJson(json, ZombieServerMessage::class.java)
+            when (msg.type) {
+                "SESSION_INIT" -> msg.sessionId?.let { mySessionId = it }
+
+                "ROOM_SNAPSHOT" -> {
+                    remotePlayers.clear()
+                    msg.players?.forEach { upsertRemote(it) }
+                    pushRemotePlayersToState()
+                }
+
+                "PLAYER_UPDATE" -> {
+                    if (msg.id != null && msg.id != mySessionId) {
+                        upsertRemote(msg)
+                        pushRemotePlayersToState()
+                    }
+                }
+
+                "PLAYER_LEFT_ROOM" -> {
+                    msg.id?.let { remotePlayers.remove(it) }
+                    pushRemotePlayersToState()
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ZombieNet", "Error parseando mensaje: ${e.message}")
+        }
+    }
+
+    private fun upsertRemote(m: ZombieServerMessage) {
+        val id = m.id ?: return
+        if (id == mySessionId) return
+        remotePlayers[id] = RemoteZombiePlayer(
+            id = id,
+            displayName = m.displayName ?: "",
+            x = m.x ?: 0f,
+            y = m.y ?: 0f,
+            action = runCatching { PlayerAction.valueOf(m.action ?: "IDLE") }.getOrDefault(PlayerAction.IDLE),
+            facingRight = m.facingRight ?: true,
+            health = m.health ?: 100f
+        )
+    }
+
+    private fun pushRemotePlayersToState() {
+        _state.update { it.copy(remotePlayers = remotePlayers.values.toList()) }
+    }
+
+    private fun sendPlayerUpdate(now: Long) {
+        if (!isMultiplayer) return
+        if (now - lastNetSendMs < NET_SEND_INTERVAL_MS) return
+        lastNetSendMs = now
+        val s = _state.value
+        wsManager?.sendMessage(
+            gson.toJson(
+                mapOf(
+                    "type" to "PLAYER_UPDATE",
+                    "displayName" to playerName,
+                    "x" to s.playerX,
+                    "y" to s.playerY,
+                    "action" to s.playerAction.name,
+                    "facingRight" to s.isPlayerFacingRight,
+                    "health" to s.playerHealth
+                )
+            )
+        )
     }
 
     // ─── ACCESO ────────────────────────────────────────────
@@ -140,20 +259,6 @@ class ZombieGameViewModel(
     // ─── EFECTOS ACTIVOS: getters ──────────────────────────
     private fun hasEffect(e: SkillEffect): Boolean =
         _state.value.activeEffects.any { it.effect == e }
-
-    private fun zombieSpeedFactor(): Float {
-        var f = 1f
-        if (hasEffect(SkillEffect.RELOJ_ARENA)) f *= SLOW_ZOMBIE_FACTOR
-        if (hasEffect(SkillEffect.ADRENALINA_ZOMBI)) f *= FAST_ZOMBIE_FACTOR
-        return f
-    }
-
-    private fun zombieDamageFactor(): Float {
-        var f = 1f
-        if (hasEffect(SkillEffect.FURIA_ZOMBI)) f *= ZOMBIE_DMG_FURY_FACTOR
-        if (hasEffect(SkillEffect.DEBILIDAD_ZOMBI)) f *= ZOMBIE_DMG_WEAK_FACTOR
-        return f
-    }
 
     private fun playerDamageFactor(): Float =
         if (hasEffect(SkillEffect.FUERZA_BRUTA)) PLAYER_DMG_BRUTE_FACTOR else 1f
@@ -210,6 +315,15 @@ class ZombieGameViewModel(
                 _state.update { it.copy(showExitGuide = false) }
             }
         }
+
+        // ─── MULTIJUGADOR ───
+        // Al cambiar de sala, los jugadores de la sala anterior dejan de ser
+        // visibles. Limpiamos remotos y anunciamos la nueva sala al servidor.
+        if (isMultiplayer) {
+            remotePlayers.clear()
+            pushRemotePlayersToState()
+            sendJoinRoom()
+        }
     }
 
     private fun spawnAroundPlayer(px: Float, py: Float, room: ZombieRoom): Pair<Float, Float> {
@@ -261,8 +375,13 @@ class ZombieGameViewModel(
 
     private fun tick() {
         val s = _state.value
-        if (s.showVictoryScreen || s.showWastedScreen || s.isExitingToWorld || s.showExitToLobbyDialog) return
         val now = System.currentTimeMillis()
+
+        // Enviar mi posición a la sala (~cada 100ms) aunque estén abiertas
+        // pantallas bloqueantes: así los demás siguen viendo dónde quedé.
+        sendPlayerUpdate(now)
+
+        if (s.showVictoryScreen || s.showWastedScreen || s.isExitingToWorld || s.showExitToLobbyDialog) return
         val room = ZombieRoomCatalog.rooms[s.currentRoomIndex]
         val blockers = room.collisionGridFrac.map { it.toWorldRect(room.worldWidth, room.worldHeight) }
 
@@ -666,11 +785,21 @@ class ZombieGameViewModel(
         gameLoopJob?.cancel()
         idleJob?.cancel()
         exitGuideJob?.cancel()
+        wsCollectorJob?.cancel()
+        wsManager?.disconnect()
     }
 
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
+    class Factory(
+        private val context: Context,
+        private val serverUrl: String?,
+        private val playerName: String
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            ZombieGameViewModel(SettingsRepository(context.applicationContext)) as T
+            ZombieGameViewModel(
+                SettingsRepository(context.applicationContext),
+                serverUrl,
+                playerName
+            ) as T
     }
 }

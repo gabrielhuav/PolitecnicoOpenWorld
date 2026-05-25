@@ -61,6 +61,10 @@ data class WorldMapState(
 
     val isUserPanningMap: Boolean = false,
 
+    // Multijugador
+    val isMultiplayer: Boolean = false,
+    val playerName: String = "",
+
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
     val selectedLandmarkId: Long? = null,

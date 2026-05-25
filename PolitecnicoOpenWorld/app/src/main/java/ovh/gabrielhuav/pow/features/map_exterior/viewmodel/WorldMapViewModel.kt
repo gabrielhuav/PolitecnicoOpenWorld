@@ -226,6 +226,7 @@ class WorldMapViewModel(
 
     fun connectToMultiplayer(serverUrl: String, playerName: String) {
         myPlayerDisplayName = playerName
+        _uiState.update { it.copy(isMultiplayer = true, playerName = playerName) }
         if (webSocketManager == null) {
             Log.d("WorldMapVM", "Iniciando conexión multijugador a $serverUrl")
             webSocketManager = WebSocketManager(serverUrl)
@@ -242,6 +243,7 @@ class WorldMapViewModel(
     }
 
     fun disconnectFromMultiplayer() {
+        _uiState.update { it.copy(isMultiplayer = false, playerName = "") }
         webSocketManager?.disconnect()
         webSocketManager = null
         messagesCollectorJob?.cancel()

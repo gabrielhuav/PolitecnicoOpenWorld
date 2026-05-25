@@ -21,8 +21,10 @@ android {
 
     buildTypes {
         debug {
-            // Actualizado con la URL de tu nuevo servidor en Render
+            // Servidor del mundo abierto (open world)
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
+            // Servidor del minijuego de zombis (instancia separada en Render)
+            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://192.168.1.4:8080\"")
         }
         release {
             isMinifyEnabled = false
@@ -30,8 +32,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Actualizado también para producción
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
+            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://192.168.1.4:8080\"")
         }
     }
 

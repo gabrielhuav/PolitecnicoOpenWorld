@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,8 +16,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuState
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuViewModel
@@ -84,6 +88,7 @@ fun MainMenuScreen(
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         )
 
+        // ─── Diálogo de nombre del jugador (solo aparece tras warmup OK) ──
         if (state.showMultiplayerDialog) {
             AlertDialog(
                 onDismissRequest = { viewModel.updateShowMultiplayerDialog(false) },
@@ -108,6 +113,39 @@ fun MainMenuScreen(
                 dismissButton = {
                     TextButton(onClick = { viewModel.updateShowMultiplayerDialog(false) }) {
                         Text("Cancelar")
+                    }
+                }
+            )
+        }
+
+        // ─── Spinner bloqueante mientras Render despierta ────────────────
+        if (state.isWarmingUp) {
+            WarmupDialog(
+                secondsElapsed = state.warmupSeconds,
+                onCancel = { viewModel.cancelWarmup() }
+            )
+        }
+
+        // ─── Banner de error si el warmup hace timeout ───────────────────
+        if (state.warmupFailed) {
+            AlertDialog(
+                onDismissRequest = { viewModel.dismissWarmupError() },
+                title = { Text("Servidor no disponible") },
+                text = {
+                    Text(
+                        "El servidor multijugador tarda demasiado en responder. " +
+                                "Intenta de nuevo en unos segundos."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.dismissWarmupError()
+                        viewModel.onMultiplayerPressed() // reintenta
+                    }) { Text("REINTENTAR") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.dismissWarmupError() }) {
+                        Text("Cerrar")
                     }
                 }
             )
@@ -142,24 +180,27 @@ fun MenuButtonsList(
             viewModel.onStartGame()
             onNavigateToMap(false, null)
         },
-        enabled = !state.isLoading
+        enabled = !state.isLoading && !state.isWarmingUp
     )
     Spacer(Modifier.height(16.dp))
 
     MenuButton(text = "CARGAR PARTIDA", onClick = {}, enabled = false)
     Spacer(Modifier.height(16.dp))
 
+    // El botón MULTIJUGADOR dispara el warmup ANTES de mostrar el diálogo
+    // de nombre. Mientras dura el warmup queda deshabilitado para evitar
+    // que el usuario lance dos pings en paralelo.
     MenuButton(
         text = "MULTIJUGADOR",
-        onClick = { viewModel.updateShowMultiplayerDialog(true) },
-        enabled = true
+        onClick = { viewModel.onMultiplayerPressed() },
+        enabled = !state.isWarmingUp
     )
     Spacer(Modifier.height(16.dp))
 
     MenuButton(
         text = "AJUSTES",
         onClick = onNavigateToSettings,
-        enabled = true,
+        enabled = !state.isWarmingUp,
         color = Color(0xFF6B1C3A)
     )
     Spacer(Modifier.height(16.dp))
@@ -167,7 +208,7 @@ fun MenuButtonsList(
     MenuButton(
         text = "COLECCIONABLES",
         onClick = onNavigateToCollectibles,
-        enabled = true,
+        enabled = !state.isWarmingUp,
         color = Color(0xFF6B1C3A)
     )
 }
@@ -180,4 +221,75 @@ fun MenuButton(text: String, onClick: () -> Unit, enabled: Boolean = true, color
         colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White, disabledContainerColor = Color(0xFF2A1C21), disabledContentColor = Color.Gray),
         modifier = Modifier.fillMaxWidth(0.85f).height(56.dp).shadow(elevation = if (enabled) 8.dp else 0.dp, shape = shape)
     ) { Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) }
+}
+
+/**
+ * Diálogo modal NO descartable (solo el botón CANCELAR cierra) que muestra
+ * el progreso del warmup del servidor de Render. Estilo coherente con el
+ * resto del menú: gradiente vino + acento dorado, esquinas cortadas.
+ */
+@Composable
+private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
+    Dialog(
+        onDismissRequest = { /* no descartable por fuera */ },
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        val shape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .background(Color(0xFF1A0A10), shape = shape)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "DESPERTANDO SERVIDOR",
+                    color = Color(0xFFD4AF37),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                CircularProgressIndicator(
+                    color = Color(0xFFD4AF37),
+                    strokeWidth = 3.dp,
+                    modifier = Modifier.size(56.dp)
+                )
+
+                Text(
+                    text = "El servidor multijugador está en reposo.\nDespertándolo... ${secondsElapsed}s",
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.sp
+                )
+
+                Text(
+                    text = "Puede tardar hasta 60 segundos.",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(4.dp))
+
+                OutlinedButton(
+                    onClick = onCancel,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                ) {
+                    Text("CANCELAR", fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                }
+            }
+        }
+    }
 }
