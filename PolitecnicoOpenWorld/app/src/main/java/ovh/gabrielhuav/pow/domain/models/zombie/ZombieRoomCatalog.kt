@@ -112,8 +112,8 @@ object ZombieRoomCatalog {
     @Synchronized
     fun init(context: android.content.Context) {
         if (isInitialized) return
-        var allSuccess = true
         rooms.forEach { room ->
+            if (room.dimensionsLoaded) return@forEach
             try {
                 context.assets.open(room.backgroundAsset).use { inputStream ->
                     val options = android.graphics.BitmapFactory.Options().apply {
@@ -125,16 +125,13 @@ object ZombieRoomCatalog {
                         room.worldHeight = options.outHeight.toFloat()
                         room.dimensionsLoaded = true
                     } else {
-                        allSuccess = false
+                        android.util.Log.w("ZombieRoomCatalog", "Las dimensiones para el fondo ${room.backgroundAsset} devolvieron 0. Se usará el tamaño por defecto (fallback).")
                     }
                 }
             } catch (e: Exception) {
-                allSuccess = false
-                android.util.Log.e("ZombieRoomCatalog", "No se pudo leer la resolución del fondo ${room.backgroundAsset}", e)
+                android.util.Log.e("ZombieRoomCatalog", "No se pudo leer la resolución del fondo ${room.backgroundAsset}. Se usará fallback.", e)
             }
         }
-        if (allSuccess) {
-            isInitialized = true
-        }
+        isInitialized = true
     }
 }
