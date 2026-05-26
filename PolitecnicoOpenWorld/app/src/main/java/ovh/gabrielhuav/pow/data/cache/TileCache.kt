@@ -9,7 +9,7 @@ class TileCache(private val mapTileDao: MapTileDao) {
     private val TAG = "TileDebug_Cache"
 
     companion object {
-        private const val MAX_TILES_PER_PROVIDER = 8_000
+        private const val MAX_TILES_PER_PROVIDER = 8_000L
     }
 
     fun getTileByUrl(provider: String, urlKey: String): ByteArray? {
@@ -30,23 +30,21 @@ class TileCache(private val mapTileDao: MapTileDao) {
 
     fun putTileByUrl(provider: String, urlKey: String, data: ByteArray) {
         try {
-            Log.d(TAG, "Intentando guardar en Room provider=$provider, hash=$urlKey, bytes=${data.size}")
-            val count = mapTileDao.getCount(provider)
-            Log.d(TAG, "Conteo actual de tiles para $provider: $count")
-
-            if (count >= MAX_TILES_PER_PROVIDER) {
-                val evict = MAX_TILES_PER_PROVIDER / 10
-                mapTileDao.deleteOldestTiles(provider, evict)
-                Log.d(TAG, "LRU: $evict tiles eliminados para $provider")
-            }
+            Log.d(TAG, "Guardando en Room provider=$provider, hash=$urlKey, bytes=${data.size}")
 
             val entity = MapTileEntity(
-                urlKey = urlKey,
-                provider = provider,
-                data = data,
+                urlKey      = urlKey,
+                provider    = provider,
+                data        = data,
                 createdAtMs = System.currentTimeMillis()
             )
-            mapTileDao.insertTile(entity)
+
+            // BUG FIX: antes se hacían 3 operaciones separadas (getCount, deleteOldestTiles,
+            // insertTile) sin transacción. Si el proceso moría entre el delete y el insert
+            // el caché quedaba en estado inconsistente (tiles eliminados pero nuevo no guardado).
+            // Ahora se usa insertTileWithEvict() que envuelve todo en @Transaction.
+            mapTileDao.insertTileWithEvict(entity, MAX_TILES_PER_PROVIDER)
+
             Log.d(TAG, "¡Guardado exitoso en Room para $urlKey!")
         } catch (e: Exception) {
             Log.e(TAG, "Excepción al escribir en Room (putTileByUrl): ${e.stackTraceToString()}")
