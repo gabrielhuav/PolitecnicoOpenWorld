@@ -98,10 +98,11 @@ class NpcAiManager {
                         if (node.lon < minLon) minLon = node.lon
                         if (node.lon > maxLon) maxLon = node.lon
                     }
+                    val lonMargin = spawnDistance / Math.cos(playerLocation.latitude * Math.PI / 180.0)
                     if (playerLocation.latitude < minLat - spawnDistance || 
                         playerLocation.latitude > maxLat + spawnDistance ||
-                        playerLocation.longitude < minLon - spawnDistance ||
-                        playerLocation.longitude > maxLon + spawnDistance) {
+                        playerLocation.longitude < minLon - lonMargin ||
+                        playerLocation.longitude > maxLon + lonMargin) {
                         false
                     } else {
                         way.nodes.any { calculateDistance(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistance }
