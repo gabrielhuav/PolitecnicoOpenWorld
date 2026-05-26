@@ -1188,24 +1188,7 @@ private fun CacheChip(label: String, text: String, color: Color, isLoading: Bool
     }
 }
 
-private fun drawHealthBarOnDrawable(context: Context, original: android.graphics.drawable.Drawable?, health: Float, isDying: Boolean): android.graphics.drawable.Drawable? {
-    if (original !is android.graphics.drawable.BitmapDrawable || health >= 100f || isDying) return original
-    val mutableBitmap = original.bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
-    val canvas = android.graphics.Canvas(mutableBitmap)
-    val paint = android.graphics.Paint()
-    val barWidth = mutableBitmap.width * 0.95f
-    val barHeight = 10f
-    val left = (mutableBitmap.width - barWidth) / 2f
-    val top = 0f
-    paint.color = android.graphics.Color.BLACK
-    canvas.drawRect(left, top, left + barWidth, top + barHeight, paint)
-    paint.color = when { health > 60f -> android.graphics.Color.GREEN; health > 30f -> android.graphics.Color.YELLOW; else -> android.graphics.Color.RED }
-    val healthWidth = (barWidth - 6f) * (health / 100f)
-    if (healthWidth > 0) canvas.drawRect(left + 3f, top + 3f, left + 3f + healthWidth, top + barHeight - 3f, paint)
-    return android.graphics.drawable.BitmapDrawable(context.resources, mutableBitmap)
-}
 
-private data class NpcWebPayload(val id: String, val lat: Double, val lng: Double, val rot: Float, val type: String, val imageKey: String? = null, val drawable: String? = null, val flip: Int? = null, val name: String? = null, val width: Float? = null, val height: Float? = null)
 
 private data class LandmarkWebPayload(
     val id: String,
@@ -1526,22 +1509,6 @@ private class MapJsBridge(private val vm: WorldMapViewModel) {
     }
 }
 
-private class ExactSizeDrawable(
-    private val base: android.graphics.drawable.Drawable,
-    private val exactWidthPx: Int,
-    private val exactHeightPx: Int
-) : android.graphics.drawable.Drawable() {
-    override fun getIntrinsicWidth() = exactWidthPx
-    override fun getIntrinsicHeight() = exactHeightPx
-    override fun draw(canvas: android.graphics.Canvas) {
-        val b = this.getBounds()
-        base.setBounds(b.left, b.top, b.right, b.bottom)
-        base.draw(canvas)
-    }
-    override fun setAlpha(alpha: Int) { base.alpha = alpha }
-    override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { base.colorFilter = colorFilter }
-    @Deprecated("Deprecated in Java") override fun getOpacity() = base.opacity
-}
 fun getAssetFile(context: Context, assetPath: String, fileName: String): java.io.File {
     val file = java.io.File(context.cacheDir, fileName)
     if (!file.exists()) {

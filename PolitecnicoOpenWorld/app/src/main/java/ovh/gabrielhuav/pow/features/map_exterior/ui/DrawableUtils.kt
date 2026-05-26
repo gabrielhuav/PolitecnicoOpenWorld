@@ -22,7 +22,7 @@ internal fun drawHealthBarOnDrawable(
     val paint = Paint()
 
     val barWidth = mutableBitmap.width * 0.95f
-    val barHeight = 100f
+    val barHeight = 10f
     val left = (mutableBitmap.width - barWidth) / 2f
     val top = 0f
 
