@@ -1,15 +1,16 @@
 [versions]
-agp = "9.2.1"
-kotlin = "2.2.10"
-coreKtx = "1.17.0"
+agp = "8.7.3"
+kotlin = "2.1.0"
+ksp = "2.1.0-1.0.29"
+coreKtx = "1.15.0"
 junit = "4.13.2"
-junitVersion = "1.3.0"
-espressoCore = "3.7.0"
-lifecycleRuntimeKtx = "2.10.0"
-activityCompose = "1.12.4"
-composeBom = "2024.09.00"
-# Room 2.7.0 es la primera versión compatible con KSP2 y Kotlin 2.x
-roomVersion = "2.7.0"
+junitVersion = "1.2.1"
+espressoCore = "3.6.1"
+lifecycleRuntimeKtx = "2.8.7"
+activityCompose = "1.9.3"
+composeBom = "2024.11.00"
+# Room 2.7.0-alpha11 is recommended for Kotlin 2.x and KSP
+roomVersion = "2.7.0-alpha11"
 preferenceKtx = "1.2.1"
 
 [libraries]
@@ -39,4 +40,4 @@ androidx-compose-foundation = { group = "androidx.compose.foundation", name = "f
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version = "2.3.2" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
