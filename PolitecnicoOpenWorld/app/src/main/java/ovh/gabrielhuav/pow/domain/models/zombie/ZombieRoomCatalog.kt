@@ -30,8 +30,8 @@ object ZombieRoomCatalog {
         // pero desplazada hacia abajo (Y: 0.25 a 0.35).
         ZoneDoor(NormRect(0.34f, 0.25f, 0.50f, 0.35f), "za_biblioteca", "Biblioteca", DoorKind.TO_BUILDING),
 
-        // CAFETERIA: toma la posición que tenía ESTACIONAMIENTO.
-        ZoneDoor(NormRect(0.22f, 0.62f, 0.34f, 0.74f), "za_cafeteria", "Cafetería", DoorKind.TO_BUILDING),
+        // CAFETERIA: Movida a la zona de las canchas
+        ZoneDoor(NormRect(0.05f, 0.86f, 0.15f, 0.96f), "za_cafeteria", "Cafetería", DoorKind.TO_BUILDING),
 
         ZoneDoor(NormRect(0.38f, 0.55f, 0.54f, 0.68f), "za_edificio", "Edificio Principal", DoorKind.TO_BUILDING),
 
@@ -41,8 +41,10 @@ object ZombieRoomCatalog {
         // PALAPAS: toma la posición que tenía BIBLIOTECA.
         ZoneDoor(NormRect(0.22f, 0.38f, 0.34f, 0.50f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
 
-        ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
-    )
+        // PALAPAS 2: agregado un punto en palapas IA
+        ZoneDoor(NormRect(0.47f, 0.79f, 0.68f, 0.90f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
+
+        ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)    )
 
     private fun buildingDoors(index: Int): List<ZoneDoor> {
         val next = buildingOrder[(index + 1) % buildingOrder.size]
