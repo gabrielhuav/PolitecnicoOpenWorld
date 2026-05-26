@@ -26,6 +26,18 @@ class NpcAiManager {
         // y los NPCs adoptados desde la red.
         const val CAR_SPEED = 0.000008
         const val PERSON_SPEED = 0.0000015
+
+        // Parámetros de población y ciclo de vida de NPCs
+        const val MAX_NPCS = 40
+        const val DESPAWN_DISTANCE = 0.035   // ~3.5 km en grados lat/lon
+        const val SPAWN_DISTANCE = 0.0060    // ~600 m: radio en que se generan nuevos NPCs
+
+        // Distancias de filtro al hacer spawn (evitar que aparezcan encima del jugador o muy lejos)
+        private const val MIN_SPAWN_DISTANCE = 0.0002   // ~20 m mínimo
+        private const val MAX_SPAWN_DISTANCE = 0.0040   // ~400 m máximo
+
+        // Distancia máxima para adoptar un NPC remoto a una calle local (~200 m)
+        private const val ROAD_ADOPTION_DISTANCE = 0.002
     }
 
     private val _npcs = MutableStateFlow<List<Npc>>(emptyList())
@@ -33,13 +45,6 @@ class NpcAiManager {
 
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
     val pendingDespawns = mutableListOf<String>()
-
-    private val maxNpcs = 40
-    private val despawnDistance = 0.035
-    private val spawnDistance   = 0.0060
-
-    private val carSpeed    = CAR_SPEED
-    private val personSpeed = PERSON_SPEED
 
     @Volatile private var networkIsReady = false
 
@@ -72,26 +77,26 @@ class NpcAiManager {
             // 1. Despawn por distancia (SOLO limpiamos localmente, SIN MANDAR MENSAJE AL SERVIDOR)
             val toRemove = serverNpcs.filter {
                 it.displayName.isNullOrEmpty() &&
-                        calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude) > despawnDistance
+                        calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude) > DESPAWN_DISTANCE
             }
             serverNpcs.removeAll(toRemove)
 
             // 2. Control de Población
             val currentNpcsCount = serverNpcs.count { it.displayName.isNullOrEmpty() }
-            if (currentNpcsCount > maxNpcs) {
-                val excess = currentNpcsCount - maxNpcs
+            if (currentNpcsCount > MAX_NPCS) {
+                val excess = currentNpcsCount - MAX_NPCS
                 val sorted = serverNpcs.filter { it.displayName.isNullOrEmpty() }.sortedByDescending {
                     calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude)
                 }
                 val toAnnihilate = sorted.take(excess)
                 serverNpcs.removeAll(toAnnihilate)
                 toAnnihilate.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
-            } else if (currentNpcsCount < maxNpcs) {
+            } else if (currentNpcsCount < MAX_NPCS) {
                 val closeWays = currentNetwork.filter { way ->
-                    way.nodes.any { calculateDistance(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistance }
+                    way.nodes.any { calculateDistance(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < SPAWN_DISTANCE }
                 }
                 if (closeWays.isNotEmpty()) {
-                    val numToSpawn = minOf(2, maxNpcs - currentNpcsCount)
+                    val numToSpawn = minOf(2, MAX_NPCS - currentNpcsCount)
                     for (i in 0 until numToSpawn) {
                         spawnNpcOnRoad(playerLocation, closeWays)?.let { serverNpcs.add(it) }
                     }
@@ -117,7 +122,7 @@ class NpcAiManager {
 
     private fun spawnNpcOnRoad(playerLocation: GeoPoint, closeWays: List<MapWay>): Npc? {
         val npcType = if (Random.nextFloat() < 0.6f) NpcType.CAR else NpcType.PERSON
-        val speed   = if (npcType == NpcType.CAR) carSpeed else personSpeed
+        val speed   = if (npcType == NpcType.CAR) CAR_SPEED else PERSON_SPEED
 
         val validWays = closeWays.filter {
             (npcType == NpcType.CAR && it.isForCars) || (npcType == NpcType.PERSON && it.isForPeople)
@@ -129,7 +134,7 @@ class NpcAiManager {
         val startNode   = selectedWay.nodes[startIndex]
 
         val distToPlayer = calculateDistance(startNode.lat, startNode.lon, playerLocation.latitude, playerLocation.longitude)
-        if (distToPlayer < 0.0002 || distToPlayer > 0.0040) return null
+        if (distToPlayer < MIN_SPAWN_DISTANCE || distToPlayer > MAX_SPAWN_DISTANCE) return null
 
         val dir = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
 
@@ -198,7 +203,7 @@ class NpcAiManager {
                 }
             }
             // Si está a menos de ~200 metros de una calle, lo adoptamos. Si está en la nada, muere.
-            if (closestWay != null && closestDist < 0.002) {
+            if (closestWay != null && closestDist < ROAD_ADOPTION_DISTANCE) {
                 way = closestWay
                 nodeIndex = bestNodeIdx
                 direction = if (bestNodeIdx >= closestWay.nodes.size / 2) -1 else 1
