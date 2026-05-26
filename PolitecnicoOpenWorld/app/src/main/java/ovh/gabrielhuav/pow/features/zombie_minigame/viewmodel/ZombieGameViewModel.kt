@@ -37,6 +37,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 class ZombieGameViewModel(
+    private val applicationContext: Context,
     private val settingsRepository: SettingsRepository,
     // URL del servidor de zombis. null = partida offline (un jugador), idéntica
     // a como funcionaba antes de añadir multijugador.
@@ -121,9 +122,16 @@ class ZombieGameViewModel(
     private var lastRoomId: String? = null
 
     init {
-        loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
-        startGameLoop()
-        connectIfNeeded()
+        _state.update { it.copy(isLoading = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            ZombieRoomCatalog.init(applicationContext)
+            launch(Dispatchers.Main) {
+                _state.update { it.copy(isLoading = false) }
+                loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+                startGameLoop()
+                connectIfNeeded()
+            }
+        }
     }
 
     // ─── CONEXIÓN MULTIJUGADOR ─────────────────────────────
@@ -796,8 +804,8 @@ class ZombieGameViewModel(
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            ZombieRoomCatalog.init(context.applicationContext)
             return ZombieGameViewModel(
+                context.applicationContext,
                 SettingsRepository(context.applicationContext),
                 serverUrl,
                 playerName

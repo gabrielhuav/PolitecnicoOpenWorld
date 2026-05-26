@@ -106,11 +106,13 @@ object ZombieRoomCatalog {
     fun roomById(id: String) = byId[id]
     fun indexOfRoom(id: String) = rooms.indexOfFirst { it.id == id }
 
+    @Volatile
     private var isInitialized = false
 
+    @Synchronized
     fun init(context: android.content.Context) {
         if (isInitialized) return
-        isInitialized = true
+        var allSuccess = true
         rooms.forEach { room ->
             try {
                 context.assets.open(room.backgroundAsset).use { inputStream ->
@@ -121,11 +123,18 @@ object ZombieRoomCatalog {
                     if (options.outWidth > 0 && options.outHeight > 0) {
                         room.worldWidth = options.outWidth.toFloat()
                         room.worldHeight = options.outHeight.toFloat()
+                        room.dimensionsLoaded = true
+                    } else {
+                        allSuccess = false
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("ZombieRoomCatalog", "No se pudo leer la resolución del fondo ${room.backgroundAsset}: ${e.message}")
+                allSuccess = false
+                android.util.Log.e("ZombieRoomCatalog", "No se pudo leer la resolución del fondo ${room.backgroundAsset}", e)
             }
+        }
+        if (allSuccess) {
+            isInitialized = true
         }
     }
 }

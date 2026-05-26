@@ -78,7 +78,8 @@ data class ZombieRoom(
     val playerSpawnFrac: NormPoint = NormPoint(0.5f, 0.85f),
     val doors: List<ZoneDoor> = emptyList(),
     val zombieCount: Int = 0,
-    val collisionGridFrac: List<NormRect> = emptyList()
+    val collisionGridFrac: List<NormRect> = emptyList(),
+    var dimensionsLoaded: Boolean = false
 )
 
 data class ZoneDoor(
