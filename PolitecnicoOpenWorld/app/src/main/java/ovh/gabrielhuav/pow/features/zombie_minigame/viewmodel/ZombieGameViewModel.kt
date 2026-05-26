@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.zombie.ActiveEffect
@@ -128,13 +129,17 @@ class ZombieGameViewModel(
                 withContext(Dispatchers.IO) {
                     ZombieRoomCatalog.init(applicationContext)
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ZombieGameVM", "Error fatal cargando catálogo", e)
             } finally {
-                _state.update { it.copy(isLoading = false) }
-                loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
-                startGameLoop()
-                connectIfNeeded()
+                if (isActive) {
+                    _state.update { it.copy(isLoading = false) }
+                    loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+                    startGameLoop()
+                    connectIfNeeded()
+                }
             }
         }
     }

@@ -106,8 +106,12 @@ object ZombieRoomCatalog {
     fun roomById(id: String) = byId[id]
     fun indexOfRoom(id: String) = rooms.indexOfFirst { it.id == id }
 
+    @Volatile
+    private var isInitialized = false
+
     @Synchronized
     fun init(context: android.content.Context) {
+        if (isInitialized) return
         rooms.forEach { room ->
             if (room.dimensionsLoaded) return@forEach
             try {
@@ -128,5 +132,6 @@ object ZombieRoomCatalog {
                 android.util.Log.e("ZombieRoomCatalog", "No se pudo leer la resolución del fondo ${room.backgroundAsset}. Se usará fallback.", e)
             }
         }
+        isInitialized = true
     }
 }
