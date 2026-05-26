@@ -23,6 +23,18 @@ const server = http.createServer(app);
 
 const LOBBY_ID = 'lobby_campus';
 
+// Salas válidas conocidas. JOIN_ROOM con un roomId fuera de esta lista
+// recibe el LOBBY_ID como fallback, evitando salas "fantasma".
+const VALID_ROOM_IDS = new Set([
+    'lobby_campus',
+    'za_auditorio', 'za_biblioteca', 'za_cafeteria',
+    'za_edificio', 'za_estacionamiento', 'za_palapas'
+]);
+
+// Rate limiting: máximo de mensajes por cliente por ventana de tiempo.
+const RATE_LIMIT_MAX = 30;       // mensajes permitidos por ventana
+const RATE_LIMIT_WINDOW_MS = 1000; // duración de la ventana (1 segundo)
+
 // players: sessionId -> { id, displayName, roomId, zone, x, y, action, facingRight, health, lastUpdated }
 const players = new Map();
 
@@ -110,6 +122,8 @@ wss.on('connection', (ws) => {
     ws.isAlive = true;
     ws.missedPings = 0;
     ws.roomId = null; // aún no ha entrado a ninguna sala
+    ws.msgCount = 0;
+    ws.msgWindowStart = Date.now();
 
     console.log(`[+Z] Cliente conectado. ID: ${ws.sessionId}`);
     ws.send(JSON.stringify({ type: 'SESSION_INIT', sessionId: ws.sessionId }));
@@ -117,6 +131,17 @@ wss.on('connection', (ws) => {
     ws.on('pong', () => { ws.isAlive = true; });
 
     ws.on('message', (raw) => {
+        // Rate limiting: descarta mensajes que superen el límite por segundo.
+        const now = Date.now();
+        if (now - ws.msgWindowStart > RATE_LIMIT_WINDOW_MS) {
+            ws.msgCount = 0;
+            ws.msgWindowStart = now;
+        }
+        ws.msgCount++;
+        if (ws.msgCount > RATE_LIMIT_MAX) {
+            return;
+        }
+
         try {
             const data = JSON.parse(raw);
 
@@ -125,7 +150,8 @@ wss.on('connection', (ws) => {
                 // al minijuego y cada vez que cruza una puerta.
                 case 'JOIN_ROOM': {
                     const oldRoom = ws.roomId;
-                    ws.roomId = typeof data.roomId === 'string' ? data.roomId : LOBBY_ID;
+                    const requested = typeof data.roomId === 'string' ? data.roomId : LOBBY_ID;
+                    ws.roomId = VALID_ROOM_IDS.has(requested) ? requested : LOBBY_ID;
 
                     // Avisar a la sala vieja que este jugador se fue
                     if (oldRoom && oldRoom !== ws.roomId) {

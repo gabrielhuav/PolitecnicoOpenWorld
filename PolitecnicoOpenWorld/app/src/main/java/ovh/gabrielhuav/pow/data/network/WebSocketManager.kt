@@ -12,17 +12,25 @@ class WebSocketManager(private val serverUrl: String) {
 
     private var webSocket: WebSocket? = null
 
-    // CORRECCIÓN CLAVE: 0 significa "Sin límite de tiempo de espera" (Infinito)
+    // Cuando es true, los cierres de socket no emiten disconnectedFlow
+    // (evita que disconnect() manual dispare una reconexión).
+    @Volatile private var intentionalDisconnect = false
+
     private val client = OkHttpClient.Builder()
         .connectionSpecs(listOf(ConnectionSpec.CLEARTEXT, ConnectionSpec.MODERN_TLS))
         .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.MILLISECONDS)  // Evita que Android cierre el socket si no hay tráfico
-        .writeTimeout(0, TimeUnit.MILLISECONDS) // Evita que Android cierre el socket al escribir
-        .pingInterval(25, TimeUnit.SECONDS)     // El cliente manda latidos para mantener la red abierta
+        .readTimeout(0, TimeUnit.MILLISECONDS)
+        .writeTimeout(0, TimeUnit.MILLISECONDS)
+        .pingInterval(25, TimeUnit.SECONDS)
         .build()
 
     private val _messagesFlow = MutableSharedFlow<String>(extraBufferCapacity = 64)
     val messagesFlow: SharedFlow<String> = _messagesFlow.asSharedFlow()
+
+    // Emite Unit cada vez que la conexión se pierde de forma inesperada.
+    // El ViewModel lo observa para programar una reconexión con backoff.
+    private val _disconnectedFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val disconnectedFlow: SharedFlow<Unit> = _disconnectedFlow.asSharedFlow()
 
     fun isConnected(): Boolean = webSocket != null
 
@@ -31,12 +39,10 @@ class WebSocketManager(private val serverUrl: String) {
             Log.d("WebSocket", "Ya hay una conexión activa.")
             return
         }
-
+        intentionalDisconnect = false
         Log.d("WebSocket", "Intentando conectar a: $serverUrl")
 
-        val request = Request.Builder()
-            .url(serverUrl)
-            .build()
+        val request = Request.Builder().url(serverUrl).build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -55,16 +61,19 @@ class WebSocketManager(private val serverUrl: String) {
                 Log.d("WebSocket", "⚠️ Servidor solicita cierre: $code / $reason")
                 webSocket.close(1000, null)
                 this@WebSocketManager.webSocket = null
+                if (!intentionalDisconnect) _disconnectedFlow.tryEmit(Unit)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d("WebSocket", "🔌 Conexión CERRADA: $code / $reason")
                 this@WebSocketManager.webSocket = null
+                if (!intentionalDisconnect) _disconnectedFlow.tryEmit(Unit)
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e("WebSocket", "❌ Error CRÍTICO: ${t.message}")
                 this@WebSocketManager.webSocket = null
+                if (!intentionalDisconnect) _disconnectedFlow.tryEmit(Unit)
             }
         })
     }
@@ -74,6 +83,7 @@ class WebSocketManager(private val serverUrl: String) {
     }
 
     fun disconnect() {
+        intentionalDisconnect = true
         webSocket?.close(1000, "Cierre por el usuario")
         webSocket = null
     }

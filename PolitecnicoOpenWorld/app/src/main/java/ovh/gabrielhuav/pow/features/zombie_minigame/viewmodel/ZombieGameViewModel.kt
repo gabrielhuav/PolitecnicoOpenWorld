@@ -119,6 +119,7 @@ class ZombieGameViewModel(
     private var lastRangedShotMs = 0L
     private var yPressStartMs = 0L
     private var lastRoomId: String? = null
+    private var reconnectDelayMs = 2_000L
 
     init {
         loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
@@ -133,12 +134,19 @@ class ZombieGameViewModel(
         wsCollectorJob = viewModelScope.launch(Dispatchers.IO) {
             wsManager?.messagesFlow?.collect { handleServerMessage(it) }
         }
-        wsManager?.connect()
-        // Pequeño retraso para que el socket abra antes del primer JOIN_ROOM.
-        viewModelScope.launch {
-            delay(600)
-            sendJoinRoom()
+        // Reconexión automática con backoff exponencial (máx 30 s).
+        // sendJoinRoom se dispara al recibir SESSION_INIT en el nuevo socket,
+        // así que no necesitamos hacer nada extra aquí tras reconectar.
+        viewModelScope.launch(Dispatchers.IO) {
+            wsManager?.disconnectedFlow?.collect {
+                delay(reconnectDelayMs)
+                reconnectDelayMs = (reconnectDelayMs * 2).coerceAtMost(30_000L)
+                android.util.Log.d("ZombieNet", "Reconectando en ${reconnectDelayMs}ms…")
+                wsManager?.connect()
+            }
         }
+        wsManager?.connect()
+        // JOIN_ROOM se enviará al recibir SESSION_INIT (ver handleServerMessage).
     }
 
     private fun sendJoinRoom() {
@@ -161,7 +169,11 @@ class ZombieGameViewModel(
         try {
             val msg = gson.fromJson(json, ZombieServerMessage::class.java)
             when (msg.type) {
-                "SESSION_INIT" -> msg.sessionId?.let { mySessionId = it }
+                "SESSION_INIT" -> msg.sessionId?.let {
+                    mySessionId = it
+                    reconnectDelayMs = 2_000L // reset del backoff al confirmar sesión
+                    sendJoinRoom()
+                }
 
                 "ROOM_SNAPSHOT" -> {
                     remotePlayers.clear()
@@ -367,7 +379,9 @@ class ZombieGameViewModel(
         if (gameLoopJob?.isActive == true) return
         gameLoopJob = viewModelScope.launch(Dispatchers.Default) {
             while (isActive) {
-                try { tick() } catch (_: Exception) {}
+                try { tick() } catch (e: Exception) {
+                    android.util.Log.e("ZombieGame", "Error en tick: ${e.message}", e)
+                }
                 delay(TICK_MS)
             }
         }
