@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.zombie.ActiveEffect
@@ -37,6 +38,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 class ZombieGameViewModel(
+    private val applicationContext: Context,
     private val settingsRepository: SettingsRepository,
     // URL del servidor de zombis. null = partida offline (un jugador), idéntica
     // a como funcionaba antes de añadir multijugador.
@@ -121,9 +123,25 @@ class ZombieGameViewModel(
     private var lastRoomId: String? = null
 
     init {
-        loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
-        startGameLoop()
-        connectIfNeeded()
+        _state.update { it.copy(isLoading = true) }
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    ZombieRoomCatalog.init(applicationContext)
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("ZombieGameVM", "Advertencia: Falló la inicialización del catálogo. El juego continuará con tamaños por defecto (fallback).", e)
+            } finally {
+                if (isActive) {
+                    _state.update { it.copy(isLoading = false) }
+                    loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+                    startGameLoop()
+                    connectIfNeeded()
+                }
+            }
+        }
     }
 
     // ─── CONEXIÓN MULTIJUGADOR ─────────────────────────────
@@ -795,11 +813,13 @@ class ZombieGameViewModel(
         private val playerName: String
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            ZombieGameViewModel(
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return ZombieGameViewModel(
+                context.applicationContext,
                 SettingsRepository(context.applicationContext),
                 serverUrl,
                 playerName
             ) as T
+        }
     }
 }

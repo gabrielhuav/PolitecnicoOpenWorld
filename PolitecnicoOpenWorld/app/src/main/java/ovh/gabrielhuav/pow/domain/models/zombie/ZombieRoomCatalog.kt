@@ -35,11 +35,11 @@ object ZombieRoomCatalog {
 
         ZoneDoor(NormRect(0.38f, 0.55f, 0.54f, 0.68f), "za_edificio", "Edificio Principal", DoorKind.TO_BUILDING),
 
-        // ESTACIONAMIENTO: toma la posición que tenía CAFETERIA.
-        ZoneDoor(NormRect(0.50f, 0.38f, 0.62f, 0.50f), "za_estacionamiento", "Estacionamiento", DoorKind.TO_BUILDING),
+        // ESTACIONAMIENTO: Ubicado en el camión blanco (Derecha superior). Movido aún más arriba.
+        ZoneDoor(NormRect(0.57f, 0.14f, 0.67f, 0.22f), "za_estacionamiento", "Estacionamiento", DoorKind.TO_BUILDING),
 
-        // PALAPAS: toma la posición que tenía BIBLIOTECA.
-        ZoneDoor(NormRect(0.22f, 0.38f, 0.34f, 0.50f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
+        // PALAPAS: Ubicado en las palapas (Izquierda superior). Movido aún más arriba.
+        ZoneDoor(NormRect(0.18f, 0.14f, 0.28f, 0.22f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
 
         // NUEVA ZONA: Canchas de Futbol
         ZoneDoor(NormRect(0.64f, 0.38f, 0.76f, 0.50f), "za_canchas_futbol", "Canchas de Futbol", DoorKind.TO_BUILDING),
@@ -109,4 +109,29 @@ object ZombieRoomCatalog {
     private val byId = rooms.associateBy { it.id }
     fun roomById(id: String) = byId[id]
     fun indexOfRoom(id: String) = rooms.indexOfFirst { it.id == id }
+
+    @Synchronized
+    fun init(context: android.content.Context) {
+        rooms.forEach { room ->
+            if (room.initAttempted) return@forEach
+            room.initAttempted = true
+            try {
+                context.assets.open(room.backgroundAsset).use { inputStream ->
+                    val options = android.graphics.BitmapFactory.Options().apply {
+                        inJustDecodeBounds = true
+                    }
+                    android.graphics.BitmapFactory.decodeStream(inputStream, null, options)
+                    if (options.outWidth > 0 && options.outHeight > 0) {
+                        room.worldWidth = options.outWidth.toFloat()
+                        room.worldHeight = options.outHeight.toFloat()
+                        room.dimensionsLoaded = true
+                    } else {
+                        android.util.Log.w("ZombieRoomCatalog", "Fondo ${room.backgroundAsset} devolvió dimensiones inválidas (W:${options.outWidth}, H:${options.outHeight}). Se usará fallback.")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ZombieRoomCatalog", "No se pudo leer la resolución del fondo ${room.backgroundAsset}. Se usará fallback.", e)
+            }
+        }
+    }
 }
