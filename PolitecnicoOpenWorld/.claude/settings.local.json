@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./gradlew compileDebugKotlin)"
+      "Bash(./gradlew compileDebugKotlin)",
+      "Bash(xargs wc -l)"
     ]
   }
 }
