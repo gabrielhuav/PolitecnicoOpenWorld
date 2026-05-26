@@ -7,11 +7,12 @@ import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin        // ← NUEVO
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 const val ZOOM_LOADING = 18.0
-const val ZOOM_GAMEPLAY_OSM = 20.0  // Nivel de zoom para OSMDroid Nativo
-const val ZOOM_GAMEPLAY_WEB = 19.0  // Nivel de zoom para los proveedores Web
+const val ZOOM_GAMEPLAY_OSM = 20.0
+const val ZOOM_GAMEPLAY_WEB = 19.0
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
@@ -45,6 +46,10 @@ data class WorldMapState(
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
+
+    // ─── Skin del jugador ────────────────────────────────────────────────
+    val selectedSkin: PlayerSkin = PlayerSkin.LAZARO,            // ← NUEVO
+    val showSkinSelector: Boolean = false,                        // ← NUEVO
 
     // Estados del personaje
     val playerAction: PlayerAction = PlayerAction.IDLE,
@@ -87,12 +92,8 @@ data class WorldMapState(
     val isZombieHandSpawned: Boolean = false,
 
     // ─── INTERIORES ZOMBIE ───────────────────────────────────────────────
-    // Cuando el jugador activa una ZombiHand, aquí queda guardado a qué
-    // edificio debe ser llevado tras terminar el video.
     val pendingInteriorDestination: InteriorBuilding? = null,
 
     // ─── MODO DEBUG DE INTERIORES ────────────────────────────────────────
-    // Cuando está activado, se pintan los 6 marcadores fijos de los edificios
-    // y el bounding box de ESCOM sobre el mapa, para ajustar coordenadas.
     val showInteriorDebugOverlay: Boolean = false
 )

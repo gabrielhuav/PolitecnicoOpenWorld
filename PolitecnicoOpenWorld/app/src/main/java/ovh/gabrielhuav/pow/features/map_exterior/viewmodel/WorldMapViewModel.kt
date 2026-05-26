@@ -155,9 +155,10 @@ class WorldMapViewModel(
 
     private val _uiState = MutableStateFlow(
         WorldMapState(
-            controlType = settingsRepository.getControlType(),
+            controlType   = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
-            swapControls = settingsRepository.getSwapControls()
+            swapControls  = settingsRepository.getSwapControls(),
+            selectedSkin  = settingsRepository.getPlayerSkin()    // ← NUEVO
         )
     )
     val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
@@ -1644,5 +1645,15 @@ class WorldMapViewModel(
         val currentLoc = _uiState.value.currentLocation ?: return
         val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
         if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) clearDestinationMarker()
+    }
+    // ─── Selector de skin ────────────────────────────────────────────────
+
+    fun toggleSkinSelector(show: Boolean) {
+        _uiState.update { it.copy(showSkinSelector = show) }
+    }
+
+    fun selectSkin(skin: ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin) {
+        settingsRepository.savePlayerSkin(skin)
+        _uiState.update { it.copy(selectedSkin = skin, showSkinSelector = false) }
     }
 }
