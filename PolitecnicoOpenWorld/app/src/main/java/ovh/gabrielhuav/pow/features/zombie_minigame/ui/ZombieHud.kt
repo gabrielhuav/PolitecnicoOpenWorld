@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -68,6 +69,8 @@ fun ZombieHud(
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
 
     Box(Modifier.fillMaxSize()) {
+
+        LowHealthAura(health = state.playerHealth)
 
         // ─── BARRA SUPERIOR ────────────────────────────────
         Column(
@@ -179,6 +182,38 @@ fun ZombieHud(
             }
         }
     }
+}
+
+@Composable
+fun LowHealthAura(health: Float) {
+    if (health > 35f) return
+
+    val infiniteTransition = rememberInfiniteTransition(label = "lowHealthAura")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.05f,
+        targetValue = 0.6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+
+    // A medida que la vida baja de 35 a 0, el efecto es más pronunciado
+    val intensity = (1f - (health / 35f)).coerceIn(0f, 1f)
+    val currentAlpha = alpha * intensity
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.radialGradient(
+                    0.0f to Color.Transparent,
+                    0.6f to Color.Transparent,
+                    1.0f to Color.Red.copy(alpha = currentAlpha),
+                )
+            )
+    )
 }
 
 @Composable
