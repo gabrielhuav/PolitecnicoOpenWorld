@@ -77,7 +77,7 @@ class ZombieGameViewModel(
         const val ZOMBIE_FRAME_INTERVAL_MS = 140L
         const val ZOMBIE_RADIUS = 30f
 
-        const val CONTACT_DIST = 56f
+        const val CONTACT_DIST = 42f
         const val ZOMBIE_DAMAGE = 12f
         const val ZOMBIE_DAMAGE_COOLDOWN_MS = 3000L
 
@@ -403,6 +403,9 @@ class ZombieGameViewModel(
         }
 
         var newHealth = s.playerHealth
+        if (room.type == ZoneType.LOBBY && newHealth < 100f) {
+            newHealth = (newHealth + (5f * TICK_MS / 1000f)).coerceAtMost(100f)
+        }
         var pulse = s.damagePulseTrigger
 
         // 1. Mover zombis + daño de contacto
