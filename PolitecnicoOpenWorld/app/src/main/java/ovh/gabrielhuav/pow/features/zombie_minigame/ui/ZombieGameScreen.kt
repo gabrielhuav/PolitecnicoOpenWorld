@@ -101,8 +101,7 @@ fun ZombieGameScreen(
                     scale(cam.scale, cam.scale, pivot = Offset.Zero) {
                         drawImage(
                             image = bg,
-                            dstOffset = IntOffset.Zero,
-                            dstSize = IntSize(room.worldWidth.toInt(), room.worldHeight.toInt())
+                            dstOffset = IntOffset.Zero
                         )
                         if (debugHitboxes) {
                             room.doors.forEach { d ->

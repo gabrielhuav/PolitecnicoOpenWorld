@@ -795,11 +795,13 @@ class ZombieGameViewModel(
         private val playerName: String
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            ZombieGameViewModel(
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            ZombieRoomCatalog.init(context.applicationContext)
+            return ZombieGameViewModel(
                 SettingsRepository(context.applicationContext),
                 serverUrl,
                 playerName
             ) as T
+        }
     }
 }

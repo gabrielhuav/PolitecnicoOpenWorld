@@ -105,4 +105,27 @@ object ZombieRoomCatalog {
     private val byId = rooms.associateBy { it.id }
     fun roomById(id: String) = byId[id]
     fun indexOfRoom(id: String) = rooms.indexOfFirst { it.id == id }
+
+    private var isInitialized = false
+
+    fun init(context: android.content.Context) {
+        if (isInitialized) return
+        isInitialized = true
+        rooms.forEach { room ->
+            try {
+                context.assets.open(room.backgroundAsset).use { inputStream ->
+                    val options = android.graphics.BitmapFactory.Options().apply {
+                        inJustDecodeBounds = true
+                    }
+                    android.graphics.BitmapFactory.decodeStream(inputStream, null, options)
+                    if (options.outWidth > 0 && options.outHeight > 0) {
+                        room.worldWidth = options.outWidth.toFloat()
+                        room.worldHeight = options.outHeight.toFloat()
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ZombieRoomCatalog", "No se pudo leer la resolución del fondo ${room.backgroundAsset}: ${e.message}")
+            }
+        }
+    }
 }
