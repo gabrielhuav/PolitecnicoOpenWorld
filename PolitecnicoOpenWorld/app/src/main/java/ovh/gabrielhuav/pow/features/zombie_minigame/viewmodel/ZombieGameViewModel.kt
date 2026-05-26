@@ -132,7 +132,7 @@ class ZombieGameViewModel(
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                android.util.Log.e("ZombieGameVM", "Error fatal cargando catálogo", e)
+                android.util.Log.w("ZombieGameVM", "Advertencia: Falló la inicialización del catálogo. El juego continuará con tamaños por defecto (fallback).", e)
             } finally {
                 if (isActive) {
                     _state.update { it.copy(isLoading = false) }
