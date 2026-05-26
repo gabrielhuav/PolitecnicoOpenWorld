@@ -123,9 +123,14 @@ class ZombieGameViewModel(
 
     init {
         _state.update { it.copy(isLoading = true) }
-        viewModelScope.launch(Dispatchers.IO) {
-            ZombieRoomCatalog.init(applicationContext)
-            launch(Dispatchers.Main) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    ZombieRoomCatalog.init(applicationContext)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ZombieGameVM", "Error fatal cargando catálogo", e)
+            } finally {
                 _state.update { it.copy(isLoading = false) }
                 loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
                 startGameLoop()

@@ -106,12 +106,8 @@ object ZombieRoomCatalog {
     fun roomById(id: String) = byId[id]
     fun indexOfRoom(id: String) = rooms.indexOfFirst { it.id == id }
 
-    @Volatile
-    private var isInitialized = false
-
     @Synchronized
     fun init(context: android.content.Context) {
-        if (isInitialized) return
         rooms.forEach { room ->
             if (room.dimensionsLoaded) return@forEach
             try {
@@ -125,13 +121,12 @@ object ZombieRoomCatalog {
                         room.worldHeight = options.outHeight.toFloat()
                         room.dimensionsLoaded = true
                     } else {
-                        android.util.Log.w("ZombieRoomCatalog", "Las dimensiones para el fondo ${room.backgroundAsset} devolvieron 0. Se usará el tamaño por defecto (fallback).")
+                        android.util.Log.w("ZombieRoomCatalog", "Fondo ${room.backgroundAsset} devolvió dimensiones inválidas (W:${options.outWidth}, H:${options.outHeight}). Se usará fallback.")
                     }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ZombieRoomCatalog", "No se pudo leer la resolución del fondo ${room.backgroundAsset}. Se usará fallback.", e)
             }
         }
-        isInitialized = true
     }
 }
