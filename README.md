@@ -219,7 +219,8 @@ Entering the zombie minigame puts the player in a circular **ring of 7 rooms**: 
 - **SkillEffect drops:** dying zombies drop one of six effects with 45% probability, rendered as **pure Canvas icons** (no asset loading) — hourglass for slow-time, red triangle for traps (`ADRENALINA_ZOMBI`, `FURIA_ZOMBI`), green cross for buffs (`CURA_TOTAL`, `DEBILIDAD_ZOMBI`, `FUERZA_BRUTA`).
 - **Dynamic lighting:** in buildings (dark interiors), a yellow aura follows the player and a green toxic aura follows each living zombie, drawn via `Brush.radialGradient` inside the camera transform so they pan and zoom with the world.
 - **Death loop:** dying in a building triggers a WASTED animation and respawns the player at the lobby door of the building they died in, with HP restored. Clearing all zombies shows a "Congratulations" overlay; using the world-exit door returns to the open world.
-
+- **Combat feedback and recoil:** receiving damage triggers a camera shake effect and a red screen-edge damage flash that scales with the player's remaining health. Melee hits and projectiles now apply knockback to zombies (clamped to room bounds), while firing ranged weapons applies a small recoil force to the player, improving combat weight and tactile feedback.
+  
 ### 🌐 Real-Time Multiplayer
 
 The server (`Multiplayer/server.js`) is a **Node.js + Express + ws** process that holds player and NPC state in memory and ships as a Docker image. The public instance used by the Android client is hosted on **[Render](https://render.com/)**, which builds the container straight from the repository and exposes a public WebSocket endpoint that gets injected into the build via `BuildConfig.MULTIPLAYER_SERVER_URL`.
@@ -517,6 +518,7 @@ Entrar al minijuego mete al jugador en un **anillo circular de 7 cuartos**: un l
 - **Drops de SkillEffect:** los zombis al morir sueltan uno de seis efectos con 45% de probabilidad, renderizados como **iconos vectoriales puros con Canvas** (sin cargar assets) — reloj de arena para ralentizar tiempo, triángulo rojo para trampas (`ADRENALINA_ZOMBI`, `FURIA_ZOMBI`), cruz verde para buffs (`CURA_TOTAL`, `DEBILIDAD_ZOMBI`, `FUERZA_BRUTA`).
 - **Iluminación dinámica:** en los edificios (interiores oscuros), un aura amarilla sigue al jugador y un aura verde tóxica sigue a cada zombi vivo, dibujadas con `Brush.radialGradient` dentro de la transformación de cámara para que se desplacen y escalen con el mundo.
 - **Loop de muerte:** morir en un edificio dispara una animación WASTED y respawnea al jugador en la puerta del lobby correspondiente al edificio donde murió, con HP restaurado. Acabar con todos los zombis muestra un overlay "Congratulations"; usar la puerta de salida al mundo regresa al open world.
+- **Retroalimentación de combate y retroceso:** recibir daño activa un efecto de vibración de cámara y un destello rojo en los bordes de la pantalla cuyo grosor escala con la vida restante del jugador. Los golpes cuerpo a cuerpo y los proyectiles ahora aplican retroceso a los zombis (limitado a los bordes del cuarto), mientras que disparar armas a distancia aplica un pequeño recoil al jugador, mejorando la sensación de impacto y peso del combate.
 
 ### 🌐 Multijugador en Tiempo Real
 
