@@ -90,8 +90,13 @@ fun ZombieGameScreen(
             val viewportWpx = with(density) { maxWidth.toPx() }
             val viewportHpx = with(density) { maxHeight.toPx() }
 
-            val cam = remember(state.playerX, state.playerY, viewportWpx, viewportHpx, room.id) {
-                computeCamera(state.playerX, state.playerY, room.worldWidth, room.worldHeight, viewportWpx, viewportHpx, room.zoom)
+            // Aplicar sacudida de pantalla
+            val shakeX = if (state.shakeIntensity > 0) ((-1..1).random() * state.shakeIntensity) else 0f
+            val shakeY = if (state.shakeIntensity > 0) ((-1..1).random() * state.shakeIntensity) else 0f
+
+            val cam = remember(state.playerX, state.playerY, viewportWpx, viewportHpx, room.id, state.shakeIntensity) {
+                val baseCam = computeCamera(state.playerX, state.playerY, room.worldWidth, room.worldHeight, viewportWpx, viewportHpx, room.zoom)
+                baseCam.copy(offsetX = baseCam.offsetX + shakeX, offsetY = baseCam.offsetY + shakeY)
             }
 
             // ─── CAPA DEL MUNDO (fondo) ─────────────────────────
@@ -400,6 +405,17 @@ fun ZombieGameScreen(
                     modifier = Modifier.scale(wastedScale)
                 )
             }
+        }
+
+        // --- EFECTO VISUAL: Parpadeo rojo de daño ---
+        if (state.damageFlashAlpha > 0f) {
+            // El grosor aumenta conforme baja la salud
+            val dynamicWidth = (8 + (100f - state.playerHealth) / 100f * 32f).dp
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(dynamicWidth, Color(0xFFD32F2F).copy(alpha = state.damageFlashAlpha))
+            )
         }
     }
 }

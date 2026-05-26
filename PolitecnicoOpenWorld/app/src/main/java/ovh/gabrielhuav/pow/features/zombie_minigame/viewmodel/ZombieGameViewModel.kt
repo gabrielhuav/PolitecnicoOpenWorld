@@ -99,6 +99,9 @@ class ZombieGameViewModel(
         const val ITEM_PICKUP_DIST = 70f
         const val RETURN_SPAWN_OFFSET = 40f
 
+        const val KNOCKBACK_FORCE = 15f // Fuerza del retroceso de zombis
+        const val PLAYER_RECOIL_FORCE = 10f // Mini retroceso del jugador al disparar
+
         const val EXIT_GUIDE_DURATION_MS = 2000L  // requerimiento 5
 
         // Probabilidad de que un zombi suelte un SkillItem al morir
@@ -413,8 +416,18 @@ class ZombieGameViewModel(
             if (dist <= CONTACT_DIST && now - moved.lastDamageToPlayerMs >= ZOMBIE_DAMAGE_COOLDOWN_MS) {
                 newHealth -= ZOMBIE_DAMAGE * dmgFactor
                 pulse += 1
+                // ACTIVAR SACUDIDA Y FLASH ROJO
+                _state.update { it.copy(shakeIntensity = 15f, damageFlashAlpha = 0.6f) }
                 moved.copy(lastDamageToPlayerMs = now)
             } else moved
+        }
+
+        // Reducir efectos visuales con el tiempo
+        if (s.shakeIntensity > 0 || s.damageFlashAlpha > 0) {
+            _state.update { it.copy(
+                shakeIntensity = (it.shakeIntensity * 0.85f).let { val1 -> if (val1 < 0.1f) 0f else val1 },
+                damageFlashAlpha = (it.damageFlashAlpha - 0.05f).coerceAtLeast(0f)
+            )}
         }
 
         // 2. Proyectiles
@@ -431,10 +444,19 @@ class ZombieGameViewModel(
             }
             if (hit != null) {
                 val newHp = hit.health - PROJECTILE_DAMAGE * playerDamageFactor()
+                // Aplicar knockback por proyectil
+                val dx = hit.x - s.playerX
+                val dy = hit.y - s.playerY
+                val dist = hypot(dx, dy)
+                val kx = if (dist > 0) (dx / dist) * KNOCKBACK_FORCE else 0f
+                val ky = if (dist > 0) (dy / dist) * KNOCKBACK_FORCE else 0f
+
                 workingZombies = workingZombies.map { z ->
                     if (z.id == hit.id) {
-                        if (newHp <= 0f) { deadZombieIds.add(z.id); z.copy(health = 0f, isDying = true) }
-                        else z.copy(health = newHp)
+                        val nxZ = (z.x + kx).coerceIn(ZOMBIE_RADIUS, room.worldWidth - ZOMBIE_RADIUS)
+                        val nyZ = (z.y + ky).coerceIn(ZOMBIE_RADIUS, room.worldHeight - ZOMBIE_RADIUS)
+                        if (newHp <= 0f) { deadZombieIds.add(z.id); z.copy(x = nxZ, y = nyZ, health = 0f, isDying = true) }
+                        else z.copy(x = nxZ, y = nyZ, health = newHp)
                     } else z
                 }
             } else {
@@ -517,10 +539,23 @@ class ZombieGameViewModel(
             .minByOrNull { hypot(it.x - s.playerX, it.y - s.playerY) } ?: return
 
         val newHealth = target.health - PLAYER_PUNCH_DAMAGE * playerDamageFactor()
+
+        // Aplicar knockback por golpe cuerpo a cuerpo
+        val dx = target.x - s.playerX
+        val dy = target.y - s.playerY
+        val dist = hypot(dx, dy)
+        val kx = if (dist > 0) (dx / dist) * (KNOCKBACK_FORCE * 1.5f) else 0f
+        val ky = if (dist > 0) (dy / dist) * (KNOCKBACK_FORCE * 1.5f) else 0f
+
         if (newHealth <= 0f) {
             _state.update { cur ->
                 cur.copy(zombies = cur.zombies.map {
-                    if (it.id == target.id) it.copy(health = 0f, isDying = true) else it
+                    if (it.id == target.id) {
+                        val room = currentRoom()
+                        val nx = (it.x + kx).coerceIn(ZOMBIE_RADIUS, room.worldWidth - ZOMBIE_RADIUS)
+                        val ny = (it.y + ky).coerceIn(ZOMBIE_RADIUS, room.worldHeight - ZOMBIE_RADIUS)
+                        it.copy(x = nx, y = ny, health = 0f, isDying = true)
+                    } else it
                 })
             }
             viewModelScope.launch {
@@ -530,7 +565,12 @@ class ZombieGameViewModel(
         } else {
             _state.update { cur ->
                 cur.copy(zombies = cur.zombies.map {
-                    if (it.id == target.id) it.copy(health = newHealth) else it
+                    if (it.id == target.id) {
+                        val room = currentRoom()
+                        val nx = (it.x + kx).coerceIn(ZOMBIE_RADIUS, room.worldWidth - ZOMBIE_RADIUS)
+                        val ny = (it.y + ky).coerceIn(ZOMBIE_RADIUS, room.worldHeight - ZOMBIE_RADIUS)
+                        it.copy(x = nx, y = ny, health = newHealth)
+                    } else it
                 })
             }
         }
@@ -548,7 +588,29 @@ class ZombieGameViewModel(
         if (dx == 0f && dy == 0f) { dx = if (s.isPlayerFacingRight) 1f else -1f; dy = 0f }
 
         val p = Projectile(x = s.playerX, y = s.playerY, dirX = dx, dirY = dy, bornAtMs = now)
-        _state.update { it.copy(projectiles = it.projectiles + p, playerAction = PlayerAction.SPECIAL) }
+        
+        // Aplicar mini retroceso al jugador
+        val recoilX = -dx * PLAYER_RECOIL_FORCE
+        val recoilY = -dy * PLAYER_RECOIL_FORCE
+        val targetRecoilX = s.playerX + recoilX
+        val targetRecoilY = s.playerY + recoilY
+        
+        val (finalX, finalY) = if (isWalkable(targetRecoilX, targetRecoilY)) {
+            targetRecoilX to targetRecoilY
+        } else if (isWalkable(targetRecoilX, s.playerY)) {
+            targetRecoilX to s.playerY
+        } else if (isWalkable(s.playerX, targetRecoilY)) {
+            s.playerX to targetRecoilY
+        } else {
+            s.playerX to s.playerY
+        }
+
+        _state.update { it.copy(
+            projectiles = it.projectiles + p, 
+            playerAction = PlayerAction.SPECIAL,
+            playerX = finalX,
+            playerY = finalY
+        ) }
         idleJob?.cancel()
         idleJob = viewModelScope.launch {
             delay(150)

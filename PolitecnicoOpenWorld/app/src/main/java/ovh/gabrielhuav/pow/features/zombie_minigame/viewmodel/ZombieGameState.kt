@@ -57,8 +57,11 @@ data class ZombieGameState(
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
     val isLoading: Boolean = true,
-    val remotePlayers: List<RemoteZombiePlayer> = emptyList()
+    val remotePlayers: List<RemoteZombiePlayer> = emptyList(),
 
+    // Efectos Visuales de Feedback
+    val shakeIntensity: Float = 0f,
+    val damageFlashAlpha: Float = 0f
 )
 
 data class CameraTransform(
