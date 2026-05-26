@@ -7,8 +7,8 @@ import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin        // ← NUEVO
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
+import ovh.gabrielhuav.pow.features.settings.models.PlayerSkin
 
 const val ZOOM_LOADING = 18.0
 const val ZOOM_GAMEPLAY_OSM = 20.0
