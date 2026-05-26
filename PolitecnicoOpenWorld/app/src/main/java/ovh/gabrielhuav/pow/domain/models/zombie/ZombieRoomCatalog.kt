@@ -35,11 +35,11 @@ object ZombieRoomCatalog {
 
         ZoneDoor(NormRect(0.38f, 0.55f, 0.54f, 0.68f), "za_edificio", "Edificio Principal", DoorKind.TO_BUILDING),
 
-        // ESTACIONAMIENTO: toma la posición que tenía CAFETERIA.
-        ZoneDoor(NormRect(0.50f, 0.38f, 0.62f, 0.50f), "za_estacionamiento", "Estacionamiento", DoorKind.TO_BUILDING),
+        // ESTACIONAMIENTO: Ubicado en el camión blanco (Derecha superior). Movido aún más arriba.
+        ZoneDoor(NormRect(0.57f, 0.14f, 0.67f, 0.22f), "za_estacionamiento", "Estacionamiento", DoorKind.TO_BUILDING),
 
-        // PALAPAS: toma la posición que tenía BIBLIOTECA.
-        ZoneDoor(NormRect(0.22f, 0.38f, 0.34f, 0.50f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
+        // PALAPAS: Ubicado en las palapas (Izquierda superior). Movido aún más arriba.
+        ZoneDoor(NormRect(0.18f, 0.14f, 0.28f, 0.22f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
 
         ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
     )

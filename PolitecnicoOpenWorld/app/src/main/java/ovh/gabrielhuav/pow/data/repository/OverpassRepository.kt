@@ -137,7 +137,8 @@ class OverpassRepository {
             if (element.getString("type") != "way") continue
 
             val tags = element.optJSONObject("tags") ?: continue
-            val highway = tags.optString("highway", "") .ifEmpty { continue }
+            val highway = tags.optString("highway", "")
+            if (highway.isEmpty()) continue
 
             val isForCars = highway.matches(CAR_REGEX)
             val isForPeople = highway.matches(PEOPLE_REGEX)
