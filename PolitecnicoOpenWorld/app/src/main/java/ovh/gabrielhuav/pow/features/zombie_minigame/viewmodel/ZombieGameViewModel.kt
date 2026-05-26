@@ -119,7 +119,9 @@ class ZombieGameViewModel(
     private var lastRangedShotMs = 0L
     private var yPressStartMs = 0L
     private var lastRoomId: String? = null
+    @Volatile
     private var cachedRoomIndex: Int = -1
+    @Volatile
     private var cachedBlockers: List<WorldRect> = emptyList()
 
     init {
@@ -230,6 +232,12 @@ class ZombieGameViewModel(
     private fun currentRoom(): ZombieRoom = ZombieRoomCatalog.rooms[_state.value.currentRoomIndex]
 
     private fun currentBlockers(): List<WorldRect> {
+        val roomIndex = _state.value.currentRoomIndex
+        if (cachedRoomIndex != roomIndex) {
+            val room = ZombieRoomCatalog.rooms[roomIndex]
+            cachedBlockers = room.collisionGridFrac.map { it.toWorldRect(room.worldWidth, room.worldHeight) }
+            cachedRoomIndex = roomIndex
+        }
         return cachedBlockers
     }
 
@@ -385,11 +393,7 @@ class ZombieGameViewModel(
         if (s.showVictoryScreen || s.showWastedScreen || s.isExitingToWorld || s.showExitToLobbyDialog) return
         val room = ZombieRoomCatalog.rooms[s.currentRoomIndex]
         
-        if (cachedRoomIndex != s.currentRoomIndex) {
-            cachedBlockers = room.collisionGridFrac.map { it.toWorldRect(room.worldWidth, room.worldHeight) }
-            cachedRoomIndex = s.currentRoomIndex
-        }
-        val blockers = cachedBlockers
+        val blockers = currentBlockers()
 
         // 0. Expirar efectos vencidos (requerimiento 2: revertir modificadores)
         val stillActive = s.activeEffects.filter { it.expiresAtMs > now }

@@ -98,7 +98,9 @@ class NpcAiManager {
                         if (node.lon < minLon) minLon = node.lon
                         if (node.lon > maxLon) maxLon = node.lon
                     }
-                    val lonMargin = spawnDistance / Math.cos(playerLocation.latitude * Math.PI / 180.0)
+                    val minCos = kotlin.math.min(kotlin.math.abs(kotlin.math.cos(minLat * Math.PI / 180.0)), kotlin.math.abs(kotlin.math.cos(maxLat * Math.PI / 180.0)))
+                    val clampedCos = kotlin.math.max(minCos, 0.01)
+                    val lonMargin = spawnDistance / clampedCos
                     if (playerLocation.latitude < minLat - spawnDistance || 
                         playerLocation.latitude > maxLat + spawnDistance ||
                         playerLocation.longitude < minLon - lonMargin ||
