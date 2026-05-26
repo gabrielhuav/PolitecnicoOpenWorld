@@ -1310,6 +1310,7 @@ class WorldMapViewModel(
     fun dismissClaimedPopup() { _uiState.update { it.copy(showClaimedPopupFor = null) } }
 
     fun takeDamage(amount: Float) {
+        if (playerHealth <= 0f || _uiState.value.showWastedScreen) return
         playerHealth = (playerHealth - amount).coerceAtLeast(0f)
         damagePulseTrigger++
         showHealthBar = true
@@ -1342,8 +1343,9 @@ class WorldMapViewModel(
     }
 
     private fun triggerWastedSequence() {
+        if (_uiState.value.showWastedScreen) return
+        _uiState.update { it.copy(showWastedScreen = true) }
         viewModelScope.launch(Dispatchers.Main) {
-            _uiState.update { it.copy(showWastedScreen = true) }
             delay(4000L)
             val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
             val nearestHospital = hospitalRespawnPoints.minByOrNull { distance(deathLoc, it) } ?: hospitalRespawnPoints.first()

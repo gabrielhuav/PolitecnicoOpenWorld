@@ -4,6 +4,10 @@ import android.graphics.BitmapFactory
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -90,8 +94,15 @@ fun ZombieGameScreen(
             val viewportWpx = with(density) { maxWidth.toPx() }
             val viewportHpx = with(density) { maxHeight.toPx() }
 
-            val cam = remember(state.playerX, state.playerY, viewportWpx, viewportHpx, room.id) {
-                computeCamera(state.playerX, state.playerY, room.worldWidth, room.worldHeight, viewportWpx, viewportHpx, room.zoom)
+            val cam = remember(state.playerX, state.playerY, viewportWpx, viewportHpx, room.id, state.shakeIntensity) {
+                val baseCam = computeCamera(state.playerX, state.playerY, room.worldWidth, room.worldHeight, viewportWpx, viewportHpx, room.zoom)
+                if (state.shakeIntensity > 0f) {
+                    val shakeX = (Math.random().toFloat() * 2f - 1f) * state.shakeIntensity
+                    val shakeY = (Math.random().toFloat() * 2f - 1f) * state.shakeIntensity
+                    baseCam.copy(offsetX = baseCam.offsetX + shakeX, offsetY = baseCam.offsetY + shakeY)
+                } else {
+                    baseCam
+                }
             }
 
             // ─── CAPA DEL MUNDO (fondo) ─────────────────────────
@@ -109,6 +120,16 @@ fun ZombieGameScreen(
                                 val r = d.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight)
                                 drawRect(Color(0x5500FF00), Offset(r.left, r.top), Size(r.right - r.left, r.bottom - r.top))
                             }
+                        }
+                        val now = System.currentTimeMillis()
+                        state.particles.forEach { p ->
+                            val age = (now - p.bornAtMs).toFloat()
+                            val alpha = (1f - (age / p.lifeTimeMs)).coerceIn(0f, 1f)
+                            drawCircle(
+                                color = p.color.copy(alpha = alpha),
+                                radius = p.size,
+                                center = Offset(p.x, p.y)
+                            )
                         }
                     }
                 }
@@ -296,10 +317,84 @@ fun ZombieGameScreen(
                     y = with(density) { toScreenY(state.playerY).toDp() } - with(density) { (pSize / 2).toDp() }
                 )
             )
+
+            // Daño Flotante
+            state.damageNumbers.forEach { dmg ->
+                key(dmg.id) {
+                    val age = System.currentTimeMillis() - dmg.bornAtMs
+                    val fraction = (age.toFloat() / dmg.lifeTimeMs).coerceIn(0f, 1f)
+                    val floatOffset = -(fraction * 50f)
+                    val alpha = 1f - fraction
+                    Box(
+                        modifier = Modifier.absoluteOffset(
+                            x = with(density) { toScreenX(dmg.x).toDp() } - 20.dp,
+                            y = with(density) { toScreenY(dmg.y).toDp() } - 40.dp + floatOffset.dp
+                        )
+                    ) {
+                        Text(
+                            text = dmg.text,
+                            color = Color(0xFFFF3333).copy(alpha = alpha),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+            }
         }
 
         if (background == null) {
             Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Color(0xFFD4AF37)) }
+        }
+
+        // ─── VIÑETA DE DAÑO Y LOW HP ────────────────────────
+        var flashAlpha by remember { mutableFloatStateOf(0f) }
+        LaunchedEffect(state.damagePulseTrigger) {
+            if (state.damagePulseTrigger > 0) {
+                flashAlpha = 0.6f
+                animate(
+                    initialValue = 0.6f,
+                    targetValue = 0f,
+                    animationSpec = tween(durationMillis = 400, easing = LinearOutSlowInEasing)
+                ) { value, _ -> flashAlpha = value }
+            }
+        }
+
+        val isLowHp = state.playerHealth > 0f && state.playerHealth < 35f
+        var lowHpPulseAlpha by remember { mutableFloatStateOf(0f) }
+        if (isLowHp) {
+            val infiniteTransition = rememberInfiniteTransition(label = "low_hp_pulse")
+            val pulse by infiniteTransition.animateFloat(
+                initialValue = 0.1f,
+                targetValue = 0.5f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(800, easing = LinearOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "pulse_alpha"
+            )
+            lowHpPulseAlpha = pulse
+        } else {
+            lowHpPulseAlpha = 0f
+        }
+
+        val vignetteAlpha = max(flashAlpha, lowHpPulseAlpha)
+        if (vignetteAlpha > 0f) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val maxDim = with(density) { max(maxWidth.toPx(), maxHeight.toPx()) }
+                Box(
+                    modifier = Modifier.fillMaxSize().background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color(0xFF8B0000).copy(alpha = vignetteAlpha * 0.4f),
+                                Color(0xFF8B0000).copy(alpha = vignetteAlpha)
+                            ),
+                            radius = maxDim * 0.7f
+                        )
+                    )
+                )
+            }
         }
 
         // ─── HUD FIJO ───────────────────────────────────────

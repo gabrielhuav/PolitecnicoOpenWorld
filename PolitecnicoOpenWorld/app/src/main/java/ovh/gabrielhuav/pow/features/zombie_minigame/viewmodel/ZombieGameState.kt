@@ -9,6 +9,27 @@ import ovh.gabrielhuav.pow.domain.models.zombie.ZombieEntity
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
+data class ZombieParticle(
+    val id: String,
+    val x: Float,
+    val y: Float,
+    val vx: Float,
+    val vy: Float,
+    val color: androidx.compose.ui.graphics.Color,
+    val size: Float,
+    val lifeTimeMs: Long,
+    val bornAtMs: Long
+)
+
+data class FloatingDamage(
+    val id: String,
+    val text: String,
+    val x: Float,
+    val y: Float,
+    val bornAtMs: Long,
+    val lifeTimeMs: Long
+)
+
 data class ZombieGameState(
     val currentRoomIndex: Int = 0,
 
@@ -57,7 +78,11 @@ data class ZombieGameState(
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
     val isLoading: Boolean = true,
-    val remotePlayers: List<RemoteZombiePlayer> = emptyList()
+    val remotePlayers: List<RemoteZombiePlayer> = emptyList(),
+
+    val particles: List<ZombieParticle> = emptyList(),
+    val damageNumbers: List<FloatingDamage> = emptyList(),
+    val shakeIntensity: Float = 0f
 
 )
 

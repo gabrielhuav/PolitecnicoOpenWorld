@@ -264,7 +264,7 @@ class ZombieGameViewModel(
         if (hasEffect(SkillEffect.FUERZA_BRUTA)) PLAYER_DMG_BRUTE_FACTOR else 1f
 
     // ─── CARGA DE ZONA ─────────────────────────────────────
-    private fun loadRoom(index: Int) {
+    private fun loadRoom(index: Int, restoreHealth: Boolean = false) {
         val room = ZombieRoomCatalog.rooms[index]
         val now = System.currentTimeMillis()
 
@@ -303,7 +303,9 @@ class ZombieGameViewModel(
                 // Limpiamos efectos al cambiar de zona
                 activeEffects = emptyList(),
                 // Requerimiento 5: solo mostramos guía en edificios (donde hay EXIT)
-                showExitGuide = room.type == ZoneType.BUILDING
+                showExitGuide = room.type == ZoneType.BUILDING,
+                playerHealth = if (restoreHealth) 100f else it.playerHealth,
+                showWastedScreen = if (restoreHealth) false else it.showWastedScreen
             )
         }
 
@@ -430,10 +432,16 @@ class ZombieGameViewModel(
                 !it.isDying && hypot(it.x - nx, it.y - ny) <= PROJECTILE_HIT_RADIUS
             }
             if (hit != null) {
-                val newHp = hit.health - PROJECTILE_DAMAGE * playerDamageFactor()
+                val damageAmount = PROJECTILE_DAMAGE * playerDamageFactor()
+                val newHp = hit.health - damageAmount
+                triggerHitEffects(hit.x, hit.y, damageAmount)
                 workingZombies = workingZombies.map { z ->
                     if (z.id == hit.id) {
-                        if (newHp <= 0f) { deadZombieIds.add(z.id); z.copy(health = 0f, isDying = true) }
+                        if (newHp <= 0f) { 
+                            deadZombieIds.add(z.id)
+                            _state.update { cur -> cur.copy(shakeIntensity = 15f) }
+                            z.copy(health = 0f, isDying = true) 
+                        }
                         else z.copy(health = newHp)
                     } else z
                 }
@@ -452,6 +460,13 @@ class ZombieGameViewModel(
             !it.collected && hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
         }
 
+        val activeParticles = s.particles.map { it.copy(x = it.x + it.vx, y = it.y + it.vy) }
+            .filter { now - it.bornAtMs < it.lifeTimeMs }
+        val activeDamageNumbers = s.damageNumbers.filter { now - it.bornAtMs < it.lifeTimeMs }
+        val newShake = if (s.shakeIntensity > 0.1f) s.shakeIntensity * 0.82f else 0f
+        val takeDamageShake = if (pulse > s.damagePulseTrigger) 12f else 0f
+        val finalShake = if (takeDamageShake > newShake) takeDamageShake else newShake
+
         _state.update {
             it.copy(
                 zombies = workingZombies,
@@ -460,7 +475,10 @@ class ZombieGameViewModel(
                 damagePulseTrigger = pulse,
                 zombiesRemaining = workingZombies.count { z -> !z.isDying },
                 nearbyItemId = nearItem?.id,
-                activeEffects = if (effectsChanged) stillActive else it.activeEffects
+                activeEffects = if (effectsChanged) stillActive else it.activeEffects,
+                particles = activeParticles,
+                damageNumbers = activeDamageNumbers,
+                shakeIntensity = finalShake
             )
         }
 
@@ -516,12 +534,18 @@ class ZombieGameViewModel(
             .filter { !it.isDying && hypot(it.x - s.playerX, it.y - s.playerY) <= PLAYER_ATTACK_RADIUS }
             .minByOrNull { hypot(it.x - s.playerX, it.y - s.playerY) } ?: return
 
-        val newHealth = target.health - PLAYER_PUNCH_DAMAGE * playerDamageFactor()
+        val damageAmount = PLAYER_PUNCH_DAMAGE * playerDamageFactor()
+        val newHealth = target.health - damageAmount
+        triggerHitEffects(target.x, target.y, damageAmount)
+
         if (newHealth <= 0f) {
             _state.update { cur ->
-                cur.copy(zombies = cur.zombies.map {
-                    if (it.id == target.id) it.copy(health = 0f, isDying = true) else it
-                })
+                cur.copy(
+                    shakeIntensity = 15f,
+                    zombies = cur.zombies.map {
+                        if (it.id == target.id) it.copy(health = 0f, isDying = true) else it
+                    }
+                )
             }
             viewModelScope.launch {
                 delay(1000L)
@@ -606,21 +630,18 @@ class ZombieGameViewModel(
     private fun triggerWastedSequence() {
         if (_state.value.showWastedScreen) return
 
-        val diedInRoom = currentRoom()
         _state.update { it.copy(showWastedScreen = true, playerHealth = 0f, activeEffects = emptyList()) }
 
         viewModelScope.launch {
             delay(4000L)
-            if (diedInRoom.type == ZoneType.LOBBY) {
-                _state.update { it.copy(showWastedScreen = false, playerHealth = 100f) }
-                return@launch
+            val diedInRoom = currentRoom()
+            if (diedInRoom.type != ZoneType.LOBBY) {
+                spawnAtLobbyDoorFor(diedInRoom.id)?.let { (sx, sy) ->
+                    _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
+                }
+                lastRoomId = diedInRoom.id
             }
-            spawnAtLobbyDoorFor(diedInRoom.id)?.let { (sx, sy) ->
-                _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
-            }
-            lastRoomId = diedInRoom.id
-            _state.update { it.copy(showWastedScreen = false, playerHealth = 100f) }
-            loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+            loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID), restoreHealth = true)
         }
     }
 
@@ -787,6 +808,43 @@ class ZombieGameViewModel(
         exitGuideJob?.cancel()
         wsCollectorJob?.cancel()
         wsManager?.disconnect()
+    }
+
+    private fun triggerHitEffects(zx: Float, zy: Float, damageAmount: Float) {
+        val now = System.currentTimeMillis()
+        val newParticles = (1..10).map {
+            ZombieParticle(
+                id = UUID.randomUUID().toString(),
+                x = zx,
+                y = zy,
+                vx = (Random.nextFloat() * 10f) - 5f,
+                vy = (Random.nextFloat() * 10f) - 5f,
+                color = listOf(
+                    androidx.compose.ui.graphics.Color(0xFF8B0000),
+                    androidx.compose.ui.graphics.Color(0xFFFF0000),
+                    androidx.compose.ui.graphics.Color(0xFFB22222)
+                ).random(),
+                size = Random.nextFloat() * 4f + 4f,
+                lifeTimeMs = Random.nextLong(300, 600),
+                bornAtMs = now
+            )
+        }
+        val newDamage = FloatingDamage(
+            id = UUID.randomUUID().toString(),
+            text = "-${damageAmount.toInt()}",
+            x = zx,
+            y = zy,
+            bornAtMs = now,
+            lifeTimeMs = 600L
+        )
+        
+        _state.update {
+            it.copy(
+                shakeIntensity = 8f,
+                particles = it.particles + newParticles,
+                damageNumbers = it.damageNumbers + newDamage
+            )
+        }
     }
 
     class Factory(
