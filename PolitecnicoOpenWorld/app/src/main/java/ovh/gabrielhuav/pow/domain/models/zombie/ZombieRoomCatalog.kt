@@ -44,7 +44,8 @@ object ZombieRoomCatalog {
         // PALAPAS 2: agregado un punto en palapas IA
         ZoneDoor(NormRect(0.47f, 0.79f, 0.68f, 0.90f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
 
-        ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)    )
+        ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
+    )
 
     private fun buildingDoors(index: Int): List<ZoneDoor> {
         val next = buildingOrder[(index + 1) % buildingOrder.size]
