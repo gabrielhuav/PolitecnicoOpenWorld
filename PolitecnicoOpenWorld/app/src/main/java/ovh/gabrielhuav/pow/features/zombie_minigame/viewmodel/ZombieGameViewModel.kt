@@ -229,10 +229,7 @@ class ZombieGameViewModel(
     }
 
     // ─── ACCESO ────────────────────────────────────────────
-    private fun currentRoom(): ZombieRoom = ZombieRoomCatalog.rooms[_state.value.currentRoomIndex]
-
-    private fun currentBlockers(): List<WorldRect> {
-        val roomIndex = _state.value.currentRoomIndex
+    private fun currentBlockers(roomIndex: Int): List<WorldRect> {
         if (cachedRoomIndex != roomIndex) {
             val room = ZombieRoomCatalog.rooms[roomIndex]
             cachedBlockers = room.collisionGridFrac.map { it.toWorldRect(room.worldWidth, room.worldHeight) }
@@ -242,10 +239,11 @@ class ZombieGameViewModel(
     }
 
     private fun isWalkable(x: Float, y: Float): Boolean {
-        val r = currentRoom()
+        val currentRoomIdx = _state.value.currentRoomIndex
+        val r = ZombieRoomCatalog.rooms[currentRoomIdx]
         if (x < PLAYER_RADIUS || y < PLAYER_RADIUS ||
             x > r.worldWidth - PLAYER_RADIUS || y > r.worldHeight - PLAYER_RADIUS) return false
-        return currentBlockers().none { it.contains(x, y) }
+        return currentBlockers(currentRoomIdx).none { it.contains(x, y) }
     }
 
     private fun spawnAtLobbyDoorFor(fromBuildingId: String): Pair<Float, Float>? {
@@ -391,9 +389,10 @@ class ZombieGameViewModel(
         sendPlayerUpdate(now)
 
         if (s.showVictoryScreen || s.showWastedScreen || s.isExitingToWorld || s.showExitToLobbyDialog) return
-        val room = ZombieRoomCatalog.rooms[s.currentRoomIndex]
+        val roomIndex = s.currentRoomIndex
+        val room = ZombieRoomCatalog.rooms[roomIndex]
         
-        val blockers = currentBlockers()
+        val blockers = currentBlockers(roomIndex)
 
         // 0. Expirar efectos vencidos (requerimiento 2: revertir modificadores)
         val stillActive = s.activeEffects.filter { it.expiresAtMs > now }

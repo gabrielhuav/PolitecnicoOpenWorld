@@ -42,10 +42,28 @@ class NpcAiManager {
     private val personSpeed = PERSON_SPEED
 
     @Volatile private var networkIsReady = false
+    
+    private data class WayBBox(val minLat: Double, val maxLat: Double, val minLon: Double, val maxLon: Double)
+    private val wayBboxes = java.util.concurrent.ConcurrentHashMap<Long, WayBBox>()
 
     fun updateRoadNetwork(network: List<MapWay>) {
         cachedRoadNetwork.set(network)
         networkIsReady = network.isNotEmpty()
+        
+        wayBboxes.clear()
+        network.forEach { way ->
+            var minLat = 90.0
+            var maxLat = -90.0
+            var minLon = 180.0
+            var maxLon = -180.0
+            for (node in way.nodes) {
+                if (node.lat < minLat) minLat = node.lat
+                if (node.lat > maxLat) maxLat = node.lat
+                if (node.lon < minLon) minLon = node.lon
+                if (node.lon > maxLon) maxLon = node.lon
+            }
+            wayBboxes[way.id] = WayBBox(minLat, maxLat, minLon, maxLon)
+        }
     }
 
     fun setRemoteNpcs(remoteList: List<Npc>) {
@@ -88,18 +106,13 @@ class NpcAiManager {
                 toAnnihilate.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
             } else if (currentNpcsCount < maxNpcs) {
                 val closeWays = currentNetwork.filter { way ->
-                    var minLat = 90.0
-                    var maxLat = -90.0
-                    var minLon = 180.0
-                    var maxLon = -180.0
-                    for (node in way.nodes) {
-                        if (node.lat < minLat) minLat = node.lat
-                        if (node.lat > maxLat) maxLat = node.lat
-                        if (node.lon < minLon) minLon = node.lon
-                        if (node.lon > maxLon) maxLon = node.lon
-                    }
+                    val bbox = wayBboxes[way.id] ?: return@filter false
+                    val minLat = bbox.minLat
+                    val maxLat = bbox.maxLat
+                    val minLon = bbox.minLon
+                    val maxLon = bbox.maxLon
                     val minCos = kotlin.math.min(kotlin.math.abs(kotlin.math.cos(minLat * Math.PI / 180.0)), kotlin.math.abs(kotlin.math.cos(maxLat * Math.PI / 180.0)))
-                    val clampedCos = kotlin.math.max(minCos, 0.01)
+                    val clampedCos = kotlin.math.max(minCos, 0.000001)
                     val lonMargin = spawnDistance / clampedCos
                     if (playerLocation.latitude < minLat - spawnDistance || 
                         playerLocation.latitude > maxLat + spawnDistance ||
