@@ -68,6 +68,7 @@ import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun WorldMapScreen(
