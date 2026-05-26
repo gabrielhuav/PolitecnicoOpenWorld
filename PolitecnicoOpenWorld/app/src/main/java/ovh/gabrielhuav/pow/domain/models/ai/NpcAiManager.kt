@@ -88,7 +88,24 @@ class NpcAiManager {
                 toAnnihilate.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
             } else if (currentNpcsCount < maxNpcs) {
                 val closeWays = currentNetwork.filter { way ->
-                    way.nodes.any { calculateDistance(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistance }
+                    var minLat = 90.0
+                    var maxLat = -90.0
+                    var minLon = 180.0
+                    var maxLon = -180.0
+                    for (node in way.nodes) {
+                        if (node.lat < minLat) minLat = node.lat
+                        if (node.lat > maxLat) maxLat = node.lat
+                        if (node.lon < minLon) minLon = node.lon
+                        if (node.lon > maxLon) maxLon = node.lon
+                    }
+                    if (playerLocation.latitude < minLat - spawnDistance || 
+                        playerLocation.latitude > maxLat + spawnDistance ||
+                        playerLocation.longitude < minLon - spawnDistance ||
+                        playerLocation.longitude > maxLon + spawnDistance) {
+                        false
+                    } else {
+                        way.nodes.any { calculateDistance(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistance }
+                    }
                 }
                 if (closeWays.isNotEmpty()) {
                     val numToSpawn = minOf(2, maxNpcs - currentNpcsCount)

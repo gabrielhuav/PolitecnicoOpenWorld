@@ -1466,7 +1466,7 @@ class WorldMapViewModel(
         val startPoint = getNearestPointOnNetwork(from)
         val endPoint = getNearestPointOnNetwork(to)
         var current = startPoint
-        val visitedNodes = mutableSetOf<String>()
+        val visitedNodes = mutableSetOf<Pair<Double, Double>>()
         val maxSteps = 20
         for (step in 0 until maxSteps) {
             val distToTarget = distance(current, endPoint)
@@ -1475,7 +1475,7 @@ class WorldMapViewModel(
             var bestDist = distToTarget
             val candidateNodes = nearbyRoadNodes(current)
             for (nodePt in candidateNodes) {
-                val nodeKey = "${nodePt.latitude},${nodePt.longitude}"
+                val nodeKey = Pair(nodePt.latitude, nodePt.longitude)
                 if (visitedNodes.contains(nodeKey)) continue
                 val dFromCurrent = distance(current, nodePt)
                 if (dFromCurrent < 0.003) {
@@ -1488,13 +1488,13 @@ class WorldMapViewModel(
             }
             if (bestNext != null) {
                 current = bestNext
-                visitedNodes.add("${current.latitude},${current.longitude}")
+                visitedNodes.add(Pair(current.latitude, current.longitude))
                 route.add(current)
             } else break
         }
         route.add(endPoint)
         route.add(to)
-        return route.distinctBy { "${it.latitude},${it.longitude}" }
+        return route.distinctBy { Pair(it.latitude, it.longitude) }
     }
 
     private fun rebuildRoadNodeGrid(network: List<MapWay>) {
