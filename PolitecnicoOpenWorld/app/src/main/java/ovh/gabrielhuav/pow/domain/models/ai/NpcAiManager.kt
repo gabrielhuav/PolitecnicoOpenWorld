@@ -170,7 +170,79 @@ class NpcAiManager {
         )
     }
 
+    private fun moveLocalNpc(npc: Npc): Npc? {
+        val way = npc.currentLocalWay ?: return null
+        val landmark = npc.currentLandmark ?: return null
+        val nodeIndex = npc.targetNodeIndex
+        val direction = npc.moveDirection
+
+        // Lógica de final de ruta local (ej. estacionarse o salir a OSM)
+        if (nodeIndex < 0 || nodeIndex >= way.nodes.size) {
+            val reachedNode = if (nodeIndex < 0) way.nodes.first() else way.nodes.last()
+
+            if (reachedNode.isParkingSlot) {
+                // Llegó al cajón de estacionamiento, se apaga.
+                return npc.copy(navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED, speed = 0.0)
+            } else if (landmark.navGraph?.entryNodes?.contains(reachedNode.id) == true) {
+                // Llegó a la salida, lo mandamos de regreso a OSM
+                return npc.copy(
+                    navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM,
+                    currentLocalWay = null,
+                    currentLandmark = null,
+                    currentWay = null // Para que el sistema de Adopción de OSM lo recoja
+                )
+            } else {
+                // Rebotar (patrullaje interno de personas)
+                val newDir = direction * -1
+                val newIndex = if (nodeIndex < 0) 1 else way.nodes.size - 2
+                return npc.copy(targetNodeIndex = newIndex, moveDirection = newDir)
+            }
+        }
+
+        val targetLocalNode = way.nodes[nodeIndex]
+        // Traducimos el nodo local del dibujito a una coordenada global real en ese frame
+        val targetGlobal = landmark.toGlobalGeoPoint(targetLocalNode.localX, targetLocalNode.localY)
+
+        val dLon = targetGlobal.longitude - npc.location.longitude
+        val dLat = targetGlobal.latitude - npc.location.latitude
+        val dist = sqrt(dLon * dLon + dLat * dLat)
+        val angle = atan2(dLat, dLon)
+        val targetAngle = -Math.toDegrees(angle).toFloat()
+        val isFacingRight = cos(angle) >= 0
+
+        val diff = (targetAngle - npc.rotationAngle + 540) % 360 - 180
+        val smoothedAngle = (npc.rotationAngle + diff * 0.20f + 360) % 360
+        val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
+
+        return if (dist < actualSpeed) {
+            npc.copy(
+                location = GeoPoint(targetGlobal.latitude, targetGlobal.longitude),
+                targetNodeIndex = nodeIndex + direction,
+                rotationAngle = smoothedAngle,
+                facingRight = isFacingRight
+            )
+        } else {
+            npc.copy(
+                location = GeoPoint(
+                    npc.location.latitude + sin(angle) * actualSpeed,
+                    npc.location.longitude + cos(angle) * actualSpeed
+                ),
+                rotationAngle = smoothedAngle,
+                facingRight = isFacingRight
+            )
+        }
+    }
     private fun moveNpc(npc: Npc, network: List<MapWay>): Npc? {
+        // --- NUEVA BIFURCACIÓN DE ESTADOS ---
+        if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) {
+            // El coche está estacionado, quizás agregar lógica para "despertar" después de un rato
+            return npc
+        }
+
+        if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK) {
+            return moveLocalNpc(npc) // Salta a la nueva función de movimiento local
+        }
+        // ------------------------------------
         var way = npc.currentWay
         var nodeIndex = npc.targetNodeIndex
         var direction = npc.moveDirection
