@@ -47,6 +47,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
+import androidx.compose.ui.graphics.drawscope.Stroke
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.ZombieGameState
 
 @Composable
@@ -307,6 +308,22 @@ fun SkillGroundItem(effect: SkillEffect, highlighted: Boolean, modifier: Modifie
                     // Tapas blancas arriba y abajo
                     drawLine(Color.White, Offset(w * 0.15f, h * 0.12f), Offset(w * 0.85f, h * 0.12f), strokeWidth = w * 0.08f)
                     drawLine(Color.White, Offset(w * 0.15f, h * 0.88f), Offset(w * 0.85f, h * 0.88f), strokeWidth = w * 0.08f)
+                }
+                effect == SkillEffect.ARMA_DIVINA -> {
+                    // Arma Divina: Un rayo/trueno dorado
+                    val gold = Color(0xFFFFD700)
+                    val lightning = Path().apply {
+                        moveTo(w * 0.55f, h * 0.1f)
+                        lineTo(w * 0.25f, h * 0.55f)
+                        lineTo(w * 0.45f, h * 0.55f)
+                        lineTo(w * 0.35f, h * 0.9f)
+                        lineTo(w * 0.75f, h * 0.4f)
+                        lineTo(w * 0.55f, h * 0.4f)
+                        close()
+                    }
+                    drawCircle(gold.copy(alpha = 0.3f), radius = w * 0.45f)
+                    drawPath(lightning, gold)
+                    drawPath(lightning, Color.White, style = Stroke(width = 2f))
                 }
                 effect.isTrap -> {
                     // Triángulo rojo invertido (alerta) con signo de exclamación

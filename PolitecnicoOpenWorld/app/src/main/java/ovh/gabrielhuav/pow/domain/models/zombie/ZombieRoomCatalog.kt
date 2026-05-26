@@ -79,6 +79,24 @@ object ZombieRoomCatalog {
             )
         )
         buildingOrder.forEachIndexed { i, id ->
+            val collisions = if (id == "za_auditorio") {
+                listOf(
+                    // Escenario (Stage)
+                    NormRect(0.18f, 0.08f, 0.82f, 0.35f),
+                    // Bancas Izquierda
+                    NormRect(0.08f, 0.45f, 0.33f, 0.88f),
+                    // Bancas Centro
+                    NormRect(0.38f, 0.45f, 0.62f, 0.88f),
+                    // Bancas Derecha
+                    NormRect(0.67f, 0.45f, 0.92f, 0.88f),
+                    // Paredes perimetrales (para evitar salirse)
+                    NormRect(0f, 0f, 1f, 0.05f), // Arriba
+                    NormRect(0f, 0.95f, 1f, 1f), // Abajo
+                    NormRect(0f, 0f, 0.05f, 1f), // Izquierda
+                    NormRect(0.95f, 0f, 1f, 1f)  // Derecha
+                )
+            } else emptyList()
+
             add(
                 ZombieRoom(
                     id = id,
@@ -96,7 +114,8 @@ object ZombieRoomCatalog {
                     // junto al diálogo de confirmación, elimina las salidas accidentales.
                     playerSpawnFrac = NormPoint(0.50f, 0.55f),
                     doors = buildingDoors(i),
-                    zombieCount = 4 + (i % 3)
+                    zombieCount = 4 + (i % 3),
+                    collisionGridFrac = collisions
                 )
             )
         }
