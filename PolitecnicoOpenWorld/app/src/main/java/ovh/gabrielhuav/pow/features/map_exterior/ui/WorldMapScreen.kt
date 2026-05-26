@@ -103,7 +103,6 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehiclePedalsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSteeringController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
@@ -117,7 +116,7 @@ import kotlin.math.round
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import android.util.Log
-
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable

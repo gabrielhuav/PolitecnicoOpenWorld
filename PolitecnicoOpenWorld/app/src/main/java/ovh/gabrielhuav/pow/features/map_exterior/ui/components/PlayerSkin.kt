@@ -1,5 +1,18 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui.components
 
+/**
+ * Define cada skin disponible para el jugador principal.
+ *
+ * Convención de assets (todos en assets/PRINCIPAL/):
+ *   <skinFolder>Idle/   →  <skinPrefix>i_<frame>.webp   (frames 1–idleFrames)
+ *   <skinFolder>Walk/   →  <skinPrefix>w_<frame>.webp   (frames 1–walkFrames)
+ *   <skinFolder>Run/    →  <skinPrefix>r_<frame>.webp   (frames 1–runFrames)
+ *   <skinFolder>Special/→  <skinPrefix>s_<frame>.webp   (frames 1–specialFrames)
+ *
+ * Para agregar una skin nueva:
+ *   1. Coloca los sprites en assets/PRINCIPAL/<skinFolder>{Idle|Walk|Run|Special}/
+ *   2. Agrega una entrada al enum con sus valores correspondientes.
+ */
 enum class PlayerSkin(
     val displayName: String,
     /** Subcarpeta dentro de PRINCIPAL/, sin barra final */
@@ -35,17 +48,3 @@ enum class PlayerSkin(
     fun runPath(frame: Int)    = "PRINCIPAL/${skinFolder}Run/${skinPrefix}r_$frame.webp"
     fun specialPath(frame: Int)= "PRINCIPAL/${skinFolder}Special/${skinPrefix}s_$frame.webp"
 }
-
-/**
- * Define cada skin disponible para el jugador principal.
- *
- * Convención de assets (todos en assets/PRINCIPAL/):
- *   <skinFolder>Idle/   →  <skinPrefix>i_<frame>.webp   (frames 1–idleFrames)
- *   <skinFolder>Walk/   →  <skinPrefix>w_<frame>.webp   (frames 1–walkFrames)
- *   <skinFolder>Run/    →  <skinPrefix>r_<frame>.webp   (frames 1–runFrames)
- *   <skinFolder>Special/→  <skinPrefix>s_<frame>.webp   (frames 1–specialFrames)
- *
- * Para agregar una skin nueva:
- *   1. Coloca los sprites en assets/PRINCIPAL/<skinFolder>{Idle|Walk|Run|Special}/
- *   2. Agrega una entrada al enum con sus valores correspondientes.
- */

@@ -162,10 +162,10 @@ private fun SkinCard(
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                Text(
-                    text = "N/A",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                // Placeholder mientras carga
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
                 )
             }
         }
