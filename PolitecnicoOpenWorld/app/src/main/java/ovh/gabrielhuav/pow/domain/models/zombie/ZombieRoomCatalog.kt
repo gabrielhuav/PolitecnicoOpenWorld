@@ -30,16 +30,13 @@ object ZombieRoomCatalog {
         // pero desplazada hacia abajo (Y: 0.25 a 0.35).
         ZoneDoor(NormRect(0.34f, 0.25f, 0.50f, 0.35f), "za_biblioteca", "Biblioteca", DoorKind.TO_BUILDING),
 
-        // CAFETERIA: toma la posición que tenía ESTACIONAMIENTO.
-        ZoneDoor(NormRect(0.22f, 0.62f, 0.34f, 0.74f), "za_cafeteria", "Cafetería", DoorKind.TO_BUILDING),
+        ZoneDoor(NormRect(0.04f, 0.88f, 0.18f, 0.99f), "za_cafeteria", "Cafetería", DoorKind.TO_BUILDING),
 
         ZoneDoor(NormRect(0.38f, 0.55f, 0.54f, 0.68f), "za_edificio", "Edificio Principal", DoorKind.TO_BUILDING),
 
-        // ESTACIONAMIENTO: toma la posición que tenía CAFETERIA.
-        ZoneDoor(NormRect(0.50f, 0.38f, 0.62f, 0.50f), "za_estacionamiento", "Estacionamiento", DoorKind.TO_BUILDING),
+        ZoneDoor(NormRect(0.65f, 0.18f, 0.80f, 0.32f), "za_estacionamiento", "Estacionamiento", DoorKind.TO_BUILDING),
 
-        // PALAPAS: toma la posición que tenía BIBLIOTECA.
-        ZoneDoor(NormRect(0.22f, 0.38f, 0.34f, 0.50f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
+        ZoneDoor(NormRect(0.13f, 0.11f, 0.27f, 0.22f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
 
         ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
     )

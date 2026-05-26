@@ -54,7 +54,7 @@ enum class InteriorBuilding(
     ESTACIONAMIENTO(
         id = "estacionamiento",
         displayName = "Estacionamiento",
-        location = GeoPoint(19.50435, -99.14635),
+        location = GeoPoint(19.5053, -99.1458),
         backgroundAsset = "ZOMBIS_MOD/interiores/za_estacionamiento.webp",
         routeName = "interior_estacionamiento"
     ),
