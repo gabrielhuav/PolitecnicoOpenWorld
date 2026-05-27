@@ -67,4 +67,30 @@ data class Landmark(
         // 5. Si localX y localY están entre 0.0 y 1.0, estás pisando exactamente un píxel de la imagen
         return localX in 0.0..1.0 && localY in 0.0..1.0
     }
+    /**
+     * Convierte un GeoPoint global (ej. posición del jugador) a coordenadas
+     * locales [0..1] relativas a este edificio.
+     */
+    fun toLocalCoordinates(globalPoint: GeoPoint): Pair<Float, Float> {
+        val earthRadius = 6378137.0
+
+        // 1. Calcular la diferencia en lat/lon respecto al centro del edificio
+        val dLat = globalPoint.latitude - location.latitude
+        val dLon = globalPoint.longitude - location.longitude
+
+        // 2. Convertir grados a metros basándonos en la aproximación de la Tierra
+        val rotatedDy = dLat * (Math.PI / 180.0) * earthRadius
+        val rotatedDx = dLon * (Math.PI / 180.0) * (earthRadius * cos(Math.PI * location.latitude / 180.0))
+
+        // 3. Deshacer la rotación (usando el ángulo negativo)
+        val angleRad = Math.toRadians(-rotationAngle.toDouble())
+        val dxMeters = rotatedDx * cos(angleRad) - rotatedDy * sin(angleRad)
+        val dyMeters = rotatedDx * sin(angleRad) + rotatedDy * cos(angleRad)
+
+        // 4. Deshacer la escala y centrar de 0 a 1
+        val localX = (dxMeters / (baseWidthMeters * scaleFactor)) + 0.5
+        val localY = 0.5 - (dyMeters / (baseHeightMeters * scaleFactor))
+
+        return Pair(localX.toFloat(), localY.toFloat())
+    }
 }

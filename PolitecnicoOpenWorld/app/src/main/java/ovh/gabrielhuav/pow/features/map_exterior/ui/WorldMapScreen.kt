@@ -612,6 +612,64 @@ fun WorldMapScreen(
                             (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }) as? Polyline)?.isEnabled = false
                         }
 
+                        // ─── OVERLAY CREADOR DE RUTAS (MIGAS DE PAN Y CARRILES) ────────────────────────
+                        // Dibujamos la ruta si estamos en modo diseñador y hay puntos guardados
+                        if (uiState.isDesignerMode && uiState.routeDebugWaypoints.isNotEmpty()) {
+
+                            // 1. Dibujar la línea (carril) que conecta los puntos
+                            val debugRouteLine = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 300 }) as? Polyline)
+                                ?: Polyline().apply {
+                                    outlinePaint.color = android.graphics.Color.CYAN // Una línea cyan brillante
+                                    outlinePaint.strokeWidth = 6f
+                                    view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 300 }, this)
+                                    view.overlays.add(this)
+                                }
+                            debugRouteLine.setPoints(uiState.routeDebugWaypoints)
+                            debugRouteLine.isEnabled = true
+
+                            // 2. Dibujar los puntitos (migas de pan) en cada nodo capturado
+                            @Suppress("UNCHECKED_CAST")
+                            val breadcrumbCache = (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 300 }) as? MutableList<Marker>)
+                                ?: mutableListOf<Marker>().also {
+                                    view.setTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 300 }, it)
+                                }
+
+                            // Si capturamos un nuevo punto, creamos un nuevo marcador visual
+                            while (breadcrumbCache.size < uiState.routeDebugWaypoints.size) {
+                                val m = Marker(view).apply {
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    // Creamos un circulito amarillo con borde negro
+                                    icon = android.graphics.drawable.GradientDrawable().apply {
+                                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                                        setColor(android.graphics.Color.YELLOW)
+                                        setStroke(2, android.graphics.Color.BLACK)
+                                        setSize(24, 24)
+                                    }
+                                    view.overlays.add(this)
+                                }
+                                breadcrumbCache.add(m)
+                            }
+
+                            // Si reseteamos la ruta (Nuevo Carril), ocultamos/quitamos los puntos viejos
+                            while (breadcrumbCache.size > uiState.routeDebugWaypoints.size) {
+                                // Usamos removeAt con el último índice válido para soportar APIs antiguas (Min API 24)
+                                val m = breadcrumbCache.removeAt(breadcrumbCache.lastIndex)
+                                view.overlays.remove(m)
+                            }
+
+                            // Actualizar las posiciones geográficas de cada miga de pan
+                            uiState.routeDebugWaypoints.forEachIndexed { index, geoPoint ->
+                                breadcrumbCache[index].position = geoPoint
+                                breadcrumbCache[index].setAlpha(1f)
+                            }
+                        } else {
+                            // Si salimos del modo o limpiamos la lista, ocultamos todo
+                            (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 300 }) as? Polyline)?.isEnabled = false
+                            @Suppress("UNCHECKED_CAST")
+                            val breadcrumbCache = (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 300 }) as? MutableList<Marker>)
+                            breadcrumbCache?.forEach { it.setAlpha(0f) }
+                        }
+
                         view.invalidate()
                     }
                 )
@@ -1085,6 +1143,10 @@ fun WorldMapScreen(
                 onExport = { exportLauncher.launch("landmarks_config.json") },
                 onImport = { importLauncher.launch(arrayOf("application/json", "*/*")) },
                 onDeselect = { viewModel.selectLandmark(null) },
+                isParkingMode = uiState.isParkingSlotMode,
+                onToggleParkingMode = { isChecked -> viewModel.toggleParkingMode(isChecked) },
+                onNewWay = { viewModel.startNewWay() },
+                onDebugPoint = { viewModel.debugPlayerLocalCoordinates(context) },
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 130.dp, start = 12.dp, end = 12.dp).fillMaxWidth(0.9f)
             )
         }

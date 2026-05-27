@@ -814,6 +814,65 @@ class WorldMapViewModel(
     private var segs: List<Seg>              = emptyList()
     private var grid: Map<Long, List<Seg>>   = emptyMap()
 
+    private var debugNodeIdCounter = 1
+
+    // 1. Función para cambiar el Checkbox
+    fun toggleParkingMode(enabled: Boolean) {
+        _uiState.update { it.copy(isParkingSlotMode = enabled) }
+    }
+
+    // 2. Función para empezar un nuevo carril
+    fun startNewWay() {
+        debugNodeIdCounter = 1
+        _uiState.update {
+            it.copy(
+                currentWayId = it.currentWayId + 1,
+                routeDebugWaypoints = emptyList() // Limpiamos las migas visuales (opcional)
+            )
+        }
+        Log.d("CREADOR_RUTAS", "\n--- INICIANDO NUEVO CARRIL (Way ID: ${_uiState.value.currentWayId}) ---\n\"nodes\": [")
+    }
+
+    // 3. Tu función actualizada para capturar
+    fun debugPlayerLocalCoordinates(context: Context) {
+        val state = _uiState.value
+        val loc = state.currentLocation ?: return
+        val landmarkId = state.selectedLandmarkId ?: return
+        val landmark = state.landmarks.find { it.id == landmarkId } ?: return
+
+        val (localX, localY) = landmark.toLocalCoordinates(loc)
+
+        if (localX in 0.0f..1.0f && localY in 0.0f..1.0f) {
+            val formX = String.format(java.util.Locale.US, "%.4f", localX)
+            val formY = String.format(java.util.Locale.US, "%.4f", localY)
+
+            // Usamos el flag del estado
+            val isParking = state.isParkingSlotMode
+            val desc = if (isParking) "Cajón de estacionamiento" else "Punto de ruta (Carril ${state.currentWayId})"
+
+            val jsonNode = """
+        {
+          "id": $debugNodeIdCounter,
+          "localX": $formX,
+          "localY": $formY,
+          "isParkingSlot": $isParking,
+          "description": "$desc"
+        },
+        """.trimIndent()
+
+            Log.d("CREADOR_RUTAS", "\n$jsonNode")
+
+            // Agregamos la "miga de pan" a la lista para dibujarla
+            _uiState.update {
+                it.copy(routeDebugWaypoints = it.routeDebugWaypoints + loc)
+            }
+
+            android.widget.Toast.makeText(context, "Nodo $debugNodeIdCounter capturado", android.widget.Toast.LENGTH_SHORT).show()
+            debugNodeIdCounter++
+        } else {
+            android.widget.Toast.makeText(context, "Estás fuera del edificio", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     private fun ensureIndex() {
         if (indexedRef === roadNetwork) return
         val newSegs = ArrayList<Seg>(roadNetwork.sumOf { it.nodes.size })

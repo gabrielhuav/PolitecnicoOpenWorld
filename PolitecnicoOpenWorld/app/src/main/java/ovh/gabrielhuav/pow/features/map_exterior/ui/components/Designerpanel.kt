@@ -38,6 +38,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ovh.gabrielhuav.pow.domain.models.Landmark
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Checkbox
+import androidx.compose.material.icons.filled.Add
 
 @Composable
 fun DesignerPanel(
@@ -50,6 +54,10 @@ fun DesignerPanel(
     onExport: () -> Unit,
     onImport: () -> Unit,
     onDeselect: () -> Unit,
+    isParkingMode: Boolean = false,
+    onToggleParkingMode: (Boolean) -> Unit = {},
+    onNewWay: () -> Unit = {},
+    onDebugPoint: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val moveStep = 0.0001
@@ -133,6 +141,7 @@ fun DesignerPanel(
         }
 
         // ─── BOTONES DE ACCIÓN ───
+        // ─── BOTONES DE ACCIÓN ───
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -160,6 +169,7 @@ fun DesignerPanel(
                     Text("GUARDAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -183,6 +193,44 @@ fun DesignerPanel(
                     Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("IMPORTAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            } // <--- ¡AQUÍ ESTÁ LA MAGIA! ESTE ROW DEBE CERRARSE AQUÍ.
+
+            // --- HERRAMIENTAS DE CREACIÓN DE RUTAS ---
+            // Como ya estamos en la Column, esto se pondrá abajo, en vertical.
+            Divider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Gray.copy(alpha = 0.5f))
+            Text("Creador de Rutas Automotrices", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White) // Agregué color blanco
+
+            // Checkbox para elegir si es carril o cajón
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = isParkingMode,
+                    onCheckedChange = onToggleParkingMode
+                )
+                Text("Es Cajón de Estacionamiento", fontSize = 12.sp, color = Color.White) // Agregué color blanco
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                // Botón para Nuevo Carril
+                Button(
+                    onClick = onNewWay,
+                    modifier = Modifier.weight(1f).height(40.dp).padding(end = 4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("NUEVO CARRIL", color = Color.White, fontSize = 10.sp)
+                }
+
+                // Botón para Capturar (El rosa)
+                Button(
+                    onClick = onDebugPoint,
+                    modifier = Modifier.weight(1.5f).height(40.dp).padding(start = 4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("CAPTURAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
