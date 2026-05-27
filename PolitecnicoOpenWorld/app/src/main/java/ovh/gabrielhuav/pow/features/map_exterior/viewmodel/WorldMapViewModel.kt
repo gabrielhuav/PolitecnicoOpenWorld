@@ -843,18 +843,14 @@ class WorldMapViewModel(
     private fun cell(v: Double): Int = floor(v / CELL).toInt()
 
     private fun getNearestPointOnNetwork(t: GeoPoint): GeoPoint {
-        // --- NUEVA REGLA: Si estoy sobre un Landmark, soy libre ---
+        // Usa la nueva matemática exacta del rectángulo rotado
         val insideLandmark = _uiState.value.landmarks.any { landmark ->
-            // Un bounding box simple para saber si estamos parados sobre él
-            val distanceMeters = distance(t, landmark.location) * 111320.0
-            val maxRadius = max(landmark.baseWidthMeters, landmark.baseHeightMeters) * landmark.scaleFactor
-            distanceMeters < maxRadius
+            landmark.contains(t)
         }
 
         if (insideLandmark) {
-            return t // Devuelve la misma coordenada, te mueves libremente (Pixel Perfect)
+            return t // Eres 100% libre solo si estás tocando un píxel de la imagen
         }
-        // ----------------------------------------------------------
 
         ensureIndex()
         val cands = candidates(t); if (cands.isEmpty()) return t

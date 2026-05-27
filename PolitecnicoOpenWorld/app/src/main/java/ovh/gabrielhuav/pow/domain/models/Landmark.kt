@@ -37,4 +37,34 @@ data class Landmark(
 
         return GeoPoint(location.latitude + dLat, location.longitude + dLon)
     }
+
+    /**
+     * Verifica si una coordenada GPS global cae estrictamente
+     * dentro de los límites exactos de la imagen renderizada.
+     */
+    fun contains(point: GeoPoint): Boolean {
+        // 1. Diferencia en grados globales
+        val dLat = point.latitude - location.latitude
+        val dLon = point.longitude - location.longitude
+
+        // 2. Convertir grados globales a metros físicos
+        val earthRadius = 6378137.0
+        val dyGlobalMeters = dLat * (Math.PI / 180.0) * earthRadius
+        val dxGlobalMeters = dLon * (Math.PI / 180.0) * (earthRadius * Math.cos(Math.PI * location.latitude / 180.0))
+
+        // 3. Deshacer la rotación del asset (Rotar en sentido inverso)
+        val angleRad = Math.toRadians(-rotationAngle.toDouble())
+        val dxLocalMeters = dxGlobalMeters * Math.cos(angleRad) - dyGlobalMeters * Math.sin(angleRad)
+        val dyLocalMeters = dxGlobalMeters * Math.sin(angleRad) + dyGlobalMeters * Math.cos(angleRad)
+
+        // 4. Convertir los metros locales a coordenadas normalizadas [0.0 a 1.0]
+        val actualWidth = baseWidthMeters * scaleFactor
+        val actualHeight = baseHeightMeters * scaleFactor
+
+        val localX = (dxLocalMeters / actualWidth) + 0.5
+        val localY = 0.5 - (dyLocalMeters / actualHeight) // Y se invierte porque en mapas el Norte (arriba) es positivo
+
+        // 5. Si localX y localY están entre 0.0 y 1.0, estás pisando exactamente un píxel de la imagen
+        return localX in 0.0..1.0 && localY in 0.0..1.0
+    }
 }
