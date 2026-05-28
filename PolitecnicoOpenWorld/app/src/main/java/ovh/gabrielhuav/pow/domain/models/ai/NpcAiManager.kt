@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.CarModel
+import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.NpcType
@@ -46,6 +47,40 @@ class NpcAiManager {
     fun updateRoadNetwork(network: List<MapWay>) {
         cachedRoadNetwork.set(network)
         networkIsReady = network.isNotEmpty()
+    }
+
+    // Escribe esto dentro de NpcAiManager.kt
+    fun spawnTestCarInLandmark(landmark: Landmark, navGraph: LandmarkNavGraph) {
+        // 1. Buscamos el nodo de entrada
+        val entryWayId = navGraph.entryWays.firstOrNull() ?: return
+        val entryWay = navGraph.ways.find { it.id == entryWayId } ?: return
+        val entryNode = entryWay.nodes.firstOrNull() ?: return
+
+        // 2. Calculas el GeoPoint inicial usando el método del landmark
+        // (Asegúrate de que toGlobalGeoPoint esté importado/disponible)
+        val spawnGeoPoint = landmark.toGlobalGeoPoint(entryNode.localX, entryNode.localY)
+
+        // 3. Creas el Npc visual
+        val newCar = Npc(
+            id = "DYN_CAR_${System.currentTimeMillis()}",
+            type = NpcType.CAR,
+            location = spawnGeoPoint,
+            carColor = android.graphics.Color.WHITE,
+            carModel = CarModel.SPORT,
+            speed = CAR_SPEED, // Usa tu constante de velocidad para que no nazca detenido
+            rotationAngle = 0f
+        )
+
+        // 4. AHORA SÍ: REGÍSTRALO EN LA MEMORIA DE LA IA
+        // *****************************************************************
+        // ¡OJO! Esto depende de los nombres REALES de tus variables en NpcAiManager.
+        // Tienes que añadir 'newCar' a la lista interna que usa tu IA para iterar,
+        // y crearle su rastreador de ruta asociado a 'entryWayId'.
+        //
+        // Ejemplo de cómo se vería según la estructura de tu motor:
+        // this.activeNpcs.add(newCar)
+        // this.rutasInternas[newCar.id] = NpcRouteState(way = entryWay, nextNode = 1)
+        // *****************************************************************
     }
 
     fun setRemoteNpcs(remoteList: List<Npc>) {

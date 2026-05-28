@@ -236,14 +236,16 @@ fun DesignerPanel(
                     Spacer(Modifier.width(4.dp))
                     Text("CAPTURAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
-                Button(
-                    onClick = onSpawnTestCar,
-                    modifier = Modifier.fillMaxWidth().height(40.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)), // Color Verde
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("🚗 SPAWN AUTO DE PRUEBA", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
+            } // <--- CIERRA EL ROW AQUÍ
+
+            // El botón de Spawn Auto va afuera, en la Column principal
+            Button(
+                onClick = onSpawnTestCar,
+                modifier = Modifier.fillMaxWidth().height(40.dp).padding(top = 8.dp), // Se agregó un padding top para separar
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("🚗 SPAWN AUTO DE PRUEBA", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
