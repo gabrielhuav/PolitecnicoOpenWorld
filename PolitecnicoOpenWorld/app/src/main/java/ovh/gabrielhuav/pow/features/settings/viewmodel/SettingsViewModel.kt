@@ -19,7 +19,8 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         SettingsState(
             controlType = repository.getControlType(),
             controlsScale = repository.getControlsScale(),
-            swapControls = repository.getSwapControls()
+            swapControls = repository.getSwapControls(),
+            showRoadNetwork = repository.getShowRoadNetwork()
         )
     )
     val state: StateFlow<SettingsState> = _state.asStateFlow()
@@ -32,6 +33,11 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun changeControlType(type: ControlType) { _state.update { it.copy(controlType = type) } }
     fun changeControlsScale(scale: Float) { _state.update { it.copy(controlsScale = scale) } }
     fun toggleSwapControls(swap: Boolean) { _state.update { it.copy(swapControls = swap) } }
+
+    fun toggleRoadNetwork(show: Boolean) {
+        _state.update { it.copy(showRoadNetwork = show) }
+        repository.saveShowRoadNetwork(show)
+    }
 
     // Función para guardar
     fun saveControlsSettings() {

@@ -36,6 +36,7 @@ fun SettingsScreen(
     onMapProviderChanged: (MapProvider) -> Unit,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
+    onRoadNetworkToggled: (Boolean) -> Unit,
     onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
@@ -107,7 +108,7 @@ fun SettingsScreen(
                     ) {
                         Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -144,7 +145,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
                         Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled)
                     }
                 }
             }
@@ -201,17 +202,26 @@ private fun SettingsContent(
     onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
-    onSwapControlsToggled: (Boolean) -> Unit
+    onSwapControlsToggled: (Boolean) -> Unit,
+    onRoadNetworkToggled: (Boolean) -> Unit
 ) {
     when (state.selectedCategory) {
-        is SettingsCategory.Map -> MapProviderSetting(state.mapProvider, onMapProviderChanged)
+        is SettingsCategory.Map -> MapProviderSetting(
+            state.mapProvider, onMapProviderChanged,
+            state.showRoadNetwork, onRoadNetworkToggled
+        )
         is SettingsCategory.Controls -> ControlsSettingsConfig(state.controlType, state.controlsScale, state.swapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
         is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, onCacheToggled, onFpsToggled)
         else -> Text("Sin ajustes disponibles actualmente.", color = Color.Gray)
     }
 }
 @Composable
-private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) -> Unit) {
+private fun MapProviderSetting(
+    current: MapProvider,
+    onChanged: (MapProvider) -> Unit,
+    showRoadNetwork: Boolean,
+    onRoadNetworkToggled: (Boolean) -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
     // NUEVO: Estado local para retener la selección antes de aplicarla
     var tempProvider by remember(current) { mutableStateOf(current) }
@@ -277,6 +287,26 @@ private fun MapProviderSetting(current: MapProvider, onChanged: (MapProvider) ->
             ) {
                 Text("Restaurar Mapa")
             }
+        }
+        // ── Agregar al final de la Column de MapProviderSetting ──
+        Spacer(Modifier.height(24.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text("Red de Caminos", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Dibuja las vías transitables en el mapa", color = Color.Gray, fontSize = 12.sp)
+            }
+            Switch(
+                checked = showRoadNetwork,
+                onCheckedChange = onRoadNetworkToggled,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFD4AF37),
+                    checkedTrackColor = Color(0xFF6B1C3A)
+                )
+            )
         }
     }
 }

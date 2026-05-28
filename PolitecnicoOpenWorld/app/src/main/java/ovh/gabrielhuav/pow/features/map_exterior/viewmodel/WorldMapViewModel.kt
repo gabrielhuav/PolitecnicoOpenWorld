@@ -564,6 +564,9 @@ class WorldMapViewModel(
                         }
 
                         maybeRefetchRoadNetwork(location)
+                        if (tickCount % 5 == 0L) {
+                            updateVisibleRoadSegments(location.latitude, location.longitude)
+                        }
                         updateVisibleRoads(location)
                         if (_uiState.value.isRoadNetworkReady) {
                             tickCount++
@@ -1676,6 +1679,51 @@ class WorldMapViewModel(
     private fun isInsideEscom(lat: Double, lon: Double): Boolean {
         return abs(lat - ESCOM_BASE_LAT) < ESCOM_OFFSET &&
                 abs(lon - ESCOM_BASE_LON) < ESCOM_OFFSET
+    }
+
+    fun setShowRoadNetwork(show: Boolean) {
+        _uiState.update { it.copy(showRoadNetwork = show) }
+        if (!show) {
+            roadSegmentJob?.cancel()
+            _uiState.update { it.copy(visibleRoadSegments = emptyList()) }
+        } else {
+            _uiState.value.currentLocation?.let {
+                updateVisibleRoadSegments(it.latitude, it.longitude)
+            }
+        }
+    }
+
+    private var roadSegmentJob: Job? = null
+
+    fun updateVisibleRoadSegments(playerLat: Double, playerLon: Double) {
+        if (!_uiState.value.showRoadNetwork) {
+            if (_uiState.value.visibleRoadSegments.isNotEmpty())
+                _uiState.update { it.copy(visibleRoadSegments = emptyList()) }
+            return
+        }
+        roadSegmentJob?.cancel()
+        roadSegmentJob = viewModelScope.launch(Dispatchers.Default) {
+            val network = roadNetwork
+            if (network.isEmpty()) return@launch
+            // Radio de culling: ~300m en grados (~0.0027°)
+            val CULL_RADIUS = 0.0027
+            val segments = ArrayList<Pair<Pair<Double, Double>, Pair<Double, Double>>>(256)
+            for (way in network) {
+                val nodes = way.nodes
+                for (i in 0 until nodes.size - 1) {
+                    val a = nodes[i]; val b = nodes[i + 1]
+                    // Incluir si cualquiera de los dos nodos está en el radio
+                    val aInRange = abs(a.lat - playerLat) < CULL_RADIUS && abs(a.lon - playerLon) < CULL_RADIUS
+                    val bInRange = abs(b.lat - playerLat) < CULL_RADIUS && abs(b.lon - playerLon) < CULL_RADIUS
+                    if (aInRange || bInRange) {
+                        segments.add((a.lat to a.lon) to (b.lat to b.lon))
+                    }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                _uiState.update { it.copy(visibleRoadSegments = segments) }
+            }
+        }
     }
 
 

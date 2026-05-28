@@ -571,6 +571,33 @@ fun WorldMapScreen(
                             }
                         }
 
+                        // ─── CAPA INTERMEDIA: RED DE CAMINOS (encima de Landmarks, debajo de NPCs) ───
+                        val roadOverlayTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 500
+
+                        @Suppress("UNCHECKED_CAST")
+                        val existingLines = (view.getTag(roadOverlayTag) as? MutableList<Polyline>)
+                            ?: mutableListOf<Polyline>().also { view.setTag(roadOverlayTag, it) }
+
+                        // Siempre eliminar físicamente todos los overlays actuales
+                        existingLines.forEach { view.overlays.remove(it) }
+                        existingLines.clear()
+
+                        if (uiState.showRoadNetwork && uiState.visibleRoadSegments.isNotEmpty()) {
+                            uiState.visibleRoadSegments.forEach { (start, end) ->
+                                val line = Polyline().apply {
+                                    outlinePaint.color = android.graphics.Color.argb(120, 100, 181, 246)
+                                    outlinePaint.strokeWidth = 6f
+                                    outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                                    setPoints(listOf(
+                                        GeoPoint(start.first, start.second),
+                                        GeoPoint(end.first, end.second)
+                                    ))
+                                }
+                                existingLines.add(line)
+                                view.overlays.add(line)
+                            }
+                        }
+
                         // ─── OVERLAY DEBUG DE INTERIORES ──────────────────────────
                         @Suppress("UNCHECKED_CAST")
                         val debugMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 100 }) as? MutableMap<String, Marker>)
