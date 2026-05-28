@@ -571,30 +571,29 @@ fun WorldMapScreen(
                             }
                         }
 
-                        // ─── CAPA INTERMEDIA: RED DE CAMINOS (encima de Landmarks, debajo de NPCs) ───
+                        // ─── CAPA INTERMEDIA: RED DE CAMINOS ─────────────────────
                         val roadOverlayTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 500
-
                         @Suppress("UNCHECKED_CAST")
-                        val existingLines = (view.getTag(roadOverlayTag) as? MutableList<Polyline>)
+                        val roadLineCache = (view.getTag(roadOverlayTag) as? MutableList<Polyline>)
                             ?: mutableListOf<Polyline>().also { view.setTag(roadOverlayTag, it) }
 
-                        // Siempre eliminar físicamente todos los overlays actuales
-                        existingLines.forEach { view.overlays.remove(it) }
-                        existingLines.clear()
+                        roadLineCache.forEach { view.overlays.remove(it) }
+                        roadLineCache.clear()
 
-                        if (uiState.showRoadNetwork && uiState.visibleRoadSegments.isNotEmpty()) {
-                            uiState.visibleRoadSegments.forEach { (start, end) ->
+                        if (uiState.showRoadNetwork) {
+                            roadNetwork.forEach { way ->
                                 val line = Polyline().apply {
-                                    outlinePaint.color = android.graphics.Color.argb(120, 100, 181, 246)
-                                    outlinePaint.strokeWidth = 6f
+                                    outlinePaint.color = if (way.isForCars)
+                                        android.graphics.Color.argb(180, 255, 215, 0)
+                                    else
+                                        android.graphics.Color.argb(180, 130, 200, 255)
+                                    outlinePaint.strokeWidth = if (way.isForCars) 6f else 4f
                                     outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
-                                    setPoints(listOf(
-                                        GeoPoint(start.first, start.second),
-                                        GeoPoint(end.first, end.second)
-                                    ))
+                                    outlinePaint.isAntiAlias = true
+                                    setPoints(way.nodes.map { GeoPoint(it.lat, it.lon) })
                                 }
-                                existingLines.add(line)
-                                view.overlays.add(line)
+                                roadLineCache.add(line)
+                                view.overlays.add(line) // después de landmarks → encima
                             }
                         }
 
@@ -638,60 +637,6 @@ fun WorldMapScreen(
                         } else {
                             debugMarkerCache.values.forEach { it.setAlpha(0f) }
                             (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }) as? Polyline)?.isEnabled = false
-                        }
-                        // ─── CAPA DE CAMINOS TRANSITABLES ───────────────────────────
-                        // ─── CAPA DE CAMINOS TRANSITABLES ───────────────────────────
-                        if (uiState.zoomLevel >= 15.5 && uiState.isRoadNetworkReady) {
-                            @Suppress("UNCHECKED_CAST")
-                            val roadPolylineCache = (view.getTag(ovh.gabrielhuav.pow.R.id.road_overlay_tag) as? MutableMap<Long, Polyline>)
-                                ?: mutableMapOf<Long, Polyline>().also { view.setTag(ovh.gabrielhuav.pow.R.id.road_overlay_tag, it) }
-
-                            val currentWayIds = roadNetwork.map { it.id }.toSet()
-                            var layersChanged = false
-
-                            // 1. Eliminar caminos que ya no existen
-                            val roadIterator = roadPolylineCache.iterator()
-                            while (roadIterator.hasNext()) {
-                                val entry = roadIterator.next()
-                                if (!currentWayIds.contains(entry.key)) {
-                                    view.overlays.remove(entry.value)
-                                    roadIterator.remove()
-                                    layersChanged = true
-                                }
-                            }
-
-                            // 2. Agregar caminos nuevos
-                            roadNetwork.forEach { way ->
-                                if (!roadPolylineCache.containsKey(way.id)) {
-                                    val polyline = Polyline().apply {
-                                        outlinePaint.color = if (way.isForCars) android.graphics.Color.argb(220, 255, 215, 0) else android.graphics.Color.argb(220, 130, 200, 255)
-                                        outlinePaint.strokeWidth = if (way.isForCars) 6f else 4f
-                                        outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
-                                        outlinePaint.strokeJoin = android.graphics.Paint.Join.ROUND
-                                        outlinePaint.isAntiAlias = true
-                                        isEnabled = true
-                                        setOnClickListener { _, _, _ -> false }
-                                    }
-                                    polyline.setPoints(way.nodes.map { GeoPoint(it.lat, it.lon) })
-                                    roadPolylineCache[way.id] = polyline
-                                    view.overlays.add(polyline)
-                                    layersChanged = true
-                                }
-                            }
-
-                            // 3. Solo si hubo cambios, nos aseguramos que las calles queden hasta arriba (Z-Index)
-                            if (layersChanged) {
-                                roadPolylineCache.values.forEach {
-                                    view.overlays.remove(it)
-                                    view.overlays.add(it)
-                                }
-                            }
-                        } else {
-                            // Si el zoom es muy lejano, ocultar todas las calles temporalmente
-                            @Suppress("UNCHECKED_CAST")
-                            val cache = view.getTag(ovh.gabrielhuav.pow.R.id.road_overlay_tag) as? MutableMap<Long, Polyline>
-                            cache?.values?.forEach { view.overlays.remove(it) }
-                            cache?.clear()
                         }
 
                         view.invalidate()
@@ -798,7 +743,7 @@ fun WorldMapScreen(
                         }
                     }
                     // Mostrar calles solo si estamos cerca
-                    if (uiState.zoomLevel >= 15.5) {
+                    if (uiState.showRoadNetwork && uiState.zoomLevel >= 15.5) {
                         roadNetwork.forEach { way ->
                             key("road_${way.id}") {
                                 com.google.maps.android.compose.Polyline(
@@ -1060,16 +1005,19 @@ fun WorldMapScreen(
                         }
                         val landmarksJson = gson.toJson(landmarksPayload)
                         wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks(${JSONObject.quote(landmarksJson)});", null)
-                        val roadsPayload = roadNetwork.map { way ->
-                            mapOf(
-                                "id" to way.id.toString(),
-                                "isForCars" to way.isForCars,
-                                "nodes" to way.nodes.map { mapOf("lat" to it.lat, "lon" to it.lon) }
-                            )
+                        if (uiState.showRoadNetwork) {
+                            val roadsPayload = roadNetwork.map { way ->
+                                mapOf(
+                                    "id" to way.id.toString(),
+                                    "isForCars" to way.isForCars,
+                                    "nodes" to way.nodes.map { mapOf("lat" to it.lat, "lon" to it.lon) }
+                                )
+                            }
+                            val roadsJson = gson.toJson(roadsPayload)
+                            wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads(${JSONObject.quote(roadsJson)});", null)
+                        } else {
+                            wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads('[]');", null)
                         }
-                        val roadsJson = gson.toJson(roadsPayload)
-                        wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads(${JSONObject.quote(roadsJson)});", null)
-
                         val destMarker = uiState.destinationMarker
                         if (destMarker != null) wv.evaluateJavascript("if(typeof updateDestinationMarker==='function')updateDestinationMarker(${destMarker.latitude}, ${destMarker.longitude});", null)
                         else wv.evaluateJavascript("if(typeof clearDestinationMarker==='function')clearDestinationMarker();", null)

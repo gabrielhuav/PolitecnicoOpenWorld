@@ -186,8 +186,8 @@ class WorldMapViewModel(
     private val ROAD_NODE_GRID_SIZE_DEG = 0.001
 
     private var lastVisibleRoadUpdateLocation: GeoPoint? = null
-    private val VISIBLE_ROAD_UPDATE_THRESHOLD = 0.002 // ~200 metros
-    private val VISIBLE_ROAD_RADIUS = 0.006 // ~600 metros de radio
+    private val VISIBLE_ROAD_UPDATE_THRESHOLD = 0.002
+    private val VISIBLE_ROAD_RADIUS = 0.006
 
     var isSteeringLeftPressed = false
     var isSteeringRightPressed = false
@@ -565,7 +565,7 @@ class WorldMapViewModel(
 
                         maybeRefetchRoadNetwork(location)
                         if (tickCount % 5 == 0L) {
-                            updateVisibleRoadSegments(location.latitude, location.longitude)
+                            updateVisibleRoads(location)
                         }
                         updateVisibleRoads(location)
                         if (_uiState.value.isRoadNetworkReady) {
@@ -657,8 +657,8 @@ class WorldMapViewModel(
     fun stopGameLoop() { gameLoopJob?.cancel(); gameLoopJob = null }
 
     private fun updateVisibleRoads(location: GeoPoint, force: Boolean = false) {
-        if (roadNetwork.isEmpty()) {
-            _roadNetworkFlow.value = emptyList()
+        if (!_uiState.value.showRoadNetwork || roadNetwork.isEmpty()) {
+            if (_roadNetworkFlow.value.isNotEmpty()) _roadNetworkFlow.value = emptyList()
             return
         }
         val lastLoc = lastVisibleRoadUpdateLocation
@@ -1684,48 +1684,13 @@ class WorldMapViewModel(
     fun setShowRoadNetwork(show: Boolean) {
         _uiState.update { it.copy(showRoadNetwork = show) }
         if (!show) {
-            roadSegmentJob?.cancel()
-            _uiState.update { it.copy(visibleRoadSegments = emptyList()) }
+            _roadNetworkFlow.value = emptyList()
         } else {
-            _uiState.value.currentLocation?.let {
-                updateVisibleRoadSegments(it.latitude, it.longitude)
+            _uiState.value.currentLocation?.let { loc ->
+                updateVisibleRoads(loc, force = true)
             }
         }
     }
-
-    private var roadSegmentJob: Job? = null
-
-    fun updateVisibleRoadSegments(playerLat: Double, playerLon: Double) {
-        if (!_uiState.value.showRoadNetwork) {
-            if (_uiState.value.visibleRoadSegments.isNotEmpty())
-                _uiState.update { it.copy(visibleRoadSegments = emptyList()) }
-            return
-        }
-        roadSegmentJob?.cancel()
-        roadSegmentJob = viewModelScope.launch(Dispatchers.Default) {
-            val network = roadNetwork
-            if (network.isEmpty()) return@launch
-            // Radio de culling: ~300m en grados (~0.0027°)
-            val CULL_RADIUS = 0.0027
-            val segments = ArrayList<Pair<Pair<Double, Double>, Pair<Double, Double>>>(256)
-            for (way in network) {
-                val nodes = way.nodes
-                for (i in 0 until nodes.size - 1) {
-                    val a = nodes[i]; val b = nodes[i + 1]
-                    // Incluir si cualquiera de los dos nodos está en el radio
-                    val aInRange = abs(a.lat - playerLat) < CULL_RADIUS && abs(a.lon - playerLon) < CULL_RADIUS
-                    val bInRange = abs(b.lat - playerLat) < CULL_RADIUS && abs(b.lon - playerLon) < CULL_RADIUS
-                    if (aInRange || bInRange) {
-                        segments.add((a.lat to a.lon) to (b.lat to b.lon))
-                    }
-                }
-            }
-            withContext(Dispatchers.Main) {
-                _uiState.update { it.copy(visibleRoadSegments = segments) }
-            }
-        }
-    }
-
 
     fun checkDestinationArrival() {
         val destination = _uiState.value.destinationMarker ?: return
