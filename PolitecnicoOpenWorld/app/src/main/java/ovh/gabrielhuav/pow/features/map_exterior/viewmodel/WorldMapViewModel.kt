@@ -1720,14 +1720,64 @@ class WorldMapViewModel(
     }
 
     fun spawnDynamicCarInEscom(context: Context) {
-        // Tu lógica de cargar escomNavGraph sigue bien...
+        // 1. Cargar el JSON del navgraph de ESCOM si no está en memoria
+        if (escomNavGraph == null) {
+            try {
+                val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
+                val reader = java.io.InputStreamReader(inputStream)
+                escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
+                reader.close()
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Error leyendo escom_navgraph.json", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
         val navGraph = escomNavGraph ?: return
-        val escomLandmark = _uiState.value.landmarks.find { it.assetPath.contains("building_escom", ignoreCase = true) } ?: return
 
-        // ¡DELEGA LA CREACIÓN AL MANAGER!
-        // Le pasamos el edificio y el grafo para que él haga la matemática.
-        npcAiManager.spawnTestCarInLandmark(escomLandmark, navGraph)
+        // 2. Buscar el edificio ESCOM en el mapa
+        val escomLandmarkBase = _uiState.value.landmarks.find { it.assetPath.contains("building_escom", ignoreCase = true) }
+        if (escomLandmarkBase == null) {
+            android.widget.Toast.makeText(context, "Error: ESCOM no está en el mapa", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        android.widget.Toast.makeText(context, "🚗 Orden enviada al Motor de IA", android.widget.Toast.LENGTH_SHORT).show()
+        // CRUCIAL: Inyectarle el navGraph al Landmark para que la IA (NpcAiManager) pueda leer las "entryWays"
+        val escomLandmark = escomLandmarkBase.copy(navGraph = navGraph)
+
+        // 3. Obtener el carril de entrada (el objeto real LocalWay)
+        val entryWayId = navGraph.entryWays.firstOrNull() ?: return
+        val entryWay = navGraph.ways.find { it.id == entryWayId } ?: return
+        val entryNode = entryWay.nodes.firstOrNull() ?: return
+
+        // 4. Calcular posición global real en base al nodo local 0,0
+        val spawnGeoPoint = escomLandmark.toGlobalGeoPoint(entryNode.localX, entryNode.localY)
+
+        // 5. Crear el NPC con los estados exactos que exige el motor de IA
+        val newCarId = "DYN_CAR_${System.currentTimeMillis()}"
+        val newCar = ovh.gabrielhuav.pow.domain.models.Npc(
+            id = newCarId,
+            type = ovh.gabrielhuav.pow.domain.models.NpcType.CAR,
+            location = spawnGeoPoint,
+            carColor = android.graphics.Color.WHITE,
+            carModel = ovh.gabrielhuav.pow.domain.models.CarModel.SPORT,
+            rotationAngle = 0f,
+            speed = ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager.CAR_SPEED,
+
+            // 👇 PROPIEDADES QUE EVITAN QUE LA IA LO ELIMINE
+            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
+            currentLandmark = escomLandmark, // Pasamos el objeto con el navGraph
+            currentLocalWay = entryWay,      // Pasamos el objeto de la calle
+            targetNodeIndex = 1,             // Le decimos que avance al nodo 1
+            moveDirection = 1                // Dirección hacia adelante
+        )
+
+        // 6. Inyectarlo a la FUENTE DE LA VERDAD (remoteEntities)
+        remoteEntities[newCarId] = newCar
+
+        // 7. Refrescar la pantalla
+        updateNpcsState()
+
+        android.widget.Toast.makeText(context, "🚗 Auto inyectado en MICRO_LANDMARK", android.widget.Toast.LENGTH_SHORT).show()
     }
 }

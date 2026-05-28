@@ -49,40 +49,6 @@ class NpcAiManager {
         networkIsReady = network.isNotEmpty()
     }
 
-    // Escribe esto dentro de NpcAiManager.kt
-    fun spawnTestCarInLandmark(landmark: Landmark, navGraph: LandmarkNavGraph) {
-        // 1. Buscamos el nodo de entrada
-        val entryWayId = navGraph.entryWays.firstOrNull() ?: return
-        val entryWay = navGraph.ways.find { it.id == entryWayId } ?: return
-        val entryNode = entryWay.nodes.firstOrNull() ?: return
-
-        // 2. Calculas el GeoPoint inicial usando el método del landmark
-        // (Asegúrate de que toGlobalGeoPoint esté importado/disponible)
-        val spawnGeoPoint = landmark.toGlobalGeoPoint(entryNode.localX, entryNode.localY)
-
-        // 3. Creas el Npc visual
-        val newCar = Npc(
-            id = "DYN_CAR_${System.currentTimeMillis()}",
-            type = NpcType.CAR,
-            location = spawnGeoPoint,
-            carColor = android.graphics.Color.WHITE,
-            carModel = CarModel.SPORT,
-            speed = CAR_SPEED, // Usa tu constante de velocidad para que no nazca detenido
-            rotationAngle = 0f
-        )
-
-        // 4. AHORA SÍ: REGÍSTRALO EN LA MEMORIA DE LA IA
-        // *****************************************************************
-        // ¡OJO! Esto depende de los nombres REALES de tus variables en NpcAiManager.
-        // Tienes que añadir 'newCar' a la lista interna que usa tu IA para iterar,
-        // y crearle su rastreador de ruta asociado a 'entryWayId'.
-        //
-        // Ejemplo de cómo se vería según la estructura de tu motor:
-        // this.activeNpcs.add(newCar)
-        // this.rutasInternas[newCar.id] = NpcRouteState(way = entryWay, nextNode = 1)
-        // *****************************************************************
-    }
-
     fun setRemoteNpcs(remoteList: List<Npc>) {
         val currentLocals = _npcs.value.filter { !it.isRemote }
         _npcs.value = currentLocals + remoteList
@@ -208,33 +174,64 @@ class NpcAiManager {
     private fun moveLocalNpc(npc: Npc): Npc? {
         val way = npc.currentLocalWay ?: return null
         val landmark = npc.currentLandmark ?: return null
+        val navGraph = landmark.navGraph ?: return null // Necesitamos el grafo para buscar conexiones
+
         val nodeIndex = npc.targetNodeIndex
         val direction = npc.moveDirection
 
         if (nodeIndex < 0 || nodeIndex >= way.nodes.size) {
             val reachedNode = if (nodeIndex < 0) way.nodes.first() else way.nodes.last()
 
+            // 1. ¿Llegó a un cajón de estacionamiento?
             if (reachedNode.isParkingSlot) {
-                // Llegó al cajón de estacionamiento, se apaga.
                 return npc.copy(navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED, speed = 0.0)
-            } else if (landmark.navGraph?.entryWays?.contains(way.id) == true) { // <-- CORRECCIÓN AQUÍ
-                // Llegó a la salida, lo mandamos de regreso a OSM
+            }
+
+            // 2. Buscar carriles conectados a este nodo (Intersecciones)
+            val connectedWays = navGraph.ways.filter { w ->
+                w.id != way.id && w.nodes.any { it.id == reachedNode.id }
+            }
+
+            if (connectedWays.isNotEmpty()) {
+                // Tomar un camino conectado al azar para seguir explorando el estacionamiento
+                val nextWay = connectedWays.random()
+                val newNodeIndex = nextWay.nodes.indexOfFirst { it.id == reachedNode.id }
+
+                // Determinar la dirección en el nuevo carril
+                val nextDir = when (newNodeIndex) {
+                    0 -> 1
+                    nextWay.nodes.size - 1 -> -1
+                    else -> if (Random.nextBoolean()) 1 else -1
+                }
+
                 return npc.copy(
-                    navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM,
-                    currentLocalWay = null,
-                    currentLandmark = null,
-                    currentWay = null // Para que el sistema de Adopción de OSM lo recoja
+                    currentLocalWay = nextWay,
+                    targetNodeIndex = newNodeIndex + nextDir,
+                    moveDirection = nextDir,
+                    // Actualizamos la posición exacta al nodo de intersección
+                    location = landmark.toGlobalGeoPoint(reachedNode.localX, reachedNode.localY)
                 )
             } else {
-                // Rebotar (patrullaje interno de personas)
+                // 3. Callejón sin salida.
+                // Revisar si estamos en el NODO 0 de una entrada (saliendo hacia la calle)
+                if (navGraph.entryWays.contains(way.id) && nodeIndex < 0) {
+                    // Ahora sí, lo devolvemos a OSM para que se vaya a la ciudad
+                    return npc.copy(
+                        navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM,
+                        currentLocalWay = null,
+                        currentLandmark = null
+                    )
+                }
+
+                // Si no es la salida, rebotar y regresar por donde vino
                 val newDir = direction * -1
                 val newIndex = if (nodeIndex < 0) 1 else way.nodes.size - 2
                 return npc.copy(targetNodeIndex = newIndex, moveDirection = newDir)
             }
         }
 
+        // --- Movimiento Suavizado hacia el siguiente nodo ---
         val targetLocalNode = way.nodes[nodeIndex]
-        // Traducimos el nodo local del dibujito a una coordenada global real en ese frame
         val targetGlobal = landmark.toGlobalGeoPoint(targetLocalNode.localX, targetLocalNode.localY)
 
         val dLon = targetGlobal.longitude - npc.location.longitude
