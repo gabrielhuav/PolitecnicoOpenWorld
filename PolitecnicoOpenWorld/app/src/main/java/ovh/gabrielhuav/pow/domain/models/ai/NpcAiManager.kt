@@ -176,14 +176,13 @@ class NpcAiManager {
         val nodeIndex = npc.targetNodeIndex
         val direction = npc.moveDirection
 
-        // Lógica de final de ruta local (ej. estacionarse o salir a OSM)
         if (nodeIndex < 0 || nodeIndex >= way.nodes.size) {
             val reachedNode = if (nodeIndex < 0) way.nodes.first() else way.nodes.last()
 
             if (reachedNode.isParkingSlot) {
                 // Llegó al cajón de estacionamiento, se apaga.
                 return npc.copy(navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED, speed = 0.0)
-            } else if (landmark.navGraph?.entryNodes?.contains(reachedNode.id) == true) {
+            } else if (landmark.navGraph?.entryWays?.contains(way.id) == true) { // <-- CORRECCIÓN AQUÍ
                 // Llegó a la salida, lo mandamos de regreso a OSM
                 return npc.copy(
                     navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM,

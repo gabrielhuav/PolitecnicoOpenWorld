@@ -116,6 +116,7 @@ import kotlin.math.round
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import android.util.Log
+import androidx.compose.runtime.mutableStateMapOf
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -129,9 +130,9 @@ fun WorldMapScreen(
     val uiState by viewModel.uiState.collectAsState()
     val escomItems by viewModel.escomItems.collectAsState()
     val allCollectibles = uiState.activeCollectibles + escomItems
-    val base64Cache = remember { java.util.concurrent.ConcurrentHashMap<String, String>() }
-    val widthCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
-    val heightCache = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
+    val base64Cache = remember { mutableStateMapOf<String, String>() }
+    val widthCache = remember { mutableStateMapOf<String, Float>() }
+    val heightCache = remember { mutableStateMapOf<String, Float>() }
     val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val googleMapsIconCache = remember {
@@ -965,11 +966,18 @@ fun WorldMapScreen(
                                         val drawable = VehicleSpriteManager.getTintedCarNpc(context, angle, npc.carColor, highResRenderScale, npc.carModel)
                                         val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
                                         if (bitmap != null) {
-                                            widthCache[cacheKey] = (bitmap.width / density) / density
-                                            heightCache[cacheKey] = (bitmap.height / density) / density
+                                            val w = (bitmap.width / density) / density
+                                            val h = (bitmap.height / density) / density
                                             val out = java.io.ByteArrayOutputStream()
                                             bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, out)
-                                            base64Cache[cacheKey] = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            val b64 = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+
+                                            // IMPORTANTE: Actualizar el estado en el hilo principal dispara la recomposición
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                widthCache[cacheKey] = w
+                                                heightCache[cacheKey] = h
+                                                base64Cache[cacheKey] = b64
+                                            }
                                         }
                                     }
                                 }
@@ -1452,7 +1460,11 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             var dynamicScale = Math.max(0.2, Math.min(1.4 * Math.pow(2, currentZoom - 19), 1.4));
             data.forEach(function(npc) {
                 var finalW, finalH;
-                if (npc.type === 'CAR') { finalW = Math.round(npc.width * dynamicScale); finalH = Math.round(npc.height * dynamicScale); }
+                // Usamos un tamaño por defecto (ej. 40) si el ancho aún no llega desde el backend (primer frame nulo)
+                if (npc.type === 'CAR') { 
+                    finalW = Math.round((npc.width || 40) * dynamicScale); 
+                    finalH = Math.round((npc.height || 40) * dynamicScale); 
+                }
                 else if (npc.type === 'MODULAR') { var sz = Math.max(16, Math.min(24.0 + ((currentZoom - 18.0) * 8.0), 40)); finalW = sz; finalH = sz; }
                 else { finalW = 24; finalH = 24; }
                 var nameTagHtml = '';
@@ -1467,9 +1479,13 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                         var wrapper = el.querySelector('.npc-c');
                         var img = el.querySelector('img');
                         if ((npc.type === 'CAR' || npc.type === 'MODULAR') && img && wrapper) {
-                            var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
-                            if (!cachedImg) return;
-                            if (img.src !== cachedImg) img.src = cachedImg;
+                            var placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                            var cachedImg = (window.imgCache && window.imgCache[npc.imageKey]) ? window.imgCache[npc.imageKey] : placeholder;
+                            if (img.src !== cachedImg) {
+                                img.src = cachedImg;
+                                img.dataset.key = npc.imageKey;
+                            }
+                            // Aunque la imagen sea el placeholder, DEBEMOS actualizar el tamaño de la caja
                             wrapper.style.width = finalW + 'px';
                             wrapper.style.height = finalH + 'px';
                             if (npc.flip !== undefined) img.style.transform = 'scaleX(' + npc.flip + ')';
@@ -1480,10 +1496,15 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 } else {
                     var html = '';
                     if (npc.type === 'CAR' || npc.type === 'MODULAR') {
-                        var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
-                        if (!cachedImg) return;
+                        // Usar una imagen vacía (1x1 transparente) si aún no está en caché
+                        var placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                        var cachedImg = (window.imgCache && window.imgCache[npc.imageKey]) ? window.imgCache[npc.imageKey] : placeholder;
+                        
                         var flipStyle = (npc.flip !== undefined) ? 'transform: scaleX(' + npc.flip + ');' : '';
-                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px;">' + nameTagHtml + '<img src="'+cachedImg+'" style="width:100%; height:100%; display:block; ' + flipStyle + '"></div>';
+                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px;">' + 
+                               nameTagHtml + 
+                               // Agregamos un data-key para que el bloque de actualización superior lo encuentre
+                               '<img data-key="' + npc.imageKey + '" src="'+cachedImg+'" style="width:100%; height:100%; display:block; ' + flipStyle + '"></div>';
                     } else {
                         var pUrl = 'file:///android_asset/' + npc.drawable + '.svg';
                         html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate(0deg); width:24px; height:24px;">' + nameTagHtml + '<img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
