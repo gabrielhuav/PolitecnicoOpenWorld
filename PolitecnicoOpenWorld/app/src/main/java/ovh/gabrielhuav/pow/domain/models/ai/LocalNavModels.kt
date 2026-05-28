@@ -1,23 +1,25 @@
 package ovh.gabrielhuav.pow.domain.models.ai
 
+import com.google.gson.annotations.SerializedName
+
 // Coordenada local dentro del asset.
-// localX va de 0.0 (izquierda) a 1.0 (derecha)
-// localY va de 0.0 (arriba) a 1.0 (abajo)
 data class LocalNode(
-    val id: Int,
-    val localX: Float,
-    val localY: Float,
-    val isParkingSlot: Boolean = false // Define si aquí un auto debe detenerse y estacionarse
+    @SerializedName("id") val id: Int,
+    @SerializedName("localX") val localX: Float,
+    @SerializedName("localY") val localY: Float,
+    @SerializedName("isParkingSlot") val isParkingSlot: Boolean = false,
+    @SerializedName("description") val description: String? = null
 )
 
 data class LocalWay(
-    val id: Int,
-    val nodes: List<LocalNode>,
-    val isForCars: Boolean,
-    val isForPeople: Boolean
+    @SerializedName("id") val id: Int,
+    @SerializedName("nodes") val nodes: List<LocalNode>,
+    @SerializedName("isForCars") val isForCars: Boolean = true,
+    @SerializedName("isForPeople") val isForPeople: Boolean = false
 )
 
 data class LandmarkNavGraph(
-    val ways: List<LocalWay>,
-    val entryNodes: List<Int> // IDs de los LocalNodes que sirven de puerta entre OSM y este edificio
+    @SerializedName("landmarkId") val landmarkId: String? = null,
+    @SerializedName("entryWays") val entryWays: List<Int> = emptyList(), // JSON usa entryWays
+    @SerializedName("ways") val ways: List<LocalWay> = emptyList()
 )

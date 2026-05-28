@@ -1147,11 +1147,16 @@ fun WorldMapScreen(
                 onToggleParkingMode = { isChecked -> viewModel.toggleParkingMode(isChecked) },
                 onNewWay = { viewModel.startNewWay() },
                 onDebugPoint = { viewModel.debugPlayerLocalCoordinates(context) },
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 130.dp, start = 12.dp, end = 12.dp).fillMaxWidth(0.9f)
+                onSpawnTestCar = { viewModel.spawnDynamicCarInEscom(context) }, // <--- NUEVA LÍNEA AQUÍ
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    // Reducimos el 'top' a 50 para que suba, y ponemos 'bottom' a 160 para salvar el joystick
+                    .padding(top = 50.dp, start = 12.dp, end = 12.dp, bottom = 160.dp)
+                    .fillMaxWidth(0.9f)
             )
         }
 
-        if (!uiState.isDesignerMode) {
+        //if (!uiState.isDesignerMode) {
             val configuration = LocalConfiguration.current
             val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
             val maxScale = if (isPortrait) 1.0f else 1.4f
@@ -1199,7 +1204,7 @@ fun WorldMapScreen(
                     if (uiState.swapControls) { actionComponent(); movementComponent() } else { movementComponent(); actionComponent() }
                 }
             }
-        }
+        //}
     }
 
     if (uiState.showWastedScreen) {

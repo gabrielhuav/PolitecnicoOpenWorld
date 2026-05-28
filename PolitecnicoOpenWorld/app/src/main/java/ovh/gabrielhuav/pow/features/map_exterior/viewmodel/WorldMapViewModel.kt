@@ -54,6 +54,8 @@ import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import java.io.InputStreamReader
+import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
@@ -160,6 +162,8 @@ class WorldMapViewModel(
             swapControls = settingsRepository.getSwapControls()
         )
     )
+    // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
+    private var escomNavGraph: LandmarkNavGraph? = null
     val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
 
     private val npcAiManager      = NpcAiManager()
@@ -1713,5 +1717,56 @@ class WorldMapViewModel(
         val currentLoc = _uiState.value.currentLocation ?: return
         val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
         if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) clearDestinationMarker()
+    }
+
+    // --- CREADOR DE AUTOS DINÁMICOS ---
+    fun spawnDynamicCarInEscom(context: Context) {
+        // 1. Cargar el JSON solo la primera vez
+        if (escomNavGraph == null) {
+            try {
+                val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
+                val reader = InputStreamReader(inputStream)
+                escomNavGraph = Gson().fromJson(reader, LandmarkNavGraph::class.java)
+                reader.close()
+            } catch (e: Exception) {
+                Log.e("DYNAMIC_CARS", "Error leyendo escom_navgraph.json", e)
+                android.widget.Toast.makeText(context, "Error: No se encontró el JSON", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
+        val navGraph = escomNavGraph ?: return
+
+        // 2. Buscar ESCOM en el mapa actual
+        val escomLandmark = _uiState.value.landmarks.find { it.assetPath.contains("building_escom", ignoreCase = true) }
+        if (escomLandmark == null) {
+            android.widget.Toast.makeText(context, "Error: ESCOM no está en el mapa", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 3. Obtener el punto de inicio (Way 101, Nodo 1)
+        val entryWayId = navGraph.entryWays.firstOrNull() ?: return
+        val entryWay = navGraph.ways.find { it.id == entryWayId } ?: return
+        val entryNode = entryWay.nodes.firstOrNull() ?: return
+
+// 4. Convertir coordenadas locales a globales reales en el mapa
+        val spawnGeoPoint = escomLandmark.toGlobalGeoPoint(entryNode.localX, entryNode.localY)
+
+        // 5. Crear el NPC
+        val newCarId = "DYN_CAR_${System.currentTimeMillis()}"
+        val newCar = ovh.gabrielhuav.pow.domain.models.Npc(
+            id = newCarId,
+            type = ovh.gabrielhuav.pow.domain.models.NpcType.CAR,
+            location = spawnGeoPoint,
+            carColor = android.graphics.Color.WHITE,
+            carModel = ovh.gabrielhuav.pow.domain.models.CarModel.SPORT,
+            speed = 0.0,
+            rotationAngle = 0f
+        )
+
+        // 6. Inyectarlo al juego
+        _uiState.update { it.copy(npcs = it.npcs + newCar) }
+
+        android.widget.Toast.makeText(context, "🚗 Auto inyectado en Nodo 1", android.widget.Toast.LENGTH_SHORT).show()
     }
 }

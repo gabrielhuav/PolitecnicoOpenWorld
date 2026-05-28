@@ -1,0 +1,46 @@
+{
+  "landmarkId": "building_escom",
+  "entryWays": [101],
+  "ways": [
+    {
+      "id": 101,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.9867, "localY": 0.6362, "isParkingSlot": false, "description": "Entrada principal" },
+        { "id": 2, "localX": 0.8572, "localY": 0.5125, "isParkingSlot": false, "description": "Pasillo central" }
+      ]
+    },
+    {
+      "id": 102,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.9257, "localY": 0.5708, "isParkingSlot": false, "description": "Acceso cajón" },
+        { "id": 2, "localX": 0.8971, "localY": 0.5796, "isParkingSlot": true, "description": "Cajón 1" }
+      ]
+    },
+    {
+      "id": 103,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.9184, "localY": 0.5608, "isParkingSlot": false, "description": "Acceso cajón" },
+        { "id": 2, "localX": 0.8938, "localY": 0.5683, "isParkingSlot": true, "description": "Cajón 2" }
+      ]
+    },
+    {
+      "id": 104,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.9124, "localY": 0.5513, "isParkingSlot": false, "description": "Acceso cajón" },
+        { "id": 2, "localX": 0.8810, "localY": 0.5619, "isParkingSlot": true, "description": "Cajón 3" }
+      ]
+    },
+    {
+      "id": 105,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.9016, "localY": 0.5413, "isParkingSlot": false, "description": "Acceso cajón" },
+        { "id": 2, "localX": 0.8730, "localY": 0.5530, "isParkingSlot": true, "description": "Cajón 4" }
+      ]
+    }
+  ]
+}

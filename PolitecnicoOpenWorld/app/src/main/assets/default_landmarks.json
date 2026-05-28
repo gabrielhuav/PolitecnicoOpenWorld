@@ -2,11 +2,11 @@
   {
     "assetPath": "BUILDINGS/IPN/building_escom.webp",
     "id": 1,
-    "latitude": 19.504594288807827,
-    "longitude": -99.14653364364555,
+    "latitude": 19.504694288807826,
+    "longitude": -99.14663364364556,
     "name": "Edificio ESCOM",
-    "rotationAngle": 23.80093,
-    "scaleFactor": 0.75418174
+    "rotationAngle": 25.819448,
+    "scaleFactor": 0.9854224
   },
   {
     "assetPath": "BUILDINGS/IPN/plaza_torres.webp",
@@ -20,11 +20,11 @@
   {
     "assetPath": "BUILDINGS/IPN/cic_edificios.webp",
     "id": 3,
-    "latitude": 19.503193905236063,
-    "longitude": -99.14718337104783,
+    "latitude": 19.502893905236064,
+    "longitude": -99.14748337104784,
     "name": "CIC",
-    "rotationAngle": 23.587322,
-    "scaleFactor": 0.80067044
+    "rotationAngle": 25.75529,
+    "scaleFactor": 1.0591303
   },
   {
     "assetPath": "BUILDINGS/IPN/coyote_de_neza.webp",

@@ -42,6 +42,8 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun DesignerPanel(
@@ -58,6 +60,7 @@ fun DesignerPanel(
     onToggleParkingMode: (Boolean) -> Unit = {},
     onNewWay: () -> Unit = {},
     onDebugPoint: () -> Unit = {},
+    onSpawnTestCar: () -> Unit = {}, // <--- NUEVA LÍNEA AQUÍ
     modifier: Modifier = Modifier
 ) {
     val moveStep = 0.0001
@@ -66,6 +69,7 @@ fun DesignerPanel(
         modifier = modifier
             .background(Color(0xFF1E1E24).copy(alpha = 0.95f), RoundedCornerShape(12.dp))
             .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(12.dp))
+            .verticalScroll(rememberScrollState()) // <--- AGREGAMOS ESTO PARA PODER DESLIZAR
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -231,6 +235,14 @@ fun DesignerPanel(
                     Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("CAPTURAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = onSpawnTestCar,
+                    modifier = Modifier.fillMaxWidth().height(40.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)), // Color Verde
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("🚗 SPAWN AUTO DE PRUEBA", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
