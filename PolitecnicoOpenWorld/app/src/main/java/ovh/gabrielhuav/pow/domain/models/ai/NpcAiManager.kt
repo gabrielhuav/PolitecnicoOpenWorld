@@ -47,6 +47,9 @@ class NpcAiManager {
     private val spawnDistance   = 0.0060
     // Diccionario para saber en qué milisegundo debe despertar cada coche
     private val parkedTimers = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    // Diccionario para evitar que se vuelvan a estacionar inmediatamente
+    private val parkingCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val carSpeed    = CAR_SPEED
     private val personSpeed = PERSON_SPEED
 
@@ -204,67 +207,72 @@ class NpcAiManager {
             visualConfig = visualConfig
         )
     }
-
     private fun moveLocalNpc(npc: Npc): Npc? {
         val way = npc.currentLocalWay ?: return null
         val landmark = npc.currentLandmark ?: return null
-        val navGraph = landmark.navGraph ?: return null // Necesitamos el grafo para buscar conexiones
+        val navGraph = landmark.navGraph ?: return null
 
         val nodeIndex = npc.targetNodeIndex
         val direction = npc.moveDirection
 
+        // --- 1. LÓGICA DE FIN DE CARRIL (Llegó a un extremo) ---
         if (nodeIndex < 0 || nodeIndex >= way.nodes.size) {
             val reachedNode = if (nodeIndex < 0) way.nodes.first() else way.nodes.last()
 
-            // 1. ¿Llegó a un cajón de estacionamiento?
+            // ¿Llegó al final del cajón? (¡A estacionarse!)
             if (reachedNode.isParkingSlot) {
                 return npc.copy(navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED, speed = 0.0)
             }
 
-            // 2. Buscar carriles conectados a este nodo (Intersecciones)
+            // ¿Es la salida a la calle de OpenStreetMap?
+            if (navGraph.entryWays.contains(way.id) && nodeIndex < 0) {
+                return npc.copy(
+                    navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM,
+                    currentLocalWay = null,
+                    currentLandmark = null
+                )
+            }
+
+            // SALIR DEL CAJÓN O LLEGAR A UN MURO: Buscar carril principal para incorporarse
+            // Buscamos cualquier camino cuya línea pase muy cerca de este punto (Point-to-Line)
             val connectedWays = navGraph.ways.filter { w ->
-                w.id != way.id && w.nodes.any { it.id == reachedNode.id }
+                w.id != way.id && w.nodes.size >= 2 && run {
+                    var isNear = false
+                    for (i in 0 until w.nodes.size - 1) {
+                        val n1 = w.nodes[i]
+                        val n2 = w.nodes[i+1]
+                        val dist = pointToLineDist(
+                            reachedNode.localX.toDouble(), reachedNode.localY.toDouble(),
+                            n1.localX.toDouble(), n1.localY.toDouble(),
+                            n2.localX.toDouble(), n2.localY.toDouble()
+                        )
+                        // Si la línea del carril pasa a menos de 5% de distancia, nos incorporamos
+                        if (dist < 0.05) { isNear = true; break }
+                    }
+                    isNear
+                }
             }
 
             if (connectedWays.isNotEmpty()) {
-                // Tomar un camino conectado al azar para seguir explorando el estacionamiento
                 val nextWay = connectedWays.random()
-                val newNodeIndex = nextWay.nodes.indexOfFirst { it.id == reachedNode.id }
-
-                // Determinar la dirección en el nuevo carril
-                val nextDir = when (newNodeIndex) {
-                    0 -> 1
-                    nextWay.nodes.size - 1 -> -1
-                    else -> if (Random.nextBoolean()) 1 else -1
-                }
+                // Al incorporarse a la avenida, elige dirección al azar (izquierda o derecha)
+                val nextDir = if (Random.nextBoolean()) 1 else -1
+                val newTarget = if (nextDir == 1) 1 else nextWay.nodes.size - 2
 
                 return npc.copy(
                     currentLocalWay = nextWay,
-                    targetNodeIndex = newNodeIndex + nextDir,
-                    moveDirection = nextDir,
-                    // Actualizamos la posición exacta al nodo de intersección
-                    location = landmark.toGlobalGeoPoint(reachedNode.localX, reachedNode.localY)
+                    targetNodeIndex = newTarget,
+                    moveDirection = nextDir
                 )
             } else {
-                // 3. Callejón sin salida.
-                // Revisar si estamos en el NODO 0 de una entrada (saliendo hacia la calle)
-                if (navGraph.entryWays.contains(way.id) && nodeIndex < 0) {
-                    // Ahora sí, lo devolvemos a OSM para que se vaya a la ciudad
-                    return npc.copy(
-                        navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM,
-                        currentLocalWay = null,
-                        currentLandmark = null
-                    )
-                }
-
-                // Si no es la salida, rebotar y regresar por donde vino
+                // Callejón sin salida real, rebotar
                 val newDir = direction * -1
                 val newIndex = if (nodeIndex < 0) 1 else way.nodes.size - 2
                 return npc.copy(targetNodeIndex = newIndex, moveDirection = newDir)
             }
         }
 
-        // --- Movimiento Suavizado hacia el siguiente nodo ---
+        // --- 2. MOVIMIENTO SUAVE HACIA EL NODO ---
         val targetLocalNode = way.nodes[nodeIndex]
         val targetGlobal = landmark.toGlobalGeoPoint(targetLocalNode.localX, targetLocalNode.localY)
 
@@ -279,6 +287,45 @@ class NpcAiManager {
         val smoothedAngle = (npc.rotationAngle + diff * 0.20f + 360) % 360
         val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
 
+        // --- 3. IA DE VISIÓN PERIFÉRICA (DETECTAR CAJONES MIENTRAS MANEJA) ---
+
+        // Revisamos si este coche acaba de salir de un cajón y está penalizado
+        val isOnCooldown = parkingCooldowns[npc.id]?.let { System.currentTimeMillis() < it } ?: false
+
+        // Si vamos rápido, somos auto, no estamos en un cajón, Y NO ESTAMOS PENALIZADOS:
+        if (dist > actualSpeed * 3 && npc.type == NpcType.CAR && !way.nodes.any { it.isParkingSlot } && !isOnCooldown) {
+
+            val nearbyParkingEntrances = navGraph.ways.filter { w ->
+                w.id != way.id && w.nodes.any { it.isParkingSlot }
+            }
+
+            for (parkWay in nearbyParkingEntrances) {
+                val entryNode = parkWay.nodes.first()
+                val entryGlobal = landmark.toGlobalGeoPoint(entryNode.localX, entryNode.localY)
+                val distToEntry = calculateDistance(npc.location.latitude, npc.location.longitude, entryGlobal.latitude, entryGlobal.longitude)
+
+                if (distToEntry < 0.00003) {
+
+                    // 👇 ARREGLO BUG 2: ¿Hay alguien en este cajón?
+                    val isOccupied = serverNpcs.any { otherCar ->
+                        // Si otro coche (diferente a mí) ya tiene esta ruta como su ruta actual, está ocupado
+                        otherCar.id != npc.id && otherCar.currentLocalWay?.id == parkWay.id
+                    }
+
+                    // Solo entramos si el cajón está libre y ganamos el volado del 50%
+                    if (!isOccupied && Random.nextFloat() < 0.50f) {
+                        return npc.copy(
+                            currentLocalWay = parkWay,
+                            targetNodeIndex = 1,
+                            moveDirection = 1,
+                            location = entryGlobal
+                        )
+                    }
+                }
+            }
+        }
+
+        // --- 4. APLICAR MOVIMIENTO FÍSICO ---
         return if (dist < actualSpeed) {
             npc.copy(
                 location = GeoPoint(targetGlobal.latitude, targetGlobal.longitude),
@@ -297,6 +344,17 @@ class NpcAiManager {
             )
         }
     }
+
+    // --- FUNCIÓN MATEMÁTICA AUXILIAR ---
+    // Calcula la distancia perpendicular desde un punto a una línea (segmento)
+    private fun pointToLineDist(px: Double, py: Double, x1: Double, y1: Double, x2: Double, y2: Double): Double {
+        val l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)
+        if (l2 == 0.0) return kotlin.math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1))
+        val t = maxOf(0.0, minOf(1.0, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2))
+        val projX = x1 + t * (x2 - x1)
+        val projY = y1 + t * (y2 - y1)
+        return kotlin.math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY))
+    }
     private fun moveNpc(npc: Npc, network: List<MapWay>): Npc? {
         // --- NUEVA BIFURCACIÓN DE ESTADOS ---
         if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) {
@@ -309,6 +367,10 @@ class NpcAiManager {
             } else if (System.currentTimeMillis() > wakeUpTime) {
                 // ¡Pasó el tiempo! Es hora de despertar
                 parkedTimers.remove(npc.id)
+
+                // Le damos 20 segundos donde tiene prohibido volver a estacionarse
+                parkingCooldowns[npc.id] = System.currentTimeMillis() + 20000
+
                 val way = npc.currentLocalWay ?: return null
 
                 // Ponemos "reversa": invertimos su dirección para que salga del cajón
