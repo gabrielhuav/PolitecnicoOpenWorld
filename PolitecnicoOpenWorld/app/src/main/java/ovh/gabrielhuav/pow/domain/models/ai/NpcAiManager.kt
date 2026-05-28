@@ -33,12 +33,20 @@ class NpcAiManager {
     val npcs: StateFlow<List<Npc>> = _npcs.asStateFlow()
 
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
+
+    private val cachedLandmarks = AtomicReference<List<Landmark>>(emptyList())
+
+    fun setLandmarks(landmarks: List<Landmark>) {
+        cachedLandmarks.set(landmarks)
+    }
+
     val pendingDespawns = mutableListOf<String>()
 
     private val maxNpcs = 40
     private val despawnDistance = 0.035
     private val spawnDistance   = 0.0060
-
+    // Diccionario para saber en qué milisegundo debe despertar cada coche
+    private val parkedTimers = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val carSpeed    = CAR_SPEED
     private val personSpeed = PERSON_SPEED
 
@@ -88,13 +96,39 @@ class NpcAiManager {
                 serverNpcs.removeAll(toAnnihilate)
                 toAnnihilate.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
             } else if (currentNpcsCount < maxNpcs) {
+                // ---- NUEVA LÓGICA DE SPAWN "MAGNETIZADO" A EDIFICIOS ----
+
+                // 1. Encontrar todos los edificios con estacionamiento (navGraph != null)
+                val activeLandmarks = cachedLandmarks.get().filter { it.navGraph != null }
+
+                // 2. Filtrar calles que estén cerca del jugador (spawnDistance)
                 val closeWays = currentNetwork.filter { way ->
                     way.nodes.any { calculateDistance(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistance }
                 }
+
                 if (closeWays.isNotEmpty()) {
-                    val numToSpawn = minOf(2, maxNpcs - currentNpcsCount)
+                    val numToSpawn = minOf(2, maxNpcs - currentNpcsCount) // Spawneamos de 2 en 2 para no saturar el frame
+
                     for (i in 0 until numToSpawn) {
-                        spawnNpcOnRoad(playerLocation, closeWays)?.let { serverNpcs.add(it) }
+                        var targetWays = closeWays
+
+                        // 3. "Imán" de tráfico: 70% de probabilidad de forzar a que el auto nazca
+                        // cerca de un edificio con estacionamiento (si hay alguno cerca)
+                        if (activeLandmarks.isNotEmpty() && Random.nextFloat() < 0.70f) {
+                            val targetLandmark = activeLandmarks.random()
+                            val waysNearLandmark = closeWays.filter { way ->
+                                way.nodes.any { node ->
+                                    calculateDistance(node.lat, node.lon, targetLandmark.location.latitude, targetLandmark.location.longitude) < 0.002 // Calles a 200m del edificio
+                                }
+                            }
+                            // Si encontramos calles cercanas al edificio, forzamos el spawn ahí
+                            if (waysNearLandmark.isNotEmpty()) {
+                                targetWays = waysNearLandmark
+                            }
+                        }
+
+                        // 4. Intentamos crear el NPC en las calles seleccionadas
+                        spawnNpcOnRoad(playerLocation, targetWays)?.let { serverNpcs.add(it) }
                     }
                 }
             }
@@ -266,11 +300,36 @@ class NpcAiManager {
     private fun moveNpc(npc: Npc, network: List<MapWay>): Npc? {
         // --- NUEVA BIFURCACIÓN DE ESTADOS ---
         if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) {
-            // El coche está estacionado, quizás agregar lógica para "despertar" después de un rato
+            val wakeUpTime = parkedTimers[npc.id]
+
+            if (wakeUpTime == null) {
+                // Acaba de estacionarse. Generamos un tiempo aleatorio entre 10 y 30 segundos
+                parkedTimers[npc.id] = System.currentTimeMillis() + Random.nextLong(10000, 30000)
+                return npc
+            } else if (System.currentTimeMillis() > wakeUpTime) {
+                // ¡Pasó el tiempo! Es hora de despertar
+                parkedTimers.remove(npc.id)
+                val way = npc.currentLocalWay ?: return null
+
+                // Ponemos "reversa": invertimos su dirección para que salga del cajón
+                val newDir = npc.moveDirection * -1
+
+                // Calculamos a qué nodo debe retroceder para salir hacia el pasillo principal
+                val newIndex = if (npc.targetNodeIndex < 0) 1 else way.nodes.size - 2
+
+                return npc.copy(
+                    navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
+                    speed = carSpeed, // Le devolvemos su velocidad
+                    moveDirection = newDir,
+                    targetNodeIndex = newIndex
+                )
+            }
+            // Aún no es tiempo, sigue estacionado
             return npc
         }
 
         if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK) {
+            // Todo lo demás sigue exactamente igual
             return moveLocalNpc(npc) // Salta a la nueva función de movimiento local
         }
         // ------------------------------------
@@ -313,7 +372,41 @@ class NpcAiManager {
         // Lógica normal de movimiento
         if (nodeIndex < 0 || nodeIndex >= way.nodes.size) {
             val reachedNode = if (nodeIndex < 0) way.nodes.first() else way.nodes.last()
+
+            // ---- NUEVO: DETECCIÓN DE ENTRADA A ESTACIONAMIENTO ----
+            if (npc.type == NpcType.CAR) {
+                // Buscamos si hay algún edificio cerca de este cruce
+                val nearbyLandmark = cachedLandmarks.get().find { landmark ->
+                    calculateDistance(reachedNode.lat, reachedNode.lon, landmark.location.latitude, landmark.location.longitude) < 0.001 // Aprox 100 metros
+                }
+
+                if (nearbyLandmark != null) {
+                    val navGraph = nearbyLandmark.navGraph
+                    if (navGraph != null && navGraph.entryWays.isNotEmpty()) {
+                        // ¡Hay un estacionamiento! Tiramos los dados (ej. 20% de probabilidad de entrar)
+                        if (Random.nextFloat() < 0.80f) {
+                            val entryWayId = navGraph.entryWays.random() // Elegir una entrada al azar
+                            val entryWay = navGraph.ways.find { it.id == entryWayId }
+
+                            if (entryWay != null) {
+                                // "Secuestramos" al coche de OSM y lo metemos al estacionamiento
+                                return npc.copy(
+                                    navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
+                                    currentLandmark = nearbyLandmark,
+                                    currentLocalWay = entryWay,
+                                    targetNodeIndex = 1, // Hacia adentro
+                                    moveDirection = 1,
+                                    currentWay = null // Borramos su ruta de calle normal
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            // ---- FIN DE DETECCIÓN ----
+
             val connectedWays = network.filter { w ->
+                // ... (tu código anterior de connectedWays)
                 w.id != way!!.id && w.nodes.any { it.id == reachedNode.id } &&
                         ((npc.type == NpcType.CAR && w.isForCars) || (npc.type == NpcType.PERSON && w.isForPeople))
             }

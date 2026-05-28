@@ -563,6 +563,9 @@ class WorldMapViewModel(
                                 val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
                                 npcAiManager.setServerNpcs(npcOnlyList)
 
+                                // Pasamos los landmarks (edificios) con sus navGraphs al motor
+                                npcAiManager.setLandmarks(_uiState.value.landmarks.filter { it.navGraph != null })
+
                                 npcAiManager.updateNpcs(location, isServerDelegatedHost)
                                 val processedNpcs = npcAiManager.getServerNpcs()
 
@@ -1062,6 +1065,7 @@ class WorldMapViewModel(
                 val database = ovh.gabrielhuav.pow.data.local.room.PowDatabase.getInstance(context)
                 val dao = database.landmarkDao()
                 var entities = dao.getAllLandmarks()
+
                 if (entities.isEmpty()) {
                     try {
                         val jsonString = context.assets.open("default_landmarks.json").bufferedReader().use { it.readText() }
@@ -1076,9 +1080,34 @@ class WorldMapViewModel(
                         Log.e("WorldMapViewModel", "Error leyendo default_landmarks.json", e)
                     }
                 }
+
                 val templatesByAssetPath = LandmarkCatalogManager.availableAssets.associateBy { it.assetPath }
+
+                // 👇 NUEVO: Cargamos el navGraph de ESCOM en memoria si no está cargado.
+                // Lo hacemos una sola vez para no abrir el archivo por cada edificio.
+                if (escomNavGraph == null) {
+                    try {
+                        val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
+                        val reader = java.io.InputStreamReader(inputStream)
+                        escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
+                        reader.close()
+                    } catch (e: Exception) {
+                        Log.e("WorldMapViewModel", "No se pudo cargar el navGraph de ESCOM al inicio", e)
+                    }
+                }
+
+                // Mapeamos las entidades de la Base de Datos a la clase Landmark
                 val domainLandmarks = entities.map { entity ->
                     val template = templatesByAssetPath[entity.assetPath]
+
+                    // 👇 NUEVO: Si el edificio es ESCOM, le inyectamos su navGraph.
+                    // Si mañana agregas "Zacatenco", puedes poner "else if" aquí.
+                    val assignedNavGraph = if (entity.assetPath.contains("building_escom", ignoreCase = true)) {
+                        escomNavGraph
+                    } else {
+                        null // Los demás edificios nacen sin cerebro (por ahora)
+                    }
+
                     Landmark(
                         id = entity.id,
                         name = entity.name,
@@ -1087,10 +1116,14 @@ class WorldMapViewModel(
                         scaleFactor = entity.scaleFactor,
                         rotationAngle = entity.rotationAngle,
                         baseWidthMeters = template?.baseWidthMeters ?: 100f,
-                        baseHeightMeters = template?.baseHeightMeters ?: 100f
+                        baseHeightMeters = template?.baseHeightMeters ?: 100f,
+
+                        navGraph = assignedNavGraph
                     )
                 }
+
                 _uiState.update { currentState -> currentState.copy(landmarks = domainLandmarks) }
+
             } catch (e: Exception) {
                 Log.e("WorldMapViewModel", "Error fatal al cargar las estructuras estáticas", e)
             }
