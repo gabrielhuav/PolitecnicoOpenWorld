@@ -165,6 +165,13 @@ class WorldMapViewModel(
     private val npcAiManager      = NpcAiManager()
     private val overpassRepository = OverpassRepository()
     private var roadNetwork: List<MapWay> = emptyList()
+
+    // ─── Red de calles expuesta a la UI ──────────────────────────────────────
+    // La WorldMapScreen consume este Flow para pintar las Polylines de los
+    // caminos transitables ENCIMA de cualquier landmark del Modo Diseñador.
+    private val _roadNetworkFlow = MutableStateFlow<List<MapWay>>(emptyList())
+    val roadNetworkFlow: StateFlow<List<MapWay>> = _roadNetworkFlow.asStateFlow()
+
     private var roadNetworkNodeGrid: Map<Pair<Int, Int>, List<GeoPoint>> = emptyMap()
     private var routeCalculationJob: Job? = null
     private var routeRetryJob: Job? = null
@@ -177,6 +184,10 @@ class WorldMapViewModel(
     private val REFETCH_DISTANCE_DEG = 0.015
     private val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
     private val ROAD_NODE_GRID_SIZE_DEG = 0.001
+
+    private var lastVisibleRoadUpdateLocation: GeoPoint? = null
+    private val VISIBLE_ROAD_UPDATE_THRESHOLD = 0.002 // ~200 metros
+    private val VISIBLE_ROAD_RADIUS = 0.006 // ~600 metros de radio
 
     var isSteeringLeftPressed = false
     var isSteeringRightPressed = false
@@ -553,6 +564,7 @@ class WorldMapViewModel(
                         }
 
                         maybeRefetchRoadNetwork(location)
+                        updateVisibleRoads(location)
                         if (_uiState.value.isRoadNetworkReady) {
                             tickCount++
                             if (tickCount % 3 == 0L) {
@@ -641,8 +653,34 @@ class WorldMapViewModel(
 
     fun stopGameLoop() { gameLoopJob?.cancel(); gameLoopJob = null }
 
+    private fun updateVisibleRoads(location: GeoPoint, force: Boolean = false) {
+        if (roadNetwork.isEmpty()) {
+            _roadNetworkFlow.value = emptyList()
+            return
+        }
+        val lastLoc = lastVisibleRoadUpdateLocation
+        // Solo recalculamos si forzamos la actualización o si el jugador se movió lo suficiente (~200m)
+        if (force || lastLoc == null || distance(lastLoc, location) > VISIBLE_ROAD_UPDATE_THRESHOLD) {
+            lastVisibleRoadUpdateLocation = location
+            // Ejecutamos el filtro en un hilo secundario para no trabar el Game Loop
+            viewModelScope.launch(Dispatchers.Default) {
+                val visibleWays = roadNetwork.filter { way ->
+                    // Una calle es visible si al menos uno de sus nodos está dentro del radio del jugador
+                    way.nodes.any { node ->
+                        abs(node.lat - location.latitude) < VISIBLE_ROAD_RADIUS &&
+                                abs(node.lon - location.longitude) < VISIBLE_ROAD_RADIUS
+                    }
+                }
+                // Actualizamos el Flow que lee la UI (pasará de ~5,000 calles a solo ~100)
+                _roadNetworkFlow.value = visibleWays
+            }
+        }
+    }
+
     private suspend fun applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
         roadNetwork = network
+
+        updateVisibleRoads(playerLocation, force = true)
         rebuildRoadNodeGrid(network)
         npcAiManager.updateRoadNetwork(network)
 
@@ -690,6 +728,7 @@ class WorldMapViewModel(
                 if (cached != null) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         roadNetwork = cached
+                        updateVisibleRoads(currentLoc, force = true)
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
                         val inside = isInsideEscom(currentLoc.latitude, currentLoc.longitude)
@@ -709,6 +748,7 @@ class WorldMapViewModel(
                         roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             roadNetwork = network
+                            updateVisibleRoads(currentLoc, force = true)
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
                             _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
