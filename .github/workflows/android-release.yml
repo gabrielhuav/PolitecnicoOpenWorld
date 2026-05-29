@@ -27,45 +27,13 @@ jobs:
 
          - name: Setup Gradle
            uses: gradle/actions/setup-gradle@v4
-
-         # 1. Reconstruir el archivo secrets.properties dentro de la carpeta de Android antes de compilar
-         - name: Create secrets.properties file
-           run: |
-              echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" >> PolitecnicoOpenWorld/secrets.properties
-name: Generate Release Asset on PR Merge
-
-on:
-   pull_request:
-      branches:
-         - main
-      types:
-         - closed
-
-jobs:
-   release:
-      # Si el PR fue cerrado y aprobado (merged)
-      if: github.event.pull_request.merged == true
-      runs-on: ubuntu-latest
-      permissions:
-         contents: write
-
-      steps:
-         - name: Checkout code
-           uses: actions/checkout@v4
-
-         - name: Set up JDK 21
-           uses: actions/setup-java@v4
            with:
-              java-version: "21"
-              distribution: "jetbrains"
-
-         - name: Setup Gradle
-           uses: gradle/actions/setup-gradle@v4
+              gradle-version: "9.4.1"
 
          # 1. Reconstruir el archivo secrets.properties dentro de la carpeta de Android antes de compilar
          - name: Create secrets.properties file
            run: |
-              echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" >> PolitecnicoOpenWorld/secrets.properties
+              echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
 
          # 2. Compilar el APK (Formato instalable directo)
          - name: Build APK
@@ -90,8 +58,8 @@ jobs:
          - name: Create GitHub Release
            uses: softprops/action-gh-release@v2
            with:
-               # Asigna un tag único basado en el número de Pull Request y el intento
-               tag_name: v1.0.${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+               # Asigna un tag único basado en el run_number y el SHA del commit
+               tag_name: v1.0.${{ github.run_number }}-${{ github.sha }}
                name: Release desde PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}
                body: |
                   Compilación automática generada con éxito.
@@ -100,6 +68,7 @@ jobs:
                   - **Autor:** @${{ github.event.pull_request.user.login }}
                   - **Pull Request:** #${{ github.event.pull_request.number }}
                   - **Título:** ${{ github.event.pull_request.title }}
+                  - **Commit:** ${{ github.sha }}
                   - **Nota:** El APK ha sido firmado con una llave de prueba para poder instalarse.
                draft: false
                prerelease: false
