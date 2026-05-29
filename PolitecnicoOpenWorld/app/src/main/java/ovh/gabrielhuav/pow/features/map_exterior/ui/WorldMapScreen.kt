@@ -593,7 +593,8 @@ fun WorldMapScreen(
                                     setPoints(way.nodes.map { GeoPoint(it.lat, it.lon) })
                                 }
                                 roadLineCache.add(line)
-                                view.overlays.add(line) // después de landmarks → encima
+                                // Insertar en índice 0: roads siempre debajo de markers/NPCs
+                                view.overlays.add(0, line)
                             }
                         }
 
@@ -1380,7 +1381,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                                '</div>';
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                     
-                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, zIndexOffset: -2000, interactive: false }).addTo(map);
+                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, zIndexOffset: -5000, interactive: false }).addTo(map);
                     landmarkMarkers[lm.id] = marker;
                 }
             });
@@ -1423,7 +1424,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                     '<img src="' + pUrl + '" style="position:relative; width:' + iconSize + 'px; height:' + iconSize + 'px; object-fit:contain; image-rendering:pixelated;">' +
                 '</div>';
                 var icon = L.divIcon({ html: html, className: '', iconSize: [containerSize, containerSize], iconAnchor: [containerSize/2, containerSize/2] });
-                collectibleMarkers[col.id] = L.marker([col.latitude, col.longitude], { icon: icon, interactive: false }).addTo(map);
+                collectibleMarkers[col.id] = L.marker([col.latitude, col.longitude], { icon: icon, interactive: false, zIndexOffset: 500 }).addTo(map);
             });
         }
         
@@ -1475,7 +1476,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                         html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate(0deg); width:24px; height:24px;">' + nameTagHtml + '<img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
                     }
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0, 0] });
-                    npcMarkers[npc.id] = L.marker([npc.lat, npc.lng], { icon: icon }).addTo(map);
+                    npcMarkers[npc.id] = L.marker([npc.lat, npc.lng], { icon: icon, zIndexOffset: 1000 }).addTo(map);
                 }
             });
         }

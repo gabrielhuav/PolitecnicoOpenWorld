@@ -18,6 +18,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.random.Random
 
 class ShineCTOViewModel(
     private val settingsRepository: SettingsRepository
@@ -35,22 +36,46 @@ class ShineCTOViewModel(
     private var idleJob: Job? = null
     private var toastJob: Job? = null
 
-    // ─── Interactable hitboxes (normalised) ─────────────────────────────────
-    // Ground floor: EXIT on the right edge, STAIRS at centre-bottom, 2 DRINKs
+    init { spawnInitialDrinks() }
+
+    // ─── Interactable hitboxes fijas (sin bebidas — éstas son dinámicas) ────
     private val groundInteractables: List<Pair<ShineCTOInteractable, NormZone>> = listOf(
         ShineCTOInteractable.EXIT      to NormZone(0.80f, 0.35f, 1.00f, 0.65f),
-        ShineCTOInteractable.STAIRS_UP to NormZone(0.40f, 0.78f, 0.60f, 1.00f),
-        ShineCTOInteractable.DRINK     to NormZone(0.10f, 0.25f, 0.30f, 0.50f),
-        ShineCTOInteractable.DRINK     to NormZone(0.55f, 0.10f, 0.75f, 0.35f)
+        ShineCTOInteractable.STAIRS_UP to NormZone(0.40f, 0.78f, 0.60f, 1.00f)
     )
-
-    // Upper floor: STAIRS at centre-bottom, 1 DRINK
     private val upperInteractables: List<Pair<ShineCTOInteractable, NormZone>> = listOf(
-        ShineCTOInteractable.STAIRS_DOWN to NormZone(0.40f, 0.78f, 0.60f, 1.00f),
-        ShineCTOInteractable.DRINK       to NormZone(0.20f, 0.15f, 0.40f, 0.40f),
-        ShineCTOInteractable.DRINK       to NormZone(0.60f, 0.15f, 0.80f, 0.40f)
+        ShineCTOInteractable.STAIRS_DOWN to NormZone(0.40f, 0.78f, 0.60f, 1.00f)
     )
 
+    // ─── Spawn seguro de bebidas ─────────────────────────────────────────────
+    // Margen para no spawnear en los bordes ni encima de las puertas/escaleras.
+    private val drinkSafeZones: List<NormZone> = listOf(
+        NormZone(0.08f, 0.08f, 0.70f, 0.70f)   // área interior libre
+    )
+
+    private fun randomDrinkPosition(currentDrinks: List<ActiveDrink>): Pair<Float, Float> {
+        repeat(30) {
+            val nx = Random.nextFloat() * 0.60f + 0.10f  // [0.10, 0.70]
+            val ny = Random.nextFloat() * 0.55f + 0.10f  // [0.10, 0.65]
+            // No spawnear demasiado cerca de otra bebida existente
+            val tooClose = currentDrinks.any { d ->
+                abs(d.nx - nx) < 0.12f && abs(d.ny - ny) < 0.12f
+            }
+            if (!tooClose) return nx to ny
+        }
+        return 0.25f to 0.35f  // fallback
+    }
+
+    private var drinkIdCounter = 0
+
+    private fun spawnInitialDrinks() {
+        val drinks = mutableListOf<ActiveDrink>()
+        repeat(2) {
+            val (nx, ny) = randomDrinkPosition(drinks)
+            drinks.add(ActiveDrink(drinkIdCounter++, nx, ny))
+        }
+        _state.update { it.copy(drinks = drinks) }
+    }
     // ─── Movement ───────────────────────────────────────────────────────────
 
     private val BASE_WALK  = 0.004f
@@ -77,32 +102,68 @@ class ShineCTOViewModel(
     }
 
     private fun effectiveStep(s: ShineCTOState): Float =
-        BASE_WALK * s.speedMultiplier   // run not implemented in this interior
+        (if (s.isRunning) BASE_RUN else BASE_WALK) * s.speedMultiplier
 
     private fun applyMovement(newX: Float, newY: Float, dxForFacing: Float) {
         val cx = newX.coerceIn(0f, 1f)
         val cy = newY.coerceIn(0f, 1f)
         val facing = if (abs(dxForFacing) > 0.001f) dxForFacing > 0 else _state.value.isFacingRight
+        val action = when {
+            _state.value.playerAction == PlayerAction.SPECIAL -> PlayerAction.SPECIAL
+            _state.value.isRunning -> PlayerAction.RUN
+            else -> PlayerAction.WALK
+        }
 
         idleJob?.cancel()
-        _state.update { it.copy(playerX = cx, playerY = cy, playerAction = PlayerAction.WALK, isFacingRight = facing) }
+        _state.update { it.copy(playerX = cx, playerY = cy, playerAction = action, isFacingRight = facing) }
         updateNearbyInteractable(cx, cy)
 
         idleJob = viewModelScope.launch {
             delay(150)
-            _state.update { it.copy(playerAction = PlayerAction.IDLE) }
+            if (_state.value.playerAction != PlayerAction.SPECIAL) {
+                _state.update { it.copy(playerAction = PlayerAction.IDLE) }
+            }
         }
     }
 
     private fun updateNearbyInteractable(px: Float, py: Float) {
         val interactables = if (_state.value.floor == ShineCTOFloor.GROUND) groundInteractables else upperInteractables
-        val nearby = interactables.firstOrNull { (_, zone) -> zone.contains(px, py) }?.first
-        if (_state.value.nearbyInteractable != nearby) {
-            _state.update { it.copy(nearbyInteractable = nearby) }
+        val fixedNearby = interactables.firstOrNull { (_, zone) -> zone.contains(px, py) }?.first
+
+        val h = ActiveDrink.HITBOX_HALF
+        val nearbyDrink = _state.value.drinks.firstOrNull { d ->
+            px in (d.nx - h)..(d.nx + h) && py in (d.ny - h)..(d.ny + h)
+        }
+
+        val resolvedInteractable = fixedNearby ?: if (nearbyDrink != null) ShineCTOInteractable.DRINK else null
+        val resolvedDrinkId = if (fixedNearby == null) nearbyDrink?.id else null
+
+        if (_state.value.nearbyInteractable != resolvedInteractable || _state.value.nearbyDrinkId != resolvedDrinkId) {
+            _state.update { it.copy(nearbyInteractable = resolvedInteractable, nearbyDrinkId = resolvedDrinkId) }
         }
     }
 
     // ─── Interaction ────────────────────────────────────────────────────────
+    fun setRunning(running: Boolean) {
+        _state.update { s ->
+            val action = when {
+                s.playerAction == PlayerAction.SPECIAL -> PlayerAction.SPECIAL
+                running && s.playerAction == PlayerAction.WALK -> PlayerAction.RUN
+                !running && s.playerAction == PlayerAction.RUN -> PlayerAction.WALK
+                else -> s.playerAction
+            }
+            s.copy(isRunning = running, playerAction = action)
+        }
+    }
+
+    fun setSpecial(pressed: Boolean) {
+        if (pressed) {
+            idleJob?.cancel()
+            _state.update { it.copy(playerAction = PlayerAction.SPECIAL) }
+        } else {
+            _state.update { it.copy(playerAction = if (_state.value.isRunning) PlayerAction.RUN else PlayerAction.IDLE) }
+        }
+    }
 
     /**
      * Returns true if the caller (screen) should navigate back to the world map.
@@ -127,11 +188,23 @@ class ShineCTOViewModel(
     }
 
     private fun consumeDrink() {
+        val drinkId = _state.value.nearbyDrinkId
         _state.update { s ->
             val newCount = s.drinkCount + 1
             val newSpeed = (s.speedMultiplier - ShineCTOState.SPEED_REDUCTION_PER_DRINK)
                 .coerceAtLeast(ShineCTOState.MIN_SPEED)
-            s.copy(drinkCount = newCount, speedMultiplier = newSpeed, showDrinkToast = true)
+            // Eliminar la bebida consumida y respawnear una nueva en posición distinta
+            val remaining = if (drinkId != null) s.drinks.filter { it.id != drinkId } else s.drinks
+            val (nx, ny) = randomDrinkPosition(remaining)
+            val newDrinks = remaining + ActiveDrink(drinkIdCounter++, nx, ny)
+            s.copy(
+                drinkCount = newCount,
+                speedMultiplier = newSpeed,
+                showDrinkToast = true,
+                drinks = newDrinks,
+                nearbyInteractable = null,
+                nearbyDrinkId = null
+            )
         }
         toastJob?.cancel()
         toastJob = viewModelScope.launch {

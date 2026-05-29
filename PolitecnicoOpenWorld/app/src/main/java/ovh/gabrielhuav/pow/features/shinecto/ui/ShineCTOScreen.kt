@@ -114,6 +114,7 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
             // ── Interactable zone indicators (subtle colored rects in debug; dots in play) ──
             InteractableDots(
                 floor = state.floor,
+                drinks = state.drinks,
                 offsetX = offsetX,
                 offsetY = offsetY,
                 camScale = camScale,
@@ -154,6 +155,8 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
                 val shouldExit = vm.onInteract()
                 if (shouldExit) onExitToWorld()
             },
+            onRun = vm::setRunning,
+            onSpecial = vm::setSpecial,
             onBack = onExitToWorld
         )
     }
@@ -163,26 +166,31 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
 @Composable
 private fun InteractableDots(
     floor: ShineCTOFloor,
+    drinks: List<ovh.gabrielhuav.pow.features.shinecto.viewmodel.ActiveDrink>,
     offsetX: Float, offsetY: Float,
     camScale: Float,
     worldW: Float, worldH: Float
 ) {
-    // Ground-floor interactable centre points (normalised)
-    val groundDots = listOf(
-        Triple(0.90f, 0.50f, Color(0xFF2196F3)),  // EXIT – blue
-        Triple(0.50f, 0.89f, Color(0xFFD4AF37)),  // STAIRS – gold
-        Triple(0.20f, 0.375f, Color(0xFF8BC34A)), // DRINK 1 – green
-        Triple(0.65f, 0.225f, Color(0xFF8BC34A))  // DRINK 2 – green
-    )
-    val upperDots = listOf(
-        Triple(0.50f, 0.89f, Color(0xFFD4AF37)),  // STAIRS – gold
-        Triple(0.30f, 0.275f, Color(0xFF8BC34A)), // DRINK 1
-        Triple(0.70f, 0.275f, Color(0xFF8BC34A))  // DRINK 2
-    )
-    val dots = if (floor == ShineCTOFloor.GROUND) groundDots else upperDots
-
+    val context = LocalContext.current
     val density = LocalDensity.current
-    dots.forEach { (nx, ny, color) ->
+
+    // Cargar asset de bebida una sola vez
+    val drinkBitmap = remember {
+        try {
+            context.assets.open("LUGARES/shineCTO/s_bebidas.webp")
+                .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+        } catch (e: Exception) { null }
+    }
+
+    // Puntos fijos (EXIT y STAIRS) — sin bebidas, esas son dinámicas
+    val fixedDots = if (floor == ShineCTOFloor.GROUND) listOf(
+        Triple(0.90f, 0.50f, Color(0xFF2196F3)),  // EXIT
+        Triple(0.50f, 0.89f, Color(0xFFD4AF37))   // STAIRS
+    ) else listOf(
+        Triple(0.50f, 0.89f, Color(0xFFD4AF37))   // STAIRS
+    )
+
+    fixedDots.forEach { (nx, ny, color) ->
         val sx = with(density) { (offsetX + nx * worldW * camScale).toDp() }
         val sy = with(density) { (offsetY + ny * worldH * camScale).toDp() }
         Box(
@@ -191,6 +199,33 @@ private fun InteractableDots(
                 .size(20.dp)
                 .background(color.copy(alpha = 0.65f), CircleShape)
         )
+    }
+
+    // Bebidas dinámicas con asset
+    val drinkSizeDp = with(density) { (40f * camScale).toDp() }
+    drinks.forEach { drink ->
+        val sx = with(density) { (offsetX + drink.nx * worldW * camScale).toDp() }
+        val sy = with(density) { (offsetY + drink.ny * worldH * camScale).toDp() }
+        Box(
+            modifier = Modifier
+                .absoluteOffset(x = sx - drinkSizeDp / 2, y = sy - drinkSizeDp / 2)
+                .size(drinkSizeDp)
+        ) {
+            if (drinkBitmap != null) {
+                Image(
+                    bitmap = drinkBitmap,
+                    contentDescription = "Bebida",
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                // Fallback visual si el asset no carga
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF8BC34A).copy(alpha = 0.8f), CircleShape)
+                )
+            }
+        }
     }
 }
 
@@ -201,6 +236,8 @@ private fun ShineCTOHud(
     onMoveDir: (Direction) -> Unit,
     onMoveAngle: (Double) -> Unit,
     onInteract: () -> Unit,
+    onRun: (Boolean) -> Unit,
+    onSpecial: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
     val shape = CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp)
@@ -312,7 +349,12 @@ private fun ShineCTOHud(
                 ActionButtonsController(
                     modifier = Modifier.scale(effectiveScale),
                     onActionChanged = { action, pressed ->
-                        if (action == GameAction.X && pressed) onInteract()
+                        when (action) {
+                            GameAction.X -> if (pressed) onInteract()
+                            GameAction.A -> onRun(pressed)
+                            GameAction.B -> onSpecial(pressed)
+                            else -> {}
+                        }
                     },
                     onClaimCollectiblePressed = { onInteract() }
                 )

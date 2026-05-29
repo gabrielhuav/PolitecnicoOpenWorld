@@ -18,7 +18,7 @@ object ShineCTOLocation {
     /** ID estable usado como clave en coleccionables / markers. */
     const val MARKER_ID = "easter_shinecto"
     const val MARKER_NAME = "Lugar Misterioso"
-    const val MARKER_ASSET = "LUGARES/shineCTO/s_pbaja.webp"
+    const val MARKER_ASSET = "LUGARES/shineCTO/s_logo.webp"
 }
 
 enum class ShineCTOFloor {

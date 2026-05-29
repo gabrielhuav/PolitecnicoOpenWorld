@@ -1334,7 +1334,8 @@ class WorldMapViewModel(
     fun onClaimCollectiblePressed() {
         val itemToClaim = _uiState.value.nearbyCollectible ?: return
 
-        if (itemToClaim.name == "Objeto Misterioso ESCOM") {
+        if (itemToClaim.name == "Objeto Misterioso ESCOM" ||
+            itemToClaim.id == ShineCTOLocation.MARKER_ID) {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -1712,7 +1713,7 @@ class WorldMapViewModel(
                 id          = ShineCTOLocation.MARKER_ID,
                 name        = ShineCTOLocation.MARKER_NAME,
                 description = "easter_egg",
-                assetPath   = ShineCTOLocation.MARKER_ASSET,
+                assetPath   = "LUGARES/shineCTO/s_logo.webp",
                 latitude    = ShineCTOLocation.LAT,
                 longitude   = ShineCTOLocation.LON
             )
@@ -1721,11 +1722,11 @@ class WorldMapViewModel(
     }
 
     fun onShineCTODiscoveryConfirmed() {
+        // El marker es persistente: NO se elimina de activeCollectibles.
         _uiState.update { s ->
             s.copy(
                 showShineCTODiscovery = false,
                 navigateToShineCTO   = true,
-                activeCollectibles   = s.activeCollectibles.filter { it.id != ShineCTOLocation.MARKER_ID },
                 nearbyCollectible    = null,
                 interactionPrompt    = null
             )

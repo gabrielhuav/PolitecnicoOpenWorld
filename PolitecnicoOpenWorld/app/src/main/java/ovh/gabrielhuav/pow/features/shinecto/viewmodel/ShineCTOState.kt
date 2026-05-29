@@ -24,13 +24,30 @@ data class ShineCTOState(
     val swapControls: Boolean = false,
     val drinkCount: Int = 0,
     val speedMultiplier: Float = 1.0f,
+    val isRunning: Boolean = false,
     val nearbyInteractable: ShineCTOInteractable? = null,
+    val nearbyDrinkId: Int? = null,
+    val drinks: List<ActiveDrink> = emptyList(),
     val showDrinkToast: Boolean = false,
     val isLoading: Boolean = false
 ) {
     companion object {
         const val MIN_SPEED = 0.25f
         const val SPEED_REDUCTION_PER_DRINK = 0.15f
+    }
+}
+
+/**
+ * Una bebida activa dentro del recinto. Tiene posición propia (normalizada)
+ * para soportar respawn aleatorio independiente de las hitboxes fijas.
+ */
+data class ActiveDrink(
+    val id: Int,
+    val nx: Float,  // normalised X centre
+    val ny: Float   // normalised Y centre
+) {
+    companion object {
+        const val HITBOX_HALF = 0.06f  // radio cuadrado de interacción
     }
 }
 
