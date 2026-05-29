@@ -23,7 +23,7 @@ jobs:
            uses: actions/setup-java@v4
            with:
               java-version: "21"
-              distribution: "jetbrains"
+              distribution: "temurin"
 
          - name: Setup Gradle
            uses: gradle/actions/setup-gradle@v4
@@ -60,7 +60,7 @@ jobs:
            with:
                # Asigna un tag único basado en el run_number y el SHA del commit
                tag_name: v1.0.${{ github.run_number }}-${{ github.sha }}
-               name: Release desde PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}
+               name: "Release desde PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}"
                body: |
                   Compilación automática generada con éxito.
 
