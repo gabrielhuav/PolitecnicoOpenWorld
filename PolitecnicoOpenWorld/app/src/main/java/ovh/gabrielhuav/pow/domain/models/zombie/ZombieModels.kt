@@ -2,6 +2,8 @@ package ovh.gabrielhuav.pow.domain.models.zombie
 
 import java.util.UUID
 
+enum class ZombieType { NORMAL, STALKER }
+
 data class ZombieEntity(
     val id: String = UUID.randomUUID().toString(),
     val x: Float,
@@ -13,7 +15,9 @@ data class ZombieEntity(
     val isDying: Boolean = false,
     val lastFrameAdvanceMs: Long = 0L,
     val lastDamageToPlayerMs: Long = 0L,
-    val isLootCarrier: Boolean = false
+    val isLootCarrier: Boolean = false,
+    val type: ZombieType = ZombieType.NORMAL,
+    val isAttacking: Boolean = false
 )
 
 /**
@@ -72,13 +76,15 @@ data class ZombieRoom(
     val type: ZoneType,
     val backgroundAsset: String,
     val displayName: String,
-    val worldWidth: Float = 2000f,
-    val worldHeight: Float = 2000f,
+    @Volatile var worldWidth: Float = 2000f,
+    @Volatile var worldHeight: Float = 2000f,
     val zoom: Float = 2.2f,
     val playerSpawnFrac: NormPoint = NormPoint(0.5f, 0.85f),
     val doors: List<ZoneDoor> = emptyList(),
     val zombieCount: Int = 0,
-    val collisionGridFrac: List<NormRect> = emptyList()
+    val collisionGridFrac: List<NormRect> = emptyList(),
+    @Volatile var dimensionsLoaded: Boolean = false,
+    @Volatile var initAttempted: Boolean = false
 )
 
 data class ZoneDoor(
