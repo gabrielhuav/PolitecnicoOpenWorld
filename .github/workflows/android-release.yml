@@ -6,6 +6,8 @@ on:
          - main
       types:
          - closed
+      paths:
+         - 'PolitecnicoOpenWorld/**'
 
 jobs:
    release:
@@ -27,8 +29,6 @@ jobs:
 
          - name: Setup Gradle
            uses: gradle/actions/setup-gradle@v4
-           with:
-              gradle-version: "9.4.1"
 
          # 1. Reconstruir el archivo secrets.properties dentro de la carpeta de Android antes de compilar
          - name: Create secrets.properties file
@@ -38,7 +38,9 @@ jobs:
          # 2. Compilar el APK (Debug)
          - name: Build APK
            working-directory: ./PolitecnicoOpenWorld
-           run: gradle assembleDebug
+           run: |
+              gradle wrapper
+              ./gradlew assembleDebug
 
          # 3. Compilar el AAB (Desactivado temporalmente - solo se requiere APK para distribución directa)
          # - name: Build Android App Bundle (AAB)
@@ -54,8 +56,8 @@ jobs:
               PR_TITLE: ${{ github.event.pull_request.title }}
               PR_AUTHOR: ${{ github.event.pull_request.user.login }}
            with:
-               # Asigna un tag único basado en el run_number para mantener un listado limpio
-               tag_name: v1.0.${{ github.run_number }}
+               # Asigna un tag único que incluye el PR y run_number
+               tag_name: v1.0-PR${{ github.event.pull_request.number }}-run${{ github.run_number }}
                name: "Release desde PR #${{ github.event.pull_request.number }} - ${{ env.PR_TITLE }}"
                body: |
                   Compilación automática generada con éxito.
@@ -67,7 +69,6 @@ jobs:
                   - **Commit:** ${{ github.sha }}
                   - **Nota Importante:** El APK es una versión **Debug** lista para instalarse de forma directa. No requiere llaves adicionales para pruebas.
                draft: false
-               prerelease: true
                make_latest: true
                files: |
                   PolitecnicoOpenWorld/app/build/outputs/apk/debug/app-debug.apk
