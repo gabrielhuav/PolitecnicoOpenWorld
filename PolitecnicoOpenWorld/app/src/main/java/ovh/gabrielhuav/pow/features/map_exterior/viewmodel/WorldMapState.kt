@@ -95,5 +95,8 @@ data class WorldMapState(
     // Cuando está activado, se pintan los 6 marcadores fijos de los edificios
     // y el bounding box de ESCOM sobre el mapa, para ajustar coordenadas.
     val showInteriorDebugOverlay: Boolean = false,
-    val showRoadNetwork: Boolean = true
-)
+    val showRoadNetwork: Boolean = true,
+
+    // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
+    val showShineCTODiscovery: Boolean = false,
+    val navigateToShineCTO: Boolean = false)

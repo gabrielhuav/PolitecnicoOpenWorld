@@ -54,6 +54,7 @@ import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
 
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
@@ -455,6 +456,7 @@ class WorldMapViewModel(
                 _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                 applyRoadNetwork(cached, initialLoc)
                 lastNetworkFetchLocation = initialLoc
+                spawnShineCTOMarker()
             } else {
                 _uiState.update { it.copy(roadSource = RoadSource.LOADING) }
                 var retryMs = 1_000L
@@ -740,6 +742,7 @@ class WorldMapViewModel(
                             spawnEscomItems(roadNetwork)
                         }
                         _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
+                        spawnShineCTOMarker()
                     }
                 } else {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -755,6 +758,7 @@ class WorldMapViewModel(
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
                             _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
+                            spawnShineCTOMarker()
                         }
                     } else {
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -1307,10 +1311,10 @@ class WorldMapViewModel(
                 _uiState.update { it.copy(nearbyCollectible = activeItem) }
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
-                    val promptText = if (activeItem.name == "Objeto Misterioso ESCOM") {
-                        "PRESIONA X PARA INTERACTUAR"
-                    } else {
-                        "PRESIONA X PARA RECOGER"
+                    val promptText = when {
+                        activeItem.name == "Objeto Misterioso ESCOM"  -> "PRESIONA X PARA INTERACTUAR"
+                        activeItem.id  == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA DESCUBRIR"
+                        else                                           -> "PRESIONA X PARA RECOGER"
                     }
 
                     _uiState.update { it.copy(interactionPrompt = promptText) }
@@ -1626,19 +1630,20 @@ class WorldMapViewModel(
     fun handleInteraction() {
         val nearby = _uiState.value.nearbyCollectible ?: return
 
-        if (nearby.name == "Objeto Misterioso ESCOM") {
-            // La mano lleva al minijuego de zombis (arranca en el lobby/croquis).
-            // Mostramos el video de carga y dejamos un destino placeholder no nulo
-            // para que el LaunchedEffect de WorldMapScreen se dispare al terminar.
-            pendingZombieMinigame = true
-            _uiState.update {
-                it.copy(
-                    showZombiVideo = true,
-                    pendingInteriorDestination = InteriorBuilding.EDIFICIO
-                )
+        when {
+            nearby.name == "Objeto Misterioso ESCOM" -> {
+                pendingZombieMinigame = true
+                _uiState.update {
+                    it.copy(
+                        showZombiVideo = true,
+                        pendingInteriorDestination = InteriorBuilding.EDIFICIO
+                    )
+                }
             }
-        } else {
-            onClaimCollectiblePressed()
+            nearby.id == ShineCTOLocation.MARKER_ID -> {
+                _uiState.update { it.copy(showShineCTODiscovery = true) }
+            }
+            else -> onClaimCollectiblePressed()
         }
     }
 
@@ -1697,5 +1702,41 @@ class WorldMapViewModel(
         val currentLoc = _uiState.value.currentLocation ?: return
         val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
         if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) clearDestinationMarker()
+    }
+
+    // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
+
+    fun spawnShineCTOMarker() {
+        if (_uiState.value.activeCollectibles.none { it.id == ShineCTOLocation.MARKER_ID }) {
+            val marker = ActiveCollectible(
+                id          = ShineCTOLocation.MARKER_ID,
+                name        = ShineCTOLocation.MARKER_NAME,
+                description = "easter_egg",
+                assetPath   = ShineCTOLocation.MARKER_ASSET,
+                latitude    = ShineCTOLocation.LAT,
+                longitude   = ShineCTOLocation.LON
+            )
+            _uiState.update { it.copy(activeCollectibles = it.activeCollectibles + marker) }
+        }
+    }
+
+    fun onShineCTODiscoveryConfirmed() {
+        _uiState.update { s ->
+            s.copy(
+                showShineCTODiscovery = false,
+                navigateToShineCTO   = true,
+                activeCollectibles   = s.activeCollectibles.filter { it.id != ShineCTOLocation.MARKER_ID },
+                nearbyCollectible    = null,
+                interactionPrompt    = null
+            )
+        }
+    }
+
+    fun consumeNavigateToShineCTO() {
+        _uiState.update { it.copy(navigateToShineCTO = false) }
+    }
+
+    fun dismissShineCTODiscovery() {
+        _uiState.update { it.copy(showShineCTODiscovery = false) }
     }
 }
