@@ -8,7 +8,7 @@ object ZombieRoomCatalog {
 
     private val buildingOrder = listOf(
         "za_auditorio", "za_biblioteca", "za_cafeteria",
-        "za_edificio", "za_estacionamiento", "za_palapas"
+        "za_edificio", "za_estacionamiento", "za_palapas", "za_canchas_futbol"
     )
 
 
@@ -41,6 +41,9 @@ object ZombieRoomCatalog {
         // PALAPAS: Ubicado en las palapas (Izquierda superior). Movido aún más arriba.
         ZoneDoor(NormRect(0.18f, 0.14f, 0.28f, 0.22f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
 
+        // NUEVA ZONA: Canchas de Futbol
+        ZoneDoor(NormRect(0.64f, 0.38f, 0.76f, 0.50f), "za_canchas_futbol", "Canchas de Futbol", DoorKind.TO_BUILDING),
+
         ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
     )
 
@@ -60,6 +63,7 @@ object ZombieRoomCatalog {
         "za_cafeteria" -> "Cafetería"
         "za_edificio" -> "Edificio Principal"
         "za_estacionamiento" -> "Estacionamiento"
+        "za_canchas_futbol" -> "Canchas de Futbol"
         else -> "Palapas"
     }
 

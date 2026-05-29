@@ -64,6 +64,13 @@ enum class InteriorBuilding(
         location = GeoPoint(19.50460, -99.14720),
         backgroundAsset = "ZOMBIS_MOD/interiores/za_palapas.webp",
         routeName = "interior_palapas"
+    ),
+    CANCHAS_FUTBOL(
+        id = "canchas_futbol",
+        displayName = "Canchas de Futbol",
+        location = GeoPoint(19.50425, -99.14705),
+        backgroundAsset = "ZOMBIS_MOD/interiores/za_canchas_futbol.webp",
+        routeName = "interior_canchas_futbol"
     );
 
     companion object {
