@@ -2,23 +2,23 @@ package ovh.gabrielhuav.pow.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin   // ← NUEVO
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 class SettingsRepository(context: Context) {
 
     companion object {
-        private const val PREFS_NAME      = "pow_game_settings"
+        private const val PREFS_NAME = "pow_game_settings"
         private const val KEY_CONTROL_TYPE = "CONTROL_TYPE"
         private const val KEY_CONTROLS_SCALE = "CONTROLS_SCALE"
-        private const val KEY_SWAP_CONTROLS  = "SWAP_CONTROLS"
-        private const val KEY_PLAYER_SKIN    = "PLAYER_SKIN"    // ← NUEVO
+        private const val KEY_SWAP_CONTROLS = "SWAP_CONTROLS"
+        private const val KEY_PLAYER_SKIN = "PLAYER_SKIN"
+        private const val KEY_SHOW_ROAD_NETWORK = "SHOW_ROAD_NETWORK"
         private const val SCALE_MIN = 0.6f
         private const val SCALE_MAX = 1.4f
     }
 
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     // ─── Controles ───────────────────────────────────────────────────────
 
@@ -41,8 +41,7 @@ class SettingsRepository(context: Context) {
         }
     }
 
-    fun getControlsScale(): Float =
-        prefs.getFloat(KEY_CONTROLS_SCALE, 1.0f).coerceIn(SCALE_MIN, SCALE_MAX)
+    fun getControlsScale(): Float = prefs.getFloat(KEY_CONTROLS_SCALE, 1.0f).coerceIn(SCALE_MIN, SCALE_MAX)
 
     fun getSwapControls(): Boolean = prefs.getBoolean(KEY_SWAP_CONTROLS, false)
 
@@ -59,4 +58,12 @@ class SettingsRepository(context: Context) {
             ?: PlayerSkin.LAZARO.name
         return runCatching { PlayerSkin.valueOf(saved) }.getOrElse { PlayerSkin.LAZARO }
     }
+
+    // ─── Red vial ────────────────────────────────────────────────────────
+
+    fun saveShowRoadNetwork(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_ROAD_NETWORK, show).apply()
+    }
+
+    fun getShowRoadNetwork(): Boolean = prefs.getBoolean(KEY_SHOW_ROAD_NETWORK, true)
 }
