@@ -2,6 +2,8 @@ package ovh.gabrielhuav.pow.domain.models.zombie
 
 import java.util.UUID
 
+enum class ZombieType { NORMAL, STALKER }
+
 data class ZombieEntity(
     val id: String = UUID.randomUUID().toString(),
     val x: Float,
@@ -13,7 +15,9 @@ data class ZombieEntity(
     val isDying: Boolean = false,
     val lastFrameAdvanceMs: Long = 0L,
     val lastDamageToPlayerMs: Long = 0L,
-    val isLootCarrier: Boolean = false
+    val isLootCarrier: Boolean = false,
+    val type: ZombieType = ZombieType.NORMAL,
+    val isAttacking: Boolean = false
 )
 
 /**
