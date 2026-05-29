@@ -215,6 +215,9 @@ class WorldMapViewModel(
     private val ESCOM_BASE_LON = -99.14674
     private val ESCOM_OFFSET = 0.001
 
+    private val ESCOM_DOOR_ASSET = "DOORS/ESCOM_DOOR.webp"
+    private val ESCOM_DOOR_INTERACT_RADIUS = 0.00020   // ~20 m
+
     private val _escomItems = MutableStateFlow<List<ActiveCollectible>>(emptyList())
     val escomItems: StateFlow<List<ActiveCollectible>> = _escomItems.asStateFlow()
 
@@ -499,7 +502,7 @@ class WorldMapViewModel(
                             }
                         } else {
                             if (!_uiState.value.isZombieHandSpawned && _uiState.value.isRoadNetworkReady) {
-                                spawnEscomItems(roadNetwork)
+                                spawnEscomDoors()
                             }
                         }
 
@@ -1314,6 +1317,7 @@ class WorldMapViewModel(
                     val promptText = when {
                         activeItem.name == "Objeto Misterioso ESCOM"  -> "PRESIONA X PARA INTERACTUAR"
                         activeItem.id  == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA DESCUBRIR"
+                        activeItem.id.startsWith("escom_door_")       -> "PRESIONA X PARA ENTRAR"
                         else                                           -> "PRESIONA X PARA RECOGER"
                     }
 
@@ -1596,18 +1600,35 @@ class WorldMapViewModel(
         // Evita duplicar si ya hay una mano spawneada
         if (_uiState.value.isZombieHandSpawned && _escomItems.value.isNotEmpty()) return
 
-        val spawnPoint = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(center) else center
-
-        val hand = ActiveCollectible(
-            id = "escom_hand_lobby",
-            name = "Objeto Misterioso ESCOM",
-            description = "INTERIOR_TARGET:lobby",
-            assetPath = "ZOMBIS_MOD/zombi_hand.webp",
-            latitude = spawnPoint.latitude,
-            longitude = spawnPoint.longitude
+        // Mano zombi desactivada del exterior — el acceso al lobby
+        // ahora se realiza únicamente por las puertas físicas (ESCOM_DOOR).
+        _escomItems.value = emptyList()
+        _uiState.update { it.copy(isZombieHandSpawned = true) }   // flag para no reintentar
+        return
+    }
+    private fun spawnEscomDoors() {
+        // Las coordenadas exactas se ajustan con el Modo Diseñador.
+        // Estos valores son placeholders; reemplázalos con los guardados en Room DB
+        // una vez hayas colocado las puertas con el Diseñador.
+        val doors = listOf(
+            ActiveCollectible(
+                id          = "escom_door_norte",
+                name        = "Puerta Norte ESCOM",
+                description = "door",
+                assetPath   = ESCOM_DOOR_ASSET,
+                latitude    = 19.50490,
+                longitude   = -99.14674
+            ),
+            ActiveCollectible(
+                id          = "escom_door_sur",
+                name        = "Puerta Sur ESCOM",
+                description = "door",
+                assetPath   = ESCOM_DOOR_ASSET,
+                latitude    = 19.50420,
+                longitude   = -99.14674
+            )
         )
-
-        _escomItems.value = listOf(hand)
+        _escomItems.value = doors
         _uiState.update { it.copy(isZombieHandSpawned = true) }
     }
 
@@ -1640,6 +1661,9 @@ class WorldMapViewModel(
                         pendingInteriorDestination = InteriorBuilding.EDIFICIO
                     )
                 }
+            }
+            nearby.id.startsWith("escom_door_") -> {
+                _uiState.update { it.copy(showEscomDoorFade = true) }
             }
             nearby.id == ShineCTOLocation.MARKER_ID -> {
                 _uiState.update { it.copy(showShineCTODiscovery = true) }
@@ -1739,5 +1763,19 @@ class WorldMapViewModel(
 
     fun dismissShineCTODiscovery() {
         _uiState.update { it.copy(showShineCTODiscovery = false) }
+    }
+    fun onEscomDoorFadeComplete() {
+        _uiState.update {
+            it.copy(
+                showEscomDoorFade    = false,
+                escomDoorFadeComplete = true,
+                nearbyCollectible    = null,
+                interactionPrompt    = null
+            )
+        }
+    }
+
+    fun consumeEscomDoorNavigation() {
+        _uiState.update { it.copy(escomDoorFadeComplete = false) }
     }
 }

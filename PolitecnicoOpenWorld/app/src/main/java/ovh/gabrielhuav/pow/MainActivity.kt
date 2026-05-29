@@ -256,6 +256,14 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
+                            // NUEVO BLOQUE: Navegar al minijuego tras el fade de la puerta
+                            LaunchedEffect(uiState.escomDoorFadeComplete) {
+                                if (uiState.escomDoorFadeComplete) {
+                                    worldMapViewModel.consumeEscomDoorNavigation()
+                                    navController.navigate("zombie_minigame")
+                                }
+                            }
+
                             // ─── ShineCTO: dialog de descubrimiento ───────────────────────
                             if (uiState.showShineCTODiscovery) {
                                 EasterEggDiscoveryDialog(

@@ -48,6 +48,7 @@ object ZombieRoomCatalog {
     )
 
     private fun buildingDoors(index: Int): List<ZoneDoor> {
+
         val next = buildingOrder[(index + 1) % buildingOrder.size]
         val prev = buildingOrder[(index - 1 + buildingOrder.size) % buildingOrder.size]
         return listOf(

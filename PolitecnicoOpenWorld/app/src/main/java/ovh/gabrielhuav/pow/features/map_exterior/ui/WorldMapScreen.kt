@@ -1223,6 +1223,23 @@ fun WorldMapScreen(
     uiState.showClaimedPopupFor?.let { collectible ->
         CollectibleClaimDialog(collectible = collectible, onDismiss = { viewModel.dismissClaimedPopup() })
     }
+    // ─── ESCOM Door Fade Overlay ─────────────────────────────────────────────
+    val escomFadeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(uiState.showEscomDoorFade) {
+        if (uiState.showEscomDoorFade) {
+            escomFadeAlpha.animateTo(1f, animationSpec = androidx.compose.animation.core.tween(600))
+            viewModel.onEscomDoorFadeComplete()
+            kotlinx.coroutines.delay(200)
+            escomFadeAlpha.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(400))
+        }
+    }
+    if (escomFadeAlpha.value > 0f) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = escomFadeAlpha.value))
+        )
+    }
 }
 
 @Composable

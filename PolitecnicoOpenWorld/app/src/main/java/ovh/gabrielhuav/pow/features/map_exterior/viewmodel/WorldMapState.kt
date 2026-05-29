@@ -99,4 +99,8 @@ data class WorldMapState(
 
     // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
     val showShineCTODiscovery: Boolean = false,
-    val navigateToShineCTO: Boolean = false)
+    val navigateToShineCTO: Boolean = false,
+    // ─── ESCOM Door transition ───────────────────────────────────────────────
+    val showEscomDoorFade: Boolean = false,
+    val escomDoorFadeComplete: Boolean = false
+)

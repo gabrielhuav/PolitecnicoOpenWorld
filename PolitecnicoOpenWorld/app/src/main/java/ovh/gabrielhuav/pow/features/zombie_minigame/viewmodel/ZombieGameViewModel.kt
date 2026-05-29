@@ -680,6 +680,20 @@ class ZombieGameViewModel(
             applyEffect(item.effect)
             return
         }
+        // 2b. Mano zombi en lobby
+        if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID) {
+            val handNx = 0.50f
+            val handNy = 0.45f
+            val room = currentRoom()
+            val handWx = handNx * room.worldWidth
+            val handWy = handNy * room.worldHeight
+            val distToHand = hypot(s.playerX - handWx, s.playerY - handWy)
+            if (distToHand < 80f) {
+                goToRoom("za_auditorio")
+                return
+            }
+        }
+
         // 2. Puertas
         val room = currentRoom()
         val door = room.doors.firstOrNull {
@@ -769,7 +783,14 @@ class ZombieGameViewModel(
         val door = room.doors.firstOrNull {
             it.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight).contains(px, py)
         }
-        val label = door?.let { "${it.label}  (X)" }
+        val handLabel = if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID) {
+            val room = currentRoom()
+            val handWx = 0.50f * room.worldWidth
+            val handWy = 0.45f * room.worldHeight
+            if (hypot(px - handWx, py - handWy) < 80f) "Mano Misteriosa  (X)" else null
+        } else null
+
+        val label = handLabel ?: door?.let { "${it.label}  (X)" }
         if (_state.value.nearbyDoorLabel != label) {
             _state.update { it.copy(nearbyDoorLabel = label) }
         }

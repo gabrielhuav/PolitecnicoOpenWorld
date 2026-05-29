@@ -5,6 +5,7 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -283,6 +284,37 @@ fun ZombieGameScreen(
                             x = with(density) { toScreenX(rp.x).toDp() } - with(density) { (rpSize / 2).toDp() },
                             y = with(density) { toScreenY(rp.y).toDp() } - with(density) { (rpSize / 2).toDp() }
                         )
+                    )
+                }
+            }
+            // ─── Mano zombi fija en el lobby ────────────────────────────
+            if (room.id == ZombieRoomCatalog.LOBBY_ID) {
+                val handNx = 0.50f
+                val handNy = 0.45f
+                val handSizePx = 64f * cam.scale
+                val handSizeDp = with(density) { handSizePx.toDp() }
+                val handScreenX = cam.offsetX + handNx * room.worldWidth * cam.scale
+                val handScreenY = cam.offsetY + handNy * room.worldHeight * cam.scale
+
+                var handBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+                LaunchedEffect(Unit) {
+                    handBitmap = withContext(Dispatchers.IO) {
+                        try {
+                            context.assets.open("ZOMBIS_MOD/zombi_hand.webp")
+                                .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+                        } catch (e: Exception) { null }
+                    }
+                }
+                handBitmap?.let { bmp ->
+                    Image(
+                        bitmap = bmp,
+                        contentDescription = "Mano Zombi",
+                        modifier = Modifier
+                            .absoluteOffset(
+                                x = with(density) { (handScreenX - handSizePx / 2f).toDp() },
+                                y = with(density) { (handScreenY - handSizePx / 2f).toDp() }
+                            )
+                            .size(handSizeDp)
                     )
                 }
             }
