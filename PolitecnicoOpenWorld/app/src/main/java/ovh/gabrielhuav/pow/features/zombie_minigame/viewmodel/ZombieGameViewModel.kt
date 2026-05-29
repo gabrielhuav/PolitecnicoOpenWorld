@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.zombie.ActiveEffect
@@ -25,6 +26,7 @@ import ovh.gabrielhuav.pow.domain.models.zombie.WorldRect
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieEntity
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoom
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
+import ovh.gabrielhuav.pow.domain.models.zombie.ZombieType
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
@@ -37,6 +39,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 class ZombieGameViewModel(
+    private val applicationContext: Context,
     private val settingsRepository: SettingsRepository,
     // URL del servidor de zombis. null = partida offline (un jugador), idéntica
     // a como funcionaba antes de añadir multijugador.
@@ -76,6 +79,10 @@ class ZombieGameViewModel(
         const val ZOMBIE_FRAME_COUNT = 9
         const val ZOMBIE_FRAME_INTERVAL_MS = 140L
         const val ZOMBIE_RADIUS = 30f
+
+        const val STALKER_WALK_FRAME_COUNT = 4
+        const val STALKER_ATTACK_FRAME_COUNT = 4
+        const val STALKER_ATTACK_DIST = 85f
 
         const val CONTACT_DIST = 56f
         const val ZOMBIE_DAMAGE = 12f
@@ -121,9 +128,25 @@ class ZombieGameViewModel(
     private var lastRoomId: String? = null
 
     init {
-        loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
-        startGameLoop()
-        connectIfNeeded()
+        _state.update { it.copy(isLoading = true) }
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    ZombieRoomCatalog.init(applicationContext)
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("ZombieGameVM", "Advertencia: Falló la inicialización del catálogo. El juego continuará con tamaños por defecto (fallback).", e)
+            } finally {
+                if (isActive) {
+                    _state.update { it.copy(isLoading = false) }
+                    loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+                    startGameLoop()
+                    connectIfNeeded()
+                }
+            }
+        }
     }
 
     // ─── CONEXIÓN MULTIJUGADOR ─────────────────────────────
@@ -273,14 +296,18 @@ class ZombieGameViewModel(
         val spawnX = pendingX ?: (room.playerSpawnFrac.x * room.worldWidth)
         val spawnY = pendingY ?: (room.playerSpawnFrac.y * room.worldHeight)
 
+        val hasWeapon = _state.value.combatMode == CombatMode.RANGED
+
         val zombies = if (room.type == ZoneType.BUILDING && room.zombieCount > 0) {
             val lootIndex = Random.nextInt(room.zombieCount)
             (0 until room.zombieCount).map { i ->
                 val (zx, zy) = spawnAroundPlayer(spawnX, spawnY, room)
+                val type = if (hasWeapon && Random.nextFloat() < 0.4f) ZombieType.STALKER else ZombieType.NORMAL
                 ZombieEntity(
                     x = zx, y = zy,
                     lastFrameAdvanceMs = now,
-                    isLootCarrier = (i == lootIndex)
+                    isLootCarrier = (i == lootIndex),
+                    type = type
                 )
             }
         } else emptyList()
@@ -496,12 +523,28 @@ class ZombieGameViewModel(
             free(z.x, targetY) -> ry = targetY
         }
 
+        val isStalker = z.type == ZombieType.STALKER
+        val shouldAttack = isStalker && dist < STALKER_ATTACK_DIST
+        
+        // Reset frame index if state changes to ensure animation starts from frame 0
+        var nextFrame = z.frameIndex
+        if (shouldAttack != z.isAttacking) {
+            nextFrame = 0
+        }
+
+        val frameCount = when {
+            isStalker && shouldAttack -> STALKER_ATTACK_FRAME_COUNT
+            isStalker -> STALKER_WALK_FRAME_COUNT
+            else -> ZOMBIE_FRAME_COUNT
+        }
+
         val advance = now - z.lastFrameAdvanceMs >= ZOMBIE_FRAME_INTERVAL_MS
         return z.copy(
             x = rx, y = ry,
             facingRight = if (abs(nx) > 0.01f) nx >= 0f else z.facingRight,
-            frameIndex = if (advance) (z.frameIndex + 1) % ZOMBIE_FRAME_COUNT else z.frameIndex,
-            lastFrameAdvanceMs = if (advance) now else z.lastFrameAdvanceMs
+            frameIndex = if (advance) (nextFrame + 1) % frameCount else nextFrame,
+            lastFrameAdvanceMs = if (advance) now else z.lastFrameAdvanceMs,
+            isAttacking = shouldAttack
         )
     }
 
@@ -795,11 +838,13 @@ class ZombieGameViewModel(
         private val playerName: String
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            ZombieGameViewModel(
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return ZombieGameViewModel(
+                context.applicationContext,
                 SettingsRepository(context.applicationContext),
                 serverUrl,
                 playerName
             ) as T
+        }
     }
 }

@@ -257,7 +257,8 @@ fun ZombieGameScreen(
             state.zombies.forEach { z ->
                 key(z.id) {
                     ZombieView(
-                        frameIndex = z.frameIndex, facingRight = z.facingRight, isDying = z.isDying,
+                        type = z.type, frameIndex = z.frameIndex, facingRight = z.facingRight,
+                        isAttacking = z.isAttacking, isDying = z.isDying,
                         health = z.health, maxHealth = z.maxHealth, sizePx = zSize,
                         modifier = Modifier.absoluteOffset(
                             x = with(density) { toScreenX(z.x).toDp() } - with(density) { (zSize / 2).toDp() },

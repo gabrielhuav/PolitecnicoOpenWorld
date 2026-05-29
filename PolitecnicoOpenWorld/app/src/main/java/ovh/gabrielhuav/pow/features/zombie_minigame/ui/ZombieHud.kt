@@ -41,6 +41,7 @@ import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.domain.models.zombie.CombatMode
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
+import ovh.gabrielhuav.pow.domain.models.zombie.ZombieType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
@@ -384,12 +385,15 @@ fun SkillGroundItem(effect: SkillEffect, highlighted: Boolean, modifier: Modifie
 
 @Composable
 fun ZombieView(
-    frameIndex: Int, facingRight: Boolean, isDying: Boolean,
-    health: Float, maxHealth: Float, sizePx: Float, modifier: Modifier = Modifier
+    type: ZombieType, frameIndex: Int, facingRight: Boolean, isAttacking: Boolean,
+    isDying: Boolean, health: Float, maxHealth: Float, sizePx: Float,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val frame = remember(frameIndex) { ZombieSpriteManager.getFrame(context, frameIndex) }
+    val frame = remember(type, frameIndex, isAttacking) {
+        ZombieSpriteManager.getFrame(context, type, isAttacking, frameIndex)
+    }
     val sizeDp = with(density) { sizePx.toDp() }
 
     Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.TopCenter) {
