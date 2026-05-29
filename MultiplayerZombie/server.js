@@ -33,48 +33,26 @@ const server = http.createServer(app);
 
 const LOBBY_ID = 'lobby_campus';
 
-// ─── MATRICES DE COLISIÓN (por defecto) ───────────────────────────────────────
-// '#' = pared (bloqueado), '.' = caminable. Deben ser IDÉNTICAS a las de
-// ZombieRoomCatalog.kt. Mapeo: col = floor(fx*numCols), row = floor(fy*numRows).
-const BUILDING_MATRIX = [
-    "####################",
-    "#..................#",
-    "#.....#............#",
-    "#.....#............#",
-    "#.....#............#",
-    "....................",
-    "....................",
-    "....................",
-    "#..................#",
-    "#............#.....#",
-    "#............#.....#",
-    "#............#.....#",
-    "#..................#",
-    "########.....#######"
-];
+// ─── MATRICES DE COLISIÓN (por defecto, NEUTRAS) ──────────────────────────────
+// '#' = pared (bloqueado), '.' = caminable. Sólo borde: punto de partida neutro,
+// idéntico a ZombieRoomCatalog.kt. La matriz REAL de cada cuarto se pinta en la
+// app (Modo Diseñador), se exporta y se copia a collision_matrices.json, que
+// SOBREESCRIBE estas por roomId. Mapeo: col = floor(fx*cols), row = floor(fy*rows).
+function borderOnly(cols, rows) {
+    const out = [];
+    for (let r = 0; r < rows; r++) {
+        let line = '';
+        for (let c = 0; c < cols; c++) {
+            const border = (r === 0 || r === rows - 1 || c === 0 || c === cols - 1);
+            line += border ? '#' : '.';
+        }
+        out.push(line);
+    }
+    return out;
+}
 
-const LOBBY_MATRIX = [
-    "####################",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "#..................#",
-    "########.....#######"
-];
+const BUILDING_MATRIX = borderOnly(30, 20); // 30 col × 20 fil
+const LOBBY_MATRIX = borderOnly(30, 30);    // 30 col × 30 fil
 
 // ─── OVERRIDES desde collision_matrices.json (Modo Diseñador) ─────────────────
 function loadMatrixOverrides() {
@@ -136,6 +114,18 @@ const roomState = new Map();  // roomId(edificio) -> { zombies:[...], items:[...
 
 function zoneOf(roomId) { return roomId === LOBBY_ID ? 'LOBBY' : 'INTERIOR'; }
 function clampFrac(v) { return Math.max(MARGIN, Math.min(1 - MARGIN, v)); }
+
+// Coordenada fraccionaria SEGURA desde la red: acepta sólo números finitos
+// (typeof NaN === 'number' e Infinity pasarían el typeof, por eso isFinite) y
+// la clampa al área jugable. Si no es válida, usa fallback.
+function safeFrac(v, fallback) {
+    return (typeof v === 'number' && isFinite(v)) ? clampFrac(v) : fallback;
+}
+
+// Daño SEGURO: número finito y nunca negativo (evita "curar" zombis con < 0).
+function safeDamage(v) {
+    return (typeof v === 'number' && isFinite(v) && v > 0) ? v : 0;
+}
 
 function isBlocked(matrix, fx, fy) {
     if (!matrix || matrix.length === 0) return false;
@@ -379,13 +369,16 @@ wss.on('connection', (ws) => {
                             JSON.stringify({ type: 'PLAYER_LEFT_ROOM', id: ws.sessionId }));
                     }
 
+                    const joinX = safeFrac(data.x, 0.5);
+                    const joinY = safeFrac(data.y, 0.5);
+
                     players.set(ws.sessionId, {
                         id: ws.sessionId,
                         displayName: data.displayName || '',
                         roomId: ws.roomId,
                         zone: zoneOf(ws.roomId),
-                        x: typeof data.x === 'number' ? data.x : 0.5,
-                        y: typeof data.y === 'number' ? data.y : 0.5,
+                        x: joinX,
+                        y: joinY,
                         action: 'IDLE',
                         facingRight: true,
                         health: 100,
@@ -400,8 +393,8 @@ wss.on('connection', (ws) => {
                         type: 'PLAYER_UPDATE',
                         id: ws.sessionId,
                         displayName: data.displayName || '',
-                        x: data.x || 0.5,
-                        y: data.y || 0.5,
+                        x: joinX,
+                        y: joinY,
                         action: 'IDLE',
                         facingRight: true,
                         health: 100
@@ -416,21 +409,35 @@ wss.on('connection', (ws) => {
                 case 'PLAYER_UPDATE': {
                     if (!ws.roomId) break;
                     const prev = players.get(ws.sessionId) || {};
+                    const px = safeFrac(data.x, (prev.x ?? 0.5));
+                    const py = safeFrac(data.y, (prev.y ?? 0.5));
+                    const health = (typeof data.health === 'number' && isFinite(data.health))
+                        ? data.health : (prev.health ?? 100);
                     players.set(ws.sessionId, {
                         ...prev,
                         id: ws.sessionId,
                         displayName: data.displayName ?? prev.displayName ?? '',
                         roomId: ws.roomId,
                         zone: zoneOf(ws.roomId),
-                        x: typeof data.x === 'number' ? data.x : (prev.x ?? 0.5),
-                        y: typeof data.y === 'number' ? data.y : (prev.y ?? 0.5),
+                        x: px,
+                        y: py,
                         action: data.action || 'IDLE',
                         facingRight: data.facingRight === true,
-                        health: typeof data.health === 'number' ? data.health : (prev.health ?? 100),
+                        health: health,
                         lastUpdated: Date.now()
                     });
-                    broadcastToRoom(ws.roomId, ws,
-                        JSON.stringify({ ...data, type: 'PLAYER_UPDATE', id: ws.sessionId }));
+                    // Reenvía las coordenadas YA saneadas (no el data crudo), para
+                    // no propagar NaN/Infinity/fuera de rango a los demás clientes.
+                    broadcastToRoom(ws.roomId, ws, JSON.stringify({
+                        type: 'PLAYER_UPDATE',
+                        id: ws.sessionId,
+                        displayName: data.displayName ?? prev.displayName ?? '',
+                        x: px,
+                        y: py,
+                        action: data.action || 'IDLE',
+                        facingRight: data.facingRight === true,
+                        health: health
+                    }));
                     break;
                 }
 
@@ -440,7 +447,7 @@ wss.on('connection', (ws) => {
                     if (!st) break;
                     const z = st.zombies.find(z => z.id === data.zombieId);
                     if (z && !z.isDying) {
-                        z.health -= (typeof data.damage === 'number' ? data.damage : 0);
+                        z.health -= safeDamage(data.damage);
                         if (z.health <= 0) {
                             z.health = 0; z.isDying = true; z.dyingSince = Date.now();
                         }

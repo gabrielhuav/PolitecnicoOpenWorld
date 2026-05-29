@@ -968,13 +968,16 @@ class ZombieGameViewModel(
         if (!s.designerMode || s.designerRows.isEmpty()) return
         val room = currentRoom()
         val numRows = s.designerRows.size
-        val numCols = s.designerRows[0].length
+        val numCols = s.designerRows.maxOf { it.length }
+        if (numCols == 0) return
         val col = ((xWorld / room.worldWidth) * numCols).toInt().coerceIn(0, numCols - 1)
         val row = ((yWorld / room.worldHeight) * numRows).toInt().coerceIn(0, numRows - 1)
         val ch = if (s.designerBrushWall) '#' else '.'
-        if (s.designerRows[row][col] == ch) return
+        // Normaliza la fila a numCols (rellena con '.') por si el JSON era irregular.
+        val current = s.designerRows[row].padEnd(numCols, '.')
+        if (current[col] == ch) return
         val updated = s.designerRows.toMutableList()
-        val arr = updated[row].toCharArray()
+        val arr = current.toCharArray()
         arr[col] = ch
         updated[row] = String(arr)
         _state.update { it.copy(designerRows = updated, designerDirty = true) }
@@ -985,9 +988,18 @@ class ZombieGameViewModel(
         val s = _state.value
         if (s.designerRows.isEmpty()) return
         val room = currentRoom()
-        CollisionMatrixRepository.save(applicationContext, room.id, s.designerRows)
-        room.collisionMatrix = CollisionMatrix(s.designerRows)
+        val rows = s.designerRows
+        // Aplica en caliente de inmediato (barato, en memoria) y persiste el JSON
+        // en disco fuera del hilo principal para no congelar la UI / StrictMode.
+        room.collisionMatrix = CollisionMatrix(rows)
         _state.update { it.copy(designerDirty = false) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                CollisionMatrixRepository.save(applicationContext, room.id, rows)
+            } catch (e: Exception) {
+                android.util.Log.e("ZombieGameVM", "Error guardando matriz de ${room.id}", e)
+            }
+        }
     }
 
     /** Descarta cambios y vuelve a la matriz actual de la sala. */
@@ -1012,7 +1024,7 @@ class ZombieGameViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val json = applicationContext.contentResolver.openInputStream(uri)
-                    ?.bufferedReader().use { it?.readText() } ?: return@launch
+                    ?.bufferedReader()?.use { it.readText() } ?: return@launch
                 CollisionMatrixRepository.importJson(applicationContext, json)
                 CollisionMatrixRepository.loadAll(applicationContext).forEach { (roomId, rows) ->
                     if (rows.isNotEmpty()) {
@@ -1031,9 +1043,13 @@ class ZombieGameViewModel(
         }
     }
 
+    // Rejilla por defecto al editar un cuarto que aún no tiene matriz: solo el
+    // borde como pared, interior totalmente caminable. Es un punto de partida
+    // NEUTRO (no inventa obstáculos) — tú pintas las paredes reales encima del
+    // dibujo del cuarto. Más columnas = trazo más fino.
     private fun defaultDesignerRows(room: ZombieRoom): List<String> {
-        val cols = 20
-        val numRows = if (room.type == ZoneType.LOBBY) 20 else 14
+        val cols = 30
+        val numRows = if (room.type == ZoneType.LOBBY) 30 else 20
         return (0 until numRows).map { r ->
             buildString {
                 for (c in 0 until cols) {

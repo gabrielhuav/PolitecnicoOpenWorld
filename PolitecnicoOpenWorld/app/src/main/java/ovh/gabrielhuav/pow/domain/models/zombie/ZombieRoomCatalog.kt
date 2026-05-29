@@ -11,64 +11,34 @@ object ZombieRoomCatalog {
         "za_edificio", "za_estacionamiento", "za_palapas", "za_canchas_futbol"
     )
 
-    // ─── MATRICES DE COLISIÓN ─────────────────────────────────────────────────
-    // IMPORTANTE: deben ser IDÉNTICAS (mismas filas/columnas) a las del servidor
-    // (MultiplayerZombie/server.js → BUILDING_MATRIX / LOBBY_MATRIX), porque el
-    // servidor mueve los zombis usando exactamente esta misma rejilla fraccionaria.
+    // ─── MATRICES DE COLISIÓN POR DEFECTO ─────────────────────────────────────
+    // IMPORTANTE: estas son sólo un PUNTO DE PARTIDA NEUTRO — borde de pared,
+    // interior caminable. NO intentan reproducir el dibujo real de cada cuarto.
+    // Cada lugar debe pintar su matriz real con el MODO DISEÑADOR (botón con el
+    // icono de escuadra, arriba a la derecha) y guardarla; eso la persiste en
+    // collision_matrices.json bajo su roomId y la aplica al instante.
+    //
+    // Deben mantenerse IDÉNTICAS (mismas filas/columnas) a las del servidor
+    // (MultiplayerZombie/server.js → BUILDING_MATRIX / LOBBY_MATRIX) mientras no
+    // se sustituyan por una matriz exportada desde la app.
     //
     // '#' = pared (no caminable), '.' = caminable.
     //
-    // EDIFICIO (20 col × 14 fil): borde con HUECOS alineados a las puertas:
-    //   - filas 5-7 sin pared lateral  → puertas EXIT izquierda/derecha
-    //   - fila 13, cols 8-12 abiertas  → puerta al lobby (centro inferior)
-    //   - dos paredes interiores cortas de ejemplo (puedes editarlas con el
-    //     Modo Diseñador y se guardan en collision_matrices.json).
-    val BUILDING_MATRIX = CollisionMatrix(
-        listOf(
-            "####################",
-            "#..................#",
-            "#.....#............#",
-            "#.....#............#",
-            "#.....#............#",
-            "....................",
-            "....................",
-            "....................",
-            "#..................#",
-            "#............#.....#",
-            "#............#.....#",
-            "#............#.....#",
-            "#..................#",
-            "########.....#######"
-        )
-    )
+    // EDIFICIO: 30 col × 20 fil, sólo borde.
+    val BUILDING_MATRIX = CollisionMatrix(borderOnly(cols = 30, rows = 20))
 
-    // LOBBY (20 col × 20 fil): borde con hueco inferior (cols 8-12) para la salida
-    // al mapa global. Interior abierto para que TODAS las puertas a edificios
-    // sigan siendo alcanzables.
-    val LOBBY_MATRIX = CollisionMatrix(
-        listOf(
-            "####################",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "#..................#",
-            "########.....#######"
-        )
-    )
+    // LOBBY: 30 col × 30 fil, sólo borde.
+    val LOBBY_MATRIX = CollisionMatrix(borderOnly(cols = 30, rows = 30))
+
+    private fun borderOnly(cols: Int, rows: Int): List<String> =
+        (0 until rows).map { r ->
+            buildString {
+                for (c in 0 until cols) {
+                    val border = r == 0 || r == rows - 1 || c == 0 || c == cols - 1
+                    append(if (border) '#' else '.')
+                }
+            }
+        }
 
     private val lobbyDoors = listOf(
         ZoneDoor(NormRect(0.34f, 0.13f, 0.50f, 0.23f), "za_auditorio", "Auditorio", DoorKind.TO_BUILDING),
