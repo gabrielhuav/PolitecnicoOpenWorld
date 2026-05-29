@@ -35,45 +35,39 @@ jobs:
            run: |
               echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
 
-         # 2. Compilar el APK (Formato instalable directo)
+         # 2. Compilar el APK (Debug)
          - name: Build APK
            working-directory: ./PolitecnicoOpenWorld
-           run: gradle assembleRelease
+           run: gradle assembleDebug
 
          # 3. Compilar el AAB (Desactivado temporalmente - solo se requiere APK para distribución directa)
          # - name: Build Android App Bundle (AAB)
          #   working-directory: ./PolitecnicoOpenWorld
          #   run: gradle bundleRelease
 
-         # 4. Firmar el APK con una llave de prueba (test-only) para poder instalarlo
-         - name: Sign APK
-           working-directory: ./PolitecnicoOpenWorld
-           run: |
-              keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-              APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -r | head -n 1)
-              $APKSIGNER sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android app/build/outputs/apk/release/app-release-unsigned.apk
-              mv app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/app-release-testonly.apk
 
-         # 5. Publicar automáticamente en los Releases del repositorio de GitHub
+         # 4. Publicar automáticamente en los Releases del repositorio de GitHub
          - name: Create GitHub Release
            uses: softprops/action-gh-release@v2
+           env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              PR_TITLE: ${{ github.event.pull_request.title }}
+              PR_AUTHOR: ${{ github.event.pull_request.user.login }}
            with:
-               # Asigna un tag único basado en el run_number y el SHA del commit
-               tag_name: v1.0.${{ github.run_number }}-${{ github.sha }}
-               name: "Release desde PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}"
+               # Asigna un tag único basado en el run_number para mantener un listado limpio
+               tag_name: v1.0.${{ github.run_number }}
+               name: "Release desde PR #${{ github.event.pull_request.number }} - ${{ env.PR_TITLE }}"
                body: |
                   Compilación automática generada con éxito.
 
                   **Detalles del cambio:**
-                  - **Autor:** @${{ github.event.pull_request.user.login }}
+                  - **Autor:** @${{ env.PR_AUTHOR }}
                   - **Pull Request:** #${{ github.event.pull_request.number }}
-                  - **Título:** ${{ github.event.pull_request.title }}
+                  - **Título:** ${{ env.PR_TITLE }}
                   - **Commit:** ${{ github.sha }}
-                  - **Nota:** El APK ha sido firmado con una llave de prueba para poder instalarse.
+                  - **Nota Importante:** El APK es una versión **Debug** lista para instalarse de forma directa. No requiere llaves adicionales para pruebas.
                draft: false
-               prerelease: false
+               prerelease: true
                make_latest: true
                files: |
-                  PolitecnicoOpenWorld/app/build/outputs/apk/release/app-release-testonly.apk
-           env:
-              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  PolitecnicoOpenWorld/app/build/outputs/apk/debug/app-debug.apk
