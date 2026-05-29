@@ -411,8 +411,11 @@ wss.on('connection', (ws) => {
                     const prev = players.get(ws.sessionId) || {};
                     const px = safeFrac(data.x, (prev.x ?? 0.5));
                     const py = safeFrac(data.y, (prev.y ?? 0.5));
+                    // El cliente no es autoridad de su propia vida: además de isFinite,
+                    // acotamos a [0,100] (maxHealth) antes de almacenar/difundir, igual que
+                    // safeFrac/safeDamage sanean coordenadas y daño.
                     const health = (typeof data.health === 'number' && isFinite(data.health))
-                        ? data.health : (prev.health ?? 100);
+                        ? Math.max(0, Math.min(100, data.health)) : (prev.health ?? 100);
                     players.set(ws.sessionId, {
                         ...prev,
                         id: ws.sessionId,
