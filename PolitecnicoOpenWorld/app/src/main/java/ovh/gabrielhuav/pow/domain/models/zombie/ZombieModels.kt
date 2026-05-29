@@ -33,7 +33,8 @@ enum class SkillEffect(
     ADRENALINA_ZOMBI("Adrenalina Zombi", isTrap = true, durationMs = 7000L, assetKey = "adrenalina_zombi"),
     FURIA_ZOMBI("Furia Zombi", isTrap = true, durationMs = 7000L, assetKey = "furia_zombi"),
     DEBILIDAD_ZOMBI("Debilidad Zombi", isTrap = false, durationMs = 8000L, assetKey = "debilidad_zombi"),
-    FUERZA_BRUTA("Fuerza Bruta", isTrap = false, durationMs = 9000L, assetKey = "fuerza_bruta")
+    FUERZA_BRUTA("Fuerza Bruta", isTrap = false, durationMs = 9000L, assetKey = "fuerza_bruta"),
+    ARMA_DIVINA("Arma Divina", isTrap = false, durationMs = 12000L, assetKey = "arma_divina")
 }
 
 /**

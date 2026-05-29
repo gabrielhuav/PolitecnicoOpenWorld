@@ -278,8 +278,10 @@ class ZombieGameViewModel(
     private fun hasEffect(e: SkillEffect): Boolean =
         _state.value.activeEffects.any { it.effect == e }
 
-    private fun playerDamageFactor(): Float =
-        if (hasEffect(SkillEffect.FUERZA_BRUTA)) PLAYER_DMG_BRUTE_FACTOR else 1f
+    private fun playerDamageFactor(): Float {
+        if (hasEffect(SkillEffect.ARMA_DIVINA)) return 5.0f
+        return if (hasEffect(SkillEffect.FUERZA_BRUTA)) PLAYER_DMG_BRUTE_FACTOR else 1f
+    }
 
     // ─── CARGA DE ZONA ─────────────────────────────────────
     private fun loadRoom(index: Int) {
@@ -602,6 +604,16 @@ class ZombieGameViewModel(
         when (effect) {
             SkillEffect.CURA_TOTAL -> {
                 _state.update { it.copy(playerHealth = 100f) }
+            }
+            SkillEffect.ARMA_DIVINA -> {
+                val now = System.currentTimeMillis()
+                _state.update { cur ->
+                    val withoutSame = cur.activeEffects.filter { it.effect != effect }
+                    cur.copy(
+                        activeEffects = withoutSame + ActiveEffect(effect, now + effect.durationMs),
+                        combatMode = CombatMode.RANGED
+                    )
+                }
             }
             else -> {
                 val now = System.currentTimeMillis()

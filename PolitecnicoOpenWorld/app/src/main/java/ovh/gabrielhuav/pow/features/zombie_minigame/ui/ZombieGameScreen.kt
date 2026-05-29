@@ -44,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
+import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.CameraTransform
@@ -239,7 +240,11 @@ fun ZombieGameScreen(
             }
 
             // Proyectiles
-            val bulletSize = 10f * cam.scale
+            val hasDivine = state.activeEffects.any { it.effect == SkillEffect.ARMA_DIVINA }
+            val bulletSize = (if (hasDivine) 18f else 10f) * cam.scale
+            val bulletColor = if (hasDivine) Color(0xFF00E5FF) else Color(0xFFFFEB3B) // Cyan para arma divina
+            val bulletBorder = if (hasDivine) Color(0xFF00B8D4) else Color(0xFFFF6F00)
+
             state.projectiles.forEach { p ->
                 Box(
                     modifier = Modifier.absoluteOffset(
@@ -247,8 +252,8 @@ fun ZombieGameScreen(
                         y = with(density) { toScreenY(p.y).toDp() } - with(density) { (bulletSize / 2).toDp() }
                     ).size(with(density) { bulletSize.toDp() })
                         .clip(CircleShape)
-                        .background(Color(0xFFFFEB3B))
-                        .border(1.dp, Color(0xFFFF6F00), CircleShape)
+                        .background(bulletColor)
+                        .border(1.dp, bulletBorder, CircleShape)
                 )
             }
 
