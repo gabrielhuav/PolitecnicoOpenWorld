@@ -11,39 +11,73 @@ object ZombieRoomCatalog {
         "za_edificio", "za_estacionamiento", "za_palapas", "za_canchas_futbol"
     )
 
-
-    // Posiciones ORIGINALES (antes del intercambio):
-    //   auditorio       (0.34, 0.13, 0.50, 0.23)
-    //   biblioteca      (0.22, 0.38, 0.34, 0.50)
-    //   cafeteria       (0.50, 0.38, 0.62, 0.50)
-    //   edificio        (0.38, 0.55, 0.54, 0.68)
-    //   estacionamiento (0.22, 0.62, 0.34, 0.74)
-    //   palapas         (0.50, 0.62, 0.62, 0.74)
+    // ─── MATRICES DE COLISIÓN ─────────────────────────────────────────────────
+    // IMPORTANTE: deben ser IDÉNTICAS (mismas filas/columnas) a las del servidor
+    // (MultiplayerZombie/server.js → BUILDING_MATRIX / LOBBY_MATRIX), porque el
+    // servidor mueve los zombis usando exactamente esta misma rejilla fraccionaria.
     //
-    // Intercambios pedidos:
-    //   • cafeteria  ↔ estacionamiento
-    //   • biblioteca ↔ palapas, y luego biblioteca se acerca al auditorio.
+    // '#' = pared (no caminable), '.' = caminable.
+    //
+    // EDIFICIO (20 col × 14 fil): borde con HUECOS alineados a las puertas:
+    //   - filas 5-7 sin pared lateral  → puertas EXIT izquierda/derecha
+    //   - fila 13, cols 8-12 abiertas  → puerta al lobby (centro inferior)
+    //   - dos paredes interiores cortas de ejemplo (puedes editarlas con el
+    //     Modo Diseñador y se guardan en collision_matrices.json).
+    val BUILDING_MATRIX = CollisionMatrix(
+        listOf(
+            "####################",
+            "#..................#",
+            "#.....#............#",
+            "#.....#............#",
+            "#.....#............#",
+            "....................",
+            "....................",
+            "....................",
+            "#..................#",
+            "#............#.....#",
+            "#............#.....#",
+            "#............#.....#",
+            "#..................#",
+            "########.....#######"
+        )
+    )
+
+    // LOBBY (20 col × 20 fil): borde con hueco inferior (cols 8-12) para la salida
+    // al mapa global. Interior abierto para que TODAS las puertas a edificios
+    // sigan siendo alcanzables.
+    val LOBBY_MATRIX = CollisionMatrix(
+        listOf(
+            "####################",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "#..................#",
+            "########.....#######"
+        )
+    )
+
     private val lobbyDoors = listOf(
         ZoneDoor(NormRect(0.34f, 0.13f, 0.50f, 0.23f), "za_auditorio", "Auditorio", DoorKind.TO_BUILDING),
-
-        // BIBLIOTECA: Misma columna que el Auditorio (X: 0.34 a 0.50),
-        // pero desplazada hacia abajo (Y: 0.25 a 0.35).
         ZoneDoor(NormRect(0.34f, 0.25f, 0.50f, 0.35f), "za_biblioteca", "Biblioteca", DoorKind.TO_BUILDING),
-
-        // CAFETERIA: toma la posición que tenía ESTACIONAMIENTO.
         ZoneDoor(NormRect(0.22f, 0.62f, 0.34f, 0.74f), "za_cafeteria", "Cafetería", DoorKind.TO_BUILDING),
-
         ZoneDoor(NormRect(0.38f, 0.55f, 0.54f, 0.68f), "za_edificio", "Edificio Principal", DoorKind.TO_BUILDING),
-
-        // ESTACIONAMIENTO: Ubicado en el camión blanco (Derecha superior). Movido aún más arriba.
         ZoneDoor(NormRect(0.57f, 0.14f, 0.67f, 0.22f), "za_estacionamiento", "Estacionamiento", DoorKind.TO_BUILDING),
-
-        // PALAPAS: Ubicado en las palapas (Izquierda superior). Movido aún más arriba.
         ZoneDoor(NormRect(0.18f, 0.14f, 0.28f, 0.22f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
-
-        // NUEVA ZONA: Canchas de Futbol
         ZoneDoor(NormRect(0.64f, 0.38f, 0.76f, 0.50f), "za_canchas_futbol", "Canchas de Futbol", DoorKind.TO_BUILDING),
-
         ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
     )
 
@@ -79,7 +113,8 @@ object ZombieRoomCatalog {
                 zoom = 2.2f,
                 playerSpawnFrac = NormPoint(0.50f, 0.86f),
                 doors = lobbyDoors,
-                zombieCount = 0
+                zombieCount = 0,
+                collisionMatrix = LOBBY_MATRIX
             )
         )
         buildingOrder.forEachIndexed { i, id ->
@@ -91,16 +126,11 @@ object ZombieRoomCatalog {
                     displayName = buildingDisplayName(id),
                     worldWidth = 1920f,
                     worldHeight = 1080f,
-                    // ── REQUERIMIENTO 3: zoom reducido 1.3f → 1.0f ──
-                    // 1.0f = el "cover" llena la pantalla sin recorte extra,
-                    // dando el máximo campo de visión sin deformar la imagen.
                     zoom = 1.0f,
-                    // Spawn movido lejos de la puerta-lobby (que está en y≈0.86-0.99)
-                    // para que el jugador NO aparezca encima de la salida. Esto,
-                    // junto al diálogo de confirmación, elimina las salidas accidentales.
                     playerSpawnFrac = NormPoint(0.50f, 0.55f),
                     doors = buildingDoors(i),
-                    zombieCount = 4 + (i % 3)
+                    zombieCount = 4 + (i % 3),
+                    collisionMatrix = BUILDING_MATRIX
                 )
             )
         }
