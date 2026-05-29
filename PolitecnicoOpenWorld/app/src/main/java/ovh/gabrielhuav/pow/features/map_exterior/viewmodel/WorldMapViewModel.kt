@@ -323,7 +323,12 @@ class WorldMapViewModel(
                         val iterator = remoteEntities.iterator()
                         while (iterator.hasNext()) {
                             val entry = iterator.next()
-                            if (entry.value.displayName.isNullOrEmpty()) {
+                            // Solo limpiamos NPCs que vinieron del servidor (isRemote = true).
+                            // Los NPCs que ESTE cliente spawnea localmente como host (isRemote = false)
+                            // todavía pueden no estar en activeNpcIds por la latencia de propagación;
+                            // borrarlos aquí los hacía parpadear/desaparecer. El host es su autoridad
+                            // y los limpia por la vía de pendingDespawns/NPC_DESTROY, no por este sync.
+                            if (entry.value.displayName.isNullOrEmpty() && entry.value.isRemote) {
                                 if (!officialSet.contains(entry.key)) {
                                     iterator.remove()
                                     stateChanged = true
@@ -335,8 +340,13 @@ class WorldMapViewModel(
                 }
 
                 "PLAYER_DAMAGE" -> {
-                    if (msg.targetId == myPlayerUUID && msg.damage != null) {
-                        takeDamage(msg.damage)
+                    val incomingDamage = msg.damage
+                    if (msg.targetId == myPlayerUUID && incomingDamage != null) {
+                        // handleMultiplayerMessage corre en Dispatchers.IO, pero takeDamage muta
+                        // estado Compose (playerHealth, showHealthBar, damagePulseTrigger). Lo
+                        // enrutamos al hilo Main para evitar carreras con la secuencia de muerte
+                        // (triggerWastedSequence ya corre en Main).
+                        viewModelScope.launch(Dispatchers.Main) { takeDamage(incomingDamage) }
                     }
                 }
 
@@ -562,10 +572,12 @@ class WorldMapViewModel(
                         }
 
                         maybeRefetchRoadNetwork(location)
+                        // El throttle (cada 5 ticks) es el control de frecuencia deseado.
+                        // Antes había además una llamada incondicional aquí que lo anulaba y
+                        // lanzaba el filtrado de calles hasta ~30x más seguido de lo previsto.
                         if (tickCount % 5 == 0L) {
                             updateVisibleRoads(location)
                         }
-                        updateVisibleRoads(location)
                         if (_uiState.value.isRoadNetworkReady) {
                             tickCount++
                             if (tickCount % 3 == 0L) {
@@ -964,6 +976,9 @@ class WorldMapViewModel(
         routeCalculationJob?.cancel()
         routeRetryJob?.cancel()
         messagesCollectorJob?.cancel()
+        healthBarJob?.cancel()
+        promptJob?.cancel()
+        idleJob?.cancel()
         tileCache.closeAll()
         webSocketManager?.disconnect()
     }
