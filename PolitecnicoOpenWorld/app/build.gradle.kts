@@ -72,6 +72,8 @@ dependencies {
     //Google Maps SDK
     implementation("com.google.maps.android:maps-compose:4.4.1")
 
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+
     // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

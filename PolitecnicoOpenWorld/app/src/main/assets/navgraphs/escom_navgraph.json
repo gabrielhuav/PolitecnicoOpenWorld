@@ -1,0 +1,126 @@
+{
+  "landmarkId": "building_escom",
+  "entryWays": [101],
+  "ways": [
+    {
+      "id": 101,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.9867, "localY": 0.6362, "isParkingSlot": false, "description": "Entrada principal" },
+        { "id": 2, "localX": 0.8572, "localY": 0.5125, "isParkingSlot": false, "description": "Pasillo central" }
+      ]
+    },
+    {
+      "id": 102,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.9257, "localY": 0.5708, "isParkingSlot": false, "description": "Acceso cajón" },
+        { "id": 2, "localX": 0.8971, "localY": 0.5796, "isParkingSlot": true, "description": "Cajón Antiguo 1" }
+      ]
+    },
+    {
+      "id": 103,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.8597, "localY": 0.5091, "isParkingSlot": false, "description": "Punto de ruta (Carril 103)" },
+        { "id": 2, "localX": 0.7442, "localY": 0.5712, "isParkingSlot": false, "description": "Punto de ruta (Carril 103)" }
+      ]
+    },
+    {
+      "id": 104,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.7442, "localY": 0.5712, "isParkingSlot": false, "description": "Punto de ruta (Carril 104)" },
+        { "id": 2, "localX": 0.8340, "localY": 0.6637, "isParkingSlot": false, "description": "Punto de ruta (Carril 104)" }
+      ]
+    },
+    {
+      "id": 105,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.8340, "localY": 0.6637, "isParkingSlot": false, "description": "Punto de ruta (Carril 105)" },
+        { "id": 2, "localX": 0.9542, "localY": 0.6134, "isParkingSlot": false, "description": "Punto de ruta (Carril 105)" }
+      ]
+    },
+    {
+      "id": 106,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.7367, "localY": 0.5726, "isParkingSlot": false, "description": "Punto de ruta (Carril 106)" },
+        { "id": 2, "localX": 0.6195, "localY": 0.6513, "isParkingSlot": false, "description": "Punto de ruta (Carril 106)" }
+      ]
+    },
+    {
+      "id": 107,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.6195, "localY": 0.6513, "isParkingSlot": false, "description": "Punto de ruta (Carril 107)" },
+        { "id": 2, "localX": 0.7110, "localY": 0.7243, "isParkingSlot": false, "description": "Punto de ruta (Carril 107)" }
+      ]
+    },
+    {
+      "id": 108,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.7110, "localY": 0.7243, "isParkingSlot": false, "description": "Punto de ruta (Carril 108)" },
+        { "id": 2, "localX": 0.8358, "localY": 0.6801, "isParkingSlot": false, "description": "Punto de ruta (Carril 108)" }
+      ]
+    },
+    {
+      "id": 109,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.6331, "localY": 0.6480, "isParkingSlot": false, "description": "Punto de ruta (Carril 109)" },
+        { "id": 2, "localX": 0.4970, "localY": 0.7250, "isParkingSlot": false, "description": "Punto de ruta (Carril 109)" }
+      ]
+    },
+    {
+      "id": 110,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.4970, "localY": 0.7250, "isParkingSlot": false, "description": "Punto de ruta (Carril 110)" },
+        { "id": 2, "localX": 0.6003, "localY": 0.8284, "isParkingSlot": false, "description": "Punto de ruta (Carril 110)" }
+      ]
+    },
+    {
+      "id": 111,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.6003, "localY": 0.8284, "isParkingSlot": false, "description": "Punto de ruta (Carril 111)" },
+        { "id": 2, "localX": 0.7265, "localY": 0.7347, "isParkingSlot": false, "description": "Punto de ruta (Carril 111)" }
+      ]
+    },
+    {
+      "id": 114,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5585, "localY": 0.6947, "isParkingSlot": false, "description": "Punto de ruta (Carril 114)" },
+        { "id": 2, "localX": 0.5752, "localY": 0.7141, "isParkingSlot": true, "description": "Cajón de estacionamiento" }
+      ]
+    },
+    {
+      "id": 115,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5379, "localY": 0.7682, "isParkingSlot": false, "description": "Punto de ruta (Carril 115)" },
+        { "id": 2, "localX": 0.5767, "localY": 0.7591, "isParkingSlot": true, "description": "Cajón de estacionamiento" }
+      ]
+    },
+    {
+      "id": 116,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.6600, "localY": 0.7817, "isParkingSlot": false, "description": "Punto de ruta (Carril 116)" },
+        { "id": 2, "localX": 0.6528, "localY": 0.7574, "isParkingSlot": true, "description": "Cajón de estacionamiento" }
+      ]
+    },
+    {
+      "id": 117,
+      "isForCars": true,
+      "nodes": [
+        { "id": 1, "localX": 0.7832, "localY": 0.7096, "isParkingSlot": false, "description": "Punto de ruta (Carril 117)" },
+        { "id": 2, "localX": 0.7754, "localY": 0.6808, "isParkingSlot": true, "description": "Cajón de estacionamiento" }
+      ]
+    }
+  ]
+}

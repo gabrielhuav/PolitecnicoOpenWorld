@@ -12,6 +12,11 @@ enum class CarModel(val dirName: String, val prefix: String) {
     WAGON("WHITE_WAGON", "White_WAGON_CLEAN_All_")
 }
 
+enum class NpcNavState {
+    MACRO_OSM,      // Usa calles reales
+    MICRO_LANDMARK, // Usa el dibujo del asset
+    PARKED          // Detenido en un cajón de estacionamiento
+}
 data class Npc(
     val id: String = UUID.randomUUID().toString(),
     val type: NpcType,
@@ -33,5 +38,9 @@ data class Npc(
     val displayName: String? = null,
     val isFirstTimeBoarded: Boolean = true,
     val health: Float = 100f,
-    val isDying: Boolean = false
+    val isDying: Boolean = false,
+
+    val navState: NpcNavState = NpcNavState.MACRO_OSM,
+    val currentLocalWay: ovh.gabrielhuav.pow.domain.models.ai.LocalWay? = null,
+    val currentLandmark: Landmark? = null
 )

@@ -54,6 +54,8 @@ import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import java.io.InputStreamReader
+import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
@@ -160,6 +162,8 @@ class WorldMapViewModel(
             swapControls = settingsRepository.getSwapControls()
         )
     )
+    // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
+    private var escomNavGraph: LandmarkNavGraph? = null
     val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
 
     private val npcAiManager      = NpcAiManager()
@@ -559,6 +563,9 @@ class WorldMapViewModel(
                                 val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
                                 npcAiManager.setServerNpcs(npcOnlyList)
 
+                                // Pasamos los landmarks (edificios) con sus navGraphs al motor
+                                npcAiManager.setLandmarks(_uiState.value.landmarks.filter { it.navGraph != null })
+
                                 npcAiManager.updateNpcs(location, isServerDelegatedHost)
                                 val processedNpcs = npcAiManager.getServerNpcs()
 
@@ -814,6 +821,65 @@ class WorldMapViewModel(
     private var segs: List<Seg>              = emptyList()
     private var grid: Map<Long, List<Seg>>   = emptyMap()
 
+    private var debugNodeIdCounter = 1
+
+    // 1. Función para cambiar el Checkbox
+    fun toggleParkingMode(enabled: Boolean) {
+        _uiState.update { it.copy(isParkingSlotMode = enabled) }
+    }
+
+    // 2. Función para empezar un nuevo carril
+    fun startNewWay() {
+        debugNodeIdCounter = 1
+        _uiState.update {
+            it.copy(
+                currentWayId = it.currentWayId + 1,
+                routeDebugWaypoints = emptyList() // Limpiamos las migas visuales (opcional)
+            )
+        }
+        Log.d("CREADOR_RUTAS", "\n--- INICIANDO NUEVO CARRIL (Way ID: ${_uiState.value.currentWayId}) ---\n\"nodes\": [")
+    }
+
+    // 3. Tu función actualizada para capturar
+    fun debugPlayerLocalCoordinates(context: Context) {
+        val state = _uiState.value
+        val loc = state.currentLocation ?: return
+        val landmarkId = state.selectedLandmarkId ?: return
+        val landmark = state.landmarks.find { it.id == landmarkId } ?: return
+
+        val (localX, localY) = landmark.toLocalCoordinates(loc)
+
+        if (localX in 0.0f..1.0f && localY in 0.0f..1.0f) {
+            val formX = String.format(java.util.Locale.US, "%.4f", localX)
+            val formY = String.format(java.util.Locale.US, "%.4f", localY)
+
+            // Usamos el flag del estado
+            val isParking = state.isParkingSlotMode
+            val desc = if (isParking) "Cajón de estacionamiento" else "Punto de ruta (Carril ${state.currentWayId})"
+
+            val jsonNode = """
+        {
+          "id": $debugNodeIdCounter,
+          "localX": $formX,
+          "localY": $formY,
+          "isParkingSlot": $isParking,
+          "description": "$desc"
+        },
+        """.trimIndent()
+
+            Log.d("CREADOR_RUTAS", "\n$jsonNode")
+
+            // Agregamos la "miga de pan" a la lista para dibujarla
+            _uiState.update {
+                it.copy(routeDebugWaypoints = it.routeDebugWaypoints + loc)
+            }
+
+            android.widget.Toast.makeText(context, "Nodo $debugNodeIdCounter capturado", android.widget.Toast.LENGTH_SHORT).show()
+            debugNodeIdCounter++
+        } else {
+            android.widget.Toast.makeText(context, "Estás fuera del edificio", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     private fun ensureIndex() {
         if (indexedRef === roadNetwork) return
         val newSegs = ArrayList<Seg>(roadNetwork.sumOf { it.nodes.size })
@@ -843,8 +909,18 @@ class WorldMapViewModel(
     private fun cell(v: Double): Int = floor(v / CELL).toInt()
 
     private fun getNearestPointOnNetwork(t: GeoPoint): GeoPoint {
+        // Usa la nueva matemática exacta del rectángulo rotado
+        val insideLandmark = _uiState.value.landmarks.any { landmark ->
+            landmark.contains(t)
+        }
+
+        if (insideLandmark) {
+            return t // Eres 100% libre solo si estás tocando un píxel de la imagen
+        }
+
         ensureIndex()
         val cands = candidates(t); if (cands.isEmpty()) return t
+
         var best = Double.MAX_VALUE; var pt = t
         for (seg in cands) {
             val p = project(t, seg.s, seg.e); val d = distance(t, p)
@@ -989,6 +1065,7 @@ class WorldMapViewModel(
                 val database = ovh.gabrielhuav.pow.data.local.room.PowDatabase.getInstance(context)
                 val dao = database.landmarkDao()
                 var entities = dao.getAllLandmarks()
+
                 if (entities.isEmpty()) {
                     try {
                         val jsonString = context.assets.open("default_landmarks.json").bufferedReader().use { it.readText() }
@@ -1003,9 +1080,34 @@ class WorldMapViewModel(
                         Log.e("WorldMapViewModel", "Error leyendo default_landmarks.json", e)
                     }
                 }
+
                 val templatesByAssetPath = LandmarkCatalogManager.availableAssets.associateBy { it.assetPath }
+
+                // 👇 NUEVO: Cargamos el navGraph de ESCOM en memoria si no está cargado.
+                // Lo hacemos una sola vez para no abrir el archivo por cada edificio.
+                if (escomNavGraph == null) {
+                    try {
+                        val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
+                        val reader = java.io.InputStreamReader(inputStream)
+                        escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
+                        reader.close()
+                    } catch (e: Exception) {
+                        Log.e("WorldMapViewModel", "No se pudo cargar el navGraph de ESCOM al inicio", e)
+                    }
+                }
+
+                // Mapeamos las entidades de la Base de Datos a la clase Landmark
                 val domainLandmarks = entities.map { entity ->
                     val template = templatesByAssetPath[entity.assetPath]
+
+                    // 👇 NUEVO: Si el edificio es ESCOM, le inyectamos su navGraph.
+                    // Si mañana agregas "Zacatenco", puedes poner "else if" aquí.
+                    val assignedNavGraph = if (entity.assetPath.contains("building_escom", ignoreCase = true)) {
+                        escomNavGraph
+                    } else {
+                        null // Los demás edificios nacen sin cerebro (por ahora)
+                    }
+
                     Landmark(
                         id = entity.id,
                         name = entity.name,
@@ -1014,10 +1116,14 @@ class WorldMapViewModel(
                         scaleFactor = entity.scaleFactor,
                         rotationAngle = entity.rotationAngle,
                         baseWidthMeters = template?.baseWidthMeters ?: 100f,
-                        baseHeightMeters = template?.baseHeightMeters ?: 100f
+                        baseHeightMeters = template?.baseHeightMeters ?: 100f,
+
+                        navGraph = assignedNavGraph
                     )
                 }
+
                 _uiState.update { currentState -> currentState.copy(landmarks = domainLandmarks) }
+
             } catch (e: Exception) {
                 Log.e("WorldMapViewModel", "Error fatal al cargar las estructuras estáticas", e)
             }
@@ -1644,5 +1750,67 @@ class WorldMapViewModel(
         val currentLoc = _uiState.value.currentLocation ?: return
         val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
         if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) clearDestinationMarker()
+    }
+
+    fun spawnDynamicCarInEscom(context: Context) {
+        // 1. Cargar el JSON del navgraph de ESCOM si no está en memoria
+        if (escomNavGraph == null) {
+            try {
+                val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
+                val reader = java.io.InputStreamReader(inputStream)
+                escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
+                reader.close()
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Error leyendo escom_navgraph.json", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
+        val navGraph = escomNavGraph ?: return
+
+        // 2. Buscar el edificio ESCOM en el mapa
+        val escomLandmarkBase = _uiState.value.landmarks.find { it.assetPath.contains("building_escom", ignoreCase = true) }
+        if (escomLandmarkBase == null) {
+            android.widget.Toast.makeText(context, "Error: ESCOM no está en el mapa", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // CRUCIAL: Inyectarle el navGraph al Landmark para que la IA (NpcAiManager) pueda leer las "entryWays"
+        val escomLandmark = escomLandmarkBase.copy(navGraph = navGraph)
+
+        // 3. Obtener el carril de entrada (el objeto real LocalWay)
+        val entryWayId = navGraph.entryWays.firstOrNull() ?: return
+        val entryWay = navGraph.ways.find { it.id == entryWayId } ?: return
+        val entryNode = entryWay.nodes.firstOrNull() ?: return
+
+        // 4. Calcular posición global real en base al nodo local 0,0
+        val spawnGeoPoint = escomLandmark.toGlobalGeoPoint(entryNode.localX, entryNode.localY)
+
+        // 5. Crear el NPC con los estados exactos que exige el motor de IA
+        val newCarId = "DYN_CAR_${System.currentTimeMillis()}"
+        val newCar = ovh.gabrielhuav.pow.domain.models.Npc(
+            id = newCarId,
+            type = ovh.gabrielhuav.pow.domain.models.NpcType.CAR,
+            location = spawnGeoPoint,
+            carColor = android.graphics.Color.WHITE,
+            carModel = ovh.gabrielhuav.pow.domain.models.CarModel.SPORT,
+            rotationAngle = 0f,
+            speed = ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager.CAR_SPEED,
+
+            // 👇 PROPIEDADES QUE EVITAN QUE LA IA LO ELIMINE
+            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
+            currentLandmark = escomLandmark, // Pasamos el objeto con el navGraph
+            currentLocalWay = entryWay,      // Pasamos el objeto de la calle
+            targetNodeIndex = 1,             // Le decimos que avance al nodo 1
+            moveDirection = 1                // Dirección hacia adelante
+        )
+
+        // 6. Inyectarlo a la FUENTE DE LA VERDAD (remoteEntities)
+        remoteEntities[newCarId] = newCar
+
+        // 7. Refrescar la pantalla
+        updateNpcsState()
+
+        android.widget.Toast.makeText(context, "🚗 Auto inyectado en MICRO_LANDMARK", android.widget.Toast.LENGTH_SHORT).show()
     }
 }
