@@ -582,6 +582,7 @@ fun WorldMapScreen(
                         roadLineCache.clear()
 
                         if (uiState.showRoadNetwork) {
+                            val lmCount = landmarkCache.values.sumOf { it.size }
                             roadNetwork.forEach { way ->
                                 val line = Polyline().apply {
                                     outlinePaint.color = if (way.isForCars)
@@ -594,8 +595,7 @@ fun WorldMapScreen(
                                     setPoints(way.nodes.map { GeoPoint(it.lat, it.lon) })
                                 }
                                 roadLineCache.add(line)
-                                // Insertar en índice 0: roads siempre debajo de markers/NPCs
-                                view.overlays.add(0, line)
+                                view.overlays.add(lmCount.coerceAtMost(view.overlays.size), line)
                             }
                         }
 
@@ -714,7 +714,8 @@ fun WorldMapScreen(
                                     position = GroundOverlayPosition.create(center, widthMeters, heightMeters),
                                     image = descriptor,
                                     bearing = landmark.rotationAngle,
-                                    transparency = 0f
+                                    transparency = 0f,
+                                    zIndex = 0f
                                 )
 
                                 if (uiState.isDesignerMode) {
@@ -1337,6 +1338,8 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             maxZoom: 22 
         }).setView([$lat, $lng], $zoom);
         var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 18 }).addTo(map);
+        map.createPane('landmarkPane');
+        map.getPane('landmarkPane').style.zIndex = 300;
         
         var npcMarkers = {};
         var collectibleMarkers = {};
@@ -1416,7 +1419,7 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                                '</div>';
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                     
-                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, zIndexOffset: -5000, interactive: false }).addTo(map);
+                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, pane: 'landmarkPane', interactive: false }).addTo(map);
                     landmarkMarkers[lm.id] = marker;
                 }
             });
