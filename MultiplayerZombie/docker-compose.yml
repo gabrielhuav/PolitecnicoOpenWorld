@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   pow-zombie-server:
     build: .

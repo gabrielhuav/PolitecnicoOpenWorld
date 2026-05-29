@@ -386,33 +386,26 @@ fun ZombieView(
     }
 }
 
+/**
+ * Carga y cicla los frames del sprite del jugador (Lázaro) según la acción.
+ * Compartido por PlayerView y RemotePlayerView para evitar duplicación.
+ */
 @Composable
-fun PlayerView(
-    action: PlayerAction, facingRight: Boolean, damagePulse: Int,
-    sizePx: Float, modifier: Modifier = Modifier
-) {
+private fun rememberPlayerFrame(action: PlayerAction): ImageBitmap? {
     val context = LocalContext.current
-    val density = LocalDensity.current
-    val sizeDp = with(density) { sizePx.toDp() }
     var frame by remember { mutableIntStateOf(1) }
     var image by remember { mutableStateOf<ImageBitmap?>(null) }
     val cache = remember { mutableMapOf<String, ImageBitmap?>() }
-
-    val shake by animateFloatAsState(
-        targetValue = if (damagePulse % 2 == 0) 0f else 8f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy, stiffness = Spring.StiffnessHigh),
-        label = "shake"
-    )
 
     LaunchedEffect(action) {
         frame = 1
         while (true) {
             val maxFrames = if (action == PlayerAction.SPECIAL) 8 else 6
             val path = when (action) {
-                PlayerAction.IDLE -> "PRINCIPAL/lazaroIdle/lazaro_i_$frame.webp"
-                PlayerAction.WALK -> "PRINCIPAL/lazaroWalk/lazaro_w_$frame.webp"
+                PlayerAction.IDLE    -> "PRINCIPAL/lazaroIdle/lazaro_i_$frame.webp"
+                PlayerAction.WALK    -> "PRINCIPAL/lazaroWalk/lazaro_w_$frame.webp"
                 PlayerAction.SPECIAL -> "PRINCIPAL/lazaroSpecial/lazaro_s_$frame.webp"
-                PlayerAction.RUN -> "PRINCIPAL/lazaroRun/lazaro_r_$frame.webp"
+                PlayerAction.RUN     -> "PRINCIPAL/lazaroRun/lazaro_r_$frame.webp"
             }
             if (!cache.containsKey(path)) {
                 cache[path] = withContext(Dispatchers.IO) {
@@ -425,10 +418,27 @@ fun PlayerView(
             frame = (frame % maxFrames) + 1
         }
     }
+    return image
+}
+
+@Composable
+fun PlayerView(
+    action: PlayerAction, facingRight: Boolean, damagePulse: Int,
+    sizePx: Float, modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val sizeDp = with(density) { sizePx.toDp() }
+    val image = rememberPlayerFrame(action)
+
+    val shake by animateFloatAsState(
+        targetValue = if (damagePulse % 2 == 0) 0f else 8f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy, stiffness = Spring.StiffnessHigh),
+        label = "shake"
+    )
 
     Box(modifier = modifier.size(sizeDp).graphicsLayer { translationX = shake }, contentAlignment = Alignment.Center) {
         if (image != null) {
-            Image(image!!, "Jugador", modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
+            Image(image, "Jugador", modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
         } else {
             Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFFD91B5B)).border(2.dp, Color.White, CircleShape))
         }
@@ -448,37 +458,11 @@ fun RemotePlayerView(
     sizePx: Float,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val density = LocalDensity.current
     val sizeDp = with(density) { sizePx.toDp() }
-    var frame by remember { mutableIntStateOf(1) }
-    var image by remember { mutableStateOf<ImageBitmap?>(null) }
-    val cache = remember { mutableMapOf<String, ImageBitmap?>() }
-
-    LaunchedEffect(action) {
-        frame = 1
-        while (true) {
-            val maxFrames = if (action == PlayerAction.SPECIAL) 8 else 6
-            val path = when (action) {
-                PlayerAction.IDLE -> "PRINCIPAL/lazaroIdle/lazaro_i_$frame.webp"
-                PlayerAction.WALK -> "PRINCIPAL/lazaroWalk/lazaro_w_$frame.webp"
-                PlayerAction.SPECIAL -> "PRINCIPAL/lazaroSpecial/lazaro_s_$frame.webp"
-                PlayerAction.RUN -> "PRINCIPAL/lazaroRun/lazaro_r_$frame.webp"
-            }
-            if (!cache.containsKey(path)) {
-                cache[path] = withContext(Dispatchers.IO) {
-                    try { context.assets.open(path).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
-                    catch (e: Exception) { null }
-                }
-            }
-            image = cache[path]
-            delay(if (action == PlayerAction.IDLE) 1000L else 100L)
-            frame = (frame % maxFrames) + 1
-        }
-    }
+    val image = rememberPlayerFrame(action)
 
     Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.TopCenter) {
-        // Etiqueta de nombre, siempre en una sola línea.
         if (name.isNotBlank()) {
             Text(
                 text = name,
@@ -496,7 +480,7 @@ fun RemotePlayerView(
             )
         }
         if (image != null) {
-            Image(image!!, "Jugador remoto",
+            Image(image, "Jugador remoto",
                 modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
         } else {
             Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFF2196F3)).border(2.dp, Color.White, CircleShape))
