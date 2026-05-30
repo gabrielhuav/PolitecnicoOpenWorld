@@ -118,6 +118,7 @@ import kotlin.math.round
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import android.util.Log
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -1090,6 +1091,7 @@ fun WorldMapScreen(
 
         Column(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
             IconButton(onClick = onNavigateToSettings, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
+            IconButton(onClick = { viewModel.toggleSkinSelector(true) }, modifier = Modifier.background(Color(0xFFD91B5B).copy(alpha = 0.9f), CircleShape)) { Icon(Icons.Default.Person, "Cambiar skin", tint = Color.White) }
             IconButton(onClick = { viewModel.teleportTo(19.5045, -99.1469) }, modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.School, "Ir a ESCOM", tint = Color.White) }
             IconButton(onClick = { viewModel.toggleDesignerMode(!uiState.isDesignerMode) }, modifier = Modifier.background(if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Architecture, "Modo Diseñador", tint = Color.Black) }
             IconButton(onClick = { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) }, modifier = Modifier.background(if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.LocationOn, "Debug Interiores", tint = Color.Black) }
@@ -1156,6 +1158,15 @@ fun WorldMapScreen(
 
         if (uiState.showAssetPicker) {
             AssetPickerDialog(context = context, onAssetSelected = { viewModel.addLandmarkAtPlayer(context, it) }, onDismiss = { viewModel.showAssetPicker(false) })
+        }
+
+        if (uiState.showSkinSelector) {
+            SkinSelectorDialog(
+                currentSkin    = uiState.selectedSkin,
+                context        = context,
+                onSkinSelected = { viewModel.selectSkin(it) },
+                onDismiss      = { viewModel.toggleSkinSelector(false) }
+            )
         }
 
         val selectedLandmark = uiState.landmarks.find { it.id == uiState.selectedLandmarkId }
