@@ -32,6 +32,17 @@ class NpcAiManager {
     val npcs: StateFlow<List<Npc>> = _npcs.asStateFlow()
 
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
+
+    // Bounding box (min/max lat/lon) precomputado por cada way al cargar la red.
+    // Permite descartar ways lejanas con una comparación O(1) antes del check
+    // caro por nodo (distancia), evitando el O(N*M) en cada spawn.
+    private class WayBox(
+        val way: MapWay,
+        val minLat: Double, val maxLat: Double,
+        val minLon: Double, val maxLon: Double
+    )
+    private val cachedWayBoxes = AtomicReference<List<WayBox>>(emptyList())
+
     val pendingDespawns = mutableListOf<String>()
 
     private val maxNpcs = 40
@@ -45,6 +56,19 @@ class NpcAiManager {
 
     fun updateRoadNetwork(network: List<MapWay>) {
         cachedRoadNetwork.set(network)
+        // Precomputar el bounding box de cada way una sola vez al cargar la red.
+        cachedWayBoxes.set(network.mapNotNull { way ->
+            if (way.nodes.isEmpty()) return@mapNotNull null
+            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+            for (n in way.nodes) {
+                if (n.lat < minLat) minLat = n.lat
+                if (n.lat > maxLat) maxLat = n.lat
+                if (n.lon < minLon) minLon = n.lon
+                if (n.lon > maxLon) maxLon = n.lon
+            }
+            WayBox(way, minLat, maxLat, minLon, maxLon)
+        })
         networkIsReady = network.isNotEmpty()
     }
 
@@ -87,9 +111,20 @@ class NpcAiManager {
                 serverNpcs.removeAll(toAnnihilate)
                 toAnnihilate.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
             } else if (currentNpcsCount < maxNpcs) {
-                val closeWays = currentNetwork.filter { way ->
-                    way.nodes.any { calculateDistance(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistance }
-                }
+                val pLat = playerLocation.latitude
+                val pLon = playerLocation.longitude
+                val closeWays = cachedWayBoxes.get()
+                    // Pre-filtro barato por bounding box (expandido por spawnDistance):
+                    // descarta ways lejanas sin recorrer sus nodos.
+                    .filter { box ->
+                        pLat >= box.minLat - spawnDistance && pLat <= box.maxLat + spawnDistance &&
+                                pLon >= box.minLon - spawnDistance && pLon <= box.maxLon + spawnDistance
+                    }
+                    // Check caro por nodo solo sobre las candidatas que pasaron el bbox.
+                    .filter { box ->
+                        box.way.nodes.any { calculateDistance(it.lat, it.lon, pLat, pLon) < spawnDistance }
+                    }
+                    .map { it.way }
                 if (closeWays.isNotEmpty()) {
                     val numToSpawn = minOf(2, maxNpcs - currentNpcsCount)
                     for (i in 0 until numToSpawn) {

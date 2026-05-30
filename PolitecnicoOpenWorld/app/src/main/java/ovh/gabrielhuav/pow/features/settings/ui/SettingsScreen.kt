@@ -210,7 +210,7 @@ private fun SettingsContent(
             state.mapProvider, onMapProviderChanged,
             state.showRoadNetwork, onRoadNetworkToggled
         )
-        is SettingsCategory.Controls -> ControlsSettingsConfig(state.controlType, state.controlsScale, state.swapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
+        is SettingsCategory.Controls -> ControlsSettingsConfig(state.tempControlType, state.tempControlsScale, state.tempSwapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
         is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, onCacheToggled, onFpsToggled)
         else -> Text("Sin ajustes disponibles actualmente.", color = Color.Gray)
     }

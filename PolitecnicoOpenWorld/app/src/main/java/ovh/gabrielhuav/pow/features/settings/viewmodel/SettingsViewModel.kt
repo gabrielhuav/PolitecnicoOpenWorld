@@ -16,12 +16,21 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
 
     // Inicializa el estado leyendo la base de datos de preferencias
     private val _state = MutableStateFlow(
-        SettingsState(
-            controlType = repository.getControlType(),
-            controlsScale = repository.getControlsScale(),
-            swapControls = repository.getSwapControls(),
-            showRoadNetwork = repository.getShowRoadNetwork()
-        )
+        run {
+            val type = repository.getControlType()
+            val scale = repository.getControlsScale()
+            val swap = repository.getSwapControls()
+            SettingsState(
+                controlType = type,
+                controlsScale = scale,
+                swapControls = swap,
+                showRoadNetwork = repository.getShowRoadNetwork(),
+                // Los temporales arrancan sincronizados con lo persistido.
+                tempControlType = type,
+                tempControlsScale = scale,
+                tempSwapControls = swap
+            )
+        }
     )
     val state: StateFlow<SettingsState> = _state.asStateFlow()
 
@@ -30,17 +39,37 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun toggleCacheWidget(enabled: Boolean) { _state.update { it.copy(showCacheWidget = enabled) } }
     fun toggleFpsWidget(enabled: Boolean) { _state.update { it.copy(showFpsWidget = enabled) } }
 
-    fun changeControlType(type: ControlType) { _state.update { it.copy(controlType = type) } }
-    fun changeControlsScale(scale: Float) { _state.update { it.copy(controlsScale = scale) } }
-    fun toggleSwapControls(swap: Boolean) { _state.update { it.copy(swapControls = swap) } }
+    // Los cambios de controles solo tocan el estado TEMPORAL: no afectan al juego
+    // hasta que el usuario presiona GUARDAR (saveControlsSettings()).
+    fun changeControlType(type: ControlType) { _state.update { it.copy(tempControlType = type) } }
+    fun changeControlsScale(scale: Float) { _state.update { it.copy(tempControlsScale = scale) } }
+    fun toggleSwapControls(swap: Boolean) { _state.update { it.copy(tempSwapControls = swap) } }
+
+    /** Descarta los cambios temporales no guardados, volviéndolos a los committeados. */
+    fun discardControlsChanges() {
+        _state.update {
+            it.copy(
+                tempControlType = it.controlType,
+                tempControlsScale = it.controlsScale,
+                tempSwapControls = it.swapControls
+            )
+        }
+    }
 
     fun toggleRoadNetwork(show: Boolean) {
         _state.update { it.copy(showRoadNetwork = show) }
         repository.saveShowRoadNetwork(show)
     }
 
-    // Función para guardar
+    // Función para guardar: sincroniza los temporales a los committeados y persiste.
     fun saveControlsSettings() {
+        _state.update {
+            it.copy(
+                controlType = it.tempControlType,
+                controlsScale = it.tempControlsScale,
+                swapControls = it.tempSwapControls
+            )
+        }
         val currentState = _state.value
         repository.saveControlsSettings(
             type = currentState.controlType,

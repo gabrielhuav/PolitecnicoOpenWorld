@@ -152,25 +152,30 @@ class MainActivity : ComponentActivity() {
                                 onControlsScaleChanged = { settingsViewModel.changeControlsScale(it) },
                                 onSwapControlsToggled = { settingsViewModel.toggleSwapControls(it) },
                                 onNavigateBack = {
+                                    // Descartar cambios de controles no guardados al salir.
+                                    settingsViewModel.discardControlsChanges()
                                     if (navController.currentDestination?.route == "settings") {
                                         navController.popBackStack()
                                     }
                                 },
                                 onSaveClicked = {
-                                    // 1. Guardar persistentemente en el dispositivo
+                                    // 1. Sincronizar temporales → committeados y persistir.
                                     settingsViewModel.saveControlsSettings()
 
-                                    // 2. Notificar al mapa
+                                    // 2. Notificar al mapa con los valores recién guardados (temporales,
+                                    //    que son los que acaban de pasar a ser los definitivos).
                                     worldMapViewModel.updateControlSettings(
-                                        type = settingsState.controlType,
-                                        scale = settingsState.controlsScale,
-                                        swap = settingsState.swapControls
+                                        type = settingsState.tempControlType,
+                                        scale = settingsState.tempControlsScale,
+                                        swap = settingsState.tempSwapControls
                                     )
 
                                     android.widget.Toast.makeText(this@MainActivity, "Configuración de controles guardada", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 // Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {
+                                    // Descartar cambios de controles no guardados al salir.
+                                    settingsViewModel.discardControlsChanges()
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     navController.navigate("main_menu") {
                                         popUpTo("main_menu") { inclusive = true }

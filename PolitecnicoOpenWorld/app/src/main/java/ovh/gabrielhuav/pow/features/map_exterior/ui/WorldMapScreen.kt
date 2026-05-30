@@ -236,6 +236,10 @@ fun WorldMapScreen(
                         MapView(ctx).apply {
                             setTileSource(TileSourceFactory.MAPNIK)
                             setMultiTouchControls(true)
+                            // Fondo oscuro del mapa: al rotar (modo conducción) los bordes
+                            // que quedan sin tiles se ven oscuros en lugar de blancos/grises,
+                            // evitando los "huecos"/artefactos visibles.
+                            setBackgroundColor(android.graphics.Color.parseColor("#0D0D11"))
                             controller.setZoom(uiState.zoomLevel)
                             nativeMapRef.value = this
                         }
@@ -1371,8 +1375,11 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #aad3df; overflow: hidden; }
-        #map-wrapper { position: absolute; top: -50%; left: -50%; width: 200vw; height: 200vh; transform-origin: center center; }
+        body { margin: 0; padding: 0; background: #0D0D11; overflow: hidden; }
+        /* Wrapper sobredimensionado (300vw x 300vh) y centrado: su círculo inscrito
+           cubre la diagonal de la pantalla en cualquier ángulo de rotación, evitando
+           ver "huecos"/artefactos al rotar el mapa en pantallas alargadas. */
+        #map-wrapper { position: absolute; top: -100%; left: -100%; width: 300vw; height: 300vh; transform-origin: center center; }
         #map { width: 100%; height: 100%; background: transparent; }
         .leaflet-marker-icon { background: none !important; border: none !important; }
         .leaflet-div-icon { background: transparent !important; border: none !important; }

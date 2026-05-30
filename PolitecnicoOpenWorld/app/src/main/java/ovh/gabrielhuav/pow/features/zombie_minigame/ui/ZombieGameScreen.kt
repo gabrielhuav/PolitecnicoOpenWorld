@@ -4,7 +4,11 @@ import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -48,7 +52,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
+import kotlin.random.Random
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
@@ -99,9 +106,48 @@ fun ZombieGameScreen(
         }
     }
 
+    // ─── FEEDBACK DE DAÑO: screen shake + flash/viñeta roja ──────────────────
+    // Screen shake disparado por cada incremento de damagePulseTrigger (recibir daño).
+    var shakeX by remember { mutableStateOf(0f) }
+    var shakeY by remember { mutableStateOf(0f) }
+    // Flash rojo breve al recibir daño.
+    var flashAlpha by remember { mutableStateOf(0f) }
+    LaunchedEffect(state.damagePulseTrigger) {
+        if (state.damagePulseTrigger > 0) {
+            flashAlpha = 0.5f
+            val steps = 9
+            val intensity = 26f
+            for (i in 0 until steps) {
+                val decay = 1f - i / steps.toFloat()
+                shakeX = (Random.nextFloat() * 2f - 1f) * intensity * decay
+                shakeY = (Random.nextFloat() * 2f - 1f) * intensity * decay
+                flashAlpha = 0.5f * decay
+                delay(28)
+            }
+            shakeX = 0f; shakeY = 0f; flashAlpha = 0f
+        }
+    }
+    // Pulso de vida baja: la viñeta roja late cuando el jugador está crítico.
+    val lowHp = state.playerHealth <= 35f && state.playerHealth > 0f
+    val lowHpTransition = rememberInfiniteTransition(label = "lowHp")
+    val lowHpPulse by lowHpTransition.animateFloat(
+        initialValue = 0.10f, targetValue = 0.34f,
+        animationSpec = infiniteRepeatable(tween(620), RepeatMode.Reverse),
+        label = "lowHpPulse"
+    )
+    // La intensidad base de la viñeta escala con la vida perdida.
+    val hpLossFactor = (1f - state.playerHealth / 100f).coerceIn(0f, 1f)
+    val vignetteAlpha = (hpLossFactor * 0.32f +
+            (if (lowHp) lowHpPulse else 0f) +
+            flashAlpha).coerceIn(0f, 0.85f)
+
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D11))) {
 
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset { IntOffset(shakeX.roundToInt(), shakeY.roundToInt()) }
+        ) {
             val viewportWpx = with(density) { maxWidth.toPx() }
             val viewportHpx = with(density) { maxHeight.toPx() }
 
@@ -329,6 +375,20 @@ fun ZombieGameScreen(
 
         if (background == null) {
             Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Color(0xFFD4AF37)) }
+        }
+
+        // ─── VIÑETA / FLASH ROJO DE DAÑO ────────────────────────────────────
+        // Capa no interactiva sobre el mundo: borde rojo radial cuya intensidad
+        // escala con la vida perdida, late en vida baja y destella al recibir daño.
+        if (vignetteAlpha > 0.01f) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val brush = Brush.radialGradient(
+                    colors = listOf(Color.Transparent, Color.Red.copy(alpha = vignetteAlpha)),
+                    center = Offset(size.width / 2f, size.height / 2f),
+                    radius = max(size.width, size.height) * 0.72f
+                )
+                drawRect(brush = brush)
+            }
         }
 
         // IMPORTANTE (orden de capas / z-order en Compose):

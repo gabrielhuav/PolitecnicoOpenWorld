@@ -88,13 +88,23 @@ class ZombieGameViewModel(
         const val STALKER_ATTACK_FRAME_COUNT = 4
         const val STALKER_ATTACK_DIST = 85f
 
-        const val CONTACT_DIST = 56f
+        const val CONTACT_DIST = 44f
         const val ZOMBIE_DAMAGE = 12f
         const val ZOMBIE_DAMAGE_COOLDOWN_MS = 3000L
+
+        // Regeneración de vida en el lobby: cuando el jugador no está al 100%,
+        // se cura gradualmente por tick hasta tope de 100.
+        const val LOBBY_REGEN_PER_TICK = 0.35f
 
         const val PLAYER_PUNCH_DAMAGE = 34f
         const val PLAYER_ATTACK_RADIUS = 120f
         const val PLAYER_ATTACK_COOLDOWN_MS = 600L
+
+        // Knockback aplicado a los zombis al recibir golpes/proyectiles.
+        const val MELEE_KNOCKBACK = 46f
+        const val PROJECTILE_KNOCKBACK = 34f
+        // Recoil del jugador al disparar (se empuja hacia atrás, con corrección de colisión).
+        const val PLAYER_RECOIL = 10f
 
         const val PROJECTILE_SPEED = 22f
         const val PROJECTILE_LIFETIME_MS = 1500L
@@ -526,16 +536,23 @@ class ZombieGameViewModel(
             }
             if (hit != null) {
                 val newHp = hit.health - PROJECTILE_DAMAGE * playerDamageFactor()
+                // Knockback en la dirección de viaje del proyectil (desde su origen).
+                val (kx, ky) = knockbackZombie(hit.x, hit.y, p.x, p.y, room, PROJECTILE_KNOCKBACK)
                 workingZombies = workingZombies.map { z ->
                     if (z.id == hit.id) {
-                        if (newHp <= 0f) { deadZombieIds.add(z.id); z.copy(health = 0f, isDying = true) }
-                        else z.copy(health = newHp)
+                        if (newHp <= 0f) { deadZombieIds.add(z.id); z.copy(health = 0f, isDying = true, x = kx, y = ky) }
+                        else z.copy(health = newHp, x = kx, y = ky)
                     } else z
                 }
             } else survivingProjectiles.add(p.copy(x = nx, y = ny))
         }
 
         if (newHealth <= 0f) { triggerWastedSequence(); return }
+
+        // Regeneración gradual de vida en el lobby (zona segura).
+        if (room.id == ZombieRoomCatalog.LOBBY_ID && newHealth < 100f) {
+            newHealth = (newHealth + LOBBY_REGEN_PER_TICK).coerceAtMost(100f)
+        }
 
         val nearItem = s.items.firstOrNull {
             !it.collected && hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
@@ -609,6 +626,11 @@ class ZombieGameViewModel(
 
         if (newHealth <= 0f) { triggerWastedSequence(); return }
 
+        // Regeneración gradual de vida en el lobby (zona segura).
+        if (room.id == ZombieRoomCatalog.LOBBY_ID && newHealth < 100f) {
+            newHealth = (newHealth + LOBBY_REGEN_PER_TICK).coerceAtMost(100f)
+        }
+
         val nearItem = s.items.firstOrNull {
             hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
         }
@@ -668,6 +690,24 @@ class ZombieGameViewModel(
         )
     }
 
+    // Empuja un zombi alejándolo de (fromX,fromY), respetando colisiones (slide por eje).
+    private fun knockbackZombie(
+        zx: Float, zy: Float, fromX: Float, fromY: Float, room: ZombieRoom, dist: Float
+    ): Pair<Float, Float> {
+        val dx = zx - fromX; val dy = zy - fromY
+        val d = hypot(dx, dy)
+        if (d < 0.01f) return zx to zy
+        val nx = dx / d; val ny = dy / d
+        val tx = (zx + nx * dist).coerceIn(ZOMBIE_RADIUS, room.worldWidth - ZOMBIE_RADIUS)
+        val ty = (zy + ny * dist).coerceIn(ZOMBIE_RADIUS, room.worldHeight - ZOMBIE_RADIUS)
+        return when {
+            !room.isBlockedPixel(tx, ty) -> tx to ty
+            !room.isBlockedPixel(tx, zy) -> tx to zy
+            !room.isBlockedPixel(zx, ty) -> zx to ty
+            else -> zx to zy
+        }
+    }
+
     // ─── COMBATE CUERPO A CUERPO ───────────────────────────
     fun performPlayerAttack() {
         val now = System.currentTimeMillis()
@@ -684,18 +724,20 @@ class ZombieGameViewModel(
             return
         }
 
+        val room = currentRoom()
+        val (kx, ky) = knockbackZombie(target.x, target.y, s.playerX, s.playerY, room, MELEE_KNOCKBACK)
         val newHealth = target.health - PLAYER_PUNCH_DAMAGE * playerDamageFactor()
         if (newHealth <= 0f) {
             _state.update { cur ->
                 cur.copy(zombies = cur.zombies.map {
-                    if (it.id == target.id) it.copy(health = 0f, isDying = true) else it
+                    if (it.id == target.id) it.copy(health = 0f, isDying = true, x = kx, y = ky) else it
                 })
             }
             viewModelScope.launch { delay(1000L); onZombieDeath(target) }
         } else {
             _state.update { cur ->
                 cur.copy(zombies = cur.zombies.map {
-                    if (it.id == target.id) it.copy(health = newHealth) else it
+                    if (it.id == target.id) it.copy(health = newHealth, x = kx, y = ky) else it
                 })
             }
         }
@@ -713,7 +755,26 @@ class ZombieGameViewModel(
         if (dx == 0f && dy == 0f) { dx = if (s.isPlayerFacingRight) 1f else -1f; dy = 0f }
 
         val p = Projectile(x = s.playerX, y = s.playerY, dirX = dx, dirY = dy, bornAtMs = now)
-        _state.update { it.copy(projectiles = it.projectiles + p, playerAction = PlayerAction.SPECIAL) }
+
+        // Recoil: empujar al jugador hacia atrás (opuesto a la mira), con corrección
+        // de posición por eje para no atravesar colisiones.
+        val rbX = s.playerX - dx * PLAYER_RECOIL
+        val rbY = s.playerY - dy * PLAYER_RECOIL
+        val (recoilX, recoilY) = when {
+            isWalkable(rbX, rbY) -> rbX to rbY
+            isWalkable(rbX, s.playerY) -> rbX to s.playerY
+            isWalkable(s.playerX, rbY) -> s.playerX to rbY
+            else -> s.playerX to s.playerY
+        }
+
+        _state.update {
+            it.copy(
+                projectiles = it.projectiles + p,
+                playerAction = PlayerAction.SPECIAL,
+                playerX = recoilX,
+                playerY = recoilY
+            )
+        }
         idleJob?.cancel()
         idleJob = viewModelScope.launch {
             delay(150)

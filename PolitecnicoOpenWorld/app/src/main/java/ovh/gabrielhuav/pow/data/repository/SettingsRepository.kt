@@ -68,4 +68,3 @@ class SettingsRepository(context: Context) {
 
     fun getShowRoadNetwork(): Boolean = prefs.getBoolean(KEY_SHOW_ROAD_NETWORK, true)
 }
-}
