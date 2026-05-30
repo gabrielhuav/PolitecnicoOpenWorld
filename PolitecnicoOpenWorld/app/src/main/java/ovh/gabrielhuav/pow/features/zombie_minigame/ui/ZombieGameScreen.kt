@@ -1,6 +1,8 @@
 package ovh.gabrielhuav.pow.features.zombie_minigame.ui
 
 import android.graphics.BitmapFactory
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
@@ -10,9 +12,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -28,7 +34,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +51,7 @@ import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
+import ovh.gabrielhuav.pow.features.zombie_minigame.ui.components.CollisionMatrixDesignerLayer
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.ZombieGameViewModel
 import kotlin.math.max
@@ -67,6 +73,14 @@ fun ZombieGameScreen(
     )
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current
+
+    // Export/Import del JSON de matrices (igual que el mapa principal con landmarks).
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { viewModel.exportMatricesToUri(it) } }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { viewModel.importMatricesFromUri(it) } }
 
     LaunchedEffect(state.isExitingToWorld) {
         if (state.isExitingToWorld) { viewModel.consumeExit(); onExitToWorld() }
@@ -115,40 +129,24 @@ fun ZombieGameScreen(
             }
 
             // ─── CAPA DE ILUMINACIÓN DINÁMICA (auras) ───────────
-            // Se dibuja DESPUÉS del fondo y ANTES de las entidades, dentro de
-            // las mismas transformaciones de cámara (translate + scale) para que
-            // las auras se muevan junto con el zoom y el desplazamiento del mapa.
-            // Solo en edificios (los cuartos "oscuros"); el lobby se deja claro.
-            if (room.type == ZoneType.BUILDING) {
+            if (room.type == ZoneType.BUILDING && !state.designerMode) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     translate(cam.offsetX, cam.offsetY) {
                         scale(cam.scale, cam.scale, pivot = Offset.Zero) {
-
-                            // Aura del jugador local: amarillo cálido, radio ~2.5x su tamaño base.
                             val playerLightRadius = PLAYER_SPRITE_BASE * 2.5f
                             drawCircle(
                                 brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        Color(0x80FFF59D), // amarillo translúcido en el centro
-                                        Color(0x33FFEB3B),
-                                        Color.Transparent  // se desvanece en el borde
-                                    ),
+                                    colors = listOf(Color(0x80FFF59D), Color(0x33FFEB3B), Color.Transparent),
                                     center = Offset(state.playerX, state.playerY),
                                     radius = playerLightRadius
                                 ),
                                 radius = playerLightRadius,
                                 center = Offset(state.playerX, state.playerY)
                             )
-
-                            // Aura de los jugadores remotos: mismo amarillo cálido.
                             state.remotePlayers.forEach { rp ->
                                 drawCircle(
                                     brush = Brush.radialGradient(
-                                        colors = listOf(
-                                            Color(0x80FFF59D),
-                                            Color(0x33FFEB3B),
-                                            Color.Transparent
-                                        ),
+                                        colors = listOf(Color(0x80FFF59D), Color(0x33FFEB3B), Color.Transparent),
                                         center = Offset(rp.x, rp.y),
                                         radius = playerLightRadius
                                     ),
@@ -156,18 +154,12 @@ fun ZombieGameScreen(
                                     center = Offset(rp.x, rp.y)
                                 )
                             }
-
-                            // Aura verde tóxico anclada a cada zombi vivo.
                             val zombieLightRadius = ZOMBIE_SPRITE_BASE * 2f
                             state.zombies.forEach { z ->
                                 if (!z.isDying) {
                                     drawCircle(
                                         brush = Brush.radialGradient(
-                                            colors = listOf(
-                                                Color(0x6676FF03), // verde tóxico translúcido
-                                                Color(0x2664DD17),
-                                                Color.Transparent
-                                            ),
+                                            colors = listOf(Color(0x6676FF03), Color(0x2664DD17), Color.Transparent),
                                             center = Offset(z.x, z.y),
                                             radius = zombieLightRadius
                                         ),
@@ -184,10 +176,8 @@ fun ZombieGameScreen(
             fun toScreenX(wx: Float) = cam.offsetX + wx * cam.scale
             fun toScreenY(wy: Float) = cam.offsetY + wy * cam.scale
 
-            // ─── REQUERIMIENTO 5: LÍNEA PUNTEADA DE SALIDA ──────
-            // Se dibuja del jugador a cada puerta EXIT. Visible solo los
-            // primeros 2 s tras spawnear (state.showExitGuide).
-            if (state.showExitGuide) {
+            // ─── LÍNEA PUNTEADA DE SALIDA ───────────────────────
+            if (state.showExitGuide && !state.designerMode) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val px = toScreenX(state.playerX)
                     val py = toScreenY(state.playerY)
@@ -201,100 +191,107 @@ fun ZombieGameScreen(
                                 DoorKind.EXIT_NEXT, DoorKind.EXIT_PREV -> Color(0xFFFF9800)
                                 else -> Color(0xFFD4AF37)
                             }
-                            drawLine(
-                                color = color,
-                                start = Offset(px, py),
-                                end = Offset(ex, ey),
-                                strokeWidth = 6f,
-                                pathEffect = dash,
-                                cap = StrokeCap.Round
-                            )
+                            drawLine(color, Offset(px, py), Offset(ex, ey), strokeWidth = 6f, pathEffect = dash, cap = StrokeCap.Round)
                         }
                     }
                 }
             }
 
             // Indicadores de puertas
-            room.doors.forEach { door ->
-                val r = door.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight)
-                DoorIndicator(
-                    label = door.label, kind = door.kind,
-                    modifier = Modifier.absoluteOffset(
-                        x = with(density) { toScreenX(r.centerX()).toDp() } - 40.dp,
-                        y = with(density) { toScreenY(r.centerY()).toDp() } - 40.dp
-                    )
-                )
-            }
-
-            // Items en el suelo (SkillItems dibujados con Canvas)
-            state.items.forEach { item ->
-                SkillGroundItem(
-                    effect = item.effect,
-                    highlighted = state.nearbyItemId == item.id,
-                    modifier = Modifier.absoluteOffset(
-                        x = with(density) { toScreenX(item.x).toDp() } - 18.dp,
-                        y = with(density) { toScreenY(item.y).toDp() } - 18.dp
-                    )
-                )
-            }
-
-            // Proyectiles
-            val bulletSize = 10f * cam.scale
-            state.projectiles.forEach { p ->
-                Box(
-                    modifier = Modifier.absoluteOffset(
-                        x = with(density) { toScreenX(p.x).toDp() } - with(density) { (bulletSize / 2).toDp() },
-                        y = with(density) { toScreenY(p.y).toDp() } - with(density) { (bulletSize / 2).toDp() }
-                    ).size(with(density) { bulletSize.toDp() })
-                        .clip(CircleShape)
-                        .background(Color(0xFFFFEB3B))
-                        .border(1.dp, Color(0xFFFF6F00), CircleShape)
-                )
-            }
-
-            // Zombis
-            val zSize = ZOMBIE_SPRITE_BASE * cam.scale
-            state.zombies.forEach { z ->
-                key(z.id) {
-                    ZombieView(
-                        frameIndex = z.frameIndex, facingRight = z.facingRight, isDying = z.isDying,
-                        health = z.health, maxHealth = z.maxHealth, sizePx = zSize,
+            if (!state.designerMode) {
+                room.doors.forEach { door ->
+                    val r = door.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight)
+                    DoorIndicator(
+                        label = door.label, kind = door.kind,
                         modifier = Modifier.absoluteOffset(
-                            x = with(density) { toScreenX(z.x).toDp() } - with(density) { (zSize / 2).toDp() },
-                            y = with(density) { toScreenY(z.y).toDp() } - with(density) { (zSize / 2).toDp() }
+                            x = with(density) { toScreenX(r.centerX()).toDp() } - 40.dp,
+                            y = with(density) { toScreenY(r.centerY()).toDp() } - 40.dp
                         )
                     )
                 }
-            }
 
-            // ─── JUGADORES REMOTOS (multijugador) ───────────────
-            // Misma proyección de cámara que el resto de entidades, por lo que
-            // se mueven con el zoom y el desplazamiento. Llevan etiqueta de nombre.
-            val rpSize = PLAYER_SPRITE_BASE * cam.scale
-            state.remotePlayers.forEach { rp ->
-                key(rp.id) {
-                    RemotePlayerView(
-                        name = rp.displayName,
-                        action = rp.action,
-                        facingRight = rp.facingRight,
-                        sizePx = rpSize,
+                // Items en el suelo
+                state.items.forEach { item ->
+                    SkillGroundItem(
+                        effect = item.effect,
+                        highlighted = state.nearbyItemId == item.id,
                         modifier = Modifier.absoluteOffset(
-                            x = with(density) { toScreenX(rp.x).toDp() } - with(density) { (rpSize / 2).toDp() },
-                            y = with(density) { toScreenY(rp.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                            x = with(density) { toScreenX(item.x).toDp() } - 18.dp,
+                            y = with(density) { toScreenY(item.y).toDp() } - 18.dp
                         )
                     )
                 }
+
+                // Proyectiles
+                val bulletSize = 10f * cam.scale
+                state.projectiles.forEach { p ->
+                    Box(
+                        modifier = Modifier.absoluteOffset(
+                            x = with(density) { toScreenX(p.x).toDp() } - with(density) { (bulletSize / 2).toDp() },
+                            y = with(density) { toScreenY(p.y).toDp() } - with(density) { (bulletSize / 2).toDp() }
+                        ).size(with(density) { bulletSize.toDp() })
+                            .clip(CircleShape)
+                            .background(Color(0xFFFFEB3B))
+                            .border(1.dp, Color(0xFFFF6F00), CircleShape)
+                    )
+                }
+
+                // Zombis
+                val zSize = ZOMBIE_SPRITE_BASE * cam.scale
+                state.zombies.forEach { z ->
+                    key(z.id) {
+                        ZombieView(
+                            type = z.type, frameIndex = z.frameIndex, facingRight = z.facingRight,
+                            isAttacking = z.isAttacking, isDying = z.isDying,
+                            health = z.health, maxHealth = z.maxHealth, sizePx = zSize,
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(z.x).toDp() } - with(density) { (zSize / 2).toDp() },
+                                y = with(density) { toScreenY(z.y).toDp() } - with(density) { (zSize / 2).toDp() }
+                            )
+                        )
+                    }
+                }
+
+                // Jugadores remotos
+                val rpSize = PLAYER_SPRITE_BASE * cam.scale
+                state.remotePlayers.forEach { rp ->
+                    key(rp.id) {
+                        RemotePlayerView(
+                            name = rp.displayName,
+                            action = rp.action,
+                            facingRight = rp.facingRight,
+                            sizePx = rpSize,
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(rp.x).toDp() } - with(density) { (rpSize / 2).toDp() },
+                                y = with(density) { toScreenY(rp.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                            )
+                        )
+                    }
+                }
+
+                // Jugador local
+                val pSize = PLAYER_SPRITE_BASE * cam.scale
+                PlayerView(
+                    action = state.playerAction, facingRight = state.isPlayerFacingRight,
+                    damagePulse = state.damagePulseTrigger, sizePx = pSize,
+                    modifier = Modifier.absoluteOffset(
+                        x = with(density) { toScreenX(state.playerX).toDp() } - with(density) { (pSize / 2).toDp() },
+                        y = with(density) { toScreenY(state.playerY).toDp() } - with(density) { (pSize / 2).toDp() }
+                    )
+                )
             }
 
-            // Jugador local
-            val pSize = PLAYER_SPRITE_BASE * cam.scale
-            PlayerView(
-                action = state.playerAction, facingRight = state.isPlayerFacingRight,
-                damagePulse = state.damagePulseTrigger, sizePx = pSize,
-                modifier = Modifier.absoluteOffset(
-                    x = with(density) { toScreenX(state.playerX).toDp() } - with(density) { (pSize / 2).toDp() },
-                    y = with(density) { toScreenY(state.playerY).toDp() } - with(density) { (pSize / 2).toDp() }
-                )
+            // ─── CAPA DEL MODO DISEÑADOR (rejilla editable) ─────
+            CollisionMatrixDesignerLayer(
+                enabled = state.designerMode,
+                rows = state.designerRows,
+                worldWidth = room.worldWidth,
+                worldHeight = room.worldHeight,
+                camOffsetX = cam.offsetX,
+                camOffsetY = cam.offsetY,
+                camScale = cam.scale,
+                onPaintWorld = viewModel::paintCellAtWorld,
+                modifier = Modifier.matchParentSize()
             )
         }
 
@@ -302,105 +299,233 @@ fun ZombieGameScreen(
             Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Color(0xFFD4AF37)) }
         }
 
-        // ─── HUD FIJO ───────────────────────────────────────
-        ZombieHud(
-            state = state,
-            roomName = room.displayName,
-            isBuilding = room.type == ZoneType.BUILDING,
-            onMoveDir = viewModel::moveDirection,
-            onMoveAngle = viewModel::moveByAngle,
-            onRun = viewModel::setRunning,
-            onInteract = viewModel::onInteract,
-            onSpecial = viewModel::setSpecial,
-            onSecondaryPressed = viewModel::onSecondaryPressed,
-            onSecondaryReleased = viewModel::onSecondaryReleased,
-            onSelectMode = viewModel::selectCombatMode,
-            onDismissWeaponMenu = viewModel::dismissWeaponMenu
-        )
+        // IMPORTANTE (orden de capas / z-order en Compose):
+        // El HUD de juego es un Box a pantalla completa. Si el botón del
+        // diseñador se declarara ANTES del HUD, el HUD quedaría ENCIMA y
+        // robaría los toques de la esquina (por eso "no aparecía" el botón).
+        // Por eso primero pintamos el HUD y AL FINAL el botón + la toolbar,
+        // garantizando que reciban los toques.
 
-        (state.nearbyDoorLabel ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
-            Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
-                Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
-                    modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 18.dp, vertical = 9.dp))
+        if (!state.designerMode) {
+            // ─── HUD DE JUEGO ───────────────────────────────────
+            ZombieHud(
+                state = state,
+                roomName = room.displayName,
+                isBuilding = room.type == ZoneType.BUILDING,
+                onMoveDir = viewModel::moveDirection,
+                onMoveAngle = viewModel::moveByAngle,
+                onRun = viewModel::setRunning,
+                onInteract = viewModel::onInteract,
+                onSpecial = viewModel::setSpecial,
+                onSecondaryPressed = viewModel::onSecondaryPressed,
+                onSecondaryReleased = viewModel::onSecondaryReleased,
+                onSelectMode = viewModel::selectCombatMode,
+                onDismissWeaponMenu = viewModel::dismissWeaponMenu
+            )
+
+            (state.nearbyDoorLabel ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
+                Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
+                    Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
+                        modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 18.dp, vertical = 9.dp))
+                }
             }
-        }
 
-        // ─── REQUERIMIENTO 1: DIÁLOGO DE CONFIRMACIÓN DE SALIDA ──
-        if (state.showExitToLobbyDialog) {
-            Box(
-                modifier = Modifier.fillMaxSize().background(Color(0xAA000000)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth(0.82f)
-                        .background(Color(0xFF1E1E24), RoundedCornerShape(16.dp))
-                        .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(16.dp))
-                        .padding(24.dp)
+            // ─── DIÁLOGO DE CONFIRMACIÓN DE SALIDA ──────────────
+            if (state.showExitToLobbyDialog) {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color(0xAA000000)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("Volver al Lobby", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text(
-                        "¿Estás seguro de que quieres volver al lobby? Perderás el progreso de este edificio.",
-                        color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = { viewModel.dismissExitToLobby() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) { Text("No", color = Color.White, fontWeight = FontWeight.Bold) }
-                        Button(
-                            onClick = { viewModel.confirmExitToLobby() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Sí", color = Color.White, fontWeight = FontWeight.Bold) }
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth(0.82f)
+                            .background(Color(0xFF1E1E24), RoundedCornerShape(16.dp))
+                            .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(16.dp))
+                            .padding(24.dp)
+                    ) {
+                        Text("Volver al Lobby", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text(
+                            "¿Estás seguro de que quieres volver al lobby? Perderás el progreso de este edificio.",
+                            color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(
+                                onClick = { viewModel.dismissExitToLobby() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21)),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) { Text("No", color = Color.White, fontWeight = FontWeight.Bold) }
+                            Button(
+                                onClick = { viewModel.confirmExitToLobby() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Sí", color = Color.White, fontWeight = FontWeight.Bold) }
+                        }
                     }
                 }
             }
-        }
 
-        // ─── VICTORIA ───────────────────────────────────────
-        if (state.showVictoryScreen) {
-            Box(Modifier.fillMaxSize().background(Color(0xCC000000)), Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Congratulations", color = Color(0xFFD4AF37), fontSize = 44.sp,
-                        fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, textAlign = TextAlign.Center)
-                    Spacer(Modifier.height(12.dp))
-                    Text("Edificio despejado. Usa las salidas EXIT para continuar.", color = Color.White, fontSize = 16.sp)
+            // ─── VICTORIA ───────────────────────────────────────
+            if (state.showVictoryScreen) {
+                Box(Modifier.fillMaxSize().background(Color(0xCC000000)), Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Congratulations", color = Color(0xFFD4AF37), fontSize = 44.sp,
+                            fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(12.dp))
+                        Text("Edificio despejado. Usa las salidas EXIT para continuar.", color = Color.White, fontSize = 16.sp)
+                    }
+                }
+            }
+
+            // ─── WASTED ─────────────────────────────────────────
+            if (state.showWastedScreen) {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color(0x99000000)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    var wastedScale by remember { mutableFloatStateOf(0.5f) }
+                    LaunchedEffect(Unit) {
+                        animate(
+                            initialValue = 0.5f,
+                            targetValue = 1.3f,
+                            animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)
+                        ) { value, _ -> wastedScale = value }
+                    }
+                    Text(
+                        text = "WASTED",
+                        color = Color(0xFFD32F2F),
+                        fontSize = 60.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily.Serif,
+                        letterSpacing = 6.sp,
+                        modifier = Modifier.scale(wastedScale)
+                    )
                 }
             }
         }
 
-        // ─── WASTED ─────────────────────────────────────────
-        if (state.showWastedScreen) {
-            Box(
-                modifier = Modifier.fillMaxSize().background(Color(0x99000000)),
-                contentAlignment = Alignment.Center
-            ) {
-                var wastedScale by remember { mutableFloatStateOf(0.5f) }
-                LaunchedEffect(Unit) {
-                    animate(
-                        initialValue = 0.5f,
-                        targetValue = 1.3f,
-                        animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)
-                    ) { value, _ -> wastedScale = value }
-                }
-                Text(
-                    text = "WASTED",
-                    color = Color(0xFFD32F2F),
-                    fontSize = 60.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontFamily = FontFamily.Serif,
-                    letterSpacing = 6.sp,
-                    modifier = Modifier.scale(wastedScale)
+        // ─── BOTÓN DE MODO DISEÑADOR ────────────────────────────
+        // Se declara AL FINAL (después del HUD) para quedar siempre encima y
+        // recibir los toques. Siempre visible, no depende de debugHitboxes.
+        IconButton(
+            onClick = viewModel::toggleDesignerMode,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .systemBarsPadding()
+                .padding(12.dp)
+                .background(
+                    if (state.designerMode) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.85f),
+                    CircleShape
                 )
+        ) {
+            Icon(Icons.Default.Architecture, "Modo Diseñador", tint = Color.Black)
+        }
+
+        // ─── TOOLBAR DEL DISEÑADOR ──────────────────────────────
+        if (state.designerMode) {
+            DesignerToolbar(
+                brushWall = state.designerBrushWall,
+                dirty = state.designerDirty,
+                roomName = room.displayName,
+                onBrush = viewModel::setDesignerBrushWall,
+                onSave = viewModel::saveDesignerMatrix,
+                onReset = viewModel::resetDesignerMatrix,
+                onExport = { exportLauncher.launch("collision_matrices.json") },
+                onImport = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+                onExit = viewModel::toggleDesignerMode,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
+    }
+}
+
+/**
+ * Barra de herramientas del Modo Diseñador de la matriz de colisión.
+ * Pinta paredes / borra, guarda (persiste en collision_matrices.json y aplica en
+ * caliente), resetea, y exporta/importa el JSON por SAF para copiarlo al servidor.
+ */
+@Composable
+private fun DesignerToolbar(
+    brushWall: Boolean,
+    dirty: Boolean,
+    roomName: String,
+    onBrush: (Boolean) -> Unit,
+    onSave: () -> Unit,
+    onReset: () -> Unit,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+    onExit: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .systemBarsPadding()
+            .padding(12.dp)
+            .fillMaxWidth(0.96f)
+            .background(Color(0xFF1E1E24).copy(alpha = 0.95f), RoundedCornerShape(12.dp))
+            .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            "DISEÑADOR DE COLISIÓN · ${roomName.uppercase()}",
+            color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 12.sp
+        )
+        Text(
+            "Toca o arrastra sobre la rejilla. Rojo = pared.",
+            color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            ToolButton("PARED", brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
+            ToolButton("BORRAR", !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onSave,
+                modifier = Modifier.weight(1f).height(40.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(8.dp)
+            ) { Text(if (dirty) "GUARDAR*" else "GUARDAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            Button(
+                onClick = onReset,
+                modifier = Modifier.weight(1f).height(40.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                shape = RoundedCornerShape(8.dp)
+            ) { Text("RESET", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onExport,
+                modifier = Modifier.weight(1f).height(40.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                shape = RoundedCornerShape(8.dp)
+            ) { Text("EXPORTAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            Button(
+                onClick = onImport,
+                modifier = Modifier.weight(1f).height(40.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
+                shape = RoundedCornerShape(8.dp)
+            ) { Text("IMPORTAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onExit, modifier = Modifier.height(40.dp)) {
+                Text("SALIR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+@Composable
+private fun ToolButton(label: String, selected: Boolean, color: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(40.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = if (selected) color else Color(0xFF2A1C21)),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -409,8 +534,6 @@ private fun computeCamera(
     viewW: Float, viewH: Float, zoom: Float
 ): CameraTransform {
     if (viewW <= 0f || viewH <= 0f) return CameraTransform(0f, 0f, 1f)
-    // fitScale = max(...) → equivalente matemático de ContentScale.Crop:
-    // llena la pantalla recortando lo que sobre, SIN deformar el aspect ratio.
     val fitScale = max(viewW / worldW, viewH / worldH)
     val scale = fitScale * zoom
     val scaledW = worldW * scale

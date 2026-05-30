@@ -8,8 +8,7 @@ import android.webkit.WebView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -58,6 +57,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
@@ -127,6 +128,7 @@ fun WorldMapScreen(
     onNavigateToInterior: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val roadNetwork by viewModel.roadNetworkFlow.collectAsState()
     val escomItems by viewModel.escomItems.collectAsState()
     val allCollectibles = uiState.activeCollectibles + escomItems
     val base64Cache = remember { java.util.concurrent.ConcurrentHashMap<String, String>() }
@@ -570,6 +572,32 @@ fun WorldMapScreen(
                             }
                         }
 
+                        // ─── CAPA INTERMEDIA: RED DE CAMINOS ─────────────────────
+                        val roadOverlayTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 500
+                        @Suppress("UNCHECKED_CAST")
+                        val roadLineCache = (view.getTag(roadOverlayTag) as? MutableList<Polyline>)
+                            ?: mutableListOf<Polyline>().also { view.setTag(roadOverlayTag, it) }
+
+                        roadLineCache.forEach { view.overlays.remove(it) }
+                        roadLineCache.clear()
+
+                        if (uiState.showRoadNetwork) {
+                            roadNetwork.forEach { way ->
+                                val line = Polyline().apply {
+                                    outlinePaint.color = if (way.isForCars)
+                                        android.graphics.Color.argb(180, 255, 215, 0)
+                                    else
+                                        android.graphics.Color.argb(180, 130, 200, 255)
+                                    outlinePaint.strokeWidth = if (way.isForCars) 6f else 4f
+                                    outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                                    outlinePaint.isAntiAlias = true
+                                    setPoints(way.nodes.map { GeoPoint(it.lat, it.lon) })
+                                }
+                                roadLineCache.add(line)
+                                view.overlays.add(line) // después de landmarks → encima
+                            }
+                        }
+
                         // ─── OVERLAY DEBUG DE INTERIORES ──────────────────────────
                         @Suppress("UNCHECKED_CAST")
                         val debugMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 100 }) as? MutableMap<String, Marker>)
@@ -712,6 +740,20 @@ fun WorldMapScreen(
                                         }
                                     }
                                 }
+                            }
+                        }
+                    }
+                    // Mostrar calles solo si estamos cerca
+                    if (uiState.showRoadNetwork && uiState.zoomLevel >= 15.5) {
+                        roadNetwork.forEach { way ->
+                            key("road_${way.id}") {
+                                com.google.maps.android.compose.Polyline(
+                                    points = way.nodes.map { LatLng(it.lat, it.lon) },
+                                    color = if (way.isForCars) Color(0xFFFFD700) else Color(0xFF82C8FF),
+                                    width = if (way.isForCars) 8f else 5f,
+                                    zIndex = 1000f,
+                                    clickable = false
+                                )
                             }
                         }
                     }
@@ -964,7 +1006,19 @@ fun WorldMapScreen(
                         }
                         val landmarksJson = gson.toJson(landmarksPayload)
                         wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks(${JSONObject.quote(landmarksJson)});", null)
-
+                        if (uiState.showRoadNetwork) {
+                            val roadsPayload = roadNetwork.map { way ->
+                                mapOf(
+                                    "id" to way.id.toString(),
+                                    "isForCars" to way.isForCars,
+                                    "nodes" to way.nodes.map { mapOf("lat" to it.lat, "lon" to it.lon) }
+                                )
+                            }
+                            val roadsJson = gson.toJson(roadsPayload)
+                            wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads(${JSONObject.quote(roadsJson)});", null)
+                        } else {
+                            wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads('[]');", null)
+                        }
                         val destMarker = uiState.destinationMarker
                         if (destMarker != null) wv.evaluateJavascript("if(typeof updateDestinationMarker==='function')updateDestinationMarker(${destMarker.latitude}, ${destMarker.longitude});", null)
                         else wv.evaluateJavascript("if(typeof clearDestinationMarker==='function')clearDestinationMarker();", null)
@@ -984,6 +1038,8 @@ fun WorldMapScreen(
         if (!uiState.isUserPanningMap) {
             PlayerCharacter(uiState = uiState, modifier = Modifier.align(Alignment.Center), health = viewModel.playerHealth, showHealthBar = viewModel.showHealthBar, damagePulseTrigger = viewModel.damagePulseTrigger)
         }
+
+        LowHealthAura(health = viewModel.playerHealth)
 
         if (!uiState.isRoadNetworkReady) {
             Row(modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp).background(Color.Black.copy(alpha = 0.65f), CircleShape).padding(horizontal = 14.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1165,6 +1221,38 @@ fun WorldMapScreen(
     uiState.showClaimedPopupFor?.let { collectible ->
         CollectibleClaimDialog(collectible = collectible, onDismiss = { viewModel.dismissClaimedPopup() })
     }
+}
+
+@Composable
+fun LowHealthAura(health: Float) {
+    if (health > 35f) return
+
+    val infiniteTransition = rememberInfiniteTransition(label = "lowHealthAura")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.05f,
+        targetValue = 0.6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+
+    // A medida que la vida baja de 35 a 0, el efecto es más pronunciado
+    val intensity = (1f - (health / 35f)).coerceIn(0f, 1f)
+    val currentAlpha = alpha * intensity
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.radialGradient(
+                    0.0f to Color.Transparent,
+                    0.6f to Color.Transparent,
+                    1.0f to Color.Red.copy(alpha = currentAlpha),
+                )
+            )
+    )
 }
 
 @Composable
@@ -1510,6 +1598,33 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 updateDestinationPlacingMode(false);
             }
         });
+        
+        var roadLayers = {};
+        function updateRoads(jsonStr) {
+            var data = JSON.parse(jsonStr);
+            var currentIds = new Set(data.map(function(w){ return String(w.id); }));
+            for (var id in roadLayers) {
+                if (!currentIds.has(id)) {
+                    map.removeLayer(roadLayers[id]);
+                    delete roadLayers[id];
+                }
+            }
+            data.forEach(function(way) {
+                var latlngs = way.nodes.map(function(n){ return [n.lat, n.lon]; });
+                if (roadLayers[way.id]) {
+                    roadLayers[way.id].setLatLngs(latlngs);
+                    roadLayers[way.id].bringToFront();
+                } else {
+                    var color = way.isForCars ? '#FFD700' : '#82C8FF';
+                    var weight = way.isForCars ? 4 : 3;
+                    roadLayers[way.id] = L.polyline(latlngs, {
+                        color: color, weight: weight, opacity: 0.85,
+                        lineCap: 'round', lineJoin: 'round', interactive: false
+                    }).addTo(map);
+                    roadLayers[way.id].bringToFront();
+                }
+            });
+        }
     </script>
 </body>
 </html>

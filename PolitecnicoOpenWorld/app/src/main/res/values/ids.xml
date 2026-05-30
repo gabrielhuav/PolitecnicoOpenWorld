@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <item name="road_overlay_tag" type="id"/>
     <item name="landmark_cache_tag" type="id" />
     <item name="collectible_cache_tag" type="id" />
     <item name="player_marker_tag" type="id" />

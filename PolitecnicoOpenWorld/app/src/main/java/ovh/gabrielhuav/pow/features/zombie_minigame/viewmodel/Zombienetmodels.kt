@@ -4,9 +4,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 
 /**
  * Representa a otro jugador conectado a la MISMA sala del minijuego de zombis.
- * Las coordenadas (x, y) son píxeles de mundo relativos a la ZombieRoom actual;
- * como el servidor solo nos envía jugadores de nuestra misma sala, son
- * directamente comparables con las nuestras sin normalizar.
+ * Las coordenadas (x, y) se guardan en PÍXELES de mundo relativos a la
+ * ZombieRoom actual (ya convertidas desde la fracción que envía el servidor),
+ * para que el render no cambie respecto a la versión anterior.
  */
 data class RemoteZombiePlayer(
     val id: String,
@@ -19,9 +19,41 @@ data class RemoteZombiePlayer(
 )
 
 /**
+ * Zombi tal como lo envía el servidor (posición FRACCIONARIA [0,1]).
+ */
+data class NetZombie(
+    val id: String = "",
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val health: Float = 100f,
+    val maxHealth: Float = 100f,
+    val facingRight: Boolean = true,
+    val frameIndex: Int = 0,
+    val isDying: Boolean = false,
+    val isLootCarrier: Boolean = false
+)
+
+/**
+ * Item en el suelo tal como lo envía el servidor (posición FRACCIONARIA [0,1]).
+ */
+data class NetItem(
+    val id: String = "",
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val effect: String = "CURA_TOTAL"
+)
+
+/**
  * Mensaje genérico del servidor de zombis (Gson lo deserializa de forma laxa:
  * los campos ausentes quedan null). Separado del protocolo del open world para
  * no mezclar campos de NPCs/vehículos que aquí no aplican.
+ *
+ * Coordenadas de jugador (x,y) son FRACCIONARIAS [0,1] en el cable.
+ *
+ * Campos añadidos en Fase 1:
+ *  - zombies / items / totalZombies : estado autoritativo de la sala (ZOMBIE_STATE)
+ *  - effect                         : efecto concedido al recoger item (ITEM_GRANTED)
+ *  - cleared                        : edificio despejado (ROOM_CLEARED)
  */
 data class ZombieServerMessage(
     val type: String? = null,
@@ -35,5 +67,13 @@ data class ZombieServerMessage(
     val action: String? = null,
     val facingRight: Boolean? = null,
     val health: Float? = null,
-    val players: List<ZombieServerMessage>? = null
+    val players: List<ZombieServerMessage>? = null,
+    // ZOMBIE_STATE
+    val zombies: List<NetZombie>? = null,
+    val items: List<NetItem>? = null,
+    val totalZombies: Int? = null,
+    // ITEM_GRANTED
+    val effect: String? = null,
+    val zombieId: String? = null,
+    val cleared: Boolean? = null
 )
