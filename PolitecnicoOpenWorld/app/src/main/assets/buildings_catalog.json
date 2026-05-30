@@ -38,5 +38,21 @@
     "defaultScale": 0.15,
     "baseWidthMeters": 151,
     "baseHeightMeters": 123.56
+  },
+  {
+    "id": "shine_efecto",
+    "displayName": "Shine",
+    "assetPath": "BUILDINGS/BAR/Shine.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 50.0,
+    "baseHeightMeters": 50.0
+  },
+  {
+    "id": "escom_door",
+    "displayName": "Puerta ESCOM",
+    "assetPath": "DOORS/ESCOM_DOOR.webp",
+    "defaultScale": 0.50,
+    "baseWidthMeters": 24.0,
+    "baseHeightMeters": 20.0
   }
 ]

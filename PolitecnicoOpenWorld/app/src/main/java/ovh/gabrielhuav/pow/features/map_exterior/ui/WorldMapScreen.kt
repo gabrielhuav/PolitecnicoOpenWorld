@@ -81,6 +81,7 @@ import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -521,16 +522,18 @@ fun WorldMapScreen(
                             val overlays = landmarkCache.getOrPut(landmark.id) { mutableListOf() }
                             val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
                                 try {
-                                    context.assets.open(landmark.assetPath).use { android.graphics.BitmapFactory.decodeStream(it) }
+                                    context.assets.open(landmark.assetPath).use { val o = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 }; android.graphics.BitmapFactory.decodeStream(it, null, o) }
                                 } catch (e: Exception) { null }
                             }
                             if (bitmap == null) return@forEach
 
+                            val isDoorAsset = landmark.assetPath.contains("DOORS/")
                             val groundOverlay = overlays.filterIsInstance<org.osmdroid.views.overlay.GroundOverlay>().firstOrNull()
                                 ?: org.osmdroid.views.overlay.GroundOverlay().apply {
                                     overlays.add(this)
-                                    view.overlays.add(0, this)
+                                    if (isDoorAsset) view.overlays.add(this) else view.overlays.add(0, this)
                                 }
+
 
                             val center = GeoPoint(landmark.location.latitude, landmark.location.longitude)
                             val halfW = (landmark.baseWidthMeters * landmark.scaleFactor) / 2.0
@@ -544,8 +547,12 @@ fun WorldMapScreen(
                             val pBL = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 + theta)
 
                             groundOverlay.setPosition(pTL, pTR, pBR, pBL)
-                            groundOverlay.setImage(bitmap)
+                            groundOverlay.setImage(if (isDoorAsset) buildDoorEffectBitmap(bitmap, context) else bitmap)
 
+                            // Limpiar cualquier marcador DOOR_PULSE residual de la versión anterior
+                            overlays.filterIsInstance<Marker>().filter { it.title == "DOOR_PULSE" }.forEach { m ->
+                                view.overlays.remove(m); overlays.remove(m)
+                            }
                             val existingControl = overlays.filterIsInstance<Marker>().firstOrNull()
                             if (uiState.isDesignerMode) {
                                 val controlMarker = existingControl ?: Marker(view).apply {
@@ -696,7 +703,7 @@ fun WorldMapScreen(
                             val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
                                 try {
                                     context.assets.open(landmark.assetPath).use { inputStream ->
-                                        android.graphics.BitmapFactory.decodeStream(inputStream)
+                                        val o = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 }; android.graphics.BitmapFactory.decodeStream(inputStream, null, o)
                                     }
                                 } catch (e: Exception) { null }
                             }
@@ -706,8 +713,28 @@ fun WorldMapScreen(
                                 val widthMeters = (landmark.baseWidthMeters * landmark.scaleFactor).toFloat()
                                 val heightMeters = (landmark.baseHeightMeters * landmark.scaleFactor).toFloat()
 
-                                val descriptor = googleMapsIconCache.getOrPut("LANDMARK_${landmark.assetPath}") {
-                                    BitmapDescriptorFactory.fromBitmap(bitmap)
+                                val isDoorGM = landmark.assetPath.contains("DOORS/")
+                                var doorAnimDescriptor by remember(landmark.id) {
+                                    mutableStateOf<com.google.android.gms.maps.model.BitmapDescriptor?>(null)
+                                }
+                                if (isDoorGM) {
+                                    LaunchedEffect(landmark.id) {
+                                        while (true) {
+                                            doorAnimDescriptor = BitmapDescriptorFactory.fromBitmap(
+                                                buildDoorEffectBitmap(bitmap, context)
+                                            )
+                                            delay(80L)
+                                        }
+                                    }
+                                }
+                                val descriptor = if (isDoorGM) {
+                                    doorAnimDescriptor ?: googleMapsIconCache.getOrPut("LANDMARK_${landmark.assetPath}") {
+                                        BitmapDescriptorFactory.fromBitmap(bitmap)
+                                    }
+                                } else {
+                                    googleMapsIconCache.getOrPut("LANDMARK_${landmark.assetPath}") {
+                                        BitmapDescriptorFactory.fromBitmap(bitmap)
+                                    }
                                 }
 
                                 GroundOverlay(
@@ -715,7 +742,7 @@ fun WorldMapScreen(
                                     image = descriptor,
                                     bearing = landmark.rotationAngle,
                                     transparency = 0f,
-                                    zIndex = 0f
+                                    zIndex = if (landmark.assetPath.contains("DOORS/")) 10f else 0f
                                 )
 
                                 if (uiState.isDesignerMode) {
@@ -1223,6 +1250,23 @@ fun WorldMapScreen(
     uiState.showClaimedPopupFor?.let { collectible ->
         CollectibleClaimDialog(collectible = collectible, onDismiss = { viewModel.dismissClaimedPopup() })
     }
+    // ─── ESCOM Door Fade Overlay ─────────────────────────────────────────────
+    val escomFadeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(uiState.showEscomDoorFade) {
+        if (uiState.showEscomDoorFade) {
+            escomFadeAlpha.animateTo(1f, animationSpec = androidx.compose.animation.core.tween(600))
+            viewModel.onEscomDoorFadeComplete()
+            kotlinx.coroutines.delay(200)
+            escomFadeAlpha.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(400))
+        }
+    }
+    if (escomFadeAlpha.value > 0f) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = escomFadeAlpha.value))
+        )
+    }
 }
 
 @Composable
@@ -1320,7 +1364,14 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         #map-wrapper { position: absolute; top: -50%; left: -50%; width: 200vw; height: 200vh; transform-origin: center center; }
         #map { width: 100%; height: 100%; background: transparent; }
         .leaflet-marker-icon { background: none !important; border: none !important; }
+        .leaflet-div-icon { background: transparent !important; border: none !important; }
+        .lm-c { background: transparent !important; }
         .npc-c { pointer-events: none; display: flex; align-items: center; justify-content: center; }
+        @keyframes neonPulse{0%,100%{filter:drop-shadow(0 0 4px gold) drop-shadow(0 0 10px rgba(255,165,0,.45));}50%{filter:drop-shadow(0 0 14px gold) drop-shadow(0 0 28px orange);}}
+        @keyframes shimmerSlide{0%{left:-45%;}100%{left:135%;}}
+        .lm-door-wrap{overflow:hidden;}
+        .lm-door-img{animation:neonPulse 1.1s ease-in-out infinite;}
+        .lm-shimmer{position:absolute;top:0;left:-45%;width:35%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,225,70,.65),transparent);animation:shimmerSlide 2.2s linear infinite;pointer-events:none;}
     </style>
 </head>
 <body>
@@ -1340,6 +1391,10 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 18 }).addTo(map);
         map.createPane('landmarkPane');
         map.getPane('landmarkPane').style.zIndex = 300;
+        map.createPane('doorPane');
+        map.getPane('doorPane').style.zIndex = 450;
+        map.getPane('doorPane').style.pointerEvents = 'none';
+
         
         var npcMarkers = {};
         var collectibleMarkers = {};
@@ -1396,6 +1451,13 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 var exactWidthMeters = lm.widthMeters * lm.scale;
                 var exactHeightMeters = lm.heightMeters * lm.scale;
 
+                var isDoor = lm.assetPath.indexOf('DOORS/') >= 0;
+                var existingPane = landmarkMarkers[lm.id] ? landmarkMarkers[lm.id].options.pane : null;
+                var expectedPane = isDoor ? 'doorPane' : 'landmarkPane';
+                if (existingPane && existingPane !== expectedPane) {
+                    map.removeLayer(landmarkMarkers[lm.id]);
+                    delete landmarkMarkers[lm.id];
+                }
                 if (landmarkMarkers[lm.id]) {
                     landmarkMarkers[lm.id].setLatLng([lm.lat, lm.lng]);
                     var el = landmarkMarkers[lm.id].getElement();
@@ -1409,17 +1471,19 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                         }
                     }
                 } else {
-                    var html = '<div class="lm-c" ' +
+                    var html = '<div class="lm-c' + (isDoor ? ' lm-door-wrap' : '') + '" ' +
                                'data-w-meters="' + exactWidthMeters + '" ' +
                                'data-h-meters="' + exactHeightMeters + '" ' +
                                'data-rot="' + lm.rotation + '" ' +
                                'data-lat="' + lm.lat + '" ' +
                                'style="position:absolute; transform: translate(-50%, -50%) rotate('+lm.rotation+'deg); pointer-events: none; z-index: -100;">' +
-                               '<img src="'+pUrl+'" style="width:100%; height:100%; display:block; object-fit:fill;">' +
+                               '<img src="'+pUrl+'"' + (isDoor ? ' class="lm-door-img"' : '') + ' style="width:100%; height:100%; display:block; object-fit:fill;">' +
+                               (isDoor ? '<div class="lm-shimmer"></div>' : '') +
                                '</div>';
+
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                     
-                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, pane: 'landmarkPane', interactive: false }).addTo(map);
+                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, pane: isDoor ? 'doorPane' : 'landmarkPane', interactive: false }).addTo(map);
                     landmarkMarkers[lm.id] = marker;
                 }
             });
@@ -1633,6 +1697,29 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 </body>
 </html>
 """.trimIndent()
+
+private fun buildDoorEffectBitmap(src: android.graphics.Bitmap, ctx: android.content.Context): android.graphics.Bitmap {
+    val t = System.currentTimeMillis(); val cycle = (t % 2200L) / 2200f
+    val bw = src.width.toFloat(); val bh = src.height.toFloat()
+    val out = android.graphics.Bitmap.createBitmap(src.width, src.height, android.graphics.Bitmap.Config.ARGB_8888)
+    val cv = android.graphics.Canvas(out); cv.drawBitmap(src, 0f, 0f, null)
+    val sx = cycle * (bw * 1.7f) - bw * 0.35f
+    cv.drawRect(0f, 0f, bw, bh, android.graphics.Paint().apply {
+        isAntiAlias = true
+        shader = android.graphics.LinearGradient(sx, 0f, sx + bw * 0.25f, bh,
+            intArrayOf(android.graphics.Color.TRANSPARENT, android.graphics.Color.argb(215, 255, 225, 70), android.graphics.Color.TRANSPARENT),
+            floatArrayOf(0f, 0.5f, 1f), android.graphics.Shader.TileMode.CLAMP)
+        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SCREEN)
+    })
+    val sd = ctx.resources.displayMetrics.density; val sw = 3.5f * sd
+    val ga = (125 + (130 * Math.sin(t / 360.0)).toInt()).coerceIn(0, 255)
+    cv.drawRect(sw / 2f, sw / 2f, bw - sw / 2f, bh - sw / 2f, android.graphics.Paint().apply {
+        isAntiAlias = true; style = android.graphics.Paint.Style.STROKE; strokeWidth = sw
+        color = android.graphics.Color.argb(ga, 255, 200, 0)
+        maskFilter = android.graphics.BlurMaskFilter(sw * 2.8f, android.graphics.BlurMaskFilter.Blur.OUTER)
+    })
+    return out
+}
 
 private class MapJsBridge(private val vm: WorldMapViewModel) {
     @JavascriptInterface fun notifyMapPanStart() { vm.onMapPanStart() }

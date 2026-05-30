@@ -3,10 +3,10 @@
     "assetPath": "BUILDINGS/IPN/building_escom.webp",
     "id": 1,
     "latitude": 19.504594288807827,
-    "longitude": -99.14653364364555,
+    "longitude": -99.14673364364556,
     "name": "Edificio ESCOM",
     "rotationAngle": 23.80093,
-    "scaleFactor": 0.75418174
+    "scaleFactor": 1.0258439
   },
   {
     "assetPath": "BUILDINGS/IPN/plaza_torres.webp",
@@ -20,11 +20,11 @@
   {
     "assetPath": "BUILDINGS/IPN/cic_edificios.webp",
     "id": 3,
-    "latitude": 19.503193905236063,
-    "longitude": -99.14718337104783,
+    "latitude": 19.502793905236064,
+    "longitude": -99.14758337104784,
     "name": "CIC",
     "rotationAngle": 23.587322,
-    "scaleFactor": 0.80067044
+    "scaleFactor": 1.0695213
   },
   {
     "assetPath": "BUILDINGS/IPN/coyote_de_neza.webp",
@@ -43,5 +43,14 @@
     "name": "FES ARAGON",
     "rotationAngle": 11.769556,
     "scaleFactor": 1.0136231
+  },
+  {
+    "assetPath": "DOORS/ESCOM_DOOR.webp",
+    "id": 14,
+    "latitude": 19.5051,
+    "longitude": -99.14619999999998,
+    "name": "Puerta ESCOM",
+    "rotationAngle": 295.54773,
+    "scaleFactor": 1.1525397
   }
 ]
