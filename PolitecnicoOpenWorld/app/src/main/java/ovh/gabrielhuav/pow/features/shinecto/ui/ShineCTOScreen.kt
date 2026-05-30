@@ -2,6 +2,14 @@ package ovh.gabrielhuav.pow.features.shinecto.ui
 
 import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -26,6 +35,7 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -42,8 +52,10 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.shinecto.viewmodel.ShineCTOInteractable
 import ovh.gabrielhuav.pow.features.shinecto.viewmodel.ShineCTOViewModel
+import ovh.gabrielhuav.pow.features.zombie_minigame.ui.PlayerHealthBarFixed
 import ovh.gabrielhuav.pow.features.zombie_minigame.ui.PlayerView
 import kotlin.math.max
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 
 // Zoom that creates the "large venue" feeling (lower = more zoomed-out)
 private const val INTERIOR_ZOOM = 1.3f
@@ -57,6 +69,10 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
 
     // Back button exits to world
     BackHandler { onExitToWorld() }
+
+    LaunchedEffect(state.shouldExitToWorld) {
+        if (state.shouldExitToWorld) onExitToWorld()
+    }
 
     // ── Background asset per floor ───────────────────────────────────────────
     val assetPath = if (state.floor == ShineCTOFloor.GROUND)
@@ -115,6 +131,7 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
             InteractableDots(
                 floor = state.floor,
                 drinks = state.drinks,
+                shineCollectibleActive = state.shineCollectibleActive,
                 offsetX = offsetX,
                 offsetY = offsetY,
                 camScale = camScale,
@@ -159,6 +176,35 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
             onSpecial = vm::setSpecial,
             onBack = onExitToWorld
         )
+
+        if (state.showWastedScreen) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color(0x99000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                var wastedScale by remember { mutableFloatStateOf(0.5f) }
+                LaunchedEffect(Unit) {
+                    animate(initialValue = 0.5f, targetValue = 1.3f,
+                        animationSpec = tween(3500, easing = LinearOutSlowInEasing)
+                    ) { v, _ -> wastedScale = v }
+                }
+                Text(
+                    text = "WASTED",
+                    color = Color(0xFFD32F2F),
+                    fontSize = 60.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontFamily = FontFamily.Serif,
+                    letterSpacing = 6.sp,
+                    modifier = Modifier.scale(wastedScale)
+                )
+            }
+        }
+        state.showClaimedPopupFor?.let { collectible ->
+            CollectibleClaimDialog(
+                collectible = collectible,
+                onDismiss = { vm.dismissShineClaimedPopup() }
+            )
+        }
     }
 }
 
@@ -167,12 +213,20 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
 private fun InteractableDots(
     floor: ShineCTOFloor,
     drinks: List<ovh.gabrielhuav.pow.features.shinecto.viewmodel.ActiveDrink>,
+    shineCollectibleActive: Boolean,
     offsetX: Float, offsetY: Float,
     camScale: Float,
     worldW: Float, worldH: Float
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
+
+    val shineBitmap = remember {
+        try {
+            context.assets.open("coleccionables/colec_shine.webp")
+                .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+        } catch (e: Exception) { null }
+    }
 
     // Cargar asset de bebida una sola vez
     val drinkBitmap = remember {
@@ -202,6 +256,11 @@ private fun InteractableDots(
     }
 
     // Bebidas dinámicas con asset
+    val drinkGlowAlpha by rememberInfiniteTransition(label = "drinkGlow").animateFloat(
+        initialValue = 0.2f, targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(tween(850, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "drinkGlowAlpha"
+    )
     val drinkSizeDp = with(density) { (40f * camScale).toDp() }
     drinks.forEach { drink ->
         val sx = with(density) { (offsetX + drink.nx * worldW * camScale).toDp() }
@@ -211,20 +270,33 @@ private fun InteractableDots(
                 .absoluteOffset(x = sx - drinkSizeDp / 2, y = sy - drinkSizeDp / 2)
                 .size(drinkSizeDp)
         ) {
+            // Halo pulsante detrás del asset
+            Box(
+                modifier = Modifier.fillMaxSize().scale(1.55f)
+                    .background(Color(0xFF8BC34A).copy(alpha = drinkGlowAlpha), CircleShape)
+            )
             if (drinkBitmap != null) {
-                Image(
-                    bitmap = drinkBitmap,
-                    contentDescription = "Bebida",
-                    modifier = Modifier.fillMaxSize()
-                )
+                Image(bitmap = drinkBitmap, contentDescription = "Bebida", modifier = Modifier.fillMaxSize())
             } else {
-                // Fallback visual si el asset no carga
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFF8BC34A).copy(alpha = 0.8f), CircleShape)
-                )
+                Box(modifier = Modifier.fillMaxSize().background(Color(0xFF8BC34A).copy(alpha = 0.8f), CircleShape))
             }
+        }
+    }
+
+    // Coleccionable Shine (aparece tras 10 refrescos, planta baja)
+    if (shineCollectibleActive && floor == ShineCTOFloor.GROUND) {
+        val snx = 0.35f; val sny = 0.45f
+        val shineSizeDp = with(density) { (44f * camScale).toDp() }
+        val ssx = with(density) { (offsetX + snx * worldW * camScale).toDp() }
+        val ssy = with(density) { (offsetY + sny * worldH * camScale).toDp() }
+        Box(
+            modifier = Modifier
+                .absoluteOffset(x = ssx - shineSizeDp / 2, y = ssy - shineSizeDp / 2)
+                .size(shineSizeDp)
+        ) {
+            shineBitmap?.let {
+                Image(bitmap = it, contentDescription = "Coleccionable Shine", modifier = Modifier.fillMaxSize())
+            } ?: Box(modifier = Modifier.fillMaxSize().background(Color(0xFFFFD700).copy(alpha = 0.85f), CircleShape))
         }
     }
 }
@@ -245,60 +317,57 @@ private fun ShineCTOHud(
     Box(modifier = Modifier.fillMaxSize()) {
 
         // ── Top-left info bar ────────────────────────────────────────────────
-        Row(
+        Column(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .systemBarsPadding()
                 .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.background(Color.Black.copy(alpha = 0.6f), CircleShape)
-            ) {
-                Icon(Icons.Default.ArrowBack, "Salir", tint = Color.White)
-            }
-
             val floorLabel = if (state.floor == ShineCTOFloor.GROUND) "Planta Baja" else "Planta Alta"
-            Text(
-                text = "SHINE CTO • $floorLabel",
-                color = Color(0xFFD4AF37),
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 14.dp, vertical = 7.dp)
-            )
-
-            if (state.drinkCount > 0) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                ) {
+                    Icon(Icons.Default.ArrowBack, "Salir", tint = Color.White)
+                }
                 Text(
-                    text = "🍺 ×${state.drinkCount}  ${(state.speedMultiplier * 100).toInt()}%",
-                    color = Color.White,
-                    fontSize = 12.sp,
+                    text = "SHINE CTO • $floorLabel",
+                    color = Color(0xFFD4AF37),
                     fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
                     modifier = Modifier
-                        .background(Color(0xFF6B1C3A).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 14.dp, vertical = 7.dp)
                 )
+                if (state.drinkCount > 0) {
+                    Text(
+                        text = "🍺 ×${state.drinkCount}",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .background(Color(0xFF6B1C3A).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
             }
+            PlayerHealthBarFixed(health = state.playerHealth)
         }
+
 
         // ── Drink toast ──────────────────────────────────────────────────────
         if (state.showDrinkToast) {
-            val msg = when {
-                state.speedMultiplier <= ShineCTOState.MIN_SPEED ->
-                    "¡Ya no puedes más! Velocidad mínima."
-                state.drinkCount == 1 -> "¡Salud! La primera siempre entra bien."
-                state.drinkCount == 2 -> "Dos bebidas… empiezas a sentirlo."
-                else -> "¡${state.drinkCount} bebidas! Cada vez más lento…"
-            }
             Box(
                 Modifier.fillMaxSize().padding(top = 100.dp),
                 Alignment.TopCenter
             ) {
                 Text(
-                    text = msg,
+                    text = state.drinkToastMessage,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,

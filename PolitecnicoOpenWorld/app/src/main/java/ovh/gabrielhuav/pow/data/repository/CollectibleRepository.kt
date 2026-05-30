@@ -56,6 +56,15 @@ class CollectibleRepository(
                     name = "Apuntes de Leyenda",
                     description = "Dato curioso: Conocidos como la 'herencia sagrada'. Son fotocopias de fotocopias del año 2008 que, inexplicablemente, siguen teniendo la solución exacta al problema más difícil que el profesor pondrá en el examen.",
                     assetPath = "coleccionables/colec_6.webp"
+                ),
+                CollectibleEntity(
+                    id = "c_shine",
+                    name = "Refresco de la Casa",
+                    description = "Dato curioso: El refresco de Shine CTO tiene fama de ser adictivo. " +
+                            "Se dice que quien llega a la décima copa descubre el sabor secreto... " +
+                            "aunque el precio lo paga el estómago.",
+                    assetPath = "coleccionables/colec_shine.webp",
+                    isCollected = false
                 )
             )
             collectibleDao.insertInitialCollectibles(defaultList)

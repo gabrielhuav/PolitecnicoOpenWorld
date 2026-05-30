@@ -1068,9 +1068,24 @@ class WorldMapViewModel(
                         Log.e("WorldMapViewModel", "Error leyendo default_landmarks.json", e)
                     }
                 }
+                // Backfill: inserta el landmark de Shine si la BD ya estaba sembrada sin él
+                if (entities.none { it.assetPath == "BUILDINGS/BAR/Shine.webp" }) {
+                    dao.insertLandmark(
+                        LandmarkEntity(
+                            name = "Shine CTO",
+                            latitude = 19.459038634489882,
+                            longitude = -99.1633282698258,
+                            assetPath = "BUILDINGS/BAR/Shine.webp",
+                            scaleFactor = 0.50f,
+                            rotationAngle = 285f
+                        )
+                    )
+                    entities = dao.getAllLandmarks()
+                }
                 val templatesByAssetPath = LandmarkCatalogManager.availableAssets.associateBy { it.assetPath }
                 val domainLandmarks = entities.map { entity ->
-                    val template = templatesByAssetPath[entity.assetPath]
+
+                val template = templatesByAssetPath[entity.assetPath]
                     Landmark(
                         id = entity.id,
                         name = entity.name,

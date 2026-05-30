@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,7 +12,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ovh.gabrielhuav.pow.data.local.room.PowDatabase
+import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
+import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.ShineCTOFloor
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
@@ -21,8 +25,12 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 class ShineCTOViewModel(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val collectibleRepository: CollectibleRepository
 ) : ViewModel() {
+
+    @Volatile
+    private var shineCollectibleClaimed = false
 
     private val _state = MutableStateFlow(
         ShineCTOState(
@@ -36,11 +44,20 @@ class ShineCTOViewModel(
     private var idleJob: Job? = null
     private var toastJob: Job? = null
 
-    init { spawnInitialDrinks() }
+    init {
+        spawnInitialDrinks()
+        viewModelScope.launch(Dispatchers.IO) {
+            // Garantiza que c_shine existe antes de consultar; sin esto,
+            // none{} retorna true sobre lista vacía → claimed = true en frío.
+            collectibleRepository.initializeDefaultCollectiblesIfNeeded()
+            val uncollected = collectibleRepository.getUncollectedCollectibles()
+            shineCollectibleClaimed = uncollected.none { it.id == "c_shine" }
+        }
+    }
 
     // ─── Interactable hitboxes fijas (sin bebidas — éstas son dinámicas) ────
     private val groundInteractables: List<Pair<ShineCTOInteractable, NormZone>> = listOf(
-        ShineCTOInteractable.EXIT      to NormZone(0.80f, 0.35f, 1.00f, 0.65f),
+        ShineCTOInteractable.EXIT to NormZone(0.80f, 0.35f, 1.00f, 0.65f),
         ShineCTOInteractable.STAIRS_UP to NormZone(0.40f, 0.78f, 0.60f, 1.00f)
     )
     private val upperInteractables: List<Pair<ShineCTOInteractable, NormZone>> = listOf(
@@ -78,13 +95,15 @@ class ShineCTOViewModel(
     }
     // ─── Movement ───────────────────────────────────────────────────────────
 
-    private val BASE_WALK  = 0.004f
-    private val BASE_RUN   = 0.008f
+    private val BASE_WALK = 0.004f
+    private val BASE_RUN = 0.008f
+
+    private val SHINE_COLLECTIBLE_HITBOX = NormZone(0.29f, 0.39f, 0.41f, 0.51f)
 
     fun moveByAngle(angleRad: Double) {
         val s = _state.value
         val step = effectiveStep(s)
-        val dx =  cos(angleRad).toFloat() * step
+        val dx = cos(angleRad).toFloat() * step
         val dy = -sin(angleRad).toFloat() * step
         applyMovement(s.playerX + dx, s.playerY + dy, dx)
     }
@@ -93,16 +112,16 @@ class ShineCTOViewModel(
         val s = _state.value
         val step = effectiveStep(s)
         val (dx, dy) = when (direction) {
-            Direction.UP    -> 0f to -step
-            Direction.DOWN  -> 0f to  step
-            Direction.LEFT  -> -step to 0f
-            Direction.RIGHT ->  step to 0f
+            Direction.UP -> 0f to -step
+            Direction.DOWN -> 0f to step
+            Direction.LEFT -> -step to 0f
+            Direction.RIGHT -> step to 0f
         }
         applyMovement(s.playerX + dx, s.playerY + dy, dx)
     }
 
     private fun effectiveStep(s: ShineCTOState): Float =
-        (if (s.isRunning) BASE_RUN else BASE_WALK) * s.speedMultiplier
+        if (s.isRunning) BASE_RUN else BASE_WALK
 
     private fun applyMovement(newX: Float, newY: Float, dxForFacing: Float) {
         val cx = newX.coerceIn(0f, 1f)
@@ -115,7 +134,14 @@ class ShineCTOViewModel(
         }
 
         idleJob?.cancel()
-        _state.update { it.copy(playerX = cx, playerY = cy, playerAction = action, isFacingRight = facing) }
+        _state.update {
+            it.copy(
+                playerX = cx,
+                playerY = cy,
+                playerAction = action,
+                isFacingRight = facing
+            )
+        }
         updateNearbyInteractable(cx, cy)
 
         idleJob = viewModelScope.launch {
@@ -127,19 +153,33 @@ class ShineCTOViewModel(
     }
 
     private fun updateNearbyInteractable(px: Float, py: Float) {
-        val interactables = if (_state.value.floor == ShineCTOFloor.GROUND) groundInteractables else upperInteractables
-        val fixedNearby = interactables.firstOrNull { (_, zone) -> zone.contains(px, py) }?.first
+        val interactables =
+            if (_state.value.floor == ShineCTOFloor.GROUND) groundInteractables else upperInteractables
+        var fixedNearby = interactables.firstOrNull { (_, zone) -> zone.contains(px, py) }?.first
+        if (fixedNearby == null
+            && _state.value.floor == ShineCTOFloor.GROUND
+            && _state.value.shineCollectibleActive
+            && SHINE_COLLECTIBLE_HITBOX.contains(px, py)
+        ) {
+            fixedNearby = ShineCTOInteractable.SHINE_COLLECTIBLE
+        }
 
         val h = ActiveDrink.HITBOX_HALF
         val nearbyDrink = _state.value.drinks.firstOrNull { d ->
             px in (d.nx - h)..(d.nx + h) && py in (d.ny - h)..(d.ny + h)
         }
 
-        val resolvedInteractable = fixedNearby ?: if (nearbyDrink != null) ShineCTOInteractable.DRINK else null
+        val resolvedInteractable =
+            fixedNearby ?: if (nearbyDrink != null) ShineCTOInteractable.DRINK else null
         val resolvedDrinkId = if (fixedNearby == null) nearbyDrink?.id else null
 
         if (_state.value.nearbyInteractable != resolvedInteractable || _state.value.nearbyDrinkId != resolvedDrinkId) {
-            _state.update { it.copy(nearbyInteractable = resolvedInteractable, nearbyDrinkId = resolvedDrinkId) }
+            _state.update {
+                it.copy(
+                    nearbyInteractable = resolvedInteractable,
+                    nearbyDrinkId = resolvedDrinkId
+                )
+            }
         }
     }
 
@@ -172,57 +212,142 @@ class ShineCTOViewModel(
         return when (_state.value.nearbyInteractable) {
             ShineCTOInteractable.EXIT -> true
             ShineCTOInteractable.STAIRS_UP -> {
-                _state.update { it.copy(floor = ShineCTOFloor.UPPER, playerX = 0.5f, playerY = 0.7f, nearbyInteractable = null) }
+                _state.update {
+                    it.copy(
+                        floor = ShineCTOFloor.UPPER,
+                        playerX = 0.5f,
+                        playerY = 0.7f,
+                        nearbyInteractable = null
+                    )
+                }
                 false
             }
+
             ShineCTOInteractable.STAIRS_DOWN -> {
-                _state.update { it.copy(floor = ShineCTOFloor.GROUND, playerX = 0.5f, playerY = 0.7f, nearbyInteractable = null) }
+                _state.update {
+                    it.copy(
+                        floor = ShineCTOFloor.GROUND,
+                        playerX = 0.5f,
+                        playerY = 0.7f,
+                        nearbyInteractable = null
+                    )
+                }
                 false
             }
+
             ShineCTOInteractable.DRINK -> {
                 consumeDrink()
                 false
             }
+
+            ShineCTOInteractable.SHINE_COLLECTIBLE -> {
+                claimShineCollectible()
+                false
+            }
+
             null -> false
         }
     }
 
     private fun consumeDrink() {
         val drinkId = _state.value.nearbyDrinkId
-        _state.update { s ->
-            val newCount = s.drinkCount + 1
-            val newSpeed = (s.speedMultiplier - ShineCTOState.SPEED_REDUCTION_PER_DRINK)
-                .coerceAtLeast(ShineCTOState.MIN_SPEED)
-            // Eliminar la bebida consumida y respawnear una nueva en posición distinta
-            val remaining = if (drinkId != null) s.drinks.filter { it.id != drinkId } else s.drinks
-            val (nx, ny) = randomDrinkPosition(remaining)
-            val newDrinks = remaining + ActiveDrink(drinkIdCounter++, nx, ny)
-            s.copy(
-                drinkCount = newCount,
-                speedMultiplier = newSpeed,
-                showDrinkToast = true,
+        val s = _state.value
+        val newCount = s.drinkCount + 1
+        val remaining = if (drinkId != null) s.drinks.filter { it.id != drinkId } else s.drinks
+        val (nx, ny) = randomDrinkPosition(remaining)
+        val newDrinks = remaining + ActiveDrink(drinkIdCounter++, nx, ny)
+
+        if (shineCollectibleClaimed) {
+            // Fase 2: daño por exceso de azúcar
+            val newHealth = (s.playerHealth - ShineCTOState.DRINK_DAMAGE).coerceAtLeast(0f)
+            _state.update {
+                it.copy(
+                    drinkCount = newCount, playerHealth = newHealth,
+                    showDrinkToast = true, drinkToastMessage = "Exceso de azúcar en el cuerpo",
+                    drinks = newDrinks, nearbyInteractable = null, nearbyDrinkId = null
+                )
+            }
+            toastJob?.cancel()
+            toastJob = viewModelScope.launch {
+                delay(2200)
+                _state.update { it.copy(showDrinkToast = false) }
+                // Fase 3: muerte → expulsión
+                if (_state.value.playerHealth <= 0f) {
+                    _state.update { it.copy(showWastedScreen = true) }
+                    delay(4000L)
+                    _state.update {
+                        it.copy(showWastedScreen = false, shouldExitToWorld = true,
+                            drinkCount = 0, playerHealth = 100f)
+                    }
+                }
+            }
+            return
+        }
+
+        // Fase 1: consumo normal
+        val unlockCollectible =
+            newCount >= ShineCTOState.DRINKS_TO_UNLOCK && !s.shineCollectibleActive
+        val msg = when {
+            unlockCollectible -> "¡Aparece algo especial en la barra…!"
+            newCount == 1 -> "¡Salud! La primera siempre entra bien."
+            newCount == 2 -> "Dos bebidas… empiezas a sentirlo."
+            else -> "¡${newCount} bebidas!"
+        }
+        _state.update {
+            it.copy(
+                drinkCount = newCount, showDrinkToast = true, drinkToastMessage = msg,
                 drinks = newDrinks,
-                nearbyInteractable = null,
-                nearbyDrinkId = null
+                shineCollectibleActive = unlockCollectible || s.shineCollectibleActive,
+                nearbyInteractable = null, nearbyDrinkId = null
             )
         }
         toastJob?.cancel()
-        toastJob = viewModelScope.launch {
-            delay(2200)
-            _state.update { it.copy(showDrinkToast = false) }
+        toastJob =
+            viewModelScope.launch { delay(2200); _state.update { it.copy(showDrinkToast = false) } }
+    }
+
+    private fun claimShineCollectible() {
+        shineCollectibleClaimed = true
+        viewModelScope.launch(Dispatchers.IO) {
+            collectibleRepository.claimCollectible("c_shine")
+        }
+        _state.update {
+            it.copy(
+                shineCollectibleActive = false,
+                nearbyInteractable = null,
+                showClaimedPopupFor = ActiveCollectible(
+                    id = "c_shine",
+                    name = "Refresco de la Casa",
+                    description = "Dato curioso: El refresco de Shine CTO tiene fama de ser " +
+                            "adictivo. Se dice que quien llega a la décima copa descubre el sabor " +
+                            "secreto… aunque el precio lo paga el estómago.",
+                    assetPath = "coleccionables/colec_shine.webp",
+                    latitude = 0.0,
+                    longitude = 0.0
+                )
+            )
         }
     }
 
-    // ─── Factory ────────────────────────────────────────────────────────────
+    fun dismissShineClaimedPopup() {
+        _state.update { it.copy(showClaimedPopupFor = null) }
+    }
+
+    // ─── Factory ────────────────────────────────────────────────────────────────
 
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            ShineCTOViewModel(SettingsRepository(context.applicationContext)) as T
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val db = PowDatabase.getInstance(context.applicationContext)
+            return ShineCTOViewModel(
+                SettingsRepository(context.applicationContext),
+                CollectibleRepository(db.collectibleDao())
+            ) as T
+        }
     }
-}
 
-/** Normalised rectangular hitbox. */
-private data class NormZone(val l: Float, val t: Float, val r: Float, val b: Float) {
-    fun contains(x: Float, y: Float) = x in l..r && y in t..b
+    /** Normalised rectangular hitbox. */
+    private data class NormZone(val l: Float, val t: Float, val r: Float, val b: Float) {
+        fun contains(x: Float, y: Float) = x in l..r && y in t..b
+    }
 }

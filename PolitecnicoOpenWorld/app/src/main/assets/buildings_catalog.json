@@ -54,5 +54,13 @@
     "defaultScale": 0.50,
     "baseWidthMeters": 24.0,
     "baseHeightMeters": 20.0
+  },
+  {
+    "id": "shine_cto_bar",
+    "displayName": "Shine CTO",
+    "assetPath": "BUILDINGS/BAR/Shine.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 80.0,
+    "baseHeightMeters": 55.0
   }
 ]
