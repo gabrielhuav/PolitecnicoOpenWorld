@@ -51,8 +51,8 @@
     "id": "escom_door",
     "displayName": "Puerta ESCOM",
     "assetPath": "DOORS/ESCOM_DOOR.webp",
-    "defaultScale": 0.05,
-    "baseWidthMeters": 8.0,
-    "baseHeightMeters": 6.0
+    "defaultScale": 0.50,
+    "baseWidthMeters": 24.0,
+    "baseHeightMeters": 20.0
   }
 ]
