@@ -1,5 +1,14 @@
 [
   {
+    "id": 0,
+    "name": "Shine CTO",
+    "latitude": 19.45908368468466,
+    "longitude": -99.163338,
+    "assetPath": "BUILDINGS/BAR/Shine.webp",
+    "scaleFactor": 0.15,
+    "rotationAngle": 0.0
+  },
+  {
     "assetPath": "BUILDINGS/IPN/building_escom.webp",
     "id": 1,
     "latitude": 19.504594288807827,
