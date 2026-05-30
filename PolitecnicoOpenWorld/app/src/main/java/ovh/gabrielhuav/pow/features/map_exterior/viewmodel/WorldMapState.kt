@@ -103,3 +103,12 @@ data class WorldMapState(
     val showRoadNetwork: Boolean = true
 )
 )
+    val showRoadNetwork: Boolean = true,
+
+    // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
+    val showShineCTODiscovery: Boolean = false,
+    val navigateToShineCTO: Boolean = false,
+    // ─── ESCOM Door transition ───────────────────────────────────────────────
+    val showEscomDoorFade: Boolean = false,
+    val escomDoorFadeComplete: Boolean = false
+)

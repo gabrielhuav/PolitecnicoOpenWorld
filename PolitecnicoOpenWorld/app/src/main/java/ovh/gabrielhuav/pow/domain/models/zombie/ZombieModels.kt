@@ -71,6 +71,32 @@ enum class CombatMode { MELEE, RANGED }
 
 enum class ZoneType { LOBBY, BUILDING }
 
+/**
+ * Matriz de colisión por sala, en coordenadas FRACCIONARIAS [0,1].
+ *
+ *  - '#' = no caminable (pared / obstáculo)
+ *  - '.' = caminable
+ *
+ * Se define fraccionaria a propósito: es independiente del tamaño real de la
+ * imagen de fondo (que cada dispositivo decodifica con sus propias dimensiones)
+ * y coincide carácter por carácter con la matriz replicada en el servidor
+ * (server.js). Tanto el jugador local como los remotos y los zombis
+ * (autoritativos en el servidor) la respetan.
+ *
+ * Mapeo: col = floor(fx * numCols), fila = floor(fy * numRows).
+ */
+class CollisionMatrix(val rows: List<String>) {
+    val numRows: Int = rows.size
+    val numCols: Int = if (rows.isEmpty()) 0 else rows[0].length
+
+    fun isBlockedFrac(fx: Float, fy: Float): Boolean {
+        if (numRows == 0 || numCols == 0) return false
+        val c = (fx * numCols).toInt().coerceIn(0, numCols - 1)
+        val r = (fy * numRows).toInt().coerceIn(0, numRows - 1)
+        return rows[r][c] == '#'
+    }
+}
+
 data class ZombieRoom(
     val id: String,
     val type: ZoneType,
@@ -83,9 +109,22 @@ data class ZombieRoom(
     val doors: List<ZoneDoor> = emptyList(),
     val zombieCount: Int = 0,
     val collisionGridFrac: List<NormRect> = emptyList(),
+    // Matriz de colisión de la sala (lobby/edificio). Es VAR para poder
+    // sobreescribirla en caliente desde el Modo Diseñador. null = sin colisiones.
+    @Volatile var collisionMatrix: CollisionMatrix? = null,
     @Volatile var dimensionsLoaded: Boolean = false,
     @Volatile var initAttempted: Boolean = false
-)
+) {
+    /** ¿La celda fraccionaria (fx,fy) está bloqueada por la matriz de la sala? */
+    fun isBlockedFrac(fx: Float, fy: Float): Boolean =
+        collisionMatrix?.isBlockedFrac(fx, fy) ?: false
+
+    /** ¿El píxel de mundo (x,y) está bloqueado? Convierte a fracción con las dims actuales. */
+    fun isBlockedPixel(x: Float, y: Float): Boolean {
+        if (worldWidth <= 0f || worldHeight <= 0f) return false
+        return isBlockedFrac(x / worldWidth, y / worldHeight)
+    }
+}
 
 data class ZoneDoor(
     val hitboxFrac: NormRect,

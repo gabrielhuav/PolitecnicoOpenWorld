@@ -54,6 +54,7 @@ import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
 
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
@@ -215,6 +216,9 @@ class WorldMapViewModel(
     private val ESCOM_BASE_LON = -99.14674
     private val ESCOM_OFFSET = 0.001
 
+    private val ESCOM_DOOR_ASSET = "DOORS/ESCOM_DOOR.webp"
+    private val ESCOM_DOOR_INTERACT_RADIUS = 0.00020   // ~20 m
+
     private val _escomItems = MutableStateFlow<List<ActiveCollectible>>(emptyList())
     val escomItems: StateFlow<List<ActiveCollectible>> = _escomItems.asStateFlow()
 
@@ -326,7 +330,12 @@ class WorldMapViewModel(
                         val iterator = remoteEntities.iterator()
                         while (iterator.hasNext()) {
                             val entry = iterator.next()
-                            if (entry.value.displayName.isNullOrEmpty()) {
+                            // Solo limpiamos NPCs que vinieron del servidor (isRemote = true).
+                            // Los NPCs que ESTE cliente spawnea localmente como host (isRemote = false)
+                            // todavía pueden no estar en activeNpcIds por la latencia de propagación;
+                            // borrarlos aquí los hacía parpadear/desaparecer. El host es su autoridad
+                            // y los limpia por la vía de pendingDespawns/NPC_DESTROY, no por este sync.
+                            if (entry.value.displayName.isNullOrEmpty() && entry.value.isRemote) {
                                 if (!officialSet.contains(entry.key)) {
                                     iterator.remove()
                                     stateChanged = true
@@ -338,8 +347,13 @@ class WorldMapViewModel(
                 }
 
                 "PLAYER_DAMAGE" -> {
-                    if (msg.targetId == myPlayerUUID && msg.damage != null) {
-                        takeDamage(msg.damage)
+                    val incomingDamage = msg.damage
+                    if (msg.targetId == myPlayerUUID && incomingDamage != null) {
+                        // handleMultiplayerMessage corre en Dispatchers.IO, pero takeDamage muta
+                        // estado Compose (playerHealth, showHealthBar, damagePulseTrigger). Lo
+                        // enrutamos al hilo Main para evitar carreras con la secuencia de muerte
+                        // (triggerWastedSequence ya corre en Main).
+                        viewModelScope.launch(Dispatchers.Main) { takeDamage(incomingDamage) }
                     }
                 }
 
@@ -456,6 +470,7 @@ class WorldMapViewModel(
                 _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                 applyRoadNetwork(cached, initialLoc)
                 lastNetworkFetchLocation = initialLoc
+                spawnShineCTOMarker()
             } else {
                 _uiState.update { it.copy(roadSource = RoadSource.LOADING) }
                 var retryMs = 1_000L
@@ -498,7 +513,7 @@ class WorldMapViewModel(
                             }
                         } else {
                             if (!_uiState.value.isZombieHandSpawned && _uiState.value.isRoadNetworkReady) {
-                                spawnEscomItems(roadNetwork)
+                                _uiState.update { it.copy(isZombieHandSpawned = true) }
                             }
                         }
 
@@ -565,10 +580,12 @@ class WorldMapViewModel(
                         }
 
                         maybeRefetchRoadNetwork(location)
+                        // El throttle (cada 5 ticks) es el control de frecuencia deseado.
+                        // Antes había además una llamada incondicional aquí que lo anulaba y
+                        // lanzaba el filtrado de calles hasta ~30x más seguido de lo previsto.
                         if (tickCount % 5 == 0L) {
                             updateVisibleRoads(location)
                         }
-                        updateVisibleRoads(location)
                         if (_uiState.value.isRoadNetworkReady) {
                             tickCount++
                             if (tickCount % 3 == 0L) {
@@ -741,6 +758,7 @@ class WorldMapViewModel(
                             spawnEscomItems(roadNetwork)
                         }
                         _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
+                        spawnShineCTOMarker()
                     }
                 } else {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -756,6 +774,7 @@ class WorldMapViewModel(
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
                             _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
+                            spawnShineCTOMarker()
                         }
                     } else {
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -967,6 +986,9 @@ class WorldMapViewModel(
         routeCalculationJob?.cancel()
         routeRetryJob?.cancel()
         messagesCollectorJob?.cancel()
+        healthBarJob?.cancel()
+        promptJob?.cancel()
+        idleJob?.cancel()
         tileCache.closeAll()
         webSocketManager?.disconnect()
     }
@@ -1292,7 +1314,19 @@ class WorldMapViewModel(
     }
 
     private fun checkCollectibleProximity(playerLat: Double, playerLon: Double) {
-        val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value
+        val doorLandmarkItems = _uiState.value.landmarks
+            .filter { it.assetPath == ESCOM_DOOR_ASSET }
+            .map { lm ->
+                ActiveCollectible(
+                    id          = "escom_door_lm_${lm.id}",
+                    name        = "Puerta ESCOM",
+                    description = "door",
+                    assetPath   = ESCOM_DOOR_ASSET,
+                    latitude    = lm.location.latitude,
+                    longitude   = lm.location.longitude
+                )
+            }
+        val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value + doorLandmarkItems
 
         val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
         val activeItem = allPossibleItems.minByOrNull {
@@ -1308,10 +1342,11 @@ class WorldMapViewModel(
                 _uiState.update { it.copy(nearbyCollectible = activeItem) }
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
-                    val promptText = if (activeItem.name == "Objeto Misterioso ESCOM") {
-                        "PRESIONA X PARA INTERACTUAR"
-                    } else {
-                        "PRESIONA X PARA RECOGER"
+                    val promptText = when {
+                        activeItem.name == "Objeto Misterioso ESCOM"  -> "PRESIONA X PARA INTERACTUAR"
+                        activeItem.id  == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA DESCUBRIR"
+                        activeItem.id.startsWith("escom_door_")       -> "PRESIONA X PARA ENTRAR"
+                        else                                           -> "PRESIONA X PARA RECOGER"
                     }
 
                     _uiState.update { it.copy(interactionPrompt = promptText) }
@@ -1331,7 +1366,9 @@ class WorldMapViewModel(
     fun onClaimCollectiblePressed() {
         val itemToClaim = _uiState.value.nearbyCollectible ?: return
 
-        if (itemToClaim.name == "Objeto Misterioso ESCOM") {
+        if (itemToClaim.name == "Objeto Misterioso ESCOM" ||
+            itemToClaim.id == ShineCTOLocation.MARKER_ID ||
+            itemToClaim.id.startsWith("escom_door_")) {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -1592,18 +1629,35 @@ class WorldMapViewModel(
         // Evita duplicar si ya hay una mano spawneada
         if (_uiState.value.isZombieHandSpawned && _escomItems.value.isNotEmpty()) return
 
-        val spawnPoint = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(center) else center
-
-        val hand = ActiveCollectible(
-            id = "escom_hand_lobby",
-            name = "Objeto Misterioso ESCOM",
-            description = "INTERIOR_TARGET:lobby",
-            assetPath = "ZOMBIS_MOD/zombi_hand.webp",
-            latitude = spawnPoint.latitude,
-            longitude = spawnPoint.longitude
+        // Mano zombi desactivada del exterior — el acceso al lobby
+        // ahora se realiza únicamente por las puertas físicas (ESCOM_DOOR).
+        _escomItems.value = emptyList()
+        _uiState.update { it.copy(isZombieHandSpawned = true) }   // flag para no reintentar
+        return
+    }
+    private fun spawnEscomDoors() {
+        // Las coordenadas exactas se ajustan con el Modo Diseñador.
+        // Estos valores son placeholders; reemplázalos con los guardados en Room DB
+        // una vez hayas colocado las puertas con el Diseñador.
+        val doors = listOf(
+            ActiveCollectible(
+                id          = "escom_door_norte",
+                name        = "Puerta Norte ESCOM",
+                description = "door",
+                assetPath   = ESCOM_DOOR_ASSET,
+                latitude    = 19.50490,
+                longitude   = -99.14674
+            ),
+            ActiveCollectible(
+                id          = "escom_door_sur",
+                name        = "Puerta Sur ESCOM",
+                description = "door",
+                assetPath   = ESCOM_DOOR_ASSET,
+                latitude    = 19.50420,
+                longitude   = -99.14674
+            )
         )
-
-        _escomItems.value = listOf(hand)
+        _escomItems.value = doors
         _uiState.update { it.copy(isZombieHandSpawned = true) }
     }
 
@@ -1627,19 +1681,23 @@ class WorldMapViewModel(
     fun handleInteraction() {
         val nearby = _uiState.value.nearbyCollectible ?: return
 
-        if (nearby.name == "Objeto Misterioso ESCOM") {
-            // La mano lleva al minijuego de zombis (arranca en el lobby/croquis).
-            // Mostramos el video de carga y dejamos un destino placeholder no nulo
-            // para que el LaunchedEffect de WorldMapScreen se dispare al terminar.
-            pendingZombieMinigame = true
-            _uiState.update {
-                it.copy(
-                    showZombiVideo = true,
-                    pendingInteriorDestination = InteriorBuilding.EDIFICIO
-                )
+        when {
+            nearby.name == "Objeto Misterioso ESCOM" -> {
+                pendingZombieMinigame = true
+                _uiState.update {
+                    it.copy(
+                        showZombiVideo = true,
+                        pendingInteriorDestination = InteriorBuilding.EDIFICIO
+                    )
+                }
             }
-        } else {
-            onClaimCollectiblePressed()
+            nearby.id.startsWith("escom_door_") -> {
+                _uiState.update { it.copy(showEscomDoorFade = true) }
+            }
+            nearby.id == ShineCTOLocation.MARKER_ID -> {
+                _uiState.update { it.copy(showShineCTODiscovery = true) }
+            }
+            else -> onClaimCollectiblePressed()
         }
     }
 
@@ -1708,5 +1766,54 @@ class WorldMapViewModel(
     fun selectSkin(skin: ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin) {
         settingsRepository.savePlayerSkin(skin)
         _uiState.update { it.copy(selectedSkin = skin, showSkinSelector = false) }
+
+    // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
+
+    fun spawnShineCTOMarker() {
+        if (_uiState.value.activeCollectibles.none { it.id == ShineCTOLocation.MARKER_ID }) {
+            val marker = ActiveCollectible(
+                id          = ShineCTOLocation.MARKER_ID,
+                name        = ShineCTOLocation.MARKER_NAME,
+                description = "easter_egg",
+                assetPath   = "LUGARES/shineCTO/s_logo.webp",
+                latitude    = ShineCTOLocation.LAT,
+                longitude   = ShineCTOLocation.LON
+            )
+            _uiState.update { it.copy(activeCollectibles = it.activeCollectibles + marker) }
+        }
+    }
+
+    fun onShineCTODiscoveryConfirmed() {
+        // El marker es persistente: NO se elimina de activeCollectibles.
+        _uiState.update { s ->
+            s.copy(
+                showShineCTODiscovery = false,
+                navigateToShineCTO   = true,
+                nearbyCollectible    = null,
+                interactionPrompt    = null
+            )
+        }
+    }
+
+    fun consumeNavigateToShineCTO() {
+        _uiState.update { it.copy(navigateToShineCTO = false) }
+    }
+
+    fun dismissShineCTODiscovery() {
+        _uiState.update { it.copy(showShineCTODiscovery = false) }
+    }
+    fun onEscomDoorFadeComplete() {
+        _uiState.update {
+            it.copy(
+                showEscomDoorFade    = false,
+                escomDoorFadeComplete = true,
+                nearbyCollectible    = null,
+                interactionPrompt    = null
+            )
+        }
+    }
+
+    fun consumeEscomDoorNavigation() {
+        _uiState.update { it.copy(escomDoorFadeComplete = false) }
     }
 }

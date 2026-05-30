@@ -52,7 +52,8 @@ import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
 import ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
-
+import ovh.gabrielhuav.pow.features.shinecto.ui.EasterEggDiscoveryDialog
+import ovh.gabrielhuav.pow.features.shinecto.ui.ShineCTOScreen
 class MainActivity : ComponentActivity() {
 
     private val worldMapViewModel: WorldMapViewModel by viewModels {
@@ -245,6 +246,30 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(routeName)
                                 }
                             )
+                            // ─── ShineCTO: navegar al interior cuando el VM lo indique ───
+                            val uiState by worldMapViewModel.uiState.collectAsState()
+
+                            LaunchedEffect(uiState.navigateToShineCTO) {
+                                if (uiState.navigateToShineCTO) {
+                                    worldMapViewModel.consumeNavigateToShineCTO()
+                                    navController.navigate("shinecto_interior")
+                                }
+                            }
+
+                            // NUEVO BLOQUE: Navegar al minijuego tras el fade de la puerta
+                            LaunchedEffect(uiState.escomDoorFadeComplete) {
+                                if (uiState.escomDoorFadeComplete) {
+                                    worldMapViewModel.consumeEscomDoorNavigation()
+                                    navController.navigate("zombie_minigame")
+                                }
+                            }
+
+                            // ─── ShineCTO: dialog de descubrimiento ───────────────────────
+                            if (uiState.showShineCTODiscovery) {
+                                EasterEggDiscoveryDialog(
+                                    onConfirm = { worldMapViewModel.onShineCTODiscoveryConfirmed() }
+                                )
+                            }
                         }
 
                         composable(route = "collectibles") {
@@ -311,6 +336,14 @@ class MainActivity : ComponentActivity() {
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
                                 debugHitboxes = false
+                            )
+                        }
+
+                        composable(route = "shinecto_interior") {
+                            ShineCTOScreen(
+                                onExitToWorld = {
+                                    navController.popBackStack("world_map", inclusive = false)
+                                }
                             )
                         }
                     }
