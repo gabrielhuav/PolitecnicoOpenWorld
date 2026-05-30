@@ -1,9 +1,6 @@
 package ovh.gabrielhuav.pow.domain.models.ai
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.CarModel
@@ -28,9 +25,6 @@ class NpcAiManager {
         const val PERSON_SPEED = 0.0000015
     }
 
-    private val _npcs = MutableStateFlow<List<Npc>>(emptyList())
-    val npcs: StateFlow<List<Npc>> = _npcs.asStateFlow()
-
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
     val pendingDespawns = mutableListOf<String>()
 
@@ -46,11 +40,6 @@ class NpcAiManager {
     fun updateRoadNetwork(network: List<MapWay>) {
         cachedRoadNetwork.set(network)
         networkIsReady = network.isNotEmpty()
-    }
-
-    fun setRemoteNpcs(remoteList: List<Npc>) {
-        val currentLocals = _npcs.value.filter { !it.isRemote }
-        _npcs.value = currentLocals + remoteList
     }
 
     private var serverNpcs = CopyOnWriteArrayList<Npc>()

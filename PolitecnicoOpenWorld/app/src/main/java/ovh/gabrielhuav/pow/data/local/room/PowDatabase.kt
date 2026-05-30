@@ -16,6 +16,7 @@ import ovh.gabrielhuav.pow.data.local.room.entity.RoadZoneEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import ovh.gabrielhuav.pow.data.local.room.dao.CollectibleDao
 import ovh.gabrielhuav.pow.data.local.room.entity.CollectibleEntity
+import ovh.gabrielhuav.pow.BuildConfig
 import java.io.File
 
 @Database(
@@ -67,13 +68,16 @@ abstract class PowDatabase : RoomDatabase() {
             val dbDir  = File(context.filesDir, "databases").also { it.mkdirs() }
             val dbFile = File(dbDir, "pow_roads.db")
 
+            // En debug permitimos destructive migration para iterar rápido el esquema.
+            // En release NO la usamos: una migración faltante hará crash en arranque,
+            // forzando arreglarla antes del deploy y evitando borrar datos del usuario.
             return Room.databaseBuilder(
                 context.applicationContext,
                 PowDatabase::class.java,
                 dbFile.absolutePath
             )
                 .addMigrations(MIGRATION_7_8)
-                .fallbackToDestructiveMigration()
+                .apply { if (BuildConfig.DEBUG) fallbackToDestructiveMigration() }
                 .build()
         }
     }

@@ -10,7 +10,11 @@ import java.util.concurrent.TimeUnit
 
 class WebSocketManager(private val serverUrl: String) {
 
-    private var webSocket: WebSocket? = null
+    // @Volatile: los callbacks de OkHttp escriben desde su propio thread mientras
+    // sendMessage()/connect()/disconnect() leen desde Main o IO. Sin volatile, la
+    // visibilidad entre threads no está garantizada y connect() podría ver una
+    // referencia stale tras un onFailure() concurrente.
+    @Volatile private var webSocket: WebSocket? = null
 
     // CORRECCIÓN CLAVE: 0 significa "Sin límite de tiempo de espera" (Infinito)
     private val client = OkHttpClient.Builder()
@@ -44,7 +48,11 @@ class WebSocketManager(private val serverUrl: String) {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                _messagesFlow.tryEmit(text)
+                if (!_messagesFlow.tryEmit(text)) {
+                    // Buffer (64) saturado: el subscriber está demasiado lento.
+                    // Loggeamos en vez de tragar el descarte en silencio.
+                    Log.w("WebSocket", "Buffer lleno, mensaje WS descartado (subscriber lento)")
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {

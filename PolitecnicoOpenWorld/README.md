@@ -41,3 +41,25 @@ app/src/main/java/ovh/gabrielhuav/pow/
 │   └── multiplayer/        # Flujos de conexión y emparejamiento (Lobby)
 │
 └── MainActivity.kt         # Entry point (Single-Activity Architecture)
+
+---
+
+## 📋 Historial de Cambios
+
+### 2026-05-24 — Elementos Decorativos en el Mapa Exterior
+
+Se añadió un sistema de elementos decorativos puramente visuales al mapa del mundo abierto para darle más vida al entorno. El jugador no puede interactuar con ninguno de estos elementos.
+
+**Archivos nuevos:**
+- `features/map_exterior/ui/components/DecorativeElementManager.kt` — Singleton que gestiona la generación y renderizado de los elementos.
+
+**Archivos modificados:**
+- `features/map_exterior/ui/WorldMapScreen.kt` — Bloque de render añadido en la capa OSM nativa.
+- `res/values/ids.xml` — Añadido `decorative_cache_tag` para persistir el estado del caché en el `MapView`.
+
+**Detalles técnicos:**
+- Se definen 7 tipos de elementos con pesos de aparición: 🌳 Árbol (30 %), 🌿 Arbusto (25 %), 🌸 Flor (20 %), 🪨 Roca (15 %), 🐿️ Ardilla (4 %), 🐦 Pájaro (4 %), 🐈 Gato (2 %).
+- La posición de cada elemento se genera con un `Random` sembrado por coordenadas de celda (0.001° × 0.001° ≈ 111 m), garantizando que los mismos elementos aparezcan siempre en los mismos lugares del mundo.
+- Se muestran un máximo de 50 elementos a la vez (los más cercanos al jugador). La lista se regenera únicamente cuando el jugador se desplaza más de ~150 m desde la última generación, sin costo adicional por frame.
+- Los elementos usan el mismo patrón de reciclado de `Marker` que los NPCs (sin crear objetos nuevos en cada frame) y se hacen invisibles al alejar el zoom por debajo de 16.5, idéntico al umbral de los NPCs.
+- Solo aplica al proveedor de mapas **OSM nativo**; la rama WebView (CartoDB, ESRI, etc.) no se ve afectada.

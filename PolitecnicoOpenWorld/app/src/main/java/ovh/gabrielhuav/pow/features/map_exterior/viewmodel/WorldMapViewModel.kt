@@ -56,8 +56,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
 
-enum class Direction { UP, DOWN, LEFT, RIGHT }
-enum class GameAction { A, B, X, Y }
 
 data class MultiplayerPlayer(
     val type: String = "PLAYER_UPDATE",
