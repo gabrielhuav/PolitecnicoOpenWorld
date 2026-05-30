@@ -502,7 +502,7 @@ class WorldMapViewModel(
                             }
                         } else {
                             if (!_uiState.value.isZombieHandSpawned && _uiState.value.isRoadNetworkReady) {
-                                spawnEscomDoors()
+                                _uiState.update { it.copy(isZombieHandSpawned = true) }
                             }
                         }
 
@@ -1298,7 +1298,19 @@ class WorldMapViewModel(
     }
 
     private fun checkCollectibleProximity(playerLat: Double, playerLon: Double) {
-        val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value
+        val doorLandmarkItems = _uiState.value.landmarks
+            .filter { it.assetPath == ESCOM_DOOR_ASSET }
+            .map { lm ->
+                ActiveCollectible(
+                    id          = "escom_door_lm_${lm.id}",
+                    name        = "Puerta ESCOM",
+                    description = "door",
+                    assetPath   = ESCOM_DOOR_ASSET,
+                    latitude    = lm.location.latitude,
+                    longitude   = lm.location.longitude
+                )
+            }
+        val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value + doorLandmarkItems
 
         val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
         val activeItem = allPossibleItems.minByOrNull {
@@ -1339,7 +1351,8 @@ class WorldMapViewModel(
         val itemToClaim = _uiState.value.nearbyCollectible ?: return
 
         if (itemToClaim.name == "Objeto Misterioso ESCOM" ||
-            itemToClaim.id == ShineCTOLocation.MARKER_ID) {
+            itemToClaim.id == ShineCTOLocation.MARKER_ID ||
+            itemToClaim.id.startsWith("escom_door_")) {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {

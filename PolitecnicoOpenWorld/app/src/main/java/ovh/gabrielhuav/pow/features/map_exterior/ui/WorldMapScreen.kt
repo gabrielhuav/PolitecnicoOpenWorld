@@ -521,7 +521,7 @@ fun WorldMapScreen(
                             val overlays = landmarkCache.getOrPut(landmark.id) { mutableListOf() }
                             val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
                                 try {
-                                    context.assets.open(landmark.assetPath).use { android.graphics.BitmapFactory.decodeStream(it) }
+                                    context.assets.open(landmark.assetPath).use { val o = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 }; android.graphics.BitmapFactory.decodeStream(it, null, o) }
                                 } catch (e: Exception) { null }
                             }
                             if (bitmap == null) return@forEach
@@ -696,7 +696,7 @@ fun WorldMapScreen(
                             val bitmap = landmarkBitmapCache.getOrPut(landmark.assetPath) {
                                 try {
                                     context.assets.open(landmark.assetPath).use { inputStream ->
-                                        android.graphics.BitmapFactory.decodeStream(inputStream)
+                                        val o = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 }; android.graphics.BitmapFactory.decodeStream(inputStream, null, o)
                                     }
                                 } catch (e: Exception) { null }
                             }
@@ -1337,6 +1337,8 @@ private fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         #map-wrapper { position: absolute; top: -50%; left: -50%; width: 200vw; height: 200vh; transform-origin: center center; }
         #map { width: 100%; height: 100%; background: transparent; }
         .leaflet-marker-icon { background: none !important; border: none !important; }
+        .leaflet-div-icon { background: transparent !important; border: none !important; }
+        .lm-c { background: transparent !important; }
         .npc-c { pointer-events: none; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
