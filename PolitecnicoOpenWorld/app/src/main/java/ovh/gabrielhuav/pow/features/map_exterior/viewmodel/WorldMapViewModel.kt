@@ -755,7 +755,8 @@ class WorldMapViewModel(
             it.copy(
                 currentLocation = newLocation,
                 showTeleportMenu = false,
-                isRoadNetworkReady = false
+                isRoadNetworkReady = false,
+                isUserPanningMap = false   // ← recentra el mapa y reactiva la neblina
             )
         }
         lastNetworkFetchLocation = null
@@ -1000,6 +1001,7 @@ class WorldMapViewModel(
                 currentLocation = GeoPoint(newLat, newLon),
                 showTeleportMenu = false,
                 isRoadNetworkReady = false,
+                isUserPanningMap = false,   // ← igual que arriba
                 isZombieHandSpawned = if (!insideEscom) false else currentState.isZombieHandSpawned
             )
         }
@@ -1007,7 +1009,6 @@ class WorldMapViewModel(
         lastNetworkFetchLocation = null
         lastFetchAttemptMs = 0L
     }
-
 
     fun setShowRoadNetwork(show: Boolean) {
         _uiState.update { it.copy(showRoadNetwork = show) }

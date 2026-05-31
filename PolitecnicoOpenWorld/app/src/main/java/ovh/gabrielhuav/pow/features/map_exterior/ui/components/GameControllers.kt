@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -148,7 +149,7 @@ fun DPadController(
 }
 
 @Composable
-private fun DPadButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun DPadButton(icon: ImageVector, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(48.dp)
@@ -162,7 +163,7 @@ private fun DPadButton(icon: androidx.compose.ui.graphics.vector.ImageVector, on
 }
 
 // ==========================================
-// BOTONES DE ACCIÓN (XBOX STYLE)
+// BOTONES DE ACCIÓN (XBOX STYLE) — MODO A PIE
 // ==========================================
 
 
@@ -253,15 +254,30 @@ fun ActionButton(
 }
 
 // ==========================================
-// CONTROLES DE VEHÍCULO (NUEVOS)
+// CONTROLES DE VEHÍCULO (MODO CONDUCCIÓN — ESTILO PS4)
 // ==========================================
+//
+// Misma estructura que el modo a pie (D-pad + diamante de 4 botones), pero el
+// diamante usa los símbolos de PlayStation (△ ○ ✕ □) en vez de letras Xbox.
+// Al ser símbolos de un solo carácter quedan SIEMPRE centrados y nunca se
+// desbordan del botón (que era el problema de los antiguos botones de texto).
+//
+// Mapeo:
+//   D-pad → ARRIBA: gas · ABAJO: freno · IZQUIERDA/DERECHA: girar.
+//   Diamante PS4 → △ (arriba): SALIR · ✕ (abajo): gas · ○ (derecha): freno ·
+//                  □ (izquierda): freno de mano.
+//
+// Nota: gas/freno están disponibles tanto en el D-pad como en el diamante
+// (redundancia intencional para poder conducir con cualquier mano).
 
 @Composable
-fun VehicleSteeringController(
+fun VehicleDPadController(
     modifier: Modifier = Modifier,
     backgroundAlpha: Float = 0.6f,
-    onSteerLeft: (Boolean) -> Unit,
-    onSteerRight: (Boolean) -> Unit
+    onUp: (Boolean) -> Unit,      // gas
+    onDown: (Boolean) -> Unit,    // freno
+    onLeft: (Boolean) -> Unit,    // girar izquierda
+    onRight: (Boolean) -> Unit    // girar derecha
 ) {
     Box(
         modifier = modifier
@@ -270,21 +286,40 @@ fun VehicleSteeringController(
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
         contentAlignment = Alignment.Center
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            // Reutilizamos tu detectHoldEvent!
-            VehicleButton(icon = Icons.Default.KeyboardArrowLeft, onHoldEvent = onSteerLeft)
-            VehicleButton(icon = Icons.Default.KeyboardArrowRight, onHoldEvent = onSteerRight)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            VehicleDpadButton(icon = Icons.Default.KeyboardArrowUp, onHold = onUp)
+            Row {
+                VehicleDpadButton(icon = Icons.Default.KeyboardArrowLeft, onHold = onLeft)
+                Spacer(modifier = Modifier.size(48.dp))
+                VehicleDpadButton(icon = Icons.Default.KeyboardArrowRight, onHold = onRight)
+            }
+            VehicleDpadButton(icon = Icons.Default.KeyboardArrowDown, onHold = onDown)
         }
     }
 }
 
 @Composable
-fun VehiclePedalsController(
+private fun VehicleDpadButton(icon: ImageVector, onHold: (Boolean) -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.DarkGray.copy(alpha = 0.8f))
+            .detectHoldEvent(onHold), // press/release (no repetición discreta)
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+    }
+}
+
+@Composable
+fun Ps4ActionButtonsController(
     modifier: Modifier = Modifier,
     backgroundAlpha: Float = 0.6f,
-    onAccelerate: (Boolean) -> Unit,
-    onBrake: (Boolean) -> Unit,
-    onExit: (Boolean) -> Unit // CAMBIADO: Ahora recibe el estado de pulsación
+    onAccelerate: (Boolean) -> Unit,  // ✕
+    onBrake: (Boolean) -> Unit,       // ○
+    onHandbrake: (Boolean) -> Unit,   // □ (freno de mano)
+    onExit: (Boolean) -> Unit         // △ (mantener → menú teletransporte)
 ) {
     Box(
         modifier = modifier
@@ -293,42 +328,43 @@ fun VehiclePedalsController(
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            VehicleButton(text = "SALIR (Y)", color = Color(0xFFF1C40F)) { isPressed ->
-                onExit(isPressed) // CAMBIADO: Pasamos el estado directamente
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // △ arriba — SALIR (verde PS)
+            Ps4Button(symbol = "△", color = Color(0xFF2ECC71), onHoldEvent = onExit)
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // □ izquierda — FRENO DE MANO (rosa PS)
+                Ps4Button(symbol = "□", color = Color(0xFFE91E63), onHoldEvent = onHandbrake)
+
+                Spacer(modifier = Modifier.size(48.dp))
+
+                // ○ derecha — FRENO (rojo PS)
+                Ps4Button(symbol = "○", color = Color(0xFFE74C3C), onHoldEvent = onBrake)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                VehicleButton(text = "FRENO", color = Color(0xFFE74C3C), onHoldEvent = onBrake)
-                VehicleButton(text = "GAS", color = Color(0xFF2ECC71), onHoldEvent = onAccelerate)
-            }
+
+            // ✕ abajo — GAS (azul PS)
+            Ps4Button(symbol = "✕", color = Color(0xFF3498DB), onHoldEvent = onAccelerate)
         }
     }
 }
 
 @Composable
-fun VehicleButton(
-    text: String = "",
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    color: Color = Color.DarkGray.copy(alpha = 0.8f),
-    onHoldEvent: (Boolean) -> Unit
-) {
+private fun Ps4Button(symbol: String, color: Color, onHoldEvent: (Boolean) -> Unit) {
     Box(
         modifier = Modifier
             .padding(4.dp)
-            .size(56.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .background(color)
             .detectHoldEvent(onHoldEvent),
         contentAlignment = Alignment.Center
     ) {
-        if (icon != null) {
-            Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(36.dp))
-        } else {
-            Text(text = text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-        }
+        Text(
+            text = symbol,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 22.sp
+        )
     }
 }
 

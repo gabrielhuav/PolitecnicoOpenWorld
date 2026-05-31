@@ -112,9 +112,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehiclePedalsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSteeringController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.Ps4ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
@@ -773,7 +773,11 @@ fun WorldMapScreen(
         if (!uiState.isUserPanningMap) {
             val fogLat = uiState.currentLocation?.latitude ?: 19.5
             val fogMpp = metersPerPixel(uiState.zoomLevel, fogLat)
-            val fogRevealPx = (NPC_FOG_VISION_METERS / fogMpp).toFloat()
+            // Defensa: nunca dejar que mpp degenerado convierta el radio en Infinity/NaN
+            // (eso pintaría la pantalla entera del color de la neblina).
+            val fogRevealPx = if (fogMpp.isFinite() && fogMpp > 0.0)
+                (NPC_FOG_VISION_METERS / fogMpp).toFloat()
+            else 400f
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val outer = fogRevealPx * 1.8f
                 drawRect(
@@ -977,15 +981,34 @@ fun WorldMapScreen(
 
             Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (uiState.isDriving) {
-                    val steeringComponent = @Composable { VehicleSteeringController(modifier = Modifier.scale(effectiveScale), onSteerLeft = { viewModel.steerLeft(it) }, onSteerRight = { viewModel.steerRight(it) }) }
-                    val pedalsComponent = @Composable { VehiclePedalsController(modifier = Modifier.scale(effectiveScale), onAccelerate = { viewModel.accelerate(it) }, onBrake = { viewModel.brake(it) }, onExit = { isPressed ->
-                        if (isPressed) {
-                            viewModel.onInteractButtonPressed()
-                            yButtonHoldJob?.cancel()
-                            yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
-                        } else { yButtonHoldJob?.cancel() }
-                    }) }
-                    if (uiState.swapControls) { pedalsComponent(); steeringComponent() } else { steeringComponent(); pedalsComponent() }
+                    // D-pad de conducción: SOLO gira (IZQ/DER). Arriba/abajo quedan inertes
+                    // a propósito — gas y freno viven únicamente en el diamante PS4.
+                    val drivingDpad = @Composable {
+                        VehicleDPadController(
+                            modifier = Modifier.scale(effectiveScale),
+                            onUp = { /* sin uso en conducción */ },
+                            onDown = { /* sin uso en conducción */ },
+                            onLeft = { viewModel.steerLeft(it) },
+                            onRight = { viewModel.steerRight(it) }
+                        )
+                    }
+                    // Diamante estilo PS4: △ SALIR · ✕ gas · ○ freno · □ freno de mano.
+                    val drivingActions = @Composable {
+                        Ps4ActionButtonsController(
+                            modifier = Modifier.scale(effectiveScale),
+                            onAccelerate = { viewModel.accelerate(it) },
+                            onBrake = { viewModel.brake(it) },
+                            onHandbrake = { viewModel.brake(it) },
+                            onExit = { isPressed ->
+                                if (isPressed) {
+                                    viewModel.onInteractButtonPressed()
+                                    yButtonHoldJob?.cancel()
+                                    yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
+                                } else { yButtonHoldJob?.cancel() }
+                            }
+                        )
+                    }
+                    if (uiState.swapControls) { drivingActions(); drivingDpad() } else { drivingDpad(); drivingActions() }
                 } else {
                     val movementComponent = @Composable {
                         if (uiState.controlType == ControlType.DPAD) DPadController(modifier = Modifier.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
