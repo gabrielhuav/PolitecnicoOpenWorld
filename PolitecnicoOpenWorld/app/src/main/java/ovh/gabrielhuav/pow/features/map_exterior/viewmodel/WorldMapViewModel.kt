@@ -1781,6 +1781,7 @@ class WorldMapViewModel(
     fun selectSkin(skin: ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin) {
         settingsRepository.savePlayerSkin(skin)
         _uiState.update { it.copy(selectedSkin = skin, showSkinSelector = false) }
+    }
 
     // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
 

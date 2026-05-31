@@ -423,14 +423,15 @@ class ZombieGameViewModel(
     }
 
     private fun spawnAroundPlayer(px: Float, py: Float, room: ZombieRoom): Pair<Float, Float> {
-        repeat(20) {
+        repeat(50) {
             val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
             val radius = SPAWN_RADIUS_MIN + Random.nextFloat() * (SPAWN_RADIUS_MAX - SPAWN_RADIUS_MIN)
             val x = (px + cos(angle) * radius).coerceIn(ZOMBIE_RADIUS, room.worldWidth - ZOMBIE_RADIUS)
             val y = (py + sin(angle) * radius).coerceIn(ZOMBIE_RADIUS, room.worldHeight - ZOMBIE_RADIUS)
             if (!room.isBlockedPixel(x, y)) return x to y
         }
-        return (px + SPAWN_RADIUS_MIN) to py
+        // Fallback seguro: si no hay espacio libre tras 50 intentos, spawnear en el spawn del jugador (área segura)
+        return (room.playerSpawnFrac.x * room.worldWidth) to (room.playerSpawnFrac.y * room.worldHeight)
     }
 
     private fun goToRoom(targetRoomId: String) {

@@ -88,13 +88,26 @@ fun ZombieGameScreen(
     }
 
     val room = ZombieRoomCatalog.rooms[state.currentRoomIndex]
+
+    // Caché de fondos para evitar decodificar la misma imagen cada vez que cambias de sala
+    val backgroundCache = remember { mutableMapOf<String, ImageBitmap>() }
     var background by remember(room.backgroundAsset) { mutableStateOf<ImageBitmap?>(null) }
+
     LaunchedEffect(room.backgroundAsset) {
-        background = withContext(Dispatchers.IO) {
-            try { context.assets.open(room.backgroundAsset).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
-            catch (e: Exception) {
-                android.util.Log.e("ZombieGameScreen", "No se pudo cargar fondo ${room.backgroundAsset}: ${e.message}")
-                null
+        if (backgroundCache.containsKey(room.backgroundAsset)) {
+            background = backgroundCache[room.backgroundAsset]
+        } else {
+            background = withContext(Dispatchers.IO) {
+                try {
+                    context.assets.open(room.backgroundAsset).use { inputStream ->
+                        BitmapFactory.decodeStream(inputStream)?.asImageBitmap()?.also { bitmap ->
+                            backgroundCache[room.backgroundAsset] = bitmap
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("ZombieGameScreen", "Error cargando fondo ${room.backgroundAsset}: ${e.message}")
+                    null
+                }
             }
         }
     }
