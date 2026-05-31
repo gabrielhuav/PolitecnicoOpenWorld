@@ -265,9 +265,7 @@ internal fun NativeOsmMap(
                             // quitan de las overlays (se recrean al volver a acercarse).
                             val centerCull = uiState.currentLocation
                             val visibleNpcs = if (centerCull != null) {
-                                val dm = context.resources.displayMetrics
-                                val minPx = minOf(dm.widthPixels, dm.heightPixels).toDouble()
-                                val radiusM = npcCullRadiusMeters(currentZoom, centerCull.latitude, minPx)
+                                val radiusM = npcVisionRadiusMeters()
                                 uiState.npcs.filter {
                                     npcWithinRadius(it.location.latitude, it.location.longitude,
                                         centerCull.latitude, centerCull.longitude, radiusM)

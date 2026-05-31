@@ -129,24 +129,21 @@ import kotlin.math.cos
 // Los NPC siguen viviendo en memoria/simulación; solo dibujamos los que caen
 // dentro del viewport visible. El radio escala con el zoom (metros por pixel),
 // así nunca se ocultan NPCs que de verdad están en pantalla.
-internal const val NPC_CULL_MARGIN_M = 40.0
+internal const val NPC_CULL_MARGIN_M = 15.0
 
-// "Neblina" tipo Age of Empires: solo se revela un círculo alrededor del jugador.
-// El radio visible es una fracción de la dimensión menor de la pantalla, así que
-// SIEMPRE hay neblina en los bordes (a cualquier zoom). Este mismo radio se usa
-// para el culling de NPCs, de modo que un NPC desaparece justo donde empieza la
-// neblina (no se ven NPCs "dentro" de la oscuridad).
-internal const val NPC_FOG_REVEAL_FRACTION = 0.45f
+// ══════════════════════════════════════════════════════════════════════════
+//  RADIO DE VISIÓN (neblina). ⬅️  CAMBIA ESTE VALOR PARA VER MÁS O MENOS.
+//  Está en METROS REALES, por eso NO cambia al hacer zoom: siempre ves la misma
+//  distancia alrededor del jugador. Súbelo para ver más lejos, bájalo para menos.
+internal const val NPC_FOG_VISION_METERS = 70.0
+// ══════════════════════════════════════════════════════════════════════════
 
-/**
- * Radio de culling en metros = radio visible de la neblina convertido a metros
- * al zoom actual. Mantiene los NPC vivos en memoria; solo limita el dibujado.
- */
-internal fun npcCullRadiusMeters(zoom: Double, latDeg: Double, screenMinPx: Double): Double {
-    val metersPerPixel = 156543.03392 * cos(Math.toRadians(latDeg)) / 2.0.pow(zoom)
-    val revealPx = screenMinPx * NPC_FOG_REVEAL_FRACTION
-    return revealPx * metersPerPixel + NPC_CULL_MARGIN_M
-}
+/** Radio de culling de NPCs: fijo en metros, independiente del zoom. */
+internal fun npcVisionRadiusMeters(): Double = NPC_FOG_VISION_METERS + NPC_CULL_MARGIN_M
+
+/** Metros por pixel del mapa a un zoom/latitud dados (proyección Web Mercator). */
+internal fun metersPerPixel(zoom: Double, latDeg: Double): Double =
+    156543.03392 * cos(Math.toRadians(latDeg)) / 2.0.pow(zoom)
 
 /** ¿El NPC está dentro del radio del jugador? (aprox. plana, suficiente a esta escala). */
 internal fun npcWithinRadius(
@@ -463,13 +460,9 @@ fun WorldMapScreen(
                         val currentZoom = uiState.zoomLevel
                         val renderZoom = round(currentZoom * 2) / 2.0
 
-                        // Culling por neblina: solo se dibujan los NPC dentro del círculo revelado.
-                        val dmCull = context.resources.displayMetrics
-                        val minPxCull = minOf(dmCull.widthPixels, dmCull.heightPixels).toDouble()
+                        // Culling por neblina: solo se dibujan los NPC dentro del radio de visión (fijo en metros).
                         val centerCull = uiState.currentLocation
-                        val cullRadiusM = centerCull?.let {
-                            npcCullRadiusMeters(currentZoom, it.latitude, minPxCull)
-                        }
+                        val cullRadiusM = centerCull?.let { npcVisionRadiusMeters() }
 
                         uiState.npcs.forEach { npc ->
                             if (cullRadiusM != null && centerCull != null &&
@@ -650,12 +643,8 @@ fun WorldMapScreen(
 
                         // Culling por distancia: solo enviamos al WebView los NPC dentro del
                         // viewport. Evita generar bitmaps/base64 y marcadores JS para NPC lejanos.
-                        val dmCullW = context.resources.displayMetrics
-                        val minPxCullW = minOf(dmCullW.widthPixels, dmCullW.heightPixels).toDouble()
                         val centerCullW = uiState.currentLocation
-                        val cullRadiusMW = centerCullW?.let {
-                            npcCullRadiusMeters(uiState.zoomLevel, it.latitude, minPxCullW)
-                        }
+                        val cullRadiusMW = centerCullW?.let { npcVisionRadiusMeters() }
                         val visibleNpcs = if (cullRadiusMW != null && centerCullW != null) {
                             uiState.npcs.filter {
                                 npcWithinRadius(it.location.latitude, it.location.longitude,
@@ -763,19 +752,21 @@ fun WorldMapScreen(
         }
 
         // ─── CAPA DE NEBLINA (fog of war estilo Age of Empires) ──────────────
-        // Solo se revela un círculo alrededor del jugador (centro de pantalla).
-        // Se oculta durante el paneo, cuando el jugador no está centrado.
+        // El radio visible se fija en METROS reales (no cambia con el zoom): se
+        // convierte a píxeles según el zoom actual. Fuera del radio se aplica un
+        // gris translúcido (no negro total), suficiente para ocultar NPCs.
         if (!uiState.isUserPanningMap) {
+            val fogLat = uiState.currentLocation?.latitude ?: 19.5
+            val fogMpp = metersPerPixel(uiState.zoomLevel, fogLat)
+            val fogRevealPx = (NPC_FOG_VISION_METERS / fogMpp).toFloat()
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val reveal = size.minDimension * NPC_FOG_REVEAL_FRACTION
-                val outer = reveal * 1.9f
+                val outer = fogRevealPx * 1.8f
                 drawRect(
                     brush = Brush.radialGradient(
                         colorStops = arrayOf(
                             0.0f to Color.Transparent,
-                            (reveal / outer) to Color.Transparent,
-                            0.86f to Color(0xCC05060A),
-                            1.0f to Color(0xF205060A)
+                            (fogRevealPx / outer).coerceIn(0f, 0.99f) to Color.Transparent,
+                            1.0f to Color(0x80222A33) // gris azulado translúcido (~50%)
                         ),
                         center = center,
                         radius = outer
