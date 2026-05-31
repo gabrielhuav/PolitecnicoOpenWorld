@@ -191,6 +191,10 @@ class WorldMapViewModel(
     private val VISIBLE_ROAD_UPDATE_THRESHOLD = 0.002
     private val VISIBLE_ROAD_RADIUS = 0.006
 
+    // --- SPATIAL INDEXING FOR ROADS ---
+    private val SPATIAL_GRID_SIZE = 0.005
+    private var spatialRoadIndex: Map<Pair<Int, Int>, List<MapWay>> = emptyMap()
+
     var isSteeringLeftPressed = false
     var isSteeringRightPressed = false
     var isGasPressed = false
@@ -683,24 +687,51 @@ class WorldMapViewModel(
         // Solo recalculamos si forzamos la actualización o si el jugador se movió lo suficiente (~200m)
         if (force || lastLoc == null || distance(lastLoc, location) > VISIBLE_ROAD_UPDATE_THRESHOLD) {
             lastVisibleRoadUpdateLocation = location
-            // Ejecutamos el filtro en un hilo secundario para no trabar el Game Loop
+            // Ejecutamos el filtro optimizado usando el índice espacial
             viewModelScope.launch(Dispatchers.Default) {
-                val visibleWays = roadNetwork.filter { way ->
-                    // Una calle es visible si al menos uno de sus nodos está dentro del radio del jugador
+                val latCell = floor(location.latitude / SPATIAL_GRID_SIZE).toInt()
+                val lonCell = floor(location.longitude / SPATIAL_GRID_SIZE).toInt()
+
+                val candidateWays = mutableSetOf<MapWay>()
+                // Revisamos la celda actual y las 8 circundantes
+                for (dr in -1..1) {
+                    for (dc in -1..1) {
+                        spatialRoadIndex[latCell + dr to lonCell + dc]?.let { candidateWays.addAll(it) }
+                    }
+                }
+
+                // Filtrado fino para mantener la precisión del radio visual exacto
+                val visibleWays = candidateWays.filter { way ->
                     way.nodes.any { node ->
                         abs(node.lat - location.latitude) < VISIBLE_ROAD_RADIUS &&
                                 abs(node.lon - location.longitude) < VISIBLE_ROAD_RADIUS
                     }
                 }
-                // Actualizamos el Flow que lee la UI (pasará de ~5,000 calles a solo ~100)
+                // Actualizamos el Flow que lee la UI
                 _roadNetworkFlow.value = visibleWays
             }
         }
     }
 
+    private fun buildSpatialRoadIndex(network: List<MapWay>) {
+        val newIndex = mutableMapOf<Pair<Int, Int>, MutableList<MapWay>>()
+        network.forEach { way ->
+            // Identificar qué celdas de la rejilla toca esta calle
+            val cells = way.nodes.map { node ->
+                floor(node.lat / SPATIAL_GRID_SIZE).toInt() to floor(node.lon / SPATIAL_GRID_SIZE).toInt()
+            }.distinct()
+
+            cells.forEach { cell ->
+                newIndex.getOrPut(cell) { mutableListOf() }.add(way)
+            }
+        }
+        spatialRoadIndex = newIndex
+    }
+
     private suspend fun applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
         roadNetwork = network
 
+        buildSpatialRoadIndex(network)
         updateVisibleRoads(playerLocation, force = true)
         rebuildRoadNodeGrid(network)
         npcAiManager.updateRoadNetwork(network)
@@ -749,6 +780,7 @@ class WorldMapViewModel(
                 if (cached != null) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         roadNetwork = cached
+                        buildSpatialRoadIndex(cached)
                         updateVisibleRoads(currentLoc, force = true)
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
@@ -770,6 +802,7 @@ class WorldMapViewModel(
                         roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             roadNetwork = network
+                            buildSpatialRoadIndex(network)
                             updateVisibleRoads(currentLoc, force = true)
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
