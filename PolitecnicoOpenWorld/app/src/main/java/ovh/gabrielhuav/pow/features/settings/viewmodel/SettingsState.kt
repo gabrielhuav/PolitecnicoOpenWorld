@@ -9,8 +9,22 @@ data class SettingsState(
     val mapProvider: MapProvider = MapProvider.OSM, // Usamos tu Enum nativo
     val showCacheWidget: Boolean = true,
     val showFpsWidget: Boolean = false,
+    // ─── Valores COMMITEADOS (los que el juego usa de verdad) ────────────────
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f, // Rango recomendado: 0.6f a 1.4f
     val swapControls: Boolean = false, // false = Izq: Movimiento, Der: Acción
-    val showRoadNetwork: Boolean = true
-    )
+    val showRoadNetwork: Boolean = true,
+
+    // ─── Valores TEMPORALES de controles ─────────────────────────────────────
+    // La UI de controles edita estos; NO afectan al juego hasta presionar GUARDAR,
+    // momento en el que se copian a los committeados de arriba y se persisten.
+    val tempControlType: ControlType = ControlType.DPAD,
+    val tempControlsScale: Float = 1.0f,
+    val tempSwapControls: Boolean = false
+) {
+    /** ¿Hay cambios de controles sin guardar? */
+    val hasUnsavedControlChanges: Boolean
+        get() = tempControlType != controlType ||
+                tempControlsScale != controlsScale ||
+                tempSwapControls != swapControls
+}

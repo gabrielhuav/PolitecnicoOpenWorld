@@ -232,7 +232,7 @@ private fun WeaponMenuButton(label: String, selected: Boolean, onClick: () -> Un
 }
 
 @Composable
-private fun PlayerHealthBarFixed(health: Float) {
+internal fun PlayerHealthBarFixed(health: Float) {
     Box(
         modifier = Modifier.width(180.dp).height(18.dp).clip(RoundedCornerShape(9.dp))
             .background(Color.Black.copy(alpha = 0.6f)).border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(9.dp))

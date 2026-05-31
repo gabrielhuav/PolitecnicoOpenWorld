@@ -101,13 +101,7 @@ app/src/main/java/ovh/gabrielhuav/pow/
 │   │   │       ├── DesignerPanel.kt                # Move/rotate/scale/save controls
 │   │   │       └── CollectibleClaimDialog.kt       # Themed popup on pickup
 │   │   └── viewmodel/
-│   │       ├── WorldMapViewModel.kt         # Core: game loop, movement, vehicle, teleport, road-network fetch
-│   │       ├── WorldMapModels.kt            # Shared data classes: Direction, GameAction, MultiplayerPlayer/Npc, ServerMessage
-│   │       ├── WorldMapMultiplayerExt.kt    # WebSocket connect/disconnect, message handler, remote entity sync
-│   │       ├── WorldMapNavigationExt.kt     # Spatial road index (Seg + grid), snap-to-road, route calculation, waypoints
-│   │       ├── WorldMapLandmarkExt.kt       # Landmark CRUD: load, add, move, rotate, scale, delete, export/import
-│   │       ├── WorldMapCollectiblesExt.kt   # Collectible spawn/proximity/claim + ESCOM zombie-hand interaction
-│   │       ├── WorldMapCombatExt.kt         # Player health, damage, wasted sequence, NPC/remote-player melee
+│   │       ├── WorldMapViewModel.kt         # Game loop, multiplayer, NPCs, ESCOM logic
 │   │       └── WorldMapState.kt             # MapProvider enum + ~30 state fields
 │   │
 │   ├── interior/                            # 6 ESCOM building interiors
@@ -305,24 +299,6 @@ What **works today** in this repository: OSM/Google/Web map navigation with snap
 
 What is **not yet** implemented: A*-based pathfinding (current router is a greedy graph walk), local Bluetooth multiplayer, and content-rich interior collision matrices (today all 6 interiors use `CollisionGrid.emptyWithBorder()`).
 
-### 🔧 Refactoring History
-
-#### `WorldMapViewModel` — split into multiple files
-
-`WorldMapViewModel.kt` was a single **1,648-line** file combining unrelated domains. It was split into **7 files** while keeping the same public API and without touching any UI screen:
-
-| File | Responsibility | Approx. lines |
-|---|---|---|
-| `WorldMapViewModel.kt` | Core: properties, game loop, movement, vehicle driving, teleport, road-network fetch | ~450 |
-| `WorldMapModels.kt` | Data classes and enums used in multiplayer (`Direction`, `GameAction`, `MultiplayerPlayer`, `MultiplayerNpc`, `ServerMessage`) | ~55 |
-| `WorldMapNavigationExt.kt` | Snap-to-road spatial index (`Seg` + hash grid), greedy route calculation, waypoint and destination-marker management | ~170 |
-| `WorldMapMultiplayerExt.kt` | WebSocket connect/disconnect, server-message decoding, remote entity (players and NPCs) synchronisation | ~175 |
-| `WorldMapLandmarkExt.kt` | Full landmark CRUD: initial load, JSON seeding, add/move/rotate/scale/delete/export/import | ~155 |
-| `WorldMapCollectiblesExt.kt` | Collectible spawning, proximity detection, claiming, and ESCOM zombie-hand interaction | ~130 |
-| `WorldMapCombatExt.kt` | Player health system, damage, healing, WASTED sequence, melee against NPCs and remote players | ~90 |
-
-**Technique used:** Kotlin extension functions (`fun WorldMapViewModel.foo()`) in the same package. Members that need cross-file visibility were changed from `private` to `internal`; the public API (StateFlow and public methods) is unchanged.
-
 ---
 ---
 
@@ -423,13 +399,7 @@ app/src/main/java/ovh/gabrielhuav/pow/
 │   │   │       ├── DesignerPanel.kt                # Controles mover/rotar/escalar/guardar
 │   │   │       └── CollectibleClaimDialog.kt       # Popup temático al recoger
 │   │   └── viewmodel/
-│   │       ├── WorldMapViewModel.kt         # Núcleo: game loop, movimiento, vehículo, teleport, fetch de red de calles
-│   │       ├── WorldMapModels.kt            # Data classes compartidas: Direction, GameAction, MultiplayerPlayer/Npc, ServerMessage
-│   │       ├── WorldMapMultiplayerExt.kt    # WebSocket: conectar/desconectar, manejador de mensajes, sincronización de entidades remotas
-│   │       ├── WorldMapNavigationExt.kt     # Índice espacial (Seg + grid), snap-to-road, cálculo de rutas, waypoints
-│   │       ├── WorldMapLandmarkExt.kt       # CRUD de landmarks: cargar, agregar, mover, rotar, escalar, borrar, export/import
-│   │       ├── WorldMapCollectiblesExt.kt   # Spawn/proximidad/recogida de coleccionables + interacción mano zombi ESCOM
-│   │       ├── WorldMapCombatExt.kt         # Salud del jugador, daño, secuencia WASTED, combate contra NPCs/jugadores remotos
+│   │       ├── WorldMapViewModel.kt         # Game loop, multijugador, NPCs, lógica ESCOM
 │   │       └── WorldMapState.kt             # Enum MapProvider + ~30 campos de estado
 │   │
 │   ├── interior/                            # 6 interiores de edificios de ESCOM
@@ -626,21 +596,3 @@ La URL del servidor se inyecta al cliente Android en tiempo de compilación medi
 Lo que **funciona hoy** en el código de este repositorio: navegación sobre OSM/Google/Web con snap-to-road, caché persistente de calles y tiles, NPCs procedurales (peatones y 6 modelos de coches), combate cuerpo a cuerpo contra NPCs y jugadores remotos, multijugador con autoridad delegada por zona, conducción de vehículos, controles configurables, 8 proveedores de mapas, **landmarks editables con import/export JSON (Modo Diseñador)**, **6 coleccionables de lore con inventario persistente**, **navegación por waypoints con routing sobre grafo de calles**, **6 interiores de edificios de ESCOM** con matrices de colisión, y un **minijuego completo de supervivencia contra zombis** (7 cuartos, combate dual, 6 power-ups, iluminación dinámica, pantallas WASTED/Victoria).
 
 Lo que **no** está implementado todavía: pathfinding con A* (el router actual es una búsqueda greedy sobre el grafo), multijugador local por Bluetooth, y matrices de colisión ricas en contenido para los interiores (hoy los 6 interiores usan `CollisionGrid.emptyWithBorder()`).
-
-### 🔧 Historial de refactoring
-
-#### `WorldMapViewModel` — división en múltiples archivos
-
-`WorldMapViewModel.kt` era un único archivo de **1 648 líneas** que acumulaba lógica de dominios completamente distintos. Se dividió en **7 archivos** manteniendo la misma API pública y sin modificar ninguna pantalla UI:
-
-| Archivo | Responsabilidad | Líneas aprox. |
-|---|---|---|
-| `WorldMapViewModel.kt` | Núcleo: propiedades, game loop, movimiento, conducción, teletransporte, fetch de red de calles | ~450 |
-| `WorldMapModels.kt` | Data classes y enums usados en multijugador (`Direction`, `GameAction`, `MultiplayerPlayer`, `MultiplayerNpc`, `ServerMessage`) | ~55 |
-| `WorldMapNavigationExt.kt` | Índice espacial snap-to-road (`Seg` + grid hash), cálculo greedy de rutas, gestión de waypoints y marcador de destino | ~170 |
-| `WorldMapMultiplayerExt.kt` | Conexión WebSocket, decodificación de mensajes del servidor, sincronización de entidades remotas (jugadores y NPCs) | ~175 |
-| `WorldMapLandmarkExt.kt` | CRUD completo de landmarks: carga inicial, siembra desde JSON, agregar/mover/rotar/escalar/borrar/exportar/importar | ~155 |
-| `WorldMapCollectiblesExt.kt` | Spawn de coleccionables, detección de proximidad, reclamación, y la interacción con la mano zombi de ESCOM | ~130 |
-| `WorldMapCombatExt.kt` | Sistema de salud del jugador, daño, curación, secuencia WASTED, ataque cuerpo a cuerpo contra NPCs y jugadores remotos | ~90 |
-
-**Técnica utilizada:** funciones de extensión Kotlin (`fun WorldMapViewModel.foo()`) en el mismo paquete. Los miembros que necesitan ser visibles entre archivos pasaron de `private` a `internal`; la API pública (StateFlow y métodos públicos) no cambió.

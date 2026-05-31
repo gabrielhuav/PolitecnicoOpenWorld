@@ -24,7 +24,7 @@ android {
             // Servidor del mundo abierto (open world)
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
             // Servidor del minijuego de zombis (instancia separada en Render)
-            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://192.168.1.4:8080\"")
+            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
         }
         release {
             isMinifyEnabled = false
@@ -33,7 +33,7 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
-            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://192.168.1.4:8080\"")
+            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
         }
     }
 

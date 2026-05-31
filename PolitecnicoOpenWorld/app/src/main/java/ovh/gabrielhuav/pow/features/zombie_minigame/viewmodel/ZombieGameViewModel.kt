@@ -40,14 +40,14 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 class ZombieGameViewModel(
-    private val applicationContext: Context,
-    private val settingsRepository: SettingsRepository,
+    internal val applicationContext: Context,
+    internal val settingsRepository: SettingsRepository,
     // URL del servidor de zombis. null = partida offline (un jugador).
-    private val serverUrl: String?,
-    private val playerName: String
+    internal val serverUrl: String?,
+    internal val playerName: String
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(
+    internal val _state = MutableStateFlow(
         ZombieGameState(
             controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
@@ -57,76 +57,28 @@ class ZombieGameViewModel(
     )
     val state: StateFlow<ZombieGameState> = _state.asStateFlow()
 
-    private var gameLoopJob: Job? = null
-    private var idleJob: Job? = null
-    private var exitGuideJob: Job? = null
+    internal var gameLoopJob: Job? = null
+    internal var idleJob: Job? = null
+    internal var exitGuideJob: Job? = null
 
     // ─── Red multijugador ──────────────────────────────────
-    private val gson = Gson()
-    private var wsManager: WebSocketManager? = null
-    private var wsCollectorJob: Job? = null
-    private var mySessionId: String = "ZPlayer_${UUID.randomUUID()}"
-    private val remotePlayers = ConcurrentHashMap<String, RemoteZombiePlayer>()
-    private var lastNetSendMs = 0L
-    private val isMultiplayer: Boolean get() = serverUrl != null
+    internal val gson = Gson()
+    internal var wsManager: WebSocketManager? = null
+    internal var wsCollectorJob: Job? = null
+    internal var mySessionId: String = "ZPlayer_${UUID.randomUUID()}"
+    internal val remotePlayers = ConcurrentHashMap<String, RemoteZombiePlayer>()
+    internal var lastNetSendMs = 0L
+    internal val isMultiplayer: Boolean get() = serverUrl != null
 
     // Cooldown de daño por contacto en online (los zombis se reemplazan en cada
     // broadcast del servidor, así que el cooldown no puede vivir en la entidad).
-    private val contactCooldown = ConcurrentHashMap<String, Long>()
+    internal val contactCooldown = ConcurrentHashMap<String, Long>()
 
-    private companion object {
-        const val PLAYER_WALK_STEP = 7f
-        const val PLAYER_RUN_STEP = 13f
-        const val PLAYER_RADIUS = 28f
 
-        const val ZOMBIE_SPEED = 1.3f
-        const val ZOMBIE_FRAME_COUNT = 9
-        const val ZOMBIE_FRAME_INTERVAL_MS = 140L
-        const val ZOMBIE_RADIUS = 30f
-
-        const val STALKER_WALK_FRAME_COUNT = 4
-        const val STALKER_ATTACK_FRAME_COUNT = 4
-        const val STALKER_ATTACK_DIST = 85f
-
-        const val CONTACT_DIST = 56f
-        const val ZOMBIE_DAMAGE = 12f
-        const val ZOMBIE_DAMAGE_COOLDOWN_MS = 3000L
-
-        const val PLAYER_PUNCH_DAMAGE = 34f
-        const val PLAYER_ATTACK_RADIUS = 120f
-        const val PLAYER_ATTACK_COOLDOWN_MS = 600L
-
-        const val PROJECTILE_SPEED = 22f
-        const val PROJECTILE_LIFETIME_MS = 1500L
-        const val PROJECTILE_DAMAGE = 50f
-        const val PROJECTILE_HIT_RADIUS = 36f
-        const val RANGED_COOLDOWN_MS = 350L
-        const val Y_HOLD_FOR_MENU_MS = 500L
-
-        const val SPAWN_RADIUS_MIN = 280f
-        const val SPAWN_RADIUS_MAX = 520f
-
-        const val TICK_MS = 33L
-        const val ITEM_PICKUP_DIST = 70f
-        const val RETURN_SPAWN_OFFSET = 40f
-
-        const val EXIT_GUIDE_DURATION_MS = 2000L
-
-        const val SKILL_DROP_CHANCE = 0.45f
-
-        const val SLOW_ZOMBIE_FACTOR = 0.45f
-        const val FAST_ZOMBIE_FACTOR = 1.9f
-        const val ZOMBIE_DMG_FURY_FACTOR = 2.0f
-        const val ZOMBIE_DMG_WEAK_FACTOR = 0.4f
-        const val PLAYER_DMG_BRUTE_FACTOR = 2.2f
-
-        const val NET_SEND_INTERVAL_MS = 100L
-    }
-
-    private var lastPlayerAttackMs = 0L
-    private var lastRangedShotMs = 0L
-    private var yPressStartMs = 0L
-    private var lastRoomId: String? = null
+    internal var lastPlayerAttackMs = 0L
+    internal var lastRangedShotMs = 0L
+    internal var yPressStartMs = 0L
+    internal var lastRoomId: String? = null
 
     init {
         _state.update { it.copy(isLoading = true) }
@@ -157,7 +109,7 @@ class ZombieGameViewModel(
     }
 
     // ─── CONEXIÓN MULTIJUGADOR ─────────────────────────────
-    private fun connectIfNeeded() {
+    internal fun connectIfNeeded() {
         val url = serverUrl ?: return
         wsManager = WebSocketManager(url)
         wsCollectorJob = viewModelScope.launch(Dispatchers.IO) {
@@ -170,7 +122,7 @@ class ZombieGameViewModel(
         }
     }
 
-    private fun sendJoinRoom() {
+    internal fun sendJoinRoom() {
         if (!isMultiplayer) return
         val room = currentRoom()
         wsManager?.sendMessage(
@@ -187,7 +139,7 @@ class ZombieGameViewModel(
         )
     }
 
-    private fun handleServerMessage(json: String) {
+    internal fun handleServerMessage(json: String) {
         try {
             val msg = gson.fromJson(json, ZombieServerMessage::class.java)
             when (msg.type) {
@@ -228,7 +180,7 @@ class ZombieGameViewModel(
     }
 
     // Convierte FRACCIÓN [0,1] → píxeles de la sala actual.
-    private fun upsertRemote(m: ZombieServerMessage) {
+    internal fun upsertRemote(m: ZombieServerMessage) {
         val id = m.id ?: return
         if (id == mySessionId) return
         val room = currentRoom()
@@ -243,11 +195,11 @@ class ZombieGameViewModel(
         )
     }
 
-    private fun pushRemotePlayersToState() {
+    internal fun pushRemotePlayersToState() {
         _state.update { it.copy(remotePlayers = remotePlayers.values.toList()) }
     }
 
-    private fun sendPlayerUpdate(now: Long) {
+    internal fun sendPlayerUpdate(now: Long) {
         if (!isMultiplayer) return
         if (now - lastNetSendMs < NET_SEND_INTERVAL_MS) return
         lastNetSendMs = now
@@ -268,21 +220,21 @@ class ZombieGameViewModel(
         )
     }
 
-    private fun sendZombieDamage(zombieId: String, damage: Float) {
+    internal fun sendZombieDamage(zombieId: String, damage: Float) {
         if (!isMultiplayer) return
         wsManager?.sendMessage(
             gson.toJson(mapOf("type" to "ZOMBIE_DAMAGE", "zombieId" to zombieId, "damage" to damage))
         )
     }
 
-    private fun sendItemPickup(itemId: String) {
+    internal fun sendItemPickup(itemId: String) {
         if (!isMultiplayer) return
         wsManager?.sendMessage(gson.toJson(mapOf("type" to "ITEM_PICKUP", "itemId" to itemId)))
     }
 
     // Reemplaza zombis e items locales con el estado autoritativo del servidor.
     // Convierte fracción [0,1] → píxeles con las dimensiones de la sala actual.
-    private fun applyServerZombieState(msg: ZombieServerMessage) {
+    internal fun applyServerZombieState(msg: ZombieServerMessage) {
         val room = currentRoom()
         val w = room.worldWidth; val h = room.worldHeight
         val zs = msg.zombies?.map { nz ->
@@ -307,12 +259,12 @@ class ZombieGameViewModel(
         }
     }
 
-    private fun effectFromName(name: String?): SkillEffect =
+    internal fun effectFromName(name: String?): SkillEffect =
         runCatching { SkillEffect.valueOf(name ?: "") }.getOrDefault(SkillEffect.CURA_TOTAL)
 
-    private fun applyEffectByName(name: String) = applyEffect(effectFromName(name))
+    internal fun applyEffectByName(name: String) = applyEffect(effectFromName(name))
 
-    private fun showVictory() {
+    internal fun showVictory() {
         if (currentRoom().type != ZoneType.BUILDING) return
         if (_state.value.showVictoryScreen) return
         _state.update { it.copy(showVictoryScreen = true) }
@@ -323,16 +275,16 @@ class ZombieGameViewModel(
     }
 
     // ─── ACCESO ────────────────────────────────────────────
-    private fun currentRoom(): ZombieRoom = ZombieRoomCatalog.rooms[_state.value.currentRoomIndex]
+    internal fun currentRoom(): ZombieRoom = ZombieRoomCatalog.rooms[_state.value.currentRoomIndex]
 
-    private fun isWalkable(x: Float, y: Float): Boolean {
+    internal fun isWalkable(x: Float, y: Float): Boolean {
         val r = currentRoom()
         if (x < PLAYER_RADIUS || y < PLAYER_RADIUS ||
             x > r.worldWidth - PLAYER_RADIUS || y > r.worldHeight - PLAYER_RADIUS) return false
         return !r.isBlockedPixel(x, y)
     }
 
-    private fun spawnAtLobbyDoorFor(fromBuildingId: String): Pair<Float, Float>? {
+    internal fun spawnAtLobbyDoorFor(fromBuildingId: String): Pair<Float, Float>? {
         val lobby = ZombieRoomCatalog.roomById(ZombieRoomCatalog.LOBBY_ID) ?: return null
         val door = lobby.doors.firstOrNull { it.targetRoomId == fromBuildingId } ?: return null
         val hb = door.hitboxFrac.toWorldRect(lobby.worldWidth, lobby.worldHeight)
@@ -348,14 +300,14 @@ class ZombieGameViewModel(
     }
 
     // ─── EFECTOS ACTIVOS: getters ──────────────────────────
-    private fun hasEffect(e: SkillEffect): Boolean =
+    internal fun hasEffect(e: SkillEffect): Boolean =
         _state.value.activeEffects.any { it.effect == e }
 
-    private fun playerDamageFactor(): Float =
+    internal fun playerDamageFactor(): Float =
         if (hasEffect(SkillEffect.FUERZA_BRUTA)) PLAYER_DMG_BRUTE_FACTOR else 1f
 
     // ─── CARGA DE ZONA ─────────────────────────────────────
-    private fun loadRoom(index: Int) {
+    internal fun loadRoom(index: Int) {
         val room = ZombieRoomCatalog.rooms[index]
         val now = System.currentTimeMillis()
 
@@ -422,7 +374,7 @@ class ZombieGameViewModel(
         }
     }
 
-    private fun spawnAroundPlayer(px: Float, py: Float, room: ZombieRoom): Pair<Float, Float> {
+    internal fun spawnAroundPlayer(px: Float, py: Float, room: ZombieRoom): Pair<Float, Float> {
         repeat(20) {
             val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
             val radius = SPAWN_RADIUS_MIN + Random.nextFloat() * (SPAWN_RADIUS_MAX - SPAWN_RADIUS_MIN)
@@ -433,7 +385,7 @@ class ZombieGameViewModel(
         return (px + SPAWN_RADIUS_MIN) to py
     }
 
-    private fun goToRoom(targetRoomId: String) {
+    internal fun goToRoom(targetRoomId: String) {
         if (targetRoomId == ZombieRoomCatalog.EXIT_TO_WORLD) {
             gameLoopJob?.cancel()
             _state.update { it.copy(isExitingToWorld = true) }
@@ -456,7 +408,7 @@ class ZombieGameViewModel(
     }
 
     // ─── GAME LOOP ─────────────────────────────────────────
-    private fun startGameLoop() {
+    internal fun startGameLoop() {
         if (gameLoopJob?.isActive == true) return
         gameLoopJob = viewModelScope.launch(Dispatchers.Default) {
             while (isActive) {
@@ -466,207 +418,14 @@ class ZombieGameViewModel(
         }
     }
 
-    private fun tick() {
-        val s = _state.value
-        val now = System.currentTimeMillis()
-
-        // El envío de posición va SIEMPRE primero (igual que antes).
-        sendPlayerUpdate(now)
-
-        // Pantallas bloqueantes / modo diseñador: no simular.
-        if (s.showVictoryScreen || s.showWastedScreen || s.isExitingToWorld ||
-            s.showExitToLobbyDialog || s.designerMode) return
-
-        if (isMultiplayer) tickOnline(s, now) else tickOffline(s, now)
-    }
 
     // ─── OFFLINE: simulación local completa ────────────────
-    private fun tickOffline(s: ZombieGameState, now: Long) {
-        val room = ZombieRoomCatalog.rooms[s.currentRoomIndex]
-
-        val stillActive = s.activeEffects.filter { it.expiresAtMs > now }
-        val effectsChanged = stillActive.size != s.activeEffects.size
-
-        val speedFactor = run {
-            var f = 1f
-            if (stillActive.any { it.effect == SkillEffect.RELOJ_ARENA }) f *= SLOW_ZOMBIE_FACTOR
-            if (stillActive.any { it.effect == SkillEffect.ADRENALINA_ZOMBI }) f *= FAST_ZOMBIE_FACTOR
-            f
-        }
-        val dmgFactor = run {
-            var f = 1f
-            if (stillActive.any { it.effect == SkillEffect.FURIA_ZOMBI }) f *= ZOMBIE_DMG_FURY_FACTOR
-            if (stillActive.any { it.effect == SkillEffect.DEBILIDAD_ZOMBI }) f *= ZOMBIE_DMG_WEAK_FACTOR
-            f
-        }
-
-        var newHealth = s.playerHealth
-        var pulse = s.damagePulseTrigger
-
-        var workingZombies = s.zombies.map { z ->
-            if (z.isDying) return@map z
-            val moved = moveZombie(z, s.playerX, s.playerY, now, room, speedFactor)
-            val dist = hypot(moved.x - s.playerX, moved.y - s.playerY)
-            if (dist <= CONTACT_DIST && now - moved.lastDamageToPlayerMs >= ZOMBIE_DAMAGE_COOLDOWN_MS) {
-                newHealth -= ZOMBIE_DAMAGE * dmgFactor
-                pulse += 1
-                moved.copy(lastDamageToPlayerMs = now)
-            } else moved
-        }
-
-        val deadZombieIds = mutableListOf<String>()
-        val survivingProjectiles = mutableListOf<Projectile>()
-        for (p in s.projectiles) {
-            if (now - p.bornAtMs > PROJECTILE_LIFETIME_MS) continue
-            val nx = p.x + p.dirX * PROJECTILE_SPEED
-            val ny = p.y + p.dirY * PROJECTILE_SPEED
-            if (nx < 0f || ny < 0f || nx > room.worldWidth || ny > room.worldHeight) continue
-            val hit = workingZombies.firstOrNull {
-                !it.isDying && hypot(it.x - nx, it.y - ny) <= PROJECTILE_HIT_RADIUS
-            }
-            if (hit != null) {
-                val newHp = hit.health - PROJECTILE_DAMAGE * playerDamageFactor()
-                workingZombies = workingZombies.map { z ->
-                    if (z.id == hit.id) {
-                        if (newHp <= 0f) { deadZombieIds.add(z.id); z.copy(health = 0f, isDying = true) }
-                        else z.copy(health = newHp)
-                    } else z
-                }
-            } else survivingProjectiles.add(p.copy(x = nx, y = ny))
-        }
-
-        if (newHealth <= 0f) { triggerWastedSequence(); return }
-
-        val nearItem = s.items.firstOrNull {
-            !it.collected && hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
-        }
-
-        _state.update {
-            it.copy(
-                zombies = workingZombies,
-                projectiles = survivingProjectiles,
-                playerHealth = newHealth.coerceIn(0f, 100f),
-                damagePulseTrigger = pulse,
-                zombiesRemaining = workingZombies.count { z -> !z.isDying },
-                nearbyItemId = nearItem?.id,
-                activeEffects = if (effectsChanged) stillActive else it.activeEffects
-            )
-        }
-
-        deadZombieIds.forEach { id ->
-            val deadZombie = workingZombies.firstOrNull { it.id == id }
-            if (deadZombie != null) {
-                viewModelScope.launch { delay(1000L); onZombieDeath(deadZombie) }
-            }
-        }
-    }
 
     // ─── ONLINE: zombis del servidor; aquí solo proyectiles/contacto/items ─────
-    private fun tickOnline(s: ZombieGameState, now: Long) {
-        val room = ZombieRoomCatalog.rooms[s.currentRoomIndex]
-
-        val stillActive = s.activeEffects.filter { it.expiresAtMs > now }
-        val effectsChanged = stillActive.size != s.activeEffects.size
-        val dmgFactor = run {
-            var f = 1f
-            if (stillActive.any { it.effect == SkillEffect.FURIA_ZOMBI }) f *= ZOMBIE_DMG_FURY_FACTOR
-            if (stillActive.any { it.effect == SkillEffect.DEBILIDAD_ZOMBI }) f *= ZOMBIE_DMG_WEAK_FACTOR
-            f
-        }
-
-        var newHealth = s.playerHealth
-        var pulse = s.damagePulseTrigger
-
-        // Proyectiles: al impactar a un zombi del servidor, PEDIMOS daño.
-        val survivingProjectiles = mutableListOf<Projectile>()
-        for (p in s.projectiles) {
-            if (now - p.bornAtMs > PROJECTILE_LIFETIME_MS) continue
-            val nx = p.x + p.dirX * PROJECTILE_SPEED
-            val ny = p.y + p.dirY * PROJECTILE_SPEED
-            if (nx < 0f || ny < 0f || nx > room.worldWidth || ny > room.worldHeight) continue
-            val hit = s.zombies.firstOrNull {
-                !it.isDying && hypot(it.x - nx, it.y - ny) <= PROJECTILE_HIT_RADIUS
-            }
-            if (hit != null) {
-                sendZombieDamage(hit.id, PROJECTILE_DAMAGE * playerDamageFactor())
-                // proyectil consumido
-            } else survivingProjectiles.add(p.copy(x = nx, y = ny))
-        }
-
-        // Daño de contacto al jugador local (su vida sigue siendo local).
-        s.zombies.forEach { z ->
-            if (z.isDying) return@forEach
-            val dist = hypot(z.x - s.playerX, z.y - s.playerY)
-            if (dist <= CONTACT_DIST) {
-                val last = contactCooldown[z.id] ?: 0L
-                if (now - last >= ZOMBIE_DAMAGE_COOLDOWN_MS) {
-                    newHealth -= ZOMBIE_DAMAGE * dmgFactor
-                    pulse += 1
-                    contactCooldown[z.id] = now
-                }
-            }
-        }
-
-        if (newHealth <= 0f) { triggerWastedSequence(); return }
-
-        val nearItem = s.items.firstOrNull {
-            hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
-        }
-
-        // NO tocar zombies/items: son autoritativos del servidor.
-        _state.update {
-            it.copy(
-                projectiles = survivingProjectiles,
-                playerHealth = newHealth.coerceIn(0f, 100f),
-                damagePulseTrigger = pulse,
-                nearbyItemId = nearItem?.id,
-                activeEffects = if (effectsChanged) stillActive else it.activeEffects
-            )
-        }
-    }
 
     // Movimiento de zombi con colisión por matriz (deslizamiento por eje).
-    private fun moveZombie(
-        z: ZombieEntity, px: Float, py: Float, now: Long,
-        room: ZombieRoom, speedFactor: Float
-    ): ZombieEntity {
-        val dx = px - z.x
-        val dy = py - z.y
-        val dist = hypot(dx, dy)
-        val (nx, ny) = if (dist > 0.01f) (dx / dist) to (dy / dist) else 0f to 0f
-        val step = if (dist > CONTACT_DIST * 0.7f) ZOMBIE_SPEED * speedFactor else 0f
 
-        val targetX = (z.x + nx * step).coerceIn(ZOMBIE_RADIUS, room.worldWidth - ZOMBIE_RADIUS)
-        val targetY = (z.y + ny * step).coerceIn(ZOMBIE_RADIUS, room.worldHeight - ZOMBIE_RADIUS)
-
-        var rx = z.x; var ry = z.y
-        when {
-            !room.isBlockedPixel(targetX, targetY) -> { rx = targetX; ry = targetY }
-            !room.isBlockedPixel(targetX, z.y) -> rx = targetX
-            !room.isBlockedPixel(z.x, targetY) -> ry = targetY
-        }
-
-        val isStalker = z.type == ZombieType.STALKER
-        val shouldAttack = isStalker && dist < STALKER_ATTACK_DIST
-
-        var nextFrame = z.frameIndex
-        if (shouldAttack != z.isAttacking) nextFrame = 0
-
-        val frameCount = when {
-            isStalker && shouldAttack -> STALKER_ATTACK_FRAME_COUNT
-            isStalker -> STALKER_WALK_FRAME_COUNT
-            else -> ZOMBIE_FRAME_COUNT
-        }
-
-        val advance = now - z.lastFrameAdvanceMs >= ZOMBIE_FRAME_INTERVAL_MS
-        return z.copy(
-            x = rx, y = ry,
-            facingRight = if (abs(nx) > 0.01f) nx >= 0f else z.facingRight,
-            frameIndex = if (advance) (nextFrame + 1) % frameCount else nextFrame,
-            lastFrameAdvanceMs = if (advance) now else z.lastFrameAdvanceMs,
-            isAttacking = shouldAttack
-        )
-    }
+    // Empuja un zombi alejándolo de (fromX,fromY), respetando colisiones (slide por eje).
 
     // ─── COMBATE CUERPO A CUERPO ───────────────────────────
     fun performPlayerAttack() {
@@ -684,25 +443,27 @@ class ZombieGameViewModel(
             return
         }
 
+        val room = currentRoom()
+        val (kx, ky) = knockbackZombie(target.x, target.y, s.playerX, s.playerY, room, MELEE_KNOCKBACK)
         val newHealth = target.health - PLAYER_PUNCH_DAMAGE * playerDamageFactor()
         if (newHealth <= 0f) {
             _state.update { cur ->
                 cur.copy(zombies = cur.zombies.map {
-                    if (it.id == target.id) it.copy(health = 0f, isDying = true) else it
+                    if (it.id == target.id) it.copy(health = 0f, isDying = true, x = kx, y = ky) else it
                 })
             }
             viewModelScope.launch { delay(1000L); onZombieDeath(target) }
         } else {
             _state.update { cur ->
                 cur.copy(zombies = cur.zombies.map {
-                    if (it.id == target.id) it.copy(health = newHealth) else it
+                    if (it.id == target.id) it.copy(health = newHealth, x = kx, y = ky) else it
                 })
             }
         }
     }
 
     // ─── COMBATE A DISTANCIA ───────────────────────────────
-    private fun fireProjectile() {
+    internal fun fireProjectile() {
         val now = System.currentTimeMillis()
         if (now - lastRangedShotMs < RANGED_COOLDOWN_MS) return
         lastRangedShotMs = now
@@ -713,7 +474,26 @@ class ZombieGameViewModel(
         if (dx == 0f && dy == 0f) { dx = if (s.isPlayerFacingRight) 1f else -1f; dy = 0f }
 
         val p = Projectile(x = s.playerX, y = s.playerY, dirX = dx, dirY = dy, bornAtMs = now)
-        _state.update { it.copy(projectiles = it.projectiles + p, playerAction = PlayerAction.SPECIAL) }
+
+        // Recoil: empujar al jugador hacia atrás (opuesto a la mira), con corrección
+        // de posición por eje para no atravesar colisiones.
+        val rbX = s.playerX - dx * PLAYER_RECOIL
+        val rbY = s.playerY - dy * PLAYER_RECOIL
+        val (recoilX, recoilY) = when {
+            isWalkable(rbX, rbY) -> rbX to rbY
+            isWalkable(rbX, s.playerY) -> rbX to s.playerY
+            isWalkable(s.playerX, rbY) -> s.playerX to rbY
+            else -> s.playerX to s.playerY
+        }
+
+        _state.update {
+            it.copy(
+                projectiles = it.projectiles + p,
+                playerAction = PlayerAction.SPECIAL,
+                playerX = recoilX,
+                playerY = recoilY
+            )
+        }
         idleJob?.cancel()
         idleJob = viewModelScope.launch {
             delay(150)
@@ -722,7 +502,7 @@ class ZombieGameViewModel(
     }
 
     // OFFLINE: muerte + drop + victoria (online lo decide el servidor).
-    private fun onZombieDeath(dead: ZombieEntity) {
+    internal fun onZombieDeath(dead: ZombieEntity) {
         _state.update { cur ->
             val remaining = cur.zombies.filter { it.id != dead.id }
             val newItems = if (dead.isLootCarrier || Random.nextFloat() < SKILL_DROP_CHANCE) {
@@ -745,7 +525,7 @@ class ZombieGameViewModel(
     }
 
     // ─── APLICAR UN EFECTO RECOGIDO ────────────────────────
-    private fun applyEffect(effect: SkillEffect) {
+    internal fun applyEffect(effect: SkillEffect) {
         when (effect) {
             SkillEffect.CURA_TOTAL -> {
                 _state.update { it.copy(playerHealth = 100f) }
@@ -766,7 +546,7 @@ class ZombieGameViewModel(
     }
 
     // ─── SECUENCIA WASTED ──────────────────────────────────
-    private fun triggerWastedSequence() {
+    internal fun triggerWastedSequence() {
         if (_state.value.showWastedScreen) return
 
         val diedInRoom = currentRoom()
@@ -804,6 +584,20 @@ class ZombieGameViewModel(
             applyEffect(item.effect)
             return
         }
+        // 2b. Mano zombi en lobby
+        if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID) {
+            val handNx = 0.50f
+            val handNy = 0.45f
+            val room = currentRoom()
+            val handWx = handNx * room.worldWidth
+            val handWy = handNy * room.worldHeight
+            val distToHand = hypot(s.playerX - handWx, s.playerY - handWy)
+            if (distToHand < 80f) {
+                goToRoom("za_auditorio")
+                return
+            }
+        }
+
         // 2. Puertas
         val room = currentRoom()
         val door = room.doors.firstOrNull {
@@ -852,7 +646,7 @@ class ZombieGameViewModel(
         applyMovement(s.playerX + dx, s.playerY + dy, dx)
     }
 
-    private fun applyMovement(newX: Float, newY: Float, dxForFacing: Float) {
+    internal fun applyMovement(newX: Float, newY: Float, dxForFacing: Float) {
         val curX = _state.value.playerX
         val curY = _state.value.playerY
 
@@ -887,12 +681,19 @@ class ZombieGameViewModel(
         updateDoorPrompt(fx, fy)
     }
 
-    private fun updateDoorPrompt(px: Float, py: Float) {
+    internal fun updateDoorPrompt(px: Float, py: Float) {
         val room = currentRoom()
         val door = room.doors.firstOrNull {
             it.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight).contains(px, py)
         }
-        val label = door?.let { "${it.label}  (X)" }
+        val handLabel = if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID) {
+            val room = currentRoom()
+            val handWx = 0.50f * room.worldWidth
+            val handWy = 0.45f * room.worldHeight
+            if (hypot(px - handWx, py - handWy) < 80f) "Mano Misteriosa  (X)" else null
+        } else null
+
+        val label = handLabel ?: door?.let { "${it.label}  (X)" }
         if (_state.value.nearbyDoorLabel != label) {
             _state.update { it.copy(nearbyDoorLabel = label) }
         }
@@ -1047,7 +848,7 @@ class ZombieGameViewModel(
     // borde como pared, interior totalmente caminable. Es un punto de partida
     // NEUTRO (no inventa obstáculos) — tú pintas las paredes reales encima del
     // dibujo del cuarto. Más columnas = trazo más fino.
-    private fun defaultDesignerRows(room: ZombieRoom): List<String> {
+    internal fun defaultDesignerRows(room: ZombieRoom): List<String> {
         val cols = 30
         val numRows = if (room.type == ZoneType.LOBBY) 30 else 20
         return (0 until numRows).map { r ->

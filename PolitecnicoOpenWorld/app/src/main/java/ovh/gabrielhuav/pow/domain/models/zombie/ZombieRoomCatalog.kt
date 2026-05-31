@@ -48,10 +48,11 @@ object ZombieRoomCatalog {
         ZoneDoor(NormRect(0.57f, 0.14f, 0.67f, 0.22f), "za_estacionamiento", "Estacionamiento", DoorKind.TO_BUILDING),
         ZoneDoor(NormRect(0.18f, 0.14f, 0.28f, 0.22f), "za_palapas", "Palapas", DoorKind.TO_BUILDING),
         ZoneDoor(NormRect(0.64f, 0.38f, 0.76f, 0.50f), "za_canchas_futbol", "Canchas de Futbol", DoorKind.TO_BUILDING),
-        ZoneDoor(NormRect(0.40f, 0.90f, 0.60f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
+        ZoneDoor(NormRect(0.55f, 0.24f, 0.69f, 0.32f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
     )
 
     private fun buildingDoors(index: Int): List<ZoneDoor> {
+
         val next = buildingOrder[(index + 1) % buildingOrder.size]
         val prev = buildingOrder[(index - 1 + buildingOrder.size) % buildingOrder.size]
         return listOf(
@@ -81,7 +82,7 @@ object ZombieRoomCatalog {
                 worldWidth = 1700f,
                 worldHeight = 2100f,
                 zoom = 2.2f,
-                playerSpawnFrac = NormPoint(0.50f, 0.86f),
+                playerSpawnFrac = NormPoint(0.62f, 0.28f),
                 doors = lobbyDoors,
                 zombieCount = 0,
                 collisionMatrix = LOBBY_MATRIX

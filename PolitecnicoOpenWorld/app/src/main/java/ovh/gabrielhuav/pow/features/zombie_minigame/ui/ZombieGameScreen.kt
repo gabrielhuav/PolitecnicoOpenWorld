@@ -4,9 +4,14 @@ import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -47,7 +52,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
+import kotlin.random.Random
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
@@ -58,6 +66,13 @@ import kotlin.math.max
 
 private const val ZOMBIE_SPRITE_BASE = 60f
 private const val PLAYER_SPRITE_BASE = 56f
+
+// Colores de las auras de luz. Constantes top-level para no asignar la lista
+// en cada drawCircle de cada frame (presión de GC en gama baja).
+private val PLAYER_LIGHT_COLORS = listOf(Color(0x80FFF59D), Color(0x33FFEB3B), Color.Transparent)
+private val ZOMBIE_LIGHT_COLORS = listOf(Color(0x6676FF03), Color(0x2664DD17), Color.Transparent)
+private val PLAYER_LIGHT_RADIUS = PLAYER_SPRITE_BASE * 2.5f
+private val ZOMBIE_LIGHT_RADIUS = ZOMBIE_SPRITE_BASE * 2f
 
 @Composable
 fun ZombieGameScreen(
@@ -98,15 +113,74 @@ fun ZombieGameScreen(
         }
     }
 
+    // ─── FEEDBACK DE DAÑO: screen shake + flash/viñeta roja ──────────────────
+    // Screen shake disparado por cada incremento de damagePulseTrigger (recibir daño).
+    var shakeX by remember { mutableStateOf(0f) }
+    var shakeY by remember { mutableStateOf(0f) }
+    // Flash rojo breve al recibir daño.
+    var flashAlpha by remember { mutableStateOf(0f) }
+    LaunchedEffect(state.damagePulseTrigger) {
+        if (state.damagePulseTrigger > 0) {
+            flashAlpha = 0.5f
+            val steps = 9
+            val intensity = 26f
+            for (i in 0 until steps) {
+                val decay = 1f - i / steps.toFloat()
+                shakeX = (Random.nextFloat() * 2f - 1f) * intensity * decay
+                shakeY = (Random.nextFloat() * 2f - 1f) * intensity * decay
+                flashAlpha = 0.5f * decay
+                delay(28)
+            }
+            shakeX = 0f; shakeY = 0f; flashAlpha = 0f
+        }
+    }
+    // Pulso de vida baja: la viñeta roja late cuando el jugador está crítico.
+    val lowHp = state.playerHealth <= 35f && state.playerHealth > 0f
+    val lowHpTransition = rememberInfiniteTransition(label = "lowHp")
+    val lowHpPulse by lowHpTransition.animateFloat(
+        initialValue = 0.10f, targetValue = 0.34f,
+        animationSpec = infiniteRepeatable(tween(620), RepeatMode.Reverse),
+        label = "lowHpPulse"
+    )
+    // La intensidad base de la viñeta escala con la vida perdida.
+    val hpLossFactor = (1f - state.playerHealth / 100f).coerceIn(0f, 1f)
+    val vignetteAlpha = (hpLossFactor * 0.32f +
+            (if (lowHp) lowHpPulse else 0f) +
+            flashAlpha).coerceIn(0f, 0.85f)
+
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D11))) {
 
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset { IntOffset(shakeX.roundToInt(), shakeY.roundToInt()) }
+        ) {
             val viewportWpx = with(density) { maxWidth.toPx() }
             val viewportHpx = with(density) { maxHeight.toPx() }
 
             val cam = remember(state.playerX, state.playerY, viewportWpx, viewportHpx, room.id) {
                 computeCamera(state.playerX, state.playerY, room.worldWidth, room.worldHeight, viewportWpx, viewportHpx, room.zoom)
             }
+
+            // Brushes de luz reutilizables: centrados en (0,0) y dibujados con translate,
+            // así un único shader sirve para todas las entidades (antes se creaba uno por
+            // entidad por frame). 'remember' evita recrearlos en cada recomposición.
+            val playerLightBrush = remember {
+                Brush.radialGradient(PLAYER_LIGHT_COLORS, center = Offset.Zero, radius = PLAYER_LIGHT_RADIUS)
+            }
+            val zombieLightBrush = remember {
+                Brush.radialGradient(ZOMBIE_LIGHT_COLORS, center = Offset.Zero, radius = ZOMBIE_LIGHT_RADIUS)
+            }
+
+            // Límites del mundo visibles (frustum culling). Solo dibujamos/recomponemos
+            // entidades dentro de esta ventana + un margen, evitando trabajo fuera de pantalla.
+            val cullMargin = ZOMBIE_SPRITE_BASE
+            val viewLeft = (-cam.offsetX) / cam.scale - cullMargin
+            val viewTop = (-cam.offsetY) / cam.scale - cullMargin
+            val viewRight = (viewportWpx - cam.offsetX) / cam.scale + cullMargin
+            val viewBottom = (viewportHpx - cam.offsetY) / cam.scale + cullMargin
+            fun onScreen(wx: Float, wy: Float) =
+                wx >= viewLeft && wx <= viewRight && wy >= viewTop && wy <= viewBottom
 
             // ─── CAPA DEL MUNDO (fondo) ─────────────────────────
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -133,39 +207,18 @@ fun ZombieGameScreen(
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     translate(cam.offsetX, cam.offsetY) {
                         scale(cam.scale, cam.scale, pivot = Offset.Zero) {
-                            val playerLightRadius = PLAYER_SPRITE_BASE * 2.5f
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(Color(0x80FFF59D), Color(0x33FFEB3B), Color.Transparent),
-                                    center = Offset(state.playerX, state.playerY),
-                                    radius = playerLightRadius
-                                ),
-                                radius = playerLightRadius,
-                                center = Offset(state.playerX, state.playerY)
-                            )
-                            state.remotePlayers.forEach { rp ->
-                                drawCircle(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(Color(0x80FFF59D), Color(0x33FFEB3B), Color.Transparent),
-                                        center = Offset(rp.x, rp.y),
-                                        radius = playerLightRadius
-                                    ),
-                                    radius = playerLightRadius,
-                                    center = Offset(rp.x, rp.y)
-                                )
+                            // Un solo shader por tipo, posicionado con translate (sin recrear gradientes).
+                            translate(state.playerX, state.playerY) {
+                                drawCircle(playerLightBrush, PLAYER_LIGHT_RADIUS, Offset.Zero)
                             }
-                            val zombieLightRadius = ZOMBIE_SPRITE_BASE * 2f
+                            state.remotePlayers.forEach { rp ->
+                                if (onScreen(rp.x, rp.y)) translate(rp.x, rp.y) {
+                                    drawCircle(playerLightBrush, PLAYER_LIGHT_RADIUS, Offset.Zero)
+                                }
+                            }
                             state.zombies.forEach { z ->
-                                if (!z.isDying) {
-                                    drawCircle(
-                                        brush = Brush.radialGradient(
-                                            colors = listOf(Color(0x6676FF03), Color(0x2664DD17), Color.Transparent),
-                                            center = Offset(z.x, z.y),
-                                            radius = zombieLightRadius
-                                        ),
-                                        radius = zombieLightRadius,
-                                        center = Offset(z.x, z.y)
-                                    )
+                                if (!z.isDying && onScreen(z.x, z.y)) translate(z.x, z.y) {
+                                    drawCircle(zombieLightBrush, ZOMBIE_LIGHT_RADIUS, Offset.Zero)
                                 }
                             }
                         }
@@ -212,6 +265,7 @@ fun ZombieGameScreen(
 
                 // Items en el suelo
                 state.items.forEach { item ->
+                    if (!onScreen(item.x, item.y)) return@forEach
                     SkillGroundItem(
                         effect = item.effect,
                         highlighted = state.nearbyItemId == item.id,
@@ -225,6 +279,7 @@ fun ZombieGameScreen(
                 // Proyectiles
                 val bulletSize = 10f * cam.scale
                 state.projectiles.forEach { p ->
+                    if (!onScreen(p.x, p.y)) return@forEach
                     Box(
                         modifier = Modifier.absoluteOffset(
                             x = with(density) { toScreenX(p.x).toDp() } - with(density) { (bulletSize / 2).toDp() },
@@ -239,6 +294,7 @@ fun ZombieGameScreen(
                 // Zombis
                 val zSize = ZOMBIE_SPRITE_BASE * cam.scale
                 state.zombies.forEach { z ->
+                    if (!onScreen(z.x, z.y)) return@forEach
                     key(z.id) {
                         ZombieView(
                             type = z.type, frameIndex = z.frameIndex, facingRight = z.facingRight,
@@ -255,6 +311,7 @@ fun ZombieGameScreen(
                 // Jugadores remotos
                 val rpSize = PLAYER_SPRITE_BASE * cam.scale
                 state.remotePlayers.forEach { rp ->
+                    if (!onScreen(rp.x, rp.y)) return@forEach
                     key(rp.id) {
                         RemotePlayerView(
                             name = rp.displayName,
@@ -264,6 +321,28 @@ fun ZombieGameScreen(
                             modifier = Modifier.absoluteOffset(
                                 x = with(density) { toScreenX(rp.x).toDp() } - with(density) { (rpSize / 2).toDp() },
                                 y = with(density) { toScreenY(rp.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                            )
+                        )
+                    }
+                }
+
+                // ─── CAPA DE NEBLINA (fog of war) centrada en el jugador ──────────
+                if (!state.designerMode) {
+                    val fogCx = toScreenX(state.playerX)
+                    val fogCy = toScreenY(state.playerY)
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val reveal = size.minDimension * 0.50f
+                        val outer = reveal * 1.9f
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    (reveal / outer) to Color.Transparent,
+                                    0.86f to Color(0xC005060A),
+                                    1.0f to Color(0xEE05060A)
+                                ),
+                                center = Offset(fogCx, fogCy),
+                                radius = outer
                             )
                         )
                     }
@@ -279,6 +358,37 @@ fun ZombieGameScreen(
                         y = with(density) { toScreenY(state.playerY).toDp() } - with(density) { (pSize / 2).toDp() }
                     )
                 )
+            }
+            // ─── Mano zombi fija en el lobby ────────────────────────────
+            if (room.id == ZombieRoomCatalog.LOBBY_ID) {
+                val handNx = 0.50f
+                val handNy = 0.45f
+                val handSizePx = 64f * cam.scale
+                val handSizeDp = with(density) { handSizePx.toDp() }
+                val handScreenX = cam.offsetX + handNx * room.worldWidth * cam.scale
+                val handScreenY = cam.offsetY + handNy * room.worldHeight * cam.scale
+
+                var handBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+                LaunchedEffect(Unit) {
+                    handBitmap = withContext(Dispatchers.IO) {
+                        try {
+                            context.assets.open("ZOMBIS_MOD/zombi_hand.webp")
+                                .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+                        } catch (e: Exception) { null }
+                    }
+                }
+                handBitmap?.let { bmp ->
+                    Image(
+                        bitmap = bmp,
+                        contentDescription = "Mano Zombi",
+                        modifier = Modifier
+                            .absoluteOffset(
+                                x = with(density) { (handScreenX - handSizePx / 2f).toDp() },
+                                y = with(density) { (handScreenY - handSizePx / 2f).toDp() }
+                            )
+                            .size(handSizeDp)
+                    )
+                }
             }
 
             // ─── CAPA DEL MODO DISEÑADOR (rejilla editable) ─────
@@ -297,6 +407,20 @@ fun ZombieGameScreen(
 
         if (background == null) {
             Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Color(0xFFD4AF37)) }
+        }
+
+        // ─── VIÑETA / FLASH ROJO DE DAÑO ────────────────────────────────────
+        // Capa no interactiva sobre el mundo: borde rojo radial cuya intensidad
+        // escala con la vida perdida, late en vida baja y destella al recibir daño.
+        if (vignetteAlpha > 0.01f) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val brush = Brush.radialGradient(
+                    colors = listOf(Color.Transparent, Color.Red.copy(alpha = vignetteAlpha)),
+                    center = Offset(size.width / 2f, size.height / 2f),
+                    radius = max(size.width, size.height) * 0.72f
+                )
+                drawRect(brush = brush)
+            }
         }
 
         // IMPORTANTE (orden de capas / z-order en Compose):
