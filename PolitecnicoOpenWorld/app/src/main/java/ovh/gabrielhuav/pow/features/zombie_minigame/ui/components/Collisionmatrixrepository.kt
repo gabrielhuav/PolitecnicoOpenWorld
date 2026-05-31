@@ -33,12 +33,22 @@ object CollisionMatrixRepository {
 
     private fun file(context: Context) = File(context.filesDir, FILE_NAME)
 
-    private fun readStore(context: Context): Store = try {
-        val f = file(context)
-        if (!f.exists()) Store()
-        else gson.fromJson(f.readText(), Store::class.java) ?: Store()
+    /** Matrices de fábrica empaquetadas en assets/collision_matrices.json (si existe). */
+    private fun readAssetStore(context: Context): Store = try {
+        context.assets.open(FILE_NAME).use { input ->
+            gson.fromJson(input.reader().readText(), Store::class.java) ?: Store()
+        }
     } catch (e: Exception) {
         Store()
+    }
+
+    private fun readStore(context: Context): Store = try {
+        val f = file(context)
+        // Sin archivo local (instalación nueva) → usar las matrices de fábrica del asset.
+        if (!f.exists()) readAssetStore(context)
+        else gson.fromJson(f.readText(), Store::class.java) ?: readAssetStore(context)
+    } catch (e: Exception) {
+        readAssetStore(context)
     }
 
     private fun writeStore(context: Context, store: Store) {

@@ -355,6 +355,145 @@ class WorldMapViewModel(
         _uiState.update { it.copy(mapProvider = provider, tileSource = ts, zoomLevel = newZoom) }
     }
 
+    // ─── CAMBIO DE PROVEEDOR CON PRECARGA + AVISO ─────────────────────────────
+    private var providerPreloadJob: Job? = null
+
+    /**
+     * Solicita cambiar de proveedor SIN interrumpir el actual: lo precarga en
+     * segundo plano. Cuando termina, 'pendingProviderReady' se pone en true y la
+     * UI avisa para confirmar el cambio.
+     */
+    fun requestMapProvider(provider: MapProvider) {
+        val st = _uiState.value
+        if (provider == st.mapProvider) {
+            // El destino ya es el activo: descartar cualquier pendiente.
+            if (st.pendingProvider != null) {
+                providerPreloadJob?.cancel()
+                _uiState.update { it.copy(pendingProvider = null, pendingProviderReady = false) }
+            }
+            return
+        }
+        if (provider == st.pendingProvider) return // ya se está precargando
+
+        providerPreloadJob?.cancel()
+        _uiState.update { it.copy(pendingProvider = provider, pendingProviderReady = false) }
+        providerPreloadJob = viewModelScope.launch {
+            preloadProvider(provider)
+            if (isActive && _uiState.value.pendingProvider == provider) {
+                _uiState.update { it.copy(pendingProviderReady = true) }
+            }
+        }
+    }
+
+    /** Aplica el proveedor ya precargado (lo invoca el botón "Cambiar"). */
+    fun commitMapProvider() {
+        val p = _uiState.value.pendingProvider ?: return
+        providerPreloadJob?.cancel()
+        _uiState.update { it.copy(pendingProvider = null, pendingProviderReady = false) }
+        setMapProvider(p)
+    }
+
+    /** Descarta el cambio pendiente y se queda con el proveedor actual. */
+    fun cancelPendingProvider() {
+        providerPreloadJob?.cancel()
+        _uiState.update { it.copy(pendingProvider = null, pendingProviderReady = false) }
+    }
+
+    /** Calienta tiles/conexión del nuevo proveedor para que el cambio sea fluido. */
+    private suspend fun preloadProvider(provider: MapProvider): Boolean = withContext(Dispatchers.IO) {
+        if (!provider.isWebProvider) { delay(400); return@withContext true } // nativo/local
+        val loc = _uiState.value.currentLocation ?: run { delay(400); return@withContext false }
+        val z = ZOOM_GAMEPLAY_WEB.toInt()
+        val n = 1 shl z
+        val xCenter = ((loc.longitude + 180.0) / 360.0 * n).toInt().coerceIn(0, n - 1)
+        val latRad = Math.toRadians(loc.latitude)
+        val yCenter = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n)
+            .toInt().coerceIn(0, n - 1)
+        var anyOk = false
+        for (dx in -1..1) for (dy in -1..1) {
+            if (!isActive) break
+            val x = (xCenter + dx).coerceIn(0, n - 1)
+            val y = (yCenter + dy).coerceIn(0, n - 1)
+            tileUrlFor(provider, z, x, y)?.let { if (fetchTile(it)) anyOk = true }
+        }
+        anyOk
+    }
+
+    private fun tileUrlFor(provider: MapProvider, z: Int, x: Int, y: Int): String? {
+        val template = when (provider) {
+            MapProvider.CARTO_DB_DARK  -> "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
+            MapProvider.CARTO_DB_LIGHT -> "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+            MapProvider.ESRI           -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+            MapProvider.ESRI_SATELLITE -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            MapProvider.OPEN_TOPO      -> "https://a.tile.opentopomap.org/{z}/{x}/{y}.png"
+            MapProvider.OSM_WEB        -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            MapProvider.GOOGLE_MAPS    -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            else -> null
+        } ?: return null
+        return template.replace("{z}", z.toString()).replace("{x}", x.toString()).replace("{y}", y.toString())
+    }
+
+    private fun fetchTile(url: String): Boolean = try {
+        val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+            connectTimeout = 4000; readTimeout = 4000
+            setRequestProperty("User-Agent", "PolitecnicoOpenWorld/1.0")
+        }
+        val code = conn.responseCode
+        runCatching { conn.inputStream.use { it.readBytes() } } // descarga para cachear en CDN/SO
+        conn.disconnect()
+        code in 200..299
+    } catch (e: Exception) { false }
+
+    // ─── CARGA INICIAL DEL MAPA (gate de entrada con % de progreso) ───────────
+    private var mapPrepStarted = false
+
+    /**
+     * Descarga el mapa alrededor del spawn ANTES de permitir entrar. Reporta
+     * progreso (0f..1f) en mapLoadProgress y al terminar pone isMapReady=true.
+     * Idempotente: solo corre una vez por sesión de pantalla.
+     */
+    fun prepareMapForEntry() {
+        if (mapPrepStarted) return
+        mapPrepStarted = true
+        viewModelScope.launch {
+            val provider = _uiState.value.mapProvider
+            if (!provider.isWebProvider) {
+                // OSMDroid offline / SDK nativo: tiles locales, progreso rápido.
+                for (i in 1..10) {
+                    _uiState.update { it.copy(mapLoadProgress = i / 10f) }
+                    delay(70)
+                }
+                _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
+                return@launch
+            }
+            downloadMapAround(provider)
+            _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
+        }
+    }
+
+    private suspend fun downloadMapAround(provider: MapProvider): Boolean = withContext(Dispatchers.IO) {
+        val loc = _uiState.value.currentLocation
+            ?: run { _uiState.update { it.copy(mapLoadProgress = 1f) }; return@withContext false }
+        val z = ZOOM_GAMEPLAY_WEB.toInt()
+        val n = 1 shl z
+        val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
+        val latRad = Math.toRadians(loc.latitude)
+        val yC = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n).toInt()
+        val coords = ArrayList<Pair<Int, Int>>()
+        for (dx in -1..1) for (dy in -2..2) coords.add((xC + dx) to (yC + dy)) // 3x5 alrededor
+        val total = coords.size
+        var done = 0
+        var okAny = false
+        for ((x, y) in coords) {
+            if (!isActive) break
+            val xx = x.coerceIn(0, n - 1); val yy = y.coerceIn(0, n - 1)
+            tileUrlFor(provider, z, xx, yy)?.let { if (fetchTile(it)) okAny = true }
+            done++
+            _uiState.update { it.copy(mapLoadProgress = done.toFloat() / total) }
+        }
+        okAny
+    }
+
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
     fun updateShowCacheWidget(show: Boolean) = _uiState.update { it.copy(showCacheWidget = show) }

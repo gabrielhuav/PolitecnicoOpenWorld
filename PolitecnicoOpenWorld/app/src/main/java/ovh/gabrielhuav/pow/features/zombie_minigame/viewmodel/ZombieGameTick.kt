@@ -51,21 +51,22 @@ internal fun ZombieGameViewModel.tick() {
             s.showExitToLobbyDialog || s.designerMode) return
 
         if (isMultiplayer) tickOnline(s, now) else tickOffline(s, now)
-    }
+    }
 
 internal fun ZombieGameViewModel.tickOffline(s: ZombieGameState, now: Long) {
         val room = ZombieRoomCatalog.rooms[s.currentRoomIndex]
 
-        val stillActive = s.activeEffects.filter { it.expiresAtMs > now }
+        val stillActive = if (s.activeEffects.isEmpty()) s.activeEffects
+                          else s.activeEffects.filter { it.expiresAtMs > now }
         val effectsChanged = stillActive.size != s.activeEffects.size
 
-        val speedFactor = run {
+        val speedFactor = if (stillActive.isEmpty()) 1f else run {
             var f = 1f
             if (stillActive.any { it.effect == SkillEffect.RELOJ_ARENA }) f *= SLOW_ZOMBIE_FACTOR
             if (stillActive.any { it.effect == SkillEffect.ADRENALINA_ZOMBI }) f *= FAST_ZOMBIE_FACTOR
             f
         }
-        val dmgFactor = run {
+        val dmgFactor = if (stillActive.isEmpty()) 1f else run {
             var f = 1f
             if (stillActive.any { it.effect == SkillEffect.FURIA_ZOMBI }) f *= ZOMBIE_DMG_FURY_FACTOR
             if (stillActive.any { it.effect == SkillEffect.DEBILIDAD_ZOMBI }) f *= ZOMBIE_DMG_WEAK_FACTOR
@@ -138,14 +139,15 @@ internal fun ZombieGameViewModel.tickOffline(s: ZombieGameState, now: Long) {
                 viewModelScope.launch { delay(1000L); onZombieDeath(deadZombie) }
             }
         }
-    }
+    }
 
 internal fun ZombieGameViewModel.tickOnline(s: ZombieGameState, now: Long) {
         val room = ZombieRoomCatalog.rooms[s.currentRoomIndex]
 
-        val stillActive = s.activeEffects.filter { it.expiresAtMs > now }
+        val stillActive = if (s.activeEffects.isEmpty()) s.activeEffects
+                          else s.activeEffects.filter { it.expiresAtMs > now }
         val effectsChanged = stillActive.size != s.activeEffects.size
-        val dmgFactor = run {
+        val dmgFactor = if (stillActive.isEmpty()) 1f else run {
             var f = 1f
             if (stillActive.any { it.effect == SkillEffect.FURIA_ZOMBI }) f *= ZOMBIE_DMG_FURY_FACTOR
             if (stillActive.any { it.effect == SkillEffect.DEBILIDAD_ZOMBI }) f *= ZOMBIE_DMG_WEAK_FACTOR
@@ -206,7 +208,7 @@ internal fun ZombieGameViewModel.tickOnline(s: ZombieGameState, now: Long) {
                 activeEffects = if (effectsChanged) stillActive else it.activeEffects
             )
         }
-    }
+    }
 
 internal fun ZombieGameViewModel.moveZombie(
         z: ZombieEntity, px: Float, py: Float, now: Long,
@@ -248,7 +250,7 @@ internal fun ZombieGameViewModel.moveZombie(
             lastFrameAdvanceMs = if (advance) now else z.lastFrameAdvanceMs,
             isAttacking = shouldAttack
         )
-    }
+    }
 
 internal fun ZombieGameViewModel.knockbackZombie(
         zx: Float, zy: Float, fromX: Float, fromY: Float, room: ZombieRoom, dist: Float
@@ -265,4 +267,4 @@ internal fun ZombieGameViewModel.knockbackZombie(
             !room.isBlockedPixel(zx, ty) -> zx to ty
             else -> zx to zy
         }
-    }
+    }

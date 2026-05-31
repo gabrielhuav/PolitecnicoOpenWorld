@@ -259,7 +259,22 @@ internal fun NativeOsmMap(
                             val screenDensity = context.resources.displayMetrics.density
                             val highResRenderScale = 1.0f * screenDensity
 
-                            val currentNpcIds = uiState.npcs.map { it.id }.toSet()
+                            // ─── CULLING POR DISTANCIA ──────────────────────────────
+                            // Los NPC siguen en memoria/simulación; solo se crean/actualizan
+                            // marcadores para los que caen dentro del viewport. Los lejanos se
+                            // quitan de las overlays (se recrean al volver a acercarse).
+                            val centerCull = uiState.currentLocation
+                            val visibleNpcs = if (centerCull != null) {
+                                val dm = context.resources.displayMetrics
+                                val minPx = minOf(dm.widthPixels, dm.heightPixels).toDouble()
+                                val radiusM = npcCullRadiusMeters(currentZoom, centerCull.latitude, minPx)
+                                uiState.npcs.filter {
+                                    npcWithinRadius(it.location.latitude, it.location.longitude,
+                                        centerCull.latitude, centerCull.longitude, radiusM)
+                                }
+                            } else uiState.npcs
+
+                            val currentNpcIds = visibleNpcs.map { it.id }.toSet()
                             val iterator = markerCache.iterator()
                             while (iterator.hasNext()) {
                                 val entry = iterator.next()
@@ -269,7 +284,7 @@ internal fun NativeOsmMap(
                                 }
                             }
 
-                            uiState.npcs.forEach { npc ->
+                            visibleNpcs.forEach { npc ->
                                 val id = npc.id
                                 val marker = markerCache[id] ?: Marker(view).apply {
                                     title = "NPC_MARKER"

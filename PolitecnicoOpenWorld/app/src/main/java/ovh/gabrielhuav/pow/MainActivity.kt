@@ -96,8 +96,16 @@ class MainActivity : ComponentActivity() {
                     // 1. EL ORQUESTADOR GLOBAL: Sincroniza los ajustes en segundo plano
                     // Esto evita recomposiciones destructivas al navegar.
                     val settingsState by settingsViewModel.state.collectAsState()
+                    var providerInitialized by remember { mutableStateOf(false) }
                     LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.showRoadNetwork) {
-                        worldMapViewModel.setMapProvider(settingsState.mapProvider)
+                        if (!providerInitialized) {
+                            // Arranque: aplica el proveedor guardado de inmediato (sin aviso).
+                            worldMapViewModel.setMapProvider(settingsState.mapProvider)
+                            providerInitialized = true
+                        } else {
+                            // Cambios posteriores: precarga en segundo plano y avisa para cambiar.
+                            worldMapViewModel.requestMapProvider(settingsState.mapProvider)
+                        }
                         worldMapViewModel.toggleCacheWidget(settingsState.showCacheWidget)
                         worldMapViewModel.toggleFpsWidget(settingsState.showFpsWidget)
                         worldMapViewModel.setShowRoadNetwork(settingsState.showRoadNetwork)

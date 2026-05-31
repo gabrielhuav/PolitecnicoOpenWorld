@@ -36,6 +36,14 @@ data class WorldMapState(
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = ZOOM_LOADING,
     val mapProvider: MapProvider = MapProvider.OSM,
+    // Cambio de proveedor con precarga: el nuevo se precarga en segundo plano mientras
+    // sigues usando el actual. Cuando 'pendingProviderReady' es true, se avisa para cambiar.
+    val pendingProvider: MapProvider? = null,
+    val pendingProviderReady: Boolean = false,
+    // Carga inicial del mapa: se descargan los tiles del proveedor alrededor del
+    // spawn antes de dejar entrar. 'mapLoadProgress' va de 0f a 1f (solo tiles).
+    val isMapReady: Boolean = false,
+    val mapLoadProgress: Float = 0f,
     val showSettingsDialog: Boolean = false,
     val npcs: List<Npc> = emptyList(),
     val isRoadNetworkReady: Boolean = false,

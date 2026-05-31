@@ -67,6 +67,13 @@ import kotlin.math.max
 private const val ZOMBIE_SPRITE_BASE = 60f
 private const val PLAYER_SPRITE_BASE = 56f
 
+// Colores de las auras de luz. Constantes top-level para no asignar la lista
+// en cada drawCircle de cada frame (presión de GC en gama baja).
+private val PLAYER_LIGHT_COLORS = listOf(Color(0x80FFF59D), Color(0x33FFEB3B), Color.Transparent)
+private val ZOMBIE_LIGHT_COLORS = listOf(Color(0x6676FF03), Color(0x2664DD17), Color.Transparent)
+private val PLAYER_LIGHT_RADIUS = PLAYER_SPRITE_BASE * 2.5f
+private val ZOMBIE_LIGHT_RADIUS = ZOMBIE_SPRITE_BASE * 2f
+
 @Composable
 fun ZombieGameScreen(
     onExitToWorld: () -> Unit,
@@ -155,6 +162,26 @@ fun ZombieGameScreen(
                 computeCamera(state.playerX, state.playerY, room.worldWidth, room.worldHeight, viewportWpx, viewportHpx, room.zoom)
             }
 
+            // Brushes de luz reutilizables: centrados en (0,0) y dibujados con translate,
+            // así un único shader sirve para todas las entidades (antes se creaba uno por
+            // entidad por frame). 'remember' evita recrearlos en cada recomposición.
+            val playerLightBrush = remember {
+                Brush.radialGradient(PLAYER_LIGHT_COLORS, center = Offset.Zero, radius = PLAYER_LIGHT_RADIUS)
+            }
+            val zombieLightBrush = remember {
+                Brush.radialGradient(ZOMBIE_LIGHT_COLORS, center = Offset.Zero, radius = ZOMBIE_LIGHT_RADIUS)
+            }
+
+            // Límites del mundo visibles (frustum culling). Solo dibujamos/recomponemos
+            // entidades dentro de esta ventana + un margen, evitando trabajo fuera de pantalla.
+            val cullMargin = ZOMBIE_SPRITE_BASE
+            val viewLeft = (-cam.offsetX) / cam.scale - cullMargin
+            val viewTop = (-cam.offsetY) / cam.scale - cullMargin
+            val viewRight = (viewportWpx - cam.offsetX) / cam.scale + cullMargin
+            val viewBottom = (viewportHpx - cam.offsetY) / cam.scale + cullMargin
+            fun onScreen(wx: Float, wy: Float) =
+                wx >= viewLeft && wx <= viewRight && wy >= viewTop && wy <= viewBottom
+
             // ─── CAPA DEL MUNDO (fondo) ─────────────────────────
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val bg = background ?: return@Canvas
@@ -180,39 +207,18 @@ fun ZombieGameScreen(
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     translate(cam.offsetX, cam.offsetY) {
                         scale(cam.scale, cam.scale, pivot = Offset.Zero) {
-                            val playerLightRadius = PLAYER_SPRITE_BASE * 2.5f
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(Color(0x80FFF59D), Color(0x33FFEB3B), Color.Transparent),
-                                    center = Offset(state.playerX, state.playerY),
-                                    radius = playerLightRadius
-                                ),
-                                radius = playerLightRadius,
-                                center = Offset(state.playerX, state.playerY)
-                            )
-                            state.remotePlayers.forEach { rp ->
-                                drawCircle(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(Color(0x80FFF59D), Color(0x33FFEB3B), Color.Transparent),
-                                        center = Offset(rp.x, rp.y),
-                                        radius = playerLightRadius
-                                    ),
-                                    radius = playerLightRadius,
-                                    center = Offset(rp.x, rp.y)
-                                )
+                            // Un solo shader por tipo, posicionado con translate (sin recrear gradientes).
+                            translate(state.playerX, state.playerY) {
+                                drawCircle(playerLightBrush, PLAYER_LIGHT_RADIUS, Offset.Zero)
                             }
-                            val zombieLightRadius = ZOMBIE_SPRITE_BASE * 2f
+                            state.remotePlayers.forEach { rp ->
+                                if (onScreen(rp.x, rp.y)) translate(rp.x, rp.y) {
+                                    drawCircle(playerLightBrush, PLAYER_LIGHT_RADIUS, Offset.Zero)
+                                }
+                            }
                             state.zombies.forEach { z ->
-                                if (!z.isDying) {
-                                    drawCircle(
-                                        brush = Brush.radialGradient(
-                                            colors = listOf(Color(0x6676FF03), Color(0x2664DD17), Color.Transparent),
-                                            center = Offset(z.x, z.y),
-                                            radius = zombieLightRadius
-                                        ),
-                                        radius = zombieLightRadius,
-                                        center = Offset(z.x, z.y)
-                                    )
+                                if (!z.isDying && onScreen(z.x, z.y)) translate(z.x, z.y) {
+                                    drawCircle(zombieLightBrush, ZOMBIE_LIGHT_RADIUS, Offset.Zero)
                                 }
                             }
                         }
@@ -259,6 +265,7 @@ fun ZombieGameScreen(
 
                 // Items en el suelo
                 state.items.forEach { item ->
+                    if (!onScreen(item.x, item.y)) return@forEach
                     SkillGroundItem(
                         effect = item.effect,
                         highlighted = state.nearbyItemId == item.id,
@@ -272,6 +279,7 @@ fun ZombieGameScreen(
                 // Proyectiles
                 val bulletSize = 10f * cam.scale
                 state.projectiles.forEach { p ->
+                    if (!onScreen(p.x, p.y)) return@forEach
                     Box(
                         modifier = Modifier.absoluteOffset(
                             x = with(density) { toScreenX(p.x).toDp() } - with(density) { (bulletSize / 2).toDp() },
@@ -286,6 +294,7 @@ fun ZombieGameScreen(
                 // Zombis
                 val zSize = ZOMBIE_SPRITE_BASE * cam.scale
                 state.zombies.forEach { z ->
+                    if (!onScreen(z.x, z.y)) return@forEach
                     key(z.id) {
                         ZombieView(
                             type = z.type, frameIndex = z.frameIndex, facingRight = z.facingRight,
@@ -302,6 +311,7 @@ fun ZombieGameScreen(
                 // Jugadores remotos
                 val rpSize = PLAYER_SPRITE_BASE * cam.scale
                 state.remotePlayers.forEach { rp ->
+                    if (!onScreen(rp.x, rp.y)) return@forEach
                     key(rp.id) {
                         RemotePlayerView(
                             name = rp.displayName,
@@ -311,6 +321,28 @@ fun ZombieGameScreen(
                             modifier = Modifier.absoluteOffset(
                                 x = with(density) { toScreenX(rp.x).toDp() } - with(density) { (rpSize / 2).toDp() },
                                 y = with(density) { toScreenY(rp.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                            )
+                        )
+                    }
+                }
+
+                // ─── CAPA DE NEBLINA (fog of war) centrada en el jugador ──────────
+                if (!state.designerMode) {
+                    val fogCx = toScreenX(state.playerX)
+                    val fogCy = toScreenY(state.playerY)
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val reveal = size.minDimension * 0.50f
+                        val outer = reveal * 1.9f
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    (reveal / outer) to Color.Transparent,
+                                    0.86f to Color(0xC005060A),
+                                    1.0f to Color(0xEE05060A)
+                                ),
+                                center = Offset(fogCx, fogCy),
+                                radius = outer
                             )
                         )
                     }

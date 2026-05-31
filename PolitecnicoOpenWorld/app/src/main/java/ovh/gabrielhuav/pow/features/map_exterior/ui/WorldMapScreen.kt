@@ -11,13 +11,16 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -64,6 +67,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -119,6 +123,39 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import android.util.Log
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
+import kotlin.math.cos
+
+// ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
+// Los NPC siguen viviendo en memoria/simulación; solo dibujamos los que caen
+// dentro del viewport visible. El radio escala con el zoom (metros por pixel),
+// así nunca se ocultan NPCs que de verdad están en pantalla.
+internal const val NPC_CULL_MARGIN_M = 40.0
+
+// "Neblina" tipo Age of Empires: solo se revela un círculo alrededor del jugador.
+// El radio visible es una fracción de la dimensión menor de la pantalla, así que
+// SIEMPRE hay neblina en los bordes (a cualquier zoom). Este mismo radio se usa
+// para el culling de NPCs, de modo que un NPC desaparece justo donde empieza la
+// neblina (no se ven NPCs "dentro" de la oscuridad).
+internal const val NPC_FOG_REVEAL_FRACTION = 0.45f
+
+/**
+ * Radio de culling en metros = radio visible de la neblina convertido a metros
+ * al zoom actual. Mantiene los NPC vivos en memoria; solo limita el dibujado.
+ */
+internal fun npcCullRadiusMeters(zoom: Double, latDeg: Double, screenMinPx: Double): Double {
+    val metersPerPixel = 156543.03392 * cos(Math.toRadians(latDeg)) / 2.0.pow(zoom)
+    val revealPx = screenMinPx * NPC_FOG_REVEAL_FRACTION
+    return revealPx * metersPerPixel + NPC_CULL_MARGIN_M
+}
+
+/** ¿El NPC está dentro del radio del jugador? (aprox. plana, suficiente a esta escala). */
+internal fun npcWithinRadius(
+    npcLat: Double, npcLon: Double, centerLat: Double, centerLon: Double, radiusM: Double
+): Boolean {
+    val dLat = (npcLat - centerLat) * 111_320.0
+    val dLon = (npcLon - centerLon) * 111_320.0 * cos(Math.toRadians(centerLat))
+    return dLat * dLat + dLon * dLon <= radiusM * radiusM
+}
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -217,13 +254,57 @@ fun WorldMapScreen(
 
     Box(modifier = Modifier
         .fillMaxSize()
+        .background(Color(0xFF0D0D11))
         .systemBarsPadding()) {
 
-        if (uiState.isLoadingLocation) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            Text("Iniciando mundo...", modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp))
+        // ─── GATE DE CARGA: no se entra hasta tener ubicación, calles Y mapa ─────
+        // Cuando hay ubicación y calles, se descarga el mapa del proveedor actual.
+        LaunchedEffect(uiState.currentLocation != null, uiState.isRoadNetworkReady) {
+            if (uiState.currentLocation != null && uiState.isRoadNetworkReady) {
+                viewModel.prepareMapForEntry()
+            }
+        }
+        val worldReady = !uiState.isLoadingLocation && uiState.isRoadNetworkReady && uiState.isMapReady
+        if (!worldReady) {
+            // Progreso compuesto: ubicación → calles → descarga de tiles del mapa.
+            val progress = when {
+                uiState.isLoadingLocation -> 0.05f
+                !uiState.isRoadNetworkReady -> 0.25f
+                else -> 0.35f + 0.65f * uiState.mapLoadProgress
+            }.coerceIn(0f, 1f)
+            val statusText = when {
+                uiState.isLoadingLocation -> "Obteniendo tu ubicación..."
+                !uiState.isRoadNetworkReady -> "Cargando las calles..."
+                else -> "Descargando el mapa..."
+            }
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(color = Color(0xFFD4AF37))
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "${(progress * 100).toInt()}%",
+                    color = Color(0xFFD4AF37),
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    statusText,
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Preparando Politécnico Open World",
+                    color = Color(0xFFAAAAAA),
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
             return@Box
         }
 
@@ -382,7 +463,19 @@ fun WorldMapScreen(
                         val currentZoom = uiState.zoomLevel
                         val renderZoom = round(currentZoom * 2) / 2.0
 
+                        // Culling por neblina: solo se dibujan los NPC dentro del círculo revelado.
+                        val dmCull = context.resources.displayMetrics
+                        val minPxCull = minOf(dmCull.widthPixels, dmCull.heightPixels).toDouble()
+                        val centerCull = uiState.currentLocation
+                        val cullRadiusM = centerCull?.let {
+                            npcCullRadiusMeters(currentZoom, it.latitude, minPxCull)
+                        }
+
                         uiState.npcs.forEach { npc ->
+                            if (cullRadiusM != null && centerCull != null &&
+                                !npcWithinRadius(npc.location.latitude, npc.location.longitude,
+                                    centerCull.latitude, centerCull.longitude, cullRadiusM)
+                            ) return@forEach
                             key(npc.id) {
                                 val qHealth = npc.health.toInt()
                                 val cacheKey = when {
@@ -554,7 +647,23 @@ fun WorldMapScreen(
 
                         val density = context.resources.displayMetrics.density
                         val highResRenderScale = 1.0f * density
-                        val npcPayloads = uiState.npcs.map { npc ->
+
+                        // Culling por distancia: solo enviamos al WebView los NPC dentro del
+                        // viewport. Evita generar bitmaps/base64 y marcadores JS para NPC lejanos.
+                        val dmCullW = context.resources.displayMetrics
+                        val minPxCullW = minOf(dmCullW.widthPixels, dmCullW.heightPixels).toDouble()
+                        val centerCullW = uiState.currentLocation
+                        val cullRadiusMW = centerCullW?.let {
+                            npcCullRadiusMeters(uiState.zoomLevel, it.latitude, minPxCullW)
+                        }
+                        val visibleNpcs = if (cullRadiusMW != null && centerCullW != null) {
+                            uiState.npcs.filter {
+                                npcWithinRadius(it.location.latitude, it.location.longitude,
+                                    centerCullW.latitude, centerCullW.longitude, cullRadiusMW)
+                            }
+                        } else uiState.npcs
+
+                        val npcPayloads = visibleNpcs.map { npc ->
                             if (npc.type == NpcType.CAR) {
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
@@ -653,6 +762,28 @@ fun WorldMapScreen(
             }
         }
 
+        // ─── CAPA DE NEBLINA (fog of war estilo Age of Empires) ──────────────
+        // Solo se revela un círculo alrededor del jugador (centro de pantalla).
+        // Se oculta durante el paneo, cuando el jugador no está centrado.
+        if (!uiState.isUserPanningMap) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val reveal = size.minDimension * NPC_FOG_REVEAL_FRACTION
+                val outer = reveal * 1.9f
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.Transparent,
+                            (reveal / outer) to Color.Transparent,
+                            0.86f to Color(0xCC05060A),
+                            1.0f to Color(0xF205060A)
+                        ),
+                        center = center,
+                        radius = outer
+                    )
+                )
+            }
+        }
+
         if (!uiState.isUserPanningMap) {
             PlayerCharacter(uiState = uiState, modifier = Modifier.align(Alignment.Center), health = viewModel.playerHealth, showHealthBar = viewModel.showHealthBar, damagePulseTrigger = viewModel.damagePulseTrigger)
         }
@@ -722,6 +853,40 @@ fun WorldMapScreen(
                             webViewRef.value?.evaluateJavascript("if(window.Android && window.Android.notifyCenterForWaypoint) { var c = map.getCenter(); window.Android.notifyCenterForWaypoint(c.lat, c.lng); }", null)
                         }
                     }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)), shape = RoundedCornerShape(24.dp), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)) { Text("ESTABLECER DESTINO", fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+
+        // ─── AVISO DE CAMBIO DE PROVEEDOR (precarga en segundo plano) ─────────
+        val pending = uiState.pendingProvider
+        if (pending != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 12.dp)
+                    .background(Color(0xE61A1A22), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                if (!uiState.pendingProviderReady) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CircularProgressIndicator(Modifier.size(16.dp), Color(0xFFD4AF37), strokeWidth = 2.dp)
+                        Text("Preparando ${pending.displayName}...", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("${pending.displayName} listo ✓", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = { viewModel.commitMapProvider() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                                shape = RoundedCornerShape(20.dp)
+                            ) { Text("Cambiar", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                            TextButton(onClick = { viewModel.cancelPendingProvider() }) {
+                                Text("Descartar", color = Color(0xFFCCCCCC), fontSize = 13.sp)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -866,4 +1031,4 @@ fun WorldMapScreen(
                 .background(Color.Black.copy(alpha = escomFadeAlpha.value))
         )
     }
-}
+}
