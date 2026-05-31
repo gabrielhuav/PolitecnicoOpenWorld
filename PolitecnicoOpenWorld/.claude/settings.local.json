@@ -6,7 +6,8 @@
       "PowerShell(& \"C:\\\\Users\\\\hugoc\\\\AndroidStudioProjects\\\\PolitecnicoOpenWorld_Zombies\\\\PolitecnicoOpenWorld\\\\gradlew.bat\" assembleDebug 2>&1 | Select-Object -Last 200)",
       "Bash(gradle *)",
       "Bash($GRADLE_HOME/bin/gradle *)",
-      "Bash(./gradlew assembleDebug --rerun-tasks)"
+      "Bash(./gradlew assembleDebug --rerun-tasks)",
+      "Bash(./gradlew compileDebugKotlin)"
     ]
   }
 }

@@ -10,6 +10,7 @@ import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
 import ovh.gabrielhuav.pow.domain.models.MapWay
+import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
 
 // ─── COLECCIONABLES ───────────────────────────────────────────────────────────
 
@@ -21,14 +22,14 @@ internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerL
         try {
             val uncollected = collectibleRepository.getUncollectedCollectibles()
             if (uncollected.isNotEmpty()) {
-                val itemToSpawn     = uncollected.random()
-                val bearing         = Math.random() * 2 * Math.PI
-                val distanceMeters  = 300.0 + Math.random() * 300.0
-                val clampedLat      = playerLat.coerceIn(-85.0, 85.0)
-                val deltaLat        = (distanceMeters * Math.cos(bearing)) / 111000.0
-                val deltaLon        = (distanceMeters * Math.sin(bearing)) / (111000.0 * Math.cos(Math.toRadians(clampedLat)))
-                val tempLoc         = GeoPoint(playerLat + deltaLat, playerLon + deltaLon)
-                val spawnNode       = getNearestPointOnNetwork(tempLoc)
+                val itemToSpawn    = uncollected.random()
+                val bearing        = Math.random() * 2 * Math.PI
+                val distanceMeters = 300.0 + Math.random() * 300.0
+                val clampedLat     = playerLat.coerceIn(-85.0, 85.0)
+                val deltaLat       = (distanceMeters * Math.cos(bearing)) / 111000.0
+                val deltaLon       = (distanceMeters * Math.sin(bearing)) / (111000.0 * Math.cos(Math.toRadians(clampedLat)))
+                val tempLoc        = GeoPoint(playerLat + deltaLat, playerLon + deltaLon)
+                val spawnNode      = getNearestPointOnNetwork(tempLoc)
                 val activeItem = ActiveCollectible(
                     id          = itemToSpawn.id,
                     name        = itemToSpawn.name,
@@ -48,14 +49,26 @@ internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerL
 }
 
 internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, playerLon: Double) {
-    val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value
+    val doorLandmarkItems = _uiState.value.landmarks
+        .filter { it.assetPath == ESCOM_DOOR_ASSET }
+        .map { lm ->
+            ActiveCollectible(
+                id          = "escom_door_lm_${lm.id}",
+                name        = "Puerta ESCOM",
+                description = "door",
+                assetPath   = ESCOM_DOOR_ASSET,
+                latitude    = lm.location.latitude,
+                longitude   = lm.location.longitude
+            )
+        }
+    val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value + doorLandmarkItems
     val playerGeo  = GeoPoint(playerLat, playerLon)
     val activeItem = allPossibleItems.minByOrNull {
         playerGeo.distanceToAsDouble(GeoPoint(it.latitude, it.longitude))
     } ?: return
 
-    val itemGeo              = GeoPoint(activeItem.latitude, activeItem.longitude)
-    val distanceInMeters     = playerGeo.distanceToAsDouble(itemGeo)
+    val itemGeo          = GeoPoint(activeItem.latitude, activeItem.longitude)
+    val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
     val INTERACT_RADIUS_METERS = 15.0
 
     if (distanceInMeters <= INTERACT_RADIUS_METERS) {
@@ -63,10 +76,11 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
             _uiState.update { it.copy(nearbyCollectible = activeItem) }
             promptJob?.cancel()
             promptJob = viewModelScope.launch {
-                val promptText = if (activeItem.name == "Objeto Misterioso ESCOM") {
-                    "PRESIONA X PARA INTERACTUAR"
-                } else {
-                    "PRESIONA X PARA RECOGER"
+                val promptText = when {
+                    activeItem.name == "Objeto Misterioso ESCOM"  -> "PRESIONA X PARA INTERACTUAR"
+                    activeItem.id   == ShineCTOLocation.MARKER_ID -> "PRESIONA X PARA DESCUBRIR"
+                    activeItem.id.startsWith("escom_door_")       -> "PRESIONA X PARA ENTRAR"
+                    else                                           -> "PRESIONA X PARA RECOGER"
                 }
                 _uiState.update { it.copy(interactionPrompt = promptText) }
                 delay(3000)
@@ -107,6 +121,31 @@ fun WorldMapViewModel.dismissClaimedPopup() {
     _uiState.update { it.copy(showClaimedPopupFor = null) }
 }
 
+// ─── SHINE CTO EASTER EGG ────────────────────────────────────────────────────
+
+fun WorldMapViewModel.spawnShineCTOMarker() {
+    val marker = ActiveCollectible(
+        id          = ShineCTOLocation.MARKER_ID,
+        name        = ShineCTOLocation.MARKER_NAME,
+        description = "easter_egg",
+        assetPath   = ShineCTOLocation.MARKER_ASSET,
+        latitude    = ShineCTOLocation.LAT,
+        longitude   = ShineCTOLocation.LON
+    )
+    _uiState.update { currentState ->
+        val others = currentState.activeCollectibles.filter { it.id != ShineCTOLocation.MARKER_ID }
+        currentState.copy(activeCollectibles = others + marker)
+    }
+}
+
+fun WorldMapViewModel.dismissShineCTODiscovery() {
+    _uiState.update { it.copy(showShineCTODiscovery = false, navigateToShineCTO = false) }
+}
+
+fun WorldMapViewModel.navigateToShineCTO() {
+    _uiState.update { it.copy(navigateToShineCTO = true) }
+}
+
 // ─── MANO ZOMBI (ESCOM) ───────────────────────────────────────────────────────
 
 fun WorldMapViewModel.spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 1) {
@@ -134,10 +173,33 @@ fun WorldMapViewModel.spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int =
     _uiState.update { it.copy(isZombieHandSpawned = true) }
 }
 
+fun WorldMapViewModel.spawnEscomDoors() {
+    val doors = listOf(
+        ActiveCollectible(
+            id          = "escom_door_norte",
+            name        = "Puerta Norte ESCOM",
+            description = "door",
+            assetPath   = ESCOM_DOOR_ASSET,
+            latitude    = 19.50490,
+            longitude   = -99.14674
+        ),
+        ActiveCollectible(
+            id          = "escom_door_sur",
+            name        = "Puerta Sur ESCOM",
+            description = "door",
+            assetPath   = ESCOM_DOOR_ASSET,
+            latitude    = 19.50420,
+            longitude   = -99.14674
+        )
+    )
+    _escomItems.value = doors
+    _uiState.update { it.copy(isZombieHandSpawned = true) }
+}
+
 fun WorldMapViewModel.collectEscomItem() {
-    val loc             = _uiState.value.currentLocation ?: return
+    val loc = _uiState.value.currentLocation ?: return
     val interactionRadius = 0.00015
-    val itemToCollect   = _escomItems.value.find {
+    val itemToCollect = _escomItems.value.find {
         distance(loc, GeoPoint(it.latitude, it.longitude)) <= interactionRadius
     }
     if (itemToCollect != null) {
@@ -147,16 +209,23 @@ fun WorldMapViewModel.collectEscomItem() {
 
 fun WorldMapViewModel.handleInteraction() {
     val nearby = _uiState.value.nearbyCollectible ?: return
-    if (nearby.name == "Objeto Misterioso ESCOM") {
-        pendingZombieMinigame = true
-        _uiState.update {
-            it.copy(
-                showZombiVideo              = true,
-                pendingInteriorDestination  = InteriorBuilding.EDIFICIO
-            )
+    when {
+        nearby.name == "Objeto Misterioso ESCOM" -> {
+            pendingZombieMinigame = true
+            _uiState.update {
+                it.copy(
+                    showZombiVideo             = true,
+                    pendingInteriorDestination = InteriorBuilding.EDIFICIO
+                )
+            }
         }
-    } else {
-        onClaimCollectiblePressed()
+        nearby.id == ShineCTOLocation.MARKER_ID -> {
+            _uiState.update { it.copy(showShineCTODiscovery = true) }
+        }
+        nearby.id.startsWith("escom_door_") -> {
+            _uiState.update { it.copy(showEscomDoorFade = true) }
+        }
+        else -> onClaimCollectiblePressed()
     }
 }
 
@@ -170,4 +239,12 @@ fun WorldMapViewModel.clearPendingInteriorDestination() {
 
 fun WorldMapViewModel.clearPendingZombieMinigame() {
     pendingZombieMinigame = false
+}
+
+fun WorldMapViewModel.dismissEscomDoorFade() {
+    _uiState.update { it.copy(showEscomDoorFade = false, escomDoorFadeComplete = true) }
+}
+
+fun WorldMapViewModel.clearEscomDoorFade() {
+    _uiState.update { it.copy(escomDoorFadeComplete = false) }
 }

@@ -1,7 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
 import android.webkit.JavascriptInterface
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.*
 internal class MapJsBridge(private val vm: WorldMapViewModel) {
     @JavascriptInterface fun notifyMapPanStart() { vm.onMapPanStart() }
     @JavascriptInterface fun notifyMapPanEnd() { vm.onMapPanEnd() }
@@ -11,4 +11,4 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
     @JavascriptInterface fun notifyCenterForWaypoint(latitude: Double, longitude: Double) {
         vm.placeDestinationMarker(latitude, longitude)
     }
-}
+}
