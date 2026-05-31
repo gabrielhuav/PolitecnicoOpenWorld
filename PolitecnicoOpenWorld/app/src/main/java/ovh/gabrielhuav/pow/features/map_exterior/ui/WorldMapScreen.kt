@@ -33,10 +33,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Architecture
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -104,6 +107,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteMa
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuGroup
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehiclePedalsController
@@ -243,9 +249,18 @@ fun WorldMapScreen(
     val webViewRef = remember { mutableStateOf<WebView?>(null) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
+    // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
+    var optionsExpanded by remember { mutableStateOf(false) }
+    var optionsOpenGroup by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(uiState.isUserPanningMap) {
         if (!uiState.isUserPanningMap) {
             webViewRef.value?.evaluateJavascript("if(typeof exitExplorationMode==='function')exitExplorationMode();", null)
+        } else {
+            // Al arrastrar el mapa, abrir el menú directamente en el submenú "Mapa"
+            // (zoom, centrar, waypoint…). El acordeón cierra cualquier otro submenú.
+            optionsExpanded = true
+            optionsOpenGroup = "mapa"
         }
     }
 
@@ -799,29 +814,52 @@ fun WorldMapScreen(
             }
         }
 
+        // Arriba a la derecha: Ajustes SIEMPRE visible + UN único menú desplegable
+        // que contiene submenús anidados ("menú de menús"). Así no hay botones
+        // sueltos que se sobrepongan con el mapa. Acordeón: abrir un submenú cierra
+        // el otro. Al arrastrar el mapa, se abre solo en el submenú "Mapa".
         Column(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
             IconButton(onClick = onNavigateToSettings, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
-            IconButton(onClick = { viewModel.toggleSkinSelector(true) }, modifier = Modifier.background(Color(0xFFD91B5B).copy(alpha = 0.9f), CircleShape)) { Icon(Icons.Default.Person, "Cambiar skin", tint = Color.White) }
-            IconButton(onClick = { viewModel.teleportTo(19.5045, -99.1469) }, modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.School, "Ir a ESCOM", tint = Color.White) }
-            IconButton(onClick = { viewModel.toggleDesignerMode(!uiState.isDesignerMode) }, modifier = Modifier.background(if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Architecture, "Modo Diseñador", tint = Color.Black) }
-            IconButton(onClick = { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) }, modifier = Modifier.background(if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.LocationOn, "Debug Interiores", tint = Color.Black) }
-            if (uiState.isDesignerMode) {
-                IconButton(onClick = { viewModel.showAssetPicker(true) }, modifier = Modifier.background(Color(0xFF4CAF50), CircleShape)) { Icon(Icons.Default.Add, "Agregar Asset", tint = Color.White) }
-            }
-        }
-
-        Column(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            IconButton(onClick = { viewModel.zoomIn() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) { Text("+", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
-            IconButton(onClick = { viewModel.zoomOut() }, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape).size(48.dp)) { Text("-", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
-            if (uiState.isUserPanningMap) {
-                IconButton(onClick = { viewModel.centerOnPlayer() }, modifier = Modifier.background(Color(0xFF2196F3), CircleShape).size(48.dp)) { Icon(Icons.Default.Person, "Centrar en personaje", tint = Color.White) }
-            }
-            if (uiState.isUserPanningMap && !uiState.isDesignerMode && !uiState.isDriving) {
-                IconButton(onClick = { viewModel.toggleWaypointTargeting(!uiState.isTargetingWaypoint) }, modifier = Modifier.background(if (uiState.isTargetingWaypoint) Color(0xFFFF5722) else Color(0xFF4CAF50), CircleShape).size(48.dp)) { Icon(Icons.Default.LocationOn, "Apuntar waypoint", tint = Color.White) }
-                if (uiState.destinationMarker != null && !uiState.isTargetingWaypoint) {
-                    IconButton(onClick = { viewModel.clearDestinationMarker() }, modifier = Modifier.background(Color(0xFFE53935), CircleShape).size(48.dp)) { Icon(imageVector = Icons.Default.Add, contentDescription = "Eliminar destino", tint = Color.White, modifier = Modifier.rotate(45f)) }
+            OptionsMenu(
+                expanded = optionsExpanded,
+                onExpandedChange = { optionsExpanded = it },
+                openGroupId = optionsOpenGroup,
+                onOpenGroupChange = { optionsOpenGroup = it },
+                entries = buildList {
+                    add(
+                        OptionMenuGroup(
+                            id = "opciones", label = "Opciones", icon = Icons.Default.Tune,
+                            items = buildList {
+                                add(OptionMenuItem("Cambiar skin", Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                                add(OptionMenuItem("Ir a ESCOM", Icons.Default.School) { viewModel.teleportTo(19.5045, -99.1469) })
+                                add(OptionMenuItem("Modo Diseñador", Icons.Default.Architecture, if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White) { viewModel.toggleDesignerMode(!uiState.isDesignerMode) })
+                                add(OptionMenuItem("Debug Interiores", Icons.Default.LocationOn, if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White) { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) })
+                                if (uiState.isDesignerMode) {
+                                    add(OptionMenuItem("Agregar Asset", Icons.Default.Add, Color(0xFF4CAF50)) { viewModel.showAssetPicker(true) })
+                                }
+                            }
+                        )
+                    )
+                    add(
+                        OptionMenuGroup(
+                            id = "mapa", label = "Mapa", icon = Icons.Default.LocationOn,
+                            items = buildList {
+                                add(OptionMenuItem("Acercar (zoom +)", Icons.Default.Add) { viewModel.zoomIn() })
+                                add(OptionMenuItem("Alejar (zoom −)", Icons.Default.Remove) { viewModel.zoomOut() })
+                                if (uiState.isUserPanningMap) {
+                                    add(OptionMenuItem("Centrar en personaje", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
+                                }
+                                if (uiState.isUserPanningMap && !uiState.isDesignerMode && !uiState.isDriving) {
+                                    add(OptionMenuItem("Apuntar waypoint", Icons.Default.LocationOn, if (uiState.isTargetingWaypoint) Color(0xFFFF5722) else Color(0xFF4CAF50)) { viewModel.toggleWaypointTargeting(!uiState.isTargetingWaypoint) })
+                                    if (uiState.destinationMarker != null && !uiState.isTargetingWaypoint) {
+                                        add(OptionMenuItem("Eliminar destino", Icons.Default.Close, Color(0xFFE53935)) { viewModel.clearDestinationMarker() })
+                                    }
+                                }
+                            }
+                        )
+                    )
                 }
-            }
+            )
         }
 
         if (uiState.isTargetingWaypoint) {

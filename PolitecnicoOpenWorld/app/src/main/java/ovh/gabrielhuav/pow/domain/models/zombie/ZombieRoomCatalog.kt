@@ -85,6 +85,7 @@ object ZombieRoomCatalog {
                 playerSpawnFrac = NormPoint(0.62f, 0.28f),
                 doors = lobbyDoors,
                 zombieCount = 0,
+                gridCols = 30,
                 collisionMatrix = LOBBY_MATRIX
             )
         )
@@ -101,6 +102,7 @@ object ZombieRoomCatalog {
                     playerSpawnFrac = NormPoint(0.50f, 0.55f),
                     doors = buildingDoors(i),
                     zombieCount = 4 + (i % 3),
+                    gridCols = 40,
                     collisionMatrix = BUILDING_MATRIX
                 )
             )

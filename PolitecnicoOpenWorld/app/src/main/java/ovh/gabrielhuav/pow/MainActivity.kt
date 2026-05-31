@@ -348,6 +348,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
+                                onNavigateToSettings = { navController.navigate("settings") },
                                 debugHitboxes = false
                             )
                         }

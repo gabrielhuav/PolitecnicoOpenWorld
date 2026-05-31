@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -59,8 +61,12 @@ import kotlin.random.Random
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
 import ovh.gabrielhuav.pow.features.zombie_minigame.ui.components.CollisionMatrixDesignerLayer
+import ovh.gabrielhuav.pow.features.zombie_minigame.ui.components.WaypointDesignerLayer
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.CameraTransform
+import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.DesignerTarget
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.ZombieGameViewModel
 import kotlin.math.max
 
@@ -79,6 +85,7 @@ fun ZombieGameScreen(
     onExitToWorld: () -> Unit,
     isMultiplayer: Boolean,
     playerName: String,
+    onNavigateToSettings: () -> Unit = {},
     debugHitboxes: Boolean = false
 ) {
     val context = LocalContext.current
@@ -96,6 +103,14 @@ fun ZombieGameScreen(
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { viewModel.importMatricesFromUri(it) } }
+
+    // Export/Import del JSON de waypoints (puertas).
+    val exportWpLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { viewModel.exportWaypointsToUri(it) } }
+    val importWpLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { viewModel.importWaypointsFromUri(it) } }
 
     LaunchedEffect(state.isExitingToWorld) {
         if (state.isExitingToWorld) { viewModel.consumeExit(); onExitToWorld() }
@@ -327,6 +342,8 @@ fun ZombieGameScreen(
                 }
 
                 // ─── CAPA DE NEBLINA (fog of war) centrada en el jugador ──────────
+                // Se dibuja DENTRO de la capa del mundo (debajo del HUD y los
+                // controles) para que SOLO afecte al mapa, nunca a la GUI.
                 if (!state.designerMode) {
                     val fogCx = toScreenX(state.playerX)
                     val fogCy = toScreenY(state.playerY)
@@ -391,9 +408,9 @@ fun ZombieGameScreen(
                 }
             }
 
-            // ─── CAPA DEL MODO DISEÑADOR (rejilla editable) ─────
+            // ─── CAPA DEL MODO DISEÑADOR: MATRIZ (rejilla editable) ─────
             CollisionMatrixDesignerLayer(
-                enabled = state.designerMode,
+                enabled = state.designerMode && state.designerTarget == DesignerTarget.MATRIX,
                 rows = state.designerRows,
                 worldWidth = room.worldWidth,
                 worldHeight = room.worldHeight,
@@ -401,6 +418,21 @@ fun ZombieGameScreen(
                 camOffsetY = cam.offsetY,
                 camScale = cam.scale,
                 onPaintWorld = viewModel::paintCellAtWorld,
+                modifier = Modifier.matchParentSize()
+            )
+
+            // ─── CAPA DEL MODO DISEÑADOR: WAYPOINTS (puertas) ─────
+            WaypointDesignerLayer(
+                enabled = state.designerMode && state.designerTarget == DesignerTarget.WAYPOINTS,
+                doors = state.designerDoors,
+                selectedIndex = state.selectedDoorIndex,
+                worldWidth = room.worldWidth,
+                worldHeight = room.worldHeight,
+                camOffsetX = cam.offsetX,
+                camOffsetY = cam.offsetY,
+                camScale = cam.scale,
+                onSelectWorld = viewModel::selectDoorAtWorld,
+                onDragWorld = viewModel::moveSelectedDoorToWorld,
                 modifier = Modifier.matchParentSize()
             )
         }
@@ -532,34 +564,66 @@ fun ZombieGameScreen(
             }
         }
 
-        // ─── BOTÓN DE MODO DISEÑADOR ────────────────────────────
-        // Se declara AL FINAL (después del HUD) para quedar siempre encima y
-        // recibir los toques. Siempre visible, no depende de debugHitboxes.
-        IconButton(
-            onClick = viewModel::toggleDesignerMode,
+        // ─── BOTÓN DE CONFIGURACIÓN (siempre) + MENÚ DE OPCIONES ─
+        // Arriba a la derecha: el botón de Ajustes SIEMPRE visible, y debajo el
+        // menú desplegable con el resto de opciones (que no son controles). Se
+        // declara AL FINAL (encima del HUD) para recibir los toques. En modo
+        // diseñador la toolbar manda, así que solo dejamos Ajustes.
+        Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .systemBarsPadding()
-                .padding(12.dp)
-                .background(
-                    if (state.designerMode) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.85f),
-                    CircleShape
-                )
+                .padding(12.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Default.Architecture, "Modo Diseñador", tint = Color.Black)
+            IconButton(
+                onClick = onNavigateToSettings,
+                modifier = Modifier.background(Color.White.copy(alpha = 0.85f), CircleShape)
+            ) {
+                Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black)
+            }
+            if (!state.designerMode) {
+                var optionsExpanded by remember { mutableStateOf(false) }
+                OptionsMenu(
+                    expanded = optionsExpanded,
+                    onExpandedChange = { optionsExpanded = it },
+                    openGroupId = null,
+                    onOpenGroupChange = {},
+                    entries = listOf(
+                        OptionMenuItem("Diseñador", Icons.Default.Architecture) { viewModel.toggleDesignerMode() },
+                        OptionMenuItem("Salir al mapa", Icons.Default.ExitToApp) { viewModel.exitToWorld() }
+                    )
+                )
+            }
         }
 
         // ─── TOOLBAR DEL DISEÑADOR ──────────────────────────────
         if (state.designerMode) {
+            val isWaypoints = state.designerTarget == DesignerTarget.WAYPOINTS
+            val gridRows = state.designerRows.size
+            val gridCols = state.designerRows.maxOfOrNull { it.length } ?: 0
             DesignerToolbar(
+                target = state.designerTarget,
                 brushWall = state.designerBrushWall,
                 dirty = state.designerDirty,
                 roomName = room.displayName,
+                hasSelectedDoor = state.selectedDoorIndex >= 0,
+                gridCols = gridCols,
+                gridRows = gridRows,
+                onResize = viewModel::resizeDesignerMatrixBy,
+                onSelectTarget = viewModel::setDesignerTarget,
                 onBrush = viewModel::setDesignerBrushWall,
-                onSave = viewModel::saveDesignerMatrix,
-                onReset = viewModel::resetDesignerMatrix,
-                onExport = { exportLauncher.launch("collision_matrices.json") },
-                onImport = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+                onSave = { if (isWaypoints) viewModel.saveDesignerWaypoints() else viewModel.saveDesignerMatrix() },
+                onReset = { if (isWaypoints) viewModel.resetDesignerWaypoints() else viewModel.resetDesignerMatrix() },
+                onExport = {
+                    if (isWaypoints) exportWpLauncher.launch("waypoints.json")
+                    else exportLauncher.launch("collision_matrices.json")
+                },
+                onImport = {
+                    if (isWaypoints) importWpLauncher.launch(arrayOf("application/json", "*/*"))
+                    else importLauncher.launch(arrayOf("application/json", "*/*"))
+                },
                 onExit = viewModel::toggleDesignerMode,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
@@ -574,9 +638,15 @@ fun ZombieGameScreen(
  */
 @Composable
 private fun DesignerToolbar(
+    target: DesignerTarget,
     brushWall: Boolean,
     dirty: Boolean,
     roomName: String,
+    hasSelectedDoor: Boolean,
+    gridCols: Int,
+    gridRows: Int,
+    onResize: (Int, Int) -> Unit,
+    onSelectTarget: (DesignerTarget) -> Unit,
     onBrush: (Boolean) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
@@ -585,6 +655,7 @@ private fun DesignerToolbar(
     onExit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isWaypoints = target == DesignerTarget.WAYPOINTS
     Column(
         modifier = modifier
             .systemBarsPadding()
@@ -596,16 +667,37 @@ private fun DesignerToolbar(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            "DISEÑADOR DE COLISIÓN · ${roomName.uppercase()}",
+            "DISEÑADOR · ${roomName.uppercase()}",
             color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 12.sp
         )
+        // Selector de objetivo: MATRIZ de colisión o WAYPOINTS (puertas).
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            ToolButton("MATRIZ", !isWaypoints, Color(0xFF3A86FF), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.MATRIX) }
+            ToolButton("WAYPOINTS", isWaypoints, Color(0xFFD4AF37), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.WAYPOINTS) }
+        }
         Text(
-            "Toca o arrastra sobre la rejilla. Rojo = pared.",
+            if (isWaypoints)
+                (if (hasSelectedDoor) "Arrastra para mover la puerta seleccionada."
+                 else "Toca una puerta para seleccionarla y arrástrala.")
+            else "Toca o arrastra sobre la rejilla. Rojo = pared.",
             color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            ToolButton("PARED", brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
-            ToolButton("BORRAR", !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
+        if (!isWaypoints) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                ToolButton("PARED", brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
+                ToolButton("BORRAR", !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
+            }
+            // ─── TAMAÑO DE LA MATRIZ ───────────────────────────────
+            Text(
+                "TAMAÑO  ${gridCols} × ${gridRows} (col × fil)",
+                color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                ToolButton("COL −", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(-1, 0) }
+                ToolButton("COL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(1, 0) }
+                ToolButton("FIL −", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, -1) }
+                ToolButton("FIL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
