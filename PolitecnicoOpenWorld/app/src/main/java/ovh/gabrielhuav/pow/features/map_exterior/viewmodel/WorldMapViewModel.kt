@@ -824,6 +824,7 @@ class WorldMapViewModel(
     }
 
     // 3. Tu función actualizada para capturar
+    // 3. Tu función actualizada para capturar (Con margen de tolerancia)
     fun debugPlayerLocalCoordinates(context: Context) {
         val state = _uiState.value
         val loc = state.currentLocation ?: return
@@ -832,7 +833,8 @@ class WorldMapViewModel(
 
         val (localX, localY) = landmark.toLocalCoordinates(loc)
 
-        if (localX in 0.0f..1.0f && localY in 0.0f..1.0f) {
+        // Esto compensa la distorsión curva del mapa y te deja puntear las orillas
+        if (localX in -0.15f..1.15f && localY in -0.15f..1.15f) {
             val formX = String.format(java.util.Locale.US, "%.4f", localX)
             val formY = String.format(java.util.Locale.US, "%.4f", localY)
 
