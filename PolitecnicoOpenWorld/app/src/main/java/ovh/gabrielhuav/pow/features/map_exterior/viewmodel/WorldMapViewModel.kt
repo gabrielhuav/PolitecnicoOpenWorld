@@ -143,12 +143,12 @@ class WorldMapViewModel(
     internal val MAX_SPEED = 0.000017
     internal val ACCELERATION = 0.0000003
     internal val BRAKING_FRICTION = 0.000001
-    internal val INTERACT_RADIUS = 0.0005
+    internal val INTERACT_RADIUS = 0.00018   // ~18 m: hay que estar realmente junto al auto
 
     internal val PLAYER_PUNCH_DAMAGE = 15f
     internal var lastAttackTime = 0L
-    internal val ATTACK_COOLDOWN_MS = 2400L
-    internal val ATTACK_RADIUS = 0.00015
+    internal val ATTACK_COOLDOWN_MS = 1200L
+    internal val ATTACK_RADIUS = 0.00022
 
     internal val hospitalRespawnPoints = listOf(
         GeoPoint(19.5034, -99.1469),
@@ -502,6 +502,20 @@ class WorldMapViewModel(
     fun zoomIn()  = _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
     fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
 
+    // Canal de retorno del zoom por GESTO (pinch de dos dedos) desde el mapa (web,
+    // OSM nativo o Google). Sin esto, el bucle de render volvía a fijar el zoom al
+    // valor del estado y el pinch "rebotaba". Acota a los límites de juego.
+    fun onMapZoomChanged(zoom: Double) {
+        if (!zoom.isFinite()) return
+        // Cuantizamos a pasos de 0.5 y solo actualizamos si el cambio es grande. Así el
+        // zoom por gesto no produce micro-cambios continuos que invaliden el estado (y con
+        // él la caché de sprites de NPC, cuya clave depende del tamaño en píxeles → zoom).
+        val z = (Math.round(zoom * 2.0) / 2.0).coerceIn(14.0, 22.0)
+        if (Math.abs(z - _uiState.value.zoomLevel) >= 0.5) {
+            _uiState.update { it.copy(zoomLevel = z) }
+        }
+    }
+
     fun centerOnPlayer() { _uiState.update { it.copy(isUserPanningMap = false) } }
 
     fun onMapPanStart() { _uiState.update { it.copy(isUserPanningMap = true) } }
@@ -837,6 +851,11 @@ class WorldMapViewModel(
         viewModelScope.launch(Dispatchers.Default) {
             delay(300L)
             val playerLoc = _uiState.value.currentLocation ?: return@launch
+            // MIEDO AL COMBATE (SP y host MP): cada golpe asusta a los civiles cercanos,
+            // CONECTE O NO. Así huyen cuando los atacas, aunque falles el puñetazo.
+            if (isServerDelegatedHost) {
+                npcAiManager.triggerFear(playerLoc.latitude, playerLoc.longitude)
+            }
             val targetNpcEntry = remoteEntities.entries
                 .filter {
                     !it.value.isDying &&

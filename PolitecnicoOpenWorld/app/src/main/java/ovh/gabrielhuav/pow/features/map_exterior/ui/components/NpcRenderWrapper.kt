@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +32,16 @@ fun NpcRenderWrapper(
         animationSpec = tween(durationMillis = 1000) // Duración idéntica al delay del ViewModel
     )
 
+    // 🌟 SPAWN SUAVE: al aparecer un NPC (cada id es único, este wrapper se compone
+    // de cero), difuminamos de 0→1 para que no "brote" de golpe. El estado vive por
+    // NPC porque la lista se renderiza con key(npc.id).
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { appeared = true }
+    val spawnAlpha by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0f,
+        animationSpec = tween(durationMillis = 700)
+    )
+
     // Color dinámico de la micro-barra del NPC (Verde -> Amarillo -> Rojo)
     val barColor = when {
         npc.health > 60f -> Color(0xFF4CAF50)
@@ -38,7 +52,8 @@ fun NpcRenderWrapper(
     Box(
         contentAlignment = Alignment.TopCenter,
         modifier = modifier.graphicsLayer {
-            alpha = alphaFade // Aplica el desvanecimiento progresivo en tiempo real
+            // Combina el fade-out de muerte con el fade-in de aparición.
+            alpha = alphaFade * spawnAlpha
         }
     ) {
         // --- 📊 MICRO BARRA DE VIDA DISCRETA ---

@@ -50,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -247,6 +248,9 @@ fun WorldMapScreen(
         )
     }
     val webViewRef = remember { mutableStateOf<WebView?>(null) }
+    // OPT gama baja: última lista de NPCs enviada al WebView. Solo reenviamos al JS
+    // cuando la lista cambia (~10 Hz), no en cada recomposición por moverse el jugador.
+    val lastWebNpcHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Npc>>(1) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
@@ -358,6 +362,20 @@ fun WorldMapScreen(
                     }
                 }
 
+                // Canal de retorno del zoom por gesto (pinch) en Google native: solo cuando
+                // el movimiento de cámara lo inició el USUARIO, propagamos el nuevo zoom al
+                // estado para que no rebote al seguir al jugador. Los movimientos
+                // programáticos (seguimiento/zoom por botón) se ignoran.
+                LaunchedEffect(cameraPositionState) {
+                    snapshotFlow { cameraPositionState.position.zoom }
+                        .collect { z ->
+                            if (cameraPositionState.cameraMoveStartedReason ==
+                                com.google.maps.android.compose.CameraMoveStartedReason.GESTURE) {
+                                viewModel.onMapZoomChanged(z.toDouble())
+                            }
+                        }
+                }
+
                 val propiedadesMap = remember {
                     try {
                         MapProperties(
@@ -373,7 +391,7 @@ fun WorldMapScreen(
                     cameraPositionState = cameraPositionState,
                     properties = propiedadesMap,
                     uiSettings = MapUiSettings(
-                        zoomGesturesEnabled = false,
+                        zoomGesturesEnabled = true,   // pinch (dos dedos) para zoom, igual que web/OSM
                         zoomControlsEnabled = false,
                         scrollGesturesEnabled = uiState.isDesignerMode || uiState.isUserPanningMap,
                         tiltGesturesEnabled = false,
@@ -658,6 +676,9 @@ fun WorldMapScreen(
 
                         // Culling por distancia: solo enviamos al WebView los NPC dentro del
                         // viewport. Evita generar bitmaps/base64 y marcadores JS para NPC lejanos.
+                        // OPT: solo cuando la lista de NPCs cambió (no en cada recomposición).
+                        if (uiState.npcs !== lastWebNpcHolder[0]) {
+                          lastWebNpcHolder[0] = uiState.npcs
                         val centerCullW = uiState.currentLocation
                         val cullRadiusMW = centerCullW?.let { npcVisionRadiusMeters() }
                         val visibleNpcs = if (cullRadiusMW != null && centerCullW != null) {
@@ -692,7 +713,7 @@ fun WorldMapScreen(
                                     wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                     registeredWebImages.add(cacheKey)
                                 }
-                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, "CAR", cacheKey, null, null, npc.displayName, widthCache[cacheKey], heightCache[cacheKey])
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, "CAR", cacheKey, null, null, npc.displayName, widthCache[cacheKey], heightCache[cacheKey], health = npc.health, isDying = npc.isDying)
                             } else if (npc.visualConfig != null) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
                                 val config = npc.visualConfig!!
@@ -714,13 +735,14 @@ fun WorldMapScreen(
                                     wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                     registeredWebImages.add(cacheKey)
                                 }
-                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, if (npc.facingRight) 1 else -1, npc.displayName)
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, if (npc.facingRight) 1 else -1, npc.displayName, health = npc.health, isDying = npc.isDying)
                             } else {
-                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, npc.type.name, null, npc.type.drawableName, null, npc.displayName)
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, npc.type.name, null, npc.type.drawableName, null, npc.displayName, health = npc.health, isDying = npc.isDying)
                             }
                         }
 
                         wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs(${gson.toJson(npcPayloads)});", null)
+                        } // fin guard web: lista de NPCs sin cambios → no se reenvía al WebView
                         wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
 
                         val landmarksPayload = uiState.landmarks.map {
@@ -850,12 +872,27 @@ fun WorldMapScreen(
                             items = buildList {
                                 add(OptionMenuItem("Acercar (zoom +)", Icons.Default.Add) { viewModel.zoomIn() })
                                 add(OptionMenuItem("Alejar (zoom −)", Icons.Default.Remove) { viewModel.zoomOut() })
+                                // Centrar en jugador: dentro del menú (mismo diseño que el resto).
                                 if (uiState.isUserPanningMap) {
-                                    add(OptionMenuItem("Centrar en personaje", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
+                                    add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
                                 }
-                                if (uiState.isUserPanningMap && !uiState.isDesignerMode && !uiState.isDriving) {
-                                    add(OptionMenuItem("Apuntar waypoint", Icons.Default.LocationOn, if (uiState.isTargetingWaypoint) Color(0xFFFF5722) else Color(0xFF4CAF50)) { viewModel.toggleWaypointTargeting(!uiState.isTargetingWaypoint) })
-                                    if (uiState.destinationMarker != null && !uiState.isTargetingWaypoint) {
+                                if (uiState.isTargetingWaypoint) {
+                                    // Apuntando: confirmar o cancelar TAMBIÉN desde el menú (no
+                                    // botones flotantes que tapen los controles).
+                                    add(OptionMenuItem("Establecer destino aquí", Icons.Default.LocationOn, Color(0xFF4CAF50)) {
+                                        if (uiState.mapProvider == MapProvider.OSM) {
+                                            nativeMapRef.value?.let { mv ->
+                                                val center = mv.mapCenter
+                                                viewModel.placeDestinationMarker(center.latitude, center.longitude)
+                                            }
+                                        } else {
+                                            webViewRef.value?.evaluateJavascript("if(window.Android && window.Android.notifyCenterForWaypoint) { var c = map.getCenter(); window.Android.notifyCenterForWaypoint(c.lat, c.lng); }", null)
+                                        }
+                                    })
+                                    add(OptionMenuItem("Cancelar apuntado", Icons.Default.Close, Color(0xFFE53935)) { viewModel.toggleWaypointTargeting(false) })
+                                } else if (uiState.isUserPanningMap && !uiState.isDesignerMode && !uiState.isDriving) {
+                                    add(OptionMenuItem("Apuntar waypoint", Icons.Default.LocationOn, Color(0xFF4CAF50)) { viewModel.toggleWaypointTargeting(true) })
+                                    if (uiState.destinationMarker != null) {
                                         add(OptionMenuItem("Eliminar destino", Icons.Default.Close, Color(0xFFE53935)) { viewModel.clearDestinationMarker() })
                                     }
                                 }
@@ -866,26 +903,13 @@ fun WorldMapScreen(
             )
         }
 
+        // Cuando se está apuntando un waypoint, solo se muestra la cruz central; el
+        // confirmar/cancelar vive en el menú anidado (Mapa) para no tapar los controles.
         if (uiState.isTargetingWaypoint) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFFF44336), modifier = Modifier.size(48.dp).graphicsLayer { translationY = -24.dp.toPx() })
                     Box(modifier = Modifier.size(4.dp).background(Color.White, CircleShape))
-                }
-            }
-            Box(modifier = Modifier.fillMaxSize().padding(bottom = 120.dp), contentAlignment = Alignment.BottomCenter) {
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Button(onClick = { viewModel.toggleWaypointTargeting(false) }, colors = ButtonDefaults.buttonColors(containerColor = Color.Gray), shape = RoundedCornerShape(24.dp)) { Text("CANCELAR", fontWeight = FontWeight.Bold) }
-                    Button(onClick = {
-                        if (uiState.mapProvider == MapProvider.OSM) {
-                            nativeMapRef.value?.let { mv ->
-                                val center = mv.mapCenter
-                                viewModel.placeDestinationMarker(center.latitude, center.longitude)
-                            }
-                        } else {
-                            webViewRef.value?.evaluateJavascript("if(window.Android && window.Android.notifyCenterForWaypoint) { var c = map.getCenter(); window.Android.notifyCenterForWaypoint(c.lat, c.lng); }", null)
-                        }
-                    }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)), shape = RoundedCornerShape(24.dp), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)) { Text("ESTABLECER DESTINO", fontWeight = FontWeight.Bold) }
                 }
             }
         }

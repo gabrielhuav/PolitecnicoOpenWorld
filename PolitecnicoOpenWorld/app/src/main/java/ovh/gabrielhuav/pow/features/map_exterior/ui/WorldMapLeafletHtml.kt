@@ -28,10 +28,10 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
     <div id="map-wrapper"><div id="map"></div></div>
     <script>
         var map = L.map('map', { 
-            zoomControl: false, 
-            attributionControl: false, 
-            dragging: false, 
-            touchZoom: false,
+            zoomControl: false,
+            attributionControl: false,
+            dragging: true,   // arrastre SIEMPRE disponible: paridad con los mapas nativos
+            touchZoom: true,  // pinch (dos dedos) SIEMPRE disponible: paridad con nativo
             doubleClickZoom: false,
             scrollWheelZoom: false,
             boxZoom: false,
@@ -54,7 +54,11 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         var isExplorationMode = false;
         
         map.on('zoomstart', function() { isZooming = true; });
-        map.on('zoomend', function() { isZooming = false; });
+        map.on('zoomend', function() {
+            isZooming = false;
+            // Propaga el zoom por gesto (pinch) de vuelta a la app para que no rebote.
+            if (window.Android && window.Android.notifyMapZoom) window.Android.notifyMapZoom(map.getZoom());
+        });
         map.on('zoom', function() { resizeLandmarks(); });
 
         map.on('dragstart', function() {
@@ -68,13 +72,13 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         function updateMapView(lat, lng, z) { if (!isZooming && !isExplorationMode) map.setView([lat, lng], z, { animate: false }); }
         
         function setDesignerMode(isDesigner) {
+            // Arrastre (pan) y pinch-zoom SIEMPRE activos para igualar a los mapas nativos.
+            // El Modo Diseñador solo añade además el zoom por rueda (escritorio).
+            map.dragging.enable();
+            map.touchZoom.enable();
             if (isDesigner) {
-                map.dragging.enable();
-                map.touchZoom.enable();
                 map.scrollWheelZoom.enable();
             } else {
-                map.dragging.disable();
-                map.touchZoom.disable();
                 map.scrollWheelZoom.disable();
             }
         }
@@ -199,12 +203,26 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                     var safeName = escapeHtml(npc.name);
                     nameTagHtml = '<div style="position:absolute; top:-28px; left:50%; transform:translateX(-50%); color:#D4AF37; background:rgba(0,0,0,0.65); padding:2px 6px; border-radius:4px; font-size:16px; font-weight:bold; white-space:nowrap; text-shadow:1px 1px 0 #000; z-index:100;">' + safeName + '</div>';
                 }
+                // Barra de vida del NPC (paridad con los mapas nativos): contenedor siempre
+                // presente; se muestra solo si el NPC tiene vida < 100 y no está muriendo.
+                var hp = (npc.health === undefined || npc.health === null) ? 100 : npc.health;
+                var dying = !!npc.isDying;
+                var showHb = hp < 100 && !dying;
+                var hbPct = Math.max(0, Math.min(100, hp));
+                var hbColor = hp > 60 ? '#4CAF50' : (hp > 30 ? '#FFEB3B' : '#F44336');
+                var hbHtml = '<div class="npc-hb" style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); width:26px; height:4px; background:rgba(0,0,0,0.5); border-radius:2px; overflow:hidden; z-index:120; display:' + (showHb ? 'block' : 'none') + ';"><div class="npc-hb-fill" style="width:' + hbPct + '%; height:100%; background:' + hbColor + ';"></div></div>';
                 if (npcMarkers[npc.id]) {
                     npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);
                     var el = npcMarkers[npc.id].getElement();
                     if (el) {
                         var wrapper = el.querySelector('.npc-c');
                         var img = el.querySelector('img');
+                        var hb = el.querySelector('.npc-hb');
+                        if (hb) {
+                            hb.style.display = showHb ? 'block' : 'none';
+                            var fill = hb.querySelector('.npc-hb-fill');
+                            if (fill) { fill.style.width = hbPct + '%'; fill.style.background = hbColor; }
+                        }
                         if ((npc.type === 'CAR' || npc.type === 'MODULAR') && img && wrapper) {
                             var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
                             if (!cachedImg) return;
@@ -222,10 +240,10 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                         var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
                         if (!cachedImg) return;
                         var flipStyle = (npc.flip !== undefined) ? 'transform: scaleX(' + npc.flip + ');' : '';
-                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px;">' + nameTagHtml + '<img src="'+cachedImg+'" style="width:100%; height:100%; display:block; ' + flipStyle + '"></div>';
+                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px;">' + nameTagHtml + hbHtml + '<img src="'+cachedImg+'" style="width:100%; height:100%; display:block; ' + flipStyle + '"></div>';
                     } else {
                         var pUrl = 'file:///android_asset/' + npc.drawable + '.svg';
-                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate(0deg); width:24px; height:24px;">' + nameTagHtml + '<img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
+                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate(0deg); width:24px; height:24px;">' + nameTagHtml + hbHtml + '<img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
                     }
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0, 0] });
                     npcMarkers[npc.id] = L.marker([npc.lat, npc.lng], { icon: icon, zIndexOffset: 1000 }).addTo(map);
@@ -346,4 +364,4 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
     </script>
 </body>
 </html>
-""".trimIndent()
+""".trimIndent()
