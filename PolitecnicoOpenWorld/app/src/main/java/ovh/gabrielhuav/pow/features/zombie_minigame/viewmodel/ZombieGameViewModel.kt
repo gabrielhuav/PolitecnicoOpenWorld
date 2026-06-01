@@ -315,7 +315,7 @@ class ZombieGameViewModel(
     private fun showVictory() {
         if (currentRoom().type != ZoneType.BUILDING) return
         if (_state.value.showVictoryScreen) return
-        _state.update { it.copy(showVictoryScreen = true) }
+        _state.update { it.copy(showVictoryScreen = true, isRunning = false, playerAction = PlayerAction.IDLE) }
         viewModelScope.launch {
             delay(3000L)
             _state.update { it.copy(showVictoryScreen = false) }
@@ -388,6 +388,8 @@ class ZombieGameViewModel(
                 currentRoomIndex = index,
                 playerX = spawnX,
                 playerY = spawnY,
+                playerAction = PlayerAction.IDLE,
+                isRunning = false,
                 pendingSpawnX = null,
                 pendingSpawnY = null,
                 zombies = zombies,
@@ -771,7 +773,13 @@ class ZombieGameViewModel(
         if (_state.value.showWastedScreen) return
 
         val diedInRoom = currentRoom()
-        _state.update { it.copy(showWastedScreen = true, playerHealth = 0f, activeEffects = emptyList()) }
+        _state.update { it.copy(
+            showWastedScreen = true,
+            playerHealth = 0f,
+            activeEffects = emptyList(),
+            isRunning = false,
+            playerAction = PlayerAction.IDLE
+        ) }
 
         viewModelScope.launch {
             delay(4000L)
@@ -827,7 +835,7 @@ class ZombieGameViewModel(
         } ?: return
 
         if (door.targetRoomId == ZombieRoomCatalog.LOBBY_ID && room.type == ZoneType.BUILDING) {
-            _state.update { it.copy(showExitToLobbyDialog = true) }
+            _state.update { it.copy(showExitToLobbyDialog = true, isRunning = false, playerAction = PlayerAction.IDLE) }
             return
         }
         goToRoom(door.targetRoomId)
