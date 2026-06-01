@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -52,10 +51,12 @@ fun PlayerCharacter(
     val zoomLevel = uiState.zoomLevel
     val isZoomedIn = zoomLevel >= 16.5
     val context = LocalContext.current
-
     val density = androidx.compose.ui.platform.LocalDensity.current.density
 
-    // Animación de vibración (shake)
+    // ── Skin activa ──────────────────────────────────────────────────────
+    val skin = uiState.selectedSkin
+
+    // ── Animación de daño ────────────────────────────────────────────────
     val shake by animateFloatAsState(
         targetValue = if (damagePulseTrigger % 2 == 0) 0f else 10f,
         animationSpec = spring(
@@ -64,27 +65,24 @@ fun PlayerCharacter(
         )
     )
 
-    // Color de la barra (Verde -> Amarillo -> Rojo) calculado ANTES de usarse
     val healthColor = when {
-        health > 60f -> Color(0xFF4CAF50) // Verde
-        health > 30f -> Color(0xFFFFEB3B) // Amarillo
-        else -> Color(0xFFF44336) // Rojo
+        health > 60f -> Color(0xFF4CAF50)
+        health > 30f -> Color(0xFFFFEB3B)
+        else         -> Color(0xFFF44336)
     }
 
     Box(
         contentAlignment = Alignment.TopCenter,
         modifier = modifier
-            .size(60.dp) // Ajusta al tamaño de tu celda/jugador
-            .graphicsLayer {
-                translationX = shake // Aplica el temblor al recibir daño
-            }
+            .size(60.dp)
+            .graphicsLayer { translationX = shake }
     ) {
-        // --- AQUÍ VA LA BARRA DE VIDA ---
+        // ── Barra de vida ────────────────────────────────────────────────
         AnimatedVisibility(
             visible = showHealthBar,
             enter = fadeIn(animationSpec = tween(500)),
             exit = fadeOut(animationSpec = tween(1000)),
-            modifier = Modifier.offset(y = (-10).dp) // Flotando encima de la cabeza
+            modifier = Modifier.offset(y = (-10).dp)
         ) {
             Box(
                 modifier = Modifier
@@ -103,14 +101,18 @@ fun PlayerCharacter(
         }
 
         if (!isZoomedIn) {
-            // --- MARCADOR ALEJADO ---
+            // ── Marcador alejado ─────────────────────────────────────────
             Box(
                 modifier = modifier
                     .size(22.dp)
                     .shadow(2.dp, CircleShape)
                     .clip(CircleShape)
                     .background(Color.White)
-                    .border(1.5.dp, if (uiState.isDriving) Color.Blue else Color(0xFFD91B5B), CircleShape),
+                    .border(
+                        1.5.dp,
+                        if (uiState.isDriving) Color.Blue else Color(0xFFD91B5B),
+                        CircleShape
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -122,15 +124,12 @@ fun PlayerCharacter(
             }
         } else {
             if (uiState.isDriving) {
-                // ==========================================
-                // MODO CONDUCTOR (Vehículo)
-                // ==========================================
+                // ── Modo conductor ───────────────────────────────────────
                 val carModel = uiState.currentVehicleModel ?: CarModel.SEDAN
                 val carColor = uiState.currentVehicleColor ?: 0xFFFFFFFF.toInt()
-
-                // CORRECCIÓN VISUAL:
                 val visualRotation = 270f
-                val dynamicScale = (1.4 * Math.pow(2.0, zoomLevel - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+                val dynamicScale = (1.4 * Math.pow(2.0, zoomLevel - 19.0))
+                    .toFloat().coerceIn(0.2f, 1.4f)
 
                 val bitmapKey = "${carModel.name}_${visualRotation}_${carColor}_${dynamicScale}"
                 var carImage by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -138,21 +137,17 @@ fun PlayerCharacter(
 
                 if (lastKey != bitmapKey) {
                     val drawable = VehicleSpriteManager.getTintedCarNpc(
-                        context,
-                        visualRotation,
-                        carColor,
-                        dynamicScale,
-                        carModel
+                        context, visualRotation, carColor, dynamicScale, carModel
                     )
-                    val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                    val bitmap =
+                        (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
                     carImage = bitmap?.asImageBitmap()
                     lastKey = bitmapKey
                 }
 
                 carImage?.let { img ->
-                    val exactWidthDp = (img.width / density).dp
+                    val exactWidthDp  = (img.width  / density).dp
                     val exactHeightDp = (img.height / density).dp
-
                     Image(
                         bitmap = img,
                         contentDescription = "Player Vehicle",
@@ -161,34 +156,28 @@ fun PlayerCharacter(
                 }
 
             } else {
-                // ==========================================
-                // MODO A PIE (Peatón Original)
-                // ==========================================
-                val action = uiState.playerAction
+                // ── Modo a pie ───────────────────────────────────────────
+                val action       = uiState.playerAction
                 val isFacingRight = uiState.isPlayerFacingRight
 
                 var currentFrame by remember { mutableIntStateOf(1) }
                 var currentImage by remember { mutableStateOf<ImageBitmap?>(null) }
 
+                // Cache de bitmaps por ruta de asset
                 val bitmapCache = remember { mutableMapOf<String, ImageBitmap?>() }
 
-                LaunchedEffect(action) {
+                // Relanzar cuando cambia la acción O la skin
+                LaunchedEffect(action, skin) {
                     currentFrame = 1
                     while (true) {
-                        val maxFrames = when (action) {
-                            PlayerAction.IDLE -> 6
-                            PlayerAction.WALK -> 6
-                            PlayerAction.SPECIAL -> 8
-                            PlayerAction.RUN -> 6
-                        }
-
-                        val assetPath = getPlayerAssetPath(action, currentFrame)
+                        val (maxFrames, frameDelay) = skinAnimParams(action, skin)
+                        val assetPath = skin.assetPath(action, currentFrame)
 
                         if (!bitmapCache.containsKey(assetPath)) {
                             val bitmap = withContext(Dispatchers.IO) {
                                 try {
-                                    context.assets.open(assetPath).use { inputStream ->
-                                        BitmapFactory.decodeStream(inputStream)?.asImageBitmap()
+                                    context.assets.open(assetPath).use { stream ->
+                                        BitmapFactory.decodeStream(stream)?.asImageBitmap()
                                     }
                                 } catch (e: Exception) {
                                     null
@@ -199,48 +188,53 @@ fun PlayerCharacter(
 
                         currentImage = bitmapCache[assetPath]
 
-                        val frameDelay = when (action) {
-                            PlayerAction.IDLE -> 1000L
-                            PlayerAction.WALK -> 100L
-                            PlayerAction.SPECIAL -> 300L
-                            PlayerAction.RUN -> 100L
-                        }
-
                         delay(frameDelay)
                         currentFrame = (currentFrame % maxFrames) + 1
                     }
                 }
 
                 currentImage?.let { img ->
-                    val calculatedSize = (24.0 + ((zoomLevel - 18.0) * 8.0)).coerceIn(16.0, 40.0).dp
+                    val calculatedSize =
+                        (24.0 + ((zoomLevel - 18.0) * 8.0)).coerceIn(16.0, 40.0).dp
                     val visualCompensation = when (action) {
-                        PlayerAction.IDLE -> 1.0f
-                        PlayerAction.WALK -> 1.0f
-                        PlayerAction.RUN -> 1.3f
+                        PlayerAction.IDLE    -> 1.0f
+                        PlayerAction.WALK    -> 1.0f
+                        PlayerAction.RUN     -> 1.3f
                         PlayerAction.SPECIAL -> 1.15f
                     }
-
                     Image(
                         bitmap = img,
                         contentDescription = "Personaje Principal",
                         modifier = modifier
                             .size(calculatedSize)
                             .graphicsLayer {
-                                scaleX = if (isFacingRight) visualCompensation else -visualCompensation
+                                scaleX = if (isFacingRight) visualCompensation
+                                         else -visualCompensation
                                 scaleY = visualCompensation
                             }
                     )
                 }
             }
         }
-    } // <- Faltaba cerrar el Box principal
+    }
 }
 
-private fun getPlayerAssetPath(action: PlayerAction, frame: Int): String {
-    return when (action) {
-        PlayerAction.IDLE -> "PRINCIPAL/lazaroIdle/lazaro_i_$frame.webp"
-        PlayerAction.WALK -> "PRINCIPAL/lazaroWalk/lazaro_w_$frame.webp"
-        PlayerAction.SPECIAL -> "PRINCIPAL/lazaroSpecial/lazaro_s_$frame.webp"
-        PlayerAction.RUN -> "PRINCIPAL/lazaroRun/lazaro_r_$frame.webp"
-    }
+// ────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Devuelve la ruta de asset correcta delegando a la skin activa. */
+private fun PlayerSkin.assetPath(action: PlayerAction, frame: Int): String = when (action) {
+    PlayerAction.IDLE    -> idlePath(frame)
+    PlayerAction.WALK    -> walkPath(frame)
+    PlayerAction.RUN     -> runPath(frame)
+    PlayerAction.SPECIAL -> specialPath(frame)
+}
+
+/** Parámetros de animación (frames totales, delay en ms) según acción y skin. */
+private fun skinAnimParams(action: PlayerAction, skin: PlayerSkin): Pair<Int, Long> = when (action) {
+    PlayerAction.IDLE    -> skin.idleFrames    to 1000L
+    PlayerAction.WALK    -> skin.walkFrames    to 100L
+    PlayerAction.RUN     -> skin.runFrames     to 100L
+    PlayerAction.SPECIAL -> skin.specialFrames to 300L
 }

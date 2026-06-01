@@ -1,5 +1,14 @@
 [
   {
+    "id": 0,
+    "name": "Shine CTO",
+    "latitude": 19.45908368468466,
+    "longitude": -99.163338,
+    "assetPath": "BUILDINGS/BAR/Shine.webp",
+    "scaleFactor": 0.15,
+    "rotationAngle": 0.0
+  },
+  {
     "assetPath": "BUILDINGS/IPN/building_escom.webp",
     "id": 1,
     "latitude": 19.504694288807826,
@@ -43,5 +52,14 @@
     "name": "FES ARAGON",
     "rotationAngle": 11.769556,
     "scaleFactor": 1.0136231
+  },
+  {
+    "assetPath": "DOORS/ESCOM_DOOR.webp",
+    "id": 14,
+    "latitude": 19.5051,
+    "longitude": -99.14619999999998,
+    "name": "Puerta ESCOM",
+    "rotationAngle": 295.54773,
+    "scaleFactor": 1.1525397
   }
 ]

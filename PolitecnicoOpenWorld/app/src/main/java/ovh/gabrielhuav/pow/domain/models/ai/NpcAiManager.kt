@@ -34,11 +34,21 @@ class NpcAiManager {
 
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
 
+    // --- CAMBIOS DE TU RAMA: Referencia a los edificios para Parking ---
     private val cachedLandmarks = AtomicReference<List<Landmark>>(emptyList())
 
     fun setLandmarks(landmarks: List<Landmark>) {
         cachedLandmarks.set(landmarks)
     }
+
+    // Permite descartar ways lejanas con una comparación O(1) antes del check
+    // caro por nodo (distancia), evitando el O(N*M) en cada spawn.
+    private class WayBox(
+        val way: MapWay,
+        val minLat: Double, val maxLat: Double,
+        val minLon: Double, val maxLon: Double
+    )
+    private val cachedWayBoxes = AtomicReference<List<WayBox>>(emptyList())
 
     val pendingDespawns = mutableListOf<String>()
 
@@ -57,6 +67,19 @@ class NpcAiManager {
 
     fun updateRoadNetwork(network: List<MapWay>) {
         cachedRoadNetwork.set(network)
+        // Precomputar el bounding box de cada way una sola vez al cargar la red.
+        cachedWayBoxes.set(network.mapNotNull { way ->
+            if (way.nodes.isEmpty()) return@mapNotNull null
+            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+            for (n in way.nodes) {
+                if (n.lat < minLat) minLat = n.lat
+                if (n.lat > maxLat) maxLat = n.lat
+                if (n.lon < minLon) minLon = n.lon
+                if (n.lon > maxLon) maxLon = n.lon
+            }
+            WayBox(way, minLat, maxLat, minLon, maxLon)
+        })
         networkIsReady = network.isNotEmpty()
     }
 
@@ -99,38 +122,47 @@ class NpcAiManager {
                 serverNpcs.removeAll(toAnnihilate)
                 toAnnihilate.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
             } else if (currentNpcsCount < maxNpcs) {
-                // ---- NUEVA LÓGICA DE SPAWN "MAGNETIZADO" A EDIFICIOS ----
 
-                // 1. Encontrar todos los edificios con estacionamiento (navGraph != null)
+                // ---- INTEGRACIÓN: LÓGICA DE SPAWN MAGNETIZADO + OPTIMIZACIÓN ----
+
+                // 1. Encontrar todos los edificios con estacionamiento
                 val activeLandmarks = cachedLandmarks.get().filter { it.navGraph != null }
 
-                // 2. Filtrar calles que estén cerca del jugador (spawnDistance)
-                val closeWays = currentNetwork.filter { way ->
-                    way.nodes.any { calculateDistance(it.lat, it.lon, playerLocation.latitude, playerLocation.longitude) < spawnDistance }
-                }
+                // 2. Cálculo optimizado de closeWays usando el WayBox
+                val pLat = playerLocation.latitude
+                val pLon = playerLocation.longitude
+                val closeWays = cachedWayBoxes.get()
+                    // Pre-filtro barato por bounding box (expandido por spawnDistance)
+                    .filter { box ->
+                        pLat >= box.minLat - spawnDistance && pLat <= box.maxLat + spawnDistance &&
+                                pLon >= box.minLon - spawnDistance && pLon <= box.maxLon + spawnDistance
+                    }
+                    // Check caro por nodo solo sobre las candidatas que pasaron el bbox
+                    .filter { box ->
+                        box.way.nodes.any { calculateDistance(it.lat, it.lon, pLat, pLon) < spawnDistance }
+                    }
+                    .map { it.way }
 
                 if (closeWays.isNotEmpty()) {
-                    val numToSpawn = minOf(2, maxNpcs - currentNpcsCount) // Spawneamos de 2 en 2 para no saturar el frame
+                    val numToSpawn = minOf(2, maxNpcs - currentNpcsCount)
 
                     for (i in 0 until numToSpawn) {
                         var targetWays = closeWays
 
-                        // 3. "Imán" de tráfico: 70% de probabilidad de forzar a que el auto nazca
-                        // cerca de un edificio con estacionamiento (si hay alguno cerca)
+                        // 3. "Imán" de tráfico para que nazcan cerca del Parking
                         if (activeLandmarks.isNotEmpty() && Random.nextFloat() < 0.70f) {
                             val targetLandmark = activeLandmarks.random()
                             val waysNearLandmark = closeWays.filter { way ->
                                 way.nodes.any { node ->
-                                    calculateDistance(node.lat, node.lon, targetLandmark.location.latitude, targetLandmark.location.longitude) < 0.002 // Calles a 200m del edificio
+                                    calculateDistance(node.lat, node.lon, targetLandmark.location.latitude, targetLandmark.location.longitude) < 0.002
                                 }
                             }
-                            // Si encontramos calles cercanas al edificio, forzamos el spawn ahí
                             if (waysNearLandmark.isNotEmpty()) {
                                 targetWays = waysNearLandmark
                             }
                         }
 
-                        // 4. Intentamos crear el NPC en las calles seleccionadas
+                        // 4. Intentamos crear el NPC
                         spawnNpcOnRoad(playerLocation, targetWays)?.let { serverNpcs.add(it) }
                     }
                 }
@@ -207,6 +239,7 @@ class NpcAiManager {
             visualConfig = visualConfig
         )
     }
+
     private fun moveLocalNpc(npc: Npc): Npc? {
         val way = npc.currentLocalWay ?: return null
         val landmark = npc.currentLandmark ?: return null
@@ -234,7 +267,6 @@ class NpcAiManager {
             }
 
             // SALIR DEL CAJÓN O LLEGAR A UN MURO: Buscar carril principal para incorporarse
-            // Buscamos cualquier camino cuya línea pase muy cerca de este punto (Point-to-Line)
             val connectedWays = navGraph.ways.filter { w ->
                 w.id != way.id && w.nodes.size >= 2 && run {
                     var isNear = false
@@ -246,7 +278,6 @@ class NpcAiManager {
                             n1.localX.toDouble(), n1.localY.toDouble(),
                             n2.localX.toDouble(), n2.localY.toDouble()
                         )
-                        // Si la línea del carril pasa a menos de 5% de distancia, nos incorporamos
                         if (dist < 0.05) { isNear = true; break }
                     }
                     isNear
@@ -255,7 +286,6 @@ class NpcAiManager {
 
             if (connectedWays.isNotEmpty()) {
                 val nextWay = connectedWays.random()
-                // Al incorporarse a la avenida, elige dirección al azar (izquierda o derecha)
                 val nextDir = if (Random.nextBoolean()) 1 else -1
                 val newTarget = if (nextDir == 1) 1 else nextWay.nodes.size - 2
 
@@ -288,11 +318,8 @@ class NpcAiManager {
         val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
 
         // --- 3. IA DE VISIÓN PERIFÉRICA (DETECTAR CAJONES MIENTRAS MANEJA) ---
-
-        // Revisamos si este coche acaba de salir de un cajón y está penalizado
         val isOnCooldown = parkingCooldowns[npc.id]?.let { System.currentTimeMillis() < it } ?: false
 
-        // Si vamos rápido, somos auto, no estamos en un cajón, Y NO ESTAMOS PENALIZADOS:
         if (dist > actualSpeed * 3 && npc.type == NpcType.CAR && !way.nodes.any { it.isParkingSlot } && !isOnCooldown) {
 
             val nearbyParkingEntrances = navGraph.ways.filter { w ->
@@ -306,13 +333,11 @@ class NpcAiManager {
 
                 if (distToEntry < 0.00003) {
 
-                    // 👇 ARREGLO BUG 2: ¿Hay alguien en este cajón?
+                    // ARREGLO BUG 2: ¿Hay alguien en este cajón?
                     val isOccupied = serverNpcs.any { otherCar ->
-                        // Si otro coche (diferente a mí) ya tiene esta ruta como su ruta actual, está ocupado
                         otherCar.id != npc.id && otherCar.currentLocalWay?.id == parkWay.id
                     }
 
-                    // Solo entramos si el cajón está libre y ganamos el volado del 50%
                     if (!isOccupied && Random.nextFloat() < 0.50f) {
                         return npc.copy(
                             currentLocalWay = parkWay,
@@ -346,7 +371,6 @@ class NpcAiManager {
     }
 
     // --- FUNCIÓN MATEMÁTICA AUXILIAR ---
-    // Calcula la distancia perpendicular desde un punto a una línea (segmento)
     private fun pointToLineDist(px: Double, py: Double, x1: Double, y1: Double, x2: Double, y2: Double): Double {
         val l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)
         if (l2 == 0.0) return kotlin.math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1))
@@ -355,6 +379,7 @@ class NpcAiManager {
         val projY = y1 + t * (y2 - y1)
         return kotlin.math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY))
     }
+
     private fun moveNpc(npc: Npc, network: List<MapWay>): Npc? {
         // --- NUEVA BIFURCACIÓN DE ESTADOS ---
         if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) {
@@ -445,7 +470,7 @@ class NpcAiManager {
                 if (nearbyLandmark != null) {
                     val navGraph = nearbyLandmark.navGraph
                     if (navGraph != null && navGraph.entryWays.isNotEmpty()) {
-                        // ¡Hay un estacionamiento! Tiramos los dados (ej. 20% de probabilidad de entrar)
+                        // ¡Hay un estacionamiento! Tiramos los dados (80% de probabilidad de entrar)
                         if (Random.nextFloat() < 0.80f) {
                             val entryWayId = navGraph.entryWays.random() // Elegir una entrada al azar
                             val entryWay = navGraph.ways.find { it.id == entryWayId }
@@ -468,8 +493,7 @@ class NpcAiManager {
             // ---- FIN DE DETECCIÓN ----
 
             val connectedWays = network.filter { w ->
-                // ... (tu código anterior de connectedWays)
-                w.id != way!!.id && w.nodes.any { it.id == reachedNode.id } &&
+                w.id != way.id && w.nodes.any { it.id == reachedNode.id } &&
                         ((npc.type == NpcType.CAR && w.isForCars) || (npc.type == NpcType.PERSON && w.isForPeople))
             }
 

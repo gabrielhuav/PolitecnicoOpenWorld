@@ -7,6 +7,7 @@ import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 const val ZOOM_LOADING = 18.0
@@ -35,6 +36,14 @@ data class WorldMapState(
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = ZOOM_LOADING,
     val mapProvider: MapProvider = MapProvider.OSM,
+    // Cambio de proveedor con precarga: el nuevo se precarga en segundo plano mientras
+    // sigues usando el actual. Cuando 'pendingProviderReady' es true, se avisa para cambiar.
+    val pendingProvider: MapProvider? = null,
+    val pendingProviderReady: Boolean = false,
+    // Carga inicial del mapa: se descargan los tiles del proveedor alrededor del
+    // spawn antes de dejar entrar. 'mapLoadProgress' va de 0f a 1f (solo tiles).
+    val isMapReady: Boolean = false,
+    val mapLoadProgress: Float = 0f,
     val showSettingsDialog: Boolean = false,
     val npcs: List<Npc> = emptyList(),
     val isRoadNetworkReady: Boolean = false,
@@ -45,6 +54,10 @@ data class WorldMapState(
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
+
+    // ─── Skin del jugador ────────────────────────────────────────────────
+    val selectedSkin: PlayerSkin = PlayerSkin.LAZARO,
+    val showSkinSelector: Boolean = false,
 
     // Estados del personaje
     val playerAction: PlayerAction = PlayerAction.IDLE,
@@ -96,8 +109,19 @@ data class WorldMapState(
     // y el bounding box de ESCOM sobre el mapa, para ajustar coordenadas.
     val showInteriorDebugOverlay: Boolean = false,
 
-    // NUEVAS VARIABLES PARA EL CREADOR DE RUTAS:
+    // NUEVAS VARIABLES PARA EL CREADOR DE RUTAS
     val routeDebugWaypoints: List<GeoPoint> = emptyList(), // Las "migas de pan"
     val isParkingSlotMode: Boolean = false,                // Flag del Checkbox
-    val currentWayId: Int = 100                            // ID del carril actual
+    val currentWayId: Int = 100,                           // ID del carril actual
+
+    // Easter Eggs y Opciones extra
+    val showRoadNetwork: Boolean = true,
+
+    // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
+    val showShineCTODiscovery: Boolean = false,
+    val navigateToShineCTO: Boolean = false,
+
+    // ─── ESCOM Door transition ───────────────────────────────────────────────
+    val showEscomDoorFade: Boolean = false,
+    val escomDoorFadeComplete: Boolean = false
 )

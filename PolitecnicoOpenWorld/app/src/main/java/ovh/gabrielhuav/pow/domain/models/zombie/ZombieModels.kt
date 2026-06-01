@@ -71,6 +71,32 @@ enum class CombatMode { MELEE, RANGED }
 
 enum class ZoneType { LOBBY, BUILDING }
 
+/**
+ * Matriz de colisión por sala, en coordenadas FRACCIONARIAS [0,1].
+ *
+ *  - '#' = no caminable (pared / obstáculo)
+ *  - '.' = caminable
+ *
+ * Se define fraccionaria a propósito: es independiente del tamaño real de la
+ * imagen de fondo (que cada dispositivo decodifica con sus propias dimensiones)
+ * y coincide carácter por carácter con la matriz replicada en el servidor
+ * (server.js). Tanto el jugador local como los remotos y los zombis
+ * (autoritativos en el servidor) la respetan.
+ *
+ * Mapeo: col = floor(fx * numCols), fila = floor(fy * numRows).
+ */
+class CollisionMatrix(val rows: List<String>) {
+    val numRows: Int = rows.size
+    val numCols: Int = if (rows.isEmpty()) 0 else rows[0].length
+
+    fun isBlockedFrac(fx: Float, fy: Float): Boolean {
+        if (numRows == 0 || numCols == 0) return false
+        val c = (fx * numCols).toInt().coerceIn(0, numCols - 1)
+        val r = (fy * numRows).toInt().coerceIn(0, numRows - 1)
+        return rows[r][c] == '#'
+    }
+}
+
 data class ZombieRoom(
     val id: String,
     val type: ZoneType,
@@ -80,12 +106,35 @@ data class ZombieRoom(
     @Volatile var worldHeight: Float = 2000f,
     val zoom: Float = 2.2f,
     val playerSpawnFrac: NormPoint = NormPoint(0.5f, 0.85f),
-    val doors: List<ZoneDoor> = emptyList(),
+    // Puertas/waypoints de la sala. Es VAR para poder sobreescribirlas en
+    // caliente desde el Modo Diseñador (igual que la matriz de colisión) y al
+    // cargar waypoints.json.
+    @Volatile var doors: List<ZoneDoor> = emptyList(),
     val zombieCount: Int = 0,
+    // Nº de columnas DESEADO para la rejilla de colisión por defecto de esta
+    // sala. Las filas se calculan automáticamente desde el aspect ratio del
+    // asset (worldHeight/worldWidth) para que cada celda quede ~cuadrada.
+    //  - Valor pequeño  → celdas grandes (trazo grueso, menos precisión).
+    //  - Valor grande   → celdas pequeñas (trazo fino, más precisión).
+    // null = usar el valor por defecto global.
+    val gridCols: Int? = null,
     val collisionGridFrac: List<NormRect> = emptyList(),
+    // Matriz de colisión de la sala (lobby/edificio). Es VAR para poder
+    // sobreescribirla en caliente desde el Modo Diseñador. null = sin colisiones.
+    @Volatile var collisionMatrix: CollisionMatrix? = null,
     @Volatile var dimensionsLoaded: Boolean = false,
     @Volatile var initAttempted: Boolean = false
-)
+) {
+    /** ¿La celda fraccionaria (fx,fy) está bloqueada por la matriz de la sala? */
+    fun isBlockedFrac(fx: Float, fy: Float): Boolean =
+        collisionMatrix?.isBlockedFrac(fx, fy) ?: false
+
+    /** ¿El píxel de mundo (x,y) está bloqueado? Convierte a fracción con las dims actuales. */
+    fun isBlockedPixel(x: Float, y: Float): Boolean {
+        if (worldWidth <= 0f || worldHeight <= 0f) return false
+        return isBlockedFrac(x / worldWidth, y / worldHeight)
+    }
+}
 
 data class ZoneDoor(
     val hitboxFrac: NormRect,

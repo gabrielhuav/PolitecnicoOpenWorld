@@ -57,9 +57,26 @@ data class ZombieGameState(
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
     val isLoading: Boolean = true,
-    val remotePlayers: List<RemoteZombiePlayer> = emptyList()
+    val remotePlayers: List<RemoteZombiePlayer> = emptyList(),
 
+    // ─── MODO DISEÑADOR DE LA MATRIZ DE COLISIÓN ───────────
+    // Análogo al modo diseñador del mapa principal: se activa/desactiva, se
+    // pinta la rejilla sobre el cuarto y se guarda en collision_matrices.json.
+    val designerMode: Boolean = false,
+    val designerRows: List<String> = emptyList(), // matriz en edición
+    val designerBrushWall: Boolean = true,         // true = pinta pared '#', false = borra '.'
+    val designerDirty: Boolean = false,            // hay cambios sin guardar
+
+    // ─── MODO DISEÑADOR DE WAYPOINTS (puertas) ─────────────
+    // El diseñador alterna entre editar la MATRIZ de colisión o los WAYPOINTS
+    // (puertas). En modo WAYPOINTS se arrastran las puertas sobre el fondo y se
+    // guardan en waypoints.json.
+    val designerTarget: DesignerTarget = DesignerTarget.MATRIX,
+    val designerDoors: List<ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor> = emptyList(),
+    val selectedDoorIndex: Int = -1
 )
+
+enum class DesignerTarget { MATRIX, WAYPOINTS }
 
 data class CameraTransform(
     val offsetX: Float,

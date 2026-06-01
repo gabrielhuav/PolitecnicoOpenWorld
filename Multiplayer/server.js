@@ -1,5 +1,27 @@
-// Servidor de juego multijugador con gestión de NPCs y roles de zona (Host)
+// Servidor de juego multijugador con gestion de NPCs y roles de zona (Host)
 // Basado en Express, HTTP y WebSockets (ws)
+//
+// NOTA SOBRE LA "IA":
+//   La IA de NPCs del mundo abierto vive en el CLIENTE (NpcAiManager.kt). Este
+//   servidor NO simula NPCs: arbitra el rol de Host de zona y RELAYA mensajes.
+//   Por eso aqui no hay pathfinding (meterlo exigiria mover la autoridad de NPCs
+//   al servidor, un rediseno mayor). Lo que se optimiza/endurece aqui es el relay.
+//
+// MEJORAS v2:
+//   - AREA DE INTERES (AOI) para NPCs: los NPC_SPAWN/UPDATE/BATCH solo se reenvian
+//     a clientes cercanos al Host emisor, en vez de a TODOS. En un mapa de ciudad
+//     esto recorta drasticamente el ancho de banda y el trabajo de serializacion
+//     cuando hay jugadores dispersos. Los mensajes que deben llegar siempre
+//     (PLAYER_UPDATE, PLAYER_DAMAGE, NPC_DESTROY, DISCONNECT, sync) se mantienen
+//     globales para no dejar entidades fantasma. Compromiso: un NPC muy lejano
+//     puede "congelarse" para clientes fuera del radio, pero ahi no se renderiza.
+//   - ELECCION DE HOST CON THROTTLE: el rol Host se reevalua como mucho cada
+//     HOST_EVAL_MS por cliente, no en cada PLAYER_UPDATE (baja CPU; el rol no
+//     necesita cambiar al instante).
+//   - RATE LIMIT por socket: descarta mensajes si un cliente inunda (proteccion
+//     basica de CPU / anti-flood), con ventana deslizante de 1 s.
+//   - SANEAMIENTO: coordenadas finitas, dano finito y acotado, reenvio saneado.
+//   - GC de jugadores fantasma (no solo al cerrar el socket).
 
 const express = require('express');
 const http = require('http');
@@ -13,16 +35,38 @@ app.use(cors());
 const PORT = process.env.PORT || 8080;
 const server = http.createServer(app);
 
-// Almacenamiento de jugadores y NPCs en memoria
-const players = new Map();   // clave: sessionId, valor: datos del jugador
-const npcs = new Map();      // clave: npc.id, valor: objeto NPC
+const players = new Map();
+const npcs = new Map();
 
-// Radio de autoridad del Host (aproximadamente 400 metros en coordenadas arbitrarias)
+// Radio de autoridad del Host (~400 m en coordenadas arbitrarias).
 const HOST_RADIUS = 0.004;
+// Radio de Area de Interes para reenvio de NPCs (~2 km). Generoso para que los
+// NPCs no "aparezcan de golpe" cerca del jugador.
+const AOI_RADIUS = 0.02;
+// El rol de Host se reevalua como mucho cada esto (ms).
+const HOST_EVAL_MS = 200;
+// Limite anti-flood por socket.
+const MAX_MSGS_PER_SEC = 80;
+// Tamano maximo de mensaje aceptado (bytes); evita payloads abusivos.
+const MAX_MSG_BYTES = 8192;
+// Dano maximo aceptado del cliente (anti-cheat basico).
+const MAX_DAMAGE = 100;
+
+// ─── SANEAMIENTO ───────────────────────────────────────────────────────────────
+function safeCoord(v, fallback) {
+    return (typeof v === 'number' && isFinite(v)) ? v : fallback;
+}
+function safeNum(v, fallback) {
+    return (typeof v === 'number' && isFinite(v)) ? v : fallback;
+}
+function safeDamage(v) {
+    if (typeof v !== 'number' || !isFinite(v) || v <= 0) return 0;
+    return Math.min(v, MAX_DAMAGE);
+}
 
 app.get('/status', (req, res) => {
     res.json({
-        estado: 'Online',
+        estado: 'Online (v2)',
         jugadoresConectados: players.size,
         npcsActivos: npcs.size,
         jugadores: Array.from(players.values()),
@@ -48,7 +92,23 @@ function broadcastAll(messageAsString) {
     });
 }
 
-// --- Mecanismo de latidos (heartbeat) para detectar clientes caídos ---
+// Reenvio con Area de Interes: solo a clientes cuyo ultima posicion conocida este
+// dentro de 'radius' del origen (ox, oy). Clientes sin posicion conocida reciben
+// igual (no los penalizamos por recien conectados).
+function broadcastToNearby(senderWs, messageAsString, ox, oy, radius) {
+    const msg = messageAsString.toString();
+    const hasOrigin = (typeof ox === 'number' && isFinite(ox) && typeof oy === 'number' && isFinite(oy));
+    wss.clients.forEach((client) => {
+        if (client === senderWs || client.readyState !== WebSocket.OPEN) return;
+        if (hasOrigin && typeof client.x === 'number' && isFinite(client.x)) {
+            const d = Math.hypot(client.x - ox, client.y - oy);
+            if (d > radius) return;
+        }
+        client.send(msg);
+    });
+}
+
+// --- Heartbeat ---
 const heartbeatInterval = setInterval(() => {
     wss.clients.forEach((ws) => {
         if (ws.missedPings === undefined) ws.missedPings = 0;
@@ -63,7 +123,18 @@ const heartbeatInterval = setInterval(() => {
     });
 }, 30000);
 
-// --- Recolector de basura (Garbage Collector) para NPCs huérfanos ---
+// --- GC de jugadores fantasma ---
+const playerGcInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [id, p] of players.entries()) {
+        if (now - (p.lastUpdated || now) > 15000) {
+            players.delete(id);
+            broadcastAll(JSON.stringify({ type: "DISCONNECT", id }));
+        }
+    }
+}, 5000);
+
+// --- GC de NPCs huerfanos ---
 const npcGcInterval = setInterval(() => {
     const now = Date.now();
     const npcsToDelete = [];
@@ -78,7 +149,7 @@ const npcGcInterval = setInterval(() => {
     }
 }, 5000);
 
-// --- Sincronización maestra periódica ---
+// --- Sincronizacion maestra periodica ---
 const masterSyncInterval = setInterval(() => {
     if (wss.clients.size > 0) {
         broadcastAll(JSON.stringify({
@@ -88,20 +159,28 @@ const masterSyncInterval = setInterval(() => {
     }
 }, 5000);
 
+// Limita la frecuencia de mensajes por socket (ventana deslizante de 1 s).
+// Devuelve true si el mensaje debe descartarse.
+function rateLimited(ws, now) {
+    if (!ws.rlWindowStart || now - ws.rlWindowStart >= 1000) {
+        ws.rlWindowStart = now;
+        ws.rlCount = 0;
+    }
+    ws.rlCount++;
+    return ws.rlCount > MAX_MSGS_PER_SEC;
+}
+
 wss.on('connection', (ws) => {
     ws.sessionId = uuidv4();
     ws.isAlive = true;
     ws.missedPings = 0;
-    ws.isHost = true;    // Por defecto, un nuevo cliente es Host en su zona
+    ws.isHost = true;
+    ws.lastHostEvalMs = 0;
+    ws.rlWindowStart = 0;
+    ws.rlCount = 0;
 
     console.log(`[+] Cliente conectado. ID: ${ws.sessionId}`);
     ws.send(JSON.stringify({ type: 'SESSION_INIT', sessionId: ws.sessionId }));
-
-    // Notificación de rol inicial.
-    // ws.isHost se inicializa en true, pero el cliente nunca lo sabría sin esto:
-    // los ROLE_UPDATE posteriores solo se envían cuando el rol CAMBIA, así que
-    // sin este mensaje inicial el cliente jamás activaría isServerDelegatedHost
-    // y nadie spawnearía NPCs.
     ws.send(JSON.stringify({ type: 'ROLE_UPDATE', isZoneHost: ws.isHost }));
 
     ws.on('pong', () => { ws.isAlive = true; });
@@ -113,82 +192,128 @@ wss.on('connection', (ws) => {
 
     ws.on('message', (messageAsString) => {
         try {
+            const now = Date.now();
+            if (rateLimited(ws, now)) return;
+            if (messageAsString && messageAsString.length > MAX_MSG_BYTES) return;
+
             const data = JSON.parse(messageAsString);
 
             if (data && (!data.type || data.type === "PLAYER_UPDATE")) {
-                let isNowHost = ws.isHost;
+                const prev = players.get(ws.sessionId);
+                const px = safeCoord(data.x, prev ? prev.x : 0);
+                const py = safeCoord(data.y, prev ? prev.y : 0);
+                // Posicion conocida del socket (para AOI de NPCs).
+                ws.x = px; ws.y = py;
 
-                if (!ws.isHost) {
-                    let nearbyHost = false;
-                    for (const other of players.values()) {
-                        if (other.isHost && other.id !== ws.sessionId) {
-                            const dist = Math.sqrt(Math.pow(other.y - data.y, 2) + Math.pow(other.x - data.x, 2));
-                            if (dist < HOST_RADIUS) { nearbyHost = true; break; }
+                // Eleccion de Host con throttle: solo reevaluamos cada HOST_EVAL_MS.
+                if (now - ws.lastHostEvalMs >= HOST_EVAL_MS) {
+                    ws.lastHostEvalMs = now;
+                    let isNowHost = ws.isHost;
+                    if (!ws.isHost) {
+                        let nearbyHost = false;
+                        for (const other of players.values()) {
+                            if (other.isHost && other.id !== ws.sessionId) {
+                                const dist = Math.sqrt(Math.pow(other.y - py, 2) + Math.pow(other.x - px, 2));
+                                if (dist < HOST_RADIUS) { nearbyHost = true; break; }
+                            }
                         }
-                    }
-                    if (!nearbyHost) isNowHost = true;
-                } else {
-                    for (const other of players.values()) {
-                        if (other.isHost && other.id !== ws.sessionId) {
-                            const dist = Math.sqrt(Math.pow(other.y - data.y, 2) + Math.pow(other.x - data.x, 2));
-                            if (dist < HOST_RADIUS) {
-                                if (ws.sessionId > other.id) { isNowHost = false; break; }
+                        if (!nearbyHost) isNowHost = true;
+                    } else {
+                        for (const other of players.values()) {
+                            if (other.isHost && other.id !== ws.sessionId) {
+                                const dist = Math.sqrt(Math.pow(other.y - py, 2) + Math.pow(other.x - px, 2));
+                                if (dist < HOST_RADIUS) {
+                                    if (ws.sessionId > other.id) { isNowHost = false; break; }
+                                }
                             }
                         }
                     }
-                }
-
-                if (ws.isHost !== isNowHost) {
-                    ws.isHost = isNowHost;
-                    ws.send(JSON.stringify({ type: "ROLE_UPDATE", isZoneHost: isNowHost }));
-
-                    if (!isNowHost) {
-                        console.log(`[Zonas] ${ws.sessionId} cedió su autoridad.`);
-                    } else {
-                        console.log(`[Zonas] ${ws.sessionId} retomó autoridad como Host y adoptará a los NPCs.`);
+                    if (ws.isHost !== isNowHost) {
+                        ws.isHost = isNowHost;
+                        ws.send(JSON.stringify({ type: "ROLE_UPDATE", isZoneHost: isNowHost }));
+                        console.log(`[Zonas] ${ws.sessionId} ${isNowHost ? 'retomo' : 'cedio'} autoridad de Host.`);
                     }
                 }
 
-                players.set(ws.sessionId, {
+                const stored = {
                     id: ws.sessionId,
                     displayName: typeof data.displayName === 'string' ? data.displayName : '',
-                    x: typeof data.x === 'number' ? data.x : 0,
-                    y: typeof data.y === 'number' ? data.y : 0,
+                    x: px, y: py,
                     action: typeof data.action === 'string' ? data.action : '',
                     facingRight: typeof data.facingRight === 'boolean' ? data.facingRight : true,
                     isHost: ws.isHost,
-                    // Agrega los nuevos atributos del vehículo:
                     isDriving: typeof data.isDriving === 'boolean' ? data.isDriving : false,
                     carModel: typeof data.carModel === 'string' ? data.carModel : null,
                     carColor: typeof data.carColor === 'number' ? data.carColor : null,
-                    vehicleRotation: typeof data.vehicleRotation === 'number' ? data.vehicleRotation : 0
-                });
+                    vehicleRotation: safeNum(data.vehicleRotation, 0),
+                    health: (typeof data.health === 'number' && isFinite(data.health))
+                        ? Math.max(0, Math.min(100, data.health)) : 100,
+                    lastUpdated: now
+                };
+                players.set(ws.sessionId, stored);
 
-                broadcastToOthers(ws, JSON.stringify({ ...data, id: ws.sessionId }));
+                // Los jugadores se difunden SIEMPRE (global): el cliente no tiene
+                // GC temporal de avatares remotos, asi que filtrarlos por AOI los
+                // dejaria congelados. Solo saneamos los campos.
+                broadcastToOthers(ws, JSON.stringify({
+                    type: "PLAYER_UPDATE",
+                    id: ws.sessionId,
+                    displayName: stored.displayName,
+                    x: stored.x, y: stored.y,
+                    action: stored.action,
+                    facingRight: stored.facingRight,
+                    isDriving: stored.isDriving,
+                    carModel: stored.carModel,
+                    carColor: stored.carColor,
+                    vehicleRotation: stored.vehicleRotation,
+                    health: stored.health
+                }));
             }
             else if (data && (data.type === "NPC_SPAWN" || data.type === "NPC_UPDATE")) {
-                if (data.npc && data.npc.id) {
-                    npcs.set(data.npc.id, { ...data.npc, ownerId: ws.sessionId, lastUpdated: Date.now() });
-                    broadcastToOthers(ws, messageAsString);
+                if (data.npc && typeof data.npc.id === 'string') {
+                    const n = data.npc;
+                    const nx = safeCoord(n.x, null);
+                    const ny = safeCoord(n.y, null);
+                    if (nx === null || ny === null) return;
+                    const sanitized = { ...n, x: nx, y: ny, ownerId: ws.sessionId, lastUpdated: now };
+                    npcs.set(n.id, sanitized);
+                    // AOI: solo a clientes cercanos al Host emisor.
+                    broadcastToNearby(ws, JSON.stringify({ ...data, npc: sanitized }), ws.x, ws.y, AOI_RADIUS);
                 }
             }
             else if (data && data.type === "NPC_BATCH_UPDATE") {
                 if (data.npcs && Array.isArray(data.npcs)) {
+                    const accepted = [];
                     data.npcs.forEach(npc => {
-                        if (npc.id) npcs.set(npc.id, { ...npc, ownerId: ws.sessionId, lastUpdated: Date.now() });
+                        if (!npc || typeof npc.id !== 'string') return;
+                        const nx = safeCoord(npc.x, null);
+                        const ny = safeCoord(npc.y, null);
+                        if (nx === null || ny === null) return;
+                        const sanitized = { ...npc, x: nx, y: ny, ownerId: ws.sessionId, lastUpdated: now };
+                        npcs.set(npc.id, sanitized);
+                        accepted.push(sanitized);
                     });
-                    broadcastToOthers(ws, messageAsString);
+                    if (accepted.length > 0) {
+                        broadcastToNearby(ws, JSON.stringify({ type: "NPC_BATCH_UPDATE", npcs: accepted }), ws.x, ws.y, AOI_RADIUS);
+                    }
                 }
             }
             else if (data && data.type === "PLAYER_DAMAGE") {
-                if (data.targetId) {
-                    broadcastToOthers(ws, messageAsString);
+                // Global: debe llegar al objetivo este donde este. Dano acotado.
+                if (typeof data.targetId === 'string') {
+                    const dmg = safeDamage(data.damage);
+                    if (dmg > 0) {
+                        broadcastToOthers(ws, JSON.stringify({
+                            type: "PLAYER_DAMAGE", targetId: data.targetId, damage: dmg
+                        }));
+                    }
                 }
             }
             else if (data && data.type === "NPC_DESTROY") {
-                if (data.npcId) {
+                // Global: evita NPCs muertos "fantasma" en clientes que ya lo tenian.
+                if (typeof data.npcId === 'string') {
                     npcs.delete(data.npcId);
-                    broadcastToOthers(ws, messageAsString);
+                    broadcastToOthers(ws, JSON.stringify({ type: "NPC_DESTROY", npcId: data.npcId }));
                 }
             }
         } catch (e) {
@@ -199,24 +324,19 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         console.log(`[-] Cliente desconectado. ID: ${ws.sessionId}`);
         players.delete(ws.sessionId);
-
         broadcastAll(JSON.stringify({ type: "DISCONNECT", id: ws.sessionId }));
-
-        // Los NPCs del cliente desconectado se quedan en el mapa.
-        // El nuevo host de la zona los adoptará en su próximo ciclo.
-        // Si nadie los adopta, el GC los borra a los 15 segundos.
+        // Los NPCs del cliente se quedan: el nuevo Host los adopta; si nadie lo
+        // hace, el GC los borra a los 15 s.
     });
 });
 
-// Limpieza de los 3 intervalos al cerrar el servidor.
-// La versión anterior solo llamaba clearInterval(interval) con una variable
-// que ya no existía, lo que causaba un ReferenceError.
 server.on('close', () => {
     clearInterval(heartbeatInterval);
+    clearInterval(playerGcInterval);
     clearInterval(npcGcInterval);
     clearInterval(masterSyncInterval);
 });
 
 server.listen(PORT, () => {
-    console.log(`Servidor POW Multi-Zonas Persistente (Adopción) en el puerto ${PORT}`);
+    console.log(`Servidor POW Multi-Zonas (v2: AOI + host-throttle + rate-limit) en el puerto ${PORT}`);
 });

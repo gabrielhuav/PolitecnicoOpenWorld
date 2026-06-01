@@ -31,14 +31,6 @@ class TileCache(private val mapTileDao: MapTileDao) {
     fun putTileByUrl(provider: String, urlKey: String, data: ByteArray) {
         try {
             Log.d(TAG, "Intentando guardar en Room provider=$provider, hash=$urlKey, bytes=${data.size}")
-            val count = mapTileDao.getCount(provider)
-            Log.d(TAG, "Conteo actual de tiles para $provider: $count")
-
-            if (count >= MAX_TILES_PER_PROVIDER) {
-                val evict = MAX_TILES_PER_PROVIDER / 10
-                mapTileDao.deleteOldestTiles(provider, evict)
-                Log.d(TAG, "LRU: $evict tiles eliminados para $provider")
-            }
 
             val entity = MapTileEntity(
                 urlKey = urlKey,
@@ -46,8 +38,14 @@ class TileCache(private val mapTileDao: MapTileDao) {
                 data = data,
                 createdAtMs = System.currentTimeMillis()
             )
-            mapTileDao.insertTile(entity)
-            Log.d(TAG, "¡Guardado exitoso en Room para $urlKey!")
+            // Escritura atómica: contar + evict (LRU) + insertar en una sola
+            // transacción de Room, evitando estados corruptos a media escritura.
+            mapTileDao.putTileAtomic(
+                tile = entity,
+                maxTilesPerProvider = MAX_TILES_PER_PROVIDER,
+                evictBatch = MAX_TILES_PER_PROVIDER / 10
+            )
+            Log.d(TAG, "¡Guardado exitoso (atómico) en Room para $urlKey!")
         } catch (e: Exception) {
             Log.e(TAG, "Excepción al escribir en Room (putTileByUrl): ${e.stackTraceToString()}")
         }
