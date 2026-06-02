@@ -2065,4 +2065,23 @@ class WorldMapViewModel(
     fun consumeEscomDoorNavigation() {
         _uiState.update { it.copy(escomDoorFadeComplete = false) }
     }
+
+    // ─── Metro Stations Fade ───────────────────────────────────────────────────
+    fun onMetroFadeComplete() {
+        val station = _uiState.value.nearbyMetroStation
+        if (station != null) {
+            _uiState.update {
+                it.copy(
+                    showMetroFade = false,
+                    metroFadeCompleteStation = station,
+                    nearbyMetroStation = null,
+                    interactionPrompt = null
+                )
+            }
+        }
+    }
+
+    fun consumeMetroFadeComplete() {
+        _uiState.update { it.copy(metroFadeCompleteStation = null) }
+    }
 }

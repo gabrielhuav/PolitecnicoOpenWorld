@@ -92,6 +92,35 @@ internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerL
     }
 
 internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, playerLon: Double) {
+        val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
+        val INTERACT_RADIUS_METERS = 15.0
+
+        // 1. Verificar cercanía a estaciones del metro
+        val metroStations = _uiState.value.metroStations
+        val nearbyMetro = metroStations.minByOrNull {
+            playerGeo.distanceToAsDouble(it.location)
+        }
+        
+        if (nearbyMetro != null && playerGeo.distanceToAsDouble(nearbyMetro.location) <= INTERACT_RADIUS_METERS) {
+            if (_uiState.value.nearbyMetroStation?.name != nearbyMetro.name) {
+                _uiState.update { it.copy(nearbyMetroStation = nearbyMetro, nearbyCollectible = null) }
+                promptJob?.cancel()
+                promptJob = viewModelScope.launch {
+                    val promptText = "PRESIONA X PARA ENTRAR A ESTACIÓN ${nearbyMetro.name.uppercase()}"
+                    _uiState.update { it.copy(interactionPrompt = promptText) }
+                    kotlinx.coroutines.delay(3000)
+                    _uiState.update { it.copy(interactionPrompt = null) }
+                }
+            }
+            return
+        }
+
+        // Si no está cerca de un metro, limpia el estado de metro
+        if (_uiState.value.nearbyMetroStation != null) {
+            _uiState.update { it.copy(nearbyMetroStation = null, interactionPrompt = null) }
+        }
+
+        // 2. Verificar cercanía a otros objetos (coleccionables, puertas)
         val doorLandmarkItems = _uiState.value.landmarks
             .filter { it.assetPath == ESCOM_DOOR_ASSET }
             .map { lm ->
@@ -106,14 +135,12 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
             }
         val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value + doorLandmarkItems
 
-        val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
         val activeItem = allPossibleItems.minByOrNull {
             playerGeo.distanceToAsDouble(org.osmdroid.util.GeoPoint(it.latitude, it.longitude))
         } ?: return
 
         val itemGeo = org.osmdroid.util.GeoPoint(activeItem.latitude, activeItem.longitude)
         val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
-        val INTERACT_RADIUS_METERS = 15.0
 
         if (distanceInMeters <= INTERACT_RADIUS_METERS) {
             if (_uiState.value.nearbyCollectible?.id != activeItem.id) {

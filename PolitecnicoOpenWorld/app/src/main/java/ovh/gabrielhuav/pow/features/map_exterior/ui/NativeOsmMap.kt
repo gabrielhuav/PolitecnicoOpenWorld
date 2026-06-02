@@ -594,6 +594,45 @@ internal fun NativeOsmMap(
                 (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }) as? Polyline)?.isEnabled = false
             }
 
+            // ─── METRO STATIONS OVERLAY ────────────────────────────────────────────────
+            @Suppress("UNCHECKED_CAST")
+            val metroMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 400 }) as? MutableMap<String, Marker>)
+                ?: mutableMapOf<String, Marker>().also {
+                    view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 400 }, it)
+                }
+
+            if (uiState.zoomLevel >= 14.0) {
+                uiState.metroStations.forEach { station ->
+                    val marker = metroMarkerCache[station.name] ?: Marker(view).apply {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        val screenDensity = context.resources.displayMetrics.density
+                        val exactPixels = (24 * screenDensity).toInt()
+                        val cacheKey = "OSM_METRO_ICON"
+                        val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                            try {
+                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("metroCDMX/icon.webp"))
+                                if (bitmap != null) {
+                                    val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                                    ExactSizeDrawable(spriteDrawable, exactPixels, exactPixels)
+                                } else ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                            } catch (e: Exception) {
+                                ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                            }
+                        }
+                        icon = cachedIcon
+                        title = station.name
+                        snippet = station.routes.joinToString(", ")
+                        isFlat = true
+                        metroMarkerCache[station.name] = this
+                        view.overlays.add(this)
+                    }
+                    marker.position = station.location
+                    marker.setAlpha(1f)
+                }
+            } else {
+                metroMarkerCache.values.forEach { it.setAlpha(0f) }
+            }
+
             // ─── OVERLAY CREADOR DE RUTAS (MIGAS DE PAN Y CARRILES) ────────────────────────
             // Dibujamos la ruta si estamos en modo diseñador y hay puntos guardados
             if (uiState.isDesignerMode && uiState.routeDebugWaypoints.isNotEmpty()) {

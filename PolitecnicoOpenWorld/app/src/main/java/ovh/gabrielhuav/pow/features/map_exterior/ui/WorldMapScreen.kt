@@ -1129,4 +1129,30 @@ fun WorldMapScreen(
                 .background(Color.Black.copy(alpha = escomFadeAlpha.value))
         )
     }
+
+    // ─── Metro Door Fade Overlay ─────────────────────────────────────────────
+    val metroFadeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(uiState.showMetroFade) {
+        if (uiState.showMetroFade) {
+            metroFadeAlpha.animateTo(1f, animationSpec = androidx.compose.animation.core.tween(600))
+            viewModel.onMetroFadeComplete()
+            kotlinx.coroutines.delay(200)
+            metroFadeAlpha.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(400))
+        }
+    }
+    if (metroFadeAlpha.value > 0f) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = metroFadeAlpha.value))
+        )
+    }
+
+    LaunchedEffect(uiState.metroFadeCompleteStation) {
+        val station = uiState.metroFadeCompleteStation
+        if (station != null) {
+            viewModel.consumeMetroFadeComplete()
+            onNavigateToInterior("metro_station_interior/${station.name}")
+        }
+    }
 }

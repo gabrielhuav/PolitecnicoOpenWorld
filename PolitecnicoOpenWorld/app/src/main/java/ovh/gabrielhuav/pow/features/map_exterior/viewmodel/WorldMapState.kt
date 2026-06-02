@@ -123,5 +123,11 @@ data class WorldMapState(
 
     // ─── ESCOM Door transition ───────────────────────────────────────────────
     val showEscomDoorFade: Boolean = false,
-    val escomDoorFadeComplete: Boolean = false
+    val escomDoorFadeComplete: Boolean = false,
+
+    // ─── Metro Stations ───────────────────────────────────────────────────────
+    val metroStations: List<ovh.gabrielhuav.pow.domain.models.MetroStation> = emptyList(),
+    val nearbyMetroStation: ovh.gabrielhuav.pow.domain.models.MetroStation? = null,
+    val showMetroFade: Boolean = false,
+    val metroFadeCompleteStation: ovh.gabrielhuav.pow.domain.models.MetroStation? = null
 )

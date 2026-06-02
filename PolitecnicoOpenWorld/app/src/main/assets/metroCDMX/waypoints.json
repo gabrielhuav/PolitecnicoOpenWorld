@@ -1,0 +1,35 @@
+[
+    {
+        "hitboxFrac": {
+            "bottom": 0.38166028,
+            "left": 0.0,
+            "right": 0.25000006,
+            "top": 0.27166003
+        },
+        "kind": "GENERIC",
+        "label": "Taquilla",
+        "targetRoomId": "taquilla"
+    },
+    {
+        "hitboxFrac": {
+            "bottom": 0.3761816,
+            "left": 0.2547874,
+            "right": 0.46478742,
+            "top": 0.29618168
+        },
+        "kind": "GENERIC",
+        "label": "Torniquetes",
+        "targetRoomId": "torniquetes"
+    },
+    {
+        "hitboxFrac": {
+            "bottom": 0.98146486,
+            "left": 0.61940753,
+            "right": 0.6594075,
+            "top": 0.021464825
+        },
+        "kind": "GENERIC",
+        "label": "Andén",
+        "targetRoomId": "anden"
+    }
+]
