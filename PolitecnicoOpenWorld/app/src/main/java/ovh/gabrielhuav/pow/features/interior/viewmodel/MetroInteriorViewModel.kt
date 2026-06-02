@@ -1,0 +1,395 @@
+package ovh.gabrielhuav.pow.features.interior.viewmodel
+
+import android.content.Context
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import ovh.gabrielhuav.pow.data.repository.SettingsRepository
+import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
+import android.net.Uri
+import ovh.gabrielhuav.pow.domain.models.zombie.NormRect
+import ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
+import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.DesignerTarget
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import java.io.InputStreamReader
+
+class MetroInteriorViewModel(
+    private val context: Context,
+    private val settingsRepository: SettingsRepository,
+    private val stationName: String
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(
+        MetroInteriorState(
+            controlType = settingsRepository.getControlType(),
+            controlsScale = settingsRepository.getControlsScale(),
+            swapControls = settingsRepository.getSwapControls()
+        )
+    )
+    val state: StateFlow<MetroInteriorState> = _state.asStateFlow()
+
+    private var idleJob: Job? = null
+    private var collisionGrid: CollisionGrid = CollisionGrid.emptyWithBorder()
+    
+    // Configuración del tamaño de la matriz
+    private var gridRows = 30
+    private var gridCols = 20
+
+    // Constantes de pasos de movimiento (coordenadas [0,1])
+    private val WALK_STEP = 0.004f
+    private val RUN_STEP = 0.008f
+
+    private val prefs = context.getSharedPreferences("metro_station_$stationName", Context.MODE_PRIVATE)
+    private val gson = Gson()
+
+    init {
+        val savedRows = prefs.getString("matrix", null)
+        val savedDoors = prefs.getString("doors", null)
+
+        val initialRows = if (savedRows != null) {
+            try {
+                gson.fromJson(savedRows, object : TypeToken<List<String>>() {}.type)
+            } catch (e: Exception) { null }
+        } else null
+
+        val defaultRows = initialRows ?: List(gridRows) { r ->
+            if (r == 0 || r == gridRows - 1) "#".repeat(gridCols)
+            else "#" + ".".repeat(gridCols - 2) + "#"
+        }
+        
+        val initialDoors = if (savedDoors != null) {
+            try {
+                gson.fromJson(savedDoors, object : TypeToken<List<ZoneDoor>>() {}.type)
+            } catch (e: Exception) { null }
+        } else null
+
+        val defaultDoors = initialDoors ?: listOf(
+            ZoneDoor(NormRect(0.20f, 0.40f, 0.35f, 0.55f), "taquilla", "Taquilla", DoorKind.GENERIC),
+            ZoneDoor(NormRect(0.45f, 0.60f, 0.60f, 0.70f), "torniquetes", "Torniquetes", DoorKind.GENERIC),
+            ZoneDoor(NormRect(0.10f, 0.10f, 0.90f, 0.30f), "anden", "Andén", DoorKind.GENERIC)
+        )
+        
+        _state.update { it.copy(designerRows = defaultRows, doors = defaultDoors) }
+        updateCollisionGrid(defaultRows)
+    }
+
+    fun moveByAngle(angleRad: Double) {
+        if (_state.value.designerMode) return
+        val current = _state.value
+        val step = if (current.isRunning) RUN_STEP else WALK_STEP
+
+        val dx = cos(angleRad).toFloat() * step
+        val dy = -sin(angleRad).toFloat() * step
+
+        applyMovement(current.playerX + dx, current.playerY + dy, dx)
+    }
+
+    fun moveDirection(direction: Direction) {
+        if (_state.value.designerMode) return
+        val current = _state.value
+        val step = if (current.isRunning) RUN_STEP else WALK_STEP
+
+        val (dx, dy) = when (direction) {
+            Direction.UP    -> 0f to -step
+            Direction.DOWN  -> 0f to  step
+            Direction.LEFT  -> -step to 0f
+            Direction.RIGHT ->  step to 0f
+        }
+
+        applyMovement(current.playerX + dx, current.playerY + dy, dx)
+    }
+
+    private fun applyMovement(newX: Float, newY: Float, dxForFacing: Float) {
+        val clampedX = newX.coerceIn(0f, 1f)
+        val clampedY = newY.coerceIn(0f, 1f)
+        val curX = _state.value.playerX
+        val curY = _state.value.playerY
+
+        val (fx, fy) = when {
+            collisionGrid.isWalkable(clampedX, clampedY) -> clampedX to clampedY
+            collisionGrid.isWalkable(clampedX, curY) -> clampedX to curY
+            collisionGrid.isWalkable(curX, clampedY) -> curX to clampedY
+            else -> {
+                if (abs(dxForFacing) > 0.0001f) {
+                    _state.update { it.copy(isFacingRight = dxForFacing > 0) }
+                }
+                return
+            }
+        }
+
+        updatePlayer(fx, fy, dxForFacing)
+        checkHotspots(fx, fy)
+    }
+
+    private fun updatePlayer(x: Float, y: Float, dxForFacing: Float) {
+        val current = _state.value
+        val facing = if (abs(dxForFacing) > 0.0001f) dxForFacing > 0 else current.isFacingRight
+        val action = if (current.isRunning) PlayerAction.RUN else PlayerAction.WALK
+
+        idleJob?.cancel()
+        _state.update {
+            it.copy(playerX = x, playerY = y, playerAction = action, isFacingRight = facing)
+        }
+
+        idleJob = viewModelScope.launch {
+            delay(150)
+            _state.update { it.copy(playerAction = PlayerAction.IDLE) }
+        }
+    }
+
+    fun setRunning(running: Boolean) {
+        _state.update { it.copy(isRunning = running) }
+    }
+
+    // --- HOTSPOTS (DOORS) ---
+    private fun checkHotspots(x: Float, y: Float) {
+        val doors = _state.value.doors
+        val detected = doors.firstOrNull { door ->
+            val r = door.hitboxFrac
+            x in r.left..r.right && y in r.top..r.bottom
+        }
+        if (_state.value.activeDoor != detected) {
+            _state.update { it.copy(activeDoor = detected) }
+        }
+    }
+
+    fun interactWithHotspot() {
+        val door = _state.value.activeDoor ?: return
+        val msg = when (door.targetRoomId) {
+            "taquilla" -> "Has comprado un boleto."
+            "torniquetes" -> "Has cruzado el torniquete."
+            "anden" -> "Has abordado el tren."
+            else -> "Interacción con ${door.label}"
+        }
+        _state.update { it.copy(messageToast = msg) }
+        viewModelScope.launch {
+            delay(2000)
+            _state.update { it.copy(messageToast = null) }
+        }
+    }
+
+    // --- DISEÑADOR ---
+    fun toggleDesignerMode() {
+        _state.update { it.copy(designerMode = !it.designerMode) }
+    }
+    
+    fun setDesignerTarget(target: DesignerTarget) {
+        _state.update { it.copy(designerTarget = target) }
+    }
+
+    fun setDesignerBrushWall(brushWall: Boolean) {
+        _state.update { it.copy(designerBrushWall = brushWall) }
+    }
+
+    fun paintCellAtWorld(normalizedX: Float, normalizedY: Float) {
+        val s = _state.value
+        if (s.designerTarget != DesignerTarget.MATRIX) return
+        
+        val cols = gridCols
+        val rows = gridRows
+        if (cols == 0 || rows == 0) return
+
+        val c = (normalizedX * cols).toInt().coerceIn(0, cols - 1)
+        val r = (normalizedY * rows).toInt().coerceIn(0, rows - 1)
+
+        val currentRows = s.designerRows.toMutableList()
+        val rowStr = currentRows[r]
+        val charArr = rowStr.toCharArray()
+        val oldChar = charArr[c]
+        val newChar = if (s.designerBrushWall) '#' else '.'
+        if (oldChar == newChar) return
+
+        charArr[c] = newChar
+        currentRows[r] = String(charArr)
+
+        _state.update { it.copy(designerRows = currentRows, designerDirty = true) }
+        updateCollisionGrid(currentRows)
+    }
+
+    fun saveDesignerMatrix() {
+        prefs.edit()
+            .putString("matrix", gson.toJson(_state.value.designerRows))
+            .putString("doors", gson.toJson(_state.value.doors))
+            .apply()
+        _state.update { it.copy(designerDirty = false) }
+    }
+
+    // --- IMPORTACIÓN / EXPORTACIÓN SAF ---
+    fun exportMatricesToUri(uri: Uri) {
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                val json = gson.toJson(_state.value.designerRows)
+                out.write(json.toByteArray())
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    fun importMatricesFromUri(uri: Uri) {
+        try {
+            context.contentResolver.openInputStream(uri)?.use { inp ->
+                val json = InputStreamReader(inp).readText()
+                val rows = gson.fromJson<List<String>>(json, object : TypeToken<List<String>>() {}.type)
+                if (rows != null) {
+                    gridRows = rows.size
+                    gridCols = rows.maxOfOrNull { it.length } ?: 0
+                    _state.update { it.copy(designerRows = rows, designerDirty = true) }
+                    updateCollisionGrid(rows)
+                }
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    fun exportWaypointsToUri(uri: Uri) {
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                val json = gson.toJson(_state.value.doors)
+                out.write(json.toByteArray())
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    fun importWaypointsFromUri(uri: Uri) {
+        try {
+            context.contentResolver.openInputStream(uri)?.use { inp ->
+                val json = InputStreamReader(inp).readText()
+                val ds = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
+                if (ds != null) {
+                    _state.update { it.copy(doors = ds, designerDirty = true) }
+                }
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    fun resetDesignerMatrix() {
+        val defaultRows = List(gridRows) { r ->
+            if (r == 0 || r == gridRows - 1) "#".repeat(gridCols)
+            else "#" + ".".repeat(gridCols - 2) + "#"
+        }
+        _state.update { it.copy(designerRows = defaultRows, designerDirty = true) }
+        updateCollisionGrid(defaultRows)
+    }
+
+    fun resizeDesignerMatrixBy(deltaCols: Int, deltaRows: Int) {
+        var currentCols = gridCols
+        var currentRows = gridRows
+        val newCols = (currentCols + deltaCols).coerceIn(5, 100)
+        val newRows = (currentRows + deltaRows).coerceIn(5, 100)
+        if (newCols == currentCols && newRows == currentRows) return
+
+        val oldRows = _state.value.designerRows
+        val newRowsList = mutableListOf<String>()
+        for (r in 0 until newRows) {
+            if (r < oldRows.size) {
+                var rowStr = oldRows[r]
+                if (newCols > currentCols) rowStr += ".".repeat(newCols - currentCols)
+                else if (newCols < currentCols) rowStr = rowStr.substring(0, newCols)
+                newRowsList.add(rowStr)
+            } else {
+                newRowsList.add(".".repeat(newCols))
+            }
+        }
+        gridCols = newCols
+        gridRows = newRows
+
+        _state.update { it.copy(designerRows = newRowsList, designerDirty = true) }
+        updateCollisionGrid(newRowsList)
+    }
+    
+    // --- EDICIÓN DE WAYPOINTS ---
+    fun selectDoor(x: Float, y: Float) {
+        val s = _state.value
+        val clickedIndex = s.doors.indexOfLast { door ->
+            val r = door.hitboxFrac
+            x in r.left..r.right && y in r.top..r.bottom
+        }
+        if (clickedIndex != -1) {
+            _state.update { it.copy(selectedDoorIndex = clickedIndex) }
+        }
+    }
+
+    fun dragDoor(x: Float, y: Float) {
+        val s = _state.value
+        val idx = s.selectedDoorIndex
+        if (idx !in s.doors.indices) return
+
+        val door = s.doors[idx]
+        val old = door.hitboxFrac
+        val w = old.right - old.left
+        val h = old.bottom - old.top
+
+        val newLeft = (x - w / 2f).coerceIn(0f, 1f - w)
+        val newTop = (y - h / 2f).coerceIn(0f, 1f - h)
+        val newHitbox = NormRect(newLeft, newTop, newLeft + w, newTop + h)
+
+        val newList = s.doors.toMutableList()
+        newList[idx] = door.copy(hitboxFrac = newHitbox)
+        _state.update { it.copy(doors = newList, designerDirty = true) }
+    }
+
+    fun resizeDoor(deltaW: Float, deltaH: Float) {
+        val s = _state.value
+        val idx = s.selectedDoorIndex
+        if (idx !in s.doors.indices) return
+
+        val door = s.doors[idx]
+        val old = door.hitboxFrac
+        
+        var w = (old.right - old.left) + deltaW
+        var h = (old.bottom - old.top) + deltaH
+        
+        w = w.coerceIn(0.02f, 1f)
+        h = h.coerceIn(0.02f, 1f)
+        
+        val cx = (old.left + old.right) / 2f
+        val cy = (old.top + old.bottom) / 2f
+        
+        val newLeft = (cx - w / 2f).coerceIn(0f, 1f - w)
+        val newTop = (cy - h / 2f).coerceIn(0f, 1f - h)
+        val newHitbox = NormRect(newLeft, newTop, newLeft + w, newTop + h)
+        
+        val newList = s.doors.toMutableList()
+        newList[idx] = door.copy(hitboxFrac = newHitbox)
+        _state.update { it.copy(doors = newList, designerDirty = true) }
+    }
+
+    private fun updateCollisionGrid(rows: List<String>) {
+        if (rows.isEmpty()) return
+        val rCount = rows.size
+        val cCount = rows[0].length
+        val g = Array(rCount) { IntArray(cCount) }
+        for (r in 0 until rCount) {
+            val s = rows[r]
+            for (c in 0 until cCount) {
+                g[r][c] = if (c < s.length && s[c] == '#') 0 else 1
+            }
+        }
+        collisionGrid = CollisionGrid(g)
+    }
+
+    class Factory(
+        private val context: Context,
+        private val stationName: String
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return MetroInteriorViewModel(
+                context = context.applicationContext,
+                settingsRepository = SettingsRepository(context.applicationContext),
+                stationName = stationName
+            ) as T
+        }
+    }
+}
