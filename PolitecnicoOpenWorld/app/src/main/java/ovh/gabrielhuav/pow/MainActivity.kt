@@ -278,6 +278,15 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
+                            // ─── Metro Stations Fade ───────────────────────────────────
+                            LaunchedEffect(uiState.metroFadeCompleteStation) {
+                                val station = uiState.metroFadeCompleteStation
+                                if (station != null) {
+                                    worldMapViewModel.consumeMetroFadeComplete()
+                                    navController.navigate("metro_station_interior/${station.name}")
+                                }
+                            }
+
                             // ─── ShineCTO: dialog de descubrimiento ───────────────────────
                             if (uiState.showShineCTODiscovery) {
                                 EasterEggDiscoveryDialog(

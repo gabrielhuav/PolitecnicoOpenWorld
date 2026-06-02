@@ -57,6 +57,7 @@ import androidx.compose.runtime.setValue
 import java.io.InputStreamReader
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
+import ovh.gabrielhuav.pow.data.repository.MetroRepository
 
 
 class WorldMapViewModel(
@@ -1201,6 +1202,7 @@ class WorldMapViewModel(
     }
 
     fun loadLandmarks(context: Context) {
+        loadMetroStations(context)
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 LandmarkCatalogManager.loadCatalog(context)
@@ -1454,6 +1456,20 @@ class WorldMapViewModel(
     }
 
 
+    fun teleportToMetroStation(stationName: String) {
+        val station = _uiState.value.metroStations.find { it.name.equals(stationName, ignoreCase = true) }
+        station?.let {
+            teleportTo(it.location.latitude, it.location.longitude)
+        }
+    }
+
+    fun loadMetroStations(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val stations = MetroRepository.loadStations(context)
+            _uiState.update { it.copy(metroStations = stations) }
+        }
+    }
+
     fun toggleTeleportMenu(show: Boolean) { _uiState.update { it.copy(showTeleportMenu = show) } }
 
     fun teleportTo(lat: Double, lon: Double) {
@@ -1513,7 +1529,35 @@ class WorldMapViewModel(
     }
 
     private fun checkCollectibleProximity(playerLat: Double, playerLon: Double) {
-        // 1. Recopilamos los coleccionables normales y de ESCOM (nuestro código)
+        val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
+        val INTERACT_RADIUS_METERS = 15.0
+
+        // 1. Verificar cercanía a estaciones del metro
+        val metroStations = _uiState.value.metroStations
+        val nearbyMetro = metroStations.minByOrNull {
+            playerGeo.distanceToAsDouble(it.location)
+        }
+
+        if (nearbyMetro != null && playerGeo.distanceToAsDouble(nearbyMetro.location) <= INTERACT_RADIUS_METERS) {
+            if (_uiState.value.nearbyMetroStation?.name != nearbyMetro.name) {
+                _uiState.update { it.copy(nearbyMetroStation = nearbyMetro, nearbyCollectible = null) }
+                promptJob?.cancel()
+                promptJob = viewModelScope.launch {
+                    val promptText = "PRESIONA X PARA ENTRAR A ESTACIÓN ${nearbyMetro.name.uppercase()}"
+                    _uiState.update { it.copy(interactionPrompt = promptText) }
+                    kotlinx.coroutines.delay(3000)
+                    _uiState.update { it.copy(interactionPrompt = null) }
+                }
+            }
+            return
+        }
+
+        // Si no está cerca de un metro, limpia el estado de metro
+        if (_uiState.value.nearbyMetroStation != null) {
+            _uiState.update { it.copy(nearbyMetroStation = null, interactionPrompt = null) }
+        }
+
+        // 2. Recopilamos los coleccionables normales y de ESCOM (nuestro código)
         val baseItems = _uiState.value.activeCollectibles + _escomItems.value
 
         // Convertimos los Landmarks de tipo "Puerta" en coleccionables virtuales interactuables
@@ -1533,7 +1577,6 @@ class WorldMapViewModel(
         // 3. Juntamos todo en un solo radar global
         val allPossibleItems = baseItems + doorItems
 
-        val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
         val activeItem = allPossibleItems.minByOrNull {
             playerGeo.distanceToAsDouble(org.osmdroid.util.GeoPoint(it.latitude, it.longitude))
         } ?: return
@@ -1862,6 +1905,12 @@ class WorldMapViewModel(
      * navegue a la ruta "zombie_minigame".
      */
     fun handleInteraction() {
+        val nearbyMetro = _uiState.value.nearbyMetroStation
+        if (nearbyMetro != null) {
+            _uiState.update { it.copy(showMetroFade = true) }
+            return
+        }
+
         val nearby = _uiState.value.nearbyCollectible ?: return
 
         when {
