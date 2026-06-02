@@ -337,15 +337,23 @@ class MainActivity : ComponentActivity() {
                         
                         // ─── ESTACIONES METRO ──────────────────────────────────────
                         composable(
-                            route = "metro_station_interior/{stationName}",
-                            arguments = listOf(androidx.navigation.navArgument("stationName") { type = androidx.navigation.NavType.StringType })
+                            route = "metro_station_interior/{stationName}?spawnAtAnden={spawnAtAnden}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("stationName") { type = androidx.navigation.NavType.StringType },
+                                androidx.navigation.navArgument("spawnAtAnden") { type = androidx.navigation.NavType.BoolType; defaultValue = false }
+                            )
                         ) { backStackEntry ->
                             val stationName = backStackEntry.arguments?.getString("stationName") ?: "Desconocida"
+                            val spawnAtAnden = backStackEntry.arguments?.getBoolean("spawnAtAnden") ?: false
                             MetroStationInteriorScreen(
                                 stationName = stationName,
-                                onExit = { navController.popBackStack("world_map", inclusive = false) },
+                                spawnAtAnden = spawnAtAnden,
+                                onExit = { currentStation ->
+                                    worldMapViewModel.teleportToMetroStation(currentStation)
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
                                 onTeleportToStation = { newStation ->
-                                    navController.navigate("metro_station_interior/$newStation") {
+                                    navController.navigate("metro_station_interior/$newStation?spawnAtAnden=true") {
                                         popUpTo("world_map") { inclusive = false }
                                     }
                                 }

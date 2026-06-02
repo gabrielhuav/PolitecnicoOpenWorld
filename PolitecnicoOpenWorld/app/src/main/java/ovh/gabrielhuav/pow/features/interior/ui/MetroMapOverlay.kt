@@ -18,6 +18,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.PanTool
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,13 +46,16 @@ import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor
 import ovh.gabrielhuav.pow.features.interior.viewmodel.MetroInteriorState
 import ovh.gabrielhuav.pow.features.interior.viewmodel.MetroInteriorViewModel
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 @Composable
 fun MetroMapOverlay(
     state: MetroInteriorState,
     viewModel: MetroInteriorViewModel,
-    onTeleportToStation: (String) -> Unit
+    onTeleportToStation: (String) -> Unit,
+    onExportGlobal: () -> Unit,
+    onImportGlobal: () -> Unit
 ) {
     val context = LocalContext.current
     var mapBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -76,10 +84,22 @@ fun MetroMapOverlay(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) {
+                    .pointerInput(state.mapDesignerMode, state.mapDesignerMoveMode) {
                         detectTransformGestures { _, pan, zoom, _ ->
                             scale = (scale * zoom).coerceIn(1f, 5f)
-                            offset += pan
+                            if (state.mapDesignerMode && state.mapDesignerMoveMode && state.selectedGlobalWaypointIndex != -1) {
+                                // Mover waypoint (ajustamos el pan según la escala y tamaño del contenedor original de 1920x1080 o el tamaño relativo)
+                                // En este caso, el tamaño del contenedor no está directamente en pointerInput(Unit) sin BoxWithConstraints.
+                                // Podemos pasar un delta estimado o calcular el tamaño real usando un layout modifier.
+                                // Ya que `size` no está disponible directamente aquí (es un PointerInputScope sin MeasureScope), 
+                                // es mejor usar el pan asumiendo un tamaño de contenedor estándar o guardando el tamaño de pantalla.
+                                // Una forma simple es (pan.x / 1000f) pero lo haremos mejor:
+                                val nxDelta = pan.x / (size.width * scale)
+                                val nyDelta = pan.y / (size.height * scale)
+                                viewModel.moveSelectedGlobalWaypointBy(nxDelta, nyDelta)
+                            } else {
+                                offset += pan
+                            }
                         }
                     }
             ) {
@@ -113,6 +133,13 @@ fun MetroMapOverlay(
                         )
                         .pointerInput(state.mapDesignerMode) {
                             detectDragGestures(
+                                onDragStart = { startOffset ->
+                                    if (state.mapDesignerMode) {
+                                        val nx = startOffset.x / size.width
+                                        val ny = startOffset.y / size.height
+                                        viewModel.selectGlobalWaypointAt(nx, ny)
+                                    }
+                                },
                                 onDrag = { change, dragAmount ->
                                     if (state.mapDesignerMode && state.selectedGlobalWaypointIndex != -1) {
                                         change.consume()
@@ -133,10 +160,11 @@ fun MetroMapOverlay(
                         val width = (r.right - r.left) * size.width
                         val height = (r.bottom - r.top) * size.height
 
-                        drawRect(
-                            color = if (isSelected) Color.Yellow.copy(alpha = 0.6f) else Color.Cyan.copy(alpha = 0.6f),
-                            topLeft = Offset(left, top),
-                            size = Size(width, height)
+                        val radius = min(width, height) / 4f
+                        drawCircle(
+                            color = if (isSelected) Color.Yellow.copy(alpha = 0.8f) else Color.Cyan.copy(alpha = 0.8f),
+                            radius = radius,
+                            center = Offset(left + width / 2f, top + height / 2f)
                         )
                     }
                 }
@@ -204,22 +232,48 @@ fun MetroMapOverlay(
         if (state.mapDesignerMode) {
             var showAddDialog by remember { mutableStateOf(false) }
 
-            Row(
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(16.dp)
                     .systemBarsPadding()
                     .background(Color(0xAA000000), RoundedCornerShape(12.dp))
                     .padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                IconButton(onClick = { showAddDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Añadir Estación", tint = Color.Green)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { viewModel.toggleMapDesignerMoveMode() },
+                        modifier = Modifier.background(if (state.mapDesignerMoveMode) Color.Red else Color.DarkGray, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (state.mapDesignerMoveMode) Icons.Default.PanTool else Icons.Default.TouchApp,
+                            contentDescription = if (state.mapDesignerMoveMode) "Bloquear Mapa" else "Mover Mapa",
+                            tint = Color.White
+                        )
+                    }
+                    IconButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Añadir Estación", tint = Color.Green)
+                    }
+                    IconButton(onClick = { viewModel.deleteSelectedGlobalWaypoint() }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red)
+                    }
+                    IconButton(onClick = onImportGlobal) {
+                        Icon(Icons.Default.Upload, contentDescription = "Importar", tint = Color.Cyan)
+                    }
+                    IconButton(onClick = onExportGlobal) {
+                        Icon(Icons.Default.Download, contentDescription = "Exportar", tint = Color.Cyan)
+                    }
                 }
-                IconButton(onClick = { viewModel.deleteSelectedGlobalWaypoint() }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red)
-                }
-                Button(onClick = { viewModel.saveGlobalWaypoints() }) {
+                
+                Button(
+                    onClick = { viewModel.saveGlobalWaypoints() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text("Guardar")
                 }
             }

@@ -63,12 +63,13 @@ private val BACKGROUND_ASSET_PATH = "metroCDMX/inside.png"
 @Composable
 fun MetroStationInteriorScreen(
     stationName: String,
-    onExit: () -> Unit,
+    spawnAtAnden: Boolean = false,
+    onExit: (String) -> Unit,
     onTeleportToStation: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: MetroInteriorViewModel = viewModel(
-        factory = MetroInteriorViewModel.Factory(context, stationName)
+        factory = MetroInteriorViewModel.Factory(context, stationName, spawnAtAnden)
     )
     val state by viewModel.state.collectAsState()
     val configuration = LocalConfiguration.current
@@ -103,7 +104,14 @@ fun MetroStationInteriorScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { viewModel.importWaypointsFromUri(it) } }
 
-    BackHandler { onExit() }
+    val exportGlobalWpLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { viewModel.exportGlobalWaypointsToUri(it) } }
+    val importGlobalWpLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { viewModel.importGlobalWaypointsFromUri(it) } }
+
+    BackHandler { onExit(stationName) }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D11))) {
 
@@ -279,7 +287,7 @@ fun MetroStationInteriorScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = onExit,
+                onClick = { onExit(stationName) },
                 modifier = Modifier.background(Color.Black.copy(alpha = 0.6f), CircleShape)
             ) {
                 Icon(Icons.Default.ArrowBack, "Salir", tint = Color.White)
@@ -350,7 +358,9 @@ fun MetroStationInteriorScreen(
             MetroMapOverlay(
                 state = state,
                 viewModel = viewModel,
-                onTeleportToStation = onTeleportToStation
+                onTeleportToStation = onTeleportToStation,
+                onExportGlobal = { exportGlobalWpLauncher.launch("metro_global_waypoints.json") },
+                onImportGlobal = { importGlobalWpLauncher.launch(arrayOf("application/json")) }
             )
         }
     }

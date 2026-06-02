@@ -40,6 +40,7 @@ data class MetroInteriorState(
     val globalWaypoints: List<ZoneDoor> = emptyList(),
     val selectedGlobalWaypointIndex: Int = -1,
     val mapDesignerMode: Boolean = false,
+    val mapDesignerMoveMode: Boolean = false,
     val mapSearchQuery: String = "",
     val allMetroStations: List<ovh.gabrielhuav.pow.domain.models.MetroStation> = emptyList()
 )

@@ -230,6 +230,14 @@ class WorldMapViewModel(
         }
     }
 
+    fun teleportToMetroStation(stationName: String) {
+        val station = _uiState.value.metroStations.find { it.name == stationName }
+        if (station != null) {
+            _uiState.update { it.copy(currentLocation = station.location) }
+            // Opcional: Centrar cámara si es necesario
+        }
+    }
+
     fun moveCharacter(direction: Direction) {
         if (_uiState.value.isUserPanningMap) return
         val loc = _uiState.value.currentLocation ?: return

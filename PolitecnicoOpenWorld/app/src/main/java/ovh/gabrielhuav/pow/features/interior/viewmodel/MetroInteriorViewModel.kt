@@ -30,7 +30,8 @@ import ovh.gabrielhuav.pow.data.repository.MetroRepository
 class MetroInteriorViewModel(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
-    private val stationName: String
+    private val stationName: String,
+    private val spawnAtAnden: Boolean = false
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -86,20 +87,47 @@ class MetroInteriorViewModel(
         // Cargar mapa global
         val globalPrefs = context.getSharedPreferences("metro_map_global", Context.MODE_PRIVATE)
         val savedGlobalWaypoints = globalPrefs.getString("global_waypoints", null)
-        val initialGlobalWaypoints = if (savedGlobalWaypoints != null) {
+        
+        var initialGlobalWaypoints: List<ZoneDoor>? = null
+        if (savedGlobalWaypoints != null) {
             try {
-                gson.fromJson<List<ZoneDoor>>(savedGlobalWaypoints, object : TypeToken<List<ZoneDoor>>() {}.type)
-            } catch (e: Exception) { null }
-        } else null
+                initialGlobalWaypoints = gson.fromJson<List<ZoneDoor>>(savedGlobalWaypoints, object : TypeToken<List<ZoneDoor>>() {}.type)
+            } catch (e: Exception) { }
+        }
+        
+        if (initialGlobalWaypoints.isNullOrEmpty()) {
+            try {
+                context.assets.open("metroCDMX/global_waypoints.json").use { inp ->
+                    val json = InputStreamReader(inp).readText()
+                    initialGlobalWaypoints = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
+                }
+            } catch (e: Exception) { }
+        }
 
         val allStations = MetroRepository.loadStations(context)
+
+        var startX = 0.5f
+        var startY = 0.15f
+        var recharged = false
+
+        if (spawnAtAnden) {
+            val andenDoor = defaultDoors.find { it.targetRoomId == "anden" }
+            if (andenDoor != null) {
+                startX = (andenDoor.hitboxFrac.left + andenDoor.hitboxFrac.right) / 2f
+                startY = andenDoor.hitboxFrac.top - 0.05f
+                recharged = true
+            }
+        }
 
         _state.update { 
             it.copy(
                 designerRows = defaultRows, 
                 doors = defaultDoors,
                 globalWaypoints = initialGlobalWaypoints ?: emptyList(),
-                allMetroStations = allStations
+                allMetroStations = allStations,
+                playerX = startX,
+                playerY = startY,
+                hasRechargedTicket = recharged
             ) 
         }
         updateCollisionGrid(defaultRows)
@@ -316,6 +344,28 @@ class MetroInteriorViewModel(
         } catch (e: Exception) { e.printStackTrace() }
     }
 
+    fun exportGlobalWaypointsToUri(uri: Uri) {
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                val json = gson.toJson(_state.value.globalWaypoints)
+                out.write(json.toByteArray())
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    fun importGlobalWaypointsFromUri(uri: Uri) {
+        try {
+            context.contentResolver.openInputStream(uri)?.use { inp ->
+                val json = InputStreamReader(inp).readText()
+                val ds = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
+                if (ds != null) {
+                    _state.update { it.copy(globalWaypoints = ds, designerDirty = true) }
+                    saveGlobalWaypoints()
+                }
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
     fun resetDesignerMatrix() {
         val defaultRows = List(gridRows) { r ->
             if (r == 0 || r == gridRows - 1) "#".repeat(gridCols)
@@ -409,7 +459,11 @@ class MetroInteriorViewModel(
     }
 
     fun toggleMapDesignerMode() {
-        _state.update { it.copy(mapDesignerMode = !it.mapDesignerMode) }
+        _state.update { it.copy(mapDesignerMode = !it.mapDesignerMode, mapDesignerMoveMode = false) }
+    }
+
+    fun toggleMapDesignerMoveMode() {
+        _state.update { it.copy(mapDesignerMoveMode = !it.mapDesignerMoveMode) }
     }
 
     fun updateMapSearchQuery(query: String) {
@@ -439,6 +493,20 @@ class MetroInteriorViewModel(
         val hw = (door.hitboxFrac.right - door.hitboxFrac.left) / 2
         val hh = (door.hitboxFrac.bottom - door.hitboxFrac.top) / 2
         list[idx] = door.copy(hitboxFrac = NormRect(x - hw, y - hh, x + hw, y + hh))
+        _state.update { it.copy(globalWaypoints = list) }
+    }
+
+    fun moveSelectedGlobalWaypointBy(dx: Float, dy: Float) {
+        val idx = _state.value.selectedGlobalWaypointIndex
+        if (idx == -1) return
+        val list = _state.value.globalWaypoints.toMutableList()
+        val door = list[idx]
+        val rect = door.hitboxFrac
+        val newLeft = (rect.left + dx).coerceIn(0f, 1f - (rect.right - rect.left))
+        val newTop = (rect.top + dy).coerceIn(0f, 1f - (rect.bottom - rect.top))
+        val newRight = newLeft + (rect.right - rect.left)
+        val newBottom = newTop + (rect.bottom - rect.top)
+        list[idx] = door.copy(hitboxFrac = NormRect(newLeft, newTop, newRight, newBottom))
         _state.update { it.copy(globalWaypoints = list) }
     }
 
@@ -473,14 +541,16 @@ class MetroInteriorViewModel(
 
     class Factory(
         private val context: Context,
-        private val stationName: String
+        private val stationName: String,
+        private val spawnAtAnden: Boolean = false
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             return MetroInteriorViewModel(
                 context = context.applicationContext,
                 settingsRepository = SettingsRepository(context.applicationContext),
-                stationName = stationName
+                stationName = stationName,
+                spawnAtAnden = spawnAtAnden
             ) as T
         }
     }
