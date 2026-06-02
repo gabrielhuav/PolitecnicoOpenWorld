@@ -50,6 +50,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -134,11 +135,36 @@ internal fun NativeOsmMap(
     nativeMapRef: MutableState<MapView?>,
 ) {
     var hasTriggeredNativePan by remember { mutableStateOf(false) }
+
+    // OPT gama baja: holder NO observable de la última lista de NPCs renderizada. El
+    // `update` corre en CADA recomposición (~30 Hz por el jugador) pero los NPCs cambian
+    // a ~10 Hz; reconstruir sus marcadores solo cuando la lista cambia evita ~2/3 del
+    // trabajo de sprites (lo más caro en gama baja).
+    val lastNpcRenderHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Npc>>(1) }
+
+    // CICLO DE VIDA del MapView de osmdroid: liberarlo al salir (onPause/onDetach), si no
+    // se fuga y puede dejar la pantalla rota (azul) al volver de Ajustes.
+    DisposableEffect(Unit) {
+        onDispose {
+            try { nativeMapRef.value?.onPause() } catch (_: Exception) {}
+            try { nativeMapRef.value?.onDetach() } catch (_: Exception) {}
+        }
+    }
+
     AndroidView(
         factory = { ctx ->
             MapView(ctx).apply {
                 setTileSource(TileSourceFactory.MAPNIK)
                 setMultiTouchControls(true)
+                // Canal de retorno del zoom por gesto (pinch): sincroniza el nivel de zoom
+                // del mapa con el estado para que el bucle de render no lo resetee.
+                addMapListener(object : org.osmdroid.events.MapListener {
+                    override fun onScroll(event: org.osmdroid.events.ScrollEvent?): Boolean = false
+                    override fun onZoom(event: org.osmdroid.events.ZoomEvent?): Boolean {
+                        event?.let { viewModel.onMapZoomChanged(it.zoomLevel) }
+                        return false
+                    }
+                })
                 setBackgroundColor(android.graphics.Color.parseColor("#0D0D11"))
                 controller.setZoom(uiState.zoomLevel)
                 nativeMapRef.value = this
@@ -255,6 +281,10 @@ internal fun NativeOsmMap(
                 val highResRenderScale = 1.0f * screenDensity
 
                 // ─── CULLING POR DISTANCIA ──────────────────────────────
+                // OPT: solo reconstruimos los marcadores de NPC cuando la LISTA cambió
+                // (~10 Hz), no en cada recomposición por movimiento del jugador (~30 Hz).
+                if (uiState.npcs !== lastNpcRenderHolder[0]) {
+                  lastNpcRenderHolder[0] = uiState.npcs
                 val centerCull = uiState.currentLocation
                 val visibleNpcs = if (centerCull != null) {
                     val radiusM = npcVisionRadiusMeters()
@@ -358,6 +388,7 @@ internal fun NativeOsmMap(
                     }
                     marker.position = GeoPoint(npc.location.latitude, npc.location.longitude)
                 }
+                } // fin guard: lista de NPCs sin cambios → no se reconstruyen marcadores
 
                 val activeCollectibleIds = allCollectibles.map { it.id }.toSet()
                 @Suppress("UNCHECKED_CAST")
@@ -589,39 +620,22 @@ internal fun NativeOsmMap(
                 while (breadcrumbCache.size < uiState.routeDebugWaypoints.size) {
                     val m = Marker(view).apply {
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        // Creamos un circulito amarillo con borde negro
-                        icon = android.graphics.drawable.GradientDrawable().apply {
+                        val dot = android.graphics.drawable.GradientDrawable().apply {
                             shape = android.graphics.drawable.GradientDrawable.OVAL
-                            setColor(android.graphics.Color.YELLOW)
-                            setStroke(2, android.graphics.Color.BLACK)
-                            setSize(24, 24)
+                            setColor(android.graphics.Color.CYAN)
+                            setStroke(2, android.graphics.Color.WHITE)
+                            setSize(16, 16)
                         }
+                        icon = dot
                         view.overlays.add(this)
                     }
+                    m.position = uiState.routeDebugWaypoints[breadcrumbCache.size]
                     breadcrumbCache.add(m)
                 }
-
-                // Si reseteamos la ruta (Nuevo Carril), ocultamos/quitamos los puntos viejos
-                while (breadcrumbCache.size > uiState.routeDebugWaypoints.size) {
-                    // Usamos removeAt con el último índice válido para soportar APIs antiguas (Min API 24)
-                    val m = breadcrumbCache.removeAt(breadcrumbCache.lastIndex)
-                    view.overlays.remove(m)
-                }
-
-                // Actualizar las posiciones geográficas de cada miga de pan
-                uiState.routeDebugWaypoints.forEachIndexed { index, geoPoint ->
-                    breadcrumbCache[index].position = geoPoint
-                    breadcrumbCache[index].setAlpha(1f)
-                }
             } else {
-                // Si salimos del modo o limpiamos la lista, ocultamos todo
+                // Fuera de modo disenador / sin puntos: ocultar la linea de depuracion.
                 (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 300 }) as? Polyline)?.isEnabled = false
-                @Suppress("UNCHECKED_CAST")
-                val breadcrumbCache = (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 300 }) as? MutableList<Marker>)
-                breadcrumbCache?.forEach { it.setAlpha(0f) }
             }
-
-            view.invalidate()
         }
     )
 }

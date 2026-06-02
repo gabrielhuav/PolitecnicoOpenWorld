@@ -235,8 +235,12 @@ internal fun WorldMapViewModel.startGameLoop() {
                                                     ws.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to idToRemove)))
                                                 }
 
-                                                if (processedNpcs.isNotEmpty()) {
-                                                    val npcBatch = processedNpcs.map { npc ->
+                                                // Solo reenviamos los NPCs ACTIVOS (dentro del fog ~0.0012);
+                                                // los "congelados" lejanos no se mueven y ya viven en el
+                                                // roster del servidor, así no malgastamos ancho de banda.
+                                                val activeNpcs = processedNpcs.filter { distance(location, it.location) <= 0.0012 }
+                                                if (activeNpcs.isNotEmpty()) {
+                                                    val npcBatch = activeNpcs.map { npc ->
                                                         MultiplayerNpc(
                                                             id = npc.id,
                                                             x = npc.location.longitude,
@@ -273,4 +277,4 @@ internal fun WorldMapViewModel.startGameLoop() {
                 kotlinx.coroutines.delay(33)
             }
         }
-    }
+    }

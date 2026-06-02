@@ -24,6 +24,63 @@ class NpcAiManager {
     companion object {
         const val CAR_SPEED = 0.000008
         const val PERSON_SPEED = 0.0000015
+
+        // ─── Parámetros de comportamiento (compartidos SP/MP: el host los corre) ───
+        // MIEDO: radio en el que un PLAYER_DAMAGE / ataque dispersa NPCs, duración
+        // del pánico y multiplicador de velocidad al huir.
+        const val FEAR_RADIUS = 0.0018          // ~180 m alrededor del evento
+        const val FEAR_DURATION_MS = 4500L      // cuánto huyen
+        const val FEAR_SPEED_MULT = 3.8f        // corren claramente más rápido al huir
+        // CHARLAS: distancia para emparejar peatones, duración de la charla y
+        // probabilidad por tick de iniciar una (baja para que sea ocasional).
+        const val CHAT_DISTANCE = 0.00035       // ~35 m
+        const val CHAT_DURATION_MS = 5000L
+        const val CHAT_CHANCE = 0.012f
+        // TRÁFICO: distancia de "coche delante" para frenar (car-following). ~11 m.
+        const val CAR_FOLLOW_DISTANCE = 0.00010
+        // CARRILES DUALES: desplazamiento lateral (a la derecha del sentido de marcha,
+        // tráfico por la derecha) que se aplica al PUNTO OBJETIVO de cada vehículo.
+        // Convierte una misma calle de OSM en dos carriles virtuales. ~1 m (sutil, para
+        // que no se vean "torpes" al cruzar nodos densos).
+        const val LANE_OFFSET = 0.000010
+
+        // PALETA FIJA DE ATUENDOS (optimización de render): en vez de colores aleatorios
+        // por NPC (~2000 combinaciones → un sprite único por peatón), usamos un conjunto
+        // PEQUEÑO de atuendos predefinidos. Así los sprites se COMPARTEN entre NPCs: la
+        // caché de bitmaps se llena enseguida y casi no se genera/tinta nada nuevo, que
+        // es lo más caro en gama baja. Da variedad suficiente sin penalizar el rendimiento.
+        val NPC_OUTFITS: List<ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig> by lazy {
+            fun outfit(hairId: Int, shirt: Long, hair: Long, pants: Long) =
+                ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+                    bodyFolder = "npc_walk_1", bodyPrefix = "npc_walk_1_",
+                    hairId = hairId,
+                    shirtColor = androidx.compose.ui.graphics.Color(shirt),
+                    hairColor = androidx.compose.ui.graphics.Color(hair),
+                    pantsColor = androidx.compose.ui.graphics.Color(pants)
+                )
+            listOf(
+                outfit(1, 0xFFD32F2F, 0xFF3B2A1A, 0xFF424242),
+                outfit(2, 0xFF1976D2, 0xFF1A1A1A, 0xFF2E3B4E),
+                outfit(3, 0xFF388E3C, 0xFF5A3A1A, 0xFF424242),
+                outfit(1, 0xFFFBC02D, 0xFF2B1A0A, 0xFF3A3A3A),
+                outfit(4, 0xFF00ACC1, 0xFF1A1A1A, 0xFF24303A),
+                outfit(2, 0xFF8E24AA, 0xFF4A2A1A, 0xFF424242),
+                outfit(3, 0xFFECEFF1, 0xFF2B1A0A, 0xFF2E2E2E),
+                outfit(4, 0xFFFF8800, 0xFF1A1A1A, 0xFF333333)
+            )
+        }
+
+        // Paleta FIJA de colores de coche (mismo motivo: sprites de vehículo compartidos
+        // en vez de un tinte RGB aleatorio único por coche × 48 frames de rotación).
+        val CAR_COLORS = intArrayOf(
+            android.graphics.Color.rgb(200, 30, 30),    // rojo
+            android.graphics.Color.rgb(30, 60, 160),    // azul
+            android.graphics.Color.rgb(235, 235, 235),  // blanco
+            android.graphics.Color.rgb(25, 25, 25),     // negro
+            android.graphics.Color.rgb(120, 120, 130),  // gris
+            android.graphics.Color.rgb(30, 120, 60),    // verde
+            android.graphics.Color.rgb(210, 180, 40)    // dorado
+        )
     }
 
     private val _npcs = MutableStateFlow<List<Npc>>(emptyList())
@@ -43,11 +100,40 @@ class NpcAiManager {
     )
     private val cachedWayBoxes = AtomicReference<List<WayBox>>(emptyList())
 
+    // Índice de adyacencia nodo→ways: para resolver intersecciones en O(grado) en vez
+    // de filtrar TODA la red en cada cambio de nodo. Clave para que subir la cantidad
+    // de NPCs no dispare la CPU en gama baja.
+    private val nodeToWays = AtomicReference<Map<Long, List<MapWay>>>(emptyMap())
+
     val pendingDespawns = mutableListOf<String>()
 
-    private val maxNpcs = 40
-    private val despawnDistance = 0.035
-    private val spawnDistance   = 0.0060
+    // POBLACIÓN ESCALABLE Y BARATA EN GAMA BAJA:
+    //  - maxActiveNpcs: NPCs SIMULADOS y visibles (dentro de simRadius ≈ fog). Solo
+    //    estos gastan CPU (movimiento, tráfico, charlas).
+    //  - maxTotalNpcs: tope de NPCs guardados en memoria (incluye los "congelados"
+    //    fuera del fog). Los congelados NO se mueven: solo ocupan memoria, sin CPU.
+    //  - simRadius: radio alrededor del jugador dentro del cual se simula. Un poco
+    //    mayor que el anillo de spawn para que entren al fog ya en movimiento.
+    // ESCALA AL FOG: el fog de NPCs es de ~70 m (NPC_FOG_VISION_METERS). Para que el
+    // mundo NO se vea vacío, los NPCs deben concentrarse alrededor de ese radio, no a
+    // cientos de metros. Por eso el anillo de spawn y simRadius están en esa escala.
+    private val maxActiveNpcs = 12      // simulados/visibles en el fog (gama baja)
+    private val maxTotalNpcs  = 30      // tope en memoria (incluye congelados)
+    // Throttle del escaneo de calles para spawnear: es lo más caro (recorre la red).
+    // Solo lo hacemos cada SPAWN_SCAN_MS, no en cada tick de simulación.
+    private val SPAWN_SCAN_MS = 500L
+    @Volatile private var lastSpawnScanMs = 0L
+    private val simRadius      = 0.0010 // ~110 m: se simula dentro de esto
+    private val despawnDistance = 0.0028 // ~310 m: más allá se eliminan
+    private val spawnDistance   = 0.0012 // radio de búsqueda de calles para spawnear
+
+    // SPAWN SUAVE: aparecen en el borde del fog (no encima del jugador) y entran
+    // caminando; el fade de aparición suaviza el pop-in.
+    private val spawnRingMin = 0.0004   // ~44 m (dentro/al borde del fog)
+    private val spawnRingMax = 0.00068  // ~76 m (justo pasando el fog de 70 m)
+
+    // Proporción objetivo de coches: menos coches = menos atascos y más peatones.
+    private val carPopulationRatio = 0.35f
 
     private val parkedTimers = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val parkingCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -74,6 +160,14 @@ class NpcAiManager {
             }
             WayBox(way, minLat, maxLat, minLon, maxLon)
         })
+        // Construir el índice nodo→ways una sola vez al cargar la red.
+        val index = HashMap<Long, MutableList<MapWay>>()
+        for (way in network) {
+            for (n in way.nodes) {
+                index.getOrPut(n.id) { mutableListOf() }.add(way)
+            }
+        }
+        nodeToWays.set(index)
         networkIsReady = network.isNotEmpty()
     }
 
@@ -108,6 +202,48 @@ class NpcAiManager {
         return false
     }
 
+    // Cola de eventos de pánico pendientes de aplicar. triggerFear se llama desde otro
+    // hilo (red / combate) y el game loop reconstruye serverNpcs desde remoteEntities en
+    // cada tick; por eso NO marcamos aquí directamente (se perdería). En su lugar
+    // encolamos el evento y updateNpcs lo aplica sobre el serverNpcs recién construido,
+    // que luego se escribe de vuelta a remoteEntities (así el flag persiste hasta expirar).
+    private class FearEvent(val lat: Double, val lon: Double, val until: Long)
+    private val pendingFear = CopyOnWriteArrayList<FearEvent>()
+
+    // MIEDO AL COMBATE: registra un evento de pánico en (lat, lon). Los civiles dentro
+    // de FEAR_RADIUS huirán alejándose durante FEAR_DURATION_MS. Llamado por el ViewModel
+    // SOLO en el host (en SP el jugador siempre es host). Barato y thread-safe.
+    fun triggerFear(lat: Double, lon: Double) {
+        pendingFear.add(FearEvent(lat, lon, System.currentTimeMillis() + FEAR_DURATION_MS))
+    }
+
+    // Aplica (y vacía) los eventos de pánico encolados sobre serverNpcs.
+    private fun applyPendingFear() {
+        if (pendingFear.isEmpty()) return
+        val events = ArrayList(pendingFear)
+        pendingFear.clear()
+        for (i in serverNpcs.indices) {
+            val npc = serverNpcs[i]
+            if (!npc.displayName.isNullOrEmpty()) continue
+            var best: FearEvent? = null
+            for (ev in events) {
+                if (calculateDistance(npc.location.latitude, npc.location.longitude, ev.lat, ev.lon) <= FEAR_RADIUS) {
+                    if (best == null || ev.until > best.until) best = ev
+                }
+            }
+            best?.let { ev ->
+                serverNpcs[i] = npc.copy(
+                    fearUntil = ev.until,
+                    fearFromLat = ev.lat,
+                    fearFromLon = ev.lon,
+                    chatUntil = 0L,          // el pánico corta la charla
+                    chatPartnerId = null,
+                    isMoving = true
+                )
+            }
+        }
+    }
+
     suspend fun updateNpcs(playerLocation: GeoPoint, amIHost: Boolean) {
         if (!networkIsReady || !amIHost) return
 
@@ -121,50 +257,65 @@ class NpcAiManager {
             }
             serverNpcs.removeAll(toRemove)
 
-            val currentNpcsCount = serverNpcs.count { it.displayName.isNullOrEmpty() }
-            if (currentNpcsCount > maxNpcs) {
-                val excess = currentNpcsCount - maxNpcs
-                val sorted = serverNpcs.filter { it.displayName.isNullOrEmpty() }.sortedByDescending {
-                    calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude)
+            // 2. Control de Población (activos = dentro del fog; total = en memoria)
+            val pLat0 = playerLocation.latitude
+            val pLon0 = playerLocation.longitude
+            var activeCount = 0
+            var totalCount = 0
+            for (n in serverNpcs) {
+                if (n.displayName.isNullOrEmpty()) {
+                    totalCount++
+                    if (calculateDistance(n.location.latitude, n.location.longitude, pLat0, pLon0) <= simRadius) activeCount++
                 }
-                val toAnnihilate = sorted.take(excess)
-                serverNpcs.removeAll(toAnnihilate)
-                toAnnihilate.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
+            }
 
-            } else if (currentNpcsCount < maxNpcs) {
-                val activeLandmarks = cachedLandmarks.get().filter { it.navGraph != null }
-                val pLat = playerLocation.latitude
-                val pLon = playerLocation.longitude
+            // Tope de MEMORIA: si hay demasiados civiles en total, eliminamos los más
+            // lejanos (no se ven). El mundo queda poblado pero acotado en gama baja.
+            if (totalCount > maxTotalNpcs) {
+                val excess = totalCount - maxTotalNpcs
+                val farthest = serverNpcs.filter { it.displayName.isNullOrEmpty() }
+                    .sortedByDescending { calculateDistance(it.location.latitude, it.location.longitude, pLat0, pLon0) }
+                    .take(excess)
+                serverNpcs.removeAll(farthest)
+                farthest.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
+            }
 
-                // --- 1. LÓGICA DE PRE-LLENADO ORGÁNICO ---
-                for (landmark in activeLandmarks) {
-                    val dist = calculateDistance(pLat, pLon, landmark.location.latitude, landmark.location.longitude)
+            // Landmarks con grafo de navegación (rama de landmarks). Se usa tanto para el
+            // pre-llenado de estacionamientos como para el spawn sesgado hacia ellos.
+            val activeLandmarks = cachedLandmarks.get().filter { it.navGraph != null }
 
-                    if (dist < 0.01 && !populatedLandmarks.contains(landmark.id.toString())) {
-                        populatedLandmarks.add(landmark.id.toString())
-
-                        val availableSlots = getAvailableParkingSlots(landmark, serverNpcs)
-                        if (availableSlots.isNotEmpty()) {
-                            val fillPercentage = Random.nextFloat() * 0.3f + 0.5f
-                            val numToSpawn = (availableSlots.size * fillPercentage).toInt().coerceAtLeast(1)
-
-                            val slotsToUse = availableSlots.shuffled().take(numToSpawn)
-                            var timerOffset = Random.nextLong(15000L, 25000L)
-
-                            slotsToUse.forEach { slot ->
-                                if (serverNpcs.size < maxNpcs) {
-                                    val newCar = spawnParkedCar(landmark, slot.first, slot.second, timerOffset)
-                                    serverNpcs.add(newCar)
-                                    timerOffset += Random.nextLong(15000L, 30000L)
-                                }
+            // PRE-LLENADO ORGÁNICO: al acercarse a un landmark con estacionamiento, llena
+            // algunos cajones con autos aparcados (una sola vez por visita).
+            for (landmark in activeLandmarks) {
+                val dist = calculateDistance(pLat0, pLon0, landmark.location.latitude, landmark.location.longitude)
+                if (dist < 0.01 && !populatedLandmarks.contains(landmark.id.toString())) {
+                    populatedLandmarks.add(landmark.id.toString())
+                    val availableSlots = getAvailableParkingSlots(landmark, serverNpcs)
+                    if (availableSlots.isNotEmpty()) {
+                        val fillPercentage = Random.nextFloat() * 0.3f + 0.5f
+                        val numToSpawn = (availableSlots.size * fillPercentage).toInt().coerceAtLeast(1)
+                        val slotsToUse = availableSlots.shuffled().take(numToSpawn)
+                        var timerOffset = Random.nextLong(15000L, 25000L)
+                        slotsToUse.forEach { slot ->
+                            if (serverNpcs.size < maxTotalNpcs) {
+                                val newCar = spawnParkedCar(landmark, slot.first, slot.second, timerOffset)
+                                serverNpcs.add(newCar)
+                                timerOffset += Random.nextLong(15000L, 30000L)
                             }
                         }
-                    } else if (dist >= 0.02) {
-                        populatedLandmarks.remove(landmark.id.toString())
                     }
+                } else if (dist >= 0.02) {
+                    populatedLandmarks.remove(landmark.id.toString())
                 }
+            }
 
-                // --- 2. GENERACIÓN NORMAL DE CALLE ---
+            // SPAWN normal de calle: rellenamos hasta maxActiveNpcs DENTRO del fog. El
+            // escaneo de calles es lo más caro, así que solo lo hacemos cada SPAWN_SCAN_MS.
+            val nowSpawn = System.currentTimeMillis()
+            if (activeCount < maxActiveNpcs && nowSpawn - lastSpawnScanMs >= SPAWN_SCAN_MS) {
+                lastSpawnScanMs = nowSpawn
+                val pLat = pLat0
+                val pLon = pLon0
                 val closeWays = cachedWayBoxes.get()
                     .filter { box ->
                         pLat >= box.minLat - spawnDistance && pLat <= box.maxLat + spawnDistance &&
@@ -176,8 +327,7 @@ class NpcAiManager {
                     .map { it.way }
 
                 if (closeWays.isNotEmpty()) {
-                    val numToSpawn = minOf(2, maxNpcs - serverNpcs.count { it.displayName.isNullOrEmpty() })
-
+                    val numToSpawn = minOf(4, maxActiveNpcs - activeCount)
                     for (i in 0 until numToSpawn) {
                         var targetWays = closeWays
                         if (activeLandmarks.isNotEmpty() && Random.nextFloat() < 0.25f) {
@@ -196,11 +346,46 @@ class NpcAiManager {
                 }
             }
 
+            val now = System.currentTimeMillis()
+
+            // 2.4 MIEDO: aplicar eventos de pánico encolados (PLAYER_DAMAGE / ataques).
+            applyPendingFear()
+
+            // 2.5 CHARLAS: emparejar peatones cercanos, libres (sin miedo ni charla),
+            // para que se detengan unos segundos mirándose. Solo entre activos (fog).
+            maybeStartChats(now, pLat0, pLon0)
+
+            // 2.6 Mantenimiento de charlas: si la pareja desapareció, terminar la charla.
+            val presentIds = serverNpcs.mapTo(HashSet()) { it.id }
+            for (i in serverNpcs.indices) {
+                val npc = serverNpcs[i]
+                if (npc.chatUntil > now) {
+                    val partner = npc.chatPartnerId
+                    if (partner == null || !presentIds.contains(partner)) {
+                        serverNpcs[i] = npc.copy(chatUntil = 0L, chatPartnerId = null)
+                    }
+                }
+            }
+
+            // Snapshot de coches ACTIVOS (dentro del fog) para el car-following.
+            val cars = serverNpcs.filter {
+                it.displayName.isNullOrEmpty() && it.type == NpcType.CAR &&
+                        calculateDistance(it.location.latitude, it.location.longitude, pLat0, pLon0) <= simRadius
+            }
+
+            // 3. Movimiento: SOLO se simulan los civiles dentro de simRadius (fog). Los
+            //    de fuera quedan CONGELADOS (se devuelven tal cual): en memoria, sin CPU.
+            //    Los autos aparcados/en-landmark se simulan vía moveNpc (estados PARKED /
+            //    MICRO_LANDMARK) cuando están dentro del fog.
             val updated = serverNpcs.mapNotNull { npc ->
                 if (!npc.displayName.isNullOrEmpty()) {
-                    npc
+                    npc // Si es un jugador real, no lo tocamos.
+                } else if (calculateDistance(npc.location.latitude, npc.location.longitude, pLat0, pLon0) > simRadius) {
+                    npc // Congelado: fuera del fog. No gasta CPU de movimiento.
                 } else {
-                    val moved = moveNpc(npc, currentNetwork)
+                    // TRÁFICO: un coche frena si tiene otro coche justo delante.
+                    val speedScale = if (npc.type == NpcType.CAR) carFollowScale(npc, cars) else 1f
+                    val moved = moveNpc(npc, currentNetwork, now, speedScale)
                     if (moved == null) {
                         synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
                     }
@@ -264,8 +449,77 @@ class NpcAiManager {
         )
     }
 
+    // CHARLAS: busca pares de peatones cercanos y libres y, con baja probabilidad,
+    // los pone a charlar (detenidos, mirándose) durante CHAT_DURATION_MS.
+    private fun maybeStartChats(now: Long, pLat: Double, pLon: Double) {
+        val free = serverNpcs.withIndex().filter { (_, n) ->
+            n.displayName.isNullOrEmpty() && n.type == NpcType.PERSON &&
+                    calculateDistance(n.location.latitude, n.location.longitude, pLat, pLon) <= simRadius &&
+                    n.fearUntil <= now && n.chatUntil <= now
+        }
+        if (free.size < 2) return
+        val used = HashSet<Int>()
+        for (a in free.indices) {
+            val (ia, na) = free[a]
+            if (used.contains(ia)) continue
+            for (b in a + 1 until free.size) {
+                val (ib, nb) = free[b]
+                if (used.contains(ib)) continue
+                val d = calculateDistance(na.location.latitude, na.location.longitude,
+                    nb.location.latitude, nb.location.longitude)
+                if (d in 0.00002..CHAT_DISTANCE.toDouble() && Random.nextFloat() < CHAT_CHANCE) {
+                    // Rotaciones para que se miren (mismo criterio que moveNpc).
+                    val angA = atan2(nb.location.latitude - na.location.latitude,
+                        nb.location.longitude - na.location.longitude)
+                    val angB = angA + Math.PI
+                    val until = now + CHAT_DURATION_MS
+                    serverNpcs[serverNpcs.indexOfFirst { it.id == na.id }.takeIf { it >= 0 } ?: continue] =
+                        na.copy(chatUntil = until, chatPartnerId = nb.id, isMoving = false,
+                            rotationAngle = (-Math.toDegrees(angA).toFloat() + 360) % 360,
+                            facingRight = cos(angA) >= 0)
+                    serverNpcs[serverNpcs.indexOfFirst { it.id == nb.id }.takeIf { it >= 0 } ?: continue] =
+                        nb.copy(chatUntil = until, chatPartnerId = na.id, isMoving = false,
+                            rotationAngle = (-Math.toDegrees(angB).toFloat() + 360) % 360,
+                            facingRight = cos(angB) >= 0)
+                    used.add(ia); used.add(ib)
+                    break
+                }
+            }
+        }
+    }
+
+    // TRÁFICO (car-following): devuelve un factor de velocidad ∈ [0,1]. Si hay otro
+    // coche justo delante (en la dirección de avance), frena hasta detenerse.
+    private fun carFollowScale(car: Npc, cars: List<Npc>): Float {
+        val way = car.currentWay ?: return 1f
+        val ti = car.targetNodeIndex
+        if (ti < 0 || ti >= way.nodes.size) return 1f
+        val target = way.nodes[ti]
+        val fwd = atan2(target.lat - car.location.latitude, target.lon - car.location.longitude)
+        var minAhead = Double.MAX_VALUE
+        for (other in cars) {
+            if (other.id == car.id) continue
+            // Solo seguimos coches que van en NUESTRA MISMA dirección; los de sentido
+            // contrario (que ya van por su carril) NO deben hacernos frenar/parar.
+            val headDiff = Math.abs(((other.rotationAngle - car.rotationAngle + 540f) % 360f) - 180f)
+            if (headDiff > 90f) continue
+            val dLat = other.location.latitude - car.location.latitude
+            val dLon = other.location.longitude - car.location.longitude
+            val d = sqrt(dLat * dLat + dLon * dLon)
+            if (d > CAR_FOLLOW_DISTANCE) continue
+            // ¿Está delante? (mismo sentido que el vector de avance)
+            val ang = atan2(dLat, dLon)
+            val diff = Math.abs(((Math.toDegrees(ang - fwd) + 540) % 360) - 180)
+            if (diff < 45 && d < minAhead) minAhead = d
+        }
+        if (minAhead == Double.MAX_VALUE) return 1f
+        // Más cerca = más frena, pero NUNCA se detiene del todo (piso 0.35): así no se
+        // forman atascos de coches parados; solo reducen la marcha.
+        return (minAhead / CAR_FOLLOW_DISTANCE).toFloat().coerceIn(0.35f, 1f)
+    }
+
     private fun spawnNpcOnRoad(playerLocation: GeoPoint, closeWays: List<MapWay>, activeLandmarks: List<Landmark>): Npc? {
-        val npcType = if (Random.nextFloat() < 0.6f) NpcType.CAR else NpcType.PERSON
+        val npcType = if (Random.nextFloat() < carPopulationRatio) NpcType.CAR else NpcType.PERSON
         val speed   = if (npcType == NpcType.CAR) carSpeed else personSpeed
 
         val validWays = closeWays.filter { way ->
@@ -275,12 +529,23 @@ class NpcAiManager {
 
         if (validWays.isEmpty()) return null
 
-        val selectedWay = validWays.random()
-        val startIndex  = Random.nextInt(selectedWay.nodes.size)
-        val startNode   = selectedWay.nodes[startIndex]
+        // SPAWN SUAVE: elegimos directamente un nodo que caiga en el anillo lejano
+        // [spawnRingMin, spawnRingMax], para no aparecer encima del jugador pero
+        // garantizando que SIEMPRE haya candidatos si alguna calle llega al anillo.
+        val pLat = playerLocation.latitude
+        val pLon = playerLocation.longitude
+        val candidates = ArrayList<Pair<MapWay, Int>>()
+        for (w in validWays) {
+            for (idx in w.nodes.indices) {
+                val n = w.nodes[idx]
+                val d = calculateDistance(n.lat, n.lon, pLat, pLon)
+                if (d in spawnRingMin..spawnRingMax) candidates.add(w to idx)
+            }
+        }
+        if (candidates.isEmpty()) return null
 
-        val distToPlayer = calculateDistance(startNode.lat, startNode.lon, playerLocation.latitude, playerLocation.longitude)
-        if (distToPlayer < 0.0002 || distToPlayer > 0.0040) return null
+        val (selectedWay, startIndex) = candidates.random()
+        val startNode = selectedWay.nodes[startIndex]
 
         val startGeo = GeoPoint(startNode.lat, startNode.lon)
         if (activeLandmarks.any { it.contains(startGeo) }) {
@@ -289,26 +554,8 @@ class NpcAiManager {
 
         val dir = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
 
-        val visualConfig = if (npcType == NpcType.PERSON) {
-            val colors = listOf(
-                androidx.compose.ui.graphics.Color.Red,
-                androidx.compose.ui.graphics.Color.Blue,
-                androidx.compose.ui.graphics.Color.Green,
-                androidx.compose.ui.graphics.Color.Yellow,
-                androidx.compose.ui.graphics.Color.Cyan,
-                androidx.compose.ui.graphics.Color.Magenta,
-                androidx.compose.ui.graphics.Color.White,
-                androidx.compose.ui.graphics.Color.DarkGray
-            )
-            ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
-                bodyFolder = "npc_walk_1",
-                bodyPrefix = "npc_walk_1_",
-                hairId = Random.nextInt(1, 5),
-                shirtColor = colors.random(),
-                hairColor = colors.random(),
-                pantsColor = colors.random()
-            )
-        } else { null }
+        // Atuendo tomado de la paleta FIJA (sprites compartidos = caché barata).
+        val visualConfig = if (npcType == NpcType.PERSON) NPC_OUTFITS.random() else null
 
         return Npc(
             type = npcType,
@@ -317,7 +564,7 @@ class NpcAiManager {
             currentWay = selectedWay,
             targetNodeIndex = startIndex + dir,
             moveDirection = dir,
-            carColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)),
+            carColor = CAR_COLORS.random(),
             carModel = CarModel.entries.random(),
             isRemote = false,
             visualConfig = visualConfig
@@ -454,7 +701,9 @@ class NpcAiManager {
         return kotlin.math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY))
     }
 
-    private fun moveNpc(npc: Npc, network: List<MapWay>): Npc? {
+    private fun moveNpc(npc: Npc, network: List<MapWay>, now: Long, speedScale: Float): Npc? {
+        // Estados de navegación por landmark (rama de landmarks): lógica propia, sin
+        // pasar por chat/miedo/tráfico de calle.
         if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) {
             val wakeUpTime = parkedTimers[npc.id]
 
@@ -482,6 +731,12 @@ class NpcAiManager {
         if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK) {
             return moveLocalNpc(npc)
         }
+
+        // CHARLA: el peatón está detenido mirando a su pareja; no se mueve.
+        if (npc.chatUntil > now) {
+            return npc.copy(isMoving = false)
+        }
+        val feared = npc.fearUntil > now
 
         var way = npc.currentWay
         var nodeIndex = npc.targetNodeIndex
@@ -520,36 +775,45 @@ class NpcAiManager {
             }
         }
 
+        // MIEDO (media vuelta): si el nodo objetivo me acerca al punto de pánico,
+        // doy la vuelta para alejarme. La elección en intersecciones afina el resto.
+        if (feared && nodeIndex in way.nodes.indices) {
+            val tnode = way.nodes[nodeIndex]
+            val distNow = calculateDistance(npc.location.latitude, npc.location.longitude, npc.fearFromLat, npc.fearFromLon)
+            val distTarget = calculateDistance(tnode.lat, tnode.lon, npc.fearFromLat, npc.fearFromLon)
+            if (distTarget < distNow) {
+                val oldDir = direction
+                direction = -oldDir
+                nodeIndex -= oldDir
+            }
+        }
+
+        // Lógica normal de movimiento
         if (nodeIndex < 0 || nodeIndex >= way.nodes.size) {
             val reachedNode = if (nodeIndex < 0) way.nodes.first() else way.nodes.last()
 
-            // Detección estricta para autos que "chocan" directo con el nodo de OSM
+            // Entrada a landmark para autos que llegan a un nodo de OSM (rama de landmarks).
             if (npc.type == NpcType.CAR) {
                 for (landmark in cachedLandmarks.get()) {
                     val navGraph = landmark.navGraph ?: continue
                     if (navGraph.entryWays.isEmpty()) continue
-
                     for (entryWayId in navGraph.entryWays) {
                         val entryWay = navGraph.ways.find { it.id == entryWayId } ?: continue
                         val entryNode = entryWay.nodes.first()
                         val entryGlobal = landmark.toGlobalGeoPoint(entryNode.localX, entryNode.localY)
-
                         val distToEntry = calculateDistance(reachedNode.lat, reachedNode.lon, entryGlobal.latitude, entryGlobal.longitude)
-
-                        if (distToEntry < 0.00010) { // Distancia bajada a 10 metros
+                        if (distToEntry < 0.00010) { // ~10 m
                             val lastEntryTime = landmarkEntranceCooldowns[landmark.id.toString()] ?: 0L
-                            val now = System.currentTimeMillis()
-
-                            if (now - lastEntryTime > 5000L && Random.nextFloat() < 0.85f) {
-                                landmarkEntranceCooldowns[landmark.id.toString()] = now
+                            val nowE = System.currentTimeMillis()
+                            if (nowE - lastEntryTime > 5000L && Random.nextFloat() < 0.85f) {
+                                landmarkEntranceCooldowns[landmark.id.toString()] = nowE
                                 return npc.copy(
                                     navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
                                     currentLandmark = landmark,
                                     currentLocalWay = entryWay,
-                                    targetNodeIndex = 0, // Le decimos que conduzca hacia la entrada
+                                    targetNodeIndex = 0,
                                     moveDirection = 1,
                                     currentWay = null
-                                    // NOTA: Eliminamos location = entryGlobal
                                 )
                             }
                         }
@@ -557,19 +821,64 @@ class NpcAiManager {
                 }
             }
 
-            val connectedWays = network.filter { w ->
-                w.id != way.id && w.nodes.any { it.id == reachedNode.id } &&
+            // Intersección en O(grado) por índice nodo→ways + evita ways que solapan landmarks.
+            val connectedWays = (nodeToWays.get()[reachedNode.id] ?: emptyList()).filter { w ->
+                w.id != way!!.id &&
                         ((npc.type == NpcType.CAR && w.isForCars) || (npc.type == NpcType.PERSON && w.isForPeople)) &&
                         !isNativeWayOverlappingCustom(w, activeLandmarks)
             }
 
             if (connectedWays.isNotEmpty()) {
-                val nextWay = connectedWays.random()
-                val newNodeIndex = nextWay.nodes.indexOfFirst { it.id == reachedNode.id }
-                val nextDir = when (newNodeIndex) {
-                    0 -> 1
-                    nextWay.nodes.size - 1 -> -1
-                    else -> if (Random.nextBoolean()) 1 else -1
+                // MIEDO: al elegir calle en una intersección, prefiere la que aleja
+                // del punto de pánico (fearFrom). Sin miedo: elección aleatoria.
+                val nextWay: MapWay
+                val newNodeIndex: Int
+                val nextDir: Int
+                if (feared) {
+                    var bestWay = connectedWays.first()
+                    var bestIdx = bestWay.nodes.indexOfFirst { it.id == reachedNode.id }
+                    var bestDir = 1
+                    var bestDist = -1.0
+                    for (w in connectedWays) {
+                        val idx = w.nodes.indexOfFirst { it.id == reachedNode.id }
+                        for (dir in intArrayOf(1, -1)) {
+                            val ni = idx + dir
+                            if (ni < 0 || ni >= w.nodes.size) continue
+                            val nn = w.nodes[ni]
+                            val dist = calculateDistance(nn.lat, nn.lon, npc.fearFromLat, npc.fearFromLon)
+                            if (dist > bestDist) { bestDist = dist; bestWay = w; bestIdx = idx; bestDir = dir }
+                        }
+                    }
+                    nextWay = bestWay; newNodeIndex = bestIdx; nextDir = bestDir
+                } else if (npc.type == NpcType.CAR && Random.nextFloat() > 0.25f) {
+                    // COCHES: 75% del tiempo siguen lo más RECTO posible (la calle saliente
+                    // mejor alineada con su rumbo de entrada). Evita giros bruscos y las
+                    // "vueltas en bucle" en las intersecciones; el 25% restante gira al azar.
+                    val inAng = atan2(reachedNode.lat - npc.location.latitude, reachedNode.lon - npc.location.longitude)
+                    var bestW = connectedWays.first()
+                    var bestI = bestW.nodes.indexOfFirst { it.id == reachedNode.id }
+                    var bestD = if (bestI == 0) 1 else -1
+                    var bestAlign = -2.0
+                    for (w in connectedWays) {
+                        val idx = w.nodes.indexOfFirst { it.id == reachedNode.id }
+                        for (dir in intArrayOf(1, -1)) {
+                            val ni = idx + dir
+                            if (ni < 0 || ni >= w.nodes.size) continue
+                            val nn = w.nodes[ni]
+                            val outAng = atan2(nn.lat - reachedNode.lat, nn.lon - reachedNode.lon)
+                            val align = cos(outAng - inAng)
+                            if (align > bestAlign) { bestAlign = align; bestW = w; bestI = idx; bestD = dir }
+                        }
+                    }
+                    nextWay = bestW; newNodeIndex = bestI; nextDir = bestD
+                } else {
+                    nextWay = connectedWays.random()
+                    newNodeIndex = nextWay.nodes.indexOfFirst { it.id == reachedNode.id }
+                    nextDir = when (newNodeIndex) {
+                        0 -> 1
+                        nextWay.nodes.size - 1 -> -1
+                        else -> if (Random.nextBoolean()) 1 else -1
+                    }
                 }
                 return npc.copy(currentWay = nextWay, targetNodeIndex = newNodeIndex + nextDir,
                     moveDirection = nextDir, location = GeoPoint(reachedNode.lat, reachedNode.lon))
@@ -580,9 +889,33 @@ class NpcAiManager {
             }
         }
 
-        val target = way.nodes[nodeIndex]
-        val dLon = target.lon - npc.location.longitude
-        val dLat = target.lat - npc.location.latitude
+        val baseTarget = way.nodes[nodeIndex]
+        // CARRIL DUAL: para coches, el punto objetivo se desplaza a la DERECHA del
+        // sentido de marcha (tráfico por la derecha), creando dos carriles virtuales en
+        // la misma calle de OSM y evitando solapamientos de frente. Peatones: centro.
+        val tLat: Double
+        val tLon: Double
+        if (npc.type == NpcType.CAR) {
+            val segDLat = baseTarget.lat - npc.location.latitude
+            val segDLon = baseTarget.lon - npc.location.longitude
+            val segLen = sqrt(segDLat * segDLat + segDLon * segDLon)
+            // Solo desplazamos a carril en tramos LARGOS. En tramos cortos (nodos densos
+            // de intersecciones) el offset lateral hacía girar el rumbo bruscamente y los
+            // coches "daban vueltas"; ahí van por el centro.
+            if (segLen > 0.00012) {
+                val a = atan2(segDLat, segDLon)
+                tLat = baseTarget.lat - cos(a) * LANE_OFFSET
+                tLon = baseTarget.lon + sin(a) * LANE_OFFSET
+            } else {
+                tLat = baseTarget.lat
+                tLon = baseTarget.lon
+            }
+        } else {
+            tLat = baseTarget.lat
+            tLon = baseTarget.lon
+        }
+        val dLon = tLon - npc.location.longitude
+        val dLat = tLat - npc.location.latitude
         val dist = sqrt(dLon * dLon + dLat * dLat)
         val angle = atan2(dLat, dLon)
         val targetAngle = -Math.toDegrees(angle).toFloat()
@@ -590,7 +923,12 @@ class NpcAiManager {
 
         val diff = (targetAngle - npc.rotationAngle + 540) % 360 - 180
         val smoothedAngle = (npc.rotationAngle + diff * 0.20f + 360) % 360
-        val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
+        // Velocidad efectiva: base × frenado-de-tráfico (speedScale) × pánico (FEAR).
+        val effectiveSpeed = npc.speed * speedScale.coerceIn(0f, 1f).toDouble() *
+                (if (feared) FEAR_SPEED_MULT.toDouble() else 1.0)
+        val actualSpeed = effectiveSpeed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
+        // Si el tráfico lo paró del todo, se queda quieto (sin animación de avance).
+        val moving = actualSpeed > 1e-9
 
         //  Detección periférica (Para que entren sin importar si chocaron o no con el nodo OSM)
         if (dist > actualSpeed * 3 && npc.type == NpcType.CAR) {
@@ -626,9 +964,9 @@ class NpcAiManager {
         }
 
         return if (dist < actualSpeed) {
-            npc.copy(currentWay = way, location = GeoPoint(target.lat, target.lon), targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight)
+            npc.copy(currentWay = way, location = GeoPoint(tLat, tLon), targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
         } else {
-            npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(npc.location.latitude + sin(angle) * actualSpeed, npc.location.longitude + cos(angle) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight)
+            npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(npc.location.latitude + sin(angle) * actualSpeed, npc.location.longitude + cos(angle) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
         }
     }
 
