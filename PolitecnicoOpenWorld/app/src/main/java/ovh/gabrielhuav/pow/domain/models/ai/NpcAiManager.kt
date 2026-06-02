@@ -138,6 +138,7 @@ class NpcAiManager {
     private val parkedTimers = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val parkingCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
+    private val carExitCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val populatedLandmarks = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val landmarkEntranceCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
@@ -195,7 +196,8 @@ class NpcAiManager {
                     nodesInside++
                 }
             }
-            if (nodesInside > 0 && (nodesInside.toFloat() / way.nodes.size) > 0.85f) {
+            // 👇 FIX: Modificado a 0.45f para aniquilar la calle en U que rozaba el exterior
+            if (nodesInside > 0 && (nodesInside.toFloat() / way.nodes.size) > 0.45f) {
                 return true
             }
         }
@@ -587,6 +589,7 @@ class NpcAiManager {
             }
 
             if (navGraph.entryWays.contains(way.id) && nodeIndex < 0) {
+                carExitCooldowns[npc.id] = System.currentTimeMillis() + 60000L
                 return npc.copy(
                     navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM,
                     currentLocalWay = null,
@@ -804,9 +807,12 @@ class NpcAiManager {
                         val distToEntry = calculateDistance(reachedNode.lat, reachedNode.lon, entryGlobal.latitude, entryGlobal.longitude)
                         if (distToEntry < 0.00010) { // ~10 m
                             val lastEntryTime = landmarkEntranceCooldowns[landmark.id.toString()] ?: 0L
-                            val nowE = System.currentTimeMillis()
-                            if (nowE - lastEntryTime > 5000L && Random.nextFloat() < 0.85f) {
-                                landmarkEntranceCooldowns[landmark.id.toString()] = nowE
+                            // 👇 FIX: Leemos el castigo en el choque directo
+                            val exitCooldown = carExitCooldowns[npc.id] ?: 0L
+
+                            // Usamos el 'now' del parámetro
+                            if (now > exitCooldown && now - lastEntryTime > 5000L && Random.nextFloat() < 0.85f) {
+                                landmarkEntranceCooldowns[landmark.id.toString()] = now
                                 return npc.copy(
                                     navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
                                     currentLandmark = landmark,
@@ -883,6 +889,13 @@ class NpcAiManager {
                 return npc.copy(currentWay = nextWay, targetNodeIndex = newNodeIndex + nextDir,
                     moveDirection = nextDir, location = GeoPoint(reachedNode.lat, reachedNode.lon))
             } else {
+                // 👇 FIX MAESTRO: Si acaba de salir de ESCOM (castigado) y topó con un callejón
+                // sin salida (la infame 'U'), lo despawneamos para que no dé vueltas infinitas.
+                val exitCooldown = carExitCooldowns[npc.id] ?: 0L
+                if (now < exitCooldown) {
+                    return null // Esto lo desaparece limpia y silenciosamente
+                }
+
                 val newDir = direction * -1
                 val newIndex = if (nodeIndex < 0) 1 else way.nodes.size - 2
                 return npc.copy(currentWay = way, targetNodeIndex = newIndex, moveDirection = newDir, location = GeoPoint(reachedNode.lat, reachedNode.lon))
@@ -945,9 +958,11 @@ class NpcAiManager {
 
                     if (distToEntry < 0.00010) { // Distancia ajustada a 10 metros para que no atropellen el pasto
                         val lastEntryTime = landmarkEntranceCooldowns[landmark.id.toString()] ?: 0L
-                        val now = System.currentTimeMillis()
+                        // 👇 FIX: El Radar Periférico también lee el castigo
+                        val exitCooldown = carExitCooldowns[npc.id] ?: 0L
 
-                        if (now - lastEntryTime > 5000L && Random.nextFloat() < 0.85f) {
+                        // Validamos que 'now' sea mayor al castigo antes de forzar el volantazo
+                        if (now > exitCooldown && now - lastEntryTime > 5000L && Random.nextFloat() < 0.85f) {
                             landmarkEntranceCooldowns[landmark.id.toString()] = now
                             return npc.copy(
                                 navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
