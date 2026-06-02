@@ -360,7 +360,7 @@ fun MetroStationInteriorScreen(
                 state = state,
                 viewModel = viewModel,
                 onTeleportToStation = onTeleportToStation,
-                onExportGlobal = { exportGlobalWpLauncher.launch("metro_global_waypoints.json") },
+                onExportGlobal = { exportGlobalWpLauncher.launch("global_waypoints.json") },
                 onImportGlobal = { importGlobalWpLauncher.launch(arrayOf("application/json")) }
             )
         }
