@@ -1499,7 +1499,25 @@ class WorldMapViewModel(
     }
 
     private fun checkCollectibleProximity(playerLat: Double, playerLon: Double) {
-        val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value
+        // 1. Recopilamos los coleccionables normales y de ESCOM (nuestro código)
+        val baseItems = _uiState.value.activeCollectibles + _escomItems.value
+
+        // Convertimos los Landmarks de tipo "Puerta" en coleccionables virtuales interactuables
+        val doorItems = _uiState.value.landmarks
+            .filter { it.assetPath.contains("DOORS/") }
+            .map { doorLandmark ->
+                ActiveCollectible(
+                    id = "escom_door_${doorLandmark.id}",
+                    name = doorLandmark.name,
+                    description = "Puerta interactiva",
+                    assetPath = doorLandmark.assetPath,
+                    latitude = doorLandmark.location.latitude,
+                    longitude = doorLandmark.location.longitude
+                )
+            }
+
+        // 3. Juntamos todo en un solo radar global
+        val allPossibleItems = baseItems + doorItems
 
         val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
         val activeItem = allPossibleItems.minByOrNull {
@@ -1509,6 +1527,7 @@ class WorldMapViewModel(
         val itemGeo = org.osmdroid.util.GeoPoint(activeItem.latitude, activeItem.longitude)
         val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
 
+        // 4. Radio de detección especial para las puertas (20 metros) o estándar para objetos (15 metros)
         val radius = if (activeItem.id.startsWith("escom_door_")) ESCOM_DOOR_INTERACT_RADIUS * 100000 else 15.0
 
         if (distanceInMeters <= radius) {
@@ -1519,7 +1538,7 @@ class WorldMapViewModel(
                     val promptText = when {
                         activeItem.name == "Objeto Misterioso ESCOM" -> "PRESIONA X PARA INTERACTUAR"
                         activeItem.id == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA INSPECCIONAR"
-                        activeItem.id.startsWith("escom_door_")      -> "PRESIONA X PARA ENTRAR"
+                        activeItem.id.startsWith("escom_door_")      -> "PRESIONA X PARA ENTRAR" // <--- Aquí aparece el texto de la puerta
                         else -> "PRESIONA X PARA RECOGER"
                     }
 
