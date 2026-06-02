@@ -25,6 +25,7 @@ import kotlin.math.sin
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.InputStreamReader
+import ovh.gabrielhuav.pow.data.repository.MetroRepository
 
 class MetroInteriorViewModel(
     private val context: Context,
@@ -82,7 +83,25 @@ class MetroInteriorViewModel(
             ZoneDoor(NormRect(0.10f, 0.10f, 0.90f, 0.30f), "anden", "Andén", DoorKind.GENERIC)
         )
         
-        _state.update { it.copy(designerRows = defaultRows, doors = defaultDoors) }
+        // Cargar mapa global
+        val globalPrefs = context.getSharedPreferences("metro_map_global", Context.MODE_PRIVATE)
+        val savedGlobalWaypoints = globalPrefs.getString("global_waypoints", null)
+        val initialGlobalWaypoints = if (savedGlobalWaypoints != null) {
+            try {
+                gson.fromJson<List<ZoneDoor>>(savedGlobalWaypoints, object : TypeToken<List<ZoneDoor>>() {}.type)
+            } catch (e: Exception) { null }
+        } else null
+
+        val allStations = MetroRepository.loadStations(context)
+
+        _state.update { 
+            it.copy(
+                designerRows = defaultRows, 
+                doors = defaultDoors,
+                globalWaypoints = initialGlobalWaypoints ?: emptyList(),
+                allMetroStations = allStations
+            ) 
+        }
         updateCollisionGrid(defaultRows)
     }
 
@@ -168,17 +187,41 @@ class MetroInteriorViewModel(
 
     fun interactWithHotspot() {
         val door = _state.value.activeDoor ?: return
-        val msg = when (door.targetRoomId) {
-            "taquilla" -> "Has comprado un boleto."
-            "torniquetes" -> "Has cruzado el torniquete."
-            "anden" -> "Has abordado el tren."
-            else -> "Interacción con ${door.label}"
+        when (door.targetRoomId) {
+            "taquilla" -> {
+                _state.update { it.copy(hasRechargedTicket = true, messageToast = "Has recargado tu tarjeta del metro") }
+                viewModelScope.launch {
+                    delay(2000)
+                    _state.update { it.copy(messageToast = null) }
+                }
+            }
+            "torniquetes" -> {
+                if (_state.value.hasRechargedTicket) {
+                    val currentY = _state.value.playerY
+                    _state.update { it.copy(playerY = currentY + 0.15f) }
+                } else {
+                    _state.update { it.copy(messageToast = "No tienes saldo disponible") }
+                    viewModelScope.launch {
+                        delay(2000)
+                        _state.update { it.copy(messageToast = null) }
+                    }
+                }
+            }
+            "anden" -> {
+                _state.update { it.copy(showMetroMap = true) }
+            }
+            else -> {
+                _state.update { it.copy(messageToast = "Interacción con ${door.label}") }
+                viewModelScope.launch {
+                    delay(2000)
+                    _state.update { it.copy(messageToast = null) }
+                }
+            }
         }
-        _state.update { it.copy(messageToast = msg) }
-        viewModelScope.launch {
-            delay(2000)
-            _state.update { it.copy(messageToast = null) }
-        }
+    }
+
+    fun closeMetroMap() {
+        _state.update { it.copy(showMetroMap = false) }
     }
 
     // --- DISEÑADOR ---
@@ -363,6 +406,55 @@ class MetroInteriorViewModel(
         val newList = s.doors.toMutableList()
         newList[idx] = door.copy(hitboxFrac = newHitbox)
         _state.update { it.copy(doors = newList, designerDirty = true) }
+    }
+
+    fun toggleMapDesignerMode() {
+        _state.update { it.copy(mapDesignerMode = !it.mapDesignerMode) }
+    }
+
+    fun updateMapSearchQuery(query: String) {
+        _state.update { it.copy(mapSearchQuery = query) }
+    }
+
+    fun addGlobalWaypoint(x: Float, y: Float, stationName: String) {
+        val newWp = ZoneDoor(NormRect(x - 0.02f, y - 0.02f, x + 0.02f, y + 0.02f), stationName, stationName, DoorKind.GENERIC)
+        val list = _state.value.globalWaypoints + newWp
+        _state.update { it.copy(globalWaypoints = list, selectedGlobalWaypointIndex = list.size - 1) }
+    }
+
+    fun selectGlobalWaypointAt(x: Float, y: Float) {
+        val list = _state.value.globalWaypoints
+        val idx = list.indexOfFirst { door ->
+            val r = door.hitboxFrac
+            x in r.left..r.right && y in r.top..r.bottom
+        }
+        _state.update { it.copy(selectedGlobalWaypointIndex = idx) }
+    }
+
+    fun moveSelectedGlobalWaypointTo(x: Float, y: Float) {
+        val idx = _state.value.selectedGlobalWaypointIndex
+        if (idx == -1) return
+        val list = _state.value.globalWaypoints.toMutableList()
+        val door = list[idx]
+        val hw = (door.hitboxFrac.right - door.hitboxFrac.left) / 2
+        val hh = (door.hitboxFrac.bottom - door.hitboxFrac.top) / 2
+        list[idx] = door.copy(hitboxFrac = NormRect(x - hw, y - hh, x + hw, y + hh))
+        _state.update { it.copy(globalWaypoints = list) }
+    }
+
+    fun deleteSelectedGlobalWaypoint() {
+        val idx = _state.value.selectedGlobalWaypointIndex
+        if (idx == -1) return
+        val list = _state.value.globalWaypoints.toMutableList()
+        list.removeAt(idx)
+        _state.update { it.copy(globalWaypoints = list, selectedGlobalWaypointIndex = -1) }
+    }
+
+    fun saveGlobalWaypoints() {
+        val globalPrefs = context.getSharedPreferences("metro_map_global", Context.MODE_PRIVATE)
+        globalPrefs.edit().putString("global_waypoints", gson.toJson(_state.value.globalWaypoints)).apply()
+        _state.update { it.copy(messageToast = "Waypoints globales guardados") }
+        viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
     }
 
     private fun updateCollisionGrid(rows: List<String>) {

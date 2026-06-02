@@ -11,7 +11,9 @@ enum class MetroHotspot {
 
 data class MetroInteriorState(
     val playerX: Float = 0.5f,
-    val playerY: Float = 0.85f,
+    val playerY: Float = 0.15f,
+    val hasRechargedTicket: Boolean = false,
+    val showMetroMap: Boolean = false,
     val isFacingRight: Boolean = true,
     val isRunning: Boolean = false,
     val playerAction: PlayerAction = PlayerAction.IDLE,
@@ -32,5 +34,12 @@ data class MetroInteriorState(
     
     // Waypoints
     val doors: List<ZoneDoor> = emptyList(),
-    val selectedDoorIndex: Int = -1
+    val selectedDoorIndex: Int = -1,
+
+    // Metro Map Overlay
+    val globalWaypoints: List<ZoneDoor> = emptyList(),
+    val selectedGlobalWaypointIndex: Int = -1,
+    val mapDesignerMode: Boolean = false,
+    val mapSearchQuery: String = "",
+    val allMetroStations: List<ovh.gabrielhuav.pow.domain.models.MetroStation> = emptyList()
 )

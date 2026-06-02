@@ -63,7 +63,8 @@ private val BACKGROUND_ASSET_PATH = "metroCDMX/inside.png"
 @Composable
 fun MetroStationInteriorScreen(
     stationName: String,
-    onExit: () -> Unit
+    onExit: () -> Unit,
+    onTeleportToStation: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: MetroInteriorViewModel = viewModel(
@@ -342,6 +343,14 @@ fun MetroStationInteriorScreen(
                 },
                 onExit = viewModel::toggleDesignerMode,
                 modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
+
+        if (state.showMetroMap) {
+            MetroMapOverlay(
+                state = state,
+                viewModel = viewModel,
+                onTeleportToStation = onTeleportToStation
             )
         }
     }

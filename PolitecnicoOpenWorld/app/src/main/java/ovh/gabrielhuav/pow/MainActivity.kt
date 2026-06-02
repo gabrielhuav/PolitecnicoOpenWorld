@@ -343,7 +343,12 @@ class MainActivity : ComponentActivity() {
                             val stationName = backStackEntry.arguments?.getString("stationName") ?: "Desconocida"
                             MetroStationInteriorScreen(
                                 stationName = stationName,
-                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                                onExit = { navController.popBackStack("world_map", inclusive = false) },
+                                onTeleportToStation = { newStation ->
+                                    navController.navigate("metro_station_interior/$newStation") {
+                                        popUpTo("world_map") { inclusive = false }
+                                    }
+                                }
                             )
                         }
 
