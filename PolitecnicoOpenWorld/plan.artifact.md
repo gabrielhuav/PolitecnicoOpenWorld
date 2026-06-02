@@ -67,7 +67,6 @@ via co-located `ViewModelProvider.Factory` instances.
 | Navigation / entry point | `MainActivity.kt` (Compose `NavHost`, 9+ routes) |
 | Open-world game loop, multiplayer, NPCs, ESCOM logic | `features/map_exterior/viewmodel/WorldMapViewModel.kt` (+ `WorldMap*.kt` partials: GameLoop, Multiplayer, RoadNetwork, Routing, Escom, Collectibles, Misc) |
 | Open-world UI state | `features/map_exterior/viewmodel/WorldMapState.kt` |
-| Nested options menu (menu of menus, recursive) | `features/map_exterior/ui/components/OptionsMenu.kt` (`OptionMenuGroup.items: List<OptionEntry>`) |
 | Map rendering (OSM/Google/Leaflet WebView) | `features/map_exterior/ui/WorldMapScreen.kt` (Leaflet HTML built in `WorldMapLeafletHtml.kt`) |
 | Leaflet tile interception | `features/map_exterior/ui/CachingWebViewClient.kt` |
 | NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` |
@@ -82,8 +81,6 @@ via co-located `ViewModelProvider.Factory` instances.
 | Tile cache (Room) | `data/cache/TileCache.kt` + `data/local/room/dao/MapTileDao.kt` |
 | Road-network cache (Room) | `data/cache/RoadNetworkCache.kt` + `RoadNetworkDao.kt` |
 | Multiplayer warm-up (Render) | `features/main_menu/ui/ServerWarmupManager.kt` (package `data.network`) |
-| **Unified offline tile cache (native OSM)** | `data/cache/RoomTileModuleProvider.kt` (osmdroid module → Room, browser UA) |
-| **Per-zone tile prefetch (offline, ~2km)** | `data/cache/TilePrefetchManager.kt` + `WorldMapRoadNetwork.kt::prefetchCurrentZoneTiles` |
 | **Open-world server (v2)** | `Multiplayer/server.js` |
 | **Zombie-minigame server (authoritative)** | `MultiplayerZombie/server.js` |
 
@@ -95,13 +92,6 @@ via co-located `ViewModelProvider.Factory` instances.
   insert (`@Transaction`), 5-min re-fetch cooldown.
 - **Tile cache:** per-provider, ~8k tiles max, key = normalized URL hashed with
   SHA-256; **writes are atomic** (count→evict→insert in one `@Transaction`).
-  - **Native OSM (osmdroid) now shares this SAME Room cache** via
-    `RoomTileModuleProvider` (bucket "osm"): reads Room first, else downloads with
-    a *browser* User-Agent and persists. osmdroid's built-in downloader (UA =
-    packageName) was being throttled by the public OSM server — that was why the
-    native map "didn't load new zones" while the Web providers did. On entering a
-    road cell, `TilePrefetchManager` proactively caches the ~2km zone (zooms 16-18)
-    so it's fully offline; prefetch is **non-blocking** and warns if incomplete.
 - **NPCs (open world, client-side):** up to 40 around the player; pedestrians vs 6
   car models; per-pixel tinting; proximity spawn / distance despawn; **adoption**
   snaps server-inherited NPCs to the nearest way. Spawn uses a **per-way bbox
@@ -160,8 +150,7 @@ zone-delegated open-world multiplayer (server v2: AOI + host throttle + rate-lim
 + sanitization + ghost GC); vehicle driving; configurable controls; 8 map
 providers; editable landmarks with JSON import/export (Designer Mode); 6 lore
 collectibles with persistent inventory; waypoint navigation with greedy road-graph
-routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch;
-fog-of-war always rendered; full zombie survival minigame (lobby + 7 buildings,
+routing; 6 ESCOM interiors; full zombie survival minigame (lobby + 7 buildings,
 dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens, damage feedback
 FX) with **online mode backed by a dedicated authoritative zombie server**
 (`MultiplayerZombie/`: flow-field + LOS + separation AI) and a collision Designer
@@ -193,68 +182,3 @@ suspect a **single structurally-broken file** (missing/extra brace, duplicated
 them. Verify brace/parenthesis balance per file (ignoring string/comment contents)
 before assuming a symbol is genuinely missing. The two `server.js` files are plain
 Node.js (no build step); validate them with `node --check server.js`.
-
-## 11. Update protocol — KEEP THESE TWO FILES CURRENT (read first, write last)
-
-This file (`plan.artifact.md`) and `README.md` are the **single source of truth**
-passed to any assistant instead of the whole codebase. They only stay useful if
-they are updated **in the same change** that touches the code. Treat them as part
-of the deliverable, not as documentation written afterwards.
-
-### 11.1 Workflow for implementing a feature or fix (no full context needed)
-
-1. **Load context:** read `plan.artifact.md` (this file) + `README.md`. That is the
-   complete mental model — do not ask for the rest of the repo unless a step below
-   says a referenced file is missing.
-2. **Locate:** use the "Key files" table (§4) to jump straight to the file(s) the
-   task concerns. If the table lacks an entry for the area you touch, that is a
-   signal the map is stale — add the entry as part of this change.
-3. **Respect the contracts:** MVVM split (§3), immutable state copies, staged
-   controls, snap-to-road, atomic caches, collision-matrix agreement client⇄server,
-   Spanish comments (§6). Do not violate a gotcha in §6 without noting why.
-4. **Implement** the smallest change that satisfies the request.
-5. **Verify:** Kotlin → Android Studio *Rebuild Project*; servers →
-   `node --check server.js`. Check brace/paren balance per file (§10).
-6. **UPDATE THE DOCS (mandatory):** apply the checklist in §11.2 before considering
-   the task done.
-
-### 11.2 Doc-update checklist (run on EVERY change that alters behavior)
-
-Ask: *would an assistant reading only these two files now be wrong or surprised?*
-If yes, update both files. Specifically:
-
-| If you changed… | Update in this file | Update in README.md |
-|---|---|---|
-| A new/renamed file or feature module | §2 repo shape, §4 Key files | Architecture tree + relevant section |
-| Behavior of NPCs, routing, caches, combat, zombies | §5 domain concepts | The matching feature section (EN **and** ES) |
-| A convention, scoping rule, or gotcha | §6 conventions | — (or relevant section if user-visible) |
-| Something now works that didn't | §7 current state | "Current Status" → "Works today" / "Funciona hoy" |
-| You implemented an item from "Not yet implemented" | §8 (remove it) | "Not yet implemented" / "No implementado aún" (remove it) |
-| New build step, env var, server, port | §9 build/run | "Tech Stack" / "Deploying" sections |
-| Room schema (new entity/migration) | §6 (DB version) | Persistence row of Tech Stack |
-| Wire protocol / message types | §5 multiplayer | "Real-Time Multiplayer" (EN + ES) |
-
-Rules of thumb:
-- **README.md is bilingual (EN + ES).** Every user-facing change must be reflected
-  in **both** language sections — they must not drift apart.
-- Keep the "Recent Changes / Cambios Recientes" block in README as a short rolling
-  log: add the new change at the top, prune entries older than ~2-3 releases.
-- Keep §7 (works) and §8 (not yet) here mutually exclusive — moving a line from §8
-  to §7 is usually the only edit needed when a feature lands.
-- If a fact appears in both files, change it in both. A contradiction between
-  `README.md` and `plan.artifact.md` is a bug.
-- Prefer editing existing lines over appending; these files must stay
-  minimum-but-complete, not grow unbounded.
-
-### 11.3 Definition of done
-
-A change is complete only when: code compiles/validates, **and** both context files
-describe the new reality, **and** §7/§8 here plus README "Current Status" agree. If
-you cannot update the docs, the task is not finished — say so explicitly.
-
-### 11.4 One-line prompt to reuse this workflow
-
-> "Read `plan.artifact.md` + `README.md` (that's the full context). Implement
-> <task> following the MVVM / §6 conventions, then update both files per §11.2 so
-> they stay the single source of truth. Don't ask me for more of the repo unless a
-> file referenced in §4 is missing."

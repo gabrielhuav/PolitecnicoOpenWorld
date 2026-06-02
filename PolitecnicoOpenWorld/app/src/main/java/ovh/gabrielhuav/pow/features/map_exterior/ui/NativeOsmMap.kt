@@ -155,7 +155,32 @@ internal fun NativeOsmMap(
         factory = { ctx ->
             MapView(ctx).apply {
                 setTileSource(TileSourceFactory.MAPNIK)
+                // ─── CACHÉ OFFLINE UNIFICADA ────────────────────────────────
+                // Enrutar osmdroid por la MISMA caché Room que las versiones Web
+                // (descarga con UA de navegador + persiste). Arregla que el nativo
+                // no cargara zonas nuevas y permite juego 100% offline tras visitar.
+                try {
+                    val roomProvider = org.osmdroid.tileprovider.MapTileProviderArray(
+                        TileSourceFactory.MAPNIK,
+                        null,
+                        arrayOf<org.osmdroid.tileprovider.modules.MapTileModuleProviderBase>(
+                            ovh.gabrielhuav.pow.data.cache.RoomTileModuleProvider(
+                                ctx.applicationContext, viewModel.tileCache
+                            )
+                        )
+                    )
+                    roomProvider.setTileSource(TileSourceFactory.MAPNIK)
+                    setTileProvider(roomProvider)
+                } catch (_: Exception) {}
+                setUseDataConnection(true)
                 setMultiTouchControls(true)
+                // Ocultar los botones de zoom NATIVOS de osmdroid: el zoom vive solo
+                // en el menú anidado (Mapa → Acercar/Alejar). Evita botones duplicados.
+                try {
+                    zoomController.setVisibility(
+                        org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER
+                    )
+                } catch (_: Exception) {}
                 // Canal de retorno del zoom por gesto (pinch): sincroniza el nivel de zoom
                 // del mapa con el estado para que el bucle de render no lo resetee.
                 addMapListener(object : org.osmdroid.events.MapListener {
@@ -421,7 +446,8 @@ internal fun NativeOsmMap(
                 }
 
                 allCollectibles.forEach { collectible ->
-                    Log.d("DEBUG_RENDER", "Intentando dibujar coleccionable: ${collectible.name} en ${collectible.latitude}")
+                    // (OPT gama baja) eliminado Log.d por-frame: se ejecutaba en cada
+                    // recomposición (~30 Hz) por cada coleccionable, costoso sin valor.
                     val id = collectible.id
                     val marker = collectibleMarkerCache[id] ?: Marker(view).apply {
                         title = "COLLECTIBLE"

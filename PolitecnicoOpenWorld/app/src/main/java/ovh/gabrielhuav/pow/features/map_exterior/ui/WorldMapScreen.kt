@@ -1,7 +1,10 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
+import com.google.android.gms.location.LocationServices
 import android.content.res.Configuration
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -799,19 +802,26 @@ fun WorldMapScreen(
             }
         }
 
-        // ─── CAPA DE NEBLINA (fog of war estilo Age of Empires) ──────────────
+        // ─── CAPA DE NEBLINA (fog of war estilo Age of Empires) — SIEMPRE ACTIVA ──
         // El radio visible se fija en METROS reales (no cambia con el zoom): se
         // convierte a píxeles según el zoom actual. Fuera del radio se aplica un
         // gris translúcido (no negro total), suficiente para ocultar NPCs.
-        if (!uiState.isUserPanningMap) {
+        // Antes solo se dibujaba con !isUserPanningMap, por eso "desaparecía" al
+        // mover el mapa. Ahora es INCONDICIONAL y el radio se acota al tamaño de
+        // pantalla para que el anillo de neblina nunca quede fuera de cuadro (a
+        // zoom bajo el radio en píxeles podía superar la pantalla y no verse).
+        run {
             val fogLat = uiState.currentLocation?.latitude ?: 19.5
             val fogMpp = metersPerPixel(uiState.zoomLevel, fogLat)
             // Defensa: nunca dejar que mpp degenerado convierta el radio en Infinity/NaN
             // (eso pintaría la pantalla entera del color de la neblina).
-            val fogRevealPx = if (fogMpp.isFinite() && fogMpp > 0.0)
+            val rawRevealPx = if (fogMpp.isFinite() && fogMpp > 0.0)
                 (NPC_FOG_VISION_METERS / fogMpp).toFloat()
             else 400f
             Canvas(modifier = Modifier.fillMaxSize()) {
+                // El radio despejado nunca supera ~40% de la pantalla ni baja de 40px:
+                // garantiza que la neblina SIEMPRE sea visible en los bordes.
+                val fogRevealPx = rawRevealPx.coerceIn(40f, size.minDimension * 0.40f)
                 val outer = fogRevealPx * 1.8f
                 drawRect(
                     brush = Brush.radialGradient(
@@ -837,6 +847,32 @@ fun WorldMapScreen(
             Row(modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp).background(Color.Black.copy(alpha = 0.65f), CircleShape).padding(horizontal = 14.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CircularProgressIndicator(Modifier.size(14.dp), Color(0xFFD4AF37), strokeWidth = 2.dp)
                 Text("Cargando calles...", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        // ─── ESTADO DE PRE-DESCARGA DE LA ZONA (offline) ─────────────────────
+        // No bloqueante: el jugador puede moverse mientras descarga. Avisa si la
+        // zona quedó incompleta por falta de red (juego offline garantizado solo
+        // cuando termina al 100%).
+        if (uiState.zonePrefetchActive || uiState.zoneOfflineWarning || uiState.zoneOfflineReady) {
+            val (chipText, chipColor) = when {
+                uiState.zonePrefetchActive ->
+                    "Descargando zona ${(uiState.zonePrefetchProgress * 100).roundToInt()}%" to Color(0xCC1E2A38)
+                uiState.zoneOfflineWarning ->
+                    "Sin conexión: zona incompleta" to Color(0xCC8A1F1F)
+                else ->
+                    "Zona lista offline ✓" to Color(0xCC1F5A2E)
+            }
+            Row(
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = if (!uiState.isRoadNetworkReady) 104.dp else 72.dp)
+                    .background(chipColor, CircleShape).padding(horizontal = 14.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (uiState.zonePrefetchActive) {
+                    CircularProgressIndicator(Modifier.size(14.dp), Color(0xFF7FB2FF), strokeWidth = 2.dp)
+                }
+                Text(chipText, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -868,7 +904,28 @@ fun WorldMapScreen(
                             id = "opciones", label = "Opciones", icon = Icons.Default.Tune,
                             items = buildList {
                                 add(OptionMenuItem("Cambiar skin", Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
-                                add(OptionMenuItem("Ir a ESCOM", Icons.Default.School) { viewModel.teleportTo(19.5045, -99.1469) })
+                                // Submenú "Ir a…": teletransporte a ESCOM o a tu ubicación REAL
+                                // (GPS del dispositivo, p. ej. para volver a tu casa — NO a donde
+                                // está el jugador en el mapa).
+                                add(
+                                    OptionMenuGroup(
+                                        id = "ir_a", label = "Ir a…", icon = Icons.Default.School,
+                                        items = buildList {
+                                            add(OptionMenuItem("Ir a ESCOM", Icons.Default.School) { viewModel.teleportTo(19.5045, -99.1469) })
+                                            add(OptionMenuItem("Ir a tu Ubicación (GPS)", Icons.Default.LocationOn, Color(0xFF2196F3)) {
+                                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                                                    try {
+                                                        LocationServices.getFusedLocationProviderClient(context)
+                                                            .lastLocation
+                                                            .addOnSuccessListener { loc ->
+                                                                if (loc != null) viewModel.teleportTo(loc.latitude, loc.longitude)
+                                                            }
+                                                    } catch (_: SecurityException) {}
+                                                }
+                                            })
+                                        }
+                                    )
+                                )
                                 add(OptionMenuItem("Modo Diseñador", Icons.Default.Architecture, if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White) { viewModel.toggleDesignerMode(!uiState.isDesignerMode) })
                                 add(OptionMenuItem("Debug Interiores", Icons.Default.LocationOn, if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White) { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) })
                                 if (uiState.isDesignerMode) {
@@ -883,10 +940,9 @@ fun WorldMapScreen(
                             items = buildList {
                                 add(OptionMenuItem("Acercar (zoom +)", Icons.Default.Add) { viewModel.zoomIn() })
                                 add(OptionMenuItem("Alejar (zoom −)", Icons.Default.Remove) { viewModel.zoomOut() })
-                                // Centrar en jugador: dentro del menú (mismo diseño que el resto).
-                                if (uiState.isUserPanningMap) {
-                                    add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
-                                }
+                                // Centrar en jugador: SIEMPRE disponible (antes solo al panear),
+                                // para volver al jugador en cualquier momento.
+                                add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
                                 if (uiState.isTargetingWaypoint) {
                                     // Apuntando: confirmar o cancelar TAMBIÉN desde el menú (no
                                     // botones flotantes que tapen los controles).

@@ -132,6 +132,10 @@ class WorldMapViewModel(
     internal val isFetchingNetwork  = AtomicBoolean(false)
     internal var lastFetchAttemptMs = 0L
 
+    // ─── Pre-descarga de tiles de la zona (offline) ──────────────────────────
+    internal val tilePrefetch = ovh.gabrielhuav.pow.data.cache.TilePrefetchManager(tileCache)
+    internal var lastPrefetchCellKey: String? = null
+
     internal val REFETCH_DISTANCE_DEG = 0.015
     internal val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
     internal val ROAD_NODE_GRID_SIZE_DEG = 0.001
@@ -1105,6 +1109,79 @@ class WorldMapViewModel(
         okAny
     }
 
+    // ─── COMPUERTA DE MAPA TRAS TELETRANSPORTE ────────────────────────────────
+    // El teletransporte (ESCOM / "Ir a tu Ubicación") NO debe soltarte hasta que
+    // el mapa de la zona esté descargado, sea cual sea el proveedor. Re-activa la
+    // compuerta (isMapReady=false) y descarga el vecindario inmediato:
+    //  - OSM nativo: guarda REAL en Room (bucket "osm") → render inmediato + offline.
+    //  - Web: calienta el CDN (luego el WebView + CachingWebViewClient cachean a Room).
+    //  - Google nativo: sin prefetch por URL, progreso breve.
+    // Corre en paralelo a la recarga de calles; worldReady se cumple cuando AMBOS
+    // (calles + tiles) terminan.
+    internal fun gateMapDownloadAfterTeleport() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isMapReady = false, mapLoadProgress = 0f) }
+            downloadGateTiles()
+            _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
+        }
+    }
+
+    private suspend fun downloadGateTiles() = withContext(Dispatchers.IO) {
+        val loc = _uiState.value.currentLocation ?: return@withContext
+        val provider = _uiState.value.mapProvider
+        if (provider == MapProvider.GOOGLE_MAPS_NATIVE) {
+            // Mapa nativo de Google: las teselas las gestiona el SDK; solo simulamos
+            // un breve progreso para mostrar la compuerta de forma consistente.
+            for (i in 1..6) { _uiState.update { it.copy(mapLoadProgress = i / 6f) }; delay(60) }
+            return@withContext
+        }
+        val z = if (provider.isWebProvider) ZOOM_GAMEPLAY_WEB.toInt() else 18
+        val n = 1 shl z
+        val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
+        val latRad = Math.toRadians(loc.latitude)
+        val yC = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n).toInt()
+        // Vecindario inmediato 3x3 (suficiente para soltar al jugador); el resto de la
+        // zona (~2km) lo completa prefetchCurrentZoneTiles en segundo plano para offline.
+        val coords = ArrayList<Pair<Int, Int>>()
+        for (dx in -1..1) for (dy in -1..1) coords.add((xC + dx) to (yC + dy))
+        val total = coords.size
+        var done = 0
+        for ((x, y) in coords) {
+            if (!isActive) break
+            val xx = x.coerceIn(0, n - 1); val yy = y.coerceIn(0, n - 1)
+            if (provider == MapProvider.OSM) {
+                val url = "https://tile.openstreetmap.org/$z/$xx/$yy.png"
+                val key = sha256Hex(url)
+                if (tileCache.getTileByUrl("osm", key) == null) {
+                    val bytes = downloadTileBytes(url)
+                    if (bytes != null && bytes.isNotEmpty()) tileCache.putTileByUrl("osm", key, bytes)
+                }
+            } else {
+                tileUrlFor(provider, z, xx, yy)?.let { fetchTile(it) }
+            }
+            done++
+            _uiState.update { it.copy(mapLoadProgress = done.toFloat() / total) }
+        }
+    }
+
+    private fun downloadTileBytes(url: String): ByteArray? {
+        var c: java.net.HttpURLConnection? = null
+        return try {
+            c = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+                connectTimeout = 8000; readTimeout = 12000
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Android) PolitecnicoOpenWorld/1.0")
+                setRequestProperty("Accept", "image/png,image/webp,image/*,*/*")
+                setRequestProperty("Referer", "https://www.openstreetmap.org/")
+            }
+            if (c.responseCode == java.net.HttpURLConnection.HTTP_OK) c.inputStream.readBytes() else null
+        } catch (e: Exception) { null } finally { c?.disconnect() }
+    }
+
+    private fun sha256Hex(input: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
     fun updateShowCacheWidget(show: Boolean) = _uiState.update { it.copy(showCacheWidget = show) }
@@ -1479,11 +1556,15 @@ class WorldMapViewModel(
                 currentLocation = newLocation,
                 showTeleportMenu = false,
                 isRoadNetworkReady = false,
+                isMapReady = false,        // ← re-activa la compuerta: no soltar hasta descargar
                 isUserPanningMap = false   // ← recentra el mapa y reactiva la neblina
             )
         }
         lastNetworkFetchLocation = null
         lastFetchAttemptMs = 0L
+        // Descarga el mapa de la nueva zona ANTES de soltar al jugador (en paralelo a
+        // la recarga de calles). worldReady = calles listas && mapa listo.
+        gateMapDownloadAfterTeleport()
     }
 
     fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
@@ -1959,6 +2040,7 @@ class WorldMapViewModel(
                 currentLocation = GeoPoint(newLat, newLon),
                 showTeleportMenu = false,
                 isRoadNetworkReady = false,
+                isMapReady = false,         // ← re-activa la compuerta de descarga del mapa
                 isUserPanningMap = false,   // ← igual que arriba
                 isZombieHandSpawned = if (!insideEscom) false else currentState.isZombieHandSpawned
             )
@@ -1966,6 +2048,7 @@ class WorldMapViewModel(
 
         lastNetworkFetchLocation = null
         lastFetchAttemptMs = 0L
+        gateMapDownloadAfterTeleport()
     }
 
     fun setShowRoadNetwork(show: Boolean) {
