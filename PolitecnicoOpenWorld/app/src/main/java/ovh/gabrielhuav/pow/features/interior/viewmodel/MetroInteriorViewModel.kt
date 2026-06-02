@@ -61,22 +61,40 @@ class MetroInteriorViewModel(
         val savedRows = prefs.getString("matrix", null)
         val savedDoors = prefs.getString("doors", null)
 
-        val initialRows = if (savedRows != null) {
+        var initialRows = if (savedRows != null) {
             try {
-                gson.fromJson(savedRows, object : TypeToken<List<String>>() {}.type)
+                gson.fromJson<List<String>>(savedRows, object : TypeToken<List<String>>() {}.type)
             } catch (e: Exception) { null }
         } else null
+        
+        if (initialRows.isNullOrEmpty()) {
+            try {
+                context.assets.open("metroCDMX/matrix.json").use { inp ->
+                    val json = InputStreamReader(inp).readText()
+                    initialRows = gson.fromJson<List<String>>(json, object : TypeToken<List<String>>() {}.type)
+                }
+            } catch (e: Exception) { }
+        }
 
         val defaultRows = initialRows ?: List(gridRows) { r ->
             if (r == 0 || r == gridRows - 1) "#".repeat(gridCols)
             else "#" + ".".repeat(gridCols - 2) + "#"
         }
         
-        val initialDoors = if (savedDoors != null) {
+        var initialDoors = if (savedDoors != null) {
             try {
-                gson.fromJson(savedDoors, object : TypeToken<List<ZoneDoor>>() {}.type)
+                gson.fromJson<List<ZoneDoor>>(savedDoors, object : TypeToken<List<ZoneDoor>>() {}.type)
             } catch (e: Exception) { null }
         } else null
+        
+        if (initialDoors.isNullOrEmpty()) {
+            try {
+                context.assets.open("metroCDMX/waypoints.json").use { inp ->
+                    val json = InputStreamReader(inp).readText()
+                    initialDoors = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
+                }
+            } catch (e: Exception) { }
+        }
 
         val defaultDoors = initialDoors ?: listOf(
             ZoneDoor(NormRect(0.20f, 0.40f, 0.35f, 0.55f), "taquilla", "Taquilla", DoorKind.GENERIC),
