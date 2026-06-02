@@ -63,13 +63,14 @@ private val BACKGROUND_ASSET_PATH = "metroCDMX/inside.png"
 @Composable
 fun MetroStationInteriorScreen(
     stationName: String,
-    spawnAtAnden: Boolean = false,
+    spawnX: Float = -1f,
+    spawnY: Float = -1f,
     onExit: (String) -> Unit,
-    onTeleportToStation: (String) -> Unit = {}
+    onTeleportToStation: (String, Float, Float) -> Unit
 ) {
     val context = LocalContext.current
     val viewModel: MetroInteriorViewModel = viewModel(
-        factory = MetroInteriorViewModel.Factory(context, stationName, spawnAtAnden)
+        factory = MetroInteriorViewModel.Factory(context, stationName, spawnX, spawnY)
     )
     val state by viewModel.state.collectAsState()
     val configuration = LocalConfiguration.current

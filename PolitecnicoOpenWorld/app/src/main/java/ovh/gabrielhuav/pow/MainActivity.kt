@@ -337,23 +337,26 @@ class MainActivity : ComponentActivity() {
                         
                         // ─── ESTACIONES METRO ──────────────────────────────────────
                         composable(
-                            route = "metro_station_interior/{stationName}?spawnAtAnden={spawnAtAnden}",
+                            route = "metro_station_interior/{stationName}?spawnX={spawnX}&spawnY={spawnY}",
                             arguments = listOf(
                                 androidx.navigation.navArgument("stationName") { type = androidx.navigation.NavType.StringType },
-                                androidx.navigation.navArgument("spawnAtAnden") { type = androidx.navigation.NavType.BoolType; defaultValue = false }
+                                androidx.navigation.navArgument("spawnX") { type = androidx.navigation.NavType.FloatType; defaultValue = -1f },
+                                androidx.navigation.navArgument("spawnY") { type = androidx.navigation.NavType.FloatType; defaultValue = -1f }
                             )
                         ) { backStackEntry ->
                             val stationName = backStackEntry.arguments?.getString("stationName") ?: "Desconocida"
-                            val spawnAtAnden = backStackEntry.arguments?.getBoolean("spawnAtAnden") ?: false
+                            val spawnX = backStackEntry.arguments?.getFloat("spawnX") ?: -1f
+                            val spawnY = backStackEntry.arguments?.getFloat("spawnY") ?: -1f
                             MetroStationInteriorScreen(
                                 stationName = stationName,
-                                spawnAtAnden = spawnAtAnden,
+                                spawnX = spawnX,
+                                spawnY = spawnY,
                                 onExit = { currentStation ->
                                     worldMapViewModel.teleportToMetroStation(currentStation)
                                     navController.popBackStack("world_map", inclusive = false)
                                 },
-                                onTeleportToStation = { newStation ->
-                                    navController.navigate("metro_station_interior/$newStation?spawnAtAnden=true") {
+                                onTeleportToStation = { newStation, x, y ->
+                                    navController.navigate("metro_station_interior/$newStation?spawnX=$x&spawnY=$y") {
                                         popUpTo("world_map") { inclusive = false }
                                     }
                                 }

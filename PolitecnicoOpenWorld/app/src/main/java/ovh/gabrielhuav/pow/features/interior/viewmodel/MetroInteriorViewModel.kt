@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.interior.viewmodel
 
+import android.app.Application
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -31,7 +32,8 @@ class MetroInteriorViewModel(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
     private val stationName: String,
-    private val spawnAtAnden: Boolean = false
+    private val spawnX: Float = -1f,
+    private val spawnY: Float = -1f
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -128,13 +130,10 @@ class MetroInteriorViewModel(
         var startY = 0.15f
         var recharged = false
 
-        if (spawnAtAnden) {
-            val andenDoor = defaultDoors.find { it.targetRoomId == "anden" }
-            if (andenDoor != null) {
-                startX = (andenDoor.hitboxFrac.left + andenDoor.hitboxFrac.right) / 2f
-                startY = andenDoor.hitboxFrac.top - 0.05f
-                recharged = true
-            }
+        if (spawnX != -1f && spawnY != -1f) {
+            startX = spawnX
+            startY = spawnY
+            recharged = true
         }
 
         _state.update { 
@@ -560,7 +559,8 @@ class MetroInteriorViewModel(
     class Factory(
         private val context: Context,
         private val stationName: String,
-        private val spawnAtAnden: Boolean = false
+        private val spawnX: Float,
+        private val spawnY: Float
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -568,7 +568,8 @@ class MetroInteriorViewModel(
                 context = context.applicationContext,
                 settingsRepository = SettingsRepository(context.applicationContext),
                 stationName = stationName,
-                spawnAtAnden = spawnAtAnden
+                spawnX = spawnX,
+                spawnY = spawnY
             ) as T
         }
     }

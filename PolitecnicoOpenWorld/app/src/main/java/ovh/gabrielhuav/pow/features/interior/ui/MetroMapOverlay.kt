@@ -53,7 +53,7 @@ import kotlin.math.roundToInt
 fun MetroMapOverlay(
     state: MetroInteriorState,
     viewModel: MetroInteriorViewModel,
-    onTeleportToStation: (String) -> Unit,
+    onTeleportToStation: (String, Float, Float) -> Unit,
     onExportGlobal: () -> Unit,
     onImportGlobal: () -> Unit
 ) {
@@ -193,7 +193,7 @@ fun MetroMapOverlay(
                                             ny in it.hitboxFrac.top..it.hitboxFrac.bottom
                                         }
                                         if (hitDoor != null) {
-                                            onTeleportToStation(hitDoor.targetRoomId)
+                                            onTeleportToStation(hitDoor.targetRoomId, state.playerX, state.playerY)
                                         }
                                     }
                                 }
