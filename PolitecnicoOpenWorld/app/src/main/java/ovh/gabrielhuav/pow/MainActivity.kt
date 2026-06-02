@@ -41,6 +41,7 @@ import ovh.gabrielhuav.pow.features.interior.ui.CafeteriaScreen
 import ovh.gabrielhuav.pow.features.interior.ui.CanchasFutbolScreen
 import ovh.gabrielhuav.pow.features.interior.ui.EdificioScreen
 import ovh.gabrielhuav.pow.features.interior.ui.EstacionamientoScreen
+import ovh.gabrielhuav.pow.features.interior.ui.MetroStationInteriorScreen
 import ovh.gabrielhuav.pow.features.interior.ui.PalapasScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
@@ -330,6 +331,18 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(route = "interior_canchas_futbol") {
                             CanchasFutbolScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+                        
+                        // ─── ESTACIONES METRO ──────────────────────────────────────
+                        composable(
+                            route = "metro_station_interior/{stationName}",
+                            arguments = listOf(androidx.navigation.navArgument("stationName") { type = androidx.navigation.NavType.StringType })
+                        ) { backStackEntry ->
+                            val stationName = backStackEntry.arguments?.getString("stationName") ?: "Desconocida"
+                            MetroStationInteriorScreen(
+                                stationName = stationName,
                                 onExit = { navController.popBackStack("world_map", inclusive = false) }
                             )
                         }

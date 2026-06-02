@@ -602,6 +602,40 @@ fun WorldMapScreen(
                             }
                         }
                     }
+
+                    if (uiState.zoomLevel >= 14.0) {
+                        uiState.metroStations.forEach { station ->
+                            key("metro_${station.name}") {
+                                val screenDensity = context.resources.displayMetrics.density
+                                val exactPixels = (24 * screenDensity).toInt()
+                                val cacheKey = "GM_METRO_ICON"
+
+                                val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
+                                    try {
+                                        val bitmap = context.assets.open("metroCDMX/icon.webp").use {
+                                            android.graphics.BitmapFactory.decodeStream(it)
+                                        }
+                                        if (bitmap != null) {
+                                            val scaledBm = android.graphics.Bitmap.createScaledBitmap(bitmap, exactPixels, exactPixels, true)
+                                            BitmapDescriptorFactory.fromBitmap(scaledBm)
+                                        } else BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)
+                                    } catch (e: Exception) { BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE) }
+                                }
+                                val position = LatLng(station.location.latitude, station.location.longitude)
+                                val markerState = remember { MarkerState(position = position) }
+                                markerState.position = position
+
+                                com.google.maps.android.compose.Marker(
+                                    state = markerState,
+                                    icon = iconDescriptor,
+                                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                    flat = true,
+                                    title = station.name,
+                                    snippet = station.routes.joinToString(", ")
+                                )
+                            }
+                        }
+                    }
                 }
             }
             else -> {
@@ -1082,5 +1116,31 @@ fun WorldMapScreen(
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = escomFadeAlpha.value))
         )
+    }
+
+    // ─── Metro Door Fade Overlay ─────────────────────────────────────────────
+    val metroFadeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(uiState.showMetroFade) {
+        if (uiState.showMetroFade) {
+            metroFadeAlpha.animateTo(1f, animationSpec = androidx.compose.animation.core.tween(600))
+            viewModel.onMetroFadeComplete()
+            kotlinx.coroutines.delay(200)
+            metroFadeAlpha.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(400))
+        }
+    }
+    if (metroFadeAlpha.value > 0f) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = metroFadeAlpha.value))
+        )
+    }
+
+    LaunchedEffect(uiState.metroFadeCompleteStation) {
+        val station = uiState.metroFadeCompleteStation
+        if (station != null) {
+            viewModel.consumeMetroFadeComplete()
+            onNavigateToInterior("metro_station_interior/${station.name}")
+        }
     }
 }
