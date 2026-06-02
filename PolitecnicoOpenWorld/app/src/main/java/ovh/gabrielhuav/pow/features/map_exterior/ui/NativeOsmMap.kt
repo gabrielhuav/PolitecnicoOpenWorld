@@ -304,90 +304,106 @@ internal fun NativeOsmMap(
                     }
                 }
 
-                visibleNpcs.forEach { npc ->
-                    val id = npc.id
-                    val marker = markerCache[id] ?: Marker(view).apply {
-                        title = "NPC_MARKER"
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        setInfoWindow(null)
-                        isFlat = true
-                        markerCache[id] = this
-                        view.overlays.add(this)
-                    }
-
-                    if (isZoomedIn) {
-                        if (npc.isDying) {
-                            marker.setAlpha(0.3f)
-                        } else {
-                            marker.setAlpha(1f)
+                    visibleNpcs.forEach { npc ->
+                        val id = npc.id
+                        val marker = markerCache[id] ?: Marker(view).apply {
+                            title = "NPC_MARKER"
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                            setInfoWindow(null)
+                            isFlat = true // isFlat=true asegura que el sprite "pise" el suelo en 3D
+                            markerCache[id] = this
+                            view.overlays.add(this)
                         }
 
-                        if (npc.visualConfig != null) {
-                            val currentlyMoving = npc.speed > 0 || npc.isMoving
-                            val personSzDp = (24.0 + ((currentZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
-                            val exactPixels = (personSzDp * screenDensity).toInt()
-
-                            val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
-                            val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
-
-                            val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                var baseDrawable = CharacterSpriteManager.getModularNpcDrawable(
-                                    context = context,
-                                    visualConfig = npc.visualConfig!!,
-                                    isMoving = currentlyMoving,
-                                    isFacingRight = npc.facingRight,
-                                    timeMs = timeMs,
-                                    scale = highResRenderScale,
-                                    displayName = npc.displayName
-                                )
-                                baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-                                baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
-                                    ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                        if (isZoomedIn) {
+                            if (npc.isDying) {
+                                marker.setAlpha(0.3f)
+                            } else {
+                                marker.setAlpha(1f)
                             }
-                            marker.icon = cachedIcon
-                            marker.rotation = 0f
 
-                        } else if (npc.type == NpcType.CAR) {
-                            var angle = npc.rotationAngle % 360f
-                            if (angle < 0) angle += 360f
-                            val frameIndex = (angle / 7.5f).roundToInt() % 48
-                            val dynamicScale = (1.4 * 2.0.pow(currentZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
-                            val cacheKey = "CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${npc.health}_D${npc.isDying}"
+                            // Calculamos exactamente cuántos metros de la vida real mide 1 pixel en la pantalla
+                            val metersPerPixel = (40075016.686 * Math.cos(Math.toRadians(npc.location.latitude))) /
+                                    (256.0 * Math.pow(2.0, currentZoom))
 
-                            val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                var baseDrawable = VehicleSpriteManager.getTintedCarNpc(
-                                    context, angle, npc.carColor, highResRenderScale, npc.carModel
-                                )
-                                baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-                                baseDrawable?.let { drawable ->
-                                    val baseWidthDp = (drawable.intrinsicWidth / screenDensity) / screenDensity
-                                    val baseHeightDp = (drawable.intrinsicHeight / screenDensity) / screenDensity
-                                    val finalWidthPx = (baseWidthDp * dynamicScale * screenDensity).toInt()
-                                    val finalHeightPx = (baseHeightDp * dynamicScale * screenDensity).toInt()
-                                    ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
-                                } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                            if (npc.visualConfig != null) {
+                                val currentlyMoving = npc.speed > 0 || npc.isMoving
+
+                                // 🧍 TAMAÑO REAL DEL PEATÓN: ~0.9 metros de espacio personal
+                                val exactPixels = ((0.9 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(8)
+
+                                val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
+                                val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
+
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    var baseDrawable = CharacterSpriteManager.getModularNpcDrawable(
+                                        context = context,
+                                        visualConfig = npc.visualConfig!!,
+                                        isMoving = currentlyMoving,
+                                        isFacingRight = npc.facingRight,
+                                        timeMs = timeMs,
+                                        scale = highResRenderScale,
+                                        displayName = npc.displayName
+                                    )
+                                    baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
+                                    baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                        ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
+
+                            } else if (npc.type == NpcType.CAR) {
+                                // TAMAÑO DEL AUTO
+                                val exactPixels = ((2.5 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(10)
+
+                                var angle = npc.rotationAngle % 360f
+                                if (angle < 0) angle += 360f
+                                val frameIndex = (angle / 7.5f).roundToInt() % 48
+                                val cacheKey = "CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
+
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    var baseDrawable = VehicleSpriteManager.getTintedCarNpc(
+                                        context, angle, npc.carColor, highResRenderScale, npc.carModel
+                                    )
+                                    baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
+                                    baseDrawable?.let { drawable ->
+                                        // Mantenemos la proporción (Aspect Ratio) del sprite original
+                                        val ratio = drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight.toFloat()
+                                        val finalWidthPx: Int
+                                        val finalHeightPx: Int
+
+                                        if (ratio > 1f) {
+                                            finalWidthPx = exactPixels
+                                            finalHeightPx = (exactPixels / ratio).toInt()
+                                        } else {
+                                            finalHeightPx = exactPixels
+                                            finalWidthPx = (exactPixels * ratio).toInt()
+                                        }
+                                        ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
+                                    } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
+                            } else {
+                                // Resto de NPCs genéricos (SVG)
+                                val cacheKey = "SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
+                                    var baseDrawable = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
+                                    baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
+                                    baseDrawable?.let {
+                                        val exactPx = (24 * screenDensity).toInt()
+                                        ExactSizeDrawable(it, exactPx, exactPx)
+                                    } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
                             }
-                            marker.icon = cachedIcon
-                            marker.rotation = 0f
                         } else {
-                            val cacheKey = "SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
-                            val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
-                                var baseDrawable = if (resId != 0) ContextCompat.getDrawable(context, resId) else null
-                                baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-                                baseDrawable?.let {
-                                    val exactPixels = (24 * screenDensity).toInt()
-                                    ExactSizeDrawable(it, exactPixels, exactPixels)
-                                } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
-                            }
-                            marker.icon = cachedIcon
-                            marker.rotation = 0f
+                            marker.setAlpha(0f)
                         }
-                    } else {
-                        marker.setAlpha(0f)
+                        marker.position = GeoPoint(npc.location.latitude, npc.location.longitude)
                     }
-                    marker.position = GeoPoint(npc.location.latitude, npc.location.longitude)
-                }
                 } // fin guard: lista de NPCs sin cambios → no se reconstruyen marcadores
 
                 val activeCollectibleIds = allCollectibles.map { it.id }.toSet()

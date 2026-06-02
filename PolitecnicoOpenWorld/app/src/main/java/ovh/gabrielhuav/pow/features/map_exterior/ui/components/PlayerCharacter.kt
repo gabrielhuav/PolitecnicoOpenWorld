@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -52,6 +53,11 @@ fun PlayerCharacter(
     val isZoomedIn = zoomLevel >= 16.5
     val context = LocalContext.current
     val density = androidx.compose.ui.platform.LocalDensity.current.density
+
+    // ── 📐 FÓRMULA CARTOGRÁFICA DE TAMAÑOS REALES ───
+    // Usamos la latitud actual para calcular los metros por pixel
+    val lat = uiState.currentLocation?.latitude ?: 19.0
+    val metersPerPixel = (40075016.686 * Math.cos(Math.toRadians(lat))) / (256.0 * Math.pow(2.0, zoomLevel))
 
     // ── Skin activa ──────────────────────────────────────────────────────
     val skin = uiState.selectedSkin
@@ -125,19 +131,24 @@ fun PlayerCharacter(
         } else {
             if (uiState.isDriving) {
                 // ── Modo conductor ───────────────────────────────────────
+
+                // Usamos la medida de 2.5 metros
+                val exactCarDp = (2.5 / metersPerPixel).dp.coerceAtLeast(10.dp)
+
                 val carModel = uiState.currentVehicleModel ?: CarModel.SEDAN
                 val carColor = uiState.currentVehicleColor ?: 0xFFFFFFFF.toInt()
                 val visualRotation = 270f
-                val dynamicScale = (1.4 * Math.pow(2.0, zoomLevel - 19.0))
-                    .toFloat().coerceIn(0.2f, 1.4f)
 
-                val bitmapKey = "${carModel.name}_${visualRotation}_${carColor}_${dynamicScale}"
+                // Usamos la densidad pura para generar un sprite nítido
+                val renderScale = density
+
+                val bitmapKey = "${carModel.name}_${visualRotation}_${carColor}_$renderScale"
                 var carImage by remember { mutableStateOf<ImageBitmap?>(null) }
                 var lastKey by remember { mutableStateOf("") }
 
                 if (lastKey != bitmapKey) {
                     val drawable = VehicleSpriteManager.getTintedCarNpc(
-                        context, visualRotation, carColor, dynamicScale, carModel
+                        context, visualRotation, carColor, renderScale, carModel
                     )
                     val bitmap =
                         (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
@@ -146,17 +157,24 @@ fun PlayerCharacter(
                 }
 
                 carImage?.let { img ->
-                    val exactWidthDp  = (img.width  / density).dp
-                    val exactHeightDp = (img.height / density).dp
+                    // Calculamos la proporción (Aspect Ratio) para no apachurrar el auto
+                    val ratio = img.width.toFloat() / img.height.toFloat()
+                    val finalWidthDp = if (ratio > 1f) exactCarDp else exactCarDp * ratio
+                    val finalHeightDp = if (ratio > 1f) exactCarDp / ratio else exactCarDp
+
                     Image(
                         bitmap = img,
                         contentDescription = "Player Vehicle",
-                        modifier = modifier.size(exactWidthDp, exactHeightDp)
+                        modifier = modifier.size(finalWidthDp, finalHeightDp)
                     )
                 }
 
             } else {
                 // ── Modo a pie ───────────────────────────────────────────
+
+                // 🧍 Tamaño real del jugador a pie (0.9 metros)
+                val exactPersonDp = (0.9 / metersPerPixel).dp.coerceAtLeast(8.dp)
+
                 val action       = uiState.playerAction
                 val isFacingRight = uiState.isPlayerFacingRight
 
@@ -194,8 +212,6 @@ fun PlayerCharacter(
                 }
 
                 currentImage?.let { img ->
-                    val calculatedSize =
-                        (24.0 + ((zoomLevel - 18.0) * 8.0)).coerceIn(16.0, 40.0).dp
                     val visualCompensation = when (action) {
                         PlayerAction.IDLE    -> 1.0f
                         PlayerAction.WALK    -> 1.0f
@@ -206,10 +222,10 @@ fun PlayerCharacter(
                         bitmap = img,
                         contentDescription = "Personaje Principal",
                         modifier = modifier
-                            .size(calculatedSize)
+                            .size(exactPersonDp)
                             .graphicsLayer {
                                 scaleX = if (isFacingRight) visualCompensation
-                                         else -visualCompensation
+                                else -visualCompensation
                                 scaleY = visualCompensation
                             }
                     )
