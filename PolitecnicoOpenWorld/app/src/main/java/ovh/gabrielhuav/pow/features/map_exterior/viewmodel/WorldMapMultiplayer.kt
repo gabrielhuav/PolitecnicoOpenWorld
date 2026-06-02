@@ -144,6 +144,17 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
                         // (triggerWastedSequence ya corre en Main).
                         viewModelScope.launch(Dispatchers.Main) { takeDamage(incomingDamage) }
                     }
+                    // MIEDO AL COMBATE: si soy el host de la zona, los civiles cercanos al
+                    // objetivo del golpe se dispersan. La posición del objetivo es la mía si el
+                    // golpe es contra mí, o la del jugador remoto golpeado si la conozco.
+                    if (isServerDelegatedHost) {
+                        val targetLoc = if (msg.targetId == myPlayerUUID) {
+                            _uiState.value.currentLocation
+                        } else {
+                            remoteEntities[msg.targetId]?.location
+                        }
+                        targetLoc?.let { npcAiManager.triggerFear(it.latitude, it.longitude) }
+                    }
                 }
 
                 else -> {
@@ -192,7 +203,7 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
         } catch (e: Exception) {
             Log.e("WorldMapVM", "Error procesando JSON: ${e.message}")
         }
-    }
+    }
 
 internal fun WorldMapViewModel.addRemoteEntity(remote: MultiplayerNpc) {
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
@@ -234,8 +245,8 @@ internal fun WorldMapViewModel.addRemoteEntity(remote: MultiplayerNpc) {
             visualConfig = visualConfig,
             displayName = null
         )
-    }
+    }
 
 internal fun WorldMapViewModel.updateNpcsState() {
         _uiState.update { it.copy(npcs = remoteEntities.values.toList()) }
-    }
+    }

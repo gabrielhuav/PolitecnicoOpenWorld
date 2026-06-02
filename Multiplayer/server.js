@@ -9,19 +9,31 @@
 //
 // MEJORAS v2:
 //   - AREA DE INTERES (AOI) para NPCs: los NPC_SPAWN/UPDATE/BATCH solo se reenvian
-//     a clientes cercanos al Host emisor, en vez de a TODOS. En un mapa de ciudad
-//     esto recorta drasticamente el ancho de banda y el trabajo de serializacion
-//     cuando hay jugadores dispersos. Los mensajes que deben llegar siempre
-//     (PLAYER_UPDATE, PLAYER_DAMAGE, NPC_DESTROY, DISCONNECT, sync) se mantienen
-//     globales para no dejar entidades fantasma. Compromiso: un NPC muy lejano
-//     puede "congelarse" para clientes fuera del radio, pero ahi no se renderiza.
+//     a clientes cercanos al Host emisor, en vez de a TODOS.
 //   - ELECCION DE HOST CON THROTTLE: el rol Host se reevalua como mucho cada
-//     HOST_EVAL_MS por cliente, no en cada PLAYER_UPDATE (baja CPU; el rol no
-//     necesita cambiar al instante).
-//   - RATE LIMIT por socket: descarta mensajes si un cliente inunda (proteccion
-//     basica de CPU / anti-flood), con ventana deslizante de 1 s.
+//     HOST_EVAL_MS por cliente.
+//   - RATE LIMIT por socket (ventana deslizante de 1 s) + tamano maximo de mensaje.
 //   - SANEAMIENTO: coordenadas finitas, dano finito y acotado, reenvio saneado.
-//   - GC de jugadores fantasma (no solo al cerrar el socket).
+//
+// MEJORAS v3 (POBLACION PERSISTENTE — el servidor es el DUENO del roster):
+//   - Los NPCs civiles YA NO se borran cuando su Host se desconecta. Antes el GC
+//     de huerfanos los eliminaba a los 15 s, dejando el mundo vacio con pocos
+//     jugadores. Ahora, al irse un Host, sus NPCs se marcan HUERFANOS (ownerId=null)
+//     pero SE CONSERVAN; el servidor los reenvia (SYNC_ALL_NPCS) a los clientes que
+//     quedan para que el Host mas cercano los ADOPTE y siga simulando su IA. Si no
+//     hay ningun Host, los NPCs quedan "congelados" en su ultima posicion hasta que
+//     vuelva alguien (el mundo nunca queda vacio).
+//   - RE-DELEGACION: como el cliente ya adopta cualquier NPC remoto cuyo ownerId no
+//     sea el suyo (NpcAiManager.moveNpc reconstruye la ruta), basta con marcar
+//     huerfano + reenviar para que el nuevo Host tome el control en el siguiente tick.
+//   - CAP DURO de poblacion en el servidor (MAX_SERVER_NPCS): si se excede, se hace
+//     evict del mas viejo (priorizando huerfanos) para no crecer sin limite.
+//   - El GC periodico ya NO borra NPCs por antiguedad; solo aplica el cap.
+//
+// NOTA SOBRE FEAR/CHARLAS/TRAFICO: estos comportamientos los corre el Host en el
+// cliente (NpcAiManager) y se manifiestan como movimiento/rotacion, que se relayan
+// en NPC_BATCH_UPDATE sin cambiar el formato del cable. El servidor no necesita
+// logica extra para ellos: PLAYER_DAMAGE ya es global y cada Host dispersa sus NPCs.
 
 const express = require('express');
 const http = require('http');
@@ -40,17 +52,20 @@ const npcs = new Map();
 
 // Radio de autoridad del Host (~400 m en coordenadas arbitrarias).
 const HOST_RADIUS = 0.004;
-// Radio de Area de Interes para reenvio de NPCs (~2 km). Generoso para que los
-// NPCs no "aparezcan de golpe" cerca del jugador.
+// Radio de Area de Interes para reenvio de NPCs (~2 km).
 const AOI_RADIUS = 0.02;
 // El rol de Host se reevalua como mucho cada esto (ms).
 const HOST_EVAL_MS = 200;
 // Limite anti-flood por socket.
 const MAX_MSGS_PER_SEC = 80;
-// Tamano maximo de mensaje aceptado (bytes); evita payloads abusivos.
+// Tamano maximo de mensaje aceptado (bytes).
 const MAX_MSG_BYTES = 8192;
 // Dano maximo aceptado del cliente (anti-cheat basico).
 const MAX_DAMAGE = 100;
+// CAP DURO de NPCs que el servidor mantiene en su roster persistente. Si se excede,
+// se hace evict (primero huerfanos, luego los mas viejos). Generoso para varias
+// zonas activas a la vez, pero acotado para no crecer indefinidamente.
+const MAX_SERVER_NPCS = 150;
 
 // ─── SANEAMIENTO ───────────────────────────────────────────────────────────────
 function safeCoord(v, fallback) {
@@ -66,9 +81,10 @@ function safeDamage(v) {
 
 app.get('/status', (req, res) => {
     res.json({
-        estado: 'Online (v2)',
+        estado: 'Online (v3: roster persistente)',
         jugadoresConectados: players.size,
         npcsActivos: npcs.size,
+        npcsHuerfanos: Array.from(npcs.values()).filter(n => !n.ownerId).length,
         jugadores: Array.from(players.values()),
         timestamp: new Date().toISOString()
     });
@@ -92,9 +108,7 @@ function broadcastAll(messageAsString) {
     });
 }
 
-// Reenvio con Area de Interes: solo a clientes cuyo ultima posicion conocida este
-// dentro de 'radius' del origen (ox, oy). Clientes sin posicion conocida reciben
-// igual (no los penalizamos por recien conectados).
+// Reenvio con Area de Interes.
 function broadcastToNearby(senderWs, messageAsString, ox, oy, radius) {
     const msg = messageAsString.toString();
     const hasOrigin = (typeof ox === 'number' && isFinite(ox) && typeof oy === 'number' && isFinite(oy));
@@ -129,25 +143,61 @@ const playerGcInterval = setInterval(() => {
     for (const [id, p] of players.entries()) {
         if (now - (p.lastUpdated || now) > 15000) {
             players.delete(id);
+            // Al reapar un jugador fantasma, huerfanamos sus NPCs (no los borramos).
+            orphanNpcsOf(id);
             broadcastAll(JSON.stringify({ type: "DISCONNECT", id }));
         }
     }
 }, 5000);
 
-// --- GC de NPCs huerfanos ---
-const npcGcInterval = setInterval(() => {
+// --- Mantenimiento del roster persistente de NPCs (v3) ---
+// Ya NO borra NPCs por antiguedad: el servidor es el dueno y los conserva aunque su
+// Host se haya ido (quedan congelados hasta que otro Host los adopte). Lo unico que
+// hace es aplicar el CAP DURO de poblacion para no crecer sin limite, priorizando
+// el evict de NPCs huerfanos y, dentro de esos, de los mas viejos.
+const npcRosterInterval = setInterval(() => {
+    enforceNpcCap();
+}, 5000);
+
+function enforceNpcCap() {
+    if (npcs.size <= MAX_SERVER_NPCS) return;
+    const excess = npcs.size - MAX_SERVER_NPCS;
+    // Orden de sacrificio: primero huerfanos (sin owner), luego por mas antiguos.
+    const candidates = Array.from(npcs.values()).sort((a, b) => {
+        const ao = a.ownerId ? 1 : 0;
+        const bo = b.ownerId ? 1 : 0;
+        if (ao !== bo) return ao - bo;                 // huerfanos primero
+        return (a.lastUpdated || 0) - (b.lastUpdated || 0); // mas viejos primero
+    });
+    const toDelete = candidates.slice(0, excess).map(n => n.id);
+    toDelete.forEach(id => npcs.delete(id));
+    if (toDelete.length > 0) {
+        toDelete.forEach(id => broadcastAll(JSON.stringify({ type: "NPC_DESTROY", npcId: id })));
+    }
+}
+
+// Marca como huerfanos (ownerId=null) todos los NPCs cuyo dueno era 'ownerId'. NO los
+// borra. Reenvia el lote a los clientes que quedan para que el Host mas cercano los
+// adopte (el cliente adopta cualquier NPC remoto con ownerId != el suyo). Asi el
+// mundo no se vacia al desconectarse un Host.
+function orphanNpcsOf(ownerId) {
     const now = Date.now();
-    const npcsToDelete = [];
+    const orphaned = [];
     for (const [npcId, npcData] of npcs.entries()) {
-        if (now - (npcData.lastUpdated || now) > 15000) {
-            npcsToDelete.push(npcId);
-            npcs.delete(npcId);
+        if (npcData.ownerId === ownerId) {
+            npcData.ownerId = null;
+            npcData.orphanedAt = now;
+            orphaned.push(npcData);
         }
     }
-    if (npcsToDelete.length > 0) {
-        broadcastAll(JSON.stringify({ type: "DISCONNECT", orphanedNpcs: npcsToDelete }));
+    if (orphaned.length > 0) {
+        // Reenviar como SYNC para que los clientes que ya los tenian no los limpien
+        // (MASTER_SYNC_CHECK los conserva porque siguen en el roster) y los que esten
+        // cerca empiecen a simularlos. ownerId=null => cualquier Host los adopta.
+        broadcastAll(JSON.stringify({ type: "SYNC_ALL_NPCS", npcs: orphaned }));
+        console.log(`[Roster] ${orphaned.length} NPC(s) huerfanos tras irse ${ownerId}; conservados para re-delegacion.`);
     }
-}, 5000);
+}
 
 // --- Sincronizacion maestra periodica ---
 const masterSyncInterval = setInterval(() => {
@@ -159,8 +209,6 @@ const masterSyncInterval = setInterval(() => {
     }
 }, 5000);
 
-// Limita la frecuencia de mensajes por socket (ventana deslizante de 1 s).
-// Devuelve true si el mensaje debe descartarse.
 function rateLimited(ws, now) {
     if (!ws.rlWindowStart || now - ws.rlWindowStart >= 1000) {
         ws.rlWindowStart = now;
@@ -185,6 +233,8 @@ wss.on('connection', (ws) => {
 
     ws.on('pong', () => { ws.isAlive = true; });
 
+    // El recien llegado recibe TODO el roster persistente (incluye huerfanos), para
+    // que pueda renderizarlos y, si es Host cercano, adoptarlos.
     const existingNpcs = Array.from(npcs.values());
     if (existingNpcs.length > 0) {
         ws.send(JSON.stringify({ type: "SYNC_ALL_NPCS", npcs: existingNpcs }));
@@ -202,10 +252,8 @@ wss.on('connection', (ws) => {
                 const prev = players.get(ws.sessionId);
                 const px = safeCoord(data.x, prev ? prev.x : 0);
                 const py = safeCoord(data.y, prev ? prev.y : 0);
-                // Posicion conocida del socket (para AOI de NPCs).
                 ws.x = px; ws.y = py;
 
-                // Eleccion de Host con throttle: solo reevaluamos cada HOST_EVAL_MS.
                 if (now - ws.lastHostEvalMs >= HOST_EVAL_MS) {
                     ws.lastHostEvalMs = now;
                     let isNowHost = ws.isHost;
@@ -252,9 +300,6 @@ wss.on('connection', (ws) => {
                 };
                 players.set(ws.sessionId, stored);
 
-                // Los jugadores se difunden SIEMPRE (global): el cliente no tiene
-                // GC temporal de avatares remotos, asi que filtrarlos por AOI los
-                // dejaria congelados. Solo saneamos los campos.
                 broadcastToOthers(ws, JSON.stringify({
                     type: "PLAYER_UPDATE",
                     id: ws.sessionId,
@@ -277,7 +322,7 @@ wss.on('connection', (ws) => {
                     if (nx === null || ny === null) return;
                     const sanitized = { ...n, x: nx, y: ny, ownerId: ws.sessionId, lastUpdated: now };
                     npcs.set(n.id, sanitized);
-                    // AOI: solo a clientes cercanos al Host emisor.
+                    enforceNpcCap();
                     broadcastToNearby(ws, JSON.stringify({ ...data, npc: sanitized }), ws.x, ws.y, AOI_RADIUS);
                 }
             }
@@ -289,17 +334,21 @@ wss.on('connection', (ws) => {
                         const nx = safeCoord(npc.x, null);
                         const ny = safeCoord(npc.y, null);
                         if (nx === null || ny === null) return;
+                        // Al actualizar, este Host se convierte en el dueno (re-delegacion
+                        // automatica: un Host que adopta un huerfano lo reclama aqui).
                         const sanitized = { ...npc, x: nx, y: ny, ownerId: ws.sessionId, lastUpdated: now };
                         npcs.set(npc.id, sanitized);
                         accepted.push(sanitized);
                     });
                     if (accepted.length > 0) {
+                        enforceNpcCap();
                         broadcastToNearby(ws, JSON.stringify({ type: "NPC_BATCH_UPDATE", npcs: accepted }), ws.x, ws.y, AOI_RADIUS);
                     }
                 }
             }
             else if (data && data.type === "PLAYER_DAMAGE") {
                 // Global: debe llegar al objetivo este donde este. Dano acotado.
+                // (Cada Host, al recibirlo, dispersa sus propios NPCs cercanos al objetivo.)
                 if (typeof data.targetId === 'string') {
                     const dmg = safeDamage(data.damage);
                     if (dmg > 0) {
@@ -311,6 +360,8 @@ wss.on('connection', (ws) => {
             }
             else if (data && data.type === "NPC_DESTROY") {
                 // Global: evita NPCs muertos "fantasma" en clientes que ya lo tenian.
+                // Esto es una muerte REAL (combate / despawn por poblacion del Host), no
+                // una desconexion: aqui SI se borra del roster.
                 if (typeof data.npcId === 'string') {
                     npcs.delete(data.npcId);
                     broadcastToOthers(ws, JSON.stringify({ type: "NPC_DESTROY", npcId: data.npcId }));
@@ -324,19 +375,20 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         console.log(`[-] Cliente desconectado. ID: ${ws.sessionId}`);
         players.delete(ws.sessionId);
+        // v3: NO borramos sus NPCs. Los huerfanamos y reenviamos para que otro Host
+        // los adopte; si no hay nadie, quedan congelados (mundo nunca vacio).
+        orphanNpcsOf(ws.sessionId);
         broadcastAll(JSON.stringify({ type: "DISCONNECT", id: ws.sessionId }));
-        // Los NPCs del cliente se quedan: el nuevo Host los adopta; si nadie lo
-        // hace, el GC los borra a los 15 s.
     });
 });
 
 server.on('close', () => {
     clearInterval(heartbeatInterval);
     clearInterval(playerGcInterval);
-    clearInterval(npcGcInterval);
+    clearInterval(npcRosterInterval);
     clearInterval(masterSyncInterval);
 });
 
 server.listen(PORT, () => {
-    console.log(`Servidor POW Multi-Zonas (v2: AOI + host-throttle + rate-limit) en el puerto ${PORT}`);
+    console.log(`Servidor POW Multi-Zonas (v3: roster persistente + AOI + host-throttle + rate-limit) en el puerto ${PORT}`);
 });

@@ -50,6 +50,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -134,11 +135,38 @@ internal fun NativeOsmMap(
     nativeMapRef: MutableState<MapView?>,
 ) {
     var hasTriggeredNativePan by remember { mutableStateOf(false) }
+    // OPT gama baja: referencia de la última lista de NPCs renderizada. El `update` del
+    // AndroidView corre en CADA recomposición (~30 Hz por el movimiento del jugador), pero
+    // los NPCs solo cambian a ~10 Hz; reconstruir sus marcadores solo cuando la lista
+    // cambia evita ~2/3 del trabajo de sprites (lo más caro en gama baja).
+    // Holder NO observable (no es Compose State): leerlo/escribirlo dentro del `update`
+    // del AndroidView NO debe disparar recomposición. Por eso usamos un array simple.
+    val lastNpcRenderHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Npc>>(1) }
+
+    // CICLO DE VIDA del MapView de osmdroid: al salir de esta pantalla (p. ej. ir a
+    // Ajustes) hay que liberar el MapView con onDetach(); de lo contrario se fuga y, al
+    // volver, puede quedar en un estado roto (pantalla azul/sin render) con OSM nativo.
+    DisposableEffect(Unit) {
+        onDispose {
+            try { nativeMapRef.value?.onPause() } catch (_: Exception) {}
+            try { nativeMapRef.value?.onDetach() } catch (_: Exception) {}
+        }
+    }
                 AndroidView(
                     factory = { ctx ->
                         MapView(ctx).apply {
                             setTileSource(TileSourceFactory.MAPNIK)
                             setMultiTouchControls(true)
+                            // Canal de retorno del zoom por gesto (pinch): sincroniza el nivel
+                            // de zoom del mapa con el estado para que el bucle de render no lo
+                            // resetee (sin esto, el pinch "rebotaba" al valor anterior).
+                            addMapListener(object : org.osmdroid.events.MapListener {
+                                override fun onScroll(event: org.osmdroid.events.ScrollEvent?): Boolean = false
+                                override fun onZoom(event: org.osmdroid.events.ZoomEvent?): Boolean {
+                                    event?.let { viewModel.onMapZoomChanged(it.zoomLevel) }
+                                    return false
+                                }
+                            })
                             // Fondo oscuro del mapa: al rotar (modo conducción) los bordes
                             // que quedan sin tiles se ven oscuros en lugar de blancos/grises,
                             // evitando los "huecos"/artefactos visibles.
@@ -261,6 +289,11 @@ internal fun NativeOsmMap(
                             // Los NPC siguen en memoria/simulación; solo se crean/actualizan
                             // marcadores para los que caen dentro del viewport. Los lejanos se
                             // quitan de las overlays (se recrean al volver a acercarse).
+                            // OPT: solo reconstruimos cuando la LISTA de NPCs cambió (10 Hz),
+                            // no en cada recomposición por movimiento del jugador (~30 Hz). Los
+                            // marcadores ya se reproyectan solos al moverse/rotar el mapa.
+                            if (uiState.npcs !== lastNpcRenderHolder[0]) {
+                              lastNpcRenderHolder[0] = uiState.npcs
                             val centerCull = uiState.currentLocation
                             val visibleNpcs = if (centerCull != null) {
                                 val radiusM = npcVisionRadiusMeters()
@@ -364,6 +397,7 @@ internal fun NativeOsmMap(
                                 }
                                 marker.position = GeoPoint(npc.location.latitude, npc.location.longitude)
                             }
+                            } // fin guard: lista de NPCs sin cambios → no se reconstruyen marcadores
 
                             val activeCollectibleIds = allCollectibles.map { it.id }.toSet()
                             @Suppress("UNCHECKED_CAST")

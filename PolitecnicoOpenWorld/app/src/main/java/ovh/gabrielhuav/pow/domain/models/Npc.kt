@@ -33,5 +33,17 @@ data class Npc(
     val displayName: String? = null,
     val isFirstTimeBoarded: Boolean = true,
     val health: Float = 100f,
-    val isDying: Boolean = false
+    val isDying: Boolean = false,
+
+    // ─── Estado transitorio de IA (vive SOLO en el host que simula; NO se serializa
+    //     en MultiplayerNpc). El comportamiento se manifiesta como movimiento/rotación,
+    //     así que los demás clientes lo ven sin cambiar el formato del cable.) ───
+    // MIEDO AL COMBATE: mientras now < fearUntil el NPC huye (acelera y se aleja
+    // del punto fearFrom). Se activa al ver un PLAYER_DAMAGE o un ataque cercano.
+    val fearUntil: Long = 0L,
+    val fearFromLat: Double = 0.0,
+    val fearFromLon: Double = 0.0,
+    // CHARLAS: mientras now < chatUntil el peatón se detiene mirando a su pareja.
+    val chatUntil: Long = 0L,
+    val chatPartnerId: String? = null
 )
