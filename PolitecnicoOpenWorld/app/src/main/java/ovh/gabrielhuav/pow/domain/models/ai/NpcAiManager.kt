@@ -44,10 +44,10 @@ class NpcAiManager {
         // que no se vean "torpes" al cruzar nodos densos).
         const val LANE_OFFSET = 0.000024
 
-        // PERSONALIDADES: pesos del rasgo asignado al spawn. La mayoría pasivos para
-        // que el mundo no sea hostil; pocos cobardes/agresivos para sorpresas tipo GTA.
-        const val TRAIT_COWARD_CHANCE = 0.25f
-        const val TRAIT_AGGRESSIVE_CHANCE = 0.15f
+        // PERSONALIDADES: la fracción de NPCs AGRESIVOS es CONFIGURABLE (por defecto la
+        // mitad). El resto son COBARDES (huyen al ser golpeados). Los agresivos NO huyen
+        // ("no les da miedo"): devuelven el golpe. Cambia aggressiveRatio para ajustarlo.
+        @Volatile var aggressiveRatio: Float = 0.5f
         // EMBESTIDA (aggro): un NPC agresivo persigue al jugador en línea recta durante
         // este tiempo y a este múltiplo de velocidad. Barato: ignora el grafo de calles
         // mientras dura (es un arrebato corto), solo interpola hacia el jugador.
@@ -64,19 +64,11 @@ class NpcAiManager {
         // necesidad de ser provocado), para que se note el daño. ~55 m (dentro del fog).
         const val AGGRO_VISION_RADIUS = 0.0005
 
-        fun rollTrait(): ovh.gabrielhuav.pow.domain.models.NpcTrait {
-            // TEMPORAL (depuración): TODOS agresivos para verificar el contraataque/daño.
-            // Revertir a la versión por pesos (abajo) cuando se confirme que se nota el golpe.
-            return ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
-            /*
-            val r = Random.nextFloat()
-            return when {
-                r < TRAIT_AGGRESSIVE_CHANCE -> ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
-                r < TRAIT_AGGRESSIVE_CHANCE + TRAIT_COWARD_CHANCE -> ovh.gabrielhuav.pow.domain.models.NpcTrait.COWARD
-                else -> ovh.gabrielhuav.pow.domain.models.NpcTrait.PASSIVE
-            }
-            */
-        }
+        fun rollTrait(): ovh.gabrielhuav.pow.domain.models.NpcTrait =
+            if (Random.nextFloat() < aggressiveRatio)
+                ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
+            else
+                ovh.gabrielhuav.pow.domain.models.NpcTrait.COWARD
 
         // PALETA FIJA DE ATUENDOS (optimización de render): en vez de colores aleatorios
         // por NPC (~2000 combinaciones → un sprite único por peatón), usamos un conjunto
@@ -266,6 +258,9 @@ class NpcAiManager {
         for (i in serverNpcs.indices) {
             val npc = serverNpcs[i]
             if (!npc.displayName.isNullOrEmpty()) continue
+            // Los AGRESIVOS no sienten miedo: nunca huyen (devuelven el golpe). Solo los
+            // cobardes (y demás) se dispersan ante un ataque cercano.
+            if (npc.trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE) continue
             var best: FearEvent? = null
             for (ev in events) {
                 if (calculateDistance(npc.location.latitude, npc.location.longitude, ev.lat, ev.lon) <= FEAR_RADIUS) {

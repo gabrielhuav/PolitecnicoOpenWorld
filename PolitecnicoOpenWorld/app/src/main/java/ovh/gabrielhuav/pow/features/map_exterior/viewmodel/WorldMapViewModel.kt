@@ -173,6 +173,12 @@ class WorldMapViewModel(
     internal val NPC_CONTACT_COOLDOWN_MS = 900L
     // Cooldown por NPC para que no drene la vida del jugador en cada tick.
     internal val npcContactCooldowns = ConcurrentHashMap<String, Long>()
+    // Racha de golpes que le has dado a CADA NPC. A partir de RELENTLESS_HIT_STREAK
+    // golpes seguidos, el NPC agresivo se vuelve IMPLACABLE: te persigue y golpea sin
+    // parar hasta matarte (o hasta que muera). Cuanto más agresivo seas, peor para ti.
+    internal val npcHitStreak = ConcurrentHashMap<String, Int>()
+    internal val relentlessNpcs = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    internal val RELENTLESS_HIT_STREAK = 3
 
     internal val hospitalRespawnPoints = listOf(
         GeoPoint(19.5034, -99.1469),
@@ -1871,9 +1877,18 @@ class WorldMapViewModel(
                 )
             }
             delay(4000L)
+            // Limpiar el estado de combate (rachas / NPCs implacables / cooldowns) para
+            // no revivir siendo perseguido al instante.
+            relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
+            // RESPAWN EN LA MISMA ZONA YA DESCARGADA (ahorra recursos: no teletransporta a
+            // ESCOM ni descarga teselas nuevas). Reaparece a ~80 m del lugar de muerte,
+            // pegado a la red de calles ya cacheada; si no hay calles, en el mismo punto.
             val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
-            val nearestHospital = hospitalRespawnPoints.minByOrNull { distance(deathLoc, it) } ?: hospitalRespawnPoints.first()
-            _uiState.update { it.copy(currentLocation = nearestHospital, showWastedScreen = false) }
+            val ang = Math.random() * 2.0 * Math.PI
+            val r = 0.0007 // ~77 m
+            val candidate = GeoPoint(deathLoc.latitude + sin(ang) * r, deathLoc.longitude + cos(ang) * r)
+            val respawn = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(candidate) else deathLoc
+            _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
             playerHealth = maxPlayerHealth
         }
     }
@@ -1922,6 +1937,8 @@ class WorldMapViewModel(
                     val damage = PLAYER_PUNCH_DAMAGE
                     val newHealth = (currentNpc.health - damage).coerceAtLeast(0f)
                     if (newHealth <= 0f) {
+                        npcHitStreak.remove(npcId)
+                        relentlessNpcs.remove(npcId)
                         remoteEntities[npcId] = currentNpc.copy(health = 0f, isDying = true)
                         updateNpcsState()
                         delay(1000L)
@@ -1943,6 +1960,10 @@ class WorldMapViewModel(
                         )
                         updateNpcsState()
                         if (retaliate) {
+                            // Racha de golpes seguidos contra este NPC.
+                            val streak = (npcHitStreak[npcId] ?: 0) + 1
+                            npcHitStreak[npcId] = streak
+
                             // Golpe de vuelta DETERMINISTA: tras un breve "windup", si el NPC
                             // sigue vivo y el jugador continúa a su alcance, le pega y lo
                             // hace notar (vida baja + destello + 💥). No depende de la
@@ -1955,6 +1976,12 @@ class WorldMapViewModel(
                                     distance(pl, attacker.location) <= ATTACK_RADIUS) {
                                     takeDamage(NPC_CONTACT_DAMAGE)
                                 }
+                            }
+
+                            // IMPLACABLE: si lo golpeas RELENTLESS_HIT_STREAK veces o más, ya
+                            // no para de pegarte hasta matarte (o hasta morir él).
+                            if (streak >= RELENTLESS_HIT_STREAK && relentlessNpcs.add(npcId)) {
+                                startRelentlessAttacker(npcId)
                             }
                         }
                     }
@@ -2009,6 +2036,27 @@ class WorldMapViewModel(
             if (now - last < NPC_CONTACT_COOLDOWN_MS) continue
             npcContactCooldowns[id] = now
             viewModelScope.launch(Dispatchers.Main) { takeDamage(NPC_CONTACT_DAMAGE) } // takeDamage ya dispara el 💥
+        }
+    }
+
+    // IMPLACABLE: el NPC persigue y golpea al jugador sin descanso hasta matarlo (o hasta
+    // morir/desaparecer). Refresca su aggro para que nunca deje de perseguir y le pega
+    // cada NPC_CONTACT_COOLDOWN_MS si está a su alcance.
+    private fun startRelentlessAttacker(npcId: String) {
+        viewModelScope.launch(Dispatchers.Main) {
+            while (true) {
+                delay(NPC_CONTACT_COOLDOWN_MS)
+                val npc = remoteEntities[npcId] ?: break        // murió/despawneó
+                if (npc.isDying) break
+                if (playerHealth <= 0f) break                    // jugador muerto → la secuencia WASTED sigue
+                // Mantener vivo el aggro para que NO deje de perseguir.
+                remoteEntities[npcId] = npc.copy(aggroUntil = System.currentTimeMillis() + NpcAiManager.AGGRO_DURATION_MS)
+                val pl = _uiState.value.currentLocation
+                if (pl != null && distance(pl, npc.location) <= ATTACK_RADIUS) {
+                    takeDamage(NPC_CONTACT_DAMAGE)
+                }
+            }
+            relentlessNpcs.remove(npcId)
         }
     }
 

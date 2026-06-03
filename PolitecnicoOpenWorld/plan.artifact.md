@@ -128,30 +128,37 @@ via co-located `ViewModelProvider.Factory` instances.
   snaps server-inherited NPCs to the nearest way. Spawn uses a **per-way bbox
   pre-filter** before the per-node distance check. The open-world server does NOT
   simulate NPCs — the Zone Host runs the AI on the client and the server relays.
-- **NPC reactions (GTA-lite, host-only, cheap):** each NPC gets a `trait`
-  (`PASSIVE`/`COWARD`/`AGGRESSIVE`, weighted at spawn via `NpcAiManager.rollTrait()`).
-  - *Run-over* (`WorldMapViewModel.runOverNpcs`): while driving, pedestrians within
-    `RUN_OVER_RADIUS` take speed-scaled damage (early-out below `RUN_OVER_MIN_SPEED`);
-    deaths broadcast `NPC_DESTROY` and witnesses get `triggerFear`.
-  - *Aggro/embestida* (`Npc.aggroUntil`): a provoked AGGRESSIVE NPC chases the player
-    in a straight line (`NpcAiManager.moveAggroNpc`, ignores the road graph for the
-    burst) and deals contact damage via `applyNpcContactDamage` (per-NPC cooldown).
-    Triggered by carjacking an occupied car or by surviving a melee hit.
-  - *Carjack reaction* (`spawnOustedDriver`): COWARD → flee (`fearUntil`), AGGRESSIVE
-    → aggro, PASSIVE → walk off.
-  - **Two-way traffic** is on: spawn direction is randomized (not biased to +1) and the
-    existing right-side `LANE_OFFSET` separates opposing lanes.
-  - These AI fields (`trait`, `aggroUntil`) are transitory/host-only and **not**
-    serialized in `MultiplayerNpc` (behavior shows through movement, like fear/chat).
-  - **Multiplayer:** the AI runs on the Host and movement is already relayed; the only
-    new wire fields are `health` + `isDying` in `MultiplayerNpc` (so all clients draw
-    NPC health bars / death from run-overs & hits). `Multiplayer/server.js` relays them
-    via `{...npc}` spread and clamps `health` to 0..100 (v3.1). Contact damage is applied
-    locally by each client (each is Host of its surroundings).
-  - **Impact FX:** `WorldMapViewModel.impactEffectTrigger` (fired on contact damage &
-    run-over) drives a "💥" burst at screen center in `WorldMapScreen` so collisions read.
-  - **Size parity:** native NPC sprite sizing uses `uiState.zoomLevel` (NOT the live
-    `view.zoomLevelDouble`) so NPCs match the player/vehicle scale exactly.
+- **NPC reactions (GTA-lite, cheap):** each NPC gets a `trait` (`AGGRESSIVE`/`COWARD`)
+  rolled at spawn via `NpcAiManager.rollTrait()`. The aggressive fraction is **configurable**
+  via `NpcAiManager.aggressiveRatio` (default `0.5`); the rest are cowards.
+  - *Provoke-only:* NPCs never attack unprovoked. Hitting one (or carjacking it) makes
+    AGGRESSIVE ones retaliate; COWARDS flee (`fearUntil`). AGGRESSIVE NPCs are **immune to
+    fear** (skipped in `applyPendingFear`) — "no les da miedo".
+  - *Retaliation* (`WorldMapViewModel.performPlayerAttack`): a hit AGGRESSIVE survivor gets
+    `aggroUntil` (chases via `NpcAiManager.moveAggroNpc`, ignoring the road graph) **and** a
+    DETERMINISTIC counter-hit after ~450 ms if you're within `ATTACK_RADIUS` (the chase/
+    contact-loop detection alone proved unreliable, so the counter is guaranteed).
+  - *Relentless:* `npcHitStreak` counts consecutive hits per NPC; at `RELENTLESS_HIT_STREAK`
+    (3) the NPC becomes implacable (`relentlessNpcs` + `startRelentlessAttacker`): refreshes
+    its aggro and hits you every `NPC_CONTACT_COOLDOWN_MS` until you die or it dies.
+  - *Run-over* (`runOverNpcs`): while driving, pedestrians within `RUN_OVER_RADIUS` take
+    speed-scaled damage; deaths broadcast `NPC_DESTROY`, witnesses `triggerFear`.
+  - *Contact damage* (`applyNpcContactDamage`): NOT host-gated — each client damages **its
+    own** player from nearby aggro NPCs.
+  - **Two-way traffic:** spawn direction randomized + right-side `LANE_OFFSET`.
+  - **Death/respawn** (`triggerWastedSequence`): clears combat state and respawns ~80 m from
+    the death spot **inside the already-cached zone** (snapped to road via
+    `getNearestPointOnNetwork`) — no ESCOM teleport / new tile download. Movement & vehicle
+    freeze during WASTED; the avatar fades to a ghost (alpha 0.3).
+  - **Multiplayer:** `MultiplayerNpc` carries `health` + `isDying` + `aggroUntil`; the Host
+    simulates and `Multiplayer/server.js` relays them via `{...npc}` spread (clamps health,
+    v3.1). Each client applies contact/counter damage to its own player; player HP rides in
+    `PLAYER_UPDATE`.
+  - **Feedback:** persistent HUD health bar (top-left, zombie-style), a red damage-flash
+    vignette on each hit (driven by `damagePulseTrigger`), the low-HP red aura
+    (`LowHealthAura`, <35 HP), and a "💥" burst (`impactEffectTrigger`).
+  - **Size parity:** native NPC sprite sizing uses `uiState.zoomLevel` (NOT live
+    `view.zoomLevelDouble`) so NPCs match the player/vehicle scale.
 - **Zone-Host open-world multiplayer authority (`Multiplayer/server.js`, v2):**
   each client is Host within ~400 m; lower `sessionId` wins on overlap; only the
   Host runs NPC AI and emits `NPC_BATCH_UPDATE`; orphaned NPCs are adopted, not
