@@ -178,7 +178,102 @@ class WorldMapViewModel(
     // parar hasta matarte (o hasta que muera). Cuanto más agresivo seas, peor para ti.
     internal val npcHitStreak = ConcurrentHashMap<String, Int>()
     internal val relentlessNpcs = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-    internal val RELENTLESS_HIT_STREAK = 3
+    internal val RELENTLESS_HIT_STREAK = 6
+
+    // ─── NIVEL DE BÚSQUEDA / POLICÍA ─────────────────────────────────────────
+    internal val policeManager = ovh.gabrielhuav.pow.domain.models.ai.PoliceManager()
+    internal val MAX_WANTED_LEVEL = 5
+    // Policía REMOTA (de otros jugadores): solo se renderiza, no se simula. id -> (npc, lastSeenMs).
+    internal val remotePolice = ConcurrentHashMap<String, Npc>()
+    internal val remotePoliceSeen = ConcurrentHashMap<String, Long>()
+    internal val REMOTE_POLICE_STALE_MS = 5000L
+    // Decaimiento: el nivel baja si no cometes delitos durante un rato.
+    @Volatile internal var lastCrimeTime = 0L
+    @Volatile internal var lastWantedDecayTime = 0L
+    @Volatile internal var lastPoliceBroadcast = 0L
+    internal val POLICE_BROADCAST_MS = 120L   // ~8 Hz por la red (la simulación sigue a 30 Hz)
+    internal val WANTED_DECAY_GRACE_MS = 25000L   // tiempo sin delito antes de empezar a bajar
+    internal val WANTED_DECAY_STEP_MS = 15000L    // cada cuánto baja una estrella
+
+    // Sube el nivel de búsqueda (con tope) y reinicia el contador de impunidad.
+    internal fun raiseWantedLevel(amount: Int = 1) {
+        lastCrimeTime = System.currentTimeMillis()
+        val current = _uiState.value.wantedLevel
+        if (current < MAX_WANTED_LEVEL) {
+            _uiState.update { it.copy(wantedLevel = (current + amount).coerceAtMost(MAX_WANTED_LEVEL)) }
+        }
+    }
+
+    // Baja el nivel de búsqueda gradualmente cuando dejas de delinquir.
+    internal fun tickWantedDecay(now: Long) {
+        val level = _uiState.value.wantedLevel
+        if (level <= 0) return
+        if (now - lastCrimeTime < WANTED_DECAY_GRACE_MS) return
+        if (now - lastWantedDecayTime < WANTED_DECAY_STEP_MS) return
+        lastWantedDecayTime = now
+        _uiState.update { it.copy(wantedLevel = (it.wantedLevel - 1).coerceAtLeast(0)) }
+    }
+
+    // Simula y difunde la policía PROPIA (el dueño del nivel de búsqueda). Se llama cada
+    // tick del game loop. También purga la policía remota que dejó de actualizarse.
+    internal fun runPoliceTick(location: GeoPoint) {
+        val now = System.currentTimeMillis()
+        tickWantedDecay(now)
+
+        val wanted = _uiState.value.wantedLevel
+        val tick = policeManager.update(
+            playerLat = location.latitude,
+            playerLon = location.longitude,
+            roadNetwork = roadNetwork,
+            wantedLevel = wanted,
+            canShoot = wanted >= 2,
+            now = now
+        )
+
+        // Daño que los policías te hacen (golpes/disparos). takeDamage muta estado Compose.
+        if (tick.damage > 0f) {
+            viewModelScope.launch(Dispatchers.Main) { takeDamage(tick.damage) }
+        }
+
+        // Purga de policía remota obsoleta (su dueño se alejó/desconectó).
+        val staleCutoff = now - REMOTE_POLICE_STALE_MS
+        val staleIds = remotePoliceSeen.filterValues { it < staleCutoff }.keys
+        if (staleIds.isNotEmpty()) {
+            staleIds.forEach { remotePolice.remove(it); remotePoliceSeen.remove(it) }
+        }
+
+        updateNpcsState()
+
+        // Difusión a los demás clientes (para que vean mis patrullas/policías).
+        // Throttle: los destroys siempre salen; el batch de posiciones, a ~8 Hz.
+        val doBroadcastBatch = now - lastPoliceBroadcast >= POLICE_BROADCAST_MS
+        if (doBroadcastBatch) lastPoliceBroadcast = now
+        if (tick.destroyedIds.isEmpty() && (!doBroadcastBatch || tick.units.isEmpty())) return
+        webSocketManager?.let { ws ->
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    tick.destroyedIds.forEach { pid ->
+                        ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid)))
+                    }
+                    if (doBroadcastBatch && tick.units.isNotEmpty()) {
+                        val batch = tick.units.map { u ->
+                            MultiplayerNpc(
+                                id = u.id,
+                                x = u.location.longitude,
+                                y = u.location.latitude,
+                                rotation = u.rotationAngle,
+                                npcType = u.type.name,
+                                ownerId = myPlayerUUID
+                            )
+                        }
+                        ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_BATCH_UPDATE", "npcs" to batch)))
+                    }
+                } catch (e: Exception) {
+                    Log.e("Police", "Error difundiendo policía: ${e.message}")
+                }
+            }
+        }
+    }
 
     internal val hospitalRespawnPoints = listOf(
         GeoPoint(19.5034, -99.1469),
@@ -368,6 +463,12 @@ class WorldMapViewModel(
                                     vehicleRotation = (currentRotation + 360) % 360f
                                 )
                             }
+                        }
+
+                        // POLICÍA: nivel de búsqueda (spawn de patrullas, persecución,
+                        // golpes/disparos) y decaimiento. La simula el dueño del nivel.
+                        if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                            runPoliceTick(location)
                         }
 
                         maybeRefetchRoadNetwork(location)
@@ -624,6 +725,38 @@ class WorldMapViewModel(
                     }
                 }
 
+                // ─── POLICÍA REMOTA (de otro jugador): solo render ───────────────
+                "POLICE_BATCH_UPDATE" -> {
+                    val now = System.currentTimeMillis()
+                    msg.npcs?.forEach { p ->
+                        if (p.ownerId != myPlayerUUID) {
+                            val type = try { NpcType.valueOf(p.npcType) } catch (e: Exception) { NpcType.POLICE_COP }
+                            remotePolice[p.id] = Npc(
+                                id = p.id,
+                                type = type,
+                                location = GeoPoint(p.y, p.x),
+                                rotationAngle = p.rotation,
+                                speed = 0.0,
+                                isRemote = true,
+                                isMoving = true,
+                                facingRight = cos(Math.toRadians(p.rotation.toDouble())) >= 0,
+                                ownerId = p.ownerId,
+                                policeDisembarked = type == NpcType.POLICE_COP
+                            )
+                            remotePoliceSeen[p.id] = now
+                        }
+                    }
+                    updateNpcsState()
+                }
+
+                "POLICE_DESTROY" -> {
+                    msg.npcId?.let {
+                        remotePolice.remove(it)
+                        remotePoliceSeen.remove(it)
+                        updateNpcsState()
+                    }
+                }
+
                 "DISCONNECT" -> {
                     msg.id?.let { remoteEntities.remove(it) }
                     msg.orphanedNpcs?.forEach { remoteEntities.remove(it) }
@@ -750,7 +883,9 @@ class WorldMapViewModel(
     }
 
     private fun updateNpcsState() {
-        _uiState.update { it.copy(npcs = remoteEntities.values.toList()) }
+        // Civiles/jugadores remotos + policía propia (simulada) + policía remota (render).
+        val combined = remoteEntities.values + policeManager.activeUnits() + remotePolice.values
+        _uiState.update { it.copy(npcs = combined.toList()) }
     }
 
 
@@ -1880,6 +2015,16 @@ class WorldMapViewModel(
             // Limpiar el estado de combate (rachas / NPCs implacables / cooldowns) para
             // no revivir siendo perseguido al instante.
             relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
+            // Al morir se pierde el nivel de búsqueda y se retira toda la policía.
+            val deadPoliceIds = policeManager.clearAll()
+            _uiState.update { it.copy(wantedLevel = 0) }
+            webSocketManager?.let { ws ->
+                viewModelScope.launch(Dispatchers.IO) {
+                    deadPoliceIds.forEach { pid ->
+                        try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
+                    }
+                }
+            }
             // RESPAWN EN LA MISMA ZONA YA DESCARGADA (ahorra recursos: no teletransporta a
             // ESCOM ni descarga teselas nuevas). Reaparece a ~80 m del lugar de muerte,
             // pegado a la red de calles ya cacheada; si no hay calles, en el mismo punto.
@@ -1934,6 +2079,8 @@ class WorldMapViewModel(
                         )
                     } catch (e: Exception) { Log.e("Combat", "Error enviando PLAYER_DAMAGE: ${e.message}") }
                 } else {
+                    // DELITO: golpear a un civil sube el nivel de búsqueda (como en GTA).
+                    if (currentNpc.type == NpcType.PERSON) raiseWantedLevel(1)
                     val damage = PLAYER_PUNCH_DAMAGE
                     val newHealth = (currentNpc.health - damage).coerceAtLeast(0f)
                     if (newHealth <= 0f) {

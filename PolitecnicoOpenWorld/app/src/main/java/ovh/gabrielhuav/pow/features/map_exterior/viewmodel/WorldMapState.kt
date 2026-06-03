@@ -90,6 +90,10 @@ data class WorldMapState(
     val interactionPrompt: String? = null,
     val showWastedScreen: Boolean = false,
 
+    // ─── NIVEL DE BÚSQUEDA (estilo GTA) ──────────────────────────────────────
+    // Sube al golpear NPCs; mientras sea > 0 aparecen patrullas que te persiguen.
+    val wantedLevel: Int = 0,
+
     // ─── NAVEGACIÓN / MARCADOR DE DESTINO ────────────────────────────────
     val destinationMarker: GeoPoint? = null,
     val isTargetingWaypoint: Boolean = false,

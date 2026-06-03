@@ -69,5 +69,12 @@ data class Npc(
     //  - aggroUntil: mientras now < aggroUntil el NPC (AGGRESSIVE) persigue al
     //    jugador en línea recta y le hace daño por contacto.
     val trait: NpcTrait = NpcTrait.PASSIVE,
-    val aggroUntil: Long = 0L
+    val aggroUntil: Long = 0L,
+
+    // ─── POLICÍA (transitorio, lo simula el dueño del nivel de búsqueda) ──────
+    //  - policeDisembarked: la patrulla ya llegó y soltó a los policías (se queda
+    //    detenida). Los POLICE_COP nacen con este flag en true.
+    //  - policeCanShoot: a 2+ estrellas los policías pueden dispararte.
+    val policeDisembarked: Boolean = false,
+    val policeCanShoot: Boolean = false
 )

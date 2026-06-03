@@ -1,6 +1,22 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
 import android.content.Context
+
+// Convierte un EMOJI (texto) en un Drawable cuadrado de tamaño dado. Se usa para los
+// policías a pie, que no tienen asset de sprite propio.
+internal fun emojiToDrawable(context: Context, emoji: String, sizePx: Int): android.graphics.drawable.Drawable {
+    val size = sizePx.coerceAtLeast(8)
+    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = android.graphics.Paint.Align.CENTER
+        textSize = size * 0.82f
+    }
+    val fm = paint.fontMetrics
+    val y = size / 2f - (fm.ascent + fm.descent) / 2f
+    canvas.drawText(emoji, size / 2f, y, paint)
+    return android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+}
 internal fun drawHealthBarOnDrawable(context: Context, original: android.graphics.drawable.Drawable?, health: Float, isDying: Boolean): android.graphics.drawable.Drawable? {
     if (original !is android.graphics.drawable.BitmapDrawable || health >= 100f || isDying) return original
     val mutableBitmap = original.bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
