@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -166,7 +167,10 @@ fun PlayerCharacter(
                     Image(
                         bitmap = img,
                         contentDescription = "Player Vehicle",
-                        modifier = modifier.size(finalWidthDp, finalHeightDp)
+                        // requiredSize: IGNORA el límite de 60.dp del Box contenedor; si no,
+                        // a zoom alto el coche del jugador quedaba recortado (~60dp) y se veía
+                        // más pequeño que los autos NPC (que no tienen ese tope).
+                        modifier = modifier.requiredSize(finalWidthDp, finalHeightDp)
                     )
                 }
 
@@ -223,7 +227,7 @@ fun PlayerCharacter(
                         bitmap = img,
                         contentDescription = "Personaje Principal",
                         modifier = modifier
-                            .size(exactPersonDp)
+                            .requiredSize(exactPersonDp)
                             .graphicsLayer {
                                 scaleX = if (isFacingRight) visualCompensation
                                 else -visualCompensation

@@ -135,7 +135,15 @@ internal fun WorldMapViewModel.startGameLoop() {
                             performPlayerAttack()
                         }
 
-                        if (_uiState.value.isDriving) {
+                        if (_uiState.value.isDriving && !_uiState.value.showWastedScreen) {
+                            // Si el mapa está descentrado (exploración), usar CUALQUIER control
+                            // de conducción (acelerar/frenar/girar) recentra en el jugador, igual
+                            // que a pie con el joystick/D-pad.
+                            if (_uiState.value.isUserPanningMap &&
+                                (isGasPressed || isBrakePressed || isSteeringLeftPressed || isSteeringRightPressed)) {
+                                centerOnPlayer()
+                            }
+
                             var currentSpeed = _uiState.value.vehicleSpeed
                             var currentRotation = _uiState.value.vehicleRotation
 
@@ -180,7 +188,14 @@ internal fun WorldMapViewModel.startGameLoop() {
                                     vehicleRotation = (currentRotation + 360) % 360f
                                 )
                             }
+
+                            // ATROPELLO: daña peatones que el vehículo arrolla (escala con la
+                            // velocidad). Barato: recorre los NPCs en memoria con corte temprano.
+                            runOverNpcs(finalLoc, currentSpeed)
                         }
+
+                        // GOLPES de NPCs agresivos en embestida (a pie o en coche).
+                        _uiState.value.currentLocation?.let { applyNpcContactDamage(it) }
 
                         maybeRefetchRoadNetwork(location)
                         // El throttle (cada 5 ticks) es el control de frecuencia deseado.
@@ -253,7 +268,10 @@ internal fun WorldMapViewModel.startGameLoop() {
                                                             hairId = npc.visualConfig?.hairId,
                                                             hairColor = npc.visualConfig?.hairColor?.toArgb(),
                                                             shirtColor = npc.visualConfig?.shirtColor?.toArgb(),
-                                                            pantsColor = npc.visualConfig?.pantsColor?.toArgb()
+                                                            pantsColor = npc.visualConfig?.pantsColor?.toArgb(),
+                                                            health = npc.health,
+                                                            isDying = npc.isDying,
+                                                            aggroUntil = npc.aggroUntil
                                                         )
                                                     }
                                                     ws.sendMessage(gson.toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))

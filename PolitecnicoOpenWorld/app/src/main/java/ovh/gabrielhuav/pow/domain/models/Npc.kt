@@ -17,6 +17,13 @@ enum class NpcNavState {
     MICRO_LANDMARK, // Usa el dibujo del asset
     PARKED          // Detenido en un cajón de estacionamiento
 }
+
+// PERSONALIDAD del NPC (asignada al spawn, peso aleatorio). Un único campo que
+// decide CÓMO reacciona ante el jugador (robo de coche, golpes). Casi gratis en CPU.
+//  - PASSIVE: no reacciona (la mayoría).
+//  - COWARD: huye (entra en estado de miedo) al ser provocado.
+//  - AGGRESSIVE: contraataca (entra en estado de embestida hacia el jugador).
+enum class NpcTrait { PASSIVE, COWARD, AGGRESSIVE }
 data class Npc(
     val id: String = UUID.randomUUID().toString(),
     val type: NpcType,
@@ -55,5 +62,12 @@ data class Npc(
     val fearFromLon: Double = 0.0,
     // CHARLAS: mientras now < chatUntil el peatón se detiene mirando a su pareja.
     val chatUntil: Long = 0L,
-    val chatPartnerId: String? = null
+    val chatPartnerId: String? = null,
+
+    // PERSONALIDAD + EMBESTIDA (transitorio, solo en el host; NO se serializa):
+    //  - trait: personalidad fija asignada al spawn.
+    //  - aggroUntil: mientras now < aggroUntil el NPC (AGGRESSIVE) persigue al
+    //    jugador en línea recta y le hace daño por contacto.
+    val trait: NpcTrait = NpcTrait.PASSIVE,
+    val aggroUntil: Long = 0L
 )

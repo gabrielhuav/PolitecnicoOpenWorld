@@ -31,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -367,13 +368,18 @@ fun ZombieGameScreen(
 
                 // Jugador local
                 val pSize = PLAYER_SPRITE_BASE * cam.scale
+                // MUERTE: al morir, el jugador queda como "fantasmita" (semitransparente),
+                // igual que la animación de muerte de un NPC.
+                val ghostAlpha = if (state.showWastedScreen) 0.3f else 1f
                 PlayerView(
                     action = state.playerAction, facingRight = state.isPlayerFacingRight,
                     damagePulse = state.damagePulseTrigger, sizePx = pSize,
-                    modifier = Modifier.absoluteOffset(
-                        x = with(density) { toScreenX(state.playerX).toDp() } - with(density) { (pSize / 2).toDp() },
-                        y = with(density) { toScreenY(state.playerY).toDp() } - with(density) { (pSize / 2).toDp() }
-                    )
+                    modifier = Modifier
+                        .absoluteOffset(
+                            x = with(density) { toScreenX(state.playerX).toDp() } - with(density) { (pSize / 2).toDp() },
+                            y = with(density) { toScreenY(state.playerY).toDp() } - with(density) { (pSize / 2).toDp() }
+                        )
+                        .alpha(ghostAlpha)
                 )
             }
             // ─── Mano zombi fija en el lobby ────────────────────────────

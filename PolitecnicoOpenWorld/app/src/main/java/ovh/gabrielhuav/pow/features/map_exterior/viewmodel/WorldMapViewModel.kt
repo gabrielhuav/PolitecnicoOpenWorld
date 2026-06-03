@@ -71,6 +71,12 @@ class WorldMapViewModel(
         internal set
     val maxPlayerHealth = 100f
 
+    // FX DE IMPACTO: cada incremento dispara un destello/💥 en pantalla. Lo usamos para
+    // que se NOTE una colisión (NPC que te golpea, o atropello al conducir).
+    var impactEffectTrigger by mutableStateOf(0)
+        internal set
+    internal fun fireImpactEffect() { impactEffectTrigger++ }
+
     var showHealthBar by mutableStateOf(false)
         internal set
     var damagePulseTrigger by mutableStateOf(0)
@@ -158,6 +164,15 @@ class WorldMapViewModel(
     internal var lastAttackTime = 0L
     internal val ATTACK_COOLDOWN_MS = 1200L
     internal val ATTACK_RADIUS = 0.00022
+
+    // ─── ATROPELLO + REACCIONES DE NPC (host) ────────────────────────────────
+    internal val RUN_OVER_RADIUS = 0.00003        // ~3 m alrededor del vehículo
+    internal val RUN_OVER_MIN_SPEED = MAX_SPEED * 0.18  // por debajo no hace daño (estás casi parado)
+    internal val NPC_CONTACT_RADIUS = 0.00006     // ~6.6 m: golpe del NPC agresivo (holgado)
+    internal val NPC_CONTACT_DAMAGE = 10f
+    internal val NPC_CONTACT_COOLDOWN_MS = 900L
+    // Cooldown por NPC para que no drene la vida del jugador en cada tick.
+    internal val npcContactCooldowns = ConcurrentHashMap<String, Long>()
 
     internal val hospitalRespawnPoints = listOf(
         GeoPoint(19.5034, -99.1469),
@@ -417,7 +432,10 @@ class WorldMapViewModel(
                                                             hairId = npc.visualConfig?.hairId,
                                                             hairColor = npc.visualConfig?.hairColor?.toArgb(),
                                                             shirtColor = npc.visualConfig?.shirtColor?.toArgb(),
-                                                            pantsColor = npc.visualConfig?.pantsColor?.toArgb()
+                                                            pantsColor = npc.visualConfig?.pantsColor?.toArgb(),
+                                                            health = npc.health,
+                                                            isDying = npc.isDying,
+                                                            aggroUntil = npc.aggroUntil
                                                         )
                                                     }
                                                     ws.sendMessage(gson.toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
@@ -716,7 +734,12 @@ class WorldMapViewModel(
             carModel = cModel,
             carColor = cColor,
             visualConfig = visualConfig,
-            displayName = null
+            displayName = null,
+            // Vida replicada del host: así los demás clientes ven la barra de vida y el
+            // estado de muerte del NPC (atropellos/golpes) igual que el host.
+            health = remote.health ?: 100f,
+            isDying = remote.isDying ?: false,
+            aggroUntil = remote.aggroUntil ?: 0L
         )
     }
 
@@ -734,6 +757,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacter(direction: Direction) {
+        if (_uiState.value.showWastedScreen) return // muerto: sin movimiento (WASTED)
         // Si el mapa está descentrado (exploración), el primer toque de los controles
         // de movimiento (izquierda) recentra en el jugador (SIN cambiar el zoom) en vez
         // de moverlo a ciegas fuera de cuadro.
@@ -770,6 +794,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacterByAngle(angleRad: Double) {
+        if (_uiState.value.showWastedScreen) return // muerto: sin movimiento (WASTED)
         // Igual que moveCharacter: con el mapa descentrado, recentrar en el jugador (sin zoom).
         if (_uiState.value.isUserPanningMap) { centerOnPlayer(); return }
         val loc = _uiState.value.currentLocation ?: return
@@ -1585,13 +1610,22 @@ class WorldMapViewModel(
             shirtColor = randomShirtColor,
             pantsColor = androidx.compose.ui.graphics.Color.DarkGray
         )
+        // REACCIÓN AL ROBO según personalidad: el cobarde huye (estado de miedo), el
+        // agresivo te embiste (estado aggro) y el pasivo simplemente se aleja andando.
+        val trait = NpcAiManager.rollTrait()
+        val now = System.currentTimeMillis()
         val driver = Npc(
             id = UUID.randomUUID().toString(),
             type = NpcType.PERSON,
             location = offsetLoc,
             speed = NpcAiManager.PERSON_SPEED,
             isMoving = true,
-            visualConfig = visualConfig
+            visualConfig = visualConfig,
+            trait = trait,
+            fearUntil = if (trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.COWARD) now + NpcAiManager.FEAR_DURATION_MS else 0L,
+            fearFromLat = carLocation.latitude,
+            fearFromLon = carLocation.longitude,
+            aggroUntil = if (trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE) now + NpcAiManager.AGGRO_DURATION_MS else 0L
         )
         remoteEntities[driver.id] = driver
     }
@@ -1631,10 +1665,14 @@ class WorldMapViewModel(
         gateMapDownloadAfterTeleport()
     }
 
-    fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
-    fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed }
-    fun accelerate(pressed: Boolean) { isGasPressed = pressed }
-    fun brake(pressed: Boolean) { isBrakePressed = pressed }
+    // Cualquier control de conducción (girar/acelerar/frenar = X, ○, □) recentra en el
+    // jugador si el mapa estaba descentrado. El botón △ (SALIR) NO recentra: bajarse del
+    // coche es otra acción (onInteractButtonPressed).
+    fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed; if (pressed) recenterIfPanning() }
+    fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed; if (pressed) recenterIfPanning() }
+    fun accelerate(pressed: Boolean) { isGasPressed = pressed; if (pressed) recenterIfPanning() }
+    fun brake(pressed: Boolean) { isBrakePressed = pressed; if (pressed) recenterIfPanning() }
+    private fun recenterIfPanning() { if (_uiState.value.isUserPanningMap) centerOnPlayer() }
 
     internal val isSpawningCollectible = AtomicBoolean(false)
 
@@ -1789,6 +1827,7 @@ class WorldMapViewModel(
     fun takeDamage(amount: Float) {
         playerHealth = (playerHealth - amount).coerceAtLeast(0f)
         damagePulseTrigger++
+        fireImpactEffect() // 💥 visible en CUALQUIER golpe que recibe el jugador
         showHealthBar = true
         if (playerHealth > 30f) {
             startHealthBarTimer(3000L)
@@ -1820,7 +1859,17 @@ class WorldMapViewModel(
 
     private fun triggerWastedSequence() {
         viewModelScope.launch(Dispatchers.Main) {
-            _uiState.update { it.copy(showWastedScreen = true) }
+            // Al morir te bajas del coche (no se respawnea conduciendo) y se quita el pánico
+            // de la zona. Tras la pantalla WASTED, respawn en el hospital más cercano.
+            _uiState.update {
+                it.copy(
+                    showWastedScreen = true,
+                    isDriving = false,
+                    currentVehicleModel = null,
+                    currentVehicleColor = null,
+                    vehicleSpeed = 0.0
+                )
+            }
             delay(4000L)
             val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
             val nearestHospital = hospitalRespawnPoints.minByOrNull { distance(deathLoc, it) } ?: hospitalRespawnPoints.first()
@@ -1884,11 +1933,82 @@ class WorldMapViewModel(
                         } catch (e: Exception) { Log.e("Combat", "Error enviando NPC_DESTROY para npcId=$npcId", e) }
                         updateNpcsState()
                     } else {
-                        remoteEntities[npcId] = currentNpc.copy(health = newHealth)
+                        // CONTRAATAQUE: si el NPC golpeado sobrevive y es AGGRESSIVE, entra
+                        // en estado de embestida hacia el jugador (lo persigue, visual) Y
+                        // te DEVUELVE el golpe de forma garantizada poco después.
+                        val retaliate = currentNpc.trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
+                        remoteEntities[npcId] = currentNpc.copy(
+                            health = newHealth,
+                            aggroUntil = if (retaliate) System.currentTimeMillis() + NpcAiManager.AGGRO_DURATION_MS else currentNpc.aggroUntil
+                        )
                         updateNpcsState()
+                        if (retaliate) {
+                            // Golpe de vuelta DETERMINISTA: tras un breve "windup", si el NPC
+                            // sigue vivo y el jugador continúa a su alcance, le pega y lo
+                            // hace notar (vida baja + destello + 💥). No depende de la
+                            // detección de contacto del bucle (que podía no dispararse).
+                            viewModelScope.launch(Dispatchers.Main) {
+                                delay(450L)
+                                val pl = _uiState.value.currentLocation
+                                val attacker = remoteEntities[npcId]
+                                if (pl != null && attacker != null && !attacker.isDying &&
+                                    distance(pl, attacker.location) <= ATTACK_RADIUS) {
+                                    takeDamage(NPC_CONTACT_DAMAGE)
+                                }
+                            }
+                        }
                     }
                 }
             }
+        }
+    }
+
+    // ATROPELLO: estando al volante, los peatones dentro de RUN_OVER_RADIUS reciben
+    // daño proporcional a la velocidad; mueren si llegan a 0 y, en cualquier caso, los
+    // testigos se asustan. Solo el host simula NPCs, así que solo él aplica esto.
+    internal fun runOverNpcs(playerLoc: GeoPoint, speed: Double) {
+        if (!isServerDelegatedHost) return
+        val spd = kotlin.math.abs(speed)
+        if (spd < RUN_OVER_MIN_SPEED) return
+        val damage = (spd / MAX_SPEED).toFloat().coerceIn(0f, 1f) * 120f
+        var changed = false
+        for ((id, npc) in remoteEntities) {
+            if (!npc.displayName.isNullOrEmpty()) continue   // no a jugadores remotos
+            if (npc.type != NpcType.PERSON) continue          // solo peatones
+            if (npc.isDying) continue
+            if (distance(playerLoc, npc.location) > RUN_OVER_RADIUS) continue
+            val newHealth = (npc.health - damage).coerceAtLeast(0f)
+            if (newHealth <= 0f) {
+                remoteEntities[id] = npc.copy(health = 0f, isDying = true)
+                viewModelScope.launch { delay(1000L); remoteEntities.remove(id); updateNpcsState() }
+                try {
+                    webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to id)))
+                } catch (_: Exception) {}
+            } else {
+                remoteEntities[id] = npc.copy(health = newHealth)
+            }
+            changed = true
+        }
+        if (changed) {
+            npcAiManager.triggerFear(playerLoc.latitude, playerLoc.longitude)
+            viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() } // 💥 atropello
+            updateNpcsState()
+        }
+    }
+
+    // GOLPE DE NPC AGRESIVO: los NPCs en estado de embestida (aggro) que tocan al
+    // jugador le hacen daño, con un cooldown por NPC para no vaciar la vida de golpe.
+    internal fun applyNpcContactDamage(playerLoc: GeoPoint) {
+        // SIN gate de host: el daño se aplica a TU PROPIO jugador en TU cliente, seas o no
+        // el host de zona (el host solo decide quién SIMULA la IA, no quién recibe daño).
+        val now = System.currentTimeMillis()
+        for ((id, npc) in remoteEntities) {
+            if (npc.aggroUntil <= now || npc.type != NpcType.PERSON) continue
+            if (distance(playerLoc, npc.location) > NPC_CONTACT_RADIUS) continue
+            val last = npcContactCooldowns[id] ?: 0L
+            if (now - last < NPC_CONTACT_COOLDOWN_MS) continue
+            npcContactCooldowns[id] = now
+            viewModelScope.launch(Dispatchers.Main) { takeDamage(NPC_CONTACT_DAMAGE) } // takeDamage ya dispara el 💥
         }
     }
 

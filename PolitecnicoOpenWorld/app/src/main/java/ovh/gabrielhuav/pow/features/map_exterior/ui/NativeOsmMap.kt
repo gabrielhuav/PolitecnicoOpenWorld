@@ -368,9 +368,13 @@ internal fun NativeOsmMap(
                                 marker.setAlpha(1f)
                             }
 
-                            // Calculamos exactamente cuántos metros de la vida real mide 1 pixel en la pantalla
+                            // Calculamos exactamente cuántos metros de la vida real mide 1 pixel en la pantalla.
+                            // Usamos uiState.zoomLevel (NO view.zoomLevelDouble) para que el tamaño de los NPCs
+                            // coincida EXACTAMENTE con el del jugador/su vehículo (PlayerCharacter también usa
+                            // uiState.zoomLevel); si no, durante los ajustes de zoom el coche del jugador se veía
+                            // a veces más pequeño que los NPCs.
                             val metersPerPixel = (40075016.686 * Math.cos(Math.toRadians(npc.location.latitude))) /
-                                    (256.0 * Math.pow(2.0, currentZoom))
+                                    (256.0 * Math.pow(2.0, uiState.zoomLevel))
 
                             if (npc.visualConfig != null) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving

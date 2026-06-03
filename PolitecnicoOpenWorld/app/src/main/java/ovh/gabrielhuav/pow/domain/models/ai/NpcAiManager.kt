@@ -42,7 +42,41 @@ class NpcAiManager {
         // tráfico por la derecha) que se aplica al PUNTO OBJETIVO de cada vehículo.
         // Convierte una misma calle de OSM en dos carriles virtuales. ~1 m (sutil, para
         // que no se vean "torpes" al cruzar nodos densos).
-        const val LANE_OFFSET = 0.000010
+        const val LANE_OFFSET = 0.000024
+
+        // PERSONALIDADES: pesos del rasgo asignado al spawn. La mayoría pasivos para
+        // que el mundo no sea hostil; pocos cobardes/agresivos para sorpresas tipo GTA.
+        const val TRAIT_COWARD_CHANCE = 0.25f
+        const val TRAIT_AGGRESSIVE_CHANCE = 0.15f
+        // EMBESTIDA (aggro): un NPC agresivo persigue al jugador en línea recta durante
+        // este tiempo y a este múltiplo de velocidad. Barato: ignora el grafo de calles
+        // mientras dura (es un arrebato corto), solo interpola hacia el jugador.
+        const val AGGRO_DURATION_MS = 6000L
+        // El agresor debe ALCANZAR al jugador: como la IA corre cada 3 ticks del game
+        // loop, su velocidad efectiva por tick es ~mult/3 × personSpeed. Con 2.4 era más
+        // LENTO que un jugador caminando (0.000003/tick) y nunca llegaba, así que el daño
+        // por contacto jamás se aplicaba. Con 9 mantiene el paso de un caminante y casi
+        // el de uno corriendo, por lo que sí te acorrala.
+        const val AGGRO_SPEED_MULT = 9f
+        // Distancia a la que el agresor se "planta" frente al jugador (no lo atraviesa).
+        const val AGGRO_STOP_DIST = 0.000018     // ~2 m
+        // VISIÓN HOSTIL: un NPC AGRESIVO ataca al jugador que entre en este radio (sin
+        // necesidad de ser provocado), para que se note el daño. ~55 m (dentro del fog).
+        const val AGGRO_VISION_RADIUS = 0.0005
+
+        fun rollTrait(): ovh.gabrielhuav.pow.domain.models.NpcTrait {
+            // TEMPORAL (depuración): TODOS agresivos para verificar el contraataque/daño.
+            // Revertir a la versión por pesos (abajo) cuando se confirme que se nota el golpe.
+            return ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
+            /*
+            val r = Random.nextFloat()
+            return when {
+                r < TRAIT_AGGRESSIVE_CHANCE -> ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
+                r < TRAIT_AGGRESSIVE_CHANCE + TRAIT_COWARD_CHANCE -> ovh.gabrielhuav.pow.domain.models.NpcTrait.COWARD
+                else -> ovh.gabrielhuav.pow.domain.models.NpcTrait.PASSIVE
+            }
+            */
+        }
 
         // PALETA FIJA DE ATUENDOS (optimización de render): en vez de colores aleatorios
         // por NPC (~2000 combinaciones → un sprite único por peatón), usamos un conjunto
@@ -147,6 +181,11 @@ class NpcAiManager {
 
     @Volatile private var networkIsReady = false
 
+    // Última posición del jugador (la fija updateNpcs cada tick) para que los NPCs en
+    // estado de embestida sepan hacia dónde ir sin pasar player por toda la cadena.
+    @Volatile private var aggroPlayerLat = 0.0
+    @Volatile private var aggroPlayerLon = 0.0
+
     fun updateRoadNetwork(network: List<MapWay>) {
         cachedRoadNetwork.set(network)
         cachedWayBoxes.set(network.mapNotNull { way ->
@@ -248,6 +287,10 @@ class NpcAiManager {
 
     suspend fun updateNpcs(playerLocation: GeoPoint, amIHost: Boolean) {
         if (!networkIsReady || !amIHost) return
+
+        // Guardamos la posición del jugador para la persecución (aggro).
+        aggroPlayerLat = playerLocation.latitude
+        aggroPlayerLon = playerLocation.longitude
 
         val currentNetwork = cachedRoadNetwork.get()
         if (currentNetwork.isEmpty()) return
@@ -554,7 +597,15 @@ class NpcAiManager {
             return null
         }
 
-        val dir = if (startIndex == selectedWay.nodes.size - 1) -1 else 1
+        // TRÁFICO EN DOBLE SENTIDO: la dirección de marcha se elige al azar (no sesgada
+        // hacia +1), de modo que por una misma calle circulan coches en AMBOS sentidos.
+        // El desplazamiento de carril (LANE_OFFSET, a la derecha) ya los separa para que
+        // no se crucen de frente.
+        val dir = when (startIndex) {
+            0 -> 1
+            selectedWay.nodes.size - 1 -> -1
+            else -> if (Random.nextBoolean()) 1 else -1
+        }
 
         // Atuendo tomado de la paleta FIJA (sprites compartidos = caché barata).
         val visualConfig = if (npcType == NpcType.PERSON) NPC_OUTFITS.random() else null
@@ -569,7 +620,8 @@ class NpcAiManager {
             carColor = CAR_COLORS.random(),
             carModel = CarModel.entries.random(),
             isRemote = false,
-            visualConfig = visualConfig
+            visualConfig = visualConfig,
+            trait = rollTrait()
         )
     }
 
@@ -733,6 +785,13 @@ class NpcAiManager {
 
         if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK) {
             return moveLocalNpc(npc)
+        }
+
+        // EMBESTIDA: un NPC AGRESIVO persigue al jugador en línea recta SOLO si fue
+        // provocado (lo golpeaste / le robaste el coche) → aggroUntil. NO atacan sin
+        // motivo: el comportamiento "agresivo" es DEVOLVER el golpe, no agredir primero.
+        if (npc.type == NpcType.PERSON && npc.aggroUntil > now) {
+            return moveAggroNpc(npc)
         }
 
         // CHARLA: el peatón está detenido mirando a su pareja; no se mueve.
@@ -915,7 +974,7 @@ class NpcAiManager {
             // Solo desplazamos a carril en tramos LARGOS. En tramos cortos (nodos densos
             // de intersecciones) el offset lateral hacía girar el rumbo bruscamente y los
             // coches "daban vueltas"; ahí van por el centro.
-            if (segLen > 0.00012) {
+            if (segLen > 0.00008) {
                 val a = atan2(segDLat, segDLon)
                 tLat = baseTarget.lat - cos(a) * LANE_OFFSET
                 tLon = baseTarget.lon + sin(a) * LANE_OFFSET
@@ -983,6 +1042,31 @@ class NpcAiManager {
         } else {
             npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(npc.location.latitude + sin(angle) * actualSpeed, npc.location.longitude + cos(angle) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
         }
+    }
+
+    // Persecución directa al jugador (estado aggro). Interpola hacia su última posición
+    // conocida; se detiene a AGGRO_STOP_DIST para no solaparlo (el daño por contacto lo
+    // aplica el ViewModel, que es quien posee la vida del jugador).
+    private fun moveAggroNpc(npc: Npc): Npc {
+        val dLat = aggroPlayerLat - npc.location.latitude
+        val dLon = aggroPlayerLon - npc.location.longitude
+        val dist = sqrt(dLat * dLat + dLon * dLon)
+        val angle = atan2(dLat, dLon)
+        val targetAngle = (-Math.toDegrees(angle).toFloat() + 360) % 360
+        val facing = cos(angle) >= 0
+        if (dist <= AGGRO_STOP_DIST) {
+            return npc.copy(isMoving = false, rotationAngle = targetAngle, facingRight = facing)
+        }
+        val speed = personSpeed * AGGRO_SPEED_MULT
+        return npc.copy(
+            location = GeoPoint(
+                npc.location.latitude + sin(angle) * speed,
+                npc.location.longitude + cos(angle) * speed
+            ),
+            rotationAngle = targetAngle,
+            facingRight = facing,
+            isMoving = true
+        )
     }
 
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {

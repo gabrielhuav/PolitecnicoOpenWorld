@@ -16,7 +16,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -847,10 +852,86 @@ fun WorldMapScreen(
         }
 
         if (!uiState.isUserPanningMap) {
-            PlayerCharacter(uiState = uiState, modifier = Modifier.align(Alignment.Center), health = viewModel.playerHealth, showHealthBar = viewModel.showHealthBar, damagePulseTrigger = viewModel.damagePulseTrigger)
+            // MUERTE: al morir, el jugador queda como "fantasmita" (semitransparente),
+            // igual que en el modo zombis.
+            val ghostModifier = if (uiState.showWastedScreen)
+                Modifier.align(Alignment.Center).alpha(0.3f)
+            else Modifier.align(Alignment.Center)
+            PlayerCharacter(uiState = uiState, modifier = ghostModifier, health = viewModel.playerHealth, showHealthBar = viewModel.showHealthBar, damagePulseTrigger = viewModel.damagePulseTrigger)
         }
 
         LowHealthAura(health = viewModel.playerHealth)
+
+        // ─── 💥 FX DE IMPACTO/COLISIÓN ───────────────────────────────────────────
+        // Destello de "💥" en el centro (posición del jugador) cuando un NPC te golpea
+        // o cuando atropellas a alguien, para que la colisión se NOTE.
+        val impactScale = remember { androidx.compose.animation.core.Animatable(0f) }
+        LaunchedEffect(viewModel.impactEffectTrigger) {
+            if (viewModel.impactEffectTrigger > 0) {
+                impactScale.snapTo(0.5f)
+                impactScale.animateTo(1.5f, animationSpec = androidx.compose.animation.core.tween(150))
+                impactScale.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(280))
+            }
+        }
+        if (impactScale.value > 0.01f) {
+            Text(
+                text = "💥",
+                fontSize = 56.sp,
+                modifier = Modifier.align(Alignment.Center).scale(impactScale.value)
+            )
+        }
+
+        // ─── DESTELLO ROJO DE DAÑO ───────────────────────────────────────────────
+        // En CADA golpe recibido (damagePulseTrigger) parpadea un viñeteado rojo, como
+        // en el modo zombis, para que se note claramente que te hicieron daño.
+        val dmgFlash = remember { androidx.compose.animation.core.Animatable(0f) }
+        LaunchedEffect(viewModel.damagePulseTrigger) {
+            if (viewModel.damagePulseTrigger > 0) {
+                dmgFlash.snapTo(0.55f)
+                dmgFlash.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(420))
+            }
+        }
+        if (dmgFlash.value > 0.01f) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(
+                    Brush.radialGradient(
+                        0.0f to Color.Transparent,
+                        0.55f to Color.Transparent,
+                        1.0f to Color.Red.copy(alpha = dmgFlash.value)
+                    )
+                )
+            )
+        }
+
+        // ─── BARRA DE VIDA FIJA (HUD) ────────────────────────────────────────────
+        // Siempre visible (como en el modo zombis) para que se vea cuánta vida tienes
+        // y cuándo te hacen daño. Arriba a la izquierda, bajo el botón de Ajustes.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 12.dp, start = 12.dp)
+                .width(170.dp)
+                .height(18.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(Color.Black.copy(alpha = 0.6f))
+                .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(9.dp))
+        ) {
+            LinearProgressIndicator(
+                progress = (viewModel.playerHealth / 100f).coerceIn(0f, 1f),
+                modifier = Modifier.fillMaxSize(),
+                color = when {
+                    viewModel.playerHealth > 60f -> Color(0xFF4CAF50)
+                    viewModel.playerHealth > 30f -> Color(0xFFFFEB3B)
+                    else -> Color(0xFFF44336)
+                },
+                trackColor = Color.Transparent
+            )
+            Text(
+                "${viewModel.playerHealth.toInt()} HP",
+                color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
 
         if (!uiState.isRoadNetworkReady) {
             Row(modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp).background(Color.Black.copy(alpha = 0.65f), CircleShape).padding(horizontal = 14.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
