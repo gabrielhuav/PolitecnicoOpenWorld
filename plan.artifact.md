@@ -69,6 +69,9 @@ via co-located `ViewModelProvider.Factory` instances.
 | Open-world UI state | `features/map_exterior/viewmodel/WorldMapState.kt` |
 | Nested options menu (menu of menus, recursive) | `features/map_exterior/ui/components/OptionsMenu.kt` (`OptionMenuGroup.items: List<OptionEntry>`) |
 | Map rendering (OSM/Google/Leaflet WebView) | `features/map_exterior/ui/WorldMapScreen.kt` (Leaflet HTML built in `WorldMapLeafletHtml.kt`) |
+| Native osmdroid rendering (NPCs, landmarks, **player-anchored fog overlay**, over-zoom) | `features/map_exterior/ui/NativeOsmMap.kt` |
+| Sprite/health-bar drawing helpers (NPC health bar size lives here) | `features/map_exterior/ui/WorldMapDrawingUtils.kt` |
+| Player sprite / driven-vehicle rendering + sizing | `features/map_exterior/ui/components/PlayerCharacter.kt` |
 | Leaflet tile interception | `features/map_exterior/ui/CachingWebViewClient.kt` |
 | NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` |
 | Zombie minigame logic | `features/zombie_minigame/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`) |
@@ -102,6 +105,24 @@ via co-located `ViewModelProvider.Factory` instances.
     native map "didn't load new zones" while the Web providers did. On entering a
     road cell, `TilePrefetchManager` proactively caches the ~2km zone (zooms 16-18)
     so it's fully offline; prefetch is **non-blocking** and warns if incomplete.
+  - **Native over-zoom (z20-22):** OSM only serves real tiles up to z19, so
+    `NativeOsmMap` adds an osmdroid `MapTileApproximater` and `setMaxZoomLevel(22)`
+    to *scale* z19 tiles for the extra levels (otherwise the map went blank above
+    z19). The loading screens (`downloadOsmNativeForEntry`, used on entry AND after
+    teleport) now download a grid at **z19 (max real) + z17 (medium)** into Room so
+    the over-zoom has source tiles. Default OSM gameplay zoom is the **max (22)**.
+- **Fog of war is player-anchored, per renderer:** it must follow the player's
+  real position during scroll/zoom (not stay screen-centered). Native: a
+  `FogOverlay` (`Overlay`) in `NativeOsmMap` projected onto the player each frame,
+  with the covering rect oversized to the screen diagonal so map rotation while
+  driving leaves no corner gaps. Web: a `#fog` HTML div (inside `#map-wrapper`)
+  redrawn on every Leaflet `move`/`zoom`. The Compose `Canvas` fog in
+  `WorldMapScreen` is now used **only** for the Google Maps native renderer.
+- **NPC/player sizing is real-meter based and unified across renderers:**
+  pedestrians ≈ 1.3 m, vehicles ≈ 4.0 m (slightly larger-than-real for
+  visibility). Native sizes live in `NativeOsmMap`, web in `WorldMapLeafletHtml`
+  (`updateNpcs`, computed from pixels-per-meter), and the player's own on-foot/
+  driving sprite in `PlayerCharacter` — keep all three in sync when retuning.
 - **NPCs (open world, client-side):** up to 40 around the player; pedestrians vs 6
   car models; per-pixel tinting; proximity spawn / distance despawn; **adoption**
   snaps server-inherited NPCs to the nearest way. Spawn uses a **per-way bbox
@@ -144,7 +165,17 @@ via co-located `ViewModelProvider.Factory` instances.
   commented; mirror that.
 - The Leaflet map lives inside a WebView; the `#map-wrapper` is intentionally
   oversized (`300vw × 300vh`, centered) so rotation never reveals gaps. Don't
-  shrink it back.
+  shrink it back. The `#fog` overlay also lives inside `#map-wrapper` (so it
+  rotates with the map); container-point coordinates from `latLngToContainerPoint`
+  align with it.
+- The nested **Options menu** is height-capped (~68% screen) and scrollable so it
+  doesn't overflow / collide with controls in landscape; the right-side game
+  control slides left while it's open. `OptionsMenu` entries may be groups *or*
+  items at any depth ("menu of menus"); the "Centrar en jugador" entry becomes a
+  group with "Hacer zoom en el jugador" when the user has zoomed off the default.
+- With the map off-center (`isUserPanningMap`), the left movement controls
+  (`moveCharacter`/`moveCharacterByAngle`) **recenter on the player** (no zoom
+  change) on first tap instead of moving blindly off-screen.
 - Room DB is currently `@Database` v8 with `MIGRATION_7_8` + destructive fallback.
 - Persisted prefs go through `SettingsRepository` (SharedPreferences), not Room.
 - The **client and both servers must agree on collision matrices**: the Designer
@@ -160,8 +191,11 @@ zone-delegated open-world multiplayer (server v2: AOI + host throttle + rate-lim
 + sanitization + ghost GC); vehicle driving; configurable controls; 8 map
 providers; editable landmarks with JSON import/export (Designer Mode); 6 lore
 collectibles with persistent inventory; waypoint navigation with greedy road-graph
-routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch;
-fog-of-war always rendered; full zombie survival minigame (lobby + 7 buildings,
+routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch,
+**over-zoom to z22 (scaled from z19) with loading-screen z19/z17 prefetch, default max zoom**;
+**player-anchored fog-of-war on native + web (driving-rotation safe)**; **real-meter NPC/player
+sizing unified across renderers**; **landscape-safe scrollable Options menu**; main-menu version
+bound to `BuildConfig.VERSION_NAME` with auto-shrinking title; full zombie survival minigame (lobby + 7 buildings,
 dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens, damage feedback
 FX) with **online mode backed by a dedicated authoritative zombie server**
 (`MultiplayerZombie/`: flow-field + LOS + separation AI) and a collision Designer
