@@ -34,6 +34,20 @@
 // cliente (NpcAiManager) y se manifiestan como movimiento/rotacion, que se relayan
 // en NPC_BATCH_UPDATE sin cambiar el formato del cable. El servidor no necesita
 // logica extra para ellos: PLAYER_DAMAGE ya es global y cada Host dispersa sus NPCs.
+//
+// MEJORAS v3.1 (IA estilo GTA — atropello / agresividad / doble sentido):
+//   Toda la IA NUEVA (personalidad, embestida, atropello, tráfico en doble sentido)
+//   también vive en el Host (cliente) y se ve a traves del MOVIMIENTO ya relayado.
+//   Lo UNICO nuevo en el cable son tres campos opcionales por NPC en NPC_BATCH_UPDATE:
+//     - health    (0..100): para que TODOS los clientes pinten la barra de vida del NPC.
+//     - isDying   (bool): para mostrar el NPC "muriendo" (atropello/golpes) en todos.
+//     - aggroUntil(ms): marca de tiempo hasta la que el NPC esta EMBISTIENDO; permite que
+//       cualquier cliente sepa que ese NPC ataca y aplique el dano por contacto a SU
+//       propio jugador (no solo el Host de zona).
+//   El servidor los CONSERVA (spread `...npc`) y, ademas, sanea `health` al rango
+//   valido. Las muertes siguen llegando como NPC_DESTROY (global). El contraataque
+//   (golpe de vuelta / NPC implacable) lo resuelve el cliente que ataco contra SU propia
+//   vida; la vida del jugador ya viaja en PLAYER_UPDATE. No hace falta logica extra aqui.
 
 const express = require('express');
 const http = require('http');
@@ -336,7 +350,10 @@ wss.on('connection', (ws) => {
                         if (nx === null || ny === null) return;
                         // Al actualizar, este Host se convierte en el dueno (re-delegacion
                         // automatica: un Host que adopta un huerfano lo reclama aqui).
-                        const sanitized = { ...npc, x: nx, y: ny, ownerId: ws.sessionId, lastUpdated: now };
+                        // v3.1: saneamos health (0..100) si viene; el resto pasa por spread.
+                        const hp = (typeof npc.health === 'number' && isFinite(npc.health))
+                            ? Math.max(0, Math.min(100, npc.health)) : npc.health;
+                        const sanitized = { ...npc, x: nx, y: ny, health: hp, ownerId: ws.sessionId, lastUpdated: now };
                         npcs.set(npc.id, sanitized);
                         accepted.push(sanitized);
                     });

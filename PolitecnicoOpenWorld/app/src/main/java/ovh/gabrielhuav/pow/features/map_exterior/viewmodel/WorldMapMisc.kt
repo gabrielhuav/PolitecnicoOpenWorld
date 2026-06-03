@@ -73,7 +73,7 @@ internal fun WorldMapViewModel.startMovementAction(isMovingRight: Boolean? = nul
                 }
             }
         }
-    }
+    }
 
 internal fun WorldMapViewModel.startHealthBarTimer(delayMillis: Long) {
         healthBarJob?.cancel()
@@ -81,15 +81,31 @@ internal fun WorldMapViewModel.startHealthBarTimer(delayMillis: Long) {
             delay(delayMillis)
             showHealthBar = false
         }
-    }
+    }
 
 internal fun WorldMapViewModel.triggerWastedSequence() {
         viewModelScope.launch(Dispatchers.Main) {
-            _uiState.update { it.copy(showWastedScreen = true) }
+            // Al morir te bajas del coche (no se respawnea conduciendo).
+            _uiState.update {
+                it.copy(
+                    showWastedScreen = true,
+                    isDriving = false,
+                    currentVehicleModel = null,
+                    currentVehicleColor = null,
+                    vehicleSpeed = 0.0
+                )
+            }
             delay(4000L)
+            // Limpiar estado de combate para no revivir siendo perseguido.
+            relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
+            // RESPAWN EN LA MISMA ZONA YA DESCARGADA (ahorra recursos): ~80 m del lugar de
+            // muerte, pegado a la red de calles cacheada; sin teletransporte a ESCOM.
             val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
-            val nearestHospital = hospitalRespawnPoints.minByOrNull { distance(deathLoc, it) } ?: hospitalRespawnPoints.first()
-            _uiState.update { it.copy(currentLocation = nearestHospital, showWastedScreen = false) }
+            val ang = Math.random() * 2.0 * Math.PI
+            val r = 0.0007 // ~77 m
+            val candidate = GeoPoint(deathLoc.latitude + Math.sin(ang) * r, deathLoc.longitude + Math.cos(ang) * r)
+            val respawn = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(candidate) else deathLoc
+            _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
             playerHealth = maxPlayerHealth
         }
-    }
+    }

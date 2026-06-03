@@ -11,7 +11,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 const val ZOOM_LOADING = 18.0
-const val ZOOM_GAMEPLAY_OSM = 20.0  // Nivel de zoom para OSMDroid Nativo
+const val ZOOM_GAMEPLAY_OSM = 22.0  // Nivel de zoom para OSMDroid Nativo (máximo por defecto)
 const val ZOOM_GAMEPLAY_WEB = 19.0  // Nivel de zoom para los proveedores Web
 
 enum class MapProvider(val displayName: String) {
@@ -129,5 +129,14 @@ data class WorldMapState(
     val metroStations: List<ovh.gabrielhuav.pow.domain.models.MetroStation> = emptyList(),
     val nearbyMetroStation: ovh.gabrielhuav.pow.domain.models.MetroStation? = null,
     val showMetroFade: Boolean = false,
-    val metroFadeCompleteStation: ovh.gabrielhuav.pow.domain.models.MetroStation? = null
+    val metroFadeCompleteStation: ovh.gabrielhuav.pow.domain.models.MetroStation? = null,
+
+    // ─── Pre-descarga de tiles de la zona actual (offline) ───────────────────
+    // Solo aplica al proveedor nativo OSM (caché Room unificada). Permite seguir
+    // jugando mientras descarga (no bloqueante) y avisa si quedó incompleta por
+    // falta de red, para garantizar juego sin conexión tras visitar la zona.
+    val zonePrefetchActive: Boolean = false,
+    val zonePrefetchProgress: Float = 0f,   // 0f..1f
+    val zoneOfflineReady: Boolean = false,
+    val zoneOfflineWarning: Boolean = false
 )

@@ -78,7 +78,7 @@ internal fun WorldMapViewModel.updateVisibleRoads(location: GeoPoint, force: Boo
                 _roadNetworkFlow.value = visibleWays
             }
         }
-    }
+    }
 
 internal suspend fun WorldMapViewModel.applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
         roadNetwork = network
@@ -100,6 +100,7 @@ internal suspend fun WorldMapViewModel.applyRoadNetwork(network: List<MapWay>, p
         withContext(Dispatchers.Main) {
             _uiState.update { it.copy(currentLocation = snapped, isRoadNetworkReady = true) }
         }
+        prefetchCurrentZoneTiles(snapped)
         val targetZoom = if (_uiState.value.mapProvider.isWebProvider)
             ZOOM_GAMEPLAY_WEB
         else
@@ -113,7 +114,7 @@ internal suspend fun WorldMapViewModel.applyRoadNetwork(network: List<MapWay>, p
                 z += 1.0
             }
         }
-    }
+    }
 
 internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.util.GeoPoint) {
         val moved = if (lastNetworkFetchLocation != null)
@@ -141,6 +142,7 @@ internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.
                         }
                         _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                         spawnShineCTOMarker()
+                        prefetchCurrentZoneTiles(currentLoc)
                     }
                 } else {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -157,6 +159,7 @@ internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.
                             lastNetworkFetchLocation = currentLoc
                             _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                             spawnShineCTOMarker()
+                            prefetchCurrentZoneTiles(currentLoc)
                         }
                     } else {
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -173,4 +176,48 @@ internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.
                 isFetchingNetwork.set(false)
             }
         }
-    }
+    }
+
+/**
+ * Pre-descarga (NO bloqueante) los tiles de la zona actual (~2 km) a la caché Room
+ * para juego offline. Solo aplica al proveedor NATIVO OSM (los Web cachean por
+ * WebView bajo demanda). Debounce por celda ~0.01° (~1 km) para no repetir; si la
+ * descarga falla por falta de red, se permite reintentar al volver a la celda.
+ */
+internal fun WorldMapViewModel.prefetchCurrentZoneTiles(loc: GeoPoint) {
+    if (_uiState.value.mapProvider != MapProvider.OSM) return
+    val cellKey = "${floor(loc.latitude / 0.01).toInt()}_${floor(loc.longitude / 0.01).toInt()}"
+    if (cellKey == lastPrefetchCellKey || tilePrefetch.isRunning()) return
+    lastPrefetchCellKey = cellKey
+
+    viewModelScope.launch(Dispatchers.IO) {
+        withContext(Dispatchers.Main) {
+            _uiState.update {
+                it.copy(
+                    zonePrefetchActive = true,
+                    zonePrefetchProgress = 0f,
+                    zoneOfflineReady = false,
+                    zoneOfflineWarning = false
+                )
+            }
+        }
+        tilePrefetch.prefetchOsmZone(
+            centerLat = loc.latitude,
+            centerLon = loc.longitude,
+            radiusMeters = 1000.0,
+            zooms = 16..18,
+            onProgress = { f -> _uiState.update { it.copy(zonePrefetchProgress = f) } },
+            onDone = { ok ->
+                if (!ok) lastPrefetchCellKey = null // permitir reintento sin red
+                _uiState.update {
+                    it.copy(
+                        zonePrefetchActive = false,
+                        zonePrefetchProgress = 1f,
+                        zoneOfflineReady = ok,
+                        zoneOfflineWarning = !ok
+                    )
+                }
+            }
+        )
+    }
+}

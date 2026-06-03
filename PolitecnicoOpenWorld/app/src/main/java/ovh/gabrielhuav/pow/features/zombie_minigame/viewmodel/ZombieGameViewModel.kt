@@ -477,6 +477,7 @@ class ZombieGameViewModel(
 
     // ─── COMBATE A DISTANCIA ───────────────────────────────
     internal fun fireProjectile() {
+        if (_state.value.showWastedScreen) return // muerto: no dispara
         val now = System.currentTimeMillis()
         if (now - lastRangedShotMs < RANGED_COOLDOWN_MS) return
         lastRangedShotMs = now
@@ -660,6 +661,9 @@ class ZombieGameViewModel(
     }
 
     internal fun applyMovement(newX: Float, newY: Float, dxForFacing: Float) {
+        // MUERTE: durante la pantalla WASTED el jugador NO se mueve (queda como
+        // "fantasmita" mientras corre la animación de muerte).
+        if (_state.value.showWastedScreen) return
         val curX = _state.value.playerX
         val curY = _state.value.playerY
 
@@ -726,6 +730,7 @@ class ZombieGameViewModel(
 
     fun setSpecial(pressed: Boolean) {
         if (_state.value.designerMode) return
+        if (_state.value.showWastedScreen) return // muerto: no ataca
         if (!pressed) {
             if (_state.value.combatMode == CombatMode.MELEE) {
                 _state.update { it.copy(playerAction = PlayerAction.IDLE) }

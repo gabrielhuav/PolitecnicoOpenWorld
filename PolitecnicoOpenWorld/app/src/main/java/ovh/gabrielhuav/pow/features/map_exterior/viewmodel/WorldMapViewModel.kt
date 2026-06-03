@@ -71,6 +71,12 @@ class WorldMapViewModel(
         internal set
     val maxPlayerHealth = 100f
 
+    // FX DE IMPACTO: cada incremento dispara un destello/💥 en pantalla. Lo usamos para
+    // que se NOTE una colisión (NPC que te golpea, o atropello al conducir).
+    var impactEffectTrigger by mutableStateOf(0)
+        internal set
+    internal fun fireImpactEffect() { impactEffectTrigger++ }
+
     var showHealthBar by mutableStateOf(false)
         internal set
     var damagePulseTrigger by mutableStateOf(0)
@@ -132,6 +138,10 @@ class WorldMapViewModel(
     internal val isFetchingNetwork  = AtomicBoolean(false)
     internal var lastFetchAttemptMs = 0L
 
+    // ─── Pre-descarga de tiles de la zona (offline) ──────────────────────────
+    internal val tilePrefetch = ovh.gabrielhuav.pow.data.cache.TilePrefetchManager(tileCache)
+    internal var lastPrefetchCellKey: String? = null
+
     internal val REFETCH_DISTANCE_DEG = 0.015
     internal val REFETCH_COOLDOWN_MS  = 5 * 60 * 1000L
     internal val ROAD_NODE_GRID_SIZE_DEG = 0.001
@@ -154,6 +164,21 @@ class WorldMapViewModel(
     internal var lastAttackTime = 0L
     internal val ATTACK_COOLDOWN_MS = 1200L
     internal val ATTACK_RADIUS = 0.00022
+
+    // ─── ATROPELLO + REACCIONES DE NPC (host) ────────────────────────────────
+    internal val RUN_OVER_RADIUS = 0.00003        // ~3 m alrededor del vehículo
+    internal val RUN_OVER_MIN_SPEED = MAX_SPEED * 0.18  // por debajo no hace daño (estás casi parado)
+    internal val NPC_CONTACT_RADIUS = 0.00006     // ~6.6 m: golpe del NPC agresivo (holgado)
+    internal val NPC_CONTACT_DAMAGE = 10f
+    internal val NPC_CONTACT_COOLDOWN_MS = 900L
+    // Cooldown por NPC para que no drene la vida del jugador en cada tick.
+    internal val npcContactCooldowns = ConcurrentHashMap<String, Long>()
+    // Racha de golpes que le has dado a CADA NPC. A partir de RELENTLESS_HIT_STREAK
+    // golpes seguidos, el NPC agresivo se vuelve IMPLACABLE: te persigue y golpea sin
+    // parar hasta matarte (o hasta que muera). Cuanto más agresivo seas, peor para ti.
+    internal val npcHitStreak = ConcurrentHashMap<String, Int>()
+    internal val relentlessNpcs = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    internal val RELENTLESS_HIT_STREAK = 3
 
     internal val hospitalRespawnPoints = listOf(
         GeoPoint(19.5034, -99.1469),
@@ -413,7 +438,10 @@ class WorldMapViewModel(
                                                             hairId = npc.visualConfig?.hairId,
                                                             hairColor = npc.visualConfig?.hairColor?.toArgb(),
                                                             shirtColor = npc.visualConfig?.shirtColor?.toArgb(),
-                                                            pantsColor = npc.visualConfig?.pantsColor?.toArgb()
+                                                            pantsColor = npc.visualConfig?.pantsColor?.toArgb(),
+                                                            health = npc.health,
+                                                            isDying = npc.isDying,
+                                                            aggroUntil = npc.aggroUntil
                                                         )
                                                     }
                                                     ws.sendMessage(gson.toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
@@ -712,7 +740,12 @@ class WorldMapViewModel(
             carModel = cModel,
             carColor = cColor,
             visualConfig = visualConfig,
-            displayName = null
+            displayName = null,
+            // Vida replicada del host: así los demás clientes ven la barra de vida y el
+            // estado de muerte del NPC (atropellos/golpes) igual que el host.
+            health = remote.health ?: 100f,
+            isDying = remote.isDying ?: false,
+            aggroUntil = remote.aggroUntil ?: 0L
         )
     }
 
@@ -730,7 +763,11 @@ class WorldMapViewModel(
     }
 
     fun moveCharacter(direction: Direction) {
-        if (_uiState.value.isUserPanningMap) return
+        if (_uiState.value.showWastedScreen) return // muerto: sin movimiento (WASTED)
+        // Si el mapa está descentrado (exploración), el primer toque de los controles
+        // de movimiento (izquierda) recentra en el jugador (SIN cambiar el zoom) en vez
+        // de moverlo a ciegas fuera de cuadro.
+        if (_uiState.value.isUserPanningMap) { centerOnPlayer(); return }
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
         val isMovingRight = when (direction) {
@@ -763,7 +800,9 @@ class WorldMapViewModel(
     }
 
     fun moveCharacterByAngle(angleRad: Double) {
-        if (_uiState.value.isUserPanningMap) return
+        if (_uiState.value.showWastedScreen) return // muerto: sin movimiento (WASTED)
+        // Igual que moveCharacter: con el mapa descentrado, recentrar en el jugador (sin zoom).
+        if (_uiState.value.isUserPanningMap) { centerOnPlayer(); return }
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
 
@@ -1068,12 +1107,21 @@ class WorldMapViewModel(
         mapPrepStarted = true
         viewModelScope.launch {
             val provider = _uiState.value.mapProvider
-            if (!provider.isWebProvider) {
-                // OSMDroid offline / SDK nativo: tiles locales, progreso rápido.
+            if (provider == MapProvider.GOOGLE_MAPS_NATIVE) {
+                // SDK nativo de Google: las teselas las gestiona el SDK; progreso breve.
                 for (i in 1..10) {
                     _uiState.update { it.copy(mapLoadProgress = i / 10f) }
                     delay(70)
                 }
+                _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
+                return@launch
+            }
+            if (provider == MapProvider.OSM) {
+                // OSM Nativo: descargar de VERDAD las teselas alrededor del jugador a
+                // nivel MÁXIMO real (z19) y a un nivel MEDIO (z17) para que el mapa esté
+                // listo y nítido al instante (incluido el over-zoom 20–22, que se escala
+                // a partir de z19). Antes solo se simulaba progreso y por eso "no cargaba".
+                downloadOsmNativeForEntry()
                 _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
                 return@launch
             }
@@ -1105,6 +1153,125 @@ class WorldMapViewModel(
         okAny
     }
 
+    // ─── COMPUERTA DE MAPA TRAS TELETRANSPORTE ────────────────────────────────
+    // El teletransporte (ESCOM / "Ir a tu Ubicación") NO debe soltarte hasta que
+    // el mapa de la zona esté descargado, sea cual sea el proveedor. Re-activa la
+    // compuerta (isMapReady=false) y descarga el vecindario inmediato:
+    //  - OSM nativo: guarda REAL en Room (bucket "osm") → render inmediato + offline.
+    //  - Web: calienta el CDN (luego el WebView + CachingWebViewClient cachean a Room).
+    //  - Google nativo: sin prefetch por URL, progreso breve.
+    // Corre en paralelo a la recarga de calles; worldReady se cumple cuando AMBOS
+    // (calles + tiles) terminan.
+    internal fun gateMapDownloadAfterTeleport() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isMapReady = false, mapLoadProgress = 0f) }
+            downloadGateTiles()
+            _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
+        }
+    }
+
+    private suspend fun downloadGateTiles() = withContext(Dispatchers.IO) {
+        val loc = _uiState.value.currentLocation ?: return@withContext
+        val provider = _uiState.value.mapProvider
+        if (provider == MapProvider.GOOGLE_MAPS_NATIVE) {
+            // Mapa nativo de Google: las teselas las gestiona el SDK; solo simulamos
+            // un breve progreso para mostrar la compuerta de forma consistente.
+            for (i in 1..6) { _uiState.update { it.copy(mapLoadProgress = i / 6f) }; delay(60) }
+            return@withContext
+        }
+        if (provider == MapProvider.OSM) {
+            // OSM Nativo tras teletransporte: misma estrategia que la entrada (z19 + z17)
+            // para que la nueva zona quede nítida y lista para el over-zoom.
+            downloadOsmNativeForEntry()
+            return@withContext
+        }
+        val z = if (provider.isWebProvider) ZOOM_GAMEPLAY_WEB.toInt() else 18
+        val n = 1 shl z
+        val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
+        val latRad = Math.toRadians(loc.latitude)
+        val yC = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n).toInt()
+        // Vecindario inmediato 3x3 (suficiente para soltar al jugador); el resto de la
+        // zona (~2km) lo completa prefetchCurrentZoneTiles en segundo plano para offline.
+        val coords = ArrayList<Pair<Int, Int>>()
+        for (dx in -1..1) for (dy in -1..1) coords.add((xC + dx) to (yC + dy))
+        val total = coords.size
+        var done = 0
+        for ((x, y) in coords) {
+            if (!isActive) break
+            val xx = x.coerceIn(0, n - 1); val yy = y.coerceIn(0, n - 1)
+            if (provider == MapProvider.OSM) {
+                val url = "https://tile.openstreetmap.org/$z/$xx/$yy.png"
+                val key = sha256Hex(url)
+                if (tileCache.getTileByUrl("osm", key) == null) {
+                    val bytes = downloadTileBytes(url)
+                    if (bytes != null && bytes.isNotEmpty()) tileCache.putTileByUrl("osm", key, bytes)
+                }
+            } else {
+                tileUrlFor(provider, z, xx, yy)?.let { fetchTile(it) }
+            }
+            done++
+            _uiState.update { it.copy(mapLoadProgress = done.toFloat() / total) }
+        }
+    }
+
+    // ─── PREFETCH OSM NATIVO (pantalla de carga) ──────────────────────────────
+    // Descarga y persiste en Room (bucket "osm", mismo esquema de clave que
+    // RoomTileModuleProvider) un vecindario alrededor del jugador en DOS niveles:
+    //  - z19 (máximo real de OSM): nitidez y base para el over-zoom 20–22.
+    //  - z17 (medio): respaldo para alejar y para que el over-zoom tenga de dónde
+    //    escalar aunque falte algún z19 puntual.
+    private suspend fun downloadOsmNativeForEntry() = withContext(Dispatchers.IO) {
+        val loc = _uiState.value.currentLocation
+            ?: run { _uiState.update { it.copy(mapLoadProgress = 1f) }; return@withContext }
+        // (zoom, radio en teselas). z19 con radio 2 (5x5) cubre la zona inmediata;
+        // z17 con radio 1 (3x3) da contexto al alejar.
+        val plan = listOf(19 to 2, 17 to 1)
+        val total = plan.sumOf { (_, r) -> (2 * r + 1) * (2 * r + 1) }
+        var done = 0
+        for ((z, r) in plan) {
+            if (!isActive) break
+            val n = 1 shl z
+            val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
+            val latRad = Math.toRadians(loc.latitude)
+            val yC = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n).toInt()
+            for (dx in -r..r) for (dy in -r..r) {
+                if (!isActive) break
+                val x = (xC + dx).coerceIn(0, n - 1)
+                val y = (yC + dy).coerceIn(0, n - 1)
+                cacheOsmTileToRoom(z, x, y)
+                done++
+                _uiState.update { it.copy(mapLoadProgress = (done.toFloat() / total).coerceIn(0f, 1f)) }
+            }
+        }
+    }
+
+    /** Descarga (si falta) un tile OSM canónico y lo guarda en Room bucket "osm". */
+    private fun cacheOsmTileToRoom(z: Int, x: Int, y: Int) {
+        val url = "https://tile.openstreetmap.org/$z/$x/$y.png"
+        val key = sha256Hex(url)
+        if (tileCache.getTileByUrl("osm", key) != null) return
+        val bytes = downloadTileBytes(url)
+        if (bytes != null && bytes.isNotEmpty()) tileCache.putTileByUrl("osm", key, bytes)
+    }
+
+    private fun downloadTileBytes(url: String): ByteArray? {
+        var c: java.net.HttpURLConnection? = null
+        return try {
+            c = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+                connectTimeout = 8000; readTimeout = 12000
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Android) PolitecnicoOpenWorld/1.0")
+                setRequestProperty("Accept", "image/png,image/webp,image/*,*/*")
+                setRequestProperty("Referer", "https://www.openstreetmap.org/")
+            }
+            if (c.responseCode == java.net.HttpURLConnection.HTTP_OK) c.inputStream.readBytes() else null
+        } catch (e: Exception) { null } finally { c?.disconnect() }
+    }
+
+    private fun sha256Hex(input: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
     fun updateShowCacheWidget(show: Boolean) = _uiState.update { it.copy(showCacheWidget = show) }
@@ -1128,6 +1295,9 @@ class WorldMapViewModel(
     }
 
     fun centerOnPlayer() { _uiState.update { it.copy(isUserPanningMap = false) } }
+
+    /** Centra en el jugador Y acerca al máximo nivel de zoom permitido. */
+    fun zoomToPlayer() { _uiState.update { it.copy(isUserPanningMap = false, zoomLevel = 22.0) } }
 
     fun onMapPanStart() { _uiState.update { it.copy(isUserPanningMap = true) } }
     fun onMapPanEnd() { }
@@ -1422,7 +1592,9 @@ class WorldMapViewModel(
     }
 
     private fun spawnOustedDriver(carLocation: GeoPoint) {
-        val offsetLoc = GeoPoint(carLocation.latitude + 0.00005, carLocation.longitude + 0.00005)
+        // El conductor desalojado aparece JUNTO al coche (~2 m), como si se bajara por
+        // la puerta, en vez de a ~7 m de distancia (que se veía poco realista).
+        val offsetLoc = GeoPoint(carLocation.latitude + 0.00002, carLocation.longitude + 0.00002)
         val randomHairId = (1..5).random()
         val randomHairColor = listOf(
             androidx.compose.ui.graphics.Color.Black,
@@ -1444,13 +1616,22 @@ class WorldMapViewModel(
             shirtColor = randomShirtColor,
             pantsColor = androidx.compose.ui.graphics.Color.DarkGray
         )
+        // REACCIÓN AL ROBO según personalidad: el cobarde huye (estado de miedo), el
+        // agresivo te embiste (estado aggro) y el pasivo simplemente se aleja andando.
+        val trait = NpcAiManager.rollTrait()
+        val now = System.currentTimeMillis()
         val driver = Npc(
             id = UUID.randomUUID().toString(),
             type = NpcType.PERSON,
             location = offsetLoc,
             speed = NpcAiManager.PERSON_SPEED,
             isMoving = true,
-            visualConfig = visualConfig
+            visualConfig = visualConfig,
+            trait = trait,
+            fearUntil = if (trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.COWARD) now + NpcAiManager.FEAR_DURATION_MS else 0L,
+            fearFromLat = carLocation.latitude,
+            fearFromLon = carLocation.longitude,
+            aggroUntil = if (trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE) now + NpcAiManager.AGGRO_DURATION_MS else 0L
         )
         remoteEntities[driver.id] = driver
     }
@@ -1479,17 +1660,25 @@ class WorldMapViewModel(
                 currentLocation = newLocation,
                 showTeleportMenu = false,
                 isRoadNetworkReady = false,
+                isMapReady = false,        // ← re-activa la compuerta: no soltar hasta descargar
                 isUserPanningMap = false   // ← recentra el mapa y reactiva la neblina
             )
         }
         lastNetworkFetchLocation = null
         lastFetchAttemptMs = 0L
+        // Descarga el mapa de la nueva zona ANTES de soltar al jugador (en paralelo a
+        // la recarga de calles). worldReady = calles listas && mapa listo.
+        gateMapDownloadAfterTeleport()
     }
 
-    fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed }
-    fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed }
-    fun accelerate(pressed: Boolean) { isGasPressed = pressed }
-    fun brake(pressed: Boolean) { isBrakePressed = pressed }
+    // Cualquier control de conducción (girar/acelerar/frenar = X, ○, □) recentra en el
+    // jugador si el mapa estaba descentrado. El botón △ (SALIR) NO recentra: bajarse del
+    // coche es otra acción (onInteractButtonPressed).
+    fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed; if (pressed) recenterIfPanning() }
+    fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed; if (pressed) recenterIfPanning() }
+    fun accelerate(pressed: Boolean) { isGasPressed = pressed; if (pressed) recenterIfPanning() }
+    fun brake(pressed: Boolean) { isBrakePressed = pressed; if (pressed) recenterIfPanning() }
+    private fun recenterIfPanning() { if (_uiState.value.isUserPanningMap) centerOnPlayer() }
 
     internal val isSpawningCollectible = AtomicBoolean(false)
 
@@ -1644,6 +1833,7 @@ class WorldMapViewModel(
     fun takeDamage(amount: Float) {
         playerHealth = (playerHealth - amount).coerceAtLeast(0f)
         damagePulseTrigger++
+        fireImpactEffect() // 💥 visible en CUALQUIER golpe que recibe el jugador
         showHealthBar = true
         if (playerHealth > 30f) {
             startHealthBarTimer(3000L)
@@ -1675,11 +1865,30 @@ class WorldMapViewModel(
 
     private fun triggerWastedSequence() {
         viewModelScope.launch(Dispatchers.Main) {
-            _uiState.update { it.copy(showWastedScreen = true) }
+            // Al morir te bajas del coche (no se respawnea conduciendo) y se quita el pánico
+            // de la zona. Tras la pantalla WASTED, respawn en el hospital más cercano.
+            _uiState.update {
+                it.copy(
+                    showWastedScreen = true,
+                    isDriving = false,
+                    currentVehicleModel = null,
+                    currentVehicleColor = null,
+                    vehicleSpeed = 0.0
+                )
+            }
             delay(4000L)
+            // Limpiar el estado de combate (rachas / NPCs implacables / cooldowns) para
+            // no revivir siendo perseguido al instante.
+            relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
+            // RESPAWN EN LA MISMA ZONA YA DESCARGADA (ahorra recursos: no teletransporta a
+            // ESCOM ni descarga teselas nuevas). Reaparece a ~80 m del lugar de muerte,
+            // pegado a la red de calles ya cacheada; si no hay calles, en el mismo punto.
             val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
-            val nearestHospital = hospitalRespawnPoints.minByOrNull { distance(deathLoc, it) } ?: hospitalRespawnPoints.first()
-            _uiState.update { it.copy(currentLocation = nearestHospital, showWastedScreen = false) }
+            val ang = Math.random() * 2.0 * Math.PI
+            val r = 0.0007 // ~77 m
+            val candidate = GeoPoint(deathLoc.latitude + sin(ang) * r, deathLoc.longitude + cos(ang) * r)
+            val respawn = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(candidate) else deathLoc
+            _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
             playerHealth = maxPlayerHealth
         }
     }
@@ -1728,6 +1937,8 @@ class WorldMapViewModel(
                     val damage = PLAYER_PUNCH_DAMAGE
                     val newHealth = (currentNpc.health - damage).coerceAtLeast(0f)
                     if (newHealth <= 0f) {
+                        npcHitStreak.remove(npcId)
+                        relentlessNpcs.remove(npcId)
                         remoteEntities[npcId] = currentNpc.copy(health = 0f, isDying = true)
                         updateNpcsState()
                         delay(1000L)
@@ -1739,11 +1950,113 @@ class WorldMapViewModel(
                         } catch (e: Exception) { Log.e("Combat", "Error enviando NPC_DESTROY para npcId=$npcId", e) }
                         updateNpcsState()
                     } else {
-                        remoteEntities[npcId] = currentNpc.copy(health = newHealth)
+                        // CONTRAATAQUE: si el NPC golpeado sobrevive y es AGGRESSIVE, entra
+                        // en estado de embestida hacia el jugador (lo persigue, visual) Y
+                        // te DEVUELVE el golpe de forma garantizada poco después.
+                        val retaliate = currentNpc.trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
+                        remoteEntities[npcId] = currentNpc.copy(
+                            health = newHealth,
+                            aggroUntil = if (retaliate) System.currentTimeMillis() + NpcAiManager.AGGRO_DURATION_MS else currentNpc.aggroUntil
+                        )
                         updateNpcsState()
+                        if (retaliate) {
+                            // Racha de golpes seguidos contra este NPC.
+                            val streak = (npcHitStreak[npcId] ?: 0) + 1
+                            npcHitStreak[npcId] = streak
+
+                            // Golpe de vuelta DETERMINISTA: tras un breve "windup", si el NPC
+                            // sigue vivo y el jugador continúa a su alcance, le pega y lo
+                            // hace notar (vida baja + destello + 💥). No depende de la
+                            // detección de contacto del bucle (que podía no dispararse).
+                            viewModelScope.launch(Dispatchers.Main) {
+                                delay(450L)
+                                val pl = _uiState.value.currentLocation
+                                val attacker = remoteEntities[npcId]
+                                if (pl != null && attacker != null && !attacker.isDying &&
+                                    distance(pl, attacker.location) <= ATTACK_RADIUS) {
+                                    takeDamage(NPC_CONTACT_DAMAGE)
+                                }
+                            }
+
+                            // IMPLACABLE: si lo golpeas RELENTLESS_HIT_STREAK veces o más, ya
+                            // no para de pegarte hasta matarte (o hasta morir él).
+                            if (streak >= RELENTLESS_HIT_STREAK && relentlessNpcs.add(npcId)) {
+                                startRelentlessAttacker(npcId)
+                            }
+                        }
                     }
                 }
             }
+        }
+    }
+
+    // ATROPELLO: estando al volante, los peatones dentro de RUN_OVER_RADIUS reciben
+    // daño proporcional a la velocidad; mueren si llegan a 0 y, en cualquier caso, los
+    // testigos se asustan. Solo el host simula NPCs, así que solo él aplica esto.
+    internal fun runOverNpcs(playerLoc: GeoPoint, speed: Double) {
+        if (!isServerDelegatedHost) return
+        val spd = kotlin.math.abs(speed)
+        if (spd < RUN_OVER_MIN_SPEED) return
+        val damage = (spd / MAX_SPEED).toFloat().coerceIn(0f, 1f) * 120f
+        var changed = false
+        for ((id, npc) in remoteEntities) {
+            if (!npc.displayName.isNullOrEmpty()) continue   // no a jugadores remotos
+            if (npc.type != NpcType.PERSON) continue          // solo peatones
+            if (npc.isDying) continue
+            if (distance(playerLoc, npc.location) > RUN_OVER_RADIUS) continue
+            val newHealth = (npc.health - damage).coerceAtLeast(0f)
+            if (newHealth <= 0f) {
+                remoteEntities[id] = npc.copy(health = 0f, isDying = true)
+                viewModelScope.launch { delay(1000L); remoteEntities.remove(id); updateNpcsState() }
+                try {
+                    webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to id)))
+                } catch (_: Exception) {}
+            } else {
+                remoteEntities[id] = npc.copy(health = newHealth)
+            }
+            changed = true
+        }
+        if (changed) {
+            npcAiManager.triggerFear(playerLoc.latitude, playerLoc.longitude)
+            viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() } // 💥 atropello
+            updateNpcsState()
+        }
+    }
+
+    // GOLPE DE NPC AGRESIVO: los NPCs en estado de embestida (aggro) que tocan al
+    // jugador le hacen daño, con un cooldown por NPC para no vaciar la vida de golpe.
+    internal fun applyNpcContactDamage(playerLoc: GeoPoint) {
+        // SIN gate de host: el daño se aplica a TU PROPIO jugador en TU cliente, seas o no
+        // el host de zona (el host solo decide quién SIMULA la IA, no quién recibe daño).
+        val now = System.currentTimeMillis()
+        for ((id, npc) in remoteEntities) {
+            if (npc.aggroUntil <= now || npc.type != NpcType.PERSON) continue
+            if (distance(playerLoc, npc.location) > NPC_CONTACT_RADIUS) continue
+            val last = npcContactCooldowns[id] ?: 0L
+            if (now - last < NPC_CONTACT_COOLDOWN_MS) continue
+            npcContactCooldowns[id] = now
+            viewModelScope.launch(Dispatchers.Main) { takeDamage(NPC_CONTACT_DAMAGE) } // takeDamage ya dispara el 💥
+        }
+    }
+
+    // IMPLACABLE: el NPC persigue y golpea al jugador sin descanso hasta matarlo (o hasta
+    // morir/desaparecer). Refresca su aggro para que nunca deje de perseguir y le pega
+    // cada NPC_CONTACT_COOLDOWN_MS si está a su alcance.
+    private fun startRelentlessAttacker(npcId: String) {
+        viewModelScope.launch(Dispatchers.Main) {
+            while (true) {
+                delay(NPC_CONTACT_COOLDOWN_MS)
+                val npc = remoteEntities[npcId] ?: break        // murió/despawneó
+                if (npc.isDying) break
+                if (playerHealth <= 0f) break                    // jugador muerto → la secuencia WASTED sigue
+                // Mantener vivo el aggro para que NO deje de perseguir.
+                remoteEntities[npcId] = npc.copy(aggroUntil = System.currentTimeMillis() + NpcAiManager.AGGRO_DURATION_MS)
+                val pl = _uiState.value.currentLocation
+                if (pl != null && distance(pl, npc.location) <= ATTACK_RADIUS) {
+                    takeDamage(NPC_CONTACT_DAMAGE)
+                }
+            }
+            relentlessNpcs.remove(npcId)
         }
     }
 
@@ -1959,6 +2272,7 @@ class WorldMapViewModel(
                 currentLocation = GeoPoint(newLat, newLon),
                 showTeleportMenu = false,
                 isRoadNetworkReady = false,
+                isMapReady = false,         // ← re-activa la compuerta de descarga del mapa
                 isUserPanningMap = false,   // ← igual que arriba
                 isZombieHandSpawned = if (!insideEscom) false else currentState.isZombieHandSpawned
             )
@@ -1966,6 +2280,7 @@ class WorldMapViewModel(
 
         lastNetworkFetchLocation = null
         lastFetchAttemptMs = 0L
+        gateMapDownloadAfterTeleport()
     }
 
     fun setShowRoadNetwork(show: Boolean) {

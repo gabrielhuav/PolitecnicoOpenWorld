@@ -22,10 +22,13 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         .lm-door-wrap{overflow:hidden;}
         .lm-door-img{animation:neonPulse 1.1s ease-in-out infinite;}
         .lm-shimmer{position:absolute;top:0;left:-45%;width:35%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,225,70,.65),transparent);animation:shimmerSlide 2.2s linear infinite;pointer-events:none;}
+        /* NEBLINA (fog of war): overlay dentro del wrapper para que rote junto al
+           mapa y se posicione en coordenadas del contenedor (= posición del jugador). */
+        #fog { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:650; }
     </style>
 </head>
 <body>
-    <div id="map-wrapper"><div id="map"></div></div>
+    <div id="map-wrapper"><div id="map"></div><div id="fog"></div></div>
     <script>
         var map = L.map('map', { 
             zoomControl: false,
@@ -52,8 +55,34 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
 
         var isZooming = false;
         var isExplorationMode = false;
-        
-        map.on('zoomstart', function() { isZooming = true; });
+
+        // ─── DETECCIÓN DE GESTO DEL USUARIO ──────────────────────────────────
+        // Distingue el zoom por PINCH del usuario (dedo en pantalla) del zoom
+        // PROGRAMÁTICO (botones del menú / seguimiento del jugador). Solo el
+        // primero debe entrar en modo exploración; de lo contrario el zoom por
+        // botón ocultaría al jugador y rompería el auto-seguimiento.
+        var pointerDown = false;
+        (function() {
+            var el = document.getElementById('map');
+            if (!el) return;
+            var down = function() { pointerDown = true; };
+            var up = function() { pointerDown = false; };
+            el.addEventListener('touchstart', down, { passive: true });
+            el.addEventListener('touchend', up, { passive: true });
+            el.addEventListener('touchcancel', up, { passive: true });
+            el.addEventListener('mousedown', down);
+            window.addEventListener('mouseup', up);
+        })();
+
+        map.on('zoomstart', function() {
+            isZooming = true;
+            // Pinch del usuario: anclar al jugador a su posición geográfica real
+            // (igual que el arrastre) para que NO se mueva con el gesto ni rebote.
+            if (pointerDown && !isExplorationMode) {
+                isExplorationMode = true;
+                if (window.Android && window.Android.notifyMapPanStart) window.Android.notifyMapPanStart();
+            }
+        });
         map.on('zoomend', function() {
             isZooming = false;
             // Propaga el zoom por gesto (pinch) de vuelta a la app para que no rebote.
@@ -87,6 +116,36 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
         function exitExplorationMode() { isExplorationMode = false; }
+
+        // ─── NEBLINA (fog of war) ANCLADA AL JUGADOR ─────────────────────────
+        // Se redibuja en cada evento 'move'/'zoom' de Leaflet (que disparan de forma
+        // continua durante el arrastre y el pinch), por lo que la zona despejada
+        // sigue al jugador en su posición geográfica real en vez de quedarse pegada
+        // al centro de la pantalla.
+        var fogLat = $lat, fogLng = $lng, fogEnabled = true;
+        function setFogEnabled(on) { fogEnabled = on; drawFog(); }
+        function setPlayerFog(lat, lng) {
+            if (lat === null || lng === null) return;
+            fogLat = lat; fogLng = lng; drawFog();
+        }
+        function drawFog() {
+            var el = document.getElementById('fog');
+            if (!el) return;
+            if (!fogEnabled) { el.style.background = 'none'; return; }
+            var pt = map.latLngToContainerPoint([fogLat, fogLng]);
+            var zoom = map.getZoom();
+            var ppm = (256 * Math.pow(2, zoom)) / (40075016 * Math.cos(fogLat * Math.PI / 180));
+            var reveal = 70 * ppm; // NPC_FOG_VISION_METERS = 70 m
+            var maxReveal = Math.min(window.innerWidth, window.innerHeight) * 0.40;
+            reveal = Math.max(40, Math.min(reveal, maxReveal));
+            var outer = reveal * 1.8;
+            el.style.background = 'radial-gradient(circle at ' + pt.x + 'px ' + pt.y + 'px, ' +
+                'rgba(0,0,0,0) 0px, rgba(0,0,0,0) ' + reveal + 'px, rgba(34,42,51,0.5) ' + outer + 'px)';
+        }
+        map.on('move', drawFog);
+        map.on('zoom', drawFog);
+        map.on('resize', drawFog);
+        drawFog();
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c; }); }
 
         function updateLandmarks(jsonStr) {
@@ -192,12 +251,22 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
             if (isZoomedIn) ids = new Set(data.map(function(n){ return n.id; }));
             for (var id in npcMarkers) if (!ids.has(id)) { map.removeLayer(npcMarkers[id]); delete npcMarkers[id]; }
             if (!isZoomedIn) return;
-            var dynamicScale = Math.max(0.2, Math.min(1.4 * Math.pow(2, currentZoom - 19), 1.4));
             data.forEach(function(npc) {
+                // TAMAÑO BASADO EN METROS REALES (paridad EXACTA con OSM Nativo):
+                // peatón ≈ 0.9 m, coche ≈ 2.5 m, manteniendo la proporción del sprite.
+                // Antes el web usaba una fórmula por zoom y por eso los NPCs salían de
+                // tamaño distinto al nativo.
+                var ppm = (256 * Math.pow(2, currentZoom)) / (40075016 * Math.cos((npc.lat || 19.5) * Math.PI / 180));
                 var finalW, finalH;
-                if (npc.type === 'CAR') { finalW = Math.round(npc.width * dynamicScale); finalH = Math.round(npc.height * dynamicScale); }
-                else if (npc.type === 'MODULAR') { var sz = Math.max(16, Math.min(24.0 + ((currentZoom - 18.0) * 8.0), 40)); finalW = sz; finalH = sz; }
-                else { finalW = 24; finalH = 24; }
+                if (npc.type === 'CAR') {
+                    var carPx = Math.max(16, 4.0 * ppm);
+                    var ratio = (npc.width && npc.height) ? (npc.width / npc.height) : 1;
+                    if (ratio > 1) { finalW = Math.round(carPx); finalH = Math.round(carPx / ratio); }
+                    else { finalH = Math.round(carPx); finalW = Math.round(carPx * ratio); }
+                } else if (npc.type === 'MODULAR') {
+                    var pedPx = Math.round(Math.max(12, 1.3 * ppm));
+                    finalW = pedPx; finalH = pedPx;
+                } else { finalW = 24; finalH = 24; }
                 var nameTagHtml = '';
                 if (npc.name) {
                     var safeName = escapeHtml(npc.name);
@@ -210,7 +279,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                 var showHb = hp < 100 && !dying;
                 var hbPct = Math.max(0, Math.min(100, hp));
                 var hbColor = hp > 60 ? '#4CAF50' : (hp > 30 ? '#FFEB3B' : '#F44336');
-                var hbHtml = '<div class="npc-hb" style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); width:26px; height:4px; background:rgba(0,0,0,0.5); border-radius:2px; overflow:hidden; z-index:120; display:' + (showHb ? 'block' : 'none') + ';"><div class="npc-hb-fill" style="width:' + hbPct + '%; height:100%; background:' + hbColor + ';"></div></div>';
+                var hbHtml = '<div class="npc-hb" style="position:absolute; top:-16px; left:50%; transform:translateX(-50%); width:36px; height:8px; background:rgba(0,0,0,0.5); border-radius:4px; overflow:hidden; z-index:120; display:' + (showHb ? 'block' : 'none') + ';"><div class="npc-hb-fill" style="width:' + hbPct + '%; height:100%; background:' + hbColor + ';"></div></div>';
                 if (npcMarkers[npc.id]) {
                     npcMarkers[npc.id].setLatLng([npc.lat, npc.lng]);
                     var el = npcMarkers[npc.id].getElement();

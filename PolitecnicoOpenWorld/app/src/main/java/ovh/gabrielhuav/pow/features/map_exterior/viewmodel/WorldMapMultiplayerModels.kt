@@ -30,7 +30,14 @@ data class MultiplayerNpc(
     val hairId: Int? = null,
     val hairColor: Int? = null,
     val shirtColor: Int? = null,
-    val pantsColor: Int? = null
+    val pantsColor: Int? = null,
+    // Estado de combate replicado para que TODOS los clientes vean la barra de vida del
+    // NPC y su muerte (atropello, golpes). El servidor lo reenvía tal cual (spread).
+    val health: Float? = null,
+    val isDying: Boolean? = null,
+    // Estado de embestida (aggro) replicado: así cualquier cliente sabe que este NPC está
+    // atacando y le aplica daño por contacto a SU jugador (no solo el host de zona).
+    val aggroUntil: Long? = null
 )
 
 internal data class ServerMessage(
@@ -55,4 +62,4 @@ internal data class ServerMessage(
     val health: Float? = null,
     val targetId: String? = null,
     val damage: Float? = null,
-)
+)

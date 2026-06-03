@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -132,8 +133,9 @@ fun PlayerCharacter(
             if (uiState.isDriving) {
                 // ── Modo conductor ───────────────────────────────────────
 
-                // Usamos la medida de 2.5 metros
-                val exactCarDp = (2.5 / metersPerPixel).dp.coerceAtLeast(10.dp)
+                // Coche del jugador: 4.0 m, en paridad con los autos NPC (antes 2.5 m,
+                // por eso se veía pequeño al entrar en modo conducción).
+                val exactCarDp = (4.0 / metersPerPixel).dp.coerceAtLeast(16.dp)
 
                 val carModel = uiState.currentVehicleModel ?: CarModel.SEDAN
                 val carColor = uiState.currentVehicleColor ?: 0xFFFFFFFF.toInt()
@@ -165,15 +167,18 @@ fun PlayerCharacter(
                     Image(
                         bitmap = img,
                         contentDescription = "Player Vehicle",
-                        modifier = modifier.size(finalWidthDp, finalHeightDp)
+                        // requiredSize: IGNORA el límite de 60.dp del Box contenedor; si no,
+                        // a zoom alto el coche del jugador quedaba recortado (~60dp) y se veía
+                        // más pequeño que los autos NPC (que no tienen ese tope).
+                        modifier = modifier.requiredSize(finalWidthDp, finalHeightDp)
                     )
                 }
 
             } else {
                 // ── Modo a pie ───────────────────────────────────────────
 
-                // 🧍 Tamaño real del jugador a pie (0.9 metros)
-                val exactPersonDp = (0.9 / metersPerPixel).dp.coerceAtLeast(8.dp)
+                // 🧍 Jugador a pie: 1.3 m, en paridad con los peatones NPC (antes 0.9 m).
+                val exactPersonDp = (1.3 / metersPerPixel).dp.coerceAtLeast(12.dp)
 
                 val action       = uiState.playerAction
                 val isFacingRight = uiState.isPlayerFacingRight
@@ -222,7 +227,7 @@ fun PlayerCharacter(
                         bitmap = img,
                         contentDescription = "Personaje Principal",
                         modifier = modifier
-                            .size(exactPersonDp)
+                            .requiredSize(exactPersonDp)
                             .graphicsLayer {
                                 scaleX = if (isFacingRight) visualCompensation
                                 else -visualCompensation

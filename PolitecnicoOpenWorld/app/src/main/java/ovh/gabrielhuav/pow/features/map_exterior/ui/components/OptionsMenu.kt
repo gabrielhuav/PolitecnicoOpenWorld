@@ -7,11 +7,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -21,6 +25,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,7 +55,8 @@ data class OptionMenuGroup(
     val label: String,
     val icon: ImageVector,
     val tint: Color = GOLD,
-    val items: List<OptionMenuItem>
+    // Puede contener acciones Y otros grupos ("menú de menús" a cualquier nivel).
+    val items: List<OptionEntry>
 ) : OptionEntry
 
 /**
@@ -72,6 +79,13 @@ fun OptionsMenu(
     onOpenGroupChange: (String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Estado de apertura de subgrupos PROFUNDOS (nivel >= 1). El nivel 0 sigue
+    // controlado por openGroupId (acordeón hoisteado) para mantener compatibilidad
+    // con los callers existentes.
+    val openSub = remember { mutableStateMapOf<String, Boolean>() }
+    val closeAll: () -> Unit = {
+        onExpandedChange(false); onOpenGroupChange(null); openSub.clear()
+    }
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.End,
@@ -86,35 +100,70 @@ fun OptionsMenu(
         }
 
         if (expanded) {
-            entries.forEach { entry ->
-                when (entry) {
-                    is OptionMenuItem -> OptionRow(entry.icon, entry.label, entry.tint) {
-                        onExpandedChange(false)
-                        entry.onClick()
-                    }
-                    is OptionMenuGroup -> {
-                        val open = entry.id == openGroupId
-                        OptionRow(
-                            icon = entry.icon,
-                            label = entry.label,
-                            tint = entry.tint,
-                            highlighted = open,
-                            trailing = if (open) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight
-                        ) {
-                            // Acordeón: si ya estaba abierto, ciérralo; si no, ábrelo
-                            // (lo que cierra cualquier otro submenú abierto).
-                            onOpenGroupChange(if (open) null else entry.id)
-                        }
-                        if (open) {
-                            entry.items.forEach { sub ->
-                                OptionRow(sub.icon, sub.label, sub.tint, indent = true) {
-                                    onExpandedChange(false)
-                                    onOpenGroupChange(null)
-                                    sub.onClick()
-                                }
-                            }
-                        }
-                    }
+            // En horizontal la pantalla es BAJA: si el menú (con submenús anidados)
+            // crece sin límite, se sale de cuadro y choca con los controles, dejando
+            // opciones como "Centrar en jugador" fuera de alcance. Acotamos la altura
+            // al espacio disponible y lo hacemos DESPLAZABLE para que todo sea
+            // accesible sin invadir los controles.
+            val screenH = LocalConfiguration.current.screenHeightDp
+            val maxMenuH = (screenH * 0.68f).dp
+            Column(
+                modifier = Modifier
+                    .heightIn(max = maxMenuH)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                entries.forEach { entry ->
+                    OptionEntryRow(
+                        entry = entry,
+                        depth = 0,
+                        isOpen = { id, d -> if (d == 0) id == openGroupId else openSub[id] == true },
+                        toggle = { id, d ->
+                            if (d == 0) onOpenGroupChange(if (id == openGroupId) null else id)
+                            else openSub[id] = !(openSub[id] == true)
+                        },
+                        closeAll = closeAll
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Renderiza una entrada (acción o grupo) de forma RECURSIVA, soportando
+ * "menús de menús" a cualquier profundidad. El nivel 0 usa el estado de acordeón
+ * hoisteado (openGroupId); los niveles profundos usan estado interno (openSub).
+ */
+@Composable
+private fun OptionEntryRow(
+    entry: OptionEntry,
+    depth: Int,
+    isOpen: (String, Int) -> Boolean,
+    toggle: (String, Int) -> Unit,
+    closeAll: () -> Unit
+) {
+    when (entry) {
+        is OptionMenuItem -> OptionRow(entry.icon, entry.label, entry.tint, depth = depth) {
+            closeAll()
+            entry.onClick()
+        }
+        is OptionMenuGroup -> {
+            val open = isOpen(entry.id, depth)
+            OptionRow(
+                icon = entry.icon,
+                label = entry.label,
+                tint = entry.tint,
+                depth = depth,
+                highlighted = open,
+                trailing = if (open) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight
+            ) {
+                toggle(entry.id, depth)
+            }
+            if (open) {
+                entry.items.forEach { sub ->
+                    OptionEntryRow(sub, depth + 1, isOpen, toggle, closeAll)
                 }
             }
         }
@@ -126,7 +175,7 @@ private fun OptionRow(
     icon: ImageVector,
     label: String,
     tint: Color,
-    indent: Boolean = false,
+    depth: Int = 0,
     highlighted: Boolean = false,
     trailing: ImageVector? = null,
     onClick: () -> Unit
@@ -139,7 +188,7 @@ private fun OptionRow(
             )
             .border(1.dp, GOLD, RoundedCornerShape(24.dp))
             .clickable(onClick = onClick)
-            .padding(start = if (indent) 26.dp else 14.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = (14 + depth * 14).dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
