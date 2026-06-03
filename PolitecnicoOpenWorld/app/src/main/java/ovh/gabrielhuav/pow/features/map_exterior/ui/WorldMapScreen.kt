@@ -26,9 +26,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -121,6 +123,8 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadContro
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.Ps4ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_OSM
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_WEB
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
@@ -663,6 +667,8 @@ fun WorldMapScreen(
                             uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null) }
                         }
                         uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updatePlayerMarker==='function')updatePlayerMarker(${it.latitude}, ${it.longitude}, ${uiState.isUserPanningMap});", null) }
+                        // Neblina anclada al jugador (se redibuja también en cada gesto vía JS).
+                        uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof setPlayerFog==='function')setPlayerFog(${it.latitude}, ${it.longitude});", null) }
                         wv.evaluateJavascript("if(typeof setDesignerMode==='function')setDesignerMode(${uiState.isDesignerMode});", null)
                         val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
                         wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
@@ -810,7 +816,10 @@ fun WorldMapScreen(
         // mover el mapa. Ahora es INCONDICIONAL y el radio se acota al tamaño de
         // pantalla para que el anillo de neblina nunca quede fuera de cuadro (a
         // zoom bajo el radio en píxeles podía superar la pantalla y no verse).
-        run {
+        // Para OSM Nativo y proveedores Web la neblina se dibuja DENTRO del mapa
+        // (anclada a la posición real del jugador), así que aquí solo se pinta para
+        // el SDK nativo de Google, donde no hay overlay propio.
+        if (uiState.mapProvider == MapProvider.GOOGLE_MAPS_NATIVE) run {
             val fogLat = uiState.currentLocation?.latitude ?: 19.5
             val fogMpp = metersPerPixel(uiState.zoomLevel, fogLat)
             // Defensa: nunca dejar que mpp degenerado convierta el radio en Infinity/NaN
@@ -941,8 +950,27 @@ fun WorldMapScreen(
                                 add(OptionMenuItem("Acercar (zoom +)", Icons.Default.Add) { viewModel.zoomIn() })
                                 add(OptionMenuItem("Alejar (zoom −)", Icons.Default.Remove) { viewModel.zoomOut() })
                                 // Centrar en jugador: SIEMPRE disponible (antes solo al panear),
-                                // para volver al jugador en cualquier momento.
-                                add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
+                                // para volver al jugador en cualquier momento. Si el usuario ha
+                                // cambiado el zoom respecto al de juego, esta opción EVOLUCIONA a
+                                // un submenú con "Centrar en jugador" y "Hacer zoom en el jugador".
+                                run {
+                                    val defaultZoom = if (uiState.mapProvider == MapProvider.OSM) ZOOM_GAMEPLAY_OSM else ZOOM_GAMEPLAY_WEB
+                                    val isZoomed = kotlin.math.abs(uiState.zoomLevel - defaultZoom) >= 0.5
+                                    if (isZoomed) {
+                                        add(
+                                            OptionMenuGroup(
+                                                id = "centrar_jugador", label = "Centrar en jugador",
+                                                icon = Icons.Default.Person,
+                                                items = buildList {
+                                                    add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
+                                                    add(OptionMenuItem("Hacer zoom en el jugador", Icons.Default.Add, Color(0xFFD4AF37)) { viewModel.zoomToPlayer() })
+                                                }
+                                            )
+                                        )
+                                    } else {
+                                        add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
+                                    }
+                                }
                                 if (uiState.isTargetingWaypoint) {
                                     // Apuntando: confirmar o cancelar TAMBIÉN desde el menú (no
                                     // botones flotantes que tapen los controles).
@@ -1079,13 +1107,24 @@ fun WorldMapScreen(
         val sidePadding = if (isPortrait) 16.dp else 64.dp
         val bottomPadding = if (isPortrait) 48.dp else 32.dp
 
+        // En HORIZONTAL, al abrir el menú de Opciones, este (arriba a la derecha) se
+        // extiende hacia abajo y choca con el control de la derecha (D-pad/diamante).
+        // Desplazamos ese control hacia la izquierda mientras el menú está abierto para
+        // que el usuario pueda usar el menú (con su scroll) sin que tape los botones.
+        val isMenuOpenLandscape = optionsExpanded && !isPortrait
+        val rightCtrlShift by animateDpAsState(
+            targetValue = if (isMenuOpenLandscape) (-150).dp else 0.dp,
+            label = "rightCtrlShift"
+        )
+        val rightShiftMod = Modifier.offset(x = rightCtrlShift)
+
         Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             if (uiState.isDriving) {
                 // D-pad de conducción: SOLO gira (IZQ/DER). Arriba/abajo quedan inertes
                 // a propósito — gas y freno viven únicamente en el diamante PS4.
-                val drivingDpad = @Composable {
+                val drivingDpad = @Composable { m: Modifier ->
                     VehicleDPadController(
-                        modifier = Modifier.scale(effectiveScale),
+                        modifier = m.scale(effectiveScale),
                         onUp = { /* sin uso en conducción */ },
                         onDown = { /* sin uso en conducción */ },
                         onLeft = { viewModel.steerLeft(it) },
@@ -1093,9 +1132,9 @@ fun WorldMapScreen(
                     )
                 }
                 // Diamante estilo PS4: △ SALIR · ✕ gas · ○ freno · □ freno de mano.
-                val drivingActions = @Composable {
+                val drivingActions = @Composable { m: Modifier ->
                     Ps4ActionButtonsController(
-                        modifier = Modifier.scale(effectiveScale),
+                        modifier = m.scale(effectiveScale),
                         onAccelerate = { viewModel.accelerate(it) },
                         onBrake = { viewModel.brake(it) },
                         onHandbrake = { viewModel.brake(it) },
@@ -1108,15 +1147,16 @@ fun WorldMapScreen(
                         }
                     )
                 }
-                if (uiState.swapControls) { drivingActions(); drivingDpad() } else { drivingDpad(); drivingActions() }
+                // El control de la DERECHA (segundo) recibe el desplazamiento.
+                if (uiState.swapControls) { drivingActions(Modifier); drivingDpad(rightShiftMod) } else { drivingDpad(Modifier); drivingActions(rightShiftMod) }
             } else {
-                val movementComponent = @Composable {
-                    if (uiState.controlType == ControlType.DPAD) DPadController(modifier = Modifier.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
-                    else JoystickController(modifier = Modifier.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
+                val movementComponent = @Composable { m: Modifier ->
+                    if (uiState.controlType == ControlType.DPAD) DPadController(modifier = m.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
+                    else JoystickController(modifier = m.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
                 }
-                val actionComponent = @Composable {
+                val actionComponent = @Composable { m: Modifier ->
                     ActionButtonsController(
-                        modifier = Modifier.scale(effectiveScale),
+                        modifier = m.scale(effectiveScale),
                         onActionChanged = { action, isPressed ->
                             if (action == GameAction.X && isPressed) {
                                 viewModel.handleInteraction()
@@ -1135,7 +1175,8 @@ fun WorldMapScreen(
                         onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() }
                     )
                 }
-                if (uiState.swapControls) { actionComponent(); movementComponent() } else { movementComponent(); actionComponent() }
+                // El control de la DERECHA (segundo) recibe el desplazamiento.
+                if (uiState.swapControls) { actionComponent(Modifier); movementComponent(rightShiftMod) } else { movementComponent(Modifier); actionComponent(rightShiftMod) }
             }
         }
         //}

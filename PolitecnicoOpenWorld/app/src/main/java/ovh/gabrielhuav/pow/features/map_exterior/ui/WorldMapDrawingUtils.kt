@@ -7,7 +7,9 @@ import android.content.Context
     val canvas = android.graphics.Canvas(mutableBitmap)
     val paint = android.graphics.Paint()
     val barWidth = mutableBitmap.width * 0.95f
-    val barHeight = 10f
+    // Ligeramente más alta (antes 10f): al escalar el sprite la barra quedaba casi
+    // invisible cuando golpeas a un NPC. Subida pequeña para que se note sin estorbar.
+    val barHeight = 18f
     val left = (mutableBitmap.width - barWidth) / 2f
     val top = 0f
     paint.color = android.graphics.Color.BLACK
@@ -66,4 +68,4 @@ fun getAssetFile(context: Context, assetPath: String, fileName: String): java.io
         }
     }
     return file
-}
+}

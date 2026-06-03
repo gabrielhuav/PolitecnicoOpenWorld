@@ -160,13 +160,20 @@ internal fun NativeOsmMap(
                 // (descarga con UA de navegador + persiste). Arregla que el nativo
                 // no cargara zonas nuevas y permite juego 100% offline tras visitar.
                 try {
+                    val roomModule = ovh.gabrielhuav.pow.data.cache.RoomTileModuleProvider(
+                        ctx.applicationContext, viewModel.tileCache
+                    )
+                    // OVER-ZOOM: osmdroid no puede pedir teselas reales por encima de z19
+                    // (máximo de OSM). El aproximador escala las teselas de z19 ya
+                    // descargadas para rellenar z20–22, de modo que el zoom extra no deje
+                    // el mapa en blanco. Por eso la pantalla de carga descarga z19.
+                    val approximater = org.osmdroid.tileprovider.modules.MapTileApproximater()
+                    approximater.addProvider(roomModule)
                     val roomProvider = org.osmdroid.tileprovider.MapTileProviderArray(
                         TileSourceFactory.MAPNIK,
                         null,
                         arrayOf<org.osmdroid.tileprovider.modules.MapTileModuleProviderBase>(
-                            ovh.gabrielhuav.pow.data.cache.RoomTileModuleProvider(
-                                ctx.applicationContext, viewModel.tileCache
-                            )
+                            roomModule, approximater
                         )
                     )
                     roomProvider.setTileSource(TileSourceFactory.MAPNIK)
@@ -174,6 +181,14 @@ internal fun NativeOsmMap(
                 } catch (_: Exception) {}
                 setUseDataConnection(true)
                 setMultiTouchControls(true)
+                // ─── ZOOM EXTENDIDO (OVER-ZOOM) ─────────────────────────────
+                // Por defecto osmdroid limita el zoom al máximo de la fuente de
+                // teselas (MAPNIK = 19), por eso "topaba" y el personaje se veía
+                // muy pequeño. Subimos el techo a 22 (igual que el estado del
+                // ViewModel y que las versiones Web) para poder acercarse más;
+                // osmdroid escala las teselas de mayor nivel disponible.
+                setMaxZoomLevel(22.0)
+                setMinZoomLevel(14.0)
                 // Ocultar los botones de zoom NATIVOS de osmdroid: el zoom vive solo
                 // en el menú anidado (Mapa → Acercar/Alejar). Evita botones duplicados.
                 try {
@@ -192,6 +207,12 @@ internal fun NativeOsmMap(
                 })
                 setBackgroundColor(android.graphics.Color.parseColor("#0D0D11"))
                 controller.setZoom(uiState.zoomLevel)
+                // NEBLINA (fog of war) ANCLADA AL JUGADOR: como overlay del mapa, se
+                // proyecta sobre la posición real del jugador y por tanto NO se queda
+                // pegada al centro de la pantalla al hacer scroll/zoom.
+                val fog = FogOverlay()
+                overlays.add(fog)
+                setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 600, fog)
                 nativeMapRef.value = this
             }
         },
@@ -354,8 +375,9 @@ internal fun NativeOsmMap(
                             if (npc.visualConfig != null) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
 
-                                // 🧍 TAMAÑO REAL DEL PEATÓN: ~0.9 metros de espacio personal
-                                val exactPixels = ((0.9 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(8)
+                                // 🧍 TAMAÑO DEL PEATÓN: algo mayor que el real (1.3 m) para que
+                                // los humanos se vean bien y no diminutos.
+                                val exactPixels = ((1.3 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(12)
 
                                 val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                 val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
@@ -378,8 +400,9 @@ internal fun NativeOsmMap(
                                 marker.rotation = 0f
 
                             } else if (npc.type == NpcType.CAR) {
-                                // TAMAÑO DEL AUTO
-                                val exactPixels = ((2.5 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(10)
+                                // TAMAÑO DEL AUTO: ampliado (4.0 m) porque se veían demasiado
+                                // pequeños respecto al jugador y los peatones.
+                                val exactPixels = ((4.0 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(16)
 
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
@@ -717,6 +740,52 @@ internal fun NativeOsmMap(
                 // Fuera de modo disenador / sin puntos: ocultar la linea de depuracion.
                 (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 300 }) as? Polyline)?.isEnabled = false
             }
+
+            // ─── NEBLINA ANCLADA AL JUGADOR ─────────────────────────────────────
+            (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 600) as? FogOverlay)?.let { fog ->
+                fog.player = uiState.currentLocation
+                val lat = uiState.currentLocation?.latitude ?: 19.5
+                val mpp = metersPerPixel(view.zoomLevelDouble, lat)
+                fog.revealPx = if (mpp.isFinite() && mpp > 0.0)
+                    (NPC_FOG_VISION_METERS / mpp).toFloat() else 300f
+                // Mantener la neblina SIEMPRE al frente (los marcadores se añaden después).
+                view.overlays.remove(fog); view.overlays.add(fog)
+                view.invalidate()
+            }
         }
     )
+}
+
+/**
+ * Overlay de osmdroid que pinta la neblina (fog of war) centrada en la posición
+ * GEOGRÁFICA del jugador. Al proyectarla en cada frame, la zona despejada sigue
+ * al jugador durante scroll y zoom en vez de quedarse fija al centro de pantalla.
+ */
+private class FogOverlay : Overlay() {
+    var player: GeoPoint? = null
+    var revealPx: Float = 300f
+    private val paint = android.graphics.Paint().apply { isAntiAlias = true }
+
+    override fun draw(c: android.graphics.Canvas, pProjection: org.osmdroid.views.Projection) {
+        val pl = player ?: return
+        val pt = pProjection.toPixels(pl, null)
+        val maxReveal = Math.min(c.width, c.height) * 0.40f
+        val reveal = revealPx.coerceIn(40f, if (maxReveal > 40f) maxReveal else 40f)
+        val outer = reveal * 1.8f
+        val stop = (reveal / outer).coerceIn(0f, 0.99f)
+        paint.shader = android.graphics.RadialGradient(
+            pt.x.toFloat(), pt.y.toFloat(), outer,
+            intArrayOf(0x00000000, 0x00000000, 0x80222A33.toInt()),
+            floatArrayOf(0f, stop, 1f),
+            android.graphics.Shader.TileMode.CLAMP
+        )
+        // En modo conducción el lienzo del mapa está ROTADO (mapOrientation). Un
+        // rect del tamaño exacto de pantalla dejaría huecos triangulares en las
+        // esquinas al girar. Lo sobredimensionamos a la diagonal (centrado) para
+        // cubrir la pantalla en cualquier ángulo de rotación.
+        val w = c.width.toFloat(); val h = c.height.toFloat()
+        val diag = sqrt(w * w + h * h)
+        val cx = w / 2f; val cy = h / 2f
+        c.drawRect(cx - diag, cy - diag, cx + diag, cy + diag, paint)
+    }
 }

@@ -7,11 +7,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -96,17 +100,32 @@ fun OptionsMenu(
         }
 
         if (expanded) {
-            entries.forEach { entry ->
-                OptionEntryRow(
-                    entry = entry,
-                    depth = 0,
-                    isOpen = { id, d -> if (d == 0) id == openGroupId else openSub[id] == true },
-                    toggle = { id, d ->
-                        if (d == 0) onOpenGroupChange(if (id == openGroupId) null else id)
-                        else openSub[id] = !(openSub[id] == true)
-                    },
-                    closeAll = closeAll
-                )
+            // En horizontal la pantalla es BAJA: si el menú (con submenús anidados)
+            // crece sin límite, se sale de cuadro y choca con los controles, dejando
+            // opciones como "Centrar en jugador" fuera de alcance. Acotamos la altura
+            // al espacio disponible y lo hacemos DESPLAZABLE para que todo sea
+            // accesible sin invadir los controles.
+            val screenH = LocalConfiguration.current.screenHeightDp
+            val maxMenuH = (screenH * 0.68f).dp
+            Column(
+                modifier = Modifier
+                    .heightIn(max = maxMenuH)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                entries.forEach { entry ->
+                    OptionEntryRow(
+                        entry = entry,
+                        depth = 0,
+                        isOpen = { id, d -> if (d == 0) id == openGroupId else openSub[id] == true },
+                        toggle = { id, d ->
+                            if (d == 0) onOpenGroupChange(if (id == openGroupId) null else id)
+                            else openSub[id] = !(openSub[id] == true)
+                        },
+                        closeAll = closeAll
+                    )
+                }
             }
         }
     }

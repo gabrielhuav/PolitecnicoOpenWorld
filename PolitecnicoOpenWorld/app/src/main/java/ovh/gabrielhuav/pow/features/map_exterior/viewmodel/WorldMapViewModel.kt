@@ -734,7 +734,10 @@ class WorldMapViewModel(
     }
 
     fun moveCharacter(direction: Direction) {
-        if (_uiState.value.isUserPanningMap) return
+        // Si el mapa está descentrado (exploración), el primer toque de los controles
+        // de movimiento (izquierda) recentra en el jugador (SIN cambiar el zoom) en vez
+        // de moverlo a ciegas fuera de cuadro.
+        if (_uiState.value.isUserPanningMap) { centerOnPlayer(); return }
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
         val isMovingRight = when (direction) {
@@ -767,7 +770,8 @@ class WorldMapViewModel(
     }
 
     fun moveCharacterByAngle(angleRad: Double) {
-        if (_uiState.value.isUserPanningMap) return
+        // Igual que moveCharacter: con el mapa descentrado, recentrar en el jugador (sin zoom).
+        if (_uiState.value.isUserPanningMap) { centerOnPlayer(); return }
         val loc = _uiState.value.currentLocation ?: return
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
 
@@ -1072,12 +1076,21 @@ class WorldMapViewModel(
         mapPrepStarted = true
         viewModelScope.launch {
             val provider = _uiState.value.mapProvider
-            if (!provider.isWebProvider) {
-                // OSMDroid offline / SDK nativo: tiles locales, progreso rápido.
+            if (provider == MapProvider.GOOGLE_MAPS_NATIVE) {
+                // SDK nativo de Google: las teselas las gestiona el SDK; progreso breve.
                 for (i in 1..10) {
                     _uiState.update { it.copy(mapLoadProgress = i / 10f) }
                     delay(70)
                 }
+                _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
+                return@launch
+            }
+            if (provider == MapProvider.OSM) {
+                // OSM Nativo: descargar de VERDAD las teselas alrededor del jugador a
+                // nivel MÁXIMO real (z19) y a un nivel MEDIO (z17) para que el mapa esté
+                // listo y nítido al instante (incluido el over-zoom 20–22, que se escala
+                // a partir de z19). Antes solo se simulaba progreso y por eso "no cargaba".
+                downloadOsmNativeForEntry()
                 _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
                 return@launch
             }
@@ -1135,6 +1148,12 @@ class WorldMapViewModel(
             for (i in 1..6) { _uiState.update { it.copy(mapLoadProgress = i / 6f) }; delay(60) }
             return@withContext
         }
+        if (provider == MapProvider.OSM) {
+            // OSM Nativo tras teletransporte: misma estrategia que la entrada (z19 + z17)
+            // para que la nueva zona quede nítida y lista para el over-zoom.
+            downloadOsmNativeForEntry()
+            return@withContext
+        }
         val z = if (provider.isWebProvider) ZOOM_GAMEPLAY_WEB.toInt() else 18
         val n = 1 shl z
         val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
@@ -1162,6 +1181,46 @@ class WorldMapViewModel(
             done++
             _uiState.update { it.copy(mapLoadProgress = done.toFloat() / total) }
         }
+    }
+
+    // ─── PREFETCH OSM NATIVO (pantalla de carga) ──────────────────────────────
+    // Descarga y persiste en Room (bucket "osm", mismo esquema de clave que
+    // RoomTileModuleProvider) un vecindario alrededor del jugador en DOS niveles:
+    //  - z19 (máximo real de OSM): nitidez y base para el over-zoom 20–22.
+    //  - z17 (medio): respaldo para alejar y para que el over-zoom tenga de dónde
+    //    escalar aunque falte algún z19 puntual.
+    private suspend fun downloadOsmNativeForEntry() = withContext(Dispatchers.IO) {
+        val loc = _uiState.value.currentLocation
+            ?: run { _uiState.update { it.copy(mapLoadProgress = 1f) }; return@withContext }
+        // (zoom, radio en teselas). z19 con radio 2 (5x5) cubre la zona inmediata;
+        // z17 con radio 1 (3x3) da contexto al alejar.
+        val plan = listOf(19 to 2, 17 to 1)
+        val total = plan.sumOf { (_, r) -> (2 * r + 1) * (2 * r + 1) }
+        var done = 0
+        for ((z, r) in plan) {
+            if (!isActive) break
+            val n = 1 shl z
+            val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
+            val latRad = Math.toRadians(loc.latitude)
+            val yC = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n).toInt()
+            for (dx in -r..r) for (dy in -r..r) {
+                if (!isActive) break
+                val x = (xC + dx).coerceIn(0, n - 1)
+                val y = (yC + dy).coerceIn(0, n - 1)
+                cacheOsmTileToRoom(z, x, y)
+                done++
+                _uiState.update { it.copy(mapLoadProgress = (done.toFloat() / total).coerceIn(0f, 1f)) }
+            }
+        }
+    }
+
+    /** Descarga (si falta) un tile OSM canónico y lo guarda en Room bucket "osm". */
+    private fun cacheOsmTileToRoom(z: Int, x: Int, y: Int) {
+        val url = "https://tile.openstreetmap.org/$z/$x/$y.png"
+        val key = sha256Hex(url)
+        if (tileCache.getTileByUrl("osm", key) != null) return
+        val bytes = downloadTileBytes(url)
+        if (bytes != null && bytes.isNotEmpty()) tileCache.putTileByUrl("osm", key, bytes)
     }
 
     private fun downloadTileBytes(url: String): ByteArray? {
@@ -1205,6 +1264,9 @@ class WorldMapViewModel(
     }
 
     fun centerOnPlayer() { _uiState.update { it.copy(isUserPanningMap = false) } }
+
+    /** Centra en el jugador Y acerca al máximo nivel de zoom permitido. */
+    fun zoomToPlayer() { _uiState.update { it.copy(isUserPanningMap = false, zoomLevel = 22.0) } }
 
     fun onMapPanStart() { _uiState.update { it.copy(isUserPanningMap = true) } }
     fun onMapPanEnd() { }
@@ -1499,7 +1561,9 @@ class WorldMapViewModel(
     }
 
     private fun spawnOustedDriver(carLocation: GeoPoint) {
-        val offsetLoc = GeoPoint(carLocation.latitude + 0.00005, carLocation.longitude + 0.00005)
+        // El conductor desalojado aparece JUNTO al coche (~2 m), como si se bajara por
+        // la puerta, en vez de a ~7 m de distancia (que se veía poco realista).
+        val offsetLoc = GeoPoint(carLocation.latitude + 0.00002, carLocation.longitude + 0.00002)
         val randomHairId = (1..5).random()
         val randomHairColor = listOf(
             androidx.compose.ui.graphics.Color.Black,

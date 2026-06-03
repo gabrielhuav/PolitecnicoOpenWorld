@@ -11,7 +11,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 const val ZOOM_LOADING = 18.0
-const val ZOOM_GAMEPLAY_OSM = 20.0  // Nivel de zoom para OSMDroid Nativo
+const val ZOOM_GAMEPLAY_OSM = 22.0  // Nivel de zoom para OSMDroid Nativo (máximo por defecto)
 const val ZOOM_GAMEPLAY_WEB = 19.0  // Nivel de zoom para los proveedores Web
 
 enum class MapProvider(val displayName: String) {
