@@ -255,6 +255,15 @@ class MetroInteriorViewModel(
             "anden" -> {
                 _state.update { it.copy(showMetroMap = true) }
             }
+            "salir_torniquetes" -> {
+                // Mover al jugador hacia arriba de los torniquetes (zona sin ticket)
+                val currentY = _state.value.playerY
+                _state.update { it.copy(playerY = (currentY - 0.15f).coerceAtLeast(0f)) }
+            }
+            "salida" -> {
+                // Señaliza al Screen que debe ejecutar onExit
+                _state.update { it.copy(exitStationRequested = true) }
+            }
             else -> {
                 _state.update { it.copy(messageToast = "Interacción con ${door.label}") }
                 viewModelScope.launch {
@@ -267,6 +276,11 @@ class MetroInteriorViewModel(
 
     fun closeMetroMap() {
         _state.update { it.copy(showMetroMap = false) }
+    }
+
+    /** Consume la solicitud de salida después de que el Screen haya llamado onExit. */
+    fun consumeExitStation() {
+        _state.update { it.copy(exitStationRequested = false) }
     }
 
     // --- DISEÑADOR ---
