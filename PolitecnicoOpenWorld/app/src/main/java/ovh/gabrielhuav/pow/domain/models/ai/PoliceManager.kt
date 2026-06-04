@@ -33,12 +33,12 @@ class PoliceManager {
         const val SPAWN_RING = 0.0024          // ~265 m: aparecen claramente lejos
         const val ARRIVE_DIST = 0.00045        // ~50 m: al llegar (a pie) se bajan los policías
         const val CAR_SPEED = 0.0000185        // por tick (apenas más rápido que tu auto)
-        const val COP_SPEED = 0.0000044        // por tick: más lento que correr → escapas a pie
+        const val COP_SPEED = 0.0000038        // por tick: caminan algo lento → escapas a pie
         const val COP_STOP_DIST = 0.000018
-        const val PUNCH_DIST = 0.00006
+        const val PUNCH_DIST = 0.00003         // ~3 m: solo te pegan si están JUSTO a tu lado
         const val PUNCH_DAMAGE = 5f
         const val PUNCH_COOLDOWN_MS = 1400L
-        const val SHOOT_RANGE = 0.0007
+        const val SHOOT_RANGE = 0.0002         // ~22 m: disparan solo si están bastante cerca
         const val SHOOT_DAMAGE = 4f
         const val SHOOT_COOLDOWN_MS = 2400L
         const val CAR_SPAWN_COOLDOWN_MS = 3000L
@@ -46,6 +46,15 @@ class PoliceManager {
         const val BOARD_DIST = 0.0001          // ~11 m: el policía llegó a su patrulla y se sube
         const val RECALL_DIST = 0.0006         // ~65 m: si te alejas tanto, el policía vuelve al coche
         const val RETREAT_DESPAWN = 0.0026     // ~290 m: al retirarse, desaparecen pasando esto
+
+        // ─── Pathfinding de patrullas (rutas por la red de calles) ───────────────
+        const val ROUTE_TTL_MS = 1500L         // recalcular la ruta hacia ti cada ~1.5 s
+        const val STUCK_TIME_MS = 1500L        // si no avanza 1.5 s, se considera atascada
+        const val STUCK_EPS = 0.00002          // ~2 m: umbral para detectar que no se movió
+        const val WAYPOINT_REACH = 0.00012     // ~13 m: distancia para pasar al siguiente nodo
+        const val PROGRESS_CHECK_MS = 6000L    // cada cuánto se evalúa si AVANZA hacia ti
+        const val MIN_PROGRESS = 0.00025       // ~28 m: si no se acercó al menos esto, da vueltas
+        const val DETOUR_DIST = 0.0013         // ~145 m: a qué distancia se manda el desvío
 
         fun desiredCarsFor(wantedLevel: Int): Int = when (wantedLevel) {
             0 -> 0; 1 -> 1; 2 -> 2; 3 -> 4; 4 -> 6; else -> MAX_CARS
@@ -57,7 +66,8 @@ class PoliceManager {
         val damage: Float,
         val impact: Boolean,
         val destroyedIds: List<String>,
-        val adjacentThreat: Boolean   // policía a pie pegado a tu auto → posible carjack
+        val adjacentThreat: Boolean,  // policía a pie pegado a tu auto → posible carjack
+        val shots: List<Pair<GeoPoint, GeoPoint>> = emptyList() // disparos (origen→jugador) para dibujar la bala
     )
 
     private val units = ConcurrentHashMap<String, Npc>()
@@ -65,12 +75,91 @@ class PoliceManager {
     private val shootCooldowns = ConcurrentHashMap<String, Long>()
     @Volatile private var lastCarSpawn = 0L
 
+    // Estado de ruta por patrulla (pathfinding sobre la red de calles).
+    private val carRoute = ConcurrentHashMap<String, List<GeoPoint>>()
+    private val carRouteIdx = ConcurrentHashMap<String, Int>()
+    private val carRouteTime = ConcurrentHashMap<String, Long>()
+    private val carStuckPos = ConcurrentHashMap<String, GeoPoint>()
+    private val carStuckSince = ConcurrentHashMap<String, Long>()
+    // Detección de "dar vueltas sin progresar" + desvío forzado por otra ruta.
+    private val progressDist = ConcurrentHashMap<String, Double>()
+    private val progressTime = ConcurrentHashMap<String, Long>()
+    private val detour = ConcurrentHashMap<String, GeoPoint>()
+
+    private fun forgetCar(id: String) {
+        carRoute.remove(id); carRouteIdx.remove(id); carRouteTime.remove(id)
+        carStuckPos.remove(id); carStuckSince.remove(id)
+        progressDist.remove(id); progressTime.remove(id); detour.remove(id)
+    }
+
     fun activeUnits(): List<Npc> = units.values.toList()
+
+    // El jugador golpea: daña a los policías a pie dentro del radio. Devuelve los ids de
+    // los que cayeron (para difundir POLICE_DESTROY). Las patrullas no se dañan a golpes.
+    fun playerHitPolice(lat: Double, lon: Double, radius: Double, damage: Float): List<String> {
+        val destroyed = ArrayList<String>()
+        for (u in units.values.toList()) {
+            if (u.type != NpcType.POLICE_COP) continue
+            if (dist(u.location.latitude, u.location.longitude, lat, lon) > radius) continue
+            val nh = (u.health - damage).coerceAtLeast(0f)
+            if (nh <= 0f) { units.remove(u.id); destroyed.add(u.id) }
+            else units[u.id] = u.copy(health = nh)
+        }
+        return destroyed
+    }
 
     fun clearAll(): List<String> {
         val ids = units.keys.toList()
         units.clear(); punchCooldowns.clear(); shootCooldowns.clear()
+        carRoute.clear(); carRouteIdx.clear(); carRouteTime.clear()
+        carStuckPos.clear(); carStuckSince.clear()
         return ids
+    }
+
+    // Avanza una unidad (patrulla o policía) hacia un objetivo siguiendo una RUTA por la
+    // red de calles (pathfinding), recalculada periódicamente. Si se atasca (no avanza en
+    // STUCK_TIME_MS) va DIRECTO al objetivo sin snap durante un momento para despegarse, y
+    // recalcula la ruta — así nunca se queda pegada pero tampoco vaga por los edificios.
+    // Sigue la RUTA del A* como una polilínea, SIN snap: los nodos de la ruta ya están
+    // sobre las calles y los tramos entre nodos consecutivos son segmentos de calle
+    // reales, así que avanzar en línea de nodo a nodo mantiene a la unidad SOBRE la calle
+    // y SIEMPRE progresa hacia ti (no se atasca ni oscila por el ajuste a la calle).
+    private fun advanceAlong(
+        unit: Npc, tLat: Double, tLon: Double, speed: Double, now: Long,
+        snap: ((GeoPoint) -> GeoPoint)?, pathfind: ((GeoPoint, GeoPoint) -> List<GeoPoint>)?
+    ): Pair<GeoPoint, Float> {
+        val id = unit.id
+
+        // (Re)calcular la ruta si no hay, está vacía, o caducó (el objetivo se mueve).
+        val route0 = carRoute[id]
+        val needRoute = pathfind != null &&
+            (route0 == null || route0.isEmpty() || now - (carRouteTime[id] ?: 0L) > ROUTE_TTL_MS)
+        if (needRoute && pathfind != null) {
+            carRoute[id] = pathfind(unit.location, GeoPoint(tLat, tLon))
+            carRouteIdx[id] = 0
+            carRouteTime[id] = now
+        }
+
+        val route = carRoute[id]
+        if (route == null || route.size < 3) {
+            // Sin ruta real del A* (objetivo sin conexión): nos pegamos a la calle con snap
+            // para NO atravesar edificios mientras nos acercamos en línea.
+            return stepOnRoad(unit.location, tLat, tLon, speed, snap)
+        }
+
+        // Avanza el cursor saltando los nodos ya alcanzados (deja el último como meta final).
+        val reach = maxOf(WAYPOINT_REACH, speed * 4.0)
+        var idx = (carRouteIdx[id] ?: 0).coerceIn(0, route.size - 1)
+        while (idx < route.size - 1 &&
+            dist(unit.location.latitude, unit.location.longitude, route[idx].latitude, route[idx].longitude) < reach) {
+            idx++
+        }
+        carRouteIdx[id] = idx
+        val wp = route[idx]
+        // Apuntamos al SIGUIENTE nodo de la ruta (que ya está sobre la calle) y además
+        // hacemos snap: como el objetivo va por la calle, el snap mantiene a la unidad
+        // SOBRE el asfalto (no vuela edificios) sin el rebote/atasco de antes.
+        return stepOnRoad(unit.location, wp.latitude, wp.longitude, speed, snap)
     }
 
     // Avanza desde 'from' hacia (toLat,toLon) a 'speed', ajustando el resultado a la calle
@@ -100,7 +189,8 @@ class PoliceManager {
         canShoot: Boolean,
         playerInVehicle: Boolean,
         now: Long,
-        snap: ((GeoPoint) -> GeoPoint)? = null
+        snap: ((GeoPoint) -> GeoPoint)? = null,
+        pathfind: ((GeoPoint, GeoPoint) -> List<GeoPoint>)? = null
     ): PoliceTick {
         // ─── RETIRADA ───────────────────────────────────────────────────────────
         if (wantedLevel <= 0) {
@@ -110,7 +200,7 @@ class PoliceManager {
                 val dLat = unit.location.latitude - playerLat
                 val dLon = unit.location.longitude - playerLon
                 if (sqrt(dLat * dLat + dLon * dLon) > RETREAT_DESPAWN) {
-                    units.remove(unit.id); destroyed.add(unit.id); continue
+                    units.remove(unit.id); forgetCar(unit.id); destroyed.add(unit.id); continue
                 }
                 // Objetivo: un punto lejos del jugador (en su misma dirección de huida).
                 val spd = if (unit.type == NpcType.POLICE_CAR) CAR_SPEED else COP_SPEED
@@ -126,6 +216,7 @@ class PoliceManager {
         var damage = 0f
         var impact = false
         var adjacent = false
+        val shots = ArrayList<Pair<GeoPoint, GeoPoint>>()
 
         // ─── ESTADO DE LOS POLICÍAS SEGÚN TU VEHÍCULO ────────────────────────────
         // En coche: si te alejas mucho de un policía a pie, vuelve a su patrulla; si está
@@ -170,7 +261,8 @@ class PoliceManager {
                         val numCops = Random.nextInt(2, 4)
                         repeat(numCops) { i -> makeCop(unit, i, unit.policeCanShoot).let { units[it.id] = it } }
                     } else {
-                        val (loc, rot) = stepOnRoad(unit.location, playerLat, playerLon, CAR_SPEED, snap)
+                        // Persecución con RUTA por las calles (pathfinding + anti-atasco).
+                        val (loc, rot) = advanceAlong(unit, playerLat, playerLon, CAR_SPEED, now, snap, pathfind)
                         units[unit.id] = unit.copy(location = loc, rotationAngle = rot, isMoving = true)
                     }
                 }
@@ -185,8 +277,9 @@ class PoliceManager {
                                 car.location.latitude, car.location.longitude)
                             if (cDist <= BOARD_DIST) { units.remove(unit.id); destroyed.add(unit.id) }
                             else {
-                                val (loc, rot) = stepOnRoad(unit.location,
-                                    car.location.latitude, car.location.longitude, COP_SPEED, snap)
+                                // Vuelven a la patrulla por la calle (ruta + anti-atasco).
+                                val (loc, rot) = advanceAlong(unit,
+                                    car.location.latitude, car.location.longitude, COP_SPEED, now, snap, pathfind)
                                 units[unit.id] = unit.copy(location = loc, rotationAngle = rot, isMoving = true)
                             }
                         }
@@ -195,7 +288,9 @@ class PoliceManager {
 
                     val dist = dist(unit.location.latitude, unit.location.longitude, playerLat, playerLon)
                     if (dist > COP_STOP_DIST) {
-                        val (loc, rot) = stepOnRoad(unit.location, playerLat, playerLon, COP_SPEED, snap)
+                        // Persiguen por la calle (ruta + anti-atasco): no atraviesan edificios
+                        // pero tampoco se quedan trabados.
+                        val (loc, rot) = advanceAlong(unit, playerLat, playerLon, COP_SPEED, now, snap, pathfind)
                         units[unit.id] = unit.copy(location = loc, rotationAngle = rot, isMoving = true)
                     } else {
                         units[unit.id] = unit.copy(isMoving = false)
@@ -211,10 +306,13 @@ class PoliceManager {
                                 punchCooldowns[unit.id] = now; damage += PUNCH_DAMAGE; impact = true
                             }
                         }
-                        if (unit.policeCanShoot && dist > PUNCH_DIST && dist <= SHOOT_RANGE) {
+                        // canShoot es el nivel ACTUAL (≥3 estrellas), no el que tenía al
+                        // aparecer: así no te disparan al bajar de estrellas ni con 1★.
+                        if (canShoot && dist > PUNCH_DIST && dist <= SHOOT_RANGE) {
                             val last = shootCooldowns[unit.id] ?: 0L
                             if (now - last >= SHOOT_COOLDOWN_MS) {
                                 shootCooldowns[unit.id] = now; damage += SHOOT_DAMAGE; impact = true
+                                shots.add(unit.location to GeoPoint(playerLat, playerLon)) // bala visible
                             }
                         }
                     }
@@ -223,7 +321,7 @@ class PoliceManager {
             }
         }
 
-        return PoliceTick(units.values.toList(), damage, impact, destroyed, adjacent)
+        return PoliceTick(units.values.toList(), damage, impact, destroyed, adjacent, shots)
     }
 
     private fun dist(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {

@@ -13,6 +13,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
@@ -91,18 +93,22 @@ fun PlayerCharacter(
             exit = fadeOut(animationSpec = tween(1000)),
             modifier = Modifier.offset(y = (-10).dp)
         ) {
+            // Barra manual (Box) en vez de LinearProgressIndicator: el indicador de
+            // Material dibuja extremos REDONDEADOS y a vida baja quedaba como una "bolita"
+            // de color. Con un relleno recto se ve como una barra real. Tamaño reducido
+            // para igualar al de los NPCs.
             Box(
                 modifier = Modifier
-                    .width(40.dp)
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(Color.Black.copy(alpha = 0.5f))
+                    .width(32.dp)
+                    .height(5.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.Black.copy(alpha = 0.55f))
             ) {
-                LinearProgressIndicator(
-                    progress = health / 100f,
-                    modifier = Modifier.fillMaxSize(),
-                    color = healthColor,
-                    trackColor = Color.Transparent
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth((health / 100f).coerceIn(0f, 1f))
+                        .background(healthColor)
                 )
             }
         }

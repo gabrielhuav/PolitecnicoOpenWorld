@@ -80,5 +80,9 @@ data class Npc(
     // Id de la patrulla a la que pertenece este policía (para volver a subirse a ella).
     val policeCarId: String? = null,
     // El policía va corriendo de regreso a su patrulla (porque te subiste a un coche).
-    val policeReturning: Boolean = false
+    val policeReturning: Boolean = false,
+
+    // Mientras now < callingUntil, el NPC muestra un 📞 (está "llamando a la policía"),
+    // p. ej. el conductor al que le robaste el coche.
+    val callingUntil: Long = 0L
 )
