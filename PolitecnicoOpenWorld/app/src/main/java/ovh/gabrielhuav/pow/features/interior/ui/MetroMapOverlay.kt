@@ -1,5 +1,14 @@
 package ovh.gabrielhuav.pow.features.interior.ui
 
+import android.net.Uri
+import android.media.MediaPlayer
+import android.view.Surface
+import android.view.TextureView
+import android.graphics.SurfaceTexture
+import android.graphics.Matrix
+import androidx.compose.ui.viewinterop.AndroidView
+import java.io.File
+
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -78,12 +87,21 @@ fun MetroMapOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1E1E1E))
+            .background(Color.Black)
     ) {
+        // Reproductor de video inmersivo de fondo
+        LoopingVideoPlayer(
+            assetFileName = "metroCDMX/video.mp4",
+            modifier = Modifier.fillMaxSize()
+        )
+
         if (mapBitmap != null) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth(0.75f)
+                    .fillMaxHeight(0.7f)
+                    .align(Alignment.Center)
+                    .clip(RoundedCornerShape(16.dp))
                     .pointerInput(state.mapDesignerMode, state.mapDesignerMoveMode) {
                         detectTransformGestures { _, pan, zoom, _ ->
                             scale = (scale * zoom).coerceIn(1f, 5f)
@@ -356,5 +374,93 @@ fun AddStationDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun LoopingVideoPlayer(assetFileName: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    
+    // Copy the asset file to cache if it doesn't exist
+    val cacheFile = remember(assetFileName) {
+        val file = File(context.cacheDir, assetFileName.replace("/", "_"))
+        if (!file.exists()) {
+            try {
+                context.assets.open(assetFileName).use { inputStream ->
+                    file.outputStream().use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        file
+    }
+
+    if (cacheFile.exists()) {
+        AndroidView(
+            factory = { ctx ->
+                TextureView(ctx).apply {
+                    // Store view and video dims separately; apply matrix when both are known
+                    var viewW = 0
+                    var viewH = 0
+                    var vidW = 0
+                    var vidH = 0
+
+                    fun applyFitHeightMatrix() {
+                        if (viewW <= 0 || viewH <= 0 || vidW <= 0 || vidH <= 0) return
+                        // TextureView stretches video to viewW x viewH by default.
+                        // Correction: scaleX = (vidW/vidH * viewH) / viewW  →  keeps height full, width proportional.
+                        val scaleX = (vidW.toFloat() * viewH) / (vidH.toFloat() * viewW)
+                        val matrix = Matrix()
+                        matrix.setScale(scaleX, 1f, viewW / 2f, viewH / 2f)
+                        setTransform(matrix)
+                    }
+
+                    surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                        var mediaPlayer: MediaPlayer? = null
+
+                        override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                            viewW = width
+                            viewH = height
+                            mediaPlayer = MediaPlayer().apply {
+                                setDataSource(ctx, Uri.fromFile(cacheFile))
+                                setSurface(Surface(surface))
+                                isLooping = true
+                                setVolume(0f, 0f)
+                                setOnVideoSizeChangedListener { _, vWidth, vHeight ->
+                                    vidW = vWidth
+                                    vidH = vHeight
+                                    applyFitHeightMatrix()
+                                }
+                                setOnPreparedListener { mp ->
+                                    // Also grab dims from prepared in case size event already fired
+                                    if (vidW == 0) { vidW = mp.videoWidth; vidH = mp.videoHeight }
+                                    applyFitHeightMatrix()
+                                    mp.start()
+                                }
+                                prepareAsync()
+                            }
+                        }
+
+                        override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+                            viewW = width
+                            viewH = height
+                            applyFitHeightMatrix()
+                        }
+
+                        override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                            mediaPlayer?.release()
+                            mediaPlayer = null
+                            return true
+                        }
+
+                        override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+                    }
+                }
+            },
+            modifier = modifier
+        )
     }
 }
