@@ -1410,6 +1410,38 @@ class WorldMapViewModel(
                     entities = dao.getAllLandmarks()
                 }
 
+                // Backfill: inserta las puertas del Deportivo Miguel Alemán si no existen
+                var backfillNeeded = false
+                if (entities.none { it.name == "Entrada Campo Béisbol" }) {
+                    dao.insertLandmark(
+                        LandmarkEntity(
+                            name = "Entrada Campo Béisbol",
+                            latitude = 19.494200,
+                            longitude = -99.129200,
+                            assetPath = "DOORS/ESCOM_DOOR.webp",
+                            scaleFactor = 0.60f,
+                            rotationAngle = 0.0f
+                        )
+                    )
+                    backfillNeeded = true
+                }
+                if (entities.none { it.name == "Entrada Campo Fútbol" }) {
+                    dao.insertLandmark(
+                        LandmarkEntity(
+                            name = "Entrada Campo Fútbol",
+                            latitude = 19.492800,
+                            longitude = -99.127800,
+                            assetPath = "DOORS/ESCOM_DOOR.webp",
+                            scaleFactor = 0.60f,
+                            rotationAngle = 0.0f
+                        )
+                    )
+                    backfillNeeded = true
+                }
+                if (backfillNeeded) {
+                    entities = dao.getAllLandmarks()
+                }
+
                 val templatesByAssetPath = LandmarkCatalogManager.availableAssets.associateBy { it.assetPath }
 
                 // Cargamos el navGraph de ESCOM en memoria si no está cargado.
@@ -2237,7 +2269,12 @@ class WorldMapViewModel(
                 }
             }
             nearby.id.startsWith("escom_door_") -> {
-                _uiState.update { it.copy(showEscomDoorFade = true) }
+                val targetRoute = when (nearby.name) {
+                    "Entrada Campo Béisbol" -> "interior_deportivo_beis"
+                    "Entrada Campo Fútbol" -> "interior_deportivo_futbol"
+                    else -> "zombie_minigame"
+                }
+                _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }
             }
             nearby.id == ShineCTOLocation.MARKER_ID -> {
                 _uiState.update { it.copy(showShineCTODiscovery = true) }
@@ -2426,8 +2463,10 @@ class WorldMapViewModel(
         }
     }
 
-    fun consumeEscomDoorNavigation() {
-        _uiState.update { it.copy(escomDoorFadeComplete = false) }
+    fun consumeEscomDoorNavigation(): String? {
+        val dest = _uiState.value.pendingDoorDestination
+        _uiState.update { it.copy(escomDoorFadeComplete = false, pendingDoorDestination = null) }
+        return dest
     }
 
     // ─── Metro Stations Fade ───────────────────────────────────────────────────

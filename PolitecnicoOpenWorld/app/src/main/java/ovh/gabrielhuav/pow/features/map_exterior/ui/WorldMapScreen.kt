@@ -994,6 +994,7 @@ fun WorldMapScreen(
                             id = "opciones", label = "Opciones", icon = Icons.Default.Tune,
                             items = buildList {
                                 add(OptionMenuItem("Cambiar skin", Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                                add(OptionMenuItem("Teletransportarse...", Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
                                 // Submenú "Ir a…": teletransporte a ESCOM o a tu ubicación REAL
                                 // (GPS del dispositivo, p. ej. para volver a tu casa — NO a donde
                                 // está el jugador en el mapa).

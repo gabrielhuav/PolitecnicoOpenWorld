@@ -78,6 +78,23 @@
     "name":"Plaza Lindavista",
     "rotationAngle":343.70282,
     "scaleFactor":0.3458724
+  },
+  {
+    "assetPath": "DOORS/ESCOM_DOOR.webp",
+    "id": 18,
+    "latitude": 19.494200,
+    "longitude": -99.129200,
+    "name": "Entrada Campo Béisbol",
+    "rotationAngle": 0.0,
+    "scaleFactor": 0.60
+  },
+  {
+    "assetPath": "DOORS/ESCOM_DOOR.webp",
+    "id": 19,
+    "latitude": 19.492800,
+    "longitude": -99.127800,
+    "name": "Entrada Campo Fútbol",
+    "rotationAngle": 0.0,
+    "scaleFactor": 0.60
   }
-
 ]
