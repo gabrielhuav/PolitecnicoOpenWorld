@@ -61,5 +61,23 @@
     "name": "Puerta ESCOM",
     "rotationAngle": 295.54773,
     "scaleFactor": 1.1525397
+  },
+  {
+    "id": 16,
+    "name": "Deportivo Miguel Alemán",
+    "latitude": 19.493527319568926,
+    "longitude": -99.1285163718726,
+    "rotationAngle": 360.0,
+    "scaleFactor": 2.3671417,
+    "assetPath": "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp"
+  },
+  {"assetPath":"LUGARES/plazalindavista/plaza_lindavista.webp",
+    "id":17,
+    "latitude":19.49192731956893,
+    "longitude":-99.13361637187278,
+    "name":"Plaza Lindavista",
+    "rotationAngle":343.70282,
+    "scaleFactor":0.3458724
   }
+
 ]
