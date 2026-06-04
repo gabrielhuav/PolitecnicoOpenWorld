@@ -69,5 +69,20 @@ data class Npc(
     //  - aggroUntil: mientras now < aggroUntil el NPC (AGGRESSIVE) persigue al
     //    jugador en línea recta y le hace daño por contacto.
     val trait: NpcTrait = NpcTrait.PASSIVE,
-    val aggroUntil: Long = 0L
+    val aggroUntil: Long = 0L,
+
+    // ─── POLICÍA (transitorio, lo simula el dueño del nivel de búsqueda) ──────
+    //  - policeDisembarked: la patrulla ya llegó y soltó a los policías (se queda
+    //    detenida). Los POLICE_COP nacen con este flag en true.
+    //  - policeCanShoot: a 2+ estrellas los policías pueden dispararte.
+    val policeDisembarked: Boolean = false,
+    val policeCanShoot: Boolean = false,
+    // Id de la patrulla a la que pertenece este policía (para volver a subirse a ella).
+    val policeCarId: String? = null,
+    // El policía va corriendo de regreso a su patrulla (porque te subiste a un coche).
+    val policeReturning: Boolean = false,
+
+    // Mientras now < callingUntil, el NPC muestra un 📞 (está "llamando a la policía"),
+    // p. ej. el conductor al que le robaste el coche.
+    val callingUntil: Long = 0L
 )

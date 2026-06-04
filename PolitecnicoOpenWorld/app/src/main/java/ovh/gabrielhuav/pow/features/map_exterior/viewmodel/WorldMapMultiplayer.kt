@@ -106,6 +106,38 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
                     }
                 }
 
+                // ─── POLICÍA REMOTA (de otro jugador): solo render ───────────────
+                "POLICE_BATCH_UPDATE" -> {
+                    val now = System.currentTimeMillis()
+                    msg.npcs?.forEach { p ->
+                        if (p.ownerId != myPlayerUUID) {
+                            val type = try { NpcType.valueOf(p.npcType) } catch (e: Exception) { NpcType.POLICE_COP }
+                            remotePolice[p.id] = Npc(
+                                id = p.id,
+                                type = type,
+                                location = GeoPoint(p.y, p.x),
+                                rotationAngle = p.rotation,
+                                speed = 0.0,
+                                isRemote = true,
+                                isMoving = true,
+                                facingRight = cos(Math.toRadians(p.rotation.toDouble())) >= 0,
+                                ownerId = p.ownerId,
+                                policeDisembarked = type == NpcType.POLICE_COP
+                            )
+                            remotePoliceSeen[p.id] = now
+                        }
+                    }
+                    updateNpcsState()
+                }
+
+                "POLICE_DESTROY" -> {
+                    msg.npcId?.let {
+                        remotePolice.remove(it)
+                        remotePoliceSeen.remove(it)
+                        updateNpcsState()
+                    }
+                }
+
                 "DISCONNECT" -> {
                     msg.id?.let { remoteEntities.remove(it) }
                     msg.orphanedNpcs?.forEach { remoteEntities.remove(it) }
@@ -248,5 +280,7 @@ internal fun WorldMapViewModel.addRemoteEntity(remote: MultiplayerNpc) {
     }
 
 internal fun WorldMapViewModel.updateNpcsState() {
-        _uiState.update { it.copy(npcs = remoteEntities.values.toList()) }
+        // Civiles/jugadores remotos + policía propia (simulada) + policía remota (solo render).
+        val combined = remoteEntities.values + policeManager.activeUnits() + remotePolice.values
+        _uiState.update { it.copy(npcs = combined.toList()) }
     }

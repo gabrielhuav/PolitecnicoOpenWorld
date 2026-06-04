@@ -536,6 +536,14 @@ fun WorldMapScreen(
                                         val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                         "GM_CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
                                     }
+                                    npc.type == NpcType.POLICE_CAR -> {
+                                        var angle = npc.rotationAngle % 360f
+                                        if (angle < 0) angle += 360f
+                                        val frameIndex = (angle / 7.5f).roundToInt() % 48
+                                        val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+                                        "GM_POLICE_${frameIndex}_${dynamicScale}"
+                                    }
+                                    npc.type == NpcType.POLICE_COP -> "GM_COP_EMOJI"
                                     else -> "GM_SVG_${npc.type.name}_H${qHealth}_D${npc.isDying}"
                                 }
 
@@ -558,6 +566,19 @@ fun WorldMapScreen(
                                                 val fh = ((it.intrinsicHeight / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
                                                 ExactSizeDrawable(it, fw, fh)
                                             }
+                                        }
+                                        npc.type == NpcType.POLICE_CAR -> {
+                                            val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
+                                            val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.getPoliceCar(context, npc.rotationAngle, screenDensity)
+                                            d?.let {
+                                                val fw = ((it.intrinsicWidth / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
+                                                val fh = ((it.intrinsicHeight / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
+                                                ExactSizeDrawable(it, fw, fh)
+                                            }
+                                        }
+                                        npc.type == NpcType.POLICE_COP -> {
+                                            val px = (18 * screenDensity).toInt()
+                                            emojiToDrawable(context, "👮", px)
                                         }
                                         else -> {
                                             val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
@@ -931,6 +952,40 @@ fun WorldMapScreen(
                 color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.Center)
             )
+        }
+
+        // ─── NIVEL DE BÚSQUEDA (estrellas estilo GTA) ────────────────────────────
+        if (uiState.wantedLevel > 0) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 36.dp, start = 12.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                repeat(5) { i ->
+                    Text(
+                        text = if (i < uiState.wantedLevel) "⭐" else "☆",
+                        fontSize = 16.sp,
+                        color = if (i < uiState.wantedLevel) Color(0xFFFFD54F) else Color.White.copy(alpha = 0.4f)
+                    )
+                }
+            }
+        }
+
+        // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────
+        uiState.carjackWarning?.let { warn ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(y = (-90).dp)
+                    .background(Color(0xCCB71C1C), RoundedCornerShape(10.dp))
+                    .border(1.dp, Color(0xFFFFCDD2), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text(warn, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
         }
 
         if (!uiState.isRoadNetworkReady) {

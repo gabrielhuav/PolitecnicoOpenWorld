@@ -104,6 +104,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
@@ -141,6 +142,18 @@ internal fun NativeOsmMap(
     // a ~10 Hz; reconstruir sus marcadores solo cuando la lista cambia evita ~2/3 del
     // trabajo de sprites (lo más caro en gama baja).
     val lastNpcRenderHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Npc>>(1) }
+
+    // Cachés de los waypoints/rutas de policía. Se guardan en variables RECORDADAS (no en
+    // view tags) para no chocar con el frágil hack de claves derivadas (id + 100 / + 400)
+    // que usan los marcadores de debug/metro; añadir nuevos R.id desplazaba esos valores
+    // y provocaba un ClassCastException (Polyline → Marker).
+    val policeWpCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
+    val policeRouteCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Polyline>() }
+    // Pools para las "balas" de la policía: un círculo que viaja y el emoji 🔫 en el oficial.
+    val policeBulletPool = remember { mutableListOf<org.osmdroid.views.overlay.Marker>() }
+    val policeGunPool = remember { mutableListOf<org.osmdroid.views.overlay.Marker>() }
+    // 📞 sobre NPCs que "llaman a la policía" (p. ej. al que le robaste el coche).
+    val phoneCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
 
     // CICLO DE VIDA del MapView de osmdroid: liberarlo al salir (onPause/onDetach), si no
     // se fuga y puede dejar la pantalla rota (azul) al volver de Ajustes.
@@ -289,6 +302,139 @@ internal fun NativeOsmMap(
                 destMarker.setAlpha(0f)
             }
 
+            // ─── WAYPOINTS DE PATRULLAS (solo fuera del fog of war) ──────────────
+            // Mientras la patrulla está FUERA de tu campo de visión, te la marca con un
+            // waypoint. En cuanto entra al fog desaparece el waypoint y la ves directa.
+            val playerLocWp = uiState.currentLocation
+            // Solo se marcan mientras te BUSCAN (wantedLevel > 0). Al morir/perder estrellas
+            // la policía se retira pero ya no debe marcarse (no te está persiguiendo).
+            val patrolsToMark = if (playerLocWp != null && uiState.wantedLevel > 0) {
+                uiState.npcs.filter { it.type == NpcType.POLICE_CAR &&
+                    !npcWithinRadius(it.location.latitude, it.location.longitude,
+                        playerLocWp.latitude, playerLocWp.longitude, NPC_FOG_VISION_METERS) }
+            } else emptyList()
+
+            val patrolWpIds = patrolsToMark.map { it.id }.toSet()
+            val wpIterator = policeWpCache.iterator()
+            while (wpIterator.hasNext()) {
+                val entry = wpIterator.next()
+                if (!patrolWpIds.contains(entry.key)) {
+                    view.overlays.remove(entry.value)
+                    wpIterator.remove()
+                }
+            }
+            // Línea/ruta desde el jugador hasta cada patrulla, para ver qué tan cerca viene.
+            val routeIterator = policeRouteCache.iterator()
+            while (routeIterator.hasNext()) {
+                val entry = routeIterator.next()
+                if (!patrolWpIds.contains(entry.key)) {
+                    view.overlays.remove(entry.value)
+                    routeIterator.remove()
+                }
+            }
+
+            patrolsToMark.forEach { patrol ->
+                val wp = policeWpCache[patrol.id] ?: Marker(view).apply {
+                    title = "POLICE_WAYPOINT"
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    setInfoWindow(null)
+                    // EMOJI de patrulla mientras viene de lejos (fuera del fog). Al entrar
+                    // al fog desaparece este waypoint y se ve el asset real de la patrulla.
+                    val px = (26 * context.resources.displayMetrics.density).toInt()
+                    icon = emojiToDrawable(context, "🚓", px)
+                    policeWpCache[patrol.id] = this
+                    view.overlays.add(this)
+                }
+                wp.position = GeoPoint(patrol.location.latitude, patrol.location.longitude)
+                wp.isEnabled = true
+                wp.setAlpha(1f)
+
+                // Ruta (línea) jugador → patrulla: se acorta conforme se acercan.
+                if (playerLocWp != null) {
+                    val line = policeRouteCache[patrol.id] ?: Polyline().apply {
+                        // Línea PUNTEADA y semi-transparente (menos invasiva en el mapa).
+                        outlinePaint.color = android.graphics.Color.argb(120, 0, 90, 255)
+                        outlinePaint.strokeWidth = 5f
+                        outlinePaint.isAntiAlias = true
+                        outlinePaint.style = android.graphics.Paint.Style.STROKE
+                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(18f, 14f), 0f)
+                        setInfoWindow(null)
+                        policeRouteCache[patrol.id] = this
+                        view.overlays.add(0, this) // bajo los marcadores
+                    }
+                    line.setPoints(listOf(
+                        GeoPoint(playerLocWp.latitude, playerLocWp.longitude),
+                        GeoPoint(patrol.location.latitude, patrol.location.longitude)
+                    ))
+                    line.isEnabled = true
+                }
+            }
+
+            // ─── BALAS DE LA POLICÍA (círculo que viaja lento + 🔫 en el oficial) ──
+            val shots = uiState.policeShots
+            val pLocB = uiState.currentLocation
+            if (pLocB != null) {
+                val mppB = (40075016.686 * Math.cos(Math.toRadians(pLocB.latitude))) /
+                        (256.0 * Math.pow(2.0, uiState.zoomLevel))
+                val densB = context.resources.displayMetrics.density
+                val bulletPx = ((0.30 / mppB) * densB).toInt().coerceIn(6, 22) // bala pequeña
+                val gunPx = ((1.0 / mppB) * densB).toInt().coerceIn(14, 72)
+                val nowB = System.currentTimeMillis()
+                val BULLET_MS = 420.0
+                // Crece los pools según haga falta.
+                while (policeBulletPool.size < shots.size) {
+                    policeBulletPool.add(Marker(view).apply {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER); setInfoWindow(null)
+                        isEnabled = false; view.overlays.add(this)
+                    })
+                    // La pistola se ancla por su parte INFERIOR para que flote ARRIBA del policía.
+                    policeGunPool.add(Marker(view).apply {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM); setInfoWindow(null)
+                        isEnabled = false; view.overlays.add(this)
+                    })
+                }
+                policeBulletPool.forEachIndexed { i, bullet ->
+                    val gun = policeGunPool[i]
+                    if (i < shots.size) {
+                        val s = shots[i]
+                        val prog = ((nowB - s.at) / BULLET_MS).coerceIn(0.0, 1.0)
+                        val blat = s.from.latitude + (s.to.latitude - s.from.latitude) * prog
+                        val blon = s.from.longitude + (s.to.longitude - s.from.longitude) * prog
+                        bullet.icon = dotDrawable(context, android.graphics.Color.rgb(255, 210, 0), bulletPx)
+                        bullet.position = GeoPoint(blat, blon)
+                        bullet.isEnabled = true
+                        // 🔫 ARRIBA del policía durante casi todo el disparo (se nota bien).
+                        if (prog < 0.85) {
+                            gun.icon = emojiToDrawable(context, "🔫", gunPx)
+                            // Un pelín al norte para que quede claramente sobre su cabeza.
+                            gun.position = GeoPoint(s.from.latitude + 0.000016, s.from.longitude)
+                            gun.isEnabled = true
+                        } else gun.isEnabled = false
+                    } else {
+                        bullet.isEnabled = false; gun.isEnabled = false
+                    }
+                }
+
+                // ─── 📞 NPCs llamando a la policía (carjack) ─────────────────────
+                val phonePx = ((0.9 / mppB) * densB).toInt().coerceIn(12, 64)
+                val callingNpcs = uiState.npcs.filter { it.callingUntil > nowB }
+                val callIds = callingNpcs.map { it.id }.toSet()
+                val phoneIt = phoneCache.iterator()
+                while (phoneIt.hasNext()) {
+                    val e = phoneIt.next()
+                    if (!callIds.contains(e.key)) { view.overlays.remove(e.value); phoneIt.remove() }
+                }
+                callingNpcs.forEach { npc ->
+                    val m = phoneCache[npc.id] ?: Marker(view).apply {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM); setInfoWindow(null)
+                        phoneCache[npc.id] = this; view.overlays.add(this)
+                    }
+                    m.icon = emojiToDrawable(context, "📞", phonePx)
+                    m.position = GeoPoint(npc.location.latitude + 0.000016, npc.location.longitude)
+                    m.isEnabled = true
+                }
+            }
+
             val routeOverlay = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag) as? Polyline)
                 ?: Polyline().apply {
                     outlinePaint.color = android.graphics.Color.BLUE
@@ -376,7 +522,35 @@ internal fun NativeOsmMap(
                             val metersPerPixel = (40075016.686 * Math.cos(Math.toRadians(npc.location.latitude))) /
                                     (256.0 * Math.pow(2.0, uiState.zoomLevel))
 
-                            if (npc.visualConfig != null) {
+                            if (npc.type == NpcType.POLICE_CAR) {
+                                // PATRULLA: asset especial sin repintar, mismo tamaño que un auto.
+                                val exactPixels = ((4.0 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(16)
+                                var angle = npc.rotationAngle % 360f
+                                if (angle < 0) angle += 360f
+                                val frameIndex = (angle / 7.5f).roundToInt() % 48
+                                val cacheKey = "POLICE_${frameIndex}_${exactPixels}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    val baseDrawable = PoliceSpriteManager.getPoliceCar(context, angle, highResRenderScale)
+                                    baseDrawable?.let { drawable ->
+                                        val ratio = drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight.toFloat()
+                                        val finalWidthPx: Int; val finalHeightPx: Int
+                                        if (ratio > 1f) { finalWidthPx = exactPixels; finalHeightPx = (exactPixels / ratio).toInt() }
+                                        else { finalHeightPx = exactPixels; finalWidthPx = (exactPixels * ratio).toInt() }
+                                        ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
+                                    } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
+                            } else if (npc.type == NpcType.POLICE_COP) {
+                                // POLICÍA A PIE: no hay asset de persona → se dibuja con un EMOJI.
+                                val exactPixels = ((1.05 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(14)
+                                val cacheKey = "COP_EMOJI_${exactPixels}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    emojiToDrawable(context, "👮", exactPixels)
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
+                            } else if (npc.visualConfig != null) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
 
                                 // 🧍 TAMAÑO DEL PEATÓN: algo mayor que el real (1.3 m) para que
