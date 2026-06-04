@@ -260,9 +260,19 @@ class MetroInteriorViewModel(
                 _state.update { it.copy(showMetroMap = true) }
             }
             "salir_torniquetes" -> {
-                // Mover al jugador hacia arriba de los torniquetes (zona sin ticket)
+                // Mover al jugador hacia arriba de los torniquetes y resetear el ticket
                 val currentY = _state.value.playerY
-                _state.update { it.copy(playerY = (currentY - 0.15f).coerceAtLeast(0f)) }
+                _state.update {
+                    it.copy(
+                        playerY = (currentY - 0.15f).coerceAtLeast(0f),
+                        hasRechargedTicket = false,
+                        messageToast = "Has salido de los torniquetes. Ve a la taquilla para recargar tu tarjeta."
+                    )
+                }
+                viewModelScope.launch {
+                    delay(3000)
+                    _state.update { it.copy(messageToast = null) }
+                }
             }
             "salida" -> {
                 // Señaliza al Screen que debe ejecutar onExit
