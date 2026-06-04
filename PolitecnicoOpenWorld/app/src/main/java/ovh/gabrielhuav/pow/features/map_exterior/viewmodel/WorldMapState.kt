@@ -93,6 +93,8 @@ data class WorldMapState(
     // ─── NIVEL DE BÚSQUEDA (estilo GTA) ──────────────────────────────────────
     // Sube al golpear NPCs; mientras sea > 0 aparecen patrullas que te persiguen.
     val wantedLevel: Int = 0,
+    // Aviso cuando un perseguidor (policía o NPC) está por bajarte del vehículo.
+    val carjackWarning: String? = null,
 
     // ─── NAVEGACIÓN / MARCADOR DE DESTINO ────────────────────────────────
     val destinationMarker: GeoPoint? = null,

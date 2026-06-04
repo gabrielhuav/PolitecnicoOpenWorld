@@ -49,6 +49,19 @@
 //   (golpe de vuelta / NPC implacable) lo resuelve el cliente que ataco contra SU propia
 //   vida; la vida del jugador ya viaja en PLAYER_UPDATE. No hace falta logica extra aqui.
 
+// MEJORAS v3.2 (NIVEL DE BUSQUEDA / POLICIA estilo GTA):
+//   Al golpear NPCs subes de "estrellas" y aparecen patrullas que te persiguen, sueltan
+//   policias (emoji) que te golpean/disparan, hacen persecuciones en auto y pueden bajarte
+//   del vehiculo. TODA esa logica vive en el cliente (PoliceManager.kt) y la SIMULA el
+//   jugador buscado (no el Host de zona), porque la policia debe perseguirlo a EL.
+//   En el cable hay dos mensajes NUEVOS, que el servidor solo RELAYA (no toca el roster):
+//     - POLICE_BATCH_UPDATE { npcs:[{id,x,y,rotation,npcType}] }: posiciones de mis
+//       patrullas/policias, reenviadas con AOI para que los demas clientes las VEAN.
+//     - POLICE_DESTROY { npcId }: una unidad dejo de existir (se subio a su patrulla,
+//       murio, o bajaste de estrellas). Global.
+//   La policia NO se persiste en el roster (es transitoria y por-jugador): cada cliente
+//   la purga por "staleness" si su dueno deja de emitir, asi que no necesita GC propio.
+
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -382,6 +395,33 @@ wss.on('connection', (ws) => {
                 if (typeof data.npcId === 'string') {
                     npcs.delete(data.npcId);
                     broadcastToOthers(ws, JSON.stringify({ type: "NPC_DESTROY", npcId: data.npcId }));
+                }
+            }
+            else if (data && data.type === "POLICE_BATCH_UPDATE") {
+                // POLICIA (nivel de busqueda estilo GTA). A diferencia de los NPCs civiles,
+                // la policia la SIMULA Y POSEE el jugador buscado (debe perseguirlo a EL).
+                // El servidor solo la RELAYA con AOI; NO la guarda en el roster persistente
+                // porque es transitoria y por-jugador: los clientes la purgan solos por
+                // "staleness" si su dueno deja de enviarla (o al recibir POLICE_DESTROY).
+                if (data.npcs && Array.isArray(data.npcs)) {
+                    const accepted = [];
+                    data.npcs.forEach(p => {
+                        if (!p || typeof p.id !== 'string') return;
+                        const nx = safeCoord(p.x, null);
+                        const ny = safeCoord(p.y, null);
+                        if (nx === null || ny === null) return;
+                        accepted.push({ ...p, x: nx, y: ny, ownerId: ws.sessionId });
+                    });
+                    if (accepted.length > 0) {
+                        broadcastToNearby(ws, JSON.stringify({ type: "POLICE_BATCH_UPDATE", npcs: accepted }), ws.x, ws.y, AOI_RADIUS);
+                    }
+                }
+            }
+            else if (data && data.type === "POLICE_DESTROY") {
+                // Una unidad de policia dejo de existir (se subio a su patrulla, murio, o
+                // bajo el nivel de busqueda). Global, para que todos la quiten al instante.
+                if (typeof data.npcId === 'string') {
+                    broadcastToOthers(ws, JSON.stringify({ type: "POLICE_DESTROY", npcId: data.npcId }));
                 }
             }
         } catch (e) {

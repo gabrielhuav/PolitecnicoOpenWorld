@@ -214,6 +214,70 @@ class WorldMapViewModel(
         _uiState.update { it.copy(wantedLevel = (it.wantedLevel - 1).coerceAtLeast(0)) }
     }
 
+    // ─── CARJACK (te bajan del vehículo) ─────────────────────────────────────
+    internal val CARJACK_MS = 2500L                 // tiempo quieto antes de que te bajen
+    internal val CARJACK_ADJ_RADIUS = 0.00009       // ~10 m: NPC agresivo pegado al coche
+    @Volatile internal var carjackStartTime = 0L
+
+    // ¿Hay algún NPC AGRESIVO (en embestida) pegado a tu coche?
+    internal fun anyAggressorAdjacent(location: GeoPoint, now: Long): Boolean {
+        for (npc in remoteEntities.values) {
+            if (npc.type != NpcType.PERSON) continue
+            if (npc.aggroUntil <= now) continue
+            if (distance(location, npc.location) <= CARJACK_ADJ_RADIUS) return true
+        }
+        return false
+    }
+
+    // Gestiona el aviso y el descenso forzado del vehículo.
+    internal fun handleCarjack(driving: Boolean, aggressorAdjacent: Boolean, now: Long) {
+        if (!driving || !aggressorAdjacent) {
+            if (carjackStartTime != 0L) {
+                carjackStartTime = 0L
+                if (_uiState.value.carjackWarning != null) {
+                    _uiState.update { it.copy(carjackWarning = null) }
+                }
+            }
+            return
+        }
+        // Si vas acelerando (te mueves), no pueden bajarte: reinicia el contador.
+        val movingFast = kotlin.math.abs(_uiState.value.vehicleSpeed) > MAX_SPEED * 0.25
+        if (movingFast) {
+            if (carjackStartTime != 0L) {
+                carjackStartTime = 0L
+                _uiState.update { it.copy(carjackWarning = null) }
+            }
+            return
+        }
+        if (carjackStartTime == 0L) carjackStartTime = now
+        _uiState.update { it.copy(carjackWarning = "¡Te van a bajar del auto! ¡Acelera!") }
+        if (now - carjackStartTime >= CARJACK_MS) {
+            carjackStartTime = 0L
+            _uiState.update { it.copy(carjackWarning = null) }
+            viewModelScope.launch(Dispatchers.Main) { forceExitVehicle() }
+        }
+    }
+
+    // Baja al jugador del coche a la fuerza (deja el auto abandonado en su sitio).
+    internal fun forceExitVehicle() {
+        if (!_uiState.value.isDriving) return
+        val loc = _uiState.value.currentLocation ?: return
+        val abandonedCar = Npc(
+            id = UUID.randomUUID().toString(),
+            type = NpcType.CAR,
+            location = loc,
+            rotationAngle = (_uiState.value.vehicleRotation + 270f) % 360f,
+            speed = 0.0,
+            isMoving = false,
+            carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
+            carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt(),
+            isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded
+        )
+        remoteEntities[abandonedCar.id] = abandonedCar
+        _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true) }
+        updateNpcsState()
+    }
+
     // Simula y difunde la policía PROPIA (el dueño del nivel de búsqueda). Se llama cada
     // tick del game loop. También purga la policía remota que dejó de actualizarse.
     internal fun runPoliceTick(location: GeoPoint) {
@@ -221,19 +285,29 @@ class WorldMapViewModel(
         tickWantedDecay(now)
 
         val wanted = _uiState.value.wantedLevel
+        val driving = _uiState.value.isDriving
         val tick = policeManager.update(
             playerLat = location.latitude,
             playerLon = location.longitude,
             roadNetwork = roadNetwork,
             wantedLevel = wanted,
             canShoot = wanted >= 2,
-            now = now
+            playerInVehicle = driving,
+            now = now,
+            snap = { gp -> getNearestPointOnNetwork(gp) }
         )
 
-        // Daño que los policías te hacen (golpes/disparos). takeDamage muta estado Compose.
-        if (tick.damage > 0f) {
+        // Daño que los policías te hacen (golpes/disparos). En coche NO te hacen daño
+        // directo: te persiguen y, si te detienes, te bajan del vehículo (carjack).
+        if (tick.damage > 0f && !driving) {
             viewModelScope.launch(Dispatchers.Main) { takeDamage(tick.damage) }
         }
+
+        // CARJACK: si conduces y un perseguidor te alcanza, te avisa; si no aceleras (te
+        // quedas casi quieto) durante CARJACK_MS, te bajan del coche. Aplica también a los
+        // NPCs agresivos pegados a tu coche.
+        val aggressorAdjacent = tick.adjacentThreat || (driving && anyAggressorAdjacent(location, now))
+        handleCarjack(driving, aggressorAdjacent, now)
 
         // Purga de policía remota obsoleta (su dueño se alejó/desconectó).
         val staleCutoff = now - REMOTE_POLICE_STALE_MS
@@ -1068,7 +1142,7 @@ class WorldMapViewModel(
     internal fun pack(r: Int, c: Int): Long = r.toLong() * 1_000_003L + c.toLong()
     internal fun cell(v: Double): Int = floor(v / CELL).toInt()
 
-    private fun getNearestPointOnNetwork(t: GeoPoint): GeoPoint {
+    internal fun getNearestPointOnNetwork(t: GeoPoint): GeoPoint {
         // Usa la nueva matemática exacta del rectángulo rotado
         val insideLandmark = _uiState.value.landmarks.any { landmark ->
             landmark.contains(t)
@@ -2015,16 +2089,11 @@ class WorldMapViewModel(
             // Limpiar el estado de combate (rachas / NPCs implacables / cooldowns) para
             // no revivir siendo perseguido al instante.
             relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
-            // Al morir se pierde el nivel de búsqueda y se retira toda la policía.
-            val deadPoliceIds = policeManager.clearAll()
-            _uiState.update { it.copy(wantedLevel = 0) }
-            webSocketManager?.let { ws ->
-                viewModelScope.launch(Dispatchers.IO) {
-                    deadPoliceIds.forEach { pid ->
-                        try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
-                    }
-                }
-            }
+            // Al morir se pierde el nivel de búsqueda, pero la policía NO desaparece de
+            // golpe: con wantedLevel = 0 entra en modo retirada (se aleja hasta despawnear,
+            // salvo que cometas un nuevo delito en tu nueva vida).
+            carjackStartTime = 0L
+            _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null) }
             // RESPAWN EN LA MISMA ZONA YA DESCARGADA (ahorra recursos: no teletransporta a
             // ESCOM ni descarga teselas nuevas). Reaparece a ~80 m del lugar de muerte,
             // pegado a la red de calles ya cacheada; si no hay calles, en el mismo punto.
@@ -2120,6 +2189,7 @@ class WorldMapViewModel(
                                 val pl = _uiState.value.currentLocation
                                 val attacker = remoteEntities[npcId]
                                 if (pl != null && attacker != null && !attacker.isDying &&
+                                    !_uiState.value.isDriving &&
                                     distance(pl, attacker.location) <= ATTACK_RADIUS) {
                                     takeDamage(NPC_CONTACT_DAMAGE)
                                 }
@@ -2181,6 +2251,7 @@ class WorldMapViewModel(
             if (distance(playerLoc, npc.location) > NPC_CONTACT_RADIUS) continue
             val last = npcContactCooldowns[id] ?: 0L
             if (now - last < NPC_CONTACT_COOLDOWN_MS) continue
+            if (_uiState.value.isDriving) continue // en coche no te golpean (te bajan, no te pegan)
             npcContactCooldowns[id] = now
             viewModelScope.launch(Dispatchers.Main) { takeDamage(NPC_CONTACT_DAMAGE) } // takeDamage ya dispara el 💥
         }
@@ -2199,7 +2270,7 @@ class WorldMapViewModel(
                 // Mantener vivo el aggro para que NO deje de perseguir.
                 remoteEntities[npcId] = npc.copy(aggroUntil = System.currentTimeMillis() + NpcAiManager.AGGRO_DURATION_MS)
                 val pl = _uiState.value.currentLocation
-                if (pl != null && distance(pl, npc.location) <= ATTACK_RADIUS) {
+                if (pl != null && !_uiState.value.isDriving && distance(pl, npc.location) <= ATTACK_RADIUS) {
                     takeDamage(NPC_CONTACT_DAMAGE)
                 }
             }

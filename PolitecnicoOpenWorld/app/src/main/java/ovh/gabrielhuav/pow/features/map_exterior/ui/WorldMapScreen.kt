@@ -577,7 +577,7 @@ fun WorldMapScreen(
                                             }
                                         }
                                         npc.type == NpcType.POLICE_COP -> {
-                                            val px = (28 * screenDensity).toInt()
+                                            val px = (18 * screenDensity).toInt()
                                             emojiToDrawable(context, "👮", px)
                                         }
                                         else -> {
@@ -971,6 +971,20 @@ fun WorldMapScreen(
                         color = if (i < uiState.wantedLevel) Color(0xFFFFD54F) else Color.White.copy(alpha = 0.4f)
                     )
                 }
+            }
+        }
+
+        // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────
+        uiState.carjackWarning?.let { warn ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(y = (-90).dp)
+                    .background(Color(0xCCB71C1C), RoundedCornerShape(10.dp))
+                    .border(1.dp, Color(0xFFFFCDD2), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text(warn, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
 

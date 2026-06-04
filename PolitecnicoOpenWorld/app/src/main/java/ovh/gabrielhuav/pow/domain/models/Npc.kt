@@ -76,5 +76,9 @@ data class Npc(
     //    detenida). Los POLICE_COP nacen con este flag en true.
     //  - policeCanShoot: a 2+ estrellas los policías pueden dispararte.
     val policeDisembarked: Boolean = false,
-    val policeCanShoot: Boolean = false
+    val policeCanShoot: Boolean = false,
+    // Id de la patrulla a la que pertenece este policía (para volver a subirse a ella).
+    val policeCarId: String? = null,
+    // El policía va corriendo de regreso a su patrulla (porque te subiste a un coche).
+    val policeReturning: Boolean = false
 )
