@@ -1,22 +1,58 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
 import android.content.Context
-internal fun drawHealthBarOnDrawable(context: Context, original: android.graphics.drawable.Drawable?, health: Float, isDying: Boolean): android.graphics.drawable.Drawable? {
+
+// Convierte un EMOJI (texto) en un Drawable cuadrado de tamaño dado. Se usa para los
+// policías a pie, que no tienen asset de sprite propio.
+internal fun emojiToDrawable(context: Context, emoji: String, sizePx: Int): android.graphics.drawable.Drawable {
+    val size = sizePx.coerceAtLeast(8)
+    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = android.graphics.Paint.Align.CENTER
+        textSize = size * 0.82f
+    }
+    val fm = paint.fontMetrics
+    val y = size / 2f - (fm.ascent + fm.descent) / 2f
+    canvas.drawText(emoji, size / 2f, y, paint)
+    return android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+}
+// Pequeño círculo relleno (con borde) para dibujar la "bala" de la policía.
+internal fun dotDrawable(context: Context, colorInt: Int, sizePx: Int): android.graphics.drawable.Drawable {
+    val size = sizePx.coerceAtLeast(6)
+    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val r = size / 2f
+    val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = colorInt }
+    canvas.drawCircle(r, r, r - 1f, fill)
+    val stroke = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = size * 0.12f
+        color = android.graphics.Color.argb(220, 60, 30, 0)
+    }
+    canvas.drawCircle(r, r, r - 1f, stroke)
+    return android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+}
+
+internal fun drawHealthBarOnDrawable(context: Context, original: android.graphics.drawable.Drawable?, health: Float, isDying: Boolean): android.graphics.drawable.Drawable? {
     if (original !is android.graphics.drawable.BitmapDrawable || health >= 100f || isDying) return original
     val mutableBitmap = original.bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
     val canvas = android.graphics.Canvas(mutableBitmap)
-    val paint = android.graphics.Paint()
-    val barWidth = mutableBitmap.width * 0.95f
-    // Ligeramente más alta (antes 10f): al escalar el sprite la barra quedaba casi
-    // invisible cuando golpeas a un NPC. Subida pequeña para que se note sin estorbar.
-    val barHeight = 18f
-    val left = (mutableBitmap.width - barWidth) / 2f
+    val paint = android.graphics.Paint().apply { isAntiAlias = true }
+    // Tamaño PROPORCIONAL al sprite (ancho completo, alto ~14% del alto) para que, tras
+    // escalar el sprite a su tamaño final, la barra se vea con un grosor similar al de la
+    // barra del jugador (antes era un alto fijo de 18 px que al reducir el sprite quedaba
+    // casi imperceptible).
+    val barWidth = mutableBitmap.width.toFloat()
+    val barHeight = (mutableBitmap.height * 0.14f).coerceAtLeast(8f)
+    val pad = barHeight * 0.2f
+    val left = 0f
     val top = 0f
     paint.color = android.graphics.Color.BLACK
     canvas.drawRect(left, top, left + barWidth, top + barHeight, paint)
     paint.color = when { health > 60f -> android.graphics.Color.GREEN; health > 30f -> android.graphics.Color.YELLOW; else -> android.graphics.Color.RED }
-    val healthWidth = (barWidth - 6f) * (health / 100f)
-    if (healthWidth > 0) canvas.drawRect(left + 3f, top + 3f, left + 3f + healthWidth, top + barHeight - 3f, paint)
+    val healthWidth = (barWidth - 2f * pad) * (health / 100f)
+    if (healthWidth > 0) canvas.drawRect(left + pad, top + pad, left + pad + healthWidth, top + barHeight - pad, paint)
     return android.graphics.drawable.BitmapDrawable(context.resources, mutableBitmap)
 }
 

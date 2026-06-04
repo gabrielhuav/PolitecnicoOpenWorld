@@ -74,6 +74,8 @@ via co-located `ViewModelProvider.Factory` instances.
 | Player sprite / driven-vehicle rendering + sizing | `features/map_exterior/ui/components/PlayerCharacter.kt` |
 | Leaflet tile interception | `features/map_exterior/ui/CachingWebViewClient.kt` |
 | NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` |
+| Wanted level / police AI (spawn, road-snapped chase, disembark, carjack, retreat) | `domain/models/ai/PoliceManager.kt` (driven by `WorldMapViewModel.runPoliceTick`) |
+| Patrol sprite (no-repaint `POLICE_TOPDOWN`) | `features/map_exterior/ui/components/PoliceSpriteManager.kt`; cop = 👮 emoji via `emojiToDrawable` in `WorldMapDrawingUtils.kt` |
 | Zombie minigame logic | `features/zombie_minigame/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`) |
 | Zombie minigame state | `features/zombie_minigame/viewmodel/ZombieGameState.kt` |
 | Zombie net models (client) | `features/zombie_minigame/viewmodel/Zombienetmodels.kt` |
@@ -130,7 +132,7 @@ via co-located `ViewModelProvider.Factory` instances.
   simulate NPCs — the Zone Host runs the AI on the client and the server relays.
 - **NPC reactions (GTA-lite, cheap):** each NPC gets a `trait` (`AGGRESSIVE`/`COWARD`)
   rolled at spawn via `NpcAiManager.rollTrait()`. The aggressive fraction is **configurable**
-  via `NpcAiManager.aggressiveRatio` (default `0.5`); the rest are cowards.
+  via `NpcAiManager.aggressiveRatio` (default `0.3`); the rest are cowards.
   - *Provoke-only:* NPCs never attack unprovoked. Hitting one (or carjacking it) makes
     AGGRESSIVE ones retaliate; COWARDS flee (`fearUntil`). AGGRESSIVE NPCs are **immune to
     fear** (skipped in `applyPendingFear`) — "no les da miedo".
@@ -139,7 +141,7 @@ via co-located `ViewModelProvider.Factory` instances.
     DETERMINISTIC counter-hit after ~450 ms if you're within `ATTACK_RADIUS` (the chase/
     contact-loop detection alone proved unreliable, so the counter is guaranteed).
   - *Relentless:* `npcHitStreak` counts consecutive hits per NPC; at `RELENTLESS_HIT_STREAK`
-    (3) the NPC becomes implacable (`relentlessNpcs` + `startRelentlessAttacker`): refreshes
+    (6) the NPC becomes implacable (`relentlessNpcs` + `startRelentlessAttacker`): refreshes
     its aggro and hits you every `NPC_CONTACT_COOLDOWN_MS` until you die or it dies.
   - *Run-over* (`runOverNpcs`): while driving, pedestrians within `RUN_OVER_RADIUS` take
     speed-scaled damage; deaths broadcast `NPC_DESTROY`, witnesses `triggerFear`.
@@ -159,6 +161,40 @@ via co-located `ViewModelProvider.Factory` instances.
     (`LowHealthAura`, <35 HP), and a "💥" burst (`impactEffectTrigger`).
   - **Size parity:** native NPC sprite sizing uses `uiState.zoomLevel` (NOT live
     `view.zoomLevelDouble`) so NPCs match the player/vehicle scale.
+  - **No melee through a car:** while `isDriving`, NPC contact/counter damage is skipped;
+    aggressive NPCs adjacent to your car can instead trigger a carjack (see Police).
+- **Wanted level / Police (GTA-style, `domain/models/ai/PoliceManager.kt`):** punching a
+  civilian raises `WorldMapState.wantedLevel` (0–5, HUD stars; `raiseWantedLevel`), decays
+  after a no-crime grace and clears on death. Unlike civilian NPCs (simulated by the Zone
+  Host), **the wanted player owns and simulates their own police** (`runPoliceTick`, every
+  game-loop tick) because the police must chase *that* player. Police live in `PoliceManager`
+  (NOT in `remoteEntities`, so the NPC pipeline never touches them) and are merged into
+  `uiState.npcs` by `updateNpcsState` (own `policeManager.activeUnits()` + `remotePolice`).
+  - **Types:** `NpcType.POLICE_CAR` (renders via `PoliceSpriteManager`, no-repaint
+    `VEHICLES/POLICE_TOPDOWN`, 48 frames) and `NpcType.POLICE_COP` (no person asset → 👮
+    `emojiToDrawable`). Extra `Npc` fields: `policeDisembarked`, `policeCanShoot`,
+    `policeCarId`, `policeReturning`.
+  - **Spawn/scale:** patrols spawn far (`SPAWN_RING ≈ 265 m`, snapped to a car road node),
+    count scales with stars (`desiredCarsFor`: 1★→1 … 5★→8).
+  - **Roads respected:** every patrol/cop step is snapped to the network via the `snap`
+    lambda (`getNearestPointOnNetwork`) so they don't cut through buildings; rotation follows
+    travel direction (same convention as civilian car sprites — NO +270 offset).
+  - **On foot:** patrol stops at `ARRIVE_DIST` and drops 2–3 cops that chase/punch and, at
+    `policeCanShoot` (2★+), shoot within `SHOOT_RANGE`.
+  - **In a car:** cops re-board (`policeReturning` → run to `policeCarId`, board at
+    `BOARD_DIST`) and chase by patrol; a patrol that reaches your car (`ADJACENT_DIST`) drops
+    cops who, while you're stopped, trigger a **carjack** (`PoliceTick.adjacentThreat` →
+    `handleCarjack` → HUD `carjackWarning` → `forceExitVehicle` after `CARJACK_MS`). No direct
+    damage while driving.
+  - **Retreat:** at `wantedLevel == 0` (incl. on death) police are NOT deleted instantly —
+    they flee away until `RETREAT_DESPAWN`, emitting `POLICE_DESTROY`.
+  - **Waypoint:** while a `POLICE_CAR` is OUTSIDE the fog, `NativeOsmMap` draws a 🚓 marker
+    **plus a route line** from the player (remembered caches, NOT view tags — adding new
+    `R.id`s shifted the fragile `id+100`/`id+400` derived-tag hack and caused a
+    `Polyline→Marker` `ClassCastException`); inside the fog the real patrol asset draws.
+  - **Multiplayer:** broadcasts `POLICE_BATCH_UPDATE` (throttled ~8 Hz) and `POLICE_DESTROY`;
+    `server.js` (v3.2) relays both (AOI) WITHOUT adding them to the persistent roster; remote
+    clients store them in `remotePolice` and purge by staleness (5 s).
 - **Zone-Host open-world multiplayer authority (`Multiplayer/server.js`, v2):**
   each client is Host within ~400 m; lower `sessionId` wins on overlap; only the
   Host runs NPC AI and emits `NPC_BATCH_UPDATE`; orphaned NPCs are adopted, not
@@ -218,7 +254,9 @@ via co-located `ViewModelProvider.Factory` instances.
 
 OSM/Google/Web navigation with snap-to-road; persistent street + tile caching;
 procedural NPCs (pedestrians + 6 cars) with **personality traits, run-over-while-driving,
-aggressive retaliation/carjack reactions, and two-way traffic**; melee combat vs NPCs and remote players;
+aggressive retaliation/carjack reactions, and two-way traffic**; **GTA-style wanted level / police
+(0–5 stars, road-snapped patrol pursuit, 👮 cops that punch & shoot, vehicle chases + carjack, retreat
+on death; multiplayer-replicated)**; melee combat vs NPCs and remote players;
 zone-delegated open-world multiplayer (server v2: AOI + host throttle + rate-limit
 + sanitization + ghost GC); vehicle driving; configurable controls; 8 map
 providers; editable landmarks with JSON import/export (Designer Mode); 6 lore

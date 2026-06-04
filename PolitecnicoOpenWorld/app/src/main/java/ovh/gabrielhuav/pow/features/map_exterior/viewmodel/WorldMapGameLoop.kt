@@ -197,6 +197,12 @@ internal fun WorldMapViewModel.startGameLoop() {
                         // GOLPES de NPCs agresivos en embestida (a pie o en coche).
                         _uiState.value.currentLocation?.let { applyNpcContactDamage(it) }
 
+                        // POLICÍA: nivel de búsqueda (spawn de patrullas, persecución,
+                        // golpes/disparos) y decaimiento. La simula el dueño del nivel.
+                        if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                            _uiState.value.currentLocation?.let { runPoliceTick(it) }
+                        }
+
                         maybeRefetchRoadNetwork(location)
                         // El throttle (cada 5 ticks) es el control de frecuencia deseado.
                         // Antes había además una llamada incondicional aquí que lo anulaba y

@@ -47,7 +47,7 @@ class NpcAiManager {
         // PERSONALIDADES: la fracción de NPCs AGRESIVOS es CONFIGURABLE (por defecto la
         // mitad). El resto son COBARDES (huyen al ser golpeados). Los agresivos NO huyen
         // ("no les da miedo"): devuelven el golpe. Cambia aggressiveRatio para ajustarlo.
-        @Volatile var aggressiveRatio: Float = 0.5f
+        @Volatile var aggressiveRatio: Float = 0.3f
         // EMBESTIDA (aggro): un NPC agresivo persigue al jugador en línea recta durante
         // este tiempo y a este múltiplo de velocidad. Barato: ignora el grafo de calles
         // mientras dura (es un arrebato corto), solo interpola hacia el jugador.
@@ -57,7 +57,10 @@ class NpcAiManager {
         // LENTO que un jugador caminando (0.000003/tick) y nunca llegaba, así que el daño
         // por contacto jamás se aplicaba. Con 9 mantiene el paso de un caminante y casi
         // el de uno corriendo, por lo que sí te acorrala.
-        const val AGGRO_SPEED_MULT = 9f
+        // Bajado de 9 a 5: antes los NPCs corrían MÁS rápido que el jugador caminando y
+        // siempre te alcanzaban. Con 5 su velocidad efectiva (÷3 por el ritmo de la IA)
+        // queda al nivel de un caminante, así que corriendo puedes escapar de ellos.
+        const val AGGRO_SPEED_MULT = 5f
         // Distancia a la que el agresor se "planta" frente al jugador (no lo atraviesa).
         const val AGGRO_STOP_DIST = 0.000018     // ~2 m
         // VISIÓN HOSTIL: un NPC AGRESIVO ataca al jugador que entre en este radio (sin
