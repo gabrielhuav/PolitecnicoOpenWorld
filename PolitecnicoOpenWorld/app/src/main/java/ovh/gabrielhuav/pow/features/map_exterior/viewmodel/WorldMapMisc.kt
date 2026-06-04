@@ -107,5 +107,11 @@ internal fun WorldMapViewModel.triggerWastedSequence() {
             val respawn = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(candidate) else deathLoc
             _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
             playerHealth = maxPlayerHealth
+            // Reiniciar contadores de animación y activar inmunidad temporal (2 s) para que
+            // ningún policía/NPC con aggro residual dispare la animación de daño justo al
+            // reaaparecer. La inmunidad también cubre el teletransporte inmediato post-respawn.
+            damagePulseTrigger = 0
+            impactEffectTrigger = 0
+            respawnImmunityUntilMs = System.currentTimeMillis() + 2000L
         }
     }

@@ -82,6 +82,12 @@ class WorldMapViewModel(
     var damagePulseTrigger by mutableStateOf(0)
         internal set
 
+    // Timestamp hasta el cual el jugador es inmune al daño (post-respawn / teletransporte).
+    // Mientras System.currentTimeMillis() < respawnImmunityUntilMs, takeDamage es un no-op.
+    // Esto evita que golpes "fantasma" de policías/NPCs que aún existen en la zona anterior
+    // disparen la animación de daño justo al llegar a la nueva ubicación.
+    @Volatile internal var respawnImmunityUntilMs: Long = 0L
+
     internal var healthBarJob: Job? = null
     internal var promptJob: Job? = null
 
@@ -1896,7 +1902,13 @@ class WorldMapViewModel(
         // TELETRANSPORTE = borrón y cuenta nueva del combate: si no, los NPCs/policías que
         // te perseguían en la zona vieja quedaban con aggro y daban un golpe "fantasma"
         // justo al llegar. Limpiamos perseguidores, policía y nivel de búsqueda.
+        // También se reinician los triggers de animación de daño y se activa la inmunidad
+        // temporal para que ningún golpe residual de la zona anterior dispare la animación
+        // al llegar al destino.
         relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
+        damagePulseTrigger = 0
+        impactEffectTrigger = 0
+        respawnImmunityUntilMs = System.currentTimeMillis() + 2000L
         carjackStartTime = 0L
         val clearedPolice = policeManager.clearAll()
         for ((id, npc) in remoteEntities) {
@@ -2087,6 +2099,10 @@ class WorldMapViewModel(
     fun dismissClaimedPopup() { _uiState.update { it.copy(showClaimedPopupFor = null) } }
 
     fun takeDamage(amount: Float) {
+        // Inmunidad post-respawn / post-teletransporte: ignorar el daño durante los primeros
+        // segundos tras reaaparecer para que ningún policía/NPC con aggro residual dispare
+        // la animación de golpe de forma inesperada.
+        if (System.currentTimeMillis() < respawnImmunityUntilMs) return
         playerHealth = (playerHealth - amount).coerceAtLeast(0f)
         damagePulseTrigger++
         fireImpactEffect() // 💥 visible en CUALQUIER golpe que recibe el jugador
@@ -2151,6 +2167,12 @@ class WorldMapViewModel(
             val respawn = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(candidate) else deathLoc
             _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
             playerHealth = maxPlayerHealth
+            // Reiniciar contadores de animación y activar inmunidad temporal (2 s) para que
+            // ningún policía/NPC con aggro residual dispare la animación de daño justo al
+            // reaaparecer. La inmunidad también cubre el teletransporte inmediato post-respawn.
+            damagePulseTrigger = 0
+            impactEffectTrigger = 0
+            respawnImmunityUntilMs = System.currentTimeMillis() + 2000L
         }
     }
 
