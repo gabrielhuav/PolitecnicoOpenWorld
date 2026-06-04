@@ -73,11 +73,11 @@
   },
   {"assetPath":"LUGARES/plazalindavista/plaza_lindavista.webp",
     "id":17,
-    "latitude":19.49192731956893,
-    "longitude":-99.13361637187278,
+    "latitude":19.491605000000032,
+    "longitude":-99.13371099999956,
     "name":"Plaza Lindavista",
-    "rotationAngle":343.70282,
-    "scaleFactor":0.3458724
+    "rotationAngle":9.545767,
+    "scaleFactor":0.6872067
   },
   {
     "assetPath": "DOORS/ESCOM_DOOR.webp",
