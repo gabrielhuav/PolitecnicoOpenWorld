@@ -17,7 +17,8 @@ internal fun emojiToDrawable(context: Context, emoji: String, sizePx: Int): andr
     canvas.drawText(emoji, size / 2f, y, paint)
     return android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
 }
-// Pequeño círculo relleno (con borde) para dibujar la "bala" de la policía.
+
+// Pequeño círculo relleno (con borde) para dibujar la "bala" de la policía.
 internal fun dotDrawable(context: Context, colorInt: Int, sizePx: Int): android.graphics.drawable.Drawable {
     val size = sizePx.coerceAtLeast(6)
     val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)

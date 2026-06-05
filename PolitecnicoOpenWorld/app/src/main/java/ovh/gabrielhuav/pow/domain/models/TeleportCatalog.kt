@@ -16,6 +16,7 @@ object TeleportCatalog {
         TeleportZone("Coyote de Nezahualcóyotl", 19.399806, -99.028167),
         TeleportZone("Shine CTO", 19.459049, -99.163251),
         TeleportZone("Deportivo - Campo Béisbol", 19.494200, -99.129200),
-        TeleportZone("Deportivo - Campo Fútbol", 19.492800, -99.127800)
+        TeleportZone("Deportivo - Campo Fútbol", 19.492800, -99.127800),
+        TeleportZone("Estadio Azteca", 19.302889, -99.150460)
     )
 }

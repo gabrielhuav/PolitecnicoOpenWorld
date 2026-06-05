@@ -6,7 +6,7 @@ import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.DesignerTarget
 
 enum class MetroHotspot {
-    TAQUILLA, TORNIQUETES, ANDEN
+    TAQUILLA, TORNIQUETES, ANDEN, SALIR_TORNIQUETES, SALIDA
 }
 
 data class MetroInteriorState(
@@ -24,6 +24,7 @@ data class MetroInteriorState(
 
     val activeDoor: ZoneDoor? = null,
     val messageToast: String? = null,
+    val exitStationRequested: Boolean = false,
 
     // Diseñador
     val designerMode: Boolean = false,

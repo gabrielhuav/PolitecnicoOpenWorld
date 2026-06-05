@@ -1,1 +1,57 @@
-[{"hitboxFrac":{"bottom":0.35244593,"left":0.35170132,"right":0.3917013,"top":0.31244594},"kind":"GENERIC","label":"Instituto del Petróleo","targetRoomId":"Instituto del Petróleo"},{"hitboxFrac":{"bottom":0.33023876,"left":0.33417535,"right":0.37417546,"top":0.29023877},"kind":"GENERIC","label":"Politécnico","targetRoomId":"Politécnico"}]
+[
+    {
+        "hitboxFrac": {
+            "bottom": 0.31460655,
+            "left": 0.33364698,
+            "right": 0.373647,
+            "top": 0.27460662
+        },
+        "kind": "GENERIC",
+        "label": "Politécnico",
+        "targetRoomId": "Politécnico"
+    },
+    {
+        "hitboxFrac": {
+            "bottom": 0.34004772,
+            "left": 0.3523556,
+            "right": 0.39235562,
+            "top": 0.30004773
+        },
+        "kind": "GENERIC",
+        "label": "Instituto del Petróleo",
+        "targetRoomId": "Instituto del Petróleo"
+    },
+    {
+        "hitboxFrac": {
+            "bottom": 0.36882865,
+            "left": 0.37671167,
+            "right": 0.41671166,
+            "top": 0.32882866
+        },
+        "kind": "GENERIC",
+        "label": "Autobuses del Norte",
+        "targetRoomId": "Autobuses del Norte"
+    },
+    {
+        "hitboxFrac": {
+            "bottom": 0.38892913,
+            "left": 0.39030737,
+            "right": 0.43030733,
+            "top": 0.34892914
+        },
+        "kind": "GENERIC",
+        "label": "La Raza",
+        "targetRoomId": "La Raza"
+    },
+    {
+        "hitboxFrac": {
+            "bottom": 0.4563488,
+            "left": 0.378872,
+            "right": 0.418872,
+            "top": 0.41634887
+        },
+        "kind": "GENERIC",
+        "label": "Garibaldi - Lagunilla",
+        "targetRoomId": "Garibaldi - Lagunilla"
+    }
+]
