@@ -62,5 +62,13 @@
     "defaultScale": 0.15,
     "baseWidthMeters": 80.0,
     "baseHeightMeters": 55.0
+  },
+  {
+    "id": "estadio_azteca",
+    "displayName": "ESTADIO AZTECA",
+    "assetPath": "BUILDINGS/ESTADIO_AZT/estadio.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 260.0,
+    "baseHeightMeters": 172.4
   }
 ]

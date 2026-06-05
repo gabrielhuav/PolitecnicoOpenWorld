@@ -424,8 +424,8 @@ fun WorldMapScreen(
 
                             if (bitmap != null) {
                                 val center = LatLng(landmark.location.latitude, landmark.location.longitude)
-                                val widthMeters = (landmark.baseWidthMeters * landmark.scaleFactor).toFloat()
-                                val heightMeters = (landmark.baseHeightMeters * landmark.scaleFactor).toFloat()
+                                val widthMeters = (landmark.baseWidthMeters * landmark.scaleX).toFloat()
+                                val heightMeters = (landmark.baseHeightMeters * landmark.scaleY).toFloat()
 
                                 val isDoorGM = landmark.assetPath.contains("DOORS/")
                                 var doorAnimDescriptor by remember(landmark.id) {
@@ -799,7 +799,9 @@ fun WorldMapScreen(
                                 rotation = it.rotationAngle,
                                 widthMeters = it.baseWidthMeters,
                                 heightMeters = it.baseHeightMeters,
-                                scale = it.scaleFactor,
+                                scale = it.scaleX,
+                                scaleX = it.scaleX,
+                                scaleY = it.scaleY,
                                 assetPath = it.assetPath
                             )
                         }
@@ -1216,7 +1218,8 @@ fun WorldMapScreen(
                 landmark = selectedLandmark,
                 onMove = { dLat, dLon -> viewModel.moveSelectedLandmark(dLat, dLon) },
                 onRotate = { angle -> viewModel.rotateSelectedLandmark(angle) },
-                onScale = { scale -> viewModel.scaleSelectedLandmark(scale) },
+                onScaleX = { sx -> viewModel.scaleXSelectedLandmark(sx) },
+                onScaleY = { sy -> viewModel.scaleYSelectedLandmark(sy) },
                 onDelete = { viewModel.deleteSelectedLandmark(context) },
                 onSave = { viewModel.saveSelectedLandmark(context) },
                 onExport = { exportLauncher.launch("landmarks_config.json") },

@@ -31,5 +31,27 @@
         "kind": "GENERIC",
         "label": "Andén",
         "targetRoomId": "anden"
+    },
+    {
+        "hitboxFrac": {
+            "bottom": 0.61103517,
+            "left": 0.4354518,
+            "right": 0.5254518,
+            "top": 0.51103514
+        },
+        "kind": "GENERIC",
+        "label": "Salir Torniquetes",
+        "targetRoomId": "salir_torniquetes"
+    },
+    {
+        "hitboxFrac": {
+            "bottom": 0.16083005,
+            "left": 0.30263555,
+            "right": 0.5026361,
+            "top": 0.040830113
+        },
+        "kind": "GENERIC",
+        "label": "Salida",
+        "targetRoomId": "salida"
     }
 ]

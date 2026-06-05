@@ -82,6 +82,10 @@ class MetroInteriorViewModel(
             if (r == 0 || r == gridRows - 1) "#".repeat(gridCols)
             else "#" + ".".repeat(gridCols - 2) + "#"
         }
+
+        // Sincronizar gridRows/gridCols con la matriz cargada
+        gridRows = defaultRows.size
+        gridCols = defaultRows.maxOfOrNull { it.length } ?: gridCols
         
         var initialDoors = if (savedDoors != null) {
             try {
@@ -255,6 +259,25 @@ class MetroInteriorViewModel(
             "anden" -> {
                 _state.update { it.copy(showMetroMap = true) }
             }
+            "salir_torniquetes" -> {
+                // Mover al jugador hacia arriba de los torniquetes y resetear el ticket
+                val currentY = _state.value.playerY
+                _state.update {
+                    it.copy(
+                        playerY = (currentY - 0.15f).coerceAtLeast(0f),
+                        hasRechargedTicket = false,
+                        messageToast = "Has salido de los torniquetes. Ve a la taquilla para recargar tu tarjeta."
+                    )
+                }
+                viewModelScope.launch {
+                    delay(3000)
+                    _state.update { it.copy(messageToast = null) }
+                }
+            }
+            "salida" -> {
+                // Señaliza al Screen que debe ejecutar onExit
+                _state.update { it.copy(exitStationRequested = true) }
+            }
             else -> {
                 _state.update { it.copy(messageToast = "Interacción con ${door.label}") }
                 viewModelScope.launch {
@@ -267,6 +290,11 @@ class MetroInteriorViewModel(
 
     fun closeMetroMap() {
         _state.update { it.copy(showMetroMap = false) }
+    }
+
+    /** Consume la solicitud de salida después de que el Screen haya llamado onExit. */
+    fun consumeExitStation() {
+        _state.update { it.copy(exitStationRequested = false) }
     }
 
     // --- DISEÑADOR ---
@@ -286,15 +314,16 @@ class MetroInteriorViewModel(
         val s = _state.value
         if (s.designerTarget != DesignerTarget.MATRIX) return
         
-        val cols = gridCols
-        val rows = gridRows
-        if (cols == 0 || rows == 0) return
+        // Usar las dimensiones reales de la matriz cargada, no los valores fijos
+        val currentRows = s.designerRows.toMutableList()
+        val rows = currentRows.size
+        val cols = currentRows.maxOfOrNull { it.length } ?: 0
+        if (rows == 0 || cols == 0) return
 
         val c = (normalizedX * cols).toInt().coerceIn(0, cols - 1)
         val r = (normalizedY * rows).toInt().coerceIn(0, rows - 1)
 
-        val currentRows = s.designerRows.toMutableList()
-        val rowStr = currentRows[r]
+        val rowStr = currentRows[r].padEnd(cols, '.')
         val charArr = rowStr.toCharArray()
         val oldChar = charArr[c]
         val newChar = if (s.designerBrushWall) '#' else '.'
