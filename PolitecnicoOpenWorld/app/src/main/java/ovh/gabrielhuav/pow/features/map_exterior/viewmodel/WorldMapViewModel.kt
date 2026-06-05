@@ -82,6 +82,12 @@ class WorldMapViewModel(
     var damagePulseTrigger by mutableStateOf(0)
         internal set
 
+    // Timestamp hasta el cual el jugador es inmune al daño (post-respawn / teletransporte).
+    // Mientras System.currentTimeMillis() < respawnImmunityUntilMs, takeDamage es un no-op.
+    // Esto evita que golpes "fantasma" de policías/NPCs que aún existen en la zona anterior
+    // disparen la animación de daño justo al llegar a la nueva ubicación.
+    @Volatile internal var respawnImmunityUntilMs: Long = 0L
+
     internal var healthBarJob: Job? = null
     internal var promptJob: Job? = null
 
@@ -130,6 +136,13 @@ class WorldMapViewModel(
     val roadNetworkFlow: StateFlow<List<MapWay>> = _roadNetworkFlow.asStateFlow()
 
     internal var roadNetworkNodeGrid: Map<Pair<Int, Int>, List<GeoPoint>> = emptyMap()
+
+    // ─── Grafo de calles para A* (pathfinding de la policía) ─────────────────
+    // Adyacencia por id de nodo (calles que comparten nodo = intersección conectada),
+    // posición de cada nodo, y una rejilla id→celda para hallar el nodo más cercano.
+    internal var roadAdjacency: Map<Long, List<Long>> = emptyMap()
+    internal var roadNodePos: Map<Long, GeoPoint> = emptyMap()
+    internal var roadNodeGridById: Map<Pair<Int, Int>, List<Long>> = emptyMap()
     internal var routeCalculationJob: Job? = null
     internal var routeRetryJob: Job? = null
     internal var lastNetworkFetchLocation: GeoPoint? = null
@@ -209,7 +222,9 @@ class WorldMapViewModel(
         val level = _uiState.value.wantedLevel
         if (level <= 0) return
         if (now - lastCrimeTime < WANTED_DECAY_GRACE_MS) return
-        if (now - lastWantedDecayTime < WANTED_DECAY_STEP_MS) return
+        // Cuantas MÁS estrellas tengas, MÁS tarda en bajar cada una (el paso escala con el
+        // nivel actual): 1★ baja en ~1×base, 5★ tarda ~5×base por estrella.
+        if (now - lastWantedDecayTime < WANTED_DECAY_STEP_MS * level) return
         lastWantedDecayTime = now
         _uiState.update { it.copy(wantedLevel = (it.wantedLevel - 1).coerceAtLeast(0)) }
     }
@@ -291,11 +306,22 @@ class WorldMapViewModel(
             playerLon = location.longitude,
             roadNetwork = roadNetwork,
             wantedLevel = wanted,
-            canShoot = wanted >= 2,
+            canShoot = wanted >= 3,   // solo disparan con 3+ estrellas
             playerInVehicle = driving,
             now = now,
-            snap = { gp -> getNearestPointOnNetwork(gp) }
+            snap = { gp -> getNearestPointOnNetwork(gp) },
+            pathfind = { from, to -> findRoadRoute(from, to) }   // A* real por calles
         )
+
+        // BALAS VISIBLES: guardamos los disparos nuevos con su timestamp y purgamos los
+        // viejos (>280 ms), para dibujar un trazo breve desde el policía hacia ti.
+        val prevShots = _uiState.value.policeShots
+        val freshShots = if (tick.shots.isNotEmpty())
+            tick.shots.map { PoliceShot(it.first, it.second, now) } else emptyList()
+        if (freshShots.isNotEmpty() || prevShots.isNotEmpty()) {
+            val kept = (prevShots + freshShots).filter { now - it.at <= 450L }
+            if (kept != prevShots) _uiState.update { it.copy(policeShots = kept) }
+        }
 
         // Daño que los policías te hacen (golpes/disparos). En coche NO te hacen daño
         // directo: te persiguen y, si te detienes, te bajan del vehículo (carjack).
@@ -647,6 +673,7 @@ class WorldMapViewModel(
     private suspend fun applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
         roadNetwork = network
         rebuildRoadNodeGrid(network)
+        buildRoadGraph(network)   // grafo para el A* de la policía
         npcAiManager.updateRoadNetwork(network)
 
         if (isInsideEscom(playerLocation.latitude, playerLocation.longitude)) {
@@ -660,6 +687,9 @@ class WorldMapViewModel(
         withContext(Dispatchers.Main) {
             _uiState.update { it.copy(currentLocation = snapped, isRoadNetworkReady = true) }
         }
+        // Pinta las calles (líneas amarillas) de inmediato al quedar lista la red, sin
+        // esperar al throttle del game loop (antes "tardaban en colocarse" tras entrar).
+        updateVisibleRoads(snapped, force = true)
         val targetZoom = if (_uiState.value.mapProvider.isWebProvider)
             ZOOM_GAMEPLAY_WEB
         else
@@ -1558,7 +1588,10 @@ class WorldMapViewModel(
                 val carId = nearbyCarEntry.key
                 val carNpc = nearbyCarEntry.value
                 remoteEntities.remove(carId)
-                if (carNpc.isFirstTimeBoarded) { spawnOustedDriver(carNpc.location) }
+                if (carNpc.isFirstTimeBoarded) {
+                    spawnOustedDriver(carNpc.location)
+                    raiseWantedLevel(1) // robar un auto ocupado es delito → +1 estrella
+                }
                 _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false) }
                 updateNpcsState()
             }
@@ -1840,7 +1873,9 @@ class WorldMapViewModel(
             fearUntil = if (trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.COWARD) now + NpcAiManager.FEAR_DURATION_MS else 0L,
             fearFromLat = carLocation.latitude,
             fearFromLon = carLocation.longitude,
-            aggroUntil = if (trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE) now + NpcAiManager.AGGRO_DURATION_MS else 0L
+            aggroUntil = if (trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE) now + NpcAiManager.AGGRO_DURATION_MS else 0L,
+            // Llama a la policía unos segundos (muestra 📞 sobre su cabeza).
+            callingUntil = now + 4000L
         )
         remoteEntities[driver.id] = driver
     }
@@ -1864,13 +1899,37 @@ class WorldMapViewModel(
 
     fun teleportTo(lat: Double, lon: Double) {
         val newLocation = org.osmdroid.util.GeoPoint(lat, lon)
+        // TELETRANSPORTE = borrón y cuenta nueva del combate: si no, los NPCs/policías que
+        // te perseguían en la zona vieja quedaban con aggro y daban un golpe "fantasma"
+        // justo al llegar. Limpiamos perseguidores, policía y nivel de búsqueda.
+        // También se reinician los triggers de animación de daño y se activa la inmunidad
+        // temporal para que ningún golpe residual de la zona anterior dispare la animación
+        // al llegar al destino.
+        relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
+        damagePulseTrigger = 0
+        impactEffectTrigger = 0
+        respawnImmunityUntilMs = System.currentTimeMillis() + 2000L
+        carjackStartTime = 0L
+        val clearedPolice = policeManager.clearAll()
+        for ((id, npc) in remoteEntities) {
+            if (npc.aggroUntil > 0L) remoteEntities[id] = npc.copy(aggroUntil = 0L)
+        }
+        webSocketManager?.let { ws ->
+            viewModelScope.launch(Dispatchers.IO) {
+                clearedPolice.forEach { pid ->
+                    try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
+                }
+            }
+        }
         _uiState.update {
             it.copy(
                 currentLocation = newLocation,
                 showTeleportMenu = false,
                 isRoadNetworkReady = false,
                 isMapReady = false,        // ← re-activa la compuerta: no soltar hasta descargar
-                isUserPanningMap = false   // ← recentra el mapa y reactiva la neblina
+                isUserPanningMap = false,  // ← recentra el mapa y reactiva la neblina
+                wantedLevel = 0,
+                carjackWarning = null
             )
         }
         lastNetworkFetchLocation = null
@@ -2040,6 +2099,10 @@ class WorldMapViewModel(
     fun dismissClaimedPopup() { _uiState.update { it.copy(showClaimedPopupFor = null) } }
 
     fun takeDamage(amount: Float) {
+        // Inmunidad post-respawn / post-teletransporte: ignorar el daño durante los primeros
+        // segundos tras reaaparecer para que ningún policía/NPC con aggro residual dispare
+        // la animación de golpe de forma inesperada.
+        if (System.currentTimeMillis() < respawnImmunityUntilMs) return
         playerHealth = (playerHealth - amount).coerceAtLeast(0f)
         damagePulseTrigger++
         fireImpactEffect() // 💥 visible en CUALQUIER golpe que recibe el jugador
@@ -2104,6 +2167,12 @@ class WorldMapViewModel(
             val respawn = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(candidate) else deathLoc
             _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
             playerHealth = maxPlayerHealth
+            // Reiniciar contadores de animación y activar inmunidad temporal (2 s) para que
+            // ningún policía/NPC con aggro residual dispare la animación de daño justo al
+            // reaaparecer. La inmunidad también cubre el teletransporte inmediato post-respawn.
+            damagePulseTrigger = 0
+            impactEffectTrigger = 0
+            respawnImmunityUntilMs = System.currentTimeMillis() + 2000L
         }
     }
 
@@ -2123,6 +2192,20 @@ class WorldMapViewModel(
             // CONECTE O NO. Así huyen cuando los atacas, aunque falles el puñetazo.
             if (isServerDelegatedHost) {
                 npcAiManager.triggerFear(playerLoc.latitude, playerLoc.longitude)
+            }
+            // También puedes golpear a los POLICÍAS a pie cercanos (mueren si llegan a 0).
+            val deadCops = policeManager.playerHitPolice(
+                playerLoc.latitude, playerLoc.longitude, ATTACK_RADIUS, PLAYER_PUNCH_DAMAGE
+            )
+            if (deadCops.isNotEmpty()) {
+                viewModelScope.launch(Dispatchers.Main) { fireImpactEffect(); updateNpcsState() }
+                webSocketManager?.let { ws ->
+                    viewModelScope.launch(Dispatchers.IO) {
+                        deadCops.forEach { pid ->
+                            try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
+                        }
+                    }
+                }
             }
             val targetNpcEntry = remoteEntities.entries
                 .filter {
