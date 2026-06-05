@@ -61,5 +61,14 @@
     "name": "Puerta ESCOM",
     "rotationAngle": 295.54773,
     "scaleFactor": 1.1525397
+  },
+  {
+    "assetPath": "BUILDINGS/CENTRAL/Central_norte.webp",
+    "id": 21,
+    "latitude": 19.47930000000006,
+    "longitude": -99.13929999999975,
+    "name": "Central Norte",
+    "rotationAngle": 0.0,
+    "scaleFactor": 3.0
   }
 ]

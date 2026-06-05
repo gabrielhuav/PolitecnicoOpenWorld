@@ -221,7 +221,7 @@ procedural NPCs (pedestrians + 6 cars) with **personality traits, run-over-while
 aggressive retaliation/carjack reactions, and two-way traffic**; melee combat vs NPCs and remote players;
 zone-delegated open-world multiplayer (server v2: AOI + host throttle + rate-limit
 + sanitization + ghost GC); vehicle driving; configurable controls; 8 map
-providers; editable landmarks with JSON import/export (Designer Mode); 6 lore
+providers; editable landmarks with JSON import/export (Designer Mode) with **scrollable asset picker and Central Norte building**; 6 lore
 collectibles with persistent inventory; waypoint navigation with greedy road-graph
 routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch,
 **over-zoom to z22 (scaled from z19) with loading-screen z19/z17 prefetch, default max zoom**;

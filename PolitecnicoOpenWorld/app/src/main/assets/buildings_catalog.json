@@ -62,5 +62,13 @@
     "defaultScale": 0.15,
     "baseWidthMeters": 80.0,
     "baseHeightMeters": 55.0
+  },
+  {
+    "id": "central_norte",
+    "displayName": "Central Norte",
+    "assetPath": "BUILDINGS/CENTRAL/Central_norte.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 100.0,
+    "baseHeightMeters": 100.0
   }
 ]
