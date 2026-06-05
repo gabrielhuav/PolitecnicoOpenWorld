@@ -42,5 +42,16 @@
         "kind": "GENERIC",
         "label": "La Raza",
         "targetRoomId": "La Raza"
+    },
+    {
+        "hitboxFrac": {
+            "bottom": 0.4553836,
+            "left": 0.3788606,
+            "right": 0.4188606,
+            "top": 0.41538364
+        },
+        "kind": "GENERIC",
+        "label": "Garibaldi - Lagunilla",
+        "targetRoomId": "Garibaldi - Lagunilla"
     }
 ]
