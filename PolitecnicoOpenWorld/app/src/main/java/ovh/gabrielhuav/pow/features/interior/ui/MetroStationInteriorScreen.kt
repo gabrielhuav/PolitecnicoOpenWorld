@@ -114,6 +114,14 @@ fun MetroStationInteriorScreen(
 
     BackHandler { onExit(stationName) }
 
+    // Observar si el ViewModel solicita salir de la estación (waypoint "salida")
+    LaunchedEffect(state.exitStationRequested) {
+        if (state.exitStationRequested) {
+            viewModel.consumeExitStation()
+            onExit(stationName)
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D11))) {
 
         // Canvas / Cámara principal inmersiva
