@@ -1,0 +1,71 @@
+name: Android Debug Release
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+    paths:
+      - 'PolitecnicoOpenWorld/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.4.1"
+
+      - name: Create secrets.properties file
+        run: |
+          echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
+
+      - name: Build APK
+        working-directory: ./PolitecnicoOpenWorld
+        run: gradle :app:assembleDebug
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+
+        with:
+          tag_name: debug-latest
+          name: "Latest Debug APK"
+
+          body: |
+            APK Debug generado automáticamente desde main.
+
+            PR: #${{ github.event.pull_request.number }}
+            Autor: @${{ env.PR_AUTHOR }}
+            Commit: ${{ github.sha }}
+
+          make_latest: true
+          draft: false
+          prerelease: false
+
+          files: |
+            PolitecnicoOpenWorld/app/build/outputs/apk/debug/app-debug.apk

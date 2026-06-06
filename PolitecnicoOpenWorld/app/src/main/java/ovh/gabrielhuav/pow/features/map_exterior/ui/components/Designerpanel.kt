@@ -50,7 +50,8 @@ fun DesignerPanel(
     landmark: Landmark,
     onMove: (Double, Double) -> Unit,
     onRotate: (Float) -> Unit,
-    onScale: (Float) -> Unit,
+    onScaleX: (Float) -> Unit,
+    onScaleY: (Float) -> Unit,
     onDelete: () -> Unit,
     onSave: () -> Unit,
     onExport: () -> Unit,
@@ -60,7 +61,7 @@ fun DesignerPanel(
     onToggleParkingMode: (Boolean) -> Unit = {},
     onNewWay: () -> Unit = {},
     onDebugPoint: () -> Unit = {},
-    onSpawnTestCar: () -> Unit = {}, // <--- NUEVA LÍNEA AQUÍ
+    onSpawnTestCar: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val moveStep = 0.0001
@@ -105,26 +106,89 @@ fun DesignerPanel(
             MoveBtn("Derecha", 40.dp) { onMove(0.0, moveStep) }
         }
 
-        // ─── SLIDERS (Escala y Rotación) ───
+        // ─── SLIDERS (Escala X, Escala Y y Rotación) ───
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = "ESCALA: ${String.format("%.2f", landmark.scaleFactor)}x",
+                text = "ANCHO: ${String.format("%.2f", landmark.scaleX)}x",
                 color = Color.White,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
             )
-            Slider(
-                value = landmark.scaleFactor,
-                onValueChange = onScale,
-                valueRange = 0.05f..3.0f,
-                colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFFD4AF37),
-                    activeTrackColor = Color(0xFF6B1C3A)
-                ),
-                modifier = Modifier.fillMaxWidth().height(24.dp)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Slider(
+                    value = landmark.scaleX,
+                    onValueChange = onScaleX,
+                    valueRange = 0.05f..5.0f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFD4AF37),
+                        activeTrackColor = Color(0xFF6B1C3A)
+                    ),
+                    modifier = Modifier.weight(1f).height(24.dp)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Button(
+                        onClick = { onScaleX((landmark.scaleX - 0.05f).coerceAtLeast(0.05f)) },
+                        modifier = Modifier.size(width = 28.dp, height = 24.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("−", color = Color.White, fontSize = 14.sp) }
+                    Button(
+                        onClick = { onScaleX((landmark.scaleX + 0.05f).coerceAtMost(5.0f)) },
+                        modifier = Modifier.size(width = 28.dp, height = 24.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("+", color = Color.White, fontSize = 14.sp) }
+                }
+            }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
+
+            Text(
+                text = "ALTO: ${String.format("%.2f", landmark.scaleY)}x",
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Slider(
+                    value = landmark.scaleY,
+                    onValueChange = onScaleY,
+                    valueRange = 0.05f..5.0f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFD4AF37),
+                        activeTrackColor = Color(0xFF6B1C3A)
+                    ),
+                    modifier = Modifier.weight(1f).height(24.dp)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Button(
+                        onClick = { onScaleY((landmark.scaleY - 0.05f).coerceAtLeast(0.05f)) },
+                        modifier = Modifier.size(width = 28.dp, height = 24.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("−", color = Color.White, fontSize = 14.sp) }
+                    Button(
+                        onClick = { onScaleY((landmark.scaleY + 0.05f).coerceAtMost(5.0f)) },
+                        modifier = Modifier.size(width = 28.dp, height = 24.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("+", color = Color.White, fontSize = 14.sp) }
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
 
             Text(
                 text = "ROTACIÓN: ${landmark.rotationAngle.toInt()}°",

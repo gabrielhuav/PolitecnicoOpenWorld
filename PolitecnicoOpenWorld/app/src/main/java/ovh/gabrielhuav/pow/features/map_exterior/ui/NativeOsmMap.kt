@@ -725,8 +725,8 @@ internal fun NativeOsmMap(
 
 
                 val center = GeoPoint(landmark.location.latitude, landmark.location.longitude)
-                val halfW = (landmark.baseWidthMeters * landmark.scaleFactor) / 2.0
-                val halfH = (landmark.baseHeightMeters * landmark.scaleFactor) / 2.0
+                val halfW = (landmark.baseWidthMeters * landmark.scaleX) / 2.0
+                val halfH = (landmark.baseHeightMeters * landmark.scaleY) / 2.0
                 val d = sqrt(halfW * halfW + halfH * halfH)
                 val theta = Math.toDegrees(atan2(halfW, halfH))
 
