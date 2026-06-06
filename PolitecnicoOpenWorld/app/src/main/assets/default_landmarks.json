@@ -75,5 +75,49 @@
     "scaleFactor": 1.1525397,
     "scaleX": 1.1525397,
     "scaleY": 1.1525397
+  },
+  {
+    "id": 16,
+    "name": "Deportivo Miguel Alemán",
+    "latitude": 19.493527319568926,
+    "longitude": -99.1285163718726,
+    "rotationAngle": 360.0,
+    "scaleFactor": 2.3671417,
+    "assetPath": "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp",
+    "scaleX": 2.3671417,
+    "scaleY": 2.3671417
+  },
+  {
+    "assetPath": "LUGARES/plazalindavista/plaza_lindavista.webp",
+    "id": 17,
+    "latitude": 19.491605000000032,
+    "longitude": -99.13371099999956,
+    "name": "Plaza Lindavista",
+    "rotationAngle": 9.545767,
+    "scaleFactor": 0.6872067,
+    "scaleX": 0.6872067,
+    "scaleY": 0.6872067
+  },
+  {
+    "assetPath": "DOORS/ESCOM_DOOR.webp",
+    "id": 18,
+    "latitude": 19.494200,
+    "longitude": -99.129200,
+    "name": "Entrada Campo Béisbol",
+    "rotationAngle": 0.0,
+    "scaleFactor": 0.60,
+    "scaleX": 0.60,
+    "scaleY": 0.60
+  },
+  {
+    "assetPath": "DOORS/ESCOM_DOOR.webp",
+    "id": 19,
+    "latitude": 19.492800,
+    "longitude": -99.127800,
+    "name": "Entrada Campo Fútbol",
+    "rotationAngle": 0.0,
+    "scaleFactor": 0.60,
+    "scaleX": 0.60,
+    "scaleY": 0.60
   }
 ]
