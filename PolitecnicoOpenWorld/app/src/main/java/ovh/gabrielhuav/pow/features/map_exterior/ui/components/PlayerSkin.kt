@@ -29,9 +29,18 @@ enum class PlayerSkin(
     LAZARO(
         displayName = "Lázaro",
         skinFolder  = "lazaro",
-        skinPrefix  = "lazaro_"
+        skinPrefix  = "lazaro_",
     ),
 
+    escomgirl(
+        displayName = "Estudiante Escom",
+        skinFolder  = "escomgirl",
+        skinPrefix  = "escomgirl_",
+        idleFrames   = 6,   // tienes 6
+        walkFrames   = 5,   // tienes 5
+        runFrames    = 4,   // tienes 4
+        specialFrames = 6   // tienes 6
+    ),
     // ── Agrega aquí nuevas skins ──────────────────────────────────────────
     // Ejemplo con una skin "Ana":
     //

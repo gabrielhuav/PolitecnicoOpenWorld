@@ -1713,13 +1713,29 @@ class WorldMapViewModel(
                         null // Los demás edificios nacen sin cerebro (por ahora)
                     }
 
+                    // Coalesce de escala: las entidades sembradas desde default_landmarks.json
+                    // (o JSON importados antiguos) NO traen scaleX/scaleY. Gson NO aplica los
+                    // valores por defecto de Kotlin a campos primitivos ausentes, así que llegan
+                    // como 0.0f. Un scaleX/scaleY de 0 colapsa el GroundOverlay a tamaño cero y
+                    // el asset se vuelve INVISIBLE. Caemos a scaleFactor y, en último caso, a 1.0.
+                    val effectiveScaleX = when {
+                        entity.scaleX > 0f -> entity.scaleX
+                        entity.scaleFactor > 0f -> entity.scaleFactor
+                        else -> 1.0f
+                    }
+                    val effectiveScaleY = when {
+                        entity.scaleY > 0f -> entity.scaleY
+                        entity.scaleFactor > 0f -> entity.scaleFactor
+                        else -> 1.0f
+                    }
+
                     Landmark(
                         id = entity.id,
                         name = entity.name,
                         location = GeoPoint(entity.latitude, entity.longitude),
                         assetPath = entity.assetPath,
-                        scaleX = entity.scaleX,
-                        scaleY = entity.scaleY,
+                        scaleX = effectiveScaleX,
+                        scaleY = effectiveScaleY,
                         rotationAngle = entity.rotationAngle,
                         baseWidthMeters = template?.baseWidthMeters ?: 100f,
                         baseHeightMeters = template?.baseHeightMeters ?: 100f,
