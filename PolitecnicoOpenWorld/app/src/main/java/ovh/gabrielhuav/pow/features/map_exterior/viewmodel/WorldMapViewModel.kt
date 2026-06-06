@@ -1646,7 +1646,9 @@ class WorldMapViewModel(
                             longitude = -99.1633282698258,
                             assetPath = "BUILDINGS/BAR/Shine.webp",
                             scaleFactor = 0.50f,
-                            rotationAngle = 285f
+                            rotationAngle = 285f,
+                            scaleX = 0.50f,
+                            scaleY = 0.50f
                         )
                     )
                     entities = dao.getAllLandmarks()
@@ -1679,12 +1681,29 @@ class WorldMapViewModel(
                         null // Los demás edificios nacen sin cerebro (por ahora)
                     }
 
+                    // Coalesce de escala: las entidades sembradas desde default_landmarks.json
+                    // (o JSON importados antiguos) NO traen scaleX/scaleY. Gson NO aplica los
+                    // valores por defecto de Kotlin a campos primitivos ausentes, así que llegan
+                    // como 0.0f. Un scaleX/scaleY de 0 colapsa el GroundOverlay a tamaño cero y
+                    // el asset se vuelve INVISIBLE. Caemos a scaleFactor y, en último caso, a 1.0.
+                    val effectiveScaleX = when {
+                        entity.scaleX > 0f -> entity.scaleX
+                        entity.scaleFactor > 0f -> entity.scaleFactor
+                        else -> 1.0f
+                    }
+                    val effectiveScaleY = when {
+                        entity.scaleY > 0f -> entity.scaleY
+                        entity.scaleFactor > 0f -> entity.scaleFactor
+                        else -> 1.0f
+                    }
+
                     Landmark(
                         id = entity.id,
                         name = entity.name,
                         location = GeoPoint(entity.latitude, entity.longitude),
                         assetPath = entity.assetPath,
-                        scaleFactor = entity.scaleFactor,
+                        scaleX = effectiveScaleX,
+                        scaleY = effectiveScaleY,
                         rotationAngle = entity.rotationAngle,
                         baseWidthMeters = template?.baseWidthMeters ?: 100f,
                         baseHeightMeters = template?.baseHeightMeters ?: 100f,
@@ -1716,7 +1735,9 @@ class WorldMapViewModel(
                     longitude = playerLoc.longitude,
                     assetPath = template.assetPath,
                     scaleFactor = template.defaultScale,
-                    rotationAngle = 0f
+                    rotationAngle = 0f,
+                    scaleX = template.defaultScale,
+                    scaleY = template.defaultScale
                 )
                 val newId = dao.insertLandmark(newEntity)
                 loadLandmarks(context)
@@ -1750,12 +1771,21 @@ class WorldMapViewModel(
         }
     }
 
-    fun scaleSelectedLandmark(scale: Float) {
+    fun scaleXSelectedLandmark(scaleX: Float) {
         val id = _uiState.value.selectedLandmarkId ?: return
         _uiState.update { state ->
             val updated = state.landmarks.map {
-                if (it.id == id) it.copy(scaleFactor = scale)
-                else it
+                if (it.id == id) it.copy(scaleX = scaleX) else it
+            }
+            state.copy(landmarks = updated)
+        }
+    }
+
+    fun scaleYSelectedLandmark(scaleY: Float) {
+        val id = _uiState.value.selectedLandmarkId ?: return
+        _uiState.update { state ->
+            val updated = state.landmarks.map {
+                if (it.id == id) it.copy(scaleY = scaleY) else it
             }
             state.copy(landmarks = updated)
         }
@@ -1823,8 +1853,10 @@ class WorldMapViewModel(
                     latitude = currentLandmark.location.latitude,
                     longitude = currentLandmark.location.longitude,
                     assetPath = currentLandmark.assetPath,
-                    scaleFactor = currentLandmark.scaleFactor,
-                    rotationAngle = currentLandmark.rotationAngle
+                    scaleFactor = currentLandmark.scaleX,
+                    rotationAngle = currentLandmark.rotationAngle,
+                    scaleX = currentLandmark.scaleX,
+                    scaleY = currentLandmark.scaleY
                 )
                 dao.updateLandmark(updatedEntity)
             } catch (e: Exception) {
