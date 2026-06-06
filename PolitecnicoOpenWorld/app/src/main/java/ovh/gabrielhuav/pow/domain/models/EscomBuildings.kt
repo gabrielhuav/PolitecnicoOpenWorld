@@ -27,49 +27,49 @@ enum class InteriorBuilding(
         id = "auditorio",
         displayName = "Auditorio",
         location = GeoPoint(19.50480, -99.14640),
-        backgroundAsset = "ZOMBIS_MOD/interiores/za_auditorio.webp",
+        backgroundAsset = "INTERIORES/ESCOM/z_auditorio.webp",
         routeName = "interior_auditorio"
     ),
     BIBLIOTECA(
         id = "biblioteca",
         displayName = "Biblioteca",
         location = GeoPoint(19.50445, -99.14705),
-        backgroundAsset = "ZOMBIS_MOD/interiores/za_biblioteca.webp",
+        backgroundAsset = "INTERIORES/ESCOM/z_biblioteca.webp",
         routeName = "interior_biblioteca"
     ),
     CAFETERIA(
         id = "cafeteria",
         displayName = "Cafetería",
         location = GeoPoint(19.50425, -99.14660),
-        backgroundAsset = "ZOMBIS_MOD/interiores/za_cafeteria.webp",
+        backgroundAsset = "INTERIORES/ESCOM/z_cafeteria.webp",
         routeName = "interior_cafeteria"
     ),
     EDIFICIO(
         id = "edificio",
         displayName = "Edificio Principal",
         location = GeoPoint(19.50470, -99.14695),
-        backgroundAsset = "ZOMBIS_MOD/interiores/za_edificio.webp",
+        backgroundAsset = "INTERIORES/ESCOM/z_edificio.webp",
         routeName = "interior_edificio"
     ),
     ESTACIONAMIENTO(
         id = "estacionamiento",
         displayName = "Estacionamiento",
         location = GeoPoint(19.50435, -99.14635),
-        backgroundAsset = "ZOMBIS_MOD/interiores/za_estacionamiento.webp",
+        backgroundAsset = "INTERIORES/ESCOM/z_estacionamiento.webp",
         routeName = "interior_estacionamiento"
     ),
     PALAPAS(
         id = "palapas",
         displayName = "Palapas",
         location = GeoPoint(19.50460, -99.14720),
-        backgroundAsset = "ZOMBIS_MOD/interiores/za_palapas.webp",
+        backgroundAsset = "INTERIORES/ESCOM/z_palapas.webp",
         routeName = "interior_palapas"
     ),
     CANCHAS_FUTBOL(
         id = "canchas_futbol",
         displayName = "Canchas de Futbol",
         location = GeoPoint(19.50425, -99.14705),
-        backgroundAsset = "ZOMBIS_MOD/interiores/za_canchas_futbol.webp",
+        backgroundAsset = "INTERIORES/ESCOM/z_canchas_futbol.webp",
         routeName = "interior_canchas_futbol"
     );
 

@@ -58,6 +58,8 @@ data class ZombieGameState(
     val swapControls: Boolean = false,
     val isLoading: Boolean = true,
     val remotePlayers: List<RemoteZombiePlayer> = emptyList(),
+    val zombieModeActivated: Boolean = false,
+    val showZombieCinematic: Boolean = false,
 
     // ─── MODO DISEÑADOR DE LA MATRIZ DE COLISIÓN ───────────
     // Análogo al modo diseñador del mapa principal: se activa/desactiva, se
