@@ -1,14 +1,5 @@
 [
   {
-    "id": 0,
-    "name": "Shine CTO",
-    "latitude": 19.45908368468466,
-    "longitude": -99.163338,
-    "assetPath": "BUILDINGS/BAR/Shine.webp",
-    "scaleFactor": 0.15,
-    "rotationAngle": 0.0
-  },
-  {
     "assetPath": "BUILDINGS/IPN/building_escom.webp",
     "id": 1,
     "latitude": 19.504694288807826,
@@ -61,5 +52,23 @@
     "name": "Puerta ESCOM",
     "rotationAngle": 295.54773,
     "scaleFactor": 1.1525397
+  },
+  {
+    "assetPath": "BUILDINGS/BAR/Shine.webp",
+    "id": 15,
+    "latitude": 19.459038634489882,
+    "longitude": -99.1633282698258,
+    "name": "Shine CTO",
+    "rotationAngle": 285.0,
+    "scaleFactor": 0.5
+  },
+  {
+    "assetPath": "BUILDINGS/IPN/building_voca9.webp",
+    "id": 18,
+    "latitude": 19.45356301845074,
+    "longitude": -99.17534464484066,
+    "name": "CECyT 9 Bátiz",
+    "rotationAngle": 210.94089,
+    "scaleFactor": 1.0837456
   }
 ]

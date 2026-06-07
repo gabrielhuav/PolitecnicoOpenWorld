@@ -5,8 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -63,21 +66,26 @@ fun AssetPickerDialog(
                         fontSize = 12.sp
                     )
                 } else {
-                    availableAssets.forEach { template ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF2A1C21))
-                                .clickable { onAssetSelected(template) }
-                                .padding(12.dp)
-                        ) {
-                            Text(template.displayName, color = Color.White, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                template.assetPath,
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 11.sp
-                            )
+                    LazyColumn(
+                        modifier = Modifier.fillMaxHeight(0.6f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(availableAssets) { template ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF2A1C21))
+                                    .clickable { onAssetSelected(template) }
+                                    .padding(12.dp)
+                            ) {
+                                Text(template.displayName, color = Color.White, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    template.assetPath,
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                     }
                 }
