@@ -327,9 +327,12 @@ class ZombieGameViewModel(
         val hasWeapon = _state.value.combatMode == CombatMode.RANGED
 
         // En ONLINE los zombis los crea el servidor (llegan por ZOMBIE_STATE).
-        val zombies = if (!isMultiplayer && room.type == ZoneType.BUILDING && room.zombieCount > 0 && _state.value.zombieModeActivated) {
-            val lootIndex = Random.nextInt(room.zombieCount)
-            (0 until room.zombieCount).map { i ->
+        val isZombieEligible = room.type == ZoneType.BUILDING ||
+                (room.type == ZoneType.LOBBY && _state.value.zombieModeActivated)
+        val effectiveZombieCount = if (room.type == ZoneType.LOBBY) 5 else room.zombieCount
+        val zombies = if (!isMultiplayer && isZombieEligible && effectiveZombieCount > 0 && _state.value.zombieModeActivated) {
+            val lootIndex = Random.nextInt(effectiveZombieCount)
+            (0 until effectiveZombieCount).map { i ->
                 val (zx, zy) = spawnAroundPlayer(spawnX, spawnY, room)
                 val type = if (hasWeapon && Random.nextFloat() < 0.4f) ZombieType.STALKER else ZombieType.NORMAL
                 ZombieEntity(
