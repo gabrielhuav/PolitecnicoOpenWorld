@@ -8,10 +8,13 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #0D0D11; overflow: hidden; }
-        /* Wrapper sobredimensionado (300vw x 300vh) y centrado: su círculo inscrito
-           cubre la diagonal de la pantalla en cualquier ángulo de rotación, evitando
-           ver "huecos"/artefactos al rotar el mapa en pantallas alargadas. */
-        #map-wrapper { position: absolute; top: -100%; left: -100%; width: 300vw; height: 300vh; transform-origin: center center; }
+        /* OPT FPS (gama baja): el mapa Leaflet ocupa el tamaño del wrapper. Antes era
+           300vw×300vh (≈9× el área de pantalla) SIEMPRE, así que el WebView renderizaba y
+           RE-COMPONÍA ~9× las teselas — el costo dominante al moverse/conducir en web. Ahora a
+           pie es del tamaño EXACTO de la pantalla (100vw×100vh) y solo al CONDUCIR se agranda a
+           un cuadrado 150vmax (cuyo círculo inscrito cubre la diagonal en cualquier rotación),
+           vía setMapOversize(). transform-origin centrado para que rotate() gire sobre el centro. */
+        #map-wrapper { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; transform-origin: center center; }
         #map { width: 100%; height: 100%; background: transparent; }
         .leaflet-marker-icon { background: none !important; border: none !important; }
         .leaflet-div-icon { background: transparent !important; border: none !important; }
@@ -41,7 +44,11 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
             keyboard: false,
             maxZoom: 22 
         }).setView([$lat, $lng], $zoom);
-        var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 18 }).addTo(map);
+        // keepBuffer: mantener más anillos de teselas alrededor del viewport (más "radio"
+        //   cargado → menos teselas grises al moverte). updateWhenIdle:false → cargar teselas
+        //   MIENTRAS te mueves (no solo al detenerte, que es el default en móvil y causaba el
+        //   tirón al parar). updateWhenZooming:false evita churn de teselas a mitad de zoom.
+        var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 18, keepBuffer: 3, updateWhenIdle: false, updateWhenZooming: false }).addTo(map);
         map.createPane('landmarkPane');
         map.getPane('landmarkPane').style.zIndex = 300;
         map.createPane('doorPane');
@@ -52,6 +59,8 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         var npcMarkers = {};
         var collectibleMarkers = {};
         var landmarkMarkers = {};
+        var policeWpMarkers = {};   // 🚓 de patrullas fuera de la neblina (paridad con OSM nativo)
+        var policeWpLines = {};     // líneas punteadas jugador → patrulla
 
         var isZooming = false;
         var isExplorationMode = false;
@@ -98,7 +107,21 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
             if (window.Android && window.Android.notifyMapPanEnd) window.Android.notifyMapPanEnd();
         });
         
-        function updateMapView(lat, lng, z) { if (!isZooming && !isExplorationMode) map.setView([lat, lng], z, { animate: false }); }
+        // OPT FPS (web, gama baja): seguir al jugador con panBy (translación por transform,
+        // barata) en vez de setView, que hacía un _resetView COMPLETO reposicionando TODAS las
+        // teselas y marcadores cada frame — la causa principal del bajón de FPS al moverse.
+        // setView solo se usa al cambiar el ZOOM o en saltos grandes (teletransporte). El delta
+        // se recalcula cada frame contra el centro actual, así que es auto-corrector (sin deriva).
+        function updateMapView(lat, lng, z) {
+            if (isZooming || isExplorationMode) return;
+            if (map.getZoom() !== z) { map.setView([lat, lng], z, { animate: false }); return; }
+            var target = map.latLngToContainerPoint([lat, lng]);
+            var center = map.latLngToContainerPoint(map.getCenter());
+            var dx = target.x - center.x, dy = target.y - center.y;
+            if (dx === 0 && dy === 0) return;
+            if (Math.abs(dx) > 800 || Math.abs(dy) > 800) { map.setView([lat, lng], z, { animate: false }); return; }
+            map.panBy([dx, dy], { animate: false, noMoveStart: true });
+        }
         
         function setDesignerMode(isDesigner) {
             // Arrastre (pan) y pinch-zoom SIEMPRE activos para igualar a los mapas nativos.
@@ -113,6 +136,30 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         }
         
         function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
+        // OPT FPS (gama baja): a pie el wrapper es del tamaño de la pantalla (≈45 teselas en vez
+        // de ~350). Solo al CONDUCIR se agranda a un cuadrado del tamaño de la DIAGONAL de la
+        // pantalla (en px), centrado, cuyo círculo inscrito cubre las esquinas en cualquier
+        // rotación. invalidateSize() recalcula el mapa al cambiar de tamaño (poco frecuente: solo
+        // al subir/bajar del vehículo). _driving evita trabajo redundante en llamadas repetidas.
+        function setMapOversize(driving) {
+            var w = document.getElementById('map-wrapper'); if (!w) return;
+            if (w._driving === driving) return; w._driving = driving;
+            if (driving) {
+                // Cuadrado del tamaño de la DIAGONAL de la pantalla, en PÍXELES (no vmax/calc, que
+                // no son fiables en WebViews viejas de Android 7-9 → de ahí los bordes negros al
+                // rotar). Centrado: su círculo inscrito (lado/2 = diagonal/2) cubre las esquinas
+                // de la pantalla en CUALQUIER ángulo de rotación, sin huecos.
+                var vw = window.innerWidth, vh = window.innerHeight;
+                var d = Math.ceil(Math.sqrt(vw * vw + vh * vh)) + 8;
+                w.style.width = d + 'px'; w.style.height = d + 'px';
+                w.style.top = Math.round((vh - d) / 2) + 'px';
+                w.style.left = Math.round((vw - d) / 2) + 'px';
+            } else {
+                w.style.width = '100vw'; w.style.height = '100vh';
+                w.style.top = '0'; w.style.left = '0';
+            }
+            if (typeof map !== 'undefined' && map) map.invalidateSize(false);
+        }
         function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
         function exitExplorationMode() { isExplorationMode = false; }
@@ -131,7 +178,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         function drawFog() {
             var el = document.getElementById('fog');
             if (!el) return;
-            if (!fogEnabled) { el.style.background = 'none'; return; }
+            if (!fogEnabled) { if (el._bg !== 'none') { el._bg = 'none'; el.style.background = 'none'; } return; }
             var pt = map.latLngToContainerPoint([fogLat, fogLng]);
             var zoom = map.getZoom();
             var ppm = (256 * Math.pow(2, zoom)) / (40075016 * Math.cos(fogLat * Math.PI / 180));
@@ -139,8 +186,15 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
             var maxReveal = Math.min(window.innerWidth, window.innerHeight) * 0.40;
             reveal = Math.max(40, Math.min(reveal, maxReveal));
             var outer = reveal * 1.8;
-            el.style.background = 'radial-gradient(circle at ' + pt.x + 'px ' + pt.y + 'px, ' +
-                'rgba(0,0,0,0) 0px, rgba(0,0,0,0) ' + reveal + 'px, rgba(34,42,51,0.5) ' + outer + 'px)';
+            // OPT FPS (gama baja): drawFog corre en CADA evento 'move' (= cada frame al andar).
+            // Pero siguiendo al jugador, éste está SIEMPRE centrado → el degradado es idéntico.
+            // Cacheamos el string y solo reasignamos el background (que re-rasteriza un radial-
+            // gradient a pantalla completa, caro) cuando realmente cambia (exploración o zoom).
+            var bg = 'radial-gradient(circle at ' + Math.round(pt.x) + 'px ' + Math.round(pt.y) + 'px, ' +
+                'rgba(0,0,0,0) 0px, rgba(0,0,0,0) ' + Math.round(reveal) + 'px, rgba(34,42,51,0.5) ' + Math.round(outer) + 'px)';
+            if (el._bg === bg) return;
+            el._bg = bg;
+            el.style.background = bg;
         }
         map.on('move', drawFog);
         map.on('zoom', drawFog);
@@ -316,6 +370,28 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                     }
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0, 0] });
                     npcMarkers[npc.id] = L.marker([npc.lat, npc.lng], { icon: icon, zIndexOffset: 1000 }).addTo(map);
+                }
+            });
+        }
+        // ─── WAYPOINTS DE PATRULLAS (fuera de la neblina) ───────────────────────────
+        // Paridad con OSM nativo: mientras una patrulla está FUERA de tu campo de visión y
+        // te buscan, se marca con un 🚓 y una línea punteada desde el jugador hasta ella.
+        function updatePolice(playerLat, playerLng, data) {
+            var ids = new Set(data.map(function(p){ return p.id; }));
+            for (var id in policeWpMarkers) if (!ids.has(id)) { map.removeLayer(policeWpMarkers[id]); delete policeWpMarkers[id]; }
+            for (var id in policeWpLines) if (!ids.has(id)) { map.removeLayer(policeWpLines[id]); delete policeWpLines[id]; }
+            data.forEach(function(p) {
+                if (policeWpMarkers[p.id]) {
+                    policeWpMarkers[p.id].setLatLng([p.lat, p.lng]);
+                } else {
+                    var icon = L.divIcon({ html: '<div style="font-size:26px; transform:translate(-50%,-50%);">🚓</div>', className: '', iconSize: [0,0] });
+                    policeWpMarkers[p.id] = L.marker([p.lat, p.lng], { icon: icon, interactive: false, zIndexOffset: 800 }).addTo(map);
+                }
+                var pts = [[playerLat, playerLng], [p.lat, p.lng]];
+                if (policeWpLines[p.id]) {
+                    policeWpLines[p.id].setLatLngs(pts);
+                } else {
+                    policeWpLines[p.id] = L.polyline(pts, { color: '#005AFF', weight: 3, opacity: 0.47, dashArray: '18, 14', interactive: false }).addTo(map);
                 }
             });
         }

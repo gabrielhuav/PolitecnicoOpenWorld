@@ -43,7 +43,7 @@ data class WorldMapState(
     val currentLocation: GeoPoint? = null,
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = ZOOM_LOADING,
-    val mapProvider: MapProvider = MapProvider.OSM,
+    val mapProvider: MapProvider = MapProvider.OSM_WEB, // Default: OSM Web (gama baja)
     // Cambio de proveedor con precarga: el nuevo se precarga en segundo plano mientras
     // sigues usando el actual. Cuando 'pendingProviderReady' es true, se avisa para cambiar.
     val pendingProvider: MapProvider? = null,
