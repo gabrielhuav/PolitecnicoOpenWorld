@@ -119,10 +119,13 @@ fun ZombieGameScreen(
     }
 
     val room = ZombieRoomCatalog.rooms[state.currentRoomIndex]
-    val effectiveBgAsset = if (room.id == ZombieRoomCatalog.LOBBY_ID && state.zombieModeActivated)
-        "ZOMBIS_MOD/BUILDINGS_Z/building_escom_zombie.webp"
-    else
-        room.backgroundAsset
+    val effectiveBgAsset = when {
+        room.id == ZombieRoomCatalog.LOBBY_ID && state.zombieModeActivated ->
+            "ZOMBIS_MOD/BUILDINGS_Z/building_escom_zombie.webp"
+        room.type == ZoneType.BUILDING && !state.zombieModeActivated ->
+            "INTERIORES/ESCOM/z_${room.id.removePrefix("za_")}.webp"
+        else -> room.backgroundAsset
+    }
     var background by remember(effectiveBgAsset) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(effectiveBgAsset) {
         background = withContext(Dispatchers.IO) {
