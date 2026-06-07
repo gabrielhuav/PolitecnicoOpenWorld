@@ -6,7 +6,7 @@ import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
 
 data class SettingsState(
     val selectedCategory: SettingsCategory = SettingsCategory.Map,
-    val mapProvider: MapProvider = MapProvider.OSM, // Usamos tu Enum nativo
+    val mapProvider: MapProvider = MapProvider.OSM_WEB, // Default: OSM Web (más fluido en gama baja que el OSM nativo, que reescala teselas en el over-zoom)
     val showCacheWidget: Boolean = true,
     val showFpsWidget: Boolean = false,
     // ─── Valores COMMITEADOS (los que el juego usa de verdad) ────────────────

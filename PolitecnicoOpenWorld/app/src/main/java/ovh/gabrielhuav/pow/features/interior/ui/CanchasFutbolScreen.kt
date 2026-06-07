@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
 import ovh.gabrielhuav.pow.features.interior.viewmodel.CollisionGrid
 import ovh.gabrielhuav.pow.features.interior.viewmodel.InteriorViewModel
 
@@ -17,8 +18,8 @@ fun CanchasFutbolScreen(onExit: () -> Unit) {
 
     InteriorScreenBase(
         viewModel = viewModel,
-        backgroundAssetPath = "ZOMBIS_MOD/interiores/za_canchas_futbol.webp",
-        title = "Canchas de Futbol",
+        backgroundAssetPath = InteriorBuilding.CANCHAS_FUTBOL.backgroundAsset,
+        title = InteriorBuilding.CANCHAS_FUTBOL.displayName,
         onExit = onExit
     )
 }

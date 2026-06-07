@@ -82,7 +82,7 @@ fun ZombieHud(
                 Text("ZONA: ${roomName.uppercase()}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.background(Color(0xFF6B1C3A).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
                         .padding(horizontal = 12.dp, vertical = 6.dp))
-                if (isBuilding) {
+                if (isBuilding && state.zombieModeActivated) {
                     Text("ZOMBIS: ${state.zombiesRemaining}/${state.totalZombies}", color = Color.White, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.background(Color(0xFFD32F2F).copy(alpha = 0.85f), RoundedCornerShape(20.dp))

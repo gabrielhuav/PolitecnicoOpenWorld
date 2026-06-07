@@ -54,4 +54,12 @@ object PoliceSpriteManager {
         drawableCache.put(key, result)
         return result
     }
+
+    // OPT memoria gama baja (≤2 GB): libera variantes escaladas y frames base bajo
+    // presión de memoria (MainActivity.onTrimMemory). Se redecodifican bajo demanda.
+    @Synchronized
+    fun clearCaches() {
+        drawableCache.evictAll()
+        frames.fill(null)
+    }
 }

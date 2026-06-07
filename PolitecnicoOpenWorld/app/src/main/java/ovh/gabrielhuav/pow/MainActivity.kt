@@ -84,6 +84,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // OPT memoria gama baja (≤2 GB): cuando el sistema avisa de presión de memoria,
+    // soltamos las cachés de sprites (NPCs/vehículos/patrullas/zombis). Se regeneran bajo
+    // demanda; evita que una sesión larga acumule bitmaps hasta el OOM en equipos con poca
+    // RAM. No altera el juego: solo recicla memoria reconstruible.
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieSpriteManager.clearCaches()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         configureOsmdroid()

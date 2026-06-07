@@ -230,11 +230,19 @@ via co-located `ViewModelProvider.Factory` instances.
 - Comments/strings in this codebase are predominantly Spanish; keep that style for
   consistency unless asked otherwise. The two `server.js` files are also Spanish-
   commented; mirror that.
-- The Leaflet map lives inside a WebView; the `#map-wrapper` is intentionally
-  oversized (`300vw × 300vh`, centered) so rotation never reveals gaps. Don't
-  shrink it back. The `#fog` overlay also lives inside `#map-wrapper` (so it
-  rotates with the map); container-point coordinates from `latLngToContainerPoint`
-  align with it.
+- The Leaflet map lives inside a WebView; `#map-wrapper` sizing is now **dynamic** for
+  performance: **screen-sized (`100vw × 100vh`) on foot**, and only enlarged **while driving** to a
+  centered square the size of the screen **diagonal in PIXELS** (computed from
+  `window.innerWidth/innerHeight` — NOT `vmax`/`calc`, which are unreliable on old Android 7–9
+  WebViews and left **black corners when rotating**; that was the regression). Its inscribed circle
+  (side/2 = diagonal/2) covers the screen corners at any rotation. It switches via
+  `setMapOversize(driving)` (which calls `map.invalidateSize`), called **every frame** from Kotlin
+  (the JS no-ops repeats via a `_driving` flag). Do NOT make it permanently oversized again: at
+  `300vw × 300vh` the WebView rendered/composited **~9× the tiles**, the dominant FPS cost when
+  moving/driving in web. The `#fog` overlay lives inside `#map-wrapper` (so it rotates with the map)
+  and re-aligns via `latLngToContainerPoint` + the map `resize` event; **`drawFog` caches its
+  gradient string** and skips the (expensive) full-screen re-rasterize when unchanged — while
+  following, the player is centered so the gradient is identical every `move`.
 - The nested **Options menu** is height-capped (~68% screen) and scrollable so it
   doesn't overflow / collide with controls in landscape; the right-side game
   control slides left while it's open. `OptionsMenu` entries may be groups *or*
@@ -249,6 +257,49 @@ via co-located `ViewModelProvider.Factory` instances.
   Mode exports `collision_matrices.json` in the exact shape the zombie server
   reads; default matrices are border-only and must match rows/cols on both sides
   until replaced.
+- **Render caches are bounded / freed on purpose (low-end ≤2 GB — do NOT regress):**
+  `nativeDrawableCache` (declared in `WorldMapScreen`, used by `NativeOsmMap`) is an
+  **access-order LRU** (`LinkedHashMap` + `removeEldestEntry`, cap ~384) — never revert it
+  to a plain `mutableMapOf`: its keys embed health/zoom/frame, so unbounded it grows until
+  OOM on low-RAM devices. The sprite-manager singletons (`CharacterSpriteManager`,
+  `VehicleSpriteManager`, `PoliceSpriteManager`, `ZombieSpriteManager`) all expose
+  `clearCaches()` and are flushed by `MainActivity.onTrimMemory` under memory pressure.
+  `buildDoorEffectBitmap` (door glow) reuses one `Bitmap`/`Canvas`/`Paint` per source
+  bitmap, and the police bullet/🔫/📞 marker icons are size-keyed in `nativeDrawableCache`
+  — both avoid a per-frame `Bitmap` allocation; keep them that way.
+- **Pre-filter cost out of per-NPC hot loops:** `NpcAiManager.setLandmarks` precomputes the
+  nav-graph-only landmark list into `cachedNavLandmarks`; `updateNpcs`/`moveNpc` read that
+  instead of re-running `.filter { it.navGraph != null }` per NPC per tick.
+- **The native osmdroid `update` lambda runs ~30 Hz — keep it cheap (low-end):** don't redo
+  static work each frame. Landmark `GroundOverlay`s are re-`setPosition`/`setImage` only when
+  their transform signature changes (`landmarkSigCache`); animated **DOORS** (`DOORS/` asset)
+  still refresh their image every frame. The ~160 metro markers are **viewport-culled** via
+  `Marker.isEnabled` (osmdroid skips `draw()` on disabled overlays). The `FogOverlay` uses the
+  exact screen rect on foot and only oversizes to the screen diagonal while driving
+  (`rotated`), avoiding a ~10× screen-area RadialGradient fill every frame.
+- **Web renderer NPC types:** `updateNpcs` (in `WorldMapLeafletHtml`) only draws `imgCache`
+  images for payload `type` `"CAR"`/`"MODULAR"`; anything else falls back to
+  `file:///android_asset/<drawable>.svg`. So **`POLICE_CAR` must be serialized as a base64
+  car-image** (generated via `PoliceSpriteManager`, sent with `type="CAR"`) — not via the
+  generic `drawable` branch, or the patrol shows a placeholder SVG. `POLICE_COP` is likewise sent
+  as a base64 **👮-emoji** image (`type="MODULAR"`, person-sized) instead of the SVG fallback.
+  Patrols **outside** the fog are drawn by a separate Leaflet `updatePolice(playerLat, playerLng,
+  data)` (🚓 marker + dashed player→patrol line), mirroring the native waypoint; the Kotlin side
+  pushes it only while `wantedLevel > 0` (and once more to clear). The **"Ir a…" options menu was
+  removed**: ESCOM is the first `TeleportCatalog.zones` entry and the GPS teleport is the first
+  item of the *Puntos de Teletransporte* dialog.
+- **Default map provider is `OSM_WEB`, not native `OSM` (low-end):** native osmdroid defaults to
+  z22 and re-scales z19 tiles for the over-zoom, the heaviest renderer on weak devices — so the
+  app now defaults to **OpenStreetMap (Web)**. The provider is **not persisted**; the default is
+  just the initial state value in `SettingsState`, `WorldMapState` and `MainMenuState` (all
+  `OSM_WEB`). Changing it there changes the launch provider. **Google native** follows the player
+  with `cameraPositionState.move()` — NOT `animate()`, which restarted a 120 ms camera animation
+  ~30 Hz and thrashed. **Web** re-sends landmark layers to the WebView only when the landmark list
+  changes (reference guard + ~45-frame heartbeat in case the first send raced the HTML load). The
+  web **follow-camera uses `map.panBy`** (a transform pan) per frame, NOT `setView` (which does a
+  full `_resetView`, repositioning every tile + marker — the main cause of FPS drops while moving);
+  `setView` is used only on zoom change or large jumps (teleport). The OSM-Web tile layer sets
+  `keepBuffer: 3` + `updateWhenIdle: false` so tiles load while moving, not only when idle.
 
 ## 7. Current state (what works)
 
@@ -269,7 +320,10 @@ bound to `BuildConfig.VERSION_NAME` with auto-shrinking title; full zombie survi
 dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens, damage feedback
 FX) with **online mode backed by a dedicated authoritative zombie server**
 (`MultiplayerZombie/`: flow-field + LOS + separation AI) and a collision Designer
-Mode; a ShineCTO easter-egg interior.
+Mode; a ShineCTO easter-egg interior. A **low-end (≤2 GB / Android 7–9) GC & memory pass**
+is in place (behavior-preserving): LRU-bounded `nativeDrawableCache`, reused door-glow
+bitmap, size-cached police bullet/🔫/📞 icons, once-filtered nav landmarks
+(`cachedNavLandmarks`), and sprite caches freed via `onTrimMemory`.
 
 ## 8. Not yet implemented
 
