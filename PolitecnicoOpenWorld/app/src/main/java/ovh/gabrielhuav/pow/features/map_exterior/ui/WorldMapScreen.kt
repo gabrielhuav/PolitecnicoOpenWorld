@@ -145,6 +145,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.isActive
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import kotlin.math.cos
+import kotlin.math.sin
 
 // ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
 // Los NPC siguen viviendo en memoria/simulación; solo dibujamos los que caen
@@ -538,28 +539,36 @@ fun WorldMapScreen(
                                 )
 
                                 if (uiState.isDesignerMode) {
-                                    val markerState = remember(landmark.id) { MarkerState(position = center) }
-                                    markerState.position = center
-                                    val pencilIcon = remember(uiState.selectedLandmarkId == landmark.id) {
-                                        val drawable = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)?.mutate()
-                                        if (uiState.selectedLandmarkId == landmark.id) drawable?.setTint(android.graphics.Color.RED)
-                                        val bm = android.graphics.Bitmap.createBitmap(drawable!!.intrinsicWidth, drawable.intrinsicHeight, android.graphics.Bitmap.Config.ARGB_8888)
-                                        val canvas = android.graphics.Canvas(bm)
-                                        drawable.setBounds(0, 0, bm.width, bm.height)
-                                        drawable.draw(canvas)
-                                        BitmapDescriptorFactory.fromBitmap(bm)
+                                    val isSelected = uiState.selectedLandmarkId == landmark.id
+                                    val lat = landmark.location.latitude
+                                    val lng = landmark.location.longitude
+                                    val rotRad = Math.toRadians(landmark.rotationAngle.toDouble())
+                                    val metersToLat = 1.0 / 111111.0
+                                    val metersToLon = 1.0 / (111111.0 * cos(Math.toRadians(lat)))
+                                    val halfW = (landmark.baseWidthMeters * landmark.scaleX) / 2.0
+                                    val halfH = (landmark.baseHeightMeters * landmark.scaleY) / 2.0
+
+                                    fun getPoint(dx: Double, dy: Double): LatLng {
+                                        val rx = dx * cos(rotRad) - dy * sin(rotRad)
+                                        val ry = dx * sin(rotRad) + dy * cos(rotRad)
+                                        return LatLng(lat + ry * metersToLat, lng + rx * metersToLon)
                                     }
-                                    com.google.maps.android.compose.Marker(
-                                        state = markerState,
-                                        draggable = true,
-                                        icon = pencilIcon,
-                                        onClick = { viewModel.selectLandmark(landmark.id); true }
+
+                                    val points = listOf(
+                                        getPoint(-halfW, halfH),
+                                        getPoint(halfW, halfH),
+                                        getPoint(halfW, -halfH),
+                                        getPoint(-halfW, -halfH)
                                     )
-                                    LaunchedEffect(markerState.position) {
-                                        if (markerState.dragState == com.google.maps.android.compose.DragState.DRAG) {
-                                            viewModel.moveSelectedLandmark(markerState.position.latitude - landmark.location.latitude, markerState.position.longitude - landmark.location.longitude)
-                                        }
-                                    }
+
+                                    com.google.maps.android.compose.Polygon(
+                                        points = points,
+                                        fillColor = Color.Transparent,
+                                        strokeColor = if (isSelected) Color.Red else Color.Transparent,
+                                        strokeWidth = if (isSelected) 8f else 0f,
+                                        clickable = true,
+                                        onClick = { viewModel.selectLandmark(landmark.id) }
+                                    )
                                 }
                             }
                         }
@@ -925,7 +934,8 @@ fun WorldMapScreen(
                                 scale = it.scaleX,
                                 scaleX = it.scaleX,
                                 scaleY = it.scaleY,
-                                assetPath = it.assetPath
+                                assetPath = it.assetPath,
+                                selected = it.id == uiState.selectedLandmarkId
                             )
                         }
                         val landmarksJson = gson.toJson(landmarksPayload)
@@ -1248,7 +1258,7 @@ fun WorldMapScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "Presiona el icono del lapiz para editar alguna contrucción",
+                    text = "Presiona sobre un edificio para editarlo",
                     color = Color.White,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium

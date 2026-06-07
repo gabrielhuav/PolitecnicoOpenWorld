@@ -767,29 +767,50 @@ internal fun NativeOsmMap(
                 overlays.filterIsInstance<Marker>().filter { it.title == "DOOR_PULSE" }.forEach { m ->
                     view.overlays.remove(m); overlays.remove(m)
                 }
-                val existingControl = overlays.filterIsInstance<Marker>().firstOrNull()
-                if (uiState.isDesignerMode) {
-                    val controlMarker = existingControl ?: Marker(view).apply {
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)?.mutate()
-                        overlays.add(this)
-                        view.overlays.add(this)
-                    }
-                    controlMarker.position = center
-                    if (uiState.selectedLandmarkId == landmark.id) controlMarker.icon?.setTint(android.graphics.Color.RED)
-                    else controlMarker.icon?.setTintList(null)
 
-                    controlMarker.setOnMarkerClickListener { _, _ -> viewModel.selectLandmark(landmark.id); true }
-                    controlMarker.isDraggable = true
-                    controlMarker.setOnMarkerDragListener(object : Marker.OnMarkerDragListener {
-                        override fun onMarkerDragStart(marker: Marker) { viewModel.selectLandmark(landmark.id) }
-                        override fun onMarkerDrag(marker: Marker) {
-                            viewModel.moveSelectedLandmark(marker.position.latitude - landmark.location.latitude, marker.position.longitude - landmark.location.longitude)
-                        }
-                        override fun onMarkerDragEnd(marker: Marker) {}
-                    })
+                // 1. Buscamos o creamos el Polígono de selección (reemplaza al icono del lápiz)
+                // Se usa un Polygon para que toda el área del asset sea clickable y tenga contorno
+                val selectionPolygon = overlays.filterIsInstance<org.osmdroid.views.overlay.Polygon>().firstOrNull()
+                    ?: org.osmdroid.views.overlay.Polygon(view).apply {
+                        fillPaint.color = android.graphics.Color.TRANSPARENT
+                        overlays.add(this)
+                    }
+
+                if (uiState.isDesignerMode) {
+                    // Calculamos los 4 puntos del rectángulo rotado que coinciden con el GroundOverlay
+                    val halfW = (landmark.baseWidthMeters * landmark.scaleX) / 2.0
+                    val halfH = (landmark.baseHeightMeters * landmark.scaleY) / 2.0
+                    val d = sqrt(halfW * halfW + halfH * halfH)
+                    val theta = Math.toDegrees(atan2(halfW, halfH))
+                    val pTL = center.destinationPoint(d, landmark.rotationAngle.toDouble() - theta)
+                    val pTR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + theta)
+                    val pBR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 - theta)
+                    val pBL = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 + theta)
+
+                    selectionPolygon.points = listOf(pTL, pTR, pBR, pBL)
+
+                    // RESALTADO: Si está seleccionado, borde rojo; si no, invisible pero clickable
+                    if (uiState.selectedLandmarkId == landmark.id) {
+                        selectionPolygon.outlinePaint.color = android.graphics.Color.RED
+                        selectionPolygon.outlinePaint.strokeWidth = 10f
+                    } else {
+                        selectionPolygon.outlinePaint.color = android.graphics.Color.TRANSPARENT
+                        selectionPolygon.outlinePaint.strokeWidth = 0f
+                    }
+
+                    // Al hacer clic sobre el asset, se selecciona y abre el modal de edición
+                    selectionPolygon.setOnClickListener { _, _, _ ->
+                        viewModel.selectLandmark(landmark.id)
+                        true
+                    }
+
+                    // Forzar que el polígono esté arriba de todo para capturar el clic
+                    view.overlays.remove(selectionPolygon)
+                    view.overlays.add(selectionPolygon)
+                    selectionPolygon.isEnabled = true
                 } else {
-                    existingControl?.let { view.overlays.remove(it); overlays.remove(it) }
+                    selectionPolygon.isEnabled = false
+                    view.overlays.remove(selectionPolygon)
                 }
             }
 

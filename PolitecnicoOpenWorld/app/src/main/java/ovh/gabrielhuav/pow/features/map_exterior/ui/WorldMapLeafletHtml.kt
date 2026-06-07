@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
-internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
+
+internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -124,6 +125,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         }
         
         function setDesignerMode(isDesigner) {
+            window.designerModeActive = isDesigner;
             // Arrastre (pan) y pinch-zoom SIEMPRE activos para igualar a los mapas nativos.
             // El Modo Diseñador solo añade además el zoom por rueda (escritorio).
             map.dragging.enable();
@@ -132,6 +134,14 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                 map.scrollWheelZoom.enable();
             } else {
                 map.scrollWheelZoom.disable();
+            }
+            // Actualizar interactividad de los landmarks existentes
+            for (var id in landmarkMarkers) {
+                var el = landmarkMarkers[id].getElement();
+                if (el) {
+                    var wrapper = el.querySelector('.lm-c');
+                    if (wrapper) wrapper.style.pointerEvents = isDesigner ? 'auto' : 'none';
+                }
             }
         }
         
@@ -219,12 +229,15 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                 var exactHeightMeters = lm.heightMeters * lm.scale;
 
                 var isDoor = lm.assetPath.indexOf('DOORS/') >= 0;
+                var selected = lm.selected === true;
+                
                 var existingPane = landmarkMarkers[lm.id] ? landmarkMarkers[lm.id].options.pane : null;
                 var expectedPane = isDoor ? 'doorPane' : 'landmarkPane';
                 if (existingPane && existingPane !== expectedPane) {
                     map.removeLayer(landmarkMarkers[lm.id]);
                     delete landmarkMarkers[lm.id];
                 }
+                
                 if (landmarkMarkers[lm.id]) {
                     landmarkMarkers[lm.id].setLatLng([lm.lat, lm.lng]);
                     var el = landmarkMarkers[lm.id].getElement();
@@ -235,6 +248,8 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                             wrapper.dataset.hMeters = exactHeightMeters;
                             wrapper.dataset.rot = lm.rotation;
                             wrapper.dataset.lat = lm.lat;
+                            wrapper.style.boxShadow = selected ? '0 0 0 4px red' : 'none';
+                            wrapper.style.pointerEvents = window.designerModeActive ? 'auto' : 'none';
                         }
                     }
                 } else {
@@ -243,14 +258,18 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                                'data-h-meters="' + exactHeightMeters + '" ' +
                                'data-rot="' + lm.rotation + '" ' +
                                'data-lat="' + lm.lat + '" ' +
-                               'style="position:absolute; transform: translate(-50%, -50%) rotate('+lm.rotation+'deg); pointer-events: none; z-index: -100;">' +
+                               'onclick="if(window.designerModeActive && window.Android && window.Android.notifyLandmarkClick) window.Android.notifyLandmarkClick(\'' + lm.id + '\');" ' +
+                               'style="position:absolute; transform: translate(-50%, -50%) rotate('+lm.rotation+'deg); ' +
+                               'pointer-events: ' + (window.designerModeActive ? 'auto' : 'none') + '; ' +
+                               'box-shadow: ' + (selected ? '0 0 0 4px red' : 'none') + '; ' +
+                               'z-index: -100;">' +
                                '<img src="'+pUrl+'"' + (isDoor ? ' class="lm-door-img"' : '') + ' style="width:100%; height:100%; display:block; object-fit:fill;">' +
                                (isDoor ? '<div class="lm-shimmer"></div>' : '') +
                                '</div>';
 
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                     
-                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, pane: isDoor ? 'doorPane' : 'landmarkPane', interactive: false }).addTo(map);
+                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, pane: isDoor ? 'doorPane' : 'landmarkPane', interactive: true }).addTo(map);
                     landmarkMarkers[lm.id] = marker;
                 }
             });
