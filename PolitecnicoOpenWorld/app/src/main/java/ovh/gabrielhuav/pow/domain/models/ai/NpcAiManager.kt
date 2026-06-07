@@ -117,9 +117,15 @@ class NpcAiManager {
 
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
     private val cachedLandmarks = AtomicReference<List<Landmark>>(emptyList())
+    // OPT CPU/GC gama baja: lista PRE-FILTRADA de landmarks con navGraph. Antes se
+    // recalculaba (.filter { it.navGraph != null }) en updateNpcs Y dentro de moveNpc por
+    // CADA NPC en CADA tick, asignando una lista nueva cada vez (O(NPCs·landmarks)). Como
+    // los landmarks solo cambian al editarlos, se computa una sola vez en setLandmarks.
+    private val cachedNavLandmarks = AtomicReference<List<Landmark>>(emptyList())
 
     fun setLandmarks(landmarks: List<Landmark>) {
         cachedLandmarks.set(landmarks)
+        cachedNavLandmarks.set(landmarks.filter { it.navGraph != null })
     }
 
     private class WayBox(
@@ -325,7 +331,7 @@ class NpcAiManager {
 
             // Landmarks con grafo de navegación (rama de landmarks). Se usa tanto para el
             // pre-llenado de estacionamientos como para el spawn sesgado hacia ellos.
-            val activeLandmarks = cachedLandmarks.get().filter { it.navGraph != null }
+            val activeLandmarks = cachedNavLandmarks.get()
 
             // PRE-LLENADO ORGÁNICO: al acercarse a un landmark con estacionamiento, llena
             // algunos cajones con autos aparcados (una sola vez por visita).
@@ -802,7 +808,7 @@ class NpcAiManager {
         var nodeIndex = npc.targetNodeIndex
         var direction = npc.moveDirection
 
-        val activeLandmarks = cachedLandmarks.get().filter { it.navGraph != null }
+        val activeLandmarks = cachedNavLandmarks.get()
 
         if (way == null) {
             val validWays = network.filter { w ->
@@ -854,7 +860,7 @@ class NpcAiManager {
 
             // Entrada a landmark para autos que llegan a un nodo de OSM (rama de landmarks).
             if (npc.type == NpcType.CAR) {
-                for (landmark in cachedLandmarks.get()) {
+                for (landmark in cachedNavLandmarks.get()) {
                     val navGraph = landmark.navGraph ?: continue
                     if (navGraph.entryWays.isEmpty()) continue
                     for (entryWayId in navGraph.entryWays) {

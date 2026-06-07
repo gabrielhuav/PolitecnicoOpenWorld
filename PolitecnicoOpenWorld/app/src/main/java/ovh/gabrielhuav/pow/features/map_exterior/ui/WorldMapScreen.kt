@@ -190,7 +190,19 @@ fun WorldMapScreen(
     val base64Cache = remember { mutableStateMapOf<String, String>() }
     val widthCache = remember { mutableStateMapOf<String, Float>() }
     val heightCache = remember { mutableStateMapOf<String, Float>() }
-    val nativeDrawableCache = remember { mutableMapOf<String, android.graphics.drawable.Drawable>() }
+    // OPT memoria gama baja (≤2 GB): esta caché de drawables (NPCs, patrullas, balas,
+    // coleccionables…) se indexa por FIRMA VISUAL (incluye salud/zoom/frame), así que en
+    // sesiones largas crecía SIN LÍMITE y podía agotar la RAM (OOM). La acotamos con un
+    // LRU por orden de acceso (mismo patrón que googleMapsIconCache): al pasar el tope se
+    // descarta la entrada más vieja; si vuelve a hacer falta se regenera (idéntico en
+    // pantalla). Sigue siendo un MutableMap, así que getOrPut/iterator no cambian.
+    val nativeDrawableCache = remember {
+        object : java.util.LinkedHashMap<String, android.graphics.drawable.Drawable>(128, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, android.graphics.drawable.Drawable>?): Boolean {
+                return size > 384
+            }
+        }
+    }
     val registeredWebImages = remember { mutableSetOf<String>() }
     val googleMapsIconCache = remember {
         object : java.util.LinkedHashMap<String, com.google.android.gms.maps.model.BitmapDescriptor>(150, 0.75f, true) {
@@ -265,6 +277,16 @@ fun WorldMapScreen(
     // OPT gama baja: última lista de NPCs enviada al WebView. Solo reenviamos al JS
     // cuando la lista cambia (~10 Hz), no en cada recomposición por moverse el jugador.
     val lastWebNpcHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Npc>>(1) }
+    // OPT FPS web (ahora proveedor por defecto): la lista de landmarks solo cambia al
+    // editarlos/cargarlos, pero su JSON se serializaba y enviaba al WebView en CADA frame.
+    // Guardamos la última referencia para reenviar updateLandmarks solo cuando cambie.
+    val lastWebLandmarkHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Landmark>>(1) }
+    // Heartbeat: re-enviar landmarks al WebView cada ~45 frames por si el primer envío
+    // (al cambiar la lista) llegó antes de que el HTML definiera updateLandmarks.
+    val webLmTick = remember { intArrayOf(0) }
+    // Si en el frame anterior se enviaron waypoints de patrulla al WebView, para poder
+    // limpiarlos al dejar de estar buscado sin spamear updatePolice cuando no hay policías.
+    val lastWebPoliceHolder = remember { booleanArrayOf(false) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
@@ -372,7 +394,11 @@ fun WorldMapScreen(
                             .tilt(0f)
                             .build()
 
-                        cameraPositionState.animate(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(newPosition), 120)
+                        // OPT FPS Google nativo: la posición del jugador cambia ~30 Hz; animar
+                        // (120 ms) en CADA cambio encadenaba animaciones que se cancelaban entre
+                        // sí (thrash de la cámara). move() reposiciona al instante: igual de fluido
+                        // (las posiciones ya llegan a 30 Hz) y mucho más barato.
+                        cameraPositionState.move(com.google.android.gms.maps.CameraUpdateFactory.newCameraPosition(newPosition))
                     }
                 }
 
@@ -696,6 +722,11 @@ fun WorldMapScreen(
                         // Neblina anclada al jugador (se redibuja también en cada gesto vía JS).
                         uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof setPlayerFog==='function')setPlayerFog(${it.latitude}, ${it.longitude});", null) }
                         wv.evaluateJavascript("if(typeof setDesignerMode==='function')setDesignerMode(${uiState.isDesignerMode});", null)
+                        // OPT FPS web: el contenedor solo se agranda (para rotación) al CONDUCIR; a
+                        // pie es del tamaño de la pantalla. El JS ignora llamadas repetidas (guard
+                        // _driving), así que llamarlo cada frame es barato y robusto (se auto-corrige
+                        // aunque se pierda una transición a pie↔conducir).
+                        wv.evaluateJavascript("if(typeof setMapOversize==='function')setMapOversize(${uiState.isDriving});", null)
                         val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
                         wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
                         val tileUrl = when (uiState.mapProvider) {
@@ -728,16 +759,25 @@ fun WorldMapScreen(
                         } else uiState.npcs
 
                         val npcPayloads = visibleNpcs.map { npc ->
-                            if (npc.type == NpcType.CAR) {
+                            if (npc.type == NpcType.CAR || npc.type == NpcType.POLICE_CAR) {
+                                // FIX web: la PATRULLA (POLICE_CAR) caía al `else` y se dibujaba con
+                                // su SVG genérico en vez del asset real. Ahora la tratamos como un
+                                // coche-imagen: generamos su sprite (PoliceSpriteManager, sin tintar),
+                                // lo registramos en imgCache y lo enviamos como tipo "CAR".
+                                val isPolice = npc.type == NpcType.POLICE_CAR
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
                                 val frameIndex = (angle / 7.5f).roundToInt() % 48
-                                val cacheKey = "${npc.carModel.name}_${frameIndex}_${npc.carColor}_${density}"
+                                val cacheKey = if (isPolice) "POLICE_${frameIndex}_${density}"
+                                               else "${npc.carModel.name}_${frameIndex}_${npc.carColor}_${density}"
                                 val base64Image = base64Cache[cacheKey]
                                 if (base64Image == null) {
                                     base64Cache[cacheKey] = ""
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
-                                        val drawable = VehicleSpriteManager.getTintedCarNpc(context, angle, npc.carColor, highResRenderScale, npc.carModel)
+                                        val drawable = if (isPolice)
+                                            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.getPoliceCar(context, angle, highResRenderScale)
+                                        else
+                                            VehicleSpriteManager.getTintedCarNpc(context, angle, npc.carColor, highResRenderScale, npc.carModel)
                                         val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
                                         if (bitmap != null) {
                                             val w = (bitmap.width / density) / density
@@ -782,6 +822,33 @@ fun WorldMapScreen(
                                     registeredWebImages.add(cacheKey)
                                 }
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, if (npc.facingRight) 1 else -1, npc.displayName, health = npc.health, isDying = npc.isDying)
+                            } else if (npc.type == NpcType.POLICE_COP) {
+                                // FIX web: el policía A PIE no tiene asset → en web salía como un SVG
+                                // genérico (vector verde). Igual que en nativo lo dibujamos como emoji
+                                // 👮: generamos su bitmap una vez, lo cacheamos y lo enviamos como
+                                // imagen de peatón (type "MODULAR", tamaño ~persona).
+                                val cacheKey = "cop_emoji_${density}"
+                                val base64Image = base64Cache[cacheKey]
+                                if (base64Image == null) {
+                                    base64Cache[cacheKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val px = (96 * density).toInt().coerceAtLeast(48)
+                                        val bitmap = (emojiToDrawable(context, "👮", px) as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                        if (bitmap != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                                            val b64 = "data:image/png;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                base64Cache[cacheKey] = b64
+                                            }
+                                        }
+                                    }
+                                }
+                                if (!base64Image.isNullOrEmpty() && !registeredWebImages.contains(cacheKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
+                                    registeredWebImages.add(cacheKey)
+                                }
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, npc.displayName, health = npc.health, isDying = npc.isDying)
                             } else {
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, npc.type.name, null, npc.type.drawableName, null, npc.displayName, health = npc.health, isDying = npc.isDying)
                             }
@@ -791,6 +858,12 @@ fun WorldMapScreen(
                         } // fin guard web: lista de NPCs sin cambios → no se reenvía al WebView
                         wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
 
+                        // OPT FPS web: serializar y reenviar landmarks SOLO cuando cambian
+                        // (+ heartbeat). Antes se hacía gson.toJson + evaluateJavascript en CADA
+                        // frame aunque los landmarks no cambian durante el juego.
+                        webLmTick[0]++
+                        if (uiState.landmarks !== lastWebLandmarkHolder[0] || webLmTick[0] % 45 == 0) {
+                        lastWebLandmarkHolder[0] = uiState.landmarks
                         val landmarksPayload = uiState.landmarks.map {
                             LandmarkWebPayload(
                                 id = it.id.toString(),
@@ -807,6 +880,7 @@ fun WorldMapScreen(
                         }
                         val landmarksJson = gson.toJson(landmarksPayload)
                         wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks(${JSONObject.quote(landmarksJson)});", null)
+                        } // fin guard landmarks web (solo se reenvían al cambiar / heartbeat)
                         if (uiState.showRoadNetwork) {
                             val roadsPayload = roadNetwork.map { way ->
                                 mapOf(
@@ -831,6 +905,25 @@ fun WorldMapScreen(
                                 wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(${currentLoc.latitude}, ${currentLoc.longitude}, $routeJson, true);", null)
                             }
                         } else wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(0, 0, [], false);", null)
+
+                        // Waypoints de patrullas FUERA de la neblina (paridad con OSM nativo):
+                        // 🚓 + línea punteada jugador→patrulla mientras te buscan. Las patrullas
+                        // DENTRO de la neblina ya se dibujan como sprite (no llevan waypoint).
+                        val plocW = uiState.currentLocation
+                        val patrolsW = if (plocW != null && uiState.wantedLevel > 0) {
+                            uiState.npcs.filter {
+                                it.type == NpcType.POLICE_CAR &&
+                                    !npcWithinRadius(it.location.latitude, it.location.longitude,
+                                        plocW.latitude, plocW.longitude, NPC_FOG_VISION_METERS)
+                            }
+                        } else emptyList()
+                        if (patrolsW.isNotEmpty() || lastWebPoliceHolder[0]) {
+                            lastWebPoliceHolder[0] = patrolsW.isNotEmpty()
+                            val policePayload = patrolsW.map {
+                                mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude)
+                            }
+                            wv.evaluateJavascript("if(typeof updatePolice==='function')updatePolice(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(policePayload)});", null)
+                        }
                     }
                 )
             }
@@ -1052,28 +1145,9 @@ fun WorldMapScreen(
                             items = buildList {
                                 add(OptionMenuItem("Cambiar skin", Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
                                 add(OptionMenuItem("Teletransportarse...", Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
-                                // Submenú "Ir a…": teletransporte a ESCOM o a tu ubicación REAL
-                                // (GPS del dispositivo, p. ej. para volver a tu casa — NO a donde
-                                // está el jugador en el mapa).
-                                add(
-                                    OptionMenuGroup(
-                                        id = "ir_a", label = "Ir a…", icon = Icons.Default.School,
-                                        items = buildList {
-                                            add(OptionMenuItem("Ir a ESCOM", Icons.Default.School) { viewModel.teleportTo(19.5045, -99.1469) })
-                                            add(OptionMenuItem("Ir a tu Ubicación (GPS)", Icons.Default.LocationOn, Color(0xFF2196F3)) {
-                                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                                                    try {
-                                                        LocationServices.getFusedLocationProviderClient(context)
-                                                            .lastLocation
-                                                            .addOnSuccessListener { loc ->
-                                                                if (loc != null) viewModel.teleportTo(loc.latitude, loc.longitude)
-                                                            }
-                                                    } catch (_: SecurityException) {}
-                                                }
-                                            })
-                                        }
-                                    )
-                                )
+                                // (Submenú "Ir a…" eliminado: "Ir a ESCOM" ya es el primer punto de
+                                // "Teletransportarse…" y "Ir a tu Ubicación (GPS)" se movió al inicio
+                                // de esa misma lista.)
                                 add(OptionMenuItem("Modo Diseñador", Icons.Default.Architecture, if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White) { viewModel.toggleDesignerMode(!uiState.isDesignerMode) })
                                 add(OptionMenuItem("Debug Interiores", Icons.Default.LocationOn, if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White) { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) })
                                 if (uiState.isDesignerMode) {
@@ -1190,6 +1264,20 @@ fun WorldMapScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Selecciona tu estatua o destino:", fontSize = 14.sp)
                         LazyColumn(modifier = Modifier.fillMaxHeight(0.5f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Primera opción: tu ubicación REAL (GPS del dispositivo, p. ej. volver a
+                            // casa). Movida aquí desde el antiguo submenú "Ir a…".
+                            item {
+                                Button(onClick = {
+                                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                                        try {
+                                            LocationServices.getFusedLocationProviderClient(context)
+                                                .lastLocation
+                                                .addOnSuccessListener { loc -> if (loc != null) viewModel.teleportTo(loc.latitude, loc.longitude) }
+                                        } catch (_: SecurityException) {}
+                                    }
+                                    viewModel.toggleTeleportMenu(false)
+                                }, modifier = Modifier.fillMaxWidth()) { Text("📍 Ir a tu Ubicación (GPS)") }
+                            }
                             items(TeleportCatalog.zones) { zone ->
                                 Button(onClick = { viewModel.teleportTo(zone.latitude, zone.longitude) }, modifier = Modifier.fillMaxWidth()) { Text(zone.name) }
                             }
