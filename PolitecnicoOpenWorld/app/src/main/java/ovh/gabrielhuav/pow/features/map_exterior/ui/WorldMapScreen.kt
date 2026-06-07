@@ -142,6 +142,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
+import kotlinx.coroutines.isActive
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import kotlin.math.cos
 
@@ -212,6 +213,30 @@ fun WorldMapScreen(
 
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap?>() }
     var hasTriggeredNativePan by remember { mutableStateOf(false) }
+
+    // Nuevos estados para las interacciones del Diseñador
+    var showDesignerHint by remember { mutableStateOf(false) }
+    var showExitDesignerConfirm by remember { mutableStateOf(false) }
+    var originalLandmarkState by remember { mutableStateOf<ovh.gabrielhuav.pow.domain.models.Landmark?>(null) }
+
+    // Efecto para controlar la leyenda efímera de 3 segundos
+    LaunchedEffect(uiState.isDesignerMode) {
+        if (uiState.isDesignerMode) {
+            showDesignerHint = true
+            delay(3000)
+            showDesignerHint = false
+        }
+    }
+
+    // Captura del snapshot del landmark seleccionado para revertir de forma precisa
+    LaunchedEffect(uiState.selectedLandmarkId) {
+        val currentId = uiState.selectedLandmarkId
+        if (currentId != null) {
+            originalLandmarkState = uiState.landmarks.find { it.id == currentId }
+        } else {
+            originalLandmarkState = null
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadLandmarks(context)
@@ -296,6 +321,22 @@ fun WorldMapScreen(
         }
         val worldReady = !uiState.isLoadingLocation && uiState.isRoadNetworkReady && uiState.isMapReady
         if (!worldReady) {
+            val tips = remember { listOf(
+                "Mantén presionado Y para teletransportarte a otros lugares.",
+                "Presiona Y cerca de un auto para robarlo.",
+                "Usa el modo diseñador para personalizar el mapa con tus propios edificios.",
+                "Golpear civiles o policías aumentará tu nivel de búsqueda.",
+                "Visita el Shine CTO para descubrir secretos del Politécnico."
+            )}
+            var currentTipIndex by remember { mutableIntStateOf(0) }
+
+            LaunchedEffect(Unit) {
+                while(isActive) {
+                    kotlinx.coroutines.delay(3500)
+                    currentTipIndex = (currentTipIndex + 1) % tips.size
+                }
+            }
+
             // Progreso compuesto: ubicación → calles → descarga de tiles del mapa.
             val progress = when {
                 uiState.isLoadingLocation -> 0.05f
@@ -333,6 +374,15 @@ fun WorldMapScreen(
                     color = Color(0xFFAAAAAA),
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    text = "Consejo: ${tips[currentTipIndex]}",
+                    color = Color(0xFFD4AF37),
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 32.dp)
                 )
             }
             return@Box
@@ -929,31 +979,33 @@ fun WorldMapScreen(
         // ─── BARRA DE VIDA FIJA (HUD) ────────────────────────────────────────────
         // Siempre visible (como en el modo zombis) para que se vea cuánta vida tienes
         // y cuándo te hacen daño. Arriba a la izquierda, bajo el botón de Ajustes.
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 12.dp, start = 12.dp)
-                .width(170.dp)
-                .height(18.dp)
-                .clip(RoundedCornerShape(9.dp))
-                .background(Color.Black.copy(alpha = 0.6f))
-                .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(9.dp))
-        ) {
-            LinearProgressIndicator(
-                progress = (viewModel.playerHealth / 100f).coerceIn(0f, 1f),
-                modifier = Modifier.fillMaxSize(),
-                color = when {
-                    viewModel.playerHealth > 60f -> Color(0xFF4CAF50)
-                    viewModel.playerHealth > 30f -> Color(0xFFFFEB3B)
-                    else -> Color(0xFFF44336)
-                },
-                trackColor = Color.Transparent
-            )
-            Text(
-                "${viewModel.playerHealth.toInt()} HP",
-                color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.Center)
-            )
+        if (!uiState.isDesignerMode) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 12.dp, start = 12.dp)
+                    .width(170.dp)
+                    .height(18.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(9.dp))
+            ) {
+                LinearProgressIndicator(
+                    progress = (viewModel.playerHealth / 100f).coerceIn(0f, 1f),
+                    modifier = Modifier.fillMaxSize(),
+                    color = when {
+                        viewModel.playerHealth > 60f -> Color(0xFF4CAF50)
+                        viewModel.playerHealth > 30f -> Color(0xFFFFEB3B)
+                        else -> Color(0xFFF44336)
+                    },
+                    trackColor = Color.Transparent
+                )
+                Text(
+                    "${viewModel.playerHealth.toInt()} HP",
+                    color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
         }
 
         // ─── NIVEL DE BÚSQUEDA (estrellas estilo GTA) ────────────────────────────
@@ -1027,10 +1079,87 @@ fun WorldMapScreen(
             AnimatedVisibility(visible = uiState.showCacheWidget, enter = fadeIn(), exit = fadeOut()) { CacheStatusWidget(roadSource = uiState.roadSource, tileSource = uiState.tileSource, mapProvider = uiState.mapProvider) }
             AnimatedVisibility(visible = uiState.showFpsWidget, enter = fadeIn(), exit = fadeOut()) { CacheChip(label = "Rendimiento", text = "$currentFps FPS", color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F), isLoading = false) }
             AnimatedVisibility(visible = uiState.isDesignerMode, enter = fadeIn(), exit = fadeOut()) {
-                Row(modifier = Modifier.background(Color(0xFFD4AF37).copy(alpha = 0.85f), CircleShape).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier
+                        .background(Color(0xFFD4AF37).copy(alpha = 0.85f), CircleShape)
+                        .clickable { showExitDesignerConfirm = true } // Se vuelve interactivo
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Icon(Icons.Default.Architecture, null, tint = Color.Black, modifier = Modifier.size(14.dp))
                     Text("DISEÑADOR", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
+            }
+        }
+
+        // Dialogo para la confirmación de salida del modo
+        if (showExitDesignerConfirm) {
+            androidx.compose.ui.window.Dialog(onDismissRequest = { showExitDesignerConfirm = false }) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF3B0D1B), RoundedCornerShape(12.dp))
+                        .border(2.dp, Color(0xFFD4AF37), RoundedCornerShape(12.dp))
+                        .padding(24.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text("ABANDONAR DISEÑADOR", color = Color(0xFFD4AF37), fontWeight = FontWeight.Black, fontSize = 18.sp, textAlign = TextAlign.Center)
+                        Text(
+                            "¿Deseas salir del modo diseñador y restaurar la interfaz de juego normal?",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = { showExitDesignerConfirm = false },
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFFFFF)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Seguir editando", color = Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = {
+                                    showExitDesignerConfirm = false
+                                    viewModel.toggleDesignerMode(false)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Aceptar", color = Color.Black, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pintado del Banner flotante temporal de la leyenda requerida (CENTRAL)
+        AnimatedVisibility(
+            visible = showDesignerHint,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.Center)
+        ) {
+            Box(
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(8.dp))
+                    .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Presiona el icono del lapiz para editar alguna contrucción",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
 
@@ -1215,6 +1344,8 @@ fun WorldMapScreen(
 
         val selectedLandmark = uiState.landmarks.find { it.id == uiState.selectedLandmarkId }
         if (uiState.isDesignerMode && selectedLandmark != null) {
+            val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
+
             DesignerPanel(
                 landmark = selectedLandmark,
                 onMove = { dLat, dLon -> viewModel.moveSelectedLandmark(dLat, dLon) },
@@ -1230,16 +1361,33 @@ fun WorldMapScreen(
                 onToggleParkingMode = { isChecked -> viewModel.toggleParkingMode(isChecked) },
                 onNewWay = { viewModel.startNewWay() },
                 onDebugPoint = { viewModel.debugPlayerLocalCoordinates(context) },
-                onSpawnTestCar = { viewModel.spawnDynamicCarInEscom(context) }, // <--- NUEVA LÍNEA AQUÍ
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    // Reducimos el 'top' a 50 para que suba, y ponemos 'bottom' a 160 para salvar el joystick
-                    .padding(top = 50.dp, start = 12.dp, end = 12.dp, bottom = 160.dp)
-                    .fillMaxWidth(0.9f)
+                onSpawnTestCar = { viewModel.spawnDynamicCarInEscom(context) },
+                onRevert = {
+                    val currentLandmark = uiState.landmarks.find { it.id == uiState.selectedLandmarkId }
+                    if (currentLandmark != null && originalLandmarkState != null) {
+                        val deltaLat = originalLandmarkState!!.location.latitude - currentLandmark.location.latitude
+                        val deltaLon = originalLandmarkState!!.location.longitude - currentLandmark.location.longitude
+                        viewModel.moveSelectedLandmark(deltaLat, deltaLon)
+                        viewModel.rotateSelectedLandmark(originalLandmarkState!!.rotationAngle)
+                        viewModel.scaleXSelectedLandmark(originalLandmarkState!!.scaleX)
+                        viewModel.scaleYSelectedLandmark(originalLandmarkState!!.scaleY)
+                    }
+                },
+                modifier = if (isPortrait) {
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.32f) // Altura controlada en vertical
+                } else {
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(16.dp)
+                        .fillMaxWidth(0.35f) // 45% del ancho en horizontal
+                        .fillMaxHeight()     // Ocupa casi todo el alto lateral
+                }
             )
         }
 
-        //if (!uiState.isDesignerMode) {
         val configuration = LocalConfiguration.current
         val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
         val maxScale = if (isPortrait) 1.0f else 1.4f
@@ -1258,8 +1406,9 @@ fun WorldMapScreen(
         )
         val rightShiftMod = Modifier.offset(x = rightCtrlShift)
 
-        Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            if (uiState.isDriving) {
+        if (!uiState.isDesignerMode) { // Oculta joystick y botones en modo diseñador
+            Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                if (uiState.isDriving) {
                 // D-pad de conducción: SOLO gira (IZQ/DER). Arriba/abajo quedan inertes
                 // a propósito — gas y freno viven únicamente en el diamante PS4.
                 val drivingDpad = @Composable { m: Modifier ->
@@ -1290,33 +1439,34 @@ fun WorldMapScreen(
                 // El control de la DERECHA (segundo) recibe el desplazamiento.
                 if (uiState.swapControls) { drivingActions(Modifier); drivingDpad(rightShiftMod) } else { drivingDpad(Modifier); drivingActions(rightShiftMod) }
             } else {
-                val movementComponent = @Composable { m: Modifier ->
-                    if (uiState.controlType == ControlType.DPAD) DPadController(modifier = m.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
-                    else JoystickController(modifier = m.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
-                }
-                val actionComponent = @Composable { m: Modifier ->
-                    ActionButtonsController(
-                        modifier = m.scale(effectiveScale),
-                        onActionChanged = { action, isPressed ->
-                            if (action == GameAction.X && isPressed) {
-                                viewModel.handleInteraction()
-                            }
-                            if (action == GameAction.Y) {
-                                if (isPressed) {
-                                    viewModel.onInteractButtonPressed()
-                                    yButtonHoldJob?.cancel()
-                                    yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
-                                } else {
-                                    yButtonHoldJob?.cancel()
+                    val movementComponent = @Composable { m: Modifier ->
+                        if (uiState.controlType == ControlType.DPAD) DPadController(modifier = m.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
+                        else JoystickController(modifier = m.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
+                    }
+                    val actionComponent = @Composable { m: Modifier ->
+                        ActionButtonsController(
+                            modifier = m.scale(effectiveScale),
+                            onActionChanged = { action, isPressed ->
+                                if (action == GameAction.X && isPressed) {
+                                    viewModel.handleInteraction()
                                 }
-                            }
-                            viewModel.updateActionState(action, isPressed)
-                        },
-                        onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() }
-                    )
+                                if (action == GameAction.Y) {
+                                    if (isPressed) {
+                                        viewModel.onInteractButtonPressed()
+                                        yButtonHoldJob?.cancel()
+                                        yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
+                                    } else {
+                                        yButtonHoldJob?.cancel()
+                                    }
+                                }
+                                viewModel.updateActionState(action, isPressed)
+                            },
+                            onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() }
+                        )
+                    }
+                    // El control de la DERECHA (segundo) recibe el desplazamiento.
+                    if (uiState.swapControls) { actionComponent(Modifier); movementComponent(rightShiftMod) } else { movementComponent(Modifier); actionComponent(rightShiftMod) }
                 }
-                // El control de la DERECHA (segundo) recibe el desplazamiento.
-                if (uiState.swapControls) { actionComponent(Modifier); movementComponent(rightShiftMod) } else { movementComponent(Modifier); actionComponent(rightShiftMod) }
             }
         }
         //}

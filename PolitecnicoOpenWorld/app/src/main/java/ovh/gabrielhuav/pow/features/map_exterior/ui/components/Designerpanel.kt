@@ -44,6 +44,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.scale
 
 @Composable
 fun DesignerPanel(
@@ -62,255 +63,344 @@ fun DesignerPanel(
     onNewWay: () -> Unit = {},
     onDebugPoint: () -> Unit = {},
     onSpawnTestCar: () -> Unit = {},
+    onRevert: () -> Unit = {}, // Nuevo parámetro inyectado
     modifier: Modifier = Modifier
 ) {
-    val moveStep = 0.0001
+    val moveStep = 0.00001
+    val scrollState = androidx.compose.foundation.rememberScrollState() // Definir estado de scroll
 
     Column(
         modifier = modifier
-            .background(Color(0xFF1E1E24).copy(alpha = 0.95f), RoundedCornerShape(12.dp))
-            .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(12.dp))
-            .verticalScroll(rememberScrollState()) // <--- AGREGAMOS ESTO PARA PODER DESLIZAR
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .background(Color(0xFF1E1E24).copy(alpha = 0.85f), RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .verticalScroll(scrollState), // <-- Esto evita que se corten los botones
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // ─── HEADER ───
+
+        // Header superior
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("MODO DISEÑADOR", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold)
-            IconButton(
-                onClick = onDeselect,
-                modifier = Modifier.size(24.dp)
-            ) {
-                Icon(Icons.Default.Close, "Cerrar", tint = Color.White)
+            Text(
+                "EDICIÓN DE ASSET",
+                color = Color(0xFFD4AF37),
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp
+            )
+            IconButton(onClick = onDeselect, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    "Cerrar",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
 
-        // ─── CONTROLES DE MOVIMIENTO ───
-        Row(
+        // Distribución en 2 secciones: Superior (2 columnas) e Inferior (ancho completo)
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            MoveBtn("Izquierda", 40.dp) { onMove(0.0, -moveStep) }
+            // SECCIÓN SUPERIOR: Movimiento y Sliders
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // COLUMNA 1: Movimiento y Estado del Asset
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MoveBtn("Izquierda", 34.dp) { onMove(0.0, -moveStep) }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            MoveBtn("Arriba", 34.dp) { onMove(moveStep, 0.0) }
+                            MoveBtn("Abajo", 34.dp) { onMove(-moveStep, 0.0) }
+                        }
+                        MoveBtn("Derecha", 34.dp) { onMove(0.0, moveStep) }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Button(
+                            onClick = onDelete,
+                            modifier = Modifier.weight(1f).height(30.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                            contentPadding = PaddingValues(0.dp),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                "ELIMINAR",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Button(
+                            onClick = onSave,
+                            modifier = Modifier.weight(1f).height(30.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                            contentPadding = PaddingValues(0.dp),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                "GUARDAR",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = onRevert,
+                        modifier = Modifier.fillMaxWidth().height(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5D4037)),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            "REVERTIR",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // COLUMNA 2: Sliders de Ajuste Geométrico con Botones (+ / -)
+                Column(
+                    modifier = Modifier.weight(1.3f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // ANCHO
+                    Text(
+                        "ANCHO: ${String.format("%.2f", landmark.scaleX)}x",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Button(
+                            onClick = { onScaleX((landmark.scaleX - 0.05f).coerceAtLeast(0.05f)) },
+                            modifier = Modifier.size(20.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                            contentPadding = PaddingValues(0.dp),
+                            shape = RoundedCornerShape(4.dp)
+                        ) { Text("-", color = Color.White, fontSize = 10.sp) }
+                        Slider(
+                            value = landmark.scaleX,
+                            onValueChange = onScaleX,
+                            valueRange = 0.05f..5.0f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFFD4AF37),
+                                activeTrackColor = Color(0xFF6B1C3A)
+                            ),
+                            modifier = Modifier.weight(1f).height(14.dp)
+                        )
+                        Button(
+                            onClick = { onScaleX((landmark.scaleX + 0.05f).coerceAtMost(5.0f)) },
+                            modifier = Modifier.size(20.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                            contentPadding = PaddingValues(0.dp),
+                            shape = RoundedCornerShape(4.dp)
+                        ) { Text("+", color = Color.White, fontSize = 10.sp) }
+                    }
+
+                    // ALTO
+                    Text(
+                        "ALTO: ${String.format("%.2f", landmark.scaleY)}x",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Button(
+                            onClick = { onScaleY((landmark.scaleY - 0.05f).coerceAtLeast(0.05f)) },
+                            modifier = Modifier.size(20.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                            contentPadding = PaddingValues(0.dp),
+                            shape = RoundedCornerShape(4.dp)
+                        ) { Text("-", color = Color.White, fontSize = 10.sp) }
+                        Slider(
+                            value = landmark.scaleY,
+                            onValueChange = onScaleY,
+                            valueRange = 0.05f..5.0f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFFD4AF37),
+                                activeTrackColor = Color(0xFF6B1C3A)
+                            ),
+                            modifier = Modifier.weight(1f).height(14.dp)
+                        )
+                        Button(
+                            onClick = { onScaleY((landmark.scaleY + 0.05f).coerceAtMost(5.0f)) },
+                            modifier = Modifier.size(20.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                            contentPadding = PaddingValues(0.dp),
+                            shape = RoundedCornerShape(4.dp)
+                        ) { Text("+", color = Color.White, fontSize = 10.sp) }
+                    }
+
+                    // ROTACIÓN
+                    Text(
+                        "ROTACIÓN: ${landmark.rotationAngle.toInt()}°",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Button(
+                            onClick = { onRotate((landmark.rotationAngle - 5f).let { if (it < 0f) it + 360f else it }) },
+                            modifier = Modifier.size(20.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                            contentPadding = PaddingValues(0.dp),
+                            shape = RoundedCornerShape(4.dp)
+                        ) { Text("-", color = Color.White, fontSize = 10.sp) }
+                        Slider(
+                            value = landmark.rotationAngle,
+                            onValueChange = onRotate,
+                            valueRange = 0f..360f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFFD4AF37),
+                                activeTrackColor = Color(0xFF6B1C3A)
+                            ),
+                            modifier = Modifier.weight(1f).height(14.dp)
+                        )
+                        Button(
+                            onClick = { onRotate((landmark.rotationAngle + 5f).let { if (it >= 360f) it - 360f else it }) },
+                            modifier = Modifier.size(20.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                            contentPadding = PaddingValues(0.dp),
+                            shape = RoundedCornerShape(4.dp)
+                        ) { Text("+", color = Color.White, fontSize = 10.sp) }
+                    }
+                }
+            }
+
+            // SECCIÓN INFERIOR: Herramientas de Rutas e Intercambio (Ancho completo)
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                MoveBtn("Arriba", 40.dp) { onMove(moveStep, 0.0) }
-                MoveBtn("Abajo", 40.dp) { onMove(-moveStep, 0.0) }
-            }
-            MoveBtn("Derecha", 40.dp) { onMove(0.0, moveStep) }
-        }
-
-        // ─── SLIDERS (Escala X, Escala Y y Rotación) ───
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = "ANCHO: ${String.format("%.2f", landmark.scaleX)}x",
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Slider(
-                    value = landmark.scaleX,
-                    onValueChange = onScaleX,
-                    valueRange = 0.05f..5.0f,
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFFD4AF37),
-                        activeTrackColor = Color(0xFF6B1C3A)
-                    ),
-                    modifier = Modifier.weight(1f).height(24.dp)
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Button(
-                        onClick = { onScaleX((landmark.scaleX - 0.05f).coerceAtLeast(0.05f)) },
-                        modifier = Modifier.size(width = 28.dp, height = 24.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
-                        shape = RoundedCornerShape(4.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) { Text("−", color = Color.White, fontSize = 14.sp) }
-                    Button(
-                        onClick = { onScaleX((landmark.scaleX + 0.05f).coerceAtMost(5.0f)) },
-                        modifier = Modifier.size(width = 28.dp, height = 24.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
-                        shape = RoundedCornerShape(4.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) { Text("+", color = Color.White, fontSize = 14.sp) }
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                text = "ALTO: ${String.format("%.2f", landmark.scaleY)}x",
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Slider(
-                    value = landmark.scaleY,
-                    onValueChange = onScaleY,
-                    valueRange = 0.05f..5.0f,
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFFD4AF37),
-                        activeTrackColor = Color(0xFF6B1C3A)
-                    ),
-                    modifier = Modifier.weight(1f).height(24.dp)
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Button(
-                        onClick = { onScaleY((landmark.scaleY - 0.05f).coerceAtLeast(0.05f)) },
-                        modifier = Modifier.size(width = 28.dp, height = 24.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
-                        shape = RoundedCornerShape(4.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) { Text("−", color = Color.White, fontSize = 14.sp) }
-                    Button(
-                        onClick = { onScaleY((landmark.scaleY + 0.05f).coerceAtMost(5.0f)) },
-                        modifier = Modifier.size(width = 28.dp, height = 24.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
-                        shape = RoundedCornerShape(4.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) { Text("+", color = Color.White, fontSize = 14.sp) }
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                text = "ROTACIÓN: ${landmark.rotationAngle.toInt()}°",
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Slider(
-                value = landmark.rotationAngle,
-                onValueChange = onRotate,
-                valueRange = 0f..360f,
-                colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFFD4AF37),
-                    activeTrackColor = Color(0xFF6B1C3A)
-                ),
-                modifier = Modifier.fillMaxWidth().height(24.dp)
-            )
-        }
-
-        // ─── BOTONES DE ACCIÓN ───
-        // ─── BOTONES DE ACCIÓN ───
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Button(
-                    onClick = onDelete,
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
-                    shape = RoundedCornerShape(8.dp)
+                // Fila 1 inferior
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Delete, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("ELIMINAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f).height(28.dp)
+                    ) {
+                        Checkbox(
+                            checked = isParkingMode,
+                            onCheckedChange = onToggleParkingMode,
+                            modifier = Modifier.scale(0.7f)
+                        )
+                        Text("Cajón Estac.", fontSize = 10.sp, color = Color.White)
+                    }
+                    Button(
+                        onClick = onNewWay,
+                        modifier = Modifier.weight(0.8f).height(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            "NUEVO",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Button(
+                        onClick = onDebugPoint,
+                        modifier = Modifier.weight(1f).height(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            "CAPTURAR",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
-                Button(
-                    onClick = onSave,
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                    shape = RoundedCornerShape(8.dp)
+                // Fila 2 inferior
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("GUARDAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = onSpawnTestCar,
+                        modifier = Modifier.weight(1.2f).height(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            "SPAWN AUTO",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Button(
+                        onClick = onExport,
+                        modifier = Modifier.weight(1f).height(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            "EXPORTAR",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Button(
+                        onClick = onImport,
+                        modifier = Modifier.weight(1f).height(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B1FA2)),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            "IMPORTAR",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = onExport,
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Default.Share, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("EXPORTAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-                Button(
-                    onClick = onImport,
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("IMPORTAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-            } // <--- ¡AQUÍ ESTÁ LA MAGIA! ESTE ROW DEBE CERRARSE AQUÍ.
-
-            // --- HERRAMIENTAS DE CREACIÓN DE RUTAS ---
-            // Como ya estamos en la Column, esto se pondrá abajo, en vertical.
-            Divider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Gray.copy(alpha = 0.5f))
-            Text("Creador de Rutas Automotrices", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White) // Agregué color blanco
-
-            // Checkbox para elegir si es carril o cajón
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = isParkingMode,
-                    onCheckedChange = onToggleParkingMode
-                )
-                Text("Es Cajón de Estacionamiento", fontSize = 12.sp, color = Color.White) // Agregué color blanco
-            }
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                // Botón para Nuevo Carril
-                Button(
-                    onClick = onNewWay,
-                    modifier = Modifier.weight(1f).height(40.dp).padding(end = 4.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("NUEVO CARRIL", color = Color.White, fontSize = 10.sp)
-                }
-
-                // Botón para Capturar (El rosa)
-                Button(
-                    onClick = onDebugPoint,
-                    modifier = Modifier.weight(1.5f).height(40.dp).padding(start = 4.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("CAPTURAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-            } // <--- CIERRA EL ROW AQUÍ
-
-            // El botón de Spawn Auto va afuera, en la Column principal
-            Button(
-                onClick = onSpawnTestCar,
-                modifier = Modifier.fillMaxWidth().height(40.dp).padding(top = 8.dp), // Se agregó un padding top para separar
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("🚗 SPAWN AUTO DE PRUEBA", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
         }
     }
 }
