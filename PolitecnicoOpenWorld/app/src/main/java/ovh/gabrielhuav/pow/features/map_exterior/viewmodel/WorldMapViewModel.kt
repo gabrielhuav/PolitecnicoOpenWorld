@@ -395,6 +395,7 @@ class WorldMapViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             collectibleRepository.initializeDefaultCollectiblesIfNeeded()
         }
+        spawnShineCTOMarker() // AUTO-SPAWN: Coloca la entrada interactuable de Shine CTO al iniciar
         startGameLoop()
     }
 
@@ -2115,7 +2116,7 @@ class WorldMapViewModel(
                 promptJob = viewModelScope.launch {
                     val promptText = when {
                         activeItem.name == "Objeto Misterioso ESCOM" -> "PRESIONA X PARA INTERACTUAR"
-                        activeItem.id == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA INSPECCIONAR"
+                        activeItem.id == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA ENTRAR"
                         activeItem.id.startsWith("escom_door_")      -> "PRESIONA X PARA ENTRAR" // <--- Aquí aparece el texto de la puerta
                         else -> "PRESIONA X PARA RECOGER"
                     }
