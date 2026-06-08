@@ -14,8 +14,8 @@ android {
         applicationId = "ovh.gabrielhuav.pow"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.0.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -24,7 +24,7 @@ android {
             // Servidor del mundo abierto (open world)
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
             // Servidor del minijuego de zombis (instancia separada en Render)
-            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://192.168.1.4:8080\"")
+            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
         }
         release {
             isMinifyEnabled = false
@@ -33,7 +33,7 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
-            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://192.168.1.4:8080\"")
+            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
         }
     }
 
@@ -71,6 +71,8 @@ dependencies {
 
     //Google Maps SDK
     implementation("com.google.maps.android:maps-compose:4.4.1")
+
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
 
     // Room
     implementation(libs.androidx.room.runtime)

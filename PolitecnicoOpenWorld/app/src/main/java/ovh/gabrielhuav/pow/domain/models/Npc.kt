@@ -12,6 +12,18 @@ enum class CarModel(val dirName: String, val prefix: String) {
     WAGON("WHITE_WAGON", "White_WAGON_CLEAN_All_")
 }
 
+enum class NpcNavState {
+    MACRO_OSM,      // Usa calles reales
+    MICRO_LANDMARK, // Usa el dibujo del asset
+    PARKED          // Detenido en un cajón de estacionamiento
+}
+
+// PERSONALIDAD del NPC (asignada al spawn, peso aleatorio). Un único campo que
+// decide CÓMO reacciona ante el jugador (robo de coche, golpes). Casi gratis en CPU.
+//  - PASSIVE: no reacciona (la mayoría).
+//  - COWARD: huye (entra en estado de miedo) al ser provocado.
+//  - AGGRESSIVE: contraataca (entra en estado de embestida hacia el jugador).
+enum class NpcTrait { PASSIVE, COWARD, AGGRESSIVE }
 data class Npc(
     val id: String = UUID.randomUUID().toString(),
     val type: NpcType,
@@ -33,5 +45,29 @@ data class Npc(
     val displayName: String? = null,
     val isFirstTimeBoarded: Boolean = true,
     val health: Float = 100f,
-    val isDying: Boolean = false
+    val isDying: Boolean = false,
+
+    // Navegación por landmarks / vías locales (rama de navegación):
+    val navState: NpcNavState = NpcNavState.MACRO_OSM,
+    val currentLocalWay: ovh.gabrielhuav.pow.domain.models.ai.LocalWay? = null,
+    val currentLandmark: Landmark? = null,
+
+    // ─── Estado transitorio de IA (vive SOLO en el host que simula; NO se serializa
+    //     en MultiplayerNpc). El comportamiento se manifiesta como movimiento/rotación,
+    //     así que los demás clientes lo ven sin cambiar el formato del cable.) ───
+    // MIEDO AL COMBATE: mientras now < fearUntil el NPC huye (acelera y se aleja
+    // del punto fearFrom). Se activa al ver un PLAYER_DAMAGE o un ataque cercano.
+    val fearUntil: Long = 0L,
+    val fearFromLat: Double = 0.0,
+    val fearFromLon: Double = 0.0,
+    // CHARLAS: mientras now < chatUntil el peatón se detiene mirando a su pareja.
+    val chatUntil: Long = 0L,
+    val chatPartnerId: String? = null,
+
+    // PERSONALIDAD + EMBESTIDA (transitorio, solo en el host; NO se serializa):
+    //  - trait: personalidad fija asignada al spawn.
+    //  - aggroUntil: mientras now < aggroUntil el NPC (AGGRESSIVE) persigue al
+    //    jugador en línea recta y le hace daño por contacto.
+    val trait: NpcTrait = NpcTrait.PASSIVE,
+    val aggroUntil: Long = 0L
 )

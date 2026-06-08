@@ -6,18 +6,39 @@
 
 ## 🇬🇧 English Version
 
-**Politécnico Open World (POW)** is an Android 2D top-down exploration app built on top of real-world maps. The player navigates the actual streets of their surroundings (with initial focus on the ESCOM / Zacatenco area in Mexico City) using **OpenStreetMap** cartographic data, sharing the world with procedural NPCs (pedestrians and vehicles) and with other players connected to a real-time server. The ESCOM campus also hosts an embedded zombie survival minigame with interior buildings, melee/ranged combat and a power-up system.
+**Politécnico Open World (POW)** is an Android 2D top-down exploration app built on top of real-world maps. The player navigates the actual streets of their surroundings (with initial focus on the ESCOM / Zacatenco area in Mexico City) using **OpenStreetMap** cartographic data, sharing the world with procedural NPCs (pedestrians and vehicles) and with other players connected to a real-time server. The ESCOM campus also hosts an embedded zombie survival minigame with interior buildings, melee/ranged combat and a power-up system — now backed by its own authoritative server.
 
-The project is built entirely with **Kotlin + Jetpack Compose**, follows a strict **MVVM** pattern organized by *features*, and delegates persistent-world logic to a standalone Node.js server.
+The project is built entirely with **Kotlin + Jetpack Compose**, follows a strict **MVVM** pattern organized by *features*, and delegates persistent-world logic to **two standalone Node.js servers**: one for the open world and a new dedicated one for the zombie minigame.
+
+### 🔄 Recent Changes
+
+The latest integration work centers on the **multiplayer back end**, which now spans two servers, plus the previously bundled feature/performance PRs:
+
+- **NPC combat — retaliation, relentless mode, HUD & death** — NPCs only react when provoked: hit one and **aggressive** NPCs hit back (a guaranteed counter ~450 ms after your punch, plus a chase), while **cowards flee** and aggressive ones are **fear-immune**. The aggressive share is **configurable** (`NpcAiManager.aggressiveRatio`, default half). Land **3+ consecutive hits** on an NPC and it becomes **relentless** — it won't stop hitting you until you (or it) dies. Added a **persistent HUD health bar** (zombie-style), a **red damage-flash** on every hit, the WASTED screen now **freezes movement + ghost-fades** the player, and **respawn happens inside the already-downloaded zone** (~80 m from death, snapped to road) instead of teleporting to ESCOM — saving resources. Multiplayer: NPC `health`/`isDying`/`aggroUntil` are replicated (`server.js` relays them).
+- **GTA-lite NPC AI — multiplayer + polish** — the AI now **replicates to multiplayer**: NPC `health`/`isDying` are sent in `NPC_BATCH_UPDATE` so every client sees health bars and run-over/hit deaths (`Multiplayer/server.js` relays them and clamps health, v3.1). Added a **"💥" collision/impact effect** so getting hit or running someone over is noticeable, made **two-way traffic lanes more visible** (larger right-side offset), and fixed the **player vehicle/avatar sizing** to match NPCs exactly (both now use the same zoom source). Contact damage from aggressive NPCs is tuned to be reliable.
+- **GTA-lite NPC AI (low-end optimized, host-only)** — NPCs now have a **personality trait** (`PASSIVE`/`COWARD`/`AGGRESSIVE`, weighted at spawn). You can **run over pedestrians** while driving (speed-scaled damage; witnesses panic). **Carjacking an occupied car** makes the ousted driver react by trait: cowards flee, aggressive ones **chase and punch you**. **Aggressive NPCs hit back** for a few seconds when you melee them and they survive. **Two-way traffic** is enabled (randomized spawn direction + existing right-side lane offset). All checks are cull-radius-bound with early-outs and the AI fields aren't serialized. *(Car-vs-car collisions are intentionally left as future work.)*
+- **Map UX & rendering parity pass** — (1) **player-anchored fog of war**: the fog now follows the player's real position during scroll/zoom instead of staying screen-centered — native uses an osmdroid overlay (rect oversized to the screen diagonal so it stays correct under driving rotation), web uses a `#fog` div redrawn on each Leaflet `move`/`zoom`; the Compose fog is kept only for Google native. (2) **Native over-zoom to z22** scaled from z19 via a `MapTileApproximater`, with loading screens prefetching **z19 + z17** tiles and OSM defaulting to **max zoom**. (3) **Web pinch-zoom no longer drags the player** (only user pinch enters exploration). (4) **Unified real-meter sizing** for NPCs and the player across renderers (pedestrians ≈ 1.3 m, vehicles ≈ 4.0 m), **larger NPC health bars**. (5) **Landscape-safe Options menu** (height-capped + scrollable; right-side control slides aside while open). (6) **"Centrar en jugador"** evolves into a sub-menu with **"Hacer zoom en el jugador"** when zoomed; with the map off-center the left movement controls recenter (no zoom). (7) **Ousted driver** spawns next to the jacked car (~2 m). (8) **Main-menu version** bound to `BuildConfig.VERSION_NAME` with an auto-shrinking title that never wraps.
+- **Teleport now gates on map download** — teleporting (Go to ESCOM / Go to your GPS location) no longer drops you instantly: it re-arms the load gate (`isMapReady=false`) and downloads the new area's tiles for the active provider before unlocking free movement (native OSM stores real tiles to Room for offline; web warms the CDN so the WebView+cache fill in; Google native shows a brief gate). Runs in parallel with the street reload — `worldReady = streets ready && map ready`.
+- **Map controls cleanup** — removed osmdroid's duplicate native zoom buttons (zoom now lives only in the nested *Mapa* menu); **"Center on player" is always available**; **"Go to…" nested submenu** with *Go to ESCOM* and *Go to your GPS location* (teleports the avatar to the device's real GPS position — e.g. back home — not to the avatar's current spot). `OptionsMenu` now supports arbitrarily nested groups.
+- **Native OSM map fixed + unified offline cache** — the native osmdroid map now reads/writes the **same Room tile cache** as the Web providers (`RoomTileModuleProvider`, bucket `osm`), downloading with a browser User-Agent. osmdroid's built-in downloader (UA = package name) was being throttled by the public OSM server, which is why the native map *failed to load new zones* while Web worked. A `TilePrefetchManager` now proactively downloads the current ~2 km zone (zooms 16-18) to the local DB so it plays **fully offline** after visiting (non-blocking, warns if incomplete). **Fog of war is now always rendered** (previously hidden while panning).
+- **Dedicated zombie-minigame server** (`MultiplayerZombie/`) — zombies are now **authoritative on the server** (Phase 1). Their AI uses a **shared Dijkstra flow-field** (one distance-to-player map per target cell, reused by every zombie chasing that player and cached ~250 ms), **line-of-sight** straight-line pursuit when no walls block the path, and **separation steering** so the horde never stacks on a single pixel; a **wander fallback** keeps disconnected zombies from freezing. The `ZOMBIE_STATE` wire format is unchanged (all AI lives in non-serialized internal fields).
+- **Open-world server hardened to v2** (`Multiplayer/`) — **Area of Interest (AOI)** relay so `NPC_SPAWN/UPDATE/BATCH` only reach clients near the emitting Host (global messages like `PLAYER_UPDATE`, `PLAYER_DAMAGE`, `NPC_DESTROY`, `DISCONNECT` and sync stay global), **throttled Host election** (re-evaluated at most every 200 ms per client), **per-socket rate limiting** (sliding 1 s window, anti-flood), **input sanitization** (finite coordinates, bounded damage, max message size) and **ghost-player GC** (not only on socket close).
+- **Atomic tile-cache writes** — tile persistence counts, evicts (LRU) and inserts inside a single Room `@Transaction`, preventing corruption if the process dies mid-write.
+- **Zombie minigame balance** — shorter zombie contact-attack range and gradual **health regeneration in the lobby** (safe zone) up to 100 HP.
+- **Damage feedback FX** — screen shake on hit, a red damage vignette/flash whose intensity **scales with lost HP**, a low-HP pulse, **zombie knockback** (melee + projectiles, collision-aware) and **player recoil** on firing with per-axis position correction.
+- **Staged control settings** — control changes (type/scale/swap) are held in a temporary state and only affect gameplay after pressing **SAVE**.
+- **Map rotation fixes** — dark OSMDroid background and an oversized, centered Leaflet wrapper so no "gaps" appear when the map rotates in driving mode.
+- **Performance** — per-*way* bounding-box pre-filter in the NPC spawner and `Pair`-based routing keys (no per-step string allocations).
 
 ### ⚙️ Architecture
 
-The repository contains two complementary projects:
+The repository contains three complementary projects:
 
 ```text
 .
 ├── PolitecnicoOpenWorld/   # Android client (Kotlin + Compose)
-└── Multiplayer/            # Game server (Node.js + WebSocket, dockerized)
+├── Multiplayer/            # Open-world game server (Node.js + WebSocket, v2, dockerized)
+└── MultiplayerZombie/      # Zombie-minigame server (authoritative zombies, dockerized)
 ```
 
 #### MVVM at a glance
@@ -38,110 +59,48 @@ app/src/main/java/ovh/gabrielhuav/pow/
 ├── data/                                    # ─── Data layer ───
 │   ├── cache/
 │   │   ├── RoadNetworkCache.kt              # LRU of OSM road zones (~2km cells, 7-day TTL)
-│   │   └── TileCache.kt                     # LRU of map tiles (per provider, 8K max)
+│   │   └── TileCache.kt                     # LRU of map tiles (per provider, 8K max, atomic writes)
 │   ├── local/room/
 │   │   ├── PowDatabase.kt                   # @Database v8, 6 entities, MIGRATION_7_8
 │   │   ├── dao/
 │   │   │   ├── RoadNetworkDao.kt            # Atomic insertZoneWithData() transaction
-│   │   │   ├── MapTileDao.kt                # Tile cache CRUD + LRU eviction
+│   │   │   ├── MapTileDao.kt                # Tile cache CRUD + atomic putTileAtomic() (count/evict/insert)
 │   │   │   ├── LandmarkDao.kt               # User-editable buildings (designer mode)
 │   │   │   └── CollectibleDao.kt            # 6 lore collectibles with Flow observation
-│   │   └── entity/
-│   │       ├── RoadEntities.kt              # RoadZone + RoadWay + RoadNode (FK cascade)
-│   │       ├── TileEntities.kt              # MapTileEntity (BLOB + composite PK)
-│   │       ├── LandmarkEntity.kt            # Buildings with scale, rotation, asset path
-│   │       └── CollectibleEntity.kt         # id, name, description, assetPath, isCollected
+│   │   └── entity/...                       # RoadEntities, TileEntities, LandmarkEntity, CollectibleEntity
 │   ├── network/
-│   │   └── WebSocketManager.kt              # OkHttp WS (no timeouts, 25s ping)
+│   │   └── WebSocketManager.kt              # OkHttp WS (no timeouts, 25s ping) — shared by both servers
 │   └── repository/
 │       ├── OverpassRepository.kt            # Overpass API (2km radius, 45s timeout)
 │       ├── SettingsRepository.kt            # SharedPreferences for controls
-│       └── CollectibleRepository.kt         # Seeds 6 default items, exposes Flow
+│       ├── CollectibleRepository.kt         # Seeds 6 default items, exposes Flow
+│       └── CollisionMatrixRepository.kt     # Zombie collision matrices JSON (designer mode)
 │
 ├── domain/                                  # ─── Model layer (pure Kotlin) ───
 │   └── models/
-│       ├── ActiveCollectible.kt             # Runtime instance of a collectible on the map
 │       ├── CharacterVisualConfig.kt         # Hair/shirt/pants config for assembled NPCs
 │       ├── EscomBuildings.kt                # InteriorBuilding enum (6 ESCOM buildings)
-│       ├── Landmark.kt                      # Domain model used by the map
-│       ├── LandmarkAssetCatalog.kt          # JSON catalog of buildable assets
+│       ├── Landmark.kt / LandmarkAssetCatalog.kt
 │       ├── MapNode.kt / MapWay.kt           # OSM primitives
 │       ├── Npc.kt / NpcType.kt              # NPC + CarModel enum (6 models)
-│       ├── TeleportCatalog.kt               # Fixed teleport destinations
-│       ├── ai/
-│       │   └── NpcAiManager.kt              # 40-NPC population, spawn/despawn, road-adoption
+│       ├── ai/NpcAiManager.kt              # 40-NPC population, bbox-prefiltered spawn, adoption
 │       └── zombie/
-│           ├── ZombieModels.kt              # ZombieEntity, SkillEffect, SkillItem,
-│           │                                # Projectile, CombatMode, ZombieRoom, ZoneDoor
-│           └── ZombieRoomCatalog.kt         # Lobby + 6 building rooms with door layout
+│           ├── ZombieModels.kt              # ZombieEntity, SkillEffect, Projectile, ZombieRoom, ZoneDoor
+│           └── ZombieRoomCatalog.kt         # Lobby + 7 building rooms with door layout
 │
 ├── features/                                # ─── Feature modules (View + ViewModel) ───
-│   ├── main_menu/
-│   │   ├── ui/
-│   │   │   ├── MainMenuScreen.kt            # 5 menu buttons + multiplayer dialog
-│   │   │   └── CollectiblesScreen.kt        # Inventory grid with claim popup
-│   │   └── viewmodel/
-│   │       ├── MainMenuViewModel.kt         # MainMenuState (dialog, name input)
-│   │       └── CollectiblesViewModel.kt     # Observes Room Flow → StateFlow
-│   │
-│   ├── map_exterior/                        # Core open world
-│   │   ├── ui/
-│   │   │   ├── WorldMapScreen.kt            # Map render for OSM / Google / Web
-│   │   │   ├── CachingWebViewClient.kt      # Intercepts Leaflet tile requests
-│   │   │   └── components/
-│   │   │       ├── GameControllers.kt              # D-Pad, Joystick, action buttons,
-│   │   │       │                                   # VehicleSteering, VehiclePedals
-│   │   │       ├── PlayerCharacter.kt              # Animated sprite with health bar
-│   │   │       ├── CharacterRenderer.kt            # DrawScope helper
-│   │   │       ├── CharacterSpriteManager.kt       # Smart per-pixel tinting + LRU
-│   │   │       ├── VehicleSpriteManager.kt         # 48-frame rotation per car model
-│   │   │       ├── NpcRenderWrapper.kt             # Fade-out on death
-│   │   │       ├── PlayerAction.kt                 # IDLE/WALK/RUN/SPECIAL enum
-│   │   │       ├── AssetPickerDialog.kt            # Designer mode: pick building asset
-│   │   │       ├── DesignerPanel.kt                # Move/rotate/scale/save controls
-│   │   │       └── CollectibleClaimDialog.kt       # Themed popup on pickup
-│   │   └── viewmodel/
-│   │       ├── WorldMapViewModel.kt         # Game loop, multiplayer, NPCs, ESCOM logic
-│   │       └── WorldMapState.kt             # MapProvider enum + ~30 state fields
-│   │
+│   ├── main_menu/                           # menu + multiplayer dialog + warm-up
+│   ├── map_exterior/                        # core open world (WorldMapScreen/ViewModel/State)
 │   ├── interior/                            # 6 ESCOM building interiors
-│   │   ├── ui/
-│   │   │   ├── InteriorScreenBase.kt        # Shared Composable: background + player + DPad
-│   │   │   ├── AuditorioScreen.kt
-│   │   │   ├── BibliotecaScreen.kt
-│   │   │   ├── CafeteriaScreen.kt
-│   │   │   ├── EdificioScreen.kt
-│   │   │   ├── EstacionamientoScreen.kt
-│   │   │   └── PalapasScreen.kt
-│   │   └── viewmodel/
-│   │       ├── InteriorViewModel.kt         # Normalized [0,1] movement, collision-aware
-│   │       ├── InteriorState.kt
-│   │       └── CollisionGrid.kt             # 20×30 walkable matrix, with emptyWithBorder()
-│   │
-│   ├── zombie_minigame/                     # Embedded survival minigame
-│   │   ├── ui/
-│   │   │   ├── ZombieGameScreen.kt          # Canvas-based world render + camera
-│   │   │   ├── ZombieHud.kt                 # HUD, doors, SkillItem icons (pure Canvas)
-│   │   │   └── ZombieSpriteManager.kt       # 9-frame zombie walk animation LRU
-│   │   └── viewmodel/
-│   │       ├── ZombieGameViewModel.kt       # AI, projectiles, effects, victory/defeat
-│   │       └── ZombieGameState.kt           # State + CameraTransform
-│   │
-│   └── settings/
-│       ├── ui/
-│       │   └── SettingsScreen.kt            # Tabs: Map / Controls / Gameplay / Interface
-│       ├── viewmodel/
-│       │   ├── SettingsViewModel.kt         # Persists via SettingsRepository
-│       │   └── SettingsState.kt
-│       └── models/
-│           ├── ControlType.kt               # DPAD / JOYSTICK
-│           └── SettingsCategory.kt          # Sealed class for tab navigation
+│   ├── zombie_minigame/                     # embedded survival minigame (offline + online)
+│   ├── shinecto/                            # ShineCTO easter-egg interior
+│   └── settings/                            # Map / Controls / Gameplay / Interface tabs
 │
 ├── ui/theme/                                # Material 3 theme
 └── MainActivity.kt                          # Single-Activity with Compose NavHost
 ```
 
-The client follows a **Single-Activity** architecture with Compose-based navigation (`NavHost`) and **nine** destinations: `main_menu`, `world_map`, `settings`, `collectibles`, the six interior routes (`interior_auditorio`, `interior_biblioteca`, `interior_cafeteria`, `interior_edificio`, `interior_estacionamiento`, `interior_palapas`) and the `zombie_minigame` route.
+The client follows a **Single-Activity** architecture with Compose-based navigation (`NavHost`). Destinations include `main_menu`, `world_map`, `settings`, `collectibles`, the six interior routes, the `zombie_minigame` route and the `shinecto_interior` route.
 
 ### 🗺️ Map System
 
@@ -149,7 +108,7 @@ POW supports **eight map providers** that can be hot-swapped from the Settings s
 
 | Provider | Mode | Notes |
 |---|---|---|
-| OSMDroid (Native) | Native render | Highest zoom (up to 21) |
+| OSMDroid (Native) | Native render | Highest zoom (up to 21); dark background to avoid rotation gaps |
 | Google Maps (Native) | Google Maps SDK | Uses `MAPS_API_KEY` from manifest |
 | OpenStreetMap (Web) | WebView + Leaflet | |
 | Google Maps (Web) | WebView + Leaflet | |
@@ -158,105 +117,82 @@ POW supports **eight map providers** that can be hot-swapped from the Settings s
 | Esri Satellite | WebView + Leaflet | Real aerial view |
 | OpenTopoMap | WebView + Leaflet | Terrain and contour lines |
 
-Web modes render through **Leaflet** inside a `WebView` and are intercepted by a `CachingWebViewClient` that caches each tile in Room (`MapTileEntity`) using the normalized URL as key (stripping load-balancing subdomains and volatile parameters before hashing with SHA-256). This allows offline play in any previously visited area.
+Web modes render through **Leaflet** inside a `WebView` and are intercepted by a `CachingWebViewClient` that caches each tile in Room (`MapTileEntity`) using the normalized URL as key (stripping load-balancing subdomains and volatile parameters before hashing with SHA-256). This allows offline play in any previously visited area. The Leaflet `#map-wrapper` is intentionally oversized (`300vw × 300vh`, centered) so its inscribed circle covers the screen diagonal at any rotation angle — no "gaps"/artifacts appear when the map rotates in driving mode.
 
-#### Road network cache
+#### Tile & road-network caching
 
-The road network needed to anchor movement and NPCs is fetched from the **Overpass API** and persisted in Room with the following strategy:
+- **Tiles:** per-provider LRU (~8k max). Writes are **atomic**: a single Room `@Transaction` counts the provider's tiles, evicts the oldest (LRU) if over the limit, and inserts the new tile — preventing corrupt states if the process dies mid-write.
+- **Road network (Overpass):** ~2 km cells, **7-day TTL**, **LRU of 20 cells**, atomic zone+ways+nodes insert (`@Transaction`), and a 5-minute re-fetch cooldown.
 
-- **Cell-based granularity:** the world surface is divided into ~2 km × 2 km cells. Each downloaded cell covers a ~2 km radius around the player.
-- **7-day TTL** before marking a cell as expired.
-- **LRU of 20 cells** maximum: when full, the oldest cell is dropped.
-- **Atomic transaction** (`@Transaction`) when inserting zone + ways + nodes, preventing corrupt states if the process dies mid-write.
-- **Re-fetch cooldown:** once a zone is downloaded, Overpass won't be queried again for 5 minutes even if the player keeps crossing it.
-
-The player cannot step off the road network: every movement is validated against a **spatial grid index** (`Seg` + `HashMap<cell, segments>`) that runs *snap-to-road* in O(nearby candidates) instead of O(n) over all streets.
+The player cannot step off the road network: every movement is validated against a **spatial grid index** (`Seg` + `HashMap<cell, segments>`) that runs *snap-to-road* in O(nearby candidates).
 
 ### 🏛️ Landmarks and Designer Mode
 
-The map is populated with editable buildings. The pipeline lives in three places:
-
-- **`LandmarkCatalogManager`** (`domain/models/`) loads `assets/buildings_catalog.json` at startup, defining every placeable asset (display name, asset path, base size in meters, default scale).
-- **`LandmarkDao` + `LandmarkEntity`** persist the user's placements (position, rotation 0-360°, scale 0.05-3.0×) across sessions.
-- **Designer Mode** (toolbar toggle) activates `DesignerPanel`: arrow buttons for fine movement (±0.0001°), sliders for rotation and scale, plus **JSON export/import** to share map configurations as files.
-
-On first launch, `assets/default_landmarks.json` seeds the database with the ESCOM campus layout.
+The map is populated with editable buildings: a JSON asset catalog (`buildings_catalog.json`), persisted placements in `LandmarkEntity` (position, rotation 0-360°, scale 0.05-3.0×), and a **Designer Mode** panel with fine movement, rotation/scale sliders and JSON export/import. `assets/default_landmarks.json` seeds the ESCOM layout on first launch.
 
 ### 🎁 Collectibles System
 
-Six lore-themed collectibles (IPN logo, UAM motto, ESIME shout, ETS exam, ESCOM laptop, "Apuntes de Leyenda") are seeded into Room by `CollectibleRepository.initializeDefaultCollectiblesIfNeeded()`. The game loop spawns one uncollected item every ~1 s within 300–600 m of the player, snapped to the road network. Approaching within 15 m shows a "PRESS X TO PICK UP" prompt; pressing X marks the item as collected and shows a `CollectibleClaimDialog` with the lore description. The inventory screen reads from a `Flow<List<CollectibleEntity>>`, so claimed items appear in color while uncollected ones stay grayed out with "???".
-
-A special seventh item — the **Zombie Hand** (`Objeto Misterioso ESCOM`) — only spawns when the player is inside the ESCOM bounding box. Interacting with it triggers a video cutscene (`Carga_Mod_Zombi.mp4`) and then navigates to the zombie minigame.
+Six lore-themed collectibles are seeded into Room. The game loop spawns one uncollected item every ~1 s within 300–600 m of the player, snapped to roads. Approaching within 15 m shows a pickup prompt; pressing X collects it and shows a themed dialog. The inventory reads from a `Flow<List<CollectibleEntity>>`. A special **Zombie Hand** item only spawns inside the ESCOM bounding box and triggers a cutscene into the zombie minigame.
 
 ### 🚶 NPCs and Vehicles
 
-`NpcAiManager` maintains a population of up to **40 NPCs** around the player, split into two types:
+`NpcAiManager` maintains up to **40 NPCs** around the player: **pedestrians** (assembled at runtime with per-pixel tinting) and **vehicles** (6 models, 48 rotation frames each). Behavior includes proximity spawning, distance despawn, node-to-node navigation and an **adoption** system for server-inherited NPCs. The spawner now precomputes a **per-way bounding box** and uses an O(1) bbox pre-filter before the expensive per-node distance check, reducing CPU. Pressing **B** triggers a special attack (~17 m, 15 dmg/punch); pressing **X** near a vehicle boards it for free 360° driving.
 
-- **Pedestrians:** walk on pedestrian ways (`footway`, `pedestrian`, `path`, `residential`...). Each one is assembled at runtime by combining a base body, a hair sprite (`hair_1`...`hair_4`), and three random colors (hair, shirt, pants) using a **smart per-pixel tinting** technique that preserves skin tones (saturation filter) and separates shirt from pants by luminance.
-- **Vehicles:** 6 models (`SEDAN`, `SPORT`, `SUPERCAR`, `SUV`, `VAN`, `WAGON`), each with 48 rotation frames (one every 7.5°). Color is also applied per-pixel, preserving headlights, turn signals, and rims via saturation + luminance analysis.
-
-Behavior includes proximity-based spawning, distance-based despawning (>35 m equivalent), node-to-node navigation with smooth transitions between connected ways, and an **adoption** system: if an NPC enters the zone without an assigned street (because it was inherited from the server), it is automatically snapped to the nearest way before being moved.
-
-#### Combat against NPCs
-
-Pressing **B** triggers a special attack with 2.4 s cooldown that punches the nearest NPC within ~17 m. NPCs have 100 HP and take 15 damage per punch, displaying a contextual health bar in `NpcRenderWrapper`. On death, the NPC fades out over 1 s and is removed. Damage against remote players is routed through a `PLAYER_DAMAGE` WebSocket message so authority stays on the victim's client.
-
-#### Entering and exiting vehicles
-
-Pressing the **X** button near a vehicle "takes it": the NPC disappears from the list and the player is rendered as that car, with free 360° rotation based on movement angle. Pressing X again leaves the car parked as an NPC at the current position. The first time a player boards a vehicle, an ousted driver is spawned next to it.
+> Note: this open-world NPC AI runs **client-side** (on the Zone Host) — the open-world server only arbitrates host roles and relays messages. The zombie minigame, by contrast, now runs its zombie AI **server-side** (see below).
 
 ### 🧭 Navigation and Waypoints
 
-The player can drop a destination marker on any map point: tapping the green "Waypoint" button enters targeting mode (a red crosshair centers on the screen), then "Set Destination" confirms the location. The ViewModel runs a greedy road-graph search (`calculateRouteOnNetwork`) over a spatial grid of unique nodes and renders the path as a dashed blue polyline. The marker auto-clears when the player gets within 20 m.
+The player can drop a destination marker; the ViewModel runs a greedy road-graph search (`calculateRouteOnNetwork`) over a spatial grid of unique nodes and renders a dashed blue polyline. Routing uses `Pair<Double, Double>` keys for visited/distinct nodes (no per-step string allocations). The marker auto-clears within 20 m.
 
 ### 🧟 Zombie Minigame
 
-Entering the zombie minigame puts the player in a circular **ring of 7 rooms**: a lobby (`Campus ESCOM` croquis) with 6 doors leading to each ESCOM building. Inside a building, EXIT doors on the left and right connect to the previous/next building in the ring, while a central door returns to the lobby (with confirmation dialog to avoid accidental exits).
+A circular **ring of rooms**: a lobby with doors to each ESCOM building. Inside a building, EXIT doors connect to neighbors and a central door returns to the lobby.
 
-- **Camera system** (`CameraTransform`): zoom-aware, follows the player, clamps to world bounds, and uses `max(viewW/worldW, viewH/worldH)` so the background fills the screen without distortion (mathematical equivalent of `ContentScale.Crop`).
-- **AI:** zombies pathfind toward the player with collision-aware sliding (X-axis then Y-axis fallback). They animate through 9 walk frames at ~140 ms per frame.
-- **Dual combat mode:** the **Y button** held for 500 ms opens a weapon menu to toggle between **MELEE** (punch, 120 px radius, 34 dmg) and **RANGED** (projectiles at 22 px/tick, 50 dmg, 350 ms cooldown). The **B button** executes the attack.
-- **SkillEffect drops:** dying zombies drop one of six effects with 45% probability, rendered as **pure Canvas icons** (no asset loading) — hourglass for slow-time, red triangle for traps (`ADRENALINA_ZOMBI`, `FURIA_ZOMBI`), green cross for buffs (`CURA_TOTAL`, `DEBILIDAD_ZOMBI`, `FUERZA_BRUTA`).
-- **Dynamic lighting:** in buildings (dark interiors), a yellow aura follows the player and a green toxic aura follows each living zombie, drawn via `Brush.radialGradient` inside the camera transform so they pan and zoom with the world.
-- **Death loop:** dying in a building triggers a WASTED animation and respawns the player at the lobby door of the building they died in, with HP restored. Clearing all zombies shows a "Congratulations" overlay; using the world-exit door returns to the open world.
+- **Camera** (`CameraTransform`): zoom-aware, clamps to bounds, uses `max(viewW/worldW, viewH/worldH)` (ContentScale.Crop equivalent).
+- **Online vs offline:** the `ZombieGameViewModel` runs a single game loop that branches into `tickOffline` (full local simulation) or `tickOnline`. **In multiplayer, zombies and items are authoritative on the dedicated server** (`MultiplayerZombie/`): the client renders `ZOMBIE_STATE` snapshots, sends `ZOMBIE_DAMAGE` / `ITEM_PICKUP` requests, and keeps only local concerns (its own HP, projectiles, contact-damage cooldown). Offline, the client simulates zombies locally with collision-aware axis-slide pathfinding.
+- **Contact-attack range was reduced** for fairer melee.
+- **Lobby regeneration:** while in the lobby below 100 HP, the player heals gradually each tick up to 100.
+- **Dual combat:** hold **Y** (500 ms) to toggle MELEE/RANGED; **B** attacks.
+- **Damage feedback:** screen shake on hit, a red **damage vignette/flash that scales with lost HP**, a **low-HP pulse**, **zombie knockback** on melee/projectile hits (collision-aware), and **player recoil** on firing with per-axis position correction so the player never clips through walls.
+- **SkillEffect drops:** six effects (45% chance) drawn as pure Canvas icons.
+- **Collision Designer Mode:** an in-game editor paints the per-room collision matrix on top of the room art, persists it to `collision_matrices.json`, and can export/import the same JSON the server reads.
+- **Dynamic lighting** in dark interiors; **WASTED/Victory** screens.
 
 ### 🌐 Real-Time Multiplayer
 
-The server (`Multiplayer/server.js`) is a **Node.js + Express + ws** process that holds player and NPC state in memory and ships as a Docker image. The public instance used by the Android client is hosted on **[Render](https://render.com/)**, which builds the container straight from the repository and exposes a public WebSocket endpoint that gets injected into the build via `BuildConfig.MULTIPLAYER_SERVER_URL`.
+POW now ships **two independent Node.js + Express + ws servers**, both dockerized and hosted on Render, sharing the same `WebSocketManager` on the client.
 
-#### Authority model: *Zone Host*
+#### Open-world server — `Multiplayer/server.js` (v2)
 
-Instead of centralizing all simulation on the server (slow) or leaving it 100% to the client (incoherent), POW distributes authority via the **Zone Host** pattern:
+Distributes authority via the **Zone Host** pattern: each client is Host within ~400 m, the lower `sessionId` yields on overlap, and only the Host runs NPC AI and emits `NPC_BATCH_UPDATE`; orphaned NPCs are adopted, not destroyed. The v2 hardening adds:
 
-- Every newly connected client is **Host by default** within a ~400 m radius. The server sends an initial `ROLE_UPDATE` immediately after `SESSION_INIT` so the client actually knows it's Host and can start spawning NPCs.
-- If two hosts enter the same radius, the one with the lower `sessionId` yields authority. The server notifies the change with a `ROLE_UPDATE` message.
-- Only the host runs the NPC AI in its zone and publishes `NPC_BATCH_UPDATE` every 100 ms. Other clients receive them passively.
-- When a host yields or disconnects, its NPCs are **not destroyed**: they remain on the server with their last position, and the next host **adopts** them, re-attaching them to the local road network.
+- **Area of Interest (AOI):** `NPC_SPAWN/UPDATE/BATCH` are relayed only to clients near the emitting Host (~2 km radius), drastically cutting bandwidth and serialization work when players are dispersed. Messages that must always arrive (`PLAYER_UPDATE`, `PLAYER_DAMAGE`, `NPC_DESTROY`, `DISCONNECT`, sync) stay global to avoid ghost entities.
+- **Throttled Host election:** the Host role is re-evaluated at most every 200 ms per client, not on every `PLAYER_UPDATE`.
+- **Per-socket rate limiting:** messages are dropped if a client floods (sliding 1 s window), plus a max accepted message size.
+- **Input sanitization:** finite coordinates, finite and bounded damage, sanitized re-broadcast.
+- **Ghost-player GC:** stale players are reaped periodically (not only on socket close), alongside heartbeats, orphan-NPC GC and periodic master sync. Colors are serialized as ARGB Int.
 
-#### Robustness
+#### Zombie-minigame server — `MultiplayerZombie/server.js` (Phase 1)
 
-- **Heartbeat:** ping every 30 s; after 6 consecutive failures (3 minutes of silence) the connection is terminated.
-- **Orphan NPC garbage collector:** NPCs not updated in >15 s are deleted and announced to all clients.
-- **Periodic master sync:** every 5 s the server broadcasts the list of live NPC IDs so clients can reconcile local state and clean up ghosts.
-- **Colors serialized as ARGB Int** (not as the internal `ULong` of `Compose Color`) to avoid corrupted `ColorSpace` when rehydrating remote NPCs.
+Runs the **zombie simulation authoritatively** per room and broadcasts `ZOMBIE_STATE`. Its AI v2:
 
-The client uses **OkHttp WebSocket** with `readTimeout`/`writeTimeout` set to 0 (no limit) and a `pingInterval` of 25 s to survive mobile networks with aggressive NAT.
+- **Shared flow-field (Dijkstra map):** instead of an A* per zombie, the server computes **one** distance-to-player field over the whole matrix (per target cell) and every zombie chasing that player follows the gradient downhill. Cost is O(number of players) fields per room, each cached ~250 ms.
+- **Line-of-sight (LOS):** if a zombie can see the player with no walls between, it moves in a straight line (smoother, no field lookup); the field is used only when an obstacle is in the way.
+- **Separation steering:** zombies gently push each other apart for a more natural horde.
+- **Fallback wander:** zombies in a disconnected region (no finite field distance, no LOS) wander instead of freezing.
+
+Coordinates on the wire are fractional `[0,1]` (the client converts to pixels). Collision matrices come from `collision_matrices.json` (the same format the Designer Mode exports), with neutral border-only defaults that must stay identical (rows/cols) to the client's matrices until replaced.
 
 #### Render free-tier warm-up
 
-Render's free plan suspends idle services and takes up to ~50 s to wake them. To avoid timing out on the first WebSocket attempt, `ServerWarmupManager` (`data/network/`) polls `<server>/status` over HTTPS as soon as the user taps **MULTIJUGADOR** in the main menu — *before* the name dialog appears. While the warm-up is in flight, a non-dismissable spinner with a live elapsed-seconds counter and a **CANCEL** button blocks the menu. The dialog only opens once the server replies `200 OK`; on timeout (~60 s total budget) a **RETRY** prompt is shown. Successful pings are cached for 60 s so reopening the menu skips the wait.
+`ServerWarmupManager` polls `<server>/status` over HTTPS the moment the user taps **MULTIJUGADOR** — before the name dialog — blocking with a cancellable spinner until the server replies `200 OK` (with a retry on timeout). Successful pings are cached for 60 s.
 
 ### 🎮 Controls and UI
 
-- **Two movement styles:** classic D-Pad or **virtual joystick** with free 360° rotation, switchable from Settings.
-- **Adaptive scaling:** controls resize between 60% and 140%, with a dynamic ceiling of 100% in portrait mode to avoid eating the screen.
-- **Left-handed mode:** movement and action controls can be swapped sides.
-- **Gamepad-style action buttons** (A, B, X, Y): run, special attack, interact (vehicles, collectibles, doors), and the secondary slot used for the teleport menu (hold 3 s) in the open world or the weapon-mode toggle (hold 0.5 s) in the zombie minigame.
-- **Vehicle controls:** in driving mode the D-Pad/joystick is replaced by `VehicleSteeringController` (left/right) and `VehiclePedalsController` (gas, brake, exit Y).
-- **Optional diagnostic HUD:**
-  - **Cache widget:** indicates whether streets come from the network, from Room, or are still loading; same for tiles.
-  - **FPS widget:** real-time graphics performance meter.
-- Preferences (control type, scale, swap) persist in `SharedPreferences` via `SettingsRepository`.
+- **Two movement styles:** D-Pad or virtual joystick (360°), switchable from Settings.
+- **Adaptive scaling** (60%–140%, capped at 100% in portrait), **left-handed swap**, gamepad-style A/B/X/Y buttons.
+- **Staged control settings:** changes to control type, scale and swap are held in a temporary state and only affect gameplay after pressing **SAVE** (then committed, persisted and pushed to the map). Leaving Settings discards unsaved changes.
+- **Optional diagnostic HUD:** cache widget and FPS widget. Preferences persist via `SettingsRepository` (SharedPreferences).
 
 ### 🚀 Tech Stack
 
@@ -270,291 +206,172 @@ Render's free plan suspends idle services and takes up to ~50 s to wake them. To
 | Geolocation | Google Play Services — Fused Location Provider |
 | Concurrency | Coroutines + Flow / SharedFlow / StateFlow |
 | Serialization | Gson |
-| Server | Node.js 18, Express, ws, Docker |
+| Servers | Node.js 18, Express, ws, Docker (open world + zombie minigame) |
 | Hosting | [Render](https://render.com/) (auto-deploy from Dockerfile) |
 
-### 🐳 Deploying the multiplayer server
-
-There are two ways to run the server:
-
-**Local (Docker, for development):**
+### 🐳 Deploying the multiplayer servers
 
 ```bash
+# Open-world server (port 8080)
 cd Multiplayer
+docker compose up -d
+
+# Zombie-minigame server (host port 8081 → container 8080)
+cd MultiplayerZombie
 docker compose up -d
 ```
 
-**Production:** the canonical instance is deployed on **[Render](https://render.com/)** as a Web Service that auto-builds from the `Multiplayer/Dockerfile` on every push to the main branch. Render handles TLS termination, public DNS, and exposes the WebSocket endpoint over `wss://`.
-
-In either case, the server listens on port **8080** with two endpoints:
-
-- `GET /status` — live status (connected players, active NPCs, timestamp).
-- `WS /` — game WebSocket channel.
-
-The server URL is injected into the Android client at compile time via `BuildConfig.MULTIPLAYER_SERVER_URL` (Gradle variable).
+Production runs two Render Web Services, each auto-built from its own `Dockerfile`. Both listen on container port **8080** (`GET /status`, `WS /`). The open-world URL is injected at compile time via `BuildConfig.MULTIPLAYER_SERVER_URL`; the zombie-minigame URL via `BuildConfig.ZOMBIE_SERVER_URL`.
 
 ### 📍 Current Status
 
-What **works today** in this repository: OSM/Google/Web map navigation with snap-to-road, persistent street and tile caching, procedural NPCs (pedestrians and 6 car models), melee combat against NPCs and remote players, multiplayer with zone-delegated authority, vehicle driving, configurable controls, 8 map providers, **editable landmarks with JSON import/export (Designer Mode)**, **6 lore collectibles with persistent inventory**, **waypoint navigation with road-graph routing**, **6 ESCOM interior buildings** with collision matrices, and a **full zombie survival minigame** (7 rooms, dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens).
+**Works today:** OSM/Google/Web navigation with snap-to-road, persistent street and tile caching (atomic writes), native over-zoom to z22 (scaled from z19, with z19/z17 loading-screen prefetch and max-zoom default), player-anchored fog of war on native + web (driving-rotation safe), real-meter NPC/player sizing unified across renderers, landscape-safe scrollable Options menu, procedural NPCs (bbox-prefiltered spawn) with personality traits, run-over-while-driving, aggressive retaliation/carjack reactions and two-way traffic, melee combat vs NPCs and remote players, zone-delegated open-world multiplayer (v2: AOI + host throttle + rate-limit + sanitization), vehicle driving, staged configurable controls, 8 map providers, editable landmarks with JSON import/export, 6 lore collectibles, waypoint routing, 6 ESCOM interiors, a full zombie survival minigame (lobby + 7 buildings, dual combat, 6 power-ups, dynamic lighting, damage-feedback FX, lobby regen, WASTED/Victory screens) with a **dedicated authoritative zombie server** (flow-field + LOS + separation AI), collision Designer Mode, and a ShineCTO easter-egg interior.
 
-What is **not yet** implemented: A*-based pathfinding (current router is a greedy graph walk), local Bluetooth multiplayer, and content-rich interior collision matrices (today all 6 interiors use `CollisionGrid.emptyWithBorder()`).
+**Not yet implemented:** A*-based pathfinding for the open-world router (still a greedy graph walk; note the zombie server already uses a Dijkstra flow-field), local Bluetooth multiplayer, content-rich interior collision matrices, floating damage numbers / hit particles, lobby door coordinate re-tuning, and car-vs-car collisions (planned: cull-radius circle-overlap + speed reduction, no physics engine).
+
+### 🔁 Keeping This Documentation Current
+
+`README.md` and `plan.artifact.md` are the **single source of truth** we hand to any assistant (human or AI) *instead of* the whole codebase — so we never have to re-explain the project. They are only trustworthy if they are updated **in the same change** that touches the code, never afterwards.
+
+The detailed checklist lives in **`plan.artifact.md` §11**. In short, on every change that alters behavior:
+
+- Update **both** files (`README.md` is bilingual — reflect user-facing changes in the English **and** Spanish sections so they don't drift).
+- Add the change to the top of **Recent Changes**; prune entries older than ~2–3 releases.
+- Move finished items from **Not yet implemented** into **Works today** (and the mirror lists in `plan.artifact.md` §7/§8).
+- A fact that lives in both files must be changed in both — a contradiction between them is a bug.
+
+**Definition of done:** code compiles/validates *and* both files describe the new reality. If the docs aren't updated, the task isn't finished.
 
 ---
 ---
 
 ## 🇪🇸 Versión en Español
 
-**Politécnico Open World (POW)** es una aplicación Android de exploración 2D con vista *top-down* construida sobre mapas del mundo real. El jugador se desplaza por las calles reales de su ubicación (con foco inicial en la zona ESCOM / Zacatenco) usando datos cartográficos de **OpenStreetMap**, comparte el mundo con NPCs procedurales (peatones y vehículos) y con otros jugadores conectados a un servidor en tiempo real. El campus de ESCOM además alberga un minijuego embebido de supervivencia contra zombis con interiores, combate cuerpo a cuerpo / a distancia y un sistema de power-ups.
+**Politécnico Open World (POW)** es una aplicación Android de exploración 2D con vista *top-down* construida sobre mapas del mundo real. El jugador se desplaza por las calles reales de su ubicación (con foco inicial en la zona ESCOM / Zacatenco) usando datos de **OpenStreetMap**, comparte el mundo con NPCs procedurales (peatones y vehículos) y con otros jugadores conectados a un servidor en tiempo real. El campus de ESCOM alberga además un minijuego embebido de supervivencia contra zombis con interiores, combate cuerpo a cuerpo / a distancia y un sistema de power-ups — ahora respaldado por su propio servidor autoritativo.
 
-El proyecto está construido íntegramente en **Kotlin + Jetpack Compose**, sigue un patrón **MVVM** estricto organizado por *features* y delega la lógica de mundo persistente a un servidor Node.js independiente.
+El proyecto está construido íntegramente en **Kotlin + Jetpack Compose**, sigue un patrón **MVVM** estricto organizado por *features* y delega la lógica de mundo persistente a **dos servidores Node.js independientes**: uno para el open world y uno nuevo, dedicado, para el minijuego de zombis.
+
+### 🔄 Cambios Recientes
+
+El último trabajo de integración se centra en el **back end multijugador**, que ahora abarca dos servidores, además de los PRs de funcionalidad/rendimiento previos:
+
+- **Combate de NPCs — contraataque, modo implacable, HUD y muerte** — los NPCs solo reaccionan si los provocas: al golpear a uno, los **agresivos** te devuelven el golpe (un contraataque garantizado ~450 ms tras tu puñetazo, además de perseguirte), mientras que los **cobardes huyen** y los agresivos son **inmunes al miedo**. La proporción de agresivos es **configurable** (`NpcAiManager.aggressiveRatio`, por defecto la mitad). Si le das **3 o más golpes seguidos** a un NPC, se vuelve **implacable**: no deja de pegarte hasta que mueras (o muera él). Se añadió una **barra de vida fija en el HUD** (estilo zombis), un **destello rojo** en cada golpe, la pantalla WASTED ahora **congela el movimiento y deja al jugador como fantasma**, y el **respawn ocurre dentro de la zona ya descargada** (~80 m del lugar de muerte, pegado a la calle) en vez de teletransportar a ESCOM — para ahorrar recursos. Multijugador: se replican `health`/`isDying`/`aggroUntil` de los NPCs (`server.js` los reenvía).
+- **IA de NPCs estilo GTA — multijugador + pulido** — la IA ahora **se replica en multijugador**: `health`/`isDying` de los NPCs viajan en `NPC_BATCH_UPDATE` para que todos los clientes vean barras de vida y muertes por atropello/golpes (`Multiplayer/server.js` los reenvía y satura la vida, v3.1). Se agregó un **efecto de colisión "💥"** para que se note cuando te pegan o atropellas, se hicieron **más visibles los carriles de doble sentido** (mayor desplazamiento a la derecha), y se **corrigió el tamaño del vehículo/avatar del jugador** para que coincida con los NPCs (ambos usan la misma fuente de zoom). El daño por contacto de NPCs agresivos quedó afinado para ser fiable.
+- **IA de NPCs estilo GTA (optimizada para gama baja, solo en el host)** — los NPCs tienen una **personalidad** (`PASSIVE`/`COWARD`/`AGGRESSIVE`, peso aleatorio al spawn). Puedes **atropellar peatones** conduciendo (daño según la velocidad; los testigos huyen). Al **robar un coche ocupado**, el conductor desalojado reacciona según su rasgo: los cobardes huyen, los agresivos **te persiguen y te golpean**. Los **NPCs agresivos contraatacan** unos segundos si los golpeas y sobreviven. **Tráfico en doble sentido** activado (dirección de spawn aleatoria + el desplazamiento de carril a la derecha ya existente). Todo con cortes tempranos acotados al radio de culling y sin serializar los campos de IA. *(Las colisiones coche-coche quedan como trabajo futuro a propósito.)*
+- **Mejoras de UX del mapa y paridad de renderizado** — (1) **niebla de guerra anclada al jugador**: la niebla ahora sigue la posición real del jugador al desplazar/hacer zoom en lugar de quedarse fija al centro de la pantalla — el nativo usa un overlay de osmdroid (rect sobredimensionado a la diagonal para que se vea bien con la rotación al conducir), el web usa un div `#fog` redibujado en cada `move`/`zoom` de Leaflet; la niebla Compose queda solo para Google nativo. (2) **Over-zoom nativo a z22** escalado desde z19 con un `MapTileApproximater`, y las pantallas de carga precargan teselas **z19 + z17**, con OSM en **zoom máximo por defecto**. (3) **El pinch-zoom web ya no arrastra al jugador** (solo el pinch del usuario entra en exploración). (4) **Tamaños unificados en metros reales** para NPCs y jugador en todos los renderizadores (peatones ≈ 1.3 m, vehículos ≈ 4.0 m) y **barras de vida de NPC más grandes**. (5) **Menú de Opciones apto para horizontal** (altura acotada + scroll; el control de la derecha se desplaza mientras está abierto). (6) **"Centrar en jugador"** evoluciona a un submenú con **"Hacer zoom en el jugador"** al hacer zoom; con el mapa descentrado los controles de movimiento de la izquierda recentran (sin zoom). (7) **El conductor desalojado** aparece junto al coche robado (~2 m). (8) **La versión del menú principal** se liga a `BuildConfig.VERSION_NAME` con un título que se autoajusta y nunca se parte de línea.
+- **El teletransporte ahora espera la descarga del mapa** — teletransportarse (Ir a ESCOM / Ir a tu Ubicación GPS) ya no te suelta al instante: re-activa la compuerta de carga (`isMapReady=false`) y descarga las teselas de la nueva zona del proveedor activo antes de dejarte mover (OSM nativo guarda teselas reales en Room para offline; web calienta el CDN para que el WebView+caché se llenen; Google nativo muestra una compuerta breve). Corre en paralelo a la recarga de calles — `worldReady = calles listas && mapa listo`.
+- **Limpieza de controles del mapa** — se quitaron los botones de zoom nativos duplicados de osmdroid (el zoom vive solo en el menú anidado *Mapa*); **"Centrar en jugador" siempre disponible**; **submenú anidado "Ir a…"** con *Ir a ESCOM* e *Ir a tu Ubicación (GPS)* (teletransporta el avatar a la posición GPS real del dispositivo —p. ej. de vuelta a casa— no a donde está el avatar). `OptionsMenu` ya soporta grupos anidados a cualquier nivel.
+- **Mapa OSM nativo arreglado + caché offline unificada** — el mapa nativo (osmdroid) ahora lee/escribe la **misma caché Room** que las versiones Web (`RoomTileModuleProvider`, bucket `osm`), descargando con User-Agent de navegador. El descargador interno de osmdroid (UA = nombre de paquete) era estrangulado por el servidor público de OSM; por eso el nativo *no cargaba zonas nuevas* y la Web sí. Un `TilePrefetchManager` pre-descarga la zona actual (~2 km, zooms 16-18) a la BD local para jugar **100% offline** tras visitar (no bloqueante, avisa si queda incompleta). **El fog of war ahora se dibuja siempre** (antes se ocultaba al mover el mapa).
+- **Servidor dedicado del minijuego zombi** (`MultiplayerZombie/`) — los zombis ahora son **autoritativos en el servidor** (Fase 1). Su IA usa un **campo de flujo de Dijkstra compartido** (un mapa de distancia-al-jugador por celda objetivo, reutilizado por todos los zombis que persiguen a ese jugador y cacheado ~250 ms), **línea de vista** (persecución en línea recta cuando no hay paredes de por medio) y **separación** (los zombis se empujan suavemente para no apilarse); un **fallback de deambular** evita que los zombis desconectados se congelen. El formato `ZOMBIE_STATE` en el cable no cambia (toda la IA vive en campos internos no serializados).
+- **Servidor del open world endurecido a v2** (`Multiplayer/`) — reenvío por **Área de Interés (AOI)** para que `NPC_SPAWN/UPDATE/BATCH` solo lleguen a clientes cercanos al Host emisor (los mensajes globales como `PLAYER_UPDATE`, `PLAYER_DAMAGE`, `NPC_DESTROY`, `DISCONNECT` y sync siguen siendo globales), **elección de Host con throttle** (se reevalúa como mucho cada 200 ms por cliente), **rate-limit por socket** (ventana deslizante de 1 s, anti-flood), **saneamiento de entrada** (coordenadas finitas, daño acotado, tamaño máximo de mensaje) y **GC de jugadores fantasma** (no solo al cerrar el socket).
+- **Escritura atómica de la caché de tiles** — la persistencia cuenta, hace evict (LRU) e inserta dentro de una sola transacción de Room (`@Transaction`), evitando corrupción si el proceso muere a media escritura.
+- **Balance del minijuego zombi** — menor rango de ataque por contacto y **regeneración gradual de vida en el lobby** (zona segura) hasta 100 HP.
+- **Efectos de daño** — *screen shake* al recibir golpes, viñeta/flash rojo cuya intensidad **escala con la vida perdida**, pulso de vida baja, **knockback a los zombis** (melee + proyectiles, consciente de colisiones) y **recoil del jugador** al disparar con corrección de posición por eje.
+- **Controles en estado temporal** — los cambios de control (tipo/escala/swap) se quedan en estado temporal y solo afectan al juego al presionar **GUARDAR**.
+- **Arreglo de rotación del mapa** — fondo oscuro en OSMDroid y wrapper de Leaflet sobredimensionado y centrado para que no se vean "huecos" al rotar en modo conducción.
+- **Rendimiento** — pre-filtro por *bounding box* de cada *way* en el spawner de NPCs y claves de routing basadas en `Pair` (sin allocs de string por paso).
 
 ### ⚙️ Arquitectura
 
-El repositorio contiene dos proyectos complementarios:
+El repositorio contiene tres proyectos complementarios:
 
 ```text
 .
 ├── PolitecnicoOpenWorld/   # Cliente Android (Kotlin + Compose)
-└── Multiplayer/            # Servidor de juego (Node.js + WebSocket, dockerizado)
+├── Multiplayer/            # Servidor del open world (Node.js + WebSocket, v2, dockerizado)
+└── MultiplayerZombie/      # Servidor del minijuego zombi (zombis autoritativos, dockerizado)
 ```
 
 #### MVVM de un vistazo
 
-Cada *feature* del cliente sigue la misma división en tres capas:
+Cada *feature* del cliente se divide en tres capas:
 
-- **Model** (`domain/models/`): data classes inmutables (`Npc`, `MapWay`, `Landmark`, `ZombieEntity`, `CharacterVisualConfig`...) y helpers de lógica pura como `NpcAiManager`. Sin dependencias de Android, sin UI.
-- **ViewModel** (`features/<nombre>/viewmodel/`): contiene un único `MutableStateFlow<State>` expuesto como `StateFlow` de solo lectura, ejecuta los bucles de juego con coroutines y orquesta los repositorios. Ejemplos: `WorldMapViewModel`, `ZombieGameViewModel`, `InteriorViewModel`, `SettingsViewModel`, `CollectiblesViewModel`, `MainMenuViewModel`.
-- **View** (`features/<nombre>/ui/`): pantallas Compose puras que observan el estado con `collectAsState()` y solo emiten intenciones de usuario al ViewModel. Las vistas nunca acceden a repositorios ni DAOs directamente.
+- **Model** (`domain/models/`): data classes inmutables y helpers de lógica pura (`NpcAiManager`). Sin dependencias de Android ni UI.
+- **ViewModel** (`features/<nombre>/viewmodel/`): un único `MutableStateFlow<State>` expuesto como `StateFlow` de solo lectura; ejecuta los bucles de juego con coroutines y orquesta repositorios.
+- **View** (`features/<nombre>/ui/`): pantallas Compose puras que observan con `collectAsState()` y solo emiten intenciones al ViewModel. Nunca acceden a repositorios ni DAOs.
 
-Las preocupaciones transversales (Room, red, preferencias) viven en `data/` y se inyectan a los ViewModels mediante instancias de `ViewModelProvider.Factory` co-ubicadas con cada ViewModel. Los ViewModels de nivel superior (`WorldMapViewModel`, `SettingsViewModel`, `CollectiblesViewModel`) están scopeados a la Activity para sobrevivir a la navegación; los ViewModels de interior y de zombis están scopeados a su `NavBackStackEntry` para que se reseteen cuando el jugador sale.
-
-#### Cliente Android — organización por *features*
-
-```text
-app/src/main/java/ovh/gabrielhuav/pow/
-│
-├── data/                                    # ─── Capa de datos ───
-│   ├── cache/
-│   │   ├── RoadNetworkCache.kt              # LRU de zonas OSM (celdas ~2km, TTL 7 días)
-│   │   └── TileCache.kt                     # LRU de tiles (por proveedor, máx 8K)
-│   ├── local/room/
-│   │   ├── PowDatabase.kt                   # @Database v8, 6 entidades, MIGRATION_7_8
-│   │   ├── dao/
-│   │   │   ├── RoadNetworkDao.kt            # insertZoneWithData() en transacción atómica
-│   │   │   ├── MapTileDao.kt                # CRUD de caché de tiles + evicción LRU
-│   │   │   ├── LandmarkDao.kt               # Edificios editables (modo diseñador)
-│   │   │   └── CollectibleDao.kt            # 6 coleccionables de lore con Flow
-│   │   └── entity/
-│   │       ├── RoadEntities.kt              # RoadZone + RoadWay + RoadNode (FK cascade)
-│   │       ├── TileEntities.kt              # MapTileEntity (BLOB + PK compuesta)
-│   │       ├── LandmarkEntity.kt            # Edificios con escala, rotación, asset path
-│   │       └── CollectibleEntity.kt         # id, name, description, assetPath, isCollected
-│   ├── network/
-│   │   └── WebSocketManager.kt              # WebSocket OkHttp (sin timeouts, ping 25s)
-│   └── repository/
-│       ├── OverpassRepository.kt            # Overpass API (radio 2km, timeout 45s)
-│       ├── SettingsRepository.kt            # SharedPreferences para controles
-│       └── CollectibleRepository.kt         # Siembra 6 items por defecto, expone Flow
-│
-├── domain/                                  # ─── Capa de modelo (Kotlin puro) ───
-│   └── models/
-│       ├── ActiveCollectible.kt             # Instancia en tiempo real de un coleccionable
-│       ├── CharacterVisualConfig.kt         # Config de cabello/playera/pantalón para NPCs
-│       ├── EscomBuildings.kt                # Enum InteriorBuilding (6 edificios de ESCOM)
-│       ├── Landmark.kt                      # Modelo de dominio usado por el mapa
-│       ├── LandmarkAssetCatalog.kt          # Catálogo JSON de assets construibles
-│       ├── MapNode.kt / MapWay.kt           # Primitivas de OSM
-│       ├── Npc.kt / NpcType.kt              # NPC + enum CarModel (6 modelos)
-│       ├── TeleportCatalog.kt               # Destinos fijos de teletransporte
-│       ├── ai/
-│       │   └── NpcAiManager.kt              # Población de 40 NPCs, spawn/despawn, adopción
-│       └── zombie/
-│           ├── ZombieModels.kt              # ZombieEntity, SkillEffect, SkillItem,
-│           │                                # Projectile, CombatMode, ZombieRoom, ZoneDoor
-│           └── ZombieRoomCatalog.kt         # Lobby + 6 cuartos de edificios con puertas
-│
-├── features/                                # ─── Módulos de feature (Vista + ViewModel) ───
-│   ├── main_menu/
-│   │   ├── ui/
-│   │   │   ├── MainMenuScreen.kt            # 5 botones de menú + diálogo multijugador
-│   │   │   └── CollectiblesScreen.kt        # Inventario en grid con popup de detalle
-│   │   └── viewmodel/
-│   │       ├── MainMenuViewModel.kt         # MainMenuState (diálogo, input de nombre)
-│   │       └── CollectiblesViewModel.kt     # Observa Flow de Room → StateFlow
-│   │
-│   ├── map_exterior/                        # Núcleo del open world
-│   │   ├── ui/
-│   │   │   ├── WorldMapScreen.kt            # Render del mapa para OSM / Google / Web
-│   │   │   ├── CachingWebViewClient.kt      # Intercepta peticiones de tiles de Leaflet
-│   │   │   └── components/
-│   │   │       ├── GameControllers.kt              # D-Pad, Joystick, botones de acción,
-│   │   │       │                                   # VehicleSteering, VehiclePedals
-│   │   │       ├── PlayerCharacter.kt              # Sprite animado con barra de vida
-│   │   │       ├── CharacterRenderer.kt            # Helper de DrawScope
-│   │   │       ├── CharacterSpriteManager.kt       # Tintado inteligente por píxel + LRU
-│   │   │       ├── VehicleSpriteManager.kt         # 48 frames de rotación por modelo
-│   │   │       ├── NpcRenderWrapper.kt             # Desvanecimiento al morir
-│   │   │       ├── PlayerAction.kt                 # Enum IDLE/WALK/RUN/SPECIAL
-│   │   │       ├── AssetPickerDialog.kt            # Diseñador: seleccionar edificio
-│   │   │       ├── DesignerPanel.kt                # Controles mover/rotar/escalar/guardar
-│   │   │       └── CollectibleClaimDialog.kt       # Popup temático al recoger
-│   │   └── viewmodel/
-│   │       ├── WorldMapViewModel.kt         # Game loop, multijugador, NPCs, lógica ESCOM
-│   │       └── WorldMapState.kt             # Enum MapProvider + ~30 campos de estado
-│   │
-│   ├── interior/                            # 6 interiores de edificios de ESCOM
-│   │   ├── ui/
-│   │   │   ├── InteriorScreenBase.kt        # Composable compartido: fondo + jugador + DPad
-│   │   │   ├── AuditorioScreen.kt
-│   │   │   ├── BibliotecaScreen.kt
-│   │   │   ├── CafeteriaScreen.kt
-│   │   │   ├── EdificioScreen.kt
-│   │   │   ├── EstacionamientoScreen.kt
-│   │   │   └── PalapasScreen.kt
-│   │   └── viewmodel/
-│   │       ├── InteriorViewModel.kt         # Movimiento normalizado [0,1] con colisiones
-│   │       ├── InteriorState.kt
-│   │       └── CollisionGrid.kt             # Matriz caminable 20×30, con emptyWithBorder()
-│   │
-│   ├── zombie_minigame/                     # Minijuego de supervivencia embebido
-│   │   ├── ui/
-│   │   │   ├── ZombieGameScreen.kt          # Render del mundo en Canvas + cámara
-│   │   │   ├── ZombieHud.kt                 # HUD, puertas, iconos SkillItem (Canvas puro)
-│   │   │   └── ZombieSpriteManager.kt       # LRU de animación de 9 frames del zombi
-│   │   └── viewmodel/
-│   │       ├── ZombieGameViewModel.kt       # IA, proyectiles, efectos, victoria/derrota
-│   │       └── ZombieGameState.kt           # Estado + CameraTransform
-│   │
-│   └── settings/
-│       ├── ui/
-│       │   └── SettingsScreen.kt            # Tabs: Mapa / Controles / Jugabilidad / Interfaz
-│       ├── viewmodel/
-│       │   ├── SettingsViewModel.kt         # Persiste vía SettingsRepository
-│       │   └── SettingsState.kt
-│       └── models/
-│           ├── ControlType.kt               # DPAD / JOYSTICK
-│           └── SettingsCategory.kt          # Sealed class para navegación por tabs
-│
-├── ui/theme/                                # Tema Material 3
-└── MainActivity.kt                          # Single-Activity con NavHost de Compose
-```
-
-El cliente sigue una arquitectura **Single-Activity** con navegación basada en `NavHost` de Compose y **nueve** destinos: `main_menu`, `world_map`, `settings`, `collectibles`, las seis rutas de interior (`interior_auditorio`, `interior_biblioteca`, `interior_cafeteria`, `interior_edificio`, `interior_estacionamiento`, `interior_palapas`) y la ruta `zombie_minigame`.
+Las preocupaciones transversales (Room, red, preferencias) viven en `data/` y se inyectan vía `ViewModelProvider.Factory`. Los ViewModels de nivel superior están scopeados a la Activity; los de interior y zombi a su `NavBackStackEntry`.
 
 ### 🗺️ Sistema de Mapas
 
-POW soporta **ocho proveedores de mapas** intercambiables en caliente desde Ajustes:
+POW soporta **ocho proveedores de mapas** intercambiables en caliente desde Ajustes (OSMDroid nativo con fondo oscuro para evitar huecos al rotar, Google nativo, y seis modos Web con Leaflet: OSM, Google, CartoDB Oscuro/Claro, Esri Street, Esri Satélite, OpenTopoMap).
 
-| Proveedor | Modo | Notas |
-|---|---|---|
-| OSMDroid (Nativo) | Render nativo | Mayor zoom (hasta 21) |
-| Google Maps (Nativo) | Google Maps SDK | Usa `MAPS_API_KEY` del manifest |
-| OpenStreetMap (Web) | WebView + Leaflet | |
-| Google Maps (Web) | WebView + Leaflet | |
-| CartoDB Oscuro / Claro | WebView + Leaflet | Estética de videojuego |
-| Esri World Street | WebView + Leaflet | |
-| Esri Satélite | WebView + Leaflet | Vista aérea real |
-| OpenTopoMap | WebView + Leaflet | Relieve y curvas de nivel |
+Los modos Web se renderizan con **Leaflet** dentro de un `WebView` interceptado por un `CachingWebViewClient` que cachea cada tile en Room usando la URL normalizada como clave (hash SHA-256). El `#map-wrapper` de Leaflet está intencionalmente sobredimensionado (`300vw × 300vh`, centrado) para que su círculo inscrito cubra la diagonal de la pantalla en cualquier ángulo de rotación, evitando "huecos".
 
-Los modos Web se renderizan con **Leaflet** dentro de un `WebView` y son interceptados por un `CachingWebViewClient` que cachea cada tile en Room (`MapTileEntity`) usando la URL normalizada como clave (eliminando subdominios de balanceo y parámetros volátiles antes de hashear con SHA-256). Esto permite jugar sin conexión cualquier zona previamente visitada.
+#### Caché de tiles y de red de calles
 
-#### Caché de red de calles
+- **Tiles:** LRU por proveedor (~8k máx). La escritura es **atómica**: una sola transacción de Room cuenta los tiles del proveedor, hace evict del más viejo (LRU) si excede el máximo, e inserta el nuevo tile, evitando estados corruptos si el proceso muere a media escritura.
+- **Red de calles (Overpass):** celdas de ~2 km, **TTL de 7 días**, **LRU de 20 celdas**, inserción atómica de zona+ways+nodos (`@Transaction`) y cooldown de re-fetch de 5 minutos.
 
-La red de calles necesaria para anclar movimiento y NPCs se obtiene de la **Overpass API** y se persiste en Room con la siguiente estrategia:
-
-- **Granularidad por celda:** la superficie del mundo se divide en celdas de ~2 km × 2 km. Cada celda descargada cubre un radio de ~2 km alrededor del jugador.
-- **TTL de 7 días** antes de marcar la celda como expirada.
-- **LRU de 20 celdas** máximo: al llenarse, se descarta la más antigua.
-- **Transacción atómica** (`@Transaction`) al insertar zona + ways + nodos para evitar estados corruptos si el proceso muere a media escritura.
-- **Re-fetch cooldown:** una vez descargada una zona, no se vuelve a pedir a Overpass durante 5 minutos aunque el jugador la siga cruzando.
-
-El jugador no puede salirse de las vías: cada movimiento es validado contra un **índice espacial en grid** (`Seg` + `HashMap<celda, segmentos>`) que ejecuta *snap-to-road* en O(candidatos cercanos) en lugar de O(n) sobre todas las calles.
+El jugador no puede salirse de las vías: cada movimiento se valida contra un **índice espacial en grid** (`Seg` + `HashMap<celda, segmentos>`) que ejecuta *snap-to-road* en O(candidatos cercanos).
 
 ### 🏛️ Landmarks y Modo Diseñador
 
-El mapa se puebla con edificios editables. El pipeline vive en tres lugares:
-
-- **`LandmarkCatalogManager`** (`domain/models/`) carga `assets/buildings_catalog.json` al arranque, definiendo cada asset colocable (nombre visible, ruta del asset, tamaño base en metros, escala por defecto).
-- **`LandmarkDao` + `LandmarkEntity`** persisten las colocaciones del usuario (posición, rotación 0-360°, escala 0.05-3.0×) entre sesiones.
-- **Modo Diseñador** (toggle en la barra) activa el `DesignerPanel`: botones de flecha para movimiento fino (±0.0001°), sliders de rotación y escala, más **exportar/importar JSON** para compartir configuraciones del mapa como archivos.
-
-En el primer arranque, `assets/default_landmarks.json` siembra la base de datos con el campus de ESCOM.
+Edificios editables con catálogo JSON (`buildings_catalog.json`), colocaciones persistidas (posición, rotación 0-360°, escala 0.05-3.0×) y un **Modo Diseñador** con movimiento fino, sliders de rotación/escala e import/export JSON. `assets/default_landmarks.json` siembra el campus de ESCOM al primer arranque.
 
 ### 🎁 Sistema de Coleccionables
 
-Seis coleccionables temáticos de lore (logo IPN, lema UAM, "Huélum" de ESIME, examen ETS, laptop ESCOM, "Apuntes de Leyenda") se siembran en Room mediante `CollectibleRepository.initializeDefaultCollectiblesIfNeeded()`. El game loop spawnea un item no recogido cada ~1 s en un radio de 300-600 m del jugador, ajustado a la red de calles. Al acercarse a menos de 15 m aparece el prompt "PRESIONA X PARA RECOGER"; al pulsar X se marca el item como recogido y se muestra un `CollectibleClaimDialog` con la descripción de lore. La pantalla de inventario lee de un `Flow<List<CollectibleEntity>>`, así que los items recogidos aparecen en color mientras los no recogidos quedan en gris con "???".
-
-Un séptimo item especial — la **Mano Zombi** (`Objeto Misterioso ESCOM`) — solo aparece cuando el jugador está dentro del bounding box de ESCOM. Interactuar con ella dispara una cinemática (`Carga_Mod_Zombi.mp4`) y luego navega al minijuego de zombis.
+Seis coleccionables de lore sembrados en Room. El game loop spawnea uno no recogido cada ~1 s en 300–600 m del jugador, ajustado a las calles. A menos de 15 m aparece el prompt; al pulsar X se recoge y se muestra un diálogo temático. El inventario lee de un `Flow<List<CollectibleEntity>>`. Una **Mano Zombi** especial solo aparece dentro del bounding box de ESCOM y dispara la cinemática hacia el minijuego.
 
 ### 🚶 NPCs y Vehículos
 
-`NpcAiManager` mantiene una población de hasta **40 NPCs** alrededor del jugador, repartidos en dos tipos:
+`NpcAiManager` mantiene hasta **40 NPCs**: peatones (ensamblados en tiempo real con tintado por píxel) y vehículos (6 modelos, 48 frames de rotación). Incluye spawn por proximidad, despawn por distancia, navegación nodo-a-nodo y **adopción** de NPCs heredados del servidor. El spawner ahora precomputa un **bounding box por way** y usa un pre-filtro O(1) por bbox antes del costoso check por nodo, reduciendo CPU. **B** dispara un ataque especial (~17 m, 15 de daño); **X** cerca de un vehículo lo aborda para conducir en 360°.
 
-- **Peatones:** caminan sobre vías peatonales (`footway`, `pedestrian`, `path`, `residential`...). Cada uno se ensambla en tiempo real combinando un cuerpo base, un sprite de cabello (`hair_1`...`hair_4`) y tres colores aleatorios (cabello, playera, pantalón) usando una técnica de **tintado inteligente por píxel** que respeta la piel (filtro por saturación) y separa playera/pantalón por luminancia.
-- **Vehículos:** 6 modelos (`SEDAN`, `SPORT`, `SUPERCAR`, `SUV`, `VAN`, `WAGON`) con 48 frames de rotación cada uno (uno cada 7.5°). El color se aplica también por píxel preservando luces, intermitentes y rines mediante un análisis de saturación + luminancia.
-
-El comportamiento incluye spawn por proximidad, despawn por distancia (>35 m equivalentes), navegación nodo-a-nodo con transición suave entre ways conectadas, y un sistema de **adopción**: si un NPC entra a la zona sin tener calle asignada (porque fue heredado del servidor), se le engancha automáticamente a la vía más cercana antes de moverlo.
-
-#### Combate contra NPCs
-
-Pulsar **B** dispara un ataque especial con cooldown de 2.4 s que golpea al NPC más cercano dentro de ~17 m. Los NPCs tienen 100 HP y reciben 15 puntos de daño por golpe, mostrando una barra de vida contextual en `NpcRenderWrapper`. Al morir, el NPC se desvanece durante 1 s y se elimina. El daño contra jugadores remotos se enruta vía un mensaje `PLAYER_DAMAGE` por WebSocket para que la autoridad quede en el cliente de la víctima.
-
-#### Subirse y bajarse de vehículos
-
-Pulsando el botón **X** cerca de un vehículo, el jugador lo "toma": el NPC desaparece de la lista y el jugador pasa a renderizarse como ese coche, con rotación libre en 360° según el ángulo de movimiento. Volver a pulsar X deja el coche estacionado como NPC en la posición actual. La primera vez que un jugador se sube a un vehículo, se spawnea un conductor expulsado junto a él.
+> Nota: esta IA de NPCs del open world corre en el **cliente** (en el Host de zona) — el servidor del open world solo arbitra el rol de Host y reenvía mensajes. El minijuego de zombis, en cambio, ahora corre su IA de zombis **en el servidor** (ver abajo).
 
 ### 🧭 Navegación y Waypoints
 
-El jugador puede colocar un marcador de destino en cualquier punto del mapa: el botón verde de "Waypoint" entra al modo apuntado (una cruz roja se centra en pantalla), y "Establecer Destino" confirma la ubicación. El ViewModel ejecuta una búsqueda greedy sobre el grafo de calles (`calculateRouteOnNetwork`) usando un grid espacial de nodos únicos y dibuja la ruta como una polilínea azul punteada. El marcador se auto-elimina cuando el jugador llega a 20 m.
+El jugador coloca un marcador de destino; el ViewModel ejecuta una búsqueda greedy sobre el grafo de calles (`calculateRouteOnNetwork`) y dibuja una polilínea azul punteada. El routing usa claves `Pair<Double, Double>` para nodos visitados/únicos (sin allocs de string por paso). El marcador se auto-elimina a 20 m.
 
 ### 🧟 Minijuego de Zombis
 
-Entrar al minijuego mete al jugador en un **anillo circular de 7 cuartos**: un lobby (croquis `Campus ESCOM`) con 6 puertas hacia cada edificio de ESCOM. Dentro de un edificio, las puertas EXIT izquierda y derecha conectan con el edificio anterior/siguiente del anillo, mientras que una puerta central regresa al lobby (con diálogo de confirmación para evitar salidas accidentales).
+Anillo circular de cuartos: un lobby con puertas a cada edificio de ESCOM, con puertas EXIT entre vecinos y una central de regreso al lobby.
 
-- **Sistema de cámara** (`CameraTransform`): consciente del zoom, sigue al jugador, se ajusta a los límites del mundo y usa `max(viewW/worldW, viewH/worldH)` para que el fondo llene la pantalla sin deformarse (equivalente matemático de `ContentScale.Crop`).
-- **IA:** los zombis hacen pathfinding hacia el jugador con sliding consciente de colisiones (intento eje X, fallback eje Y). Se animan a través de 9 frames de caminata a ~140 ms por frame.
-- **Modo de combate dual:** el **botón Y** mantenido 500 ms abre un menú de armas para alternar entre **MELEE** (puñetazo, radio 120 px, 34 de daño) y **RANGED** (proyectiles a 22 px/tick, 50 de daño, cooldown 350 ms). El **botón B** ejecuta el ataque.
-- **Drops de SkillEffect:** los zombis al morir sueltan uno de seis efectos con 45% de probabilidad, renderizados como **iconos vectoriales puros con Canvas** (sin cargar assets) — reloj de arena para ralentizar tiempo, triángulo rojo para trampas (`ADRENALINA_ZOMBI`, `FURIA_ZOMBI`), cruz verde para buffs (`CURA_TOTAL`, `DEBILIDAD_ZOMBI`, `FUERZA_BRUTA`).
-- **Iluminación dinámica:** en los edificios (interiores oscuros), un aura amarilla sigue al jugador y un aura verde tóxica sigue a cada zombi vivo, dibujadas con `Brush.radialGradient` dentro de la transformación de cámara para que se desplacen y escalen con el mundo.
-- **Loop de muerte:** morir en un edificio dispara una animación WASTED y respawnea al jugador en la puerta del lobby correspondiente al edificio donde murió, con HP restaurado. Acabar con todos los zombis muestra un overlay "Congratulations"; usar la puerta de salida al mundo regresa al open world.
+- **Cámara** (`CameraTransform`): consciente del zoom, se ajusta a límites, usa `max(viewW/worldW, viewH/worldH)`.
+- **Online vs offline:** el `ZombieGameViewModel` ejecuta un único game loop que se ramifica en `tickOffline` (simulación local completa) o `tickOnline`. **En multijugador, zombis e items son autoritativos del servidor dedicado** (`MultiplayerZombie/`): el cliente renderiza los snapshots `ZOMBIE_STATE`, envía peticiones `ZOMBIE_DAMAGE` / `ITEM_PICKUP` y solo conserva lo local (su HP, proyectiles, cooldown de daño por contacto). En offline, el cliente simula los zombis localmente con pathfinding por matriz y sliding por eje.
+- **El rango de ataque por contacto se redujo** para un melee más justo.
+- **Regeneración en el lobby:** estando en el lobby por debajo de 100 HP, el jugador se cura gradualmente por tick hasta 100.
+- **Combate dual:** mantener **Y** (500 ms) alterna MELEE/RANGED; **B** ataca.
+- **Efectos de daño:** *screen shake* al recibir golpes, **viñeta/flash rojo que escala con la vida perdida**, **pulso de vida baja**, **knockback a los zombis** en golpes/proyectiles (consciente de colisiones) y **recoil del jugador** al disparar con corrección de posición por eje para no atravesar paredes.
+- **Drops de SkillEffect:** seis efectos (45%) dibujados como iconos de Canvas puros.
+- **Modo Diseñador de colisión:** un editor in-game pinta la matriz de colisión de cada sala sobre el dibujo del cuarto, la persiste en `collision_matrices.json` y permite exportar/importar el mismo JSON que lee el servidor.
+- **Iluminación dinámica** en interiores oscuros; pantallas **WASTED/Victoria**.
 
 ### 🌐 Multijugador en Tiempo Real
 
-El servidor (`Multiplayer/server.js`) es un proceso **Node.js + Express + ws** que mantiene en memoria el estado de jugadores y NPCs y se distribuye como imagen Docker. La instancia pública que usa el cliente Android está hospedada en **[Render](https://render.com/)**, que construye el contenedor directamente desde el repositorio y expone un endpoint WebSocket público que se inyecta en el build mediante `BuildConfig.MULTIPLAYER_SERVER_URL`.
+POW ahora incluye **dos servidores Node.js + Express + ws independientes**, ambos dockerizados y hospedados en Render, compartiendo el mismo `WebSocketManager` en el cliente.
 
-#### Modelo de autoridad: *Zone Host*
+#### Servidor del open world — `Multiplayer/server.js` (v2)
 
-En lugar de centralizar toda la simulación en el servidor (lento) o dejarla 100% al cliente (incoherente), POW reparte la autoridad mediante el patrón **Host de Zona**:
+Reparte autoridad con el patrón **Host de Zona**: cada cliente es Host en ~400 m, el de menor `sessionId` cede en solapamientos, y solo el Host ejecuta la IA de NPCs y publica `NPC_BATCH_UPDATE`; los NPCs huérfanos se adoptan, no se destruyen. El endurecimiento v2 añade:
 
-- Cada cliente recién conectado es **Host por defecto** dentro de un radio de ~400 m. El servidor envía un `ROLE_UPDATE` inicial inmediatamente después de `SESSION_INIT` para que el cliente sepa que es Host y pueda empezar a spawnear NPCs.
-- Si dos hosts entran en el mismo radio, el de menor `sessionId` cede la autoridad. El servidor notifica el cambio con un mensaje `ROLE_UPDATE`.
-- Solo el host ejecuta la IA de los NPCs en su zona y publica `NPC_BATCH_UPDATE` cada 100 ms. Los demás clientes los reciben pasivamente.
-- Cuando un host cede o se desconecta, sus NPCs **no se destruyen**: quedan en el servidor con su última posición y el siguiente host los **adopta**, reenganchándolos a la red de calles local.
+- **Área de Interés (AOI):** `NPC_SPAWN/UPDATE/BATCH` se reenvían solo a clientes cercanos al Host emisor (~2 km), recortando drásticamente ancho de banda y serialización con jugadores dispersos. Los mensajes que deben llegar siempre (`PLAYER_UPDATE`, `PLAYER_DAMAGE`, `NPC_DESTROY`, `DISCONNECT`, sync) se mantienen globales para no dejar entidades fantasma.
+- **Elección de Host con throttle:** el rol de Host se reevalúa como mucho cada 200 ms por cliente, no en cada `PLAYER_UPDATE`.
+- **Rate-limit por socket:** se descartan mensajes si un cliente inunda (ventana deslizante de 1 s), más un tamaño máximo de mensaje aceptado.
+- **Saneamiento de entrada:** coordenadas finitas, daño finito y acotado, reenvío saneado.
+- **GC de jugadores fantasma:** los jugadores obsoletos se limpian periódicamente (no solo al cerrar el socket), junto con heartbeats, GC de NPCs huérfanos y master sync periódico. Los colores se serializan como Int ARGB.
 
-#### Robustez
+#### Servidor del minijuego zombi — `MultiplayerZombie/server.js` (Fase 1)
 
-- **Heartbeat:** ping cada 30 s; tras 6 fallos consecutivos (3 minutos sin respuesta) se termina la conexión.
-- **Garbage collector de NPCs huérfanos:** NPCs sin actualizar en >15 s se eliminan y se anuncian a todos los clientes.
-- **Master sync periódico:** cada 5 s el servidor difunde la lista de IDs de NPCs vivos para que los clientes reconcilien su estado local y limpien fantasmas.
-- **Colores serializados como Int ARGB** (no como `ULong` interno de `Compose Color`) para evitar `ColorSpace` corrupto al rehidratar NPCs remotos.
+Ejecuta la **simulación de zombis de forma autoritativa** por sala y difunde `ZOMBIE_STATE`. Su IA v2:
 
-El cliente usa **OkHttp WebSocket** con `readTimeout`/`writeTimeout` en 0 (sin límite) y `pingInterval` de 25 s para sobrevivir a redes móviles con NAT agresivo.
+- **Campo de flujo compartido (mapa de Dijkstra):** en vez de un A* por zombi, el servidor calcula **un** campo de distancia-al-jugador sobre toda la matriz (por celda objetivo) y todos los zombis que persiguen a ese jugador siguen el gradiente cuesta abajo. Coste O(número de jugadores) campos por sala, cacheados ~250 ms.
+- **Línea de vista (LOS):** si un zombi ve al jugador sin paredes de por medio, va en línea recta (más fluido, sin tocar el campo); el campo solo se usa cuando hay un obstáculo.
+- **Separación (steering):** los zombis se empujan suavemente para una horda más natural.
+- **Fallback de deambular:** los zombis en una zona desconectada (sin distancia finita en el campo y sin LOS) deambulan en vez de congelarse.
+
+Las coordenadas en el cable son fraccionarias `[0,1]` (el cliente convierte a píxeles). Las matrices de colisión vienen de `collision_matrices.json` (el mismo formato que exporta el Modo Diseñador), con valores neutros (solo borde) que deben mantenerse idénticos (filas/columnas) a las del cliente mientras no se sustituyan.
 
 #### Warm-up del plan gratuito de Render
 
-El plan gratuito de Render suspende los servicios inactivos y tarda hasta ~50 s en despertarlos. Para no agotar el timeout en el primer intento de WebSocket, `ServerWarmupManager` (`data/network/`) hace polling al `/status` por HTTPS apenas el usuario toca **MULTIJUGADOR** en el menú principal — *antes* de que aparezca el diálogo de nombre. Mientras dura el warm-up, un spinner no descartable con contador de segundos en vivo y botón **CANCELAR** bloquea el menú. El diálogo solo se abre cuando el servidor responde `200 OK`; si hay timeout (~60 s de presupuesto total) se muestra una opción de **REINTENTAR**. Los pings exitosos se cachean por 60 s, así que reabrir el menú salta la espera.
+`ServerWarmupManager` hace polling a `<server>/status` por HTTPS apenas el usuario toca **MULTIJUGADOR** — antes del diálogo de nombre — bloqueando con un spinner cancelable hasta que el server responde `200 OK` (con reintento por timeout). Los pings exitosos se cachean 60 s.
 
 ### 🎮 Controles e Interfaz
 
-- **Dos estilos de movimiento:** D-Pad clásico o **Joystick virtual** con rotación libre 360°, configurables desde Ajustes.
-- **Escala adaptativa:** los controles se redimensionan entre 60% y 140%, con un límite dinámico de 100% en modo retrato para no comerse la pantalla.
-- **Modo zurdo:** los controles de movimiento y acción se pueden intercambiar de lado.
-- **Botones de acción** estilo gamepad (A, B, X, Y): correr, ataque especial, interactuar (vehículos, coleccionables, puertas) y el slot secundario, usado para el menú de teletransporte (mantener 3 s) en el open world o para alternar modo de arma (mantener 0.5 s) en el minijuego de zombis.
-- **Controles de vehículo:** en modo conducción el D-Pad/joystick se reemplaza por `VehicleSteeringController` (izquierda/derecha) y `VehiclePedalsController` (gas, freno, salir Y).
-- **HUD de diagnóstico opcional:**
-  - **Widget de caché:** indica si las calles vienen de la red, de Room o si están cargando; idem para los tiles.
-  - **Widget de FPS:** medidor de rendimiento gráfico en tiempo real.
-- Las preferencias (tipo de control, escala, swap) se persisten en `SharedPreferences` vía `SettingsRepository`.
+- **Dos estilos de movimiento:** D-Pad o joystick virtual (360°), configurables.
+- **Escala adaptativa** (60%–140%, tope 100% en retrato), **modo zurdo**, botones A/B/X/Y.
+- **Controles en estado temporal:** los cambios de tipo, escala y swap se quedan en estado temporal y solo afectan al juego al presionar **GUARDAR** (entonces se sincronizan, persisten y notifican al mapa). Salir de Ajustes descarta los cambios no guardados.
+- **HUD de diagnóstico opcional:** widget de caché y de FPS. Las preferencias persisten vía `SettingsRepository` (SharedPreferences).
 
 ### 🚀 Stack Tecnológico
 
@@ -568,31 +385,39 @@ El plan gratuito de Render suspende los servicios inactivos y tarda hasta ~50 s 
 | Geolocalización | Google Play Services — Fused Location Provider |
 | Concurrencia | Coroutines + Flow / SharedFlow / StateFlow |
 | Serialización | Gson |
-| Servidor | Node.js 18, Express, ws, Docker |
+| Servidores | Node.js 18, Express, ws, Docker (open world + minijuego zombi) |
 | Hosting | [Render](https://render.com/) (auto-deploy desde Dockerfile) |
 
-### 🐳 Desplegar el servidor multijugador
-
-Hay dos formas de levantar el servidor:
-
-**Local (Docker, para desarrollo):**
+### 🐳 Desplegar los servidores multijugador
 
 ```bash
+# Servidor del open world (puerto 8080)
 cd Multiplayer
+docker compose up -d
+
+# Servidor del minijuego zombi (puerto host 8081 → contenedor 8080)
+cd MultiplayerZombie
 docker compose up -d
 ```
 
-**Producción:** la instancia canónica está desplegada en **[Render](https://render.com/)** como un Web Service que se reconstruye automáticamente desde el `Multiplayer/Dockerfile` en cada push a la rama principal. Render se encarga del TLS, el DNS público y expone el endpoint WebSocket por `wss://`.
-
-En ambos casos el servidor escucha en el puerto **8080** con dos endpoints:
-
-- `GET /status` — estado en vivo (jugadores conectados, NPCs activos, timestamp).
-- `WS /` — canal WebSocket del juego.
-
-La URL del servidor se inyecta al cliente Android en tiempo de compilación mediante `BuildConfig.MULTIPLAYER_SERVER_URL` (variable de Gradle).
+En producción son dos Web Services de Render, cada uno reconstruido desde su propio `Dockerfile`. Ambos escuchan en el puerto **8080** del contenedor (`GET /status`, `WS /`). La URL del open world se inyecta en compilación vía `BuildConfig.MULTIPLAYER_SERVER_URL`; la del minijuego zombi vía `BuildConfig.ZOMBIE_SERVER_URL`.
 
 ### 📍 Estado actual
 
-Lo que **funciona hoy** en el código de este repositorio: navegación sobre OSM/Google/Web con snap-to-road, caché persistente de calles y tiles, NPCs procedurales (peatones y 6 modelos de coches), combate cuerpo a cuerpo contra NPCs y jugadores remotos, multijugador con autoridad delegada por zona, conducción de vehículos, controles configurables, 8 proveedores de mapas, **landmarks editables con import/export JSON (Modo Diseñador)**, **6 coleccionables de lore con inventario persistente**, **navegación por waypoints con routing sobre grafo de calles**, **6 interiores de edificios de ESCOM** con matrices de colisión, y un **minijuego completo de supervivencia contra zombis** (7 cuartos, combate dual, 6 power-ups, iluminación dinámica, pantallas WASTED/Victoria).
+**Funciona hoy:** navegación OSM/Google/Web con snap-to-road, caché persistente de calles y tiles (escritura atómica), over-zoom nativo a z22 (escalado desde z19, con precarga z19/z17 en la pantalla de carga y zoom máximo por defecto), niebla de guerra anclada al jugador en nativo + web (segura ante la rotación al conducir), tamaños en metros reales de NPC/jugador unificados entre renderizadores, menú de Opciones apto para horizontal con scroll, NPCs procedurales (spawn pre-filtrado por bbox) con personalidades, atropello al conducir, contraataque agresivo/reacciones al robo de coche y tráfico en doble sentido, combate cuerpo a cuerpo contra NPCs y jugadores remotos, multijugador del open world con autoridad por zona (v2: AOI + throttle de host + rate-limit + saneamiento), conducción de vehículos, controles configurables en estado temporal, 8 proveedores de mapas, landmarks editables con import/export JSON, 6 coleccionables, routing por waypoints, 6 interiores de ESCOM, un minijuego completo de supervivencia contra zombis (lobby + 7 edificios, combate dual, 6 power-ups, iluminación dinámica, efectos de daño, regen en lobby, pantallas WASTED/Victoria) con un **servidor de zombis dedicado y autoritativo** (IA de campo de flujo + LOS + separación), Modo Diseñador de colisión y un interior easter-egg ShineCTO.
 
-Lo que **no** está implementado todavía: pathfinding con A* (el router actual es una búsqueda greedy sobre el grafo), multijugador local por Bluetooth, y matrices de colisión ricas en contenido para los interiores (hoy los 6 interiores usan `CollisionGrid.emptyWithBorder()`).
+**No implementado aún:** pathfinding con A* para el router del open world (sigue siendo greedy; nótese que el servidor de zombis ya usa un campo de flujo de Dijkstra), multijugador local por Bluetooth, matrices de colisión ricas para interiores, números de daño flotantes / partículas de impacto, reajuste de coordenadas de puertas del lobby, y colisiones coche-coche (planeado: solapamiento de círculos acotado al radio de culling + reducción de velocidad, sin motor de física).
+
+
+### 🔁 Mantener Esta Documentación al Día
+
+`README.md` y `plan.artifact.md` son la **única fuente de verdad** que le pasamos a cualquier asistente (humano o IA) *en lugar de* todo el código — así nunca tenemos que volver a explicar el proyecto. Solo son confiables si se actualizan **en el mismo cambio** que toca el código, nunca después.
+
+El checklist detallado está en **`plan.artifact.md` §11**. En resumen, en cada cambio que altere el comportamiento:
+
+- Actualiza **ambos** archivos (`README.md` es bilingüe — refleja los cambios visibles para el usuario en las secciones en inglés **y** en español para que no se desincronicen).
+- Agrega el cambio al inicio de **Cambios Recientes**; poda entradas de más de ~2–3 versiones.
+- Mueve lo terminado de **No implementado aún** a **Funciona hoy** (y las listas espejo en `plan.artifact.md` §7/§8).
+- Un dato que viva en ambos archivos debe cambiarse en ambos — una contradicción entre ellos es un bug.
+
+**Definición de terminado:** el código compila/valida *y* ambos archivos describen la nueva realidad. Si la documentación no se actualizó, la tarea no está terminada.

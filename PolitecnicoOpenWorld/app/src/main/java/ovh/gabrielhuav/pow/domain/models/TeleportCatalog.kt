@@ -13,6 +13,7 @@ object TeleportCatalog {
         TeleportZone("ESCOM", 19.504505, -99.146911),
         TeleportZone("Plaza Torres", 19.506750, -99.144139),
         TeleportZone("FES ARAGON", 19.475167, -99.047444),
-        TeleportZone("Coyote de Nezahualcóyotl", 19.399806, -99.028167)
+        TeleportZone("Coyote de Nezahualcóyotl", 19.399806, -99.028167),
+        TeleportZone("Shine CTO", 19.459049, -99.163251)
     )
 }

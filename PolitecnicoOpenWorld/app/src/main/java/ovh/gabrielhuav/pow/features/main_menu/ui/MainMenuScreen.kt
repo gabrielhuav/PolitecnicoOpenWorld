@@ -11,17 +11,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuState
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuViewModel
 
@@ -83,8 +87,8 @@ fun MainMenuScreen(
         }
 
         Text(
-            text = "v0.1.0 - ESCOM Edition", color = Color.White.copy(alpha = 0.3f),
-            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+            text = "v${BuildConfig.VERSION_NAME} - ESCOM Edition", color = Color.White.copy(alpha = 0.3f),
+            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         )
 
@@ -155,14 +159,52 @@ fun MainMenuScreen(
 
 @Composable
 private fun TitleText(small: Boolean) {
-    Text(
-        text = "POLITÉCNICO", fontSize = if (small) 36.sp else 42.sp,
-        fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 4.sp,
-        modifier = Modifier.padding(bottom = 4.dp)
+    AutoResizeText(
+        text = "POLITÉCNICO", targetFontSize = if (small) 36.sp else 42.sp,
+        fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 0.1.em,
+        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
     )
+    AutoResizeText(
+        text = "OPEN WORLD", targetFontSize = if (small) 22.sp else 26.sp,
+        fontWeight = FontWeight.Bold, color = Color(0xFFD4AF37), letterSpacing = 0.3.em,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+/**
+ * Texto de una sola línea que reduce su tamaño de fuente automáticamente hasta
+ * caber en el ancho disponible. Garantiza que el contenido NUNCA se corte ni
+ * salte de línea, sin importar el tamaño/relación de aspecto de la pantalla.
+ * El letterSpacing se expresa en `em` para que escale junto con la fuente.
+ */
+@Composable
+private fun AutoResizeText(
+    text: String,
+    targetFontSize: TextUnit,
+    color: Color,
+    fontWeight: FontWeight,
+    letterSpacing: TextUnit,
+    modifier: Modifier = Modifier
+) {
+    var fontSize by remember(text, targetFontSize) { mutableStateOf(targetFontSize) }
+    var readyToDraw by remember(text, targetFontSize) { mutableStateOf(false) }
     Text(
-        text = "OPEN WORLD", fontSize = if (small) 22.sp else 26.sp,
-        fontWeight = FontWeight.Bold, color = Color(0xFFD4AF37), letterSpacing = 8.sp
+        text = text,
+        fontSize = fontSize,
+        fontWeight = fontWeight,
+        color = color,
+        letterSpacing = letterSpacing,
+        maxLines = 1,
+        softWrap = false,
+        textAlign = TextAlign.Center,
+        modifier = modifier.drawWithContent { if (readyToDraw) drawContent() },
+        onTextLayout = { result ->
+            if (result.didOverflowWidth || result.lineCount > 1) {
+                fontSize *= 0.92f
+            } else {
+                readyToDraw = true
+            }
+        }
     )
 }
 

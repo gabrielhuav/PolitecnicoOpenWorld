@@ -41,6 +41,7 @@ import ovh.gabrielhuav.pow.features.interior.ui.CafeteriaScreen
 import ovh.gabrielhuav.pow.features.interior.ui.CanchasFutbolScreen
 import ovh.gabrielhuav.pow.features.interior.ui.EdificioScreen
 import ovh.gabrielhuav.pow.features.interior.ui.EstacionamientoScreen
+import ovh.gabrielhuav.pow.features.interior.ui.MetroStationInteriorScreen
 import ovh.gabrielhuav.pow.features.interior.ui.PalapasScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
@@ -52,7 +53,8 @@ import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
 import ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
-
+import ovh.gabrielhuav.pow.features.shinecto.ui.EasterEggDiscoveryDialog
+import ovh.gabrielhuav.pow.features.shinecto.ui.ShineCTOScreen
 class MainActivity : ComponentActivity() {
 
     private val worldMapViewModel: WorldMapViewModel by viewModels {
@@ -95,10 +97,19 @@ class MainActivity : ComponentActivity() {
                     // 1. EL ORQUESTADOR GLOBAL: Sincroniza los ajustes en segundo plano
                     // Esto evita recomposiciones destructivas al navegar.
                     val settingsState by settingsViewModel.state.collectAsState()
-                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget) {
-                        worldMapViewModel.setMapProvider(settingsState.mapProvider)
+                    var providerInitialized by remember { mutableStateOf(false) }
+                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.showRoadNetwork) {
+                        if (!providerInitialized) {
+                            // Arranque: aplica el proveedor guardado de inmediato (sin aviso).
+                            worldMapViewModel.setMapProvider(settingsState.mapProvider)
+                            providerInitialized = true
+                        } else {
+                            // Cambios posteriores: precarga en segundo plano y avisa para cambiar.
+                            worldMapViewModel.requestMapProvider(settingsState.mapProvider)
+                        }
                         worldMapViewModel.toggleCacheWidget(settingsState.showCacheWidget)
                         worldMapViewModel.toggleFpsWidget(settingsState.showFpsWidget)
+                        worldMapViewModel.setShowRoadNetwork(settingsState.showRoadNetwork)
                     }
 
                     val navController = rememberNavController()
@@ -145,29 +156,35 @@ class MainActivity : ComponentActivity() {
                                 onMapProviderChanged = { settingsViewModel.changeMapProvider(it) },
                                 onCacheToggled = { settingsViewModel.toggleCacheWidget(it) },
                                 onFpsToggled = { settingsViewModel.toggleFpsWidget(it) },
+                                onRoadNetworkToggled = { settingsViewModel.toggleRoadNetwork(it) },
                                 onControlTypeChanged = { settingsViewModel.changeControlType(it) },
                                 onControlsScaleChanged = { settingsViewModel.changeControlsScale(it) },
                                 onSwapControlsToggled = { settingsViewModel.toggleSwapControls(it) },
                                 onNavigateBack = {
+                                    // Descartar cambios de controles no guardados al salir.
+                                    settingsViewModel.discardControlsChanges()
                                     if (navController.currentDestination?.route == "settings") {
                                         navController.popBackStack()
                                     }
                                 },
                                 onSaveClicked = {
-                                    // 1. Guardar persistentemente en el dispositivo
+                                    // 1. Sincronizar temporales → committeados y persistir.
                                     settingsViewModel.saveControlsSettings()
 
-                                    // 2. Notificar al mapa
+                                    // 2. Notificar al mapa con los valores recién guardados (temporales,
+                                    //    que son los que acaban de pasar a ser los definitivos).
                                     worldMapViewModel.updateControlSettings(
-                                        type = settingsState.controlType,
-                                        scale = settingsState.controlsScale,
-                                        swap = settingsState.swapControls
+                                        type = settingsState.tempControlType,
+                                        scale = settingsState.tempControlsScale,
+                                        swap = settingsState.tempSwapControls
                                     )
 
                                     android.widget.Toast.makeText(this@MainActivity, "Configuración de controles guardada", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 // Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {
+                                    // Descartar cambios de controles no guardados al salir.
+                                    settingsViewModel.discardControlsChanges()
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     navController.navigate("main_menu") {
                                         popUpTo("main_menu") { inclusive = true }
@@ -243,6 +260,39 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(routeName)
                                 }
                             )
+                            // ─── ShineCTO: navegar al interior cuando el VM lo indique ───
+                            val uiState by worldMapViewModel.uiState.collectAsState()
+
+                            LaunchedEffect(uiState.navigateToShineCTO) {
+                                if (uiState.navigateToShineCTO) {
+                                    worldMapViewModel.consumeNavigateToShineCTO()
+                                    navController.navigate("shinecto_interior")
+                                }
+                            }
+
+                            // NUEVO BLOQUE: Navegar al minijuego tras el fade de la puerta
+                            LaunchedEffect(uiState.escomDoorFadeComplete) {
+                                if (uiState.escomDoorFadeComplete) {
+                                    worldMapViewModel.consumeEscomDoorNavigation()
+                                    navController.navigate("zombie_minigame")
+                                }
+                            }
+
+                            // ─── Metro Stations Fade ───────────────────────────────────
+                            LaunchedEffect(uiState.metroFadeCompleteStation) {
+                                val station = uiState.metroFadeCompleteStation
+                                if (station != null) {
+                                    worldMapViewModel.consumeMetroFadeComplete()
+                                    navController.navigate("metro_station_interior/${station.name}")
+                                }
+                            }
+
+                            // ─── ShineCTO: dialog de descubrimiento ───────────────────────
+                            if (uiState.showShineCTODiscovery) {
+                                EasterEggDiscoveryDialog(
+                                    onConfirm = { worldMapViewModel.onShineCTODiscoveryConfirmed() }
+                                )
+                            }
                         }
 
                         composable(route = "collectibles") {
@@ -293,6 +343,34 @@ class MainActivity : ComponentActivity() {
                                 onExit = { navController.popBackStack("world_map", inclusive = false) }
                             )
                         }
+                        
+                        // ─── ESTACIONES METRO ──────────────────────────────────────
+                        composable(
+                            route = "metro_station_interior/{stationName}?spawnX={spawnX}&spawnY={spawnY}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("stationName") { type = androidx.navigation.NavType.StringType },
+                                androidx.navigation.navArgument("spawnX") { type = androidx.navigation.NavType.FloatType; defaultValue = -1f },
+                                androidx.navigation.navArgument("spawnY") { type = androidx.navigation.NavType.FloatType; defaultValue = -1f }
+                            )
+                        ) { backStackEntry ->
+                            val stationName = backStackEntry.arguments?.getString("stationName") ?: "Desconocida"
+                            val spawnX = backStackEntry.arguments?.getFloat("spawnX") ?: -1f
+                            val spawnY = backStackEntry.arguments?.getFloat("spawnY") ?: -1f
+                            MetroStationInteriorScreen(
+                                stationName = stationName,
+                                spawnX = spawnX,
+                                spawnY = spawnY,
+                                onExit = { currentStation ->
+                                    worldMapViewModel.teleportToMetroStation(currentStation)
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
+                                onTeleportToStation = { newStation, x, y ->
+                                    navController.navigate("metro_station_interior/$newStation?spawnX=$x&spawnY=$y") {
+                                        popUpTo("world_map") { inclusive = false }
+                                    }
+                                }
+                            )
+                        }
 
                         // ─── MINIJUEGO DE ZOMBIS ──────────────────────────────────
                         // Anillo circular de cuartos con IA de zombis, combate mutuo
@@ -308,7 +386,16 @@ class MainActivity : ComponentActivity() {
                                 },
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
+                                onNavigateToSettings = { navController.navigate("settings") },
                                 debugHitboxes = false
+                            )
+                        }
+
+                        composable(route = "shinecto_interior") {
+                            ShineCTOScreen(
+                                onExitToWorld = {
+                                    navController.popBackStack("world_map", inclusive = false)
+                                }
                             )
                         }
                     }
