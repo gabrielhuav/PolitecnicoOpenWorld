@@ -1,5 +1,5 @@
 {
-  "name": "pow-zombie-server",
+  "name": "pow-interiores-server",
   "version": "1.0.0",
   "description": "Servidor WebSocket del minijuego de zombis para Politécnico Open World",
   "main": "server.js",

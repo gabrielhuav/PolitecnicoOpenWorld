@@ -54,7 +54,7 @@
 - **Package root:** `ovh.gabrielhuav.pow`
 - **Lenguaje / Language:** Kotlin + Jetpack Compose + Material 3
 - **Arquitectura / Architecture:** MVVM estricto por *feature* / strict MVVM by feature
-- **Servidores / Servers:** 2× Node.js + `ws` (open world `Multiplayer/`, zombi `MultiplayerZombie/`), dockerizados en Render
+- **Servidores / Servers:** 2× Node.js + `ws` (open world `Multiplayer/`, zombi `MultiplayerInteriores/`), dockerizados en Render
 - **Room DB:** versión 8 (`MIGRATION_7_8` + destructive fallback)
 - **~110 archivos Kotlin / Kotlin files**, ~30k líneas / lines
 - **Default map provider:** `OSM_WEB` (no persistido / not persisted)

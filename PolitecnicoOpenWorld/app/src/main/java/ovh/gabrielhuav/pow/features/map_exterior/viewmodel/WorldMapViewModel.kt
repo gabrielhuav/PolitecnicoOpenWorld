@@ -81,6 +81,8 @@ class WorldMapViewModel(
     // notables sin spamear.
     private var lastImpactEffectMs = 0L
     private val IMPACT_EFFECT_THROTTLE_MS = 900L
+    // Última horda migratoria avisada al jugador (para no repetir el aviso del HUD).
+    private var lastHordeSeenMs = 0L
     internal fun fireImpactEffect() {
         val now = System.currentTimeMillis()
         if (now - lastImpactEffectMs < IMPACT_EFFECT_THROTTLE_MS) return
@@ -115,13 +117,32 @@ class WorldMapViewModel(
             }
             val appCtx = context.applicationContext
             val database = PowDatabase.getInstance(appCtx)
-            return WorldMapViewModel(
+            val vm = WorldMapViewModel(
                 roadNetworkCache = RoadNetworkCache(database.roadNetworkDao()),
                 tileCache        = TileCache(database.mapTileDao()),
                 settingsRepository = SettingsRepository(appCtx),
                 collectibleRepository = CollectibleRepository(database.collectibleDao())
-            ) as T
+            )
+            // GAMA DEL TELÉFONO: escala la población de NPCs (menos en equipos débiles, más en
+            // gama alta). Combina con la densidad urbana (urbanFactor) y el ajuste del usuario.
+            vm.npcAiManager.deviceTierFactor = computeDeviceTierFactor(appCtx)
+            vm.npcAiManager.userPopulationFactor = vm.settingsRepository.getNpcDensity()
+            return vm as T
         }
+
+        // RAM total (y isLowRamDevice) → factor de población. No persiste; se calcula al crear el VM.
+        private fun computeDeviceTierFactor(ctx: Context): Float = try {
+            val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val mi = android.app.ActivityManager.MemoryInfo()
+            am.getMemoryInfo(mi)
+            val gb = mi.totalMem / (1024.0 * 1024.0 * 1024.0)
+            when {
+                am.isLowRamDevice || gb <= 2.2 -> 0.6f   // gama baja (≤2 GB / Android Go)
+                gb <= 4.2 -> 1.0f                         // gama media (≤4 GB)
+                gb <= 6.2 -> 1.3f                         // gama alta (≤6 GB)
+                else       -> 1.5f                        // tope (no saturar gama alta)
+            }
+        } catch (e: Exception) { 1.0f }
     }
 
     internal val _uiState = MutableStateFlow(
@@ -129,7 +150,8 @@ class WorldMapViewModel(
             controlType   = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
             swapControls  = settingsRepository.getSwapControls(),
-            selectedSkin  = settingsRepository.getPlayerSkin()    // ← NUEVO
+            selectedSkin  = settingsRepository.getPlayerSkin(),   // ← NUEVO
+            npcEmojiLod   = settingsRepository.getNpcEmojiLod()   // optimización gama baja
         )
     )
     // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
@@ -611,6 +633,16 @@ class WorldMapViewModel(
                                 npcAiManager.updateNpcs(location, isServerDelegatedHost)
                                 val processedNpcs = npcAiManager.getServerNpcs()
 
+                                // HORDA MIGRATORIA: si el Host disparó una oleada, avisar al jugador.
+                                if (npcAiManager.hordeIncomingAt != 0L && npcAiManager.hordeIncomingAt != lastHordeSeenMs) {
+                                    lastHordeSeenMs = npcAiManager.hordeIncomingAt
+                                    launch(kotlinx.coroutines.Dispatchers.Main) {
+                                        _uiState.update { it.copy(interactionPrompt = "🧟 ¡UNA HORDA SE ACERCA!") }
+                                        kotlinx.coroutines.delay(3500)
+                                        _uiState.update { if (it.interactionPrompt == "🧟 ¡UNA HORDA SE ACERCA!") it.copy(interactionPrompt = null) else it }
+                                    }
+                                }
+
                                 if (isServerDelegatedHost) {
                                     synchronized(npcAiManager.pendingDespawns) {
                                         npcAiManager.pendingDespawns.forEach { remoteEntities.remove(it) }
@@ -809,18 +841,9 @@ class WorldMapViewModel(
             val msg = gson.fromJson(messageJson, ServerMessage::class.java)
 
             when (msg.type) {
-                "ZOMBIE_MODE_SET" -> {
-                    msg.active?.let { active ->
-                        _uiState.update { it.copy(globalZombieMode = active) }
-                        npcAiManager.globalZombieMode = active
-                        if (!active) {
-                            val zombiesToDespawn = remoteEntities.filter { it.value.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE }.keys
-                            zombiesToDespawn.forEach { id -> remoteEntities.remove(id) }
-                            updateNpcsState()
-                        }
-                    }
-                }
-
+                // (ZOMBIE_MODE_SET eliminado: el apocalipsis ya no es un flag global difundido a
+                //  todos, sino la INSTANCIA en la que estás. El toggle envía JOIN_INSTANCE y el
+                //  servidor responde con SYNC_ALL_NPCS de la nueva instancia. Ver setZombieInstance.)
                 "SESSION_INIT" -> {
                     msg.sessionId?.let { myPlayerUUID = it }
                 }
@@ -2659,29 +2682,30 @@ class WorldMapViewModel(
 
     // ─── APOCALIPSIS ZOMBI GLOBAL ────────────────────────────────────────
 
-    fun toggleGlobalZombieMode() {
-        val newState = !_uiState.value.globalZombieMode
-        _uiState.update { it.copy(globalZombieMode = newState) }
-        npcAiManager.globalZombieMode = newState
-        try {
-            webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "ZOMBIE_MODE_SET", "active" to newState)))
-        } catch (_: Exception) {}
-    }
+    fun toggleGlobalZombieMode() = setZombieInstance(!_uiState.value.globalZombieMode)
 
-    fun exitGlobalZombieMode() {
-        if (_uiState.value.globalZombieMode) {
-            _uiState.update { it.copy(globalZombieMode = false) }
-            npcAiManager.globalZombieMode = false
-            try {
-                webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "ZOMBIE_MODE_SET", "active" to false)))
-            } catch (_: Exception) {}
-            val zombiesToDespawn = remoteEntities.filter { it.value.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE }.keys
-            zombiesToDespawn.forEach { id ->
-                try {
-                    webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to id)))
-                } catch (_: Exception) {}
-            }
-        }
+    fun exitGlobalZombieMode() { if (_uiState.value.globalZombieMode) setZombieInstance(false) }
+
+    /**
+     * INSTANCING: activar/desactivar el apocalipsis = cambiar de INSTANCIA ("apocalipsis" /
+     * "normal"). Limpiamos el mundo local (no arrastrar entidades de la otra instancia) y
+     * pedimos al servidor (JOIN_INSTANCE) el roster de la nueva instancia. Así los jugadores en
+     * "normal" no ven el apocalipsis y viceversa. En single-player solo cambia el flag local
+     * (el toggle no manda red) y el seed repobla el mundo según el modo.
+     */
+    private fun setZombieInstance(apocalypse: Boolean) {
+        _uiState.update { it.copy(globalZombieMode = apocalypse) }
+        npcAiManager.globalZombieMode = apocalypse
+        // Mundo limpio: vaciar entidades remotas (el servidor reenvía SYNC_ALL_NPCS de la nueva
+        // instancia; en SP el seed repobla). Evita ver NPCs/zombis de la instancia anterior.
+        remoteEntities.clear()
+        updateNpcsState()
+        try {
+            webSocketManager?.sendMessage(gson.toJson(mapOf(
+                "type" to "JOIN_INSTANCE",
+                "instance" to if (apocalypse) "apocalipsis" else "normal"
+            )))
+        } catch (_: Exception) {}
     }
 
     /**
@@ -2760,6 +2784,12 @@ class WorldMapViewModel(
         lastFetchAttemptMs = 0L
         gateMapDownloadAfterTeleport()
     }
+
+    // ─── Jugabilidad (live, desde Ajustes) ──────────────────────────────────
+    /** Multiplicador de densidad de NPCs elegido por el usuario (se combina con gama/ciudad). */
+    fun setNpcDensity(v: Float) { npcAiManager.userPopulationFactor = v }
+    /** NPCs lejanos como emoji (optimización gama baja). */
+    fun setNpcEmojiLod(enabled: Boolean) { _uiState.update { it.copy(npcEmojiLod = enabled) } }
 
     fun setShowRoadNetwork(show: Boolean) {
         _uiState.update { it.copy(showRoadNetwork = show) }

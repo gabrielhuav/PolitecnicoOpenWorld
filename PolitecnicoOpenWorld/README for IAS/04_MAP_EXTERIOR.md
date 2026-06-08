@@ -222,6 +222,10 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
   orden de acceso** (cap ~384); sus claves embeben salud/zoom/frame → nunca volver a `mutableMapOf` (OOM).
 - `MapZombieSpriteManager` (`ui/components/`) — carga `ZOMBIS_MOD/z_walk/z_walk_1..9.webp` (9 frames),
   `getZombieDrawable(context, npc, timeMs, scale)`. Liberado en `onTrimMemory`.
+- **LOD de emojis (gama baja):** si `uiState.npcEmojiLod` (Ajustes→Jugabilidad), `NativeOsmMap` dibuja los
+  NPCs a **>40 m** del jugador como un **emoji barato** (🧍/🚗/🧟/👮 cacheado por tipo+tamaño) en vez del
+  sprite/bitmap completo; solo los muy cercanos llevan el asset. Recorta el costo de render. **Solo OSM
+  nativo** por ahora (web/Google = trabajo futuro).
 
 ---
 
@@ -236,7 +240,7 @@ in multiplayer. Zombie models + AI → see **03**.
 - **Activación:** (a) mano **"Mano del Apocalipsis"** fija en ESCOM (`handleInteraction()` → `toggleGlobalZombieMode()`); (b) **ítem de menú "Activar/Desactivar Apocalipsis"** (Opciones) que funciona en cualquier lugar; (c) **botón flotante de salida** cuando está activo (`exitGlobalZombieMode()`).
 - **VM API:** `toggleGlobalZombieMode()` (flip + broadcast `ZOMBIE_MODE_SET`), `exitGlobalZombieMode()`.
 - **Daño al jugador (¡crítico!):** los zombis muerden vía `applyNpcContactDamage(location)` y el atropello vía `runOverNpcs(finalLoc, speed)`. **Estas dos llamadas viven en el game loop MIEMBRO de `WorldMapViewModel.kt`** (el activo). La extensión `WorldMapGameLoop.kt` también las tiene pero está **sombreada/muerta** — editar solo el miembro (ver 09).
-- **Multijugador:** el Host simula los zombis y los replica por `NPC_BATCH_UPDATE` (conserva `npcType=ZOMBIE` + health/isDying). El toggle viaja en `ZOMBIE_MODE_SET` (global) — relayado por `Multiplayer/server.js` (NO por `MultiplayerZombie/`). `addRemoteEntity` reconstruye el zombi remoto con `visualConfig=null` y `speed=PERSON_SPEED` (animan). Ver **08**.
+- **Multijugador:** el Host simula los zombis y los replica por `NPC_BATCH_UPDATE` (conserva `npcType=ZOMBIE` + health/isDying). El toggle viaja en `ZOMBIE_MODE_SET` (global) — relayado por `Multiplayer/server.js` (NO por `MultiplayerInteriores/`). `addRemoteEntity` reconstruye el zombi remoto con `visualConfig=null` y `speed=PERSON_SPEED` (animan). Ver **08**.
 
 ### Render del zombi / zombie rendering (3 renderers)
 
@@ -261,6 +265,12 @@ branch carries `&& npc.type != ZOMBIE` and the seed nulls `visualConfig`.
   sobre el cadáver re-disparaban el 💥 al morir), y el 💥 **no** se muestra en el golpe mortal.
 - **Knockback de zombi:** al golpear (B) un zombi que sobrevive, `performPlayerAttack` lo **empuja** ~7-8 m
   alejándolo del jugador (recoil visible; el Host lo retoma desde `remoteEntities`).
+- **Hordas migratorias:** el game loop lee `npcAiManager.hordeIncomingAt` y, en cada nueva oleada, muestra
+  un aviso en el HUD (vía `interactionPrompt`). La lógica (punto de calor + spawn) está en `NpcAiManager`
+  (ver 03). El SCOUT es el aviso *in-game* de que viene una horda.
+- **Instancing (apocalipsis = instancia):** `toggleGlobalZombieMode()` → `setZombieInstance(apocalypse)`
+  envía `JOIN_INSTANCE` ("apocalipsis"/"normal"), limpia `remoteEntities` y deja que el servidor reenvíe
+  el roster del nuevo mundo. Los de "normal" no ven zombis. **No** queda `ZOMBIE_MODE_SET` (eliminado). Ver 08.
 
 ### Waypoints de zombi (fuera del fog) / zombie waypoints (outside fog)
 

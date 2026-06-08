@@ -2,12 +2,20 @@
 
 **ES:** Anillo de salas: un **lobby** con puertas a cada edificio de ESCOM (7 edificios). Dentro de un
 edificio, puertas EXIT conectan vecinos y una central vuelve al lobby. **Online: zombis e items son
-autoritativos del servidor** (`MultiplayerZombie/`); **offline: simulación local completa**.
+autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación local completa**.
 **EN:** Ring of rooms: a **lobby** with doors to each ESCOM building (7 buildings). Inside a building,
 EXIT doors connect neighbors and a central door returns to the lobby. **Online: zombies and items are
-server-authoritative** (`MultiplayerZombie/`); **offline: full local simulation**.
+server-authoritative** (`MultiplayerInteriores/`); **offline: full local simulation**.
 
 Modelos de dominio (ZombieEntity, SkillEffect, ZombieRoom, CollisionMatrix…) → ver **03**.
+
+> **🆕 NPCs civiles + coords server (online):** el servidor de interiores spawnea ~6 **civiles** por
+> sala que **deambulan/huyen** de los zombis y, si los atrapan, **se convierten en zombi**. Viajan en
+> `ZOMBIE_STATE.npcs` (`NetInteriorNpc`); el cliente los guarda en `ZombieGameState.interiorNpcs` (reusa
+> `RemoteZombiePlayer`) y los **renderiza con `RemotePlayerView`** (figura humana, sin sprites nuevos).
+> Además el **movimiento del jugador es validado por el servidor**: si cae en pared, llega `PLAYER_CORRECT`
+> y `handleServerMessage` ajusta `playerX/playerY`. Detalle servidor → ver **08**. El servidor ahora se
+> llama **`MultiplayerInteriores/`** (antes `MultiplayerZombie/`).
 
 ---
 

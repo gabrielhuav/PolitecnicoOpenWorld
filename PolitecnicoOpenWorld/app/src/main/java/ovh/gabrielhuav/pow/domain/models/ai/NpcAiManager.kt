@@ -183,8 +183,20 @@ class NpcAiManager {
     // mundo NO se vea vacío, los NPCs deben concentrarse alrededor de ese radio, no a
     // cientos de metros. Por eso el anillo de spawn y simRadius están en esa escala.
     // MODO ZOMBI: aumentamos la población para tener más "víctimas" y zombis.
-    private val maxActiveNpcs get() = if (globalZombieMode) 45 else 12
-    private val maxTotalNpcs get() = if (globalZombieMode) 90 else 30
+    // ─── Escalado dinámico de población ──────────────────────────────────────
+    // deviceTierFactor: gama del teléfono (RAM total) — lo fija el VM desde ActivityManager.
+    //   ~0.6 gama baja (≤2 GB), 1.0 media (≤4 GB), ~1.5 alta. Menos NPCs en equipos débiles.
+    // urbanFactor: densidad de la red de calles (proxy GRATIS de "ciudad") — se calcula en
+    //   updateRoadNetwork a partir de cuántas calles/nodos hay en la zona descargada de OSM.
+    //   ~0.6 rural, 1.0 suburbio, ~1.8 ciudad densa. Más NPCs/tráfico donde hay más calles.
+    @Volatile var deviceTierFactor: Float = 1.0f
+    @Volatile var urbanFactor: Float = 1.0f
+    // Multiplicador elegido por el usuario en Ajustes → Jugabilidad (lo fija el VM).
+    @Volatile var userPopulationFactor: Float = 1.0f
+    private val popFactor get() = deviceTierFactor * urbanFactor * userPopulationFactor
+
+    private val maxActiveNpcs get() = ((if (globalZombieMode) 45 else 12) * popFactor).toInt().coerceIn(6, 120)
+    private val maxTotalNpcs  get() = ((if (globalZombieMode) 90 else 30) * popFactor).toInt().coerceIn(12, 240)
     // Throttle del escaneo de calles para spawnear: es lo más caro (recorre la red).
     // Solo lo hacemos cada SPAWN_SCAN_MS, no en cada tick de simulación.
     private val SPAWN_SCAN_MS = 500L
@@ -199,8 +211,9 @@ class NpcAiManager {
     private val spawnRingMax = 0.00068  // ~76 m (justo pasando el fog de 70 m)
 
     // Proporción objetivo de coches: menos coches = menos atascos y más peatones.
+    // En CIUDAD (urbanFactor alto) sube → más tráfico; en rural baja. Acotada.
     private val carPopulationRatio: Float
-        get() = if (globalZombieMode) 0f else 0.35f
+        get() = if (globalZombieMode) 0f else (0.35f * urbanFactor).coerceIn(0.2f, 0.6f)
 
     val ZOMBIE_SPEED_MULT = 3.5f
     val ZOMBIE_VISION = 0.0009
@@ -210,6 +223,17 @@ class NpcAiManager {
     val HUMAN_CONVERT_DELAY_MS = 1500L
     val MAX_ZOMBIES = 35
     val INITIAL_ZOMBIE_SEED = 25 // Aumentado para que el apocalipsis se sienta más poblado
+
+    // ─── HORDAS MIGRATORIAS ──────────────────────────────────────────────────
+    // Cada HORDE_INTERVAL_MS, si hay un "punto de calor" (varios humanos cerca), aparece una
+    // OLEADA de zombis en grupo que converge sobre ellos (evento de asedio dinámico). El Host
+    // las calcula (ya simula la IA de NPCs); cada cliente con apocalipsis las verá replicadas
+    // por NPC_BATCH_UPDATE como cualquier zombi.
+    val HORDE_INTERVAL_MS = 20000L
+    val HORDE_SIZE = 10            // zombis por oleada
+    val HORDE_MIN_HUMANS = 4       // mínimo de humanos cerca para disparar la horda
+    @Volatile var lastHordeMs = 0L
+    @Volatile var hordeIncomingAt = 0L   // marca de tiempo de la última horda (para avisar al HUD)
 
     private val parkedTimers = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val parkingCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -251,6 +275,15 @@ class NpcAiManager {
         }
         nodeToWays.set(index)
         networkIsReady = network.isNotEmpty()
+
+        // ─── DETECCIÓN DE "CIUDAD" (gratis, desde la red OSM ya descargada) ──────
+        // La densidad de calles es un proxy de urbanización: una zona céntrica tiene
+        // muchas más vías/nodos en el mismo radio (~2 km) que una rural. Calculamos un
+        // urbanFactor en [0.6, 1.8] tomando como referencia ~140 vías para un suburbio
+        // (factor 1.0). No cuesta nada (ya tenemos la red) y NO requiere APIs de tráfico
+        // de pago. Sube la población de NPCs y el ratio de coches donde hay más calles.
+        urbanFactor = if (network.isEmpty()) 1.0f
+            else (network.size / 140f).coerceIn(0.6f, 1.8f)
     }
 
     fun setRemoteNpcs(remoteList: List<Npc>) {
@@ -483,6 +516,33 @@ class NpcAiManager {
                             val role = rollZombieRole()
                             val hp = maxHealthForRole(role)
                             serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(role), trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role, health = hp, maxHealth = hp))
+                        }
+                    }
+                }
+
+                // 1.b HORDA MIGRATORIA: punto de calor = varios humanos cerca. Cada
+                //     HORDE_INTERVAL_MS aparece una OLEADA (HORDE_SIZE) que, al auto-perseguir al
+                //     humano más cercano, converge sobre el cúmulo: asedio dinámico.
+                if (now - lastHordeMs >= HORDE_INTERVAL_MS) {
+                    val nearbyHumans = serverNpcs.count {
+                        it.type == NpcType.PERSON && it.health > 0f && it.displayName.isNullOrEmpty() &&
+                            calculateDistance(it.location.latitude, it.location.longitude,
+                                playerLocation.latitude, playerLocation.longitude) <= simRadius
+                    }
+                    if (nearbyHumans >= HORDE_MIN_HUMANS) {
+                        lastHordeMs = now
+                        hordeIncomingAt = now
+                        val hordeWays = cachedWayBoxes.get().map { it.way }
+                        if (hordeWays.isNotEmpty()) {
+                            var k = 0
+                            while (k < HORDE_SIZE && serverNpcs.size < maxTotalNpcs) {
+                                spawnNpcOnRoad(playerLocation, hordeWays, activeLandmarks)?.let {
+                                    val role = rollZombieRole()
+                                    val hp = maxHealthForRole(role)
+                                    serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(role), trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role, health = hp, maxHealth = hp))
+                                }
+                                k++
+                            }
                         }
                     }
                 }

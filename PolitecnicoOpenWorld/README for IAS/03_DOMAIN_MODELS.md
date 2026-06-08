@@ -107,7 +107,21 @@ NPC_OUTFITS (lazy), CAR_COLORS: IntArray
 **API principal / main API:**
 - `setLandmarks(landmarks)` — precomputa `cachedNavLandmarks` (lista con `navGraph != null`, **una sola
   vez**, no por NPC/tick — ver 09). / precomputes nav-landmark list once.
-- `updateRoadNetwork(network)` — calcula bbox por way (`cachedWayBoxes`) e índice; pre-filtro O(1).
+- `updateRoadNetwork(network)` — calcula bbox por way (`cachedWayBoxes`) e índice; pre-filtro O(1). Además
+  fija `urbanFactor` (densidad de calles → "ciudad", ver abajo).
+
+**Población dinámica / dynamic population (gama + ciudad + ajuste del usuario):** `maxActiveNpcs`/
+`maxTotalNpcs`/`carPopulationRatio` se escalan por `popFactor = deviceTierFactor × urbanFactor ×
+userPopulationFactor`:
+- **`userPopulationFactor`** (0.4–1.6): lo fija el usuario en **Ajustes → Jugabilidad** (slider "Cantidad
+  de NPCs"); lo persiste `SettingsRepository.getNpcDensity()` y lo aplica `WorldMapViewModel.setNpcDensity` /
+  el `Factory`. Ver 07.
+- **`deviceTierFactor`** (gama del teléfono): lo fija `WorldMapViewModel.Factory.computeDeviceTierFactor`
+  desde `ActivityManager` (RAM total + `isLowRamDevice`): ~0.6 (≤2 GB), 1.0 (≤4 GB), 1.3 (≤6 GB), 1.5 (más).
+- **`urbanFactor`** (detección de "ciudad", GRATIS): `(network.size / 140).coerceIn(0.6, 1.8)` — la
+  densidad de la red OSM ya descargada es el proxy de urbanización (céntrico = muchas más vías en ~2 km).
+  Se recalcula al viajar a una zona nueva. En ciudad sube población **y tráfico** (`carPopulationRatio`).
+  *(No usa APIs de tráfico de pago; podría refinarse con tags OSM `landuse`/`place` en el futuro.)*
 - `setServerNpcs(npcs)` / `getServerNpcs()` / `setRemoteNpcs(remoteList)` — sincroniza con el roster.
 - `updateNpcs(playerLocation, isHost)` — **tick principal**: despawn lejanos, cap de población, spawn
   por proximidad (bbox pre-filter), estacionamiento en landmarks, charlas, miedo, y `moveNpc` por NPC.
@@ -162,6 +176,19 @@ Scout ×1.5).
 Rol asignado en el **seed** y en la **conversión** (humano contagiado toma rol aleatorio). Se replica por
 `NPC_BATCH_UPDATE` (`zombieRole`, `screamUntil`); el `maxHealth` se **deriva** del rol en el cliente
 remoto (`addRemoteEntity`), no viaja por el cable. El SCOUT se excluye del daño por contacto al jugador.
+
+#### 🌊 Hordas migratorias / Migratory hordes
+
+**ES:** Evento de asedio dinámico. Cada `HORDE_INTERVAL_MS` (20 s), si hay un **punto de calor**
+(≥ `HORDE_MIN_HUMANS`=4 humanos dentro de `simRadius`), el **Host** spawnea una **oleada** de
+`HORDE_SIZE`=10 zombis (`spawnNpcOnRoad`, acotado a `maxTotalNpcs`). Como cada zombi auto-persigue al
+humano más cercano, la oleada **converge sobre el cúmulo** → asedio. Lo calcula el Host (ya simula la IA
+de NPCs); se replica por `NPC_BATCH_UPDATE` como cualquier zombi (funciona en SP y MP). `hordeIncomingAt`
+avisa al VM para el HUD ("🧟 ¡UNA HORDA SE ACERCA!"). El SCOUT (alarma viviente) es el aviso *in-game*.
+**EN:** Dynamic siege. Every `HORDE_INTERVAL_MS` (20s), if there's a heat point (≥4 humans within
+`simRadius`), the **Host** spawns a wave of 10 zombies that converge on the cluster (each chases nearest
+human). Host-computed (it runs NPC AI), replicated via `NPC_BATCH_UPDATE` (works SP + MP). `hordeIncomingAt`
+drives a HUD warning.
 
 ---
 

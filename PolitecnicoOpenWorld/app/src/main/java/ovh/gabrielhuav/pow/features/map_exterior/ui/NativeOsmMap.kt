@@ -629,7 +629,26 @@ internal fun NativeOsmMap(
                             val metersPerPixel = (40075016.686 * Math.cos(Math.toRadians(npc.location.latitude))) /
                                     (256.0 * Math.pow(2.0, uiState.zoomLevel))
 
-                            if (npc.type == NpcType.POLICE_CAR) {
+                            // ─── LOD DE EMOJIS (optimización gama baja) ──────────────────
+                            // Si el ajuste está activo, los NPCs LEJOS (>40 m del jugador) se
+                            // dibujan como un emoji barato en vez del sprite/bitmap completo; solo
+                            // los MUY cercanos llevan el asset. Recorta mucho el render en gama baja.
+                            val useEmojiLod = uiState.npcEmojiLod && centerCull != null &&
+                                !npcWithinRadius(npc.location.latitude, npc.location.longitude,
+                                    centerCull.latitude, centerCull.longitude, 40.0)
+                            if (useEmojiLod) {
+                                val emoji = when (npc.type) {
+                                    NpcType.CAR, NpcType.POLICE_CAR -> "🚗"
+                                    NpcType.ZOMBIE -> "🧟"
+                                    NpcType.POLICE_COP -> "👮"
+                                    else -> "🧍"
+                                }
+                                val px = ((1.0 / metersPerPixel) * screenDensity).toInt().coerceIn(12, 56)
+                                marker.icon = nativeDrawableCache.getOrPut("EMOJI_LOD_${npc.type.name}_$px") {
+                                    emojiToDrawable(context, emoji, px)
+                                }
+                                marker.rotation = 0f
+                            } else if (npc.type == NpcType.POLICE_CAR) {
                                 // PATRULLA: asset especial sin repintar, mismo tamaño que un auto.
                                 val exactPixels = ((4.0 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(16)
                                 var angle = npc.rotationAngle % 360f

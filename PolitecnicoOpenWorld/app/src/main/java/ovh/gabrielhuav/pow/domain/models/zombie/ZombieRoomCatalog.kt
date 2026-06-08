@@ -19,7 +19,7 @@ object ZombieRoomCatalog {
     // collision_matrices.json bajo su roomId y la aplica al instante.
     //
     // Deben mantenerse IDÉNTICAS (mismas filas/columnas) a las del servidor
-    // (MultiplayerZombie/server.js → BUILDING_MATRIX / LOBBY_MATRIX) mientras no
+    // (MultiplayerInteriores/server.js → BUILDING_MATRIX / LOBBY_MATRIX) mientras no
     // se sustituyan por una matriz exportada desde la app.
     //
     // '#' = pared (no caminable), '.' = caminable.

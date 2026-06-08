@@ -58,6 +58,9 @@ data class ZombieGameState(
     val swapControls: Boolean = false,
     val isLoading: Boolean = true,
     val remotePlayers: List<RemoteZombiePlayer> = emptyList(),
+    // NPCs civiles dentro del interior (autoritativos del servidor). Reusan RemoteZombiePlayer
+    // para renderizarse como figuras humanas (deambulan/huyen de los zombis).
+    val interiorNpcs: List<RemoteZombiePlayer> = emptyList(),
     val zombieModeActivated: Boolean = false,
     val showZombieCinematic: Boolean = false,
 

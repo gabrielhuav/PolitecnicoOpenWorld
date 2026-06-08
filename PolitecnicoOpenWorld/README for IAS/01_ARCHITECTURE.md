@@ -18,7 +18,7 @@ campus hosts a **zombie survival minigame** with interiors and melee/ranged comb
 .
 ├── PolitecnicoOpenWorld/   # Cliente Android (Kotlin + Compose)  ── este repo
 ├── Multiplayer/            # Servidor open world (Node.js + ws, v3, dockerizado)
-└── MultiplayerZombie/      # Servidor minijuego zombi (zombis autoritativos, dockerizado)
+└── MultiplayerInteriores/      # Servidor minijuego zombi (zombis autoritativos, dockerizado)
 ```
 
 > Los dos directorios de servidor son hermanos del proyecto Android; pueden no estar en todos los
@@ -104,10 +104,10 @@ permissions + Fused Location, and frees sprite caches on `onTrimMemory` (see 09)
 
 - **Cliente:** abrir en Android Studio → **Build → Rebuild Project**.
 - **URLs de servidor / Server URLs** inyectadas vía Gradle → `BuildConfig.MULTIPLAYER_SERVER_URL`
-  (open world) y `BuildConfig.ZOMBIE_SERVER_URL` (zombi). Versión en menú: `BuildConfig.VERSION_NAME`.
+  (open world) y `BuildConfig.INTERIORS_SERVER_URL` (zombi). Versión en menú: `BuildConfig.VERSION_NAME`.
 - **Servidores (separados, ambos escuchan en contenedor `:8080`, `GET /status`, `WS /`):**
   - Open world: `cd Multiplayer && docker compose up -d` (host `:8080`).
-  - Zombi: `cd MultiplayerZombie && docker compose up -d` (host `:8081` → contenedor `:8080`).
+  - Zombi: `cd MultiplayerInteriores && docker compose up -d` (host `:8081` → contenedor `:8080`).
 - Los `server.js` son Node puro (sin build); validar con `node --check server.js`.
 
 ## Nota para IA / Note for AI agents

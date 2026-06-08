@@ -119,14 +119,28 @@ app.get('/status', (req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-function broadcastToOthers(senderWs, messageAsString) {
+function instOf(ws) { return ws.instance || "normal"; }
+
+// Difunde a TODOS los clientes de UNA instancia (mundo).
+function broadcastToInstance(instance, messageAsString) {
+    const msg = messageAsString.toString();
     wss.clients.forEach((client) => {
-        if (client !== senderWs && client.readyState === WebSocket.OPEN) {
-            client.send(messageAsString.toString());
+        if (client.readyState === WebSocket.OPEN && instOf(client) === instance) client.send(msg);
+    });
+}
+
+function broadcastToOthers(senderWs, messageAsString) {
+    const msg = messageAsString.toString();
+    const inst = instOf(senderWs);
+    wss.clients.forEach((client) => {
+        if (client !== senderWs && client.readyState === WebSocket.OPEN && instOf(client) === inst) {
+            client.send(msg);
         }
     });
 }
 
+// Compat: difunde a TODAS las instancias. Usar solo para mensajes verdaderamente globales
+// (hoy ya no se usa para nada por-instancia; el roster/relay van acotados por instancia).
 function broadcastAll(messageAsString) {
     wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -135,12 +149,14 @@ function broadcastAll(messageAsString) {
     });
 }
 
-// Reenvio con Area de Interes.
+// Reenvio con Area de Interes, ACOTADO a la instancia del emisor.
 function broadcastToNearby(senderWs, messageAsString, ox, oy, radius) {
     const msg = messageAsString.toString();
+    const inst = instOf(senderWs);
     const hasOrigin = (typeof ox === 'number' && isFinite(ox) && typeof oy === 'number' && isFinite(oy));
     wss.clients.forEach((client) => {
         if (client === senderWs || client.readyState !== WebSocket.OPEN) return;
+        if (instOf(client) !== inst) return;
         if (hasOrigin && typeof client.x === 'number' && isFinite(client.x)) {
             const d = Math.hypot(client.x - ox, client.y - oy);
             if (d > radius) return;
@@ -172,7 +188,7 @@ const playerGcInterval = setInterval(() => {
             players.delete(id);
             // Al reapar un jugador fantasma, huerfanamos sus NPCs (no los borramos).
             orphanNpcsOf(id);
-            broadcastAll(JSON.stringify({ type: "DISCONNECT", id }));
+            broadcastToInstance(p.instance || "normal", JSON.stringify({ type: "DISCONNECT", id }));
         }
     }
 }, 5000);
@@ -196,11 +212,10 @@ function enforceNpcCap() {
         if (ao !== bo) return ao - bo;                 // huerfanos primero
         return (a.lastUpdated || 0) - (b.lastUpdated || 0); // mas viejos primero
     });
-    const toDelete = candidates.slice(0, excess).map(n => n.id);
-    toDelete.forEach(id => npcs.delete(id));
-    if (toDelete.length > 0) {
-        toDelete.forEach(id => broadcastAll(JSON.stringify({ type: "NPC_DESTROY", npcId: id })));
-    }
+    const toDelete = candidates.slice(0, excess);
+    toDelete.forEach(n => npcs.delete(n.id));
+    // NPC_DESTROY solo a la instancia del NPC borrado.
+    toDelete.forEach(n => broadcastToInstance(n.instance || "normal", JSON.stringify({ type: "NPC_DESTROY", npcId: n.id })));
 }
 
 // Marca como huerfanos (ownerId=null) todos los NPCs cuyo dueno era 'ownerId'. NO los
@@ -218,20 +233,30 @@ function orphanNpcsOf(ownerId) {
         }
     }
     if (orphaned.length > 0) {
-        // Reenviar como SYNC para que los clientes que ya los tenian no los limpien
-        // (MASTER_SYNC_CHECK los conserva porque siguen en el roster) y los que esten
-        // cerca empiecen a simularlos. ownerId=null => cualquier Host los adopta.
-        broadcastAll(JSON.stringify({ type: "SYNC_ALL_NPCS", npcs: orphaned }));
+        // Reenviar como SYNC, AGRUPADO POR INSTANCIA (cada mundo solo recibe los suyos), para
+        // que los clientes cercanos de esa instancia los adopten. ownerId=null => cualquier Host.
+        const byInst = {};
+        for (const n of orphaned) { const k = n.instance || "normal"; (byInst[k] = byInst[k] || []).push(n); }
+        for (const inst of Object.keys(byInst)) {
+            broadcastToInstance(inst, JSON.stringify({ type: "SYNC_ALL_NPCS", npcs: byInst[inst] }));
+        }
         console.log(`[Roster] ${orphaned.length} NPC(s) huerfanos tras irse ${ownerId}; conservados para re-delegacion.`);
     }
 }
 
 // --- Sincronizacion maestra periodica ---
 const masterSyncInterval = setInterval(() => {
-    if (wss.clients.size > 0) {
-        broadcastAll(JSON.stringify({
+    if (wss.clients.size === 0) return;
+    // Por instancia: cada cliente recibe solo los IDs de NPC de SU mundo (si recibiera los de
+    // la otra instancia, podria purgar/retener mal). Agrupamos los NPC por instancia.
+    const idsByInst = {};
+    for (const n of npcs.values()) { const k = n.instance || "normal"; (idsByInst[k] = idsByInst[k] || []).push(n.id); }
+    const instances = new Set();
+    wss.clients.forEach(c => { if (c.readyState === WebSocket.OPEN) instances.add(instOf(c)); });
+    for (const inst of instances) {
+        broadcastToInstance(inst, JSON.stringify({
             type: "MASTER_SYNC_CHECK",
-            activeNpcIds: Array.from(npcs.keys())
+            activeNpcIds: idsByInst[inst] || []
         }));
     }
 }, 5000);
@@ -253,6 +278,10 @@ wss.on('connection', (ws) => {
     ws.lastHostEvalMs = 0;
     ws.rlWindowStart = 0;
     ws.rlCount = 0;
+    // INSTANCIA (sharding): "normal" o "apocalipsis". Los jugadores de una instancia NO ven a
+    // los de la otra ni sus NPCs/zombis. Todos entran en "normal"; el toggle del apocalipsis
+    // manda JOIN_INSTANCE para cambiar de mundo.
+    ws.instance = "normal";
 
     console.log(`[+] Cliente conectado. ID: ${ws.sessionId}`);
     ws.send(JSON.stringify({ type: 'SESSION_INIT', sessionId: ws.sessionId }));
@@ -262,7 +291,8 @@ wss.on('connection', (ws) => {
 
     // El recien llegado recibe TODO el roster persistente (incluye huerfanos), para
     // que pueda renderizarlos y, si es Host cercano, adoptarlos.
-    const existingNpcs = Array.from(npcs.values());
+    // Solo el roster de SU instancia (entra en "normal"); no debe ver NPCs/zombis de apocalipsis.
+    const existingNpcs = Array.from(npcs.values()).filter(n => (n.instance || "normal") === instOf(ws));
     if (existingNpcs.length > 0) {
         ws.send(JSON.stringify({ type: "SYNC_ALL_NPCS", npcs: existingNpcs }));
     }
@@ -287,7 +317,7 @@ wss.on('connection', (ws) => {
                     if (!ws.isHost) {
                         let nearbyHost = false;
                         for (const other of players.values()) {
-                            if (other.isHost && other.id !== ws.sessionId) {
+                            if (other.isHost && other.id !== ws.sessionId && other.instance === ws.instance) {
                                 const dist = Math.sqrt(Math.pow(other.y - py, 2) + Math.pow(other.x - px, 2));
                                 if (dist < HOST_RADIUS) { nearbyHost = true; break; }
                             }
@@ -295,7 +325,7 @@ wss.on('connection', (ws) => {
                         if (!nearbyHost) isNowHost = true;
                     } else {
                         for (const other of players.values()) {
-                            if (other.isHost && other.id !== ws.sessionId) {
+                            if (other.isHost && other.id !== ws.sessionId && other.instance === ws.instance) {
                                 const dist = Math.sqrt(Math.pow(other.y - py, 2) + Math.pow(other.x - px, 2));
                                 if (dist < HOST_RADIUS) {
                                     if (ws.sessionId > other.id) { isNowHost = false; break; }
@@ -312,6 +342,7 @@ wss.on('connection', (ws) => {
 
                 const stored = {
                     id: ws.sessionId,
+                    instance: ws.instance,
                     displayName: typeof data.displayName === 'string' ? data.displayName : '',
                     x: px, y: py,
                     action: typeof data.action === 'string' ? data.action : '',
@@ -347,7 +378,7 @@ wss.on('connection', (ws) => {
                     const nx = safeCoord(n.x, null);
                     const ny = safeCoord(n.y, null);
                     if (nx === null || ny === null) return;
-                    const sanitized = { ...n, x: nx, y: ny, ownerId: ws.sessionId, lastUpdated: now };
+                    const sanitized = { ...n, x: nx, y: ny, ownerId: ws.sessionId, lastUpdated: now, instance: ws.instance };
                     npcs.set(n.id, sanitized);
                     enforceNpcCap();
                     broadcastToNearby(ws, JSON.stringify({ ...data, npc: sanitized }), ws.x, ws.y, AOI_RADIUS);
@@ -366,7 +397,7 @@ wss.on('connection', (ws) => {
                         // v3.1: saneamos health (0..100) si viene; el resto pasa por spread.
                         const hp = (typeof npc.health === 'number' && isFinite(npc.health))
                             ? Math.max(0, Math.min(100, npc.health)) : npc.health;
-                        const sanitized = { ...npc, x: nx, y: ny, health: hp, ownerId: ws.sessionId, lastUpdated: now };
+                        const sanitized = { ...npc, x: nx, y: ny, health: hp, ownerId: ws.sessionId, lastUpdated: now, instance: ws.instance };
                         npcs.set(npc.id, sanitized);
                         accepted.push(sanitized);
                     });
@@ -424,6 +455,25 @@ wss.on('connection', (ws) => {
                     broadcastToOthers(ws, JSON.stringify({ type: "POLICE_DESTROY", npcId: data.npcId }));
                 }
             }
+            else if (data && data.type === "JOIN_INSTANCE") {
+                // INSTANCING: el jugador cambia de mundo ("normal" <-> "apocalipsis"). El
+                // apocalipsis dejo de ser un flag global: ahora es EN QUE INSTANCIA estas. Los
+                // de "normal" no ven zombis ni a los jugadores de "apocalipsis", y viceversa.
+                const newInst = (data.instance === "apocalipsis") ? "apocalipsis" : "normal";
+                if (newInst !== ws.instance) {
+                    const oldInst = ws.instance;
+                    // Avisar a la instancia VIEJA que este jugador se fue (que lo quiten).
+                    broadcastToInstance(oldInst, JSON.stringify({ type: "DISCONNECT", id: ws.sessionId }));
+                    ws.instance = newInst;
+                    ws.isHost = true; // re-evaluar autoridad en la nueva instancia
+                    const p = players.get(ws.sessionId);
+                    if (p) p.instance = newInst;
+                    // Mandar al jugador SOLO el roster de su nueva instancia (mundo limpio).
+                    const mine = Array.from(npcs.values()).filter(n => (n.instance || "normal") === newInst);
+                    ws.send(JSON.stringify({ type: "SYNC_ALL_NPCS", npcs: mine }));
+                    ws.send(JSON.stringify({ type: "ROLE_UPDATE", isZoneHost: ws.isHost }));
+                }
+            }
         } catch (e) {
             console.error("Error al procesar mensaje:", e);
         }
@@ -435,7 +485,7 @@ wss.on('connection', (ws) => {
         // v3: NO borramos sus NPCs. Los huerfanamos y reenviamos para que otro Host
         // los adopte; si no hay nadie, quedan congelados (mundo nunca vacio).
         orphanNpcsOf(ws.sessionId);
-        broadcastAll(JSON.stringify({ type: "DISCONNECT", id: ws.sessionId }));
+        broadcastToInstance(ws.instance || "normal", JSON.stringify({ type: "DISCONNECT", id: ws.sessionId }));
     });
 });
 
