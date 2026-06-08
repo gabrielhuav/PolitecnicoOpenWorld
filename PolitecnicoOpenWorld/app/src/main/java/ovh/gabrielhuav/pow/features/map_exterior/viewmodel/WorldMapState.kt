@@ -155,5 +155,11 @@ data class WorldMapState(
     val zonePrefetchActive: Boolean = false,
     val zonePrefetchProgress: Float = 0f,   // 0f..1f
     val zoneOfflineReady: Boolean = false,
-    val zoneOfflineWarning: Boolean = false
+    val zoneOfflineWarning: Boolean = false,
+
+    // ─── NPC Compañero ─────────────────────────────────────────
+    val prankedyState: ovh.gabrielhuav.pow.domain.models.PrankedyState =
+        ovh.gabrielhuav.pow.domain.models.PrankedyState(),
+    val prankedyProjectiles: List<ovh.gabrielhuav.pow.domain.models.PrankedyProjectile> = emptyList(),
+    val showPrankedyUnlockDialog: Boolean = false
 )

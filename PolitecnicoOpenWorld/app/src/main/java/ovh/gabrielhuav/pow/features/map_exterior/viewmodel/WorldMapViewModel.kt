@@ -57,6 +57,9 @@ import androidx.compose.runtime.setValue
 import java.io.InputStreamReader
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
+import ovh.gabrielhuav.pow.domain.models.PrankedyPhase
+import ovh.gabrielhuav.pow.domain.models.PrankedyState
+import ovh.gabrielhuav.pow.domain.models.ai.PrankedyAiManager
 import ovh.gabrielhuav.pow.data.repository.MetroRepository
 
 
@@ -124,8 +127,8 @@ class WorldMapViewModel(
     // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
     private var escomNavGraph: LandmarkNavGraph? = null
     val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
-
     internal val npcAiManager      = NpcAiManager()
+    internal val prankedyAiManager = PrankedyAiManager()
     internal val overpassRepository = OverpassRepository()
     internal var roadNetwork: List<MapWay> = emptyList()
 
@@ -595,7 +598,7 @@ class WorldMapViewModel(
                                     processedNpcs.forEach { remoteEntities[it.id] = it }
                                 }
                                 updateNpcsState()
-
+                                tickPrankedy(location)
                                 webSocketManager?.let { ws ->
                                     launch(kotlinx.coroutines.Dispatchers.IO) {
                                         try {
@@ -2179,7 +2182,14 @@ class WorldMapViewModel(
         if (playerHealth <= 0f) {
             triggerWastedSequence()
         }
+
+        // Prankedy defiende al jugador: busca al atacante más cercano.
+        val nearestAttacker = remoteEntities.entries
+            .filter { it.value.aggroUntil > System.currentTimeMillis() && !it.value.isDying }
+            .minByOrNull { distance(_uiState.value.currentLocation ?: return, it.value.location) }
+        nearestAttacker?.let { prankedyDefendPlayer(it.key) }
     }
+
 
     fun heal(amount: Float) {
         playerHealth = (playerHealth + amount).coerceAtMost(maxPlayerHealth)
@@ -2583,6 +2593,7 @@ class WorldMapViewModel(
      * navegue a la ruta "zombie_minigame".
      */
     fun handleInteraction() {
+        if (tryInteractWithPrankedy()) return
         val nearbyMetro = _uiState.value.nearbyMetroStation
         if (nearbyMetro != null) {
             _uiState.update { it.copy(showMetroFade = true) }
@@ -2819,5 +2830,118 @@ class WorldMapViewModel(
 
     fun consumeMetroFadeComplete() {
         _uiState.update { it.copy(metroFadeCompleteStation = null) }
+    }
+
+
+
+    // ═══════════════════════════════════════════════════════════════════
+    // NPC COMPAÑERO: PRANKEDY
+    // ═══════════════════════════════════════════════════════════════════
+
+    /** Spawn inicial de Prankedy (se llama una vez cuando las calles están listas). */
+    private var prankedySpawned = false
+
+    internal fun tickPrankedy(playerLoc: GeoPoint) {
+        val now = System.currentTimeMillis()
+        var pState = _uiState.value.prankedyState
+
+        // Spawn inicial (una sola vez, cuando hay calles).
+        if (!pState.spawned && !prankedySpawned && _uiState.value.isRoadNetworkReady) {
+            prankedySpawned = true
+            pState = prankedyAiManager.spawnNear(
+                playerLoc.latitude, playerLoc.longitude
+            ) { gp -> getNearestPointOnNetwork(gp) }
+        }
+
+        if (!pState.spawned) return
+
+        // NPCs cercanos para detección de enemigos.
+        val nearbyNpcs = remoteEntities.values.filter { npc ->
+            !npc.displayName.isNullOrEmpty().not() &&  // no jugadores remotos
+                    distance(GeoPoint(pState.latitude, pState.longitude), npc.location) <= PrankedyState.AGGRO_DETECT_RADIUS * 2
+        } + policeManager.activeUnits().filter { cop ->
+            distance(GeoPoint(pState.latitude, pState.longitude), cop.location) <= PrankedyState.AGGRO_DETECT_RADIUS * 2
+        }
+
+        // Tick principal de la IA.
+        pState = prankedyAiManager.update(
+            state = pState,
+            playerLat = playerLoc.latitude,
+            playerLon = playerLoc.longitude,
+            playerDriving = _uiState.value.isDriving,
+            nearbyNpcs = nearbyNpcs,
+            now = now,
+            snap = { gp -> getNearestPointOnNetwork(gp) }
+        )
+
+        // Aplicar daño de proyectiles a los NPCs impactados.
+        val hits = prankedyAiManager.advanceProjectiles(now, nearbyNpcs)
+        for ((npcId, damage) in hits) {
+            val npc = remoteEntities[npcId]
+            if (npc != null) {
+                val newHealth = (npc.health - damage).coerceAtLeast(0f)
+                if (newHealth <= 0f) {
+                    remoteEntities[npcId] = npc.copy(health = 0f, isDying = true)
+                    viewModelScope.launch {
+                        delay(1000L)
+                        remoteEntities.remove(npcId)
+                        updateNpcsState()
+                    }
+                } else {
+                    remoteEntities[npcId] = npc.copy(health = newHealth)
+                }
+                updateNpcsState()
+            }
+        }
+
+        // Publicar al estado de UI.
+        _uiState.update {
+            it.copy(
+                prankedyState = pState,
+                prankedyProjectiles = prankedyAiManager.projectiles.toList()
+            )
+        }
+    }
+
+    /** El jugador presiona X cerca de Prankedy → mostrar modal de desbloqueo. */
+    fun tryInteractWithPrankedy(): Boolean {
+        val pState = _uiState.value.prankedyState
+        if (!pState.spawned) return false
+        if (pState.phase != PrankedyPhase.IDLE_WILD && pState.phase != PrankedyPhase.AVAILABLE) return false
+
+        val playerLoc = _uiState.value.currentLocation ?: return false
+        val dist = distance(playerLoc, GeoPoint(pState.latitude, pState.longitude))
+        if (dist > PrankedyState.SPEECH_RADIUS * 1.2) return false
+
+        _uiState.update { it.copy(showPrankedyUnlockDialog = true) }
+        return true
+    }
+
+    /** El jugador acepta contratar a Prankedy. */
+    fun hirePrankedy() {
+        val pState = _uiState.value.prankedyState
+        val hired = prankedyAiManager.hire(pState)
+        _uiState.update { it.copy(prankedyState = hired, showPrankedyUnlockDialog = false) }
+    }
+
+    /** Cerrar el modal sin contratar. */
+    fun dismissPrankedyDialog() {
+        _uiState.update { it.copy(showPrankedyUnlockDialog = false) }
+    }
+
+    /** Daña a Prankedy (llamado cuando un NPC/policía le pega). */
+    fun damagePrankedy(amount: Float) {
+        val now = System.currentTimeMillis()
+        val pState = _uiState.value.prankedyState
+        val updated = prankedyAiManager.takeDamage(pState, amount, now)
+        _uiState.update { it.copy(prankedyState = updated) }
+    }
+
+    /** Fuerza el aggro de Prankedy cuando el jugador recibe daño. */
+    fun prankedyDefendPlayer(attackerId: String) {
+        val pState = _uiState.value.prankedyState
+        if (!pState.hired) return
+        val updated = prankedyAiManager.setAggroTarget(pState, attackerId)
+        _uiState.update { it.copy(prankedyState = updated) }
     }
 }

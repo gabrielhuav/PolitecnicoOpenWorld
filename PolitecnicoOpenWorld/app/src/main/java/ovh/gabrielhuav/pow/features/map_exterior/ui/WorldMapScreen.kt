@@ -142,7 +142,9 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyUnlockDialog
 import kotlin.math.cos
 
 // ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
@@ -156,6 +158,13 @@ internal const val NPC_CULL_MARGIN_M = 15.0
 //  Está en METROS REALES, por eso NO cambia al hacer zoom: siempre ves la misma
 //  distancia alrededor del jugador. Súbelo para ver más lejos, bájalo para menos.
 internal const val NPC_FOG_VISION_METERS = 70.0
+// ══════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════
+//  ESCALA GLOBAL DE ENTIDADES. Multiplica el tamaño base (en metros reales)
+//  de TODOS los NPCs (peatones, coches, policías, Prankedy). 1.0 = sin cambio.
+//  Sube para que se vean más grandes; baja para que sean más pequeños.
+internal const val NPC_GLOBAL_SCALE = 1.35
 // ══════════════════════════════════════════════════════════════════════════
 
 /** Radio de culling de NPCs: fijo en metros, independiente del zoom. */
@@ -636,6 +645,48 @@ fun WorldMapScreen(
                                 )
                             }
                         }
+
+                        // ─── NPC COMPAÑERO: PRANKEDY (Google Maps) ─────────────────
+                        val pState = uiState.prankedyState
+                        if (pState.spawned && pState.phase != ovh.gabrielhuav.pow.domain.models.PrankedyPhase.DEAD
+                            && pState.phase != ovh.gabrielhuav.pow.domain.models.PrankedyPhase.IN_VEHICLE) {
+
+                            val pLoc = uiState.currentLocation
+                            val isVisibleP = pLoc != null && npcWithinRadius(
+                                pState.latitude, pState.longitude,
+                                pLoc.latitude, pLoc.longitude, npcVisionRadiusMeters()
+                            )
+
+                            if (isVisibleP) {
+                                val metersPerPx = metersPerPixel(uiState.zoomLevel, pState.latitude)
+                                val screenDensity = context.resources.displayMetrics.density
+                                val exactPixels = ((1.7 * NPC_GLOBAL_SCALE / metersPerPx) * screenDensity).toInt().coerceAtLeast(18)
+                                val cacheKey = "GM_PRANKEDY_${pState.phase.name}_${pState.frameIndex}_${pState.facingRight}_$exactPixels"
+
+                                val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
+                                    val drawable = PrankedySpriteManager.getFrame(context, pState.phase, pState.frameIndex, pState.facingRight, screenDensity)
+                                    val bitmap = if (drawable != null) {
+                                        val bm = android.graphics.Bitmap.createBitmap(exactPixels, exactPixels, android.graphics.Bitmap.Config.ARGB_8888)
+                                        val canvas = android.graphics.Canvas(bm)
+                                        drawable.setBounds(0, 0, exactPixels, exactPixels)
+                                        drawable.draw(canvas)
+                                        bm
+                                    } else null
+                                    if (bitmap != null) BitmapDescriptorFactory.fromBitmap(bitmap) else BitmapDescriptorFactory.defaultMarker()
+                                }
+
+                                val position = LatLng(pState.latitude, pState.longitude)
+                                val markerState = remember { MarkerState(position = position) }
+                                markerState.position = position
+
+                                com.google.maps.android.compose.Marker(
+                                    state = markerState,
+                                    icon = iconDescriptor,
+                                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                    flat = true
+                                )
+                            }
+                        }
                     }
 
                     if (uiState.zoomLevel >= 16.0) {
@@ -852,11 +903,52 @@ fun WorldMapScreen(
                             } else {
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, npc.type.name, null, npc.type.drawableName, null, npc.displayName, health = npc.health, isDying = npc.isDying)
                             }
+                        }.toMutableList()
+
+                        // ─── NPC COMPAÑERO: PRANKEDY (Web) ─────────────────
+                        val pState = uiState.prankedyState
+                        if (pState.spawned && pState.phase != ovh.gabrielhuav.pow.domain.models.PrankedyPhase.DEAD
+                            && pState.phase != ovh.gabrielhuav.pow.domain.models.PrankedyPhase.IN_VEHICLE) {
+
+                            val isVisibleP = centerCullW != null && npcWithinRadius(
+                                pState.latitude, pState.longitude,
+                                centerCullW.latitude, centerCullW.longitude, npcVisionRadiusMeters()
+                            )
+
+                            if (isVisibleP) {
+                                val cacheKey = "prankedy_${pState.phase.name}_${pState.frameIndex}_${pState.facingRight}_${density}"
+                                val base64Image = base64Cache[cacheKey]
+                                if (base64Image == null) {
+                                    base64Cache[cacheKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val drawable = PrankedySpriteManager.getFrame(context, pState.phase, pState.frameIndex, pState.facingRight, highResRenderScale)
+                                        val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                        if (bitmap != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 100, out)
+                                            val b64 = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                base64Cache[cacheKey] = b64
+                                            }
+                                        }
+                                    }
+                                }
+                                if (!base64Image.isNullOrEmpty()) {
+                                    if (!registeredWebImages.contains(cacheKey)) {
+                                        wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
+                                        registeredWebImages.add(cacheKey)
+                                    }
+                                    npcPayloads.add(NpcWebPayload("prankedy_companion", pState.latitude, pState.longitude, 0f, "MODULAR", cacheKey, null, if (pState.facingRight) 1 else -1, "PRANKEDY", health = pState.health))
+                                }
+                            }
                         }
 
                         wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs(${gson.toJson(npcPayloads)});", null)
                         } // fin guard web: lista de NPCs sin cambios → no se reenvía al WebView
                         wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
+                        
+                        // Enviar estado de Prankedy al WebView
+                        wv.evaluateJavascript("if(typeof updatePrankedy==='function')updatePrankedy(${gson.toJson(uiState.prankedyState)});", null)
 
                         // OPT FPS web: serializar y reenviar landmarks SOLO cuando cambian
                         // (+ heartbeat). Antes se hacía gson.toJson + evaluateJavascript en CADA
@@ -1299,6 +1391,80 @@ fun WorldMapScreen(
                 onSkinSelected = { viewModel.selectSkin(it) },
                 onDismiss      = { viewModel.toggleSkinSelector(false) }
             )
+        }
+
+        // ─── MODAL DE DESBLOQUEO DE PRANKEDY ─────────────────────────────
+        if (uiState.showPrankedyUnlockDialog) {
+            PrankedyUnlockDialog(
+                onHire = { viewModel.hirePrankedy() },
+                onDismiss = { viewModel.dismissPrankedyDialog() }
+            )
+        }
+
+        // ─── PROMPT DE PRANKEDY (globo de texto en pantalla) ─────────────
+        val prankedyState = uiState.prankedyState
+        if (prankedyState.showSpeechBubble && prankedyState.speechText.isNotEmpty()
+            && !uiState.showPrankedyUnlockDialog) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 120.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Text(
+                    text = "Prankedy: \"${prankedyState.speechText}\"",
+                    color = Color(0xFFFFD700),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .background(
+                            Color(0xFF1A0A2E).copy(alpha = 0.9f),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+        }
+
+        // ─── INDICADOR DE COMPAÑERO CONTRATADO (chip HUD) ───────────────
+        if (prankedyState.hired && prankedyState.phase != ovh.gabrielhuav.pow.domain.models.PrankedyPhase.DEAD) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 58.dp, start = 12.dp)
+                    .background(Color(0xCC1A0A2E), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Prankedy",
+                    color = Color(0xFFFFD700),    // Dorado
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                // Mini barra de vida
+                Box(
+                    modifier = Modifier
+                        .width(50.dp)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color.Black.copy(alpha = 0.5f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth((prankedyState.health / prankedyState.maxHealth).coerceIn(0f, 1f))
+                            .background(
+                                when {
+                                    prankedyState.health > prankedyState.maxHealth * 0.6f -> Color(0xFF4CAF50)
+                                    prankedyState.health > prankedyState.maxHealth * 0.3f -> Color(0xFFFFEB3B)
+                                    else -> Color(0xFFF44336)
+                                }
+                            )
+                    )
+                }
+            }
         }
 
         val selectedLandmark = uiState.landmarks.find { it.id == uiState.selectedLandmarkId }

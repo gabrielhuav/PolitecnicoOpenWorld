@@ -554,8 +554,8 @@ internal fun NativeOsmMap(
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f
                             } else if (npc.type == NpcType.POLICE_COP) {
-                                // POLICÍA A PIE: no hay asset de persona → se dibuja con un EMOJI.
-                                val exactPixels = ((1.05 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(14)
+                                // POLICÍA A PIE escalado por NPC_GLOBAL_SCALE.
+                                val exactPixels = ((1.05 * NPC_GLOBAL_SCALE / metersPerPixel) * screenDensity).toInt().coerceAtLeast(14)
                                 val cacheKey = "COP_EMOJI_${exactPixels}"
                                 val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                     emojiToDrawable(context, "👮", exactPixels)
@@ -565,9 +565,8 @@ internal fun NativeOsmMap(
                             } else if (npc.visualConfig != null) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
 
-                                // 🧍 TAMAÑO DEL PEATÓN: algo mayor que el real (1.3 m) para que
-                                // los humanos se vean bien y no diminutos.
-                                val exactPixels = ((1.3 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(12)
+                                // 🧍 TAMAÑO DEL PEATÓN escalado por NPC_GLOBAL_SCALE.
+                                val exactPixels = ((1.3 * NPC_GLOBAL_SCALE / metersPerPixel) * screenDensity).toInt().coerceAtLeast(12)
 
                                 val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                 val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
@@ -971,7 +970,128 @@ internal fun NativeOsmMap(
                 view.overlays.remove(fog); view.overlays.add(fog)
                 view.invalidate()
             }
-        }
+
+            // ─── NPC COMPAÑERO: PRANKEDY ────────────────────────────────────────
+            run {
+                val pState = uiState.prankedyState
+                if (pState.spawned && pState.phase != ovh.gabrielhuav.pow.domain.models.PrankedyPhase.DEAD
+                    && pState.phase != ovh.gabrielhuav.pow.domain.models.PrankedyPhase.IN_VEHICLE) {
+
+                    val pLoc = uiState.currentLocation
+                    val isVisible = pLoc != null && npcWithinRadius(
+                        pState.latitude, pState.longitude,
+                        pLoc.latitude, pLoc.longitude,
+                        npcVisionRadiusMeters() // Paridad con NPCs normales (70m + 15m margen)
+                    )
+
+                    if (isVisible) {
+                        val metersPerPx = (40075016.686 * Math.cos(Math.toRadians(pState.latitude))) /
+                                (256.0 * Math.pow(2.0, uiState.zoomLevel))
+                        val screenDensity = context.resources.displayMetrics.density
+                        // Prankedy es más grande que un peatón normal (1.7 m × escala global).
+                        val exactPixels = ((1.7 * NPC_GLOBAL_SCALE / metersPerPx) * screenDensity).toInt().coerceAtLeast(18)
+                        val renderScale = 1.0f * screenDensity
+
+                        // ── MARCADOR DE SPRITE ──────────────────────────────────
+                        val prankedyMarkerTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 700
+                        val prankedyMarker = (view.getTag(prankedyMarkerTag) as? org.osmdroid.views.overlay.Marker)
+                            ?: org.osmdroid.views.overlay.Marker(view).apply {
+                                setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER,
+                                    org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
+                                setInfoWindow(null)
+                                isFlat = true
+                                view.setTag(prankedyMarkerTag, this)
+                            }
+                        // OPT layering: mover siempre al final para que quede sobre el fog y NPCs.
+                        view.overlays.remove(prankedyMarker)
+                        view.overlays.add(prankedyMarker)
+
+                        val drawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
+                            .getFrame(context, pState.phase, pState.frameIndex, pState.facingRight, renderScale)
+
+                        if (drawable != null) {
+                            // Barra de vida MÁS ABAJO: la pintamos DEBAJO del sprite (no encima),
+                            // para dejar espacio al marcador flotante de arriba.
+                            var finalIcon: android.graphics.drawable.Drawable = ExactSizeDrawable(drawable, exactPixels, exactPixels)
+                            if (pState.health < pState.maxHealth) {
+                                // Normalizamos la vida a escala 0-100 que espera drawHealthBarOnDrawable.
+                                val normalizedHealth = pState.health * (100f / pState.maxHealth)
+                                finalIcon = drawHealthBarOnDrawable(context, finalIcon, normalizedHealth, false)
+                                    ?: finalIcon
+                            }
+                            prankedyMarker.icon = finalIcon
+                            prankedyMarker.position = org.osmdroid.util.GeoPoint(pState.latitude, pState.longitude)
+                            prankedyMarker.isEnabled = true
+                            prankedyMarker.setAlpha(1f)
+                        }
+
+                        // ── MARCADOR FLOTANTE (▼ indicador sobre la cabeza) ─────
+                        // Un triángulo invertido dorado que flota ARRIBA de Prankedy para
+                        // que el jugador lo ubique fácilmente en el mapa.
+                        val indicatorTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 702
+                        val indicatorMarker = (view.getTag(indicatorTag) as? org.osmdroid.views.overlay.Marker)
+                            ?: org.osmdroid.views.overlay.Marker(view).apply {
+                                setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER,
+                                    org.osmdroid.views.overlay.Marker.ANCHOR_BOTTOM)
+                                setInfoWindow(null)
+                                view.setTag(indicatorTag, this)
+                            }
+                        view.overlays.remove(indicatorMarker)
+                        view.overlays.add(indicatorMarker)
+
+                        val indicatorPx = (exactPixels * 0.6).toInt().coerceAtLeast(12)
+                        indicatorMarker.icon = nativeDrawableCache.getOrPut("PRANKEDY_INDICATOR_$indicatorPx") {
+                            createPrankedyIndicator(context, indicatorPx)
+                        }
+                        // Flota ~30m arriba del NPC (en coordenadas del mapa).
+                        indicatorMarker.position = org.osmdroid.util.GeoPoint(
+                            pState.latitude + 0.000035, pState.longitude
+                        )
+                        indicatorMarker.isEnabled = true
+                        indicatorMarker.setAlpha(1f)
+
+                        // ── GLOBO DE DIÁLOGO ────────────────────────────────────
+                        // Se dibuja DEBAJO del sprite, a ~3/4 de la distancia al jugador
+                        // en la UI, para no tapar los indicadores superiores.
+                        val bubbleTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 701
+                        if (pState.showSpeechBubble && pState.speechText.isNotEmpty()) {
+                            val bubbleMarker = (view.getTag(bubbleTag) as? org.osmdroid.views.overlay.Marker)
+                                ?: org.osmdroid.views.overlay.Marker(view).apply {
+                                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER,
+                                        org.osmdroid.views.overlay.Marker.ANCHOR_TOP) // ancla ARRIBA, aparece hacia abajo
+                                    setInfoWindow(null)
+                                    view.setTag(bubbleTag, this)
+                                }
+                            view.overlays.remove(bubbleMarker)
+                            view.overlays.add(bubbleMarker)
+
+                            val bubblePx = (exactPixels * 3.5).toInt()
+                            bubbleMarker.icon = nativeDrawableCache.getOrPut("PRANKEDY_BUBBLE_${pState.speechText.hashCode()}_$bubblePx") {
+                                createSpeechBubbleDrawable(context, pState.speechText, bubblePx)
+                            }
+                            // Posición DEBAJO del sprite (~30m al sur del NPC).
+                            bubbleMarker.position = org.osmdroid.util.GeoPoint(
+                                pState.latitude - 0.000030, pState.longitude
+                            )
+                            bubbleMarker.isEnabled = true
+                        } else {
+                            (view.getTag(bubbleTag) as? org.osmdroid.views.overlay.Marker)?.isEnabled = false
+                        }
+
+                    } else {
+                        // Fuera del fog: ocultar todo.
+                        (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 700) as? org.osmdroid.views.overlay.Marker)?.isEnabled = false
+                        (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 701) as? org.osmdroid.views.overlay.Marker)?.isEnabled = false
+                        (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 702) as? org.osmdroid.views.overlay.Marker)?.isEnabled = false
+                    }
+                } else {
+                    // No spawneado o muerto/en vehículo: ocultar.
+                    (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 700) as? org.osmdroid.views.overlay.Marker)?.isEnabled = false
+                    (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 701) as? org.osmdroid.views.overlay.Marker)?.isEnabled = false
+                    (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 702) as? org.osmdroid.views.overlay.Marker)?.isEnabled = false
+                }
+            }
+        } // Cierre update
     )
 }
 

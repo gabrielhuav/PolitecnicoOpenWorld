@@ -10,5 +10,6 @@ enum class NpcType(val drawableName: String) {
     // policía. Ambos los simula localmente el jugador con nivel de búsqueda y se
     // replican a los demás clientes para que también los vean (multijugador).
     POLICE_CAR("ic_npc_car"),
-    POLICE_COP("ic_npc_person")
+    POLICE_COP("ic_npc_person"),
+    PRANKEDY("ic_npc_person")
 }

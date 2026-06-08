@@ -96,6 +96,7 @@ class MainActivity : ComponentActivity() {
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.clearCaches()
         }
     }
 

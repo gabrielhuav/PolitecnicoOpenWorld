@@ -1,6 +1,8 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
 import android.content.Context
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.drawable.toDrawable
 
 // Convierte un EMOJI (texto) en un Drawable cuadrado de tamaño dado. Se usa para los
 // policías a pie, que no tienen asset de sprite propio.
@@ -128,4 +130,37 @@ fun getAssetFile(context: Context, assetPath: String, fileName: String): java.io
         }
     }
     return file
+}
+
+
+/**
+ * Crea un Drawable con un triángulo invertido dorado (▼) que flota sobre
+ * la cabeza de Prankedy como indicador de ubicación.
+ */
+internal fun createPrankedyIndicator(context: android.content.Context, sizePx: Int): android.graphics.drawable.Drawable {
+    val size = sizePx.coerceAtLeast(8)
+    val bitmap = createBitmap(size, size)
+    val canvas = android.graphics.Canvas(bitmap)
+
+    // Triángulo invertido dorado con borde.
+    val fillPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.rgb(255, 215, 0) // dorado
+        style = android.graphics.Paint.Style.FILL
+    }
+    val strokePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.rgb(180, 150, 0)
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = size * 0.08f
+    }
+
+    val path = android.graphics.Path().apply {
+        moveTo(size * 0.15f, size * 0.15f)          // esquina superior izquierda
+        lineTo(size * 0.85f, size * 0.15f)           // esquina superior derecha
+        lineTo(size * 0.50f, size * 0.85f)           // punta abajo (centro)
+        close()
+    }
+    canvas.drawPath(path, fillPaint)
+    canvas.drawPath(path, strokePaint)
+
+    return bitmap.toDrawable(context.resources)
 }
