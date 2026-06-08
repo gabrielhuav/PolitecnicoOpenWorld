@@ -4,7 +4,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 
 data class MainMenuState(
     val isLoading: Boolean = false,
-    val selectedProvider: MapProvider = MapProvider.OSM,
+    val selectedProvider: MapProvider = MapProvider.OSM_WEB,
     val showCacheWidget: Boolean = true,
     val showFpsWidget: Boolean = false,
     val showMultiplayerDialog: Boolean = false, // ← Controla el diálogo de nombre

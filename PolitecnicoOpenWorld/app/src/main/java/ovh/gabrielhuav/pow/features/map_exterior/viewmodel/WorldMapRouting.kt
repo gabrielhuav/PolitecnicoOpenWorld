@@ -173,6 +173,108 @@ internal fun WorldMapViewModel.calculateRouteOnNetwork(from: GeoPoint, to: GeoPo
         return route.distinctBy { it.latitude to it.longitude }
     }
 
+// ─── GRAFO DE CALLES + A* (pathfinding de la policía) ───────────────────────────
+// Construye, a partir de la red, la adyacencia por id de nodo (dos nodos consecutivos
+// de una misma vía quedan conectados; las intersecciones comparten id de nodo en OSM,
+// así que el grafo queda conectado), las posiciones por id y una rejilla id→celda para
+// localizar el nodo más cercano a un punto. Se llama al cargar/recargar la red.
+internal fun WorldMapViewModel.buildRoadGraph(network: List<MapWay>) {
+    val adj = HashMap<Long, MutableSet<Long>>()
+    val pos = HashMap<Long, GeoPoint>()
+    val grid = HashMap<Pair<Int, Int>, MutableList<Long>>()
+    for (way in network) {
+        val ns = way.nodes
+        for (i in ns.indices) {
+            val n = ns[i]
+            if (n.id !in pos) {
+                pos[n.id] = GeoPoint(n.lat, n.lon)
+                val cell = floor(n.lat / ROAD_NODE_GRID_SIZE_DEG).toInt() to floor(n.lon / ROAD_NODE_GRID_SIZE_DEG).toInt()
+                grid.getOrPut(cell) { mutableListOf() }.add(n.id)
+            }
+            if (i > 0) {
+                val p = ns[i - 1]
+                adj.getOrPut(p.id) { mutableSetOf() }.add(n.id)
+                adj.getOrPut(n.id) { mutableSetOf() }.add(p.id)
+            }
+        }
+    }
+    roadAdjacency = adj.mapValues { it.value.toList() }
+    roadNodePos = pos
+    roadNodeGridById = grid.mapValues { it.value.toList() }
+}
+
+private fun WorldMapViewModel.nearestGraphNode(p: GeoPoint): Long? {
+    if (roadNodeGridById.isEmpty()) return null
+    val latCell = floor(p.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+    val lonCell = floor(p.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
+    var best: Long? = null
+    var bestD = Double.MAX_VALUE
+    // Expande el anillo de celdas hasta encontrar candidatos (red dispersa incluida).
+    for (ring in 0..6) {
+        for (dLat in -ring..ring) for (dLon in -ring..ring) {
+            if (ring > 0 && kotlin.math.abs(dLat) != ring && kotlin.math.abs(dLon) != ring) continue
+            roadNodeGridById[(latCell + dLat) to (lonCell + dLon)]?.forEach { id ->
+                val np = roadNodePos[id] ?: return@forEach
+                val d = distance(p, np)
+                if (d < bestD) { bestD = d; best = id }
+            }
+        }
+        if (best != null) return best
+    }
+    return best
+}
+
+// A* sobre el grafo de calles. Garantiza una ruta CONECTADA POR CALLES de 'from' a 'to'
+// (si existe). Si no hay conexión o no hay grafo, cae a la línea recta como último recurso.
+internal fun WorldMapViewModel.findRoadRoute(from: GeoPoint, to: GeoPoint): List<GeoPoint> {
+    val start = nearestGraphNode(from) ?: return listOf(from, to)
+    val goal = nearestGraphNode(to) ?: return listOf(from, to)
+    if (start == goal) return listOf(from, roadNodePos[goal] ?: to, to)
+
+    val goalPos = roadNodePos[goal]!!
+    val gScore = HashMap<Long, Double>().apply { put(start, 0.0) }
+    val cameFrom = HashMap<Long, Long>()
+    val closed = HashSet<Long>()
+    // Cola por fScore = gScore + heurística (distancia euclídea al goal).
+    val open = java.util.PriorityQueue<Pair<Long, Double>>(compareBy { it.second })
+    open.add(start to distance(roadNodePos[start]!!, goalPos))
+
+    var expansions = 0
+    val maxExpansions = 6000
+    var found = false
+    while (open.isNotEmpty()) {
+        val (cur, _) = open.poll()
+        if (cur == goal) { found = true; break }
+        if (!closed.add(cur)) continue
+        if (++expansions > maxExpansions) break
+        val curPos = roadNodePos[cur] ?: continue
+        val curG = gScore[cur] ?: continue
+        for (nb in roadAdjacency[cur] ?: emptyList()) {
+            if (nb in closed) continue
+            val nbPos = roadNodePos[nb] ?: continue
+            val tentative = curG + distance(curPos, nbPos)
+            if (tentative < (gScore[nb] ?: Double.MAX_VALUE)) {
+                gScore[nb] = tentative
+                cameFrom[nb] = cur
+                open.add(nb to tentative + distance(nbPos, goalPos))
+            }
+        }
+    }
+    if (!found && cameFrom[goal] == null) return listOf(from, to) // sin camino → recurso final
+
+    // Reconstrucción.
+    val path = ArrayList<GeoPoint>()
+    var node: Long? = goal
+    while (node != null) {
+        roadNodePos[node]?.let { path.add(it) }
+        node = cameFrom[node]
+    }
+    path.reverse()
+    val out = ArrayList<GeoPoint>(path.size + 2)
+    out.add(from); out.addAll(path); out.add(to)
+    return out
+}
+
 internal fun WorldMapViewModel.rebuildRoadNodeGrid(network: List<MapWay>) {
         val uniqueNodes = linkedMapOf<String, GeoPoint>()
         network.forEach { way ->

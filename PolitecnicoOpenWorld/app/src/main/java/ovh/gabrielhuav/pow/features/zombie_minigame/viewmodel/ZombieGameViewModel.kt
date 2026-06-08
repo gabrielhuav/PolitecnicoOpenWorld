@@ -327,9 +327,12 @@ class ZombieGameViewModel(
         val hasWeapon = _state.value.combatMode == CombatMode.RANGED
 
         // En ONLINE los zombis los crea el servidor (llegan por ZOMBIE_STATE).
-        val zombies = if (!isMultiplayer && room.type == ZoneType.BUILDING && room.zombieCount > 0) {
-            val lootIndex = Random.nextInt(room.zombieCount)
-            (0 until room.zombieCount).map { i ->
+        val isZombieEligible = room.type == ZoneType.BUILDING ||
+                (room.type == ZoneType.LOBBY && _state.value.zombieModeActivated)
+        val effectiveZombieCount = if (room.type == ZoneType.LOBBY) 5 else room.zombieCount
+        val zombies = if (!isMultiplayer && isZombieEligible && effectiveZombieCount > 0 && _state.value.zombieModeActivated) {
+            val lootIndex = Random.nextInt(effectiveZombieCount)
+            (0 until effectiveZombieCount).map { i ->
                 val (zx, zy) = spawnAroundPlayer(spawnX, spawnY, room)
                 val type = if (hasWeapon && Random.nextFloat() < 0.4f) ZombieType.STALKER else ZombieType.NORMAL
                 ZombieEntity(
@@ -606,8 +609,8 @@ class ZombieGameViewModel(
             val handWx = handNx * room.worldWidth
             val handWy = handNy * room.worldHeight
             val distToHand = hypot(s.playerX - handWx, s.playerY - handWy)
-            if (distToHand < 80f) {
-                goToRoom("za_auditorio")
+            if (distToHand < 80f && !s.zombieModeActivated) {
+                _state.update { it.copy(showZombieCinematic = true) }
                 return
             }
         }
@@ -703,7 +706,7 @@ class ZombieGameViewModel(
         val door = room.doors.firstOrNull {
             it.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight).contains(px, py)
         }
-        val handLabel = if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID) {
+        val handLabel = if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID && !_state.value.zombieModeActivated) {
             val room = currentRoom()
             val handWx = 0.50f * room.worldWidth
             val handWy = 0.45f * room.worldHeight
@@ -765,6 +768,11 @@ class ZombieGameViewModel(
     }
 
     fun consumeExit() { gameLoopJob?.cancel() }
+
+    fun onZombieCinematicDismissed() {
+        _state.update { it.copy(showZombieCinematic = false, zombieModeActivated = true) }
+        loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+    }
 
     // ─── MODO DISEÑADOR DE LA MATRIZ DE COLISIÓN ───────────
     fun toggleDesignerMode() {

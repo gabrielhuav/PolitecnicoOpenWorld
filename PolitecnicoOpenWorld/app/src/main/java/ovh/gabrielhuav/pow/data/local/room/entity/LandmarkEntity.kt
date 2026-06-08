@@ -11,6 +11,8 @@ data class LandmarkEntity(
     val latitude: Double,
     val longitude: Double,
     val assetPath: String,      // ej. "BUILDINGS/IPN/building_escom.webp"
-    val scaleFactor: Float = 0.15f,  // Escala uniforme del edificio
-    val rotationAngle: Float = 0f    // Rotación persistida (grados, 0-360)
+    val scaleFactor: Float = 1.0f,  // Mantenido para compatibilidad con datos previos
+    val rotationAngle: Float = 0f,  // Rotación persistida (grados, 0-360)
+    val scaleX: Float = 1.0f,       // Escala horizontal independiente
+    val scaleY: Float = 1.0f        // Escala vertical independiente
 )

@@ -74,6 +74,8 @@ via co-located `ViewModelProvider.Factory` instances.
 | Player sprite / driven-vehicle rendering + sizing | `features/map_exterior/ui/components/PlayerCharacter.kt` |
 | Leaflet tile interception | `features/map_exterior/ui/CachingWebViewClient.kt` |
 | NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` |
+| Wanted level / police AI (spawn, road-snapped chase, disembark, carjack, retreat) | `domain/models/ai/PoliceManager.kt` (driven by `WorldMapViewModel.runPoliceTick`) |
+| Patrol sprite (no-repaint `POLICE_TOPDOWN`) | `features/map_exterior/ui/components/PoliceSpriteManager.kt`; cop = 👮 emoji via `emojiToDrawable` in `WorldMapDrawingUtils.kt` |
 | Zombie minigame logic | `features/zombie_minigame/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`) |
 | Zombie minigame state | `features/zombie_minigame/viewmodel/ZombieGameState.kt` |
 | Zombie net models (client) | `features/zombie_minigame/viewmodel/Zombienetmodels.kt` |
@@ -130,7 +132,7 @@ via co-located `ViewModelProvider.Factory` instances.
   simulate NPCs — the Zone Host runs the AI on the client and the server relays.
 - **NPC reactions (GTA-lite, cheap):** each NPC gets a `trait` (`AGGRESSIVE`/`COWARD`)
   rolled at spawn via `NpcAiManager.rollTrait()`. The aggressive fraction is **configurable**
-  via `NpcAiManager.aggressiveRatio` (default `0.5`); the rest are cowards.
+  via `NpcAiManager.aggressiveRatio` (default `0.3`); the rest are cowards.
   - *Provoke-only:* NPCs never attack unprovoked. Hitting one (or carjacking it) makes
     AGGRESSIVE ones retaliate; COWARDS flee (`fearUntil`). AGGRESSIVE NPCs are **immune to
     fear** (skipped in `applyPendingFear`) — "no les da miedo".
@@ -139,7 +141,7 @@ via co-located `ViewModelProvider.Factory` instances.
     DETERMINISTIC counter-hit after ~450 ms if you're within `ATTACK_RADIUS` (the chase/
     contact-loop detection alone proved unreliable, so the counter is guaranteed).
   - *Relentless:* `npcHitStreak` counts consecutive hits per NPC; at `RELENTLESS_HIT_STREAK`
-    (3) the NPC becomes implacable (`relentlessNpcs` + `startRelentlessAttacker`): refreshes
+    (6) the NPC becomes implacable (`relentlessNpcs` + `startRelentlessAttacker`): refreshes
     its aggro and hits you every `NPC_CONTACT_COOLDOWN_MS` until you die or it dies.
   - *Run-over* (`runOverNpcs`): while driving, pedestrians within `RUN_OVER_RADIUS` take
     speed-scaled damage; deaths broadcast `NPC_DESTROY`, witnesses `triggerFear`.
@@ -159,6 +161,40 @@ via co-located `ViewModelProvider.Factory` instances.
     (`LowHealthAura`, <35 HP), and a "💥" burst (`impactEffectTrigger`).
   - **Size parity:** native NPC sprite sizing uses `uiState.zoomLevel` (NOT live
     `view.zoomLevelDouble`) so NPCs match the player/vehicle scale.
+  - **No melee through a car:** while `isDriving`, NPC contact/counter damage is skipped;
+    aggressive NPCs adjacent to your car can instead trigger a carjack (see Police).
+- **Wanted level / Police (GTA-style, `domain/models/ai/PoliceManager.kt`):** punching a
+  civilian raises `WorldMapState.wantedLevel` (0–5, HUD stars; `raiseWantedLevel`), decays
+  after a no-crime grace and clears on death. Unlike civilian NPCs (simulated by the Zone
+  Host), **the wanted player owns and simulates their own police** (`runPoliceTick`, every
+  game-loop tick) because the police must chase *that* player. Police live in `PoliceManager`
+  (NOT in `remoteEntities`, so the NPC pipeline never touches them) and are merged into
+  `uiState.npcs` by `updateNpcsState` (own `policeManager.activeUnits()` + `remotePolice`).
+  - **Types:** `NpcType.POLICE_CAR` (renders via `PoliceSpriteManager`, no-repaint
+    `VEHICLES/POLICE_TOPDOWN`, 48 frames) and `NpcType.POLICE_COP` (no person asset → 👮
+    `emojiToDrawable`). Extra `Npc` fields: `policeDisembarked`, `policeCanShoot`,
+    `policeCarId`, `policeReturning`.
+  - **Spawn/scale:** patrols spawn far (`SPAWN_RING ≈ 265 m`, snapped to a car road node),
+    count scales with stars (`desiredCarsFor`: 1★→1 … 5★→8).
+  - **Roads respected:** every patrol/cop step is snapped to the network via the `snap`
+    lambda (`getNearestPointOnNetwork`) so they don't cut through buildings; rotation follows
+    travel direction (same convention as civilian car sprites — NO +270 offset).
+  - **On foot:** patrol stops at `ARRIVE_DIST` and drops 2–3 cops that chase/punch and, at
+    `policeCanShoot` (2★+), shoot within `SHOOT_RANGE`.
+  - **In a car:** cops re-board (`policeReturning` → run to `policeCarId`, board at
+    `BOARD_DIST`) and chase by patrol; a patrol that reaches your car (`ADJACENT_DIST`) drops
+    cops who, while you're stopped, trigger a **carjack** (`PoliceTick.adjacentThreat` →
+    `handleCarjack` → HUD `carjackWarning` → `forceExitVehicle` after `CARJACK_MS`). No direct
+    damage while driving.
+  - **Retreat:** at `wantedLevel == 0` (incl. on death) police are NOT deleted instantly —
+    they flee away until `RETREAT_DESPAWN`, emitting `POLICE_DESTROY`.
+  - **Waypoint:** while a `POLICE_CAR` is OUTSIDE the fog, `NativeOsmMap` draws a 🚓 marker
+    **plus a route line** from the player (remembered caches, NOT view tags — adding new
+    `R.id`s shifted the fragile `id+100`/`id+400` derived-tag hack and caused a
+    `Polyline→Marker` `ClassCastException`); inside the fog the real patrol asset draws.
+  - **Multiplayer:** broadcasts `POLICE_BATCH_UPDATE` (throttled ~8 Hz) and `POLICE_DESTROY`;
+    `server.js` (v3.2) relays both (AOI) WITHOUT adding them to the persistent roster; remote
+    clients store them in `remotePolice` and purge by staleness (5 s).
 - **Zone-Host open-world multiplayer authority (`Multiplayer/server.js`, v2):**
   each client is Host within ~400 m; lower `sessionId` wins on overlap; only the
   Host runs NPC AI and emits `NPC_BATCH_UPDATE`; orphaned NPCs are adopted, not
@@ -194,11 +230,19 @@ via co-located `ViewModelProvider.Factory` instances.
 - Comments/strings in this codebase are predominantly Spanish; keep that style for
   consistency unless asked otherwise. The two `server.js` files are also Spanish-
   commented; mirror that.
-- The Leaflet map lives inside a WebView; the `#map-wrapper` is intentionally
-  oversized (`300vw × 300vh`, centered) so rotation never reveals gaps. Don't
-  shrink it back. The `#fog` overlay also lives inside `#map-wrapper` (so it
-  rotates with the map); container-point coordinates from `latLngToContainerPoint`
-  align with it.
+- The Leaflet map lives inside a WebView; `#map-wrapper` sizing is now **dynamic** for
+  performance: **screen-sized (`100vw × 100vh`) on foot**, and only enlarged **while driving** to a
+  centered square the size of the screen **diagonal in PIXELS** (computed from
+  `window.innerWidth/innerHeight` — NOT `vmax`/`calc`, which are unreliable on old Android 7–9
+  WebViews and left **black corners when rotating**; that was the regression). Its inscribed circle
+  (side/2 = diagonal/2) covers the screen corners at any rotation. It switches via
+  `setMapOversize(driving)` (which calls `map.invalidateSize`), called **every frame** from Kotlin
+  (the JS no-ops repeats via a `_driving` flag). Do NOT make it permanently oversized again: at
+  `300vw × 300vh` the WebView rendered/composited **~9× the tiles**, the dominant FPS cost when
+  moving/driving in web. The `#fog` overlay lives inside `#map-wrapper` (so it rotates with the map)
+  and re-aligns via `latLngToContainerPoint` + the map `resize` event; **`drawFog` caches its
+  gradient string** and skips the (expensive) full-screen re-rasterize when unchanged — while
+  following, the player is centered so the gradient is identical every `move`.
 - The nested **Options menu** is height-capped (~68% screen) and scrollable so it
   doesn't overflow / collide with controls in landscape; the right-side game
   control slides left while it's open. `OptionsMenu` entries may be groups *or*
@@ -213,15 +257,60 @@ via co-located `ViewModelProvider.Factory` instances.
   Mode exports `collision_matrices.json` in the exact shape the zombie server
   reads; default matrices are border-only and must match rows/cols on both sides
   until replaced.
+- **Render caches are bounded / freed on purpose (low-end ≤2 GB — do NOT regress):**
+  `nativeDrawableCache` (declared in `WorldMapScreen`, used by `NativeOsmMap`) is an
+  **access-order LRU** (`LinkedHashMap` + `removeEldestEntry`, cap ~384) — never revert it
+  to a plain `mutableMapOf`: its keys embed health/zoom/frame, so unbounded it grows until
+  OOM on low-RAM devices. The sprite-manager singletons (`CharacterSpriteManager`,
+  `VehicleSpriteManager`, `PoliceSpriteManager`, `ZombieSpriteManager`) all expose
+  `clearCaches()` and are flushed by `MainActivity.onTrimMemory` under memory pressure.
+  `buildDoorEffectBitmap` (door glow) reuses one `Bitmap`/`Canvas`/`Paint` per source
+  bitmap, and the police bullet/🔫/📞 marker icons are size-keyed in `nativeDrawableCache`
+  — both avoid a per-frame `Bitmap` allocation; keep them that way.
+- **Pre-filter cost out of per-NPC hot loops:** `NpcAiManager.setLandmarks` precomputes the
+  nav-graph-only landmark list into `cachedNavLandmarks`; `updateNpcs`/`moveNpc` read that
+  instead of re-running `.filter { it.navGraph != null }` per NPC per tick.
+- **The native osmdroid `update` lambda runs ~30 Hz — keep it cheap (low-end):** don't redo
+  static work each frame. Landmark `GroundOverlay`s are re-`setPosition`/`setImage` only when
+  their transform signature changes (`landmarkSigCache`); animated **DOORS** (`DOORS/` asset)
+  still refresh their image every frame. The ~160 metro markers are **viewport-culled** via
+  `Marker.isEnabled` (osmdroid skips `draw()` on disabled overlays). The `FogOverlay` uses the
+  exact screen rect on foot and only oversizes to the screen diagonal while driving
+  (`rotated`), avoiding a ~10× screen-area RadialGradient fill every frame.
+- **Web renderer NPC types:** `updateNpcs` (in `WorldMapLeafletHtml`) only draws `imgCache`
+  images for payload `type` `"CAR"`/`"MODULAR"`; anything else falls back to
+  `file:///android_asset/<drawable>.svg`. So **`POLICE_CAR` must be serialized as a base64
+  car-image** (generated via `PoliceSpriteManager`, sent with `type="CAR"`) — not via the
+  generic `drawable` branch, or the patrol shows a placeholder SVG. `POLICE_COP` is likewise sent
+  as a base64 **👮-emoji** image (`type="MODULAR"`, person-sized) instead of the SVG fallback.
+  Patrols **outside** the fog are drawn by a separate Leaflet `updatePolice(playerLat, playerLng,
+  data)` (🚓 marker + dashed player→patrol line), mirroring the native waypoint; the Kotlin side
+  pushes it only while `wantedLevel > 0` (and once more to clear). The **"Ir a…" options menu was
+  removed**: ESCOM is the first `TeleportCatalog.zones` entry and the GPS teleport is the first
+  item of the *Puntos de Teletransporte* dialog.
+- **Default map provider is `OSM_WEB`, not native `OSM` (low-end):** native osmdroid defaults to
+  z22 and re-scales z19 tiles for the over-zoom, the heaviest renderer on weak devices — so the
+  app now defaults to **OpenStreetMap (Web)**. The provider is **not persisted**; the default is
+  just the initial state value in `SettingsState`, `WorldMapState` and `MainMenuState` (all
+  `OSM_WEB`). Changing it there changes the launch provider. **Google native** follows the player
+  with `cameraPositionState.move()` — NOT `animate()`, which restarted a 120 ms camera animation
+  ~30 Hz and thrashed. **Web** re-sends landmark layers to the WebView only when the landmark list
+  changes (reference guard + ~45-frame heartbeat in case the first send raced the HTML load). The
+  web **follow-camera uses `map.panBy`** (a transform pan) per frame, NOT `setView` (which does a
+  full `_resetView`, repositioning every tile + marker — the main cause of FPS drops while moving);
+  `setView` is used only on zoom change or large jumps (teleport). The OSM-Web tile layer sets
+  `keepBuffer: 3` + `updateWhenIdle: false` so tiles load while moving, not only when idle.
 
 ## 7. Current state (what works)
 
 OSM/Google/Web navigation with snap-to-road; persistent street + tile caching;
 procedural NPCs (pedestrians + 6 cars) with **personality traits, run-over-while-driving,
-aggressive retaliation/carjack reactions, and two-way traffic**; melee combat vs NPCs and remote players;
+aggressive retaliation/carjack reactions, and two-way traffic**; **GTA-style wanted level / police
+(0–5 stars, road-snapped patrol pursuit, 👮 cops that punch & shoot, vehicle chases + carjack, retreat
+on death; multiplayer-replicated)**; melee combat vs NPCs and remote players;
 zone-delegated open-world multiplayer (server v2: AOI + host throttle + rate-limit
 + sanitization + ghost GC); vehicle driving; configurable controls; 8 map
-providers; editable landmarks with JSON import/export (Designer Mode); 6 lore
+providers; editable landmarks with JSON import/export (Designer Mode) with **scrollable asset picker and Central Norte building**; 6 lore
 collectibles with persistent inventory; waypoint navigation with greedy road-graph
 routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch,
 **over-zoom to z22 (scaled from z19) with loading-screen z19/z17 prefetch, default max zoom**;
@@ -231,7 +320,10 @@ bound to `BuildConfig.VERSION_NAME` with auto-shrinking title; full zombie survi
 dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens, damage feedback
 FX) with **online mode backed by a dedicated authoritative zombie server**
 (`MultiplayerZombie/`: flow-field + LOS + separation AI) and a collision Designer
-Mode; a ShineCTO easter-egg interior.
+Mode; a ShineCTO easter-egg interior. A **low-end (≤2 GB / Android 7–9) GC & memory pass**
+is in place (behavior-preserving): LRU-bounded `nativeDrawableCache`, reused door-glow
+bitmap, size-cached police bullet/🔫/📞 icons, once-filtered nav landmarks
+(`cachedNavLandmarks`), and sprite caches freed via `onTrimMemory`.
 
 ## 8. Not yet implemented
 

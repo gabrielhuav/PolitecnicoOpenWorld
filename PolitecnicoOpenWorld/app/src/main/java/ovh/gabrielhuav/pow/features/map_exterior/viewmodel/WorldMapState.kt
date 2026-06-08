@@ -28,6 +28,14 @@ enum class MapProvider(val displayName: String) {
     val isWebProvider: Boolean get() = this != OSM && this != GOOGLE_MAPS_NATIVE
 }
 
+// Un disparo de policía (origen → jugador) con su marca de tiempo, para dibujar la
+// "bala"/trazo unos milisegundos y que se vea de dónde viene el balazo.
+data class PoliceShot(
+    val from: GeoPoint,
+    val to: GeoPoint,
+    val at: Long
+)
+
 enum class RoadSource { LOADING, LOCAL_DB, NETWORK }
 enum class TileSource  { LOCAL_OSM, LOCAL_CACHE, NETWORK }
 
@@ -35,7 +43,7 @@ data class WorldMapState(
     val currentLocation: GeoPoint? = null,
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = ZOOM_LOADING,
-    val mapProvider: MapProvider = MapProvider.OSM,
+    val mapProvider: MapProvider = MapProvider.OSM_WEB, // Default: OSM Web (gama baja)
     // Cambio de proveedor con precarga: el nuevo se precarga en segundo plano mientras
     // sigues usando el actual. Cuando 'pendingProviderReady' es true, se avisa para cambiar.
     val pendingProvider: MapProvider? = null,
@@ -90,6 +98,14 @@ data class WorldMapState(
     val interactionPrompt: String? = null,
     val showWastedScreen: Boolean = false,
 
+    // ─── NIVEL DE BÚSQUEDA (estilo GTA) ──────────────────────────────────────
+    // Sube al golpear NPCs; mientras sea > 0 aparecen patrullas que te persiguen.
+    val wantedLevel: Int = 0,
+    // Aviso cuando un perseguidor (policía o NPC) está por bajarte del vehículo.
+    val carjackWarning: String? = null,
+    // Disparos de policía activos (se dibujan como trazos breves y luego se purgan).
+    val policeShots: List<PoliceShot> = emptyList(),
+
     // ─── NAVEGACIÓN / MARCADOR DE DESTINO ────────────────────────────────
     val destinationMarker: GeoPoint? = null,
     val isTargetingWaypoint: Boolean = false,
@@ -124,6 +140,7 @@ data class WorldMapState(
     // ─── ESCOM Door transition ───────────────────────────────────────────────
     val showEscomDoorFade: Boolean = false,
     val escomDoorFadeComplete: Boolean = false,
+    val pendingDoorDestination: String? = null,
 
     // ─── Metro Stations ───────────────────────────────────────────────────────
     val metroStations: List<ovh.gabrielhuav.pow.domain.models.MetroStation> = emptyList(),

@@ -1,5 +1,4 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui.components
-
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

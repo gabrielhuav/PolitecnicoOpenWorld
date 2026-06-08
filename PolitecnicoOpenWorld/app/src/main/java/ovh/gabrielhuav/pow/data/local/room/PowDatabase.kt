@@ -27,7 +27,7 @@ import java.io.File
         LandmarkEntity::class,
         CollectibleEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class PowDatabase : RoomDatabase() {
@@ -63,6 +63,15 @@ abstract class PowDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `landmarks` ADD COLUMN `scaleX` REAL NOT NULL DEFAULT 1.0")
+                db.execSQL("ALTER TABLE `landmarks` ADD COLUMN `scaleY` REAL NOT NULL DEFAULT 1.0")
+                // Migrar el scaleFactor existente a scaleX y scaleY
+                db.execSQL("UPDATE `landmarks` SET `scaleX` = `scaleFactor`, `scaleY` = `scaleFactor`")
+            }
+        }
+
         private fun buildDatabase(context: Context): PowDatabase {
             val dbDir  = File(context.filesDir, "databases").also { it.mkdirs() }
             val dbFile = File(dbDir, "pow_roads.db")
@@ -72,7 +81,7 @@ abstract class PowDatabase : RoomDatabase() {
                 PowDatabase::class.java,
                 dbFile.absolutePath
             )
-                .addMigrations(MIGRATION_7_8)
+                .addMigrations(MIGRATION_7_8, MIGRATION_8_9)
                 .fallbackToDestructiveMigration()
                 .build()
         }

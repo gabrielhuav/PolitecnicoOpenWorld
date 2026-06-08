@@ -104,6 +104,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
@@ -141,6 +142,22 @@ internal fun NativeOsmMap(
     // a ~10 Hz; reconstruir sus marcadores solo cuando la lista cambia evita ~2/3 del
     // trabajo de sprites (lo más caro en gama baja).
     val lastNpcRenderHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Npc>>(1) }
+
+    // Cachés de los waypoints/rutas de policía. Se guardan en variables RECORDADAS (no en
+    // view tags) para no chocar con el frágil hack de claves derivadas (id + 100 / + 400)
+    // que usan los marcadores de debug/metro; añadir nuevos R.id desplazaba esos valores
+    // y provocaba un ClassCastException (Polyline → Marker).
+    val policeWpCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
+    val policeRouteCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Polyline>() }
+    // Pools para las "balas" de la policía: un círculo que viaja y el emoji 🔫 en el oficial.
+    val policeBulletPool = remember { mutableListOf<org.osmdroid.views.overlay.Marker>() }
+    val policeGunPool = remember { mutableListOf<org.osmdroid.views.overlay.Marker>() }
+    // 📞 sobre NPCs que "llaman a la policía" (p. ej. al que le robaste el coche).
+    val phoneCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
+    // OPT FPS gama baja: firma (transformación + asset) por landmark. Los GroundOverlay
+    // ESTÁTICOS se re-posicionaban y RE-SUBÍAN su textura (setImage) en CADA frame; con esto
+    // solo lo hacen cuando su firma cambia (las puertas, animadas, siguen refrescando imagen).
+    val landmarkSigCache = remember { mutableMapOf<Long, String>() }
 
     // CICLO DE VIDA del MapView de osmdroid: liberarlo al salir (onPause/onDetach), si no
     // se fuga y puede dejar la pantalla rota (azul) al volver de Ajustes.
@@ -289,6 +306,147 @@ internal fun NativeOsmMap(
                 destMarker.setAlpha(0f)
             }
 
+            // ─── WAYPOINTS DE PATRULLAS (solo fuera del fog of war) ──────────────
+            // Mientras la patrulla está FUERA de tu campo de visión, te la marca con un
+            // waypoint. En cuanto entra al fog desaparece el waypoint y la ves directa.
+            val playerLocWp = uiState.currentLocation
+            // Solo se marcan mientras te BUSCAN (wantedLevel > 0). Al morir/perder estrellas
+            // la policía se retira pero ya no debe marcarse (no te está persiguiendo).
+            val patrolsToMark = if (playerLocWp != null && uiState.wantedLevel > 0) {
+                uiState.npcs.filter { it.type == NpcType.POLICE_CAR &&
+                    !npcWithinRadius(it.location.latitude, it.location.longitude,
+                        playerLocWp.latitude, playerLocWp.longitude, NPC_FOG_VISION_METERS) }
+            } else emptyList()
+
+            val patrolWpIds = patrolsToMark.map { it.id }.toSet()
+            val wpIterator = policeWpCache.iterator()
+            while (wpIterator.hasNext()) {
+                val entry = wpIterator.next()
+                if (!patrolWpIds.contains(entry.key)) {
+                    view.overlays.remove(entry.value)
+                    wpIterator.remove()
+                }
+            }
+            // Línea/ruta desde el jugador hasta cada patrulla, para ver qué tan cerca viene.
+            val routeIterator = policeRouteCache.iterator()
+            while (routeIterator.hasNext()) {
+                val entry = routeIterator.next()
+                if (!patrolWpIds.contains(entry.key)) {
+                    view.overlays.remove(entry.value)
+                    routeIterator.remove()
+                }
+            }
+
+            patrolsToMark.forEach { patrol ->
+                val wp = policeWpCache[patrol.id] ?: Marker(view).apply {
+                    title = "POLICE_WAYPOINT"
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    setInfoWindow(null)
+                    // EMOJI de patrulla mientras viene de lejos (fuera del fog). Al entrar
+                    // al fog desaparece este waypoint y se ve el asset real de la patrulla.
+                    val px = (26 * context.resources.displayMetrics.density).toInt()
+                    icon = emojiToDrawable(context, "🚓", px)
+                    policeWpCache[patrol.id] = this
+                    view.overlays.add(this)
+                }
+                wp.position = GeoPoint(patrol.location.latitude, patrol.location.longitude)
+                wp.isEnabled = true
+                wp.setAlpha(1f)
+
+                // Ruta (línea) jugador → patrulla: se acorta conforme se acercan.
+                if (playerLocWp != null) {
+                    val line = policeRouteCache[patrol.id] ?: Polyline().apply {
+                        // Línea PUNTEADA y semi-transparente (menos invasiva en el mapa).
+                        outlinePaint.color = android.graphics.Color.argb(120, 0, 90, 255)
+                        outlinePaint.strokeWidth = 5f
+                        outlinePaint.isAntiAlias = true
+                        outlinePaint.style = android.graphics.Paint.Style.STROKE
+                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(18f, 14f), 0f)
+                        setInfoWindow(null)
+                        policeRouteCache[patrol.id] = this
+                        view.overlays.add(0, this) // bajo los marcadores
+                    }
+                    line.setPoints(listOf(
+                        GeoPoint(playerLocWp.latitude, playerLocWp.longitude),
+                        GeoPoint(patrol.location.latitude, patrol.location.longitude)
+                    ))
+                    line.isEnabled = true
+                }
+            }
+
+            // ─── BALAS DE LA POLICÍA (círculo que viaja lento + 🔫 en el oficial) ──
+            val shots = uiState.policeShots
+            val pLocB = uiState.currentLocation
+            if (pLocB != null) {
+                val mppB = (40075016.686 * Math.cos(Math.toRadians(pLocB.latitude))) /
+                        (256.0 * Math.pow(2.0, uiState.zoomLevel))
+                val densB = context.resources.displayMetrics.density
+                val bulletPx = ((0.30 / mppB) * densB).toInt().coerceIn(6, 22) // bala pequeña
+                val gunPx = ((1.0 / mppB) * densB).toInt().coerceIn(14, 72)
+                val nowB = System.currentTimeMillis()
+                val BULLET_MS = 420.0
+                // Crece los pools según haga falta.
+                while (policeBulletPool.size < shots.size) {
+                    policeBulletPool.add(Marker(view).apply {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER); setInfoWindow(null)
+                        isEnabled = false; view.overlays.add(this)
+                    })
+                    // La pistola se ancla por su parte INFERIOR para que flote ARRIBA del policía.
+                    policeGunPool.add(Marker(view).apply {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM); setInfoWindow(null)
+                        isEnabled = false; view.overlays.add(this)
+                    })
+                }
+                policeBulletPool.forEachIndexed { i, bullet ->
+                    val gun = policeGunPool[i]
+                    if (i < shots.size) {
+                        val s = shots[i]
+                        val prog = ((nowB - s.at) / BULLET_MS).coerceIn(0.0, 1.0)
+                        val blat = s.from.latitude + (s.to.latitude - s.from.latitude) * prog
+                        val blon = s.from.longitude + (s.to.longitude - s.from.longitude) * prog
+                        // OPT GC: cacheado por tamaño (solo cambia con el zoom) en vez de
+                        // crear un Bitmap nuevo por frame mientras la policía dispara.
+                        bullet.icon = nativeDrawableCache.getOrPut("POLICE_BULLET_$bulletPx") {
+                            dotDrawable(context, android.graphics.Color.rgb(255, 210, 0), bulletPx)
+                        }
+                        bullet.position = GeoPoint(blat, blon)
+                        bullet.isEnabled = true
+                        // 🔫 ARRIBA del policía durante casi todo el disparo (se nota bien).
+                        if (prog < 0.85) {
+                            gun.icon = nativeDrawableCache.getOrPut("POLICE_GUN_$gunPx") {
+                                emojiToDrawable(context, "🔫", gunPx)
+                            }
+                            // Un pelín al norte para que quede claramente sobre su cabeza.
+                            gun.position = GeoPoint(s.from.latitude + 0.000016, s.from.longitude)
+                            gun.isEnabled = true
+                        } else gun.isEnabled = false
+                    } else {
+                        bullet.isEnabled = false; gun.isEnabled = false
+                    }
+                }
+
+                // ─── 📞 NPCs llamando a la policía (carjack) ─────────────────────
+                val phonePx = ((0.9 / mppB) * densB).toInt().coerceIn(12, 64)
+                val callingNpcs = uiState.npcs.filter { it.callingUntil > nowB }
+                val callIds = callingNpcs.map { it.id }.toSet()
+                val phoneIt = phoneCache.iterator()
+                while (phoneIt.hasNext()) {
+                    val e = phoneIt.next()
+                    if (!callIds.contains(e.key)) { view.overlays.remove(e.value); phoneIt.remove() }
+                }
+                callingNpcs.forEach { npc ->
+                    val m = phoneCache[npc.id] ?: Marker(view).apply {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM); setInfoWindow(null)
+                        phoneCache[npc.id] = this; view.overlays.add(this)
+                    }
+                    m.icon = nativeDrawableCache.getOrPut("NPC_PHONE_$phonePx") {
+                        emojiToDrawable(context, "📞", phonePx)
+                    }
+                    m.position = GeoPoint(npc.location.latitude + 0.000016, npc.location.longitude)
+                    m.isEnabled = true
+                }
+            }
+
             val routeOverlay = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag) as? Polyline)
                 ?: Polyline().apply {
                     outlinePaint.color = android.graphics.Color.BLUE
@@ -376,7 +534,35 @@ internal fun NativeOsmMap(
                             val metersPerPixel = (40075016.686 * Math.cos(Math.toRadians(npc.location.latitude))) /
                                     (256.0 * Math.pow(2.0, uiState.zoomLevel))
 
-                            if (npc.visualConfig != null) {
+                            if (npc.type == NpcType.POLICE_CAR) {
+                                // PATRULLA: asset especial sin repintar, mismo tamaño que un auto.
+                                val exactPixels = ((4.0 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(16)
+                                var angle = npc.rotationAngle % 360f
+                                if (angle < 0) angle += 360f
+                                val frameIndex = (angle / 7.5f).roundToInt() % 48
+                                val cacheKey = "POLICE_${frameIndex}_${exactPixels}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    val baseDrawable = PoliceSpriteManager.getPoliceCar(context, angle, highResRenderScale)
+                                    baseDrawable?.let { drawable ->
+                                        val ratio = drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight.toFloat()
+                                        val finalWidthPx: Int; val finalHeightPx: Int
+                                        if (ratio > 1f) { finalWidthPx = exactPixels; finalHeightPx = (exactPixels / ratio).toInt() }
+                                        else { finalHeightPx = exactPixels; finalWidthPx = (exactPixels * ratio).toInt() }
+                                        ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
+                                    } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
+                            } else if (npc.type == NpcType.POLICE_COP) {
+                                // POLICÍA A PIE: no hay asset de persona → se dibuja con un EMOJI.
+                                val exactPixels = ((1.05 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(14)
+                                val cacheKey = "COP_EMOJI_${exactPixels}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    emojiToDrawable(context, "👮", exactPixels)
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
+                            } else if (npc.visualConfig != null) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
 
                                 // 🧍 TAMAÑO DEL PEATÓN: algo mayor que el real (1.3 m) para que
@@ -530,6 +716,9 @@ internal fun NativeOsmMap(
                 if (!currentIds.contains(entry.key)) {
                     entry.value.forEach { overlay -> view.overlays.remove(overlay) }
                     landmarkIterator.remove()
+                    // Limpia la firma para que, si el landmark vuelve, se re-renderice (si no,
+                    // la firma vieja coincidiría y el nuevo overlay quedaría sin imagen/posición).
+                    landmarkSigCache.remove(entry.key)
                 }
             }
 
@@ -551,46 +740,77 @@ internal fun NativeOsmMap(
 
 
                 val center = GeoPoint(landmark.location.latitude, landmark.location.longitude)
-                val halfW = (landmark.baseWidthMeters * landmark.scaleFactor) / 2.0
-                val halfH = (landmark.baseHeightMeters * landmark.scaleFactor) / 2.0
-                val d = sqrt(halfW * halfW + halfH * halfH)
-                val theta = Math.toDegrees(atan2(halfW, halfH))
-
-                val pTL = center.destinationPoint(d, landmark.rotationAngle.toDouble() - theta)
-                val pTR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + theta)
-                val pBR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 - theta)
-                val pBL = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 + theta)
-
-                groundOverlay.setPosition(pTL, pTR, pBR, pBL)
-                groundOverlay.setImage(if (isDoorAsset) buildDoorEffectBitmap(bitmap, context) else bitmap)
+                // OPT FPS: recomputar geometría + re-subir textura SOLO si la firma cambió.
+                val sig = "${landmark.location.latitude},${landmark.location.longitude},${landmark.rotationAngle}," +
+                        "${landmark.scaleX},${landmark.scaleY},${landmark.baseWidthMeters},${landmark.baseHeightMeters},${landmark.assetPath}"
+                val sigChanged = landmarkSigCache[landmark.id] != sig
+                if (sigChanged) {
+                    landmarkSigCache[landmark.id] = sig
+                    val halfW = (landmark.baseWidthMeters * landmark.scaleX) / 2.0
+                    val halfH = (landmark.baseHeightMeters * landmark.scaleY) / 2.0
+                    val d = sqrt(halfW * halfW + halfH * halfH)
+                    val theta = Math.toDegrees(atan2(halfW, halfH))
+                    val pTL = center.destinationPoint(d, landmark.rotationAngle.toDouble() - theta)
+                    val pTR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + theta)
+                    val pBR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 - theta)
+                    val pBL = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 + theta)
+                    groundOverlay.setPosition(pTL, pTR, pBR, pBL)
+                }
+                // Puertas: brillo ANIMADO → refrescan imagen cada frame. Estáticos: solo al cambiar.
+                if (isDoorAsset) {
+                    groundOverlay.setImage(buildDoorEffectBitmap(bitmap, context))
+                } else if (sigChanged) {
+                    groundOverlay.setImage(bitmap)
+                }
 
                 // Limpiar cualquier marcador DOOR_PULSE residual de la versión anterior
                 overlays.filterIsInstance<Marker>().filter { it.title == "DOOR_PULSE" }.forEach { m ->
                     view.overlays.remove(m); overlays.remove(m)
                 }
-                val existingControl = overlays.filterIsInstance<Marker>().firstOrNull()
-                if (uiState.isDesignerMode) {
-                    val controlMarker = existingControl ?: Marker(view).apply {
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)?.mutate()
-                        overlays.add(this)
-                        view.overlays.add(this)
-                    }
-                    controlMarker.position = center
-                    if (uiState.selectedLandmarkId == landmark.id) controlMarker.icon?.setTint(android.graphics.Color.RED)
-                    else controlMarker.icon?.setTintList(null)
 
-                    controlMarker.setOnMarkerClickListener { _, _ -> viewModel.selectLandmark(landmark.id); true }
-                    controlMarker.isDraggable = true
-                    controlMarker.setOnMarkerDragListener(object : Marker.OnMarkerDragListener {
-                        override fun onMarkerDragStart(marker: Marker) { viewModel.selectLandmark(landmark.id) }
-                        override fun onMarkerDrag(marker: Marker) {
-                            viewModel.moveSelectedLandmark(marker.position.latitude - landmark.location.latitude, marker.position.longitude - landmark.location.longitude)
-                        }
-                        override fun onMarkerDragEnd(marker: Marker) {}
-                    })
+                // 1. Buscamos o creamos el Polígono de selección (reemplaza al icono del lápiz)
+                // Se usa un Polygon para que toda el área del asset sea clickable y tenga contorno
+                val selectionPolygon = overlays.filterIsInstance<org.osmdroid.views.overlay.Polygon>().firstOrNull()
+                    ?: org.osmdroid.views.overlay.Polygon(view).apply {
+                        fillPaint.color = android.graphics.Color.TRANSPARENT
+                        overlays.add(this)
+                    }
+
+                if (uiState.isDesignerMode) {
+                    // Calculamos los 4 puntos del rectángulo rotado que coinciden con el GroundOverlay
+                    val halfW = (landmark.baseWidthMeters * landmark.scaleX) / 2.0
+                    val halfH = (landmark.baseHeightMeters * landmark.scaleY) / 2.0
+                    val d = sqrt(halfW * halfW + halfH * halfH)
+                    val theta = Math.toDegrees(atan2(halfW, halfH))
+                    val pTL = center.destinationPoint(d, landmark.rotationAngle.toDouble() - theta)
+                    val pTR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + theta)
+                    val pBR = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 - theta)
+                    val pBL = center.destinationPoint(d, landmark.rotationAngle.toDouble() + 180.0 + theta)
+
+                    selectionPolygon.points = listOf(pTL, pTR, pBR, pBL)
+
+                    // RESALTADO: Si está seleccionado, borde rojo; si no, invisible pero clickable
+                    if (uiState.selectedLandmarkId == landmark.id) {
+                        selectionPolygon.outlinePaint.color = android.graphics.Color.RED
+                        selectionPolygon.outlinePaint.strokeWidth = 10f
+                    } else {
+                        selectionPolygon.outlinePaint.color = android.graphics.Color.TRANSPARENT
+                        selectionPolygon.outlinePaint.strokeWidth = 0f
+                    }
+
+                    // Al hacer clic sobre el asset, se selecciona y abre el modal de edición
+                    selectionPolygon.setOnClickListener { _, _, _ ->
+                        viewModel.selectLandmark(landmark.id)
+                        true
+                    }
+
+                    // Forzar que el polígono esté arriba de todo para capturar el clic
+                    view.overlays.remove(selectionPolygon)
+                    view.overlays.add(selectionPolygon)
+                    selectionPolygon.isEnabled = true
                 } else {
-                    existingControl?.let { view.overlays.remove(it); overlays.remove(it) }
+                    selectionPolygon.isEnabled = false
+                    view.overlays.remove(selectionPolygon)
                 }
             }
 
@@ -671,6 +891,13 @@ internal fun NativeOsmMap(
                 }
 
             if (uiState.zoomLevel >= 14.0) {
+                // OPT FPS: hay ~160 estaciones; antes TODAS se dibujaban cada frame. Solo
+                // dibujamos las del viewport (margen 1.5× para la rotación al conducir); el
+                // resto se deshabilita (osmdroid no llama draw() si isEnabled=false).
+                val metroBox = try { view.boundingBox } catch (_: Exception) { null }
+                // Margen (~40%) sobre la caja visible para cubrir la rotación al conducir.
+                val metroLatM = if (metroBox != null) (metroBox.latNorth - metroBox.latSouth) * 0.4 else 0.0
+                val metroLonM = if (metroBox != null) (metroBox.lonEast - metroBox.lonWest) * 0.4 else 0.0
                 uiState.metroStations.forEach { station ->
                     val marker = metroMarkerCache[station.name] ?: Marker(view).apply {
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -696,10 +923,16 @@ internal fun NativeOsmMap(
                         view.overlays.add(this)
                     }
                     marker.position = station.location
-                    marker.setAlpha(1f)
+                    val inView = metroBox == null || (
+                        station.location.latitude <= metroBox.latNorth + metroLatM &&
+                        station.location.latitude >= metroBox.latSouth - metroLatM &&
+                        station.location.longitude <= metroBox.lonEast + metroLonM &&
+                        station.location.longitude >= metroBox.lonWest - metroLonM)
+                    marker.isEnabled = inView
+                    marker.setAlpha(if (inView) 1f else 0f)
                 }
             } else {
-                metroMarkerCache.values.forEach { it.setAlpha(0f) }
+                metroMarkerCache.values.forEach { it.isEnabled = false; it.setAlpha(0f) }
             }
 
             // ─── OVERLAY CREADOR DE RUTAS (MIGAS DE PAN Y CARRILES) ────────────────────────
@@ -748,6 +981,9 @@ internal fun NativeOsmMap(
             // ─── NEBLINA ANCLADA AL JUGADOR ─────────────────────────────────────
             (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 600) as? FogOverlay)?.let { fog ->
                 fog.player = uiState.currentLocation
+                // Solo al conducir el mapa rota; a pie la neblina puede dibujarse con el rect
+                // exacto de pantalla (sin el enorme sobredimensionado por rotación).
+                fog.rotated = uiState.isDriving
                 val lat = uiState.currentLocation?.latitude ?: 19.5
                 val mpp = metersPerPixel(view.zoomLevelDouble, lat)
                 fog.revealPx = if (mpp.isFinite() && mpp > 0.0)
@@ -768,6 +1004,7 @@ internal fun NativeOsmMap(
 private class FogOverlay : Overlay() {
     var player: GeoPoint? = null
     var revealPx: Float = 300f
+    var rotated: Boolean = false
     private val paint = android.graphics.Paint().apply { isAntiAlias = true }
 
     override fun draw(c: android.graphics.Canvas, pProjection: org.osmdroid.views.Projection) {
@@ -783,13 +1020,17 @@ private class FogOverlay : Overlay() {
             floatArrayOf(0f, stop, 1f),
             android.graphics.Shader.TileMode.CLAMP
         )
-        // En modo conducción el lienzo del mapa está ROTADO (mapOrientation). Un
-        // rect del tamaño exacto de pantalla dejaría huecos triangulares en las
-        // esquinas al girar. Lo sobredimensionamos a la diagonal (centrado) para
-        // cubrir la pantalla en cualquier ángulo de rotación.
+        // OPT FPS: a pie (sin rotación) basta el rect EXACTO de pantalla. Antes se dibujaba
+        // SIEMPRE un rect de ~2×diagonal por lado (≈10× el área de pantalla) con un
+        // RadialGradient — un overdraw enorme en CADA frame. Solo al CONDUCIR el lienzo está
+        // rotado y necesita el sobredimensionado a la diagonal para no dejar huecos al girar.
         val w = c.width.toFloat(); val h = c.height.toFloat()
-        val diag = sqrt(w * w + h * h)
-        val cx = w / 2f; val cy = h / 2f
-        c.drawRect(cx - diag, cy - diag, cx + diag, cy + diag, paint)
+        if (!rotated) {
+            c.drawRect(0f, 0f, w, h, paint)
+        } else {
+            val diag = sqrt(w * w + h * h)
+            val cx = w / 2f; val cy = h / 2f
+            c.drawRect(cx - diag, cy - diag, cx + diag, cy + diag, paint)
+        }
     }
 }

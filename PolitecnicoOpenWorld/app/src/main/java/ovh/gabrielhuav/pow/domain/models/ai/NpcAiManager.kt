@@ -47,7 +47,7 @@ class NpcAiManager {
         // PERSONALIDADES: la fracción de NPCs AGRESIVOS es CONFIGURABLE (por defecto la
         // mitad). El resto son COBARDES (huyen al ser golpeados). Los agresivos NO huyen
         // ("no les da miedo"): devuelven el golpe. Cambia aggressiveRatio para ajustarlo.
-        @Volatile var aggressiveRatio: Float = 0.5f
+        @Volatile var aggressiveRatio: Float = 0.3f
         // EMBESTIDA (aggro): un NPC agresivo persigue al jugador en línea recta durante
         // este tiempo y a este múltiplo de velocidad. Barato: ignora el grafo de calles
         // mientras dura (es un arrebato corto), solo interpola hacia el jugador.
@@ -57,7 +57,10 @@ class NpcAiManager {
         // LENTO que un jugador caminando (0.000003/tick) y nunca llegaba, así que el daño
         // por contacto jamás se aplicaba. Con 9 mantiene el paso de un caminante y casi
         // el de uno corriendo, por lo que sí te acorrala.
-        const val AGGRO_SPEED_MULT = 9f
+        // Bajado de 9 a 5: antes los NPCs corrían MÁS rápido que el jugador caminando y
+        // siempre te alcanzaban. Con 5 su velocidad efectiva (÷3 por el ritmo de la IA)
+        // queda al nivel de un caminante, así que corriendo puedes escapar de ellos.
+        const val AGGRO_SPEED_MULT = 5f
         // Distancia a la que el agresor se "planta" frente al jugador (no lo atraviesa).
         const val AGGRO_STOP_DIST = 0.000018     // ~2 m
         // VISIÓN HOSTIL: un NPC AGRESIVO ataca al jugador que entre en este radio (sin
@@ -114,9 +117,15 @@ class NpcAiManager {
 
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
     private val cachedLandmarks = AtomicReference<List<Landmark>>(emptyList())
+    // OPT CPU/GC gama baja: lista PRE-FILTRADA de landmarks con navGraph. Antes se
+    // recalculaba (.filter { it.navGraph != null }) en updateNpcs Y dentro de moveNpc por
+    // CADA NPC en CADA tick, asignando una lista nueva cada vez (O(NPCs·landmarks)). Como
+    // los landmarks solo cambian al editarlos, se computa una sola vez en setLandmarks.
+    private val cachedNavLandmarks = AtomicReference<List<Landmark>>(emptyList())
 
     fun setLandmarks(landmarks: List<Landmark>) {
         cachedLandmarks.set(landmarks)
+        cachedNavLandmarks.set(landmarks.filter { it.navGraph != null })
     }
 
     private class WayBox(
@@ -322,7 +331,7 @@ class NpcAiManager {
 
             // Landmarks con grafo de navegación (rama de landmarks). Se usa tanto para el
             // pre-llenado de estacionamientos como para el spawn sesgado hacia ellos.
-            val activeLandmarks = cachedLandmarks.get().filter { it.navGraph != null }
+            val activeLandmarks = cachedNavLandmarks.get()
 
             // PRE-LLENADO ORGÁNICO: al acercarse a un landmark con estacionamiento, llena
             // algunos cajones con autos aparcados (una sola vez por visita).
@@ -799,7 +808,7 @@ class NpcAiManager {
         var nodeIndex = npc.targetNodeIndex
         var direction = npc.moveDirection
 
-        val activeLandmarks = cachedLandmarks.get().filter { it.navGraph != null }
+        val activeLandmarks = cachedNavLandmarks.get()
 
         if (way == null) {
             val validWays = network.filter { w ->
@@ -851,7 +860,7 @@ class NpcAiManager {
 
             // Entrada a landmark para autos que llegan a un nodo de OSM (rama de landmarks).
             if (npc.type == NpcType.CAR) {
-                for (landmark in cachedLandmarks.get()) {
+                for (landmark in cachedNavLandmarks.get()) {
                     val navGraph = landmark.navGraph ?: continue
                     if (navGraph.entryWays.isEmpty()) continue
                     for (entryWayId in navGraph.entryWays) {
