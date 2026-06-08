@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -313,6 +314,7 @@ fun WorldMapScreen(
     // Si en el frame anterior se enviaron waypoints de patrulla al WebView, para poder
     // limpiarlos al dejar de estar buscado sin spamear updatePolice cuando no hay policías.
     val lastWebPoliceHolder = remember { booleanArrayOf(false) }
+    val lastWebZombieHolder = remember { booleanArrayOf(false) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
@@ -598,7 +600,7 @@ fun WorldMapScreen(
                             key(npc.id) {
                                 val qHealth = npc.health.toInt()
                                 val cacheKey = when {
-                                    npc.visualConfig != null -> {
+                                    npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                         val currentlyMoving = npc.speed > 0 || npc.isMoving
                                         val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                         val exactPixels = (personSzDp * screenDensity).toInt()
@@ -622,15 +624,23 @@ fun WorldMapScreen(
                                     }
                                     npc.type == NpcType.POLICE_COP -> "GM_COP_EMOJI"
                                     npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
-                                        val frameIndex = (System.currentTimeMillis() / 140) % 9
-                                        "GM_ZOMBIE___H_D"
+                                        val timeMs = System.currentTimeMillis()
+                                        val frameIndex = ((timeMs / 220L) % 9L).toInt()
+                                        val roleSizeMul = when (npc.zombieRole) {
+                                            ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK -> 1.45f
+                                            ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 0.9f
+                                            else -> 1f
+                                        }
+                                        val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
+                                        val exactPixels = (personSzDp * screenDensity * roleSizeMul).toInt()
+                                        "GM_ZOMBIE_${npc.zombieRole.name}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health.toInt()}_M${npc.maxHealth.toInt()}_D${npc.isDying}"
                                     }
                                     else -> "GM_SVG_${npc.type.name}_H${qHealth}_D${npc.isDying}"
                                 }
 
                                 val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
                                     val drawable = when {
-                                        npc.visualConfig != null -> {
+                                        npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                             val currentlyMoving = npc.speed > 0 || npc.isMoving
                                             val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                             val exactPixels = (personSzDp * screenDensity).toInt()
@@ -662,12 +672,21 @@ fun WorldMapScreen(
                                             emojiToDrawable(context, "👮", px)
                                         }
                                         npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
-                                            val frameIndex = (System.currentTimeMillis() / 140) % 9
-                                            val bitmap = ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieSpriteManager.getFrame(context, ovh.gabrielhuav.pow.domain.models.zombie.ZombieType.NORMAL, npc.isDying, frameIndex.toInt())?.asAndroidBitmap()
-                                            val drawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
-                                            var d = drawHealthBarOnDrawable(context, drawable, npc.health, npc.isDying)
+                                            val timeMs = System.currentTimeMillis()
+                                            var d: android.graphics.drawable.Drawable? = ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.getZombieDrawable(
+                                                context = context,
+                                                npc = npc,
+                                                timeMs = timeMs,
+                                                scale = screenDensity
+                                            )
+                                            d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying, npc.maxHealth)
+                                            val roleSizeMul = when (npc.zombieRole) {
+                                                ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK -> 1.45f
+                                                ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 0.9f
+                                                else -> 1f
+                                            }
                                             val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
-                                            val exactPixels = (personSzDp * screenDensity).toInt()
+                                            val exactPixels = (personSzDp * screenDensity * roleSizeMul).toInt()
                                             d?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                         }
                                         else -> {
@@ -698,6 +717,49 @@ fun WorldMapScreen(
                                     flat = true,
                                     alpha = if (npc.isDying) 0.5f else 1.0f
                                 )
+                            }
+                        }
+                    }
+
+                    // ─── WAYPOINTS DE ZOMBIS (fuera del fog, modo apocalipsis) ───
+                    // Paridad con OSM nativo/web: 🧟 + línea ROJA punteada jugador→zombi para
+                    // los zombis FUERA de tu campo de visión (Google Maps nativo).
+                    run {
+                        val plocG = uiState.currentLocation
+                        if (plocG != null && uiState.globalZombieMode) {
+                            val zombieWpIconG = remember {
+                                val px = (26 * context.resources.displayMetrics.density).toInt()
+                                val d = emojiToDrawable(context, "🧟", px)
+                                val bm = android.graphics.Bitmap.createBitmap(
+                                    d.intrinsicWidth.coerceAtLeast(1), d.intrinsicHeight.coerceAtLeast(1),
+                                    android.graphics.Bitmap.Config.ARGB_8888
+                                )
+                                val c = android.graphics.Canvas(bm)
+                                d.setBounds(0, 0, bm.width, bm.height); d.draw(c)
+                                BitmapDescriptorFactory.fromBitmap(bm)
+                            }
+                            uiState.npcs.forEach { npc ->
+                                if (npc.type != NpcType.ZOMBIE || npc.health <= 0f) return@forEach
+                                if (npcWithinRadius(npc.location.latitude, npc.location.longitude,
+                                        plocG.latitude, plocG.longitude, NPC_FOG_VISION_METERS)) return@forEach
+                                key("zwp_${npc.id}") {
+                                    val zPos = LatLng(npc.location.latitude, npc.location.longitude)
+                                    val zSt = remember { MarkerState(position = zPos) }
+                                    zSt.position = zPos
+                                    com.google.maps.android.compose.Marker(
+                                        state = zSt, icon = zombieWpIconG,
+                                        anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                        flat = true, zIndex = 800f
+                                    )
+                                    com.google.maps.android.compose.Polyline(
+                                        points = listOf(LatLng(plocG.latitude, plocG.longitude), zPos),
+                                        color = Color(0xFFE53935), width = 6f, zIndex = 1200f, clickable = false,
+                                        pattern = listOf(
+                                            com.google.android.gms.maps.model.Dash(30f),
+                                            com.google.android.gms.maps.model.Gap(20f)
+                                        )
+                                    )
+                                }
                             }
                         }
                     }
@@ -864,7 +926,7 @@ fun WorldMapScreen(
                                     registeredWebImages.add(cacheKey)
                                 }
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, "CAR", cacheKey, null, null, npc.displayName, widthCache[cacheKey], heightCache[cacheKey], health = npc.health, isDying = npc.isDying)
-                            } else if (npc.visualConfig != null) {
+                            } else if (npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
                                 val config = npc.visualConfig!!
                                 val frameIndex = CharacterSpriteManager.getFrameIndex(context, config, currentlyMoving, System.currentTimeMillis()) ?: 0
@@ -887,27 +949,41 @@ fun WorldMapScreen(
                                 }
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, if (npc.facingRight) 1 else -1, npc.displayName, health = npc.health, isDying = npc.isDying)
                             } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
-                                val frameIndex = (System.currentTimeMillis() / 140) % 9
-                                val cacheKey = "ZOMBIE_WEB___D"
+                                val timeMs = System.currentTimeMillis()
+                                // FIX web: el frame DEBE acotarse a los 9 del walk (% 9), igual que
+                                // getZombieDrawable. Antes era (timeMs/220).toInt() (entero creciente),
+                                // así que cada frame creaba un cacheKey nuevo cuya imagen base64 (async)
+                                // nunca llegaba a registrarse a tiempo → el zombi no se veía en web.
+                                val frameIndex = ((timeMs / 220L) % 9L).toInt()
+                                // El rol entra en la clave para que cada tinte (palette swap) se cachee aparte.
+                                val cacheKey = "ZOMBIE_WEB_${npc.zombieRole.name}_${npc.facingRight}_${frameIndex}_D${npc.isDying}"
                                 val base64Image = base64Cache[cacheKey]
                                 if (base64Image == null) {
                                     base64Cache[cacheKey] = ""
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
-                                        val bitmap = ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieSpriteManager.getFrame(context, ovh.gabrielhuav.pow.domain.models.zombie.ZombieType.NORMAL, npc.isDying, frameIndex.toInt())?.asAndroidBitmap()
+                                        val drawable = ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.getZombieDrawable(
+                                            context = context,
+                                            npc = npc,
+                                            timeMs = timeMs,
+                                            scale = highResRenderScale
+                                        )
+                                        val bitmap = drawable?.bitmap
                                         if (bitmap != null) {
                                             val out = java.io.ByteArrayOutputStream()
-                                            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
-                                            val b64 = "data:image/png;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
+                                            val b64 = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
                                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { base64Cache[cacheKey] = b64 }
                                         }
                                     }
                                 }
                                 if (!base64Image.isNullOrEmpty() && !registeredWebImages.contains(cacheKey)) {
-                                    val script = "if(!window.imgCache) window.imgCache={}; window.imgCache[''] = '';"
-                                    wv.evaluateJavascript(script, null)
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                     registeredWebImages.add(cacheKey)
                                 }
-                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, null, health = npc.health, isDying = npc.isDying)
+                                // Vida normalizada a 0-100 (el JS dibuja la barra asumiendo max 100):
+                                // así la barra del web es proporcional al maxHealth del rol.
+                                val webHp = if (npc.maxHealth > 0f) (npc.health / npc.maxHealth * 100f) else npc.health
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, null, health = webHp, isDying = npc.isDying)
                             } else if (npc.type == NpcType.POLICE_COP) {
                                 // FIX web: el policía A PIE no tiene asset → en web salía como un SVG
                                 // genérico (vector verde). Igual que en nativo lo dibujamos como emoji
@@ -1009,6 +1085,24 @@ fun WorldMapScreen(
                                 mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude)
                             }
                             wv.evaluateJavascript("if(typeof updatePolice==='function')updatePolice(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(policePayload)});", null)
+                        }
+
+                        // Waypoints de ZOMBIS FUERA del fog (paridad con OSM nativo): 🧟 + línea
+                        // ROJA punteada jugador→zombi en modo apocalipsis. Los zombis DENTRO del
+                        // fog ya se dibujan con su sprite (no llevan waypoint).
+                        val zombiesW = if (plocW != null && uiState.globalZombieMode) {
+                            uiState.npcs.filter {
+                                it.type == NpcType.ZOMBIE && it.health > 0f &&
+                                    !npcWithinRadius(it.location.latitude, it.location.longitude,
+                                        plocW.latitude, plocW.longitude, NPC_FOG_VISION_METERS)
+                            }
+                        } else emptyList()
+                        if (zombiesW.isNotEmpty() || lastWebZombieHolder[0]) {
+                            lastWebZombieHolder[0] = zombiesW.isNotEmpty()
+                            val zombiePayload = zombiesW.map {
+                                mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude)
+                            }
+                            wv.evaluateJavascript("if(typeof updateZombies==='function')updateZombies(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(zombiePayload)});", null)
                         }
                     }
                 )
@@ -1313,11 +1407,30 @@ fun WorldMapScreen(
                                 // (Submenú "Ir a…" eliminado: "Ir a ESCOM" ya es el primer punto de
                                 // "Teletransportarse…" y "Ir a tu Ubicación (GPS)" se movió al inicio
                                 // de esa misma lista.)
-                                add(OptionMenuItem("Modo Diseñador", Icons.Default.Architecture, if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White) { viewModel.toggleDesignerMode(!uiState.isDesignerMode) })
-                                add(OptionMenuItem("Debug Interiores", Icons.Default.LocationOn, if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White) { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) })
-                                if (uiState.isDesignerMode) {
-                                    add(OptionMenuItem("Agregar Asset", Icons.Default.Add, Color(0xFF4CAF50)) { viewModel.showAssetPicker(true) })
-                                }
+                                // Submenú anidado: agrupa "Modo Diseñador" + "Debug Interiores"
+                                // (+ "Agregar Asset" cuando el diseñador está activo).
+                                add(
+                                    OptionMenuGroup(
+                                        id = "disenador_debug",
+                                        label = "Diseñador / Debug",
+                                        icon = Icons.Default.Architecture,
+                                        tint = if (uiState.isDesignerMode || uiState.showInteriorDebugOverlay) Color(0xFFD4AF37) else Color.White,
+                                        items = buildList {
+                                            add(OptionMenuItem("Modo Diseñador", Icons.Default.Architecture, if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White) { viewModel.toggleDesignerMode(!uiState.isDesignerMode) })
+                                            add(OptionMenuItem("Debug Interiores", Icons.Default.LocationOn, if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White) { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) })
+                                            if (uiState.isDesignerMode) {
+                                                add(OptionMenuItem("Agregar Asset", Icons.Default.Add, Color(0xFF4CAF50)) { viewModel.showAssetPicker(true) })
+                                            }
+                                        }
+                                    )
+                                )
+                                // Apocalipsis Zombi Global: activar/desactivar desde CUALQUIER lugar
+                                // (no solo con la mano de ESCOM). Toggle global; se replica por red.
+                                add(OptionMenuItem(
+                                    if (uiState.globalZombieMode) "Desactivar Apocalipsis" else "Activar Apocalipsis",
+                                    Icons.Default.Warning,
+                                    if (uiState.globalZombieMode) Color(0xFFE53935) else Color.White
+                                ) { viewModel.toggleGlobalZombieMode() })
                             }
                         )
                     )
@@ -1325,8 +1438,18 @@ fun WorldMapScreen(
                         OptionMenuGroup(
                             id = "mapa", label = "Mapa", icon = Icons.Default.LocationOn,
                             items = buildList {
-                                add(OptionMenuItem("Acercar (zoom +)", Icons.Default.Add) { viewModel.zoomIn() })
-                                add(OptionMenuItem("Alejar (zoom −)", Icons.Default.Remove) { viewModel.zoomOut() })
+                                // Submenú anidado: agrupa "Acercar" + "Alejar" zoom.
+                                add(
+                                    OptionMenuGroup(
+                                        id = "zoom",
+                                        label = "Zoom (acercar / alejar)",
+                                        icon = Icons.Default.Add,
+                                        items = buildList {
+                                            add(OptionMenuItem("Acercar (zoom +)", Icons.Default.Add) { viewModel.zoomIn() })
+                                            add(OptionMenuItem("Alejar (zoom −)", Icons.Default.Remove) { viewModel.zoomOut() })
+                                        }
+                                    )
+                                )
                                 // Centrar en jugador: SIEMPRE disponible (antes solo al panear),
                                 // para volver al jugador en cualquier momento. Si el usuario ha
                                 // cambiado el zoom respecto al de juego, esta opción EVOLUCIONA a

@@ -73,6 +73,32 @@ class NpcAiManager {
             else
                 ovh.gabrielhuav.pow.domain.models.NpcTrait.COWARD
 
+        // ─── ROLES DE ZOMBI (apocalipsis) — helpers estáticos ────────────────────
+        // Peso al spawn: mayoría NORMAL, algunos RUNNER/TANK/SCOUT.
+        fun rollZombieRole(): ovh.gabrielhuav.pow.domain.models.ZombieRole {
+            val r = Random.nextFloat()
+            return when {
+                r < 0.22f -> ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER
+                r < 0.34f -> ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK
+                r < 0.42f -> ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT
+                else      -> ovh.gabrielhuav.pow.domain.models.ZombieRole.NORMAL
+            }
+        }
+        // Vida máxima por rol (con PLAYER_PUNCH_DAMAGE=15 → golpes aprox: Runner 1, Normal 2, Tank 4).
+        fun maxHealthForRole(role: ovh.gabrielhuav.pow.domain.models.ZombieRole): Float = when (role) {
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 15f
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK   -> 60f
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT  -> 15f
+            else -> 30f
+        }
+        // Multiplicador de velocidad por rol (sobre la velocidad base del zombi).
+        fun speedMulForRole(role: ovh.gabrielhuav.pow.domain.models.ZombieRole): Float = when (role) {
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 1.6f
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK   -> 0.55f
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT  -> 1.5f
+            else -> 1f
+        }
+
         // PALETA FIJA DE ATUENDOS (optimización de render): en vez de colores aleatorios
         // por NPC (~2000 combinaciones → un sprite único por peatón), usamos un conjunto
         // PEQUEÑO de atuendos predefinidos. Así los sprites se COMPARTEN entre NPCs: la
@@ -142,6 +168,10 @@ class NpcAiManager {
 
     val pendingDespawns = mutableListOf<String>()
 
+    // ─── APOCALIPSIS ZOMBI GLOBAL ───
+    // Declarado aquí arriba porque maxActiveNpcs/maxTotalNpcs dependen de este flag.
+    @Volatile var globalZombieMode: Boolean = false
+
     // POBLACIÓN ESCALABLE Y BARATA EN GAMA BAJA:
     //  - maxActiveNpcs: NPCs SIMULADOS y visibles (dentro de simRadius ≈ fog). Solo
     //    estos gastan CPU (movimiento, tráfico, charlas).
@@ -152,8 +182,9 @@ class NpcAiManager {
     // ESCALA AL FOG: el fog de NPCs es de ~70 m (NPC_FOG_VISION_METERS). Para que el
     // mundo NO se vea vacío, los NPCs deben concentrarse alrededor de ese radio, no a
     // cientos de metros. Por eso el anillo de spawn y simRadius están en esa escala.
-    private val maxActiveNpcs = 12      // simulados/visibles en el fog (gama baja)
-    private val maxTotalNpcs  = 30      // tope en memoria (incluye congelados)
+    // MODO ZOMBI: aumentamos la población para tener más "víctimas" y zombis.
+    private val maxActiveNpcs get() = if (globalZombieMode) 45 else 12
+    private val maxTotalNpcs get() = if (globalZombieMode) 90 else 30
     // Throttle del escaneo de calles para spawnear: es lo más caro (recorre la red).
     // Solo lo hacemos cada SPAWN_SCAN_MS, no en cada tick de simulación.
     private val SPAWN_SCAN_MS = 500L
@@ -171,16 +202,14 @@ class NpcAiManager {
     private val carPopulationRatio: Float
         get() = if (globalZombieMode) 0f else 0.35f
 
-    // ─── APOCALIPSIS ZOMBI GLOBAL ───
-    @Volatile var globalZombieMode: Boolean = false
     val ZOMBIE_SPEED_MULT = 3.5f
     val ZOMBIE_VISION = 0.0009
     val ZOMBIE_CONTACT_DIST = 0.00003
     val ZOMBIE_BITE_DAMAGE = 8f
     val ZOMBIE_BITE_COOLDOWN_MS = 1000L
     val HUMAN_CONVERT_DELAY_MS = 1500L
-    val MAX_ZOMBIES = 25
-    val INITIAL_ZOMBIE_SEED = 4
+    val MAX_ZOMBIES = 35
+    val INITIAL_ZOMBIE_SEED = 25 // Aumentado para que el apocalipsis se sienta más poblado
 
     private val parkedTimers = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val parkingCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -447,7 +476,13 @@ class NpcAiManager {
                     val closeWays = cachedWayBoxes.get().map { it.way }
                     if (closeWays.isNotEmpty()) {
                         spawnNpcOnRoad(playerLocation, closeWays, activeLandmarks)?.let {
-                            serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT, trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE))
+                            // visualConfig = null: el zombi sembrado viene de spawnNpcOnRoad (un PERSON
+                            // con outfit modular). Si NO se limpia, los renderers lo dibujan como humano
+                            // (la rama visualConfig != null va antes que la de ZOMBIE). Limpiándolo aquí
+                            // todos los zombis usan el asset de ZOMBIS_MOD/z_walk en nativo/Google/web.
+                            val role = rollZombieRole()
+                            val hp = maxHealthForRole(role)
+                            serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(role), trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role, health = hp, maxHealth = hp))
                         }
                     }
                 }
@@ -479,7 +514,11 @@ class NpcAiManager {
                     if (h.type == NpcType.PERSON && h.health <= 0f && h.isDying) {
                         if (now > h.fearUntil) {
                             if (zombies.size < MAX_ZOMBIES) {
-                                serverNpcs[i] = h.copy(type = NpcType.ZOMBIE, health = 100f, isDying = false, chatUntil = 0L, fearUntil = 0L, trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE)
+                                // FIX: Limpiar visualConfig para que el renderizado use el asset de zombi.
+                                // El humano contagiado adopta un rol aleatorio (apocalipsis variado).
+                                val role = rollZombieRole()
+                                val hp = maxHealthForRole(role)
+                                serverNpcs[i] = h.copy(type = NpcType.ZOMBIE, health = hp, maxHealth = hp, isDying = false, chatUntil = 0L, fearUntil = 0L, trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role)
                             } else {
                                 synchronized(pendingDespawns) { pendingDespawns.add(h.id) }
                             }
@@ -531,7 +570,36 @@ class NpcAiManager {
             if (now > npc.aggroUntil) return null
             return npc
         }
-        
+
+        // ─── SCOUT ("El Explorador") ─────────────────────────────────────────────
+        // NO ataca a nadie. Corre hacia el humano más cercano; al acercarse GRITA (burbuja,
+        // screamUntil) e inmediatamente HUYE en dirección opuesta unos segundos. Alarma
+        // viviente: si lo ves, viene una horda migratoria detrás.
+        if (npc.zombieRole == ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT) {
+            val nearestH = serverNpcs
+                .filter { it.type == NpcType.PERSON && it.health > 0f && it.displayName.isNullOrEmpty() }
+                .minByOrNull { calculateDistance(it.location.latitude, it.location.longitude, npc.location.latitude, npc.location.longitude) }
+            if (nearestH == null) return moveNpc(npc, network, now, 0.5f)
+            val dh = calculateDistance(nearestH.location.latitude, nearestH.location.longitude, npc.location.latitude, npc.location.longitude)
+            val scoutScreamDist = 0.0002   // ~22 m: a esta distancia grita
+            val scoutFleeMs = 4500L
+            var newScream = npc.screamUntil
+            if (now >= npc.screamUntil && dh <= scoutScreamDist) newScream = now + scoutFleeMs
+            val fleeing = now < newScream
+            val dLatT = if (fleeing) (npc.location.latitude - nearestH.location.latitude) else (nearestH.location.latitude - npc.location.latitude)
+            val dLonT = if (fleeing) (npc.location.longitude - nearestH.location.longitude) else (nearestH.location.longitude - npc.location.longitude)
+            val a = atan2(dLatT, dLonT)
+            val sp = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT)
+            return npc.copy(
+                location = GeoPoint(npc.location.latitude + sin(a) * sp, npc.location.longitude + cos(a) * sp),
+                rotationAngle = (-Math.toDegrees(a).toFloat()),
+                isMoving = true,
+                facingRight = cos(a) >= 0,
+                screamUntil = newScream,
+                navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
+            )
+        }
+
         var targetLat = playerLat
         var targetLon = playerLon
         var distToTarget = calculateDistance(npc.location.latitude, npc.location.longitude, targetLat, targetLon)
@@ -574,14 +642,19 @@ class NpcAiManager {
         val dLatForDir = targetLat - npc.location.latitude
         val dLonForDir = targetLon - npc.location.longitude
         val dir = kotlin.math.atan2(dLatForDir, dLonForDir)
-        val effSpeed = personSpeed * ZOMBIE_SPEED_MULT
+        // Velocidad por rol: RUNNER más rápido, TANK más lento (sobre la base del zombi).
+        val effSpeed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(npc.zombieRole)
         val dLat = kotlin.math.sin(dir) * effSpeed
         val dLon = kotlin.math.cos(dir) * effSpeed
+        
+        // Calcular facingRight para la animación del sprite
+        val facingRight = kotlin.math.cos(dir) >= 0
         
         return npc.copy(
             location = GeoPoint(npc.location.latitude + dLat, npc.location.longitude + dLon),
             rotationAngle = -Math.toDegrees(dir).toFloat(),
             isMoving = true,
+            facingRight = facingRight,
             navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
         )
     }

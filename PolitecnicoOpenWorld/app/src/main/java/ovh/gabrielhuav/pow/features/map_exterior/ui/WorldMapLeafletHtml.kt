@@ -61,6 +61,8 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         var landmarkMarkers = {};
         var policeWpMarkers = {};   // 🚓 de patrullas fuera de la neblina (paridad con OSM nativo)
         var policeWpLines = {};     // líneas punteadas jugador → patrulla
+        var zombieWpMarkers = {};   // 🧟 de zombis fuera del fog (modo apocalipsis, paridad con OSM nativo)
+        var zombieWpLines = {};     // líneas ROJAS punteadas jugador → zombi
 
         var isZooming = false;
         var isExplorationMode = false;
@@ -392,6 +394,28 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                     policeWpLines[p.id].setLatLngs(pts);
                 } else {
                     policeWpLines[p.id] = L.polyline(pts, { color: '#005AFF', weight: 3, opacity: 0.47, dashArray: '18, 14', interactive: false }).addTo(map);
+                }
+            });
+        }
+        // ─── WAYPOINTS DE ZOMBIS (fuera del fog, modo apocalipsis) ──────────────────
+        // Paridad con OSM nativo: cada zombi FUERA de tu campo de visión se marca con un
+        // 🧟 y una línea ROJA punteada desde el jugador, para saber de dónde vienen.
+        function updateZombies(playerLat, playerLng, data) {
+            var ids = new Set(data.map(function(z){ return z.id; }));
+            for (var id in zombieWpMarkers) if (!ids.has(id)) { map.removeLayer(zombieWpMarkers[id]); delete zombieWpMarkers[id]; }
+            for (var id in zombieWpLines) if (!ids.has(id)) { map.removeLayer(zombieWpLines[id]); delete zombieWpLines[id]; }
+            data.forEach(function(z) {
+                if (zombieWpMarkers[z.id]) {
+                    zombieWpMarkers[z.id].setLatLng([z.lat, z.lng]);
+                } else {
+                    var icon = L.divIcon({ html: '<div style="font-size:26px; transform:translate(-50%,-50%);">🧟</div>', className: '', iconSize: [0,0] });
+                    zombieWpMarkers[z.id] = L.marker([z.lat, z.lng], { icon: icon, interactive: false, zIndexOffset: 800 }).addTo(map);
+                }
+                var pts = [[playerLat, playerLng], [z.lat, z.lng]];
+                if (zombieWpLines[z.id]) {
+                    zombieWpLines[z.id].setLatLngs(pts);
+                } else {
+                    zombieWpLines[z.id] = L.polyline(pts, { color: '#E53935', weight: 3, opacity: 0.5, dashArray: '18, 14', interactive: false }).addTo(map);
                 }
             });
         }

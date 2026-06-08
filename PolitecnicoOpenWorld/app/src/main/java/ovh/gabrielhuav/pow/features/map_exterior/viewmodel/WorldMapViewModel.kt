@@ -75,7 +75,18 @@ class WorldMapViewModel(
     // que se NOTE una colisión (NPC que te golpea, o atropello al conducir).
     var impactEffectTrigger by mutableStateOf(0)
         internal set
-    internal fun fireImpactEffect() { impactEffectTrigger++ }
+    // Throttle del 💥: con muchos zombis/NPCs golpeándote, applyNpcContactDamage llamaba a
+    // fireImpactEffect cada mordida (~cada 900 ms por atacante) y el 💥 central se veía "a cada
+    // rato". Limitamos a uno cada IMPACT_EFFECT_THROTTLE_MS para que siga marcando colisiones
+    // notables sin spamear.
+    private var lastImpactEffectMs = 0L
+    private val IMPACT_EFFECT_THROTTLE_MS = 900L
+    internal fun fireImpactEffect() {
+        val now = System.currentTimeMillis()
+        if (now - lastImpactEffectMs < IMPACT_EFFECT_THROTTLE_MS) return
+        lastImpactEffectMs = now
+        impactEffectTrigger++
+    }
 
     var showHealthBar by mutableStateOf(false)
         internal set
@@ -564,7 +575,18 @@ class WorldMapViewModel(
                                     vehicleRotation = (currentRotation + 360) % 360f
                                 )
                             }
+
+                            // ATROPELLO: conduciendo, los peatones/zombis dentro de RUN_OVER_RADIUS
+                            // reciben daño escalado con la velocidad. (Antes solo se llamaba en la
+                            // extensión WorldMapGameLoop.kt, que está SOMBREADA por este loop miembro.)
+                            runOverNpcs(finalLoc, currentSpeed)
                         }
+
+                        // GOLPES/MORDIDAS por CONTACTO: NPCs agresivos en embestida y ZOMBIS cercanos
+                        // dañan al jugador. Cada cliente lo aplica a SU propio jugador (no host-gated).
+                        // (Faltaba esta llamada en el loop miembro → ni los NPCs agresivos ni los
+                        // zombis hacían daño; solo estaba en la extensión muerta.)
+                        applyNpcContactDamage(location)
 
                         // POLICÍA: nivel de búsqueda (spawn de patrullas, persecución,
                         // golpes/disparos) y decaimiento. La simula el dueño del nivel.
@@ -643,7 +665,9 @@ class WorldMapViewModel(
                                                             pantsColor = npc.visualConfig?.pantsColor?.toArgb(),
                                                             health = npc.health,
                                                             isDying = npc.isDying,
-                                                            aggroUntil = npc.aggroUntil
+                                                            aggroUntil = npc.aggroUntil,
+                                                            zombieRole = npc.zombieRole.name,
+                                                            screamUntil = npc.screamUntil
                                                         )
                                                     }
                                                     ws.sendMessage(gson.toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
@@ -955,6 +979,13 @@ class WorldMapViewModel(
     private fun addRemoteEntity(remote: MultiplayerNpc) {
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
 
+        // Rol de zombi replicado: el maxHealth se DERIVA del rol (no viaja por el cable).
+        val zRole = try {
+            remote.zombieRole?.let { ovh.gabrielhuav.pow.domain.models.ZombieRole.valueOf(it) }
+                ?: ovh.gabrielhuav.pow.domain.models.ZombieRole.NORMAL
+        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.ZombieRole.NORMAL }
+        val zMaxHealth = if (npcType == NpcType.ZOMBIE) NpcAiManager.maxHealthForRole(zRole) else 100f
+
         val cModel = try {
             remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) }
                 ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
@@ -995,7 +1026,10 @@ class WorldMapViewModel(
             // estado de muerte del NPC (atropellos/golpes) igual que el host.
             health = remote.health ?: 100f,
             isDying = remote.isDying ?: false,
-            aggroUntil = remote.aggroUntil ?: 0L
+            aggroUntil = remote.aggroUntil ?: 0L,
+            zombieRole = zRole,
+            maxHealth = zMaxHealth,
+            screamUntil = remote.screamUntil ?: 0L
         )
     }
 
@@ -2181,9 +2215,13 @@ class WorldMapViewModel(
         // segundos tras reaaparecer para que ningún policía/NPC con aggro residual dispare
         // la animación de golpe de forma inesperada.
         if (System.currentTimeMillis() < respawnImmunityUntilMs) return
+        // Si YA estás muerto o en la pantalla WASTED, ignora el daño: si no, los zombis cercanos
+        // al cuerpo seguían llamando takeDamage durante el WASTED y el 💥 aparecía "a cada rato"
+        // al morir (y re-disparaban la secuencia).
+        if (_uiState.value.showWastedScreen || playerHealth <= 0f) return
         playerHealth = (playerHealth - amount).coerceAtLeast(0f)
         damagePulseTrigger++
-        fireImpactEffect() // 💥 visible en CUALQUIER golpe que recibe el jugador
+        if (playerHealth > 0f) fireImpactEffect() // 💥 solo si SOBREVIVES (no en el golpe mortal)
         showHealthBar = true
         if (playerHealth > 30f) {
             startHealthBarTimer(3000L)
@@ -2331,7 +2369,20 @@ class WorldMapViewModel(
                         // en estado de embestida hacia el jugador (lo persigue, visual) Y
                         // te DEVUELVE el golpe de forma garantizada poco después.
                         val retaliate = currentNpc.trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
+                        // KNOCKBACK: al golpear un ZOMBI que sobrevive, lo empujamos hacia atrás
+                        // (alejándolo del jugador) para que se note el golpe, como en el minijuego.
+                        // El Host lo retoma desde remoteEntities en el siguiente tick (recoil visible).
+                        val knockedLoc = if (currentNpc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
+                            val dLat = currentNpc.location.latitude - playerLoc.latitude
+                            val dLon = currentNpc.location.longitude - playerLoc.longitude
+                            val d = kotlin.math.sqrt(dLat * dLat + dLon * dLon)
+                            if (d > 1e-9) {
+                                val kb = 0.00007 // ~7-8 m de empuje
+                                GeoPoint(currentNpc.location.latitude + (dLat / d) * kb, currentNpc.location.longitude + (dLon / d) * kb)
+                            } else currentNpc.location
+                        } else currentNpc.location
                         remoteEntities[npcId] = currentNpc.copy(
+                            location = knockedLoc,
                             health = newHealth,
                             aggroUntil = if (retaliate) System.currentTimeMillis() + NpcAiManager.AGGRO_DURATION_MS else currentNpc.aggroUntil
                         )
@@ -2404,12 +2455,16 @@ class WorldMapViewModel(
     // GOLPE DE NPC AGRESIVO: los NPCs en estado de embestida (aggro) que tocan al
     // jugador le hacen daño, con un cooldown por NPC para no vaciar la vida de golpe.
     internal fun applyNpcContactDamage(playerLoc: GeoPoint) {
+        // Muerto / en WASTED: no recibas daño (evita el 💥 repetido sobre el cadáver).
+        if (_uiState.value.showWastedScreen || playerHealth <= 0f) return
         // SIN gate de host: el daño se aplica a TU PROPIO jugador en TU cliente, seas o no
         // el host de zona (el host solo decide quién SIMULA la IA, no quién recibe daño).
         val now = System.currentTimeMillis()
         for ((id, npc) in remoteEntities) {
             val isAggroPerson = npc.type == NpcType.PERSON && npc.aggroUntil > now
-            val isZombie = npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE && npc.health > 0f
+            // El SCOUT ("Explorador") NO ataca al jugador (solo grita y huye).
+            val isZombie = npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE && npc.health > 0f &&
+                npc.zombieRole != ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT
             if (!isAggroPerson && !isZombie) continue
             if (distance(playerLoc, npc.location) > NPC_CONTACT_RADIUS) continue
             val last = npcContactCooldowns[id] ?: 0L

@@ -35,8 +35,8 @@ internal fun dotDrawable(context: Context, colorInt: Int, sizePx: Int): android.
     return android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
 }
 
-internal fun drawHealthBarOnDrawable(context: Context, original: android.graphics.drawable.Drawable?, health: Float, isDying: Boolean): android.graphics.drawable.Drawable? {
-    if (original !is android.graphics.drawable.BitmapDrawable || health >= 100f || isDying) return original
+internal fun drawHealthBarOnDrawable(context: Context, original: android.graphics.drawable.Drawable?, health: Float, isDying: Boolean, maxHealth: Float = 100f): android.graphics.drawable.Drawable? {
+    if (original !is android.graphics.drawable.BitmapDrawable || health >= maxHealth || isDying) return original
     val mutableBitmap = original.bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
     val canvas = android.graphics.Canvas(mutableBitmap)
     val paint = android.graphics.Paint().apply { isAntiAlias = true }
@@ -51,8 +51,8 @@ internal fun drawHealthBarOnDrawable(context: Context, original: android.graphic
     val top = 0f
     paint.color = android.graphics.Color.BLACK
     canvas.drawRect(left, top, left + barWidth, top + barHeight, paint)
-    paint.color = when { health > 60f -> android.graphics.Color.GREEN; health > 30f -> android.graphics.Color.YELLOW; else -> android.graphics.Color.RED }
-    val healthWidth = (barWidth - 2f * pad) * (health / 100f)
+    paint.color = when { health > maxHealth * 0.6f -> android.graphics.Color.GREEN; health > maxHealth * 0.3f -> android.graphics.Color.YELLOW; else -> android.graphics.Color.RED }
+    val healthWidth = (barWidth - 2f * pad) * (health / maxHealth).coerceIn(0f, 1f)
     if (healthWidth > 0) canvas.drawRect(left + pad, top + pad, left + pad + healthWidth, top + barHeight - pad, paint)
     return android.graphics.drawable.BitmapDrawable(context.resources, mutableBitmap)
 }

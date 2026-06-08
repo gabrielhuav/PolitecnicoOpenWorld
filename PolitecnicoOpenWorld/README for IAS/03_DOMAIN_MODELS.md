@@ -19,7 +19,7 @@ data class MetroStation(name: String, routes: List<String>, location: GeoPoint)
 
 ```kotlin
 enum class CarModel(dirName, prefix) { SEDAN, SPORT, SUPERCAR, SUV, VAN, WAGON }  // 6 modelos, assets WHITE_*
-enum class NpcType(drawableName) { PERSON, CAR, POLICE_CAR, POLICE_COP }
+enum class NpcType(drawableName) { PERSON, CAR, POLICE_CAR, POLICE_COP, ZOMBIE }  // ZOMBIE = apocalipsis global
 enum class NpcNavState { MACRO_OSM /*calles reales*/, MICRO_LANDMARK /*dibujo del asset*/, PARKED }
 enum class NpcTrait { PASSIVE, COWARD, AGGRESSIVE }   // personalidad asignada al spawn
 ```
@@ -119,6 +119,49 @@ NPC_OUTFITS (lazy), CAR_COLORS: IntArray
 **Adopción / Adoption:** un NPC remoto cuyo `ownerId` no es el mío es **adoptado** por el Host más
 cercano (`moveNpc` reconstruye su ruta). Así el mundo nunca queda sin simular. / A remote NPC whose
 `ownerId` isn't mine is adopted by the nearest Host.
+
+### 🧟 Modo Zombi Global / Global Zombie Mode (apocalipsis)
+
+**ES:** Sub-modo del open world (distinto del minijuego). Se activa con `globalZombieMode` (lo pone el
+game loop cada tick desde `WorldMapState.globalZombieMode`). Los zombis son `NpcType.ZOMBIE`,
+simulados por el **Zone Host** dentro de `updateNpcs` y replicados por `NPC_BATCH_UPDATE`.
+**EN:** Open-world sub-mode (distinct from the minigame). Toggled via `globalZombieMode`. Zombies are
+`NpcType.ZOMBIE`, simulated by the Zone Host in `updateNpcs`, replicated via `NPC_BATCH_UPDATE`.
+
+Constantes: `ZOMBIE_SPEED_MULT=3.5`, `ZOMBIE_VISION=0.0009 (~100m)`, `ZOMBIE_CONTACT_DIST=0.00003 (~3m)`,
+`ZOMBIE_BITE_DAMAGE=8`, `ZOMBIE_BITE_COOLDOWN_MS=1000`, `MAX_ZOMBIES=35`, `INITIAL_ZOMBIE_SEED=25`,
+`HUMAN_CONVERT_DELAY_MS`. En modo zombi: `maxActiveNpcs=45`, `maxTotalNpcs=90`, `carPopulationRatio=0`
+(sin autos nuevos).
+
+Lógica (rama `if (globalZombieMode)` en `updateNpcs`, corre en el Host):
+1. **Seed:** mientras `zombies < INITIAL_ZOMBIE_SEED`, spawnea 1 zombi/tick con `spawnNpcOnRoad(...)?.copy(type=ZOMBIE, trait=AGGRESSIVE, visualConfig=null)`. **`visualConfig=null` es obligatorio** o los renderers lo dibujan como humano (ver 04/09).
+2. **Huida:** cada humano con un zombi dentro de `FEAR_RADIUS` recibe `fearUntil`/`fearFrom*` apuntando al zombi (reusa el sistema de miedo → `moveNpc` lo hace huir).
+3. **Contagio:** humano con `health<=0 && isDying` y `now > fearUntil` → `copy(type=ZOMBIE, health=100, visualConfig=null)` si `zombies < MAX_ZOMBIES` (si no, despawn).
+4. **`moveZombieNpc(npc, network, now, playerLat, playerLon)`** — persecución directa **fuera de la calle** (como `moveAggroNpc`): elige el objetivo más cercano entre {humanos, jugador} dentro de `ZOMBIE_VISION`; muerde al humano a `ZOMBIE_CONTACT_DIST` (con cooldown `chatUntil`); si el objetivo es el jugador no se detiene (lo alcanza → daño por contacto, ver 04).
+
+> El daño al jugador (mordida) NO está en `NpcAiManager`: lo aplica `WorldMapViewModel.applyNpcContactDamage` en cada cliente (ver 04). / Player bite damage is applied per-client in `applyNpcContactDamage` (see 04).
+
+#### Roles de zombi / Zombie roles (`ZombieRole`)
+
+```kotlin
+enum class ZombieRole { NORMAL, RUNNER, TANK, SCOUT }   // campos en Npc: zombieRole, maxHealth, screamUntil
+```
+Bajo costo: **palette swap** (tinte por `ColorMatrix` en `MapZombieSpriteManager`) sobre el MISMO asset
+`z_walk`, + velocidad/vida/tamaño. Helpers estáticos en el companion: `rollZombieRole()` (pesos:
+~22% Runner, ~12% Tank, ~8% Scout, resto Normal), `maxHealthForRole()` (Runner 15, Normal 30, Tank 60,
+Scout 15; con `PLAYER_PUNCH_DAMAGE=15` → ~1/2/4/1 golpes), `speedMulForRole()` (Runner ×1.6, Tank ×0.55,
+Scout ×1.5).
+
+| Rol | Tinte | Velocidad | Vida | Comportamiento |
+|---|---|---|---|---|
+| RUNNER "Corredor" | rojizo | rápido | baja (1 golpe) | persigue y muerde, normal pero veloz |
+| TANK "Tanque" | verdoso oscuro | lento | alta (~4 golpes), +grande | persigue y muerde |
+| SCOUT "Explorador" | amarillento | rápido | baja | **NO ataca**: corre al humano más cercano, **grita** (`screamUntil` → burbuja 📢, alarma de horda) y **huye** en dirección opuesta ~4.5 s |
+| NORMAL | — | normal | media (2 golpes) | persigue y muerde |
+
+Rol asignado en el **seed** y en la **conversión** (humano contagiado toma rol aleatorio). Se replica por
+`NPC_BATCH_UPDATE` (`zombieRole`, `screamUntil`); el `maxHealth` se **deriva** del rol en el cliente
+remoto (`addRemoteEntity`), no viaja por el cable. El SCOUT se excluye del daño por contacto al jugador.
 
 ---
 

@@ -150,11 +150,16 @@ internal fun NativeOsmMap(
     // y provocaba un ClassCastException (Polyline → Marker).
     val policeWpCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
     val policeRouteCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Polyline>() }
+    // Cachés de los waypoints/rutas de zombis (fuera del fog of war).
+    val zombieWpCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
+    val zombieRouteCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Polyline>() }
     // Pools para las "balas" de la policía: un círculo que viaja y el emoji 🔫 en el oficial.
     val policeBulletPool = remember { mutableListOf<org.osmdroid.views.overlay.Marker>() }
     val policeGunPool = remember { mutableListOf<org.osmdroid.views.overlay.Marker>() }
     // 📞 sobre NPCs que "llaman a la policía" (p. ej. al que le robaste el coche).
     val phoneCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
+    // 📢 sobre zombis SCOUT que están gritando (alarma de horda).
+    val screamCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
     // OPT FPS gama baja: firma (transformación + asset) por landmark. Los GroundOverlay
     // ESTÁTICOS se re-posicionaban y RE-SUBÍAN su textura (setImage) en CADA frame; con esto
     // solo lo hacen cuando su firma cambia (las puertas, animadas, siguen refrescando imagen).
@@ -375,6 +380,70 @@ internal fun NativeOsmMap(
                 }
             }
 
+            // ─── WAYPOINTS DE ZOMBIS (solo fuera del fog of war, modo apocalipsis) ───
+            // Similar a las patrullas: marca con un waypoint rojo y una línea cada zombi
+            // que esté FUERA del fog of war, para saber dónde están y qué tan cerca vienen.
+            val zombiesToMark = if (playerLocWp != null && uiState.globalZombieMode) {
+                uiState.npcs.filter { it.type == NpcType.ZOMBIE && it.health > 0f &&
+                    !npcWithinRadius(it.location.latitude, it.location.longitude,
+                        playerLocWp.latitude, playerLocWp.longitude, NPC_FOG_VISION_METERS) }
+            } else emptyList()
+
+            val zombieWpIds = zombiesToMark.map { it.id }.toSet()
+            val zombieWpIterator = zombieWpCache.iterator()
+            while (zombieWpIterator.hasNext()) {
+                val entry = zombieWpIterator.next()
+                if (!zombieWpIds.contains(entry.key)) {
+                    view.overlays.remove(entry.value)
+                    zombieWpIterator.remove()
+                }
+            }
+            val zombieRouteIterator = zombieRouteCache.iterator()
+            while (zombieRouteIterator.hasNext()) {
+                val entry = zombieRouteIterator.next()
+                if (!zombieWpIds.contains(entry.key)) {
+                    view.overlays.remove(entry.value)
+                    zombieRouteIterator.remove()
+                }
+            }
+
+            zombiesToMark.forEach { zombie ->
+                val wp = zombieWpCache[zombie.id] ?: Marker(view).apply {
+                    title = "ZOMBIE_WAYPOINT"
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    setInfoWindow(null)
+                    // EMOJI de zombi (🧟) mientras está fuera del fog. Al entrar al fog
+                    // desaparece este waypoint y se ve el asset real del zombi.
+                    val px = (26 * context.resources.displayMetrics.density).toInt()
+                    icon = emojiToDrawable(context, "🧟", px)
+                    zombieWpCache[zombie.id] = this
+                    view.overlays.add(this)
+                }
+                wp.position = GeoPoint(zombie.location.latitude, zombie.location.longitude)
+                wp.isEnabled = true
+                wp.setAlpha(1f)
+
+                // Ruta (línea) jugador → zombi: línea roja punteada para distinguir de policía.
+                if (playerLocWp != null) {
+                    val line = zombieRouteCache[zombie.id] ?: Polyline().apply {
+                        // Línea PUNTEADA ROJA y semi-transparente.
+                        outlinePaint.color = android.graphics.Color.argb(120, 255, 0, 0)
+                        outlinePaint.strokeWidth = 5f
+                        outlinePaint.isAntiAlias = true
+                        outlinePaint.style = android.graphics.Paint.Style.STROKE
+                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(18f, 14f), 0f)
+                        setInfoWindow(null)
+                        zombieRouteCache[zombie.id] = this
+                        view.overlays.add(0, this) // bajo los marcadores
+                    }
+                    line.setPoints(listOf(
+                        GeoPoint(playerLocWp.latitude, playerLocWp.longitude),
+                        GeoPoint(zombie.location.latitude, zombie.location.longitude)
+                    ))
+                    line.isEnabled = true
+                }
+            }
+
             // ─── BALAS DE LA POLICÍA (círculo que viaja lento + 🔫 en el oficial) ──
             val shots = uiState.policeShots
             val pLocB = uiState.currentLocation
@@ -444,6 +513,31 @@ internal fun NativeOsmMap(
                         emojiToDrawable(context, "📞", phonePx)
                     }
                     m.position = GeoPoint(npc.location.latitude + 0.000016, npc.location.longitude)
+                    m.isEnabled = true
+                }
+
+                // ─── 📢 Zombis SCOUT gritando (alarma de horda) ──────────────────
+                val screamPx = ((1.0 / mppB) * densB).toInt().coerceIn(14, 72)
+                val screamingNpcs = uiState.npcs.filter {
+                    it.type == NpcType.ZOMBIE &&
+                        it.zombieRole == ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT &&
+                        it.screamUntil > nowB
+                }
+                val screamIds = screamingNpcs.map { it.id }.toSet()
+                val screamIt = screamCache.iterator()
+                while (screamIt.hasNext()) {
+                    val e = screamIt.next()
+                    if (!screamIds.contains(e.key)) { view.overlays.remove(e.value); screamIt.remove() }
+                }
+                screamingNpcs.forEach { npc ->
+                    val m = screamCache[npc.id] ?: Marker(view).apply {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM); setInfoWindow(null)
+                        screamCache[npc.id] = this; view.overlays.add(this)
+                    }
+                    m.icon = nativeDrawableCache.getOrPut("ZOMBIE_SCREAM_$screamPx") {
+                        emojiToDrawable(context, "📢", screamPx)
+                    }
+                    m.position = GeoPoint(npc.location.latitude + 0.000018, npc.location.longitude)
                     m.isEnabled = true
                 }
             }
@@ -563,7 +657,7 @@ internal fun NativeOsmMap(
                                 }
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f
-                            } else if (npc.visualConfig != null) {
+                            } else if (npc.visualConfig != null && npc.type != NpcType.ZOMBIE) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
 
                                 // 🧍 TAMAÑO DEL PEATÓN: algo mayor que el real (1.3 m) para que
@@ -620,6 +714,32 @@ internal fun NativeOsmMap(
                                         }
                                         ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
                                     } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
+                            } else if (npc.type == NpcType.ZOMBIE) {
+                                // 🧟 ZOMBIE: usa los assets de ZOMBIS_MOD/z_walk.
+                                // Tamaño similar al de los peatones (1.3 m).
+                                // Tamaño por rol: TANK más grande, RUNNER algo más pequeño.
+                                val roleSizeMul = when (npc.zombieRole) {
+                                    ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK -> 1.45f
+                                    ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 0.9f
+                                    else -> 1f
+                                }
+                                val exactPixels = ((1.3 / metersPerPixel) * screenDensity * roleSizeMul).toInt().coerceAtLeast(12)
+                                val zFrame = ((timeMs / 220L) % 9L).toInt()
+                                val cacheKey = "ZOMBIE_${npc.zombieRole.name}_${npc.facingRight}_${zFrame}_${exactPixels}_H${npc.health.toInt()}_M${npc.maxHealth.toInt()}_D${npc.isDying}"
+
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    var baseDrawable: android.graphics.drawable.Drawable? = ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.getZombieDrawable(
+                                        context = context,
+                                        npc = npc,
+                                        timeMs = timeMs,
+                                        scale = highResRenderScale
+                                    )
+                                    baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying, npc.maxHealth)
+                                    baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                        ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                 }
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f

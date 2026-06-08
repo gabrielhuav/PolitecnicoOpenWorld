@@ -69,6 +69,7 @@ roster (la policía es transitoria y por-jugador; cada cliente la purga por *sta
 | `DISCONNECT` | C↔S | global | Jugador se va |
 | `POLICE_BATCH_UPDATE` | C↔S | AOI | Patrullas/cops del jugador buscado |
 | `POLICE_DESTROY` | C↔S | global | Unidad de policía eliminada |
+| `ZOMBIE_MODE_SET` | C↔S | **global** | Toggle del apocalipsis zombi global (`{active:Boolean}`). Relayado por `broadcastAll`. Los zombis en sí viajan en `NPC_BATCH_UPDATE` (`npcType="ZOMBIE"`). **Va en este servidor (mundo abierto), NO en `MultiplayerZombie/`** |
 | `NPC_MARKER`, `POLICE_WAYPOINT`, `POLICE_CLEAN_ALLD` | C↔S | — | Usados por el cliente (marcadores/limpieza) |
 
 > **ES:** `MultiplayerNpc` lleva `health`, `isDying`, `aggroUntil` para que **todos** pinten barra de
@@ -79,6 +80,11 @@ roster (la policía es transitoria y por-jugador; cada cliente la purga por *sta
 ---
 
 ## 2) Zombie-minigame server — `MultiplayerZombie/server.js` (~740 líneas)
+
+> ⚠️ **NO confundir con el Modo Zombi Global** (apocalipsis sobre el mapa): ese vive en el servidor del
+> **mundo abierto** (`Multiplayer/server.js`, mensaje `ZOMBIE_MODE_SET`, zombis como `NpcType.ZOMBIE` en
+> `NPC_BATCH_UPDATE`). **Este** servidor (`MultiplayerZombie/`) es SOLO el **minijuego de interiores**
+> (lobby + edificios), con su propia conexión `ZOMBIE_SERVER_URL`. Son dos sistemas separados.
 
 **ES:** Corre la **simulación de zombis de forma autoritativa por sala** y difunde `ZOMBIE_STATE`.
 Coordenadas en el cable **fraccionarias `[0,1]`** (el cliente convierte a píxeles).

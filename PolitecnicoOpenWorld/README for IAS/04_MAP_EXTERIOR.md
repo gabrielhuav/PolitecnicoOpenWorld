@@ -220,3 +220,50 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
   `emojiToDrawable` en `WorldMapDrawingUtils.kt`.
 - **`nativeDrawableCache`** (declarado en `WorldMapScreen`, usado por `NativeOsmMap`) es un **LRU por
   orden de acceso** (cap ~384); sus claves embeben salud/zoom/frame → nunca volver a `mutableMapOf` (OOM).
+- `MapZombieSpriteManager` (`ui/components/`) — carga `ZOMBIS_MOD/z_walk/z_walk_1..9.webp` (9 frames),
+  `getZombieDrawable(context, npc, timeMs, scale)`. Liberado en `onTrimMemory`.
+
+---
+
+## 🧟 Modo Zombi Global / Global Zombie Mode
+
+**ES:** Apocalipsis sobre el mapa del mundo abierto (distinto del minijuego de interiores). Toggle
+global replicado en multijugador. Modelos + IA del zombi → ver **03**.
+**EN:** Apocalypse on the open-world map (distinct from the interior minigame). Global toggle, replicated
+in multiplayer. Zombie models + AI → see **03**.
+
+- **Estado:** `WorldMapState.globalZombieMode: Boolean`. El game loop hace `npcAiManager.globalZombieMode = uiState.globalZombieMode` cada tick.
+- **Activación:** (a) mano **"Mano del Apocalipsis"** fija en ESCOM (`handleInteraction()` → `toggleGlobalZombieMode()`); (b) **ítem de menú "Activar/Desactivar Apocalipsis"** (Opciones) que funciona en cualquier lugar; (c) **botón flotante de salida** cuando está activo (`exitGlobalZombieMode()`).
+- **VM API:** `toggleGlobalZombieMode()` (flip + broadcast `ZOMBIE_MODE_SET`), `exitGlobalZombieMode()`.
+- **Daño al jugador (¡crítico!):** los zombis muerden vía `applyNpcContactDamage(location)` y el atropello vía `runOverNpcs(finalLoc, speed)`. **Estas dos llamadas viven en el game loop MIEMBRO de `WorldMapViewModel.kt`** (el activo). La extensión `WorldMapGameLoop.kt` también las tiene pero está **sombreada/muerta** — editar solo el miembro (ver 09).
+- **Multijugador:** el Host simula los zombis y los replica por `NPC_BATCH_UPDATE` (conserva `npcType=ZOMBIE` + health/isDying). El toggle viaja en `ZOMBIE_MODE_SET` (global) — relayado por `Multiplayer/server.js` (NO por `MultiplayerZombie/`). `addRemoteEntity` reconstruye el zombi remoto con `visualConfig=null` y `speed=PERSON_SPEED` (animan). Ver **08**.
+
+### Render del zombi / zombie rendering (3 renderers)
+
+Los **3** renderers revisan `npc.visualConfig != null` ANTES que `ZOMBIE`, así que la rama de peatón
+lleva la guarda **`&& npc.type != NpcType.ZOMBIE`** y el seed pone `visualConfig=null`. Si no, el zombi
+se dibuja como humano. / All 3 renderers check `visualConfig != null` before `ZOMBIE`, so the pedestrian
+branch carries `&& npc.type != ZOMBIE` and the seed nulls `visualConfig`.
+
+- **OSM nativo** (`NativeOsmMap`): drawable de `MapZombieSpriteManager` → `ExactSizeDrawable` (~1.3 m).
+- **Google nativo** (`WorldMapScreen`): mismo drawable → `BitmapDescriptor` (en los dos `when`).
+- **Web** (`WorldMapScreen`): base64 `type="MODULAR"`. **El frame del `cacheKey` DEBE ser `% 9`** (no `(timeMs/220).toInt()` sin acotar) — si no, cada frame crea un key nuevo y la imagen base64 async nunca se registra → no se ve (ver 09).
+
+**Roles (palette swap):** los 3 renderers incluyen `npc.zombieRole` en el `cacheKey`, aplican el tinte
+(en `MapZombieSpriteManager.getZombieDrawable`), un `roleSizeMul` (Tank 1.45×, Runner 0.9×) y pasan
+`npc.maxHealth` a `drawHealthBarOnDrawable` (barra proporcional por rol; en web la vida se normaliza a
+0-100 en el payload). Burbuja del SCOUT: 📢 sobre la cabeza mientras `screamUntil > now` (render nativo
+`screamCache`, espejo del 📞 `callingUntil`). Roles + comportamiento → ver **03**.
+
+- **💥 FX de impacto:** `fireImpactEffect()` tiene **throttle** (`IMPACT_EFFECT_THROTTLE_MS=900`) para que
+  las mordidas de zombi/NPC no lo spameen en el centro de la pantalla. Además `takeDamage` y
+  `applyNpcContactDamage` **ignoran el daño si `showWastedScreen` o `playerHealth<=0`** (si no, los zombis
+  sobre el cadáver re-disparaban el 💥 al morir), y el 💥 **no** se muestra en el golpe mortal.
+- **Knockback de zombi:** al golpear (B) un zombi que sobrevive, `performPlayerAttack` lo **empuja** ~7-8 m
+  alejándolo del jugador (recoil visible; el Host lo retoma desde `remoteEntities`).
+
+### Waypoints de zombi (fuera del fog) / zombie waypoints (outside fog)
+
+🧟 + línea **roja** punteada jugador→zombi para zombis fuera de `NPC_FOG_VISION_METERS`, en modo
+apocalipsis. Implementado en los **3** proveedores: OSM nativo (`NativeOsmMap`, `zombieWpCache`/`zombieRouteCache`),
+web (Leaflet `updateZombies(...)` + push en `WorldMapScreen`), y Google nativo (Marker 🧟 + Polyline roja en el composable `GoogleMap`).
