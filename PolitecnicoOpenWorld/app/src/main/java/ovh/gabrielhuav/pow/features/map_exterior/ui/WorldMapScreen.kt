@@ -77,6 +77,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
@@ -145,7 +146,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.isActive
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import kotlin.math.cos
-import kotlin.math.sin
 
 // ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
 // Los NPC siguen viviendo en memoria/simulación; solo dibujamos los que caen
@@ -539,36 +539,28 @@ fun WorldMapScreen(
                                 )
 
                                 if (uiState.isDesignerMode) {
-                                    val isSelected = uiState.selectedLandmarkId == landmark.id
-                                    val lat = landmark.location.latitude
-                                    val lng = landmark.location.longitude
-                                    val rotRad = Math.toRadians(landmark.rotationAngle.toDouble())
-                                    val metersToLat = 1.0 / 111111.0
-                                    val metersToLon = 1.0 / (111111.0 * cos(Math.toRadians(lat)))
-                                    val halfW = (landmark.baseWidthMeters * landmark.scaleX) / 2.0
-                                    val halfH = (landmark.baseHeightMeters * landmark.scaleY) / 2.0
-
-                                    fun getPoint(dx: Double, dy: Double): LatLng {
-                                        val rx = dx * cos(rotRad) - dy * sin(rotRad)
-                                        val ry = dx * sin(rotRad) + dy * cos(rotRad)
-                                        return LatLng(lat + ry * metersToLat, lng + rx * metersToLon)
+                                    val markerState = remember(landmark.id) { MarkerState(position = center) }
+                                    markerState.position = center
+                                    val pencilIcon = remember(uiState.selectedLandmarkId == landmark.id) {
+                                        val drawable = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_edit)?.mutate()
+                                        if (uiState.selectedLandmarkId == landmark.id) drawable?.setTint(android.graphics.Color.RED)
+                                        val bm = android.graphics.Bitmap.createBitmap(drawable!!.intrinsicWidth, drawable.intrinsicHeight, android.graphics.Bitmap.Config.ARGB_8888)
+                                        val canvas = android.graphics.Canvas(bm)
+                                        drawable.setBounds(0, 0, bm.width, bm.height)
+                                        drawable.draw(canvas)
+                                        BitmapDescriptorFactory.fromBitmap(bm)
                                     }
-
-                                    val points = listOf(
-                                        getPoint(-halfW, halfH),
-                                        getPoint(halfW, halfH),
-                                        getPoint(halfW, -halfH),
-                                        getPoint(-halfW, -halfH)
+                                    com.google.maps.android.compose.Marker(
+                                        state = markerState,
+                                        draggable = true,
+                                        icon = pencilIcon,
+                                        onClick = { viewModel.selectLandmark(landmark.id); true }
                                     )
-
-                                    com.google.maps.android.compose.Polygon(
-                                        points = points,
-                                        fillColor = Color.Transparent,
-                                        strokeColor = if (isSelected) Color.Red else Color.Transparent,
-                                        strokeWidth = if (isSelected) 8f else 0f,
-                                        clickable = true,
-                                        onClick = { viewModel.selectLandmark(landmark.id) }
-                                    )
+                                    LaunchedEffect(markerState.position) {
+                                        if (markerState.dragState == com.google.maps.android.compose.DragState.DRAG) {
+                                            viewModel.moveSelectedLandmark(markerState.position.latitude - landmark.location.latitude, markerState.position.longitude - landmark.location.longitude)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -629,6 +621,10 @@ fun WorldMapScreen(
                                         "GM_POLICE_${frameIndex}_${dynamicScale}"
                                     }
                                     npc.type == NpcType.POLICE_COP -> "GM_COP_EMOJI"
+                                    npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
+                                        val frameIndex = (System.currentTimeMillis() / 140) % 9
+                                        "GM_ZOMBIE___H_D"
+                                    }
                                     else -> "GM_SVG_${npc.type.name}_H${qHealth}_D${npc.isDying}"
                                 }
 
@@ -664,6 +660,15 @@ fun WorldMapScreen(
                                         npc.type == NpcType.POLICE_COP -> {
                                             val px = (18 * screenDensity).toInt()
                                             emojiToDrawable(context, "👮", px)
+                                        }
+                                        npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
+                                            val frameIndex = (System.currentTimeMillis() / 140) % 9
+                                            val bitmap = ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieSpriteManager.getFrame(context, ovh.gabrielhuav.pow.domain.models.zombie.ZombieType.NORMAL, npc.isDying, frameIndex.toInt())?.asAndroidBitmap()
+                                            val drawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                                            var d = drawHealthBarOnDrawable(context, drawable, npc.health, npc.isDying)
+                                            val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
+                                            val exactPixels = (personSzDp * screenDensity).toInt()
+                                            d?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                         }
                                         else -> {
                                             val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
@@ -881,6 +886,28 @@ fun WorldMapScreen(
                                     registeredWebImages.add(cacheKey)
                                 }
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, if (npc.facingRight) 1 else -1, npc.displayName, health = npc.health, isDying = npc.isDying)
+                            } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
+                                val frameIndex = (System.currentTimeMillis() / 140) % 9
+                                val cacheKey = "ZOMBIE_WEB___D"
+                                val base64Image = base64Cache[cacheKey]
+                                if (base64Image == null) {
+                                    base64Cache[cacheKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val bitmap = ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieSpriteManager.getFrame(context, ovh.gabrielhuav.pow.domain.models.zombie.ZombieType.NORMAL, npc.isDying, frameIndex.toInt())?.asAndroidBitmap()
+                                        if (bitmap != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                                            val b64 = "data:image/png;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { base64Cache[cacheKey] = b64 }
+                                        }
+                                    }
+                                }
+                                if (!base64Image.isNullOrEmpty() && !registeredWebImages.contains(cacheKey)) {
+                                    val script = "if(!window.imgCache) window.imgCache={}; window.imgCache[''] = '';"
+                                    wv.evaluateJavascript(script, null)
+                                    registeredWebImages.add(cacheKey)
+                                }
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, null, health = npc.health, isDying = npc.isDying)
                             } else if (npc.type == NpcType.POLICE_COP) {
                                 // FIX web: el policía A PIE no tiene asset → en web salía como un SVG
                                 // genérico (vector verde). Igual que en nativo lo dibujamos como emoji
@@ -934,8 +961,7 @@ fun WorldMapScreen(
                                 scale = it.scaleX,
                                 scaleX = it.scaleX,
                                 scaleY = it.scaleY,
-                                assetPath = it.assetPath,
-                                selected = it.id == uiState.selectedLandmarkId
+                                assetPath = it.assetPath
                             )
                         }
                         val landmarksJson = gson.toJson(landmarksPayload)
@@ -1258,7 +1284,7 @@ fun WorldMapScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "Presiona sobre un edificio para editarlo",
+                    text = "Presiona el icono del lapiz para editar alguna contrucción",
                     color = Color.White,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
@@ -1503,6 +1529,16 @@ fun WorldMapScreen(
             label = "rightCtrlShift"
         )
         val rightShiftMod = Modifier.offset(x = rightCtrlShift)
+
+        if (uiState.globalZombieMode) {
+            androidx.compose.material3.Button(
+                onClick = { viewModel.exitGlobalZombieMode() },
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color.Red),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 110.dp)
+            ) {
+                androidx.compose.material3.Text("SALIR DEL APOCALIPSIS", color = androidx.compose.ui.graphics.Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            }
+        }
 
         if (!uiState.isDesignerMode) { // Oculta joystick y botones en modo diseñador
             Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

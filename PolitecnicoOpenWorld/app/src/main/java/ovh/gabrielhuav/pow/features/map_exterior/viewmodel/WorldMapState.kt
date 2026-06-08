@@ -86,6 +86,9 @@ data class WorldMapState(
     val isMultiplayer: Boolean = false,
     val playerName: String = "",
 
+    // ─── APOCALIPSIS ZOMBI GLOBAL ────────────────────────────────────────
+    val globalZombieMode: Boolean = false,
+
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
     val selectedLandmarkId: Long? = null,

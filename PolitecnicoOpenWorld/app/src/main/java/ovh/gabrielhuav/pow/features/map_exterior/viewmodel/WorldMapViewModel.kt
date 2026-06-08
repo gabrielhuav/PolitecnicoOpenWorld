@@ -785,6 +785,18 @@ class WorldMapViewModel(
             val msg = gson.fromJson(messageJson, ServerMessage::class.java)
 
             when (msg.type) {
+                "ZOMBIE_MODE_SET" -> {
+                    msg.active?.let { active ->
+                        _uiState.update { it.copy(globalZombieMode = active) }
+                        npcAiManager.globalZombieMode = active
+                        if (!active) {
+                            val zombiesToDespawn = remoteEntities.filter { it.value.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE }.keys
+                            zombiesToDespawn.forEach { id -> remoteEntities.remove(id) }
+                            updateNpcsState()
+                        }
+                    }
+                }
+
                 "SESSION_INIT" -> {
                     msg.sessionId?.let { myPlayerUUID = it }
                 }
@@ -2115,6 +2127,7 @@ class WorldMapViewModel(
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
                     val promptText = when {
+                        activeItem.id == "global_zombie_hand" -> if (_uiState.value.globalZombieMode) "PRESIONA X PARA DESACTIVAR MODO ZOMBI" else "PRESIONA X PARA ACTIVAR MODO ZOMBI"
                         activeItem.name == "Objeto Misterioso ESCOM" -> "PRESIONA X PARA INTERACTUAR"
                         activeItem.id == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA ENTRAR"
                         activeItem.id.startsWith("escom_door_")      -> "PRESIONA X PARA ENTRAR" // <--- Aquí aparece el texto de la puerta
@@ -2275,7 +2288,7 @@ class WorldMapViewModel(
             val targetNpcEntry = remoteEntities.entries
                 .filter {
                     !it.value.isDying &&
-                            it.value.type == NpcType.PERSON &&
+                            (it.value.type == NpcType.PERSON || it.value.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) &&
                             distance(playerLoc, it.value.location) <= ATTACK_RADIUS
                 }
                 .minByOrNull { distance(playerLoc, it.value.location) }
@@ -2366,7 +2379,7 @@ class WorldMapViewModel(
         var changed = false
         for ((id, npc) in remoteEntities) {
             if (!npc.displayName.isNullOrEmpty()) continue   // no a jugadores remotos
-            if (npc.type != NpcType.PERSON) continue          // solo peatones
+            if (npc.type != NpcType.PERSON && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) continue          // solo peatones y zombis
             if (npc.isDying) continue
             if (distance(playerLoc, npc.location) > RUN_OVER_RADIUS) continue
             val newHealth = (npc.health - damage).coerceAtLeast(0f)
@@ -2395,13 +2408,16 @@ class WorldMapViewModel(
         // el host de zona (el host solo decide quién SIMULA la IA, no quién recibe daño).
         val now = System.currentTimeMillis()
         for ((id, npc) in remoteEntities) {
-            if (npc.aggroUntil <= now || npc.type != NpcType.PERSON) continue
+            val isAggroPerson = npc.type == NpcType.PERSON && npc.aggroUntil > now
+            val isZombie = npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE && npc.health > 0f
+            if (!isAggroPerson && !isZombie) continue
             if (distance(playerLoc, npc.location) > NPC_CONTACT_RADIUS) continue
             val last = npcContactCooldowns[id] ?: 0L
             if (now - last < NPC_CONTACT_COOLDOWN_MS) continue
             if (_uiState.value.isDriving) continue // en coche no te golpean (te bajan, no te pegan)
             npcContactCooldowns[id] = now
-            viewModelScope.launch(Dispatchers.Main) { takeDamage(NPC_CONTACT_DAMAGE) } // takeDamage ya dispara el 💥
+            val dmg = if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) 8f else NPC_CONTACT_DAMAGE
+            viewModelScope.launch(Dispatchers.Main) { takeDamage(dmg) } // takeDamage ya dispara el 💥
         }
     }
 
@@ -2561,8 +2577,16 @@ class WorldMapViewModel(
 
         // Mano zombi desactivada del exterior — el acceso al lobby
         // ahora se realiza únicamente por las puertas físicas (ESCOM_DOOR).
-        _escomItems.value = emptyList()
-        _uiState.update { it.copy(isZombieHandSpawned = true) }   // flag para no reintentar
+        val globalZombieHand = ovh.gabrielhuav.pow.domain.models.ActiveCollectible(
+            id = "global_zombie_hand",
+            name = "Mano del Apocalipsis",
+            description = "Activa el apocalipsis global.",
+            assetPath = "ZOMBIS_MOD/zombi_hand.webp",
+            latitude = 19.50456,
+            longitude = -99.14674
+        )
+        _escomItems.value = listOf(globalZombieHand)
+        _uiState.update { it.copy(isZombieHandSpawned = true) }
         return
     }
 
@@ -2575,6 +2599,33 @@ class WorldMapViewModel(
 
         if (itemToCollect != null) {
             _escomItems.update { currentList -> currentList.filter { it.id != itemToCollect.id } }
+        }
+    }
+
+    // ─── APOCALIPSIS ZOMBI GLOBAL ────────────────────────────────────────
+
+    fun toggleGlobalZombieMode() {
+        val newState = !_uiState.value.globalZombieMode
+        _uiState.update { it.copy(globalZombieMode = newState) }
+        npcAiManager.globalZombieMode = newState
+        try {
+            webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "ZOMBIE_MODE_SET", "active" to newState)))
+        } catch (_: Exception) {}
+    }
+
+    fun exitGlobalZombieMode() {
+        if (_uiState.value.globalZombieMode) {
+            _uiState.update { it.copy(globalZombieMode = false) }
+            npcAiManager.globalZombieMode = false
+            try {
+                webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "ZOMBIE_MODE_SET", "active" to false)))
+            } catch (_: Exception) {}
+            val zombiesToDespawn = remoteEntities.filter { it.value.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE }.keys
+            zombiesToDespawn.forEach { id ->
+                try {
+                    webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to id)))
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -2593,6 +2644,7 @@ class WorldMapViewModel(
         val nearby = _uiState.value.nearbyCollectible ?: return
 
         when {
+            nearby.id == "global_zombie_hand" -> toggleGlobalZombieMode()
             nearby.name == "Objeto Misterioso ESCOM" -> {
                 pendingZombieMinigame = true
                 _uiState.update {

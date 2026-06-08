@@ -168,7 +168,19 @@ class NpcAiManager {
     private val spawnRingMax = 0.00068  // ~76 m (justo pasando el fog de 70 m)
 
     // Proporción objetivo de coches: menos coches = menos atascos y más peatones.
-    private val carPopulationRatio = 0.35f
+    private val carPopulationRatio: Float
+        get() = if (globalZombieMode) 0f else 0.35f
+
+    // ─── APOCALIPSIS ZOMBI GLOBAL ───
+    @Volatile var globalZombieMode: Boolean = false
+    val ZOMBIE_SPEED_MULT = 3.5f
+    val ZOMBIE_VISION = 0.0009
+    val ZOMBIE_CONTACT_DIST = 0.00003
+    val ZOMBIE_BITE_DAMAGE = 8f
+    val ZOMBIE_BITE_COOLDOWN_MS = 1000L
+    val HUMAN_CONVERT_DELAY_MS = 1500L
+    val MAX_ZOMBIES = 25
+    val INITIAL_ZOMBIE_SEED = 4
 
     private val parkedTimers = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val parkingCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -426,24 +438,152 @@ class NpcAiManager {
             //    de fuera quedan CONGELADOS (se devuelven tal cual): en memoria, sin CPU.
             //    Los autos aparcados/en-landmark se simulan vía moveNpc (estados PARKED /
             //    MICRO_LANDMARK) cuando están dentro del fog.
+            // --- APOCALIPSIS ZOMBI GLOBAL ---
+            if (globalZombieMode) {
+                val zombies = serverNpcs.filter { it.type == NpcType.ZOMBIE && it.health > 0 }
+                
+                // 1. Semilla inicial
+                if (zombies.size < INITIAL_ZOMBIE_SEED && serverNpcs.size < maxTotalNpcs) {
+                    val closeWays = cachedWayBoxes.get().map { it.way }
+                    if (closeWays.isNotEmpty()) {
+                        spawnNpcOnRoad(playerLocation, closeWays, activeLandmarks)?.let {
+                            serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT, trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE))
+                        }
+                    }
+                }
+                
+                // 2. Humanos huyen de los zombis
+                for (i in serverNpcs.indices) {
+                    val h = serverNpcs[i]
+                    if (h.type == NpcType.PERSON && h.health > 0 && h.displayName.isNullOrEmpty()) {
+                        val nearestZ = zombies.minByOrNull { calculateDistance(it.location.latitude, it.location.longitude, h.location.latitude, h.location.longitude) }
+                        if (nearestZ != null) {
+                            val distZ = calculateDistance(nearestZ.location.latitude, nearestZ.location.longitude, h.location.latitude, h.location.longitude)
+                            if (distZ <= FEAR_RADIUS) {
+                                serverNpcs[i] = h.copy(
+                                    fearUntil = now + FEAR_DURATION_MS,
+                                    fearFromLat = nearestZ.location.latitude,
+                                    fearFromLon = nearestZ.location.longitude,
+                                    chatUntil = 0L,
+                                    chatPartnerId = null,
+                                    isMoving = true
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // 3. Convertir humanos muertos
+                for (i in serverNpcs.indices) {
+                    val h = serverNpcs[i]
+                    if (h.type == NpcType.PERSON && h.health <= 0f && h.isDying) {
+                        if (now > h.fearUntil) {
+                            if (zombies.size < MAX_ZOMBIES) {
+                                serverNpcs[i] = h.copy(type = NpcType.ZOMBIE, health = 100f, isDying = false, chatUntil = 0L, fearUntil = 0L, trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE)
+                            } else {
+                                synchronized(pendingDespawns) { pendingDespawns.add(h.id) }
+                            }
+                        }
+                    }
+                }
+            }
+
             val updated = serverNpcs.mapNotNull { npc ->
                 if (!npc.displayName.isNullOrEmpty()) {
                     npc // Si es un jugador real, no lo tocamos.
                 } else if (calculateDistance(npc.location.latitude, npc.location.longitude, pLat0, pLon0) > simRadius) {
                     npc // Congelado: fuera del fog. No gasta CPU de movimiento.
                 } else {
-                    // TRÁFICO: un coche frena si tiene otro coche justo delante.
-                    val speedScale = if (npc.type == NpcType.CAR) carFollowScale(npc, cars) else 1f
-                    val moved = moveNpc(npc, currentNetwork, now, speedScale)
-                    if (moved == null) {
-                        synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                    if (globalZombieMode && npc.type == NpcType.ZOMBIE) {
+                        val moved = moveZombieNpc(npc, currentNetwork, now, pLat0, pLon0)
+                        if (moved == null) {
+                            synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                        }
+                        moved
+                    } else {
+                        // TRÁFICO: un coche frena si tiene otro coche justo delante.
+                        val speedScale = if (npc.type == NpcType.CAR) carFollowScale(npc, cars) else 1f
+                        val moved = moveNpc(npc, currentNetwork, now, speedScale)
+                        if (moved == null) {
+                            synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                        }
+                        moved
                     }
-                    moved
                 }
             }
             serverNpcs.clear()
             serverNpcs.addAll(updated)
         }
+    }
+
+
+    private fun moveZombieNpc(
+        npc: Npc, 
+        network: List<MapWay>, 
+        now: Long, 
+        playerLat: Double, 
+        playerLon: Double
+    ): Npc? {
+        if (npc.health <= 0f) {
+            if (!npc.isDying) {
+                return npc.copy(isDying = true, aggroUntil = now + HUMAN_CONVERT_DELAY_MS)
+            }
+            if (now > npc.aggroUntil) return null
+            return npc
+        }
+        
+        var targetLat = playerLat
+        var targetLon = playerLon
+        var distToTarget = calculateDistance(npc.location.latitude, npc.location.longitude, targetLat, targetLon)
+        
+        var targetIsHuman: Npc? = null
+        val humans = serverNpcs.filter { it.type == NpcType.PERSON && it.health > 0f && it.displayName.isNullOrEmpty() }
+        
+        for (h in humans) {
+            val d = calculateDistance(npc.location.latitude, npc.location.longitude, h.location.latitude, h.location.longitude)
+            if (d < distToTarget) {
+                distToTarget = d
+                targetLat = h.location.latitude
+                targetLon = h.location.longitude
+                targetIsHuman = h
+            }
+        }
+        
+        if (distToTarget > ZOMBIE_VISION) {
+            return moveNpc(npc, network, now, 0.5f)
+        }
+        
+        if (targetIsHuman != null && distToTarget <= ZOMBIE_CONTACT_DIST) {
+            if (now > npc.chatUntil) {
+                val targetIndex = serverNpcs.indexOfFirst { it.id == targetIsHuman.id }
+                if (targetIndex >= 0) {
+                    var h = serverNpcs[targetIndex]
+                    val newHealth = h.health - ZOMBIE_BITE_DAMAGE
+                    if (newHealth <= 0f) {
+                        h = h.copy(health = 0f, isDying = true, fearUntil = now + HUMAN_CONVERT_DELAY_MS)
+                    } else {
+                        h = h.copy(health = newHealth)
+                    }
+                    serverNpcs[targetIndex] = h
+                }
+                return npc.copy(chatUntil = now + ZOMBIE_BITE_COOLDOWN_MS)
+            }
+            return npc
+        }
+        
+        val dLatForDir = targetLat - npc.location.latitude
+        val dLonForDir = targetLon - npc.location.longitude
+        val dir = kotlin.math.atan2(dLatForDir, dLonForDir)
+        val effSpeed = personSpeed * ZOMBIE_SPEED_MULT
+        val dLat = kotlin.math.sin(dir) * effSpeed
+        val dLon = kotlin.math.cos(dir) * effSpeed
+        
+        return npc.copy(
+            location = GeoPoint(npc.location.latitude + dLat, npc.location.longitude + dLon),
+            rotationAngle = -Math.toDegrees(dir).toFloat(),
+            isMoving = true,
+            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
+        )
     }
 
     private fun getAvailableParkingSlots(landmark: Landmark, currentNpcs: List<Npc>): List<Pair<ovh.gabrielhuav.pow.domain.models.ai.LocalWay, ovh.gabrielhuav.pow.domain.models.ai.LocalNode>> {
