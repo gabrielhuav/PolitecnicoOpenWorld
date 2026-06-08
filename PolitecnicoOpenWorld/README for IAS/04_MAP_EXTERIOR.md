@@ -91,7 +91,10 @@ load roads (Room cache → else Overpass with exponential backoff 1s→30s). The
 5. si isDriving && !WASTED → física del coche:
      girar ±2°/tick (solo con velocidad), gas→+ACCELERATION (cap MAX_SPEED), freno→-BRAKING_FRICTION
      (reversa hasta -MAX_SPEED/2), inercia al soltar. dx=sin(rot)*v, dy=cos(rot)*v.
-     snap a la calle: si distToRoad>0.000025 → reubicar en el borde y v*=0.8. runOverNpcs(loc, v).
+     **fuera de la calle (curva/bifurcación):** en vez de chocar y parar, **auto-direcciona** el coche
+     hacia la calle (muestrea un punto ~22 m adelante en la red, gira suave hacia ahí) y baja la velocidad
+     **proporcional** al desvío (`overshoot`); `maxRoadRadius=0.00004` (más holgado). Así, dejando
+     acelerar, sigue la carretera. runOverNpcs(loc, v).
 6. applyNpcContactDamage(loc)  // NPCs agresivos en embestida pegan a TU jugador (cada cliente al suyo)
 7. si red lista && !WASTED → runPoliceTick(loc)
 8. maybeRefetchRoadNetwork(loc); cada 5 ticks → updateVisibleRoads(loc)
@@ -265,6 +268,32 @@ branch carries `&& npc.type != ZOMBIE` and the seed nulls `visualConfig`.
   sobre el cadáver re-disparaban el 💥 al morir), y el 💥 **no** se muestra en el golpe mortal.
 - **Knockback de zombi:** al golpear (B) un zombi que sobrevive, `performPlayerAttack` lo **empuja** ~7-8 m
   alejándolo del jugador (recoil visible; el Host lo retoma desde `remoteEntities`).
+- **Atropello estilo Midnight Club (`runOverNpcs`):** el peatón (PERSON) **esquiva con un sidestep
+  ANIMADO, no un teletransporte**. `runOverNpcs` NO mueve al peatón: solo marca un **estado de esquive**
+  (`dodgeUntil = now + DODGE_MS`, `dodgeDirLat/Lon` = perpendicular hacia el lado al que ya se inclina) y
+  el **Host lo anima** en `NpcAiManager.updateNpcs` (rama `npc.dodgeUntil > now`: se mueve `personSpeed*10`
+  perpendicular, **sin snap a la calle**; al expirar, `moveNpc` lo re-engancha → "salta a un lado y
+  regresa"). El esquive es **predictivo**: solo si el peatón está **DELANTE** del coche (producto punto con
+  el avance > 0) y dentro de `DODGE_TRIGGER_RADIUS` (~7-8 m). Solo lo atropellas yendo **casi a fondo**
+  (`spd >= RUN_OVER_EXTREME_SPEED = MAX_SPEED*0.92`) y dentro de `RUN_OVER_RADIUS`. Los **zombis NO
+  esquivan** (atropellables siempre). Chocar/rozar un **auto NPC** (`CAR`/`POLICE_CAR`, `CAR_BUMP_RADIUS`)
+  lo **empuja a un lado** (rebasas, tipo Toretto, `shove`) + 💥, sin daño al jugador. El 💥 solo salta en
+  atropello real o choque de auto (no al esquivar). El estado de esquive vive en `remoteEntities`, se
+  reconstruye en `setServerNpcs` y la posición animada se replica vía `MultiplayerNpc` (no hace falta
+  añadir campos de esquive al modelo de red).
+- **Daño moderado de mordida:** `applyNpcContactDamage` aplica la mordida de zombi con un **cooldown
+  GLOBAL** (`ZOMBIE_BITE_TO_PLAYER_MS=650`, `lastZombieBiteMs`) → como mucho una mordida cada ~650 ms
+  (`ZOMBIE_BITE_TO_PLAYER_DMG=6`) aunque te rodee una horda. El SCOUT no muerde.
+- **Sin "se busca" en apocalipsis:** `raiseWantedLevel` es **no-op** si `globalZombieMode` → pegarle a un
+  zombi/civil (o **robar un auto**) NO invoca a la policía del sistema de delitos.
+- **Policía del apocalipsis (caza-zombis):** el Host spawnea NPCs `POLICE_COP` (probabilidad, máx
+  `POLICE_HUNTER_MAX`) que **persiguen y disparan al zombi más cercano** (`movePoliceHunter` en
+  `NpcAiManager`; ayudan a los civiles). **Disparos VISIBLES:** `movePoliceHunter` acumula los disparos en
+  `npcAiManager.pendingPoliceShots`; el game loop los vuelca a `uiState.policeShots` (balas, expiran 450 ms
+  vía `runPoliceTick`). Los **zombis también muerden a los policías** (escaramuza: los cops pueden caer).
+  **Te atacan SOLO si los provocas:** `provokeApocalypsePolice` (VM) les pone `aggroUntil` cuando (a) los
+  golpeas o (b) agredes a un civil con un poli **literalmente enfrente** (~33 m). Provocados, persiguen al
+  jugador y dañan vía `applyNpcContactDamage` (`isAggroCop`). Render 👮, replicados por `NPC_BATCH_UPDATE`.
 - **Hordas migratorias:** el game loop lee `npcAiManager.hordeIncomingAt` y, en cada nueva oleada, muestra
   un aviso en el HUD (vía `interactionPrompt`). La lógica (punto de calor + spawn) está en `NpcAiManager`
   (ver 03). El SCOUT es el aviso *in-game* de que viene una horda.

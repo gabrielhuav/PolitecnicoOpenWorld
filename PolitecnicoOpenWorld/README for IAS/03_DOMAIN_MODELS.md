@@ -151,7 +151,11 @@ Lógica (rama `if (globalZombieMode)` en `updateNpcs`, corre en el Host):
 1. **Seed:** mientras `zombies < INITIAL_ZOMBIE_SEED`, spawnea 1 zombi/tick con `spawnNpcOnRoad(...)?.copy(type=ZOMBIE, trait=AGGRESSIVE, visualConfig=null)`. **`visualConfig=null` es obligatorio** o los renderers lo dibujan como humano (ver 04/09).
 2. **Huida:** cada humano con un zombi dentro de `FEAR_RADIUS` recibe `fearUntil`/`fearFrom*` apuntando al zombi (reusa el sistema de miedo → `moveNpc` lo hace huir).
 3. **Contagio:** humano con `health<=0 && isDying` y `now > fearUntil` → `copy(type=ZOMBIE, health=100, visualConfig=null)` si `zombies < MAX_ZOMBIES` (si no, despawn).
-4. **`moveZombieNpc(npc, network, now, playerLat, playerLon)`** — persecución directa **fuera de la calle** (como `moveAggroNpc`): elige el objetivo más cercano entre {humanos, jugador} dentro de `ZOMBIE_VISION`; muerde al humano a `ZOMBIE_CONTACT_DIST` (con cooldown `chatUntil`); si el objetivo es el jugador no se detiene (lo alcanza → daño por contacto, ver 04).
+4. **`moveZombieNpc(npc, network, now, playerLat, playerLon)`** — persecución directa **fuera de la calle**
+   (como `moveAggroNpc`). **El jugador es objetivo PRIORITARIO:** su distancia se PONDERA (×0.45, `bestScore`)
+   para que los zombis lo prefieran aunque un humano huya algo más cerca → "vienen por ti". Usa `realDist`
+   (distancia real) para la visión (`ZOMBIE_VISION`) y el contacto. Muerde al humano a `ZOMBIE_CONTACT_DIST`
+   (cooldown `chatUntil`); al jugador no lo muerde aquí (lo hace `applyNpcContactDamage` en el VM, ver 04).
 
 > El daño al jugador (mordida) NO está en `NpcAiManager`: lo aplica `WorldMapViewModel.applyNpcContactDamage` en cada cliente (ver 04). / Player bite damage is applied per-client in `applyNpcContactDamage` (see 04).
 
@@ -160,6 +164,10 @@ Lógica (rama `if (globalZombieMode)` en `updateNpcs`, corre en el Host):
 ```kotlin
 enum class ZombieRole { NORMAL, RUNNER, TANK, SCOUT }   // campos en Npc: zombieRole, maxHealth, screamUntil
 ```
+**Campos de ESQUIVE (Midnight Club) en `Npc`:** `dodgeUntil: Long`, `dodgeDirLat/dodgeDirLon: Double`.
+Mientras `now < dodgeUntil`, `updateNpcs` mueve al peatón en `dodgeDir` a `personSpeed*10` **sin snap a la
+calle** (sidestep animado, no teletransporte). Lo dispara el Host en `WorldMapViewModel.runOverNpcs`; al
+expirar, `moveNpc` lo re-engancha a la vía. No se replican (la **posición** ya viaja en `MultiplayerNpc`).
 Bajo costo: **palette swap** (tinte por `ColorMatrix` en `MapZombieSpriteManager`) sobre el MISMO asset
 `z_walk`, + velocidad/vida/tamaño. Helpers estáticos en el companion: `rollZombieRole()` (pesos:
 ~22% Runner, ~12% Tank, ~8% Scout, resto Normal), `maxHealthForRole()` (Runner 15, Normal 30, Tank 60,
@@ -189,6 +197,17 @@ avisa al VM para el HUD ("🧟 ¡UNA HORDA SE ACERCA!"). El SCOUT (alarma vivien
 `simRadius`), the **Host** spawns a wave of 10 zombies that converge on the cluster (each chases nearest
 human). Host-computed (it runs NPC AI), replicated via `NPC_BATCH_UPDATE` (works SP + MP). `hordeIncomingAt`
 drives a HUD warning.
+
+#### 👮 Policía del apocalipsis / apocalypse police (caza-zombis)
+
+**ES:** El Host spawnea NPCs `POLICE_COP` (prob. `POLICE_SPAWN_CHANCE` cada `POLICE_SPAWN_INTERVAL_MS`,
+máx `POLICE_HUNTER_MAX`) que **cazan al zombi más cercano**: `movePoliceHunter` lo persigue y **dispara**
+(`POLICE_SHOOT_DAMAGE` a `POLICE_SHOOT_DIST`, cooldown `chatUntil`) — el disparo se registra en
+`pendingPoliceShots` para que el VM lo pinte como **bala visible**; si no hay zombis, patrulla (`moveNpc`).
+Los **zombis también muerden a los cops** (están en la lista de víctimas de `moveZombieNpc` junto a los
+civiles; un cop a 0 de vida → `movePoliceHunter` lo despawnea). **No tocan al jugador** salvo que estén
+**provocados** (`aggroUntil > now`, lo fija el VM `provokeApocalypsePolice` ~33 m): entonces persiguen al
+jugador (daño en el VM). Render 👮 (POLICE_COP), replicado por `NPC_BATCH_UPDATE`. Ver 04.
 
 ---
 

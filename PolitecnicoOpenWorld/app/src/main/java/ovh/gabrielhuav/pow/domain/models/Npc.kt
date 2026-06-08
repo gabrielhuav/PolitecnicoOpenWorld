@@ -62,6 +62,13 @@ data class Npc(
     val maxHealth: Float = 100f,        // para la barra de vida proporcional por rol
     val screamUntil: Long = 0L,         // SCOUT: mientras now < screamUntil muestra la burbuja de grito
 
+    // ─── ESQUIVE estilo Midnight Club (peatón se aparta del coche) ────────────
+    // Mientras now < dodgeUntil, el peatón se mueve hacia (dodgeDirLat, dodgeDirLon) — un sidestep
+    // ANIMADO (no un teletransporte). Lo dispara el Host (runOverNpcs) y lo anima moveNpc.
+    val dodgeUntil: Long = 0L,
+    val dodgeDirLat: Double = 0.0,
+    val dodgeDirLon: Double = 0.0,
+
     // Navegación por landmarks / vías locales (rama de navegación):
     val navState: NpcNavState = NpcNavState.MACRO_OSM,
     val currentLocalWay: ovh.gabrielhuav.pow.domain.models.ai.LocalWay? = null,
