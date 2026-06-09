@@ -213,18 +213,7 @@ fun MetroStationInteriorScreen(
                                 dstSize = IntSize(worldW.toInt(), worldH.toInt())
                             )
                             
-                            val isMetro1Visible = state.isMetro1Animating || state.spawnWithAnimation || state.showMetroMap || state.isMetro1Departing
 
-                            if (isMetro1Visible) {
-                                metro1Bitmap?.let { m1 ->
-                                    drawImage(
-                                        image = m1,
-                                        dstOffset = IntOffset(0, metro1YOffset.value.toInt()),
-                                        dstSize = IntSize(worldW.toInt(), worldH.toInt())
-                                    )
-                                }
-                            }
-                            
                             if (isMetro2Visible) {
                                 metro2Bitmap?.let { m2 ->
                                     drawImage(
@@ -289,6 +278,24 @@ fun MetroStationInteriorScreen(
                     MetroPlayerSprite(state)
                 }
             }
+
+            // --- CANVAS 2: METRO 1 (SOBRE EL JUGADOR) ---
+            val isMetro1Visible = state.isMetro1Animating || state.spawnWithAnimation || state.showMetroMap || state.isMetro1Departing || state.isBoardingWalkActive || state.isDisembarkingWalkActive
+            if (isMetro1Visible && metro1Bitmap != null) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    translate(cam.offsetX, cam.offsetY) {
+                        scale(cam.scale, cam.scale, pivot = Offset.Zero) {
+                            metro1Bitmap?.let { m1 ->
+                                drawImage(
+                                    image = m1,
+                                    dstOffset = IntOffset(0, metro1YOffset.value.toInt()),
+                                    dstSize = IntSize(worldW.toInt(), worldH.toInt())
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         if (background == null) {
@@ -310,7 +317,8 @@ fun MetroStationInteriorScreen(
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .padding(bottom = bottomPadding, start = sidePadding, end = sidePadding)
-                    .systemBarsPadding(),
+                    .systemBarsPadding()
+                    .graphicsLayer { alpha = if (state.areControlsEnabled) 1f else 0.4f },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {

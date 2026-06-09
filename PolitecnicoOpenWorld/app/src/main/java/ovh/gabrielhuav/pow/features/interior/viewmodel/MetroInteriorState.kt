@@ -22,6 +22,9 @@ data class MetroInteriorState(
     val isRunning: Boolean = false,
     val playerAction: PlayerAction = PlayerAction.IDLE,
     val isPlayerVisible: Boolean = true,
+    val areControlsEnabled: Boolean = true,
+    val isBoardingWalkActive: Boolean = false,
+    val isDisembarkingWalkActive: Boolean = false,
 
     val controlType: ControlType = ControlType.JOYSTICK,
     val controlsScale: Float = 1.0f,
