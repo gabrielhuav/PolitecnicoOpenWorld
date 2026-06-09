@@ -148,7 +148,9 @@ class MetroInteriorViewModel(
                 allMetroStations = allStations,
                 playerX = startX,
                 playerY = startY,
-                hasRechargedTicket = recharged
+                hasRechargedTicket = recharged,
+                spawnWithAnimation = recharged,
+                isPlayerVisible = !recharged
             ) 
         }
         updateCollisionGrid(defaultRows)
@@ -257,7 +259,15 @@ class MetroInteriorViewModel(
                 }
             }
             "anden" -> {
-                _state.update { it.copy(showMetroMap = true) }
+                if (!_state.value.isMetro1Departing) {
+                    _state.update { it.copy(isMetro1Animating = true) }
+                } else {
+                    _state.update { it.copy(messageToast = "Debes esperar a que llegue otro tren") }
+                    viewModelScope.launch {
+                        delay(2000)
+                        _state.update { it.copy(messageToast = null) }
+                    }
+                }
             }
             "salir_torniquetes" -> {
                 // Mover al jugador hacia arriba de los torniquetes y resetear el ticket
@@ -289,7 +299,23 @@ class MetroInteriorViewModel(
     }
 
     fun closeMetroMap() {
-        _state.update { it.copy(showMetroMap = false) }
+        _state.update { it.copy(showMetroMap = false, isMetro1Departing = true) }
+        viewModelScope.launch {
+            delay(5000)
+            _state.update { it.copy(isMetro1Departing = false) }
+        }
+    }
+
+    fun onMetro1AnimationFinished() {
+        if (_state.value.isMetro1Animating) {
+            _state.update { it.copy(isMetro1Animating = false, showMetroMap = true) }
+        } else if (_state.value.spawnWithAnimation) {
+            _state.update { it.copy(spawnWithAnimation = false, isPlayerVisible = true, isMetro1Departing = true) }
+            viewModelScope.launch {
+                delay(5000)
+                _state.update { it.copy(isMetro1Departing = false) }
+            }
+        }
     }
 
     /** Consume la solicitud de salida después de que el Screen haya llamado onExit. */
