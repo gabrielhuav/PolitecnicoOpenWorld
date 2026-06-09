@@ -75,7 +75,20 @@ class WorldMapViewModel(
     // que se NOTE una colisión (NPC que te golpea, o atropello al conducir).
     var impactEffectTrigger by mutableStateOf(0)
         internal set
-    internal fun fireImpactEffect() { impactEffectTrigger++ }
+    // Throttle del 💥: con muchos zombis/NPCs golpeándote, applyNpcContactDamage llamaba a
+    // fireImpactEffect cada mordida (~cada 900 ms por atacante) y el 💥 central se veía "a cada
+    // rato". Limitamos a uno cada IMPACT_EFFECT_THROTTLE_MS para que siga marcando colisiones
+    // notables sin spamear.
+    private var lastImpactEffectMs = 0L
+    private val IMPACT_EFFECT_THROTTLE_MS = 900L
+    // Última horda migratoria avisada al jugador (para no repetir el aviso del HUD).
+    private var lastHordeSeenMs = 0L
+    internal fun fireImpactEffect() {
+        val now = System.currentTimeMillis()
+        if (now - lastImpactEffectMs < IMPACT_EFFECT_THROTTLE_MS) return
+        lastImpactEffectMs = now
+        impactEffectTrigger++
+    }
 
     var showHealthBar by mutableStateOf(false)
         internal set
@@ -104,13 +117,32 @@ class WorldMapViewModel(
             }
             val appCtx = context.applicationContext
             val database = PowDatabase.getInstance(appCtx)
-            return WorldMapViewModel(
+            val vm = WorldMapViewModel(
                 roadNetworkCache = RoadNetworkCache(database.roadNetworkDao()),
                 tileCache        = TileCache(database.mapTileDao()),
                 settingsRepository = SettingsRepository(appCtx),
                 collectibleRepository = CollectibleRepository(database.collectibleDao())
-            ) as T
+            )
+            // GAMA DEL TELÉFONO: escala la población de NPCs (menos en equipos débiles, más en
+            // gama alta). Combina con la densidad urbana (urbanFactor) y el ajuste del usuario.
+            vm.npcAiManager.deviceTierFactor = computeDeviceTierFactor(appCtx)
+            vm.npcAiManager.userPopulationFactor = vm.settingsRepository.getNpcDensity()
+            return vm as T
         }
+
+        // RAM total (y isLowRamDevice) → factor de población. No persiste; se calcula al crear el VM.
+        private fun computeDeviceTierFactor(ctx: Context): Float = try {
+            val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val mi = android.app.ActivityManager.MemoryInfo()
+            am.getMemoryInfo(mi)
+            val gb = mi.totalMem / (1024.0 * 1024.0 * 1024.0)
+            when {
+                am.isLowRamDevice || gb <= 2.2 -> 0.6f   // gama baja (≤2 GB / Android Go)
+                gb <= 4.2 -> 1.0f                         // gama media (≤4 GB)
+                gb <= 6.2 -> 1.3f                         // gama alta (≤6 GB)
+                else       -> 1.5f                        // tope (no saturar gama alta)
+            }
+        } catch (e: Exception) { 1.0f }
     }
 
     internal val _uiState = MutableStateFlow(
@@ -118,7 +150,8 @@ class WorldMapViewModel(
             controlType   = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
             swapControls  = settingsRepository.getSwapControls(),
-            selectedSkin  = settingsRepository.getPlayerSkin()    // ← NUEVO
+            selectedSkin  = settingsRepository.getPlayerSkin(),   // ← NUEVO
+            npcEmojiLod   = settingsRepository.getNpcEmojiLod()   // optimización gama baja
         )
     )
     // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
@@ -181,11 +214,25 @@ class WorldMapViewModel(
     // ─── ATROPELLO + REACCIONES DE NPC (host) ────────────────────────────────
     internal val RUN_OVER_RADIUS = 0.00003        // ~3 m alrededor del vehículo
     internal val RUN_OVER_MIN_SPEED = MAX_SPEED * 0.18  // por debajo no hace daño (estás casi parado)
+    // MIDNIGHT CLUB: los PEATONES tienen reflejos sobrehumanos — esquivan SIEMPRE salvo que vayas
+    // EXTREMADAMENTE rápido (>= este umbral, casi a fondo). Los zombis no esquivan (shamblean).
+    internal val RUN_OVER_EXTREME_SPEED = MAX_SPEED * 0.92
+    // El peatón EMPIEZA a esquivar a esta distancia (algo mayor que RUN_OVER_RADIUS) y solo si está
+    // DELANTE del coche → da tiempo a animar el sidestep antes del contacto (no teletransporte).
+    internal val DODGE_TRIGGER_RADIUS = 0.00007   // ~7-8 m por delante
+    internal val DODGE_MS = 480L                  // duración del sidestep animado
+    // Radio de choque coche-coche: al pasar tan cerca de un auto NPC, 💥 + lo empujas (rebasas).
+    internal val CAR_BUMP_RADIUS = 0.000045
     internal val NPC_CONTACT_RADIUS = 0.00006     // ~6.6 m: golpe del NPC agresivo (holgado)
     internal val NPC_CONTACT_DAMAGE = 10f
     internal val NPC_CONTACT_COOLDOWN_MS = 900L
     // Cooldown por NPC para que no drene la vida del jugador en cada tick.
     internal val npcContactCooldowns = ConcurrentHashMap<String, Long>()
+    // Cooldown GLOBAL de mordida de zombi: con una horda encima, recibes como mucho UNA mordida
+    // cada ZOMBIE_BITE_TO_PLAYER_MS → daño moderado (no muerte instantánea por estar rodeado).
+    @Volatile internal var lastZombieBiteMs = 0L
+    internal val ZOMBIE_BITE_TO_PLAYER_MS = 650L
+    internal val ZOMBIE_BITE_TO_PLAYER_DMG = 6f
     // Racha de golpes que le has dado a CADA NPC. A partir de RELENTLESS_HIT_STREAK
     // golpes seguidos, el NPC agresivo se vuelve IMPLACABLE: te persigue y golpea sin
     // parar hasta matarte (o hasta que muera). Cuanto más agresivo seas, peor para ti.
@@ -204,12 +251,17 @@ class WorldMapViewModel(
     @Volatile internal var lastCrimeTime = 0L
     @Volatile internal var lastWantedDecayTime = 0L
     @Volatile internal var lastPoliceBroadcast = 0L
+    @Volatile internal var lastDodgeTime = 0L
     internal val POLICE_BROADCAST_MS = 120L   // ~8 Hz por la red (la simulación sigue a 30 Hz)
     internal val WANTED_DECAY_GRACE_MS = 25000L   // tiempo sin delito antes de empezar a bajar
     internal val WANTED_DECAY_STEP_MS = 15000L    // cada cuánto baja una estrella
 
     // Sube el nivel de búsqueda (con tope) y reinicia el contador de impunidad.
     internal fun raiseWantedLevel(amount: Int = 1) {
+        // En el APOCALIPSIS no aplica el sistema de delitos: pegarle a un zombi (o a un civil que
+        // huye) NO debe invocar a la policía. La policía del apocalipsis es OTRA cosa (ayuda a los
+        // civiles contra los zombis) — ver runPoliceTick.
+        if (_uiState.value.globalZombieMode) return
         lastCrimeTime = System.currentTimeMillis()
         val current = _uiState.value.wantedLevel
         if (current < MAX_WANTED_LEVEL) {
@@ -523,11 +575,17 @@ class WorldMapViewModel(
                             var currentSpeed = _uiState.value.vehicleSpeed
                             var currentRotation = _uiState.value.vehicleRotation
 
-                            if (isSteeringLeftPressed && currentSpeed != 0.0) currentRotation -= 2f
-                            if (isSteeringRightPressed && currentSpeed != 0.0) currentRotation += 2f
+                            if (isSteeringLeftPressed && currentSpeed != 0.0) {
+                                currentRotation -= if (currentSpeed > 0) 2f else 3f
+                            }
+                            if (isSteeringRightPressed && currentSpeed != 0.0) {
+                                currentRotation += if (currentSpeed > 0) 2f else 3f
+                            }
 
                             if (isGasPressed) {
-                                currentSpeed = (currentSpeed + ACCELERATION).coerceAtMost(MAX_SPEED)
+                                val speedRatio = (currentSpeed / MAX_SPEED).coerceIn(0.0, 1.0)
+                                val dynamicAcc = ACCELERATION * (1.0 - speedRatio * 0.75) // Cuesta más llegar al 100%
+                                currentSpeed = (currentSpeed + dynamicAcc).coerceAtMost(MAX_SPEED)
                             } else if (isBrakePressed) {
                                 currentSpeed -= BRAKING_FRICTION
                                 if (currentSpeed < -MAX_SPEED / 2) currentSpeed = -MAX_SPEED / 2
@@ -540,21 +598,111 @@ class WorldMapViewModel(
                             val dx = kotlin.math.sin(angleRad) * currentSpeed
                             val dy = kotlin.math.cos(angleRad) * currentSpeed
 
-                            val tempLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
+                            var tempLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
 
-                            val nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
+                            // REBASE AUTOMÁTICO Y COLISIONES:
+                            // Comportamiento variado según velocidad y movimientos:
+                            val absSpeed = kotlin.math.abs(currentSpeed)
+                            val isGoingVeryFast = absSpeed > MAX_SPEED * 0.95
+                            val isSteeringSharply = isSteeringLeftPressed || isSteeringRightPressed
+                            
+                            val overtakeRadius = 0.00008
+                            var npsChanged = false
+
+                            val hdLat = kotlin.math.cos(angleRad)
+                            val hdLon = kotlin.math.sin(angleRad)
+                            val perpLat = -hdLon
+                            val perpLon = hdLat
+                            
+                            var dodgeOffsetX = 0.0
+                            var dodgeOffsetY = 0.0
+
+                            for ((id, npc) in remoteEntities.entries.toList()) {
+                                if (npc.type == NpcType.CAR || npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_CAR) {
+                                    val vLat = npc.location.latitude - tempLoc.latitude
+                                    val vLon = npc.location.longitude - tempLoc.longitude
+                                    val dist = kotlin.math.sqrt(vLat * vLat + vLon * vLon)
+                                    
+                                    val inFront = vLat * hdLat + vLon * hdLon
+                                    val rightDist = vLat * perpLat + vLon * perpLon
+                                    
+                                    if (dist < overtakeRadius) {
+                                        if (absSpeed < MAX_SPEED * 0.09) {
+                                            // 1. Totalmente detenido: los NPCs esquivan con un radio menor
+                                            // para que no tarden en regresar a su carril.
+                                            if (dist < overtakeRadius * 0.6) {
+                                                val pushDir = if (rightDist >= 0) 1.0 else -1.0
+                                                val shoveForce = ((overtakeRadius * 0.6) - dist) * 0.08
+                                                val newLoc = GeoPoint(
+                                                    npc.location.latitude + perpLat * pushDir * shoveForce,
+                                                    npc.location.longitude + perpLon * pushDir * shoveForce
+                                                )
+                                                remoteEntities[id] = npc.copy(location = newLoc)
+                                                npsChanged = true
+                                            }
+                                        } else if (!isSteeringSharply && inFront > 0) {
+                                            // 2. Manejando recto a velocidad normal o alta: NOSOTROS los esquivamos
+                                            // de forma automática sin desviarnos de la calle (desplazando el tempLoc).
+                                            val dodgeDir = if (rightDist >= 0) -1.0 else 1.0
+                                            val dodgeForce = (overtakeRadius - dist) * 0.08
+                                            dodgeOffsetY += perpLat * dodgeDir * dodgeForce
+                                            dodgeOffsetX += perpLon * dodgeDir * dodgeForce
+                                        }
+                                        // 3. Si vamos muy rápido o giramos bruscamente, no hay esquive suave,
+                                        // tempLoc no se altera y runOverNpcs se encargará del choque (Toretto).
+                                    }
+                                }
+                            }
+                            if (npsChanged) updateNpcsState()
+                            
+                            tempLoc = GeoPoint(tempLoc.latitude + dodgeOffsetY, tempLoc.longitude + dodgeOffsetX)
+
+                            var nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
+                            
+                            // Auto-centrado suave al carril: si acabamos de rebasar o vamos recto sin girar, 
+                            // regresamos al centro del camino de forma elegante para no mantenernos fuera de carril.
+                            var isAutoCentering = false
+                            val timeSinceDodge = System.currentTimeMillis() - lastDodgeTime
+                            val isRecoveringFromDodge = dodgeOffsetX == 0.0 && dodgeOffsetY == 0.0 && timeSinceDodge in 1L..1500L
+
+                            if (!isSteeringSharply && isRecoveringFromDodge && absSpeed > 0.0) {
+                                val pullLat = nearestRoadPoint.latitude - tempLoc.latitude
+                                val pullLon = nearestRoadPoint.longitude - tempLoc.longitude
+                                tempLoc = GeoPoint(tempLoc.latitude + pullLat * 0.15, tempLoc.longitude + pullLon * 0.15)
+                                nearestRoadPoint = getNearestPointOnNetwork(tempLoc) // recalcular porque nos movimos
+                                isAutoCentering = true
+                            }
+
                             val distToRoad = distance(tempLoc, nearestRoadPoint)
-                            val maxRoadRadius = 0.000025
+                            // Expandimos el radio temporalmente para permitir salirnos un poco al rebasar
+                            val maxRoadRadius = if (dodgeOffsetX != 0.0 || dodgeOffsetY != 0.0 || isAutoCentering) 0.00006 else 0.00004
 
                             val finalLoc = if (distToRoad <= maxRoadRadius) {
                                 tempLoc
                             } else {
-                                val angleBack = atan2(tempLoc.latitude - nearestRoadPoint.latitude, tempLoc.longitude - nearestRoadPoint.longitude)
-                                currentSpeed *= 0.8
-                                GeoPoint(
-                                    nearestRoadPoint.latitude + sin(angleBack) * maxRoadRadius,
-                                    nearestRoadPoint.longitude + cos(angleBack) * maxRoadRadius
+                                // Te saliste (curva/bifurcación): en vez de "chocar y pararte", AUTO-DIRECCIONA
+                                // el coche hacia la calle y baja la velocidad de forma PROPORCIONAL (drástica
+                                // solo en desvíos grandes). Así, dejando acelerar, el coche SIGUE la carretera.
+                                val overshoot = ((distToRoad - maxRoadRadius) / maxRoadRadius).coerceIn(0.0, 1.0)
+                                currentSpeed *= (1.0 - 0.30 * overshoot)
+                                // Dirección de la calle: muestreamos un punto ~22 m adelante en el sentido
+                                // del coche y vemos hacia dónde sigue la red.
+                                val aheadRoad = getNearestPointOnNetwork(
+                                    GeoPoint(nearestRoadPoint.latitude + cos(angleRad) * 0.0002,
+                                             nearestRoadPoint.longitude + sin(angleRad) * 0.0002)
                                 )
+                                var roadBearing = Math.toDegrees(
+                                    atan2(aheadRoad.longitude - nearestRoadPoint.longitude,
+                                          aheadRoad.latitude - nearestRoadPoint.latitude)
+                                ).toFloat()
+                                // Que apunte hacia donde VA el coche (no al sentido contrario).
+                                var diff = ((roadBearing - currentRotation + 540f) % 360f) - 180f
+                                if (kotlin.math.abs(diff) > 90f) {
+                                    roadBearing = (roadBearing + 180f) % 360f
+                                    diff = ((roadBearing - currentRotation + 540f) % 360f) - 180f
+                                }
+                                currentRotation += diff * 0.35f   // giro SUAVE hacia la calle
+                                nearestRoadPoint                  // pegado a la calle pero SIN detenerse
                             }
 
                             _uiState.update {
@@ -563,6 +711,35 @@ class WorldMapViewModel(
                                     vehicleSpeed = currentSpeed,
                                     vehicleRotation = (currentRotation + 360) % 360f
                                 )
+                            }
+
+                            // ATROPELLO: conduciendo, los peatones/zombis dentro de RUN_OVER_RADIUS
+                            // reciben daño escalado con la velocidad. (Antes solo se llamaba en la
+                            // extensión WorldMapGameLoop.kt, que está SOMBREADA por este loop miembro.)
+                            val isAutoDodging = dodgeOffsetX != 0.0 || dodgeOffsetY != 0.0
+                            if (isAutoDodging) lastDodgeTime = System.currentTimeMillis()
+                            // Cancelar inmunidad si el jugador gira voluntariamente (para permitir chocar intencionalmente)
+                            if (isSteeringSharply) lastDodgeTime = 0L
+                            val dodgeGrace = System.currentTimeMillis() - lastDodgeTime < 600L
+                            runOverNpcs(finalLoc, currentSpeed, dodgeGrace)
+                        }
+
+                        // GOLPES/MORDIDAS por CONTACTO: NPCs agresivos en embestida y ZOMBIS cercanos
+                        // dañan al jugador. Cada cliente lo aplica a SU propio jugador (no host-gated).
+                        // (Faltaba esta llamada en el loop miembro → ni los NPCs agresivos ni los
+                        // zombis hacían daño; solo estaba en la extensión muerta.)
+                        applyNpcContactDamage(location)
+
+                        // BALAS de la POLICÍA DEL APOCALIPSIS (caza-zombis): el Host las acumula en
+                        // movePoliceHunter; aquí las volcamos a policeShots para DIBUJARLAS (runPoliceTick
+                        // de abajo las expira a 450 ms, igual que las de la policía normal).
+                        if (npcAiManager.pendingPoliceShots.isNotEmpty()) {
+                            val nowS = System.currentTimeMillis()
+                            val shots = synchronized(npcAiManager.pendingPoliceShots) {
+                                val l = npcAiManager.pendingPoliceShots.toList(); npcAiManager.pendingPoliceShots.clear(); l
+                            }
+                            if (shots.isNotEmpty()) {
+                                _uiState.update { st -> st.copy(policeShots = st.policeShots + shots.map { PoliceShot(it.first, it.second, nowS) }) }
                             }
                         }
 
@@ -588,6 +765,16 @@ class WorldMapViewModel(
 
                                 npcAiManager.updateNpcs(location, isServerDelegatedHost)
                                 val processedNpcs = npcAiManager.getServerNpcs()
+
+                                // HORDA MIGRATORIA: si el Host disparó una oleada, avisar al jugador.
+                                if (npcAiManager.hordeIncomingAt != 0L && npcAiManager.hordeIncomingAt != lastHordeSeenMs) {
+                                    lastHordeSeenMs = npcAiManager.hordeIncomingAt
+                                    launch(kotlinx.coroutines.Dispatchers.Main) {
+                                        _uiState.update { it.copy(interactionPrompt = "🧟 ¡UNA HORDA SE ACERCA!") }
+                                        kotlinx.coroutines.delay(3500)
+                                        _uiState.update { if (it.interactionPrompt == "🧟 ¡UNA HORDA SE ACERCA!") it.copy(interactionPrompt = null) else it }
+                                    }
+                                }
 
                                 if (isServerDelegatedHost) {
                                     synchronized(npcAiManager.pendingDespawns) {
@@ -643,7 +830,9 @@ class WorldMapViewModel(
                                                             pantsColor = npc.visualConfig?.pantsColor?.toArgb(),
                                                             health = npc.health,
                                                             isDying = npc.isDying,
-                                                            aggroUntil = npc.aggroUntil
+                                                            aggroUntil = npc.aggroUntil,
+                                                            zombieRole = npc.zombieRole.name,
+                                                            screamUntil = npc.screamUntil
                                                         )
                                                     }
                                                     ws.sendMessage(gson.toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
@@ -785,6 +974,9 @@ class WorldMapViewModel(
             val msg = gson.fromJson(messageJson, ServerMessage::class.java)
 
             when (msg.type) {
+                // (ZOMBIE_MODE_SET eliminado: el apocalipsis ya no es un flag global difundido a
+                //  todos, sino la INSTANCIA en la que estás. El toggle envía JOIN_INSTANCE y el
+                //  servidor responde con SYNC_ALL_NPCS de la nueva instancia. Ver setZombieInstance.)
                 "SESSION_INIT" -> {
                     msg.sessionId?.let { myPlayerUUID = it }
                 }
@@ -943,6 +1135,13 @@ class WorldMapViewModel(
     private fun addRemoteEntity(remote: MultiplayerNpc) {
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
 
+        // Rol de zombi replicado: el maxHealth se DERIVA del rol (no viaja por el cable).
+        val zRole = try {
+            remote.zombieRole?.let { ovh.gabrielhuav.pow.domain.models.ZombieRole.valueOf(it) }
+                ?: ovh.gabrielhuav.pow.domain.models.ZombieRole.NORMAL
+        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.ZombieRole.NORMAL }
+        val zMaxHealth = if (npcType == NpcType.ZOMBIE) NpcAiManager.maxHealthForRole(zRole) else 100f
+
         val cModel = try {
             remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) }
                 ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
@@ -983,7 +1182,10 @@ class WorldMapViewModel(
             // estado de muerte del NPC (atropellos/golpes) igual que el host.
             health = remote.health ?: 100f,
             isDying = remote.isDying ?: false,
-            aggroUntil = remote.aggroUntil ?: 0L
+            aggroUntil = remote.aggroUntil ?: 0L,
+            zombieRole = zRole,
+            maxHealth = zMaxHealth,
+            screamUntil = remote.screamUntil ?: 0L
         )
     }
 
@@ -2115,6 +2317,7 @@ class WorldMapViewModel(
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
                     val promptText = when {
+                        activeItem.id == "global_zombie_hand" -> if (_uiState.value.globalZombieMode) "PRESIONA X PARA DESACTIVAR MODO ZOMBI" else "PRESIONA X PARA ACTIVAR MODO ZOMBI"
                         activeItem.name == "Objeto Misterioso ESCOM" -> "PRESIONA X PARA INTERACTUAR"
                         activeItem.id == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA ENTRAR"
                         activeItem.id.startsWith("escom_door_")      -> "PRESIONA X PARA ENTRAR" // <--- Aquí aparece el texto de la puerta
@@ -2168,9 +2371,13 @@ class WorldMapViewModel(
         // segundos tras reaaparecer para que ningún policía/NPC con aggro residual dispare
         // la animación de golpe de forma inesperada.
         if (System.currentTimeMillis() < respawnImmunityUntilMs) return
+        // Si YA estás muerto o en la pantalla WASTED, ignora el daño: si no, los zombis cercanos
+        // al cuerpo seguían llamando takeDamage durante el WASTED y el 💥 aparecía "a cada rato"
+        // al morir (y re-disparaban la secuencia).
+        if (_uiState.value.showWastedScreen || playerHealth <= 0f) return
         playerHealth = (playerHealth - amount).coerceAtLeast(0f)
         damagePulseTrigger++
-        fireImpactEffect() // 💥 visible en CUALQUIER golpe que recibe el jugador
+        if (playerHealth > 0f) fireImpactEffect() // 💥 solo si SOBREVIVES (no en el golpe mortal)
         showHealthBar = true
         if (playerHealth > 30f) {
             startHealthBarTimer(3000L)
@@ -2272,10 +2479,34 @@ class WorldMapViewModel(
                     }
                 }
             }
+            // APOCALIPSIS: golpear a un policía CAZADOR (en remoteEntities, POLICE_COP) lo daña y lo
+            // PROVOCA — a él y a los cercanos → te persiguen. (La policía del sistema de delitos está
+            // en policeManager y no corre en apocalipsis.)
+            if (_uiState.value.globalZombieMode) {
+                val nowP = System.currentTimeMillis()
+                var hitCop = false
+                remoteEntities.entries.toList().forEach { (id, n) ->
+                    if (n.type == ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_COP &&
+                        distance(playerLoc, n.location) <= ATTACK_RADIUS) {
+                        val nh = (n.health - PLAYER_PUNCH_DAMAGE).coerceAtLeast(0f)
+                        if (nh <= 0f) {
+                            remoteEntities.remove(id)
+                            try { webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to id))) } catch (_: Exception) {}
+                        } else {
+                            remoteEntities[id] = n.copy(health = nh, aggroUntil = nowP + NpcAiManager.AGGRO_DURATION_MS)
+                        }
+                        hitCop = true
+                    }
+                }
+                if (hitCop) {
+                    provokeApocalypsePolice(playerLoc)
+                    viewModelScope.launch(Dispatchers.Main) { fireImpactEffect(); updateNpcsState() }
+                }
+            }
             val targetNpcEntry = remoteEntities.entries
                 .filter {
                     !it.value.isDying &&
-                            it.value.type == NpcType.PERSON &&
+                            (it.value.type == NpcType.PERSON || it.value.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) &&
                             distance(playerLoc, it.value.location) <= ATTACK_RADIUS
                 }
                 .minByOrNull { distance(playerLoc, it.value.location) }
@@ -2298,6 +2529,10 @@ class WorldMapViewModel(
                 } else {
                     // DELITO: golpear a un civil sube el nivel de búsqueda (como en GTA).
                     if (currentNpc.type == NpcType.PERSON) raiseWantedLevel(1)
+                    // APOCALIPSIS: agredir a un CIVIL provoca a la policía que esté en tu fog (te ven).
+                    if (_uiState.value.globalZombieMode && currentNpc.type == NpcType.PERSON) {
+                        provokeApocalypsePolice(playerLoc)
+                    }
                     val damage = PLAYER_PUNCH_DAMAGE
                     val newHealth = (currentNpc.health - damage).coerceAtLeast(0f)
                     if (newHealth <= 0f) {
@@ -2318,7 +2553,20 @@ class WorldMapViewModel(
                         // en estado de embestida hacia el jugador (lo persigue, visual) Y
                         // te DEVUELVE el golpe de forma garantizada poco después.
                         val retaliate = currentNpc.trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
+                        // KNOCKBACK: al golpear un ZOMBI que sobrevive, lo empujamos hacia atrás
+                        // (alejándolo del jugador) para que se note el golpe, como en el minijuego.
+                        // El Host lo retoma desde remoteEntities en el siguiente tick (recoil visible).
+                        val knockedLoc = if (currentNpc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
+                            val dLat = currentNpc.location.latitude - playerLoc.latitude
+                            val dLon = currentNpc.location.longitude - playerLoc.longitude
+                            val d = kotlin.math.sqrt(dLat * dLat + dLon * dLon)
+                            if (d > 1e-9) {
+                                val kb = 0.00007 // ~7-8 m de empuje
+                                GeoPoint(currentNpc.location.latitude + (dLat / d) * kb, currentNpc.location.longitude + (dLon / d) * kb)
+                            } else currentNpc.location
+                        } else currentNpc.location
                         remoteEntities[npcId] = currentNpc.copy(
+                            location = knockedLoc,
                             health = newHealth,
                             aggroUntil = if (retaliate) System.currentTimeMillis() + NpcAiManager.AGGRO_DURATION_MS else currentNpc.aggroUntil
                         )
@@ -2358,48 +2606,136 @@ class WorldMapViewModel(
     // ATROPELLO: estando al volante, los peatones dentro de RUN_OVER_RADIUS reciben
     // daño proporcional a la velocidad; mueren si llegan a 0 y, en cualquier caso, los
     // testigos se asustan. Solo el host simula NPCs, así que solo él aplica esto.
-    internal fun runOverNpcs(playerLoc: GeoPoint, speed: Double) {
+    internal fun runOverNpcs(playerLoc: GeoPoint, speed: Double, isAutoDodging: Boolean = false) {
         if (!isServerDelegatedHost) return
         val spd = kotlin.math.abs(speed)
         if (spd < RUN_OVER_MIN_SPEED) return
         val damage = (spd / MAX_SPEED).toFloat().coerceIn(0f, 1f) * 120f
-        var changed = false
-        for ((id, npc) in remoteEntities) {
-            if (!npc.displayName.isNullOrEmpty()) continue   // no a jugadores remotos
-            if (npc.type != NpcType.PERSON) continue          // solo peatones
-            if (npc.isDying) continue
-            if (distance(playerLoc, npc.location) > RUN_OVER_RADIUS) continue
+        val extreme = spd >= RUN_OVER_EXTREME_SPEED
+        val now = System.currentTimeMillis()
+        // Vector de avance del coche y su perpendicular (para esquivar/empujar a un lado).
+        val heading = Math.toRadians(_uiState.value.vehicleRotation.toDouble())
+        val hdLat = cos(heading); val hdLon = sin(heading)
+        val perpLat = -hdLon; val perpLon = hdLat
+
+        fun killOrHurt(id: String, npc: Npc, giveStar: Boolean = false) {
             val newHealth = (npc.health - damage).coerceAtLeast(0f)
             if (newHealth <= 0f) {
                 remoteEntities[id] = npc.copy(health = 0f, isDying = true)
+                if (giveStar) raiseWantedLevel(1)
                 viewModelScope.launch { delay(1000L); remoteEntities.remove(id); updateNpcsState() }
-                try {
-                    webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to id)))
-                } catch (_: Exception) {}
-            } else {
-                remoteEntities[id] = npc.copy(health = newHealth)
+                try { webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to id))) } catch (_: Exception) {}
+            } else remoteEntities[id] = npc.copy(health = newHealth)
+        }
+        // Empuja un NPC al lado HACIA EL QUE YA ESTÁ (lo saca del camino del coche).
+        fun shove(npc: Npc, dist: Double): GeoPoint {
+            val rel = (npc.location.latitude - playerLoc.latitude) * perpLat + (npc.location.longitude - playerLoc.longitude) * perpLon
+            val s = if (rel >= 0) 1.0 else -1.0
+            return GeoPoint(npc.location.latitude + perpLat * dist * s, npc.location.longitude + perpLon * dist * s)
+        }
+
+        var changed = false
+        var impactWorthy = false   // 💥 solo en atropello real o choque de auto, no al esquivar
+        for ((id, npc) in remoteEntities) {
+            if (!npc.displayName.isNullOrEmpty()) continue
+            if (npc.isDying) continue
+            val d = distance(playerLoc, npc.location)
+            when (npc.type) {
+                NpcType.PERSON -> {
+                    if (extreme && d <= RUN_OVER_RADIUS * 0.4) {
+                        // Vas casi A FONDO (>= RUN_OVER_EXTREME_SPEED) → los reflejos no alcanzan, lo atropellas.
+                        // Hitbox reducida (0.4) para que sea más difícil darles. Si los matas, obtienes 1 estrella.
+                        killOrHurt(id, npc, giveStar = true); changed = true; impactWorthy = true
+                        continue
+                    }
+                    if (d > DODGE_TRIGGER_RADIUS) continue
+                    // ¿Está DELANTE del coche? (producto punto con el avance). Solo esos esquivan.
+                    val relLat = npc.location.latitude - playerLoc.latitude
+                    val relLon = npc.location.longitude - playerLoc.longitude
+                    if (relLat * hdLat + relLon * hdLon <= 0) continue   // detrás/al costado: ignóralo
+                    // MIDNIGHT CLUB: marca el ESQUIVE ANIMADO (el Host lo anima como sidestep suave, NO
+                    // teletransporte). Si ya está esquivando, no lo re-disparo (dirección estable).
+                    if (npc.dodgeUntil <= now) {
+                        val rel = relLat * perpLat + relLon * perpLon
+                        val s = if (rel >= 0) 1.0 else -1.0   // hacia el lado al que ya se inclina
+                        remoteEntities[id] = npc.copy(
+                            dodgeUntil = now + DODGE_MS,
+                            dodgeDirLat = perpLat * s,
+                            dodgeDirLon = perpLon * s
+                        )
+                        changed = true
+                    }
+                }
+                ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
+                    if (d > RUN_OVER_RADIUS) continue
+                    // Los zombis NO esquivan (shamblean): atropellables a cualquier velocidad.
+                    killOrHurt(id, npc); changed = true; impactWorthy = true
+                }
+                NpcType.CAR, ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_CAR -> {
+                    // Si estamos haciendo un rebase profesional suave, desactivamos la colisión
+                    // para permitir pasar rozando.
+                    if (isAutoDodging) continue
+                    if (d > CAR_BUMP_RADIUS) continue
+                    // CHOCAMOS: Si no hubo rebase suave (por ir muy rápido o giro brusco), chocamos.
+                    // Empujas el auto a un lado (rebasas tipo Toretto) + 💥. Sin daño al jugador.
+                    remoteEntities[id] = npc.copy(location = shove(npc, CAR_BUMP_RADIUS * 0.6))
+                    changed = true; impactWorthy = true
+                }
+                else -> continue
             }
-            changed = true
         }
         if (changed) {
             npcAiManager.triggerFear(playerLoc.latitude, playerLoc.longitude)
-            viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() } // 💥 atropello
             updateNpcsState()
         }
+        if (impactWorthy) viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() } // 💥 (con throttle)
     }
 
     // GOLPE DE NPC AGRESIVO: los NPCs en estado de embestida (aggro) que tocan al
     // jugador le hacen daño, con un cooldown por NPC para no vaciar la vida de golpe.
+    // Provoca a la policía del apocalipsis que esté en tu FOG (en frente): pasa a perseguirte
+    // (aggroUntil). Se llama al golpear a un poli o al agredir a un civil con un poli cerca.
+    internal fun provokeApocalypsePolice(playerLoc: GeoPoint) {
+        if (!_uiState.value.globalZombieMode) return
+        val until = System.currentTimeMillis() + NpcAiManager.AGGRO_DURATION_MS
+        val fogDeg = 0.0003 // ~33 m: el poli debe ver el crimen LITERALMENTE enfrente para reaccionar
+        var changed = false
+        remoteEntities.entries.toList().forEach { (id, n) ->
+            if (n.type == ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_COP &&
+                distance(playerLoc, n.location) <= fogDeg) {
+                remoteEntities[id] = n.copy(aggroUntil = until)
+                changed = true
+            }
+        }
+        if (changed) updateNpcsState()
+    }
+
     internal fun applyNpcContactDamage(playerLoc: GeoPoint) {
+        // Muerto / en WASTED: no recibas daño (evita el 💥 repetido sobre el cadáver).
+        if (_uiState.value.showWastedScreen || playerHealth <= 0f) return
         // SIN gate de host: el daño se aplica a TU PROPIO jugador en TU cliente, seas o no
         // el host de zona (el host solo decide quién SIMULA la IA, no quién recibe daño).
         val now = System.currentTimeMillis()
         for ((id, npc) in remoteEntities) {
-            if (npc.aggroUntil <= now || npc.type != NpcType.PERSON) continue
+            val isAggroPerson = npc.type == NpcType.PERSON && npc.aggroUntil > now
+            // Policía del apocalipsis PROVOCADA (la golpeaste o agrediste a un civil frente a ella).
+            val isAggroCop = npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_COP && npc.aggroUntil > now
+            // El SCOUT ("Explorador") NO ataca al jugador (solo grita y huye).
+            val isZombie = npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE && npc.health > 0f &&
+                npc.zombieRole != ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT
+            if (!isAggroPerson && !isAggroCop && !isZombie) continue
             if (distance(playerLoc, npc.location) > NPC_CONTACT_RADIUS) continue
+            if (_uiState.value.isDriving) continue // en coche no te golpean (te bajan, no te pegan)
+            // Mordida de zombi: cooldown GLOBAL (daño moderado aunque te rodeen muchos).
+            if (isZombie) {
+                if (now - lastZombieBiteMs < ZOMBIE_BITE_TO_PLAYER_MS) continue
+                lastZombieBiteMs = now
+                npcContactCooldowns[id] = now
+                viewModelScope.launch(Dispatchers.Main) { takeDamage(ZOMBIE_BITE_TO_PLAYER_DMG) }
+                continue
+            }
             val last = npcContactCooldowns[id] ?: 0L
             if (now - last < NPC_CONTACT_COOLDOWN_MS) continue
-            if (_uiState.value.isDriving) continue // en coche no te golpean (te bajan, no te pegan)
             npcContactCooldowns[id] = now
             viewModelScope.launch(Dispatchers.Main) { takeDamage(NPC_CONTACT_DAMAGE) } // takeDamage ya dispara el 💥
         }
@@ -2561,8 +2897,16 @@ class WorldMapViewModel(
 
         // Mano zombi desactivada del exterior — el acceso al lobby
         // ahora se realiza únicamente por las puertas físicas (ESCOM_DOOR).
-        _escomItems.value = emptyList()
-        _uiState.update { it.copy(isZombieHandSpawned = true) }   // flag para no reintentar
+        val globalZombieHand = ovh.gabrielhuav.pow.domain.models.ActiveCollectible(
+            id = "global_zombie_hand",
+            name = "Mano del Apocalipsis",
+            description = "Activa el apocalipsis global.",
+            assetPath = "ZOMBIS_MOD/zombi_hand.webp",
+            latitude = 19.50456,
+            longitude = -99.14674
+        )
+        _escomItems.value = listOf(globalZombieHand)
+        _uiState.update { it.copy(isZombieHandSpawned = true) }
         return
     }
 
@@ -2576,6 +2920,34 @@ class WorldMapViewModel(
         if (itemToCollect != null) {
             _escomItems.update { currentList -> currentList.filter { it.id != itemToCollect.id } }
         }
+    }
+
+    // ─── APOCALIPSIS ZOMBI GLOBAL ────────────────────────────────────────
+
+    fun toggleGlobalZombieMode() = setZombieInstance(!_uiState.value.globalZombieMode)
+
+    fun exitGlobalZombieMode() { if (_uiState.value.globalZombieMode) setZombieInstance(false) }
+
+    /**
+     * INSTANCING: activar/desactivar el apocalipsis = cambiar de INSTANCIA ("apocalipsis" /
+     * "normal"). Limpiamos el mundo local (no arrastrar entidades de la otra instancia) y
+     * pedimos al servidor (JOIN_INSTANCE) el roster de la nueva instancia. Así los jugadores en
+     * "normal" no ven el apocalipsis y viceversa. En single-player solo cambia el flag local
+     * (el toggle no manda red) y el seed repobla el mundo según el modo.
+     */
+    private fun setZombieInstance(apocalypse: Boolean) {
+        _uiState.update { it.copy(globalZombieMode = apocalypse) }
+        npcAiManager.globalZombieMode = apocalypse
+        // Mundo limpio: vaciar entidades remotas (el servidor reenvía SYNC_ALL_NPCS de la nueva
+        // instancia; en SP el seed repobla). Evita ver NPCs/zombis de la instancia anterior.
+        remoteEntities.clear()
+        updateNpcsState()
+        try {
+            webSocketManager?.sendMessage(gson.toJson(mapOf(
+                "type" to "JOIN_INSTANCE",
+                "instance" to if (apocalypse) "apocalipsis" else "normal"
+            )))
+        } catch (_: Exception) {}
     }
 
     /**
@@ -2593,6 +2965,7 @@ class WorldMapViewModel(
         val nearby = _uiState.value.nearbyCollectible ?: return
 
         when {
+            nearby.id == "global_zombie_hand" -> toggleGlobalZombieMode()
             nearby.name == "Objeto Misterioso ESCOM" -> {
                 pendingZombieMinigame = true
                 _uiState.update {
@@ -2653,6 +3026,12 @@ class WorldMapViewModel(
         lastFetchAttemptMs = 0L
         gateMapDownloadAfterTeleport()
     }
+
+    // ─── Jugabilidad (live, desde Ajustes) ──────────────────────────────────
+    /** Multiplicador de densidad de NPCs elegido por el usuario (se combina con gama/ciudad). */
+    fun setNpcDensity(v: Float) { npcAiManager.userPopulationFactor = v }
+    /** NPCs lejanos como emoji (optimización gama baja). */
+    fun setNpcEmojiLod(enabled: Boolean) { _uiState.update { it.copy(npcEmojiLod = enabled) } }
 
     fun setShowRoadNetwork(show: Boolean) {
         _uiState.update { it.copy(showRoadNetwork = show) }
