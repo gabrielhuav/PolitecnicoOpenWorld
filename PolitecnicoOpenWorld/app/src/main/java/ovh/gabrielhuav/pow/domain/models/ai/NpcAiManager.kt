@@ -305,7 +305,7 @@ class NpcAiManager {
         // (factor 1.0). No cuesta nada (ya tenemos la red) y NO requiere APIs de tráfico
         // de pago. Sube la población de NPCs y el ratio de coches donde hay más calles.
         urbanFactor = if (network.isEmpty()) 1.0f
-            else (network.size / 140f).coerceIn(0.6f, 1.8f)
+        else (network.size / 140f).coerceIn(0.6f, 1.8f)
     }
 
     fun setRemoteNpcs(remoteList: List<Npc>) {
@@ -332,7 +332,6 @@ class NpcAiManager {
                     nodesInside++
                 }
             }
-            // 👇 FIX: Modificado a 0.45f para aniquilar la calle en U que rozaba el exterior
             if (nodesInside > 0 && (nodesInside.toFloat() / way.nodes.size) > 0.45f) {
                 return true
             }
@@ -435,6 +434,8 @@ class NpcAiManager {
                 val dist = calculateDistance(pLat0, pLon0, landmark.location.latitude, landmark.location.longitude)
                 if (dist < 0.01 && !populatedLandmarks.contains(landmark.id.toString())) {
                     populatedLandmarks.add(landmark.id.toString())
+
+                    // PRE-LLENADO DE AUTOS
                     val availableSlots = getAvailableParkingSlots(landmark, serverNpcs)
                     if (availableSlots.isNotEmpty()) {
                         val fillPercentage = Random.nextFloat() * 0.3f + 0.5f
@@ -449,6 +450,23 @@ class NpcAiManager {
                             }
                         }
                     }
+
+                    // PRE-LLENADO DE ESTUDIANTES (PEATONES EN CAMPUS)
+                    val navGraph = landmark.navGraph
+                    if (navGraph != null && !globalZombieMode) { // Evita alumnos civiles si hay apocalipsis
+                        val pedestrianWays = navGraph.ways.filter { it.id >= 200 }
+                        if (pedestrianWays.isNotEmpty()) {
+                            val numStudents = Random.nextInt(8, 18) // Genera de 8 a 17 alumnos de golpe
+                            for (i in 0 until numStudents) {
+                                if (serverNpcs.size < maxTotalNpcs) {
+                                    val pWay = pedestrianWays.random()
+                                    val pNode = pWay.nodes.random()
+                                    serverNpcs.add(spawnCampusPedestrian(landmark, pWay, pNode))
+                                }
+                            }
+                        }
+                    }
+
                 } else if (dist >= 0.02) {
                     populatedLandmarks.remove(landmark.id.toString())
                 }
@@ -525,7 +543,7 @@ class NpcAiManager {
             // --- APOCALIPSIS ZOMBI GLOBAL ---
             if (globalZombieMode) {
                 val zombies = serverNpcs.filter { it.type == NpcType.ZOMBIE && it.health > 0 }
-                
+
                 // 1. Semilla inicial
                 if (zombies.size < INITIAL_ZOMBIE_SEED && serverNpcs.size < maxTotalNpcs) {
                     val closeWays = cachedWayBoxes.get().map { it.way }
@@ -548,8 +566,8 @@ class NpcAiManager {
                 if (now - lastHordeMs >= HORDE_INTERVAL_MS) {
                     val nearbyHumans = serverNpcs.count {
                         it.type == NpcType.PERSON && it.health > 0f && it.displayName.isNullOrEmpty() &&
-                            calculateDistance(it.location.latitude, it.location.longitude,
-                                playerLocation.latitude, playerLocation.longitude) <= simRadius
+                                calculateDistance(it.location.latitude, it.location.longitude,
+                                    playerLocation.latitude, playerLocation.longitude) <= simRadius
                     }
                     if (nearbyHumans >= HORDE_MIN_HUMANS) {
                         lastHordeMs = now
@@ -609,7 +627,7 @@ class NpcAiManager {
                         }
                     }
                 }
-                
+
                 // 3. Convertir humanos muertos
                 for (i in serverNpcs.indices) {
                     val h = serverNpcs[i]
@@ -671,10 +689,10 @@ class NpcAiManager {
 
 
     private fun moveZombieNpc(
-        npc: Npc, 
-        network: List<MapWay>, 
-        now: Long, 
-        playerLat: Double, 
+        npc: Npc,
+        network: List<MapWay>,
+        now: Long,
+        playerLat: Double,
         playerLon: Double
     ): Npc? {
         if (npc.health <= 0f) {
@@ -761,7 +779,7 @@ class NpcAiManager {
             }
             return npc
         }
-        
+
         val dLatForDir = targetLat - npc.location.latitude
         val dLonForDir = targetLon - npc.location.longitude
         val dir = kotlin.math.atan2(dLatForDir, dLonForDir)
@@ -769,10 +787,10 @@ class NpcAiManager {
         val effSpeed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(npc.zombieRole)
         val dLat = kotlin.math.sin(dir) * effSpeed
         val dLon = kotlin.math.cos(dir) * effSpeed
-        
+
         // Calcular facingRight para la animación del sprite
         val facingRight = kotlin.math.cos(dir) >= 0
-        
+
         return npc.copy(
             location = GeoPoint(npc.location.latitude + dLat, npc.location.longitude + dLon),
             rotationAngle = -Math.toDegrees(dir).toFloat(),
@@ -806,7 +824,7 @@ class NpcAiManager {
                     if (zi >= 0) {
                         val nh = serverNpcs[zi].health - POLICE_SHOOT_DAMAGE
                         serverNpcs[zi] = if (nh <= 0f) serverNpcs[zi].copy(health = 0f, isDying = true)
-                                         else serverNpcs[zi].copy(health = nh)
+                        else serverNpcs[zi].copy(health = nh)
                     }
                     // BALA VISIBLE: registramos el disparo (poli → zombi) para que el VM lo pinte.
                     synchronized(pendingPoliceShots) { pendingPoliceShots.add(npc.location to z.location) }
@@ -878,6 +896,32 @@ class NpcAiManager {
             currentLocalWay = way,
             targetNodeIndex = nodeIndex,
             moveDirection = 1,
+            isRemote = false
+        )
+    }
+
+    private fun spawnCampusPedestrian(landmark: Landmark, way: ovh.gabrielhuav.pow.domain.models.ai.LocalWay, node: ovh.gabrielhuav.pow.domain.models.ai.LocalNode): Npc {
+        val globalPos = landmark.toGlobalGeoPoint(node.localX, node.localY)
+        val newId = "CAMPUS_PED_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+
+        val nodeIndex = way.nodes.indexOf(node)
+        val visualConfig = NPC_OUTFITS.random() // Usa la paleta super optimizada
+
+        // Variamos un poco la velocidad para que no parezcan robots marchando al mismo paso
+        val randomSpeed = PERSON_SPEED * (0.7f + Random.nextFloat() * 0.5f)
+
+        return Npc(
+            id = newId,
+            type = NpcType.PERSON,
+            location = globalPos,
+            rotationAngle = Random.nextFloat() * 360f,
+            speed = randomSpeed,
+            visualConfig = visualConfig,
+            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
+            currentLandmark = landmark,
+            currentLocalWay = way,
+            targetNodeIndex = nodeIndex,
+            moveDirection = if (Random.nextBoolean()) 1 else -1,
             isRemote = false
         )
     }
@@ -1029,6 +1073,9 @@ class NpcAiManager {
             }
 
             if (navGraph.entryWays.contains(way.id) && nodeIndex < 0) {
+                // Si un estudiante llega por accidente a la salida de ESCOM, se da media vuelta
+                if (npc.type == NpcType.PERSON) return npc.copy(targetNodeIndex = 1, moveDirection = 1)
+
                 carExitCooldowns[npc.id] = System.currentTimeMillis() + 60000L
                 return npc.copy(
                     navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM,
@@ -1039,20 +1086,23 @@ class NpcAiManager {
             }
 
             val connectedWays = navGraph.ways.filter { w ->
-                w.id != way.id && w.nodes.size >= 2 && !w.nodes.any { it.isParkingSlot } && run {
-                    var isNear = false
-                    for (i in 0 until w.nodes.size - 1) {
-                        val n1 = w.nodes[i]
-                        val n2 = w.nodes[i+1]
-                        val dist = pointToLineDist(
-                            reachedNode.localX.toDouble(), reachedNode.localY.toDouble(),
-                            n1.localX.toDouble(), n1.localY.toDouble(),
-                            n2.localX.toDouble(), n2.localY.toDouble()
-                        )
-                        if (dist < 0.05) { isNear = true; break }
-                    }
-                    isNear
-                }
+                w.id != way.id && w.nodes.size >= 2 && !w.nodes.any { it.isParkingSlot } &&
+                        // LA REGLA DE CAPAS: Coches solo usan < 200, Peatones usan >= 200
+                        ((npc.type == NpcType.CAR && w.id < 200) || (npc.type == NpcType.PERSON && w.id >= 200)) &&
+                        run {
+                            var isNear = false
+                            for (i in 0 until w.nodes.size - 1) {
+                                val n1 = w.nodes[i]
+                                val n2 = w.nodes[i+1]
+                                val dist = pointToLineDist(
+                                    reachedNode.localX.toDouble(), reachedNode.localY.toDouble(),
+                                    n1.localX.toDouble(), n1.localY.toDouble(),
+                                    n2.localX.toDouble(), n2.localY.toDouble()
+                                )
+                                if (dist < 0.05) { isNear = true; break }
+                            }
+                            isNear
+                        }
             }
 
             if (connectedWays.isNotEmpty()) {
@@ -1117,11 +1167,19 @@ class NpcAiManager {
         }
 
         return if (dist < actualSpeed) {
+            // Comportamiento humano. 25% de prob. de detenerse 2-4 segundos a descansar
+            val pauseTime = if (npc.type == NpcType.PERSON && Random.nextFloat() < 0.25f) {
+                System.currentTimeMillis() + Random.nextLong(2000, 4000)
+            } else {
+                npc.chatUntil
+            }
+
             npc.copy(
                 location = GeoPoint(targetGlobal.latitude, targetGlobal.longitude),
                 targetNodeIndex = nodeIndex + direction,
                 rotationAngle = smoothedAngle,
-                facingRight = isFacingRight
+                facingRight = isFacingRight,
+                chatUntil = pauseTime // Usamos la variable chat para detenerlos sin romper su IA
             )
         } else {
             npc.copy(
@@ -1254,7 +1312,7 @@ class NpcAiManager {
                         val distToEntry = calculateDistance(reachedNode.lat, reachedNode.lon, entryGlobal.latitude, entryGlobal.longitude)
                         if (distToEntry < 0.00010) { // ~10 m
                             val lastEntryTime = landmarkEntranceCooldowns[landmark.id.toString()] ?: 0L
-                            // 👇 FIX: Leemos el castigo en el choque directo
+                            // FIX: Leemos el castigo en el choque directo
                             val exitCooldown = carExitCooldowns[npc.id] ?: 0L
 
                             // Usamos el 'now' del parámetro
@@ -1336,7 +1394,7 @@ class NpcAiManager {
                 return npc.copy(currentWay = nextWay, targetNodeIndex = newNodeIndex + nextDir,
                     moveDirection = nextDir, location = GeoPoint(reachedNode.lat, reachedNode.lon))
             } else {
-                // 👇 FIX MAESTRO: Si acaba de salir de ESCOM (castigado) y topó con un callejón
+                //  FIX MAESTRO: Si acaba de salir de ESCOM (castigado) y topó con un callejón
                 // sin salida (la infame 'U'), lo despawneamos para que no dé vueltas infinitas.
                 val exitCooldown = carExitCooldowns[npc.id] ?: 0L
                 if (now < exitCooldown) {
@@ -1405,7 +1463,7 @@ class NpcAiManager {
 
                     if (distToEntry < 0.00010) { // Distancia ajustada a 10 metros para que no atropellen el pasto
                         val lastEntryTime = landmarkEntranceCooldowns[landmark.id.toString()] ?: 0L
-                        // 👇 FIX: El Radar Periférico también lee el castigo
+                        // FIX: El Radar Periférico también lee el castigo
                         val exitCooldown = carExitCooldowns[npc.id] ?: 0L
 
                         // Validamos que 'now' sea mayor al castigo antes de forzar el volantazo
@@ -1425,7 +1483,7 @@ class NpcAiManager {
             }
         }
 
-        //  NUEVO BLOQUEO DE COLISIÓN PARA LA IA 👇
+        //  BLOQUEO DE COLISIÓN PARA LA IA
         var canMove = true
         exteriorCollisions?.let { config ->
             // A) Zonas sólidas (edificios/jardineras cerradas)
@@ -1448,7 +1506,6 @@ class NpcAiManager {
 
         if (!canMove) {
             // Si la IA choca con una pared, se frena en seco y pierde la velocidad actual.
-            // Opcional: podrías poner return null si prefieres que desaparezcan.
             return npc.copy(speed = 0.0, isMoving = false)
         }
 
