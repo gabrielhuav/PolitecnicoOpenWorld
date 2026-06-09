@@ -58,7 +58,7 @@ import java.io.InputStreamReader
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
 import ovh.gabrielhuav.pow.data.repository.MetroRepository
-
+import ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig
 
 class WorldMapViewModel(
     internal val roadNetworkCache: RoadNetworkCache,
@@ -774,6 +774,23 @@ class WorldMapViewModel(
     }
 
     fun stopGameLoop() { gameLoopJob?.cancel(); gameLoopJob = null }
+
+    private var exteriorCollisions: ExteriorCollisionsConfig? = null
+
+    // Llama esta función en el init{} de tu ViewModel
+    private fun loadExteriorCollisions(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val jsonString = context.assets.open("exterior_collisions.json").bufferedReader().use { it.readText() }
+                exteriorCollisions = Gson().fromJson(jsonString, ExteriorCollisionsConfig::class.java)
+
+                npcAiManager.setExteriorCollisions(exteriorCollisions)
+
+            } catch (e: Exception) {
+                Log.e("Collisions", "Error: ${e.message}")
+            }
+        }
+    }
 
     private suspend fun applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
         roadNetwork = network

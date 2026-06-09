@@ -198,6 +198,12 @@ class NpcAiManager {
     @Volatile var userPopulationFactor: Float = 1.0f
     private val popFactor get() = deviceTierFactor * urbanFactor * userPopulationFactor
 
+
+    private var exteriorCollisions: ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig? = null
+
+    fun setExteriorCollisions(config: ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig?) {
+        this.exteriorCollisions = config
+    }
     private val maxActiveNpcs get() = ((if (globalZombieMode) 45 else 12) * popFactor).toInt().coerceIn(6, 120)
     private val maxTotalNpcs  get() = ((if (globalZombieMode) 90 else 30) * popFactor).toInt().coerceIn(12, 240)
     // Throttle del escaneo de calles para spawnear: es lo más caro (recorre la red).
@@ -1417,6 +1423,33 @@ class NpcAiManager {
                     }
                 }
             }
+        }
+
+        //  NUEVO BLOQUEO DE COLISIÓN PARA LA IA 👇
+        var canMove = true
+        exteriorCollisions?.let { config ->
+            // A) Zonas sólidas (edificios/jardineras cerradas)
+            for (poly in config.polygons) {
+                if (poly.contains(tLat, tLon)) {
+                    canMove = false
+                    break
+                }
+            }
+            // B) Bardas invisibles
+            if (canMove) {
+                for (wall in config.walls) {
+                    if (wall.didHitWall(npc.location.latitude, npc.location.longitude, tLat, tLon)) {
+                        canMove = false
+                        break
+                    }
+                }
+            }
+        }
+
+        if (!canMove) {
+            // Si la IA choca con una pared, se frena en seco y pierde la velocidad actual.
+            // Opcional: podrías poner return null si prefieres que desaparezcan.
+            return npc.copy(speed = 0.0, isMoving = false)
         }
 
         return if (dist < actualSpeed) {
