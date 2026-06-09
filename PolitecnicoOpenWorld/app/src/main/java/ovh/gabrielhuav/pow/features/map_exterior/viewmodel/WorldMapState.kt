@@ -86,6 +86,9 @@ data class WorldMapState(
     val isMultiplayer: Boolean = false,
     val playerName: String = "",
 
+    // ─── APOCALIPSIS ZOMBI GLOBAL ────────────────────────────────────────
+    val globalZombieMode: Boolean = false,
+
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
     val selectedLandmarkId: Long? = null,
@@ -132,6 +135,11 @@ data class WorldMapState(
 
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,
+
+    // ─── Jugabilidad: optimización de NPCs (gama baja) ───────────────────────
+    // Si está activo, los NPCs lejanos se dibujan como emoji (más barato) y solo los
+    // MUY cercanos usan el asset completo. Se configura en Ajustes → Jugabilidad.
+    val npcEmojiLod: Boolean = false,
 
     // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
     val showShineCTODiscovery: Boolean = false,

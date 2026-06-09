@@ -171,6 +171,16 @@ class ZombieGameViewModel(
                     pushRemotePlayersToState()
                 }
 
+                // COORDS MANEJADAS POR EL SERVIDOR: el servidor rechazó una posición dentro de
+                // pared; ajustamos al jugador local a la posición válida (fracción → píxeles).
+                "PLAYER_CORRECT" -> {
+                    val mx = msg.x; val my = msg.y
+                    if (mx != null && my != null) {
+                        val room = currentRoom()
+                        _state.update { it.copy(playerX = mx * room.worldWidth, playerY = my * room.worldHeight) }
+                    }
+                }
+
                 // ─── Fase 1: zombis autoritativos ───
                 "ZOMBIE_STATE" -> {
                     if (msg.roomId == null || msg.roomId == currentRoom().id) applyServerZombieState(msg)
@@ -257,10 +267,20 @@ class ZombieGameViewModel(
         val its = msg.items?.map { ni ->
             SkillItem(id = ni.id, x = ni.x * w, y = ni.y * h, effect = effectFromName(ni.effect))
         } ?: emptyList()
+        // NPCs civiles (autoritativos): se renderizan como figuras humanas (RemotePlayerView).
+        val civs = msg.npcs?.map { nn ->
+            ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.RemoteZombiePlayer(
+                id = nn.id, displayName = "",
+                x = nn.x * w, y = nn.y * h,
+                action = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction.WALK,
+                facingRight = nn.facingRight, health = 100f
+            )
+        } ?: emptyList()
         _state.update {
             it.copy(
                 zombies = zs,
                 items = its,
+                interiorNpcs = civs,
                 totalZombies = msg.totalZombies ?: it.totalZombies,
                 zombiesRemaining = zs.count { z -> !z.isDying }
             )

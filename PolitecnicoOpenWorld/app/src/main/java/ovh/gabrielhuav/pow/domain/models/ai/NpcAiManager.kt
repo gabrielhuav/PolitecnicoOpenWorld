@@ -73,6 +73,32 @@ class NpcAiManager {
             else
                 ovh.gabrielhuav.pow.domain.models.NpcTrait.COWARD
 
+        // ─── ROLES DE ZOMBI (apocalipsis) — helpers estáticos ────────────────────
+        // Peso al spawn: mayoría NORMAL, algunos RUNNER/TANK/SCOUT.
+        fun rollZombieRole(): ovh.gabrielhuav.pow.domain.models.ZombieRole {
+            val r = Random.nextFloat()
+            return when {
+                r < 0.22f -> ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER
+                r < 0.34f -> ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK
+                r < 0.42f -> ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT
+                else      -> ovh.gabrielhuav.pow.domain.models.ZombieRole.NORMAL
+            }
+        }
+        // Vida máxima por rol (con PLAYER_PUNCH_DAMAGE=15 → golpes aprox: Runner 1, Normal 2, Tank 4).
+        fun maxHealthForRole(role: ovh.gabrielhuav.pow.domain.models.ZombieRole): Float = when (role) {
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 15f
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK   -> 60f
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT  -> 15f
+            else -> 30f
+        }
+        // Multiplicador de velocidad por rol (sobre la velocidad base del zombi).
+        fun speedMulForRole(role: ovh.gabrielhuav.pow.domain.models.ZombieRole): Float = when (role) {
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 1.6f
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK   -> 0.55f
+            ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT  -> 1.5f
+            else -> 1f
+        }
+
         // PALETA FIJA DE ATUENDOS (optimización de render): en vez de colores aleatorios
         // por NPC (~2000 combinaciones → un sprite único por peatón), usamos un conjunto
         // PEQUEÑO de atuendos predefinidos. Así los sprites se COMPARTEN entre NPCs: la
@@ -141,6 +167,13 @@ class NpcAiManager {
     private val nodeToWays = AtomicReference<Map<Long, List<MapWay>>>(emptyMap())
 
     val pendingDespawns = mutableListOf<String>()
+    // Disparos de la policía del apocalipsis (origen=poli → destino=zombi) para que el VM los
+    // pinte como balas (igual que los disparos de la policía normal). Lo drena el game loop.
+    val pendingPoliceShots = mutableListOf<Pair<GeoPoint, GeoPoint>>()
+
+    // ─── APOCALIPSIS ZOMBI GLOBAL ───
+    // Declarado aquí arriba porque maxActiveNpcs/maxTotalNpcs dependen de este flag.
+    @Volatile var globalZombieMode: Boolean = false
 
     // POBLACIÓN ESCALABLE Y BARATA EN GAMA BAJA:
     //  - maxActiveNpcs: NPCs SIMULADOS y visibles (dentro de simRadius ≈ fog). Solo
@@ -152,8 +185,21 @@ class NpcAiManager {
     // ESCALA AL FOG: el fog de NPCs es de ~70 m (NPC_FOG_VISION_METERS). Para que el
     // mundo NO se vea vacío, los NPCs deben concentrarse alrededor de ese radio, no a
     // cientos de metros. Por eso el anillo de spawn y simRadius están en esa escala.
-    private val maxActiveNpcs = 12      // simulados/visibles en el fog (gama baja)
-    private val maxTotalNpcs  = 30      // tope en memoria (incluye congelados)
+    // MODO ZOMBI: aumentamos la población para tener más "víctimas" y zombis.
+    // ─── Escalado dinámico de población ──────────────────────────────────────
+    // deviceTierFactor: gama del teléfono (RAM total) — lo fija el VM desde ActivityManager.
+    //   ~0.6 gama baja (≤2 GB), 1.0 media (≤4 GB), ~1.5 alta. Menos NPCs en equipos débiles.
+    // urbanFactor: densidad de la red de calles (proxy GRATIS de "ciudad") — se calcula en
+    //   updateRoadNetwork a partir de cuántas calles/nodos hay en la zona descargada de OSM.
+    //   ~0.6 rural, 1.0 suburbio, ~1.8 ciudad densa. Más NPCs/tráfico donde hay más calles.
+    @Volatile var deviceTierFactor: Float = 1.0f
+    @Volatile var urbanFactor: Float = 1.0f
+    // Multiplicador elegido por el usuario en Ajustes → Jugabilidad (lo fija el VM).
+    @Volatile var userPopulationFactor: Float = 1.0f
+    private val popFactor get() = deviceTierFactor * urbanFactor * userPopulationFactor
+
+    private val maxActiveNpcs get() = ((if (globalZombieMode) 45 else 12) * popFactor).toInt().coerceIn(6, 120)
+    private val maxTotalNpcs  get() = ((if (globalZombieMode) 90 else 30) * popFactor).toInt().coerceIn(12, 240)
     // Throttle del escaneo de calles para spawnear: es lo más caro (recorre la red).
     // Solo lo hacemos cada SPAWN_SCAN_MS, no en cada tick de simulación.
     private val SPAWN_SCAN_MS = 500L
@@ -168,7 +214,42 @@ class NpcAiManager {
     private val spawnRingMax = 0.00068  // ~76 m (justo pasando el fog de 70 m)
 
     // Proporción objetivo de coches: menos coches = menos atascos y más peatones.
-    private val carPopulationRatio = 0.35f
+    // En CIUDAD (urbanFactor alto) sube → más tráfico; en rural baja. Acotada.
+    private val carPopulationRatio: Float
+        get() = if (globalZombieMode) 0f else (0.35f * urbanFactor).coerceIn(0.2f, 0.6f)
+
+    val ZOMBIE_SPEED_MULT = 3.5f
+    val ZOMBIE_VISION = 0.0009
+    val ZOMBIE_CONTACT_DIST = 0.00003
+    val ZOMBIE_BITE_DAMAGE = 8f
+    val ZOMBIE_BITE_COOLDOWN_MS = 1000L
+    val HUMAN_CONVERT_DELAY_MS = 1500L
+    val MAX_ZOMBIES = 35
+    val INITIAL_ZOMBIE_SEED = 25 // Aumentado para que el apocalipsis se sienta más poblado
+
+    // ─── HORDAS MIGRATORIAS ──────────────────────────────────────────────────
+    // Cada HORDE_INTERVAL_MS, si hay un "punto de calor" (varios humanos cerca), aparece una
+    // OLEADA de zombis en grupo que converge sobre ellos (evento de asedio dinámico). El Host
+    // las calcula (ya simula la IA de NPCs); cada cliente con apocalipsis las verá replicadas
+    // por NPC_BATCH_UPDATE como cualquier zombi.
+    val HORDE_INTERVAL_MS = 20000L
+    val HORDE_SIZE = 10            // zombis por oleada
+    val HORDE_MIN_HUMANS = 4       // mínimo de humanos cerca para disparar la horda
+    @Volatile var lastHordeMs = 0L
+    @Volatile var hordeIncomingAt = 0L   // marca de tiempo de la última horda (para avisar al HUD)
+
+    // ─── POLICÍA DEL APOCALIPSIS (caza-zombis) ───────────────────────────────
+    // En el apocalipsis NO te persiguen por delitos: aparecen (con probabilidad) para AYUDAR a
+    // los civiles, cazando al zombi más cercano. Solo te atacan si los PROVOCAS (los golpeas, o
+    // agredes a un civil con un poli en tu fog) → entonces se les pone aggroUntil y te persiguen.
+    val POLICE_HUNTER_MAX = 4              // máximo de policías a la vez
+    val POLICE_SPAWN_INTERVAL_MS = 9000L   // cada cuánto puede aparecer uno
+    val POLICE_SPAWN_CHANCE = 0.6f         // probabilidad por intento
+    val POLICE_SPEED_MULT = 3.2f           // velocidad (sobre personSpeed)
+    val POLICE_SHOOT_DIST = 0.00025        // ~28 m: a esta distancia le dispara al zombi
+    val POLICE_SHOOT_DAMAGE = 40f          // daño por disparo (mata zombis en 1-2 tiros)
+    val POLICE_SHOOT_COOLDOWN_MS = 700L
+    @Volatile var lastPoliceSpawnMs = 0L
 
     private val parkedTimers = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val parkingCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -210,6 +291,15 @@ class NpcAiManager {
         }
         nodeToWays.set(index)
         networkIsReady = network.isNotEmpty()
+
+        // ─── DETECCIÓN DE "CIUDAD" (gratis, desde la red OSM ya descargada) ──────
+        // La densidad de calles es un proxy de urbanización: una zona céntrica tiene
+        // muchas más vías/nodos en el mismo radio (~2 km) que una rural. Calculamos un
+        // urbanFactor en [0.6, 1.8] tomando como referencia ~140 vías para un suburbio
+        // (factor 1.0). No cuesta nada (ya tenemos la red) y NO requiere APIs de tráfico
+        // de pago. Sube la población de NPCs y el ratio de coches donde hay más calles.
+        urbanFactor = if (network.isEmpty()) 1.0f
+            else (network.size / 140f).coerceIn(0.6f, 1.8f)
     }
 
     fun setRemoteNpcs(remoteList: List<Npc>) {
@@ -426,24 +516,312 @@ class NpcAiManager {
             //    de fuera quedan CONGELADOS (se devuelven tal cual): en memoria, sin CPU.
             //    Los autos aparcados/en-landmark se simulan vía moveNpc (estados PARKED /
             //    MICRO_LANDMARK) cuando están dentro del fog.
+            // --- APOCALIPSIS ZOMBI GLOBAL ---
+            if (globalZombieMode) {
+                val zombies = serverNpcs.filter { it.type == NpcType.ZOMBIE && it.health > 0 }
+                
+                // 1. Semilla inicial
+                if (zombies.size < INITIAL_ZOMBIE_SEED && serverNpcs.size < maxTotalNpcs) {
+                    val closeWays = cachedWayBoxes.get().map { it.way }
+                    if (closeWays.isNotEmpty()) {
+                        spawnNpcOnRoad(playerLocation, closeWays, activeLandmarks)?.let {
+                            // visualConfig = null: el zombi sembrado viene de spawnNpcOnRoad (un PERSON
+                            // con outfit modular). Si NO se limpia, los renderers lo dibujan como humano
+                            // (la rama visualConfig != null va antes que la de ZOMBIE). Limpiándolo aquí
+                            // todos los zombis usan el asset de ZOMBIS_MOD/z_walk en nativo/Google/web.
+                            val role = rollZombieRole()
+                            val hp = maxHealthForRole(role)
+                            serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(role), trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role, health = hp, maxHealth = hp))
+                        }
+                    }
+                }
+
+                // 1.b HORDA MIGRATORIA: punto de calor = varios humanos cerca. Cada
+                //     HORDE_INTERVAL_MS aparece una OLEADA (HORDE_SIZE) que, al auto-perseguir al
+                //     humano más cercano, converge sobre el cúmulo: asedio dinámico.
+                if (now - lastHordeMs >= HORDE_INTERVAL_MS) {
+                    val nearbyHumans = serverNpcs.count {
+                        it.type == NpcType.PERSON && it.health > 0f && it.displayName.isNullOrEmpty() &&
+                            calculateDistance(it.location.latitude, it.location.longitude,
+                                playerLocation.latitude, playerLocation.longitude) <= simRadius
+                    }
+                    if (nearbyHumans >= HORDE_MIN_HUMANS) {
+                        lastHordeMs = now
+                        hordeIncomingAt = now
+                        val hordeWays = cachedWayBoxes.get().map { it.way }
+                        if (hordeWays.isNotEmpty()) {
+                            var k = 0
+                            while (k < HORDE_SIZE && serverNpcs.size < maxTotalNpcs) {
+                                spawnNpcOnRoad(playerLocation, hordeWays, activeLandmarks)?.let {
+                                    val role = rollZombieRole()
+                                    val hp = maxHealthForRole(role)
+                                    serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(role), trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role, health = hp, maxHealth = hp))
+                                }
+                                k++
+                            }
+                        }
+                    }
+                }
+
+                // 1.c POLICÍA DEL APOCALIPSIS: aparece (con probabilidad) para AYUDAR — caza zombis.
+                //     No te persigue salvo que la provoques (ver movePoliceHunter + el VM).
+                if (now - lastPoliceSpawnMs >= POLICE_SPAWN_INTERVAL_MS) {
+                    lastPoliceSpawnMs = now
+                    val cops = serverNpcs.count { it.type == NpcType.POLICE_COP && it.health > 0f }
+                    if (cops < POLICE_HUNTER_MAX && Random.nextFloat() < POLICE_SPAWN_CHANCE && serverNpcs.size < maxTotalNpcs) {
+                        val pWays = cachedWayBoxes.get().map { it.way }
+                        if (pWays.isNotEmpty()) {
+                            spawnNpcOnRoad(playerLocation, pWays, activeLandmarks)?.let {
+                                serverNpcs.add(it.copy(
+                                    type = NpcType.POLICE_COP,
+                                    speed = personSpeed * POLICE_SPEED_MULT,
+                                    visualConfig = null,
+                                    health = 100f, maxHealth = 100f, aggroUntil = 0L
+                                ))
+                            }
+                        }
+                    }
+                }
+
+                // 2. Humanos huyen de los zombis
+                for (i in serverNpcs.indices) {
+                    val h = serverNpcs[i]
+                    if (h.type == NpcType.PERSON && h.health > 0 && h.displayName.isNullOrEmpty()) {
+                        val nearestZ = zombies.minByOrNull { calculateDistance(it.location.latitude, it.location.longitude, h.location.latitude, h.location.longitude) }
+                        if (nearestZ != null) {
+                            val distZ = calculateDistance(nearestZ.location.latitude, nearestZ.location.longitude, h.location.latitude, h.location.longitude)
+                            if (distZ <= FEAR_RADIUS) {
+                                serverNpcs[i] = h.copy(
+                                    fearUntil = now + FEAR_DURATION_MS,
+                                    fearFromLat = nearestZ.location.latitude,
+                                    fearFromLon = nearestZ.location.longitude,
+                                    chatUntil = 0L,
+                                    chatPartnerId = null,
+                                    isMoving = true
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // 3. Convertir humanos muertos
+                for (i in serverNpcs.indices) {
+                    val h = serverNpcs[i]
+                    if (h.type == NpcType.PERSON && h.health <= 0f && h.isDying) {
+                        if (now > h.fearUntil) {
+                            if (zombies.size < MAX_ZOMBIES) {
+                                // FIX: Limpiar visualConfig para que el renderizado use el asset de zombi.
+                                // El humano contagiado adopta un rol aleatorio (apocalipsis variado).
+                                val role = rollZombieRole()
+                                val hp = maxHealthForRole(role)
+                                serverNpcs[i] = h.copy(type = NpcType.ZOMBIE, health = hp, maxHealth = hp, isDying = false, chatUntil = 0L, fearUntil = 0L, trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role)
+                            } else {
+                                synchronized(pendingDespawns) { pendingDespawns.add(h.id) }
+                            }
+                        }
+                    }
+                }
+            }
+
             val updated = serverNpcs.mapNotNull { npc ->
                 if (!npc.displayName.isNullOrEmpty()) {
                     npc // Si es un jugador real, no lo tocamos.
                 } else if (calculateDistance(npc.location.latitude, npc.location.longitude, pLat0, pLon0) > simRadius) {
                     npc // Congelado: fuera del fog. No gasta CPU de movimiento.
                 } else {
-                    // TRÁFICO: un coche frena si tiene otro coche justo delante.
-                    val speedScale = if (npc.type == NpcType.CAR) carFollowScale(npc, cars) else 1f
-                    val moved = moveNpc(npc, currentNetwork, now, speedScale)
-                    if (moved == null) {
-                        synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                    if (npc.dodgeUntil > now) {
+                        // ESQUIVE estilo Midnight Club: sidestep RÁPIDO hacia dodgeDir, SIN snap a la
+                        // calle (animado, no teletransporte). Al terminar (now >= dodgeUntil) moveNpc lo
+                        // re-engancha a la calle → "salta a un lado y regresa".
+                        val ds = personSpeed * 10.0
+                        npc.copy(
+                            location = GeoPoint(npc.location.latitude + npc.dodgeDirLat * ds, npc.location.longitude + npc.dodgeDirLon * ds),
+                            isMoving = true,
+                            facingRight = npc.dodgeDirLon >= 0
+                        )
+                    } else if (globalZombieMode && npc.type == NpcType.ZOMBIE) {
+                        val moved = moveZombieNpc(npc, currentNetwork, now, pLat0, pLon0)
+                        if (moved == null) {
+                            synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                        }
+                        moved
+                    } else if (globalZombieMode && npc.type == NpcType.POLICE_COP) {
+                        movePoliceHunter(npc, currentNetwork, now, pLat0, pLon0)
+                    } else {
+                        // TRÁFICO: un coche frena si tiene otro coche justo delante.
+                        val speedScale = if (npc.type == NpcType.CAR) carFollowScale(npc, cars) else 1f
+                        val moved = moveNpc(npc, currentNetwork, now, speedScale)
+                        if (moved == null) {
+                            synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                        }
+                        moved
                     }
-                    moved
                 }
             }
             serverNpcs.clear()
             serverNpcs.addAll(updated)
         }
+    }
+
+
+    private fun moveZombieNpc(
+        npc: Npc, 
+        network: List<MapWay>, 
+        now: Long, 
+        playerLat: Double, 
+        playerLon: Double
+    ): Npc? {
+        if (npc.health <= 0f) {
+            if (!npc.isDying) {
+                return npc.copy(isDying = true, aggroUntil = now + HUMAN_CONVERT_DELAY_MS)
+            }
+            if (now > npc.aggroUntil) return null
+            return npc
+        }
+
+        // ─── SCOUT ("El Explorador") ─────────────────────────────────────────────
+        // NO ataca a nadie. Corre hacia el humano más cercano; al acercarse GRITA (burbuja,
+        // screamUntil) e inmediatamente HUYE en dirección opuesta unos segundos. Alarma
+        // viviente: si lo ves, viene una horda migratoria detrás.
+        if (npc.zombieRole == ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT) {
+            val nearestH = serverNpcs
+                .filter { it.type == NpcType.PERSON && it.health > 0f && it.displayName.isNullOrEmpty() }
+                .minByOrNull { calculateDistance(it.location.latitude, it.location.longitude, npc.location.latitude, npc.location.longitude) }
+            if (nearestH == null) return moveNpc(npc, network, now, 0.5f)
+            val dh = calculateDistance(nearestH.location.latitude, nearestH.location.longitude, npc.location.latitude, npc.location.longitude)
+            val scoutScreamDist = 0.0002   // ~22 m: a esta distancia grita
+            val scoutFleeMs = 4500L
+            var newScream = npc.screamUntil
+            if (now >= npc.screamUntil && dh <= scoutScreamDist) newScream = now + scoutFleeMs
+            val fleeing = now < newScream
+            val dLatT = if (fleeing) (npc.location.latitude - nearestH.location.latitude) else (nearestH.location.latitude - npc.location.latitude)
+            val dLonT = if (fleeing) (npc.location.longitude - nearestH.location.longitude) else (nearestH.location.longitude - npc.location.longitude)
+            val a = atan2(dLatT, dLonT)
+            val sp = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT)
+            return npc.copy(
+                location = GeoPoint(npc.location.latitude + sin(a) * sp, npc.location.longitude + cos(a) * sp),
+                rotationAngle = (-Math.toDegrees(a).toFloat()),
+                isMoving = true,
+                facingRight = cos(a) >= 0,
+                screamUntil = newScream,
+                navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
+            )
+        }
+
+        // El JUGADOR es objetivo PRIORITARIO: su distancia se PONDERA (×0.45) para que los zombis
+        // lo prefieran aunque un humano esté algo más cerca → "vienen por ti" en vez de perseguir
+        // solo a los civiles que huyen (que además corren más rápido y nunca alcanzaban).
+        val distPlayer = calculateDistance(npc.location.latitude, npc.location.longitude, playerLat, playerLon)
+        var targetLat = playerLat
+        var targetLon = playerLon
+        var bestScore = distPlayer * 0.45   // puntuación (menor = más atractivo)
+        var realDist = distPlayer            // distancia REAL al objetivo (visión/contacto)
+        var targetIsHuman: Npc? = null
+        // Víctimas de los zombis: civiles Y policías (los zombis también atacan a la policía →
+        // escaramuza). El jugador sigue siendo prioritario (su distancia va ponderada ×0.45).
+        val humans = serverNpcs.filter {
+            (it.type == NpcType.PERSON || it.type == NpcType.POLICE_COP) && it.health > 0f && it.displayName.isNullOrEmpty()
+        }
+
+        for (h in humans) {
+            val d = calculateDistance(npc.location.latitude, npc.location.longitude, h.location.latitude, h.location.longitude)
+            if (d < bestScore) {
+                bestScore = d
+                realDist = d
+                targetLat = h.location.latitude
+                targetLon = h.location.longitude
+                targetIsHuman = h
+            }
+        }
+
+        if (realDist > ZOMBIE_VISION) {
+            return moveNpc(npc, network, now, 0.5f)
+        }
+
+        if (targetIsHuman != null && realDist <= ZOMBIE_CONTACT_DIST) {
+            if (now > npc.chatUntil) {
+                val targetIndex = serverNpcs.indexOfFirst { it.id == targetIsHuman.id }
+                if (targetIndex >= 0) {
+                    var h = serverNpcs[targetIndex]
+                    val newHealth = h.health - ZOMBIE_BITE_DAMAGE
+                    if (newHealth <= 0f) {
+                        h = h.copy(health = 0f, isDying = true, fearUntil = now + HUMAN_CONVERT_DELAY_MS)
+                    } else {
+                        h = h.copy(health = newHealth)
+                    }
+                    serverNpcs[targetIndex] = h
+                }
+                return npc.copy(chatUntil = now + ZOMBIE_BITE_COOLDOWN_MS)
+            }
+            return npc
+        }
+        
+        val dLatForDir = targetLat - npc.location.latitude
+        val dLonForDir = targetLon - npc.location.longitude
+        val dir = kotlin.math.atan2(dLatForDir, dLonForDir)
+        // Velocidad por rol: RUNNER más rápido, TANK más lento (sobre la base del zombi).
+        val effSpeed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(npc.zombieRole)
+        val dLat = kotlin.math.sin(dir) * effSpeed
+        val dLon = kotlin.math.cos(dir) * effSpeed
+        
+        // Calcular facingRight para la animación del sprite
+        val facingRight = kotlin.math.cos(dir) >= 0
+        
+        return npc.copy(
+            location = GeoPoint(npc.location.latitude + dLat, npc.location.longitude + dLon),
+            rotationAngle = -Math.toDegrees(dir).toFloat(),
+            isMoving = true,
+            facingRight = facingRight,
+            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
+        )
+    }
+
+    // POLICÍA del apocalipsis: por defecto persigue y dispara al ZOMBI más cercano (ayuda a los
+    // civiles). Si está PROVOCADO (aggroUntil > now, lo fija el VM al golpearlo o al agredir a un
+    // civil con un poli en tu fog), persigue al JUGADOR (el daño al jugador lo aplica el VM).
+    private fun movePoliceHunter(npc: Npc, network: List<MapWay>, now: Long, playerLat: Double, playerLon: Double): Npc? {
+        if (npc.health <= 0f) return null
+        val provoked = npc.aggroUntil > now
+        var targetLat: Double
+        var targetLon: Double
+        if (provoked) {
+            targetLat = playerLat; targetLon = playerLon
+        } else {
+            // Zombi VIVO más cercano.
+            val z = serverNpcs
+                .filter { it.type == NpcType.ZOMBIE && it.health > 0f && !it.isDying }
+                .minByOrNull { calculateDistance(it.location.latitude, it.location.longitude, npc.location.latitude, npc.location.longitude) }
+            if (z == null) return moveNpc(npc, network, now, 0.5f)   // sin zombis: patrulla por la calle
+            val dz = calculateDistance(z.location.latitude, z.location.longitude, npc.location.latitude, npc.location.longitude)
+            // DISPARO: si el zombi está a tiro, le baja vida (con cooldown). No necesita acercarse más.
+            if (dz <= POLICE_SHOOT_DIST) {
+                if (now > npc.chatUntil) {
+                    val zi = serverNpcs.indexOfFirst { it.id == z.id }
+                    if (zi >= 0) {
+                        val nh = serverNpcs[zi].health - POLICE_SHOOT_DAMAGE
+                        serverNpcs[zi] = if (nh <= 0f) serverNpcs[zi].copy(health = 0f, isDying = true)
+                                         else serverNpcs[zi].copy(health = nh)
+                    }
+                    // BALA VISIBLE: registramos el disparo (poli → zombi) para que el VM lo pinte.
+                    synchronized(pendingPoliceShots) { pendingPoliceShots.add(npc.location to z.location) }
+                    val a0 = atan2(z.location.latitude - npc.location.latitude, z.location.longitude - npc.location.longitude)
+                    return npc.copy(chatUntil = now + POLICE_SHOOT_COOLDOWN_MS,
+                        rotationAngle = (-Math.toDegrees(a0).toFloat() + 360) % 360,
+                        facingRight = cos(a0) >= 0, isMoving = false)
+                }
+                return npc
+            }
+            targetLat = z.location.latitude; targetLon = z.location.longitude
+        }
+        val dir = atan2(targetLat - npc.location.latitude, targetLon - npc.location.longitude)
+        val sp = personSpeed * POLICE_SPEED_MULT
+        return npc.copy(
+            location = GeoPoint(npc.location.latitude + sin(dir) * sp, npc.location.longitude + cos(dir) * sp),
+            rotationAngle = (-Math.toDegrees(dir).toFloat() + 360) % 360,
+            isMoving = true,
+            facingRight = cos(dir) >= 0,
+            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
+        )
     }
 
     private fun getAvailableParkingSlots(landmark: Landmark, currentNpcs: List<Npc>): List<Pair<ovh.gabrielhuav.pow.domain.models.ai.LocalWay, ovh.gabrielhuav.pow.domain.models.ai.LocalNode>> {

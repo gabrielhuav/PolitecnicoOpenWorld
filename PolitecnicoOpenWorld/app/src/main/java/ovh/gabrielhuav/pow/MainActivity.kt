@@ -95,6 +95,7 @@ class MainActivity : ComponentActivity() {
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieSpriteManager.clearCaches()
         }
     }
@@ -177,6 +178,15 @@ class MainActivity : ComponentActivity() {
                                 onControlTypeChanged = { settingsViewModel.changeControlType(it) },
                                 onControlsScaleChanged = { settingsViewModel.changeControlsScale(it) },
                                 onSwapControlsToggled = { settingsViewModel.toggleSwapControls(it) },
+                                // Jugabilidad: persisten en Ajustes Y se aplican en vivo al mapa.
+                                onNpcDensityChanged = {
+                                    settingsViewModel.changeNpcDensity(it)
+                                    worldMapViewModel.setNpcDensity(it)
+                                },
+                                onNpcEmojiLodToggled = {
+                                    settingsViewModel.toggleNpcEmojiLod(it)
+                                    worldMapViewModel.setNpcEmojiLod(it)
+                                },
                                 onNavigateBack = {
                                     // Descartar cambios de controles no guardados al salir.
                                     settingsViewModel.discardControlsChanges()

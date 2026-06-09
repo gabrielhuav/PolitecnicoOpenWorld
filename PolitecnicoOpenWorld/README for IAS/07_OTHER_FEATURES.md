@@ -57,9 +57,19 @@ fields and **only apply on SAVE**; leaving discards.
 - `saveControlsSettings()` (commit + persiste vía `SettingsRepository` + empuja al mapa),
   `discardControlsChanges()` (al salir).
 - `toggleRoadNetwork(show)`. `Factory(context)`.
+- **Jugabilidad / Gameplay (nuevo):** `changeNpcDensity(v: Float)` (0.4–1.6, persiste al instante) y
+  `toggleNpcEmojiLod(b)`. La pestaña **Jugabilidad** (antes vacía) ahora tiene:
+  - **"Cantidad de NPCs"** (slider) → `SettingsState.npcDensity` → `WorldMapViewModel.setNpcDensity` →
+    `NpcAiManager.userPopulationFactor` (se combina con gama del teléfono + densidad urbana, ver 03).
+  - **"Optimizar para gama baja"** (switch) → `npcEmojiLod` → `WorldMapState.npcEmojiLod` → render LOD de
+    emojis (NPCs lejanos como 🧍🚗🧟, ver 04). Default = `isLowRamDevice` (`SettingsRepository`).
+  - Ambos persisten en `SettingsRepository` (`getNpcDensity`/`getNpcEmojiLod`) y se aplican **en vivo** al
+    mapa desde `MainActivity` (llaman a `settingsViewModel` + `worldMapViewModel`).
 
 ### `ui/SettingsScreen.kt`
 Pestañas + sliders. Escala adaptativa 60%–140% (cap 100% en portrait), swap de zurdos, botones A/B/X/Y.
+El composable `GameplaySettings` (pestaña Jugabilidad) tiene el slider de cantidad de NPCs y el switch de
+optimización de gama baja.
 
 ---
 

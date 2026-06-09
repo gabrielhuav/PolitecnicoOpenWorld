@@ -119,8 +119,40 @@ matrices por defecto son **border-only** hasta reemplazarse.
   el 1er toque (sin cambiar zoom).
 - **Errores en cascada "Unresolved reference"** tras un merge → sospecha de **un** archivo con llaves/
   paréntesis desbalanceados, no de muchos símbolos faltantes (ver 01).
-- **Gotcha de parciales:** funciones duplicadas como miembro privado + extensión (`WorldMap*.kt`). El
-  miembro de `WorldMapViewModel.kt` gana; verifica ambos (ver 04).
+- **Gotcha de parciales (¡importante!):** funciones duplicadas como **miembro privado** en
+  `WorldMapViewModel.kt` + **extensión** del mismo nombre en `WorldMap*.kt`. Cuando se llaman desde
+  DENTRO de la clase (caso de `startGameLoop()`, invocado en `WorldMapViewModel.kt:399`), **gana el
+  miembro**; la extensión queda **muerta**. Caso real: el game loop miembro NO llamaba a
+  `applyNpcContactDamage`/`runOverNpcs` (solo la extensión muerta) → ni NPCs agresivos ni zombis hacían
+  daño. **Edita el miembro, no la extensión.** Verifica ambos.
+- **Render de zombis — orden de ramas:** los 3 renderers (OSM nativo, Google nativo, web) revisan
+  `npc.visualConfig != null` ANTES que `NpcType.ZOMBIE`. Un zombi con `visualConfig` se dibuja como
+  humano. Solución doble: el **seed pone `visualConfig=null`** (`NpcAiManager`) **y** la rama de peatón
+  lleva la guarda `&& npc.type != ZOMBIE`. No quitar ninguna.
+- **Sprites web async — `cacheKey` acotado:** el render web genera el base64 en una coroutine. Si el
+  `cacheKey` incluye un frame sin acotar (p. ej. `(timeMs/220).toInt()`), cada frame crea un key nuevo y
+  la imagen nunca se registra a tiempo → no se ve. Acota el frame (`% 9` para `z_walk`). El nativo no
+  sufre esto porque genera el drawable síncrono.
+- **Modo zombi global = `Multiplayer/server.js`, NO `MultiplayerInteriores/`:** el apocalipsis ocurre sobre
+  el mapa del mundo abierto (conexión `MULTIPLAYER_SERVER_URL`). `MultiplayerInteriores/` es el minijuego de
+  interiores (otra conexión, `INTERIORS_SERVER_URL`). Son dos sistemas separados.
+- **Instancing del mundo abierto (Normal vs Apocalipsis):** el apocalipsis ya **NO** es un flag global; es
+  una **instancia** (`ws.instance` en el servidor). Todo el relay/roster va **acotado por instancia**
+  (`broadcastToOthers`/`broadcastToNearby` filtran por `instOf`; cada NPC lleva `instance`; AOI/GC/cap/
+  sync/Host por instancia). El cliente cambia de mundo con **`JOIN_INSTANCE`** (no `ZOMBIE_MODE_SET`, que
+  fue eliminado) y limpia `remoteEntities` al cambiar. **No re-introducir un broadcast global** del
+  apocalipsis: rompería la separación (los de "normal" no deben ver zombis).
+- **Rename:** el servidor de interiores es `MultiplayerInteriores/` (antes `MultiplayerZombie/`) y su URL
+  es `BuildConfig.INTERIORS_SERVER_URL` (antes `ZOMBIE_SERVER_URL`).
+- **Población de NPCs dinámica (gama + ciudad + usuario):** `NpcAiManager` escala `maxActiveNpcs`/
+  `maxTotalNpcs`/`carPopulationRatio` por `popFactor = deviceTierFactor × urbanFactor × userPopulationFactor`.
+  `deviceTierFactor` lo fija el `Factory` desde RAM (no persiste); `urbanFactor` sale de la **densidad de la
+  red OSM** en `updateRoadNetwork` (proxy GRATIS de ciudad, se recalcula al viajar); `userPopulationFactor`
+  es el slider de **Ajustes→Jugabilidad** (`getNpcDensity`). **No** hardcodees los topes otra vez: ajústalos
+  vía estos factores.
+- **LOD de emojis = SOLO OSM nativo (por ahora):** `uiState.npcEmojiLod` solo lo respeta `NativeOsmMap`
+  (NPCs >40 m → emoji). Web (Leaflet) y Google nativo **aún no** lo aplican (futuro: enviar un tipo de
+  payload "emoji" en vez de generar base64). Si optimizas web, hazlo en `updateNpcs`/`WorldMapLeafletHtml`.
 
 ---
 

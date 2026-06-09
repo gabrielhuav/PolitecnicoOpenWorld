@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
-
-internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
+internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -62,6 +61,8 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var landmarkMarkers = {};
         var policeWpMarkers = {};   // 🚓 de patrullas fuera de la neblina (paridad con OSM nativo)
         var policeWpLines = {};     // líneas punteadas jugador → patrulla
+        var zombieWpMarkers = {};   // 🧟 de zombis fuera del fog (modo apocalipsis, paridad con OSM nativo)
+        var zombieWpLines = {};     // líneas ROJAS punteadas jugador → zombi
 
         var isZooming = false;
         var isExplorationMode = false;
@@ -125,7 +126,6 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         }
         
         function setDesignerMode(isDesigner) {
-            window.designerModeActive = isDesigner;
             // Arrastre (pan) y pinch-zoom SIEMPRE activos para igualar a los mapas nativos.
             // El Modo Diseñador solo añade además el zoom por rueda (escritorio).
             map.dragging.enable();
@@ -134,14 +134,6 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 map.scrollWheelZoom.enable();
             } else {
                 map.scrollWheelZoom.disable();
-            }
-            // Actualizar interactividad de los landmarks existentes
-            for (var id in landmarkMarkers) {
-                var el = landmarkMarkers[id].getElement();
-                if (el) {
-                    var wrapper = el.querySelector('.lm-c');
-                    if (wrapper) wrapper.style.pointerEvents = isDesigner ? 'auto' : 'none';
-                }
             }
         }
         
@@ -229,15 +221,12 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 var exactHeightMeters = lm.heightMeters * lm.scale;
 
                 var isDoor = lm.assetPath.indexOf('DOORS/') >= 0;
-                var selected = lm.selected === true;
-                
                 var existingPane = landmarkMarkers[lm.id] ? landmarkMarkers[lm.id].options.pane : null;
                 var expectedPane = isDoor ? 'doorPane' : 'landmarkPane';
                 if (existingPane && existingPane !== expectedPane) {
                     map.removeLayer(landmarkMarkers[lm.id]);
                     delete landmarkMarkers[lm.id];
                 }
-                
                 if (landmarkMarkers[lm.id]) {
                     landmarkMarkers[lm.id].setLatLng([lm.lat, lm.lng]);
                     var el = landmarkMarkers[lm.id].getElement();
@@ -248,8 +237,6 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                             wrapper.dataset.hMeters = exactHeightMeters;
                             wrapper.dataset.rot = lm.rotation;
                             wrapper.dataset.lat = lm.lat;
-                            wrapper.style.boxShadow = selected ? '0 0 0 4px red' : 'none';
-                            wrapper.style.pointerEvents = window.designerModeActive ? 'auto' : 'none';
                         }
                     }
                 } else {
@@ -258,18 +245,14 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                                'data-h-meters="' + exactHeightMeters + '" ' +
                                'data-rot="' + lm.rotation + '" ' +
                                'data-lat="' + lm.lat + '" ' +
-                               'onclick="if(window.designerModeActive && window.Android && window.Android.notifyLandmarkClick) window.Android.notifyLandmarkClick(\'' + lm.id + '\');" ' +
-                               'style="position:absolute; transform: translate(-50%, -50%) rotate('+lm.rotation+'deg); ' +
-                               'pointer-events: ' + (window.designerModeActive ? 'auto' : 'none') + '; ' +
-                               'box-shadow: ' + (selected ? '0 0 0 4px red' : 'none') + '; ' +
-                               'z-index: -100;">' +
+                               'style="position:absolute; transform: translate(-50%, -50%) rotate('+lm.rotation+'deg); pointer-events: none; z-index: -100;">' +
                                '<img src="'+pUrl+'"' + (isDoor ? ' class="lm-door-img"' : '') + ' style="width:100%; height:100%; display:block; object-fit:fill;">' +
                                (isDoor ? '<div class="lm-shimmer"></div>' : '') +
                                '</div>';
 
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                     
-                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, pane: isDoor ? 'doorPane' : 'landmarkPane', interactive: true }).addTo(map);
+                    var marker = L.marker([lm.lat, lm.lng], { icon: icon, pane: isDoor ? 'doorPane' : 'landmarkPane', interactive: false }).addTo(map);
                     landmarkMarkers[lm.id] = marker;
                 }
             });
@@ -411,6 +394,28 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                     policeWpLines[p.id].setLatLngs(pts);
                 } else {
                     policeWpLines[p.id] = L.polyline(pts, { color: '#005AFF', weight: 3, opacity: 0.47, dashArray: '18, 14', interactive: false }).addTo(map);
+                }
+            });
+        }
+        // ─── WAYPOINTS DE ZOMBIS (fuera del fog, modo apocalipsis) ──────────────────
+        // Paridad con OSM nativo: cada zombi FUERA de tu campo de visión se marca con un
+        // 🧟 y una línea ROJA punteada desde el jugador, para saber de dónde vienen.
+        function updateZombies(playerLat, playerLng, data) {
+            var ids = new Set(data.map(function(z){ return z.id; }));
+            for (var id in zombieWpMarkers) if (!ids.has(id)) { map.removeLayer(zombieWpMarkers[id]); delete zombieWpMarkers[id]; }
+            for (var id in zombieWpLines) if (!ids.has(id)) { map.removeLayer(zombieWpLines[id]); delete zombieWpLines[id]; }
+            data.forEach(function(z) {
+                if (zombieWpMarkers[z.id]) {
+                    zombieWpMarkers[z.id].setLatLng([z.lat, z.lng]);
+                } else {
+                    var icon = L.divIcon({ html: '<div style="font-size:26px; transform:translate(-50%,-50%);">🧟</div>', className: '', iconSize: [0,0] });
+                    zombieWpMarkers[z.id] = L.marker([z.lat, z.lng], { icon: icon, interactive: false, zIndexOffset: 800 }).addTo(map);
+                }
+                var pts = [[playerLat, playerLng], [z.lat, z.lng]];
+                if (zombieWpLines[z.id]) {
+                    zombieWpLines[z.id].setLatLngs(pts);
+                } else {
+                    zombieWpLines[z.id] = L.polyline(pts, { color: '#E53935', weight: 3, opacity: 0.5, dashArray: '18, 14', interactive: false }).addTo(map);
                 }
             });
         }

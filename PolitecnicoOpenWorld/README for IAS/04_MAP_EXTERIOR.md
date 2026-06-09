@@ -91,7 +91,10 @@ load roads (Room cache → else Overpass with exponential backoff 1s→30s). The
 5. si isDriving && !WASTED → física del coche:
      girar ±2°/tick (solo con velocidad), gas→+ACCELERATION (cap MAX_SPEED), freno→-BRAKING_FRICTION
      (reversa hasta -MAX_SPEED/2), inercia al soltar. dx=sin(rot)*v, dy=cos(rot)*v.
-     snap a la calle: si distToRoad>0.000025 → reubicar en el borde y v*=0.8. runOverNpcs(loc, v).
+     **fuera de la calle (curva/bifurcación):** en vez de chocar y parar, **auto-direcciona** el coche
+     hacia la calle (muestrea un punto ~22 m adelante en la red, gira suave hacia ahí) y baja la velocidad
+     **proporcional** al desvío (`overshoot`); `maxRoadRadius=0.00004` (más holgado). Así, dejando
+     acelerar, sigue la carretera. runOverNpcs(loc, v).
 6. applyNpcContactDamage(loc)  // NPCs agresivos en embestida pegan a TU jugador (cada cliente al suyo)
 7. si red lista && !WASTED → runPoliceTick(loc)
 8. maybeRefetchRoadNetwork(loc); cada 5 ticks → updateVisibleRoads(loc)
@@ -272,11 +275,10 @@ branch carries `&& npc.type != ZOMBIE` and the seed nulls `visualConfig`.
   perpendicular, **sin snap a la calle**; al expirar, `moveNpc` lo re-engancha → "salta a un lado y
   regresa"). El esquive es **predictivo**: solo si el peatón está **DELANTE** del coche (producto punto con
   el avance > 0) y dentro de `DODGE_TRIGGER_RADIUS` (~7-8 m). Solo lo atropellas yendo **casi a fondo**
-  (`spd >= RUN_OVER_EXTREME_SPEED = MAX_SPEED*0.92`) y dentro de la **hitbox reducida** (`RUN_OVER_RADIUS * 0.4`), lo cual te dará **1 estrella de búsqueda**. Los **zombis NO
-  esquivan** (atropellables siempre sin estrellas). Al interactuar con un **auto NPC** (`CAR`/`POLICE_CAR`), el
-  comportamiento es variado: 1) Si estás casi detenido (<9% de la velocidad máxima), los NPCs te esquivan a ti. 2) Al manejar
-  recto (incluso a velocidad máxima), tu coche realiza un **rebase automático suave y controlado** esquivando al NPC y **auto-centrándose** (con imán temporal de 1.5s) sin saltar de carril. 3) Si **giras manualmente** durante el rebase o vas muy rápido chocando voluntariamente, **chocas** y lo empujas a un lado (tipo Toretto, fuerza moderada)
-  + 💥 (inmunidad cancelada). Además, la reversa gira a mayor velocidad (`3f`) sin invertir controles, y acelerar cuesta gradualmente más cerca del 100%. El estado de esquive vive en `remoteEntities`, se
+  (`spd >= RUN_OVER_EXTREME_SPEED = MAX_SPEED*0.92`) y dentro de `RUN_OVER_RADIUS`. Los **zombis NO
+  esquivan** (atropellables siempre). Chocar/rozar un **auto NPC** (`CAR`/`POLICE_CAR`, `CAR_BUMP_RADIUS`)
+  lo **empuja a un lado** (rebasas, tipo Toretto, `shove`) + 💥, sin daño al jugador. El 💥 solo salta en
+  atropello real o choque de auto (no al esquivar). El estado de esquive vive en `remoteEntities`, se
   reconstruye en `setServerNpcs` y la posición animada se replica vía `MultiplayerNpc` (no hace falta
   añadir campos de esquive al modelo de red).
 - **Daño moderado de mordida:** `applyNpcContactDamage` aplica la mordida de zombi con un **cooldown

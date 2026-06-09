@@ -251,7 +251,6 @@ class WorldMapViewModel(
     @Volatile internal var lastCrimeTime = 0L
     @Volatile internal var lastWantedDecayTime = 0L
     @Volatile internal var lastPoliceBroadcast = 0L
-    @Volatile internal var lastDodgeTime = 0L
     internal val POLICE_BROADCAST_MS = 120L   // ~8 Hz por la red (la simulación sigue a 30 Hz)
     internal val WANTED_DECAY_GRACE_MS = 25000L   // tiempo sin delito antes de empezar a bajar
     internal val WANTED_DECAY_STEP_MS = 15000L    // cada cuánto baja una estrella
@@ -575,17 +574,11 @@ class WorldMapViewModel(
                             var currentSpeed = _uiState.value.vehicleSpeed
                             var currentRotation = _uiState.value.vehicleRotation
 
-                            if (isSteeringLeftPressed && currentSpeed != 0.0) {
-                                currentRotation -= if (currentSpeed > 0) 2f else 3f
-                            }
-                            if (isSteeringRightPressed && currentSpeed != 0.0) {
-                                currentRotation += if (currentSpeed > 0) 2f else 3f
-                            }
+                            if (isSteeringLeftPressed && currentSpeed != 0.0) currentRotation -= 2f
+                            if (isSteeringRightPressed && currentSpeed != 0.0) currentRotation += 2f
 
                             if (isGasPressed) {
-                                val speedRatio = (currentSpeed / MAX_SPEED).coerceIn(0.0, 1.0)
-                                val dynamicAcc = ACCELERATION * (1.0 - speedRatio * 0.75) // Cuesta más llegar al 100%
-                                currentSpeed = (currentSpeed + dynamicAcc).coerceAtMost(MAX_SPEED)
+                                currentSpeed = (currentSpeed + ACCELERATION).coerceAtMost(MAX_SPEED)
                             } else if (isBrakePressed) {
                                 currentSpeed -= BRAKING_FRICTION
                                 if (currentSpeed < -MAX_SPEED / 2) currentSpeed = -MAX_SPEED / 2
@@ -598,84 +591,11 @@ class WorldMapViewModel(
                             val dx = kotlin.math.sin(angleRad) * currentSpeed
                             val dy = kotlin.math.cos(angleRad) * currentSpeed
 
-                            var tempLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
+                            val tempLoc = GeoPoint(location.latitude + dy, location.longitude + dx)
 
-                            // REBASE AUTOMÁTICO Y COLISIONES:
-                            // Comportamiento variado según velocidad y movimientos:
-                            val absSpeed = kotlin.math.abs(currentSpeed)
-                            val isGoingVeryFast = absSpeed > MAX_SPEED * 0.95
-                            val isSteeringSharply = isSteeringLeftPressed || isSteeringRightPressed
-                            
-                            val overtakeRadius = 0.00008
-                            var npsChanged = false
-
-                            val hdLat = kotlin.math.cos(angleRad)
-                            val hdLon = kotlin.math.sin(angleRad)
-                            val perpLat = -hdLon
-                            val perpLon = hdLat
-                            
-                            var dodgeOffsetX = 0.0
-                            var dodgeOffsetY = 0.0
-
-                            for ((id, npc) in remoteEntities.entries.toList()) {
-                                if (npc.type == NpcType.CAR || npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_CAR) {
-                                    val vLat = npc.location.latitude - tempLoc.latitude
-                                    val vLon = npc.location.longitude - tempLoc.longitude
-                                    val dist = kotlin.math.sqrt(vLat * vLat + vLon * vLon)
-                                    
-                                    val inFront = vLat * hdLat + vLon * hdLon
-                                    val rightDist = vLat * perpLat + vLon * perpLon
-                                    
-                                    if (dist < overtakeRadius) {
-                                        if (absSpeed < MAX_SPEED * 0.09) {
-                                            // 1. Totalmente detenido: los NPCs esquivan con un radio menor
-                                            // para que no tarden en regresar a su carril.
-                                            if (dist < overtakeRadius * 0.6) {
-                                                val pushDir = if (rightDist >= 0) 1.0 else -1.0
-                                                val shoveForce = ((overtakeRadius * 0.6) - dist) * 0.08
-                                                val newLoc = GeoPoint(
-                                                    npc.location.latitude + perpLat * pushDir * shoveForce,
-                                                    npc.location.longitude + perpLon * pushDir * shoveForce
-                                                )
-                                                remoteEntities[id] = npc.copy(location = newLoc)
-                                                npsChanged = true
-                                            }
-                                        } else if (!isSteeringSharply && inFront > 0) {
-                                            // 2. Manejando recto a velocidad normal o alta: NOSOTROS los esquivamos
-                                            // de forma automática sin desviarnos de la calle (desplazando el tempLoc).
-                                            val dodgeDir = if (rightDist >= 0) -1.0 else 1.0
-                                            val dodgeForce = (overtakeRadius - dist) * 0.08
-                                            dodgeOffsetY += perpLat * dodgeDir * dodgeForce
-                                            dodgeOffsetX += perpLon * dodgeDir * dodgeForce
-                                        }
-                                        // 3. Si vamos muy rápido o giramos bruscamente, no hay esquive suave,
-                                        // tempLoc no se altera y runOverNpcs se encargará del choque (Toretto).
-                                    }
-                                }
-                            }
-                            if (npsChanged) updateNpcsState()
-                            
-                            tempLoc = GeoPoint(tempLoc.latitude + dodgeOffsetY, tempLoc.longitude + dodgeOffsetX)
-
-                            var nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
-                            
-                            // Auto-centrado suave al carril: si acabamos de rebasar o vamos recto sin girar, 
-                            // regresamos al centro del camino de forma elegante para no mantenernos fuera de carril.
-                            var isAutoCentering = false
-                            val timeSinceDodge = System.currentTimeMillis() - lastDodgeTime
-                            val isRecoveringFromDodge = dodgeOffsetX == 0.0 && dodgeOffsetY == 0.0 && timeSinceDodge in 1L..1500L
-
-                            if (!isSteeringSharply && isRecoveringFromDodge && absSpeed > 0.0) {
-                                val pullLat = nearestRoadPoint.latitude - tempLoc.latitude
-                                val pullLon = nearestRoadPoint.longitude - tempLoc.longitude
-                                tempLoc = GeoPoint(tempLoc.latitude + pullLat * 0.15, tempLoc.longitude + pullLon * 0.15)
-                                nearestRoadPoint = getNearestPointOnNetwork(tempLoc) // recalcular porque nos movimos
-                                isAutoCentering = true
-                            }
-
+                            val nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
                             val distToRoad = distance(tempLoc, nearestRoadPoint)
-                            // Expandimos el radio temporalmente para permitir salirnos un poco al rebasar
-                            val maxRoadRadius = if (dodgeOffsetX != 0.0 || dodgeOffsetY != 0.0 || isAutoCentering) 0.00006 else 0.00004
+                            val maxRoadRadius = 0.00004   // más holgado: menos "topes" contra la pared
 
                             val finalLoc = if (distToRoad <= maxRoadRadius) {
                                 tempLoc
@@ -716,12 +636,7 @@ class WorldMapViewModel(
                             // ATROPELLO: conduciendo, los peatones/zombis dentro de RUN_OVER_RADIUS
                             // reciben daño escalado con la velocidad. (Antes solo se llamaba en la
                             // extensión WorldMapGameLoop.kt, que está SOMBREADA por este loop miembro.)
-                            val isAutoDodging = dodgeOffsetX != 0.0 || dodgeOffsetY != 0.0
-                            if (isAutoDodging) lastDodgeTime = System.currentTimeMillis()
-                            // Cancelar inmunidad si el jugador gira voluntariamente (para permitir chocar intencionalmente)
-                            if (isSteeringSharply) lastDodgeTime = 0L
-                            val dodgeGrace = System.currentTimeMillis() - lastDodgeTime < 600L
-                            runOverNpcs(finalLoc, currentSpeed, dodgeGrace)
+                            runOverNpcs(finalLoc, currentSpeed)
                         }
 
                         // GOLPES/MORDIDAS por CONTACTO: NPCs agresivos en embestida y ZOMBIS cercanos
@@ -2606,7 +2521,7 @@ class WorldMapViewModel(
     // ATROPELLO: estando al volante, los peatones dentro de RUN_OVER_RADIUS reciben
     // daño proporcional a la velocidad; mueren si llegan a 0 y, en cualquier caso, los
     // testigos se asustan. Solo el host simula NPCs, así que solo él aplica esto.
-    internal fun runOverNpcs(playerLoc: GeoPoint, speed: Double, isAutoDodging: Boolean = false) {
+    internal fun runOverNpcs(playerLoc: GeoPoint, speed: Double) {
         if (!isServerDelegatedHost) return
         val spd = kotlin.math.abs(speed)
         if (spd < RUN_OVER_MIN_SPEED) return
@@ -2618,11 +2533,10 @@ class WorldMapViewModel(
         val hdLat = cos(heading); val hdLon = sin(heading)
         val perpLat = -hdLon; val perpLon = hdLat
 
-        fun killOrHurt(id: String, npc: Npc, giveStar: Boolean = false) {
+        fun killOrHurt(id: String, npc: Npc) {
             val newHealth = (npc.health - damage).coerceAtLeast(0f)
             if (newHealth <= 0f) {
                 remoteEntities[id] = npc.copy(health = 0f, isDying = true)
-                if (giveStar) raiseWantedLevel(1)
                 viewModelScope.launch { delay(1000L); remoteEntities.remove(id); updateNpcsState() }
                 try { webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to id))) } catch (_: Exception) {}
             } else remoteEntities[id] = npc.copy(health = newHealth)
@@ -2642,10 +2556,9 @@ class WorldMapViewModel(
             val d = distance(playerLoc, npc.location)
             when (npc.type) {
                 NpcType.PERSON -> {
-                    if (extreme && d <= RUN_OVER_RADIUS * 0.4) {
+                    if (extreme && d <= RUN_OVER_RADIUS) {
                         // Vas casi A FONDO (>= RUN_OVER_EXTREME_SPEED) → los reflejos no alcanzan, lo atropellas.
-                        // Hitbox reducida (0.4) para que sea más difícil darles. Si los matas, obtienes 1 estrella.
-                        killOrHurt(id, npc, giveStar = true); changed = true; impactWorthy = true
+                        killOrHurt(id, npc); changed = true; impactWorthy = true
                         continue
                     }
                     if (d > DODGE_TRIGGER_RADIUS) continue
@@ -2672,13 +2585,9 @@ class WorldMapViewModel(
                     killOrHurt(id, npc); changed = true; impactWorthy = true
                 }
                 NpcType.CAR, ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_CAR -> {
-                    // Si estamos haciendo un rebase profesional suave, desactivamos la colisión
-                    // para permitir pasar rozando.
-                    if (isAutoDodging) continue
                     if (d > CAR_BUMP_RADIUS) continue
-                    // CHOCAMOS: Si no hubo rebase suave (por ir muy rápido o giro brusco), chocamos.
-                    // Empujas el auto a un lado (rebasas tipo Toretto) + 💥. Sin daño al jugador.
-                    remoteEntities[id] = npc.copy(location = shove(npc, CAR_BUMP_RADIUS * 0.6))
+                    // Chocas/rozas un AUTO: lo empujas a un lado (rebasas tipo Toretto) + 💥. Sin daño al jugador.
+                    remoteEntities[id] = npc.copy(location = shove(npc, CAR_BUMP_RADIUS * 1.4))
                     changed = true; impactWorthy = true
                 }
                 else -> continue

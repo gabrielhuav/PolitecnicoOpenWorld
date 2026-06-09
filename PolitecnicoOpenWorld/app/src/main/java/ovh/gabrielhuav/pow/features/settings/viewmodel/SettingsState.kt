@@ -15,6 +15,10 @@ data class SettingsState(
     val swapControls: Boolean = false, // false = Izq: Movimiento, Der: Acción
     val showRoadNetwork: Boolean = true,
 
+    // ─── Jugabilidad: población de NPCs ──────────────────────────────────────
+    val npcDensity: Float = 1.0f,        // multiplicador de cantidad de NPCs (0.4–1.6)
+    val npcEmojiLod: Boolean = false,    // NPCs lejanos como emoji (optimización gama baja)
+
     // ─── Valores TEMPORALES de controles ─────────────────────────────────────
     // La UI de controles edita estos; NO afectan al juego hasta presionar GUARDAR,
     // momento en el que se copian a los committeados de arriba y se persisten.

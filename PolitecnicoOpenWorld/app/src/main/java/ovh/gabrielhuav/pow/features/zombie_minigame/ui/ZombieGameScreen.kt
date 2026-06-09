@@ -91,7 +91,7 @@ fun ZombieGameScreen(
     debugHitboxes: Boolean = false
 ) {
     val context = LocalContext.current
-    val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.ZOMBIE_SERVER_URL else null
+    val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
     val viewModel: ZombieGameViewModel = viewModel(
         factory = ZombieGameViewModel.Factory(context, serverUrl, playerName)
     )
@@ -345,6 +345,24 @@ fun ZombieGameScreen(
                             modifier = Modifier.absoluteOffset(
                                 x = with(density) { toScreenX(rp.x).toDp() } - with(density) { (rpSize / 2).toDp() },
                                 y = with(density) { toScreenY(rp.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                            )
+                        )
+                    }
+                }
+
+                // NPCs civiles del interior (autoritativos del servidor): figuras humanas que
+                // deambulan/huyen de los zombis. Reusan RemotePlayerView (sin nombre).
+                state.interiorNpcs.forEach { npc ->
+                    if (!onScreen(npc.x, npc.y)) return@forEach
+                    key("civ_${npc.id}") {
+                        RemotePlayerView(
+                            name = "",
+                            action = npc.action,
+                            facingRight = npc.facingRight,
+                            sizePx = rpSize,
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(npc.x).toDp() } - with(density) { (rpSize / 2).toDp() },
+                                y = with(density) { toScreenY(npc.y).toDp() } - with(density) { (rpSize / 2).toDp() }
                             )
                         )
                     }

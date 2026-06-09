@@ -9,13 +9,24 @@ comments (keep). Validate: `node --check server.js`.
 
 ```bash
 cd Multiplayer       && docker compose up -d   # host :8080
-cd MultiplayerZombie && docker compose up -d   # host :8081 → contenedor :8080
+cd MultiplayerInteriores && docker compose up -d   # host :8081 → contenedor :8080
 ```
-URLs inyectadas / injected: `BuildConfig.MULTIPLAYER_SERVER_URL`, `BuildConfig.ZOMBIE_SERVER_URL`.
+URLs inyectadas / injected: `BuildConfig.MULTIPLAYER_SERVER_URL`, `BuildConfig.INTERIORS_SERVER_URL`.
 
 ---
 
-## 1) Open-world server — `Multiplayer/server.js` (~451 líneas)
+> **🔀 INSTANCING (Normal vs Apocalipsis):** el mundo abierto está **sharded por `ws.instance`**
+> (`"normal"` / `"apocalipsis"`). Los clientes de una instancia **no ven** a los de la otra ni sus
+> NPCs/zombis. **Todo el relay y el roster van acotados por instancia:** `broadcastToOthers`,
+> `broadcastToNearby` (AOI) y `broadcastToInstance(inst, msg)` filtran por `instOf(client)`; cada NPC se
+> etiqueta con `instance`; el AOI/GC/cap/`SYNC_ALL_NPCS`/`MASTER_SYNC_CHECK` y la elección de Host se
+> hacen **por instancia**. `broadcastAll` queda solo como compat (sin uso por-instancia). El cliente
+> entra en `"normal"`; el toggle del apocalipsis envía `JOIN_INSTANCE "apocalipsis"` (y al salir
+> `"normal"`), limpiando `remoteEntities` para no arrastrar el otro mundo (`WorldMapViewModel.setZombieInstance`).
+> Las **hordas migratorias** las calcula el **Host** (en `NpcAiManager`, ya simula la IA), no el servidor;
+> los zombis de la oleada se replican por `NPC_BATCH_UPDATE` como cualquier otro (el servidor solo relaya).
+
+## 1) Open-world server — `Multiplayer/server.js` (~490 líneas)
 
 **ES:** Patrón **Zone Host**: distribuye autoridad. **NO simula NPCs** (no hay pathfinding aquí); la IA
 del open world vive en el cliente (`NpcAiManager`). El servidor **arbitra el rol de Host y RELAYA**.
@@ -69,6 +80,7 @@ roster (la policía es transitoria y por-jugador; cada cliente la purga por *sta
 | `DISCONNECT` | C↔S | global | Jugador se va |
 | `POLICE_BATCH_UPDATE` | C↔S | AOI | Patrullas/cops del jugador buscado |
 | `POLICE_DESTROY` | C↔S | global | Unidad de policía eliminada |
+| `JOIN_INSTANCE` | C→S | — | **Instancing:** el jugador cambia de mundo (`{instance:"normal"\|"apocalipsis"}`). El servidor lo mueve de instancia, avisa `DISCONNECT` a la vieja y le manda `SYNC_ALL_NPCS` de la nueva. **Reemplaza a `ZOMBIE_MODE_SET`** (el apocalipsis ya NO es un flag global; es la instancia en la que estás). |
 | `NPC_MARKER`, `POLICE_WAYPOINT`, `POLICE_CLEAN_ALLD` | C↔S | — | Usados por el cliente (marcadores/limpieza) |
 
 > **ES:** `MultiplayerNpc` lleva `health`, `isDying`, `aggroUntil` para que **todos** pinten barra de
@@ -78,10 +90,24 @@ roster (la policía es transitoria y por-jugador; cada cliente la purga por *sta
 
 ---
 
-## 2) Zombie-minigame server — `MultiplayerZombie/server.js` (~740 líneas)
+## 2) Zombie-minigame server — `MultiplayerInteriores/server.js` (~740 líneas)
+
+> ⚠️ **NO confundir con el Modo Zombi Global** (apocalipsis sobre el mapa): ese vive en el servidor del
+> **mundo abierto** (`Multiplayer/server.js`, instancia `"apocalipsis"` vía `JOIN_INSTANCE`, zombis como
+> `NpcType.ZOMBIE` en `NPC_BATCH_UPDATE`, **hordas** calculadas por el Host). **Este** servidor
+> (`MultiplayerInteriores/`) es SOLO el **minijuego de interiores** (lobby + edificios), con su propia
+> conexión `INTERIORS_SERVER_URL`. Son dos sistemas separados.
 
 **ES:** Corre la **simulación de zombis de forma autoritativa por sala** y difunde `ZOMBIE_STATE`.
 Coordenadas en el cable **fraccionarias `[0,1]`** (el cliente convierte a píxeles).
+
+> **NPCs civiles + coords server-authoritative (nuevo):** cada sala BUILDING spawnea ~6 **civiles**
+> (`spawnRoom` → `st.npcs`) que **deambulan** (`fallbackWander`) y **huyen** del zombi más cercano
+> (`moveToward` en dirección opuesta); si un zombi los toca (`CONTACT_FRAC`) **se convierten en zombi**
+> (`st.total++`). Viajan en `ZOMBIE_STATE.npcs` (`NetInteriorNpc`); el cliente los renderiza con
+> `RemotePlayerView` (figura humana, `ZombieGameState.interiorNpcs`). Además el **movimiento del jugador
+> se valida en el servidor**: en `PLAYER_UPDATE`, si la posición cae en pared (`isBlocked`) se rechaza y
+> se manda `PLAYER_CORRECT`. Los interiores ya estaban **instanciados por `roomId`** (separación nativa).
 **EN:** Runs the **zombie simulation authoritatively per room** and broadcasts `ZOMBIE_STATE`. Wire
 coords are **fractional `[0,1]`** (client converts to pixels).
 
@@ -134,7 +160,8 @@ el cable **no cambia**. / AI state lives in non-serialized fields; the `ZOMBIE_S
 | `ROOM_SNAPSHOT` | S→C | Estado inicial de la sala al unirse |
 | `PLAYER_UPDATE` | C↔S | Pose del jugador (x,y **fraccionarios**, action, facing, health) |
 | `PLAYER_LEFT_ROOM` | S→C | Otro jugador salió |
-| `ZOMBIE_STATE` | S→C | **Autoritativo:** lista de `NetZombie` + `NetItem` + `totalZombies` |
+| `ZOMBIE_STATE` | S→C | **Autoritativo:** lista de `NetZombie` + `NetItem` + **`NetInteriorNpc[]` (civiles)** + `totalZombies` |
+| `PLAYER_CORRECT` | S→C | **Coords server-authoritative:** el servidor rechazó una posición dentro de pared (validó contra la matriz de la sala con `isBlocked`) y manda la posición válida `{x,y}` (fracción) para que el cliente ajuste al jugador |
 | `ZOMBIE_DAMAGE` | C→S | El cliente PIDE daño a un zombi (`zombieId`, `damage`) |
 | `ITEM_PICKUP` | C→S | El cliente PIDE recoger un item (`itemId`) |
 | `ITEM_GRANTED` | S→C | Item concedido (`effect`) |
@@ -142,22 +169,4 @@ el cable **no cambia**. / AI state lives in non-serialized fields; the `ZOMBIE_S
 
 > Coordenadas de jugador y zombi/item son **fraccionarias [0,1]** en este servidor. El cliente las
 > convierte a píxeles de la `ZombieRoom` actual. / Player and zombie/item coords are fractional here;
-> client converts to current room pixels.
-
----
-
-## Cómo añadir un mensaje nuevo / Adding a new wire message
-
-**ES:**
-1. Cliente: define el campo en `MultiplayerNpc`/`MultiplayerPlayer` (open world) o
-   `ZombieServerMessage` (zombi). Envíalo con `webSocketManager.sendMessage(gson.toJson(...))`.
-2. Servidor: maneja el `type` en el `switch`/`if` de mensajes y decide ámbito (global / AOI / sala).
-3. Mantén el saneamiento (`safe*`) y el rate-limit.
-4. **Actualiza estas tablas + README + plan.artifact** (ver 09).
-
-**EN:**
-1. Client: add the field to `MultiplayerNpc`/`MultiplayerPlayer` (open world) or `ZombieServerMessage`
-   (zombie). Send via `webSocketManager.sendMessage(gson.toJson(...))`.
-2. Server: handle the `type` and pick scope (global / AOI / room).
-3. Keep sanitization (`safe*`) and rate-limiting.
-4. **Update these tables + README + plan.artifact** (see 09).
+> client co

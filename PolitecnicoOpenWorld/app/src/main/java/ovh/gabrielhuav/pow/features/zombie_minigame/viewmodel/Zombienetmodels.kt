@@ -44,6 +44,19 @@ data class NetItem(
 )
 
 /**
+ * NPC civil dentro de un interior, tal como lo envía el servidor (autoritativo, pos
+ * FRACCIONARIA [0,1]). Los civiles deambulan y huyen de los zombis; si los atrapan, se
+ * convierten en zombi (apocalipsis se propaga).
+ */
+data class NetInteriorNpc(
+    val id: String = "",
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val facingRight: Boolean = true,
+    val frameIndex: Int = 0
+)
+
+/**
  * Mensaje genérico del servidor de zombis (Gson lo deserializa de forma laxa:
  * los campos ausentes quedan null). Separado del protocolo del open world para
  * no mezclar campos de NPCs/vehículos que aquí no aplican.
@@ -71,6 +84,7 @@ data class ZombieServerMessage(
     // ZOMBIE_STATE
     val zombies: List<NetZombie>? = null,
     val items: List<NetItem>? = null,
+    val npcs: List<NetInteriorNpc>? = null,
     val totalZombies: Int? = null,
     // ITEM_GRANTED
     val effect: String? = null,

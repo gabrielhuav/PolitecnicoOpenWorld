@@ -19,7 +19,7 @@ data class MetroStation(name: String, routes: List<String>, location: GeoPoint)
 
 ```kotlin
 enum class CarModel(dirName, prefix) { SEDAN, SPORT, SUPERCAR, SUV, VAN, WAGON }  // 6 modelos, assets WHITE_*
-enum class NpcType(drawableName) { PERSON, CAR, POLICE_CAR, POLICE_COP }
+enum class NpcType(drawableName) { PERSON, CAR, POLICE_CAR, POLICE_COP, ZOMBIE }  // ZOMBIE = apocalipsis global
 enum class NpcNavState { MACRO_OSM /*calles reales*/, MICRO_LANDMARK /*dibujo del asset*/, PARKED }
 enum class NpcTrait { PASSIVE, COWARD, AGGRESSIVE }   // personalidad asignada al spawn
 ```
@@ -107,7 +107,21 @@ NPC_OUTFITS (lazy), CAR_COLORS: IntArray
 **API principal / main API:**
 - `setLandmarks(landmarks)` — precomputa `cachedNavLandmarks` (lista con `navGraph != null`, **una sola
   vez**, no por NPC/tick — ver 09). / precomputes nav-landmark list once.
-- `updateRoadNetwork(network)` — calcula bbox por way (`cachedWayBoxes`) e índice; pre-filtro O(1).
+- `updateRoadNetwork(network)` — calcula bbox por way (`cachedWayBoxes`) e índice; pre-filtro O(1). Además
+  fija `urbanFactor` (densidad de calles → "ciudad", ver abajo).
+
+**Población dinámica / dynamic population (gama + ciudad + ajuste del usuario):** `maxActiveNpcs`/
+`maxTotalNpcs`/`carPopulationRatio` se escalan por `popFactor = deviceTierFactor × urbanFactor ×
+userPopulationFactor`:
+- **`userPopulationFactor`** (0.4–1.6): lo fija el usuario en **Ajustes → Jugabilidad** (slider "Cantidad
+  de NPCs"); lo persiste `SettingsRepository.getNpcDensity()` y lo aplica `WorldMapViewModel.setNpcDensity` /
+  el `Factory`. Ver 07.
+- **`deviceTierFactor`** (gama del teléfono): lo fija `WorldMapViewModel.Factory.computeDeviceTierFactor`
+  desde `ActivityManager` (RAM total + `isLowRamDevice`): ~0.6 (≤2 GB), 1.0 (≤4 GB), 1.3 (≤6 GB), 1.5 (más).
+- **`urbanFactor`** (detección de "ciudad", GRATIS): `(network.size / 140).coerceIn(0.6, 1.8)` — la
+  densidad de la red OSM ya descargada es el proxy de urbanización (céntrico = muchas más vías en ~2 km).
+  Se recalcula al viajar a una zona nueva. En ciudad sube población **y tráfico** (`carPopulationRatio`).
+  *(No usa APIs de tráfico de pago; podría refinarse con tags OSM `landuse`/`place` en el futuro.)*
 - `setServerNpcs(npcs)` / `getServerNpcs()` / `setRemoteNpcs(remoteList)` — sincroniza con el roster.
 - `updateNpcs(playerLocation, isHost)` — **tick principal**: despawn lejanos, cap de población, spawn
   por proximidad (bbox pre-filter), estacionamiento en landmarks, charlas, miedo, y `moveNpc` por NPC.
@@ -119,6 +133,81 @@ NPC_OUTFITS (lazy), CAR_COLORS: IntArray
 **Adopción / Adoption:** un NPC remoto cuyo `ownerId` no es el mío es **adoptado** por el Host más
 cercano (`moveNpc` reconstruye su ruta). Así el mundo nunca queda sin simular. / A remote NPC whose
 `ownerId` isn't mine is adopted by the nearest Host.
+
+### 🧟 Modo Zombi Global / Global Zombie Mode (apocalipsis)
+
+**ES:** Sub-modo del open world (distinto del minijuego). Se activa con `globalZombieMode` (lo pone el
+game loop cada tick desde `WorldMapState.globalZombieMode`). Los zombis son `NpcType.ZOMBIE`,
+simulados por el **Zone Host** dentro de `updateNpcs` y replicados por `NPC_BATCH_UPDATE`.
+**EN:** Open-world sub-mode (distinct from the minigame). Toggled via `globalZombieMode`. Zombies are
+`NpcType.ZOMBIE`, simulated by the Zone Host in `updateNpcs`, replicated via `NPC_BATCH_UPDATE`.
+
+Constantes: `ZOMBIE_SPEED_MULT=3.5`, `ZOMBIE_VISION=0.0009 (~100m)`, `ZOMBIE_CONTACT_DIST=0.00003 (~3m)`,
+`ZOMBIE_BITE_DAMAGE=8`, `ZOMBIE_BITE_COOLDOWN_MS=1000`, `MAX_ZOMBIES=35`, `INITIAL_ZOMBIE_SEED=25`,
+`HUMAN_CONVERT_DELAY_MS`. En modo zombi: `maxActiveNpcs=45`, `maxTotalNpcs=90`, `carPopulationRatio=0`
+(sin autos nuevos).
+
+Lógica (rama `if (globalZombieMode)` en `updateNpcs`, corre en el Host):
+1. **Seed:** mientras `zombies < INITIAL_ZOMBIE_SEED`, spawnea 1 zombi/tick con `spawnNpcOnRoad(...)?.copy(type=ZOMBIE, trait=AGGRESSIVE, visualConfig=null)`. **`visualConfig=null` es obligatorio** o los renderers lo dibujan como humano (ver 04/09).
+2. **Huida:** cada humano con un zombi dentro de `FEAR_RADIUS` recibe `fearUntil`/`fearFrom*` apuntando al zombi (reusa el sistema de miedo → `moveNpc` lo hace huir).
+3. **Contagio:** humano con `health<=0 && isDying` y `now > fearUntil` → `copy(type=ZOMBIE, health=100, visualConfig=null)` si `zombies < MAX_ZOMBIES` (si no, despawn).
+4. **`moveZombieNpc(npc, network, now, playerLat, playerLon)`** — persecución directa **fuera de la calle**
+   (como `moveAggroNpc`). **El jugador es objetivo PRIORITARIO:** su distancia se PONDERA (×0.45, `bestScore`)
+   para que los zombis lo prefieran aunque un humano huya algo más cerca → "vienen por ti". Usa `realDist`
+   (distancia real) para la visión (`ZOMBIE_VISION`) y el contacto. Muerde al humano a `ZOMBIE_CONTACT_DIST`
+   (cooldown `chatUntil`); al jugador no lo muerde aquí (lo hace `applyNpcContactDamage` en el VM, ver 04).
+
+> El daño al jugador (mordida) NO está en `NpcAiManager`: lo aplica `WorldMapViewModel.applyNpcContactDamage` en cada cliente (ver 04). / Player bite damage is applied per-client in `applyNpcContactDamage` (see 04).
+
+#### Roles de zombi / Zombie roles (`ZombieRole`)
+
+```kotlin
+enum class ZombieRole { NORMAL, RUNNER, TANK, SCOUT }   // campos en Npc: zombieRole, maxHealth, screamUntil
+```
+**Campos de ESQUIVE (Midnight Club) en `Npc`:** `dodgeUntil: Long`, `dodgeDirLat/dodgeDirLon: Double`.
+Mientras `now < dodgeUntil`, `updateNpcs` mueve al peatón en `dodgeDir` a `personSpeed*10` **sin snap a la
+calle** (sidestep animado, no teletransporte). Lo dispara el Host en `WorldMapViewModel.runOverNpcs`; al
+expirar, `moveNpc` lo re-engancha a la vía. No se replican (la **posición** ya viaja en `MultiplayerNpc`).
+Bajo costo: **palette swap** (tinte por `ColorMatrix` en `MapZombieSpriteManager`) sobre el MISMO asset
+`z_walk`, + velocidad/vida/tamaño. Helpers estáticos en el companion: `rollZombieRole()` (pesos:
+~22% Runner, ~12% Tank, ~8% Scout, resto Normal), `maxHealthForRole()` (Runner 15, Normal 30, Tank 60,
+Scout 15; con `PLAYER_PUNCH_DAMAGE=15` → ~1/2/4/1 golpes), `speedMulForRole()` (Runner ×1.6, Tank ×0.55,
+Scout ×1.5).
+
+| Rol | Tinte | Velocidad | Vida | Comportamiento |
+|---|---|---|---|---|
+| RUNNER "Corredor" | rojizo | rápido | baja (1 golpe) | persigue y muerde, normal pero veloz |
+| TANK "Tanque" | verdoso oscuro | lento | alta (~4 golpes), +grande | persigue y muerde |
+| SCOUT "Explorador" | amarillento | rápido | baja | **NO ataca**: corre al humano más cercano, **grita** (`screamUntil` → burbuja 📢, alarma de horda) y **huye** en dirección opuesta ~4.5 s |
+| NORMAL | — | normal | media (2 golpes) | persigue y muerde |
+
+Rol asignado en el **seed** y en la **conversión** (humano contagiado toma rol aleatorio). Se replica por
+`NPC_BATCH_UPDATE` (`zombieRole`, `screamUntil`); el `maxHealth` se **deriva** del rol en el cliente
+remoto (`addRemoteEntity`), no viaja por el cable. El SCOUT se excluye del daño por contacto al jugador.
+
+#### 🌊 Hordas migratorias / Migratory hordes
+
+**ES:** Evento de asedio dinámico. Cada `HORDE_INTERVAL_MS` (20 s), si hay un **punto de calor**
+(≥ `HORDE_MIN_HUMANS`=4 humanos dentro de `simRadius`), el **Host** spawnea una **oleada** de
+`HORDE_SIZE`=10 zombis (`spawnNpcOnRoad`, acotado a `maxTotalNpcs`). Como cada zombi auto-persigue al
+humano más cercano, la oleada **converge sobre el cúmulo** → asedio. Lo calcula el Host (ya simula la IA
+de NPCs); se replica por `NPC_BATCH_UPDATE` como cualquier zombi (funciona en SP y MP). `hordeIncomingAt`
+avisa al VM para el HUD ("🧟 ¡UNA HORDA SE ACERCA!"). El SCOUT (alarma viviente) es el aviso *in-game*.
+**EN:** Dynamic siege. Every `HORDE_INTERVAL_MS` (20s), if there's a heat point (≥4 humans within
+`simRadius`), the **Host** spawns a wave of 10 zombies that converge on the cluster (each chases nearest
+human). Host-computed (it runs NPC AI), replicated via `NPC_BATCH_UPDATE` (works SP + MP). `hordeIncomingAt`
+drives a HUD warning.
+
+#### 👮 Policía del apocalipsis / apocalypse police (caza-zombis)
+
+**ES:** El Host spawnea NPCs `POLICE_COP` (prob. `POLICE_SPAWN_CHANCE` cada `POLICE_SPAWN_INTERVAL_MS`,
+máx `POLICE_HUNTER_MAX`) que **cazan al zombi más cercano**: `movePoliceHunter` lo persigue y **dispara**
+(`POLICE_SHOOT_DAMAGE` a `POLICE_SHOOT_DIST`, cooldown `chatUntil`) — el disparo se registra en
+`pendingPoliceShots` para que el VM lo pinte como **bala visible**; si no hay zombis, patrulla (`moveNpc`).
+Los **zombis también muerden a los cops** (están en la lista de víctimas de `moveZombieNpc` junto a los
+civiles; un cop a 0 de vida → `movePoliceHunter` lo despawnea). **No tocan al jugador** salvo que estén
+**provocados** (`aggroUntil > now`, lo fija el VM `provokeApocalypsePolice` ~33 m): entonces persiguen al
+jugador (daño en el VM). Render 👮 (POLICE_COP), replicado por `NPC_BATCH_UPDATE`. Ver 04.
 
 ---
 

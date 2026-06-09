@@ -37,7 +37,11 @@ data class MultiplayerNpc(
     val isDying: Boolean? = null,
     // Estado de embestida (aggro) replicado: así cualquier cliente sabe que este NPC está
     // atacando y le aplica daño por contacto a SU jugador (no solo el host de zona).
-    val aggroUntil: Long? = null
+    val aggroUntil: Long? = null,
+    // ─── Rol de zombi (apocalipsis) ───────────────────────────────────────────
+    // El maxHealth se DERIVA del rol en el cliente remoto (no se envía) para ahorrar bytes.
+    val zombieRole: String? = null,
+    val screamUntil: Long? = null
 )
 
 internal data class ServerMessage(
@@ -62,4 +66,8 @@ internal data class ServerMessage(
     val health: Float? = null,
     val targetId: String? = null,
     val damage: Float? = null,
+    // ─── Modo Zombi Global (apocalipsis en el mapa) ───────────────────────────
+    // Toggle global del apocalipsis: lo difunde cualquier cliente vía ZOMBIE_MODE_SET
+    // y el servidor lo relaya a todos (global). Gson lo deja null si no viene.
+    val active: Boolean? = null,
 )
