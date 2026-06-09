@@ -1,20 +1,12 @@
 {
-  "polygons": [
-    {
-      "name": "Edificio_ESCOM",
-      "nodes": [
-        {"lat": 19.504560, "lon": -99.146600},
-        {"lat": 19.504560, "lon": -99.146000},
-        {"lat": 19.504100, "lon": -99.146000},
-        {"lat": 19.504100, "lon": -99.146600}
-      ]
-    }
-  ],
+  "polygons": [],
   "walls": [
     {
-      "name": "Barda_Del_Estacionamiento",
-      "lat1": 19.504400, "lon1": -99.146800,
-      "lat2": 19.504100, "lon2": -99.146800
+      "name": "REJA_ESTACIONAMIENTO",
+      "lat1": 19.504766,
+      "lon1": -99.145624,
+      "lat2": 19.503836,
+      "lon2": -99.146098
     }
   ]
 }
