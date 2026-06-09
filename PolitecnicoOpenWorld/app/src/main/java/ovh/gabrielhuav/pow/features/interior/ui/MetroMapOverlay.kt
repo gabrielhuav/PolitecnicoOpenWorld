@@ -121,8 +121,7 @@ fun MetroMapOverlay(
                         }
                     }
             ) {
-                // Contenedor gráfico para el zoom y pan
-                Box(
+                BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer(
@@ -132,92 +131,88 @@ fun MetroMapOverlay(
                             translationY = offset.y
                         )
                 ) {
-                    Image(
-                        bitmap = mapBitmap!!,
-                        contentDescription = "Mapa del Metro",
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                    val imgWidth = mapBitmap!!.width.toFloat()
+                    val imgHeight = mapBitmap!!.height.toFloat()
+                    val imgRatio = imgWidth / imgHeight
+                    val viewRatio = maxWidth.value / maxHeight.value
+                    
+                    val drawWidthDp = if (imgRatio > viewRatio) maxWidth else maxHeight * imgRatio
+                    val drawHeightDp = if (imgRatio > viewRatio) maxWidth / imgRatio else maxHeight
 
-                // Renderizamos waypoints sobre un Canvas que comparta las mismas transformaciones
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(
-                            scaleX = scale,
-                            scaleY = scale,
-                            translationX = offset.x,
-                            translationY = offset.y
+                    // Contenedor que abraza EXACTAMENTE a la imagen
+                    Box(
+                        modifier = Modifier
+                            .size(drawWidthDp, drawHeightDp)
+                            .align(Alignment.Center)
+                    ) {
+                        Image(
+                            bitmap = mapBitmap!!,
+                            contentDescription = "Mapa del Metro",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.FillBounds
                         )
-                        .pointerInput(state.mapDesignerMode) {
-                            detectDragGestures(
-                                onDragStart = { startOffset ->
+
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(state.mapDesignerMode) {
                                     if (state.mapDesignerMode) {
-                                        val nx = startOffset.x / size.width
-                                        val ny = startOffset.y / size.height
-                                        viewModel.selectGlobalWaypointAt(nx, ny)
-                                    }
-                                },
-                                onDrag = { change, dragAmount ->
-                                    if (state.mapDesignerMode && state.selectedGlobalWaypointIndex != -1) {
-                                        change.consume()
-                                        // Calcular coordenadas normalizadas
-                                        val nx = (change.position.x) / size.width
-                                        val ny = (change.position.y) / size.height
-                                        viewModel.moveSelectedGlobalWaypointTo(nx, ny)
+                                        detectDragGestures(
+                                            onDragStart = { startOffset ->
+                                                val nx = startOffset.x / size.width
+                                                val ny = startOffset.y / size.height
+                                                viewModel.selectGlobalWaypointAt(nx, ny)
+                                            },
+                                            onDrag = { change, _ ->
+                                                if (state.selectedGlobalWaypointIndex != -1) {
+                                                    change.consume()
+                                                    val nx = change.position.x / size.width
+                                                    val ny = change.position.y / size.height
+                                                    viewModel.moveSelectedGlobalWaypointTo(nx, ny)
+                                                }
+                                            }
+                                        )
                                     }
                                 }
-                            )
-                        }
-                ) {
-                    state.globalWaypoints.forEachIndexed { index, wp ->
-                        val isSelected = state.selectedGlobalWaypointIndex == index
-                        val r = wp.hitboxFrac
-                        val left = r.left * size.width
-                        val top = r.top * size.height
-                        val width = (r.right - r.left) * size.width
-                        val height = (r.bottom - r.top) * size.height
+                                .pointerInput(state.mapDesignerMode) {
+                                    detectTapGestures(
+                                        onTap = { tapOffset ->
+                                            val nx = tapOffset.x / size.width
+                                            val ny = tapOffset.y / size.height
+                                            if (state.mapDesignerMode) {
+                                                viewModel.selectGlobalWaypointAt(nx, ny)
+                                            } else {
+                                                // Teletransportar si tap en un waypoint
+                                                val hitDoor = state.globalWaypoints.firstOrNull {
+                                                    nx in it.hitboxFrac.left..it.hitboxFrac.right &&
+                                                    ny in it.hitboxFrac.top..it.hitboxFrac.bottom
+                                                }
+                                                if (hitDoor != null) {
+                                                    onTeleportToStation(hitDoor.targetRoomId, state.playerX, state.playerY)
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
+                        ) {
+                            state.globalWaypoints.forEachIndexed { index, wp ->
+                                val isSelected = state.selectedGlobalWaypointIndex == index
+                                val r = wp.hitboxFrac
+                                val left = r.left * size.width
+                                val top = r.top * size.height
+                                val width = (r.right - r.left) * size.width
+                                val height = (r.bottom - r.top) * size.height
 
-                        val radius = min(width, height) / 4f
-                        drawCircle(
-                            color = if (isSelected) Color.Yellow.copy(alpha = 0.8f) else Color.Cyan.copy(alpha = 0.8f),
-                            radius = radius,
-                            center = Offset(left + width / 2f, top + height / 2f)
-                        )
+                                val radius = min(width, height) / 4f
+                                drawCircle(
+                                    color = if (isSelected) Color.Yellow.copy(alpha = 0.8f) else Color.Cyan.copy(alpha = 0.8f),
+                                    radius = radius,
+                                    center = Offset(left + width / 2f, top + height / 2f)
+                                )
+                            }
+                        }
                     }
                 }
-
-                // Detector de taps (separado de drag) para no interferir
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(
-                            scaleX = scale,
-                            scaleY = scale,
-                            translationX = offset.x,
-                            translationY = offset.y
-                        )
-                        .pointerInput(state.mapDesignerMode) {
-                            detectTapGestures(
-                                onTap = { tapOffset ->
-                                    val nx = tapOffset.x / size.width
-                                    val ny = tapOffset.y / size.height
-                                    if (state.mapDesignerMode) {
-                                        viewModel.selectGlobalWaypointAt(nx, ny)
-                                    } else {
-                                        // Teletransportar si tap en un waypoint
-                                        val hitDoor = state.globalWaypoints.firstOrNull {
-                                            nx in it.hitboxFrac.left..it.hitboxFrac.right &&
-                                            ny in it.hitboxFrac.top..it.hitboxFrac.bottom
-                                        }
-                                        if (hitDoor != null) {
-                                            onTeleportToStation(hitDoor.targetRoomId, state.playerX, state.playerY)
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                )
             }
         } else {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
