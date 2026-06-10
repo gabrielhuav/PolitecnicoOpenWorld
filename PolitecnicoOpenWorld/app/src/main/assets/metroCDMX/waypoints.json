@@ -34,10 +34,10 @@
     },
     {
         "hitboxFrac": {
-            "bottom": 0.61103517,
-            "left": 0.4354518,
-            "right": 0.5254518,
-            "top": 0.51103514
+            "bottom": 0.55928713,
+            "left": 0.47847688,
+            "right": 0.52847683,
+            "top": 0.4792871
         },
         "kind": "GENERIC",
         "label": "Salir Torniquetes",

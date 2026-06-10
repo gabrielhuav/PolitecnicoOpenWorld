@@ -8,6 +8,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseInQuart
+import androidx.compose.animation.core.EaseOutQuart
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -77,17 +81,28 @@ fun MetroStationInteriorScreen(
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
     val density = LocalDensity.current
 
-    // Cargar la imagen de fondo
+    // Cargar la imagen de fondo y trenes
     var background by remember { mutableStateOf<ImageBitmap?>(null) }
+    var metro1Bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var metro2Bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    
     LaunchedEffect(BACKGROUND_ASSET_PATH) {
-        background = withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             try {
                 context.assets.open(BACKGROUND_ASSET_PATH).use {
-                    BitmapFactory.decodeStream(it)?.asImageBitmap()
+                    background = BitmapFactory.decodeStream(it)?.asImageBitmap()
                 }
-            } catch (e: Exception) {
-                null
-            }
+            } catch (e: Exception) { }
+            try {
+                context.assets.open("metroCDMX/metro1.webp").use {
+                    metro1Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap()
+                }
+            } catch (e: Exception) { }
+            try {
+                context.assets.open("metroCDMX/metro2.webp").use {
+                    metro2Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap()
+                }
+            } catch (e: Exception) { }
         }
     }
 
@@ -133,6 +148,50 @@ fun MetroStationInteriorScreen(
             val worldW = bgImg?.width?.toFloat() ?: 1920f
             val worldH = bgImg?.height?.toFloat() ?: 1080f
 
+            val metro1YOffset = remember { Animatable(-worldH) }
+            val metro2YOffset = remember { Animatable(worldH) }
+
+            LaunchedEffect(state.isMetro1Animating, state.spawnWithAnimation) {
+                if (state.isMetro1Animating || state.spawnWithAnimation) {
+                    metro1YOffset.snapTo(-worldH)
+                    metro1YOffset.animateTo(
+                        targetValue = 0f,
+                        animationSpec = tween(durationMillis = 1500, easing = EaseOutQuart)
+                    )
+                    viewModel.onMetro1AnimationFinished()
+                }
+            }
+
+            LaunchedEffect(state.isMetro1Departing) {
+                if (state.isMetro1Departing) {
+                    metro1YOffset.snapTo(0f)
+                    metro1YOffset.animateTo(
+                        targetValue = worldH,
+                        animationSpec = tween(durationMillis = 2000, easing = EaseInQuart)
+                    )
+                }
+            }
+
+            var isMetro2Visible by remember { mutableStateOf(false) }
+
+            LaunchedEffect(Unit) {
+                while (true) {
+                    isMetro2Visible = true
+                    metro2YOffset.snapTo(worldH)
+                    metro2YOffset.animateTo(
+                        targetValue = 0f,
+                        animationSpec = tween(durationMillis = 1500, easing = EaseOutQuart)
+                    )
+                    delay(4000)
+                    metro2YOffset.animateTo(
+                        targetValue = -worldH,
+                        animationSpec = tween(durationMillis = 1500, easing = EaseInQuart)
+                    )
+                    isMetro2Visible = false
+                    delay(5000)
+                }
+            }
+
             val playerWorldX = state.playerX * worldW
             val playerWorldY = state.playerY * worldH
 
@@ -153,6 +212,17 @@ fun MetroStationInteriorScreen(
                                 dstOffset = IntOffset.Zero,
                                 dstSize = IntSize(worldW.toInt(), worldH.toInt())
                             )
+                            
+
+                            if (isMetro2Visible) {
+                                metro2Bitmap?.let { m2 ->
+                                    drawImage(
+                                        image = m2,
+                                        dstOffset = IntOffset(0, metro2YOffset.value.toInt()),
+                                        dstSize = IntSize(worldW.toInt(), worldH.toInt())
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -196,15 +266,35 @@ fun MetroStationInteriorScreen(
             val playerPxX = toScreenX(state.playerX)
             val playerPxY = toScreenY(state.playerY)
 
-            Box(
-                modifier = Modifier
-                    .absoluteOffset(
-                        x = with(density) { playerPxX.toDp() } - with(density) { (playerSizePx / 2).toDp() },
-                        y = with(density) { playerPxY.toDp() } - with(density) { (playerSizePx / 2).toDp() }
-                    )
-                    .size(with(density) { playerSizePx.toDp() })
-            ) {
-                MetroPlayerSprite(state)
+            if (state.isPlayerVisible) {
+                Box(
+                    modifier = Modifier
+                        .absoluteOffset(
+                            x = with(density) { playerPxX.toDp() } - with(density) { (playerSizePx / 2).toDp() },
+                            y = with(density) { playerPxY.toDp() } - with(density) { (playerSizePx / 2).toDp() }
+                        )
+                        .size(with(density) { playerSizePx.toDp() })
+                ) {
+                    MetroPlayerSprite(state)
+                }
+            }
+
+            // --- CANVAS 2: METRO 1 (SOBRE EL JUGADOR) ---
+            val isMetro1Visible = state.isMetro1Animating || state.spawnWithAnimation || state.showMetroMap || state.isMetro1Departing || state.isBoardingWalkActive || state.isDisembarkingWalkActive
+            if (isMetro1Visible && metro1Bitmap != null) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    translate(cam.offsetX, cam.offsetY) {
+                        scale(cam.scale, cam.scale, pivot = Offset.Zero) {
+                            metro1Bitmap?.let { m1 ->
+                                drawImage(
+                                    image = m1,
+                                    dstOffset = IntOffset(0, metro1YOffset.value.toInt()),
+                                    dstSize = IntSize(worldW.toInt(), worldH.toInt())
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -227,7 +317,8 @@ fun MetroStationInteriorScreen(
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .padding(bottom = bottomPadding, start = sidePadding, end = sidePadding)
-                    .systemBarsPadding(),
+                    .systemBarsPadding()
+                    .graphicsLayer { alpha = if (state.areControlsEnabled) 1f else 0.4f },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
