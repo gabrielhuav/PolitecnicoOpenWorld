@@ -162,6 +162,20 @@ matrices por defecto son **border-only** hasta reemplazarse.
   nativo **aún no** lo aplican. En cambio, **`npcFullEmoji` ("Optimizar para gama baja") SÍ aplica en
   los TRES renderers**: TODOS los NPCs como emoji (OSM nativo fuerza `useEmojiLod`; web envía un base64
   por emoji cacheado como `full_emoji_*`; Google usa la rama `GM_FULL_EMOJI_*`).
+- **Anti-duplicación de autos (botón Y):** subir/bajar tiene **debounce de 450 ms**
+  (`lastVehicleToggleMs`) y al abordar se registra el id en **`boardedCarTombstones`** (~10 s):
+  el volcado de `processedNpcs` del game loop y `addRemoteEntity` (NPC_BATCH_UPDATE) IGNORAN esos
+  ids — sin esto, el snapshot viejo de la IA re-insertaba el coche recién abordado (carrera
+  main-thread vs loop) y spamear Y lo duplicaba. Además el abordaje manda el id a
+  `pendingDespawns` (NPC_DESTROY para los demás clientes).
+- **Orden de carga del mundo / gate de teleport:** la simulación/spawn de NPCs del game loop está
+  gateada por `isRoadNetworkReady && isMapReady` → tras un teleport (ambos flags en false) el orden
+  es SIEMPRE tiles → calles → NPCs. `teleportTo` además **rechaza TPs encadenados** mientras el
+  mundo no esté completo (muestra "⏳ Espera…" vía `interactionPrompt`) y **limpia los NPCs** de la
+  zona vieja (`remoteEntities` sin displayName + `setServerNpcs(emptyList())`).
+- **Velocímetro CALIBRADO, no físico:** el avatar se desplaza a ~204 km/h geográficos reales a
+  MAX_SPEED (movimiento acelerado del juego); el widget mapea linealmente MAX_SPEED → **120 km/h**
+  para que se sienta creíble. Si retocas MAX_SPEED, revisa el mapeo en `WorldMapScreen`.
 - **Heading de coches NPC = sprite (no el ángulo crudo):** en los dos movers de `NpcAiManager`
   (calles OSM y navGraph de campus) el sprite usa `smoothedAngle` pero el coche se MOVÍA con el
   ángulo crudo al objetivo → en curvas/esquives se veía "manejando de lado". Ahora los `CAR` se

@@ -493,6 +493,18 @@ class WorldMapViewModel(
 
     internal var isServerDelegatedHost = true
 
+    // ─── ANTI-DUPLICACIÓN DE AUTOS (botón Y) ─────────────────────────────────
+    // Debounce de subir/bajar + "tombstones" de coches recién abordados: ids que el
+    // volcado de la IA y el NPC_BATCH_UPDATE deben IGNORAR unos segundos (si no, el
+    // snapshot viejo re-insertaba el coche que acabas de abordar y se duplicaba).
+    internal var lastVehicleToggleMs = 0L
+    internal val boardedCarTombstones = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    internal fun isCarTombstoned(id: String): Boolean {
+        val until = boardedCarTombstones[id] ?: return false
+        if (System.currentTimeMillis() > until) { boardedCarTombstones.remove(id); return false }
+        return true
+    }
+
 
     // ─── GAME LOOP ───────────────────────────────────────────────────────────────
 
@@ -770,7 +782,10 @@ class WorldMapViewModel(
                             updateVisibleRoads(location)
                         }
 
-                        if (_uiState.value.isRoadNetworkReady) {
+                        // ORDEN DE CARGA: los NPCs solo se simulan/spawnean cuando el mundo está
+                        // COMPLETO (mapa descargado Y red de calles lista). Tras un teleport ambos
+                        // flags se apagan → primero tiles, luego calles, y AL FINAL los NPCs.
+                        if (_uiState.value.isRoadNetworkReady && _uiState.value.isMapReady) {
                             tickCount++
                             if (tickCount % 3 == 0L) {
                                 val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
@@ -796,7 +811,8 @@ class WorldMapViewModel(
                                     synchronized(npcAiManager.pendingDespawns) {
                                         npcAiManager.pendingDespawns.forEach { remoteEntities.remove(it) }
                                     }
-                                    processedNpcs.forEach { remoteEntities[it.id] = it }
+                                    // No re-insertar coches recién abordados (snapshot viejo de la IA).
+                                    processedNpcs.forEach { if (!isCarTombstoned(it.id)) remoteEntities[it.id] = it }
                                 }
                                 updateNpcsState()
 
@@ -1184,6 +1200,9 @@ class WorldMapViewModel(
     }
 
     private fun addRemoteEntity(remote: MultiplayerNpc) {
+        // Coche recién abordado por MÍ: ignorar reinserciones que lleguen del host
+        // remoto durante unos segundos (anti-duplicación, ver boardedCarTombstones).
+        if (isCarTombstoned(remote.id)) return
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
 
         // Rol de zombi replicado: el maxHealth se DERIVA del rol (no viaja por el cable).
@@ -1889,15 +1908,29 @@ class WorldMapViewModel(
     fun onInteractButtonPressed() {
         val loc = _uiState.value.currentLocation ?: return
 
+        // FIX duplicación de autos: (1) DEBOUNCE — spamear Y alternaba subir/bajar más
+        // rápido que el ciclo de la IA y duplicaba el coche; se ignoran pulsaciones a
+        // menos de 450 ms de la anterior.
+        val nowMs = System.currentTimeMillis()
+        if (nowMs - lastVehicleToggleMs < 450L) return
+
         if (!_uiState.value.isDriving) {
             val nearbyCarEntry = remoteEntities.entries
                 .filter { it.value.type == NpcType.CAR && distance(loc, it.value.location) <= INTERACT_RADIUS }
                 .minByOrNull { distance(loc, it.value.location) }
 
             if (nearbyCarEntry != null) {
+                lastVehicleToggleMs = nowMs
                 val carId = nearbyCarEntry.key
                 val carNpc = nearbyCarEntry.value
                 remoteEntities.remove(carId)
+                // (2) TOMBSTONE — el game loop tomaba el snapshot de la IA ANTES de subirte
+                // y al volcar processedNpcs RE-INSERTABA el coche recién abordado (carrera
+                // main-thread vs loop) → coche duplicado. Marcamos el id como "abordado"
+                // unos segundos para que el volcado lo ignore.
+                boardedCarTombstones[carId] = nowMs + 10_000L
+                // Y avisar a los demás clientes que ese NPC dejó de existir.
+                synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.add(carId) }
                 if (carNpc.isFirstTimeBoarded) {
                     spawnOustedDriver(carNpc.location)
                     raiseWantedLevel(1) // robar un auto ocupado es delito → +1 estrella
@@ -1906,6 +1939,7 @@ class WorldMapViewModel(
                 updateNpcsState()
             }
         } else {
+            lastVehicleToggleMs = nowMs
             val abandonedCar = Npc(
                 id = UUID.randomUUID().toString(),
                 type = NpcType.CAR,
@@ -2284,7 +2318,27 @@ class WorldMapViewModel(
     fun toggleTeleportMenu(show: Boolean) { _uiState.update { it.copy(showTeleportMenu = show) } }
 
     fun teleportTo(lat: Double, lon: Double) {
+        // GATE DE TELETRANSPORTE: no se acepta otro TP hasta que el mundo actual esté
+        // COMPLETAMENTE listo (mapa descargado + red de calles). Evita TPs encadenados
+        // que dejaban la carga a medias y los NPCs mal puestos.
+        val st0 = _uiState.value
+        if (!st0.isLoadingLocation && (!st0.isMapReady || !st0.isRoadNetworkReady)) {
+            _uiState.update { it.copy(showTeleportMenu = false, interactionPrompt = "⏳ Espera: el mundo aún está cargando…") }
+            viewModelScope.launch {
+                delay(2500)
+                _uiState.update { if (it.interactionPrompt?.startsWith("⏳") == true) it.copy(interactionPrompt = null) else it }
+            }
+            return
+        }
         val newLocation = org.osmdroid.util.GeoPoint(lat, lon)
+        // Limpia los NPCs locales de la zona vieja: se regeneran cuando la nueva zona
+        // esté completamente lista (ver gate del game loop). Sin esto quedaban NPCs
+        // "fantasma" de la zona anterior mientras cargaba la nueva.
+        val staleNpcIds = remoteEntities.entries
+            .filter { it.value.displayName.isNullOrEmpty() }
+            .map { it.key }
+        staleNpcIds.forEach { remoteEntities.remove(it) }
+        npcAiManager.setServerNpcs(emptyList())
         // TELETRANSPORTE = borrón y cuenta nueva del combate: si no, los NPCs/policías que
         // te perseguían en la zona vieja quedaban con aggro y daban un golpe "fantasma"
         // justo al llegar. Limpiamos perseguidores, policía y nivel de búsqueda.

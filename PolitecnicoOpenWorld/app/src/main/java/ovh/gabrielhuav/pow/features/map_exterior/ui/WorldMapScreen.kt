@@ -1371,13 +1371,13 @@ fun WorldMapScreen(
                 CacheChip(label = "Zoom", text = "z = ${"%.1f".format(uiState.zoomLevel)}", color = Color(0xFF7FB2FF), isLoading = false)
             }
             // Velocímetro (Ajustes → Interfaz): velocidad en km/h, SOLO al conducir.
-            // vehicleSpeed está en grados/tick (~30 Hz): °→m (~111,320 m/° de latitud)
-            // × 30 ticks/s × 3.6 = km/h. Color por fracción de la velocidad máxima.
+            // CALIBRADO a sensación de manejo, no al desplazamiento geográfico real: el
+            // avatar recorre el mapa a ~204 km/h reales a tope (movimiento acelerado del
+            // juego), lo que se veía irrealista. Se mapea linealmente MAX_SPEED → 120 km/h.
             AnimatedVisibility(visible = uiState.showSpeedometer && uiState.isDriving, enter = fadeIn(), exit = fadeOut()) {
                 val speedAbs = kotlin.math.abs(uiState.vehicleSpeed)
-                val kmh = (speedAbs * 111320.0 * 30.0 * 3.6).roundToInt()
-                val maxKmh = 0.000017 * 111320.0 * 30.0 * 3.6 // MAX_SPEED del coche
-                val frac = (kmh / maxKmh).toFloat().coerceIn(0f, 1f)
+                val frac = (speedAbs / 0.000017).toFloat().coerceIn(0f, 1f) // MAX_SPEED del coche
+                val kmh = (frac * 120f).roundToInt()
                 CacheChip(
                     label = "Velocidad",
                     text = "🚗 $kmh km/h",
