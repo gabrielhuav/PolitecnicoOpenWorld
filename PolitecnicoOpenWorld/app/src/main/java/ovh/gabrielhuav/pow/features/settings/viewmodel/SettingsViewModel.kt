@@ -26,6 +26,7 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
                 swapControls = swap,
                 showRoadNetwork = repository.getShowRoadNetwork(),
                 showZoomWidget = repository.getShowZoomWidget(),
+                showSpeedometer = repository.getShowSpeedometer(),
                 npcDensity = repository.getNpcDensity(),
                 npcEmojiLod = repository.getNpcEmojiLod(),
                 npcFullEmoji = repository.getNpcFullEmoji(),
@@ -45,6 +46,10 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun toggleZoomWidget(enabled: Boolean) {
         _state.update { it.copy(showZoomWidget = enabled) }
         repository.saveShowZoomWidget(enabled)
+    }
+    fun toggleSpeedometer(enabled: Boolean) {
+        _state.update { it.copy(showSpeedometer = enabled) }
+        repository.saveShowSpeedometer(enabled)
     }
 
     // Los cambios de controles solo tocan el estado TEMPORAL: no afectan al juego

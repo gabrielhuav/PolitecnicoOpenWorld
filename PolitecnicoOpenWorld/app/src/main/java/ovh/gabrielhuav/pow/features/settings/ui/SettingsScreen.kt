@@ -37,6 +37,7 @@ fun SettingsScreen(
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
     onZoomWidgetToggled: (Boolean) -> Unit,
+    onSpeedometerToggled: (Boolean) -> Unit,
     onRoadNetworkToggled: (Boolean) -> Unit,
     onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
@@ -112,7 +113,7 @@ fun SettingsScreen(
                     ) {
                         Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -149,7 +150,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
                         Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled)
                     }
                 }
             }
@@ -204,6 +205,7 @@ private fun SettingsContent(
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
     onZoomWidgetToggled: (Boolean) -> Unit,
+    onSpeedometerToggled: (Boolean) -> Unit,
     onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
@@ -220,7 +222,7 @@ private fun SettingsContent(
         )
         is SettingsCategory.Controls -> ControlsSettingsConfig(state.tempControlType, state.tempControlsScale, state.tempSwapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
         is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled, state.npcFullEmoji, onNpcFullEmojiToggled)
-        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, onCacheToggled, onFpsToggled, onZoomWidgetToggled)
+        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled)
         else -> Text("Sin ajustes disponibles actualmente.", color = Color.Gray)
     }
 }
@@ -511,9 +513,11 @@ private fun DiagnosticWidgetsSetting(
     cacheEnabled: Boolean,
     fpsEnabled: Boolean,
     zoomWidgetEnabled: Boolean,
+    speedometerEnabled: Boolean,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
-    onZoomWidgetToggled: (Boolean) -> Unit
+    onZoomWidgetToggled: (Boolean) -> Unit,
+    onSpeedometerToggled: (Boolean) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Toggle de Caché
@@ -551,6 +555,19 @@ private fun DiagnosticWidgetsSetting(
             Switch(
                 checked = zoomWidgetEnabled,
                 onCheckedChange = onZoomWidgetToggled,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+            )
+        }
+
+        // Toggle de Velocímetro
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("Velocímetro", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("Muestra tu velocidad (km/h) al conducir", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+            }
+            Switch(
+                checked = speedometerEnabled,
+                onCheckedChange = onSpeedometerToggled,
                 colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
             )
         }

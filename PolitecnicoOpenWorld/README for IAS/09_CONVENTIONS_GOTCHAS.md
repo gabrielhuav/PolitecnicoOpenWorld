@@ -162,6 +162,16 @@ matrices por defecto son **border-only** hasta reemplazarse.
   nativo **aún no** lo aplican. En cambio, **`npcFullEmoji` ("Optimizar para gama baja") SÍ aplica en
   los TRES renderers**: TODOS los NPCs como emoji (OSM nativo fuerza `useEmojiLod`; web envía un base64
   por emoji cacheado como `full_emoji_*`; Google usa la rama `GM_FULL_EMOJI_*`).
+- **Heading de coches NPC = sprite (no el ángulo crudo):** en los dos movers de `NpcAiManager`
+  (calles OSM y navGraph de campus) el sprite usa `smoothedAngle` pero el coche se MOVÍA con el
+  ángulo crudo al objetivo → en curvas/esquives se veía "manejando de lado". Ahora los `CAR` se
+  mueven en la dirección de su sprite (`moveRad = toRadians(-smoothedAngle)`, smoothing 0.30 para
+  coches). No regresar el movimiento al ángulo crudo.
+- **Zoom automático por estado:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
+  loop miembro) cambia `zoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
+  `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del
+  usuario se respeta entre transiciones. No volver a clavar el zoom web a 19 (`setMapProvider`
+  ahora capea a 22; `ZOOM_GAMEPLAY_WEB=19` es solo el nivel de pre-descarga de tiles).
 - **Fixes de estabilidad (TP/skin/ESCOM):** (a) el snap-to-road de `moveCharacter`/`moveCharacterByAngle`
   **ignora el movimiento** si la calle más cercana está a > `MAX_SNAP_DISTANCE_DEG` (0.0003 ≈ 33 m) — antes
   TELETRANSPORTABA al jugador a una calle al azar cuando la red recién recargada no cubría su zona; (b) el

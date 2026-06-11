@@ -52,7 +52,8 @@ viven en campos `temp*` y **solo se aplican al pulsar GUARDAR**; salir descarta.
 fields and **only apply on SAVE**; leaving discards.
 
 - `selectCategory(category)`, `changeMapProvider(provider)`, `toggleCacheWidget/FpsWidget(enabled)`,
-  `toggleZoomWidget(enabled)` (persiste; widget de nivel de zoom en vivo, pestaña Interfaz).
+  `toggleZoomWidget(enabled)` y `toggleSpeedometer(enabled)` (ambos persisten; pestaña Interfaz:
+  widget de nivel de zoom en vivo + velocímetro km/h visible solo al conducir, default activado).
 - Staged: `changeControlType(type)`, `changeControlsScale(scale)`, `toggleSwapControls(swap)` → escriben
   `tempControlType/tempControlsScale/tempSwapControls`.
 - `saveControlsSettings()` (commit + persiste vía `SettingsRepository` + empuja al mapa),
@@ -75,7 +76,7 @@ fields and **only apply on SAVE**; leaving discards.
 Pestañas + sliders. Escala adaptativa 60%–140% (cap 100% en portrait), swap de zurdos, botones A/B/X/Y.
 `GameplaySettings` (Jugabilidad): slider de cantidad de NPCs + switches "Optimizar dibujado de NPCs"
 (LOD) y "Optimizar para gama baja" (emoji total). `DiagnosticWidgetsSetting` (Interfaz): widgets de
-caché, FPS y **zoom** (nivel de zoom actual en vivo).
+caché, FPS, **zoom** (nivel de zoom actual en vivo) y **velocímetro** (km/h al conducir).
 
 ---
 

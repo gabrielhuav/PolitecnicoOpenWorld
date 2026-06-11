@@ -10,6 +10,7 @@ data class SettingsState(
     val showCacheWidget: Boolean = true,
     val showFpsWidget: Boolean = false,
     val showZoomWidget: Boolean = false, // widget de nivel de zoom (Interfaz)
+    val showSpeedometer: Boolean = true, // widget velocímetro al conducir (Interfaz)
     // ─── Valores COMMITEADOS (los que el juego usa de verdad) ────────────────
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f, // Rango recomendado: 0.6f a 1.4f

@@ -1370,6 +1370,25 @@ fun WorldMapScreen(
             AnimatedVisibility(visible = uiState.showZoomWidget, enter = fadeIn(), exit = fadeOut()) {
                 CacheChip(label = "Zoom", text = "z = ${"%.1f".format(uiState.zoomLevel)}", color = Color(0xFF7FB2FF), isLoading = false)
             }
+            // Velocímetro (Ajustes → Interfaz): velocidad en km/h, SOLO al conducir.
+            // vehicleSpeed está en grados/tick (~30 Hz): °→m (~111,320 m/° de latitud)
+            // × 30 ticks/s × 3.6 = km/h. Color por fracción de la velocidad máxima.
+            AnimatedVisibility(visible = uiState.showSpeedometer && uiState.isDriving, enter = fadeIn(), exit = fadeOut()) {
+                val speedAbs = kotlin.math.abs(uiState.vehicleSpeed)
+                val kmh = (speedAbs * 111320.0 * 30.0 * 3.6).roundToInt()
+                val maxKmh = 0.000017 * 111320.0 * 30.0 * 3.6 // MAX_SPEED del coche
+                val frac = (kmh / maxKmh).toFloat().coerceIn(0f, 1f)
+                CacheChip(
+                    label = "Velocidad",
+                    text = "🚗 $kmh km/h",
+                    color = when {
+                        frac < 0.5f -> Color(0xFF4CAF50)
+                        frac < 0.85f -> Color(0xFFFFB300)
+                        else -> Color(0xFFE53935)
+                    },
+                    isLoading = false
+                )
+            }
             AnimatedVisibility(visible = uiState.isDesignerMode, enter = fadeIn(), exit = fadeOut()) {
                 Row(
                     modifier = Modifier
@@ -1514,7 +1533,11 @@ fun WorldMapScreen(
                                 // cambiado el zoom respecto al de juego, esta opción EVOLUCIONA a
                                 // un submenú con "Centrar en jugador" y "Hacer zoom en el jugador".
                                 run {
-                                    val defaultZoom = if (uiState.mapProvider == MapProvider.OSM) ZOOM_GAMEPLAY_OSM else ZOOM_GAMEPLAY_WEB
+                                    // Default actual por estado: 22 a pie, 21 conduciendo (20 rápido).
+                                    val defaultZoom = if (uiState.isDriving)
+                                        ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_DRIVING
+                                    else
+                                        ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_ON_FOOT
                                     val isZoomed = kotlin.math.abs(uiState.zoomLevel - defaultZoom) >= 0.5
                                     if (isZoomed) {
                                         add(

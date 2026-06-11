@@ -1004,8 +1004,12 @@ class NpcAiManager {
         val isFacingRight = cos(angle) >= 0
 
         val diff = (targetAngle - npc.rotationAngle + 540) % 360 - 180
-        val smoothedAngle = (npc.rotationAngle + diff * 0.20f + 360) % 360
+        val smoothFactor = if (npc.type == NpcType.CAR) 0.30f else 0.20f
+        val smoothedAngle = (npc.rotationAngle + diff * smoothFactor + 360) % 360
         val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
+        // FIX "ángulo incorrecto" (ver mover de calles): los coches se mueven en la dirección
+        // de su sprite suavizado, no en el ángulo crudo al objetivo.
+        val moveRad = if (npc.type == NpcType.CAR) Math.toRadians(-smoothedAngle.toDouble()) else angle
 
         val isOnCooldown = parkingCooldowns[npc.id]?.let { System.currentTimeMillis() < it } ?: false
 
@@ -1053,8 +1057,8 @@ class NpcAiManager {
         } else {
             npc.copy(
                 location = GeoPoint(
-                    npc.location.latitude + sin(angle) * actualSpeed,
-                    npc.location.longitude + cos(angle) * actualSpeed
+                    npc.location.latitude + sin(moveRad) * actualSpeed,
+                    npc.location.longitude + cos(moveRad) * actualSpeed
                 ),
                 rotationAngle = smoothedAngle,
                 facingRight = isFacingRight,
@@ -1284,11 +1288,18 @@ class NpcAiManager {
         val isFacingRight = cos(angle) >= 0
 
         val diff = (targetAngle - npc.rotationAngle + 540) % 360 - 180
-        val smoothedAngle = (npc.rotationAngle + diff * 0.20f + 360) % 360
+        // Los coches giran más rápido (0.30 vs 0.20) para converger antes en esquinas.
+        val smoothFactor = if (npc.type == NpcType.CAR) 0.30f else 0.20f
+        val smoothedAngle = (npc.rotationAngle + diff * smoothFactor + 360) % 360
         val effectiveSpeed = npc.speed * speedScale.coerceIn(0f, 1f).toDouble() *
                 (if (feared) FEAR_SPEED_MULT.toDouble() else 1.0)
         val actualSpeed = effectiveSpeed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
         val moving = actualSpeed > 1e-9
+        // FIX "ángulo incorrecto": el sprite usa smoothedAngle, pero el coche se MOVÍA con el
+        // ángulo CRUDO al objetivo → en curvas/esquives avanzaba en una dirección distinta a
+        // la que apuntaba (se veía manejando de lado). Ahora el COCHE se mueve en la dirección
+        // de su sprite (heading suavizado), que converge al objetivo por el propio smoothing.
+        val moveRad = if (npc.type == NpcType.CAR) Math.toRadians(-smoothedAngle.toDouble()) else angle
 
         if (dist > actualSpeed * 3 && npc.type == NpcType.CAR) {
             for (landmark in activeLandmarks) {
@@ -1352,7 +1363,7 @@ class NpcAiManager {
         return if (dist < actualSpeed) {
             npc.copy(currentWay = way, location = GeoPoint(tLat, tLon), targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
         } else {
-            npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(npc.location.latitude + sin(angle) * actualSpeed, npc.location.longitude + cos(angle) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
+            npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(npc.location.latitude + sin(moveRad) * actualSpeed, npc.location.longitude + cos(moveRad) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
         }
     }
 

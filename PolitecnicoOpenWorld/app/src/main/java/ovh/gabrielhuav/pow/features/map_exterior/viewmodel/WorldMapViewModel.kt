@@ -153,7 +153,8 @@ class WorldMapViewModel(
             selectedSkin  = settingsRepository.getPlayerSkin(),   // ← NUEVO
             npcEmojiLod   = settingsRepository.getNpcEmojiLod(),  // optimizar dibujado de NPCs (LOD)
             npcFullEmoji  = settingsRepository.getNpcFullEmoji(), // optimizar para gama baja (emoji total)
-            showZoomWidget = settingsRepository.getShowZoomWidget()
+            showZoomWidget = settingsRepository.getShowZoomWidget(),
+            showSpeedometer = settingsRepository.getShowSpeedometer()
         )
     )
     // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
@@ -573,6 +574,9 @@ class WorldMapViewModel(
                             performPlayerAttack()
                         }
 
+                        // Zoom automático: 22 a pie, 21 conduciendo, 20 a muy alta velocidad.
+                        updateAutoZoom()
+
                         if (_uiState.value.isDriving) {
                             var currentSpeed = _uiState.value.vehicleSpeed
                             var currentRotation = _uiState.value.vehicleRotation
@@ -922,10 +926,9 @@ class WorldMapViewModel(
         // Pinta las calles (líneas amarillas) de inmediato al quedar lista la red, sin
         // esperar al throttle del game loop (antes "tardaban en colocarse" tras entrar).
         updateVisibleRoads(snapped, force = true)
-        val targetZoom = if (_uiState.value.mapProvider.isWebProvider)
-            ZOOM_GAMEPLAY_WEB
-        else
-            ZOOM_GAMEPLAY_OSM
+        // Zoom de juego A PIE = 22 para TODOS los proveedores (los web sobre-escalan
+        // desde su maxNativeZoom; CARTO llega a z20 real).
+        val targetZoom = ZOOM_ON_FOOT
 
         if (_uiState.value.zoomLevel <= ZOOM_LOADING) {
             var z = ZOOM_LOADING + 1.0
@@ -1513,7 +1516,9 @@ class WorldMapViewModel(
         val currentZoom = _uiState.value.zoomLevel
         val newZoom = when {
             provider == MapProvider.OSM && currentZoom < ZOOM_GAMEPLAY_OSM -> ZOOM_GAMEPLAY_OSM
-            provider.isWebProvider && currentZoom > ZOOM_GAMEPLAY_WEB -> ZOOM_GAMEPLAY_WEB
+            // Web: cap al zoom de juego a pie (22). Antes se clavaba a 19 al cambiar de
+            // proveedor, contradiciendo el nuevo default.
+            provider.isWebProvider && currentZoom > ZOOM_ON_FOOT -> ZOOM_ON_FOOT
             else -> currentZoom
         }
         _uiState.update { it.copy(mapProvider = provider, tileSource = ts, zoomLevel = newZoom) }
@@ -1791,8 +1796,35 @@ class WorldMapViewModel(
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
 
     fun toggleZoomWidget(show: Boolean) { _uiState.update { it.copy(showZoomWidget = show) } }
+
+    fun toggleSpeedometer(show: Boolean) { _uiState.update { it.copy(showSpeedometer = show) } }
     fun updateShowCacheWidget(show: Boolean) = _uiState.update { it.copy(showCacheWidget = show) }
     fun updateShowFpsWidget(show: Boolean) = _uiState.update { it.copy(showFpsWidget = show) }
+
+    // ─── ZOOM AUTOMÁTICO POR ESTADO (a pie / conduciendo / conduciendo rápido) ───
+    // A pie 22; al subir a un vehículo 21; a MUY alta velocidad (≥85% de MAX_SPEED)
+    // baja a 20, y vuelve a 21 por debajo del 65% (histéresis anti-parpadeo). Solo
+    // actúa en TRANSICIONES de modo, así el pinch manual del usuario se respeta
+    // hasta el siguiente cambio de estado.
+    private var autoZoomMode = 0 // 0 = a pie, 1 = conduciendo, 2 = conduciendo rápido
+    internal fun updateAutoZoom() {
+        val st = _uiState.value
+        val absSpeed = kotlin.math.abs(st.vehicleSpeed)
+        val newMode = when {
+            !st.isDriving -> 0
+            autoZoomMode == 2 -> if (absSpeed < MAX_SPEED * 0.65) 1 else 2
+            else -> if (absSpeed >= MAX_SPEED * 0.85) 2 else 1
+        }
+        if (newMode != autoZoomMode) {
+            autoZoomMode = newMode
+            val z = when (newMode) {
+                0 -> ZOOM_ON_FOOT
+                1 -> ZOOM_DRIVING
+                else -> ZOOM_DRIVING_FAST
+            }
+            _uiState.update { it.copy(zoomLevel = z) }
+        }
+    }
 
     fun zoomIn()  = _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
     fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }

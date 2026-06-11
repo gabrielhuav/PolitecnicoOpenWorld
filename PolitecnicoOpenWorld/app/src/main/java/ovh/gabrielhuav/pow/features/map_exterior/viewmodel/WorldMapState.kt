@@ -12,7 +12,12 @@ import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 const val ZOOM_LOADING = 18.0
 const val ZOOM_GAMEPLAY_OSM = 22.0  // Nivel de zoom para OSMDroid Nativo (máximo por defecto)
-const val ZOOM_GAMEPLAY_WEB = 19.0  // Nivel de zoom para los proveedores Web
+const val ZOOM_GAMEPLAY_WEB = 19.0  // Nivel máx. de TILES reales que se pre-descargan en web (NO es el zoom de juego)
+
+// ─── Zoom de juego por estado (todos los proveedores) ────────────────────────
+const val ZOOM_ON_FOOT      = 22.0  // a pie (default)
+const val ZOOM_DRIVING      = 21.0  // conduciendo
+const val ZOOM_DRIVING_FAST = 20.0  // conduciendo MUY rápido (≥85% de MAX_SPEED, histéresis al 65%)
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
@@ -63,6 +68,8 @@ data class WorldMapState(
     // Widget de nivel de zoom (Ajustes → Interfaz): muestra el zoom actual en vivo,
     // útil para encontrar el nivel óptimo antes de fijarlo por defecto.
     val showZoomWidget: Boolean = false,
+    // Widget velocímetro (Ajustes → Interfaz): velocidad en km/h, visible solo al conducir.
+    val showSpeedometer: Boolean = true,
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,

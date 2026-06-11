@@ -23,6 +23,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_NPC_EMOJI_LOD = "NPC_EMOJI_LOD"    // NPCs lejanos como emoji (optimizar dibujado)
         private const val KEY_NPC_FULL_EMOJI = "NPC_FULL_EMOJI"  // TODOS los NPCs como emoji (gama baja)
         private const val KEY_SHOW_ZOOM_WIDGET = "SHOW_ZOOM_WIDGET" // widget de nivel de zoom (Interfaz)
+        private const val KEY_SHOW_SPEEDOMETER = "SHOW_SPEEDOMETER"  // widget velocímetro al conducir (Interfaz)
         const val NPC_DENSITY_MIN = 0.4f
         const val NPC_DENSITY_MAX = 1.6f
     }
@@ -106,5 +107,12 @@ class SettingsRepository(context: Context) {
     fun getShowZoomWidget(): Boolean = prefs.getBoolean(KEY_SHOW_ZOOM_WIDGET, false)
     fun saveShowZoomWidget(show: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_ZOOM_WIDGET, show).apply()
+    }
+
+    // ─── Interfaz: velocímetro (visible solo al conducir). Default = activado. ──
+
+    fun getShowSpeedometer(): Boolean = prefs.getBoolean(KEY_SHOW_SPEEDOMETER, true)
+    fun saveShowSpeedometer(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_SPEEDOMETER, show).apply()
     }
 }

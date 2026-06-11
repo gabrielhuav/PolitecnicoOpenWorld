@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
                     // Esto evita recomposiciones destructivas al navegar.
                     val settingsState by settingsViewModel.state.collectAsState()
                     var providerInitialized by remember { mutableStateOf(false) }
-                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.showZoomWidget, settingsState.showRoadNetwork) {
+                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.showZoomWidget, settingsState.showSpeedometer, settingsState.showRoadNetwork) {
                         if (!providerInitialized) {
                             // Arranque: aplica el proveedor guardado de inmediato (sin aviso).
                             worldMapViewModel.setMapProvider(settingsState.mapProvider)
@@ -128,6 +128,7 @@ class MainActivity : ComponentActivity() {
                         worldMapViewModel.toggleCacheWidget(settingsState.showCacheWidget)
                         worldMapViewModel.toggleFpsWidget(settingsState.showFpsWidget)
                         worldMapViewModel.toggleZoomWidget(settingsState.showZoomWidget)
+                        worldMapViewModel.toggleSpeedometer(settingsState.showSpeedometer)
                         worldMapViewModel.setShowRoadNetwork(settingsState.showRoadNetwork)
                     }
 
@@ -178,6 +179,10 @@ class MainActivity : ComponentActivity() {
                                 onZoomWidgetToggled = {
                                     settingsViewModel.toggleZoomWidget(it)
                                     worldMapViewModel.toggleZoomWidget(it)
+                                },
+                                onSpeedometerToggled = {
+                                    settingsViewModel.toggleSpeedometer(it)
+                                    worldMapViewModel.toggleSpeedometer(it)
                                 },
                                 onRoadNetworkToggled = { settingsViewModel.toggleRoadNetwork(it) },
                                 onControlTypeChanged = { settingsViewModel.changeControlType(it) },

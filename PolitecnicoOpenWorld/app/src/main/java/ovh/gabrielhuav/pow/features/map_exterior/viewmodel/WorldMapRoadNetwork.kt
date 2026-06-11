@@ -101,10 +101,8 @@ internal suspend fun WorldMapViewModel.applyRoadNetwork(network: List<MapWay>, p
             _uiState.update { it.copy(currentLocation = snapped, isRoadNetworkReady = true) }
         }
         prefetchCurrentZoneTiles(snapped)
-        val targetZoom = if (_uiState.value.mapProvider.isWebProvider)
-            ZOOM_GAMEPLAY_WEB
-        else
-            ZOOM_GAMEPLAY_OSM
+        // Zoom de juego A PIE = 22 para todos los proveedores (paridad con el miembro).
+        val targetZoom = ZOOM_ON_FOOT
 
         if (_uiState.value.zoomLevel <= ZOOM_LOADING) {
             var z = ZOOM_LOADING + 1.0
