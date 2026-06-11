@@ -633,9 +633,13 @@ internal fun NativeOsmMap(
                             // Si el ajuste está activo, los NPCs LEJOS (>40 m del jugador) se
                             // dibujan como un emoji barato en vez del sprite/bitmap completo; solo
                             // los MUY cercanos llevan el asset. Recorta mucho el render en gama baja.
-                            val useEmojiLod = uiState.npcEmojiLod && centerCull != null &&
+                            // "Optimizar para gama baja" (npcFullEmoji): TODOS los NPCs como emoji,
+                            // sin importar la distancia. "Optimizar dibujado" (npcEmojiLod): solo
+                            // los lejanos (>40 m).
+                            val useEmojiLod = uiState.npcFullEmoji ||
+                                (uiState.npcEmojiLod && centerCull != null &&
                                 !npcWithinRadius(npc.location.latitude, npc.location.longitude,
-                                    centerCull.latitude, centerCull.longitude, 40.0)
+                                    centerCull.latitude, centerCull.longitude, 40.0))
                             if (useEmojiLod) {
                                 val emoji = when (npc.type) {
                                     NpcType.CAR, NpcType.POLICE_CAR -> "🚗"

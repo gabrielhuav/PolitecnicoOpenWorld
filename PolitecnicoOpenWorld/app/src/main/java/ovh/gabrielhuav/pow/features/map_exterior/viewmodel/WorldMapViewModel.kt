@@ -151,7 +151,9 @@ class WorldMapViewModel(
             controlsScale = settingsRepository.getControlsScale(),
             swapControls  = settingsRepository.getSwapControls(),
             selectedSkin  = settingsRepository.getPlayerSkin(),   // ← NUEVO
-            npcEmojiLod   = settingsRepository.getNpcEmojiLod()   // optimización gama baja
+            npcEmojiLod   = settingsRepository.getNpcEmojiLod(),  // optimizar dibujado de NPCs (LOD)
+            npcFullEmoji  = settingsRepository.getNpcFullEmoji(), // optimizar para gama baja (emoji total)
+            showZoomWidget = settingsRepository.getShowZoomWidget()
         )
     )
     // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
@@ -951,6 +953,10 @@ class WorldMapViewModel(
                 if (cached != null) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         roadNetwork = cached
+                        // Mantener TODOS los índices en sync con la red nueva (antes solo se
+                        // actualizaba la IA; el grid de routing y el grafo A* quedaban viejos).
+                        rebuildRoadNodeGrid(cached)
+                        buildRoadGraph(cached)
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
                         val inside = isInsideEscom(currentLoc.latitude, currentLoc.longitude)
@@ -970,6 +976,8 @@ class WorldMapViewModel(
                         roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             roadNetwork = network
+                            rebuildRoadNodeGrid(network)
+                            buildRoadGraph(network)
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
                             _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
@@ -1278,6 +1286,12 @@ class WorldMapViewModel(
         val radius  = 0.000012
         if (dist <= radius) {
             _uiState.update { it.copy(currentLocation = temp) }
+        } else if (dist > MAX_SNAP_DISTANCE_DEG) {
+            // FIX TP aleatorio: si la calle "más cercana" está LEJOS (la red recién
+            // recargada aún no cubre esta zona, o candidates() cayó al fallback de
+            // TODOS los segmentos), NO teletransportamos al jugador hacia ella.
+            // Mejor no moverse este tick que aparecer en una calle al azar.
+            return
         } else {
             val angle = atan2(temp.latitude - nearest.latitude, temp.longitude - nearest.longitude)
             _uiState.update { it.copy(currentLocation = GeoPoint(
@@ -1316,6 +1330,9 @@ class WorldMapViewModel(
 
         if (dist <= radius) {
             _uiState.update { it.copy(currentLocation = temp) }
+        } else if (dist > MAX_SNAP_DISTANCE_DEG) {
+            // FIX TP aleatorio (ver moveCharacter): no saltar a una calle lejana.
+            return
         } else {
             val angle = atan2(temp.latitude - nearest.latitude, temp.longitude - nearest.longitude)
             _uiState.update { it.copy(currentLocation = GeoPoint(
@@ -1333,6 +1350,10 @@ class WorldMapViewModel(
                             val minLat: Double, val maxLat: Double, val minLon: Double, val maxLon: Double)
 
     internal val CELL = 0.0025
+    // FIX TP aleatorio: distancia máxima (~33 m) a la que el snap-to-road puede
+    // "jalar" al jugador hacia una calle. Más lejos = la red no cubre esta zona
+    // todavía; el movimiento se ignora en vez de teletransportar.
+    internal val MAX_SNAP_DISTANCE_DEG = 0.0003
     internal var indexedRef: List<MapWay>?    = null
     internal var segs: List<Seg>              = emptyList()
     internal var grid: Map<Long, List<Seg>>   = emptyMap()
@@ -1564,6 +1585,7 @@ class WorldMapViewModel(
 
     private fun tileUrlFor(provider: MapProvider, z: Int, x: Int, y: Int): String? {
         val template = when (provider) {
+            MapProvider.CARTO_VOYAGER  -> "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
             MapProvider.CARTO_DB_DARK  -> "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
             MapProvider.CARTO_DB_LIGHT -> "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
             MapProvider.ESRI           -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
@@ -1767,6 +1789,8 @@ class WorldMapViewModel(
 
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
+
+    fun toggleZoomWidget(show: Boolean) { _uiState.update { it.copy(showZoomWidget = show) } }
     fun updateShowCacheWidget(show: Boolean) = _uiState.update { it.copy(showCacheWidget = show) }
     fun updateShowFpsWidget(show: Boolean) = _uiState.update { it.copy(showFpsWidget = show) }
 
@@ -2044,6 +2068,17 @@ class WorldMapViewModel(
                 } else it
             }
             state.copy(landmarks = updated)
+        }
+    }
+
+    /** Mueve un landmark a una posición ABSOLUTA (lo usa el lápiz del renderer web,
+     *  que reporta el lat/lng final del arrastre en vez de deltas). También lo selecciona. */
+    fun moveLandmarkTo(id: Long, lat: Double, lon: Double) {
+        _uiState.update { state ->
+            val updated = state.landmarks.map {
+                if (it.id == id) it.copy(location = GeoPoint(lat, lon)) else it
+            }
+            state.copy(landmarks = updated, selectedLandmarkId = id)
         }
     }
 
@@ -3084,6 +3119,8 @@ class WorldMapViewModel(
     fun setNpcDensity(v: Float) { npcAiManager.userPopulationFactor = v }
     /** NPCs lejanos como emoji (optimización gama baja). */
     fun setNpcEmojiLod(enabled: Boolean) { _uiState.update { it.copy(npcEmojiLod = enabled) } }
+
+    fun setNpcFullEmoji(enabled: Boolean) { _uiState.update { it.copy(npcFullEmoji = enabled) } }
 
     fun setShowRoadNetwork(show: Boolean) {
         _uiState.update { it.copy(showRoadNetwork = show) }

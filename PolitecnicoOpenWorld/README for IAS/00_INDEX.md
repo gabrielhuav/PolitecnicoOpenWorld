@@ -57,7 +57,7 @@
 - **Servidores / Servers:** 2× Node.js + `ws` (open world `Multiplayer/`, zombi `MultiplayerInteriores/`), dockerizados en Render
 - **Room DB:** versión 8 (`MIGRATION_7_8` + destructive fallback)
 - **~110 archivos Kotlin / Kotlin files**, ~30k líneas / lines
-- **Default map provider:** `OSM_WEB` (no persistido / not persisted)
+- **Default map provider:** `CARTO_VOYAGER` (web, tiles reales hasta z20 / real tiles up to z20; no persistido / not persisted)
 - **Comentarios del código en español / Code comments in Spanish** (mantener / keep that style)
 
 ---

@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
                     // Esto evita recomposiciones destructivas al navegar.
                     val settingsState by settingsViewModel.state.collectAsState()
                     var providerInitialized by remember { mutableStateOf(false) }
-                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.showRoadNetwork) {
+                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.showZoomWidget, settingsState.showRoadNetwork) {
                         if (!providerInitialized) {
                             // Arranque: aplica el proveedor guardado de inmediato (sin aviso).
                             worldMapViewModel.setMapProvider(settingsState.mapProvider)
@@ -127,6 +127,7 @@ class MainActivity : ComponentActivity() {
                         }
                         worldMapViewModel.toggleCacheWidget(settingsState.showCacheWidget)
                         worldMapViewModel.toggleFpsWidget(settingsState.showFpsWidget)
+                        worldMapViewModel.toggleZoomWidget(settingsState.showZoomWidget)
                         worldMapViewModel.setShowRoadNetwork(settingsState.showRoadNetwork)
                     }
 
@@ -174,6 +175,10 @@ class MainActivity : ComponentActivity() {
                                 onMapProviderChanged = { settingsViewModel.changeMapProvider(it) },
                                 onCacheToggled = { settingsViewModel.toggleCacheWidget(it) },
                                 onFpsToggled = { settingsViewModel.toggleFpsWidget(it) },
+                                onZoomWidgetToggled = {
+                                    settingsViewModel.toggleZoomWidget(it)
+                                    worldMapViewModel.toggleZoomWidget(it)
+                                },
                                 onRoadNetworkToggled = { settingsViewModel.toggleRoadNetwork(it) },
                                 onControlTypeChanged = { settingsViewModel.changeControlType(it) },
                                 onControlsScaleChanged = { settingsViewModel.changeControlsScale(it) },
@@ -186,6 +191,10 @@ class MainActivity : ComponentActivity() {
                                 onNpcEmojiLodToggled = {
                                     settingsViewModel.toggleNpcEmojiLod(it)
                                     worldMapViewModel.setNpcEmojiLod(it)
+                                },
+                                onNpcFullEmojiToggled = {
+                                    settingsViewModel.toggleNpcFullEmoji(it)
+                                    worldMapViewModel.setNpcFullEmoji(it)
                                 },
                                 onNavigateBack = {
                                     // Descartar cambios de controles no guardados al salir.
@@ -470,6 +479,25 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun fetchCurrentLocation() {
+        // FIX spawn impreciso: lastLocation es una CACHÉ (puede ser de hace horas o de
+        // otra zona → "no es exactamente mi ubicación"). Pedimos una lectura FRESCA de
+        // alta precisión y solo caemos a lastLocation / default si falla o tarda.
+        try {
+            fusedLocationClient.getCurrentLocation(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null
+            ).addOnSuccessListener { location ->
+                if (location != null) {
+                    worldMapViewModel.updateInitialLocation(location.latitude, location.longitude)
+                } else {
+                    fetchLastLocationFallback()
+                }
+            }.addOnFailureListener { fetchLastLocationFallback() }
+        } catch (e: SecurityException) {
+            worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
+        }
+    }
+
+    private fun fetchLastLocationFallback() {
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null)

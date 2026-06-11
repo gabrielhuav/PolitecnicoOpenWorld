@@ -80,15 +80,22 @@ a SVG. Por eso **`POLICE_CAR` debe ir como base64 car-image (`type="CAR"`)** ví
 `POLICE_COP` como **👮 base64 (`type="MODULAR"`)**. Patrullas fuera de la fog se dibujan con
 `updatePolice(playerLat, playerLng, data)` (🚓 + línea), empujado solo si `wantedLevel>0` (y una vez más
 para limpiar). El submenú "Ir a…" se **eliminó**: ESCOM es la 1ª `TeleportCatalog.zones` y el teleport
-GPS es el 1er item del diálogo *Puntos de Teletransporte*.
+GPS es el 1er item del diálogo *Puntos de Teletransporte*. El submenú **"Zoom (acercar/alejar)" del menú
+Mapa también se eliminó**: el zoom es solo por pinch (los `zoomIn/zoomOut` del VM siguen existiendo pero
+sin UI). El **Modo Diseñador en web** tiene paridad con los nativos: lápices ✏️ por landmark
+(`refreshDesignerControls` en el HTML; `notifyLandmarkSelected/Moved` en `MapJsBridge` →
+`selectLandmark`/`moveLandmarkTo`); el seleccionado se tinta vía `setSelectedLandmark`.
 
-## 9. Default provider = `OSM_WEB` (no persistido)
+## 9. Default provider = `CARTO_VOYAGER` (no persistido)
 
 El nativo osmdroid (default z22 + reescalado z19) es el render más pesado en equipos débiles, así que el
-default arranca en **OSM Web**. **No se persiste**: el default es solo el estado inicial en
-`SettingsState`, `WorldMapState` y `MainMenuState` (todos `OSM_WEB`). **Google nativo** sigue al jugador
-con `cameraPositionState.move()` (NO `animate()`). **Web** re-envía landmarks solo cuando cambia la lista
-(guard por referencia + heartbeat ~45 frames).
+default arranca en **CARTO Voyager (web)**, que sirve tiles reales hasta **z20** (más nitidez de calles
+que OSM Web, que topa en z19). `changeTileUrl(url, maxNative)` recrea la capa Leaflet si cambia el
+`maxNativeZoom` por proveedor (CARTO=20, OSM/ESRI=19, OPEN_TOPO=17, Google=20) y **no-opea** si la URL no
+cambió (antes redibujaba cada frame). **No se persiste**: el default es solo el estado inicial en
+`SettingsState`, `WorldMapState` y `MainMenuState` (todos `CARTO_VOYAGER`). **Google nativo** sigue al
+jugador con `cameraPositionState.move()` (NO `animate()`). **Web** re-envía landmarks solo cuando cambia
+la lista (guard por referencia + heartbeat ~45 frames).
 
 ## 10. Policía / NPCs (autoridad)
 
@@ -150,9 +157,20 @@ matrices por defecto son **border-only** hasta reemplazarse.
   red OSM** en `updateRoadNetwork` (proxy GRATIS de ciudad, se recalcula al viajar); `userPopulationFactor`
   es el slider de **Ajustes→Jugabilidad** (`getNpcDensity`). **No** hardcodees los topes otra vez: ajústalos
   vía estos factores.
-- **LOD de emojis = SOLO OSM nativo (por ahora):** `uiState.npcEmojiLod` solo lo respeta `NativeOsmMap`
-  (NPCs >40 m → emoji). Web (Leaflet) y Google nativo **aún no** lo aplican (futuro: enviar un tipo de
-  payload "emoji" en vez de generar base64). Si optimizas web, hazlo en `updateNpcs`/`WorldMapLeafletHtml`.
+- **LOD de emojis (`npcEmojiLod`, "Optimizar dibujado de NPCs") = SOLO OSM nativo (por ahora):**
+  `uiState.npcEmojiLod` solo lo respeta `NativeOsmMap` (NPCs >40 m → emoji). Web (Leaflet) y Google
+  nativo **aún no** lo aplican. En cambio, **`npcFullEmoji` ("Optimizar para gama baja") SÍ aplica en
+  los TRES renderers**: TODOS los NPCs como emoji (OSM nativo fuerza `useEmojiLod`; web envía un base64
+  por emoji cacheado como `full_emoji_*`; Google usa la rama `GM_FULL_EMOJI_*`).
+- **Fixes de estabilidad (TP/skin/ESCOM):** (a) el snap-to-road de `moveCharacter`/`moveCharacterByAngle`
+  **ignora el movimiento** si la calle más cercana está a > `MAX_SNAP_DISTANCE_DEG` (0.0003 ≈ 33 m) — antes
+  TELETRANSPORTABA al jugador a una calle al azar cuando la red recién recargada no cubría su zona; (b) el
+  GPS usa `getCurrentLocation(PRIORITY_HIGH_ACCURACY)` con fallback a `lastLocation` (que es caché y mandaba
+  a ubicaciones viejas); (c) el JS web tiene watchdog anti-congelamiento (`isZooming` >1.5 s se auto-resetea;
+  `isExplorationMode` sin dedo en pantalla se limpia en `updateMapView`) — causa del "me muevo pero el skin
+  no"; (d) `NpcAiManager` **re-puebla** campus (ESCOM) si está marcado como poblado pero sin NPCs vivos
+  (cooldown 30 s) — antes los NPCs se despawneaban a ~310 m pero el campus solo se "des-poblaba" a ~2.2 km;
+  (e) el re-fetch de red (miembro) ahora también reconstruye `rebuildRoadNodeGrid` + `buildRoadGraph`.
 
 ---
 

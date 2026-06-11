@@ -17,6 +17,7 @@ const val ZOOM_GAMEPLAY_WEB = 19.0  // Nivel de zoom para los proveedores Web
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
     GOOGLE_MAPS_NATIVE("Google Maps (Nativo)"),
+    CARTO_VOYAGER("CARTO Voyager (Web)"),   // DEFAULT: sirve teselas hasta z20 → máximo detalle de calles
     OSM_WEB("OpenStreetMap (Web)"),
     GOOGLE_MAPS("Google Maps (Web)"),
     CARTO_DB_DARK("CartoDB Oscuro (Web)"),
@@ -43,7 +44,7 @@ data class WorldMapState(
     val currentLocation: GeoPoint? = null,
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = ZOOM_LOADING,
-    val mapProvider: MapProvider = MapProvider.OSM_WEB, // Default: OSM Web (gama baja)
+    val mapProvider: MapProvider = MapProvider.CARTO_VOYAGER, // Default: CARTO Voyager (web, z20 = máximo detalle)
     // Cambio de proveedor con precarga: el nuevo se precarga en segundo plano mientras
     // sigues usando el actual. Cuando 'pendingProviderReady' es true, se avisa para cambiar.
     val pendingProvider: MapProvider? = null,
@@ -59,6 +60,9 @@ data class WorldMapState(
     val tileSource: TileSource = TileSource.NETWORK,
     val showCacheWidget: Boolean = true,
     val showFpsWidget: Boolean = false,
+    // Widget de nivel de zoom (Ajustes → Interfaz): muestra el zoom actual en vivo,
+    // útil para encontrar el nivel óptimo antes de fijarlo por defecto.
+    val showZoomWidget: Boolean = false,
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
@@ -140,6 +144,11 @@ data class WorldMapState(
     // Si está activo, los NPCs lejanos se dibujan como emoji (más barato) y solo los
     // MUY cercanos usan el asset completo. Se configura en Ajustes → Jugabilidad.
     val npcEmojiLod: Boolean = false,
+
+    // ─── Jugabilidad: optimizar para gama baja (emoji TOTAL) ─────────────────
+    // Si está activo, TODOS los NPCs se dibujan como emoji (🧍🚗🧟👮) sin importar la
+    // distancia: cero generación de sprites/bitmaps. Para equipos muy débiles.
+    val npcFullEmoji: Boolean = false,
 
     // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
     val showShineCTODiscovery: Boolean = false,

@@ -45,19 +45,22 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 
 ```kotlin
 enum class MapProvider(displayName) {
-  OSM, GOOGLE_MAPS_NATIVE, OSM_WEB, GOOGLE_MAPS, CARTO_DB_DARK, CARTO_DB_LIGHT,
-  ESRI, ESRI_SATELLITE, OPEN_TOPO;            // 8 proveedores (web = todos menos OSM y GOOGLE_MAPS_NATIVE)
+  OSM, GOOGLE_MAPS_NATIVE, CARTO_VOYAGER, OSM_WEB, GOOGLE_MAPS, CARTO_DB_DARK,
+  CARTO_DB_LIGHT, ESRI, ESRI_SATELLITE, OPEN_TOPO; // 9 proveedores (web = todos menos OSM y GOOGLE_MAPS_NATIVE)
   val isWebProvider: Boolean
 }
+// El render web pasa maxNativeZoom por proveedor a Leaflet (CARTO=20, OSM/ESRI=19,
+// OPEN_TOPO=17, Google=20): a partir de ahí Leaflet escala (over-zoom).
 enum class RoadSource { LOADING, LOCAL_DB, NETWORK }
 enum class TileSource { LOCAL_OSM, LOCAL_CACHE, NETWORK }
 data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
 ```
 
-**`WorldMapState`** — campos por grupo / fields by group (default `mapProvider = OSM_WEB`):
+**`WorldMapState`** — campos por grupo / fields by group (default `mapProvider = CARTO_VOYAGER`):
 - **Mapa/carga:** `currentLocation, isLoadingLocation, zoomLevel, mapProvider, pendingProvider,
   pendingProviderReady, isMapReady, mapLoadProgress, roadSource, tileSource, isRoadNetworkReady`.
-- **Render flags:** `showCacheWidget(=true), showFpsWidget, showRoadNetwork, isUserPanningMap`.
+- **Render flags:** `showCacheWidget(=true), showFpsWidget, showZoomWidget (widget de nivel de zoom,
+  Ajustes→Interfaz), showRoadNetwork, isUserPanningMap`.
 - **Controles/skin:** `controlType, controlsScale, swapControls, selectedSkin, showSkinSelector`.
 - **Jugador:** `playerAction, isPlayerFacingRight, isRunning, isDriving, currentVehicleModel,
   currentVehicleColor, vehicleSpeed, vehicleRotation, vehicleIsFirstTimeBoarded`.

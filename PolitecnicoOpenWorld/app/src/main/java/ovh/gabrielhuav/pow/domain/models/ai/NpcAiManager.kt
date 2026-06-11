@@ -180,6 +180,12 @@ class NpcAiManager {
     private val parkingCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val carExitCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val populatedLandmarks = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    // FIX ESCOM vacía: cooldown de re-población por landmark. Los NPCs del campus se
+    // despawnean a despawnDistance (~310 m) pero el campus solo se "des-poblaba" a
+    // >0.02° (~2.2 km), así que al volver quedaba SIN IA. Ahora, si el campus está
+    // marcado como poblado pero ya no tiene NPCs vivos, se repuebla (con cooldown).
+    private val landmarkRepopulateAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val LANDMARK_REPOPULATE_COOLDOWN_MS = 30_000L
     private val landmarkEntranceCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     private val carSpeed    = CAR_SPEED
@@ -319,8 +325,15 @@ class NpcAiManager {
 
             for (landmark in activeLandmarks) {
                 val dist = calculateDistance(pLat0, pLon0, landmark.location.latitude, landmark.location.longitude)
-                if (dist < 0.01 && !populatedLandmarks.contains(landmark.id.toString())) {
-                    populatedLandmarks.add(landmark.id.toString())
+                val lmKey = landmark.id.toString()
+                // ¿El campus está marcado como poblado pero ya no tiene IA viva? (sus NPCs
+                // se despawnearon al alejarse el jugador) → permitir re-poblar con cooldown.
+                val needsRepopulate = dist < 0.01 && populatedLandmarks.contains(lmKey) &&
+                    serverNpcs.none { it.displayName.isNullOrEmpty() && it.currentLandmark?.id == landmark.id } &&
+                    System.currentTimeMillis() >= (landmarkRepopulateAt[lmKey] ?: 0L)
+                if (dist < 0.01 && (!populatedLandmarks.contains(lmKey) || needsRepopulate)) {
+                    populatedLandmarks.add(lmKey)
+                    landmarkRepopulateAt[lmKey] = System.currentTimeMillis() + LANDMARK_REPOPULATE_COOLDOWN_MS
 
                     val availableSlots = getAvailableParkingSlots(landmark, serverNpcs)
                     if (availableSlots.isNotEmpty()) {

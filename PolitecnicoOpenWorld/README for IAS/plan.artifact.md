@@ -288,11 +288,14 @@ via co-located `ViewModelProvider.Factory` instances.
   pushes it only while `wantedLevel > 0` (and once more to clear). The **"Ir a…" options menu was
   removed**: ESCOM is the first `TeleportCatalog.zones` entry and the GPS teleport is the first
   item of the *Puntos de Teletransporte* dialog.
-- **Default map provider is `OSM_WEB`, not native `OSM` (low-end):** native osmdroid defaults to
-  z22 and re-scales z19 tiles for the over-zoom, the heaviest renderer on weak devices — so the
-  app now defaults to **OpenStreetMap (Web)**. The provider is **not persisted**; the default is
-  just the initial state value in `SettingsState`, `WorldMapState` and `MainMenuState` (all
-  `OSM_WEB`). Changing it there changes the launch provider. **Google native** follows the player
+- **Default map provider is `CARTO_VOYAGER` (web), not native `OSM` (low-end):** native osmdroid
+  defaults to z22 and re-scales z19 tiles for the over-zoom, the heaviest renderer on weak
+  devices — the app defaults to **CARTO Voyager (Web)**, which serves real tiles up to **z20**
+  (sharper streets than OSM Web's z19; the web layer passes a per-provider `maxNativeZoom` to
+  Leaflet via `changeTileUrl(url, maxNative)`, recreating the layer when it changes and no-oping
+  on unchanged URLs). The provider is **not persisted**; the default is just the initial state
+  value in `SettingsState`, `WorldMapState` and `MainMenuState` (all `CARTO_VOYAGER`). Changing
+  it there changes the launch provider. **Google native** follows the player
   with `cameraPositionState.move()` — NOT `animate()`, which restarted a 120 ms camera animation
   ~30 Hz and thrashed. **Web** re-sends landmark layers to the WebView only when the landmark list
   changes (reference guard + ~45-frame heartbeat in case the first send raced the HTML load). The
