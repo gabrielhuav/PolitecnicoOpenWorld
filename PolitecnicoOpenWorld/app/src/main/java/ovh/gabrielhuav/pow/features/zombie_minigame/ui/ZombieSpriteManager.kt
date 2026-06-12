@@ -58,4 +58,11 @@ object ZombieSpriteManager {
             null
         }
     }
+
+    // OPT memoria gama baja (≤2 GB): libera los frames de zombi cacheados bajo presión de
+    // memoria (MainActivity.onTrimMemory). Se vuelven a cargar del asset bajo demanda.
+    @Synchronized
+    fun clearCaches() {
+        cache.evictAll()
+    }
 }

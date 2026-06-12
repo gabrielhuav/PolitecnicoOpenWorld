@@ -192,6 +192,348 @@
         { "id": 1, "localX": 0.5772, "localY": 0.6923, "isParkingSlot": false },
         { "id": 2, "localX": 0.5844, "localY": 0.7109, "isParkingSlot": true }
       ]
+    },
+    {
+      "id": 201,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.4737, "localY": 0.3782, "isParkingSlot": false },
+        { "id": 2, "localX": 0.5245, "localY": 0.2793, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 202,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5245, "localY": 0.2793, "isParkingSlot": false },
+        { "id": 2, "localX": 0.6666, "localY": 0.4351, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 203,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.6666, "localY": 0.4351, "isParkingSlot": false },
+        { "id": 2, "localX": 0.5410, "localY": 0.4832, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 204,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5410, "localY": 0.4832, "isParkingSlot": false },
+        { "id": 2, "localX": 0.6194, "localY": 0.4051, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 205,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.6194, "localY": 0.4051, "isParkingSlot": false },
+        { "id": 2, "localX": 0.5505, "localY": 0.4311, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 206,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5505, "localY": 0.4311, "isParkingSlot": false },
+        { "id": 2, "localX": 0.5833, "localY": 0.3624, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 207,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5833, "localY": 0.3624, "isParkingSlot": false },
+        { "id": 2, "localX": 0.5214, "localY": 0.4155, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 208,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5214, "localY": 0.4155, "isParkingSlot": false },
+        { "id": 2, "localX": 0.4907, "localY": 0.3777, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 209,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.4907, "localY": 0.3777, "isParkingSlot": false },
+        { "id": 2, "localX": 0.5645, "localY": 0.3379, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 210,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5645, "localY": 0.3379, "isParkingSlot": false },
+        { "id": 2, "localX": 0.4953, "localY": 0.3365, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 211,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.4953, "localY": 0.3365, "isParkingSlot": false },
+        { "id": 2, "localX": 0.4897, "localY": 0.2957, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 212,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5033, "localY": 0.2924, "isParkingSlot": false },
+        { "id": 2, "localX": 0.6034, "localY": 0.2228, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 213,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.6034, "localY": 0.2228, "isParkingSlot": false },
+        { "id": 2, "localX": 0.5951, "localY": 0.1809, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 216,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.6801, "localY": 0.1140, "isParkingSlot": false },
+        { "id": 2, "localX": 0.7205, "localY": 0.0911, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 217,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.7205, "localY": 0.0911, "isParkingSlot": false },
+        { "id": 2, "localX": 0.6809, "localY": 0.0542, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 218,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.6809, "localY": 0.0542, "isParkingSlot": false },
+        { "id": 2, "localX": 0.6399, "localY": 0.0753, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 219,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.6399, "localY": 0.0753, "isParkingSlot": false },
+        { "id": 2, "localX": 0.5830, "localY": 0.1146, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 220,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5830, "localY": 0.1146, "isParkingSlot": false },
+        { "id": 2, "localX": 0.5594, "localY": 0.1541, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 221,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.5594, "localY": 0.1541, "isParkingSlot": false },
+        { "id": 2, "localX": 0.6093, "localY": 0.1292, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 222,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.7415, "localY": 0.0979, "isParkingSlot": false },
+        { "id": 2, "localX": 0.8892, "localY": 0.2359, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 226,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0101, "localY": 0.5863, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0358, "localY": 0.5963, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 227,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0589, "localY": 0.5409, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0076, "localY": 0.6268, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 228,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.2384, "localY": 0.6890, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1493, "localY": 0.7486, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 229,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1493, "localY": 0.7486, "isParkingSlot": false },
+        { "id": 2, "localX": 0.2298, "localY": 0.7200, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 230,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.2298, "localY": 0.7200, "isParkingSlot": false },
+        { "id": 2, "localX": 0.2822, "localY": 0.7720, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 231,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.2822, "localY": 0.7720, "isParkingSlot": false },
+        { "id": 2, "localX": 0.2465, "localY": 0.8010, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 232,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.2465, "localY": 0.8010, "isParkingSlot": false },
+        { "id": 2, "localX": 0.2343, "localY": 0.7432, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 233,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.2343, "localY": 0.7432, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1933, "localY": 0.7644, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 234,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1933, "localY": 0.7644, "isParkingSlot": false },
+        { "id": 2, "localX": 0.2102, "localY": 0.8197, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 235,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.2102, "localY": 0.8197, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1591, "localY": 0.7797, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 236,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1591, "localY": 0.7797, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1207, "localY": 0.8076, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 237,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1207, "localY": 0.8076, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1717, "localY": 0.8562, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 238,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1717, "localY": 0.8562, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1231, "localY": 0.8873, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 239,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1231, "localY": 0.8873, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1196, "localY": 0.8429, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 240,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1196, "localY": 0.8429, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0642, "localY": 0.8212, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 241,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0642, "localY": 0.8212, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0991, "localY": 0.8549, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 242,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0991, "localY": 0.8549, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1400, "localY": 0.7865, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 243,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1400, "localY": 0.7865, "isParkingSlot": false },
+        { "id": 2, "localX": 0.2208, "localY": 0.7909, "isParkingSlot": false }
+      ]
     }
   ]
 }

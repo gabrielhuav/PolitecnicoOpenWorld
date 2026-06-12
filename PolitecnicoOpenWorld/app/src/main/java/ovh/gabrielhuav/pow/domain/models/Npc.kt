@@ -24,6 +24,16 @@ enum class NpcNavState {
 //  - COWARD: huye (entra en estado de miedo) al ser provocado.
 //  - AGGRESSIVE: contraataca (entra en estado de embestida hacia el jugador).
 enum class NpcTrait { PASSIVE, COWARD, AGGRESSIVE }
+
+// ROL del zombi (modo apocalipsis global). Bajo costo: solo cambia color (palette swap),
+// velocidad, vida y comportamiento sobre el MISMO asset z_walk.
+//  - NORMAL:  zombi estándar.
+//  - RUNNER:  "El Corredor" — tinte rojizo, más rápido, menos vida (estudiante a clase).
+//  - TANK:    "El Tanque" — tinte verdoso oscuro, más lento, más vida (3-4 golpes), más grande.
+//  - SCOUT:   "El Explorador" — tinte amarillento, NO ataca; corre al humano más cercano,
+//             grita (burbuja) y huye en dirección opuesta: alarma viviente de horda.
+enum class ZombieRole { NORMAL, RUNNER, TANK, SCOUT }
+
 data class Npc(
     val id: String = UUID.randomUUID().toString(),
     val type: NpcType,
@@ -46,6 +56,18 @@ data class Npc(
     val isFirstTimeBoarded: Boolean = true,
     val health: Float = 100f,
     val isDying: Boolean = false,
+
+    // ─── ROL DE ZOMBI (apocalipsis global) ───────────────────────────────────
+    val zombieRole: ZombieRole = ZombieRole.NORMAL,
+    val maxHealth: Float = 100f,        // para la barra de vida proporcional por rol
+    val screamUntil: Long = 0L,         // SCOUT: mientras now < screamUntil muestra la burbuja de grito
+
+    // ─── ESQUIVE estilo Midnight Club (peatón se aparta del coche) ────────────
+    // Mientras now < dodgeUntil, el peatón se mueve hacia (dodgeDirLat, dodgeDirLon) — un sidestep
+    // ANIMADO (no un teletransporte). Lo dispara el Host (runOverNpcs) y lo anima moveNpc.
+    val dodgeUntil: Long = 0L,
+    val dodgeDirLat: Double = 0.0,
+    val dodgeDirLon: Double = 0.0,
 
     // Navegación por landmarks / vías locales (rama de navegación):
     val navState: NpcNavState = NpcNavState.MACRO_OSM,

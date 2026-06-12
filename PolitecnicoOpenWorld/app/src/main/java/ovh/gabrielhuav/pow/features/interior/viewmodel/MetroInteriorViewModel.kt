@@ -148,14 +148,16 @@ class MetroInteriorViewModel(
                 allMetroStations = allStations,
                 playerX = startX,
                 playerY = startY,
-                hasRechargedTicket = recharged
+                hasRechargedTicket = recharged,
+                spawnWithAnimation = recharged,
+                isPlayerVisible = !recharged
             ) 
         }
         updateCollisionGrid(defaultRows)
     }
 
     fun moveByAngle(angleRad: Double) {
-        if (_state.value.designerMode) return
+        if (_state.value.designerMode || !_state.value.areControlsEnabled) return
         val current = _state.value
         val step = if (current.isRunning) RUN_STEP else WALK_STEP
 
@@ -166,7 +168,7 @@ class MetroInteriorViewModel(
     }
 
     fun moveDirection(direction: Direction) {
-        if (_state.value.designerMode) return
+        if (_state.value.designerMode || !_state.value.areControlsEnabled) return
         val current = _state.value
         val step = if (current.isRunning) RUN_STEP else WALK_STEP
 
@@ -235,6 +237,7 @@ class MetroInteriorViewModel(
     }
 
     fun interactWithHotspot() {
+        if (!_state.value.areControlsEnabled) return
         val door = _state.value.activeDoor ?: return
         when (door.targetRoomId) {
             "taquilla" -> {
@@ -246,8 +249,19 @@ class MetroInteriorViewModel(
             }
             "torniquetes" -> {
                 if (_state.value.hasRechargedTicket) {
-                    val currentY = _state.value.playerY
-                    _state.update { it.copy(playerY = currentY + 0.15f) }
+                    viewModelScope.launch {
+                        idleJob?.cancel()
+                        _state.update { it.copy(areControlsEnabled = false, playerAction = PlayerAction.WALK) }
+                        val startY = _state.value.playerY
+                        val steps = 40
+                        val stepDelay = 1200L / steps
+                        for (i in 1..steps) {
+                            val fraction = i.toFloat() / steps
+                            _state.update { it.copy(playerY = startY + fraction * 0.23f, playerAction = PlayerAction.WALK) }
+                            delay(stepDelay)
+                        }
+                        _state.update { it.copy(areControlsEnabled = true, playerAction = PlayerAction.IDLE) }
+                    }
                 } else {
                     _state.update { it.copy(messageToast = "No tienes saldo disponible") }
                     viewModelScope.launch {
@@ -257,19 +271,36 @@ class MetroInteriorViewModel(
                 }
             }
             "anden" -> {
-                _state.update { it.copy(showMetroMap = true) }
+                if (!_state.value.isMetro1Departing) {
+                    _state.update { it.copy(isMetro1Animating = true, areControlsEnabled = false, isBoardingWalkActive = true) }
+                } else {
+                    _state.update { it.copy(messageToast = "Debes esperar a que llegue otro tren") }
+                    viewModelScope.launch {
+                        delay(2000)
+                        _state.update { it.copy(messageToast = null) }
+                    }
+                }
             }
             "salir_torniquetes" -> {
-                // Mover al jugador hacia arriba de los torniquetes y resetear el ticket
-                val currentY = _state.value.playerY
-                _state.update {
-                    it.copy(
-                        playerY = (currentY - 0.15f).coerceAtLeast(0f),
-                        hasRechargedTicket = false,
-                        messageToast = "Has salido de los torniquetes. Ve a la taquilla para recargar tu tarjeta."
-                    )
-                }
                 viewModelScope.launch {
+                    idleJob?.cancel()
+                    _state.update { it.copy(areControlsEnabled = false, playerAction = PlayerAction.WALK) }
+                    val startY = _state.value.playerY
+                    val steps = 40
+                    val stepDelay = 1200L / steps
+                    for (i in 1..steps) {
+                        val fraction = i.toFloat() / steps
+                        _state.update { it.copy(playerY = (startY - fraction * 0.23f).coerceAtLeast(0f), playerAction = PlayerAction.WALK) }
+                        delay(stepDelay)
+                    }
+                    _state.update {
+                        it.copy(
+                            areControlsEnabled = true,
+                            playerAction = PlayerAction.IDLE,
+                            hasRechargedTicket = false,
+                            messageToast = "Has salido de los torniquetes. Ve a la taquilla para recargar tu tarjeta."
+                        )
+                    }
                     delay(3000)
                     _state.update { it.copy(messageToast = null) }
                 }
@@ -290,6 +321,72 @@ class MetroInteriorViewModel(
 
     fun closeMetroMap() {
         _state.update { it.copy(showMetroMap = false) }
+        viewModelScope.launch {
+            idleJob?.cancel()
+            _state.update { it.copy(isPlayerVisible = true, playerAction = PlayerAction.WALK, isFacingRight = false, areControlsEnabled = false, isDisembarkingWalkActive = true) }
+            val startX = _state.value.playerX
+            val targetX = startX - 0.05f
+            val steps = 20
+            val stepDelay = 600L / steps
+            for (i in 1..steps) {
+                val fraction = i.toFloat() / steps
+                _state.update { it.copy(playerX = startX + (targetX - startX) * fraction, playerAction = PlayerAction.WALK) }
+                delay(stepDelay)
+            }
+            _state.update { it.copy(playerAction = PlayerAction.IDLE, areControlsEnabled = true, isMetro1Departing = true, isDisembarkingWalkActive = false) }
+            
+            delay(5000)
+            _state.update { it.copy(isMetro1Departing = false) }
+        }
+    }
+
+    fun onMetro1AnimationFinished() {
+        if (_state.value.isMetro1Animating) {
+            if (_state.value.isBoardingWalkActive) {
+                viewModelScope.launch {
+                    idleJob?.cancel()
+                    val startX = _state.value.playerX
+                    val targetX = startX + 0.05f
+                    val steps = 20
+                    val stepDelay = 600L / steps
+                    _state.update { it.copy(playerAction = PlayerAction.WALK, isFacingRight = true) }
+                    for (i in 1..steps) {
+                        val fraction = i.toFloat() / steps
+                        _state.update { it.copy(playerX = startX + (targetX - startX) * fraction, playerAction = PlayerAction.WALK) }
+                        delay(stepDelay)
+                    }
+                    _state.update { it.copy(
+                        isPlayerVisible = false,
+                        playerAction = PlayerAction.IDLE,
+                        isBoardingWalkActive = false,
+                        isMetro1Animating = false,
+                        showMetroMap = true
+                    ) }
+                }
+            } else {
+                _state.update { it.copy(isMetro1Animating = false, showMetroMap = true) }
+            }
+        } else if (_state.value.spawnWithAnimation) {
+            viewModelScope.launch {
+                idleJob?.cancel()
+                delay(500) // Esperar a que el metro se asiente
+                val startX = _state.value.playerX
+                val targetX = startX - 0.05f
+                
+                _state.update { it.copy(spawnWithAnimation = false, isPlayerVisible = true, playerAction = PlayerAction.WALK, isFacingRight = false, areControlsEnabled = false, isDisembarkingWalkActive = true) }
+                
+                val steps = 20
+                val stepDelay = 600L / steps
+                for (i in 1..steps) {
+                    val fraction = i.toFloat() / steps
+                    _state.update { it.copy(playerX = startX + (targetX - startX) * fraction, playerAction = PlayerAction.WALK) }
+                    delay(stepDelay)
+                }
+                _state.update { it.copy(playerAction = PlayerAction.IDLE, areControlsEnabled = true, isMetro1Departing = true, isDisembarkingWalkActive = false) }
+                delay(5000)
+                _state.update { it.copy(isMetro1Departing = false) }
+            }
+        }
     }
 
     /** Consume la solicitud de salida después de que el Screen haya llamado onExit. */

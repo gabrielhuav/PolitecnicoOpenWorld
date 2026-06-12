@@ -64,6 +64,22 @@
     "baseHeightMeters": 55.0
   },
   {
+    "id": "deportivo_miguel_aleman",
+    "displayName": "Deportivo Miguel Alemán",
+    "assetPath": "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 180.0,
+    "baseHeightMeters": 150.0
+  },
+  {
+    "id": "plaza_lindavista",
+    "displayName": "Plaza Lindavista",
+    "assetPath": "LUGARES/plazalindavista/plaza_lindavista.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 250.0,
+    "baseHeightMeters": 200.0
+  },
+  {
     "id": "estadio_azteca",
     "displayName": "ESTADIO AZTECA",
     "assetPath": "BUILDINGS/ESTADIO_AZT/estadio.webp",

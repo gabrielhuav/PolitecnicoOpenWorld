@@ -112,11 +112,6 @@ internal fun ZombieGameViewModel.tickOffline(s: ZombieGameState, now: Long) {
 
         if (newHealth <= 0f) { triggerWastedSequence(); return }
 
-        // Regeneración gradual de vida en el lobby (zona segura).
-        if (room.id == ZombieRoomCatalog.LOBBY_ID && newHealth < 100f) {
-            newHealth = (newHealth + LOBBY_REGEN_PER_TICK).coerceAtMost(100f)
-        }
-
         val nearItem = s.items.firstOrNull {
             !it.collected && hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
         }

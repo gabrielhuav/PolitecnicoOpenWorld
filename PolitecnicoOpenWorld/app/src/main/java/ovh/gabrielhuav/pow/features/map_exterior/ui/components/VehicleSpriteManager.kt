@@ -122,4 +122,13 @@ object VehicleSpriteManager {
         drawableCache.put(key, result)
         return result
     }
+
+    // OPT memoria gama baja (≤2 GB): libera las variantes escaladas/tintadas y los frames
+    // base bajo presión de memoria (MainActivity.onTrimMemory). Se vuelven a decodificar
+    // bajo demanda. @Synchronized para no competir con getTintedCarNpc (mismo monitor).
+    @Synchronized
+    fun clearCaches() {
+        drawableCache.evictAll()
+        for (model in CarModel.entries) carFrames[model]?.fill(null)
+    }
 }

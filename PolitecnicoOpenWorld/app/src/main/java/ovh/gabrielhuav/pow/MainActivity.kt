@@ -43,6 +43,8 @@ import ovh.gabrielhuav.pow.features.interior.ui.EdificioScreen
 import ovh.gabrielhuav.pow.features.interior.ui.EstacionamientoScreen
 import ovh.gabrielhuav.pow.features.interior.ui.MetroStationInteriorScreen
 import ovh.gabrielhuav.pow.features.interior.ui.PalapasScreen
+import ovh.gabrielhuav.pow.features.interior.ui.DeportivoBeisScreen
+import ovh.gabrielhuav.pow.features.interior.ui.DeportivoFutbolScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
@@ -79,6 +81,22 @@ class MainActivity : ComponentActivity() {
             fetchCurrentLocation()
         } else {
             worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
+        }
+    }
+
+    // OPT memoria gama baja (≤2 GB): cuando el sistema avisa de presión de memoria,
+    // soltamos las cachés de sprites (NPCs/vehículos/patrullas/zombis). Se regeneran bajo
+    // demanda; evita que una sesión larga acumule bitmaps hasta el OOM en equipos con poca
+    // RAM. No altera el juego: solo recicla memoria reconstruible.
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieSpriteManager.clearCaches()
         }
     }
 
@@ -160,6 +178,15 @@ class MainActivity : ComponentActivity() {
                                 onControlTypeChanged = { settingsViewModel.changeControlType(it) },
                                 onControlsScaleChanged = { settingsViewModel.changeControlsScale(it) },
                                 onSwapControlsToggled = { settingsViewModel.toggleSwapControls(it) },
+                                // Jugabilidad: persisten en Ajustes Y se aplican en vivo al mapa.
+                                onNpcDensityChanged = {
+                                    settingsViewModel.changeNpcDensity(it)
+                                    worldMapViewModel.setNpcDensity(it)
+                                },
+                                onNpcEmojiLodToggled = {
+                                    settingsViewModel.toggleNpcEmojiLod(it)
+                                    worldMapViewModel.setNpcEmojiLod(it)
+                                },
                                 onNavigateBack = {
                                     // Descartar cambios de controles no guardados al salir.
                                     settingsViewModel.discardControlsChanges()
@@ -273,8 +300,8 @@ class MainActivity : ComponentActivity() {
                             // NUEVO BLOQUE: Navegar al minijuego tras el fade de la puerta
                             LaunchedEffect(uiState.escomDoorFadeComplete) {
                                 if (uiState.escomDoorFadeComplete) {
-                                    worldMapViewModel.consumeEscomDoorNavigation()
-                                    navController.navigate("zombie_minigame")
+                                    val destination = worldMapViewModel.consumeEscomDoorNavigation() ?: "zombie_minigame"
+                                    navController.navigate(destination)
                                 }
                             }
 
@@ -340,6 +367,16 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(route = "interior_canchas_futbol") {
                             CanchasFutbolScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+                        composable(route = "interior_deportivo_beis") {
+                            DeportivoBeisScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+                        composable(route = "interior_deportivo_futbol") {
+                            DeportivoFutbolScreen(
                                 onExit = { navController.popBackStack("world_map", inclusive = false) }
                             )
                         }

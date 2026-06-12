@@ -69,6 +69,7 @@ import ovh.gabrielhuav.pow.features.zombie_minigame.ui.components.WaypointDesign
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.DesignerTarget
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.ZombieGameViewModel
+import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
 import kotlin.math.max
 
 private const val ZOMBIE_SPRITE_BASE = 60f
@@ -90,7 +91,7 @@ fun ZombieGameScreen(
     debugHitboxes: Boolean = false
 ) {
     val context = LocalContext.current
-    val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.ZOMBIE_SERVER_URL else null
+    val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
     val viewModel: ZombieGameViewModel = viewModel(
         factory = ZombieGameViewModel.Factory(context, serverUrl, playerName)
     )
@@ -118,12 +119,19 @@ fun ZombieGameScreen(
     }
 
     val room = ZombieRoomCatalog.rooms[state.currentRoomIndex]
-    var background by remember(room.backgroundAsset) { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(room.backgroundAsset) {
+    val effectiveBgAsset = when {
+        room.id == ZombieRoomCatalog.LOBBY_ID && state.zombieModeActivated ->
+            "ZOMBIS_MOD/BUILDINGS_Z/building_escom_zombie.webp"
+        room.type == ZoneType.BUILDING && !state.zombieModeActivated ->
+            "INTERIORES/ESCOM/z_${room.id.removePrefix("za_")}.webp"
+        else -> room.backgroundAsset
+    }
+    var background by remember(effectiveBgAsset) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(effectiveBgAsset) {
         background = withContext(Dispatchers.IO) {
-            try { context.assets.open(room.backgroundAsset).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
+            try { context.assets.open(effectiveBgAsset).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
             catch (e: Exception) {
-                android.util.Log.e("ZombieGameScreen", "No se pudo cargar fondo ${room.backgroundAsset}: ${e.message}")
+                android.util.Log.e("ZombieGameScreen", "No se pudo cargar fondo $effectiveBgAsset: ${e.message}")
                 null
             }
         }
@@ -342,6 +350,24 @@ fun ZombieGameScreen(
                     }
                 }
 
+                // NPCs civiles del interior (autoritativos del servidor): figuras humanas que
+                // deambulan/huyen de los zombis. Reusan RemotePlayerView (sin nombre).
+                state.interiorNpcs.forEach { npc ->
+                    if (!onScreen(npc.x, npc.y)) return@forEach
+                    key("civ_${npc.id}") {
+                        RemotePlayerView(
+                            name = "",
+                            action = npc.action,
+                            facingRight = npc.facingRight,
+                            sizePx = rpSize,
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(npc.x).toDp() } - with(density) { (rpSize / 2).toDp() },
+                                y = with(density) { toScreenY(npc.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                            )
+                        )
+                    }
+                }
+
                 // ─── CAPA DE NEBLINA (fog of war) centrada en el jugador ──────────
                 // Se dibuja DENTRO de la capa del mundo (debajo del HUD y los
                 // controles) para que SOLO afecte al mapa, nunca a la GUI.
@@ -382,8 +408,8 @@ fun ZombieGameScreen(
                         .alpha(ghostAlpha)
                 )
             }
-            // ─── Mano zombi fija en el lobby ────────────────────────────
-            if (room.id == ZombieRoomCatalog.LOBBY_ID) {
+            // ─── Mano zombi fija en el lobby (desaparece tras activar el modo zombie) ──
+            if (room.id == ZombieRoomCatalog.LOBBY_ID && !state.zombieModeActivated) {
                 val handNx = 0.50f
                 val handNy = 0.45f
                 val handSizePx = 64f * cam.scale
@@ -604,6 +630,13 @@ fun ZombieGameScreen(
             }
         }
 
+        // ─── CINEMÁTICA ZOMBIE (se muestra al interactuar con la mano en el lobby) ──
+        if (state.showZombieCinematic) {
+            ZombiVideoPlayer(
+                context = context,
+                onDismiss = { viewModel.onZombieCinematicDismissed() }
+            )
+        }
         // ─── TOOLBAR DEL DISEÑADOR ──────────────────────────────
         if (state.designerMode) {
             val isWaypoints = state.designerTarget == DesignerTarget.WAYPOINTS

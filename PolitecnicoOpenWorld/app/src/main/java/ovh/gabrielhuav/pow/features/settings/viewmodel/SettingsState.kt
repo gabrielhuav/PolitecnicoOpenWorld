@@ -6,7 +6,7 @@ import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
 
 data class SettingsState(
     val selectedCategory: SettingsCategory = SettingsCategory.Map,
-    val mapProvider: MapProvider = MapProvider.OSM, // Usamos tu Enum nativo
+    val mapProvider: MapProvider = MapProvider.OSM_WEB, // Default: OSM Web (más fluido en gama baja que el OSM nativo, que reescala teselas en el over-zoom)
     val showCacheWidget: Boolean = true,
     val showFpsWidget: Boolean = false,
     // ─── Valores COMMITEADOS (los que el juego usa de verdad) ────────────────
@@ -14,6 +14,10 @@ data class SettingsState(
     val controlsScale: Float = 1.0f, // Rango recomendado: 0.6f a 1.4f
     val swapControls: Boolean = false, // false = Izq: Movimiento, Der: Acción
     val showRoadNetwork: Boolean = true,
+
+    // ─── Jugabilidad: población de NPCs ──────────────────────────────────────
+    val npcDensity: Float = 1.0f,        // multiplicador de cantidad de NPCs (0.4–1.6)
+    val npcEmojiLod: Boolean = false,    // NPCs lejanos como emoji (optimización gama baja)
 
     // ─── Valores TEMPORALES de controles ─────────────────────────────────────
     // La UI de controles edita estos; NO afectan al juego hasta presionar GUARDAR,

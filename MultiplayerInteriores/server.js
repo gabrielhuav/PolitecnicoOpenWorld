@@ -481,7 +481,18 @@ function spawnRoom(def) {
             wanderAngle: 0, wanderSetMs: 0
         });
     }
-    return { zombies, items: [], cleared: false, total: def.zombieCount, fields: new Map() };
+    // NPCs CIVILES: deambulan por el interior y huyen del zombi mas cercano; si los atrapan
+    // se convierten en zombi (apocalipsis se propaga). Server-authoritative, como los zombis.
+    const npcs = [];
+    const npcCount = 6;
+    for (let i = 0; i < npcCount; i++) {
+        const pos = spawnAround(def);
+        npcs.push({
+            id: uuidv4(), x: pos.x, y: pos.y, facingRight: true, frameIndex: 0,
+            wanderAngle: Math.random() * 2 * Math.PI, wanderSetMs: 0
+        });
+    }
+    return { zombies, items: [], npcs, cleared: false, total: def.zombieCount, fields: new Map() };
 }
 
 function ensureRoomState(roomId) {
@@ -511,7 +522,8 @@ function buildStatePayload(roomId, st) {
             facingRight: z.facingRight, frameIndex: z.frameIndex,
             isDying: z.isDying, isLootCarrier: z.isLootCarrier
         })),
-        items: st.items.map(i => ({ id: i.id, x: i.x, y: i.y, effect: i.effect }))
+        items: st.items.map(i => ({ id: i.id, x: i.x, y: i.y, effect: i.effect })),
+        npcs: (st.npcs || []).map(n => ({ id: n.id, x: n.x, y: n.y, facingRight: n.facingRight, frameIndex: n.frameIndex }))
     });
 }
 
@@ -542,6 +554,41 @@ function zombieTick() {
             const target = nearestPlayer(z, present);
             if (target) stepZombie(z, target, def, st, now);
             z.frameIndex = (z.frameIndex + 1) % 9;
+        }
+
+        // 1.5 Mover NPCs civiles: huyen del zombi vivo mas cercano; si los atrapan (CONTACT_FRAC)
+        //     se CONVIERTEN en zombi; si no hay zombi cerca, deambulan.
+        if (st.npcs && st.npcs.length) {
+            const survivors = [];
+            for (const c of st.npcs) {
+                let zN = null, zd = Infinity;
+                for (const z of st.zombies) {
+                    if (z.isDying) continue;
+                    const d = Math.hypot(z.x - c.x, z.y - c.y);
+                    if (d < zd) { zd = d; zN = z; }
+                }
+                if (zN && zd < CONTACT_FRAC) {
+                    // Atrapado -> nuevo zombi en su posicion (no sobrevive como civil).
+                    st.zombies.push({
+                        id: uuidv4(), x: c.x, y: c.y, health: 100, maxHealth: 100,
+                        facingRight: true, frameIndex: 0, isDying: false, dyingSince: 0,
+                        isLootCarrier: false, wanderAngle: 0, wanderSetMs: 0
+                    });
+                    st.total++;
+                    continue;
+                }
+                if (zN && zd < 0.18) {
+                    // Huir: avanzar en direccion OPUESTA al zombi (con colision via moveToward).
+                    const tx = clampFrac(c.x + (c.x - zN.x));
+                    const ty = clampFrac(c.y + (c.y - zN.y));
+                    moveToward(c, def, tx, ty, 1.0);
+                } else {
+                    fallbackWander(c, def, now);
+                }
+                c.frameIndex = (c.frameIndex + 1) % 9;
+                survivors.push(c);
+            }
+            st.npcs = survivors;
         }
 
         // 2. Remover los que terminaron su animacion de muerte + soltar item.
@@ -662,13 +709,23 @@ wss.on('connection', (ws) => {
                     const py = safeFrac(data.y, (prev.y ?? 0.5));
                     const health = (typeof data.health === 'number' && isFinite(data.health))
                         ? Math.max(0, Math.min(100, data.health)) : (prev.health ?? 100);
+                    // COORDS MANEJADAS POR EL SERVIDOR: validar contra la matriz de colision de la
+                    // sala. Si la posicion cae dentro de una pared, se RECHAZA (se conserva la
+                    // anterior valida) y se corrige al cliente con PLAYER_CORRECT.
+                    const rdef = ROOMS[ws.roomId];
+                    let fx = px, fy = py;
+                    if (rdef && isBlocked(rdef.matrix, fx, fy)) {
+                        fx = (typeof prev.x === 'number') ? prev.x : rdef.spawn.x;
+                        fy = (typeof prev.y === 'number') ? prev.y : rdef.spawn.y;
+                        ws.send(JSON.stringify({ type: 'PLAYER_CORRECT', x: fx, y: fy }));
+                    }
                     players.set(ws.sessionId, {
                         ...prev,
                         id: ws.sessionId,
                         displayName: data.displayName ?? prev.displayName ?? '',
                         roomId: ws.roomId,
                         zone: zoneOf(ws.roomId),
-                        x: px, y: py,
+                        x: fx, y: fy,
                         action: data.action || 'IDLE',
                         facingRight: data.facingRight === true,
                         health: health,
@@ -678,7 +735,7 @@ wss.on('connection', (ws) => {
                         type: 'PLAYER_UPDATE',
                         id: ws.sessionId,
                         displayName: data.displayName ?? prev.displayName ?? '',
-                        x: px, y: py,
+                        x: fx, y: fy,
                         action: data.action || 'IDLE',
                         facingRight: data.facingRight === true,
                         health: health

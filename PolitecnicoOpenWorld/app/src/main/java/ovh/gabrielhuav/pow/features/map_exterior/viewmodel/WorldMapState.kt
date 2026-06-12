@@ -43,7 +43,7 @@ data class WorldMapState(
     val currentLocation: GeoPoint? = null,
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = ZOOM_LOADING,
-    val mapProvider: MapProvider = MapProvider.OSM,
+    val mapProvider: MapProvider = MapProvider.OSM_WEB, // Default: OSM Web (gama baja)
     // Cambio de proveedor con precarga: el nuevo se precarga en segundo plano mientras
     // sigues usando el actual. Cuando 'pendingProviderReady' es true, se avisa para cambiar.
     val pendingProvider: MapProvider? = null,
@@ -85,6 +85,9 @@ data class WorldMapState(
     // Multijugador
     val isMultiplayer: Boolean = false,
     val playerName: String = "",
+
+    // ─── APOCALIPSIS ZOMBI GLOBAL ────────────────────────────────────────
+    val globalZombieMode: Boolean = false,
 
     // ─── MODO DISEÑADOR ──────────────────────────────────────────────────
     val isDesignerMode: Boolean = false,
@@ -133,6 +136,11 @@ data class WorldMapState(
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,
 
+    // ─── Jugabilidad: optimización de NPCs (gama baja) ───────────────────────
+    // Si está activo, los NPCs lejanos se dibujan como emoji (más barato) y solo los
+    // MUY cercanos usan el asset completo. Se configura en Ajustes → Jugabilidad.
+    val npcEmojiLod: Boolean = false,
+
     // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
     val showShineCTODiscovery: Boolean = false,
     val navigateToShineCTO: Boolean = false,
@@ -140,6 +148,7 @@ data class WorldMapState(
     // ─── ESCOM Door transition ───────────────────────────────────────────────
     val showEscomDoorFade: Boolean = false,
     val escomDoorFadeComplete: Boolean = false,
+    val pendingDoorDestination: String? = null,
 
     // ─── Metro Stations ───────────────────────────────────────────────────────
     val metroStations: List<ovh.gabrielhuav.pow.domain.models.MetroStation> = emptyList(),

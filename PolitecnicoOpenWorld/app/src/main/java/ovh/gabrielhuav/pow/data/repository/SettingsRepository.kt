@@ -17,9 +17,20 @@ class SettingsRepository(context: Context) {
         private const val KEY_SHOW_ROAD_NETWORK = "SHOW_ROAD_NETWORK"
         private const val SCALE_MIN = 0.6f
         private const val SCALE_MAX = 1.4f
+
+        // ─── Jugabilidad: población de NPCs ──────────────────────────────────
+        private const val KEY_NPC_DENSITY = "NPC_DENSITY"        // multiplicador 0.4–1.6
+        private const val KEY_NPC_EMOJI_LOD = "NPC_EMOJI_LOD"    // NPCs lejanos como emoji (gama baja)
+        const val NPC_DENSITY_MIN = 0.4f
+        const val NPC_DENSITY_MAX = 1.6f
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    // Por defecto el LOD de emojis se activa SOLO en gama baja (se puede cambiar en Ajustes).
+    private val lowRamDefault: Boolean = try {
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).isLowRamDevice
+    } catch (e: Exception) { false }
 
     // ─── Controles ───────────────────────────────────────────────────────
 
@@ -67,4 +78,18 @@ class SettingsRepository(context: Context) {
     }
 
     fun getShowRoadNetwork(): Boolean = prefs.getBoolean(KEY_SHOW_ROAD_NETWORK, true)
+
+    // ─── Jugabilidad: población de NPCs ──────────────────────────────────────
+
+    /** Multiplicador de densidad de NPCs elegido por el usuario (se combina con gama/ciudad). */
+    fun getNpcDensity(): Float = prefs.getFloat(KEY_NPC_DENSITY, 1.0f).coerceIn(NPC_DENSITY_MIN, NPC_DENSITY_MAX)
+    fun saveNpcDensity(v: Float) {
+        prefs.edit().putFloat(KEY_NPC_DENSITY, v.coerceIn(NPC_DENSITY_MIN, NPC_DENSITY_MAX)).apply()
+    }
+
+    /** ¿Dibujar los NPCs lejanos como emoji (optimización gama baja)? Default = isLowRamDevice. */
+    fun getNpcEmojiLod(): Boolean = prefs.getBoolean(KEY_NPC_EMOJI_LOD, lowRamDefault)
+    fun saveNpcEmojiLod(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NPC_EMOJI_LOD, enabled).apply()
+    }
 }

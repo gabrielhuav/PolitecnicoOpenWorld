@@ -25,6 +25,8 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
                 controlsScale = scale,
                 swapControls = swap,
                 showRoadNetwork = repository.getShowRoadNetwork(),
+                npcDensity = repository.getNpcDensity(),
+                npcEmojiLod = repository.getNpcEmojiLod(),
                 // Los temporales arrancan sincronizados con lo persistido.
                 tempControlType = type,
                 tempControlsScale = scale,
@@ -59,6 +61,17 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun toggleRoadNetwork(show: Boolean) {
         _state.update { it.copy(showRoadNetwork = show) }
         repository.saveShowRoadNetwork(show)
+    }
+
+    // ─── Jugabilidad: población de NPCs (persisten al instante, como la red vial) ──
+    fun changeNpcDensity(v: Float) {
+        val c = v.coerceIn(SettingsRepository.NPC_DENSITY_MIN, SettingsRepository.NPC_DENSITY_MAX)
+        _state.update { it.copy(npcDensity = c) }
+        repository.saveNpcDensity(c)
+    }
+    fun toggleNpcEmojiLod(enabled: Boolean) {
+        _state.update { it.copy(npcEmojiLod = enabled) }
+        repository.saveNpcEmojiLod(enabled)
     }
 
     // Función para guardar: sincroniza los temporales a los committeados y persiste.

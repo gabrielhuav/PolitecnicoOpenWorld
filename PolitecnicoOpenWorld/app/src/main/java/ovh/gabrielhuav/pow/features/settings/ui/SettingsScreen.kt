@@ -41,6 +41,8 @@ fun SettingsScreen(
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
     onSwapControlsToggled: (Boolean) -> Unit,
+    onNpcDensityChanged: (Float) -> Unit,
+    onNpcEmojiLodToggled: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     onExitToMainMenu: () -> Unit
 ) {
@@ -108,7 +110,7 @@ fun SettingsScreen(
                     ) {
                         Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -145,7 +147,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
                         Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled)
                     }
                 }
             }
@@ -203,7 +205,9 @@ private fun SettingsContent(
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
     onSwapControlsToggled: (Boolean) -> Unit,
-    onRoadNetworkToggled: (Boolean) -> Unit
+    onRoadNetworkToggled: (Boolean) -> Unit,
+    onNpcDensityChanged: (Float) -> Unit,
+    onNpcEmojiLodToggled: (Boolean) -> Unit
 ) {
     when (state.selectedCategory) {
         is SettingsCategory.Map -> MapProviderSetting(
@@ -211,8 +215,71 @@ private fun SettingsContent(
             state.showRoadNetwork, onRoadNetworkToggled
         )
         is SettingsCategory.Controls -> ControlsSettingsConfig(state.tempControlType, state.tempControlsScale, state.tempSwapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
+        is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled)
         is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, onCacheToggled, onFpsToggled)
         else -> Text("Sin ajustes disponibles actualmente.", color = Color.Gray)
+    }
+}
+
+@Composable
+private fun GameplaySettings(
+    npcDensity: Float,
+    onNpcDensityChanged: (Float) -> Unit,
+    npcEmojiLod: Boolean,
+    onNpcEmojiLodToggled: (Boolean) -> Unit
+) {
+    Column {
+        // ─── Densidad de NPCs ────────────────────────────────────────────────
+        Text("Cantidad de NPCs", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        val pct = (npcDensity * 100).toInt()
+        Text(
+            "Multiplica peatones, autos y zombis. Se combina automáticamente con la gama de tu " +
+                "teléfono y con la densidad de la zona (ciudad = más). Actual: ${pct}%",
+            color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp
+        )
+        Spacer(Modifier.height(8.dp))
+        Slider(
+            value = npcDensity,
+            onValueChange = onNpcDensityChanged,
+            valueRange = 0.4f..1.6f,
+            steps = 5, // 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6
+            colors = SliderDefaults.colors(
+                thumbColor = Color(0xFFD4AF37),
+                activeTrackColor = Color(0xFF6B1C3A)
+            )
+        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Menos (gama baja)", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+            Text("Más (gama alta)", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        // ─── LOD de emojis (optimización gama baja) ──────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Optimizar para gama baja", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Dibuja como emoji 🧍🚗🧟 los NPCs lejanos y reserva el sprite completo solo para " +
+                        "los muy cercanos. Reduce el costo de render (ideal en multijugador con muchos " +
+                        "NPCs). Recomendado en gama baja.",
+                    color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp
+                )
+            }
+            Switch(
+                checked = npcEmojiLod,
+                onCheckedChange = onNpcEmojiLodToggled,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFD4AF37),
+                    checkedTrackColor = Color(0xFF6B1C3A)
+                )
+            )
+        }
     }
 }
 @Composable

@@ -14,8 +14,8 @@ android {
         applicationId = "ovh.gabrielhuav.pow"
         minSdk = 24
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.0.3"
+        versionCode = 4
+        versionName = "1.0.0.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -23,8 +23,8 @@ android {
         debug {
             // Servidor del mundo abierto (open world)
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
-            // Servidor del minijuego de zombis (instancia separada en Render)
-            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
+            // Servidor del minijuego de INTERIORES (lobby + edificios ESCOM; instancia separada en Render)
+            buildConfigField("String", "INTERIORS_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
         }
         release {
             isMinifyEnabled = false
@@ -33,7 +33,7 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
-            buildConfigField("String", "ZOMBIE_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
+            buildConfigField("String", "INTERIORS_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
         }
     }
 
