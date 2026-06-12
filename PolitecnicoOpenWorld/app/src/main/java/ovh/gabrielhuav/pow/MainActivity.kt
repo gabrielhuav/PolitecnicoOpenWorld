@@ -50,6 +50,9 @@ import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+// REFACTOR: extensiones del VM (WorldMapProviders.kt) → requieren import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
 import ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieGameScreen

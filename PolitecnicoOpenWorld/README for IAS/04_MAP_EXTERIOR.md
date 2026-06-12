@@ -20,6 +20,9 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Tema / Concern | Archivo / File |
 |---|---|
 | Game loop, multiplayer, NPCs, ESCOM, policía | `viewmodel/WorldMapViewModel.kt` + parciales |
+| Proveedores de mapa + descarga/compuertas de tiles | `viewmodel/WorldMapProviders.kt` (NUEVO, refactor) |
+| Modo Diseñador / landmarks (Room, edición, import/export) | `viewmodel/WorldMapDesigner.kt` (NUEVO, refactor) |
+| Nivel de búsqueda + policía propia + carjack | `viewmodel/WorldMapWanted.kt` (NUEVO, refactor) |
 | Estado UI / UI state | `viewmodel/WorldMapState.kt` |
 | Game loop (parcial) | `viewmodel/WorldMapGameLoop.kt` |
 | Multiplayer relay/parse | `viewmodel/WorldMapMultiplayer.kt` (+ `WorldMapMultiplayerModels.kt`) |

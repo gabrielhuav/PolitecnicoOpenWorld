@@ -191,6 +191,16 @@ class NpcAiManager {
     private val carSpeed    = CAR_SPEED
     private val personSpeed = PERSON_SPEED
 
+    // ─── ESQUIVE DE TRÁFICO alrededor del jugador (en el MARCO del NPC) ───────
+    // Sustituye al viejo "empujón" posicional desde el loop del jugador (causaba
+    // órbitas/oscilaciones). El coche NPC desplaza su OBJETIVO perpendicularmente
+    // mientras el jugador esté en su trayectoria; al rebasarlo el offset se apaga
+    // y el smoothing normal lo reincorpora a su carril. Sin tocar su posición.
+    private val TRAFFIC_AVOID_RADIUS = 0.00012     // ~13 m: distancia al jugador para empezar a abrirse
+    private val TRAFFIC_AVOID_PATH_HALF = 0.00005  // ~5.5 m: medio ancho de "su trayectoria"
+    private val TRAFFIC_AVOID_BEHIND = 0.00005     // ~5.5 m: mantener el offset hasta rebasar por completo
+    private val TRAFFIC_AVOID_OFFSET = 0.00003     // ~3.3 m: apertura máxima (≈ un carril)
+
     @Volatile private var networkIsReady = false
     @Volatile private var aggroPlayerLat = 0.0
     @Volatile private var aggroPlayerLon = 0.0
@@ -1007,9 +1017,11 @@ class NpcAiManager {
         val smoothFactor = if (npc.type == NpcType.CAR) 0.30f else 0.20f
         val smoothedAngle = (npc.rotationAngle + diff * smoothFactor + 360) % 360
         val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
-        // FIX "ángulo incorrecto" (ver mover de calles): los coches se mueven en la dirección
-        // de su sprite suavizado, no en el ángulo crudo al objetivo.
-        val moveRad = if (npc.type == NpcType.CAR) Math.toRadians(-smoothedAngle.toDouble()) else angle
+        // FIX "ángulo incorrecto" + anti-órbita (ver mover de calles): heading suavizado
+        // solo con desvío pequeño; con desvío grande, directo al objetivo (converge siempre).
+        val moveRad = if (npc.type == NpcType.CAR && Math.abs(diff) < 50f)
+            Math.toRadians(-smoothedAngle.toDouble())
+        else angle
 
         val isOnCooldown = parkingCooldowns[npc.id]?.let { System.currentTimeMillis() < it } ?: false
 
@@ -1262,8 +1274,8 @@ class NpcAiManager {
         }
 
         val baseTarget = way.nodes[nodeIndex]
-        val tLat: Double
-        val tLon: Double
+        var tLat: Double
+        var tLon: Double
         if (npc.type == NpcType.CAR) {
             val segDLat = baseTarget.lat - npc.location.latitude
             val segDLon = baseTarget.lon - npc.location.longitude
@@ -1280,6 +1292,42 @@ class NpcAiManager {
             tLat = baseTarget.lat
             tLon = baseTarget.lon
         }
+
+        // ─── ESQUIVE DE TRÁFICO (jugador en mi trayectoria) ──────────────────
+        // Geometría en el marco del PROPIO coche: si el jugador está delante (o aún
+        // a un costado, hasta rebasarlo por completo) y dentro del ancho de mi
+        // trayectoria, desplazo MI OBJETIVO un carril hacia el lado contrario. El
+        // offset se recalcula cada tick a partir de la geometría, así que: abre →
+        // pasa → se apaga solo → el smoothing lo regresa al carril. Nunca se toca
+        // la posición del NPC (eso causaba las órbitas alrededor del jugador).
+        if (npc.type == NpcType.CAR) {
+            val relLat = aggroPlayerLat - npc.location.latitude
+            val relLon = aggroPlayerLon - npc.location.longitude
+            val dPlayer = sqrt(relLat * relLat + relLon * relLon)
+            if (dPlayer < TRAFFIC_AVOID_RADIUS && (aggroPlayerLat != 0.0 || aggroPlayerLon != 0.0)) {
+                val dirLat0 = tLat - npc.location.latitude
+                val dirLon0 = tLon - npc.location.longitude
+                val dirLen = sqrt(dirLat0 * dirLat0 + dirLon0 * dirLon0)
+                if (dirLen > 1e-9) {
+                    val fLat = dirLat0 / dirLen; val fLon = dirLon0 / dirLen   // hacia delante
+                    val pLat = -fLon; val pLon = fLat                          // perpendicular
+                    val ahead = relLat * fLat + relLon * fLon                  // + = jugador delante
+                    val side = relLat * pLat + relLon * pLon                   // de qué lado está
+                    // Activo desde que entra a mi trayectoria hasta que quede CLARAMENTE
+                    // atrás (histéresis TRAFFIC_AVOID_BEHIND): evita cerrarse encima del
+                    // jugador justo al pasarlo.
+                    if (ahead > -TRAFFIC_AVOID_BEHIND && kotlin.math.abs(side) < TRAFFIC_AVOID_PATH_HALF) {
+                        val s = if (side >= 0) -1.0 else 1.0                   // abrir al lado contrario
+                        // Más cerca = apertura más decidida (mín. 40% al borde del radio).
+                        val strength = TRAFFIC_AVOID_OFFSET *
+                            (1.0 - (dPlayer / TRAFFIC_AVOID_RADIUS)).coerceIn(0.4, 1.0)
+                        tLat += pLat * s * strength
+                        tLon += pLon * s * strength
+                    }
+                }
+            }
+        }
+
         val dLon = tLon - npc.location.longitude
         val dLat = tLat - npc.location.latitude
         val dist = sqrt(dLon * dLon + dLat * dLat)
@@ -1295,11 +1343,17 @@ class NpcAiManager {
                 (if (feared) FEAR_SPEED_MULT.toDouble() else 1.0)
         val actualSpeed = effectiveSpeed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
         val moving = actualSpeed > 1e-9
-        // FIX "ángulo incorrecto": el sprite usa smoothedAngle, pero el coche se MOVÍA con el
-        // ángulo CRUDO al objetivo → en curvas/esquives avanzaba en una dirección distinta a
-        // la que apuntaba (se veía manejando de lado). Ahora el COCHE se mueve en la dirección
-        // de su sprite (heading suavizado), que converge al objetivo por el propio smoothing.
-        val moveRad = if (npc.type == NpcType.CAR) Math.toRadians(-smoothedAngle.toDouble()) else angle
+        // FIX "ángulo incorrecto" + FIX "círculos alrededor del jugador":
+        // El sprite usa smoothedAngle. Mover SIEMPRE a lo largo del heading suavizado
+        // (fix anterior) provocaba el bug clásico de pure-pursuit: con desvío grande y
+        // radio de giro insuficiente, el coche ORBITA su objetivo para siempre (se veía
+        // dando vueltas en círculos junto al jugador cuando el esquive movía su objetivo).
+        // Ahora: con desvío PEQUEÑO (manejo normal) se mueve según su sprite (coinciden
+        // visualmente); con desvío GRANDE (giros cerrados/esquives) avanza DIRECTO al
+        // objetivo, que converge siempre — el sprite lo alcanza vía el smoothing.
+        val moveRad = if (npc.type == NpcType.CAR && Math.abs(diff) < 50f)
+            Math.toRadians(-smoothedAngle.toDouble())
+        else angle
 
         if (dist > actualSpeed * 3 && npc.type == NpcType.CAR) {
             for (landmark in activeLandmarks) {

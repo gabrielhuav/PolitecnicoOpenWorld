@@ -58,6 +58,9 @@ data class WorldMapState(
     // spawn antes de dejar entrar. 'mapLoadProgress' va de 0f a 1f (solo tiles).
     val isMapReady: Boolean = false,
     val mapLoadProgress: Float = 0f,
+    // Última fase del gate de carga: los NPCs (campus/estacionamientos/calles) ya
+    // corrieron sus primeros ciclos de IA. worldReady = ubicación && calles && mapa && NPCs.
+    val npcsWarmedUp: Boolean = false,
     val showSettingsDialog: Boolean = false,
     val npcs: List<Npc> = emptyList(),
     val isRoadNetworkReady: Boolean = false,

@@ -131,6 +131,24 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.Ps4ActionButtonsC
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_OSM
+// REFACTOR: funciones del VM extraídas a parciales (WorldMapProviders/Designer) →
+// ahora son extensiones y requieren import explícito desde el paquete ui.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.addLandmarkAtPlayer
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.cancelPendingProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitMapProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.deleteSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportLandmarksToUri
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importLandmarksFromUri
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadLandmarks
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.prepareMapForEntry
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.rotateSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.scaleXSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.scaleYSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.showAssetPicker
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleDesignerMode
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_WEB
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
@@ -344,8 +362,33 @@ fun WorldMapScreen(
                 viewModel.prepareMapForEntry()
             }
         }
-        val worldReady = !uiState.isLoadingLocation && uiState.isRoadNetworkReady && uiState.isMapReady
+        // worldReady ahora TAMBIÉN espera a los NPCs (npcsWarmedUp): tras un teleport la
+        // pantalla de carga no se quita hasta que tiles + calles + IA estén listos.
+        val worldReady = !uiState.isLoadingLocation && uiState.isRoadNetworkReady &&
+            uiState.isMapReady && uiState.npcsWarmedUp
         if (!worldReady) {
+            // PRE-DECODIFICACIÓN de assets de construcciones cercanas (≤ ~2 km) DURANTE la
+            // pantalla de carga: al soltar al jugador, los landmarks (p. ej. ESCOM) ya están
+            // en la caché de bitmaps y aparecen al instante en los renderers nativos.
+            LaunchedEffect(uiState.isMapReady, uiState.isRoadNetworkReady, uiState.landmarks) {
+                val loc = uiState.currentLocation ?: return@LaunchedEffect
+                val nearby = uiState.landmarks.filter {
+                    kotlin.math.abs(it.location.latitude - loc.latitude) < 0.02 &&
+                        kotlin.math.abs(it.location.longitude - loc.longitude) < 0.02
+                }
+                for (lm in nearby) {
+                    if (landmarkBitmapCache.containsKey(lm.assetPath)) continue
+                    val bmp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            context.assets.open(lm.assetPath).use { st ->
+                                val o = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 }
+                                android.graphics.BitmapFactory.decodeStream(st, null, o)
+                            }
+                        } catch (e: Exception) { null }
+                    }
+                    landmarkBitmapCache[lm.assetPath] = bmp // escrito en Main (post-withContext)
+                }
+            }
             val tips = remember { listOf(
                 "Mantén presionado Y para teletransportarte a otros lugares.",
                 "Presiona Y cerca de un auto para robarlo.",
@@ -362,16 +405,18 @@ fun WorldMapScreen(
                 }
             }
 
-            // Progreso compuesto: ubicación → calles → descarga de tiles del mapa.
+            // Progreso compuesto: ubicación → calles → tiles del mapa → NPCs/edificios.
             val progress = when {
                 uiState.isLoadingLocation -> 0.05f
                 !uiState.isRoadNetworkReady -> 0.25f
-                else -> 0.35f + 0.65f * uiState.mapLoadProgress
+                !uiState.isMapReady -> 0.35f + 0.55f * uiState.mapLoadProgress
+                else -> 0.92f // mapa listo: sembrando NPCs y edificios
             }.coerceIn(0f, 1f)
             val statusText = when {
                 uiState.isLoadingLocation -> "Obteniendo tu ubicación..."
                 !uiState.isRoadNetworkReady -> "Cargando las calles..."
-                else -> "Descargando el mapa..."
+                !uiState.isMapReady -> "Descargando el mapa..."
+                else -> "Colocando NPCs y edificios..."
             }
             Column(
                 modifier = Modifier.align(Alignment.Center),

@@ -126,6 +126,19 @@ matrices por defecto son **border-only** hasta reemplazarse.
   el 1er toque (sin cambiar zoom).
 - **Errores en cascada "Unresolved reference"** tras un merge → sospecha de **un** archivo con llaves/
   paréntesis desbalanceados, no de muchos símbolos faltantes (ver 01).
+- **Refactor de tamaño (parciales NUEVOS):** `WorldMapViewModel.kt` bajó de ~3400 a ~2600 líneas
+  extrayendo bloques SIN gemelo de extensión a `WorldMapProviders.kt` (proveedores/tiles/compuertas),
+  `WorldMapDesigner.kt` (landmarks/diseñador) y `WorldMapWanted.kt` (wanted/policía/carjack). El
+  ESTADO sigue en el VM (`providerPreloadJob`, `mapPrepStarted`, `escomNavGraph`, `carjackStartTime`…);
+  los parciales solo tienen lógica. Los call-sites FUERA del paquete `viewmodel` (UI, MainActivity)
+  necesitan **import explícito** de cada extensión. Además se ELIMINARON los duplicados miembro de
+  `updateNpcsState` (gemelo idéntico en `WorldMapMultiplayer.kt`) y de `ensureIndex`/`candidates`/
+  `getNearestPointOnNetwork`/`project` (el gemelo de `WorldMapRouting.kt` se sincronizó ANTES con el
+  check de landmarks que solo tenía el miembro) — esas extensiones son ahora la única implementación.
+  Pendiente (con compilador a la mano): sincronizar y de-duplicar los pares grandes
+  (`startGameLoop`, `handleMultiplayerMessage`/`addRemoteEntity`, `updateVisibleRoads`,
+  `applyRoadNetwork`, `maybeRefetchRoadNetwork`, `spawnOustedDriver`, `triggerWastedSequence`,
+  `startHealthBarTimer`), donde el MIEMBRO sigue siendo el canónico.
 - **Gotcha de parciales (¡importante!):** funciones duplicadas como **miembro privado** en
   `WorldMapViewModel.kt` + **extensión** del mismo nombre en `WorldMap*.kt`. Cuando se llaman desde
   DENTRO de la clase (caso de `startGameLoop()`, invocado en `WorldMapViewModel.kt:399`), **gana el
@@ -178,9 +191,21 @@ matrices por defecto son **border-only** hasta reemplazarse.
   para que se sienta creíble. Si retocas MAX_SPEED, revisa el mapeo en `WorldMapScreen`.
 - **Heading de coches NPC = sprite (no el ángulo crudo):** en los dos movers de `NpcAiManager`
   (calles OSM y navGraph de campus) el sprite usa `smoothedAngle` pero el coche se MOVÍA con el
-  ángulo crudo al objetivo → en curvas/esquives se veía "manejando de lado". Ahora los `CAR` se
-  mueven en la dirección de su sprite (`moveRad = toRadians(-smoothedAngle)`, smoothing 0.30 para
-  coches). No regresar el movimiento al ángulo crudo.
+  ángulo crudo al objetivo → en curvas/esquives se veía "manejando de lado". Los `CAR` se mueven
+  en la dirección de su sprite SOLO con desvío pequeño (`|diff| < 50°`); con desvío grande avanzan
+  DIRECTO al objetivo. ¡OJO!: mover SIEMPRE por el heading suavizado causa el bug clásico de
+  pure-pursuit (con desvío grande y radio de giro insuficiente el coche ORBITA su objetivo en
+  círculos — pasó junto al jugador cuando el esquive de tráfico movía el objetivo). No quitar el
+  umbral.
+- **Rebase de NPCs = esquive en el MARCO del NPC (NO empujones de posición):** el viejo "shove"
+  desde el loop del jugador (desplazar la POSICIÓN del NPC perpendicular al jugador) causaba
+  órbitas/oscilaciones alrededor del jugador detenido (empuje → su road-following lo regresaba →
+  empuje otra vez). Se ELIMINÓ. Ahora `NpcAiManager.moveNpc` desplaza **el OBJETIVO** del coche
+  un carril (`TRAFFIC_AVOID_*`: radio ~13 m, ancho de trayectoria ±5.5 m, apertura máx ~3.3 m,
+  histéresis de ~5.5 m tras rebasar) mientras el jugador esté en su trayectoria; al pasarlo el
+  offset se apaga y el smoothing lo reincorpora. La geometría es auto-reforzante (el lado elegido
+  se estabiliza solo). **No re-introducir empujones de posición** — cualquier esquive nuevo debe
+  mover objetivos/rumbos, no posiciones.
 - **Zoom automático por estado:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
   loop miembro) cambia `zoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
   `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del

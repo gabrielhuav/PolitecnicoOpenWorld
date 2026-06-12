@@ -84,6 +84,16 @@ internal fun WorldMapViewModel.candidates(loc: GeoPoint): List<Seg> {
     }
 
 internal fun WorldMapViewModel.getNearestPointOnNetwork(t: GeoPoint): GeoPoint {
+        // SINCRONIZADO con la versión que vivía como miembro en WorldMapViewModel (que era
+        // la canónica): dentro de un landmark (rectángulo rotado) el movimiento es LIBRE.
+        // Esta extensión es ahora la ÚNICA implementación (el miembro duplicado se eliminó).
+        val insideLandmark = _uiState.value.landmarks.any { landmark ->
+            landmark.contains(t)
+        }
+        if (insideLandmark) {
+            return t // Eres 100% libre solo si estás tocando un píxel de la imagen
+        }
+
         ensureIndex()
         val cands = candidates(t); if (cands.isEmpty()) return t
         var best = Double.MAX_VALUE; var pt = t
