@@ -1249,9 +1249,22 @@ class WorldMapViewModel(
     private fun updateNpcsState() {
         // Civiles/jugadores remotos + policía propia (simulada) + policía remota (render).
         val combined = remoteEntities.values + policeManager.activeUnits() + remotePolice.values
-        _uiState.update { it.copy(npcs = combined.toList()) }
+        val prankedyNpc = _uiState.value.prankedyNpc
+        val prankedyPhase = _uiState.value.prankedyPhase
+        val fullList = if (prankedyNpc != null
+            && prankedyPhase != PrankedyPhase.DESPAWNED
+            && prankedyPhase != PrankedyPhase.RIDING
+        ) {
+            combined.toList() + prankedyNpc
+        } else {
+            combined.toList()
+        }
+        _uiState.update { it.copy(npcs = fullList) }
     }
 
+
+    /** Refresca la lista pública de NPCs (incluye Prankedy si está activo). */
+    internal fun refreshNpcList() { updateNpcsState() }
 
     fun notifyTileSource(fromCache: Boolean) {
         if (_uiState.value.mapProvider == MapProvider.OSM) return

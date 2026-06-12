@@ -639,6 +639,11 @@ fun WorldMapScreen(
                                         val exactPixels = (personSzDp * screenDensity * roleSizeMul).toInt()
                                         "GM_ZOMBIE_${npc.zombieRole.name}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health.toInt()}_M${npc.maxHealth.toInt()}_D${npc.isDying}"
                                     }
+                                    npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.PRANKEDY -> {
+                                        val personSzDp = (28.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(20.0f, 48.0f)
+                                        val exactPixels = (personSzDp * screenDensity).toInt()
+                                        "GM_PRANKEDY_${npc.facingRight}_${exactPixels}_H${qHealth}_D${npc.isDying}"
+                                    }
                                     else -> "GM_SVG_${npc.type.name}_H${qHealth}_D${npc.isDying}"
                                 }
 
@@ -692,6 +697,18 @@ fun WorldMapScreen(
                                             val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                             val exactPixels = (personSzDp * screenDensity * roleSizeMul).toInt()
                                             d?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                        }
+                                        npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.PRANKEDY -> {
+                                            val personSzDp = (28.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(20.0f, 48.0f)
+                                            val exactPixels = (personSzDp * screenDensity).toInt()
+                                            val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.getDrawable(
+                                                context,
+                                                ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.IDLE,
+                                                npc.facingRight, System.currentTimeMillis(), screenDensity
+                                            )
+                                            var drawable: android.graphics.drawable.Drawable? = d
+                                            drawable = drawHealthBarOnDrawable(context, drawable, npc.health, npc.isDying, npc.maxHealth)
+                                            drawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                         }
                                         else -> {
                                             val resId = context.resources.getIdentifier(npc.type.drawableName, "drawable", context.packageName)
@@ -1015,6 +1032,30 @@ fun WorldMapScreen(
                                     registeredWebImages.add(cacheKey)
                                 }
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, npc.displayName, health = npc.health, isDying = npc.isDying)
+                            } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.PRANKEDY) {
+                                // PRANKEDY en Web: renderizar como emoji grande (igual que POLICE_COP)
+                                val cacheKey = "prankedy_emoji_${density}"
+                                val base64Image = base64Cache[cacheKey]
+                                if (base64Image == null) {
+                                    base64Cache[cacheKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val px = (128 * density).toInt().coerceAtLeast(64)
+                                        val bitmap = (emojiToDrawable(context, "🤡", px) as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                        if (bitmap != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                                            val b64 = "data:image/png;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                base64Cache[cacheKey] = b64
+                                            }
+                                        }
+                                    }
+                                }
+                                if (!base64Image.isNullOrEmpty() && !registeredWebImages.contains(cacheKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
+                                    registeredWebImages.add(cacheKey)
+                                }
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, if (npc.facingRight) 1 else -1, "🤡 Prankedy", health = npc.health, isDying = npc.isDying)
                             } else {
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, npc.type.name, null, npc.type.drawableName, null, npc.displayName, health = npc.health, isDying = npc.isDying)
                             }
@@ -1254,6 +1295,7 @@ fun WorldMapScreen(
                 }
             }
         }
+
 
         // ─── PRANKEDY CONTRATADO (indicador HUD) ─────────────────────────
         if (uiState.isPrankedyHired && uiState.prankedyPhase != PrankedyPhase.DYING) {

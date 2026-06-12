@@ -55,7 +55,7 @@ internal val PRANKEDY_MAX_HEALTH     = 80f
 internal val PRANKEDY_SPAWN_RADIUS   = 0.0004      // ~44 m del jugador al aparecer
 internal val PRANKEDY_RESPAWN_MS     = 45_000L      // 45 s para reaparecer tras morir
 internal val PRANKEDY_ROAM_BEFORE_HIRE_MS = 20_000L // 20 s caminando antes de poder ser contratado
-internal val PRANKEDY_BUBBLE_RANGE   = 0.00028      // ~31 m para mostrar globo de diálogo
+internal val PRANKEDY_BUBBLE_RANGE   = 0.00040      // ~44 m para mostrar globo de diálogo
 internal val PRANKEDY_THROW_ANIM_MS  = 720L         // duración de la animación de lanzamiento
 
 internal val PRANKEDY_DIALOGS = listOf(
@@ -86,6 +86,10 @@ internal fun WorldMapViewModel.updatePrankedy(playerLoc: GeoPoint) {
 
     // ── SPAWN / RESPAWN ──────────────────────────────────────────────
     if (state.prankedyPhase == PrankedyPhase.DESPAWNED) {
+        val timeLeft = prankedyRespawnTime - now
+        if (timeLeft > 0 && timeLeft % 1000 < 40) {
+            Log.d("Prankedy", "DESPAWNED — esperando spawn en ${timeLeft}ms | roadReady=${state.isRoadNetworkReady} | roads=${roadNetwork.size}")
+        }
         if (now >= prankedyRespawnTime && state.isRoadNetworkReady && roadNetwork.isNotEmpty()) {
             spawnPrankedy(playerLoc)
         }
@@ -120,22 +124,36 @@ internal fun WorldMapViewModel.updatePrankedy(playerLoc: GeoPoint) {
     if (!state.isPrankedyHired && state.prankedyPhase != PrankedyPhase.ROAMING) {
         if (distToPlayer < PRANKEDY_BUBBLE_RANGE) {
             if (state.prankedyBubbleText == null) {
-                _uiState.update { it.copy(prankedyBubbleText = PRANKEDY_DIALOGS.random()) }
+                val dialog = PRANKEDY_DIALOGS.random()
+                _uiState.update {
+                    it.copy(
+                        prankedyBubbleText = dialog,
+                        interactionPrompt = "PRESIONA X PARA HABLAR CON PRANKEDY"
+                    )
+                }
             }
-        } else if (state.prankedyBubbleText != null) {
-            _uiState.update { it.copy(prankedyBubbleText = null) }
+        } else {
+            if (state.prankedyBubbleText != null) {
+                _uiState.update { it.copy(prankedyBubbleText = null, interactionPrompt = null) }
+            }
         }
+    } else if (state.isPrankedyHired && state.prankedyBubbleText != null) {
+        _uiState.update { it.copy(prankedyBubbleText = null, interactionPrompt = null) }
     }
 
     // ── ROAMING (post-muerte, no contratado) ─────────────────────────
     if (state.prankedyPhase == PrankedyPhase.ROAMING) {
         roamPrankedy(prankedy, playerLoc, now)
-        // ¿Ya pasó el tiempo de enfriamiento para poder ser contratado?
+        refreshNpcList()
         if (now >= prankedyHireAvailableTime) {
             prankedyHireAvailable = true
-            // Bubble cuando el jugador se acerca
             if (distToPlayer < PRANKEDY_BUBBLE_RANGE && state.prankedyBubbleText == null) {
-                _uiState.update { it.copy(prankedyBubbleText = PRANKEDY_DIALOGS.random()) }
+                _uiState.update {
+                    it.copy(
+                        prankedyBubbleText = PRANKEDY_DIALOGS.random(),
+                        interactionPrompt = "PRESIONA X PARA CONTRATAR A PRANKEDY"
+                    )
+                }
             }
         }
         return
@@ -144,8 +162,22 @@ internal fun WorldMapViewModel.updatePrankedy(playerLoc: GeoPoint) {
     // ── IDLE ESPERANDO ───────────────────────────────────────────────
     if (state.prankedyPhase == PrankedyPhase.IDLE_WAITING) return // Quieto
 
+    // ═══ NO CONTRATADO: quieto en su lugar ═══════════════════════════
+    if (!state.isPrankedyHired) {
+        // Queda en IDLE_WAITING, no se mueve hasta que lo contraten
+        if (state.prankedyPhase == PrankedyPhase.IDLE_WAITING) {
+            // Girar hacia el jugador si está cerca (feedback visual)
+            if (distToPlayer < PRANKEDY_BUBBLE_RANGE) {
+                val facingPlayer = playerLoc.longitude >= prankedy.location.longitude
+                if (prankedy.facingRight != facingPlayer) {
+                    _uiState.update { it.copy(prankedyNpc = prankedy.copy(facingRight = facingPlayer)) }
+                }
+            }
+        }
+        return
+    }
+
     // ═══ CONTRATADO: lógica de compañero ═════════════════════════════
-    if (!state.isPrankedyHired) return
 
     // ── LANZAMIENTO EN CURSO ─────────────────────────────────────────
     if (state.prankedyPhase == PrankedyPhase.THROWING) {
@@ -157,20 +189,17 @@ internal fun WorldMapViewModel.updatePrankedy(playerLoc: GeoPoint) {
     }
 
     // ── BUSCAR ENEMIGOS ──────────────────────────────────────────────
-    // Prioridades: 1) NPCs que dañan al jugador (aggroUntil > now)
-    //              2) Cualquier NPC cercano
     val target = findPrankedyTarget(playerLoc, now)
 
     if (target != null) {
         val distToTarget = distance(prankedy.location, target.location)
         if (distToTarget <= PRANKEDY_ATTACK_RANGE && now - prankedyLastAttackTime >= PRANKEDY_ATTACK_COOLDOWN) {
-            // Lanzar ataque
             prankedyLastAttackTime = now
             prankedyThrowStartTime = now
             val facingTarget = target.location.longitude >= prankedy.location.longitude
             _uiState.update {
                 it.copy(
-                    prankedyNpc = prankedy.copy(facingRight = facingTarget),
+                    prankedyNpc = prankedy.copy(facingRight = facingTarget, isMoving = false),
                     prankedyPhase = PrankedyPhase.THROWING
                 )
             }
@@ -181,20 +210,35 @@ internal fun WorldMapViewModel.updatePrankedy(playerLoc: GeoPoint) {
         val moved = movePrankedyToward(prankedy, target.location, PRANKEDY_RUN_SPEED)
         _uiState.update { it.copy(prankedyNpc = moved, prankedyPhase = PrankedyPhase.CHARGING_TARGET) }
     } else {
-        // ── SEGUIR AL JUGADOR ────────────────────────────────────────
-        if (distToPlayer > PRANKEDY_RUN_THRESHOLD) {
+        // ── SEGUIR AL JUGADOR (sin separación rígida, solo no alejarse mucho) ──
+        // Distancia máxima antes de correr para alcanzar
+        val maxDist = 0.00060 // ~67 m: si se aleja más, corre
+        val walkDist = 0.00030 // ~33 m: si está entre esto y maxDist, camina
+
+        if (distToPlayer > maxDist) {
+            // Muy lejos: correr
             val moved = movePrankedyToward(prankedy, playerLoc, PRANKEDY_RUN_SPEED)
             _uiState.update { it.copy(prankedyNpc = moved, prankedyPhase = PrankedyPhase.FOLLOWING_RUN) }
-        } else if (distToPlayer > PRANKEDY_FOLLOW_MIN) {
+        } else if (distToPlayer > walkDist) {
+            // Algo lejos: caminar
             val moved = movePrankedyToward(prankedy, playerLoc, PRANKEDY_WALK_SPEED)
             _uiState.update { it.copy(prankedyNpc = moved, prankedyPhase = PrankedyPhase.FOLLOWING_WALK) }
         } else {
-            // Cerca del jugador: idle con fase de follow para que no se quede en CHARGING
-            _uiState.update { it.copy(prankedyPhase = PrankedyPhase.FOLLOWING_WALK) }
+            // Cerca del jugador: quedarse en idle, mirando hacia el jugador
+            val facingPlayer = playerLoc.longitude >= prankedy.location.longitude
+            _uiState.update {
+                it.copy(
+                    prankedyNpc = prankedy.copy(facingRight = facingPlayer, isMoving = false),
+                    prankedyPhase = PrankedyPhase.FOLLOWING_WALK
+                )
+            }
         }
     }
 
     updatePrankedyProjectiles(now)
+
+    // Refrescar la lista de NPCs para que el cambio de posición/estado de Prankedy se vea
+    refreshNpcList()
 }
 
 // ─── SPAWN ───────────────────────────────────────────────────────────────
@@ -274,31 +318,48 @@ private fun WorldMapViewModel.roamPrankedy(prankedy: Npc, playerLoc: GeoPoint, n
 private fun WorldMapViewModel.findPrankedyTarget(playerLoc: GeoPoint, now: Long): Npc? {
     val prankedy = _uiState.value.prankedyNpc ?: return null
     val center = prankedy.location
+    // Buscar en TODOS los NPCs visibles (remoteEntities + policía + remotos)
+    val allNpcs = _uiState.value.npcs
 
-    // 1) NPCs que están atacando al jugador (prioridad máxima)
-    val aggressors = remoteEntities.values.filter { npc ->
-        npc.type == NpcType.PERSON &&
+    // 1) PRIORIDAD MÁXIMA: cualquier NPC que esté atacando al jugador (aggro activo)
+    //    Incluye: personas agresivas, policías provocados, zombis, patrullas
+    val aggressors = allNpcs.filter { npc ->
+        npc.id != "PRANKEDY_SPECIAL" &&
                 !npc.isDying &&
+                npc.health > 0f &&
                 npc.aggroUntil > now &&
                 distance(center, npc.location) <= PRANKEDY_DETECT_RANGE
     }
     if (aggressors.isNotEmpty()) return aggressors.minByOrNull { distance(center, it.location) }
 
-    // 2) Zombis cercanos
-    val zombies = remoteEntities.values.filter { npc ->
-        npc.type == NpcType.ZOMBIE &&
+    // 2) Policías que persiguen al jugador (wantedLevel > 0)
+    if (_uiState.value.wantedLevel > 0) {
+        val chasers = allNpcs.filter { npc ->
+            npc.id != "PRANKEDY_SPECIAL" &&
+                    !npc.isDying &&
+                    (npc.type == NpcType.POLICE_COP || npc.type == NpcType.POLICE_CAR) &&
+                    distance(center, npc.location) <= PRANKEDY_DETECT_RANGE
+        }
+        if (chasers.isNotEmpty()) return chasers.minByOrNull { distance(center, it.location) }
+    }
+
+    // 3) Zombis cercanos (modo apocalipsis o sueltos)
+    val zombies = allNpcs.filter { npc ->
+        npc.id != "PRANKEDY_SPECIAL" &&
+                npc.type == NpcType.ZOMBIE &&
                 !npc.isDying &&
                 npc.health > 0f &&
                 distance(center, npc.location) <= PRANKEDY_DETECT_RANGE
     }
     if (zombies.isNotEmpty()) return zombies.minByOrNull { distance(center, it.location) }
 
-    // 3) Cualquier NPC persona (para las bromas) — solo si no hay peligro
-    val bystanders = remoteEntities.values.filter { npc ->
-        npc.type == NpcType.PERSON &&
+    // 4) Bromas a transeúntes (solo si no hay peligro inmediato)
+    val bystanders = allNpcs.filter { npc ->
+        npc.id != "PRANKEDY_SPECIAL" &&
+                npc.type == NpcType.PERSON &&
                 !npc.isDying &&
-                npc.displayName.isNullOrBlank() && // no jugadores remotos
-                distance(center, npc.location) <= PRANKEDY_DETECT_RANGE * 0.6
+                npc.displayName.isNullOrBlank() &&
+                distance(center, npc.location) <= PRANKEDY_DETECT_RANGE * 0.5
     }
     return bystanders.minByOrNull { distance(center, it.location) }
 }
@@ -324,20 +385,45 @@ internal fun WorldMapViewModel.updatePrankedyProjectiles(now: Long) {
 
     // Aplicar daño por los que impactaron
     finished.forEach { proj ->
-        val target = remoteEntities[proj.targetNpcId]
+        val targetId = proj.targetNpcId
+
+        // 1) Buscar en remoteEntities (personas, coches, zombis)
+        val target = remoteEntities[targetId]
         if (target != null && !target.isDying) {
             val newHealth = (target.health - PRANKEDY_PROJECTILE_DMG).coerceAtLeast(0f)
             if (newHealth <= 0f) {
-                remoteEntities[proj.targetNpcId] = target.copy(health = 0f, isDying = true)
+                remoteEntities[targetId] = target.copy(health = 0f, isDying = true)
                 viewModelScope.launch {
                     delay(1000L)
-                    remoteEntities.remove(proj.targetNpcId)
-                    updateNpcsState()
+                    remoteEntities.remove(targetId)
+                    refreshNpcList()
                 }
+                try {
+                    webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to targetId)))
+                } catch (_: Exception) {}
             } else {
-                remoteEntities[proj.targetNpcId] = target.copy(health = newHealth)
+                remoteEntities[targetId] = target.copy(health = newHealth)
             }
-            updateNpcsState()
+            refreshNpcList()
+            return@forEach
+        }
+
+        // 2) Buscar en policía propia (policeManager)
+        val deadCops = policeManager.playerHitPolice(
+            _uiState.value.prankedyNpc?.location?.latitude ?: 0.0,
+            _uiState.value.prankedyNpc?.location?.longitude ?: 0.0,
+            PRANKEDY_ATTACK_RANGE,
+            PRANKEDY_PROJECTILE_DMG
+        )
+        if (deadCops.isNotEmpty()) {
+            refreshNpcList()
+            webSocketManager?.let { ws ->
+                viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    deadCops.forEach { pid ->
+                        try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
+                    }
+                }
+            }
         }
     }
 
@@ -428,6 +514,7 @@ private fun offsetPoint(center: GeoPoint, offset: Double): GeoPoint {
         center.longitude + cos(angle) * offset
     )
 }
+
 
 /**
  * Comprueba si algún NPC está atacando a Prankedy (para que él se defienda)

@@ -770,6 +770,38 @@ internal fun NativeOsmMap(
                                 }
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f
+                            } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.PRANKEDY) {
+                                // ── PRANKEDY: NPC especial con emoji grande (los sprites se cargan desde PrankedySpriteManager) ──
+                                val pPhase = uiState.prankedyPhase
+                                val pAnim = when (pPhase) {
+                                    ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.IDLE_WAITING ->
+                                        ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.IDLE
+                                    ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.FOLLOWING_WALK,
+                                    ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.ROAMING ->
+                                        ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.WALK
+                                    ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.FOLLOWING_RUN ->
+                                        ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.RUN
+                                    ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.CHARGING_TARGET ->
+                                        ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.RUN_TANK
+                                    ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.THROWING ->
+                                        ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.ATTACK
+                                    else -> ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.IDLE
+                                }
+                                // Tamaño grande (1.8 m) para que se distinga de los peatones
+                                val exactPixels = ((1.8 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(24)
+                                val frameIdx = ((timeMs / pAnim.frameDurationMs) % pAnim.frameCount).toInt()
+                                val cacheKey = "PRANKEDY_NPC_${pAnim.name}_${npc.facingRight}_${frameIdx}_${exactPixels}_H${npc.health.toInt()}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    var d: android.graphics.drawable.Drawable? =
+                                        ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.getDrawable(
+                                            context, pAnim, npc.facingRight, timeMs, highResRenderScale
+                                        )
+                                    d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying, npc.maxHealth)
+                                    d?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                        ?: emojiToDrawable(context, "🤡", exactPixels)
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
                             } else {
                                 // Resto de NPCs genéricos (SVG)
                                 val cacheKey = "SVG_${npc.type.name}_H${npc.health}_D${npc.isDying}"
@@ -791,6 +823,11 @@ internal fun NativeOsmMap(
                         marker.position = GeoPoint(npc.location.latitude, npc.location.longitude)
                     }
                 } // fin guard: lista de NPCs sin cambios → no se reconstruyen marcadores
+
+                // Prankedy SIEMPRE al frente de los NPCs normales
+                markerCache["PRANKEDY_SPECIAL"]?.let { m ->
+                    view.overlays.remove(m); view.overlays.add(m)
+                }
 
                 val activeCollectibleIds = allCollectibles.map { it.id }.toSet()
                 @Suppress("UNCHECKED_CAST")
