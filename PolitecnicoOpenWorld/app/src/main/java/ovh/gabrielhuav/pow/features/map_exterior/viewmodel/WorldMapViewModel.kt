@@ -1026,6 +1026,9 @@ class WorldMapViewModel(
                             ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
                         }
 
+                        // FIX: Asegurar que displayName nunca sea blank para poder identificar jugadores remotos
+                        val safeDisplayName = msg.displayName?.takeIf { it.isNotBlank() } ?: "Player_${msg.id.take(4)}"
+
                         val otherPlayer = Npc(
                             id = msg.id,
                             type = if (isRemoteDriving) NpcType.CAR else NpcType.PERSON,
@@ -1038,7 +1041,7 @@ class WorldMapViewModel(
                             carModel = remoteCarModel,
                             carColor = msg.carColor ?: 0xFFFFFFFF.toInt(),
                             visualConfig = if (!isRemoteDriving) multiplayerConfig else null,
-                            displayName = msg.displayName,
+                            displayName = safeDisplayName,
                             health = msg.health ?: 100f,
                             isDying = (msg.health ?: 100f) <= 0f
                         )
@@ -1355,6 +1358,8 @@ class WorldMapViewModel(
     // actúa en TRANSICIONES de modo, así el pinch manual del usuario se respeta
     // hasta el siguiente cambio de estado.
     private var autoZoomMode = 0 // 0 = a pie, 1 = conduciendo, 2 = conduciendo rápido
+    private var targetZoomLevel = ZOOM_ON_FOOT // Zoom objetivo para interpolación suave
+
     internal fun updateAutoZoom() {
         val st = _uiState.value
         val absSpeed = kotlin.math.abs(st.vehicleSpeed)
@@ -1365,17 +1370,28 @@ class WorldMapViewModel(
         }
         if (newMode != autoZoomMode) {
             autoZoomMode = newMode
-            val z = when (newMode) {
+            targetZoomLevel = when (newMode) {
                 0 -> ZOOM_ON_FOOT
                 1 -> ZOOM_DRIVING
                 else -> ZOOM_DRIVING_FAST
             }
-            _uiState.update { it.copy(zoomLevel = z) }
+        }
+        // Interpolar zoomLevel hacia targetZoomLevel para transición suave
+        val currentZoom = st.zoomLevel
+        if (Math.abs(currentZoom - targetZoomLevel) > 0.01) {
+            val newZoom = currentZoom + (targetZoomLevel - currentZoom) * 0.1 // 10% por tick
+            _uiState.update { it.copy(zoomLevel = newZoom) }
         }
     }
 
-    fun zoomIn()  = _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
-    fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
+    fun zoomIn()  { 
+        targetZoomLevel = (_uiState.value.zoomLevel + 1.0).coerceAtMost(22.0)
+        _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = targetZoomLevel) else it } 
+    }
+    fun zoomOut() { 
+        targetZoomLevel = (_uiState.value.zoomLevel - 1.0).coerceAtLeast(14.0)
+        _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = targetZoomLevel) else it } 
+    }
 
     // Canal de retorno del zoom por GESTO (pinch de dos dedos) desde el mapa (web,
     // OSM nativo o Google). Sin esto, el bucle de render volvía a fijar el zoom al
@@ -1387,6 +1403,7 @@ class WorldMapViewModel(
         // él la caché de sprites de NPC, cuya clave depende del tamaño en píxeles → zoom).
         val z = (Math.round(zoom * 2.0) / 2.0).coerceIn(14.0, 22.0)
         if (Math.abs(z - _uiState.value.zoomLevel) >= 0.5) {
+            targetZoomLevel = z
             _uiState.update { it.copy(zoomLevel = z) }
         }
     }
@@ -1940,6 +1957,8 @@ class WorldMapViewModel(
                                 )
                             )
                         )
+                        // FIX: Feedback visual para el atacante al golpear a otro jugador
+                        viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() }
                     } catch (e: Exception) { Log.e("Combat", "Error enviando PLAYER_DAMAGE: ${e.message}") }
                 } else {
                     // DELITO: golpear a un civil sube el nivel de búsqueda (como en GTA).

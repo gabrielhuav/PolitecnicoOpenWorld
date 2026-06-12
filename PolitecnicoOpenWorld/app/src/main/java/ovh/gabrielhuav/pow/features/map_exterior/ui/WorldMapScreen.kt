@@ -899,9 +899,14 @@ fun WorldMapScreen(
                     update = { wv ->
                         webViewRef.value = wv
                         if (!uiState.isUserPanningMap) {
-                            uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null) }
+                            // Zoom SIN truncar (.toInt() peleaba con syncZoom cuando el estado
+                            // queda en medios pasos tras un pinch, p. ej. 21.5 vs 21).
+                            uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel});", null) }
                         }
                         uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updatePlayerMarker==='function')updatePlayerMarker(${it.latitude}, ${it.longitude}, ${uiState.isUserPanningMap});", null) }
+                        // Zoom automático por estado: sync explícito e incondicional (el JS
+                        // decide si aplica; respeta el pinch reciente del usuario).
+                        wv.evaluateJavascript("if(typeof syncZoom==='function')syncZoom(${uiState.zoomLevel});", null)
                         // Neblina anclada al jugador (se redibuja también en cada gesto vía JS).
                         uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof setPlayerFog==='function')setPlayerFog(${it.latitude}, ${it.longitude});", null) }
                         wv.evaluateJavascript("if(typeof setDesignerMode==='function')setDesignerMode(${uiState.isDesignerMode});", null)

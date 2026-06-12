@@ -78,11 +78,12 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         // primero debe entrar en modo exploración; de lo contrario el zoom por
         // botón ocultaría al jugador y rompería el auto-seguimiento.
         var pointerDown = false;
+        var lastPointerMs = 0;
         (function() {
             var el = document.getElementById('map');
             if (!el) return;
-            var down = function() { pointerDown = true; };
-            var up = function() { pointerDown = false; };
+            var down = function() { pointerDown = true; lastPointerMs = Date.now(); };
+            var up = function() { pointerDown = false; lastPointerMs = Date.now(); };
             el.addEventListener('touchstart', down, { passive: true });
             el.addEventListener('touchend', up, { passive: true });
             el.addEventListener('touchcancel', up, { passive: true });
@@ -215,6 +216,19 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
             });
         }
         
+        // SYNC DE ZOOM EXPLÍCITO (zoom automático por estado: 22 a pie / 21 conduciendo /
+        // 20 rápido). Independiente de updateMapView y de sus gates (isZooming /
+        // exploración): aplica el zoom del estado Kotlin SIEMPRE que el usuario no haya
+        // tocado la pantalla recientemente (así no pelea con el pinch ni con su
+        // propagación asíncrona por el bridge). También mantiene el zoom del MAPA
+        // alineado con el del estado (los sprites se dimensionan con el estado: si
+        // difieren, los assets se ven de tamaño distinto al mapa).
+        function syncZoom(z) {
+            if (pointerDown || (Date.now() - lastPointerMs) < 800) return;
+            if (Math.abs(map.getZoom() - z) < 0.01) return;
+            map.setZoom(z, { animate: false });
+        }
+
         function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
         // OPT FPS (gama baja): a pie el wrapper es del tamaño de la pantalla (≈45 teselas en vez
         // de ~350). Solo al CONDUCIR se agranda a un cuadrado del tamaño de la DIAGONAL de la

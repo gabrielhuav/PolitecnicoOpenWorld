@@ -181,6 +181,20 @@ matrices por defecto son **border-only** hasta reemplazarse.
   ids — sin esto, el snapshot viejo de la IA re-insertaba el coche recién abordado (carrera
   main-thread vs loop) y spamear Y lo duplicaba. Además el abordaje manda el id a
   `pendingDespawns` (NPC_DESTROY para los demás clientes).
+- **IA de tráfico — compromiso de intersección y realismo:** en `NpcAiManager.moveNpc`, los autos
+  ahora tienen `committedWayId` y `commitmentTicks`. Al llegar a una esquina/bifurcación,
+  eligen un camino y lo **bloquean por ~15 ticks**. NO re-calculan el target cada tick, lo que
+  elimina el "temblor" indeciso. Además, implementan **evitación de alcance** (frenado de emergencia
+  si el auto de adelante está a <8m, y seguimiento realista a ~27m) y **variación de velocidad**
+  (`speedVariation` 0.8–1.2) para un tráfico más realista. El Host simula esto y lo replica vía
+  `NPC_BATCH_UPDATE` (posición/rotación).
+- **Combate melee online (jugador vs jugador):** `performPlayerAttack` ahora también checkea
+  distancia contra `remoteEntities` (otros jugadores). Si golpea a uno, envía el mensaje existente
+  `PLAYER_DAMAGE { targetId, damage }` al servidor. El servidor reenvía el mensaje globalmente,
+  y la víctima (quien tenga ese `targetId`) aplica `takeDamage`. Es **autoritativo del atacante**
+  para el melee (igual que el daño a NPCs). Se asegura que `displayName` nunca sea blank para
+  identificar correctamente a los jugadores remotos. No re-introducir validación server-side para
+  melee para no añadir latencia.
 - **Orden de carga del mundo / gate de teleport:** la simulación/spawn de NPCs del game loop está
   gateada por `isRoadNetworkReady && isMapReady` → tras un teleport (ambos flags en false) el orden
   es SIEMPRE tiles → calles → NPCs. `teleportTo` además **rechaza TPs encadenados** mientras el
@@ -206,10 +220,12 @@ matrices por defecto son **border-only** hasta reemplazarse.
   offset se apaga y el smoothing lo reincorpora. La geometría es auto-reforzante (el lado elegido
   se estabiliza solo). **No re-introducir empujones de posición** — cualquier esquive nuevo debe
   mover objetivos/rumbos, no posiciones.
-- **Zoom automático por estado:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
-  loop miembro) cambia `zoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
+- **Zoom automático por estado + SUAVIZADO:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
+  loop miembro) cambia `targetZoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
   `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del
-  usuario se respeta entre transiciones. No volver a clavar el zoom web a 19 (`setMapProvider`
+  usuario se respeta entre transiciones. **NO cambies `zoomLevel` directamente en transiciones;**
+  el game loop interpola `zoomLevel` hacia `targetZoomLevel` (~1 nivel por tick) para evitar el
+  "shock" visual brusco al robar/salir de un auto. No volver a clavar el zoom web a 19 (`setMapProvider`
   ahora capea a 22; `ZOOM_GAMEPLAY_WEB=19` es solo el nivel de pre-descarga de tiles).
 - **Fixes de estabilidad (TP/skin/ESCOM):** (a) el snap-to-road de `moveCharacter`/`moveCharacterByAngle`
   **ignora el movimiento** si la calle más cercana está a > `MAX_SNAP_DISTANCE_DEG` (0.0003 ≈ 33 m) — antes

@@ -106,5 +106,15 @@ data class Npc(
 
     // Mientras now < callingUntil, el NPC muestra un 📞 (está "llamando a la policía"),
     // p. ej. el conductor al que le robaste el coche.
-    val callingUntil: Long = 0L
+    val callingUntil: Long = 0L,
+
+    // ─── TRÁFICO REALISTA (compromiso de intersección + variación de velocidad) ──
+    // Compromiso de intersección: evita que el NPC "tiemble" decidiendo en cada tick.
+    // Una vez que elige una salida en una bifurcación, se compromete a esa vía
+    // durante commitmentTicks ticks, sin re-evaluar conexiones.
+    val committedWayId: Long = -1L,
+    val commitmentTicks: Int = 0,
+    // Variación de velocidad: cada auto tiene un multiplicador aleatorio (0.8–1.2)
+    // para que no todos viajen exactamente a la misma velocidad.
+    val speedVariation: Float = 1.0f
 )

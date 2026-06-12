@@ -72,6 +72,7 @@ roster (la policía es transitoria y por-jugador; cada cliente la purga por *sta
 | `ROLE_UPDATE` | S→C | — | Cambio de rol de Host de zona |
 | `PLAYER_UPDATE` | C↔S | **global** | Pose/estado de un jugador (`MultiplayerPlayer`) |
 | `PLAYER_DAMAGE` | C↔S | **global** | Daño aplicado a un jugador |
+| `PLAYER_ATTACK_HIT` | C→S→C | **global** | **Melee entre jugadores:** el atacante envía `{targetId, damage}` al golpear a otro jugador en melee. El servidor reenvía solo a la víctima para que aplique `takeDamage`. |
 | `NPC_SPAWN` / `NPC_UPDATE` | C↔S | AOI | NPC individual del Host |
 | `NPC_BATCH_UPDATE` | C↔S | AOI | Lote de NPCs activos del Host (`MultiplayerNpc[]`, incl. health/isDying/aggroUntil) |
 | `NPC_DESTROY` | C↔S | **global** | NPC eliminado (despawn/muerte) |
