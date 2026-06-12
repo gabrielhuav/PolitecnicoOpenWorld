@@ -101,6 +101,17 @@ class WorldMapViewModel(
     // disparen la animación de daño justo al llegar a la nueva ubicación.
     @Volatile internal var respawnImmunityUntilMs: Long = 0L
 
+    // ─── PRANKEDY: estado interno (no UI) ────────────────────────────────
+    @Volatile internal var prankedyRespawnTime: Long = System.currentTimeMillis() + 5_000L // aparece 5s tras entrar
+    @Volatile internal var prankedyLastAttackTime: Long = 0L
+    @Volatile internal var prankedyThrowStartTime: Long = 0L
+    @Volatile internal var prankedyLastDamagedTime: Long = 0L
+    @Volatile internal var prankedyHireAvailableTime: Long = 0L
+    @Volatile internal var prankedyRoamDirChangeTime: Long = 0L
+    internal var prankedyRoamAngle: Double = 0.0
+    internal var prankedyFirstMeet: Boolean = true
+    internal var prankedyHireAvailable: Boolean = true
+
     internal var healthBarJob: Job? = null
     internal var promptJob: Job? = null
 
@@ -560,6 +571,12 @@ class WorldMapViewModel(
                             trySpawningCollectible(location.latitude, location.longitude)
                         }
                         checkCollectibleProximity(location.latitude, location.longitude)
+
+                        // ─── PRANKEDY TICK ───────────────────────────────────────
+                        if (tickCount % 2 == 0L) {
+                            updatePrankedy(location)
+                            checkPrankedyDamage()
+                        }
 
                         checkDestinationArrival()
 
@@ -2218,13 +2235,18 @@ class WorldMapViewModel(
 
     fun teleportTo(lat: Double, lon: Double) {
         val newLocation = org.osmdroid.util.GeoPoint(lat, lon)
+        relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
+        // Prankedy: si está contratado, se teletransporta con el jugador.
+        if (_uiState.value.isPrankedyHired && _uiState.value.prankedyNpc != null) {
+            val nearNew = GeoPoint(lat + 0.00012, lon + 0.00012)
+            _uiState.update { it.copy(prankedyNpc = it.prankedyNpc?.copy(location = nearNew), prankedyProjectiles = emptyList()) }
+        }
         // TELETRANSPORTE = borrón y cuenta nueva del combate: si no, los NPCs/policías que
         // te perseguían en la zona vieja quedaban con aggro y daban un golpe "fantasma"
         // justo al llegar. Limpiamos perseguidores, policía y nivel de búsqueda.
         // También se reinician los triggers de animación de daño y se activa la inmunidad
         // temporal para que ningún golpe residual de la zona anterior dispare la animación
         // al llegar al destino.
-        relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
         damagePulseTrigger = 0
         impactEffectTrigger = 0
         respawnImmunityUntilMs = System.currentTimeMillis() + 2000L
@@ -2791,8 +2813,9 @@ class WorldMapViewModel(
             npcContactCooldowns[id] = now
             viewModelScope.launch(Dispatchers.Main) { takeDamage(NPC_CONTACT_DAMAGE) } // takeDamage ya dispara el 💥
         }
+        // Prankedy también puede recibir daño por contacto (comprobación separada)
+        // checkPrankedyDamage() se llama en el game loop.
     }
-
     // IMPLACABLE: el NPC persigue y golpea al jugador sin descanso hasta matarlo (o hasta
     // morir/desaparecer). Refresca su aggro para que nunca deje de perseguir y le pega
     // cada NPC_CONTACT_COOLDOWN_MS si está a su alcance.
@@ -3008,6 +3031,9 @@ class WorldMapViewModel(
      * navegue a la ruta "zombie_minigame".
      */
     fun handleInteraction() {
+        // ─── PRANKEDY: interacción con botón X ──────────────────────
+        if (tryInteractWithPrankedy()) return
+
         val nearbyMetro = _uiState.value.nearbyMetroStation
         if (nearbyMetro != null) {
             _uiState.update { it.copy(showMetroFade = true) }

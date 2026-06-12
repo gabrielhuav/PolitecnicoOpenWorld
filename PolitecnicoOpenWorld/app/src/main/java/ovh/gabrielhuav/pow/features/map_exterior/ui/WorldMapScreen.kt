@@ -147,6 +147,10 @@ import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.isActive
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import kotlin.math.cos
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyDialog
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.hirePrankedy
 
 // ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
 // Los NPC siguen viviendo en memoria/simulación; solo dibujamos los que caen
@@ -1251,7 +1255,46 @@ fun WorldMapScreen(
             }
         }
 
-        // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────
+        // ─── PRANKEDY CONTRATADO (indicador HUD) ─────────────────────────
+        if (uiState.isPrankedyHired && uiState.prankedyPhase != PrankedyPhase.DYING) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = if (uiState.wantedLevel > 0) 58.dp else 36.dp, start = 12.dp)
+                    .background(Color(0xCC1A1A22), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text("🤡", fontSize = 14.sp)
+                Text("Prankedy", color = Color(0xFFD4AF37), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                // Mini barra de vida de Prankedy
+                val pHp = uiState.prankedyNpc?.health ?: 0f
+                val pMax = uiState.prankedyNpc?.maxHealth ?: 80f
+                Box(
+                    modifier = Modifier
+                        .width(50.dp)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color.Black.copy(alpha = 0.5f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth((pHp / pMax).coerceIn(0f, 1f))
+                            .background(
+                                when {
+                                    pHp > pMax * 0.6f -> Color(0xFF4CAF50)
+                                    pHp > pMax * 0.3f -> Color(0xFFFFEB3B)
+                                    else -> Color(0xFFF44336)
+                                }
+                            )
+                    )
+                }
+            }
+        }
+
+        // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────
         uiState.carjackWarning?.let { warn ->
             Box(
                 modifier = Modifier
@@ -1578,6 +1621,15 @@ fun WorldMapScreen(
 
         if (uiState.showAssetPicker) {
             AssetPickerDialog(context = context, onAssetSelected = { viewModel.addLandmarkAtPlayer(context, it) }, onDismiss = { viewModel.showAssetPicker(false) })
+        }
+
+        // ─── DIÁLOGO DE PRANKEDY ─────────────────────────────────────────
+        if (uiState.showPrankedyDialog) {
+            PrankedyDialog(
+                isFirstUnlock = viewModel.prankedyFirstMeet,
+                onHire = { viewModel.hirePrankedy() },
+                onDismiss = { viewModel.dismissPrankedyDialog() }
+            )
         }
 
         if (uiState.showSkinSelector) {

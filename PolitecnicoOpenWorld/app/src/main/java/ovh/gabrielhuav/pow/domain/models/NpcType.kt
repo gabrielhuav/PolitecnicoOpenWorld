@@ -7,6 +7,7 @@ enum class NpcType(val drawableName: String) {
     // ─── POLICIA (sistema de nivel de busqueda estilo GTA) ───────────────────
     POLICE_CAR("ic_npc_car"),
     POLICE_COP("ic_npc_person"),
+    PRANKEDY("npc_prankedy"),
     
     // ─── APOCALIPSIS ZOMBI GLOBAL ───
     ZOMBIE("ic_npc_person")

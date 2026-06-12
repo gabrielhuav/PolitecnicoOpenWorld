@@ -123,6 +123,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import androidx.compose.runtime.MutableState
 import ovh.gabrielhuav.pow.domain.models.MapWay
 import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 
 @Composable
@@ -160,6 +161,13 @@ internal fun NativeOsmMap(
     val phoneCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
     // 📢 sobre zombis SCOUT que están gritando (alarma de horda).
     val screamCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
+    // ─── PRANKEDY (NPC especial) ─────────────────────────────────────
+    val prankedyMarkerRef = remember { arrayOfNulls<org.osmdroid.views.overlay.Marker>(1) }
+    val prankedyBubbleRef = remember { arrayOfNulls<org.osmdroid.views.overlay.Marker>(1) }
+    val prankedyIndicatorRef = remember { arrayOfNulls<org.osmdroid.views.overlay.Marker>(1) }
+    val prankedyWaypointRef = remember { arrayOfNulls<org.osmdroid.views.overlay.Marker>(1) }
+    val prankedyWpLineRef = remember { arrayOfNulls<org.osmdroid.views.overlay.Polyline>(1) }
+    val prankedyProjPool = remember { mutableListOf<org.osmdroid.views.overlay.Marker>() }
     // OPT FPS gama baja: firma (transformación + asset) por landmark. Los GroundOverlay
     // ESTÁTICOS se re-posicionaban y RE-SUBÍAN su textura (setImage) en CADA frame; con esto
     // solo lo hacen cuando su firma cambia (las puertas, animadas, siguen refrescando imagen).
@@ -1095,6 +1103,216 @@ internal fun NativeOsmMap(
             } else {
                 // Fuera de modo disenador / sin puntos: ocultar la linea de depuracion.
                 (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 300 }) as? Polyline)?.isEnabled = false
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            //  PRANKEDY — RENDERIZADO (CAPA SUPERIOR, antes del fog)
+            // ═══════════════════════════════════════════════════════════════════
+            // ═══════════════════════════════════════════════════════════════════
+            //  PRANKEDY — RENDERIZADO (CAPA SUPERIOR, antes del fog)
+            // ═══════════════════════════════════════════════════════════════════
+            run {
+                val pNpc = uiState.prankedyNpc
+                val pPhase = uiState.prankedyPhase
+                val pLoc = uiState.currentLocation
+
+                // ── MARCADOR PRINCIPAL DEL SPRITE ────────────────────────────
+                val pMarker = prankedyMarkerRef[0] ?: org.osmdroid.views.overlay.Marker(view).apply {
+                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
+                    setInfoWindow(null); isFlat = true
+                    prankedyMarkerRef[0] = this
+                    view.overlays.add(this)
+                }
+
+                // ── INDICADOR FLOTANTE (flecha ▼ + 🤡) SIEMPRE visible ──────
+                val pIndicator = prankedyIndicatorRef[0] ?: org.osmdroid.views.overlay.Marker(view).apply {
+                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_BOTTOM)
+                    setInfoWindow(null)
+                    prankedyIndicatorRef[0] = this
+                    view.overlays.add(this)
+                }
+
+                // ── WAYPOINT (cuando está FUERA del fog of war) ──────────────
+                val pWaypoint = prankedyWaypointRef[0] ?: org.osmdroid.views.overlay.Marker(view).apply {
+                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
+                    setInfoWindow(null)
+                    prankedyWaypointRef[0] = this
+                    view.overlays.add(this)
+                }
+                val pWpLine = prankedyWpLineRef[0] ?: org.osmdroid.views.overlay.Polyline().apply {
+                    outlinePaint.color = android.graphics.Color.argb(130, 212, 175, 55)
+                    outlinePaint.strokeWidth = 4f
+                    outlinePaint.isAntiAlias = true
+                    outlinePaint.style = android.graphics.Paint.Style.STROKE
+                    outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(16f, 12f), 0f)
+                    setInfoWindow(null)
+                    prankedyWpLineRef[0] = this
+                    view.overlays.add(0, this)
+                }
+
+                val visible = pNpc != null
+                        && pPhase != ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.DESPAWNED
+                        && pPhase != ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.RIDING
+                val insideFog = visible && pLoc != null && npcWithinRadius(
+                    pNpc!!.location.latitude, pNpc.location.longitude,
+                    pLoc!!.latitude, pLoc.longitude, NPC_FOG_VISION_METERS
+                )
+
+                if (visible && insideFog) {
+                    // ══ DENTRO DEL FOG: dibujar sprite + indicador ══════════
+                    val metersPerPx = (40075016.686 * Math.cos(Math.toRadians(pNpc.location.latitude))) /
+                            (256.0 * Math.pow(2.0, uiState.zoomLevel))
+                    val dens = context.resources.displayMetrics.density
+                    val exactPx = ((1.5 / metersPerPx) * dens).toInt().coerceIn(16, 200)
+                    val timeMs = System.currentTimeMillis()
+                    val hiRes = 1.0f * dens
+
+                    val anim = when (pPhase) {
+                        ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.IDLE_WAITING ->
+                            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.IDLE
+                        ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.FOLLOWING_WALK ->
+                            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.WALK
+                        ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.FOLLOWING_RUN ->
+                            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.RUN
+                        ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.CHARGING_TARGET ->
+                            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.RUN_TANK
+                        ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.THROWING ->
+                            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.ATTACK
+                        ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.ROAMING ->
+                            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.WALK
+                        else ->
+                            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.PrankedyAnim.IDLE
+                    }
+
+                    val frameIdx = ((timeMs / anim.frameDurationMs) % anim.frameCount).toInt()
+                    val spriteKey = "PRANKEDY_${anim.name}_${pNpc.facingRight}_${frameIdx}_${exactPx}_H${pNpc.health.toInt()}"
+                    val cachedIcon = nativeDrawableCache.getOrPut(spriteKey) {
+                        val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.getDrawable(
+                            context, anim, pNpc.facingRight, timeMs, hiRes
+                        )
+                        // getDrawable NUNCA devuelve null ahora (tiene fallback emoji)
+                        var drawable: android.graphics.drawable.Drawable? = d
+                        drawable = drawHealthBarOnDrawable(context, drawable, pNpc.health, pNpc.isDying, pNpc.maxHealth)
+                        drawable?.let { ExactSizeDrawable(it, exactPx, exactPx) }
+                            ?: emojiToDrawable(context, "🤡", exactPx)
+                    }
+                    pMarker.icon = cachedIcon
+                    pMarker.position = org.osmdroid.util.GeoPoint(pNpc.location.latitude, pNpc.location.longitude)
+                    pMarker.isEnabled = true
+                    pMarker.setAlpha(if (pNpc.isDying) 0.4f else 1f)
+                    // Siempre al frente de los NPCs normales
+                    view.overlays.remove(pMarker); view.overlays.add(pMarker)
+
+                    // ── INDICADOR FLOTANTE arriba del NPC ────────────────────
+                    // Pulso de tamaño para llamar la atención
+                    val pulse = 1.0f + 0.15f * kotlin.math.sin(timeMs / 400.0).toFloat()
+                    val indPx = ((0.8 / metersPerPx) * dens * pulse).toInt().coerceIn(14, 80)
+                    val indEmoji = if (uiState.isPrankedyHired) "🤡" else "❗🤡"
+                    val indKey = "PRANKEDY_IND_${indEmoji}_$indPx"
+                    pIndicator.icon = nativeDrawableCache.getOrPut(indKey) {
+                        emojiToDrawable(context, indEmoji, indPx)
+                    }
+                    // Flotando un poco al norte (arriba) del NPC
+                    val indOffset = 0.000030
+                    pIndicator.position = org.osmdroid.util.GeoPoint(
+                        pNpc.location.latitude + indOffset,
+                        pNpc.location.longitude
+                    )
+                    pIndicator.isEnabled = true
+                    pIndicator.setAlpha(1f)
+                    view.overlays.remove(pIndicator); view.overlays.add(pIndicator)
+
+                    // Ocultar waypoint (ya se ve directamente)
+                    pWaypoint.isEnabled = false
+                    pWpLine.isEnabled = false
+
+                } else if (visible && !insideFog) {
+                    // ══ FUERA DEL FOG: waypoint 🤡 + línea dorada punteada ══
+                    pMarker.isEnabled = false
+                    pIndicator.isEnabled = false
+
+                    val wpPx = (26 * context.resources.displayMetrics.density).toInt()
+                    val wpKey = "PRANKEDY_WP_$wpPx"
+                    pWaypoint.icon = nativeDrawableCache.getOrPut(wpKey) {
+                        emojiToDrawable(context, "🤡", wpPx)
+                    }
+                    pWaypoint.position = org.osmdroid.util.GeoPoint(pNpc.location.latitude, pNpc.location.longitude)
+                    pWaypoint.isEnabled = true
+                    pWaypoint.setAlpha(1f)
+                    view.overlays.remove(pWaypoint); view.overlays.add(pWaypoint)
+
+                    if (pLoc != null) {
+                        pWpLine.setPoints(listOf(
+                            org.osmdroid.util.GeoPoint(pLoc.latitude, pLoc.longitude),
+                            org.osmdroid.util.GeoPoint(pNpc.location.latitude, pNpc.location.longitude)
+                        ))
+                        pWpLine.isEnabled = true
+                    }
+                } else {
+                    // ══ DESPAWNED / RIDING: ocultar todo ════════════════════
+                    pMarker.isEnabled = false
+                    pIndicator.isEnabled = false
+                    pWaypoint.isEnabled = false
+                    pWpLine.isEnabled = false
+                }
+
+                // ── GLOBO DE DIÁLOGO ─────────────────────────────────────────
+                val bubble = prankedyBubbleRef[0] ?: org.osmdroid.views.overlay.Marker(view).apply {
+                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_BOTTOM)
+                    setInfoWindow(null)
+                    prankedyBubbleRef[0] = this
+                    view.overlays.add(this)
+                }
+                val bubbleTxt = uiState.prankedyBubbleText
+                if (pNpc != null && bubbleTxt != null && pMarker.isEnabled) {
+                    val bDens = context.resources.displayMetrics.density
+                    val bPx = (bDens * 140).toInt().coerceAtLeast(80)
+                    val bKey = "PRANKEDY_BUBBLE_${bubbleTxt.hashCode()}_$bPx"
+                    bubble.icon = nativeDrawableCache.getOrPut(bKey) {
+                        textBubbleDrawable(context, bubbleTxt, bPx)
+                    }
+                    bubble.position = org.osmdroid.util.GeoPoint(
+                        pNpc.location.latitude + 0.000055,
+                        pNpc.location.longitude
+                    )
+                    bubble.isEnabled = true
+                    view.overlays.remove(bubble); view.overlays.add(bubble)
+                } else {
+                    bubble.isEnabled = false
+                }
+
+                // ── PROYECTILES (objetos lanzados) ───────────────────────────
+                val projs = uiState.prankedyProjectiles
+                val nowP = System.currentTimeMillis()
+                while (prankedyProjPool.size < projs.size) {
+                    prankedyProjPool.add(org.osmdroid.views.overlay.Marker(view).apply {
+                        setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
+                        setInfoWindow(null); isFlat = true; isEnabled = false
+                        view.overlays.add(this)
+                    })
+                }
+                prankedyProjPool.forEachIndexed { i, m ->
+                    if (i < projs.size) {
+                        val p = projs[i]
+                        val prog = ((nowP - p.startTime) / p.durationMs.toDouble()).coerceIn(0.0, 1.0)
+                        val lat = p.from.latitude + (p.to.latitude - p.from.latitude) * prog
+                        val lon = p.from.longitude + (p.to.longitude - p.from.longitude) * prog
+                        val pDens = context.resources.displayMetrics.density
+                        val ppx = (pDens * 22).toInt().coerceAtLeast(12)
+                        val projFrame = ((nowP / 100L) % 4).toInt()
+                        val projKey = "PRANKEDY_PROJ_${projFrame}_$ppx"
+                        m.icon = nativeDrawableCache.getOrPut(projKey) {
+                            val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.getProjectileDrawable(context, nowP, pDens)
+                            d?.let { ExactSizeDrawable(it, ppx, ppx) }
+                                ?: emojiToDrawable(context, "💣", ppx)
+                        }
+                        m.position = org.osmdroid.util.GeoPoint(lat, lon)
+                        m.isEnabled = true
+                        view.overlays.remove(m); view.overlays.add(m)
+                    } else {
+                        m.isEnabled = false
+                    }
+                }
             }
 
             // ─── NEBLINA ANCLADA AL JUGADOR ─────────────────────────────────────

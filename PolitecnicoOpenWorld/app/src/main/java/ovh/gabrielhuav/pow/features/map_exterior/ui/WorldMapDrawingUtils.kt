@@ -120,6 +120,38 @@ internal class ExactSizeDrawable(
     @Deprecated("Deprecated in Java") override fun getOpacity() = base.opacity
 }
 
+/** Globo de diálogo dibujado como Drawable (para marcadores osmdroid). */
+internal fun textBubbleDrawable(context: Context, text: String, widthPx: Int): android.graphics.drawable.Drawable {
+    val density = context.resources.displayMetrics.density
+    val height = (widthPx * 0.45f).toInt().coerceAtLeast(30)
+    val bitmap = android.graphics.Bitmap.createBitmap(widthPx, height, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val bgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.argb(220, 20, 20, 30)
+    }
+    val r = height * 0.30f
+    canvas.drawRoundRect(0f, 0f, widthPx.toFloat(), height.toFloat(), r, r, bgPaint)
+    val borderPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 2f * density
+        color = android.graphics.Color.argb(200, 212, 175, 55) // dorado
+    }
+    canvas.drawRoundRect(2f, 2f, widthPx - 2f, height - 2f, r, r, borderPaint)
+    val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textSize = height * 0.32f
+        textAlign = android.graphics.Paint.Align.CENTER
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
+    val fm = textPaint.fontMetrics
+    val textY = height / 2f - (fm.ascent + fm.descent) / 2f
+    // Truncar texto si es muy largo
+    val maxChars = (widthPx / (textPaint.textSize * 0.55f)).toInt().coerceAtLeast(5)
+    val display = if (text.length > maxChars) text.take(maxChars - 1) + "…" else text
+    canvas.drawText(display, widthPx / 2f, textY, textPaint)
+    return android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+}
+
 fun getAssetFile(context: Context, assetPath: String, fileName: String): java.io.File {
     val file = java.io.File(context.cacheDir, fileName)
     if (!file.exists()) {

@@ -163,5 +163,13 @@ data class WorldMapState(
     val zonePrefetchActive: Boolean = false,
     val zonePrefetchProgress: Float = 0f,   // 0f..1f
     val zoneOfflineReady: Boolean = false,
-    val zoneOfflineWarning: Boolean = false
+    val zoneOfflineWarning: Boolean = false,
+
+    // ─── PRANKEDY NPC ESPECIAL ───────────────────────────────────────────
+    val prankedyNpc: ovh.gabrielhuav.pow.domain.models.Npc? = null,
+    val prankedyPhase: ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyPhase.DESPAWNED,
+    val isPrankedyHired: Boolean = false,
+    val showPrankedyDialog: Boolean = false,
+    val prankedyBubbleText: String? = null,
+    val prankedyProjectiles: List<ovh.gabrielhuav.pow.features.map_exterior.viewmodel.PrankedyProjectile> = emptyList()
 )
