@@ -64,6 +64,14 @@
     "baseHeightMeters": 55.0
   },
   {
+    "id": "central_norte",
+    "displayName": "Central Norte",
+    "assetPath": "BUILDINGS/CENTRAL/Central_norte.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 100.0,
+    "baseHeightMeters": 100.0
+  },
+  {
     "id": "deportivo_miguel_aleman",
     "displayName": "Deportivo Miguel Alemán",
     "assetPath": "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp",

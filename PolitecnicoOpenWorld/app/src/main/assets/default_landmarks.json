@@ -119,5 +119,14 @@
     "scaleFactor": 0.60,
     "scaleX": 0.60,
     "scaleY": 0.60
+  },
+  {
+    "assetPath": "BUILDINGS/CENTRAL/Central_norte.webp",
+    "id": 21,
+    "latitude": 19.47930000000006,
+    "longitude": -99.13929999999975,
+    "name": "Central Norte",
+    "rotationAngle": 0.0,
+    "scaleFactor": 3.0
   }
 ]
