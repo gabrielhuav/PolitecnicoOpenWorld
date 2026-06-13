@@ -146,6 +146,9 @@ data class WorldMapState(
     // Cuando está activado, se pintan los 6 marcadores fijos de los edificios
     // y el bounding box de ESCOM sobre el mapa, para ajustar coordenadas.
     val showInteriorDebugOverlay: Boolean = false,
+    // Colisiones del exterior (polígonos = zonas NO caminables, p. ej. el edificio ESCOM;
+    // walls = bardas). Se exponen para dibujarlas en el overlay de Debug Interiores.
+    val exteriorCollisions: ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig? = null,
 
     // NUEVAS VARIABLES PARA EL CREADOR DE RUTAS
     val routeDebugWaypoints: List<GeoPoint> = emptyList(), // Las "migas de pan"

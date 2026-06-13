@@ -751,6 +751,9 @@ class WorldMapViewModel(
                 exteriorCollisions = Gson().fromJson(jsonString, ExteriorCollisionsConfig::class.java)
 
                 npcAiManager.setExteriorCollisions(exteriorCollisions)
+                // Exponer al estado para el overlay de Debug Interiores (zonas no caminables).
+                val cfg = exteriorCollisions
+                withContext(Dispatchers.Main) { _uiState.update { it.copy(exteriorCollisions = cfg) } }
 
             } catch (e: Exception) {
                 Log.e("Collisions", "Error: ${e.message}")

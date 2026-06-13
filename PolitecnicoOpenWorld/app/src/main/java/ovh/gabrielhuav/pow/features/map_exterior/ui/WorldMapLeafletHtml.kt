@@ -733,30 +733,39 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             });
         }
 
-        // 🔧 DEBUG INTERIORES: caminos adicionales de ESCOM (navGraph de los landmarks).
-        // Verde = peatonal (por donde SÍ se puede caminar); naranja = autos. Coordenadas ya
-        // vienen en lat/lng global (el VM convierte localX/localY con toGlobalGeoPoint).
+        // 🔧 DEBUG INTERIORES: caminos del navGraph (verde=peatonal, naranja=autos), zonas NO
+        // caminables (polígonos rojos, p. ej. el edificio ESCOM) y bardas (líneas rojas). Recibe
+        // un objeto {paths, blocks, walls} con coords lat/lng global; '{}' limpia todo.
         var interiorPathLayers = {};
         function updateInteriorPaths(jsonStr) {
-            var data = JSON.parse(jsonStr);
-            var currentIds = new Set(data.map(function(w){ return String(w.id); }));
+            var data = JSON.parse(jsonStr) || {};
+            var items = [];
+            (data.paths || []).forEach(function(w){ items.push({ id:'p_'+w.id, kind:'path', walk:w.walk, nodes:w.nodes }); });
+            (data.blocks || []).forEach(function(b){ items.push({ id:'b_'+b.id, kind:'block', nodes:b.nodes }); });
+            (data.walls || []).forEach(function(wl){ items.push({ id:'w_'+wl.id, kind:'wall', nodes:wl.nodes }); });
+            var currentIds = new Set(items.map(function(x){ return String(x.id); }));
             for (var id in interiorPathLayers) {
                 if (!currentIds.has(id)) { map.removeLayer(interiorPathLayers[id]); delete interiorPathLayers[id]; }
             }
-            data.forEach(function(w) {
-                var latlngs = w.nodes.map(function(n){ return [n.lat, n.lng]; });
-                if (interiorPathLayers[w.id]) {
-                    interiorPathLayers[w.id].setLatLngs(latlngs);
-                    interiorPathLayers[w.id].bringToFront();
-                } else {
-                    var color = w.walk ? '#4CC850' : '#FF8C00';
-                    var weight = w.walk ? 5 : 7;
-                    interiorPathLayers[w.id] = L.polyline(latlngs, {
-                        color: color, weight: weight, opacity: 0.9,
-                        lineCap: 'round', lineJoin: 'round', interactive: false
-                    }).addTo(map);
-                    interiorPathLayers[w.id].bringToFront();
+            items.forEach(function(x) {
+                var latlngs = x.nodes.map(function(n){ return [n.lat, n.lng]; });
+                if (interiorPathLayers[x.id]) {
+                    interiorPathLayers[x.id].setLatLngs(latlngs);
+                    interiorPathLayers[x.id].bringToFront();
+                    return;
                 }
+                var layer;
+                if (x.kind === 'block') {
+                    layer = L.polygon(latlngs, { color:'#C80000', weight:3, fillColor:'#DC2828', fillOpacity:0.35, interactive:false });
+                } else if (x.kind === 'wall') {
+                    layer = L.polyline(latlngs, { color:'#DC0000', weight:7, opacity:0.9, lineCap:'round', interactive:false });
+                } else {
+                    var color = x.walk ? '#4CC850' : '#FF8C00';
+                    var weight = x.walk ? 5 : 7;
+                    layer = L.polyline(latlngs, { color:color, weight:weight, opacity:0.9, lineCap:'round', lineJoin:'round', interactive:false });
+                }
+                layer.addTo(map); layer.bringToFront();
+                interiorPathLayers[x.id] = layer;
             });
         }
     </script>

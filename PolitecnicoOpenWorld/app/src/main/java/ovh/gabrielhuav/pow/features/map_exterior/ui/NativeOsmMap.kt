@@ -978,14 +978,15 @@ internal fun NativeOsmMap(
                     view.setTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 100 }, it)
                 }
 
-            // Polilíneas del navGraph de los landmarks (caminos adicionales de ESCOM): se
-            // reconstruyen SOLO cuando cambia la lista de landmarks (no por frame).
+            // Overlays del Debug Interiores: caminos del navGraph (líneas) + zonas NO caminables
+            // (polígonos rojos) + bardas. Se reconstruyen SOLO cuando cambian los landmarks o las
+            // colisiones (no por frame). Sig[0]=landmarks, Sig[1]=exteriorCollisions.
             @Suppress("UNCHECKED_CAST")
-            val interiorPathCache = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 250 }) as? MutableList<Polyline>)
-                ?: mutableListOf<Polyline>().also { view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 250 }, it) }
+            val interiorPathCache = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 250 }) as? MutableList<org.osmdroid.views.overlay.Overlay>)
+                ?: mutableListOf<org.osmdroid.views.overlay.Overlay>().also { view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 250 }, it) }
             @Suppress("UNCHECKED_CAST")
             val interiorPathSig = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 260 }) as? Array<Any?>)
-                ?: arrayOfNulls<Any?>(1).also { view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 260 }, it) }
+                ?: arrayOfNulls<Any?>(2).also { view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 260 }, it) }
 
             if (uiState.showInteriorDebugOverlay) {
                 InteriorBuilding.entries.forEach { b ->
@@ -1021,10 +1022,37 @@ internal fun NativeOsmMap(
                 // CAMINOS ADICIONALES (navGraph de los landmarks): muestra por dónde se puede
                 // caminar (verde = peatonal) y por dónde van los autos (naranja). Se reconstruye
                 // solo si cambió la lista de landmarks (evita rehacerlo cada frame).
-                if (interiorPathSig[0] !== uiState.landmarks) {
+                if (interiorPathSig[0] !== uiState.landmarks || interiorPathSig[1] !== uiState.exteriorCollisions) {
                     interiorPathSig[0] = uiState.landmarks
+                    interiorPathSig[1] = uiState.exteriorCollisions
                     interiorPathCache.forEach { view.overlays.remove(it) }
                     interiorPathCache.clear()
+                    // 1) ZONAS NO CAMINABLES (polígonos rojos translúcidos, p. ej. el edificio ESCOM).
+                    uiState.exteriorCollisions?.polygons?.forEach { poly ->
+                        if (poly.nodes.size < 3) return@forEach
+                        val polygon = org.osmdroid.views.overlay.Polygon().apply {
+                            points = poly.nodes.map { GeoPoint(it.lat, it.lon) }
+                            fillPaint.color = android.graphics.Color.argb(90, 220, 40, 40)   // rojo translúcido = NO entrar
+                            outlinePaint.color = android.graphics.Color.argb(230, 200, 0, 0)
+                            outlinePaint.strokeWidth = 4f
+                            outlinePaint.isAntiAlias = true
+                        }
+                        interiorPathCache.add(polygon)
+                        view.overlays.add(polygon)
+                    }
+                    // 2) BARDAS (líneas rojas gruesas).
+                    uiState.exteriorCollisions?.walls?.forEach { wall ->
+                        val line = Polyline().apply {
+                            outlinePaint.color = android.graphics.Color.argb(230, 220, 0, 0)
+                            outlinePaint.strokeWidth = 7f
+                            outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                            outlinePaint.isAntiAlias = true
+                            setPoints(listOf(GeoPoint(wall.lat1, wall.lon1), GeoPoint(wall.lat2, wall.lon2)))
+                        }
+                        interiorPathCache.add(line)
+                        view.overlays.add(line)
+                    }
+                    // 3) CAMINOS del navGraph (verde = caminable, naranja = autos).
                     uiState.landmarks.forEach { lm ->
                         val ng = lm.navGraph ?: return@forEach
                         ng.ways.forEach { w ->

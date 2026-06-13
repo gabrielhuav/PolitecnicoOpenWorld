@@ -266,12 +266,15 @@ matrices por defecto son **border-only** hasta reemplazarse.
   `global_zombie_hand`. El modo zombi global se activa SOLO por Opciones → "Activar/Desactivar
   Apocalipsis" (y el botón flotante de salida). El game loop sigue llamando a `spawnEscomItems` al entrar
   a ESCOM, pero ahora solo marca `isZombieHandSpawned=true` (sin mano). No re-spawnear la mano.
-- **"Debug Interiores" dibuja el navGraph:** el overlay (`showInteriorDebugOverlay`) ahora, además de los
-  puntos de edificios + bbox de ESCOM, dibuja los **caminos del `navGraph` de cada landmark**: VERDE =
-  `isForPeople` (por dónde se camina), NARANJA = `isForCars`. Implementado en **OSM nativo** (`NativeOsmMap`,
-  polilíneas cacheadas, rebuild solo si cambian los landmarks) y **web** (`updateInteriorPaths` en
-  `WorldMapLeafletHtml`; el VM convierte `localX/localY → global` con `toGlobalGeoPoint` antes de enviar).
-  Google nativo = pendiente (como el resto del overlay de debug).
+- **"Debug Interiores" dibuja el navGraph + zonas NO caminables:** el overlay (`showInteriorDebugOverlay`)
+  además de los puntos de edificios + bbox de ESCOM, dibuja: (a) **caminos del `navGraph`** de cada landmark
+  (VERDE = `isForPeople`, NARANJA = `isForCars`), y (b) las **colisiones** de `exterior_collisions.json`:
+  **polígonos ROJOS translúcidos** = `exteriorCollisions.polygons` (zonas donde NO se puede caminar, p. ej. el
+  edificio ESCOM) + **líneas ROJAS** = `walls` (bardas). `exteriorCollisions` antes era privado del VM; ahora
+  se expone en `WorldMapState` (`loadExteriorCollisions` hace `_uiState.update`) para poder dibujarlo.
+  Implementado en **OSM nativo** (`NativeOsmMap`: `Polygon`/`Polyline` cacheados, rebuild solo si cambian
+  landmarks o colisiones) y **web** (`updateInteriorPaths` recibe `{paths, blocks, walls}`; el VM convierte
+  `localX/localY → global` con `toGlobalGeoPoint`). Google nativo = pendiente (como el resto del overlay).
 - **Zoom automático por estado + SUAVIZADO:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
   loop miembro) cambia `targetZoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
   `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del

@@ -351,6 +351,7 @@ fun WorldMapScreen(
     // estado del overlay o la lista de landmarks (no por frame).
     val lastWebIpOn = remember { booleanArrayOf(false) }
     val lastWebIpLm = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Landmark>>(1) }
+    val lastWebIpColl = remember { arrayOfNulls<ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig>(1) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
@@ -1234,11 +1235,13 @@ fun WorldMapScreen(
                         // para ver por dónde se puede caminar (verde) y por dónde van autos (naranja).
                         // Convertimos localX/localY → global aquí (el Leaflet no tiene esa geometría).
                         val ipOn = uiState.showInteriorDebugOverlay
-                        if (ipOn != lastWebIpOn[0] || (ipOn && uiState.landmarks !== lastWebIpLm[0])) {
+                        if (ipOn != lastWebIpOn[0] || (ipOn && (uiState.landmarks !== lastWebIpLm[0] || uiState.exteriorCollisions !== lastWebIpColl[0]))) {
                             lastWebIpOn[0] = ipOn
                             lastWebIpLm[0] = uiState.landmarks
+                            lastWebIpColl[0] = uiState.exteriorCollisions
                             if (ipOn) {
-                                val ipPayload = uiState.landmarks.flatMap { lm ->
+                                // Caminos del navGraph (verde/naranja).
+                                val paths = uiState.landmarks.flatMap { lm ->
                                     val ng = lm.navGraph ?: return@flatMap emptyList<Map<String, Any>>()
                                     ng.ways.filter { it.nodes.size >= 2 }.map { w ->
                                         mapOf(
@@ -1251,9 +1254,21 @@ fun WorldMapScreen(
                                         )
                                     }
                                 }
-                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths(${JSONObject.quote(gson.toJson(ipPayload))});", null)
+                                // Zonas NO caminables (polígonos rojos) + bardas (líneas rojas).
+                                val cfg = uiState.exteriorCollisions
+                                val blocks = cfg?.polygons?.filter { it.nodes.size >= 3 }?.mapIndexed { i, poly ->
+                                    mapOf("id" to "blk_$i", "nodes" to poly.nodes.map { mapOf("lat" to it.lat, "lng" to it.lon) })
+                                } ?: emptyList()
+                                val walls = cfg?.walls?.mapIndexed { i, wl ->
+                                    mapOf("id" to "wl_$i", "nodes" to listOf(
+                                        mapOf("lat" to wl.lat1, "lng" to wl.lon1),
+                                        mapOf("lat" to wl.lat2, "lng" to wl.lon2)
+                                    ))
+                                } ?: emptyList()
+                                val ipObj = mapOf("paths" to paths, "blocks" to blocks, "walls" to walls)
+                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths(${JSONObject.quote(gson.toJson(ipObj))});", null)
                             } else {
-                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths('[]');", null)
+                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths('{}');", null)
                             }
                         }
                         val destMarker = uiState.destinationMarker
