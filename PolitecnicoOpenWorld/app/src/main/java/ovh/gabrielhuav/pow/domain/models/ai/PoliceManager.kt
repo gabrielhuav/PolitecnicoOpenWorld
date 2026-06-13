@@ -64,6 +64,7 @@ class PoliceManager {
     data class PoliceTick(
         val units: List<Npc>,
         val damage: Float,
+        val prankedyDamage: Float = 0f,
         val impact: Boolean,
         val destroyedIds: List<String>,
         val adjacentThreat: Boolean,  // policía a pie pegado a tu auto → posible carjack
@@ -106,6 +107,18 @@ class PoliceManager {
             else units[u.id] = u.copy(health = nh)
         }
         return destroyed
+    }
+
+    // El jugador SE SUBE a una patrulla: la quitamos de las unidades activas y la
+    // devolvemos para que el VM la convierta en su vehículo. Devuelve null si el id no
+    // es una patrulla (POLICE_CAR). El VM debe difundir POLICE_DESTROY con ese id.
+    fun boardPatrol(id: String): Npc? {
+        val u = units[id] ?: return null
+        if (u.type != NpcType.POLICE_CAR) return null
+        units.remove(id)
+        punchCooldowns.remove(id); shootCooldowns.remove(id)
+        forgetCar(id)
+        return u
     }
 
     fun clearAll(): List<String> {
@@ -190,11 +203,13 @@ class PoliceManager {
         playerInVehicle: Boolean,
         now: Long,
         snap: ((GeoPoint) -> GeoPoint)? = null,
-        pathfind: ((GeoPoint, GeoPoint) -> List<GeoPoint>)? = null
+        pathfind: ((GeoPoint, GeoPoint) -> List<GeoPoint>)? = null,
+        prankedyLoc: GeoPoint? = null,
+        isPrankedyFighting: Boolean = false
     ): PoliceTick {
         // ─── RETIRADA ───────────────────────────────────────────────────────────
         if (wantedLevel <= 0) {
-            if (units.isEmpty()) return PoliceTick(emptyList(), 0f, false, emptyList(), false)
+            if (units.isEmpty()) return PoliceTick(emptyList(), 0f, 0f, false, emptyList(), false)
             val destroyed = ArrayList<String>()
             for (unit in units.values.toList()) {
                 val dLat = unit.location.latitude - playerLat
@@ -209,11 +224,12 @@ class PoliceManager {
                 val (loc, rot) = stepOnRoad(unit.location, awayLat, awayLon, spd, snap)
                 units[unit.id] = unit.copy(location = loc, rotationAngle = rot, isMoving = true)
             }
-            return PoliceTick(units.values.toList(), 0f, false, destroyed, false)
+            return PoliceTick(units.values.toList(), 0f, 0f, false, destroyed, false)
         }
 
         val destroyed = ArrayList<String>()
         var damage = 0f
+        var prankedyDamage = 0f
         var impact = false
         var adjacent = false
         val shots = ArrayList<Pair<GeoPoint, GeoPoint>>()
@@ -300,18 +316,24 @@ class PoliceManager {
                         // En coche NO te golpean: si están pegados a tu auto, te bajan (carjack).
                         if (dist <= ADJACENT_DIST) adjacent = true
                     } else {
+                        val prankedyIsTarget = isPrankedyFighting && prankedyLoc != null && dist(unit.location.latitude, unit.location.longitude, prankedyLoc.latitude, prankedyLoc.longitude) <= PUNCH_DIST * 1.5
                         if (dist <= PUNCH_DIST) {
                             val last = punchCooldowns[unit.id] ?: 0L
                             if (now - last >= PUNCH_COOLDOWN_MS) {
-                                punchCooldowns[unit.id] = now; damage += PUNCH_DAMAGE; impact = true
+                                punchCooldowns[unit.id] = now
+                                if (prankedyIsTarget) { prankedyDamage += PUNCH_DAMAGE } else { damage += PUNCH_DAMAGE }
+                                impact = true
                             }
                         }
                         // canShoot es el nivel ACTUAL (≥3 estrellas), no el que tenía al
                         // aparecer: así no te disparan al bajar de estrellas ni con 1★.
+                        val prankedyIsShootTarget = isPrankedyFighting && prankedyLoc != null && dist(unit.location.latitude, unit.location.longitude, prankedyLoc.latitude, prankedyLoc.longitude) <= SHOOT_RANGE
                         if (canShoot && dist > PUNCH_DIST && dist <= SHOOT_RANGE) {
                             val last = shootCooldowns[unit.id] ?: 0L
                             if (now - last >= SHOOT_COOLDOWN_MS) {
-                                shootCooldowns[unit.id] = now; damage += SHOOT_DAMAGE; impact = true
+                                shootCooldowns[unit.id] = now
+                                if (prankedyIsShootTarget) { prankedyDamage += SHOOT_DAMAGE } else { damage += SHOOT_DAMAGE }
+                                impact = true
                                 shots.add(unit.location to GeoPoint(playerLat, playerLon)) // bala visible
                             }
                         }
@@ -321,7 +343,7 @@ class PoliceManager {
             }
         }
 
-        return PoliceTick(units.values.toList(), damage, impact, destroyed, adjacent, shots)
+        return PoliceTick(units.values.toList(), damage, prankedyDamage, impact, destroyed, adjacent, shots)
     }
 
     private fun dist(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {

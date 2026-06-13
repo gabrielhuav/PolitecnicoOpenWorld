@@ -41,6 +41,7 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Menú anidado de opciones | `ui/components/OptionsMenu.kt` |
 | Panel del modo diseñador | `ui/components/Designerpanel.kt` |
 | Sprites NPC | `ui/components/CharacterSpriteManager.kt`, `VehicleSpriteManager.kt`, `PoliceSpriteManager.kt` |
+| NPC especial Prankedy (IA/VM/render) | `domain/models/ai/PrankedyManager.kt` (ver 03), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
 
 ---
 
@@ -99,7 +100,7 @@ carga calles (caché Room → si no, Overpass con backoff exponencial 1s→30s).
 load roads (Room cache → else Overpass with exponential backoff 1s→30s). Then, per tick:
 
 ```
-1. ESCOM hand sync: dentro de ESCOM + red lista → spawnear ZombiHand; fuera → borrarla.
+1. ESCOM sync: dentro de ESCOM + red lista → `spawnEscomItems` (ya **NO** spawnea la mano; solo marca el flag); fuera → limpia.
 2. cada 30 ticks → trySpawningCollectible; siempre → checkCollectibleProximity, checkDestinationArrival.
 3. cada 30 ticks (si hay marker) → updateDestinationRoute.
 4. si playerAction==SPECIAL → performPlayerAttack (golpe a NPCs Y jugadores remotos, ATTACK_RADIUS=0.00022 ~24 m).
@@ -194,6 +195,15 @@ export/importLandmarksToUri/FromUri`), `toggleDesignerMode/showAssetPicker/selec
 teleport (`teleportTo(lat,lon)`, `teleportToMetroStation(name)`, `toggleTeleportMenu`),
 `takeDamage(amount)`, `heal(amount)`, `onClaimCollectiblePressed`, widgets (`toggleCacheWidget/FpsWidget`).
 
+> **`onInteractButtonPressed` (botón Y, MIEMBRO):** sube/baja del coche. Si no hay coche civil (CAR) en
+> `remoteEntities` dentro de `INTERACT_RADIUS`, ahora intenta **subir a una PATRULLA** (POLICE_CAR) vía
+> `policeManager.boardPatrol(id)`: la roba, difunde `POLICE_DESTROY` y fija `wantedLevel=5` (robar una
+> patrulla = máximo nivel de búsqueda). **Skin conducible:** `isDrivingPoliceCar` en `WorldMapState` hace
+> que `PlayerCharacter` dibuje el asset de `PoliceSpriteManager` (overlay común a los 3 renderers).
+> **Al bajarte**, el coche queda como `type=CAR` con `Npc.isPoliceSkin=true` (no POLICE_CAR, que la IA
+> despawnearía): los 3 renderers lo dibujan como patrulla con `type==POLICE_CAR || isPoliceSkin`, y es
+> re-abordable (al re-subir, `isDrivingPoliceCar = carNpc.isPoliceSkin`). Ver 09.
+
 **Wanted/policía (internal):** `raiseWantedLevel(amount=1)`, `tickWantedDecay(now)`,
 `anyAggressorAdjacent(loc, now)`, `handleCarjack(driving, aggressorAdjacent, now)`,
 `forceExitVehicle()`, `runPoliceTick(location)`, `fireImpactEffect()`.
@@ -208,6 +218,11 @@ o **Web** (WebView + Leaflet con HTML de `WorldMapLeafletHtml`). El **fog Compos
 usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Canvas` fog is used
 **only** for the Google native renderer.
 
+> **Culling de NPCs = borde del fog:** `NPC_CULL_MARGIN_M=0` (antes 15) → los 3 renderers (que usan
+> `npcVisionRadiusMeters() = NPC_FOG_VISION_METERS + margen`) dibujan civiles SOLO dentro de los 70 m del
+> fog (antes hasta 85 m → "veo NPCs fuera del fog"). Policía fuera del fog = waypoint 🚓 (`wantedLevel>0`),
+> Prankedy = render propio sin culling → **ambos siempre visibles**. Ver 09.
+
 ### `NativeOsmMap.kt` (osmdroid)
 - **`FogOverlay`** anclado al jugador cada frame; rect del tamaño de pantalla a pie, sobredimensionado
   a la diagonal **solo al conducir** (rotación). Evita rellenar ~10× el área cada frame.
@@ -215,7 +230,13 @@ usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Can
   reales hasta z19). Default OSM = zoom máx 22.
 - **Lambda `update` ~30 Hz — mantener barata** (ver 09): landmarks `GroundOverlay` solo re-`setPosition`/
   `setImage` cuando cambia su firma (`landmarkSigCache`); las puertas (`DOORS/`) sí refrescan cada frame;
-  ~160 marcadores de metro **culleados por viewport** (`Marker.isEnabled`).
+  ~160 marcadores de metro con el **icono `metroCDMX/icon.webp`** (24 dp, `ExactSizeDrawable`), **culleados
+  por viewport** (`Marker.isEnabled`).
+- **Icono del Metro en los 3 renderers (paridad):** cada estación de `metroStations` (cargado de
+  `res/raw/metro.json`) muestra `metroCDMX/icon.webp`. OSM nativo = `Marker` 24 dp; **web** = `updateMetro`
+  en `WorldMapLeafletHtml` (img fija ~26 px vía `file:///android_asset/`, push con guarda desde
+  `WorldMapScreen`, `lastWebMetroHolder` + heartbeat); **Google nativo** = `Marker` 24 dp con
+  `BitmapDescriptor` cacheado. Tamaño FIJO en pantalla (no metros), como los demás POIs de metro.
 - Patrulla 🚓 fuera de la fog: marcador + línea de ruta (cachés recordadas, **NO** view tags — añadir
   `R.id`s rompía un hack `id+100`/`id+400` y causaba `ClassCastException`).
 
@@ -243,6 +264,12 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
   orden de acceso** (cap ~384); sus claves embeben salud/zoom/frame → nunca volver a `mutableMapOf` (OOM).
 - `MapZombieSpriteManager` (`ui/components/`) — carga `ZOMBIS_MOD/z_walk/z_walk_1..9.webp` (9 frames),
   `getZombieDrawable(context, npc, timeMs, scale)`. Liberado en `onTrimMemory`.
+- `PrankedySpriteManager` (`ui/components/`) — sprites del **NPC especial Prankedy**: frames `.webp` de
+  `assetsNPC/Prankedy/{p_idle,p_walk,p_run,p_run_tanque,p_atack}` + proyectil `p_objeto`, con `LruCache`
+  + emoji de fallback. Render en **OSM nativo** (`renderPrankedyOnMap` en `NativeOsmMap`, ~1.3 m como un
+  peatón, **sin** indicador flotante, proyectil interpolado encima de la niebla) **y web** (`updatePrankedy`/
+  `updatePrankedyProjectile` en `WorldMapLeafletHtml`, base64 por frame empujado desde `WorldMapScreen`).
+  Google nativo = pendiente. IA/comportamiento → ver 03.
 - **LOD de emojis (gama baja):** si `uiState.npcEmojiLod` (Ajustes→Jugabilidad), `NativeOsmMap` dibuja los
   NPCs a **>40 m** del jugador como un **emoji barato** (🧍/🚗/🧟/👮 cacheado por tipo+tamaño) en vez del
   sprite/bitmap completo; solo los muy cercanos llevan el asset. Recorta el costo de render. **Solo OSM
@@ -258,7 +285,8 @@ global replicado en multijugador. Modelos + IA del zombi → ver **03**.
 in multiplayer. Zombie models + AI → see **03**.
 
 - **Estado:** `WorldMapState.globalZombieMode: Boolean`. El game loop hace `npcAiManager.globalZombieMode = uiState.globalZombieMode` cada tick.
-- **Activación:** (a) mano **"Mano del Apocalipsis"** fija en ESCOM (`handleInteraction()` → `toggleGlobalZombieMode()`); (b) **ítem de menú "Activar/Desactivar Apocalipsis"** (Opciones) que funciona en cualquier lugar; (c) **botón flotante de salida** cuando está activo (`exitGlobalZombieMode()`).
+- **Activación:** (a) **ítem de menú "Activar/Desactivar Apocalipsis"** (Opciones) que funciona en cualquier lugar; (b) **botón flotante de salida** cuando está activo (`exitGlobalZombieMode()`). *(La antigua mano "Mano del Apocalipsis" en ESCOM fue ELIMINADA — `spawnEscomItems` ya no la crea; ver 09.)*
+- **Debug Interiores (`showInteriorDebugOverlay`, menú Mapa):** además de los puntos de edificios + bbox de ESCOM, dibuja los **caminos del `navGraph`** (VERDE=peatonal, NARANJA=autos) y las **zonas NO caminables** de `exterior_collisions.json` (**polígonos ROJOS** = `exteriorCollisions.polygons`, p. ej. el edificio ESCOM; **líneas ROJAS** = `walls`/bardas). `exteriorCollisions` se expone en `WorldMapState`. OSM nativo (`NativeOsmMap`) + web (`updateInteriorPaths` recibe `{paths, blocks, walls}`); Google nativo pendiente. Ver 09.
 - **VM API:** `toggleGlobalZombieMode()` (flip + broadcast `ZOMBIE_MODE_SET`), `exitGlobalZombieMode()`.
 - **Daño al jugador (¡crítico!):** los zombis muerden vía `applyNpcContactDamage(location)` y el atropello vía `runOverNpcs(finalLoc, speed)`. **Estas dos llamadas viven en el game loop MIEMBRO de `WorldMapViewModel.kt`** (el activo). La extensión `WorldMapGameLoop.kt` también las tiene pero está **sombreada/muerta** — editar solo el miembro (ver 09).
 - **Multijugador:** el Host simula los zombis y los replica por `NPC_BATCH_UPDATE` (conserva `npcType=ZOMBIE` + health/isDying). El toggle viaja en `ZOMBIE_MODE_SET` (global) — relayado por `Multiplayer/server.js` (NO por `MultiplayerInteriores/`). `addRemoteEntity` reconstruye el zombi remoto con `visualConfig=null` y `speed=PERSON_SPEED` (animan). Ver **08**.

@@ -246,6 +246,9 @@ class WorldMapViewModel(
     // ─── NIVEL DE BÚSQUEDA / POLICÍA ─────────────────────────────────────────
     internal val policeManager = ovh.gabrielhuav.pow.domain.models.ai.PoliceManager()
     internal val MAX_WANTED_LEVEL = 5
+
+    // ─── PRANKEDY (NPC compañero) ─────────────────────────────────────────────
+    internal val prankedyManager = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager()
     // Policía REMOTA (de otros jugadores): solo se renderiza, no se simula. id -> (npc, lastSeenMs).
     internal val remotePolice = ConcurrentHashMap<String, Npc>()
     internal val remotePoliceSeen = ConcurrentHashMap<String, Long>()
@@ -289,6 +292,9 @@ class WorldMapViewModel(
         }
         spawnShineCTOMarker() // AUTO-SPAWN: Coloca la entrada interactuable de Shine CTO al iniciar
         startGameLoop()
+        
+        // Si ya tenemos una ubicación (p. ej. tras una restauración de estado), intentar spawn
+        _uiState.value.currentLocation?.let { checkPrankedySpawn(it) }
     }
 
 // ─── WEBSOCKET MULTIJUGADOR ───────────────────────────────────────────────────
@@ -551,29 +557,9 @@ class WorldMapViewModel(
                                 val finalLoc = if (distToRoad <= maxRoadRadius) {
                                     tempLoc
                                 } else {
-                                    // Te saliste (curva/bifurcación): en vez de "chocar y pararte", AUTO-DIRECCIONA
-                                    // el coche hacia la calle y baja la velocidad de forma PROPORCIONAL (drástica
-                                    // solo en desvíos grandes). Así, dejando acelerar, el coche SIGUE la carretera.
-                                    val overshoot = ((distToRoad - maxRoadRadius) / maxRoadRadius).coerceIn(0.0, 1.0)
-                                    currentSpeed *= (1.0 - 0.30 * overshoot)
-                                    // Dirección de la calle: muestreamos un punto ~22 m adelante en el sentido
-                                    // del coche y vemos hacia dónde sigue la red.
-                                    val aheadRoad = getNearestPointOnNetwork(
-                                        GeoPoint(nearestRoadPoint.latitude + cos(angleRad) * 0.0002,
-                                            nearestRoadPoint.longitude + sin(angleRad) * 0.0002)
-                                    )
-                                    var roadBearing = Math.toDegrees(
-                                        atan2(aheadRoad.longitude - nearestRoadPoint.longitude,
-                                            aheadRoad.latitude - nearestRoadPoint.latitude)
-                                    ).toFloat()
-                                    // Que apunte hacia donde VA el coche (no al sentido contrario).
-                                    var diff = ((roadBearing - currentRotation + 540f) % 360f) - 180f
-                                    if (kotlin.math.abs(diff) > 90f) {
-                                        roadBearing = (roadBearing + 180f) % 360f
-                                        diff = ((roadBearing - currentRotation + 540f) % 360f) - 180f
-                                    }
-                                    currentRotation += diff * 0.35f
-                                    nearestRoadPoint
+                                    // Te saliste de la calle: literalmente no avanzas, te frenas en seco.
+                                    currentSpeed = 0.0
+                                    location
                                 }
 
                                 _uiState.update {
@@ -599,6 +585,16 @@ class WorldMapViewModel(
                         // (Faltaba esta llamada en el loop miembro → ni los NPCs agresivos ni los
                         // zombis hacían daño; solo estaba en la extensión muerta.)
                         applyNpcContactDamage(location)
+
+                        // COMPAÑERO PRANKEDY: spawn diferido + tick de IA (seguir/correr/combatir/
+                        // animar/proyectil/diálogo). Cada cliente lo simula para SU propio jugador
+                        // (local, como la policía). Antes vivía SOLO en la extensión muerta
+                        // WorldMapGameLoop.kt → el loop MIEMBRO gana y nunca lo ejecutaba, por eso el
+                        // NPC "no aparecía en el mapa" ni seguía al jugador. checkPrankedySpawn es
+                        // idempotente (solo spawnea si location==null && phase!=DEAD) y garantiza el
+                        // spawn aunque updateInitialLocation no se haya disparado.
+                        checkPrankedySpawn(location)
+                        runPrankedyTick(location, System.currentTimeMillis())
 
                         // BALAS de la POLICÍA DEL APOCALIPSIS (caza-zombis): el Host las acumula en
                         // movePoliceHunter; aquí las volcamos a policeShots para DIBUJARLAS (runPoliceTick
@@ -755,6 +751,9 @@ class WorldMapViewModel(
                 exteriorCollisions = Gson().fromJson(jsonString, ExteriorCollisionsConfig::class.java)
 
                 npcAiManager.setExteriorCollisions(exteriorCollisions)
+                // Exponer al estado para el overlay de Debug Interiores (zonas no caminables).
+                val cfg = exteriorCollisions
+                withContext(Dispatchers.Main) { _uiState.update { it.copy(exteriorCollisions = cfg) } }
 
             } catch (e: Exception) {
                 Log.e("Collisions", "Error: ${e.message}")
@@ -1304,8 +1303,11 @@ class WorldMapViewModel(
         sqrt((a.latitude - b.latitude).pow(2) + (a.longitude - b.longitude).pow(2))
 
     fun updateInitialLocation(lat: Double, lon: Double) {
-        if (_uiState.value.isLoadingLocation)
-            _uiState.update { it.copy(currentLocation = GeoPoint(lat, lon), isLoadingLocation = false) }
+        val loc = GeoPoint(lat, lon)
+        if (_uiState.value.isLoadingLocation) {
+            _uiState.update { it.copy(currentLocation = loc, isLoadingLocation = false) }
+            checkPrankedySpawn(loc) // Iniciar spawn del compañero en cuanto sabemos dónde está el jugador
+        }
     }
 
     fun updateActionState(action: GameAction, isPressed: Boolean) {
@@ -1460,6 +1462,8 @@ class WorldMapViewModel(
         val nowMs = System.currentTimeMillis()
         if (nowMs - lastVehicleToggleMs < 450L) return
 
+        // PRANKEDY ya NO es contratable: es un NPC hostil; no hay interacción con X.
+
         if (!_uiState.value.isDriving) {
             val nearbyCarEntry = remoteEntities.entries
                 .filter { it.value.type == NpcType.CAR && distance(loc, it.value.location) <= INTERACT_RADIUS }
@@ -1481,8 +1485,43 @@ class WorldMapViewModel(
                     spawnOustedDriver(carNpc.location)
                     raiseWantedLevel(1) // robar un auto ocupado es delito → +1 estrella
                 }
-                _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false) }
+                // Si el coche traía skin de patrulla (una patrulla que abandonaste), al
+                // re-subirte vuelves a conducirla con el skin de policía.
+                _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false, isDrivingPoliceCar = carNpc.isPoliceSkin) }
                 updateNpcsState()
+                return
+            }
+
+            // PATRULLAS: si no hay coche civil cerca, intenta SUBIRTE a una patrulla. Las
+            // patrullas las posee PoliceManager (no remoteEntities), así que se buscan en
+            // sus unidades activas. Robar una patrulla = nivel de búsqueda MÁXIMO (5★).
+            val nearbyPatrol = policeManager.activeUnits()
+                .filter { it.type == NpcType.POLICE_CAR && distance(loc, it.location) <= INTERACT_RADIUS }
+                .minByOrNull { distance(loc, it.location) }
+            if (nearbyPatrol != null) {
+                val boarded = policeManager.boardPatrol(nearbyPatrol.id)
+                if (boarded != null) {
+                    lastVehicleToggleMs = nowMs
+                    // Avisar a los demás clientes que esa patrulla dejó de existir.
+                    webSocketManager?.let { ws ->
+                        viewModelScope.launch(Dispatchers.IO) {
+                            try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to boarded.id))) } catch (_: Exception) {}
+                        }
+                    }
+                    // Subirse a la patrulla pone TODAS las estrellas (5★).
+                    lastCrimeTime = nowMs
+                    _uiState.update { it.copy(
+                        isDriving = true,
+                        currentVehicleModel = boarded.carModel,
+                        currentVehicleColor = boarded.carColor,
+                        vehicleRotation = (boarded.rotationAngle + 90f) % 360f,
+                        vehicleSpeed = 0.0,
+                        vehicleIsFirstTimeBoarded = false,
+                        isDrivingPoliceCar = true,
+                        wantedLevel = MAX_WANTED_LEVEL
+                    ) }
+                    updateNpcsState()
+                }
             }
         } else {
             lastVehicleToggleMs = nowMs
@@ -1495,10 +1534,13 @@ class WorldMapViewModel(
                 isMoving = false,
                 carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
                 carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt(),
-                isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded
+                isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded,
+                // Si te bajas de una PATRULLA robada, el coche que queda conserva el skin de
+                // patrulla (sigue siendo tipo CAR para que la IA lo conduzca como tráfico).
+                isPoliceSkin = _uiState.value.isDrivingPoliceCar
             )
             remoteEntities[abandonedCar.id] = abandonedCar
-            _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true) }
+            _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }
             updateNpcsState()
         }
     }
@@ -1819,6 +1861,10 @@ class WorldMapViewModel(
         if (playerHealth <= 0f) {
             triggerWastedSequence()
         }
+        // Notificar a Prankedy para que active su búsqueda de agresor
+        if (prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED) {
+            prankedyManager.onPlayerDamaged()
+        }
     }
 
     fun heal(amount: Float) {
@@ -1892,6 +1938,15 @@ class WorldMapViewModel(
         viewModelScope.launch(Dispatchers.Default) {
             delay(300L)
             val playerLoc = _uiState.value.currentLocation ?: return@launch
+            // PRANKEDY hostil: el jugador puede defenderse golpeándolo. Si lo mata, desaparece
+            // y reaparece tras un tiempo (lo gestiona PrankedyManager; el render lo oculta al
+            // quedar su location en null).
+            prankedyManager.location?.let { pkLoc ->
+                if (distance(playerLoc, pkLoc) <= ATTACK_RADIUS) {
+                    prankedyManager.takeDamage(PLAYER_PUNCH_DAMAGE)
+                    viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() }
+                }
+            }
             // MIEDO AL COMBATE (SP y host MP): cada golpe asusta a los civiles cercanos,
             // CONECTE O NO. Así huyen cuando los atacas, aunque falles el puñetazo.
             if (isServerDelegatedHost) {
@@ -2313,35 +2368,18 @@ class WorldMapViewModel(
     }
 
     /**
-     * Spawnea UNA SOLA ZombiHand, pero SOLO si el jugador está dentro de ESCOM.
-     * Si no está en ESCOM, no hace nada (y deja la lista vacía).
+     * Sincroniza los items de ESCOM. La "Mano del Apocalipsis" se ELIMINÓ: ya no se
+     * spawnea ninguna mano (el apocalipsis se activa desde el menú de Opciones).
      */
     fun spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 1) {
-        val center = _uiState.value.currentLocation ?: return
-
-        // ── GUARDA CLAVE: nada de manos fuera de ESCOM ──
-        if (!isInsideEscom(center.latitude, center.longitude)) {
-            _escomItems.value = emptyList()
-            _uiState.update { it.copy(isZombieHandSpawned = false) }
-            return
+        // La "Mano del Apocalipsis" se ELIMINÓ de ESCOM (a petición). El modo zombi global
+        // se activa/desactiva desde Opciones → "Activar/Desactivar Apocalipsis" (o el botón
+        // flotante de salida). Aquí ya no se spawnea ninguna mano: dejamos vacíos los items
+        // de ESCOM y marcamos el flag "sincronizado" para que el game loop no re-llame.
+        if (_escomItems.value.any { it.id == "global_zombie_hand" }) {
+            _escomItems.value = _escomItems.value.filter { it.id != "global_zombie_hand" }
         }
-
-        // Evita duplicar si ya hay una mano spawneada
-        if (_uiState.value.isZombieHandSpawned && _escomItems.value.isNotEmpty()) return
-
-        // Mano zombi desactivada del exterior — el acceso al lobby
-        // ahora se realiza únicamente por las puertas físicas (ESCOM_DOOR).
-        val globalZombieHand = ovh.gabrielhuav.pow.domain.models.ActiveCollectible(
-            id = "global_zombie_hand",
-            name = "Mano del Apocalipsis",
-            description = "Activa el apocalipsis global.",
-            assetPath = "ZOMBIS_MOD/zombi_hand.webp",
-            latitude = 19.50456,
-            longitude = -99.14674
-        )
-        _escomItems.value = listOf(globalZombieHand)
         _uiState.update { it.copy(isZombieHandSpawned = true) }
-        return
     }
 
     fun collectEscomItem() {

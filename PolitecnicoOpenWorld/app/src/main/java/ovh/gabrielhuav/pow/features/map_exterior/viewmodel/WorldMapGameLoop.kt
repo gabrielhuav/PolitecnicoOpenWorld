@@ -203,6 +203,13 @@ internal fun WorldMapViewModel.startGameLoop() {
                             _uiState.value.currentLocation?.let { runPoliceTick(it) }
                         }
 
+                        // PRANKEDY: compañero/mercenario. Tick independiente del sistema de policía.
+                        if (!_uiState.value.showWastedScreen) {
+                            _uiState.value.currentLocation?.let { loc ->
+                                runPrankedyTick(loc, System.currentTimeMillis())
+                            }
+                        }
+
                         maybeRefetchRoadNetwork(location)
                         // El throttle (cada 5 ticks) es el control de frecuencia deseado.
                         // Antes había además una llamada incondicional aquí que lo anulaba y
