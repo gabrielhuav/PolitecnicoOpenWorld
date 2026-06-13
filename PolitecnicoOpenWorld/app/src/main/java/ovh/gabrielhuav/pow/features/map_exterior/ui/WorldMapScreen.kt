@@ -118,6 +118,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsCont
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyHireDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuGroup
@@ -164,6 +165,8 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.isActive
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
 import kotlin.math.cos
 
 // ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
@@ -1895,6 +1898,31 @@ fun WorldMapScreen(
         Box(modifier = Modifier.fillMaxSize().padding(top = 70.dp), contentAlignment = Alignment.TopCenter) {
             Text(text = promptText, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp, modifier = Modifier.background(color = Color(0xFF3B0D1B).copy(alpha = 0.85f), shape = RoundedCornerShape(8.dp)).padding(horizontal = 24.dp, vertical = 12.dp))
         }
+    }
+
+    uiState.prankedyDialogue?.let { dialogueText ->
+        Box(modifier = Modifier.fillMaxSize().padding(top = 130.dp), contentAlignment = Alignment.TopCenter) {
+            Text(
+                text = dialogueText,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                modifier = Modifier
+                    .background(color = Color(0xFF222222).copy(alpha = 0.9f), shape = RoundedCornerShape(12.dp))
+                    .border(2.dp, Color(0xFFFFCC00), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            )
+        }
+    }
+
+    if (uiState.showPrankedyHireDialog) {
+        PrankedyHireDialog(
+            context = context,
+            isHireable = uiState.prankedyIsHireable,
+            hireableInSeconds = uiState.prankedyHireableInSeconds,
+            onHire = { viewModel.onHirePrankedy() },
+            onDismiss = { viewModel.dismissPrankedyDialog() }
+        )
     }
 
     uiState.showClaimedPopupFor?.let { collectible ->

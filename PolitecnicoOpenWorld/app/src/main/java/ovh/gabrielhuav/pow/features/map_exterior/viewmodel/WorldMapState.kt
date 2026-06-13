@@ -9,6 +9,8 @@ import ovh.gabrielhuav.pow.domain.models.Landmark
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
+import ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState
+import ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase
 
 const val ZOOM_LOADING = 18.0
 const val ZOOM_GAMEPLAY_OSM = 22.0  // Nivel de zoom para OSMDroid Nativo (máximo por defecto)
@@ -182,5 +184,24 @@ data class WorldMapState(
     val zonePrefetchActive: Boolean = false,
     val zonePrefetchProgress: Float = 0f,   // 0f..1f
     val zoneOfflineReady: Boolean = false,
-    val zoneOfflineWarning: Boolean = false
+    val zoneOfflineWarning: Boolean = false,
+
+    // ─── PRANKEDY (compañero / mercenario) ───────────────────────────────────
+    // Campos de RENDER: leídos por NativeOsmMap para dibujar al NPC en el mapa.
+    val prankedyLocation: GeoPoint? = null,
+    val prankedyAnimState: PrankedyAnimState = PrankedyAnimState.IDLE,
+    val prankedyFacingRight: Boolean = true,
+    val prankedyVisible: Boolean = false,          // false = en vehículo o phase DEAD
+    val prankedyHealth: Float = 80f,
+    val prankedyProjectileActive: Boolean = false,
+    val prankedyProjectileStart: GeoPoint? = null,
+    val prankedyProjectileTarget: GeoPoint? = null,
+    val prankedyProjectileProgress: Float = 0f,   // 0f..1f, fracción de vuelo
+    val prankedyPhase: PrankedyPhase = PrankedyPhase.NOT_HIRED,
+    // Campos de UI: modales, diálogo flotante, hint de interacción.
+    val prankedyNearby: Boolean = false,            // jugador en radio de interacción
+    val showPrankedyHireDialog: Boolean = false,    // muestra el modal de contratar
+    val prankedyIsHireable: Boolean = true,         // false = en penalización
+    val prankedyHireableInSeconds: Int = 0,         // countdown de penalización
+    val prankedyDialogue: String? = null            // texto de la burbuja flotante
 )

@@ -246,6 +246,9 @@ class WorldMapViewModel(
     // ─── NIVEL DE BÚSQUEDA / POLICÍA ─────────────────────────────────────────
     internal val policeManager = ovh.gabrielhuav.pow.domain.models.ai.PoliceManager()
     internal val MAX_WANTED_LEVEL = 5
+
+    // ─── PRANKEDY (NPC compañero) ─────────────────────────────────────────────
+    internal val prankedyManager = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager()
     // Policía REMOTA (de otros jugadores): solo se renderiza, no se simula. id -> (npc, lastSeenMs).
     internal val remotePolice = ConcurrentHashMap<String, Npc>()
     internal val remotePoliceSeen = ConcurrentHashMap<String, Long>()
@@ -289,6 +292,9 @@ class WorldMapViewModel(
         }
         spawnShineCTOMarker() // AUTO-SPAWN: Coloca la entrada interactuable de Shine CTO al iniciar
         startGameLoop()
+        
+        // Si ya tenemos una ubicación (p. ej. tras una restauración de estado), intentar spawn
+        _uiState.value.currentLocation?.let { checkPrankedySpawn(it) }
     }
 
 // ─── WEBSOCKET MULTIJUGADOR ───────────────────────────────────────────────────
@@ -1304,8 +1310,11 @@ class WorldMapViewModel(
         sqrt((a.latitude - b.latitude).pow(2) + (a.longitude - b.longitude).pow(2))
 
     fun updateInitialLocation(lat: Double, lon: Double) {
-        if (_uiState.value.isLoadingLocation)
-            _uiState.update { it.copy(currentLocation = GeoPoint(lat, lon), isLoadingLocation = false) }
+        val loc = GeoPoint(lat, lon)
+        if (_uiState.value.isLoadingLocation) {
+            _uiState.update { it.copy(currentLocation = loc, isLoadingLocation = false) }
+            checkPrankedySpawn(loc) // Iniciar spawn del compañero en cuanto sabemos dónde está el jugador
+        }
     }
 
     fun updateActionState(action: GameAction, isPressed: Boolean) {
@@ -1459,6 +1468,20 @@ class WorldMapViewModel(
         // menos de 450 ms de la anterior.
         val nowMs = System.currentTimeMillis()
         if (nowMs - lastVehicleToggleMs < 450L) return
+
+        // ─── PRANKEDY: prioridad de interacción (sobre coleccionables normales) ───
+        // Si el jugador no está conduciendo y Prankedy está cerca y sin contratar,
+        // se muestra el modal de contratación antes de procesar otras interacciones.
+        if (!_uiState.value.isDriving) {
+            val prankedyLoc = prankedyManager.location
+            if (prankedyLoc != null &&
+                prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.NOT_HIRED &&
+                distance(loc, prankedyLoc) <= ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager.PRANKEDY_INTERACT_RADIUS
+            ) {
+                onPrankedyInteract(nowMs)
+                return
+            }
+        }
 
         if (!_uiState.value.isDriving) {
             val nearbyCarEntry = remoteEntities.entries
@@ -1818,6 +1841,10 @@ class WorldMapViewModel(
         }
         if (playerHealth <= 0f) {
             triggerWastedSequence()
+        }
+        // Notificar a Prankedy para que active su búsqueda de agresor
+        if (prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED) {
+            prankedyManager.onPlayerDamaged()
         }
     }
 

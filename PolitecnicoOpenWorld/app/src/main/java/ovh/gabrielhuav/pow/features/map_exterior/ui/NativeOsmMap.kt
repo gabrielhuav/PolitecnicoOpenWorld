@@ -106,6 +106,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickControlle
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
@@ -244,6 +245,10 @@ internal fun NativeOsmMap(
         },
         modifier = Modifier.fillMaxSize(),
         update = { view ->
+            val timeMs = System.currentTimeMillis()
+            val screenDensity = context.resources.displayMetrics.density
+            val highResRenderScale = 1.0f * screenDensity
+
             if (uiState.isDesignerMode) {
                 view.setOnTouchListener(null)
                 view.isClickable = true
@@ -453,10 +458,9 @@ internal fun NativeOsmMap(
             if (pLocB != null) {
                 val mppB = (40075016.686 * Math.cos(Math.toRadians(pLocB.latitude))) /
                         (256.0 * Math.pow(2.0, uiState.zoomLevel))
-                val densB = context.resources.displayMetrics.density
-                val bulletPx = ((0.30 / mppB) * densB).toInt().coerceIn(6, 22) // bala pequeña
-                val gunPx = ((1.0 / mppB) * densB).toInt().coerceIn(14, 72)
-                val nowB = System.currentTimeMillis()
+                val bulletPx = ((0.30 / mppB) * screenDensity).toInt().coerceIn(6, 22) // bala pequeña
+                val gunPx = ((1.0 / mppB) * screenDensity).toInt().coerceIn(14, 72)
+                val nowB = timeMs
                 val BULLET_MS = 420.0
                 // Crece los pools según haga falta.
                 while (policeBulletPool.size < shots.size) {
@@ -499,7 +503,7 @@ internal fun NativeOsmMap(
                 }
 
                 // ─── 📞 NPCs llamando a la policía (carjack) ─────────────────────
-                val phonePx = ((0.9 / mppB) * densB).toInt().coerceIn(12, 64)
+                val phonePx = ((0.9 / mppB) * screenDensity).toInt().coerceIn(12, 64)
                 val callingNpcs = uiState.npcs.filter { it.callingUntil > nowB }
                 val callIds = callingNpcs.map { it.id }.toSet()
                 val phoneIt = phoneCache.iterator()
@@ -520,7 +524,7 @@ internal fun NativeOsmMap(
                 }
 
                 // ─── 📢 Zombis SCOUT gritando (alarma de horda) ──────────────────
-                val screamPx = ((1.0 / mppB) * densB).toInt().coerceIn(14, 72)
+                val screamPx = ((1.0 / mppB) * screenDensity).toInt().coerceIn(14, 72)
                 val screamingNpcs = uiState.npcs.filter {
                     it.type == NpcType.ZOMBIE &&
                         it.zombieRole == ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT &&
@@ -578,9 +582,6 @@ internal fun NativeOsmMap(
 
                 val currentZoom = view.zoomLevelDouble
                 val isZoomedIn = currentZoom >= 16
-                val timeMs = System.currentTimeMillis()
-                val screenDensity = context.resources.displayMetrics.density
-                val highResRenderScale = 1.0f * screenDensity
 
                 // ─── CULLING POR DISTANCIA ──────────────────────────────
                 // OPT: solo reconstruimos los marcadores de NPC cuando la LISTA cambió
@@ -1027,7 +1028,6 @@ internal fun NativeOsmMap(
                 uiState.metroStations.forEach { station ->
                     val marker = metroMarkerCache[station.name] ?: Marker(view).apply {
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        val screenDensity = context.resources.displayMetrics.density
                         val exactPixels = (24 * screenDensity).toInt()
                         val cacheKey = "OSM_METRO_ICON"
                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
@@ -1116,11 +1116,134 @@ internal fun NativeOsmMap(
                     (NPC_FOG_VISION_METERS / mpp).toFloat() else 300f
                 // Mantener la neblina SIEMPRE al frente (los marcadores se añaden después).
                 view.overlays.remove(fog); view.overlays.add(fog)
-                view.invalidate()
             }
+
+            // ─── PRANKEDY: renderizado siempre en capa superior (tras la niebla) ──
+            renderPrankedyOnMap(view, uiState, context, nativeDrawableCache, screenDensity, timeMs)
+
+            view.invalidate()
         }
     )
 }
+
+private fun renderPrankedyOnMap(
+    view: MapView,
+    uiState: WorldMapState,
+    context: Context,
+    nativeDrawableCache: MutableMap<String, android.graphics.drawable.Drawable>,
+    screenDensity: Float,
+    timeMs: Long
+) {
+    val prankedyTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 700
+    val prankedyProjTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 701
+    val prankedyIndicatorTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 702
+
+    val prankedyLoc = uiState.prankedyLocation
+    
+    // LOG de depuración para ver qué le llega al renderer
+    if (prankedyLoc != null) {
+        android.util.Log.d("PrankedyRender", "Loc=$prankedyLoc Visible=${uiState.prankedyVisible} Driving=${uiState.isDriving}")
+    }
+
+    // Si hay ubicación, lo mostramos (ignoramos prankedyVisible para forzar el debug)
+    val shouldShow = prankedyLoc != null && !uiState.isDriving
+    
+    val prankedyMarker = (view.getTag(prankedyTag) as? Marker) ?: Marker(view).apply {
+        title = "PRANKEDY_MARKER"
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        setInfoWindow(null)
+        view.setTag(prankedyTag, this)
+        view.overlays.add(this) // al final de overlays (arriba de todo)
+    }
+
+    val prankedyIndicatorMarker = (view.getTag(prankedyIndicatorTag) as? Marker) ?: Marker(view).apply {
+        title = "PRANKEDY_INDICATOR"
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) // Flota arriba
+        setInfoWindow(null)
+        view.setTag(prankedyIndicatorTag, this)
+        view.overlays.add(this)
+    }
+    
+    if (shouldShow) {
+        // Moverlo al final siempre (encima de fog y otros markers)
+        view.overlays.remove(prankedyMarker)
+        view.overlays.add(prankedyMarker)
+        view.overlays.remove(prankedyIndicatorMarker)
+        view.overlays.add(prankedyIndicatorMarker)
+
+        val metersPerPixel = (40075016.686 * kotlin.math.cos(Math.toRadians(prankedyLoc!!.latitude))) /
+                (256.0 * 2.0.pow(view.zoomLevelDouble))
+        // Aumentado a 4.0 metros para que sea GIGANTE
+        val exactPixels = ((4.0 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(100)
+        val cacheKey = "PRANKEDY_${uiState.prankedyAnimState}_${uiState.prankedyFacingRight}_${(timeMs / 180L) % 8}_${exactPixels}"
+        
+        val icon = nativeDrawableCache.getOrPut(cacheKey) {
+            PrankedySpriteManager.getDrawable(context, uiState.prankedyAnimState, timeMs, screenDensity, uiState.prankedyFacingRight)
+                ?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                ?: emojiToDrawable(context, "🎭", exactPixels) // Fallback visible si falla asset
+        }
+        prankedyMarker.icon = icon
+        prankedyMarker.position = prankedyLoc
+        prankedyMarker.isEnabled = true
+        prankedyMarker.setAlpha(1f)
+
+        // Indicador flotante (🎭) - Aumentado a 80dp
+        val indicatorSize = (80 * screenDensity).toInt()
+        val indicatorIcon = nativeDrawableCache.getOrPut("PR_IND_$indicatorSize") {
+            emojiToDrawable(context, "🎭", indicatorSize)
+        }
+        prankedyIndicatorMarker.icon = indicatorIcon
+        prankedyIndicatorMarker.position = prankedyLoc
+        prankedyIndicatorMarker.isEnabled = true
+        prankedyIndicatorMarker.setAlpha(1f)
+        
+    } else {
+        prankedyMarker.isEnabled = false
+        prankedyMarker.setAlpha(0f)
+        prankedyIndicatorMarker.isEnabled = false
+        prankedyIndicatorMarker.setAlpha(0f)
+    }
+
+    // Proyectil
+    val projMarker = (view.getTag(prankedyProjTag) as? Marker) ?: Marker(view).apply {
+        title = "PRANKEDY_PROJ_MARKER"
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        setInfoWindow(null)
+        view.setTag(prankedyProjTag, this)
+        view.overlays.add(this)
+    }
+
+    if (uiState.prankedyProjectileActive && uiState.prankedyProjectileStart != null && uiState.prankedyProjectileTarget != null) {
+        view.overlays.remove(projMarker)
+        view.overlays.add(projMarker)
+
+        val start = uiState.prankedyProjectileStart
+        val end = uiState.prankedyProjectileTarget
+        val p = uiState.prankedyProjectileProgress
+
+        val currentLat = start.latitude + (end.latitude - start.latitude) * p
+        val currentLon = start.longitude + (end.longitude - start.longitude) * p
+        projMarker.position = GeoPoint(currentLat, currentLon)
+
+        val mpp = (40075016.686 * kotlin.math.cos(Math.toRadians(currentLat))) /
+                (256.0 * 2.0.pow(view.zoomLevelDouble))
+        val exactPixels = ((0.6 / mpp) * screenDensity).toInt().coerceAtLeast(8)
+        val cacheKey = "PRANKEDY_PROJ_${(timeMs / 100L) % 4}_${exactPixels}"
+
+        val icon = nativeDrawableCache.getOrPut(cacheKey) {
+            PrankedySpriteManager.getProjectileDrawable(context, timeMs, screenDensity)
+                ?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                ?: emojiToDrawable(context, "📦", exactPixels) // Fallback visible
+        }
+        projMarker.icon = icon
+        projMarker.isEnabled = true
+        projMarker.setAlpha(1f)
+    } else {
+        projMarker.isEnabled = false
+        projMarker.setAlpha(0f)
+    }
+}
+
 
 /**
  * Overlay de osmdroid que pinta la neblina (fog of war) centrada en la posición
