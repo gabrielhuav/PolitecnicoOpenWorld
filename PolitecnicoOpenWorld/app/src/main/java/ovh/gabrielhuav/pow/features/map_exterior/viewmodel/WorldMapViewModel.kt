@@ -606,6 +606,16 @@ class WorldMapViewModel(
                         // zombis hacían daño; solo estaba en la extensión muerta.)
                         applyNpcContactDamage(location)
 
+                        // COMPAÑERO PRANKEDY: spawn diferido + tick de IA (seguir/correr/combatir/
+                        // animar/proyectil/diálogo). Cada cliente lo simula para SU propio jugador
+                        // (local, como la policía). Antes vivía SOLO en la extensión muerta
+                        // WorldMapGameLoop.kt → el loop MIEMBRO gana y nunca lo ejecutaba, por eso el
+                        // NPC "no aparecía en el mapa" ni seguía al jugador. checkPrankedySpawn es
+                        // idempotente (solo spawnea si location==null && phase!=DEAD) y garantiza el
+                        // spawn aunque updateInitialLocation no se haya disparado.
+                        checkPrankedySpawn(location)
+                        runPrankedyTick(location, System.currentTimeMillis())
+
                         // BALAS de la POLICÍA DEL APOCALIPSIS (caza-zombis): el Host las acumula en
                         // movePoliceHunter; aquí las volcamos a policeShots para DIBUJARLAS (runPoliceTick
                         // de abajo las expira a 450 ms, igual que las de la policía normal).
@@ -1469,19 +1479,7 @@ class WorldMapViewModel(
         val nowMs = System.currentTimeMillis()
         if (nowMs - lastVehicleToggleMs < 450L) return
 
-        // ─── PRANKEDY: prioridad de interacción (sobre coleccionables normales) ───
-        // Si el jugador no está conduciendo y Prankedy está cerca y sin contratar,
-        // se muestra el modal de contratación antes de procesar otras interacciones.
-        if (!_uiState.value.isDriving) {
-            val prankedyLoc = prankedyManager.location
-            if (prankedyLoc != null &&
-                prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.NOT_HIRED &&
-                distance(loc, prankedyLoc) <= ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager.PRANKEDY_INTERACT_RADIUS
-            ) {
-                onPrankedyInteract(nowMs)
-                return
-            }
-        }
+        // PRANKEDY ya NO es contratable: es un NPC hostil; no hay interacción con X.
 
         if (!_uiState.value.isDriving) {
             val nearbyCarEntry = remoteEntities.entries
@@ -1919,6 +1917,15 @@ class WorldMapViewModel(
         viewModelScope.launch(Dispatchers.Default) {
             delay(300L)
             val playerLoc = _uiState.value.currentLocation ?: return@launch
+            // PRANKEDY hostil: el jugador puede defenderse golpeándolo. Si lo mata, desaparece
+            // y reaparece tras un tiempo (lo gestiona PrankedyManager; el render lo oculta al
+            // quedar su location en null).
+            prankedyManager.location?.let { pkLoc ->
+                if (distance(playerLoc, pkLoc) <= ATTACK_RADIUS) {
+                    prankedyManager.takeDamage(PLAYER_PUNCH_DAMAGE)
+                    viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() }
+                }
+            }
             // MIEDO AL COMBATE (SP y host MP): cada golpe asusta a los civiles cercanos,
             // CONECTE O NO. Así huyen cuando los atacas, aunque falles el puñetazo.
             if (isServerDelegatedHost) {

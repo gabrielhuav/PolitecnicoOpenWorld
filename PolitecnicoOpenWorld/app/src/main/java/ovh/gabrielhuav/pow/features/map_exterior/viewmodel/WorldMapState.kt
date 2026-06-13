@@ -188,6 +188,7 @@ data class WorldMapState(
 
     // ─── PRANKEDY (compañero / mercenario) ───────────────────────────────────
     // Campos de RENDER: leídos por NativeOsmMap para dibujar al NPC en el mapa.
+    val prankedyEnabled: Boolean = false,            // toggle del menú Opciones (Activar Prankedy)
     val prankedyLocation: GeoPoint? = null,
     val prankedyAnimState: PrankedyAnimState = PrankedyAnimState.IDLE,
     val prankedyFacingRight: Boolean = true,

@@ -22,6 +22,7 @@ import ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase
  * inicial del jugador es conocida o tras un respawn.
  */
 internal fun WorldMapViewModel.checkPrankedySpawn(playerLoc: GeoPoint, now: Long = System.currentTimeMillis()) {
+    if (!_uiState.value.prankedyEnabled) return
     val pm = prankedyManager
     if (pm.location == null && pm.phase != PrankedyPhase.DEAD) {
         android.util.Log.d("Prankedy", "Forzando spawn en $playerLoc (RoadsReady=${_uiState.value.isRoadNetworkReady})")
@@ -47,6 +48,7 @@ internal fun WorldMapViewModel.checkPrankedySpawn(playerLoc: GeoPoint, now: Long
  * Debe llamarse cada tick del game loop (33 ms).
  */
 internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
+    if (!_uiState.value.prankedyEnabled) return
     val pm = prankedyManager
 
     // Ejecutar la IA
@@ -55,8 +57,23 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
         npcs       = remoteEntities.values.toList(),
         isDriving  = _uiState.value.isDriving,
         now        = now,
-        roadNetwork = roadNetwork
+        roadNetwork = roadNetwork,
+        // Mantiene a Prankedy SOBRE las calles (mismo índice espacial que usa el jugador).
+        snapToRoad = { p -> if (_uiState.value.isRoadNetworkReady) getNearestPointOnNetwork(p) else p }
     )
+
+    // Si Prankedy murió este tick, avisar al jugador (location ya es null → el render lo oculta).
+    if (result.justDied) {
+        _uiState.update { it.copy(
+            interactionPrompt = "🎭 ¡Prankedy cayó! Volverá más tarde…",
+            showPrankedyHireDialog = false
+        ) }
+    }
+
+    // Si el proyectil golpeó AL JUGADOR, bajarle vida (Prankedy es hostil).
+    if (result.hitPlayer) {
+        takeDamage(result.projectileDamage)
+    }
 
     // Aplicar resultado: si el proyectil impactó a un NPC, aplicar daño
     result.hitNpcId?.let { npcId ->
@@ -71,14 +88,8 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
         }
     }
 
-    // Detectar si el jugador está cerca de Prankedy (para hint de interacción)
-    val prankedyLoc = pm.location
-    val nearby = prankedyLoc != null &&
-        pm.phase == PrankedyPhase.NOT_HIRED &&
-        !_uiState.value.isDriving &&
-        distance(playerLoc, prankedyLoc) <= PrankedyManager.PRANKEDY_INTERACT_RADIUS
-
     // Sincronizar WorldMapState con el estado de PrankedyManager
+    val prankedyLoc = pm.location
     val proj = pm.projectileActive
     _uiState.update { st ->
         st.copy(
@@ -92,17 +103,9 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
             prankedyProjectileTarget = if (proj) pm.projectileTarget else null,
             prankedyProjectileProgress = pm.projectileProgress,
             prankedyPhase            = pm.phase,
-            prankedyNearby           = nearby,
+            prankedyNearby           = false,
             prankedyDialogue         = if (pm.currentDialogue != null && now < pm.dialogueUntil)
-                                          pm.currentDialogue else null,
-            // Sólo actualizar interactionPrompt si Prankedy tiene prioridad y no hay otro prompt activo
-            interactionPrompt = when {
-                nearby && st.interactionPrompt == null ->
-                    "PRESIONA X PARA HABLAR CON PRANKEDY 🎭"
-                !nearby && st.interactionPrompt == "PRESIONA X PARA HABLAR CON PRANKEDY 🎭" ->
-                    null
-                else -> st.interactionPrompt
-            }
+                                          pm.currentDialogue else null
         )
     }
 }
@@ -141,4 +144,23 @@ fun WorldMapViewModel.onHirePrankedy() {
 /** Cierra el modal de contratación sin contratar. */
 fun WorldMapViewModel.dismissPrankedyDialog() {
     _uiState.update { it.copy(showPrankedyHireDialog = false) }
+}
+
+/** Activa o desactiva a Prankedy (NPC hostil) desde el menú de Opciones. */
+fun WorldMapViewModel.togglePrankedy() {
+    val enabled = !_uiState.value.prankedyEnabled
+    if (enabled) {
+        _uiState.update { it.copy(prankedyEnabled = true) }
+        _uiState.value.currentLocation?.let { checkPrankedySpawn(it) }
+    } else {
+        prankedyManager.deactivate()
+        _uiState.update {
+            it.copy(
+                prankedyEnabled = false,
+                prankedyVisible = false,
+                prankedyLocation = null,
+                prankedyProjectileActive = false
+            )
+        }
+    }
 }

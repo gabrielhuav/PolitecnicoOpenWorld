@@ -1139,13 +1139,10 @@ private fun renderPrankedyOnMap(
     val prankedyIndicatorTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 702
 
     val prankedyLoc = uiState.prankedyLocation
-    
-    // LOG de depuración para ver qué le llega al renderer
-    if (prankedyLoc != null) {
-        android.util.Log.d("PrankedyRender", "Loc=$prankedyLoc Visible=${uiState.prankedyVisible} Driving=${uiState.isDriving}")
-    }
 
-    // Si hay ubicación, lo mostramos (ignoramos prankedyVisible para forzar el debug)
+    // Mostramos a Prankedy si tiene ubicación y el jugador NO va en coche (al conducir el
+    // compañero "sube" → su asset se oculta; reaparece al bajarse). Esto cubre las fases
+    // NOT_HIRED (vagabundo) y HIRED (compañero); en fase DEAD location es null → oculto.
     val shouldShow = prankedyLoc != null && !uiState.isDriving
     
     val prankedyMarker = (view.getTag(prankedyTag) as? Marker) ?: Marker(view).apply {
@@ -1173,8 +1170,8 @@ private fun renderPrankedyOnMap(
 
         val metersPerPixel = (40075016.686 * kotlin.math.cos(Math.toRadians(prankedyLoc!!.latitude))) /
                 (256.0 * 2.0.pow(view.zoomLevelDouble))
-        // Aumentado a 4.0 metros para que sea GIGANTE
-        val exactPixels = ((4.0 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(100)
+        // Tamaño en METROS reales = peatón (~1.3 m), para igualar a los NPCs normales.
+        val exactPixels = ((1.3 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(24)
         val cacheKey = "PRANKEDY_${uiState.prankedyAnimState}_${uiState.prankedyFacingRight}_${(timeMs / 180L) % 8}_${exactPixels}"
         
         val icon = nativeDrawableCache.getOrPut(cacheKey) {
@@ -1194,8 +1191,10 @@ private fun renderPrankedyOnMap(
         }
         prankedyIndicatorMarker.icon = indicatorIcon
         prankedyIndicatorMarker.position = prankedyLoc
-        prankedyIndicatorMarker.isEnabled = true
-        prankedyIndicatorMarker.setAlpha(1f)
+        // Indicador 🎭 flotante DESHABILITADO: que Prankedy se vea como un peatón más
+        // (mismo tamaño, sin emoji gigante encima).
+        prankedyIndicatorMarker.isEnabled = false
+        prankedyIndicatorMarker.setAlpha(0f)
         
     } else {
         prankedyMarker.isEnabled = false

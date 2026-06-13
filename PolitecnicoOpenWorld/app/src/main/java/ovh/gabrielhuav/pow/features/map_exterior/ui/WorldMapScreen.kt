@@ -44,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
@@ -167,6 +168,7 @@ import kotlinx.coroutines.isActive
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
 import kotlin.math.cos
 
 // ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
@@ -1221,6 +1223,87 @@ fun WorldMapScreen(
                             }
                             wv.evaluateJavascript("if(typeof updateZombies==='function')updateZombies(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(zombiePayload)});", null)
                         }
+
+                        // ─── PRANKEDY (compañero) en WEB ──────────────────────────────────
+                        // Su sprite NO es un NPC normal (assets propios), así que se dibuja con
+                        // su propio marcador Leaflet. Se envía CADA frame (FUERA del guard de la
+                        // lista de NPCs) porque se mueve suave siguiendo al jugador.
+                        run {
+                            val pkLoc = uiState.prankedyLocation
+                            if (pkLoc != null && !uiState.isDriving) {
+                                val pkTime = System.currentTimeMillis()
+                                val pkAnim = uiState.prankedyAnimState
+                                val pkFrames = when (pkAnim) {
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.IDLE -> 3
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.WALK -> 9
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN -> 8
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN_TANQUE -> 9
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.ATTACK -> 5
+                                }
+                                val pkFrame = ((pkTime / 200L) % pkFrames).toInt()
+                                val pkKey = "PRANKEDY_WEB_${pkAnim.name}_${uiState.prankedyFacingRight}_$pkFrame"
+                                val pkB64 = base64Cache[pkKey]
+                                if (pkB64 == null) {
+                                    base64Cache[pkKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
+                                            .getDrawable(context, pkAnim, pkTime, highResRenderScale, uiState.prankedyFacingRight)
+                                        val bmp = d?.bitmap
+                                        if (bmp != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bmp.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
+                                            val b64 = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { base64Cache[pkKey] = b64 }
+                                        }
+                                    }
+                                }
+                                if (!pkB64.isNullOrEmpty() && !registeredWebImages.contains(pkKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$pkKey'] = '$pkB64';", null)
+                                    registeredWebImages.add(pkKey)
+                                }
+                                val pkFlip = if (uiState.prankedyFacingRight) 1 else -1
+                                val pkDlg = uiState.prankedyDialogue?.let { JSONObject.quote(it) } ?: "null"
+                                wv.evaluateJavascript("if(typeof updatePrankedy==='function')updatePrankedy({lat:${pkLoc.latitude},lng:${pkLoc.longitude},imageKey:'$pkKey',flip:$pkFlip,dialogue:$pkDlg});", null)
+                            } else {
+                                wv.evaluateJavascript("if(typeof clearPrankedy==='function')clearPrankedy();", null)
+                            }
+                        }
+
+                        // ─── PRANKEDY: proyectil (tanque de gas, p_objeto) en WEB ──────────
+                        run {
+                            val pjStart = uiState.prankedyProjectileStart
+                            val pjEnd = uiState.prankedyProjectileTarget
+                            if (uiState.prankedyProjectileActive && pjStart != null && pjEnd != null && !uiState.isDriving) {
+                                val pjP = uiState.prankedyProjectileProgress
+                                val pjLat = pjStart.latitude + (pjEnd.latitude - pjStart.latitude) * pjP
+                                val pjLon = pjStart.longitude + (pjEnd.longitude - pjStart.longitude) * pjP
+                                val pjTime = System.currentTimeMillis()
+                                val pjFrame = ((pjTime / 150L) % 3L).toInt()
+                                val pjKey = "PRANKEDY_PROJ_WEB_$pjFrame"
+                                val pjB64 = base64Cache[pjKey]
+                                if (pjB64 == null) {
+                                    base64Cache[pjKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
+                                            .getProjectileDrawable(context, pjTime, highResRenderScale)
+                                        val bmp = d?.bitmap
+                                        if (bmp != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bmp.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
+                                            val b64 = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { base64Cache[pjKey] = b64 }
+                                        }
+                                    }
+                                }
+                                if (!pjB64.isNullOrEmpty() && !registeredWebImages.contains(pjKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$pjKey'] = '$pjB64';", null)
+                                    registeredWebImages.add(pjKey)
+                                }
+                                wv.evaluateJavascript("if(typeof updatePrankedyProjectile==='function')updatePrankedyProjectile({lat:$pjLat,lng:$pjLon,imageKey:'$pjKey'});", null)
+                            } else {
+                                wv.evaluateJavascript("if(typeof clearPrankedyProjectile==='function')clearPrankedyProjectile();", null)
+                            }
+                        }
                     }
                 )
             }
@@ -1572,6 +1655,13 @@ fun WorldMapScreen(
                                     Icons.Default.Warning,
                                     if (uiState.globalZombieMode) Color(0xFFE53935) else Color.White
                                 ) { viewModel.toggleGlobalZombieMode() })
+                                // Prankedy: NPC hostil que te ataca (y te defiende de otros NPCs).
+                                // Toggle on/off, igual que el apocalipsis.
+                                add(OptionMenuItem(
+                                    if (uiState.prankedyEnabled) "Desactivar Prankedy" else "Activar Prankedy",
+                                    Icons.Default.Face,
+                                    if (uiState.prankedyEnabled) Color(0xFFD4AF37) else Color.White
+                                ) { viewModel.togglePrankedy() })
                             }
                         )
                     )

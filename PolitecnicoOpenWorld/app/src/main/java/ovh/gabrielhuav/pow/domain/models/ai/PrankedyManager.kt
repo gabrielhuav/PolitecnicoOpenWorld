@@ -10,31 +10,40 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
- * Manager de IA del NPC compañero Prankedy.
+ * Manager de IA del NPC especial Prankedy.
  *
- * Patrón: análogo a [PoliceManager]. Mantiene todo el estado interno;
- * el ViewModel llama a [tick] en cada ciclo del game loop y aplica
- * los resultados ([PrankedyTickResult]) sobre el mundo.
+ * Patrón: análogo a [PoliceManager]. Mantiene todo el estado interno; el ViewModel
+ * llama a [tick] en cada ciclo del game loop y aplica los efectos ([PrankedyTickResult]).
+ *
+ * COMPORTAMIENTO (NPC HOSTIL, NO contratable):
+ *  - Por defecto persigue al JUGADOR y le lanza el tanque (le baja vida).
+ *  - Si detecta a OTRO NPC agrediendo al jugador (aggro / zombi) cerca de él, se
+ *    "pone de tu lado" y ataca a ese NPC en su lugar.
+ *  - Puede recibir daño y morir; tras un tiempo reaparece.
  */
 class PrankedyManager {
 
     /**
      * Resultado de un tick de IA de Prankedy.
-     * @param hitNpcId  ID del NPC al que golpeó el proyectil (null = sin golpe este tick).
-     * @param projectileDamage Daño del proyectil si impacta.
+     * @param hitNpcId  ID del NPC al que golpeó el proyectil (null = sin golpe a NPC este tick).
+     * @param projectileDamage Daño del proyectil.
+     * @param justDied true en el tick en que Prankedy muere.
+     * @param hitPlayer true si el proyectil golpeó AL JUGADOR este tick (el VM le baja vida).
      */
     data class PrankedyTickResult(
         val hitNpcId: String? = null,
-        val projectileDamage: Float = ATTACK_DAMAGE_PROJECTILE
+        val projectileDamage: Float = ATTACK_DAMAGE_PROJECTILE,
+        val justDied: Boolean = false,
+        val hitPlayer: Boolean = false
     )
 
     companion object {
         // ── Distancias (en grados, aprox. plana) ────────────────────────────
         const val PRANKEDY_SPAWN_RADIUS    = 0.00035   // ~35 m del jugador al nacer
-        const val PRANKEDY_INTERACT_RADIUS = 0.00012   // ~13 m → muestra botón X
+        const val PRANKEDY_INTERACT_RADIUS = 0.00012   // ~13 m (legado, sin uso activo)
         const val PRANKEDY_PROX_RADIUS     = 0.00018   // ~20 m → muestra burbuja
-        const val PRANKEDY_FOLLOW_MIN_DIST = 0.00006   // ~7 m → margen anti-clipping
-        const val PRANKEDY_FOLLOW_MAX_DIST = 0.00035   // >35 m → empieza a correr
+        const val PRANKEDY_FOLLOW_MIN_DIST = 0.00006   // ~7 m (legado)
+        const val PRANKEDY_FOLLOW_MAX_DIST = 0.00035   // ~35 m (legado)
 
         // ── Velocidades ──────────────────────────────────────────────────────
         const val WALK_SPEED        = 0.0000018
@@ -42,40 +51,46 @@ class PrankedyManager {
         const val RUN_TANQUE_SPEED  = 0.0000075
 
         // ── Combate ──────────────────────────────────────────────────────────
-        const val ENEMY_VISION_RADIUS      = 0.00045  // ~50 m de detección de enemigos
-        const val ATTACK_RADIUS            = 0.00013  // ~14 m → lanza proyectil
+        const val ATTACK_RADIUS            = 0.00007  // ~8 m → se acerca antes de lanzar el tanque
         const val ATTACK_DAMAGE_PROJECTILE = 22f
         const val ATTACK_COOLDOWN_MS       = 2800L
+        const val ATTACK_ANIM_MS           = 800L     // duración de la animación de lanzamiento (p_atack)
         const val PROJECTILE_FLIGHT_MS     = 900L     // tiempo que tarda el proyectil en llegar
+        const val IMPACT_RADIUS            = 0.00005  // ~5.5 m: si te alejas del punto de impacto, falla
+        // Radio ALREDEDOR DEL JUGADOR para detectar a un NPC que lo esté agrediendo.
+        const val AGGRO_DETECT_RADIUS      = 0.00045  // ~50 m
+
+        // ── Daño recibido por contacto del NPC que combate ───────────────────
+        const val ENEMY_CONTACT_RADIUS      = 0.00004  // ~4.5 m
+        const val ENEMY_CONTACT_DAMAGE      = 6f
+        const val ENEMY_CONTACT_COOLDOWN_MS = 700L
 
         // ── Vida y respawn ───────────────────────────────────────────────────
         const val MAX_HEALTH               = 80f
-        const val RESPAWN_COOLDOWN_MS      = 60_000L  // 60 s hasta renacer
-        const val HIRE_PENALTY_MS          = 60_000L  // 60 s adicionales antes de "Contratar"
+        const val RESPAWN_COOLDOWN_MS      = 60_000L  // 60 s hasta reaparecer
+        const val HIRE_PENALTY_MS          = 60_000L  // (legado)
 
-        // ── Idle phrases ─────────────────────────────────────────────────────
+        // ── Frases ───────────────────────────────────────────────────────────
+        // Burlas mientras te ataca a TI:
         val IDLE_PHRASES = listOf(
-            "¿Me sigues o qué, hermano?",
-            "El anonimato es mi superpoder 🎭",
-            "Nadie espera al rey de las bromas...",
-            "Hoy hay víctima nueva, ¿vamos?",
-            "Sigo aquí. Sin prisa.",
-            "¿Ya viste eso? Increíble.",
-            "Este campus huele a misión.",
-            "Cuando quieras, jefe."
+            "¡Toma esto! 🎯",
+            "El rey de las bromas ataca 🎭",
+            "Nadie escapa de mí...",
+            "¡Sorpresa! 💥",
+            "Hoy la víctima eres tú.",
+            "¡No te lo esperabas!",
+            "¡Plof! 📦",
+            "Esto es solo por diversión 😈"
         )
+        // Frases cuando te defiende de otro NPC:
         val HIRED_PHRASES = listOf(
-            "¡Voy contigo!",
-            "¡Allá vamos!",
-            "¡Ese no pasa! 🎯",
-            "Te tengo cubierto.",
-            "¡Nadie te toca! 💥",
-            "Siempre juntos."
+            "¡Ese no te toca! 🎯",
+            "¡Yo me encargo!",
+            "¡Fuera de aquí! 💥",
+            "Hoy estoy de tu lado.",
+            "¡Nadie te ataca menos yo!",
+            "¡Déjalo en paz!"
         )
-
-        // ── Idle wander ──────────────────────────────────────────────────────
-        private const val IDLE_WANDER_STEP = 0.00001   // pequeño paso de deambular
-        private const val IDLE_CHANGE_DIR_TICKS = 120  // cambia de dirección cada ~4 s
     }
 
     // ── Estado principal ─────────────────────────────────────────────────────
@@ -108,9 +123,9 @@ class PrankedyManager {
         }
 
     // ── Timers ───────────────────────────────────────────────────────────────
-    var respawnAt: Long = 0L       // cuando respawnear (solo en fase DEAD)
+    var respawnAt: Long = 0L       // cuando reaparecer (solo en fase DEAD)
         private set
-    var hireableAt: Long = 0L     // cuando "Contratar" queda disponible
+    var hireableAt: Long = 0L      // (legado)
         private set
 
     // ── Diálogo flotante ─────────────────────────────────────────────────────
@@ -121,59 +136,59 @@ class PrankedyManager {
 
     // ── Objetivo de ataque ───────────────────────────────────────────────────
     private var attackTargetId: String? = null
+    private var attackTargetIsPlayer: Boolean = false
     private var attackCooldownUntil: Long = 0L
+    private var lastHurtAt: Long = 0L   // cooldown de daño recibido por contacto
+    private var snapToRoadFn: ((GeoPoint) -> GeoPoint)? = null  // engancha a la red viaria
+    // Windup de ataque: primero se reproduce la animación p_atack y AL TERMINAR se lanza el tanque.
+    private var attackAnimUntil: Long = 0L
+    private var pendingLaunch: Boolean = false
+    private var pendingTargetLoc: GeoPoint? = null
+    private var pendingTargetId: String? = null
+    private var pendingTargetIsPlayer: Boolean = false
 
-    // ── Idle wander ──────────────────────────────────────────────────────────
-    private var idleWanderDirLat = 0.0
-    private var idleWanderDirLon = 0.0
-    private var idleTicks = 0
+    /** Ajusta un punto a la calle más cercana (si el VM proveyó el snapper). */
+    private fun snap(p: GeoPoint): GeoPoint = snapToRoadFn?.invoke(p) ?: p
 
     // ── IA principal ─────────────────────────────────────────────────────────
 
     /**
      * Ejecuta un tick de IA (~30 Hz).
      * @param playerLoc    Posición actual del jugador.
-     * @param npcs         Lista de NPCs presentes en el mundo (para buscar enemigos).
-     * @param isDriving    El jugador está conduciendo (Prankedy se "esconde").
+     * @param npcs         Lista de NPCs presentes en el mundo.
+     * @param isDriving    El jugador conduce (Prankedy "sube" y se oculta).
      * @param now          Timestamp actual en ms.
      * @param roadNetwork  Red de calles (para spawn sobre vía).
-     * @return [PrankedyTickResult] con efectos que el VM debe aplicar.
+     * @param snapToRoad   Función para mantenerlo sobre las calles (la pone el VM).
      */
     fun tick(
         playerLoc: GeoPoint,
         npcs: List<Npc>,
         isDriving: Boolean,
         now: Long,
-        roadNetwork: List<MapWay>
+        roadNetwork: List<MapWay>,
+        snapToRoad: ((GeoPoint) -> GeoPoint)? = null
     ): PrankedyTickResult {
-        // Si el jugador va en coche, Prankedy desaparece visualmente (sin despawnear su estado)
+        snapToRoadFn = snapToRoad
+        // Si el jugador va en coche, Prankedy desaparece visualmente (sin perder su estado).
         if (isDriving) {
             animState = PrankedyAnimState.IDLE
             return PrankedyTickResult()
         }
 
-        when (phase) {
-            PrankedyPhase.DEAD -> {
-                if (now >= respawnAt) {
-                    respawn(playerLoc, roadNetwork, now)
-                }
-                return PrankedyTickResult()
-            }
-            PrankedyPhase.NOT_HIRED -> {
-                val loc = location ?: return PrankedyTickResult()
-                tickIdleWander(loc, playerLoc, now)
-                tickDialogue(now)
-                return PrankedyTickResult()
-            }
-            PrankedyPhase.HIRED -> {
-                val loc = location ?: return PrankedyTickResult()
-                return tickHired(loc, playerLoc, npcs, now)
-            }
+        if (phase == PrankedyPhase.DEAD) {
+            if (now >= respawnAt) respawn(playerLoc, roadNetwork, now)
+            return PrankedyTickResult()
         }
+
+        val loc = location ?: return PrankedyTickResult()
+        return tickCombat(loc, playerLoc, npcs, now)
     }
 
-    /** Lógica de IA cuando está contratado: seguir + combatir. */
-    private fun tickHired(
+    /**
+     * Lógica HOSTIL: ataca al jugador; si hay un NPC agrediendo al jugador, lo ataca a él.
+     */
+    private fun tickCombat(
         loc: GeoPoint,
         playerLoc: GeoPoint,
         npcs: List<Npc>,
@@ -181,101 +196,93 @@ class PrankedyManager {
     ): PrankedyTickResult {
         // 1. Resolver proyectil en vuelo
         var hitNpcId: String? = null
+        var hitPlayer = false
         if (projectileActive && now - projectileStartMs >= PROJECTILE_FLIGHT_MS) {
             projectileActive = false
-            val targetId = attackTargetId
-            if (targetId != null) {
-                hitNpcId = targetId
+            if (attackTargetIsPlayer) {
+                // El tanque cae donde fue lanzado. Solo te pega si SIGUES cerca de ese
+                // punto; si te moviste a tiempo, falla (lo esquivaste).
+                val tgt = projectileTarget
+                if (tgt != null && dist(playerLoc, tgt) <= IMPACT_RADIUS) hitPlayer = true
+            } else {
+                attackTargetId?.let { hitNpcId = it }
             }
         }
 
-        // 2. Buscar enemigo más cercano en radio de visión
-        val enemy = findNearestEnemy(loc, npcs)
-        val distToPlayer = dist(loc, playerLoc)
+        // 1b. WINDUP: mientras corre la animación p_atack, se queda QUIETO (no se mueve ni
+        //     re-evalúa objetivo). Así se ve la secuencia de lanzamiento completa.
+        if (now < attackAnimUntil) {
+            animState = PrankedyAnimState.ATTACK
+            pendingTargetLoc?.let { facingRight = it.longitude >= loc.longitude }
+            tickDialogue(now)
+            return PrankedyTickResult(hitNpcId = hitNpcId, hitPlayer = hitPlayer)
+        }
 
-        if (enemy != null) {
-            val distToEnemy = dist(loc, enemy.location)
-            if (distToEnemy <= ATTACK_RADIUS && now >= attackCooldownUntil && !projectileActive) {
-                // ─ ATAQUE: lanzar proyectil
-                animState = PrankedyAnimState.ATTACK
-                attackTargetId = enemy.id
+        // 1c. Terminó el windup → SOLTAR el tanque (p_objeto) hacia el objetivo capturado.
+        if (pendingLaunch) {
+            pendingLaunch = false
+            val tgt = pendingTargetLoc
+            if (tgt != null) {
                 projectileStart = GeoPoint(loc.latitude, loc.longitude)
-                projectileTarget = GeoPoint(enemy.location.latitude, enemy.location.longitude)
+                projectileTarget = GeoPoint(tgt.latitude, tgt.longitude)
                 projectileStartMs = now
                 projectileActive = true
-                attackCooldownUntil = now + ATTACK_COOLDOWN_MS
-                facingRight = enemy.location.longitude >= loc.longitude
-                triggerDialogue(HIRED_PHRASES.random(), now, 2000L)
-            } else if (distToEnemy > ATTACK_RADIUS) {
-                // ─ CORRER hacia el enemigo (RUN_TANQUE)
-                animState = PrankedyAnimState.RUN_TANQUE
-                val newLoc = stepToward(loc, enemy.location, RUN_TANQUE_SPEED)
-                location = newLoc
-                facingRight = enemy.location.longitude >= loc.longitude
-            } else {
-                // En rango pero en cooldown → IDLE esperando
-                animState = PrankedyAnimState.IDLE
+                attackTargetId = pendingTargetId
+                attackTargetIsPlayer = pendingTargetIsPlayer
             }
+        }
+
+        // 2. ¿Hay un NPC AGREDIENDO al jugador? Si lo hay, Prankedy se pone de tu lado.
+        val defender = findAggressorNearPlayer(playerLoc, npcs, now)
+
+        // 2b. Daño RECIBIDO: si está peleando cuerpo a cuerpo con ese NPC, lo lastima.
+        if (defender != null && now - lastHurtAt >= ENEMY_CONTACT_COOLDOWN_MS &&
+            dist(loc, defender.location) <= ENEMY_CONTACT_RADIUS) {
+            lastHurtAt = now
+            if (takeDamage(ENEMY_CONTACT_DAMAGE, now)) {
+                return PrankedyTickResult(justDied = true)
+            }
+        }
+
+        // 3. Elegir objetivo: el agresor (defensa) o, por defecto, el JUGADOR.
+        val targetLoc: GeoPoint
+        val targetId: String?
+        val targetIsPlayer: Boolean
+        if (defender != null) {
+            targetLoc = defender.location; targetId = defender.id; targetIsPlayer = false
         } else {
-            // Sin enemigo → seguir al jugador
-            when {
-                distToPlayer < PRANKEDY_FOLLOW_MIN_DIST -> {
-                    animState = PrankedyAnimState.IDLE
-                }
-                distToPlayer > PRANKEDY_FOLLOW_MAX_DIST -> {
-                    animState = PrankedyAnimState.RUN
-                    val newLoc = stepToward(loc, playerLoc, RUN_SPEED)
-                    location = newLoc
-                    facingRight = playerLoc.longitude >= loc.longitude
-                }
-                else -> {
-                    animState = PrankedyAnimState.WALK
-                    val newLoc = stepToward(loc, playerLoc, WALK_SPEED)
-                    location = newLoc
-                    facingRight = playerLoc.longitude >= loc.longitude
-                }
+            targetLoc = playerLoc; targetId = null; targetIsPlayer = true
+        }
+
+        val distToTarget = dist(loc, targetLoc)
+        when {
+            distToTarget <= ATTACK_RADIUS && now >= attackCooldownUntil && !projectileActive -> {
+                // ─ INICIAR WINDUP: primero la animación de lanzamiento (p_atack); el tanque
+                //   (p_objeto) se suelta AL TERMINAR la animación (ver paso "3.b" arriba).
+                animState = PrankedyAnimState.ATTACK
+                attackAnimUntil = now + ATTACK_ANIM_MS
+                attackCooldownUntil = now + ATTACK_COOLDOWN_MS
+                pendingLaunch = true
+                pendingTargetLoc = GeoPoint(targetLoc.latitude, targetLoc.longitude)
+                pendingTargetId = targetId
+                pendingTargetIsPlayer = targetIsPlayer
+                facingRight = targetLoc.longitude >= loc.longitude
+                triggerDialogue((if (targetIsPlayer) IDLE_PHRASES else HIRED_PHRASES).random(), now, 2000L)
+            }
+            distToTarget > ATTACK_RADIUS -> {
+                // ─ CORRER CON TANQUE hacia el objetivo
+                animState = PrankedyAnimState.RUN_TANQUE
+                location = snap(stepToward(loc, targetLoc, RUN_TANQUE_SPEED))
+                facingRight = targetLoc.longitude >= loc.longitude
+            }
+            else -> {
+                // En rango pero recargando → IDLE
+                animState = PrankedyAnimState.IDLE
             }
         }
 
         tickDialogue(now)
-        return PrankedyTickResult(hitNpcId = hitNpcId)
-    }
-
-    /** Deambula aleatoriamente cuando aún no fue contratado. */
-    private fun tickIdleWander(loc: GeoPoint, playerLoc: GeoPoint, now: Long) {
-        idleTicks++
-        // Cambiar dirección periódicamente o si se aleja demasiado del jugador
-        val distToPlayer = dist(loc, playerLoc)
-        if (idleTicks % IDLE_CHANGE_DIR_TICKS == 0 || distToPlayer > PRANKEDY_SPAWN_RADIUS * 2) {
-            // Elegir dirección aleatoria que se mantenga cerca del jugador
-            val angle = Random.nextDouble() * 2 * Math.PI
-            idleWanderDirLat = sin(angle) * IDLE_WANDER_STEP
-            idleWanderDirLon = cos(angle) * IDLE_WANDER_STEP
-        }
-
-        // Si nos alejamos mucho del jugador, caminamos de regreso hacia él
-        val newLoc = if (distToPlayer > PRANKEDY_SPAWN_RADIUS * 1.5) {
-            animState = PrankedyAnimState.WALK
-            facingRight = playerLoc.longitude >= loc.longitude
-            stepToward(loc, playerLoc, WALK_SPEED)
-        } else {
-            // Deambular suavemente
-            val moved = idleTicks % (IDLE_CHANGE_DIR_TICKS / 2) < (IDLE_CHANGE_DIR_TICKS / 4)
-            if (moved) {
-                animState = PrankedyAnimState.WALK
-                if (idleWanderDirLon != 0.0) facingRight = idleWanderDirLon > 0
-                GeoPoint(loc.latitude + idleWanderDirLat, loc.longitude + idleWanderDirLon)
-            } else {
-                animState = PrankedyAnimState.IDLE
-                loc
-            }
-        }
-        location = newLoc
-
-        // Burbuja de diálogo ocasional cerca del jugador
-        if (idleTicks % 600 == 0 && dist(loc, playerLoc) < PRANKEDY_PROX_RADIUS) {
-            triggerDialogue(IDLE_PHRASES.random(), now, 3500L)
-        }
+        return PrankedyTickResult(hitNpcId = hitNpcId, hitPlayer = hitPlayer)
     }
 
     /** Limpia el diálogo si ya expiró. */
@@ -285,48 +292,59 @@ class PrankedyManager {
         }
     }
 
-    /** Busca el NPC hostil más cercano en el radio de visión. */
-    private fun findNearestEnemy(loc: GeoPoint, npcs: List<Npc>): Npc? {
+    /**
+     * Busca el NPC que esté AGREDIENDO al jugador (con aggro o zombi) más cercano al
+     * jugador. Si existe, Prankedy lo ataca en lugar de atacarte a ti.
+     */
+    private fun findAggressorNearPlayer(playerLoc: GeoPoint, npcs: List<Npc>, now: Long): Npc? {
         return npcs
             .filter { npc ->
+                npc.displayName.isNullOrEmpty() &&   // solo NPCs reales, no jugadores remotos
                 npc.type != NpcType.CAR &&
                 npc.type != NpcType.POLICE_CAR &&
                 npc.health > 0 &&
                 !npc.isDying &&
-                (npc.aggroUntil > System.currentTimeMillis() ||
-                 npc.type == NpcType.ZOMBIE) &&
-                dist(loc, npc.location) <= ENEMY_VISION_RADIUS
+                (npc.aggroUntil > now || npc.type == NpcType.ZOMBIE) &&  // está agrediendo al jugador
+                dist(npc.location, playerLoc) <= AGGRO_DETECT_RADIUS
             }
-            .minByOrNull { dist(loc, it.location) }
+            .minByOrNull { dist(it.location, playerLoc) }
     }
 
     // ── API pública ──────────────────────────────────────────────────────────
 
     /**
-     * Coloca a Prankedy en el mundo, cerca del jugador sobre una calle de la red viaria.
-     * Debe llamarse una sola vez al iniciar la partida o tras respawn.
+     * Coloca a Prankedy en el mundo, cerca del jugador, sobre la red viaria.
+     * Se llama al iniciar la partida o tras un respawn.
      */
     fun spawn(nearPlayer: GeoPoint, roadNetwork: List<MapWay>, now: Long = System.currentTimeMillis()) {
-        android.util.Log.d("Prankedy", "Iniciando spawn() en PrankedyManager. Roads=${roadNetwork.size}")
         val spawnPoint = findSpawnPoint(nearPlayer, roadNetwork)
-        android.util.Log.d("Prankedy", "Punto de spawn decidido: $spawnPoint")
         location = spawnPoint
         health = MAX_HEALTH
-        phase = PrankedyPhase.NOT_HIRED
+        phase = PrankedyPhase.NOT_HIRED   // = activo / hostil
         animState = PrankedyAnimState.IDLE
         projectileActive = false
         attackTargetId = null
+        attackTargetIsPlayer = false
         attackCooldownUntil = 0L
-        idleTicks = 0
+        attackAnimUntil = 0L
+        pendingLaunch = false
+        pendingTargetLoc = null
         currentDialogue = null
         dialogueUntil = 0L
     }
 
-    /** El jugador acepta contratar a Prankedy. */
-    fun hire() {
-        if (phase != PrankedyPhase.NOT_HIRED) return
-        phase = PrankedyPhase.HIRED
-        triggerDialogue(HIRED_PHRASES.random(), System.currentTimeMillis(), 3000L)
+    /** (Legado, sin uso: ya no es contratable). */
+    fun hire() { /* no-op: Prankedy ahora es un NPC hostil */ }
+
+    /** Desactiva a Prankedy (lo quita del mapa). Reaparecerá al reactivarlo. */
+    fun deactivate() {
+        location = null
+        phase = PrankedyPhase.NOT_HIRED
+        projectileActive = false
+        attackAnimUntil = 0L
+        pendingLaunch = false
+        pendingTargetLoc = null
+        currentDialogue = null
     }
 
     /** Aplica daño a Prankedy. Devuelve true si acaba de morir. */
@@ -344,25 +362,18 @@ class PrankedyManager {
         return false
     }
 
-    /**
-     * Notifica a Prankedy que el jugador recibió daño: activa búsqueda inmediata
-     * de enemigos en el próximo tick (ya gestionado en [tickHired] naturalmente).
-     */
+    /** Hook: el jugador recibió daño (lo notifica el VM). Suelta una frase de defensa. */
     fun onPlayerDamaged() {
-        // Prioridad ya está integrada: en tickHired siempre busca enemigos primero.
-        // Esta función queda como hook para efectos extra (sonido, diálogo).
-        if (phase == PrankedyPhase.HIRED) {
+        if (phase != PrankedyPhase.DEAD) {
             triggerDialogue(HIRED_PHRASES.random(), System.currentTimeMillis(), 2000L)
         }
     }
 
-    /** ¿Puede el jugador contratar a Prankedy ahora mismo? */
-    fun isHireable(now: Long = System.currentTimeMillis()): Boolean =
-        phase == PrankedyPhase.NOT_HIRED && now >= hireableAt
+    /** (Legado) Ya no es contratable. */
+    fun isHireable(now: Long = System.currentTimeMillis()): Boolean = false
 
-    /** Segundos hasta que "Contratar" quede disponible. 0 si ya está disponible. */
-    fun hireableInSeconds(now: Long = System.currentTimeMillis()): Int =
-        if (isHireable(now)) 0 else ((hireableAt - now) / 1000L).toInt().coerceAtLeast(0)
+    /** (Legado) */
+    fun hireableInSeconds(now: Long = System.currentTimeMillis()): Int = 0
 
     /** Activa un diálogo flotante sobre el NPC. */
     fun triggerDialogue(text: String, now: Long, durationMs: Long = 3000L) {
@@ -387,10 +398,9 @@ class PrankedyManager {
         return sqrt(dLat * dLat + dLon * dLon)
     }
 
-    /** Intenta respawnear a Prankedy cuando el timer expira. */
+    /** Reaparece cuando expira el timer de muerte. */
     private fun respawn(nearPlayer: GeoPoint, roadNetwork: List<MapWay>, now: Long) {
         spawn(nearPlayer, roadNetwork, now)
-        // hireableAt permanece desde la muerte: puede que aún no sea contrateable
     }
 
     /**
@@ -398,9 +408,7 @@ class PrankedyManager {
      * Si no encuentra calles, usa un offset fijo alrededor del jugador.
      */
     private fun findSpawnPoint(nearPlayer: GeoPoint, roadNetwork: List<MapWay>): GeoPoint {
-        // Fallback inmediato si no hay red viaria
         if (roadNetwork.isEmpty()) {
-            android.util.Log.d("Prankedy", "RoadNetwork vacía, usando fallback aleatorio")
             val angle = Random.nextDouble() * 2 * Math.PI
             return GeoPoint(
                 nearPlayer.latitude  + sin(angle) * PRANKEDY_SPAWN_RADIUS,
@@ -408,32 +416,24 @@ class PrankedyManager {
             )
         }
 
-        // Intenta buscar una calle en el radio deseado
         val nearby = roadNetwork.filter { way ->
             way.nodes.any { node ->
                 val d = dist(GeoPoint(node.lat, node.lon), nearPlayer)
                 d in PRANKEDY_SPAWN_RADIUS * 0.4..PRANKEDY_SPAWN_RADIUS * 1.6
             }
         }
-
         if (nearby.isNotEmpty()) {
             val way = nearby.random()
             val node = way.nodes.random()
-            android.util.Log.d("Prankedy", "Spawn sobre calle ID: ${way.id}")
             return GeoPoint(node.lat, node.lon)
         }
 
-        // Si hay calles pero ninguna cerca, usa la calle más cercana (sin filtrar por radio)
         val allNodes = roadNetwork.flatMap { it.nodes }
         val nearestNode = allNodes.minByOrNull { dist(GeoPoint(it.lat, it.lon), nearPlayer) }
-        
         if (nearestNode != null) {
-            android.util.Log.d("Prankedy", "No hay calles en radio ideal, usando la más cercana")
             return GeoPoint(nearestNode.lat, nearestNode.lon)
         }
 
-        // Fallback final: spawn a ~30 m en dirección aleatoria
-        android.util.Log.d("Prankedy", "Fallback final (sin calles encontradas)")
         val angle = Random.nextDouble() * 2 * Math.PI
         return GeoPoint(
             nearPlayer.latitude  + sin(angle) * PRANKEDY_SPAWN_RADIUS,

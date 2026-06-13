@@ -1069,8 +1069,8 @@ class NpcAiManager {
         }
 
         return if (dist < actualSpeed) {
-            val pauseTime = if (npc.type == NpcType.PERSON && Random.nextFloat() < 0.25f) {
-                System.currentTimeMillis() + Random.nextLong(2000, 4000)
+            val pauseTime = if (npc.type == NpcType.PERSON && Random.nextFloat() < 0.08f) {
+                System.currentTimeMillis() + Random.nextLong(800, 1800)
             } else {
                 npc.chatUntil
             }
