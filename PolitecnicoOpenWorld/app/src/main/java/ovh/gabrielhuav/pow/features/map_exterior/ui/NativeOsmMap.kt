@@ -697,7 +697,16 @@ internal fun NativeOsmMap(
                                 val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                 val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
 
-                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                // FIX "peatón invisible que me pega": si el sprite del personaje aún
+                                // NO está listo (assets fríos tras un TP / liberados por onTrimMemory),
+                                // getModularNpcDrawable devuelve null. ANTES se cacheaba un drawable
+                                // TRANSPARENTE bajo el cacheKey → el peatón quedaba invisible (pero
+                                // seguía vivo y te golpeaba). Ahora: si el sprite falla NO se cachea el
+                                // fallo (se reintenta cada frame) y se muestra un emoji 🧍 visible.
+                                val cachedSprite = nativeDrawableCache[cacheKey]
+                                if (cachedSprite != null) {
+                                    marker.icon = cachedSprite
+                                } else {
                                     var baseDrawable = CharacterSpriteManager.getModularNpcDrawable(
                                         context = context,
                                         visualConfig = npc.visualConfig!!,
@@ -708,10 +717,18 @@ internal fun NativeOsmMap(
                                         displayName = npc.displayName
                                     )
                                     baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-                                    baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
-                                        ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                    val built = baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                    if (built != null) {
+                                        nativeDrawableCache[cacheKey] = built
+                                        marker.icon = built
+                                    } else {
+                                        // Fallback SIEMPRE visible (nunca un NPC invisible). No se cachea
+                                        // bajo cacheKey → se reintenta el sprite real cuando cargue.
+                                        marker.icon = nativeDrawableCache.getOrPut("PED_FALLBACK_$exactPixels") {
+                                            emojiToDrawable(context, "🧍", exactPixels)
+                                        }
+                                    }
                                 }
-                                marker.icon = cachedIcon
                                 marker.rotation = 0f
 
                             } else if (npc.type == NpcType.CAR) {

@@ -262,6 +262,14 @@ matrices por defecto son **border-only** hasta reemplazarse.
   punto snapeado NO acerca al objetivo, usa el paso DIRECTO ese tick; (2) si lleva > `STUCK_TIME_MS`
   (1.5 s) sin moverse > `STUCK_EPS` mientras está lejos, `relocateNear` lo reubica sobre calle cerca del
   jugador **SIN curarlo** (conserva vida/estado). No usar `spawn()` para reubicar (resetea la vida).
+- **NPC "invisible" que te golpea (peatón sin sprite):** si `CharacterSpriteManager.getModularNpcDrawable`
+  devuelve `null` (frames del asset aún no cargados, p. ej. tras un TP o tras `onTrimMemory`), el peatón
+  se simulaba (y te pegaba) pero no se veía. Causas por renderer: **OSM nativo** cacheaba un drawable
+  **transparente** bajo el `cacheKey` (invisible permanente); **web** hacía `if(!cachedImg) return` (no
+  creaba el marcador). Fix: **nunca dejar un NPC invisible**. Nativo: si el sprite es null NO se cachea el
+  fallo (se reintenta) y se muestra emoji 🧍 (`PED_FALLBACK_*`). Web: fallback 🧍/🚗 mientras se genera el
+  base64, y al llegar el sprite el marcador se recrea. Google nativo ya caía a `defaultMarker()` (visible).
+  Regla: cualquier rama de render de NPC debe terminar en algo VISIBLE, nunca en transparente/return.
 - **Mano del Apocalipsis ELIMINADA de ESCOM:** `spawnEscomItems` ya NO crea el collectible
   `global_zombie_hand`. El modo zombi global se activa SOLO por Opciones → "Activar/Desactivar
   Apocalipsis" (y el botón flotante de salida). El game loop sigue llamando a `spawnEscomItems` al entrar

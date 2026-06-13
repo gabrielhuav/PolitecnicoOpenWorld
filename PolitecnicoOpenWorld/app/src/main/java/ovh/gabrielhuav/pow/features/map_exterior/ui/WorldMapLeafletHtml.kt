@@ -479,14 +479,21 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                             var fill = hb.querySelector('.npc-hb-fill');
                             if (fill) { fill.style.width = hbPct + '%'; fill.style.background = hbColor; }
                         }
-                        if ((npc.type === 'CAR' || npc.type === 'MODULAR') && img && wrapper) {
+                        if (npc.type === 'CAR' || npc.type === 'MODULAR') {
                             var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
-                            if (!cachedImg) return;
-                            if (img.src !== cachedImg) img.src = cachedImg;
-                            wrapper.style.width = finalW + 'px';
-                            wrapper.style.height = finalH + 'px';
-                            if (npc.flip !== undefined) img.style.transform = 'scaleX(' + npc.flip + ')';
-                        } else if (wrapper && npc.type !== 'CAR' && npc.type !== 'MODULAR') {
+                            // FIX "NPC invisible": si el sprite aún no está listo NO ocultamos el
+                            // NPC (antes hacía return y no se veía aunque te golpeara). Si el marcador
+                            // actual es un fallback (sin <img>) y ya llegó el sprite, lo recreamos.
+                            if (cachedImg && !img) {
+                                map.removeLayer(npcMarkers[npc.id]); delete npcMarkers[npc.id];
+                            } else if (cachedImg && img && wrapper) {
+                                if (img.src !== cachedImg) img.src = cachedImg;
+                                wrapper.style.width = finalW + 'px';
+                                wrapper.style.height = finalH + 'px';
+                                if (npc.flip !== undefined) img.style.transform = 'scaleX(' + npc.flip + ')';
+                            }
+                            // si !cachedImg: se queda el fallback emoji (posición ya actualizada arriba)
+                        } else if (wrapper) {
                             wrapper.style.transform = 'translate(-50%, -50%) rotate(0deg)';
                         }
                     }
@@ -494,9 +501,15 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                     var html = '';
                     if (npc.type === 'CAR' || npc.type === 'MODULAR') {
                         var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
-                        if (!cachedImg) return;
-                        var flipStyle = (npc.flip !== undefined) ? 'transform: scaleX(' + npc.flip + ');' : '';
-                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px;">' + nameTagHtml + hbHtml + '<img src="'+cachedImg+'" style="width:100%; height:100%; display:block; ' + flipStyle + '"></div>';
+                        if (cachedImg) {
+                            var flipStyle = (npc.flip !== undefined) ? 'transform: scaleX(' + npc.flip + ');' : '';
+                            html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px;">' + nameTagHtml + hbHtml + '<img src="'+cachedImg+'" style="width:100%; height:100%; display:block; ' + flipStyle + '"></div>';
+                        } else {
+                            // FIX "NPC invisible": fallback visible (🧍/🚗) mientras se genera el
+                            // sprite base64. Al estar listo, el bloque de actualización lo recrea.
+                            var em = (npc.type === 'CAR') ? '🚗' : '🧍';
+                            html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px; display:flex; align-items:center; justify-content:center; font-size:'+Math.round(finalH*0.85)+'px; line-height:1;">' + nameTagHtml + hbHtml + em + '</div>';
+                        }
                     } else {
                         var pUrl = 'file:///android_asset/' + npc.drawable + '.svg';
                         html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate(0deg); width:24px; height:24px;">' + nameTagHtml + hbHtml + '<img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
