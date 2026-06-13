@@ -2604,6 +2604,10 @@ class WorldMapViewModel(
         _uiState.update { it.copy(selectedSkin = skin, showSkinSelector = false) }
     }
 
+    fun refreshSkin() {
+        _uiState.update { it.copy(selectedSkin = settingsRepository.getPlayerSkin()) }
+    }
+
     // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
 
     fun spawnShineCTOMarker() {

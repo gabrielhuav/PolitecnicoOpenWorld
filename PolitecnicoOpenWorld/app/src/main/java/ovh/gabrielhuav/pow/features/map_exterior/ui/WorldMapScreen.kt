@@ -170,6 +170,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
 import kotlin.math.cos
+import androidx.compose.runtime.DisposableEffect
 
 // ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
 // Los NPC siguen viviendo en memoria/simulación; solo dibujamos los que caen
@@ -283,6 +284,18 @@ fun WorldMapScreen(
     LaunchedEffect(Unit) {
         viewModel.loadLandmarks(context)
         viewModel.showInitialHealthBar()
+    }
+
+    //Configuración de ciclo de vida de la skin
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshSkin()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Cuando el video de carga termina y hay un destino pendiente, navegar.
