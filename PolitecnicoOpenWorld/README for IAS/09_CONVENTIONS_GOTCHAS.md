@@ -236,6 +236,13 @@ matrices por defecto son **border-only** hasta reemplazarse.
   no"; (d) `NpcAiManager` **re-puebla** campus (ESCOM) si está marcado como poblado pero sin NPCs vivos
   (cooldown 30 s) — antes los NPCs se despawneaban a ~310 m pero el campus solo se "des-poblaba" a ~2.2 km;
   (e) el re-fetch de red (miembro) ahora también reconstruye `rebuildRoadNodeGrid` + `buildRoadGraph`.
+- **Prankedy (NPC especial) — loop miembro + paridad de render + toggle:** su tick/spawn deben correr en
+  el **game loop MIEMBRO** de `WorldMapViewModel.kt` (la extensión `WorldMapGameLoop.kt` está sombreada →
+  no corría: "no aparecía en el mapa"). Se dibuja en **OSM nativo Y web** (solo nativo no basta: el default
+  es web/CARTO). El estado vive en `WorldMapState.prankedyEnabled` (item de Opciones "Activar/Desactivar
+  Prankedy", **default OFF**); `checkPrankedySpawn`/`runPrankedyTick` no-opean si está apagado. El tanque
+  (`p_objeto`) **solo pega si sigues dentro de `IMPACT_RADIUS`** al caer (esquivable). El sprite va a ~1.3 m
+  (tamaño peatón), sin emoji flotante. IA → 03; render → 04; PR → `PR_CHANGES_EN.md`.
 
 ---
 

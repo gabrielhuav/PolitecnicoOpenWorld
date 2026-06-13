@@ -75,6 +75,7 @@ via co-located `ViewModelProvider.Factory` instances.
 | Leaflet tile interception | `features/map_exterior/ui/CachingWebViewClient.kt` |
 | NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` |
 | Wanted level / police AI (spawn, road-snapped chase, disembark, carjack, retreat) | `domain/models/ai/PoliceManager.kt` (driven by `WorldMapViewModel.runPoliceTick`) |
+| Prankedy special hostile NPC (AI / VM glue / sprites) | `domain/models/ai/PrankedyManager.kt` (driven by `WorldMapViewModel.runPrankedyTick`), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
 | Patrol sprite (no-repaint `POLICE_TOPDOWN`) | `features/map_exterior/ui/components/PoliceSpriteManager.kt`; cop = 👮 emoji via `emojiToDrawable` in `WorldMapDrawingUtils.kt` |
 | Zombie minigame logic | `features/zombie_minigame/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`) |
 | Zombie minigame state | `features/zombie_minigame/viewmodel/ZombieGameState.kt` |
@@ -155,6 +156,13 @@ via co-located `ViewModelProvider.Factory` instances.
   - *Contact damage* (`applyNpcContactDamage`): NOT host-gated — each client damages **its
     own** player from nearby aggro NPCs.
   - **Two-way traffic:** spawn direction randomized + right-side `LANE_OFFSET`.
+- **Prankedy (special hostile NPC):** toggled via `WorldMapState.prankedyEnabled` (Options menu,
+  default OFF). `PrankedyManager` (client-local, like police) chases the player and throws a gas tank
+  (`hitPlayer` → `takeDamage`); if an NPC aggresses the player within ~50 m it targets that NPC instead.
+  Closes to ~8 m, plays an 800 ms throw windup (`p_atack`), launches `p_objeto`; the hit is **dodgeable**
+  (`IMPACT_RADIUS`). Road-snapped, killable (melee → respawn 60 s), hidden while driving. Rendered on
+  native OSM + web (Leaflet). Tick/spawn run from the **member** game loop (not the shadowed extension).
+  See README-for-IAS 03/04 and `PR_CHANGES_EN.md`.
   - **Death/respawn** (`triggerWastedSequence`): clears combat state and respawns ~80 m from
     the death spot **inside the already-cached zone** (snapped to road via
     `getNearestPointOnNetwork`) — no ESCOM teleport / new tile download. Movement & vehicle

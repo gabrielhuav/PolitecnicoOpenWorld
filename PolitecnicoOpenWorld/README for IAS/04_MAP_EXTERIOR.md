@@ -41,6 +41,7 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Menú anidado de opciones | `ui/components/OptionsMenu.kt` |
 | Panel del modo diseñador | `ui/components/Designerpanel.kt` |
 | Sprites NPC | `ui/components/CharacterSpriteManager.kt`, `VehicleSpriteManager.kt`, `PoliceSpriteManager.kt` |
+| NPC especial Prankedy (IA/VM/render) | `domain/models/ai/PrankedyManager.kt` (ver 03), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
 
 ---
 
@@ -243,6 +244,12 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
   orden de acceso** (cap ~384); sus claves embeben salud/zoom/frame → nunca volver a `mutableMapOf` (OOM).
 - `MapZombieSpriteManager` (`ui/components/`) — carga `ZOMBIS_MOD/z_walk/z_walk_1..9.webp` (9 frames),
   `getZombieDrawable(context, npc, timeMs, scale)`. Liberado en `onTrimMemory`.
+- `PrankedySpriteManager` (`ui/components/`) — sprites del **NPC especial Prankedy**: frames `.webp` de
+  `assetsNPC/Prankedy/{p_idle,p_walk,p_run,p_run_tanque,p_atack}` + proyectil `p_objeto`, con `LruCache`
+  + emoji de fallback. Render en **OSM nativo** (`renderPrankedyOnMap` en `NativeOsmMap`, ~1.3 m como un
+  peatón, **sin** indicador flotante, proyectil interpolado encima de la niebla) **y web** (`updatePrankedy`/
+  `updatePrankedyProjectile` en `WorldMapLeafletHtml`, base64 por frame empujado desde `WorldMapScreen`).
+  Google nativo = pendiente. IA/comportamiento → ver 03.
 - **LOD de emojis (gama baja):** si `uiState.npcEmojiLod` (Ajustes→Jugabilidad), `NativeOsmMap` dibuja los
   NPCs a **>40 m** del jugador como un **emoji barato** (🧍/🚗/🧟/👮 cacheado por tipo+tamaño) en vez del
   sprite/bitmap completo; solo los muy cercanos llevan el asset. Recorta el costo de render. **Solo OSM

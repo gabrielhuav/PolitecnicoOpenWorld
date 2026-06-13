@@ -257,6 +257,51 @@ fog → asset real. En auto, cops re-abordan (`policeReturning`) y pueden bajart
 
 ---
 
+## `domain/models/ai/PrankedyManager.kt` — NPC especial Prankedy / special hostile NPC
+
+**ES:** Kotlin puro (como `PoliceManager`). NPC **hostil** "rey de las bromas": persigue al jugador y
+le lanza un **tanque de gas**, pero si otro NPC está agrediendo al jugador, **se pone de su lado** y
+ataca a ese NPC. Lo simula el VM cada tick (`runPrankedyTick`), local a cada cliente (como la policía).
+**No** se contrata (el flujo de "contratar" se eliminó). / **EN:** Pure Kotlin. **Hostile** NPC that
+chases the player and throws a gas tank, but **sides with you** to attack any NPC aggressing you.
+VM-driven per tick, client-local. Not hireable.
+
+**Fases / phases** (`PrankedyState.kt`): `PrankedyPhase` = `NOT_HIRED` (= activo/hostil, estado vivo),
+`DEAD` (timer de respawn); `HIRED` quedó **sin uso** (legado). `PrankedyAnimState` = `IDLE, WALK, RUN,
+RUN_TANQUE, ATTACK`.
+
+**Constantes clave / key constants:**
+```
+ATTACK_RADIUS=0.00007(~8m)   ATTACK_ANIM_MS=800(windup p_atack)   PROJECTILE_FLIGHT_MS=900
+IMPACT_RADIUS=0.00005(~5.5m, esquivable)   AGGRO_DETECT_RADIUS=0.00045(~50m, detecta agresor)
+RUN_TANQUE_SPEED=0.0000075   ATTACK_DAMAGE_PROJECTILE=22   ATTACK_COOLDOWN_MS=2800
+MAX_HEALTH=80   RESPAWN_COOLDOWN_MS=60000   ENEMY_CONTACT_(RADIUS/DAMAGE/COOLDOWN_MS)
+```
+
+**API / lógica:**
+- `tick(playerLoc, npcs, isDriving, now, roadNetwork, snapToRoad?)` → `PrankedyTickResult(hitNpcId,
+  projectileDamage, justDied, hitPlayer)`. Si `isDriving`, se oculta (IDLE).
+- **Spawn robusto** (`spawn`/`findSpawnPoint`): 3 niveles → nodo de calle a ~35 m → nodo de calle más
+  cercano → offset aleatorio (siempre aparece), sobre la red viaria.
+- **Combate:** `findAggressorNearPlayer` (NPC con `aggroUntil>now` o `ZOMBIE` a ≤50 m **del jugador**)
+  → si existe, objetivo = ese NPC; si no, objetivo = el **jugador**. Corre con tanque (`RUN_TANQUE`); al
+  llegar a `ATTACK_RADIUS` hace el **windup** (`p_atack`, 800 ms quieto) y AL TERMINAR lanza el tanque
+  (`p_objeto`). El proyectil viaja y al caer **solo pega si el objetivo sigue dentro de `IMPACT_RADIUS`**
+  (esquivable si te mueves; `hitPlayer` → `takeDamage` en el VM).
+- **Snap a la calle:** el VM le pasa `snapToRoad = getNearestPointOnNetwork`; todo su movimiento se
+  engancha a la red (no atraviesa edificios).
+- **Daño/muerte:** `takeDamage()`; a 0 HP → `DEAD`, oculto, respawn a los 60 s. El jugador lo golpea
+  (`performPlayerAttack` → `takeDamage` si está a ≤`ATTACK_RADIUS`); los NPCs hostiles en contacto
+  también lo lastiman.
+- **Toggle:** `deactivate()` lo quita del mapa; lo gobierna `WorldMapState.prankedyEnabled` (item de
+  Opciones "Activar/Desactivar Prankedy", **default OFF**); `checkPrankedySpawn`/`runPrankedyTick`
+  no-opean si está apagado.
+
+> Render (sprites `assetsNPC/Prankedy/` + proyectil) en **OSM nativo y web (Leaflet)** — ver 04.
+> El tick/spawn corren desde el **game loop MIEMBRO** de `WorldMapViewModel.kt` (no la extensión muerta).
+
+---
+
 ## `domain/models/zombie/` — Modelos del minijuego / minigame models
 
 ```kotlin
