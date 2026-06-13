@@ -71,6 +71,9 @@ import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.DesignerTarget
 import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.ZombieGameViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
 import kotlin.math.max
+import androidx.compose.material.icons.filled.Person
+import ovh.gabrielhuav.pow.features.map_exterior.ui.SkinSelectorDialog
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 
 private const val ZOMBIE_SPRITE_BASE = 60f
 private const val PLAYER_SPRITE_BASE = 56f
@@ -400,6 +403,7 @@ fun ZombieGameScreen(
                 PlayerView(
                     action = state.playerAction, facingRight = state.isPlayerFacingRight,
                     damagePulse = state.damagePulseTrigger, sizePx = pSize,
+                    skin = state.selectedSkin,                         // ← NUEVO
                     modifier = Modifier
                         .absoluteOffset(
                             x = with(density) { toScreenX(state.playerX).toDp() } - with(density) { (pSize / 2).toDp() },
@@ -616,6 +620,12 @@ fun ZombieGameScreen(
                 Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black)
             }
             if (!state.designerMode) {
+                IconButton(
+                    onClick = { viewModel.toggleSkinSelector(true) },
+                    modifier = Modifier.background(Color(0xFFD91B5B).copy(alpha = 0.9f), CircleShape)
+                ) {
+                    Icon(Icons.Default.Person, "Cambiar skin", tint = Color.White)
+                }
                 var optionsExpanded by remember { mutableStateOf(false) }
                 OptionsMenu(
                     expanded = optionsExpanded,
@@ -635,6 +645,14 @@ fun ZombieGameScreen(
             ZombiVideoPlayer(
                 context = context,
                 onDismiss = { viewModel.onZombieCinematicDismissed() }
+            )
+        }
+        if (state.showSkinSelector) {
+            SkinSelectorDialog(
+                currentSkin    = state.selectedSkin,
+                context        = context,
+                onSkinSelected = { viewModel.selectSkin(it) },
+                onDismiss      = { viewModel.toggleSkinSelector(false) }
             )
         }
         // ─── TOOLBAR DEL DISEÑADOR ──────────────────────────────

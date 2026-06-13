@@ -7,6 +7,7 @@ import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
 import ovh.gabrielhuav.pow.domain.models.zombie.SkillItem
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieEntity
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin   // ← NUEVO
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 data class ZombieGameState(
@@ -26,6 +27,10 @@ data class ZombieGameState(
     val aimDirX: Float = 1f,
     val aimDirY: Float = 0f,
 
+    // ─── Skin del jugador ────────────────────────────────────────────────
+    val selectedSkin: PlayerSkin = PlayerSkin.LAZARO,       // ← NUEVO
+    val showSkinSelector: Boolean = false,                   // ← NUEVO
+
     val zombies: List<ZombieEntity> = emptyList(),
     val items: List<SkillItem> = emptyList(),
     val projectiles: List<Projectile> = emptyList(),
@@ -43,10 +48,7 @@ data class ZombieGameState(
     val showWastedScreen: Boolean = false,
     val isExitingToWorld: Boolean = false,
 
-    // ─── Confirmación de salida al lobby (requerimiento 1) ──
     val showExitToLobbyDialog: Boolean = false,
-
-    // ─── Línea punteada de ayuda al spawnear (requerimiento 5) ──
     val showExitGuide: Boolean = false,
 
     val nearbyDoorLabel: String? = null,
@@ -58,24 +60,17 @@ data class ZombieGameState(
     val swapControls: Boolean = false,
     val isLoading: Boolean = true,
     val remotePlayers: List<RemoteZombiePlayer> = emptyList(),
-    // NPCs civiles dentro del interior (autoritativos del servidor). Reusan RemoteZombiePlayer
-    // para renderizarse como figuras humanas (deambulan/huyen de los zombis).
     val interiorNpcs: List<RemoteZombiePlayer> = emptyList(),
     val zombieModeActivated: Boolean = false,
     val showZombieCinematic: Boolean = false,
 
     // ─── MODO DISEÑADOR DE LA MATRIZ DE COLISIÓN ───────────
-    // Análogo al modo diseñador del mapa principal: se activa/desactiva, se
-    // pinta la rejilla sobre el cuarto y se guarda en collision_matrices.json.
     val designerMode: Boolean = false,
-    val designerRows: List<String> = emptyList(), // matriz en edición
-    val designerBrushWall: Boolean = true,         // true = pinta pared '#', false = borra '.'
-    val designerDirty: Boolean = false,            // hay cambios sin guardar
+    val designerRows: List<String> = emptyList(),
+    val designerBrushWall: Boolean = true,
+    val designerDirty: Boolean = false,
 
     // ─── MODO DISEÑADOR DE WAYPOINTS (puertas) ─────────────
-    // El diseñador alterna entre editar la MATRIZ de colisión o los WAYPOINTS
-    // (puertas). En modo WAYPOINTS se arrastran las puertas sobre el fondo y se
-    // guardan en waypoints.json.
     val designerTarget: DesignerTarget = DesignerTarget.MATRIX,
     val designerDoors: List<ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor> = emptyList(),
     val selectedDoorIndex: Int = -1

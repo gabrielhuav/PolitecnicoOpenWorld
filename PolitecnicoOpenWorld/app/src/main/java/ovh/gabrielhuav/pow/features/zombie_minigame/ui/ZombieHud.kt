@@ -46,6 +46,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsCont
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin          // ← NUEVO
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
@@ -88,7 +89,6 @@ fun ZombieHud(
                         modifier = Modifier.background(Color(0xFFD32F2F).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
                             .padding(horizontal = 12.dp, vertical = 6.dp))
                 }
-                // Indicador de jugadores conectados en la sala (multijugador)
                 if (state.remotePlayers.isNotEmpty()) {
                     Text("JUGADORES: ${state.remotePlayers.size + 1}", color = Color.White, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -104,7 +104,6 @@ fun ZombieHud(
                     .background(Color(0xFF2A1C21).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             )
-            // Chips de efectos activos
             if (state.activeEffects.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     state.activeEffects.forEach { ae ->
@@ -188,42 +187,24 @@ fun ZombieHud(
 @Composable
 fun LowHealthAura(health: Float) {
     if (health > 35f) return
-
     val infiniteTransition = rememberInfiniteTransition(label = "lowHealthAura")
     val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.05f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = 0.05f, targetValue = 0.6f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "alpha"
     )
-
-    // A medida que la vida baja de 35 a 0, el efecto es más pronunciado
     val intensity = (1f - (health / 35f)).coerceIn(0f, 1f)
     val currentAlpha = alpha * intensity
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    0.0f to Color.Transparent,
-                    0.6f to Color.Transparent,
-                    1.0f to Color.Red.copy(alpha = currentAlpha),
-                )
-            )
-    )
+    Box(modifier = Modifier.fillMaxSize().background(
+        Brush.radialGradient(0.0f to Color.Transparent, 0.6f to Color.Transparent, 1.0f to Color.Red.copy(alpha = currentAlpha))
+    ))
 }
 
 @Composable
 private fun WeaponMenuButton(label: String, selected: Boolean, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) Color(0xFF6B1C3A) else Color(0xFF2A1C21)
-        ),
+        colors = ButtonDefaults.buttonColors(containerColor = if (selected) Color(0xFF6B1C3A) else Color(0xFF2A1C21)),
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier.width(180.dp).height(48.dp)
     ) {
@@ -248,12 +229,6 @@ internal fun PlayerHealthBarFixed(health: Float) {
     }
 }
 
-/**
- * REQUERIMIENTO 1: Indicador de puerta con etiqueta SIEMPRE en una sola línea.
- * El contenedor usa wrapContentSize y el Text usa maxLines=1 + softWrap=false +
- * wrapContentWidth(unbounded=true) para permitir que la etiqueta exceda el ancho
- * del indicador circular sin partirse en varias líneas.
- */
 @Composable
 fun DoorIndicator(label: String, kind: DoorKind, modifier: Modifier = Modifier) {
     val infinite = rememberInfiniteTransition(label = "door")
@@ -264,119 +239,50 @@ fun DoorIndicator(label: String, kind: DoorKind, modifier: Modifier = Modifier) 
         DoorKind.EXIT_NEXT, DoorKind.EXIT_PREV -> Color(0xFFFF9800)
         else -> Color(0xFFD4AF37)
     }
-
-    Column(
-        modifier = modifier.wrapContentSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Indicador circular pulsante
-        Box(
-            modifier = Modifier.size(64.dp),
-            contentAlignment = Alignment.Center
-        ) {
+    Column(modifier = modifier.wrapContentSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(modifier = Modifier.size(64.dp), contentAlignment = Alignment.Center) {
             Box(Modifier.scale(pulse).size(64.dp).clip(CircleShape).background(color.copy(alpha = 0.25f)))
             Box(Modifier.size(30.dp).clip(CircleShape).background(color.copy(alpha = 0.85f)).border(2.dp, Color.White, CircleShape))
         }
-
         if (label.isNotEmpty()) {
-            Text(
-                text = label,
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Visible,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .offset(y = (-8).dp)
-                    .wrapContentWidth(unbounded = true)
+            Text(text = label, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Visible, textAlign = TextAlign.Center,
+                modifier = Modifier.offset(y = (-8).dp).wrapContentWidth(unbounded = true)
                     .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
-            )
+                    .padding(horizontal = 8.dp, vertical = 2.dp))
         }
     }
 }
 
-/**
- * REQUERIMIENTO 2: Item de habilidad en el suelo, renderizado EXCLUSIVAMENTE
- * con Canvas. No carga ningún asset .webp; todos los íconos son vectoriales:
- *   - RELOJ_ARENA: reloj de arena estilizado (dos triángulos opuestos + tapas).
- *   - Trampas (ADRENALINA / FURIA): triángulo rojo invertido con signo "!".
- *   - Buffs (CURA_TOTAL / DEBILIDAD / FUERZA_BRUTA): círculo verde con cruz blanca.
- */
 @Composable
 fun SkillGroundItem(effect: SkillEffect, highlighted: Boolean, modifier: Modifier = Modifier) {
     val infinite = rememberInfiniteTransition(label = "skill")
     val glow by infinite.animateFloat(0.85f, 1.2f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "glow")
-
     Box(modifier = modifier.size(36.dp), contentAlignment = Alignment.Center) {
-        // Halo
-        Box(
-            Modifier.scale(if (highlighted) glow else 1f).size(34.dp).clip(CircleShape)
-                .background(
-                    (if (effect.isTrap) Color(0xFFFF5252) else Color(0xFF69F0AE)).copy(alpha = 0.30f)
-                )
-        )
-
+        Box(Modifier.scale(if (highlighted) glow else 1f).size(34.dp).clip(CircleShape)
+            .background((if (effect.isTrap) Color(0xFFFF5252) else Color(0xFF69F0AE)).copy(alpha = 0.30f)))
         Canvas(modifier = Modifier.size(26.dp)) {
-            val w = size.width
-            val h = size.height
+            val w = size.width; val h = size.height
             when {
                 effect == SkillEffect.RELOJ_ARENA -> {
-                    // Reloj de arena: dos triángulos opuestos formando un moño.
                     val sand = Color(0xFF5C6BC0)
-                    val topTri = Path().apply {
-                        moveTo(w * 0.18f, h * 0.12f)
-                        lineTo(w * 0.82f, h * 0.12f)
-                        lineTo(w * 0.5f, h * 0.5f)
-                        close()
-                    }
-                    val bottomTri = Path().apply {
-                        moveTo(w * 0.5f, h * 0.5f)
-                        lineTo(w * 0.18f, h * 0.88f)
-                        lineTo(w * 0.82f, h * 0.88f)
-                        close()
-                    }
-                    drawPath(topTri, sand)
-                    drawPath(bottomTri, sand)
-                    // Tapas blancas arriba y abajo
-                    drawLine(Color.White, Offset(w * 0.15f, h * 0.12f), Offset(w * 0.85f, h * 0.12f), strokeWidth = w * 0.08f)
-                    drawLine(Color.White, Offset(w * 0.15f, h * 0.88f), Offset(w * 0.85f, h * 0.88f), strokeWidth = w * 0.08f)
+                    val topTri = Path().apply { moveTo(w*.18f,h*.12f); lineTo(w*.82f,h*.12f); lineTo(w*.5f,h*.5f); close() }
+                    val bottomTri = Path().apply { moveTo(w*.5f,h*.5f); lineTo(w*.18f,h*.88f); lineTo(w*.82f,h*.88f); close() }
+                    drawPath(topTri, sand); drawPath(bottomTri, sand)
+                    drawLine(Color.White, Offset(w*.15f,h*.12f), Offset(w*.85f,h*.12f), strokeWidth = w*.08f)
+                    drawLine(Color.White, Offset(w*.15f,h*.88f), Offset(w*.85f,h*.88f), strokeWidth = w*.08f)
                 }
                 effect.isTrap -> {
-                    // Triángulo rojo invertido (alerta) con signo de exclamación
-                    val path = Path().apply {
-                        moveTo(w * 0.05f, h * 0.15f)
-                        lineTo(w * 0.95f, h * 0.15f)
-                        lineTo(w * 0.5f, h * 0.95f)
-                        close()
-                    }
+                    val path = Path().apply { moveTo(w*.05f,h*.15f); lineTo(w*.95f,h*.15f); lineTo(w*.5f,h*.95f); close() }
                     drawPath(path, Color(0xFFD32F2F))
-                    drawLine(
-                        Color.White,
-                        start = Offset(w * 0.5f, h * 0.30f),
-                        end = Offset(w * 0.5f, h * 0.58f),
-                        strokeWidth = w * 0.10f
-                    )
-                    drawCircle(Color.White, radius = w * 0.05f, center = Offset(w * 0.5f, h * 0.70f))
+                    drawLine(Color.White, Offset(w*.5f,h*.30f), Offset(w*.5f,h*.58f), strokeWidth = w*.10f)
+                    drawCircle(Color.White, radius = w*.05f, center = Offset(w*.5f,h*.70f))
                 }
                 else -> {
-                    // Buff / curación: círculo verde con cruz blanca
-                    drawCircle(Color(0xFF2E7D32), radius = w * 0.48f, center = Offset(w * 0.5f, h * 0.5f))
-                    val armT = w * 0.14f
-                    drawLine(
-                        Color.White,
-                        start = Offset(w * 0.5f, h * 0.25f),
-                        end = Offset(w * 0.5f, h * 0.75f),
-                        strokeWidth = armT
-                    )
-                    drawLine(
-                        Color.White,
-                        start = Offset(w * 0.25f, h * 0.5f),
-                        end = Offset(w * 0.75f, h * 0.5f),
-                        strokeWidth = armT
-                    )
+                    drawCircle(Color(0xFF2E7D32), radius = w*.48f, center = Offset(w*.5f,h*.5f))
+                    val armT = w*.14f
+                    drawLine(Color.White, Offset(w*.5f,h*.25f), Offset(w*.5f,h*.75f), strokeWidth = armT)
+                    drawLine(Color.White, Offset(w*.25f,h*.5f), Offset(w*.75f,h*.5f), strokeWidth = armT)
                 }
             }
         }
@@ -391,20 +297,14 @@ fun ZombieView(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val frame = remember(type, frameIndex, isAttacking) {
-        ZombieSpriteManager.getFrame(context, type, isAttacking, frameIndex)
-    }
+    val frame = remember(type, frameIndex, isAttacking) { ZombieSpriteManager.getFrame(context, type, isAttacking, frameIndex) }
     val sizeDp = with(density) { sizePx.toDp() }
-
     Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.TopCenter) {
         if (health < maxHealth && !isDying) {
-            Box(
-                modifier = Modifier.offset(y = (-6).dp).fillMaxWidth(0.7f).height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)).background(Color.Black.copy(alpha = 0.5f))
-            ) {
+            Box(modifier = Modifier.offset(y = (-6).dp).fillMaxWidth(0.7f).height(4.dp)
+                .clip(RoundedCornerShape(2.dp)).background(Color.Black.copy(alpha = 0.5f))) {
                 LinearProgressIndicator(
-                    progress = (health / maxHealth).coerceIn(0f, 1f),
-                    modifier = Modifier.fillMaxSize(),
+                    progress = (health / maxHealth).coerceIn(0f, 1f), modifier = Modifier.fillMaxSize(),
                     color = if (health > maxHealth * 0.5f) Color(0xFF8BC34A) else Color(0xFFF44336),
                     trackColor = Color.Transparent
                 )
@@ -416,19 +316,24 @@ fun ZombieView(
                 alpha = if (isDying) 0.35f else 1f
             })
         } else {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(top = 6.dp).clip(CircleShape)
-                    .background(Color(0xFF4CAF50).copy(alpha = if (isDying) 0.35f else 0.9f))
-                    .border(2.dp, Color(0xFF1B5E20), CircleShape)
-            )
+            Box(modifier = Modifier.fillMaxSize().padding(top = 6.dp).clip(CircleShape)
+                .background(Color(0xFF4CAF50).copy(alpha = if (isDying) 0.35f else 0.9f))
+                .border(2.dp, Color(0xFF1B5E20), CircleShape))
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PlayerView — ahora recibe skin: PlayerSkin y usa sus paths y frame counts.
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun PlayerView(
-    action: PlayerAction, facingRight: Boolean, damagePulse: Int,
-    sizePx: Float, modifier: Modifier = Modifier
+    action: PlayerAction,
+    facingRight: Boolean,
+    damagePulse: Int,
+    sizePx: Float,
+    skin: PlayerSkin = PlayerSkin.LAZARO,          // ← NUEVO (default = Lázaro)
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -443,16 +348,17 @@ fun PlayerView(
         label = "shake"
     )
 
-    LaunchedEffect(action) {
+    // Reacciona tanto a cambios de acción como de skin ← clave del fix
+    LaunchedEffect(action, skin) {
         frame = 1
         while (true) {
-            val maxFrames = if (action == PlayerAction.SPECIAL) 8 else 6
-            val path = when (action) {
-                PlayerAction.IDLE -> "PRINCIPAL/lazaroIdle/lazaro_i_$frame.webp"
-                PlayerAction.WALK -> "PRINCIPAL/lazaroWalk/lazaro_w_$frame.webp"
-                PlayerAction.SPECIAL -> "PRINCIPAL/lazaroSpecial/lazaro_s_$frame.webp"
-                PlayerAction.RUN -> "PRINCIPAL/lazaroRun/lazaro_r_$frame.webp"
+            val maxFrames = when (action) {
+                PlayerAction.IDLE    -> skin.idleFrames
+                PlayerAction.WALK    -> skin.walkFrames
+                PlayerAction.RUN     -> skin.runFrames
+                PlayerAction.SPECIAL -> skin.specialFrames
             }
+            val path = skin.playerViewPath(action, frame)
             if (!cache.containsKey(path)) {
                 cache[path] = withContext(Dispatchers.IO) {
                     try { context.assets.open(path).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
@@ -474,11 +380,6 @@ fun PlayerView(
     }
 }
 
-/**
- * Jugador remoto (multijugador). Reusa el mismo sprite del jugador principal,
- * pero le añade una etiqueta de nombre flotante y un borde de color distinto
- * para diferenciarlo del jugador local de un vistazo.
- */
 @Composable
 fun RemotePlayerView(
     name: String,
@@ -498,12 +399,8 @@ fun RemotePlayerView(
         frame = 1
         while (true) {
             val maxFrames = if (action == PlayerAction.SPECIAL) 8 else 6
-            val path = when (action) {
-                PlayerAction.IDLE -> "PRINCIPAL/lazaroIdle/lazaro_i_$frame.webp"
-                PlayerAction.WALK -> "PRINCIPAL/lazaroWalk/lazaro_w_$frame.webp"
-                PlayerAction.SPECIAL -> "PRINCIPAL/lazaroSpecial/lazaro_s_$frame.webp"
-                PlayerAction.RUN -> "PRINCIPAL/lazaroRun/lazaro_r_$frame.webp"
-            }
+            // Jugadores remotos siempre usan Lázaro (su skin propia no se transmite en red)
+            val path = PlayerSkin.LAZARO.playerViewPath(action, frame)
             if (!cache.containsKey(path)) {
                 cache[path] = withContext(Dispatchers.IO) {
                     try { context.assets.open(path).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
@@ -517,22 +414,12 @@ fun RemotePlayerView(
     }
 
     Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.TopCenter) {
-        // Etiqueta de nombre, siempre en una sola línea.
         if (name.isNotBlank()) {
-            Text(
-                text = name,
-                color = Color(0xFF64B5F6),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Visible,
-                modifier = Modifier
-                    .offset(y = (-12).dp)
-                    .wrapContentWidth(unbounded = true)
+            Text(text = name, color = Color(0xFF64B5F6), fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Visible,
+                modifier = Modifier.offset(y = (-12).dp).wrapContentWidth(unbounded = true)
                     .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 5.dp, vertical = 1.dp)
-            )
+                    .padding(horizontal = 5.dp, vertical = 1.dp))
         }
         if (image != null) {
             Image(image!!, "Jugador remoto",
@@ -541,4 +428,14 @@ fun RemotePlayerView(
             Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFF2196F3)).border(2.dp, Color.White, CircleShape))
         }
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Extensión privada: resuelve la ruta de asset delegando en PlayerSkin
+// ─────────────────────────────────────────────────────────────────────────────
+private fun PlayerSkin.playerViewPath(action: PlayerAction, frame: Int): String = when (action) {
+    PlayerAction.IDLE    -> idlePath(frame)
+    PlayerAction.WALK    -> walkPath(frame)
+    PlayerAction.RUN     -> runPath(frame)
+    PlayerAction.SPECIAL -> specialPath(frame)
 }

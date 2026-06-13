@@ -51,10 +51,11 @@ class ZombieGameViewModel(
 
     internal val _state = MutableStateFlow(
         ZombieGameState(
-            controlType = settingsRepository.getControlType(),
+            controlType  = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
             swapControls = settingsRepository.getSwapControls(),
-            isLoading = false
+            selectedSkin = settingsRepository.getPlayerSkin(),     // ← NUEVO
+            isLoading    = false
         )
     )
     val state: StateFlow<ZombieGameState> = _state.asStateFlow()
@@ -792,6 +793,15 @@ class ZombieGameViewModel(
     fun onZombieCinematicDismissed() {
         _state.update { it.copy(showZombieCinematic = false, zombieModeActivated = true) }
         loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+    }
+
+    fun toggleSkinSelector(show: Boolean) {
+        _state.update { it.copy(showSkinSelector = show) }
+    }
+
+    fun selectSkin(skin: ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin) {
+        settingsRepository.savePlayerSkin(skin)
+        _state.update { it.copy(selectedSkin = skin, showSkinSelector = false) }
     }
 
     // ─── MODO DISEÑADOR DE LA MATRIZ DE COLISIÓN ───────────
