@@ -7,7 +7,7 @@ object ZombieRoomCatalog {
     const val EXIT_TO_WORLD = "__WORLD__"
 
     private val buildingOrder = listOf(
-        "za_auditorio", "za_biblioteca", "za_cafeteria",
+        "voca9", "za_auditorio", "za_biblioteca", "za_cafeteria",
         "za_edificio", "za_estacionamiento", "za_palapas", "za_canchas_futbol"
     )
 
@@ -63,6 +63,7 @@ object ZombieRoomCatalog {
     }
 
     private fun buildingDisplayName(id: String) = when (id) {
+        "voca9" -> "CECyT 9 Bátiz"
         "za_auditorio" -> "Auditorio"
         "za_biblioteca" -> "Biblioteca"
         "za_cafeteria" -> "Cafetería"
@@ -90,20 +91,24 @@ object ZombieRoomCatalog {
             )
         )
         buildingOrder.forEachIndexed { i, id ->
+            val isVoca = id == "voca9"
+            val asset = if (isVoca) "BUILDINGS/IPN/building_voca9.webp"
+                        else "ZOMBIS_MOD/interiores/$id.webp"
             add(
                 ZombieRoom(
                     id = id,
-                    type = ZoneType.BUILDING,
-                    backgroundAsset = "ZOMBIS_MOD/interiores/$id.webp",
+                    type = if (isVoca) ZoneType.LOBBY else ZoneType.BUILDING,
+                    backgroundAsset = asset,
                     displayName = buildingDisplayName(id),
                     worldWidth = 1920f,
                     worldHeight = 1080f,
-                    zoom = 1.0f,
-                    playerSpawnFrac = NormPoint(0.50f, 0.55f),
-                    doors = buildingDoors(i),
-                    zombieCount = 4 + (i % 3),
+                    zoom = if (isVoca) 2.0f else 1.0f,
+                    playerSpawnFrac = if (isVoca) NormPoint(0.20f, 0.20f) else NormPoint(0.50f, 0.55f),
+                    doors = if (isVoca) listOf(ZoneDoor(NormRect(0.40f, 0.86f, 0.60f, 0.99f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD))
+                            else buildingDoors(i),
+                    zombieCount = if (isVoca) 0 else 4 + (i % 3),
                     gridCols = 40,
-                    collisionMatrix = BUILDING_MATRIX
+                    collisionMatrix = if (isVoca) LOBBY_MATRIX else BUILDING_MATRIX
                 )
             )
         }

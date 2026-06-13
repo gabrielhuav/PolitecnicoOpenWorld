@@ -428,7 +428,8 @@ fun ZombieView(
 @Composable
 fun PlayerView(
     action: PlayerAction, facingRight: Boolean, damagePulse: Int,
-    sizePx: Float, modifier: Modifier = Modifier
+    sizePx: Float, modifier: Modifier = Modifier,
+    skin: ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin.LAZARO
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -443,15 +444,17 @@ fun PlayerView(
         label = "shake"
     )
 
-    LaunchedEffect(action) {
+    LaunchedEffect(action, skin) {
         frame = 1
         while (true) {
             val maxFrames = if (action == PlayerAction.SPECIAL) 8 else 6
+            val skinPrefix = skin.name.lowercase()
+
             val path = when (action) {
-                PlayerAction.IDLE -> "PRINCIPAL/lazaroIdle/lazaro_i_$frame.webp"
-                PlayerAction.WALK -> "PRINCIPAL/lazaroWalk/lazaro_w_$frame.webp"
-                PlayerAction.SPECIAL -> "PRINCIPAL/lazaroSpecial/lazaro_s_$frame.webp"
-                PlayerAction.RUN -> "PRINCIPAL/lazaroRun/lazaro_r_$frame.webp"
+                PlayerAction.IDLE -> "PRINCIPAL/${skinPrefix}Idle/${skinPrefix}_i_$frame.webp"
+                PlayerAction.WALK -> "PRINCIPAL/${skinPrefix}Walk/${skinPrefix}_w_$frame.webp"
+                PlayerAction.SPECIAL -> "PRINCIPAL/${skinPrefix}Special/${skinPrefix}_s_$frame.webp"
+                PlayerAction.RUN -> "PRINCIPAL/${skinPrefix}Run/${skinPrefix}_r_$frame.webp"
             }
             if (!cache.containsKey(path)) {
                 cache[path] = withContext(Dispatchers.IO) {

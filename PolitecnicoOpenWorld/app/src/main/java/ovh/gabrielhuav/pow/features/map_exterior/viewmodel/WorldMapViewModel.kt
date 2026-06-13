@@ -150,7 +150,8 @@ class WorldMapViewModel(
             controlType   = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
             swapControls  = settingsRepository.getSwapControls(),
-            selectedSkin  = settingsRepository.getPlayerSkin(),   // ← NUEVO
+            selectedSkin  = settingsRepository.getPlayerSkin(),
+            showRoadNetwork = settingsRepository.getShowRoadNetwork(),
             npcEmojiLod   = settingsRepository.getNpcEmojiLod(),  // optimizar dibujado de NPCs (LOD)
             npcFullEmoji  = settingsRepository.getNpcFullEmoji(), // optimizar para gama baja (emoji total)
             showZoomWidget = settingsRepository.getShowZoomWidget(),
@@ -1718,10 +1719,15 @@ class WorldMapViewModel(
 
         // Convertimos los Landmarks de tipo "Puerta" en coleccionables virtuales interactuables
         val doorItems = _uiState.value.landmarks
-            .filter { it.assetPath.contains("DOORS/") }
+            .filter { it.assetPath.contains("DOORS/", ignoreCase = true) || it.name.contains("Puerta", ignoreCase = true) }
             .map { doorLandmark ->
+                // Detección inteligente: si el nombre o el asset es de Voca 9
+                val isVoca = doorLandmark.name.contains("Voca", ignoreCase = true) || 
+                             doorLandmark.assetPath.contains("VOCA9", ignoreCase = true)
+
+                val prefix = if (isVoca) "voca_door_" else "escom_door_"
                 ActiveCollectible(
-                    id = "escom_door_${doorLandmark.id}",
+                    id = "$prefix${doorLandmark.id}",
                     name = doorLandmark.name,
                     description = "Puerta interactiva",
                     assetPath = doorLandmark.assetPath,
@@ -1741,7 +1747,7 @@ class WorldMapViewModel(
         val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
 
         // 4. Radio de detección especial para las puertas (20 metros) o estándar para objetos (15 metros)
-        val radius = if (activeItem.id.startsWith("escom_door_")) ESCOM_DOOR_INTERACT_RADIUS * 100000 else 15.0
+        val radius = if (activeItem.id.startsWith("escom_door_") || activeItem.id.startsWith("voca_door_")) ESCOM_DOOR_INTERACT_RADIUS * 100000 else 15.0
 
         if (distanceInMeters <= radius) {
             if (_uiState.value.nearbyCollectible?.id != activeItem.id) {
@@ -1751,8 +1757,8 @@ class WorldMapViewModel(
                     val promptText = when {
                         activeItem.id == "global_zombie_hand" -> if (_uiState.value.globalZombieMode) "PRESIONA X PARA DESACTIVAR MODO ZOMBI" else "PRESIONA X PARA ACTIVAR MODO ZOMBI"
                         activeItem.name == "Objeto Misterioso ESCOM" -> "PRESIONA X PARA INTERACTUAR"
-                        activeItem.id == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA ENTRAR"
-                        activeItem.id.startsWith("escom_door_")      -> "PRESIONA X PARA ENTRAR" // <--- Aquí aparece el texto de la puerta
+                        activeItem.id == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA INSPECCIONAR"
+                        activeItem.id.startsWith("escom_door_") || activeItem.id.startsWith("voca_door_") -> "PRESIONA X PARA ENTRAR"
                         else -> "PRESIONA X PARA RECOGER"
                     }
 
@@ -1776,7 +1782,8 @@ class WorldMapViewModel(
 
         if (itemToClaim.name == "Objeto Misterioso ESCOM" ||
             itemToClaim.id == ShineCTOLocation.MARKER_ID ||
-            itemToClaim.id.startsWith("escom_door_")) {
+            itemToClaim.id.startsWith("escom_door_") ||
+            itemToClaim.id.startsWith("voca_door_")) {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -2405,17 +2412,47 @@ class WorldMapViewModel(
                 _uiState.update {
                     it.copy(
                         showZombiVideo = true,
-                        pendingInteriorDestination = InteriorBuilding.EDIFICIO
+                        pendingInteriorDestination = InteriorBuilding.EDIFICIO,
+                        pendingDoorDestination = "zombie_minigame/za_edificio"
+                    )
+                }
+            }
+            nearby.id.startsWith("voca_door_") -> {
+                android.util.Log.d("Navigation", "Iniciando entrada a Voca 9 (voca_door prefix)")
+                _uiState.update {
+                    it.copy(
+                        showEscomDoorFade = true,
+                        pendingInteriorDestination = InteriorBuilding.VOCA9,
+                        pendingDoorDestination = "zombie_minigame/voca9"
                     )
                 }
             }
             nearby.id.startsWith("escom_door_") -> {
-                val targetRoute = when (nearby.name) {
-                    "Entrada Campo Béisbol" -> "interior_deportivo_beis"
-                    "Entrada Campo Fútbol" -> "interior_deportivo_futbol"
-                    else -> "zombie_minigame"
+                // Chequeo agresivo por nombre o ID específico para evitar falsos positivos hacia ESCOM
+                val isVocaReally = nearby.name.contains("Voca", ignoreCase = true) || 
+                                   nearby.id.contains("26") || nearby.id.contains("21")
+                
+                val targetBuilding = when {
+                    isVocaReally -> InteriorBuilding.VOCA9
+                    nearby.name == "Entrada Campo Béisbol" -> InteriorBuilding.DEPORTIVO_BEIS
+                    nearby.name == "Entrada Campo Fútbol" -> InteriorBuilding.DEPORTIVO_FUTBOL
+                    else -> null // Campus ESCOM Lobby
                 }
-                _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }
+                
+                val route = when (targetBuilding) {
+                    InteriorBuilding.VOCA9 -> "zombie_minigame/voca9"
+                    null -> "zombie_minigame/lobby_campus"
+                    else -> targetBuilding.routeName
+                }
+                
+                android.util.Log.d("Navigation", "Iniciando entrada: ${targetBuilding?.id ?: "LOBBY"} -> $route (Nearby: ${nearby.name})")
+                _uiState.update {
+                    it.copy(
+                        showEscomDoorFade = true,
+                        pendingInteriorDestination = targetBuilding,
+                        pendingDoorDestination = route
+                    )
+                }
             }
             nearby.id == ShineCTOLocation.MARKER_ID -> {
                 _uiState.update { it.copy(showShineCTODiscovery = true) }
@@ -2612,10 +2649,17 @@ class WorldMapViewModel(
         }
     }
 
-    fun consumeEscomDoorNavigation(): String? {
-        val dest = _uiState.value.pendingDoorDestination
-        _uiState.update { it.copy(escomDoorFadeComplete = false, pendingDoorDestination = null) }
-        return dest
+    fun consumeEscomDoorNavigation(): String {
+        val route = _uiState.value.pendingDoorDestination ?: "zombie_minigame/lobby_campus"
+        android.util.Log.d("Navigation", "Consumiendo navegación: $route")
+        _uiState.update { 
+            it.copy(
+                escomDoorFadeComplete = false, 
+                pendingInteriorDestination = null,
+                pendingDoorDestination = null
+            ) 
+        }
+        return route
     }
 
     // ─── Metro Stations Fade ───────────────────────────────────────────────────

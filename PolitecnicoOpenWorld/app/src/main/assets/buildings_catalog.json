@@ -86,5 +86,13 @@
     "defaultScale": 0.15,
     "baseWidthMeters": 260.0,
     "baseHeightMeters": 172.4
+  },
+  {
+    "id": "voca9_door",
+    "displayName": "Puerta Voca 9",
+    "assetPath": "DOORS/VOCA9_DOOR.png",
+    "defaultScale": 0.11,
+    "baseWidthMeters": 24.0,
+    "baseHeightMeters": 20.0
   }
 ]

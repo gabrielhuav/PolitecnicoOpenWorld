@@ -46,7 +46,8 @@ class ZombieGameViewModel(
     internal val settingsRepository: SettingsRepository,
     // URL del servidor de zombis. null = partida offline (un jugador).
     internal val serverUrl: String?,
-    internal val playerName: String
+    internal val playerName: String,
+    private val initialRoomId: String? = null
 ) : ViewModel() {
 
     internal val _state = MutableStateFlow(
@@ -54,6 +55,7 @@ class ZombieGameViewModel(
             controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
             swapControls = settingsRepository.getSwapControls(),
+            selectedSkin = settingsRepository.getPlayerSkin(),
             isLoading = false
         )
     )
@@ -108,7 +110,12 @@ class ZombieGameViewModel(
             } finally {
                 if (isActive) {
                     _state.update { it.copy(isLoading = false) }
-                    loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+                    val startRoom = initialRoomId ?: ZombieRoomCatalog.LOBBY_ID
+                    val idx = ZombieRoomCatalog.indexOfRoom(startRoom)
+                    android.util.Log.d("ZombieGameVM", "ID recibido: $startRoom -> Índice calculado: $idx")
+                    
+                    val finalIdx = idx.coerceAtLeast(0)
+                    loadRoom(finalIdx)
                     startGameLoop()
                     connectIfNeeded()
                 }
@@ -1075,7 +1082,8 @@ class ZombieGameViewModel(
     class Factory(
         private val context: Context,
         private val serverUrl: String?,
-        private val playerName: String
+        private val playerName: String,
+        private val initialRoomId: String? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -1083,7 +1091,8 @@ class ZombieGameViewModel(
                 context.applicationContext,
                 SettingsRepository(context.applicationContext),
                 serverUrl,
-                playerName
+                playerName,
+                initialRoomId
             ) as T
         }
     }

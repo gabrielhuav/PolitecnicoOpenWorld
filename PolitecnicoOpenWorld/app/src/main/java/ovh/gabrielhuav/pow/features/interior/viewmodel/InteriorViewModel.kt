@@ -36,6 +36,7 @@ open class InteriorViewModel(
             controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
             swapControls = settingsRepository.getSwapControls(),
+            selectedSkin = settingsRepository.getPlayerSkin(),
             isLoading = false
         )
     )

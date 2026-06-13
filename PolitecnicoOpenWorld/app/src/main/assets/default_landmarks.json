@@ -1,16 +1,5 @@
 [
   {
-    "id": 0,
-    "name": "Shine CTO",
-    "latitude": 19.45908368468466,
-    "longitude": -99.163338,
-    "assetPath": "BUILDINGS/BAR/Shine.webp",
-    "scaleFactor": 0.15,
-    "rotationAngle": 0.0,
-    "scaleX": 0.15,
-    "scaleY": 0.15
-  },
-  {
     "assetPath": "BUILDINGS/IPN/building_escom.webp",
     "id": 1,
     "latitude": 19.504694288807826,
@@ -77,13 +66,13 @@
     "scaleY": 1.1525397
   },
   {
+    "assetPath": "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp",
     "id": 16,
-    "name": "Deportivo Miguel Alemán",
     "latitude": 19.493527319568926,
     "longitude": -99.1285163718726,
+    "name": "Deportivo Miguel Alemán",
     "rotationAngle": 360.0,
     "scaleFactor": 2.3671417,
-    "assetPath": "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp",
     "scaleX": 2.3671417,
     "scaleY": 2.3671417
   },
@@ -101,23 +90,56 @@
   {
     "assetPath": "DOORS/ESCOM_DOOR.webp",
     "id": 18,
-    "latitude": 19.494200,
-    "longitude": -99.129200,
+    "latitude": 19.4942,
+    "longitude": -99.1292,
     "name": "Entrada Campo Béisbol",
     "rotationAngle": 0.0,
-    "scaleFactor": 0.60,
-    "scaleX": 0.60,
-    "scaleY": 0.60
+    "scaleFactor": 0.6,
+    "scaleX": 0.6,
+    "scaleY": 0.6
   },
   {
     "assetPath": "DOORS/ESCOM_DOOR.webp",
     "id": 19,
-    "latitude": 19.492800,
-    "longitude": -99.127800,
+    "latitude": 19.4928,
+    "longitude": -99.1278,
     "name": "Entrada Campo Fútbol",
     "rotationAngle": 0.0,
-    "scaleFactor": 0.60,
-    "scaleX": 0.60,
-    "scaleY": 0.60
+    "scaleFactor": 0.6,
+    "scaleX": 0.6,
+    "scaleY": 0.6
+  },
+  {
+    "assetPath": "BUILDINGS/IPN/building_voca9.webp",
+    "id": 21,
+    "latitude": 19.45353301845074,
+    "longitude": -99.17531464484065,
+    "name": "CECyT 9 Bátiz",
+    "rotationAngle": 210.94089,
+    "scaleFactor": 1.5762501,
+    "scaleX": 1.5762501,
+    "scaleY": 1.5337452
+  },
+  {
+    "assetPath": "BUILDINGS/BAR/Shine.webp",
+    "id": 24,
+    "latitude": 19.459038634489882,
+    "longitude": -99.1633282698258,
+    "name": "Shine CTO",
+    "rotationAngle": 285.0,
+    "scaleFactor": 0.5,
+    "scaleX": 0.5,
+    "scaleY": 0.5
+  },
+  {
+    "assetPath": "DOORS/VOCA9_DOOR.png",
+    "id": 26,
+    "latitude": 19.453126000000065,
+    "longitude": -99.17549400000011,
+    "name": "Puerta Voca 9",
+    "rotationAngle": 37.0,
+    "scaleFactor": 0.11,
+    "scaleX": 0.11,
+    "scaleY": 0.11
   }
 ]

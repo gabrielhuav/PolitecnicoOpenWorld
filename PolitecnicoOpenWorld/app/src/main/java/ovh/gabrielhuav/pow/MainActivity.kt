@@ -35,6 +35,7 @@ import androidx.preference.PreferenceManager
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
+import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
 import ovh.gabrielhuav.pow.features.interior.ui.AuditorioScreen
 import ovh.gabrielhuav.pow.features.interior.ui.BibliotecaScreen
 import ovh.gabrielhuav.pow.features.interior.ui.CafeteriaScreen
@@ -45,6 +46,7 @@ import ovh.gabrielhuav.pow.features.interior.ui.MetroStationInteriorScreen
 import ovh.gabrielhuav.pow.features.interior.ui.PalapasScreen
 import ovh.gabrielhuav.pow.features.interior.ui.DeportivoBeisScreen
 import ovh.gabrielhuav.pow.features.interior.ui.DeportivoFutbolScreen
+import ovh.gabrielhuav.pow.features.interior.ui.Voca9Screen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
@@ -317,8 +319,8 @@ class MainActivity : ComponentActivity() {
                             // NUEVO BLOQUE: Navegar al minijuego tras el fade de la puerta
                             LaunchedEffect(uiState.escomDoorFadeComplete) {
                                 if (uiState.escomDoorFadeComplete) {
-                                    val destination = worldMapViewModel.consumeEscomDoorNavigation() ?: "zombie_minigame"
-                                    navController.navigate(destination)
+                                    val route = worldMapViewModel.consumeEscomDoorNavigation()
+                                    navController.navigate(route)
                                 }
                             }
 
@@ -352,6 +354,11 @@ class MainActivity : ComponentActivity() {
                         // Cada edificio es un destino independiente. Al hacer back o
                         // tocar el botón de salir, se hace popBackStack hasta world_map
                         // (sin inclusive) para preservar el estado del open world.
+                        composable(route = "interior_voca9") {
+                            Voca9Screen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
                         composable(route = "interior_auditorio") {
                             AuditorioScreen(
                                 onExit = { navController.popBackStack("world_map", inclusive = false) }
@@ -432,7 +439,16 @@ class MainActivity : ComponentActivity() {
                         // popBackStack hasta world_map para preservar el open world.
                         // debugHitboxes = true para calibrar exitHitbox y ver la
                         // matriz de colisión pintada sobre cada cuarto.
-                        composable(route = "zombie_minigame") {
+                        composable(
+                            route = "zombie_minigame/{roomId}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("roomId") {
+                                    type = androidx.navigation.NavType.StringType
+                                    defaultValue = "lobby_campus"
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val roomId = backStackEntry.arguments?.getString("roomId") ?: "lobby_campus"
                             val wmState by worldMapViewModel.uiState.collectAsState()
                             ZombieGameScreen(
                                 onExitToWorld = {
@@ -441,7 +457,8 @@ class MainActivity : ComponentActivity() {
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
                                 onNavigateToSettings = { navController.navigate("settings") },
-                                debugHitboxes = false
+                                debugHitboxes = false,
+                                initialRoomId = roomId
                             )
                         }
 

@@ -178,12 +178,13 @@ private fun InteriorPlayerSprite(state: InteriorState) {
     val context = LocalContext.current
     val action = state.playerAction
     val isFacingRight = state.isFacingRight
+    val skin = state.selectedSkin
 
     var currentFrame by remember { mutableIntStateOf(1) }
     var currentImage by remember { mutableStateOf<ImageBitmap?>(null) }
     val bitmapCache = remember { mutableMapOf<String, ImageBitmap?>() }
 
-    LaunchedEffect(action) {
+    LaunchedEffect(action, skin) {
         currentFrame = 1
         while (true) {
             val maxFrames = when (action) {
@@ -192,11 +193,14 @@ private fun InteriorPlayerSprite(state: InteriorState) {
                 PlayerAction.SPECIAL -> 8
                 PlayerAction.RUN -> 6
             }
+            
+            val skinPrefix = skin.name.lowercase()
+            
             val assetPath = when (action) {
-                PlayerAction.IDLE    -> "PRINCIPAL/lazaroIdle/lazaro_i_$currentFrame.webp"
-                PlayerAction.WALK    -> "PRINCIPAL/lazaroWalk/lazaro_w_$currentFrame.webp"
-                PlayerAction.SPECIAL -> "PRINCIPAL/lazaroSpecial/lazaro_s_$currentFrame.webp"
-                PlayerAction.RUN     -> "PRINCIPAL/lazaroRun/lazaro_r_$currentFrame.webp"
+                PlayerAction.IDLE    -> "PRINCIPAL/${skinPrefix}Idle/${skinPrefix}_i_$currentFrame.webp"
+                PlayerAction.WALK    -> "PRINCIPAL/${skinPrefix}Walk/${skinPrefix}_w_$currentFrame.webp"
+                PlayerAction.SPECIAL -> "PRINCIPAL/${skinPrefix}Special/${skinPrefix}_s_$currentFrame.webp"
+                PlayerAction.RUN     -> "PRINCIPAL/${skinPrefix}Run/${skinPrefix}_r_$currentFrame.webp"
             }
             if (!bitmapCache.containsKey(assetPath)) {
                 val bmp = withContext(Dispatchers.IO) {

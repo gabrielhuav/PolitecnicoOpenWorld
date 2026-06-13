@@ -20,10 +20,12 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
             val type = repository.getControlType()
             val scale = repository.getControlsScale()
             val swap = repository.getSwapControls()
+            val provider = repository.getMapProvider()
             SettingsState(
                 controlType = type,
                 controlsScale = scale,
                 swapControls = swap,
+                mapProvider = provider,
                 showRoadNetwork = repository.getShowRoadNetwork(),
                 showZoomWidget = repository.getShowZoomWidget(),
                 showSpeedometer = repository.getShowSpeedometer(),
@@ -40,7 +42,10 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     val state: StateFlow<SettingsState> = _state.asStateFlow()
 
     fun selectCategory(category: SettingsCategory) { _state.update { it.copy(selectedCategory = category) } }
-    fun changeMapProvider(provider: MapProvider) { _state.update { it.copy(mapProvider = provider) } }
+    fun changeMapProvider(provider: MapProvider) {
+        _state.update { it.copy(mapProvider = provider) }
+        repository.saveMapProvider(provider)
+    }
     fun toggleCacheWidget(enabled: Boolean) { _state.update { it.copy(showCacheWidget = enabled) } }
     fun toggleFpsWidget(enabled: Boolean) { _state.update { it.copy(showFpsWidget = enabled) } }
     fun toggleZoomWidget(enabled: Boolean) {
