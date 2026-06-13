@@ -304,7 +304,7 @@ class PrankedyManager {
                 npc.type != NpcType.POLICE_CAR &&
                 npc.health > 0 &&
                 !npc.isDying &&
-                (npc.aggroUntil > now || npc.type == NpcType.ZOMBIE) &&  // está agrediendo al jugador
+                (npc.aggroUntil > now || npc.type == NpcType.ZOMBIE || npc.type == NpcType.POLICE_COP) &&  // está agrediendo al jugador
                 dist(npc.location, playerLoc) <= AGGRO_DETECT_RADIUS
             }
             .minByOrNull { dist(it.location, playerLoc) }

@@ -557,29 +557,9 @@ class WorldMapViewModel(
                                 val finalLoc = if (distToRoad <= maxRoadRadius) {
                                     tempLoc
                                 } else {
-                                    // Te saliste (curva/bifurcación): en vez de "chocar y pararte", AUTO-DIRECCIONA
-                                    // el coche hacia la calle y baja la velocidad de forma PROPORCIONAL (drástica
-                                    // solo en desvíos grandes). Así, dejando acelerar, el coche SIGUE la carretera.
-                                    val overshoot = ((distToRoad - maxRoadRadius) / maxRoadRadius).coerceIn(0.0, 1.0)
-                                    currentSpeed *= (1.0 - 0.30 * overshoot)
-                                    // Dirección de la calle: muestreamos un punto ~22 m adelante en el sentido
-                                    // del coche y vemos hacia dónde sigue la red.
-                                    val aheadRoad = getNearestPointOnNetwork(
-                                        GeoPoint(nearestRoadPoint.latitude + cos(angleRad) * 0.0002,
-                                            nearestRoadPoint.longitude + sin(angleRad) * 0.0002)
-                                    )
-                                    var roadBearing = Math.toDegrees(
-                                        atan2(aheadRoad.longitude - nearestRoadPoint.longitude,
-                                            aheadRoad.latitude - nearestRoadPoint.latitude)
-                                    ).toFloat()
-                                    // Que apunte hacia donde VA el coche (no al sentido contrario).
-                                    var diff = ((roadBearing - currentRotation + 540f) % 360f) - 180f
-                                    if (kotlin.math.abs(diff) > 90f) {
-                                        roadBearing = (roadBearing + 180f) % 360f
-                                        diff = ((roadBearing - currentRotation + 540f) % 360f) - 180f
-                                    }
-                                    currentRotation += diff * 0.35f
-                                    nearestRoadPoint
+                                    // Te saliste de la calle: literalmente no avanzas, te frenas en seco.
+                                    currentSpeed = 0.0
+                                    location
                                 }
 
                                 _uiState.update {

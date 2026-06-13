@@ -52,9 +52,10 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
     val pm = prankedyManager
 
     // Ejecutar la IA
+    val allNpcs = remoteEntities.values.toList() + policeManager.activeUnits()
     val result = pm.tick(
         playerLoc  = playerLoc,
-        npcs       = remoteEntities.values.toList(),
+        npcs       = allNpcs,
         isDriving  = _uiState.value.isDriving,
         now        = now,
         roadNetwork = roadNetwork,

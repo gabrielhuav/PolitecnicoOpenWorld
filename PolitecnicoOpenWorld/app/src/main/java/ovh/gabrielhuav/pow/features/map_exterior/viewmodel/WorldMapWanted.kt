@@ -119,7 +119,10 @@ internal fun WorldMapViewModel.runPoliceTick(location: GeoPoint) {
         playerInVehicle = driving,
         now = now,
         snap = { gp -> getNearestPointOnNetwork(gp) },
-        pathfind = { from, to -> findRoadRoute(from, to) }   // A* real por calles
+        pathfind = { from, to -> findRoadRoute(from, to) },   // A* real por calles
+        prankedyLoc = prankedyManager.location,
+        isPrankedyFighting = prankedyManager.location != null && prankedyManager.phase != ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.DEAD &&
+                             (prankedyManager.animState == ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.ATTACK || prankedyManager.animState == ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN_TANQUE)
     )
 
     // BALAS VISIBLES: guardamos los disparos nuevos con su timestamp y purgamos los
@@ -136,6 +139,9 @@ internal fun WorldMapViewModel.runPoliceTick(location: GeoPoint) {
     // directo: te persiguen y, si te detienes, te bajan del vehículo (carjack).
     if (tick.damage > 0f && !driving) {
         viewModelScope.launch(Dispatchers.Main) { takeDamage(tick.damage) }
+    }
+    if (tick.prankedyDamage > 0f) {
+        prankedyManager.takeDamage(tick.prankedyDamage, now)
     }
 
     // CARJACK: si conduces y un perseguidor te alcanza, te avisa; si no aceleras (te

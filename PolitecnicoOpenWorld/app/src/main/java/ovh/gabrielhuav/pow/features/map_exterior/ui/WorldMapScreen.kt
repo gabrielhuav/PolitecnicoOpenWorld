@@ -678,9 +678,9 @@ fun WorldMapScreen(
                                         if (angle < 0) angle += 360f
                                         val frameIndex = (angle / 7.5f).roundToInt() % 48
                                         val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
-                                        "GM_POLICE_${frameIndex}_${dynamicScale}"
+                                        "GM_POLICE_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == NpcType.POLICE_COP -> "GM_COP_EMOJI"
+                                    npc.type == NpcType.POLICE_COP -> "GM_COP_EMOJI_H${qHealth}_D${npc.isDying}"
                                     npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                         val timeMs = System.currentTimeMillis()
                                         val frameIndex = ((timeMs / 220L) % 9L).toInt()
@@ -726,12 +726,15 @@ fun WorldMapScreen(
                                             d?.let {
                                                 val fw = ((it.intrinsicWidth / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
                                                 val fh = ((it.intrinsicHeight / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
-                                                ExactSizeDrawable(it, fw, fh)
+                                                val withHealth = drawHealthBarOnDrawable(context, it, npc.health, npc.isDying)
+                                                ExactSizeDrawable(withHealth ?: it, fw, fh)
                                             }
                                         }
                                         npc.type == NpcType.POLICE_COP -> {
                                             val px = (18 * screenDensity).toInt()
-                                            emojiToDrawable(context, "👮", px)
+                                            var d: android.graphics.drawable.Drawable? = emojiToDrawable(context, "👮", px)
+                                            d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
+                                            d
                                         }
                                         npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                             val timeMs = System.currentTimeMillis()
@@ -860,13 +863,14 @@ fun WorldMapScreen(
                                 val position = LatLng(collectible.latitude, collectible.longitude)
                                 val markerState = remember { MarkerState(position = position) }
                                 markerState.position = position
+                                val isHand = collectible.name == "Objeto Misterioso ESCOM" || collectible.id == "global_zombie_hand"
 
                                 com.google.maps.android.compose.Marker(
                                     state = markerState,
                                     icon = iconDescriptor,
                                     anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                                     flat = true,
-                                    rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
+                                    rotation = if (isHand) 0f else ((System.currentTimeMillis() / 30) % 360).toFloat()
                                 )
                             }
                         }
@@ -1263,7 +1267,9 @@ fun WorldMapScreen(
                                 }
                                 val pkFlip = if (uiState.prankedyFacingRight) 1 else -1
                                 val pkDlg = uiState.prankedyDialogue?.let { JSONObject.quote(it) } ?: "null"
-                                wv.evaluateJavascript("if(typeof updatePrankedy==='function')updatePrankedy({lat:${pkLoc.latitude},lng:${pkLoc.longitude},imageKey:'$pkKey',flip:$pkFlip,dialogue:$pkDlg});", null)
+                                val pkHealth = uiState.prankedyHealth
+                                val pkMaxHealth = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager.MAX_HEALTH
+                                wv.evaluateJavascript("if(typeof updatePrankedy==='function')updatePrankedy({lat:${pkLoc.latitude},lng:${pkLoc.longitude},imageKey:'$pkKey',flip:$pkFlip,dialogue:$pkDlg,health:$pkHealth,maxHealth:$pkMaxHealth});", null)
                             } else {
                                 wv.evaluateJavascript("if(typeof clearPrankedy==='function')clearPrankedy();", null)
                             }

@@ -542,6 +542,13 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             var cachedImg = (window.imgCache && npc.imageKey) ? window.imgCache[npc.imageKey] : '';
             var flip = (npc.flip !== undefined) ? npc.flip : 1;
             var dlg = npc.dialogue ? escapeHtml(npc.dialogue) : '';
+            var hp = (npc.health === undefined || npc.health === null) ? 80 : npc.health;
+            var maxHp = (npc.maxHealth === undefined || npc.maxHealth === null) ? 80 : npc.maxHealth;
+            var showHb = hp < maxHp;
+            var hbPct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+            var hbColor = hbPct > 60 ? '#4CAF50' : (hbPct > 30 ? '#FFEB3B' : '#F44336');
+            var hbHtml = '<div class="npc-hb" style="position:absolute; top:-16px; left:50%; transform:translateX(-50%); width:36px; height:8px; background:rgba(0,0,0,0.5); border-radius:4px; overflow:hidden; z-index:120; display:' + (showHb ? 'block' : 'none') + ';"><div class="npc-hb-fill" style="width:' + hbPct + '%; height:100%; background:' + hbColor + ';"></div></div>';
+
             if (prankedyMarker) {
                 prankedyMarker.setLatLng([npc.lat, npc.lng]);
                 var el = prankedyMarker.getElement();
@@ -549,14 +556,20 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                     var wrapper = el.querySelector('.pk-c');
                     var img = el.querySelector('img');
                     var bub = el.querySelector('.pk-bub');
+                    var hb = el.querySelector('.npc-hb');
                     if (img && cachedImg) { if (img.src !== cachedImg) img.src = cachedImg; img.style.transform = 'scaleX(' + flip + ')'; }
                     if (wrapper) { wrapper.style.width = px + 'px'; wrapper.style.height = px + 'px'; }
                     if (bub) { bub.innerHTML = dlg; bub.style.display = dlg ? 'block' : 'none'; }
+                    if (hb) {
+                        hb.style.display = showHb ? 'block' : 'none';
+                        var fill = hb.querySelector('.npc-hb-fill');
+                        if (fill) { fill.style.width = hbPct + '%'; fill.style.background = hbColor; }
+                    }
                 }
             } else {
                 if (!cachedImg) return;
                 var bubStyle = 'position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:4px; color:#1a1a1a; background:#FFF; border:2px solid #D4AF37; padding:3px 8px; border-radius:8px; font-size:13px; font-weight:bold; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,0.4); z-index:200;';
-                var html = '<div class="pk-c" style="position:absolute; transform:translate(-50%,-50%); width:' + px + 'px; height:' + px + 'px;">' +
+                var html = '<div class="pk-c" style="position:absolute; transform:translate(-50%,-50%); width:' + px + 'px; height:' + px + 'px;">' + hbHtml +
                     '<div class="pk-bub" style="' + bubStyle + ' display:' + (dlg ? 'block' : 'none') + ';">' + dlg + '</div>' +
                     '<img src="' + cachedImg + '" style="width:100%; height:100%; display:block; transform:scaleX(' + flip + ');"></div>';
                 var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });

@@ -662,7 +662,7 @@ internal fun NativeOsmMap(
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
                                 val frameIndex = (angle / 7.5f).roundToInt() % 48
-                                val cacheKey = "POLICE_${frameIndex}_${exactPixels}"
+                                val cacheKey = "POLICE_${frameIndex}_${exactPixels}_H${npc.health.toInt()}_D${npc.isDying}"
                                 val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                     val baseDrawable = PoliceSpriteManager.getPoliceCar(context, angle, highResRenderScale)
                                     baseDrawable?.let { drawable ->
@@ -670,7 +670,8 @@ internal fun NativeOsmMap(
                                         val finalWidthPx: Int; val finalHeightPx: Int
                                         if (ratio > 1f) { finalWidthPx = exactPixels; finalHeightPx = (exactPixels / ratio).toInt() }
                                         else { finalHeightPx = exactPixels; finalWidthPx = (exactPixels * ratio).toInt() }
-                                        ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
+                                        val withHealth = drawHealthBarOnDrawable(context, drawable, npc.health, npc.isDying)
+                                        ExactSizeDrawable(withHealth ?: drawable, finalWidthPx, finalHeightPx)
                                     } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                 }
                                 marker.icon = cachedIcon
@@ -678,9 +679,10 @@ internal fun NativeOsmMap(
                             } else if (npc.type == NpcType.POLICE_COP) {
                                 // POLICÍA A PIE: no hay asset de persona → se dibuja con un EMOJI.
                                 val exactPixels = ((1.05 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(14)
-                                val cacheKey = "COP_EMOJI_${exactPixels}"
+                                val cacheKey = "COP_EMOJI_${exactPixels}_H${npc.health.toInt()}_D${npc.isDying}"
                                 val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                    emojiToDrawable(context, "👮", exactPixels)
+                                    val baseDrawable = emojiToDrawable(context, "👮", exactPixels)
+                                    drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying) ?: baseDrawable
                                 }
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f
@@ -844,7 +846,7 @@ internal fun NativeOsmMap(
                             }
                         }
                         marker.icon = cachedIcon
-                        val isHand = collectible.name == "Objeto Misterioso ESCOM"
+                        val isHand = collectible.name == "Objeto Misterioso ESCOM" || collectible.id == "global_zombie_hand"
                         marker.rotation = if (isHand) 0f else ((System.currentTimeMillis() / 30) % 360).toFloat()
                     } else {
                         marker.setAlpha(0f)
@@ -1175,8 +1177,9 @@ private fun renderPrankedyOnMap(
         val cacheKey = "PRANKEDY_${uiState.prankedyAnimState}_${uiState.prankedyFacingRight}_${(timeMs / 180L) % 8}_${exactPixels}"
         
         val icon = nativeDrawableCache.getOrPut(cacheKey) {
-            PrankedySpriteManager.getDrawable(context, uiState.prankedyAnimState, timeMs, screenDensity, uiState.prankedyFacingRight)
-                ?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+            var baseDrawable: android.graphics.drawable.Drawable? = PrankedySpriteManager.getDrawable(context, uiState.prankedyAnimState, timeMs, screenDensity, uiState.prankedyFacingRight)
+            baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, uiState.prankedyHealth, false, ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager.MAX_HEALTH)
+            baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                 ?: emojiToDrawable(context, "🎭", exactPixels) // Fallback visible si falla asset
         }
         prankedyMarker.icon = icon

@@ -196,10 +196,10 @@ class NpcAiManager {
     // órbitas/oscilaciones). El coche NPC desplaza su OBJETIVO perpendicularmente
     // mientras el jugador esté en su trayectoria; al rebasarlo el offset se apaga
     // y el smoothing normal lo reincorpora a su carril. Sin tocar su posición.
-    private val TRAFFIC_AVOID_RADIUS = 0.00012     // ~13 m: distancia al jugador para empezar a abrirse
-    private val TRAFFIC_AVOID_PATH_HALF = 0.00005  // ~5.5 m: medio ancho de "su trayectoria"
-    private val TRAFFIC_AVOID_BEHIND = 0.00005     // ~5.5 m: mantener el offset hasta rebasar por completo
-    private val TRAFFIC_AVOID_OFFSET = 0.00003     // ~3.3 m: apertura máxima (≈ un carril)
+    private val TRAFFIC_AVOID_RADIUS = 0.00008     // ~9 m: distancia al jugador para empezar a abrirse
+    private val TRAFFIC_AVOID_PATH_HALF = 0.00004  // ~4.4 m: medio ancho de "su trayectoria"
+    private val TRAFFIC_AVOID_BEHIND = 0.00004     // ~4.4 m: mantener el offset hasta rebasar por completo
+    private val TRAFFIC_AVOID_OFFSET = 0.000015    // ~1.6 m: apertura máxima (medio carril, no se sale de la red)
     private val TRAFFIC_AVOID_LOOKAHEAD = 0.00008  // ~9 m: el objetivo de esquive es LOCAL (ver moveNpc)
 
     @Volatile private var networkIsReady = false
