@@ -60,6 +60,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var npcMarkers = {};
         var collectibleMarkers = {};
         var landmarkMarkers = {};
+        var metroMarkers = {};         // 🚇 icono del Metro CDMX en cada estación (estático)
         var designerMarkers = {};      // ✏️ lápices de edición del Modo Diseñador (uno por landmark)
         var isDesignerMode = false;
         var selectedLandmarkId = null;
@@ -410,6 +411,25 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             });
         }
         
+        // 🚇 ESTACIONES DE METRO: icono fijo de la red CDMX en cada estación. Son
+        // estáticas, así que solo se crean una vez (el push las reenvía con guarda en
+        // Kotlin). Tamaño fijo en pantalla (~26 px), igual que el OSM nativo (24 dp).
+        function updateMetro(jsonStr) {
+            var data = JSON.parse(jsonStr);
+            var currentIds = new Set(data.map(function(s){ return String(s.name); }));
+            for (var id in metroMarkers) {
+                if (!currentIds.has(id)) { map.removeLayer(metroMarkers[id]); delete metroMarkers[id]; }
+            }
+            data.forEach(function(s) {
+                if (metroMarkers[s.name]) { metroMarkers[s.name].setLatLng([s.lat, s.lng]); return; }
+                var sz = 26;
+                var html = '<img src="file:///android_asset/metroCDMX/icon.webp" ' +
+                           'style="width:' + sz + 'px; height:' + sz + 'px; transform:translate(-50%,-50%); display:block;">';
+                var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
+                metroMarkers[s.name] = L.marker([s.lat, s.lng], { icon: icon, interactive: false, zIndexOffset: 400 }).addTo(map);
+            });
+        }
+
         function updateNpcs(data) {
             if (isZooming) return;
             var currentZoom = map.getZoom();

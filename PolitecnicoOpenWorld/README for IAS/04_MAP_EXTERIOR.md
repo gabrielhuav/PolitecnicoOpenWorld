@@ -195,6 +195,15 @@ export/importLandmarksToUri/FromUri`), `toggleDesignerMode/showAssetPicker/selec
 teleport (`teleportTo(lat,lon)`, `teleportToMetroStation(name)`, `toggleTeleportMenu`),
 `takeDamage(amount)`, `heal(amount)`, `onClaimCollectiblePressed`, widgets (`toggleCacheWidget/FpsWidget`).
 
+> **`onInteractButtonPressed` (botón Y, MIEMBRO):** sube/baja del coche. Si no hay coche civil (CAR) en
+> `remoteEntities` dentro de `INTERACT_RADIUS`, ahora intenta **subir a una PATRULLA** (POLICE_CAR) vía
+> `policeManager.boardPatrol(id)`: la roba, difunde `POLICE_DESTROY` y fija `wantedLevel=5` (robar una
+> patrulla = máximo nivel de búsqueda). **Skin conducible:** `isDrivingPoliceCar` en `WorldMapState` hace
+> que `PlayerCharacter` dibuje el asset de `PoliceSpriteManager` (overlay común a los 3 renderers).
+> **Al bajarte**, el coche queda como `type=CAR` con `Npc.isPoliceSkin=true` (no POLICE_CAR, que la IA
+> despawnearía): los 3 renderers lo dibujan como patrulla con `type==POLICE_CAR || isPoliceSkin`, y es
+> re-abordable (al re-subir, `isDrivingPoliceCar = carNpc.isPoliceSkin`). Ver 09.
+
 **Wanted/policía (internal):** `raiseWantedLevel(amount=1)`, `tickWantedDecay(now)`,
 `anyAggressorAdjacent(loc, now)`, `handleCarjack(driving, aggressorAdjacent, now)`,
 `forceExitVehicle()`, `runPoliceTick(location)`, `fireImpactEffect()`.
@@ -209,6 +218,11 @@ o **Web** (WebView + Leaflet con HTML de `WorldMapLeafletHtml`). El **fog Compos
 usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Canvas` fog is used
 **only** for the Google native renderer.
 
+> **Culling de NPCs = borde del fog:** `NPC_CULL_MARGIN_M=0` (antes 15) → los 3 renderers (que usan
+> `npcVisionRadiusMeters() = NPC_FOG_VISION_METERS + margen`) dibujan civiles SOLO dentro de los 70 m del
+> fog (antes hasta 85 m → "veo NPCs fuera del fog"). Policía fuera del fog = waypoint 🚓 (`wantedLevel>0`),
+> Prankedy = render propio sin culling → **ambos siempre visibles**. Ver 09.
+
 ### `NativeOsmMap.kt` (osmdroid)
 - **`FogOverlay`** anclado al jugador cada frame; rect del tamaño de pantalla a pie, sobredimensionado
   a la diagonal **solo al conducir** (rotación). Evita rellenar ~10× el área cada frame.
@@ -216,7 +230,13 @@ usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Can
   reales hasta z19). Default OSM = zoom máx 22.
 - **Lambda `update` ~30 Hz — mantener barata** (ver 09): landmarks `GroundOverlay` solo re-`setPosition`/
   `setImage` cuando cambia su firma (`landmarkSigCache`); las puertas (`DOORS/`) sí refrescan cada frame;
-  ~160 marcadores de metro **culleados por viewport** (`Marker.isEnabled`).
+  ~160 marcadores de metro con el **icono `metroCDMX/icon.webp`** (24 dp, `ExactSizeDrawable`), **culleados
+  por viewport** (`Marker.isEnabled`).
+- **Icono del Metro en los 3 renderers (paridad):** cada estación de `metroStations` (cargado de
+  `res/raw/metro.json`) muestra `metroCDMX/icon.webp`. OSM nativo = `Marker` 24 dp; **web** = `updateMetro`
+  en `WorldMapLeafletHtml` (img fija ~26 px vía `file:///android_asset/`, push con guarda desde
+  `WorldMapScreen`, `lastWebMetroHolder` + heartbeat); **Google nativo** = `Marker` 24 dp con
+  `BitmapDescriptor` cacheado. Tamaño FIJO en pantalla (no metros), como los demás POIs de metro.
 - Patrulla 🚓 fuera de la fog: marcador + línea de ruta (cachés recordadas, **NO** view tags — añadir
   `R.id`s rompía un hack `id+100`/`id+400` y causaba `ClassCastException`).
 

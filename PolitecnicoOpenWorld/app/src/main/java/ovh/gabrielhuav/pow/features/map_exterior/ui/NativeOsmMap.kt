@@ -656,8 +656,9 @@ internal fun NativeOsmMap(
                                     emojiToDrawable(context, emoji, px)
                                 }
                                 marker.rotation = 0f
-                            } else if (npc.type == NpcType.POLICE_CAR) {
-                                // PATRULLA: asset especial sin repintar, mismo tamaño que un auto.
+                            } else if (npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin) {
+                                // PATRULLA (o coche con skin de patrulla tras bajarte de una robada):
+                                // asset especial sin repintar, mismo tamaño que un auto.
                                 val exactPixels = ((4.0 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(16)
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f

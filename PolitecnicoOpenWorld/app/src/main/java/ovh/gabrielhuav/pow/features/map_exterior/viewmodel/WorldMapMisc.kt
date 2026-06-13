@@ -92,7 +92,8 @@ internal fun WorldMapViewModel.triggerWastedSequence() {
                     isDriving = false,
                     currentVehicleModel = null,
                     currentVehicleColor = null,
-                    vehicleSpeed = 0.0
+                    vehicleSpeed = 0.0,
+                    isDrivingPoliceCar = false
                 )
             }
             delay(4000L)

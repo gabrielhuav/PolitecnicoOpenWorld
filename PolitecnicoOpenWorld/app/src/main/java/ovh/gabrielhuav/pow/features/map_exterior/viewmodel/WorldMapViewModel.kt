@@ -1482,8 +1482,43 @@ class WorldMapViewModel(
                     spawnOustedDriver(carNpc.location)
                     raiseWantedLevel(1) // robar un auto ocupado es delito → +1 estrella
                 }
-                _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false) }
+                // Si el coche traía skin de patrulla (una patrulla que abandonaste), al
+                // re-subirte vuelves a conducirla con el skin de policía.
+                _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false, isDrivingPoliceCar = carNpc.isPoliceSkin) }
                 updateNpcsState()
+                return
+            }
+
+            // PATRULLAS: si no hay coche civil cerca, intenta SUBIRTE a una patrulla. Las
+            // patrullas las posee PoliceManager (no remoteEntities), así que se buscan en
+            // sus unidades activas. Robar una patrulla = nivel de búsqueda MÁXIMO (5★).
+            val nearbyPatrol = policeManager.activeUnits()
+                .filter { it.type == NpcType.POLICE_CAR && distance(loc, it.location) <= INTERACT_RADIUS }
+                .minByOrNull { distance(loc, it.location) }
+            if (nearbyPatrol != null) {
+                val boarded = policeManager.boardPatrol(nearbyPatrol.id)
+                if (boarded != null) {
+                    lastVehicleToggleMs = nowMs
+                    // Avisar a los demás clientes que esa patrulla dejó de existir.
+                    webSocketManager?.let { ws ->
+                        viewModelScope.launch(Dispatchers.IO) {
+                            try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to boarded.id))) } catch (_: Exception) {}
+                        }
+                    }
+                    // Subirse a la patrulla pone TODAS las estrellas (5★).
+                    lastCrimeTime = nowMs
+                    _uiState.update { it.copy(
+                        isDriving = true,
+                        currentVehicleModel = boarded.carModel,
+                        currentVehicleColor = boarded.carColor,
+                        vehicleRotation = (boarded.rotationAngle + 90f) % 360f,
+                        vehicleSpeed = 0.0,
+                        vehicleIsFirstTimeBoarded = false,
+                        isDrivingPoliceCar = true,
+                        wantedLevel = MAX_WANTED_LEVEL
+                    ) }
+                    updateNpcsState()
+                }
             }
         } else {
             lastVehicleToggleMs = nowMs
@@ -1496,10 +1531,13 @@ class WorldMapViewModel(
                 isMoving = false,
                 carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
                 carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt(),
-                isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded
+                isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded,
+                // Si te bajas de una PATRULLA robada, el coche que queda conserva el skin de
+                // patrulla (sigue siendo tipo CAR para que la IA lo conduzca como tráfico).
+                isPoliceSkin = _uiState.value.isDrivingPoliceCar
             )
             remoteEntities[abandonedCar.id] = abandonedCar
-            _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true) }
+            _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }
             updateNpcsState()
         }
     }

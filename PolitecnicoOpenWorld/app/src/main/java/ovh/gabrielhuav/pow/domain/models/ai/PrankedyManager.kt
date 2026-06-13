@@ -59,6 +59,10 @@ class PrankedyManager {
         const val IMPACT_RADIUS            = 0.00005  // ~5.5 m: si te alejas del punto de impacto, falla
         // Radio ALREDEDOR DEL JUGADOR para detectar a un NPC que lo esté agrediendo.
         const val AGGRO_DETECT_RADIUS      = 0.00045  // ~50 m
+        // CORREA (leash): Prankedy SIEMPRE se mantiene cerca de ti. Si por perseguir a un
+        // agresor (o cualquier motivo) quedó más lejos que esto del jugador, deja de
+        // perseguir y regresa a tu lado. Evita que "se aleje" cuando llega la policía.
+        const val LEASH_MAX                = 0.00030  // ~33 m
 
         // ── Daño recibido por contacto del NPC que combate ───────────────────
         const val ENEMY_CONTACT_RADIUS      = 0.00004  // ~4.5 m
@@ -233,7 +237,10 @@ class PrankedyManager {
         }
 
         // 2. ¿Hay un NPC AGREDIENDO al jugador? Si lo hay, Prankedy se pone de tu lado.
-        val defender = findAggressorNearPlayer(playerLoc, npcs, now)
+        //    LEASH: si Prankedy quedó lejos del jugador, IGNORA al agresor y vuelve a ti
+        //    (así no "se aleja" persiguiendo, p. ej. cuando llega la policía).
+        val defender = if (dist(loc, playerLoc) > LEASH_MAX) null
+                       else findAggressorNearPlayer(playerLoc, npcs, now)
 
         // 2b. Daño RECIBIDO: si está peleando cuerpo a cuerpo con ese NPC, lo lastima.
         if (defender != null && now - lastHurtAt >= ENEMY_CONTACT_COOLDOWN_MS &&
@@ -302,9 +309,10 @@ class PrankedyManager {
                 npc.displayName.isNullOrEmpty() &&   // solo NPCs reales, no jugadores remotos
                 npc.type != NpcType.CAR &&
                 npc.type != NpcType.POLICE_CAR &&
+                npc.type != NpcType.POLICE_COP &&   // NO persigue a la policía (se alejaría de ti)
                 npc.health > 0 &&
                 !npc.isDying &&
-                (npc.aggroUntil > now || npc.type == NpcType.ZOMBIE || npc.type == NpcType.POLICE_COP) &&  // está agrediendo al jugador
+                (npc.aggroUntil > now || npc.type == NpcType.ZOMBIE) &&  // está agrediendo al jugador
                 dist(npc.location, playerLoc) <= AGGRO_DETECT_RADIUS
             }
             .minByOrNull { dist(it.location, playerLoc) }

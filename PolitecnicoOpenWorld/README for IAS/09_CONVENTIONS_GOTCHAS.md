@@ -220,6 +220,43 @@ matrices por defecto son **border-only** hasta reemplazarse.
   offset se apaga y el smoothing lo reincorpora. La geometría es auto-reforzante (el lado elegido
   se estabiliza solo). **No re-introducir empujones de posición** — cualquier esquive nuevo debe
   mover objetivos/rumbos, no posiciones.
+- **Rebase de NPCs — AVANCE de nodo al esquivar (anti-órbita):** mientras un coche esquiva al jugador,
+  `moveNpc` persigue un carrot LOCAL (~9 m), por lo que `dist` nunca baja de `actualSpeed` y el
+  `targetNodeIndex` NO avanzaba: al apagarse el esquive el nodo base quedaba DETRÁS y el coche se daba
+  la vuelta hacia el jugador → bucle/órbita ("rara vez me rebasan"). Fix: una bandera `avoidingPlayer`
+  y, en el return final, si el coche ya REBASÓ el nodo base (producto punto `(baseTarget - newPos)·paso < 0`),
+  se avanza `targetNodeIndex` aunque no haya "alcanzado" el carrot. Así sigue su ruta y te rebasa de
+  verdad. No quitar la condición (sin ella vuelve el bucle).
+- **Población de NPCs — topes base bajados:** `NpcAiManager.maxActiveNpcs`/`maxTotalNpcs` base no-zombi
+  pasaron de 26/55 a **18/38** (siguen escalando por `popFactor`) para reducir la saturación ("se generan
+  muchos NPCs"). Ajusta densidad por estos topes/factores, no hardcodeando otra cosa.
+- **Culling de NPCs = borde del fog (`NPC_CULL_MARGIN_M=0`):** antes era +15 m sobre `NPC_FOG_VISION_METERS`
+  (70 m), así que los civiles se dibujaban hasta 85 m, FUERA de la zona despejada ("veo NPCs fuera del fog").
+  A 0 m el culling de sprites (los 3 renderers usan `npcVisionRadiusMeters`) coincide EXACTO con el borde
+  del fog. La policía fuera del fog sigue como waypoint 🚓 (handoff limpio en 70 m mientras `wantedLevel>0`)
+  y Prankedy tiene render propio sin culling → **Prankedy y policía siempre visibles**. No volver a subir
+  el margen (re-aparecen NPCs fuera del fog).
+- **Subirse a PATRULLAS (POLICE_CAR) = 5★:** las patrullas las posee `PoliceManager` (no `remoteEntities`).
+  `PoliceManager.boardPatrol(id)` saca la unidad y la devuelve; `onInteractButtonPressed` (MIEMBRO del VM),
+  si no hay coche civil cerca, busca una patrulla en `policeManager.activeUnits()` dentro de `INTERACT_RADIUS`,
+  la aborda, difunde `POLICE_DESTROY` y fija `wantedLevel = MAX_WANTED_LEVEL`. **Skin de patrulla
+  conducible:** `WorldMapState.isDrivingPoliceCar` (se pone al abordar, se limpia al bajarse/carjack/morir);
+  `PlayerCharacter` dibuja el asset de `PoliceSpriteManager.getPoliceCar` en vez del coche tintado. El
+  avatar conductor es un overlay Compose común a los 3 renderers → un solo cambio cubre OSM/Google/web.
+  El flag DEBE limpiarse en TODAS las salidas (`onInteractButtonPressed` else, `forceExitVehicle`,
+  `triggerWastedSequence`) o conducirías un auto civil con skin de patrulla.
+- **Patrulla ABANDONADA conserva el skin (`Npc.isPoliceSkin`):** al bajarte de una patrulla robada el
+  coche que queda NO puede ser `type=POLICE_CAR`: los coches abandonados se re-simulan por la IA y un
+  POLICE_CAR no casa con ninguna vía en `moveNpc` → `return null` → **se despawnea**. Solución: el coche
+  abandonado es `type=CAR` con `isPoliceSkin=true` (lo ponen `onInteractButtonPressed` else y
+  `forceExitVehicle`). La IA lo conduce como tráfico normal y los **3 renderers** lo dibujan como patrulla
+  cuando `type==POLICE_CAR || isPoliceSkin`. Es re-abordable por el filtro civil (sigue siendo CAR); al
+  re-subirte, `isDrivingPoliceCar = carNpc.isPoliceSkin`. No genera waypoint falso (el de policía filtra
+  por `type==POLICE_CAR`). `isPoliceSkin` NO viaja en `MultiplayerNpc` (cosmético/local).
+- **Prankedy SIEMPRE cerca de ti (leash + no caza cops):** `findAggressorNearPlayer` ya **no** incluye
+  `POLICE_COP` (los perseguía y se alejaba al llegar la policía) y hay una **correa** (`LEASH_MAX`≈33 m):
+  si Prankedy quedó más lejos que eso del jugador, ignora al agresor y su objetivo pasa a ser el jugador
+  (regresa a tu lado). No re-añadir cops al detector ni quitar la correa.
 - **Zoom automático por estado + SUAVIZADO:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
   loop miembro) cambia `targetZoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
   `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del

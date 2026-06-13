@@ -95,10 +95,12 @@ internal fun WorldMapViewModel.forceExitVehicle() {
         isMoving = false,
         carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
         carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt(),
-        isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded
+        isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded,
+        // Conserva el skin de patrulla si te bajaron a la fuerza de una patrulla robada.
+        isPoliceSkin = _uiState.value.isDrivingPoliceCar
     )
     remoteEntities[abandonedCar.id] = abandonedCar
-    _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true) }
+    _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }
     updateNpcsState()
 }
 

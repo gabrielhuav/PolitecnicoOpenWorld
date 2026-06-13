@@ -175,7 +175,12 @@ import kotlin.math.cos
 // Los NPC siguen viviendo en memoria/simulación; solo dibujamos los que caen
 // dentro del viewport visible. El radio escala con el zoom (metros por pixel),
 // así nunca se ocultan NPCs que de verdad están en pantalla.
-internal const val NPC_CULL_MARGIN_M = 15.0
+// FIX "veo NPCs fuera del fog of war": el margen era +15 m sobre el radio de
+// neblina (70 m), así que los civiles se dibujaban hasta 85 m, fuera de la zona
+// despejada. A 0 m el culling de sprites coincide EXACTO con el borde del fog
+// (los 3 renderers usan npcVisionRadiusMeters). La policía fuera del fog sigue
+// mostrándose como waypoint 🚓 (handoff limpio en 70 m) y Prankedy aparte.
+internal const val NPC_CULL_MARGIN_M = 0.0
 
 // ══════════════════════════════════════════════════════════════════════════
 //  RADIO DE VISIÓN (neblina). ⬅️  CAMBIA ESTE VALOR PARA VER MÁS O MENOS.
@@ -338,6 +343,10 @@ fun WorldMapScreen(
     // limpiarlos al dejar de estar buscado sin spamear updatePolice cuando no hay policías.
     val lastWebPoliceHolder = remember { booleanArrayOf(false) }
     val lastWebZombieHolder = remember { booleanArrayOf(false) }
+    // 🚇 Estaciones de metro (estáticas): se reenvían al WebView solo al cambiar la lista
+    // (+ heartbeat), como los landmarks. El icono se carga del asset metroCDMX/icon.webp.
+    val lastWebMetroHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.MetroStation>>(1) }
+    val webMetroTick = remember { intArrayOf(0) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
@@ -617,6 +626,31 @@ fun WorldMapScreen(
                             }
                         }
                     }
+                    // 🚇 ESTACIONES DE METRO: icono de la red CDMX en cada estación (paridad con
+                    // OSM nativo / web). Marcador estático de tamaño fijo (~24 dp).
+                    val metroIconG = remember {
+                        try {
+                            val raw = context.assets.open("metroCDMX/icon.webp").use { android.graphics.BitmapFactory.decodeStream(it) }
+                            val px = (24 * context.resources.displayMetrics.density).toInt().coerceAtLeast(16)
+                            val scaled = android.graphics.Bitmap.createScaledBitmap(raw, px, px, true)
+                            BitmapDescriptorFactory.fromBitmap(scaled)
+                        } catch (e: Exception) { BitmapDescriptorFactory.defaultMarker() }
+                    }
+                    uiState.metroStations.forEach { station ->
+                        key("metro_${station.name}") {
+                            val mPos = LatLng(station.location.latitude, station.location.longitude)
+                            val mState = remember { MarkerState(position = mPos) }
+                            mState.position = mPos
+                            com.google.maps.android.compose.Marker(
+                                state = mState,
+                                icon = metroIconG,
+                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                flat = true,
+                                title = station.name
+                            )
+                        }
+                    }
+
                     // Mostrar calles solo si estamos cerca
                     if (uiState.showRoadNetwork && uiState.zoomLevel >= 15.5) {
                         roadNetwork.forEach { way ->
@@ -666,14 +700,14 @@ fun WorldMapScreen(
                                         val config = npc.visualConfig!!
                                         "GM_PED_${config.bodyFolder}_${config.hairId}_${config.hairColor.value}_${config.shirtColor.value}_${config.pantsColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == NpcType.CAR -> {
+                                    npc.type == NpcType.CAR && !npc.isPoliceSkin -> {
                                         var angle = npc.rotationAngle % 360f
                                         if (angle < 0) angle += 360f
                                         val frameIndex = (angle / 7.5f).roundToInt() % 48
                                         val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                         "GM_CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == NpcType.POLICE_CAR -> {
+                                    npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin -> {
                                         var angle = npc.rotationAngle % 360f
                                         if (angle < 0) angle += 360f
                                         val frameIndex = (angle / 7.5f).roundToInt() % 48
@@ -710,7 +744,7 @@ fun WorldMapScreen(
                                             d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
                                             d?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                         }
-                                        npc.type == NpcType.CAR -> {
+                                        npc.type == NpcType.CAR && !npc.isPoliceSkin -> {
                                             val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                             var d = VehicleSpriteManager.getTintedCarNpc(context, npc.rotationAngle, npc.carColor, screenDensity, npc.carModel)
                                             d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
@@ -720,7 +754,7 @@ fun WorldMapScreen(
                                                 ExactSizeDrawable(it, fw, fh)
                                             }
                                         }
-                                        npc.type == NpcType.POLICE_CAR -> {
+                                        npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin -> {
                                             val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                             val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.getPoliceCar(context, npc.rotationAngle, screenDensity)
                                             d?.let {
@@ -1013,7 +1047,7 @@ fun WorldMapScreen(
                                 // su SVG genérico en vez del asset real. Ahora la tratamos como un
                                 // coche-imagen: generamos su sprite (PoliceSpriteManager, sin tintar),
                                 // lo registramos en imgCache y lo enviamos como tipo "CAR".
-                                val isPolice = npc.type == NpcType.POLICE_CAR
+                                val isPolice = npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
                                 val frameIndex = (angle / 7.5f).roundToInt() % 48
@@ -1166,6 +1200,18 @@ fun WorldMapScreen(
                         val landmarksJson = gson.toJson(landmarksPayload)
                         wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks(${JSONObject.quote(landmarksJson)});", null)
                         } // fin guard landmarks web (solo se reenvían al cambiar / heartbeat)
+
+                        // 🚇 ESTACIONES DE METRO: icono fijo en cada estación. Estáticas, así que
+                        // solo se reenvían al cambiar la lista (+ heartbeat, por si el primer envío
+                        // llegó antes de que el HTML definiera updateMetro).
+                        webMetroTick[0]++
+                        if (uiState.metroStations !== lastWebMetroHolder[0] || webMetroTick[0] % 45 == 0) {
+                            lastWebMetroHolder[0] = uiState.metroStations
+                            val metroPayload = uiState.metroStations.map {
+                                mapOf("name" to it.name, "lat" to it.location.latitude, "lng" to it.location.longitude)
+                            }
+                            wv.evaluateJavascript("if(typeof updateMetro==='function')updateMetro(${JSONObject.quote(gson.toJson(metroPayload))});", null)
+                        }
                         if (uiState.showRoadNetwork) {
                             val roadsPayload = roadNetwork.map { way ->
                                 mapOf(

@@ -328,7 +328,11 @@ via co-located `ViewModelProvider.Factory` instances.
 OSM/Google/Web navigation with snap-to-road; persistent street + tile caching;
 procedural NPCs (pedestrians + 6 cars) with **personality traits, run-over-while-driving,
 aggressive retaliation/carjack reactions, and two-way traffic**; **realistic traffic AI
-(intersection commitment to prevent shaking, rear-end collision avoidance, per-car speed variation)**;
+(intersection commitment to prevent shaking, rear-end collision avoidance, per-car speed variation,
+and player-overtaking — cars advance their road node while dodging instead of orbiting the player)**;
+**tuned NPC density (lower base caps 18/38) and NPC sprite culling exactly at the fog edge
+(`NPC_CULL_MARGIN_M=0`), with police (🚓 waypoints) and Prankedy always visible**;
+**boardable patrol cars (`PoliceManager.boardPatrol`) → boarding sets wanted level to 5★**;
 **smooth zoom transitions when entering/exiting vehicles** (lerped over ~300 ms);
 **GTA-style wanted level / police
 (0–5 stars, road-snapped patrol pursuit, 👮 cops that punch & shoot, vehicle chases + carjack, retreat
@@ -341,7 +345,8 @@ collectibles with persistent inventory; waypoint navigation with greedy road-gra
 routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch,
 **over-zoom to z22 (scaled from z19) with loading-screen z19/z17 prefetch, default max zoom**;
 **player-anchored fog-of-war on native + web (driving-rotation safe)**; **real-meter NPC/player
-sizing unified across renderers**; **landscape-safe scrollable Options menu**; main-menu version
+sizing unified across renderers**; **CDMX Metro station icons (`metroCDMX/icon.webp`) at every
+`metro.json` station on all 3 renderers (native `Marker`, web `updateMetro`, Google `Marker`)**; **landscape-safe scrollable Options menu**; main-menu version
 bound to `BuildConfig.VERSION_NAME` with auto-shrinking title; full zombie survival minigame (lobby + 7 buildings,
 dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens, damage feedback
 FX) with **online mode backed by a dedicated authoritative zombie server**

@@ -109,6 +109,18 @@ class PoliceManager {
         return destroyed
     }
 
+    // El jugador SE SUBE a una patrulla: la quitamos de las unidades activas y la
+    // devolvemos para que el VM la convierta en su vehículo. Devuelve null si el id no
+    // es una patrulla (POLICE_CAR). El VM debe difundir POLICE_DESTROY con ese id.
+    fun boardPatrol(id: String): Npc? {
+        val u = units[id] ?: return null
+        if (u.type != NpcType.POLICE_CAR) return null
+        units.remove(id)
+        punchCooldowns.remove(id); shootCooldowns.remove(id)
+        forgetCar(id)
+        return u
+    }
+
     fun clearAll(): List<String> {
         val ids = units.keys.toList()
         units.clear(); punchCooldowns.clear(); shootCooldowns.clear()

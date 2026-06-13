@@ -93,6 +93,9 @@ data class WorldMapState(
     val vehicleSpeed: Double = 0.0,
     val vehicleRotation: Float = 0f,
     val vehicleIsFirstTimeBoarded: Boolean = true,
+    // ¿El jugador conduce una PATRULLA robada? → se dibuja con el asset de policía (skin)
+    // en vez de un auto normal. Se pone al abordar una POLICE_CAR y se limpia al bajarse.
+    val isDrivingPoliceCar: Boolean = false,
     val landmarks: List<Landmark> = emptyList(),
     val showTeleportMenu: Boolean = false,
 
