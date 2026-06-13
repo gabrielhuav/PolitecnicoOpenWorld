@@ -347,6 +347,10 @@ fun WorldMapScreen(
     // (+ heartbeat), como los landmarks. El icono se carga del asset metroCDMX/icon.webp.
     val lastWebMetroHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.MetroStation>>(1) }
     val webMetroTick = remember { intArrayOf(0) }
+    // Debug Interiores (web): solo reenviamos el navGraph al WebView cuando cambia el
+    // estado del overlay o la lista de landmarks (no por frame).
+    val lastWebIpOn = remember { booleanArrayOf(false) }
+    val lastWebIpLm = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Landmark>>(1) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
@@ -1224,6 +1228,33 @@ fun WorldMapScreen(
                             wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads(${JSONObject.quote(roadsJson)});", null)
                         } else {
                             wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads('[]');", null)
+                        }
+
+                        // 🔧 DEBUG INTERIORES (web): dibuja el navGraph de los landmarks (ESCOM)
+                        // para ver por dónde se puede caminar (verde) y por dónde van autos (naranja).
+                        // Convertimos localX/localY → global aquí (el Leaflet no tiene esa geometría).
+                        val ipOn = uiState.showInteriorDebugOverlay
+                        if (ipOn != lastWebIpOn[0] || (ipOn && uiState.landmarks !== lastWebIpLm[0])) {
+                            lastWebIpOn[0] = ipOn
+                            lastWebIpLm[0] = uiState.landmarks
+                            if (ipOn) {
+                                val ipPayload = uiState.landmarks.flatMap { lm ->
+                                    val ng = lm.navGraph ?: return@flatMap emptyList<Map<String, Any>>()
+                                    ng.ways.filter { it.nodes.size >= 2 }.map { w ->
+                                        mapOf(
+                                            "id" to "${lm.id}_${w.id}",
+                                            "walk" to w.isForPeople,
+                                            "nodes" to w.nodes.map {
+                                                val g = lm.toGlobalGeoPoint(it.localX, it.localY)
+                                                mapOf("lat" to g.latitude, "lng" to g.longitude)
+                                            }
+                                        )
+                                    }
+                                }
+                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths(${JSONObject.quote(gson.toJson(ipPayload))});", null)
+                            } else {
+                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths('[]');", null)
+                            }
                         }
                         val destMarker = uiState.destinationMarker
                         if (destMarker != null) wv.evaluateJavascript("if(typeof updateDestinationMarker==='function')updateDestinationMarker(${destMarker.latitude}, ${destMarker.longitude});", null)

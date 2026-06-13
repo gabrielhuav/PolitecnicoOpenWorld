@@ -296,7 +296,10 @@ MAX_HEALTH=80   RESPAWN_COOLDOWN_MS=60000   ENEMY_CONTACT_(RADIUS/DAMAGE/COOLDOW
   **NO** incluye `POLICE_COP` — antes los perseguía y se alejaba de ti al llegar la policía)
   → si existe, objetivo = ese NPC; si no, objetivo = el **jugador**.
 - **Correa (leash) `LEASH_MAX`≈33 m:** Prankedy SIEMPRE se mantiene cerca de ti. Si quedó más lejos que
-  `LEASH_MAX` del jugador, IGNORA al agresor y vuelve a tu lado (objetivo = jugador). Así no "se aleja". Corre con tanque (`RUN_TANQUE`); al
+  `LEASH_MAX` del jugador, IGNORA al agresor y vuelve a tu lado (objetivo = jugador). Así no "se aleja".
+- **Anti-traba:** al correr, si el `snap` a la calle no acerca al objetivo, usa el paso DIRECTO ese tick;
+  y si lleva > `STUCK_TIME_MS` (1.5 s) sin avanzar (`STUCK_EPS`) estando lejos, `relocateNear` lo reubica
+  cerca del jugador sobre calle **sin curarlo** (no usa `spawn`, que resetea vida). Ver 09. Corre con tanque (`RUN_TANQUE`); al
   llegar a `ATTACK_RADIUS` hace el **windup** (`p_atack`, 800 ms quieto) y AL TERMINAR lanza el tanque
   (`p_objeto`). El proyectil viaja y al caer **solo pega si el objetivo sigue dentro de `IMPACT_RADIUS`**
   (esquivable si te mueves; `hitPlayer` → `takeDamage` en el VM).

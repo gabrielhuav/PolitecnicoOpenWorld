@@ -2365,35 +2365,18 @@ class WorldMapViewModel(
     }
 
     /**
-     * Spawnea UNA SOLA ZombiHand, pero SOLO si el jugador está dentro de ESCOM.
-     * Si no está en ESCOM, no hace nada (y deja la lista vacía).
+     * Sincroniza los items de ESCOM. La "Mano del Apocalipsis" se ELIMINÓ: ya no se
+     * spawnea ninguna mano (el apocalipsis se activa desde el menú de Opciones).
      */
     fun spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 1) {
-        val center = _uiState.value.currentLocation ?: return
-
-        // ── GUARDA CLAVE: nada de manos fuera de ESCOM ──
-        if (!isInsideEscom(center.latitude, center.longitude)) {
-            _escomItems.value = emptyList()
-            _uiState.update { it.copy(isZombieHandSpawned = false) }
-            return
+        // La "Mano del Apocalipsis" se ELIMINÓ de ESCOM (a petición). El modo zombi global
+        // se activa/desactiva desde Opciones → "Activar/Desactivar Apocalipsis" (o el botón
+        // flotante de salida). Aquí ya no se spawnea ninguna mano: dejamos vacíos los items
+        // de ESCOM y marcamos el flag "sincronizado" para que el game loop no re-llame.
+        if (_escomItems.value.any { it.id == "global_zombie_hand" }) {
+            _escomItems.value = _escomItems.value.filter { it.id != "global_zombie_hand" }
         }
-
-        // Evita duplicar si ya hay una mano spawneada
-        if (_uiState.value.isZombieHandSpawned && _escomItems.value.isNotEmpty()) return
-
-        // Mano zombi desactivada del exterior — el acceso al lobby
-        // ahora se realiza únicamente por las puertas físicas (ESCOM_DOOR).
-        val globalZombieHand = ovh.gabrielhuav.pow.domain.models.ActiveCollectible(
-            id = "global_zombie_hand",
-            name = "Mano del Apocalipsis",
-            description = "Activa el apocalipsis global.",
-            assetPath = "ZOMBIS_MOD/zombi_hand.webp",
-            latitude = 19.50456,
-            longitude = -99.14674
-        )
-        _escomItems.value = listOf(globalZombieHand)
         _uiState.update { it.copy(isZombieHandSpawned = true) }
-        return
     }
 
     fun collectEscomItem() {

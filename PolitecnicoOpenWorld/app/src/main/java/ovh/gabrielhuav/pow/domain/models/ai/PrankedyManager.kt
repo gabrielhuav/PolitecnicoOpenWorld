@@ -63,6 +63,10 @@ class PrankedyManager {
         // agresor (o cualquier motivo) quedó más lejos que esto del jugador, deja de
         // perseguir y regresa a tu lado. Evita que "se aleje" cuando llega la policía.
         const val LEASH_MAX                = 0.00030  // ~33 m
+        // ANTI-TRABA: si el snap a la calle lo deja "pegado" sin avanzar hacia su objetivo
+        // durante STUCK_TIME_MS (se movió menos de STUCK_EPS), se reubica cerca del jugador.
+        const val STUCK_EPS                = 0.00002  // ~2 m
+        const val STUCK_TIME_MS            = 1500L
 
         // ── Daño recibido por contacto del NPC que combate ───────────────────
         const val ENEMY_CONTACT_RADIUS      = 0.00004  // ~4.5 m
@@ -144,6 +148,9 @@ class PrankedyManager {
     private var attackCooldownUntil: Long = 0L
     private var lastHurtAt: Long = 0L   // cooldown de daño recibido por contacto
     private var snapToRoadFn: ((GeoPoint) -> GeoPoint)? = null  // engancha a la red viaria
+    // ANTI-TRABA: última posición de referencia y momento del último avance real.
+    private var lastStuckPos: GeoPoint? = null
+    private var lastProgressMs: Long = 0L
     // Windup de ataque: primero se reproduce la animación p_atack y AL TERMINAR se lanza el tanque.
     private var attackAnimUntil: Long = 0L
     private var pendingLaunch: Boolean = false
@@ -186,7 +193,32 @@ class PrankedyManager {
         }
 
         val loc = location ?: return PrankedyTickResult()
+
+        // ANTI-TRABA: si está LEJOS del jugador (debería estar moviéndose) y no avanza en
+        // STUCK_TIME_MS, se reubica cerca de ti sobre la calle. NO se cura (conserva vida y
+        // estado): solo lo despega para que vuelva a hacerte algo en vez de quedarse trabado.
+        if (dist(loc, playerLoc) > ATTACK_RADIUS) {
+            if (lastStuckPos == null || dist(loc, lastStuckPos!!) > STUCK_EPS) {
+                lastStuckPos = loc; lastProgressMs = now
+            } else if (now - lastProgressMs > STUCK_TIME_MS) {
+                relocateNear(playerLoc, roadNetwork)
+                lastStuckPos = location; lastProgressMs = now
+                return PrankedyTickResult()
+            }
+        } else {
+            lastStuckPos = loc; lastProgressMs = now
+        }
+
         return tickCombat(loc, playerLoc, npcs, now)
+    }
+
+    /** Reubica a Prankedy cerca del jugador sobre la calle SIN curarlo (anti-traba). */
+    private fun relocateNear(playerLoc: GeoPoint, roadNetwork: List<MapWay>) {
+        location = findSpawnPoint(playerLoc, roadNetwork)
+        projectileActive = false
+        attackAnimUntil = 0L
+        pendingLaunch = false
+        pendingTargetLoc = null
     }
 
     /**
@@ -279,7 +311,13 @@ class PrankedyManager {
             distToTarget > ATTACK_RADIUS -> {
                 // ─ CORRER CON TANQUE hacia el objetivo
                 animState = PrankedyAnimState.RUN_TANQUE
-                location = snap(stepToward(loc, targetLoc, RUN_TANQUE_SPEED))
+                // Paso recto hacia el objetivo y, por defecto, enganchado a la calle. PERO si
+                // el snap NO acerca al objetivo (te pega a un nodo que no progresa → se traba),
+                // usa el paso DIRECTO ese tick para no quedarte atorado en la red.
+                val raw = stepToward(loc, targetLoc, RUN_TANQUE_SPEED)
+                val snapped = snap(raw)
+                location = if (dist(snapped, targetLoc) <= dist(loc, targetLoc) - RUN_TANQUE_SPEED * 0.25)
+                    snapped else raw
                 facingRight = targetLoc.longitude >= loc.longitude
             }
             else -> {

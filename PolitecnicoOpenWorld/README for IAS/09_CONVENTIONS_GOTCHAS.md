@@ -257,6 +257,21 @@ matrices por defecto son **border-only** hasta reemplazarse.
   `POLICE_COP` (los perseguía y se alejaba al llegar la policía) y hay una **correa** (`LEASH_MAX`≈33 m):
   si Prankedy quedó más lejos que eso del jugador, ignora al agresor y su objetivo pasa a ser el jugador
   (regresa a tu lado). No re-añadir cops al detector ni quitar la correa.
+- **Prankedy ANTI-TRABA (igual que la policía):** el `snap` a la calle podía dejarlo "pegado" a un nodo
+  sin avanzar ("se traba y ya no te hace nada"). Dos defensas en `PrankedyManager`: (1) al correr, si el
+  punto snapeado NO acerca al objetivo, usa el paso DIRECTO ese tick; (2) si lleva > `STUCK_TIME_MS`
+  (1.5 s) sin moverse > `STUCK_EPS` mientras está lejos, `relocateNear` lo reubica sobre calle cerca del
+  jugador **SIN curarlo** (conserva vida/estado). No usar `spawn()` para reubicar (resetea la vida).
+- **Mano del Apocalipsis ELIMINADA de ESCOM:** `spawnEscomItems` ya NO crea el collectible
+  `global_zombie_hand`. El modo zombi global se activa SOLO por Opciones → "Activar/Desactivar
+  Apocalipsis" (y el botón flotante de salida). El game loop sigue llamando a `spawnEscomItems` al entrar
+  a ESCOM, pero ahora solo marca `isZombieHandSpawned=true` (sin mano). No re-spawnear la mano.
+- **"Debug Interiores" dibuja el navGraph:** el overlay (`showInteriorDebugOverlay`) ahora, además de los
+  puntos de edificios + bbox de ESCOM, dibuja los **caminos del `navGraph` de cada landmark**: VERDE =
+  `isForPeople` (por dónde se camina), NARANJA = `isForCars`. Implementado en **OSM nativo** (`NativeOsmMap`,
+  polilíneas cacheadas, rebuild solo si cambian los landmarks) y **web** (`updateInteriorPaths` en
+  `WorldMapLeafletHtml`; el VM convierte `localX/localY → global` con `toGlobalGeoPoint` antes de enviar).
+  Google nativo = pendiente (como el resto del overlay de debug).
 - **Zoom automático por estado + SUAVIZADO:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
   loop miembro) cambia `targetZoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
   `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del

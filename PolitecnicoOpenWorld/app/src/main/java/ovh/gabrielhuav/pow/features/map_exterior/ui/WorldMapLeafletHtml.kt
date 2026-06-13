@@ -732,6 +732,33 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
             });
         }
+
+        // 🔧 DEBUG INTERIORES: caminos adicionales de ESCOM (navGraph de los landmarks).
+        // Verde = peatonal (por donde SÍ se puede caminar); naranja = autos. Coordenadas ya
+        // vienen en lat/lng global (el VM convierte localX/localY con toGlobalGeoPoint).
+        var interiorPathLayers = {};
+        function updateInteriorPaths(jsonStr) {
+            var data = JSON.parse(jsonStr);
+            var currentIds = new Set(data.map(function(w){ return String(w.id); }));
+            for (var id in interiorPathLayers) {
+                if (!currentIds.has(id)) { map.removeLayer(interiorPathLayers[id]); delete interiorPathLayers[id]; }
+            }
+            data.forEach(function(w) {
+                var latlngs = w.nodes.map(function(n){ return [n.lat, n.lng]; });
+                if (interiorPathLayers[w.id]) {
+                    interiorPathLayers[w.id].setLatLngs(latlngs);
+                    interiorPathLayers[w.id].bringToFront();
+                } else {
+                    var color = w.walk ? '#4CC850' : '#FF8C00';
+                    var weight = w.walk ? 5 : 7;
+                    interiorPathLayers[w.id] = L.polyline(latlngs, {
+                        color: color, weight: weight, opacity: 0.9,
+                        lineCap: 'round', lineJoin: 'round', interactive: false
+                    }).addTo(map);
+                    interiorPathLayers[w.id].bringToFront();
+                }
+            });
+        }
     </script>
 </body>
 </html>

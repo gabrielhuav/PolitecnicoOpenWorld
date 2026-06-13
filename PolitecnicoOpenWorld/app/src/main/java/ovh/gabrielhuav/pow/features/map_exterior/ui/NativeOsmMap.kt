@@ -978,6 +978,15 @@ internal fun NativeOsmMap(
                     view.setTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 100 }, it)
                 }
 
+            // Polilíneas del navGraph de los landmarks (caminos adicionales de ESCOM): se
+            // reconstruyen SOLO cuando cambia la lista de landmarks (no por frame).
+            @Suppress("UNCHECKED_CAST")
+            val interiorPathCache = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 250 }) as? MutableList<Polyline>)
+                ?: mutableListOf<Polyline>().also { view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 250 }, it) }
+            @Suppress("UNCHECKED_CAST")
+            val interiorPathSig = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 260 }) as? Array<Any?>)
+                ?: arrayOfNulls<Any?>(1).also { view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 260 }, it) }
+
             if (uiState.showInteriorDebugOverlay) {
                 InteriorBuilding.entries.forEach { b ->
                     val marker = debugMarkerCache[b.id] ?: Marker(view).apply {
@@ -1008,9 +1017,39 @@ internal fun NativeOsmMap(
                 val bb = EscomBoundingBox
                 bbox.setPoints(listOf(bb.topLeft, bb.topRight, bb.bottomRight, bb.bottomLeft, bb.topLeft))
                 bbox.isEnabled = true
+
+                // CAMINOS ADICIONALES (navGraph de los landmarks): muestra por dónde se puede
+                // caminar (verde = peatonal) y por dónde van los autos (naranja). Se reconstruye
+                // solo si cambió la lista de landmarks (evita rehacerlo cada frame).
+                if (interiorPathSig[0] !== uiState.landmarks) {
+                    interiorPathSig[0] = uiState.landmarks
+                    interiorPathCache.forEach { view.overlays.remove(it) }
+                    interiorPathCache.clear()
+                    uiState.landmarks.forEach { lm ->
+                        val ng = lm.navGraph ?: return@forEach
+                        ng.ways.forEach { w ->
+                            if (w.nodes.size < 2) return@forEach
+                            val pts = w.nodes.map { lm.toGlobalGeoPoint(it.localX, it.localY) }
+                            val line = Polyline().apply {
+                                outlinePaint.color = if (w.isForPeople)
+                                    android.graphics.Color.argb(230, 76, 200, 80)   // verde = caminable
+                                else
+                                    android.graphics.Color.argb(230, 255, 140, 0)   // naranja = autos
+                                outlinePaint.strokeWidth = if (w.isForPeople) 5f else 7f
+                                outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                                outlinePaint.isAntiAlias = true
+                                setPoints(pts)
+                            }
+                            interiorPathCache.add(line)
+                            view.overlays.add(line)
+                        }
+                    }
+                }
+                interiorPathCache.forEach { it.isEnabled = true }
             } else {
                 debugMarkerCache.values.forEach { it.setAlpha(0f) }
                 (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }) as? Polyline)?.isEnabled = false
+                interiorPathCache.forEach { it.isEnabled = false }
             }
 
             // ─── METRO STATIONS OVERLAY ────────────────────────────────────────────────

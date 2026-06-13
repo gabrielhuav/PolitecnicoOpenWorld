@@ -100,7 +100,7 @@ carga calles (caché Room → si no, Overpass con backoff exponencial 1s→30s).
 load roads (Room cache → else Overpass with exponential backoff 1s→30s). Then, per tick:
 
 ```
-1. ESCOM hand sync: dentro de ESCOM + red lista → spawnear ZombiHand; fuera → borrarla.
+1. ESCOM sync: dentro de ESCOM + red lista → `spawnEscomItems` (ya **NO** spawnea la mano; solo marca el flag); fuera → limpia.
 2. cada 30 ticks → trySpawningCollectible; siempre → checkCollectibleProximity, checkDestinationArrival.
 3. cada 30 ticks (si hay marker) → updateDestinationRoute.
 4. si playerAction==SPECIAL → performPlayerAttack (golpe a NPCs Y jugadores remotos, ATTACK_RADIUS=0.00022 ~24 m).
@@ -285,7 +285,8 @@ global replicado en multijugador. Modelos + IA del zombi → ver **03**.
 in multiplayer. Zombie models + AI → see **03**.
 
 - **Estado:** `WorldMapState.globalZombieMode: Boolean`. El game loop hace `npcAiManager.globalZombieMode = uiState.globalZombieMode` cada tick.
-- **Activación:** (a) mano **"Mano del Apocalipsis"** fija en ESCOM (`handleInteraction()` → `toggleGlobalZombieMode()`); (b) **ítem de menú "Activar/Desactivar Apocalipsis"** (Opciones) que funciona en cualquier lugar; (c) **botón flotante de salida** cuando está activo (`exitGlobalZombieMode()`).
+- **Activación:** (a) **ítem de menú "Activar/Desactivar Apocalipsis"** (Opciones) que funciona en cualquier lugar; (b) **botón flotante de salida** cuando está activo (`exitGlobalZombieMode()`). *(La antigua mano "Mano del Apocalipsis" en ESCOM fue ELIMINADA — `spawnEscomItems` ya no la crea; ver 09.)*
+- **Debug Interiores (`showInteriorDebugOverlay`, menú Mapa):** además de los puntos de edificios + bbox de ESCOM, dibuja los **caminos del `navGraph`** de cada landmark (VERDE=peatonal, NARANJA=autos) para ver por dónde se puede caminar. OSM nativo (`NativeOsmMap`, polilíneas cacheadas) + web (`updateInteriorPaths`); Google nativo pendiente. Ver 09.
 - **VM API:** `toggleGlobalZombieMode()` (flip + broadcast `ZOMBIE_MODE_SET`), `exitGlobalZombieMode()`.
 - **Daño al jugador (¡crítico!):** los zombis muerden vía `applyNpcContactDamage(location)` y el atropello vía `runOverNpcs(finalLoc, speed)`. **Estas dos llamadas viven en el game loop MIEMBRO de `WorldMapViewModel.kt`** (el activo). La extensión `WorldMapGameLoop.kt` también las tiene pero está **sombreada/muerta** — editar solo el miembro (ver 09).
 - **Multijugador:** el Host simula los zombis y los replica por `NPC_BATCH_UPDATE` (conserva `npcType=ZOMBIE` + health/isDying). El toggle viaja en `ZOMBIE_MODE_SET` (global) — relayado por `Multiplayer/server.js` (NO por `MultiplayerInteriores/`). `addRemoteEntity` reconstruye el zombi remoto con `visualConfig=null` y `speed=PERSON_SPEED` (animan). Ver **08**.
