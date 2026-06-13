@@ -130,6 +130,13 @@ via co-located `ViewModelProvider.Factory` instances.
   snaps server-inherited NPCs to the nearest way. Spawn uses a **per-way bbox
   pre-filter** before the per-node distance check. The open-world server does NOT
   simulate NPCs — the Zone Host runs the AI on the client and the server relays.
+  **Traffic realism:** `NpcAiManager.moveNpc` now implements **intersection commitment**
+  (`committedWayId` + `commitmentTicks` locks the chosen path for ~15 ticks,
+  preventing the "shaking" indecision at corners), **rear-end collision avoidance**
+  (emergency braking if the car ahead is within 0.00008 deg (~8m), and realistic
+  following at `CAR_FOLLOW_DISTANCE` = 0.00025 deg (~27m)), and **speed variation**
+  (`speedVariation` 0.8–1.2 randomized at spawn). The Host simulates this and replicates
+  position/rotation via `NPC_BATCH_UPDATE`.
 - **NPC reactions (GTA-lite, cheap):** each NPC gets a `trait` (`AGGRESSIVE`/`COWARD`)
   rolled at spawn via `NpcAiManager.rollTrait()`. The aggressive fraction is **configurable**
   via `NpcAiManager.aggressiveRatio` (default `0.3`); the rest are cowards.
@@ -155,7 +162,11 @@ via co-located `ViewModelProvider.Factory` instances.
   - **Multiplayer:** `MultiplayerNpc` carries `health` + `isDying` + `aggroUntil`; the Host
     simulates and `Multiplayer/server.js` relays them via `{...npc}` spread (clamps health,
     v3.1). Each client applies contact/counter damage to its own player; player HP rides in
-    `PLAYER_UPDATE`.
+    `PLAYER_UPDATE`. **Player-vs-player melee:** `performPlayerAttack` now checks distance
+    against `remoteEntities`; if hit, it sends the existing `PLAYER_DAMAGE { targetId, damage }`
+    message to the server, which relays it globally. The victim applies `takeDamage` upon
+    receiving it (attacker-authoritative for low latency). It also ensures `displayName` is
+    never blank to correctly identify remote players.
   - **Feedback:** persistent HUD health bar (top-left, zombie-style), a red damage-flash
     vignette on each hit (driven by `damagePulseTrigger`), the low-HP red aura
     (`LowHealthAura`, <35 HP), and a "💥" burst (`impactEffectTrigger`).
@@ -288,11 +299,14 @@ via co-located `ViewModelProvider.Factory` instances.
   pushes it only while `wantedLevel > 0` (and once more to clear). The **"Ir a…" options menu was
   removed**: ESCOM is the first `TeleportCatalog.zones` entry and the GPS teleport is the first
   item of the *Puntos de Teletransporte* dialog.
-- **Default map provider is `OSM_WEB`, not native `OSM` (low-end):** native osmdroid defaults to
-  z22 and re-scales z19 tiles for the over-zoom, the heaviest renderer on weak devices — so the
-  app now defaults to **OpenStreetMap (Web)**. The provider is **not persisted**; the default is
-  just the initial state value in `SettingsState`, `WorldMapState` and `MainMenuState` (all
-  `OSM_WEB`). Changing it there changes the launch provider. **Google native** follows the player
+- **Default map provider is `CARTO_VOYAGER` (web), not native `OSM` (low-end):** native osmdroid
+  defaults to z22 and re-scales z19 tiles for the over-zoom, the heaviest renderer on weak
+  devices — the app defaults to **CARTO Voyager (Web)**, which serves real tiles up to **z20**
+  (sharper streets than OSM Web's z19; the web layer passes a per-provider `maxNativeZoom` to
+  Leaflet via `changeTileUrl(url, maxNative)`, recreating the layer when it changes and no-oping
+  on unchanged URLs). The provider is **not persisted**; the default is just the initial state
+  value in `SettingsState`, `WorldMapState` and `MainMenuState` (all `CARTO_VOYAGER`). Changing
+  it there changes the launch provider. **Google native** follows the player
   with `cameraPositionState.move()` — NOT `animate()`, which restarted a 120 ms camera animation
   ~30 Hz and thrashed. **Web** re-sends landmark layers to the WebView only when the landmark list
   changes (reference guard + ~45-frame heartbeat in case the first send raced the HTML load). The
@@ -305,9 +319,13 @@ via co-located `ViewModelProvider.Factory` instances.
 
 OSM/Google/Web navigation with snap-to-road; persistent street + tile caching;
 procedural NPCs (pedestrians + 6 cars) with **personality traits, run-over-while-driving,
-aggressive retaliation/carjack reactions, and two-way traffic**; **GTA-style wanted level / police
+aggressive retaliation/carjack reactions, and two-way traffic**; **realistic traffic AI
+(intersection commitment to prevent shaking, rear-end collision avoidance, per-car speed variation)**;
+**smooth zoom transitions when entering/exiting vehicles** (lerped over ~300 ms);
+**GTA-style wanted level / police
 (0–5 stars, road-snapped patrol pursuit, 👮 cops that punch & shoot, vehicle chases + carjack, retreat
-on death; multiplayer-replicated)**; melee combat vs NPCs and remote players;
+on death; multiplayer-replicated)**; **working melee combat vs NPCs AND remote players in online mode**
+(attacker-authoritative via existing `PLAYER_DAMAGE` message, ensuring `displayName` is never blank);
 zone-delegated open-world multiplayer (server v2: AOI + host throttle + rate-limit
 + sanitization + ghost GC); vehicle driving; configurable controls; 8 map
 providers; editable landmarks with JSON import/export (Designer Mode); 6 lore

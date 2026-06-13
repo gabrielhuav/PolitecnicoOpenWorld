@@ -6,9 +6,11 @@ import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
 
 data class SettingsState(
     val selectedCategory: SettingsCategory = SettingsCategory.Map,
-    val mapProvider: MapProvider = MapProvider.OSM_WEB, // Default: OSM Web (más fluido en gama baja que el OSM nativo, que reescala teselas en el over-zoom)
+    val mapProvider: MapProvider = MapProvider.CARTO_VOYAGER, // Default: CARTO Voyager (web; sirve z20 → calles más nítidas que OSM Web)
     val showCacheWidget: Boolean = true,
     val showFpsWidget: Boolean = false,
+    val showZoomWidget: Boolean = false, // widget de nivel de zoom (Interfaz)
+    val showSpeedometer: Boolean = true, // widget velocímetro al conducir (Interfaz)
     // ─── Valores COMMITEADOS (los que el juego usa de verdad) ────────────────
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f, // Rango recomendado: 0.6f a 1.4f
@@ -17,7 +19,8 @@ data class SettingsState(
 
     // ─── Jugabilidad: población de NPCs ──────────────────────────────────────
     val npcDensity: Float = 1.0f,        // multiplicador de cantidad de NPCs (0.4–1.6)
-    val npcEmojiLod: Boolean = false,    // NPCs lejanos como emoji (optimización gama baja)
+    val npcEmojiLod: Boolean = false,    // "Optimizar dibujado de NPCs": NPCs lejanos como emoji
+    val npcFullEmoji: Boolean = false,   // "Optimizar para gama baja": TODOS los NPCs como emoji
 
     // ─── Valores TEMPORALES de controles ─────────────────────────────────────
     // La UI de controles edita estos; NO afectan al juego hasta presionar GUARDAR,

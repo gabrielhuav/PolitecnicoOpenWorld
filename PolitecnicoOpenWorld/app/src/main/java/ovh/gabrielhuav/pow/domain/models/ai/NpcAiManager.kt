@@ -34,7 +34,7 @@ class NpcAiManager {
         const val CHAT_DURATION_MS = 10000L
         const val CHAT_CHANCE = 0.038f
 
-        const val CAR_FOLLOW_DISTANCE = 0.00010
+        const val CAR_FOLLOW_DISTANCE = 0.00025 // ~27m: distancia de seguimiento realista
         const val LANE_OFFSET = 0.000024
 
         @Volatile var aggressiveRatio: Float = 0.3f
@@ -180,10 +180,27 @@ class NpcAiManager {
     private val parkingCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val carExitCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val populatedLandmarks = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    // FIX ESCOM vacía: cooldown de re-población por landmark. Los NPCs del campus se
+    // despawnean a despawnDistance (~310 m) pero el campus solo se "des-poblaba" a
+    // >0.02° (~2.2 km), así que al volver quedaba SIN IA. Ahora, si el campus está
+    // marcado como poblado pero ya no tiene NPCs vivos, se repuebla (con cooldown).
+    private val landmarkRepopulateAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val LANDMARK_REPOPULATE_COOLDOWN_MS = 30_000L
     private val landmarkEntranceCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     private val carSpeed    = CAR_SPEED
     private val personSpeed = PERSON_SPEED
+
+    // ─── ESQUIVE DE TRÁFICO alrededor del jugador (en el MARCO del NPC) ───────
+    // Sustituye al viejo "empujón" posicional desde el loop del jugador (causaba
+    // órbitas/oscilaciones). El coche NPC desplaza su OBJETIVO perpendicularmente
+    // mientras el jugador esté en su trayectoria; al rebasarlo el offset se apaga
+    // y el smoothing normal lo reincorpora a su carril. Sin tocar su posición.
+    private val TRAFFIC_AVOID_RADIUS = 0.00012     // ~13 m: distancia al jugador para empezar a abrirse
+    private val TRAFFIC_AVOID_PATH_HALF = 0.00005  // ~5.5 m: medio ancho de "su trayectoria"
+    private val TRAFFIC_AVOID_BEHIND = 0.00005     // ~5.5 m: mantener el offset hasta rebasar por completo
+    private val TRAFFIC_AVOID_OFFSET = 0.00003     // ~3.3 m: apertura máxima (≈ un carril)
+    private val TRAFFIC_AVOID_LOOKAHEAD = 0.00008  // ~9 m: el objetivo de esquive es LOCAL (ver moveNpc)
 
     @Volatile private var networkIsReady = false
     @Volatile private var aggroPlayerLat = 0.0
@@ -319,8 +336,15 @@ class NpcAiManager {
 
             for (landmark in activeLandmarks) {
                 val dist = calculateDistance(pLat0, pLon0, landmark.location.latitude, landmark.location.longitude)
-                if (dist < 0.01 && !populatedLandmarks.contains(landmark.id.toString())) {
-                    populatedLandmarks.add(landmark.id.toString())
+                val lmKey = landmark.id.toString()
+                // ¿El campus está marcado como poblado pero ya no tiene IA viva? (sus NPCs
+                // se despawnearon al alejarse el jugador) → permitir re-poblar con cooldown.
+                val needsRepopulate = dist < 0.01 && populatedLandmarks.contains(lmKey) &&
+                    serverNpcs.none { it.displayName.isNullOrEmpty() && it.currentLandmark?.id == landmark.id } &&
+                    System.currentTimeMillis() >= (landmarkRepopulateAt[lmKey] ?: 0L)
+                if (dist < 0.01 && (!populatedLandmarks.contains(lmKey) || needsRepopulate)) {
+                    populatedLandmarks.add(lmKey)
+                    landmarkRepopulateAt[lmKey] = System.currentTimeMillis() + LANDMARK_REPOPULATE_COOLDOWN_MS
 
                     val availableSlots = getAvailableParkingSlots(landmark, serverNpcs)
                     if (availableSlots.isNotEmpty()) {
@@ -372,6 +396,19 @@ class NpcAiManager {
                     .map { it.way }
 
                 if (closeWays.isNotEmpty() || activeLandmarks.isNotEmpty()) {
+                    // FIX "ya no hay humanos": sin cuota por tipo, los coches (que viven más
+                    // cerca del jugador: estacionados de campus + tráfico) saturaban
+                    // maxActiveNpcs y el spawner nunca volvía a meter PEATONES. Si los coches
+                    // ya llenaron su cuota (carPopulationRatio del cupo activo), los spawns
+                    // de calle se FUERZAN a persona.
+                    var activeCarCount = 0
+                    for (n in serverNpcs) {
+                        if (n.displayName.isNullOrEmpty() && n.type == NpcType.CAR &&
+                            calculateDistance(n.location.latitude, n.location.longitude, pLat, pLon) <= simRadius
+                        ) activeCarCount++
+                    }
+                    val carQuotaFull = activeCarCount >=
+                        (maxActiveNpcs * carPopulationRatio).toInt().coerceAtLeast(2)
                     val numToSpawn = minOf(4, maxActiveNpcs - activeCount)
                     for (i in 0 until numToSpawn) {
                         var spawnedStudent = false
@@ -405,7 +442,7 @@ class NpcAiManager {
                                     targetWays = waysNearLandmark
                                 }
                             }
-                            spawnNpcOnRoad(playerLocation, targetWays, activeLandmarks)?.let { serverNpcs.add(it) }
+                            spawnNpcOnRoad(playerLocation, targetWays, activeLandmarks, forcePerson = carQuotaFull)?.let { serverNpcs.add(it) }
                         }
                     }
                 }
@@ -840,11 +877,13 @@ class NpcAiManager {
             if (diff < 45 && d < minAhead) minAhead = d
         }
         if (minAhead == Double.MAX_VALUE) return 1f
+        // Frenado de emergencia si está MUY cerca (< ~8m)
+        if (minAhead < 0.00008) return 0.1f
         return (minAhead / CAR_FOLLOW_DISTANCE).toFloat().coerceIn(0.35f, 1f)
     }
 
-    private fun spawnNpcOnRoad(playerLocation: GeoPoint, closeWays: List<MapWay>, activeLandmarks: List<Landmark>): Npc? {
-        val npcType = if (Random.nextFloat() < carPopulationRatio) NpcType.CAR else NpcType.PERSON
+    private fun spawnNpcOnRoad(playerLocation: GeoPoint, closeWays: List<MapWay>, activeLandmarks: List<Landmark>, forcePerson: Boolean = false): Npc? {
+        val npcType = if (!forcePerson && Random.nextFloat() < carPopulationRatio) NpcType.CAR else NpcType.PERSON
         val speed   = if (npcType == NpcType.CAR) carSpeed else personSpeed
 
         val validWays = closeWays.filter { way ->
@@ -893,7 +932,8 @@ class NpcAiManager {
             carModel = CarModel.entries.random(),
             isRemote = false,
             visualConfig = visualConfig,
-            trait = rollTrait()
+            trait = rollTrait(),
+            speedVariation = if (npcType == NpcType.CAR) 0.8f + Random.nextFloat() * 0.4f else 1.0f
         )
     }
 
@@ -991,8 +1031,14 @@ class NpcAiManager {
         val isFacingRight = cos(angle) >= 0
 
         val diff = (targetAngle - npc.rotationAngle + 540) % 360 - 180
-        val smoothedAngle = (npc.rotationAngle + diff * 0.20f + 360) % 360
+        val smoothFactor = if (npc.type == NpcType.CAR) 0.45f else 0.20f
+        val smoothedAngle = (npc.rotationAngle + diff * smoothFactor + 360) % 360
         val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
+        // FIX "ángulo incorrecto" + anti-órbita (ver mover de calles): heading suavizado
+        // solo con desvío pequeño; con desvío grande, directo al objetivo (converge siempre).
+        val moveRad = if (npc.type == NpcType.CAR && Math.abs(diff) < 50f)
+            Math.toRadians(-smoothedAngle.toDouble())
+        else angle
 
         val isOnCooldown = parkingCooldowns[npc.id]?.let { System.currentTimeMillis() < it } ?: false
 
@@ -1040,8 +1086,8 @@ class NpcAiManager {
         } else {
             npc.copy(
                 location = GeoPoint(
-                    npc.location.latitude + sin(angle) * actualSpeed,
-                    npc.location.longitude + cos(angle) * actualSpeed
+                    npc.location.latitude + sin(moveRad) * actualSpeed,
+                    npc.location.longitude + cos(moveRad) * actualSpeed
                 ),
                 rotationAngle = smoothedAngle,
                 facingRight = isFacingRight,
@@ -1145,8 +1191,18 @@ class NpcAiManager {
             }
         }
 
+        // Decrementar compromiso de intersección cada tick
+        val newCommitmentTicks = if (npc.commitmentTicks > 0) npc.commitmentTicks - 1 else 0
+
         if (nodeIndex < 0 || nodeIndex >= way.nodes.size) {
             val reachedNode = if (nodeIndex < 0) way.nodes.first() else way.nodes.last()
+
+            // Si estamos comprometidos con esta vía, no re-evaluar intersecciones.
+            // Simplemente corregimos el índice para que siga moviéndose.
+            if (newCommitmentTicks > 0 && npc.committedWayId == way.id) {
+                val fixedIndex = nodeIndex.coerceIn(0, way.nodes.size - 1)
+                return npc.copy(targetNodeIndex = fixedIndex, commitmentTicks = newCommitmentTicks)
+            }
 
             if (npc.type == NpcType.CAR) {
                 for (landmark in cachedNavLandmarks.get()) {
@@ -1169,7 +1225,8 @@ class NpcAiManager {
                                     currentLocalWay = entryWay,
                                     targetNodeIndex = 0,
                                     moveDirection = 1,
-                                    currentWay = null
+                                    currentWay = null,
+                                    commitmentTicks = 0
                                 )
                             }
                         }
@@ -1186,7 +1243,7 @@ class NpcAiManager {
             if (connectedWays.isNotEmpty()) {
                 val nextWay: MapWay
                 val newNodeIndex: Int
-                val nextDir: Int
+                var nextDir: Int
                 if (feared) {
                     var bestWay = connectedWays.first()
                     var bestIdx = bestWay.nodes.indexOfFirst { it.id == reachedNode.id }
@@ -1230,8 +1287,23 @@ class NpcAiManager {
                         else -> if (Random.nextBoolean()) 1 else -1
                     }
                 }
-                return npc.copy(currentWay = nextWay, targetNodeIndex = newNodeIndex + nextDir,
-                    moveDirection = nextDir, location = GeoPoint(reachedNode.lat, reachedNode.lon))
+                
+                // FIX: Asegurar que targetNodeIndex esté estrictamente dentro de los límites
+                var finalTargetIndex = newNodeIndex + nextDir
+                if (finalTargetIndex < 0 || finalTargetIndex >= nextWay.nodes.size) {
+                    nextDir = -nextDir
+                    finalTargetIndex = newNodeIndex + nextDir
+                }
+                // Si AÚN está fuera de límites (vía de 1 solo nodo), quedarse en la vía actual y reversar
+                if (finalTargetIndex < 0 || finalTargetIndex >= nextWay.nodes.size) {
+                    val newDir = direction * -1
+                    val newIndex = if (nodeIndex < 0) 1 else way.nodes.size - 2
+                    return npc.copy(currentWay = way, targetNodeIndex = newIndex.coerceIn(0, way.nodes.size - 1), moveDirection = newDir, location = GeoPoint(reachedNode.lat, reachedNode.lon), commitmentTicks = 0)
+                }
+
+                return npc.copy(currentWay = nextWay, targetNodeIndex = finalTargetIndex,
+                    moveDirection = nextDir, location = GeoPoint(reachedNode.lat, reachedNode.lon),
+                    committedWayId = nextWay.id, commitmentTicks = 15) // Compromiso de ~0.5s
             } else {
                 val exitCooldown = carExitCooldowns[npc.id] ?: 0L
                 if (now < exitCooldown) {
@@ -1240,13 +1312,13 @@ class NpcAiManager {
 
                 val newDir = direction * -1
                 val newIndex = if (nodeIndex < 0) 1 else way.nodes.size - 2
-                return npc.copy(currentWay = way, targetNodeIndex = newIndex, moveDirection = newDir, location = GeoPoint(reachedNode.lat, reachedNode.lon))
+                return npc.copy(currentWay = way, targetNodeIndex = newIndex.coerceIn(0, way.nodes.size - 1), moveDirection = newDir, location = GeoPoint(reachedNode.lat, reachedNode.lon), commitmentTicks = 0)
             }
         }
 
         val baseTarget = way.nodes[nodeIndex]
-        val tLat: Double
-        val tLon: Double
+        var tLat: Double
+        var tLon: Double
         if (npc.type == NpcType.CAR) {
             val segDLat = baseTarget.lat - npc.location.latitude
             val segDLon = baseTarget.lon - npc.location.longitude
@@ -1263,6 +1335,48 @@ class NpcAiManager {
             tLat = baseTarget.lat
             tLon = baseTarget.lon
         }
+
+        // ─── ESQUIVE DE TRÁFICO (jugador en mi trayectoria) ──────────────────
+        // Geometría en el marco del PROPIO coche: si el jugador está delante (o aún
+        // a un costado, hasta rebasarlo por completo) y dentro del ancho de mi
+        // trayectoria, desplazo MI OBJETIVO un carril hacia el lado contrario. El
+        // offset se recalcula cada tick a partir de la geometría, así que: abre →
+        // pasa → se apaga solo → el smoothing lo regresa al carril. Nunca se toca
+        // la posición del NPC (eso causaba las órbitas alrededor del jugador).
+        if (npc.type == NpcType.CAR) {
+            val relLat = aggroPlayerLat - npc.location.latitude
+            val relLon = aggroPlayerLon - npc.location.longitude
+            val dPlayer = sqrt(relLat * relLat + relLon * relLon)
+            if (dPlayer < TRAFFIC_AVOID_RADIUS && (aggroPlayerLat != 0.0 || aggroPlayerLon != 0.0)) {
+                val dirLat0 = tLat - npc.location.latitude
+                val dirLon0 = tLon - npc.location.longitude
+                val dirLen = sqrt(dirLat0 * dirLat0 + dirLon0 * dirLon0)
+                if (dirLen > 1e-9) {
+                    val fLat = dirLat0 / dirLen; val fLon = dirLon0 / dirLen   // hacia delante
+                    val pLat = -fLon; val pLon = fLat                          // perpendicular
+                    val ahead = relLat * fLat + relLon * fLon                  // + = jugador delante
+                    val side = relLat * pLat + relLon * pLon                   // de qué lado está
+                    // Activo desde que entra a mi trayectoria hasta que quede CLARAMENTE
+                    // atrás (histéresis TRAFFIC_AVOID_BEHIND): evita cerrarse encima del
+                    // jugador justo al pasarlo.
+                    if (ahead > -TRAFFIC_AVOID_BEHIND && kotlin.math.abs(side) < TRAFFIC_AVOID_PATH_HALF) {
+                        val s = if (side >= 0) -1.0 else 1.0                   // abrir al lado contrario
+                        // Más cerca = apertura más decidida (mín. 40% al borde del radio).
+                        val strength = TRAFFIC_AVOID_OFFSET *
+                            (1.0 - (dPlayer / TRAFFIC_AVOID_RADIUS)).coerceIn(0.4, 1.0)
+                        // FIX "me atraviesan como fantasmas": el OBJETIVO de esquive debe ser
+                        // LOCAL (un punto ~9 m adelante + un carril al lado). Desviar el NODO
+                        // lejano (50-100 m) cambiaba el rumbo AQUÍ en ~2° — imperceptible, los
+                        // coches seguían derecho a través del jugador. Con el objetivo local el
+                        // cambio de rumbo es real (~20°): abre, rebasa y al apagarse el offset
+                        // retoma su nodo y se reincorpora al carr0il.
+                        tLat = npc.location.latitude + fLat * TRAFFIC_AVOID_LOOKAHEAD + pLat * s * strength
+                        tLon = npc.location.longitude + fLon * TRAFFIC_AVOID_LOOKAHEAD + pLon * s * strength
+                    }
+                }
+            }
+        }
+
         val dLon = tLon - npc.location.longitude
         val dLat = tLat - npc.location.latitude
         val dist = sqrt(dLon * dLon + dLat * dLat)
@@ -1271,11 +1385,25 @@ class NpcAiManager {
         val isFacingRight = cos(angle) >= 0
 
         val diff = (targetAngle - npc.rotationAngle + 540) % 360 - 180
-        val smoothedAngle = (npc.rotationAngle + diff * 0.20f + 360) % 360
+        // Los coches giran más rápido (0.30 vs 0.20) para converger antes en esquinas.
+        val smoothFactor = if (npc.type == NpcType.CAR) 0.45f else 0.20f
+        val smoothedAngle = (npc.rotationAngle + diff * smoothFactor + 360) % 360
         val effectiveSpeed = npc.speed * speedScale.coerceIn(0f, 1f).toDouble() *
-                (if (feared) FEAR_SPEED_MULT.toDouble() else 1.0)
+                (if (feared) FEAR_SPEED_MULT.toDouble() else 1.0) *
+                (if (npc.type == NpcType.CAR) npc.speedVariation.toDouble() else 1.0)
         val actualSpeed = effectiveSpeed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
         val moving = actualSpeed > 1e-9
+        // FIX "ángulo incorrecto" + FIX "círculos alrededor del jugador":
+        // El sprite usa smoothedAngle. Mover SIEMPRE a lo largo del heading suavizado
+        // (fix anterior) provocaba el bug clásico de pure-pursuit: con desvío grande y
+        // radio de giro insuficiente, el coche ORBITA su objetivo para siempre (se veía
+        // dando vueltas en círculos junto al jugador cuando el esquive movía su objetivo).
+        // Ahora: con desvío PEQUEÑO (manejo normal) se mueve según su sprite (coinciden
+        // visualmente); con desvío GRANDE (giros cerrados/esquives) avanza DIRECTO al
+        // objetivo, que converge siempre — el sprite lo alcanza vía el smoothing.
+        val moveRad = if (npc.type == NpcType.CAR && Math.abs(diff) < 50f)
+            Math.toRadians(-smoothedAngle.toDouble())
+        else angle
 
         if (dist > actualSpeed * 3 && npc.type == NpcType.CAR) {
             for (landmark in activeLandmarks) {
@@ -1339,7 +1467,7 @@ class NpcAiManager {
         return if (dist < actualSpeed) {
             npc.copy(currentWay = way, location = GeoPoint(tLat, tLon), targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
         } else {
-            npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(npc.location.latitude + sin(angle) * actualSpeed, npc.location.longitude + cos(angle) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
+            npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(npc.location.latitude + sin(moveRad) * actualSpeed, npc.location.longitude + cos(moveRad) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
         }
     }
 

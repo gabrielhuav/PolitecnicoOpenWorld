@@ -5,7 +5,7 @@
 ## Menú principal / Main menu (`features/main_menu/`)
 
 ### `viewmodel/MainMenuViewModel.kt` + `MainMenuState.kt`
-- `MainMenuState` incluye `mapProvider (default OSM_WEB)`, `showCacheWidget`, `showFpsWidget`,
+- `MainMenuState` incluye `mapProvider (default CARTO_VOYAGER)`, `showCacheWidget`, `showFpsWidget`,
   `showMultiplayerDialog`, `playerName`, estado del warm-up.
 - API: `onStartGame()`, `setMapProvider(provider)`, `toggleCacheWidget/FpsWidget`,
   `updateShowMultiplayerDialog(show)`, `updatePlayerName(name)`, `onMultiplayerPressed()`,
@@ -51,25 +51,32 @@ viven en campos `temp*` y **solo se aplican al pulsar GUARDAR**; salir descarta.
 **EN:** Tabs: Map / Controls / Gameplay / Interface. **Controls are staged:** changes live in `temp*`
 fields and **only apply on SAVE**; leaving discards.
 
-- `selectCategory(category)`, `changeMapProvider(provider)`, `toggleCacheWidget/FpsWidget(enabled)`.
+- `selectCategory(category)`, `changeMapProvider(provider)`, `toggleCacheWidget/FpsWidget(enabled)`,
+  `toggleZoomWidget(enabled)` y `toggleSpeedometer(enabled)` (ambos persisten; pestaña Interfaz:
+  widget de nivel de zoom en vivo + velocímetro km/h visible solo al conducir, default activado).
 - Staged: `changeControlType(type)`, `changeControlsScale(scale)`, `toggleSwapControls(swap)` → escriben
   `tempControlType/tempControlsScale/tempSwapControls`.
 - `saveControlsSettings()` (commit + persiste vía `SettingsRepository` + empuja al mapa),
   `discardControlsChanges()` (al salir).
 - `toggleRoadNetwork(show)`. `Factory(context)`.
-- **Jugabilidad / Gameplay (nuevo):** `changeNpcDensity(v: Float)` (0.4–1.6, persiste al instante) y
-  `toggleNpcEmojiLod(b)`. La pestaña **Jugabilidad** (antes vacía) ahora tiene:
+- **Jugabilidad / Gameplay:** `changeNpcDensity(v: Float)` (0.4–1.6, persiste al instante),
+  `toggleNpcEmojiLod(b)` y `toggleNpcFullEmoji(b)`. La pestaña **Jugabilidad** tiene:
   - **"Cantidad de NPCs"** (slider) → `SettingsState.npcDensity` → `WorldMapViewModel.setNpcDensity` →
     `NpcAiManager.userPopulationFactor` (se combina con gama del teléfono + densidad urbana, ver 03).
-  - **"Optimizar para gama baja"** (switch) → `npcEmojiLod` → `WorldMapState.npcEmojiLod` → render LOD de
-    emojis (NPCs lejanos como 🧍🚗🧟, ver 04). Default = `isLowRamDevice` (`SettingsRepository`).
-  - Ambos persisten en `SettingsRepository` (`getNpcDensity`/`getNpcEmojiLod`) y se aplican **en vivo** al
-    mapa desde `MainActivity` (llaman a `settingsViewModel` + `worldMapViewModel`).
+  - **"Optimizar dibujado de NPCs"** (switch; antes se llamaba "Optimizar para gama baja") → `npcEmojiLod`
+    → `WorldMapState.npcEmojiLod` → render LOD de emojis (NPCs lejanos como 🧍🚗🧟, ver 04).
+    Default = `isLowRamDevice` (`SettingsRepository`).
+  - **"Optimizar para gama baja"** (switch NUEVO) → `npcFullEmoji` → `WorldMapState.npcFullEmoji` →
+    TODOS los NPCs como emoji 🧍🚗🧟👮 sin importar distancia, en los TRES renderers (OSM nativo,
+    Google nativo y web). Default = false.
+  - Todos persisten en `SettingsRepository` (`getNpcDensity`/`getNpcEmojiLod`/`getNpcFullEmoji`) y se
+    aplican **en vivo** al mapa desde `MainActivity` (llaman a `settingsViewModel` + `worldMapViewModel`).
 
 ### `ui/SettingsScreen.kt`
 Pestañas + sliders. Escala adaptativa 60%–140% (cap 100% en portrait), swap de zurdos, botones A/B/X/Y.
-El composable `GameplaySettings` (pestaña Jugabilidad) tiene el slider de cantidad de NPCs y el switch de
-optimización de gama baja.
+`GameplaySettings` (Jugabilidad): slider de cantidad de NPCs + switches "Optimizar dibujado de NPCs"
+(LOD) y "Optimizar para gama baja" (emoji total). `DiagnosticWidgetsSetting` (Interfaz): widgets de
+caché, FPS, **zoom** (nivel de zoom actual en vivo) y **velocímetro** (km/h al conducir).
 
 ---
 

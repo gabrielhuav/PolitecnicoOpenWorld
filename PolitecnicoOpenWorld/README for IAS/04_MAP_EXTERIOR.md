@@ -20,6 +20,9 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Tema / Concern | Archivo / File |
 |---|---|
 | Game loop, multiplayer, NPCs, ESCOM, policía | `viewmodel/WorldMapViewModel.kt` + parciales |
+| Proveedores de mapa + descarga/compuertas de tiles | `viewmodel/WorldMapProviders.kt` (NUEVO, refactor) |
+| Modo Diseñador / landmarks (Room, edición, import/export) | `viewmodel/WorldMapDesigner.kt` (NUEVO, refactor) |
+| Nivel de búsqueda + policía propia + carjack | `viewmodel/WorldMapWanted.kt` (NUEVO, refactor) |
 | Estado UI / UI state | `viewmodel/WorldMapState.kt` |
 | Game loop (parcial) | `viewmodel/WorldMapGameLoop.kt` |
 | Multiplayer relay/parse | `viewmodel/WorldMapMultiplayer.kt` (+ `WorldMapMultiplayerModels.kt`) |
@@ -45,19 +48,31 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 
 ```kotlin
 enum class MapProvider(displayName) {
-  OSM, GOOGLE_MAPS_NATIVE, OSM_WEB, GOOGLE_MAPS, CARTO_DB_DARK, CARTO_DB_LIGHT,
-  ESRI, ESRI_SATELLITE, OPEN_TOPO;            // 8 proveedores (web = todos menos OSM y GOOGLE_MAPS_NATIVE)
+  OSM, GOOGLE_MAPS_NATIVE, CARTO_VOYAGER, OSM_WEB, GOOGLE_MAPS, CARTO_DB_DARK,
+  CARTO_DB_LIGHT, ESRI, ESRI_SATELLITE, OPEN_TOPO; // 9 proveedores (web = todos menos OSM y GOOGLE_MAPS_NATIVE)
   val isWebProvider: Boolean
 }
+// El render web pasa maxNativeZoom por proveedor a Leaflet (CARTO=20, OSM/ESRI=19,
+// OPEN_TOPO=17, Google=20): a partir de ahí Leaflet escala (over-zoom).
 enum class RoadSource { LOADING, LOCAL_DB, NETWORK }
 enum class TileSource { LOCAL_OSM, LOCAL_CACHE, NETWORK }
 data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
 ```
 
-**`WorldMapState`** — campos por grupo / fields by group (default `mapProvider = OSM_WEB`):
+**`WorldMapState`** — campos por grupo / fields by group (default `mapProvider = CARTO_VOYAGER`):
 - **Mapa/carga:** `currentLocation, isLoadingLocation, zoomLevel, mapProvider, pendingProvider,
   pendingProviderReady, isMapReady, mapLoadProgress, roadSource, tileSource, isRoadNetworkReady`.
-- **Render flags:** `showCacheWidget(=true), showFpsWidget, showRoadNetwork, isUserPanningMap`.
+- **Render flags:** `showCacheWidget(=true), showFpsWidget, showZoomWidget (widget de nivel de zoom,
+  Ajustes→Interfaz), showSpeedometer (=true; velocímetro km/h, solo al conducir), showRoadNetwork,
+  isUserPanningMap`.
+- **Zoom por estado (constantes en `WorldMapState.kt`):** `ZOOM_ON_FOOT=22`, `ZOOM_DRIVING=21`,
+  `ZOOM_DRIVING_FAST=20` (≥85% de MAX_SPEED baja a 20; histéresis al 65%). `updateAutoZoom()` corre
+  cada tick del game loop y solo actúa en TRANSICIONES de modo (el pinch manual se respeta).
+  **Suavizado de zoom:** `WorldMapState` ahora tiene `targetZoomLevel` y `zoomTransitionTicks`.
+  `updateAutoZoom()` fija `targetZoomLevel` en vez de cambiar `zoomLevel` de golpe. El game loop
+  interpola `zoomLevel` hacia `targetZoomLevel` (~1 nivel por tick, ~300 ms de transición) para
+  evitar el "shock" visual al robar/salir de un auto.
+  `ZOOM_GAMEPLAY_WEB=19` quedó SOLO como nivel máx. de tiles reales que se pre-descargan en web.
 - **Controles/skin:** `controlType, controlsScale, swapControls, selectedSkin, showSkinSelector`.
 - **Jugador:** `playerAction, isPlayerFacingRight, isRunning, isDriving, currentVehicleModel,
   currentVehicleColor, vehicleSpeed, vehicleRotation, vehicleIsFirstTimeBoarded`.
@@ -87,7 +102,8 @@ load roads (Room cache → else Overpass with exponential backoff 1s→30s). The
 1. ESCOM hand sync: dentro de ESCOM + red lista → spawnear ZombiHand; fuera → borrarla.
 2. cada 30 ticks → trySpawningCollectible; siempre → checkCollectibleProximity, checkDestinationArrival.
 3. cada 30 ticks (si hay marker) → updateDestinationRoute.
-4. si playerAction==SPECIAL → performPlayerAttack (golpe a NPCs, ATTACK_RADIUS=0.00022 ~24 m).
+4. si playerAction==SPECIAL → performPlayerAttack (golpe a NPCs Y jugadores remotos, ATTACK_RADIUS=0.00022 ~24 m).
+   Si golpea a un jugador remoto, envía `PLAYER_ATTACK_HIT { targetId, damage }` al servidor.
 5. si isDriving && !WASTED → física del coche:
      girar ±2°/tick (solo con velocidad), gas→+ACCELERATION (cap MAX_SPEED), freno→-BRAKING_FRICTION
      (reversa hasta -MAX_SPEED/2), inercia al soltar. dx=sin(rot)*v, dy=cos(rot)*v.
@@ -149,6 +165,8 @@ data class MultiplayerNpc(id, x, y, rotation, npcType, ownerId, carModel, carCol
                           hairId, hairColor, shirtColor, pantsColor, health, isDying, aggroUntil)
 ```
 - `handleMultiplayerMessage(json)` — parsea por `type` y actualiza `remoteEntities`/jugadores.
+  **Nuevo:** procesa `PLAYER_ATTACK_HIT` (reenviado por el servidor) para aplicar daño al jugador
+  local si fue golpeado por otro jugador en melee.
 - `addRemoteEntity(remote)` / `updateNpcsState()` — fusiona NPCs locales + remotos + **policía**
   (`policeManager.activeUnits()` + `remotePolice`) en `uiState.npcs`.
 - **Zone Host:** soy Host dentro de ~400 m; el menor `sessionId` cede en solapamiento; solo el Host

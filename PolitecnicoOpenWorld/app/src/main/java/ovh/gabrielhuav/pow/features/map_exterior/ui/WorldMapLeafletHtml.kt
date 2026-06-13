@@ -59,12 +59,17 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         var npcMarkers = {};
         var collectibleMarkers = {};
         var landmarkMarkers = {};
+        var designerMarkers = {};      // ✏️ lápices de edición del Modo Diseñador (uno por landmark)
+        var isDesignerMode = false;
+        var selectedLandmarkId = null;
+        var lastLandmarksData = [];    // última lista recibida, para reconstruir lápices al togglear
         var policeWpMarkers = {};   // 🚓 de patrullas fuera de la neblina (paridad con OSM nativo)
         var policeWpLines = {};     // líneas punteadas jugador → patrulla
         var zombieWpMarkers = {};   // 🧟 de zombis fuera del fog (modo apocalipsis, paridad con OSM nativo)
         var zombieWpLines = {};     // líneas ROJAS punteadas jugador → zombi
 
         var isZooming = false;
+        var zoomStartAt = 0;
         var isExplorationMode = false;
 
         // ─── DETECCIÓN DE GESTO DEL USUARIO ──────────────────────────────────
@@ -73,11 +78,12 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         // primero debe entrar en modo exploración; de lo contrario el zoom por
         // botón ocultaría al jugador y rompería el auto-seguimiento.
         var pointerDown = false;
+        var lastPointerMs = 0;
         (function() {
             var el = document.getElementById('map');
             if (!el) return;
-            var down = function() { pointerDown = true; };
-            var up = function() { pointerDown = false; };
+            var down = function() { pointerDown = true; lastPointerMs = Date.now(); };
+            var up = function() { pointerDown = false; lastPointerMs = Date.now(); };
             el.addEventListener('touchstart', down, { passive: true });
             el.addEventListener('touchend', up, { passive: true });
             el.addEventListener('touchcancel', up, { passive: true });
@@ -87,6 +93,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
 
         map.on('zoomstart', function() {
             isZooming = true;
+            zoomStartAt = Date.now();
             // Pinch del usuario: anclar al jugador a su posición geográfica real
             // (igual que el arrastre) para que NO se mueva con el gesto ni rebote.
             if (pointerDown && !isExplorationMode) {
@@ -115,6 +122,14 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         // setView solo se usa al cambiar el ZOOM o en saltos grandes (teletransporte). El delta
         // se recalcula cada frame contra el centro actual, así que es auto-corrector (sin deriva).
         function updateMapView(lat, lng, z) {
+            // FIX "skin no se mueve": Kotlin solo llama aquí cuando NO está paneando.
+            // Si el JS quedó atorado en exploración SIN dedo en pantalla (race del bridge
+            // o touchcancel perdido), salimos de exploración para no congelar el mapa
+            // mientras el jugador sí se mueve con los controles.
+            if (isExplorationMode && !pointerDown) { isExplorationMode = false; }
+            // Watchdog: un zoomstart sin su zoomend (animación interrumpida en WebViews
+            // viejas) dejaba isZooming=true para siempre → mapa/NPCs congelados.
+            if (isZooming && zoomStartAt && (Date.now() - zoomStartAt) > 1500) { isZooming = false; }
             if (isZooming || isExplorationMode) return;
             if (map.getZoom() !== z) { map.setView([lat, lng], z, { animate: false }); return; }
             var target = map.latLngToContainerPoint([lat, lng]);
@@ -135,8 +150,85 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
             } else {
                 map.scrollWheelZoom.disable();
             }
+            if (isDesignerMode !== isDesigner) {
+                isDesignerMode = isDesigner;
+                refreshDesignerControls();
+            }
+        }
+
+        // ─── LÁPICES DE EDICIÓN (Modo Diseñador, paridad con OSM/Google nativos) ──
+        // Un marcador ✏️ arrastrable por landmark: tocar selecciona (abre el DesignerPanel
+        // en Compose) y arrastrar mueve el asset (notifyLandmarkMoved → moveLandmarkTo).
+        function setSelectedLandmark(id) {
+            id = id ? String(id) : null;
+            if (selectedLandmarkId === id) return;
+            selectedLandmarkId = id;
+            for (var k in designerMarkers) { stylePencil(designerMarkers[k], k === id); }
+        }
+        function stylePencil(marker, selected) {
+            var el = marker.getElement();
+            if (!el) return;
+            var d = el.querySelector('.pencil-c');
+            if (!d) return;
+            d.style.borderColor = selected ? '#F44336' : '#D4AF37';
+            d.style.background = selected ? 'rgba(120,20,20,0.75)' : 'rgba(0,0,0,0.55)';
+        }
+        function refreshDesignerControls() {
+            if (!isDesignerMode) {
+                for (var id in designerMarkers) { map.removeLayer(designerMarkers[id]); }
+                designerMarkers = {};
+                return;
+            }
+            var currentIds = new Set(lastLandmarksData.map(function(l){ return String(l.id); }));
+            for (var id in designerMarkers) {
+                if (!currentIds.has(id)) { map.removeLayer(designerMarkers[id]); delete designerMarkers[id]; }
+            }
+            lastLandmarksData.forEach(function(lm) {
+                var key = String(lm.id);
+                if (designerMarkers[key]) {
+                    // No reposicionar mientras el usuario lo arrastra (Leaflet pelearía el latlng).
+                    if (!designerMarkers[key]._isDraggingPencil) designerMarkers[key].setLatLng([lm.lat, lm.lng]);
+                    return;
+                }
+                var html = '<div class="pencil-c" style="width:34px;height:34px;border-radius:50%;' +
+                    'background:rgba(0,0,0,0.55);border:2px solid #D4AF37;display:flex;' +
+                    'align-items:center;justify-content:center;font-size:18px;">✏️</div>';
+                var icon = L.divIcon({ html: html, className: '', iconSize: [38, 38], iconAnchor: [19, 19] });
+                var m = L.marker([lm.lat, lm.lng], { icon: icon, draggable: true, zIndexOffset: 2000 }).addTo(map);
+                m.on('click', function() {
+                    if (window.Android && window.Android.notifyLandmarkSelected) window.Android.notifyLandmarkSelected(key);
+                });
+                m.on('dragstart', function() {
+                    m._isDraggingPencil = true;
+                    if (window.Android && window.Android.notifyLandmarkSelected) window.Android.notifyLandmarkSelected(key);
+                });
+                m.on('drag', function() {
+                    var p = m.getLatLng();
+                    if (window.Android && window.Android.notifyLandmarkMoved) window.Android.notifyLandmarkMoved(key, p.lat, p.lng);
+                });
+                m.on('dragend', function() {
+                    m._isDraggingPencil = false;
+                    var p = m.getLatLng();
+                    if (window.Android && window.Android.notifyLandmarkMoved) window.Android.notifyLandmarkMoved(key, p.lat, p.lng);
+                });
+                designerMarkers[key] = m;
+                stylePencil(m, key === selectedLandmarkId);
+            });
         }
         
+        // SYNC DE ZOOM EXPLÍCITO (zoom automático por estado: 22 a pie / 21 conduciendo /
+        // 20 rápido). Independiente de updateMapView y de sus gates (isZooming /
+        // exploración): aplica el zoom del estado Kotlin SIEMPRE que el usuario no haya
+        // tocado la pantalla recientemente (así no pelea con el pinch ni con su
+        // propagación asíncrona por el bridge). También mantiene el zoom del MAPA
+        // alineado con el del estado (los sprites se dimensionan con el estado: si
+        // difieren, los assets se ven de tamaño distinto al mapa).
+        function syncZoom(z) {
+            if (pointerDown || (Date.now() - lastPointerMs) < 800) return;
+            if (Math.abs(map.getZoom() - z) < 0.01) return;
+            map.setZoom(z, { animate: false });
+        }
+
         function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
         // OPT FPS (gama baja): a pie el wrapper es del tamaño de la pantalla (≈45 teselas en vez
         // de ~350). Solo al CONDUCIR se agranda a un cuadrado del tamaño de la DIAGONAL de la
@@ -162,7 +254,21 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
             }
             if (typeof map !== 'undefined' && map) map.invalidateSize(false);
         }
-        function changeTileUrl(url) { if (currentTileLayer) currentTileLayer.setUrl(url); }
+        // Cambia el proveedor de teselas. maxNative = zoom máximo REAL del proveedor
+        // (CARTO sirve hasta z20 → más nitidez; OSM solo z19). Si cambia, hay que
+        // recrear la capa (Leaflet no permite cambiar maxNativeZoom en caliente).
+        // Guard por URL: antes setUrl corría CADA frame y redibujaba la capa entera.
+        function changeTileUrl(url, maxNative) {
+            if (!currentTileLayer) return;
+            maxNative = maxNative || 18;
+            if (currentTileLayer._url === url && currentTileLayer.options.maxNativeZoom === maxNative) return;
+            if (currentTileLayer.options.maxNativeZoom !== maxNative) {
+                map.removeLayer(currentTileLayer);
+                currentTileLayer = L.tileLayer(url, { maxZoom: 22, maxNativeZoom: maxNative, keepBuffer: 3, updateWhenIdle: false, updateWhenZooming: false }).addTo(map);
+            } else {
+                currentTileLayer.setUrl(url);
+            }
+        }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
         function exitExplorationMode() { isExplorationMode = false; }
 
@@ -206,7 +312,8 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
 
         function updateLandmarks(jsonStr) {
             var data = JSON.parse(jsonStr);
-            var currentIds = new Set(data.map(function(l){ return String(l.id); })); 
+            lastLandmarksData = data;
+            var currentIds = new Set(data.map(function(l){ return String(l.id); }));
 
             for (var id in landmarkMarkers) {
                 if (!currentIds.has(id)) {
@@ -257,6 +364,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                 }
             });
             resizeLandmarks();
+            refreshDesignerControls();
         }
 
         function resizeLandmarks() {

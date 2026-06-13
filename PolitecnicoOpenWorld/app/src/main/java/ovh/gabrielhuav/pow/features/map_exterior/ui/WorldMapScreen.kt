@@ -131,6 +131,24 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.Ps4ActionButtonsC
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_OSM
+// REFACTOR: funciones del VM extraídas a parciales (WorldMapProviders/Designer) →
+// ahora son extensiones y requieren import explícito desde el paquete ui.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.addLandmarkAtPlayer
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.cancelPendingProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitMapProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.deleteSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportLandmarksToUri
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importLandmarksFromUri
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadLandmarks
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.prepareMapForEntry
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.rotateSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.scaleXSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.scaleYSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.showAssetPicker
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleDesignerMode
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_WEB
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
@@ -344,8 +362,33 @@ fun WorldMapScreen(
                 viewModel.prepareMapForEntry()
             }
         }
-        val worldReady = !uiState.isLoadingLocation && uiState.isRoadNetworkReady && uiState.isMapReady
+        // worldReady ahora TAMBIÉN espera a los NPCs (npcsWarmedUp): tras un teleport la
+        // pantalla de carga no se quita hasta que tiles + calles + IA estén listos.
+        val worldReady = !uiState.isLoadingLocation && uiState.isRoadNetworkReady &&
+            uiState.isMapReady && uiState.npcsWarmedUp
         if (!worldReady) {
+            // PRE-DECODIFICACIÓN de assets de construcciones cercanas (≤ ~2 km) DURANTE la
+            // pantalla de carga: al soltar al jugador, los landmarks (p. ej. ESCOM) ya están
+            // en la caché de bitmaps y aparecen al instante en los renderers nativos.
+            LaunchedEffect(uiState.isMapReady, uiState.isRoadNetworkReady, uiState.landmarks) {
+                val loc = uiState.currentLocation ?: return@LaunchedEffect
+                val nearby = uiState.landmarks.filter {
+                    kotlin.math.abs(it.location.latitude - loc.latitude) < 0.02 &&
+                        kotlin.math.abs(it.location.longitude - loc.longitude) < 0.02
+                }
+                for (lm in nearby) {
+                    if (landmarkBitmapCache.containsKey(lm.assetPath)) continue
+                    val bmp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            context.assets.open(lm.assetPath).use { st ->
+                                val o = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 }
+                                android.graphics.BitmapFactory.decodeStream(st, null, o)
+                            }
+                        } catch (e: Exception) { null }
+                    }
+                    landmarkBitmapCache[lm.assetPath] = bmp // escrito en Main (post-withContext)
+                }
+            }
             val tips = remember { listOf(
                 "Mantén presionado Y para teletransportarte a otros lugares.",
                 "Presiona Y cerca de un auto para robarlo.",
@@ -362,16 +405,18 @@ fun WorldMapScreen(
                 }
             }
 
-            // Progreso compuesto: ubicación → calles → descarga de tiles del mapa.
+            // Progreso compuesto: ubicación → calles → tiles del mapa → NPCs/edificios.
             val progress = when {
                 uiState.isLoadingLocation -> 0.05f
                 !uiState.isRoadNetworkReady -> 0.25f
-                else -> 0.35f + 0.65f * uiState.mapLoadProgress
+                !uiState.isMapReady -> 0.35f + 0.55f * uiState.mapLoadProgress
+                else -> 0.92f // mapa listo: sembrando NPCs y edificios
             }.coerceIn(0f, 1f)
             val statusText = when {
                 uiState.isLoadingLocation -> "Obteniendo tu ubicación..."
                 !uiState.isRoadNetworkReady -> "Cargando las calles..."
-                else -> "Descargando el mapa..."
+                !uiState.isMapReady -> "Descargando el mapa..."
+                else -> "Colocando NPCs y edificios..."
             }
             Column(
                 modifier = Modifier.align(Alignment.Center),
@@ -599,7 +644,15 @@ fun WorldMapScreen(
                             ) return@forEach
                             key(npc.id) {
                                 val qHealth = npc.health.toInt()
+                                // "Optimizar para gama baja": TODOS los NPCs como emoji (sin sprites).
+                                val fullEmoji = if (uiState.npcFullEmoji) when (npc.type) {
+                                    NpcType.CAR, NpcType.POLICE_CAR -> "🚗"
+                                    ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> "🧟"
+                                    NpcType.POLICE_COP -> "👮"
+                                    else -> "🧍"
+                                } else null
                                 val cacheKey = when {
+                                    fullEmoji != null -> "GM_FULL_EMOJI_$fullEmoji"
                                     npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                         val currentlyMoving = npc.speed > 0 || npc.isMoving
                                         val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
@@ -640,6 +693,10 @@ fun WorldMapScreen(
 
                                 val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
                                     val drawable = when {
+                                        fullEmoji != null -> {
+                                            val px = (18 * screenDensity).toInt()
+                                            emojiToDrawable(context, fullEmoji, px)
+                                        }
                                         npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                             val currentlyMoving = npc.speed > 0 || npc.isMoving
                                             val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
@@ -842,12 +899,20 @@ fun WorldMapScreen(
                     update = { wv ->
                         webViewRef.value = wv
                         if (!uiState.isUserPanningMap) {
-                            uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel.toInt()});", null) }
+                            // Zoom SIN truncar (.toInt() peleaba con syncZoom cuando el estado
+                            // queda en medios pasos tras un pinch, p. ej. 21.5 vs 21).
+                            uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel});", null) }
                         }
                         uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updatePlayerMarker==='function')updatePlayerMarker(${it.latitude}, ${it.longitude}, ${uiState.isUserPanningMap});", null) }
+                        // Zoom automático por estado: sync explícito e incondicional (el JS
+                        // decide si aplica; respeta el pinch reciente del usuario).
+                        wv.evaluateJavascript("if(typeof syncZoom==='function')syncZoom(${uiState.zoomLevel});", null)
                         // Neblina anclada al jugador (se redibuja también en cada gesto vía JS).
                         uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof setPlayerFog==='function')setPlayerFog(${it.latitude}, ${it.longitude});", null) }
                         wv.evaluateJavascript("if(typeof setDesignerMode==='function')setDesignerMode(${uiState.isDesignerMode});", null)
+                        // Lápiz seleccionado (Modo Diseñador web): tinta el ✏️ del landmark activo.
+                        val selLmJs = uiState.selectedLandmarkId?.let { "'$it'" } ?: "null"
+                        wv.evaluateJavascript("if(typeof setSelectedLandmark==='function')setSelectedLandmark($selLmJs);", null)
                         // OPT FPS web: el contenedor solo se agranda (para rotación) al CONDUCIR; a
                         // pie es del tamaño de la pantalla. El JS ignora llamadas repetidas (guard
                         // _driving), así que llamarlo cada frame es barato y robusto (se auto-corrige
@@ -856,6 +921,7 @@ fun WorldMapScreen(
                         val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
                         wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
                         val tileUrl = when (uiState.mapProvider) {
+                            MapProvider.CARTO_VOYAGER  -> "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                             MapProvider.CARTO_DB_DARK  -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                             MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
                             MapProvider.ESRI           -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
@@ -864,7 +930,17 @@ fun WorldMapScreen(
                             MapProvider.OSM_WEB        -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                             else -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
                         }
-                        wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl');", null)
+                        // Zoom máximo REAL de cada proveedor: a partir de ahí Leaflet escala
+                        // (over-zoom). CARTO sirve z20 → más detalle de calles que OSM (z19).
+                        val tileMaxNative = when (uiState.mapProvider) {
+                            MapProvider.CARTO_VOYAGER, MapProvider.CARTO_DB_DARK,
+                            MapProvider.CARTO_DB_LIGHT -> 20
+                            MapProvider.OSM_WEB        -> 19
+                            MapProvider.ESRI, MapProvider.ESRI_SATELLITE -> 19
+                            MapProvider.OPEN_TOPO      -> 17
+                            else -> 20 // Google Web
+                        }
+                        wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl', $tileMaxNative);", null)
                         wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
 
                         val density = context.resources.displayMetrics.density
@@ -885,7 +961,45 @@ fun WorldMapScreen(
                         } else uiState.npcs
 
                         val npcPayloads = visibleNpcs.map { npc ->
-                            if (npc.type == NpcType.CAR || npc.type == NpcType.POLICE_CAR) {
+                            if (uiState.npcFullEmoji) {
+                                // "Optimizar para gama baja": TODOS los NPCs como emoji. No se genera
+                                // ningún sprite/bitmap de personaje: solo un bitmap por emoji (cacheado).
+                                val emoji = when (npc.type) {
+                                    NpcType.CAR, NpcType.POLICE_CAR -> "🚗"
+                                    NpcType.ZOMBIE -> "🧟"
+                                    NpcType.POLICE_COP -> "👮"
+                                    else -> "🧍"
+                                }
+                                val cacheKey = "full_emoji_${emoji}_${density}"
+                                val base64Image = base64Cache[cacheKey]
+                                if (base64Image == null) {
+                                    base64Cache[cacheKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val px = (96 * density).toInt().coerceAtLeast(48)
+                                        val bitmap = (emojiToDrawable(context, emoji, px) as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                        if (bitmap != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                                            val b64 = "data:image/png;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                base64Cache[cacheKey] = b64
+                                            }
+                                        }
+                                    }
+                                }
+                                if (!base64Image.isNullOrEmpty() && !registeredWebImages.contains(cacheKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
+                                    registeredWebImages.add(cacheKey)
+                                }
+                                val isCarType = npc.type == NpcType.CAR || npc.type == NpcType.POLICE_CAR
+                                val webHp = if (npc.maxHealth > 0f) (npc.health / npc.maxHealth * 100f) else npc.health
+                                NpcWebPayload(
+                                    npc.id, npc.location.latitude, npc.location.longitude, 0f,
+                                    if (isCarType) "CAR" else "MODULAR", cacheKey, null, 1, npc.displayName,
+                                    if (isCarType) 1f else null, if (isCarType) 1f else null,
+                                    health = webHp, isDying = npc.isDying
+                                )
+                            } else if (npc.type == NpcType.CAR || npc.type == NpcType.POLICE_CAR) {
                                 // FIX web: la PATRULLA (POLICE_CAR) caía al `else` y se dibujaba con
                                 // su SVG genérico en vez del asset real. Ahora la tratamos como un
                                 // coche-imagen: generamos su sprite (PoliceSpriteManager, sin tintar),
@@ -1301,6 +1415,30 @@ fun WorldMapScreen(
         Column(modifier = Modifier.align(Alignment.TopStart).padding(top = 64.dp, start = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AnimatedVisibility(visible = uiState.showCacheWidget, enter = fadeIn(), exit = fadeOut()) { CacheStatusWidget(roadSource = uiState.roadSource, tileSource = uiState.tileSource, mapProvider = uiState.mapProvider) }
             AnimatedVisibility(visible = uiState.showFpsWidget, enter = fadeIn(), exit = fadeOut()) { CacheChip(label = "Rendimiento", text = "$currentFps FPS", color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F), isLoading = false) }
+            // Widget de nivel de zoom (Ajustes → Interfaz): muestra el zoom actual en vivo
+            // para identificar el nivel óptimo (pinch para cambiarlo).
+            AnimatedVisibility(visible = uiState.showZoomWidget, enter = fadeIn(), exit = fadeOut()) {
+                CacheChip(label = "Zoom", text = "z = ${"%.1f".format(uiState.zoomLevel)}", color = Color(0xFF7FB2FF), isLoading = false)
+            }
+            // Velocímetro (Ajustes → Interfaz): velocidad en km/h, SOLO al conducir.
+            // CALIBRADO a sensación de manejo, no al desplazamiento geográfico real: el
+            // avatar recorre el mapa a ~204 km/h reales a tope (movimiento acelerado del
+            // juego), lo que se veía irrealista. Se mapea linealmente MAX_SPEED → 120 km/h.
+            AnimatedVisibility(visible = uiState.showSpeedometer && uiState.isDriving, enter = fadeIn(), exit = fadeOut()) {
+                val speedAbs = kotlin.math.abs(uiState.vehicleSpeed)
+                val frac = (speedAbs / 0.000017).toFloat().coerceIn(0f, 1f) // MAX_SPEED del coche
+                val kmh = (frac * 120f).roundToInt()
+                CacheChip(
+                    label = "Velocidad",
+                    text = "🚗 $kmh km/h",
+                    color = when {
+                        frac < 0.5f -> Color(0xFF4CAF50)
+                        frac < 0.85f -> Color(0xFFFFB300)
+                        else -> Color(0xFFE53935)
+                    },
+                    isLoading = false
+                )
+            }
             AnimatedVisibility(visible = uiState.isDesignerMode, enter = fadeIn(), exit = fadeOut()) {
                 Row(
                     modifier = Modifier
@@ -1438,24 +1576,18 @@ fun WorldMapScreen(
                         OptionMenuGroup(
                             id = "mapa", label = "Mapa", icon = Icons.Default.LocationOn,
                             items = buildList {
-                                // Submenú anidado: agrupa "Acercar" + "Alejar" zoom.
-                                add(
-                                    OptionMenuGroup(
-                                        id = "zoom",
-                                        label = "Zoom (acercar / alejar)",
-                                        icon = Icons.Default.Add,
-                                        items = buildList {
-                                            add(OptionMenuItem("Acercar (zoom +)", Icons.Default.Add) { viewModel.zoomIn() })
-                                            add(OptionMenuItem("Alejar (zoom −)", Icons.Default.Remove) { viewModel.zoomOut() })
-                                        }
-                                    )
-                                )
+                                // (Submenú "Zoom (acercar / alejar)" eliminado: el zoom se hace
+                                // con pinch de dos dedos en los tres renderers.)
                                 // Centrar en jugador: SIEMPRE disponible (antes solo al panear),
                                 // para volver al jugador en cualquier momento. Si el usuario ha
                                 // cambiado el zoom respecto al de juego, esta opción EVOLUCIONA a
                                 // un submenú con "Centrar en jugador" y "Hacer zoom en el jugador".
                                 run {
-                                    val defaultZoom = if (uiState.mapProvider == MapProvider.OSM) ZOOM_GAMEPLAY_OSM else ZOOM_GAMEPLAY_WEB
+                                    // Default actual por estado: 22 a pie, 21 conduciendo (20 rápido).
+                                    val defaultZoom = if (uiState.isDriving)
+                                        ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_DRIVING
+                                    else
+                                        ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_ON_FOOT
                                     val isZoomed = kotlin.math.abs(uiState.zoomLevel - defaultZoom) >= 0.5
                                     if (isZoomed) {
                                         add(
@@ -1558,9 +1690,23 @@ fun WorldMapScreen(
                                 Button(onClick = {
                                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                                         try {
-                                            LocationServices.getFusedLocationProviderClient(context)
-                                                .lastLocation
-                                                .addOnSuccessListener { loc -> if (loc != null) viewModel.teleportTo(loc.latitude, loc.longitude) }
+                                            // Lectura FRESCA de alta precisión (lastLocation es caché y
+                                            // podía mandarte a una ubicación vieja/imprecisa).
+                                            val fused = LocationServices.getFusedLocationProviderClient(context)
+                                            fused.getCurrentLocation(
+                                                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null
+                                            ).addOnSuccessListener { loc ->
+                                                if (loc != null) viewModel.teleportTo(loc.latitude, loc.longitude)
+                                                else fused.lastLocation.addOnSuccessListener { l ->
+                                                    if (l != null) viewModel.teleportTo(l.latitude, l.longitude)
+                                                }
+                                            }.addOnFailureListener {
+                                                try {
+                                                    fused.lastLocation.addOnSuccessListener { l ->
+                                                        if (l != null) viewModel.teleportTo(l.latitude, l.longitude)
+                                                    }
+                                                } catch (_: SecurityException) {}
+                                            }
                                         } catch (_: SecurityException) {}
                                     }
                                     viewModel.toggleTeleportMenu(false)

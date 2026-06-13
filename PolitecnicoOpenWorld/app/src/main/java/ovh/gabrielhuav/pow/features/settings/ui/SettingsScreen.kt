@@ -36,6 +36,8 @@ fun SettingsScreen(
     onMapProviderChanged: (MapProvider) -> Unit,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
+    onZoomWidgetToggled: (Boolean) -> Unit,
+    onSpeedometerToggled: (Boolean) -> Unit,
     onRoadNetworkToggled: (Boolean) -> Unit,
     onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
@@ -43,6 +45,7 @@ fun SettingsScreen(
     onSwapControlsToggled: (Boolean) -> Unit,
     onNpcDensityChanged: (Float) -> Unit,
     onNpcEmojiLodToggled: (Boolean) -> Unit,
+    onNpcFullEmojiToggled: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     onExitToMainMenu: () -> Unit
 ) {
@@ -110,7 +113,7 @@ fun SettingsScreen(
                     ) {
                         Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -147,7 +150,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
                         Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled)
                     }
                 }
             }
@@ -201,13 +204,16 @@ private fun SettingsContent(
     onMapProviderChanged: (MapProvider) -> Unit,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
+    onZoomWidgetToggled: (Boolean) -> Unit,
+    onSpeedometerToggled: (Boolean) -> Unit,
     onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
     onSwapControlsToggled: (Boolean) -> Unit,
     onRoadNetworkToggled: (Boolean) -> Unit,
     onNpcDensityChanged: (Float) -> Unit,
-    onNpcEmojiLodToggled: (Boolean) -> Unit
+    onNpcEmojiLodToggled: (Boolean) -> Unit,
+    onNpcFullEmojiToggled: (Boolean) -> Unit
 ) {
     when (state.selectedCategory) {
         is SettingsCategory.Map -> MapProviderSetting(
@@ -215,8 +221,8 @@ private fun SettingsContent(
             state.showRoadNetwork, onRoadNetworkToggled
         )
         is SettingsCategory.Controls -> ControlsSettingsConfig(state.tempControlType, state.tempControlsScale, state.tempSwapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
-        is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled)
-        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, onCacheToggled, onFpsToggled)
+        is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled, state.npcFullEmoji, onNpcFullEmojiToggled)
+        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled)
         else -> Text("Sin ajustes disponibles actualmente.", color = Color.Gray)
     }
 }
@@ -226,7 +232,9 @@ private fun GameplaySettings(
     npcDensity: Float,
     onNpcDensityChanged: (Float) -> Unit,
     npcEmojiLod: Boolean,
-    onNpcEmojiLodToggled: (Boolean) -> Unit
+    onNpcEmojiLodToggled: (Boolean) -> Unit,
+    npcFullEmoji: Boolean,
+    onNpcFullEmojiToggled: (Boolean) -> Unit
 ) {
     Column {
         // ─── Densidad de NPCs ────────────────────────────────────────────────
@@ -256,7 +264,34 @@ private fun GameplaySettings(
 
         Spacer(Modifier.height(24.dp))
 
-        // ─── LOD de emojis (optimización gama baja) ──────────────────────────
+        // ─── LOD de emojis ("Optimizar dibujado de NPCs") ────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Optimizar dibujado de NPCs", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Dibuja como emoji 🧍🚗🧟 los NPCs lejanos y reserva el sprite completo solo para " +
+                        "los muy cercanos. Reduce el costo de render (ideal en multijugador con muchos " +
+                        "NPCs).",
+                    color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp
+                )
+            }
+            Switch(
+                checked = npcEmojiLod,
+                onCheckedChange = onNpcEmojiLodToggled,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFD4AF37),
+                    checkedTrackColor = Color(0xFF6B1C3A)
+                )
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        // ─── Emoji TOTAL ("Optimizar para gama baja") ────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -265,15 +300,15 @@ private fun GameplaySettings(
             Column(modifier = Modifier.weight(1f)) {
                 Text("Optimizar para gama baja", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "Dibuja como emoji 🧍🚗🧟 los NPCs lejanos y reserva el sprite completo solo para " +
-                        "los muy cercanos. Reduce el costo de render (ideal en multijugador con muchos " +
-                        "NPCs). Recomendado en gama baja.",
+                    "Reemplaza TODOS los assets de los NPCs por emojis 🧍🚗🧟👮, sin importar la " +
+                        "distancia. No se generan sprites ni bitmaps: el modo más ligero posible, " +
+                        "para equipos muy débiles.",
                     color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp
                 )
             }
             Switch(
-                checked = npcEmojiLod,
-                onCheckedChange = onNpcEmojiLodToggled,
+                checked = npcFullEmoji,
+                onCheckedChange = onNpcFullEmojiToggled,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFFD4AF37),
                     checkedTrackColor = Color(0xFF6B1C3A)
@@ -477,8 +512,12 @@ private fun ControlsSettingsConfig(
 private fun DiagnosticWidgetsSetting(
     cacheEnabled: Boolean,
     fpsEnabled: Boolean,
+    zoomWidgetEnabled: Boolean,
+    speedometerEnabled: Boolean,
     onCacheToggled: (Boolean) -> Unit,
-    onFpsToggled: (Boolean) -> Unit
+    onFpsToggled: (Boolean) -> Unit,
+    onZoomWidgetToggled: (Boolean) -> Unit,
+    onSpeedometerToggled: (Boolean) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Toggle de Caché
@@ -503,6 +542,32 @@ private fun DiagnosticWidgetsSetting(
             Switch(
                 checked = fpsEnabled,
                 onCheckedChange = onFpsToggled,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+            )
+        }
+
+        // Toggle de nivel de Zoom
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("Widget de zoom", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("Muestra el nivel de zoom actual en vivo", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+            }
+            Switch(
+                checked = zoomWidgetEnabled,
+                onCheckedChange = onZoomWidgetToggled,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+            )
+        }
+
+        // Toggle de Velocímetro
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("Velocímetro", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("Muestra tu velocidad (km/h) al conducir", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+            }
+            Switch(
+                checked = speedometerEnabled,
+                onCheckedChange = onSpeedometerToggled,
                 colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
             )
         }

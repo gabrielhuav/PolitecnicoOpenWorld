@@ -20,7 +20,10 @@ class SettingsRepository(context: Context) {
 
         // ─── Jugabilidad: población de NPCs ──────────────────────────────────
         private const val KEY_NPC_DENSITY = "NPC_DENSITY"        // multiplicador 0.4–1.6
-        private const val KEY_NPC_EMOJI_LOD = "NPC_EMOJI_LOD"    // NPCs lejanos como emoji (gama baja)
+        private const val KEY_NPC_EMOJI_LOD = "NPC_EMOJI_LOD"    // NPCs lejanos como emoji (optimizar dibujado)
+        private const val KEY_NPC_FULL_EMOJI = "NPC_FULL_EMOJI"  // TODOS los NPCs como emoji (gama baja)
+        private const val KEY_SHOW_ZOOM_WIDGET = "SHOW_ZOOM_WIDGET" // widget de nivel de zoom (Interfaz)
+        private const val KEY_SHOW_SPEEDOMETER = "SHOW_SPEEDOMETER"  // widget velocímetro al conducir (Interfaz)
         const val NPC_DENSITY_MIN = 0.4f
         const val NPC_DENSITY_MAX = 1.6f
     }
@@ -87,9 +90,29 @@ class SettingsRepository(context: Context) {
         prefs.edit().putFloat(KEY_NPC_DENSITY, v.coerceIn(NPC_DENSITY_MIN, NPC_DENSITY_MAX)).apply()
     }
 
-    /** ¿Dibujar los NPCs lejanos como emoji (optimización gama baja)? Default = isLowRamDevice. */
+    /** ¿Dibujar los NPCs lejanos como emoji ("Optimizar dibujado de NPCs")? Default = isLowRamDevice. */
     fun getNpcEmojiLod(): Boolean = prefs.getBoolean(KEY_NPC_EMOJI_LOD, lowRamDefault)
     fun saveNpcEmojiLod(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_NPC_EMOJI_LOD, enabled).apply()
+    }
+
+    /** ¿Dibujar TODOS los NPCs como emoji ("Optimizar para gama baja")? Default = false. */
+    fun getNpcFullEmoji(): Boolean = prefs.getBoolean(KEY_NPC_FULL_EMOJI, false)
+    fun saveNpcFullEmoji(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NPC_FULL_EMOJI, enabled).apply()
+    }
+
+    // ─── Interfaz: widget de nivel de zoom ───────────────────────────────────
+
+    fun getShowZoomWidget(): Boolean = prefs.getBoolean(KEY_SHOW_ZOOM_WIDGET, false)
+    fun saveShowZoomWidget(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_ZOOM_WIDGET, show).apply()
+    }
+
+    // ─── Interfaz: velocímetro (visible solo al conducir). Default = activado. ──
+
+    fun getShowSpeedometer(): Boolean = prefs.getBoolean(KEY_SHOW_SPEEDOMETER, true)
+    fun saveShowSpeedometer(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_SPEEDOMETER, show).apply()
     }
 }

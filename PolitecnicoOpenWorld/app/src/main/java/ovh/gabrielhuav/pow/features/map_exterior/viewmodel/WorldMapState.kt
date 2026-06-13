@@ -12,11 +12,17 @@ import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 const val ZOOM_LOADING = 18.0
 const val ZOOM_GAMEPLAY_OSM = 22.0  // Nivel de zoom para OSMDroid Nativo (máximo por defecto)
-const val ZOOM_GAMEPLAY_WEB = 19.0  // Nivel de zoom para los proveedores Web
+const val ZOOM_GAMEPLAY_WEB = 19.0  // Nivel máx. de TILES reales que se pre-descargan en web (NO es el zoom de juego)
+
+// ─── Zoom de juego por estado (todos los proveedores) ────────────────────────
+const val ZOOM_ON_FOOT      = 22.0  // a pie (default)
+const val ZOOM_DRIVING      = 21.0  // conduciendo
+const val ZOOM_DRIVING_FAST = 20.0  // conduciendo MUY rápido (≥85% de MAX_SPEED, histéresis al 65%)
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
     GOOGLE_MAPS_NATIVE("Google Maps (Nativo)"),
+    CARTO_VOYAGER("CARTO Voyager (Web)"),   // DEFAULT: sirve teselas hasta z20 → máximo detalle de calles
     OSM_WEB("OpenStreetMap (Web)"),
     GOOGLE_MAPS("Google Maps (Web)"),
     CARTO_DB_DARK("CartoDB Oscuro (Web)"),
@@ -43,7 +49,7 @@ data class WorldMapState(
     val currentLocation: GeoPoint? = null,
     val isLoadingLocation: Boolean = true,
     val zoomLevel: Double = ZOOM_LOADING,
-    val mapProvider: MapProvider = MapProvider.OSM_WEB, // Default: OSM Web (gama baja)
+    val mapProvider: MapProvider = MapProvider.CARTO_VOYAGER, // Default: CARTO Voyager (web, z20 = máximo detalle)
     // Cambio de proveedor con precarga: el nuevo se precarga en segundo plano mientras
     // sigues usando el actual. Cuando 'pendingProviderReady' es true, se avisa para cambiar.
     val pendingProvider: MapProvider? = null,
@@ -52,6 +58,9 @@ data class WorldMapState(
     // spawn antes de dejar entrar. 'mapLoadProgress' va de 0f a 1f (solo tiles).
     val isMapReady: Boolean = false,
     val mapLoadProgress: Float = 0f,
+    // Última fase del gate de carga: los NPCs (campus/estacionamientos/calles) ya
+    // corrieron sus primeros ciclos de IA. worldReady = ubicación && calles && mapa && NPCs.
+    val npcsWarmedUp: Boolean = false,
     val showSettingsDialog: Boolean = false,
     val npcs: List<Npc> = emptyList(),
     val isRoadNetworkReady: Boolean = false,
@@ -59,6 +68,11 @@ data class WorldMapState(
     val tileSource: TileSource = TileSource.NETWORK,
     val showCacheWidget: Boolean = true,
     val showFpsWidget: Boolean = false,
+    // Widget de nivel de zoom (Ajustes → Interfaz): muestra el zoom actual en vivo,
+    // útil para encontrar el nivel óptimo antes de fijarlo por defecto.
+    val showZoomWidget: Boolean = false,
+    // Widget velocímetro (Ajustes → Interfaz): velocidad en km/h, visible solo al conducir.
+    val showSpeedometer: Boolean = true,
     val controlType: ControlType = ControlType.DPAD,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
@@ -140,6 +154,11 @@ data class WorldMapState(
     // Si está activo, los NPCs lejanos se dibujan como emoji (más barato) y solo los
     // MUY cercanos usan el asset completo. Se configura en Ajustes → Jugabilidad.
     val npcEmojiLod: Boolean = false,
+
+    // ─── Jugabilidad: optimizar para gama baja (emoji TOTAL) ─────────────────
+    // Si está activo, TODOS los NPCs se dibujan como emoji (🧍🚗🧟👮) sin importar la
+    // distancia: cero generación de sprites/bitmaps. Para equipos muy débiles.
+    val npcFullEmoji: Boolean = false,
 
     // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
     val showShineCTODiscovery: Boolean = false,

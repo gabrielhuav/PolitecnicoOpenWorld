@@ -80,15 +80,22 @@ a SVG. Por eso **`POLICE_CAR` debe ir como base64 car-image (`type="CAR"`)** ví
 `POLICE_COP` como **👮 base64 (`type="MODULAR"`)**. Patrullas fuera de la fog se dibujan con
 `updatePolice(playerLat, playerLng, data)` (🚓 + línea), empujado solo si `wantedLevel>0` (y una vez más
 para limpiar). El submenú "Ir a…" se **eliminó**: ESCOM es la 1ª `TeleportCatalog.zones` y el teleport
-GPS es el 1er item del diálogo *Puntos de Teletransporte*.
+GPS es el 1er item del diálogo *Puntos de Teletransporte*. El submenú **"Zoom (acercar/alejar)" del menú
+Mapa también se eliminó**: el zoom es solo por pinch (los `zoomIn/zoomOut` del VM siguen existiendo pero
+sin UI). El **Modo Diseñador en web** tiene paridad con los nativos: lápices ✏️ por landmark
+(`refreshDesignerControls` en el HTML; `notifyLandmarkSelected/Moved` en `MapJsBridge` →
+`selectLandmark`/`moveLandmarkTo`); el seleccionado se tinta vía `setSelectedLandmark`.
 
-## 9. Default provider = `OSM_WEB` (no persistido)
+## 9. Default provider = `CARTO_VOYAGER` (no persistido)
 
 El nativo osmdroid (default z22 + reescalado z19) es el render más pesado en equipos débiles, así que el
-default arranca en **OSM Web**. **No se persiste**: el default es solo el estado inicial en
-`SettingsState`, `WorldMapState` y `MainMenuState` (todos `OSM_WEB`). **Google nativo** sigue al jugador
-con `cameraPositionState.move()` (NO `animate()`). **Web** re-envía landmarks solo cuando cambia la lista
-(guard por referencia + heartbeat ~45 frames).
+default arranca en **CARTO Voyager (web)**, que sirve tiles reales hasta **z20** (más nitidez de calles
+que OSM Web, que topa en z19). `changeTileUrl(url, maxNative)` recrea la capa Leaflet si cambia el
+`maxNativeZoom` por proveedor (CARTO=20, OSM/ESRI=19, OPEN_TOPO=17, Google=20) y **no-opea** si la URL no
+cambió (antes redibujaba cada frame). **No se persiste**: el default es solo el estado inicial en
+`SettingsState`, `WorldMapState` y `MainMenuState` (todos `CARTO_VOYAGER`). **Google nativo** sigue al
+jugador con `cameraPositionState.move()` (NO `animate()`). **Web** re-envía landmarks solo cuando cambia
+la lista (guard por referencia + heartbeat ~45 frames).
 
 ## 10. Policía / NPCs (autoridad)
 
@@ -119,6 +126,19 @@ matrices por defecto son **border-only** hasta reemplazarse.
   el 1er toque (sin cambiar zoom).
 - **Errores en cascada "Unresolved reference"** tras un merge → sospecha de **un** archivo con llaves/
   paréntesis desbalanceados, no de muchos símbolos faltantes (ver 01).
+- **Refactor de tamaño (parciales NUEVOS):** `WorldMapViewModel.kt` bajó de ~3400 a ~2600 líneas
+  extrayendo bloques SIN gemelo de extensión a `WorldMapProviders.kt` (proveedores/tiles/compuertas),
+  `WorldMapDesigner.kt` (landmarks/diseñador) y `WorldMapWanted.kt` (wanted/policía/carjack). El
+  ESTADO sigue en el VM (`providerPreloadJob`, `mapPrepStarted`, `escomNavGraph`, `carjackStartTime`…);
+  los parciales solo tienen lógica. Los call-sites FUERA del paquete `viewmodel` (UI, MainActivity)
+  necesitan **import explícito** de cada extensión. Además se ELIMINARON los duplicados miembro de
+  `updateNpcsState` (gemelo idéntico en `WorldMapMultiplayer.kt`) y de `ensureIndex`/`candidates`/
+  `getNearestPointOnNetwork`/`project` (el gemelo de `WorldMapRouting.kt` se sincronizó ANTES con el
+  check de landmarks que solo tenía el miembro) — esas extensiones son ahora la única implementación.
+  Pendiente (con compilador a la mano): sincronizar y de-duplicar los pares grandes
+  (`startGameLoop`, `handleMultiplayerMessage`/`addRemoteEntity`, `updateVisibleRoads`,
+  `applyRoadNetwork`, `maybeRefetchRoadNetwork`, `spawnOustedDriver`, `triggerWastedSequence`,
+  `startHealthBarTimer`), donde el MIEMBRO sigue siendo el canónico.
 - **Gotcha de parciales (¡importante!):** funciones duplicadas como **miembro privado** en
   `WorldMapViewModel.kt` + **extensión** del mismo nombre en `WorldMap*.kt`. Cuando se llaman desde
   DENTRO de la clase (caso de `startGameLoop()`, invocado en `WorldMapViewModel.kt:399`), **gana el
@@ -150,9 +170,72 @@ matrices por defecto son **border-only** hasta reemplazarse.
   red OSM** en `updateRoadNetwork` (proxy GRATIS de ciudad, se recalcula al viajar); `userPopulationFactor`
   es el slider de **Ajustes→Jugabilidad** (`getNpcDensity`). **No** hardcodees los topes otra vez: ajústalos
   vía estos factores.
-- **LOD de emojis = SOLO OSM nativo (por ahora):** `uiState.npcEmojiLod` solo lo respeta `NativeOsmMap`
-  (NPCs >40 m → emoji). Web (Leaflet) y Google nativo **aún no** lo aplican (futuro: enviar un tipo de
-  payload "emoji" en vez de generar base64). Si optimizas web, hazlo en `updateNpcs`/`WorldMapLeafletHtml`.
+- **LOD de emojis (`npcEmojiLod`, "Optimizar dibujado de NPCs") = SOLO OSM nativo (por ahora):**
+  `uiState.npcEmojiLod` solo lo respeta `NativeOsmMap` (NPCs >40 m → emoji). Web (Leaflet) y Google
+  nativo **aún no** lo aplican. En cambio, **`npcFullEmoji` ("Optimizar para gama baja") SÍ aplica en
+  los TRES renderers**: TODOS los NPCs como emoji (OSM nativo fuerza `useEmojiLod`; web envía un base64
+  por emoji cacheado como `full_emoji_*`; Google usa la rama `GM_FULL_EMOJI_*`).
+- **Anti-duplicación de autos (botón Y):** subir/bajar tiene **debounce de 450 ms**
+  (`lastVehicleToggleMs`) y al abordar se registra el id en **`boardedCarTombstones`** (~10 s):
+  el volcado de `processedNpcs` del game loop y `addRemoteEntity` (NPC_BATCH_UPDATE) IGNORAN esos
+  ids — sin esto, el snapshot viejo de la IA re-insertaba el coche recién abordado (carrera
+  main-thread vs loop) y spamear Y lo duplicaba. Además el abordaje manda el id a
+  `pendingDespawns` (NPC_DESTROY para los demás clientes).
+- **IA de tráfico — compromiso de intersección y realismo:** en `NpcAiManager.moveNpc`, los autos
+  ahora tienen `committedWayId` y `commitmentTicks`. Al llegar a una esquina/bifurcación,
+  eligen un camino y lo **bloquean por ~15 ticks**. NO re-calculan el target cada tick, lo que
+  elimina el "temblor" indeciso. Además, implementan **evitación de alcance** (frenado de emergencia
+  si el auto de adelante está a <8m, y seguimiento realista a ~27m) y **variación de velocidad**
+  (`speedVariation` 0.8–1.2) para un tráfico más realista. El Host simula esto y lo replica vía
+  `NPC_BATCH_UPDATE` (posición/rotación).
+- **Combate melee online (jugador vs jugador):** `performPlayerAttack` ahora también checkea
+  distancia contra `remoteEntities` (otros jugadores). Si golpea a uno, envía el mensaje existente
+  `PLAYER_DAMAGE { targetId, damage }` al servidor. El servidor reenvía el mensaje globalmente,
+  y la víctima (quien tenga ese `targetId`) aplica `takeDamage`. Es **autoritativo del atacante**
+  para el melee (igual que el daño a NPCs). Se asegura que `displayName` nunca sea blank para
+  identificar correctamente a los jugadores remotos. No re-introducir validación server-side para
+  melee para no añadir latencia.
+- **Orden de carga del mundo / gate de teleport:** la simulación/spawn de NPCs del game loop está
+  gateada por `isRoadNetworkReady && isMapReady` → tras un teleport (ambos flags en false) el orden
+  es SIEMPRE tiles → calles → NPCs. `teleportTo` además **rechaza TPs encadenados** mientras el
+  mundo no esté completo (muestra "⏳ Espera…" vía `interactionPrompt`) y **limpia los NPCs** de la
+  zona vieja (`remoteEntities` sin displayName + `setServerNpcs(emptyList())`).
+- **Velocímetro CALIBRADO, no físico:** el avatar se desplaza a ~204 km/h geográficos reales a
+  MAX_SPEED (movimiento acelerado del juego); el widget mapea linealmente MAX_SPEED → **120 km/h**
+  para que se sienta creíble. Si retocas MAX_SPEED, revisa el mapeo en `WorldMapScreen`.
+- **Heading de coches NPC = sprite (no el ángulo crudo):** en los dos movers de `NpcAiManager`
+  (calles OSM y navGraph de campus) el sprite usa `smoothedAngle` pero el coche se MOVÍA con el
+  ángulo crudo al objetivo → en curvas/esquives se veía "manejando de lado". Los `CAR` se mueven
+  en la dirección de su sprite SOLO con desvío pequeño (`|diff| < 50°`); con desvío grande avanzan
+  DIRECTO al objetivo. ¡OJO!: mover SIEMPRE por el heading suavizado causa el bug clásico de
+  pure-pursuit (con desvío grande y radio de giro insuficiente el coche ORBITA su objetivo en
+  círculos — pasó junto al jugador cuando el esquive de tráfico movía el objetivo). No quitar el
+  umbral.
+- **Rebase de NPCs = esquive en el MARCO del NPC (NO empujones de posición):** el viejo "shove"
+  desde el loop del jugador (desplazar la POSICIÓN del NPC perpendicular al jugador) causaba
+  órbitas/oscilaciones alrededor del jugador detenido (empuje → su road-following lo regresaba →
+  empuje otra vez). Se ELIMINÓ. Ahora `NpcAiManager.moveNpc` desplaza **el OBJETIVO** del coche
+  un carril (`TRAFFIC_AVOID_*`: radio ~13 m, ancho de trayectoria ±5.5 m, apertura máx ~3.3 m,
+  histéresis de ~5.5 m tras rebasar) mientras el jugador esté en su trayectoria; al pasarlo el
+  offset se apaga y el smoothing lo reincorpora. La geometría es auto-reforzante (el lado elegido
+  se estabiliza solo). **No re-introducir empujones de posición** — cualquier esquive nuevo debe
+  mover objetivos/rumbos, no posiciones.
+- **Zoom automático por estado + SUAVIZADO:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
+  loop miembro) cambia `targetZoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
+  `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del
+  usuario se respeta entre transiciones. **NO cambies `zoomLevel` directamente en transiciones;**
+  el game loop interpola `zoomLevel` hacia `targetZoomLevel` (~1 nivel por tick) para evitar el
+  "shock" visual brusco al robar/salir de un auto. No volver a clavar el zoom web a 19 (`setMapProvider`
+  ahora capea a 22; `ZOOM_GAMEPLAY_WEB=19` es solo el nivel de pre-descarga de tiles).
+- **Fixes de estabilidad (TP/skin/ESCOM):** (a) el snap-to-road de `moveCharacter`/`moveCharacterByAngle`
+  **ignora el movimiento** si la calle más cercana está a > `MAX_SNAP_DISTANCE_DEG` (0.0003 ≈ 33 m) — antes
+  TELETRANSPORTABA al jugador a una calle al azar cuando la red recién recargada no cubría su zona; (b) el
+  GPS usa `getCurrentLocation(PRIORITY_HIGH_ACCURACY)` con fallback a `lastLocation` (que es caché y mandaba
+  a ubicaciones viejas); (c) el JS web tiene watchdog anti-congelamiento (`isZooming` >1.5 s se auto-resetea;
+  `isExplorationMode` sin dedo en pantalla se limpia en `updateMapView`) — causa del "me muevo pero el skin
+  no"; (d) `NpcAiManager` **re-puebla** campus (ESCOM) si está marcado como poblado pero sin NPCs vivos
+  (cooldown 30 s) — antes los NPCs se despawneaban a ~310 m pero el campus solo se "des-poblaba" a ~2.2 km;
+  (e) el re-fetch de red (miembro) ahora también reconstruye `rebuildRoadNodeGrid` + `buildRoadGraph`.
 
 ---
 

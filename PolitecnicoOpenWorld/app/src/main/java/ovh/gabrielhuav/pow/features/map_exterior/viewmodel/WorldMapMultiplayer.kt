@@ -238,6 +238,9 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
     }
 
 internal fun WorldMapViewModel.addRemoteEntity(remote: MultiplayerNpc) {
+        // Anti-duplicación: coche recién abordado por MÍ → ignorar reinserciones remotas
+        // (paridad con el miembro privado de WorldMapViewModel, que es el activo).
+        if (isCarTombstoned(remote.id)) return
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
 
         val cModel = try {

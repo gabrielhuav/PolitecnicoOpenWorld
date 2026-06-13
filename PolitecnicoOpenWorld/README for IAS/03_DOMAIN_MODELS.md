@@ -30,7 +30,8 @@ carColor: Int, carModel, isRemote, ownerId, isMoving, facingRight, visualConfig:
 CharacterVisualConfig?, displayName, health: Float=100, isDying, navState, currentLocalWay,
 currentLandmark, fearUntil/fearFromLat/fearFromLon (huida), chatUntil/chatPartnerId (charlas),
 trait, aggroUntil (embestida), policeDisembarked, policeCanShoot, policeCarId, policeReturning,
-callingUntil`.
+callingUntil, committedTargetNodeIndex: Int? = null, commitmentTicks: Int = 0,
+speedVariation: Float = 1.0f (aleatorio 0.8–1.2 al spawn)`.
 
 > Los campos de IA (trait, fear*, aggro*, chat*) **no se serializan** al servidor; solo `health`,
 > `isDying`, `aggroUntil` viajan en `NPC_BATCH_UPDATE`. / AI fields are not serialized; only
@@ -125,6 +126,16 @@ userPopulationFactor`:
 - `setServerNpcs(npcs)` / `getServerNpcs()` / `setRemoteNpcs(remoteList)` — sincroniza con el roster.
 - `updateNpcs(playerLocation, isHost)` — **tick principal**: despawn lejanos, cap de población, spawn
   por proximidad (bbox pre-filter), estacionamiento en landmarks, charlas, miedo, y `moveNpc` por NPC.
+  **Mejoras de tráfico realista en `moveNpc`:**
+  1. **Compromiso de intersección:** si el auto está cerca de una bifurcación (múltiples candidatos
+     para `targetNodeIndex`), elige uno y lo fija en `committedTargetNodeIndex` con
+     `commitmentTicks = 10`. Mientras `commitmentTicks > 0`, NO re-evalúa la ruta, evitando el
+     "temblor" indeciso en esquinas.
+  2. **Evitación de alcance (rear-end avoidance):** antes de mover, mide la distancia al auto NPC
+     más cercano *delante* en el mismo carril. Si está a < `SAFE_FOLLOWING_DIST` (~8 m), reduce
+     su velocidad (frena) proporcionalmente para no chocar por detrás.
+  3. **Variación de velocidad:** la velocidad base `CAR_SPEED` se multiplica por `speedVariation`
+     (aleatorio 0.8–1.2 al spawn) para que no todos los autos vayan exactamente a la misma velocidad.
 - `triggerFear(lat, lon)` — marca evento de miedo; los COWARD cercanos huyen (`applyPendingFear`).
 - `rollTrait()` — PASSIVE/COWARD/AGGRESSIVE según `aggressiveRatio`.
 - `moveAggroNpc(...)` — embestida hacia el jugador (ignora el grafo de calles).

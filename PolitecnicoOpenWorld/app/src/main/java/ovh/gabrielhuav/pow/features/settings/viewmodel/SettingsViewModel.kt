@@ -25,8 +25,11 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
                 controlsScale = scale,
                 swapControls = swap,
                 showRoadNetwork = repository.getShowRoadNetwork(),
+                showZoomWidget = repository.getShowZoomWidget(),
+                showSpeedometer = repository.getShowSpeedometer(),
                 npcDensity = repository.getNpcDensity(),
                 npcEmojiLod = repository.getNpcEmojiLod(),
+                npcFullEmoji = repository.getNpcFullEmoji(),
                 // Los temporales arrancan sincronizados con lo persistido.
                 tempControlType = type,
                 tempControlsScale = scale,
@@ -40,6 +43,14 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun changeMapProvider(provider: MapProvider) { _state.update { it.copy(mapProvider = provider) } }
     fun toggleCacheWidget(enabled: Boolean) { _state.update { it.copy(showCacheWidget = enabled) } }
     fun toggleFpsWidget(enabled: Boolean) { _state.update { it.copy(showFpsWidget = enabled) } }
+    fun toggleZoomWidget(enabled: Boolean) {
+        _state.update { it.copy(showZoomWidget = enabled) }
+        repository.saveShowZoomWidget(enabled)
+    }
+    fun toggleSpeedometer(enabled: Boolean) {
+        _state.update { it.copy(showSpeedometer = enabled) }
+        repository.saveShowSpeedometer(enabled)
+    }
 
     // Los cambios de controles solo tocan el estado TEMPORAL: no afectan al juego
     // hasta que el usuario presiona GUARDAR (saveControlsSettings()).
@@ -72,6 +83,10 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun toggleNpcEmojiLod(enabled: Boolean) {
         _state.update { it.copy(npcEmojiLod = enabled) }
         repository.saveNpcEmojiLod(enabled)
+    }
+    fun toggleNpcFullEmoji(enabled: Boolean) {
+        _state.update { it.copy(npcFullEmoji = enabled) }
+        repository.saveNpcFullEmoji(enabled)
     }
 
     // Función para guardar: sincroniza los temporales a los committeados y persiste.

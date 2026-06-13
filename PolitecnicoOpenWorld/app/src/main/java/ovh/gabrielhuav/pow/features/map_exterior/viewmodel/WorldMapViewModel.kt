@@ -151,11 +151,14 @@ class WorldMapViewModel(
             controlsScale = settingsRepository.getControlsScale(),
             swapControls  = settingsRepository.getSwapControls(),
             selectedSkin  = settingsRepository.getPlayerSkin(),   // ← NUEVO
-            npcEmojiLod   = settingsRepository.getNpcEmojiLod()   // optimización gama baja
+            npcEmojiLod   = settingsRepository.getNpcEmojiLod(),  // optimizar dibujado de NPCs (LOD)
+            npcFullEmoji  = settingsRepository.getNpcFullEmoji(), // optimizar para gama baja (emoji total)
+            showZoomWidget = settingsRepository.getShowZoomWidget(),
+            showSpeedometer = settingsRepository.getShowSpeedometer()
         )
     )
     // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
-    private var escomNavGraph: LandmarkNavGraph? = null
+    internal var escomNavGraph: LandmarkNavGraph? = null // usado por WorldMapDesigner.kt
     val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
 
     internal val npcAiManager      = NpcAiManager()
@@ -256,176 +259,13 @@ class WorldMapViewModel(
     internal val WANTED_DECAY_GRACE_MS = 25000L   // tiempo sin delito antes de empezar a bajar
     internal val WANTED_DECAY_STEP_MS = 15000L    // cada cuánto baja una estrella
 
-    // Sube el nivel de búsqueda (con tope) y reinicia el contador de impunidad.
-    internal fun raiseWantedLevel(amount: Int = 1) {
-        // En el APOCALIPSIS no aplica el sistema de delitos: pegarle a un zombi (o a un civil que
-        // huye) NO debe invocar a la policía. La policía del apocalipsis es OTRA cosa (ayuda a los
-        // civiles contra los zombis) — ver runPoliceTick.
-        if (_uiState.value.globalZombieMode) return
-        lastCrimeTime = System.currentTimeMillis()
-        val current = _uiState.value.wantedLevel
-        if (current < MAX_WANTED_LEVEL) {
-            _uiState.update { it.copy(wantedLevel = (current + amount).coerceAtMost(MAX_WANTED_LEVEL)) }
-        }
-    }
-
-    // Baja el nivel de búsqueda gradualmente cuando dejas de delinquir.
-    internal fun tickWantedDecay(now: Long) {
-        val level = _uiState.value.wantedLevel
-        if (level <= 0) return
-        if (now - lastCrimeTime < WANTED_DECAY_GRACE_MS) return
-        // Cuantas MÁS estrellas tengas, MÁS tarda en bajar cada una (el paso escala con el
-        // nivel actual): 1★ baja en ~1×base, 5★ tarda ~5×base por estrella.
-        if (now - lastWantedDecayTime < WANTED_DECAY_STEP_MS * level) return
-        lastWantedDecayTime = now
-        _uiState.update { it.copy(wantedLevel = (it.wantedLevel - 1).coerceAtLeast(0)) }
-    }
-
-    // ─── CARJACK (te bajan del vehículo) ─────────────────────────────────────
+    // ─── NIVEL DE BÚSQUEDA / POLICÍA / CARJACK (REFACTOR) ─────────────────────
+    // raiseWantedLevel / tickWantedDecay / anyAggressorAdjacent / handleCarjack /
+    // forceExitVehicle / runPoliceTick viven en WorldMapWanted.kt. Aquí queda solo
+    // el ESTADO que esas extensiones usan:
     internal val CARJACK_MS = 2500L                 // tiempo quieto antes de que te bajen
     internal val CARJACK_ADJ_RADIUS = 0.00009       // ~10 m: NPC agresivo pegado al coche
     @Volatile internal var carjackStartTime = 0L
-
-    // ¿Hay algún NPC AGRESIVO (en embestida) pegado a tu coche?
-    internal fun anyAggressorAdjacent(location: GeoPoint, now: Long): Boolean {
-        for (npc in remoteEntities.values) {
-            if (npc.type != NpcType.PERSON) continue
-            if (npc.aggroUntil <= now) continue
-            if (distance(location, npc.location) <= CARJACK_ADJ_RADIUS) return true
-        }
-        return false
-    }
-
-    // Gestiona el aviso y el descenso forzado del vehículo.
-    internal fun handleCarjack(driving: Boolean, aggressorAdjacent: Boolean, now: Long) {
-        if (!driving || !aggressorAdjacent) {
-            if (carjackStartTime != 0L) {
-                carjackStartTime = 0L
-                if (_uiState.value.carjackWarning != null) {
-                    _uiState.update { it.copy(carjackWarning = null) }
-                }
-            }
-            return
-        }
-        // Si vas acelerando (te mueves), no pueden bajarte: reinicia el contador.
-        val movingFast = kotlin.math.abs(_uiState.value.vehicleSpeed) > MAX_SPEED * 0.25
-        if (movingFast) {
-            if (carjackStartTime != 0L) {
-                carjackStartTime = 0L
-                _uiState.update { it.copy(carjackWarning = null) }
-            }
-            return
-        }
-        if (carjackStartTime == 0L) carjackStartTime = now
-        _uiState.update { it.copy(carjackWarning = "¡Te van a bajar del auto! ¡Acelera!") }
-        if (now - carjackStartTime >= CARJACK_MS) {
-            carjackStartTime = 0L
-            _uiState.update { it.copy(carjackWarning = null) }
-            viewModelScope.launch(Dispatchers.Main) { forceExitVehicle() }
-        }
-    }
-
-    // Baja al jugador del coche a la fuerza (deja el auto abandonado en su sitio).
-    internal fun forceExitVehicle() {
-        if (!_uiState.value.isDriving) return
-        val loc = _uiState.value.currentLocation ?: return
-        val abandonedCar = Npc(
-            id = UUID.randomUUID().toString(),
-            type = NpcType.CAR,
-            location = loc,
-            rotationAngle = (_uiState.value.vehicleRotation + 270f) % 360f,
-            speed = 0.0,
-            isMoving = false,
-            carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
-            carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt(),
-            isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded
-        )
-        remoteEntities[abandonedCar.id] = abandonedCar
-        _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true) }
-        updateNpcsState()
-    }
-
-    // Simula y difunde la policía PROPIA (el dueño del nivel de búsqueda). Se llama cada
-    // tick del game loop. También purga la policía remota que dejó de actualizarse.
-    internal fun runPoliceTick(location: GeoPoint) {
-        val now = System.currentTimeMillis()
-        tickWantedDecay(now)
-
-        val wanted = _uiState.value.wantedLevel
-        val driving = _uiState.value.isDriving
-        val tick = policeManager.update(
-            playerLat = location.latitude,
-            playerLon = location.longitude,
-            roadNetwork = roadNetwork,
-            wantedLevel = wanted,
-            canShoot = wanted >= 3,   // solo disparan con 3+ estrellas
-            playerInVehicle = driving,
-            now = now,
-            snap = { gp -> getNearestPointOnNetwork(gp) },
-            pathfind = { from, to -> findRoadRoute(from, to) }   // A* real por calles
-        )
-
-        // BALAS VISIBLES: guardamos los disparos nuevos con su timestamp y purgamos los
-        // viejos (>280 ms), para dibujar un trazo breve desde el policía hacia ti.
-        val prevShots = _uiState.value.policeShots
-        val freshShots = if (tick.shots.isNotEmpty())
-            tick.shots.map { PoliceShot(it.first, it.second, now) } else emptyList()
-        if (freshShots.isNotEmpty() || prevShots.isNotEmpty()) {
-            val kept = (prevShots + freshShots).filter { now - it.at <= 450L }
-            if (kept != prevShots) _uiState.update { it.copy(policeShots = kept) }
-        }
-
-        // Daño que los policías te hacen (golpes/disparos). En coche NO te hacen daño
-        // directo: te persiguen y, si te detienes, te bajan del vehículo (carjack).
-        if (tick.damage > 0f && !driving) {
-            viewModelScope.launch(Dispatchers.Main) { takeDamage(tick.damage) }
-        }
-
-        // CARJACK: si conduces y un perseguidor te alcanza, te avisa; si no aceleras (te
-        // quedas casi quieto) durante CARJACK_MS, te bajan del coche. Aplica también a los
-        // NPCs agresivos pegados a tu coche.
-        val aggressorAdjacent = tick.adjacentThreat || (driving && anyAggressorAdjacent(location, now))
-        handleCarjack(driving, aggressorAdjacent, now)
-
-        // Purga de policía remota obsoleta (su dueño se alejó/desconectó).
-        val staleCutoff = now - REMOTE_POLICE_STALE_MS
-        val staleIds = remotePoliceSeen.filterValues { it < staleCutoff }.keys
-        if (staleIds.isNotEmpty()) {
-            staleIds.forEach { remotePolice.remove(it); remotePoliceSeen.remove(it) }
-        }
-
-        updateNpcsState()
-
-        // Difusión a los demás clientes (para que vean mis patrullas/policías).
-        // Throttle: los destroys siempre salen; el batch de posiciones, a ~8 Hz.
-        val doBroadcastBatch = now - lastPoliceBroadcast >= POLICE_BROADCAST_MS
-        if (doBroadcastBatch) lastPoliceBroadcast = now
-        if (tick.destroyedIds.isEmpty() && (!doBroadcastBatch || tick.units.isEmpty())) return
-        webSocketManager?.let { ws ->
-            viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    tick.destroyedIds.forEach { pid ->
-                        ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid)))
-                    }
-                    if (doBroadcastBatch && tick.units.isNotEmpty()) {
-                        val batch = tick.units.map { u ->
-                            MultiplayerNpc(
-                                id = u.id,
-                                x = u.location.longitude,
-                                y = u.location.latitude,
-                                rotation = u.rotationAngle,
-                                npcType = u.type.name,
-                                ownerId = myPlayerUUID
-                            )
-                        }
-                        ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_BATCH_UPDATE", "npcs" to batch)))
-                    }
-                } catch (e: Exception) {
-                    Log.e("Police", "Error difundiendo policía: ${e.message}")
-                }
-            }
-        }
-    }
 
     internal val hospitalRespawnPoints = listOf(
         GeoPoint(19.5034, -99.1469),
@@ -489,6 +329,22 @@ class WorldMapViewModel(
     }
 
     internal var isServerDelegatedHost = true
+
+    // ─── ANTI-DUPLICACIÓN DE AUTOS (botón Y) ─────────────────────────────────
+    // Debounce de subir/bajar + "tombstones" de coches recién abordados: ids que el
+    // volcado de la IA y el NPC_BATCH_UPDATE deben IGNORAR unos segundos (si no, el
+    // snapshot viejo re-insertaba el coche que acabas de abordar y se duplicaba).
+    internal var lastVehicleToggleMs = 0L
+
+    // Contador de ciclos de IA tras (re)cargar el mundo, para el warm-up de NPCs del
+    // gate de carga (npcsWarmedUp). Se reinicia en cada teleport.
+    internal var npcWarmupCycles = 0
+    internal val boardedCarTombstones = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    internal fun isCarTombstoned(id: String): Boolean {
+        val until = boardedCarTombstones[id] ?: return false
+        if (System.currentTimeMillis() > until) { boardedCarTombstones.remove(id); return false }
+        return true
+    }
 
 
     // ─── GAME LOOP ───────────────────────────────────────────────────────────────
@@ -571,6 +427,9 @@ class WorldMapViewModel(
                             performPlayerAttack()
                         }
 
+                        // Zoom automático: 22 a pie, 21 conduciendo, 20 a muy alta velocidad.
+                        updateAutoZoom()
+
                         if (_uiState.value.isDriving) {
                             var currentSpeed = _uiState.value.vehicleSpeed
                             var currentRotation = _uiState.value.vehicleRotation
@@ -607,7 +466,6 @@ class WorldMapViewModel(
                             val isSteeringSharply = isSteeringLeftPressed || isSteeringRightPressed
 
                             val overtakeRadius = 0.00008
-                            var npsChanged = false
 
                             val hdLat = kotlin.math.cos(angleRad)
                             val hdLon = kotlin.math.sin(angleRad)
@@ -627,20 +485,14 @@ class WorldMapViewModel(
                                     val rightDist = vLat * perpLat + vLon * perpLon
 
                                     if (dist < overtakeRadius) {
-                                        if (absSpeed < MAX_SPEED * 0.09) {
-                                            // 1. Totalmente detenido: los NPCs esquivan con un radio menor
-                                            // para que no tarden en regresar a su carril.
-                                            if (dist < overtakeRadius * 0.6) {
-                                                val pushDir = if (rightDist >= 0) 1.0 else -1.0
-                                                val shoveForce = ((overtakeRadius * 0.6) - dist) * 0.08
-                                                val newLoc = GeoPoint(
-                                                    npc.location.latitude + perpLat * pushDir * shoveForce,
-                                                    npc.location.longitude + perpLon * pushDir * shoveForce
-                                                )
-                                                remoteEntities[id] = npc.copy(location = newLoc)
-                                                npsChanged = true
-                                            }
-                                        } else if (!isSteeringSharply && inFront > 0) {
+                                        // 1. (ELIMINADO) El "empujón" posicional a los NPCs cuando estabas
+                                        // detenido causaba órbitas/oscilaciones alrededor del jugador (se
+                                        // empujaba la POSICIÓN sin tocar el RUMBO, y el road-following los
+                                        // regresaba al punto de empuje en bucle). Ahora el rebase lo hace
+                                        // el PROPIO NPC en NpcAiManager.moveNpc: desplaza su OBJETIVO un
+                                        // carril mientras el jugador esté en su trayectoria, lo pasa y se
+                                        // reincorpora (ver "ESQUIVE DE TRÁFICO").
+                                        if (absSpeed >= MAX_SPEED * 0.09 && !isSteeringSharply && inFront > 0) {
                                             // 2. Manejando recto a velocidad normal o alta: NOSOTROS los esquivamos
                                             // de forma automática sin desviarnos de la calle (desplazando el tempLoc).
                                             val dodgeDir = if (rightDist >= 0) -1.0 else 1.0
@@ -653,8 +505,15 @@ class WorldMapViewModel(
                                     }
                                 }
                             }
-                            if (npsChanged) updateNpcsState()
 
+                            // FIX "te sales mucho al esquivar": cap del desplazamiento lateral POR TICK
+                            // del esquive (con varios coches cerca las fuerzas se sumaban). ~1.6 m/tick máx.
+                            val dodgeMag = kotlin.math.sqrt(dodgeOffsetX * dodgeOffsetX + dodgeOffsetY * dodgeOffsetY)
+                            val maxDodgePerTick = 0.0000015
+                            if (dodgeMag > maxDodgePerTick) {
+                                val k = maxDodgePerTick / dodgeMag
+                                dodgeOffsetX *= k; dodgeOffsetY *= k
+                            }
                             tempLoc = GeoPoint(tempLoc.latitude + dodgeOffsetY, tempLoc.longitude + dodgeOffsetX)
 
                             var nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
@@ -685,8 +544,9 @@ class WorldMapViewModel(
                             } else {
                                 // Lógica de 'main': Auto-centrado y límite dinámico de la calle
                                 val distToRoad = distance(tempLoc, nearestRoadPoint)
-                                // Expandimos el radio temporalmente para permitir salirnos un poco al rebasar
-                                val maxRoadRadius = if (dodgeOffsetX != 0.0 || dodgeOffsetY != 0.0 || isAutoCentering) 0.00006 else 0.00004
+                                // Radio expandido al rebasar REDUCIDO (0.00006 → 0.000045 ≈ 5 m): con el
+                                // anterior el coche se veía claramente FUERA de la carretera al esquivar.
+                                val maxRoadRadius = if (dodgeOffsetX != 0.0 || dodgeOffsetY != 0.0 || isAutoCentering) 0.000045 else 0.00004
 
                                 val finalLoc = if (distToRoad <= maxRoadRadius) {
                                     tempLoc
@@ -764,7 +624,10 @@ class WorldMapViewModel(
                             updateVisibleRoads(location)
                         }
 
-                        if (_uiState.value.isRoadNetworkReady) {
+                        // ORDEN DE CARGA: los NPCs solo se simulan/spawnean cuando el mundo está
+                        // COMPLETO (mapa descargado Y red de calles lista). Tras un teleport ambos
+                        // flags se apagan → primero tiles, luego calles, y AL FINAL los NPCs.
+                        if (_uiState.value.isRoadNetworkReady && _uiState.value.isMapReady) {
                             tickCount++
                             if (tickCount % 3 == 0L) {
                                 val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
@@ -790,9 +653,21 @@ class WorldMapViewModel(
                                     synchronized(npcAiManager.pendingDespawns) {
                                         npcAiManager.pendingDespawns.forEach { remoteEntities.remove(it) }
                                     }
-                                    processedNpcs.forEach { remoteEntities[it.id] = it }
+                                    // No re-insertar coches recién abordados (snapshot viejo de la IA).
+                                    processedNpcs.forEach { if (!isCarTombstoned(it.id)) remoteEntities[it.id] = it }
                                 }
                                 updateNpcsState()
+
+                                // WARM-UP de NPCs (última fase del gate de carga): tras (re)cargar el
+                                // mundo, esperamos unos ciclos de IA (siembra de campus/estacionamientos/
+                                // calles) antes de soltar al jugador. ~5 ciclos ≈ 0.5 s, o antes si ya
+                                // hay NPCs en pantalla. En zonas vacías igual libera (no bloquea).
+                                if (!_uiState.value.npcsWarmedUp) {
+                                    npcWarmupCycles++
+                                    if (npcWarmupCycles >= 5 || _uiState.value.npcs.isNotEmpty()) {
+                                        _uiState.update { it.copy(npcsWarmedUp = true) }
+                                    }
+                                }
 
                                 webSocketManager?.let { ws ->
                                     launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -873,7 +748,7 @@ class WorldMapViewModel(
     private var exteriorCollisions: ExteriorCollisionsConfig? = null
 
     // Llama esta función en el init{} de tu ViewModel
-    private fun loadExteriorCollisions(context: Context) {
+    internal fun loadExteriorCollisions(context: Context) { // llamado desde WorldMapDesigner.kt
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val jsonString = context.assets.open("exterior_collisions.json").bufferedReader().use { it.readText() }
@@ -920,10 +795,9 @@ class WorldMapViewModel(
         // Pinta las calles (líneas amarillas) de inmediato al quedar lista la red, sin
         // esperar al throttle del game loop (antes "tardaban en colocarse" tras entrar).
         updateVisibleRoads(snapped, force = true)
-        val targetZoom = if (_uiState.value.mapProvider.isWebProvider)
-            ZOOM_GAMEPLAY_WEB
-        else
-            ZOOM_GAMEPLAY_OSM
+        // Zoom de juego A PIE = 22 para TODOS los proveedores (los web sobre-escalan
+        // desde su maxNativeZoom; CARTO llega a z20 real).
+        val targetZoom = ZOOM_ON_FOOT
 
         if (_uiState.value.zoomLevel <= ZOOM_LOADING) {
             var z = ZOOM_LOADING + 1.0
@@ -951,6 +825,10 @@ class WorldMapViewModel(
                 if (cached != null) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         roadNetwork = cached
+                        // Mantener TODOS los índices en sync con la red nueva (antes solo se
+                        // actualizaba la IA; el grid de routing y el grafo A* quedaban viejos).
+                        rebuildRoadNodeGrid(cached)
+                        buildRoadGraph(cached)
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
                         val inside = isInsideEscom(currentLoc.latitude, currentLoc.longitude)
@@ -970,6 +848,8 @@ class WorldMapViewModel(
                         roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             roadNetwork = network
+                            rebuildRoadNodeGrid(network)
+                            buildRoadGraph(network)
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
                             _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
@@ -1146,6 +1026,9 @@ class WorldMapViewModel(
                             ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
                         }
 
+                        // FIX: Asegurar que displayName nunca sea blank para poder identificar jugadores remotos
+                        val safeDisplayName = msg.displayName?.takeIf { it.isNotBlank() } ?: "Player_${msg.id.take(4)}"
+
                         val otherPlayer = Npc(
                             id = msg.id,
                             type = if (isRemoteDriving) NpcType.CAR else NpcType.PERSON,
@@ -1158,7 +1041,7 @@ class WorldMapViewModel(
                             carModel = remoteCarModel,
                             carColor = msg.carColor ?: 0xFFFFFFFF.toInt(),
                             visualConfig = if (!isRemoteDriving) multiplayerConfig else null,
-                            displayName = msg.displayName,
+                            displayName = safeDisplayName,
                             health = msg.health ?: 100f,
                             isDying = (msg.health ?: 100f) <= 0f
                         )
@@ -1173,6 +1056,9 @@ class WorldMapViewModel(
     }
 
     private fun addRemoteEntity(remote: MultiplayerNpc) {
+        // Coche recién abordado por MÍ: ignorar reinserciones que lleguen del host
+        // remoto durante unos segundos (anti-duplicación, ver boardedCarTombstones).
+        if (isCarTombstoned(remote.id)) return
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
 
         // Rol de zombi replicado: el maxHealth se DERIVA del rol (no viaja por el cable).
@@ -1229,12 +1115,8 @@ class WorldMapViewModel(
         )
     }
 
-    private fun updateNpcsState() {
-        // Civiles/jugadores remotos + policía propia (simulada) + policía remota (render).
-        val combined = remoteEntities.values + policeManager.activeUnits() + remotePolice.values
-        _uiState.update { it.copy(npcs = combined.toList()) }
-    }
-
+    // REFACTOR: updateNpcsState vive SOLO en WorldMapMultiplayer.kt (la extensión era
+    // idéntica a la copia miembro que había aquí).
 
     fun notifyTileSource(fromCache: Boolean) {
         if (_uiState.value.mapProvider == MapProvider.OSM) return
@@ -1278,6 +1160,12 @@ class WorldMapViewModel(
         val radius  = 0.000012
         if (dist <= radius) {
             _uiState.update { it.copy(currentLocation = temp) }
+        } else if (dist > MAX_SNAP_DISTANCE_DEG) {
+            // FIX TP aleatorio: si la calle "más cercana" está LEJOS (la red recién
+            // recargada aún no cubre esta zona, o candidates() cayó al fallback de
+            // TODOS los segmentos), NO teletransportamos al jugador hacia ella.
+            // Mejor no moverse este tick que aparecer en una calle al azar.
+            return
         } else {
             val angle = atan2(temp.latitude - nearest.latitude, temp.longitude - nearest.longitude)
             _uiState.update { it.copy(currentLocation = GeoPoint(
@@ -1316,6 +1204,9 @@ class WorldMapViewModel(
 
         if (dist <= radius) {
             _uiState.update { it.copy(currentLocation = temp) }
+        } else if (dist > MAX_SNAP_DISTANCE_DEG) {
+            // FIX TP aleatorio (ver moveCharacter): no saltar a una calle lejana.
+            return
         } else {
             val angle = atan2(temp.latitude - nearest.latitude, temp.longitude - nearest.longitude)
             _uiState.update { it.copy(currentLocation = GeoPoint(
@@ -1333,6 +1224,10 @@ class WorldMapViewModel(
                             val minLat: Double, val maxLat: Double, val minLon: Double, val maxLon: Double)
 
     internal val CELL = 0.0025
+    // FIX TP aleatorio: distancia máxima (~33 m) a la que el snap-to-road puede
+    // "jalar" al jugador hacia una calle. Más lejos = la red no cubre esta zona
+    // todavía; el movimiento se ignora en vez de teletransportar.
+    internal val MAX_SNAP_DISTANCE_DEG = 0.0003
     internal var indexedRef: List<MapWay>?    = null
     internal var segs: List<Seg>              = emptyList()
     internal var grid: Map<Long, List<Seg>>   = emptyMap()
@@ -1398,63 +1293,12 @@ class WorldMapViewModel(
             android.widget.Toast.makeText(context, "Estás fuera del edificio", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
-    private fun ensureIndex() {
-        if (indexedRef === roadNetwork) return
-        val newSegs = ArrayList<Seg>(roadNetwork.sumOf { it.nodes.size })
-        val newGrid = HashMap<Long, MutableList<Seg>>()
-        for (way in roadNetwork) {
-            for (i in 0 until way.nodes.size - 1) {
-                val a = way.nodes[i]; val b = way.nodes[i + 1]
-                val seg = Seg(GeoPoint(a.lat, a.lon), GeoPoint(b.lat, b.lon),
-                    min(a.lat, b.lat), max(a.lat, b.lat), min(a.lon, b.lon), max(a.lon, b.lon))
-                newSegs.add(seg)
-                for (r in cell(seg.minLat)..cell(seg.maxLat))
-                    for (c in cell(seg.minLon)..cell(seg.maxLon))
-                        newGrid.getOrPut(pack(r, c)) { mutableListOf() }.add(seg)
-            }
-        }
-        indexedRef = roadNetwork; segs = newSegs; grid = newGrid
-    }
-
-    private fun candidates(loc: GeoPoint): List<Seg> {
-        val r = cell(loc.latitude); val c = cell(loc.longitude)
-        val res = LinkedHashSet<Seg>()
-        for (dr in -1..1) for (dc in -1..1) grid[pack(r + dr, c + dc)]?.let { res.addAll(it) }
-        return if (res.isNotEmpty()) res.toList() else segs
-    }
-
+    // REFACTOR: ensureIndex/candidates/getNearestPointOnNetwork/project viven SOLO en
+    // WorldMapRouting.kt (la extensión, ya sincronizada con el check de landmarks que
+    // tenía la copia miembro). pack/cell/distance se quedan aquí porque los usan
+    // tanto miembros como extensiones.
     internal fun pack(r: Int, c: Int): Long = r.toLong() * 1_000_003L + c.toLong()
     internal fun cell(v: Double): Int = floor(v / CELL).toInt()
-
-    internal fun getNearestPointOnNetwork(t: GeoPoint): GeoPoint {
-        // Usa la nueva matemática exacta del rectángulo rotado
-        val insideLandmark = _uiState.value.landmarks.any { landmark ->
-            landmark.contains(t)
-        }
-
-        if (insideLandmark) {
-            return t // Eres 100% libre solo si estás tocando un píxel de la imagen
-        }
-
-        ensureIndex()
-        val cands = candidates(t); if (cands.isEmpty()) return t
-
-        var best = Double.MAX_VALUE; var pt = t
-        for (seg in cands) {
-            val p = project(t, seg.s, seg.e); val d = distance(t, p)
-            if (d < best) { best = d; pt = p }
-        }
-        return pt
-    }
-
-    private fun project(p: GeoPoint, v: GeoPoint, w: GeoPoint): GeoPoint {
-        val l2 = (w.latitude - v.latitude).pow(2) + (w.longitude - v.longitude).pow(2)
-        if (l2 == 0.0) return v
-        val t = max(0.0, min(1.0, ((p.latitude - v.latitude) * (w.latitude - v.latitude) +
-                (p.longitude - v.longitude) * (w.longitude - v.longitude)) / l2))
-        return GeoPoint(v.latitude + t * (w.latitude - v.latitude),
-            v.longitude + t * (w.longitude - v.longitude))
-    }
 
     internal fun distance(a: GeoPoint, b: GeoPoint): Double =
         sqrt((a.latitude - b.latitude).pow(2) + (a.longitude - b.longitude).pow(2))
@@ -1487,291 +1331,67 @@ class WorldMapViewModel(
         }
     }
 
-    fun setMapProvider(provider: MapProvider) {
-        val ts = if (provider == MapProvider.OSM) TileSource.LOCAL_OSM else TileSource.NETWORK
-        val currentZoom = _uiState.value.zoomLevel
-        val newZoom = when {
-            provider == MapProvider.OSM && currentZoom < ZOOM_GAMEPLAY_OSM -> ZOOM_GAMEPLAY_OSM
-            provider.isWebProvider && currentZoom > ZOOM_GAMEPLAY_WEB -> ZOOM_GAMEPLAY_WEB
-            else -> currentZoom
-        }
-        _uiState.update { it.copy(mapProvider = provider, tileSource = ts, zoomLevel = newZoom) }
-    }
-
-    // ─── CAMBIO DE PROVEEDOR CON PRECARGA + AVISO ─────────────────────────────
-    private var providerPreloadJob: Job? = null
-
-    /**
-     * Solicita cambiar de proveedor SIN interrumpir el actual: lo precarga en
-     * segundo plano. Cuando termina, 'pendingProviderReady' se pone en true y la
-     * UI avisa para confirmar el cambio.
-     */
-    fun requestMapProvider(provider: MapProvider) {
-        val st = _uiState.value
-        if (provider == st.mapProvider) {
-            // El destino ya es el activo: descartar cualquier pendiente.
-            if (st.pendingProvider != null) {
-                providerPreloadJob?.cancel()
-                _uiState.update { it.copy(pendingProvider = null, pendingProviderReady = false) }
-            }
-            return
-        }
-        if (provider == st.pendingProvider) return // ya se está precargando
-
-        providerPreloadJob?.cancel()
-        _uiState.update { it.copy(pendingProvider = provider, pendingProviderReady = false) }
-        providerPreloadJob = viewModelScope.launch {
-            preloadProvider(provider)
-            if (isActive && _uiState.value.pendingProvider == provider) {
-                _uiState.update { it.copy(pendingProviderReady = true) }
-            }
-        }
-    }
-
-    /** Aplica el proveedor ya precargado (lo invoca el botón "Cambiar"). */
-    fun commitMapProvider() {
-        val p = _uiState.value.pendingProvider ?: return
-        providerPreloadJob?.cancel()
-        _uiState.update { it.copy(pendingProvider = null, pendingProviderReady = false) }
-        setMapProvider(p)
-    }
-
-    /** Descarta el cambio pendiente y se queda con el proveedor actual. */
-    fun cancelPendingProvider() {
-        providerPreloadJob?.cancel()
-        _uiState.update { it.copy(pendingProvider = null, pendingProviderReady = false) }
-    }
-
-    /** Calienta tiles/conexión del nuevo proveedor para que el cambio sea fluido. */
-    private suspend fun preloadProvider(provider: MapProvider): Boolean = withContext(Dispatchers.IO) {
-        if (!provider.isWebProvider) { delay(400); return@withContext true } // nativo/local
-        val loc = _uiState.value.currentLocation ?: run { delay(400); return@withContext false }
-        val z = ZOOM_GAMEPLAY_WEB.toInt()
-        val n = 1 shl z
-        val xCenter = ((loc.longitude + 180.0) / 360.0 * n).toInt().coerceIn(0, n - 1)
-        val latRad = Math.toRadians(loc.latitude)
-        val yCenter = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n)
-            .toInt().coerceIn(0, n - 1)
-        var anyOk = false
-        for (dx in -1..1) for (dy in -1..1) {
-            if (!isActive) break
-            val x = (xCenter + dx).coerceIn(0, n - 1)
-            val y = (yCenter + dy).coerceIn(0, n - 1)
-            tileUrlFor(provider, z, x, y)?.let { if (fetchTile(it)) anyOk = true }
-        }
-        anyOk
-    }
-
-    private fun tileUrlFor(provider: MapProvider, z: Int, x: Int, y: Int): String? {
-        val template = when (provider) {
-            MapProvider.CARTO_DB_DARK  -> "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
-            MapProvider.CARTO_DB_LIGHT -> "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
-            MapProvider.ESRI           -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-            MapProvider.ESRI_SATELLITE -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            MapProvider.OPEN_TOPO      -> "https://a.tile.opentopomap.org/{z}/{x}/{y}.png"
-            MapProvider.OSM_WEB        -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            MapProvider.GOOGLE_MAPS    -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-            else -> null
-        } ?: return null
-        return template.replace("{z}", z.toString()).replace("{x}", x.toString()).replace("{y}", y.toString())
-    }
-
-    private fun fetchTile(url: String): Boolean = try {
-        val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
-            connectTimeout = 4000; readTimeout = 4000
-            setRequestProperty("User-Agent", "PolitecnicoOpenWorld/1.0")
-        }
-        val code = conn.responseCode
-        runCatching { conn.inputStream.use { it.readBytes() } } // descarga para cachear en CDN/SO
-        conn.disconnect()
-        code in 200..299
-    } catch (e: Exception) { false }
+    // ─── PROVEEDORES DE MAPA / TILES (REFACTOR) ───────────────────────────────
+    // setMapProvider / requestMapProvider / commitMapProvider / cancelPendingProvider /
+    // preloadProvider / tileUrlFor / fetchTile / prepareMapForEntry / downloadMapAround /
+    // gateMapDownloadAfterTeleport / downloadGateTiles / downloadOsmNativeForEntry /
+    // cacheOsmTileToRoom / downloadTileBytes / sha256Hex viven en WorldMapProviders.kt.
+    // Aquí solo queda el ESTADO que esas extensiones usan:
+    internal var providerPreloadJob: Job? = null
 
     // ─── CARGA INICIAL DEL MAPA (gate de entrada con % de progreso) ───────────
-    private var mapPrepStarted = false
-
-    /**
-     * Descarga el mapa alrededor del spawn ANTES de permitir entrar. Reporta
-     * progreso (0f..1f) en mapLoadProgress y al terminar pone isMapReady=true.
-     * Idempotente: solo corre una vez por sesión de pantalla.
-     */
-    fun prepareMapForEntry() {
-        if (mapPrepStarted) return
-        mapPrepStarted = true
-        viewModelScope.launch {
-            val provider = _uiState.value.mapProvider
-            if (provider == MapProvider.GOOGLE_MAPS_NATIVE) {
-                // SDK nativo de Google: las teselas las gestiona el SDK; progreso breve.
-                for (i in 1..10) {
-                    _uiState.update { it.copy(mapLoadProgress = i / 10f) }
-                    delay(70)
-                }
-                _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
-                return@launch
-            }
-            if (provider == MapProvider.OSM) {
-                // OSM Nativo: descargar de VERDAD las teselas alrededor del jugador a
-                // nivel MÁXIMO real (z19) y a un nivel MEDIO (z17) para que el mapa esté
-                // listo y nítido al instante (incluido el over-zoom 20–22, que se escala
-                // a partir de z19). Antes solo se simulaba progreso y por eso "no cargaba".
-                downloadOsmNativeForEntry()
-                _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
-                return@launch
-            }
-            downloadMapAround(provider)
-            _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
-        }
-    }
-
-    private suspend fun downloadMapAround(provider: MapProvider): Boolean = withContext(Dispatchers.IO) {
-        val loc = _uiState.value.currentLocation
-            ?: run { _uiState.update { it.copy(mapLoadProgress = 1f) }; return@withContext false }
-        val z = ZOOM_GAMEPLAY_WEB.toInt()
-        val n = 1 shl z
-        val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
-        val latRad = Math.toRadians(loc.latitude)
-        val yC = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n).toInt()
-        val coords = ArrayList<Pair<Int, Int>>()
-        for (dx in -1..1) for (dy in -2..2) coords.add((xC + dx) to (yC + dy)) // 3x5 alrededor
-        val total = coords.size
-        var done = 0
-        var okAny = false
-        for ((x, y) in coords) {
-            if (!isActive) break
-            val xx = x.coerceIn(0, n - 1); val yy = y.coerceIn(0, n - 1)
-            tileUrlFor(provider, z, xx, yy)?.let { if (fetchTile(it)) okAny = true }
-            done++
-            _uiState.update { it.copy(mapLoadProgress = done.toFloat() / total) }
-        }
-        okAny
-    }
-
-    // ─── COMPUERTA DE MAPA TRAS TELETRANSPORTE ────────────────────────────────
-    // El teletransporte (ESCOM / "Ir a tu Ubicación") NO debe soltarte hasta que
-    // el mapa de la zona esté descargado, sea cual sea el proveedor. Re-activa la
-    // compuerta (isMapReady=false) y descarga el vecindario inmediato:
-    //  - OSM nativo: guarda REAL en Room (bucket "osm") → render inmediato + offline.
-    //  - Web: calienta el CDN (luego el WebView + CachingWebViewClient cachean a Room).
-    //  - Google nativo: sin prefetch por URL, progreso breve.
-    // Corre en paralelo a la recarga de calles; worldReady se cumple cuando AMBOS
-    // (calles + tiles) terminan.
-    internal fun gateMapDownloadAfterTeleport() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isMapReady = false, mapLoadProgress = 0f) }
-            downloadGateTiles()
-            _uiState.update { it.copy(mapLoadProgress = 1f, isMapReady = true) }
-        }
-    }
-
-    private suspend fun downloadGateTiles() = withContext(Dispatchers.IO) {
-        val loc = _uiState.value.currentLocation ?: return@withContext
-        val provider = _uiState.value.mapProvider
-        if (provider == MapProvider.GOOGLE_MAPS_NATIVE) {
-            // Mapa nativo de Google: las teselas las gestiona el SDK; solo simulamos
-            // un breve progreso para mostrar la compuerta de forma consistente.
-            for (i in 1..6) { _uiState.update { it.copy(mapLoadProgress = i / 6f) }; delay(60) }
-            return@withContext
-        }
-        if (provider == MapProvider.OSM) {
-            // OSM Nativo tras teletransporte: misma estrategia que la entrada (z19 + z17)
-            // para que la nueva zona quede nítida y lista para el over-zoom.
-            downloadOsmNativeForEntry()
-            return@withContext
-        }
-        val z = if (provider.isWebProvider) ZOOM_GAMEPLAY_WEB.toInt() else 18
-        val n = 1 shl z
-        val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
-        val latRad = Math.toRadians(loc.latitude)
-        val yC = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n).toInt()
-        // Vecindario inmediato 3x3 (suficiente para soltar al jugador); el resto de la
-        // zona (~2km) lo completa prefetchCurrentZoneTiles en segundo plano para offline.
-        val coords = ArrayList<Pair<Int, Int>>()
-        for (dx in -1..1) for (dy in -1..1) coords.add((xC + dx) to (yC + dy))
-        val total = coords.size
-        var done = 0
-        for ((x, y) in coords) {
-            if (!isActive) break
-            val xx = x.coerceIn(0, n - 1); val yy = y.coerceIn(0, n - 1)
-            if (provider == MapProvider.OSM) {
-                val url = "https://tile.openstreetmap.org/$z/$xx/$yy.png"
-                val key = sha256Hex(url)
-                if (tileCache.getTileByUrl("osm", key) == null) {
-                    val bytes = downloadTileBytes(url)
-                    if (bytes != null && bytes.isNotEmpty()) tileCache.putTileByUrl("osm", key, bytes)
-                }
-            } else {
-                tileUrlFor(provider, z, xx, yy)?.let { fetchTile(it) }
-            }
-            done++
-            _uiState.update { it.copy(mapLoadProgress = done.toFloat() / total) }
-        }
-    }
-
-    // ─── PREFETCH OSM NATIVO (pantalla de carga) ──────────────────────────────
-    // Descarga y persiste en Room (bucket "osm", mismo esquema de clave que
-    // RoomTileModuleProvider) un vecindario alrededor del jugador en DOS niveles:
-    //  - z19 (máximo real de OSM): nitidez y base para el over-zoom 20–22.
-    //  - z17 (medio): respaldo para alejar y para que el over-zoom tenga de dónde
-    //    escalar aunque falte algún z19 puntual.
-    private suspend fun downloadOsmNativeForEntry() = withContext(Dispatchers.IO) {
-        val loc = _uiState.value.currentLocation
-            ?: run { _uiState.update { it.copy(mapLoadProgress = 1f) }; return@withContext }
-        // (zoom, radio en teselas). z19 con radio 2 (5x5) cubre la zona inmediata;
-        // z17 con radio 1 (3x3) da contexto al alejar.
-        val plan = listOf(19 to 2, 17 to 1)
-        val total = plan.sumOf { (_, r) -> (2 * r + 1) * (2 * r + 1) }
-        var done = 0
-        for ((z, r) in plan) {
-            if (!isActive) break
-            val n = 1 shl z
-            val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
-            val latRad = Math.toRadians(loc.latitude)
-            val yC = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n).toInt()
-            for (dx in -r..r) for (dy in -r..r) {
-                if (!isActive) break
-                val x = (xC + dx).coerceIn(0, n - 1)
-                val y = (yC + dy).coerceIn(0, n - 1)
-                cacheOsmTileToRoom(z, x, y)
-                done++
-                _uiState.update { it.copy(mapLoadProgress = (done.toFloat() / total).coerceIn(0f, 1f)) }
-            }
-        }
-    }
-
-    /** Descarga (si falta) un tile OSM canónico y lo guarda en Room bucket "osm". */
-    private fun cacheOsmTileToRoom(z: Int, x: Int, y: Int) {
-        val url = "https://tile.openstreetmap.org/$z/$x/$y.png"
-        val key = sha256Hex(url)
-        if (tileCache.getTileByUrl("osm", key) != null) return
-        val bytes = downloadTileBytes(url)
-        if (bytes != null && bytes.isNotEmpty()) tileCache.putTileByUrl("osm", key, bytes)
-    }
-
-    private fun downloadTileBytes(url: String): ByteArray? {
-        var c: java.net.HttpURLConnection? = null
-        return try {
-            c = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
-                connectTimeout = 8000; readTimeout = 12000
-                setRequestProperty("User-Agent", "Mozilla/5.0 (Android) PolitecnicoOpenWorld/1.0")
-                setRequestProperty("Accept", "image/png,image/webp,image/*,*/*")
-                setRequestProperty("Referer", "https://www.openstreetmap.org/")
-            }
-            if (c.responseCode == java.net.HttpURLConnection.HTTP_OK) c.inputStream.readBytes() else null
-        } catch (e: Exception) { null } finally { c?.disconnect() }
-    }
-
-    private fun sha256Hex(input: String): String =
-        java.security.MessageDigest.getInstance("SHA-256")
-            .digest(input.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
+    // (estado usado por WorldMapProviders.kt; las funciones viven allá)
+    internal var mapPrepStarted = false
 
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
+
+    fun toggleZoomWidget(show: Boolean) { _uiState.update { it.copy(showZoomWidget = show) } }
+
+    fun toggleSpeedometer(show: Boolean) { _uiState.update { it.copy(showSpeedometer = show) } }
     fun updateShowCacheWidget(show: Boolean) = _uiState.update { it.copy(showCacheWidget = show) }
     fun updateShowFpsWidget(show: Boolean) = _uiState.update { it.copy(showFpsWidget = show) }
 
-    fun zoomIn()  = _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = it.zoomLevel + 1.0) else it }
-    fun zoomOut() = _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = it.zoomLevel - 1.0) else it }
+    // ─── ZOOM AUTOMÁTICO POR ESTADO (a pie / conduciendo / conduciendo rápido) ───
+    // A pie 22; al subir a un vehículo 21; a MUY alta velocidad (≥85% de MAX_SPEED)
+    // baja a 20, y vuelve a 21 por debajo del 65% (histéresis anti-parpadeo). Solo
+    // actúa en TRANSICIONES de modo, así el pinch manual del usuario se respeta
+    // hasta el siguiente cambio de estado.
+    private var autoZoomMode = 0 // 0 = a pie, 1 = conduciendo, 2 = conduciendo rápido
+    private var targetZoomLevel = ZOOM_ON_FOOT // Zoom objetivo para interpolación suave
+
+    internal fun updateAutoZoom() {
+        val st = _uiState.value
+        val absSpeed = kotlin.math.abs(st.vehicleSpeed)
+        val newMode = when {
+            !st.isDriving -> 0
+            autoZoomMode == 2 -> if (absSpeed < MAX_SPEED * 0.65) 1 else 2
+            else -> if (absSpeed >= MAX_SPEED * 0.85) 2 else 1
+        }
+        if (newMode != autoZoomMode) {
+            autoZoomMode = newMode
+            targetZoomLevel = when (newMode) {
+                0 -> ZOOM_ON_FOOT
+                1 -> ZOOM_DRIVING
+                else -> ZOOM_DRIVING_FAST
+            }
+        }
+        // Interpolar zoomLevel hacia targetZoomLevel para transición suave
+        val currentZoom = st.zoomLevel
+        if (Math.abs(currentZoom - targetZoomLevel) > 0.01) {
+            val newZoom = currentZoom + (targetZoomLevel - currentZoom) * 0.1 // 10% por tick
+            _uiState.update { it.copy(zoomLevel = newZoom) }
+        }
+    }
+
+    fun zoomIn()  { 
+        targetZoomLevel = (_uiState.value.zoomLevel + 1.0).coerceAtMost(22.0)
+        _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = targetZoomLevel) else it } 
+    }
+    fun zoomOut() { 
+        targetZoomLevel = (_uiState.value.zoomLevel - 1.0).coerceAtLeast(14.0)
+        _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = targetZoomLevel) else it } 
+    }
 
     // Canal de retorno del zoom por GESTO (pinch de dos dedos) desde el mapa (web,
     // OSM nativo o Google). Sin esto, el bucle de render volvía a fijar el zoom al
@@ -1783,6 +1403,7 @@ class WorldMapViewModel(
         // él la caché de sprites de NPC, cuya clave depende del tamaño en píxeles → zoom).
         val z = (Math.round(zoom * 2.0) / 2.0).coerceIn(14.0, 22.0)
         if (Math.abs(z - _uiState.value.zoomLevel) >= 0.5) {
+            targetZoomLevel = z
             _uiState.update { it.copy(zoomLevel = z) }
         }
     }
@@ -1833,15 +1454,29 @@ class WorldMapViewModel(
     fun onInteractButtonPressed() {
         val loc = _uiState.value.currentLocation ?: return
 
+        // FIX duplicación de autos: (1) DEBOUNCE — spamear Y alternaba subir/bajar más
+        // rápido que el ciclo de la IA y duplicaba el coche; se ignoran pulsaciones a
+        // menos de 450 ms de la anterior.
+        val nowMs = System.currentTimeMillis()
+        if (nowMs - lastVehicleToggleMs < 450L) return
+
         if (!_uiState.value.isDriving) {
             val nearbyCarEntry = remoteEntities.entries
                 .filter { it.value.type == NpcType.CAR && distance(loc, it.value.location) <= INTERACT_RADIUS }
                 .minByOrNull { distance(loc, it.value.location) }
 
             if (nearbyCarEntry != null) {
+                lastVehicleToggleMs = nowMs
                 val carId = nearbyCarEntry.key
                 val carNpc = nearbyCarEntry.value
                 remoteEntities.remove(carId)
+                // (2) TOMBSTONE — el game loop tomaba el snapshot de la IA ANTES de subirte
+                // y al volcar processedNpcs RE-INSERTABA el coche recién abordado (carrera
+                // main-thread vs loop) → coche duplicado. Marcamos el id como "abordado"
+                // unos segundos para que el volcado lo ignore.
+                boardedCarTombstones[carId] = nowMs + 10_000L
+                // Y avisar a los demás clientes que ese NPC dejó de existir.
+                synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.add(carId) }
                 if (carNpc.isFirstTimeBoarded) {
                     spawnOustedDriver(carNpc.location)
                     raiseWantedLevel(1) // robar un auto ocupado es delito → +1 estrella
@@ -1850,6 +1485,7 @@ class WorldMapViewModel(
                 updateNpcsState()
             }
         } else {
+            lastVehicleToggleMs = nowMs
             val abandonedCar = Npc(
                 id = UUID.randomUUID().toString(),
                 type = NpcType.CAR,
@@ -1867,290 +1503,12 @@ class WorldMapViewModel(
         }
     }
 
-    fun loadLandmarks(context: Context) {
-        loadExteriorCollisions(context) // ESTO CARGA EL JSON DE MUROS
-        loadMetroStations(context)
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                LandmarkCatalogManager.loadCatalog(context)
-                val database = ovh.gabrielhuav.pow.data.local.room.PowDatabase.getInstance(context)
-                val dao = database.landmarkDao()
-                var entities = dao.getAllLandmarks()
-
-                if (entities.isEmpty()) {
-                    try {
-                        val jsonString = context.assets.open("default_landmarks.json").bufferedReader().use { it.readText() }
-                        val type = object : TypeToken<List<LandmarkEntity>>() {}.type
-                        val defaultEntities: List<LandmarkEntity> = Gson().fromJson(jsonString, type)
-                        dao.insertLandmarks(defaultEntities)
-                        entities = dao.getAllLandmarks()
-                        Log.d("WorldMapViewModel", "Mapa sembrado con éxito desde default_landmarks.json con ${entities.size} edificios.")
-                    } catch (e: java.io.FileNotFoundException) {
-                        Log.w("WorldMapViewModel", "Archivo default_landmarks.json no encontrado.")
-                    } catch (e: Exception) {
-                        Log.e("WorldMapViewModel", "Error leyendo default_landmarks.json", e)
-                    }
-                }
-
-                // Backfill: inserta el landmark de Shine si la BD ya estaba sembrada sin él
-                if (entities.none { it.assetPath == "BUILDINGS/BAR/Shine.webp" }) {
-                    dao.insertLandmark(
-                        LandmarkEntity(
-                            name = "Shine CTO",
-                            latitude = 19.459038634489882,
-                            longitude = -99.1633282698258,
-                            assetPath = "BUILDINGS/BAR/Shine.webp",
-                            scaleFactor = 0.50f,
-                            rotationAngle = 285f,
-                            scaleX = 0.50f,
-                            scaleY = 0.50f
-                        )
-                    )
-                    entities = dao.getAllLandmarks()
-                }
-
-                // Backfill: inserta las puertas del Deportivo Miguel Alemán si no existen
-                var backfillNeeded = false
-                if (entities.none { it.name == "Entrada Campo Béisbol" }) {
-                    dao.insertLandmark(
-                        LandmarkEntity(
-                            name = "Entrada Campo Béisbol",
-                            latitude = 19.494200,
-                            longitude = -99.129200,
-                            assetPath = "DOORS/ESCOM_DOOR.webp",
-                            scaleFactor = 0.60f,
-                            rotationAngle = 0.0f
-                        )
-                    )
-                    backfillNeeded = true
-                }
-                if (entities.none { it.name == "Entrada Campo Fútbol" }) {
-                    dao.insertLandmark(
-                        LandmarkEntity(
-                            name = "Entrada Campo Fútbol",
-                            latitude = 19.492800,
-                            longitude = -99.127800,
-                            assetPath = "DOORS/ESCOM_DOOR.webp",
-                            scaleFactor = 0.60f,
-                            rotationAngle = 0.0f
-                        )
-                    )
-                    backfillNeeded = true
-                }
-                if (backfillNeeded) {
-                    entities = dao.getAllLandmarks()
-                }
-
-                val templatesByAssetPath = LandmarkCatalogManager.availableAssets.associateBy { it.assetPath }
-
-                // Cargamos el navGraph de ESCOM en memoria si no está cargado.
-                // Lo hacemos una sola vez para no abrir el archivo por cada edificio.
-                if (escomNavGraph == null) {
-                    try {
-                        val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
-                        val reader = java.io.InputStreamReader(inputStream)
-                        escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
-                        reader.close()
-                    } catch (e: Exception) {
-                        Log.e("WorldMapViewModel", "No se pudo cargar el navGraph de ESCOM al inicio", e)
-                    }
-                }
-
-                // Mapeamos las entidades de la Base de Datos a la clase Landmark
-                val domainLandmarks = entities.map { entity ->
-                    val template = templatesByAssetPath[entity.assetPath]
-
-                    // Si el edificio es ESCOM, le inyectamos su navGraph.
-                    // Si mañana agregas "Zacatenco", puedes poner "else if" aquí.
-                    val assignedNavGraph = if (entity.assetPath.contains("building_escom", ignoreCase = true)) {
-                        escomNavGraph
-                    } else {
-                        null // Los demás edificios nacen sin cerebro (por ahora)
-                    }
-
-                    // Coalesce de escala: las entidades sembradas desde default_landmarks.json
-                    // (o JSON importados antiguos) NO traen scaleX/scaleY. Gson NO aplica los
-                    // valores por defecto de Kotlin a campos primitivos ausentes, así que llegan
-                    // como 0.0f. Un scaleX/scaleY de 0 colapsa el GroundOverlay a tamaño cero y
-                    // el asset se vuelve INVISIBLE. Caemos a scaleFactor y, en último caso, a 1.0.
-                    val effectiveScaleX = when {
-                        entity.scaleX > 0f -> entity.scaleX
-                        entity.scaleFactor > 0f -> entity.scaleFactor
-                        else -> 1.0f
-                    }
-                    val effectiveScaleY = when {
-                        entity.scaleY > 0f -> entity.scaleY
-                        entity.scaleFactor > 0f -> entity.scaleFactor
-                        else -> 1.0f
-                    }
-
-                    Landmark(
-                        id = entity.id,
-                        name = entity.name,
-                        location = GeoPoint(entity.latitude, entity.longitude),
-                        assetPath = entity.assetPath,
-                        scaleX = effectiveScaleX,
-                        scaleY = effectiveScaleY,
-                        rotationAngle = entity.rotationAngle,
-                        baseWidthMeters = template?.baseWidthMeters ?: 100f,
-                        baseHeightMeters = template?.baseHeightMeters ?: 100f,
-
-                        navGraph = assignedNavGraph
-                    )
-                }
-
-                _uiState.update { currentState -> currentState.copy(landmarks = domainLandmarks) }
-
-            } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error fatal al cargar las estructuras estáticas", e)
-            }
-        }
-    }
-
-    fun toggleDesignerMode(isDesigner: Boolean) { _uiState.update { it.copy(isDesignerMode = isDesigner, selectedLandmarkId = if (!isDesigner) null else it.selectedLandmarkId) } }
-    fun showAssetPicker(show: Boolean) { _uiState.update { it.copy(showAssetPicker = show) } }
-    fun selectLandmark(id: Long?) { _uiState.update { it.copy(selectedLandmarkId = id) } }
-
-    fun addLandmarkAtPlayer(context: Context, template: LandmarkAssetTemplate) {
-        val playerLoc = _uiState.value.currentLocation ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val dao = PowDatabase.getInstance(context).landmarkDao()
-                val newEntity = LandmarkEntity(
-                    name = template.displayName,
-                    latitude = playerLoc.latitude,
-                    longitude = playerLoc.longitude,
-                    assetPath = template.assetPath,
-                    scaleFactor = template.defaultScale,
-                    rotationAngle = 0f,
-                    scaleX = template.defaultScale,
-                    scaleY = template.defaultScale
-                )
-                val newId = dao.insertLandmark(newEntity)
-                loadLandmarks(context)
-                _uiState.update { it.copy(showAssetPicker = false, selectedLandmarkId = newId) }
-            } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error al agregar landmark", e)
-            }
-        }
-    }
-
-    fun moveSelectedLandmark(dLat: Double, dLon: Double) {
-        val id = _uiState.value.selectedLandmarkId ?: return
-        _uiState.update { state ->
-            val updated = state.landmarks.map {
-                if (it.id == id) {
-                    it.copy(location = GeoPoint(it.location.latitude + dLat, it.location.longitude + dLon))
-                } else it
-            }
-            state.copy(landmarks = updated)
-        }
-    }
-
-    fun rotateSelectedLandmark(angle: Float) {
-        val id = _uiState.value.selectedLandmarkId ?: return
-        _uiState.update { state ->
-            val updated = state.landmarks.map {
-                if (it.id == id) it.copy(rotationAngle = angle)
-                else it
-            }
-            state.copy(landmarks = updated)
-        }
-    }
-
-    fun scaleXSelectedLandmark(scaleX: Float) {
-        val id = _uiState.value.selectedLandmarkId ?: return
-        _uiState.update { state ->
-            val updated = state.landmarks.map {
-                if (it.id == id) it.copy(scaleX = scaleX) else it
-            }
-            state.copy(landmarks = updated)
-        }
-    }
-
-    fun scaleYSelectedLandmark(scaleY: Float) {
-        val id = _uiState.value.selectedLandmarkId ?: return
-        _uiState.update { state ->
-            val updated = state.landmarks.map {
-                if (it.id == id) it.copy(scaleY = scaleY) else it
-            }
-            state.copy(landmarks = updated)
-        }
-    }
-
-    fun deleteSelectedLandmark(context: Context) {
-        val id = _uiState.value.selectedLandmarkId ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val dao = PowDatabase.getInstance(context).landmarkDao()
-                val entity = dao.getLandmarkById(id)
-                if (entity != null) {
-                    dao.deleteLandmark(entity)
-                    loadLandmarks(context)
-                    _uiState.update { it.copy(selectedLandmarkId = null) }
-                }
-            } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error al borrar landmark", e)
-            }
-        }
-    }
-
-    fun exportLandmarksToUri(context: Context, uri: android.net.Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val dao = PowDatabase.getInstance(context).landmarkDao()
-                val entities = dao.getAllLandmarks()
-                val jsonString = Gson().toJson(entities)
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(jsonString.toByteArray())
-                }
-            } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error al guardar JSON en archivo", e)
-            }
-        }
-    }
-
-    fun importLandmarksFromUri(context: Context, uri: android.net.Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val inputStream = context.contentResolver.openInputStream(uri)
-                val jsonString = inputStream?.bufferedReader().use { it?.readText() } ?: return@launch
-                val type = object : com.google.gson.reflect.TypeToken<List<LandmarkEntity>>() {}.type
-                val importedEntities: List<LandmarkEntity> = Gson().fromJson(jsonString, type)
-                val dao = PowDatabase.getInstance(context).landmarkDao()
-                val currentLandmarks = dao.getAllLandmarks()
-                currentLandmarks.forEach { dao.deleteLandmark(it) }
-                dao.insertLandmarks(importedEntities)
-                loadLandmarks(context)
-            } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error al importar JSON desde archivo", e)
-            }
-        }
-    }
-
-    fun saveSelectedLandmark(context: Context) {
-        val id = _uiState.value.selectedLandmarkId ?: return
-        val currentLandmark = _uiState.value.landmarks.find { it.id == id } ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val dao = PowDatabase.getInstance(context).landmarkDao()
-                val updatedEntity = LandmarkEntity(
-                    id = currentLandmark.id,
-                    name = currentLandmark.name,
-                    latitude = currentLandmark.location.latitude,
-                    longitude = currentLandmark.location.longitude,
-                    assetPath = currentLandmark.assetPath,
-                    scaleFactor = currentLandmark.scaleX,
-                    rotationAngle = currentLandmark.rotationAngle,
-                    scaleX = currentLandmark.scaleX,
-                    scaleY = currentLandmark.scaleY
-                )
-                dao.updateLandmark(updatedEntity)
-            } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error al actualizar landmark", e)
-            }
-        }
-    }
+    // ─── MODO DISEÑADOR / LANDMARKS (REFACTOR) ────────────────────────────────
+    // loadLandmarks / toggleDesignerMode / showAssetPicker / selectLandmark /
+    // addLandmarkAtPlayer / moveSelectedLandmark / moveLandmarkTo / rotateSelectedLandmark /
+    // scaleXSelectedLandmark / scaleYSelectedLandmark / deleteSelectedLandmark /
+    // exportLandmarksToUri / importLandmarksFromUri / saveSelectedLandmark viven en
+    // WorldMapDesigner.kt (el estado escomNavGraph sigue aquí).
 
     private fun spawnOustedDriver(carLocation: GeoPoint) {
         // El conductor desalojado aparece JUNTO al coche (~2 m), como si se bajara por
@@ -2217,7 +1575,28 @@ class WorldMapViewModel(
     fun toggleTeleportMenu(show: Boolean) { _uiState.update { it.copy(showTeleportMenu = show) } }
 
     fun teleportTo(lat: Double, lon: Double) {
+        // GATE DE TELETRANSPORTE: no se acepta otro TP hasta que el mundo actual esté
+        // COMPLETAMENTE listo (mapa descargado + red de calles). Evita TPs encadenados
+        // que dejaban la carga a medias y los NPCs mal puestos.
+        val st0 = _uiState.value
+        if (!st0.isLoadingLocation && (!st0.isMapReady || !st0.isRoadNetworkReady)) {
+            _uiState.update { it.copy(showTeleportMenu = false, interactionPrompt = "⏳ Espera: el mundo aún está cargando…") }
+            viewModelScope.launch {
+                delay(2500)
+                _uiState.update { if (it.interactionPrompt?.startsWith("⏳") == true) it.copy(interactionPrompt = null) else it }
+            }
+            return
+        }
         val newLocation = org.osmdroid.util.GeoPoint(lat, lon)
+        // Limpia los NPCs locales de la zona vieja: se regeneran cuando la nueva zona
+        // esté completamente lista (ver gate del game loop). Sin esto quedaban NPCs
+        // "fantasma" de la zona anterior mientras cargaba la nueva.
+        val staleNpcIds = remoteEntities.entries
+            .filter { it.value.displayName.isNullOrEmpty() }
+            .map { it.key }
+        staleNpcIds.forEach { remoteEntities.remove(it) }
+        npcAiManager.setServerNpcs(emptyList())
+        npcWarmupCycles = 0   // re-arma el warm-up de NPCs del gate de carga
         // TELETRANSPORTE = borrón y cuenta nueva del combate: si no, los NPCs/policías que
         // te perseguían en la zona vieja quedaban con aggro y daban un golpe "fantasma"
         // justo al llegar. Limpiamos perseguidores, policía y nivel de búsqueda.
@@ -2246,6 +1625,7 @@ class WorldMapViewModel(
                 showTeleportMenu = false,
                 isRoadNetworkReady = false,
                 isMapReady = false,        // ← re-activa la compuerta: no soltar hasta descargar
+                npcsWarmedUp = false,      // ← y tampoco hasta que la IA siembre los NPCs
                 isUserPanningMap = false,  // ← recentra el mapa y reactiva la neblina
                 wantedLevel = 0,
                 carjackWarning = null
@@ -2577,6 +1957,8 @@ class WorldMapViewModel(
                                 )
                             )
                         )
+                        // FIX: Feedback visual para el atacante al golpear a otro jugador
+                        viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() }
                     } catch (e: Exception) { Log.e("Combat", "Error enviando PLAYER_DAMAGE: ${e.message}") }
                 } else {
                     // DELITO: golpear a un civil sube el nivel de búsqueda (como en GTA).
@@ -3084,6 +2466,8 @@ class WorldMapViewModel(
     fun setNpcDensity(v: Float) { npcAiManager.userPopulationFactor = v }
     /** NPCs lejanos como emoji (optimización gama baja). */
     fun setNpcEmojiLod(enabled: Boolean) { _uiState.update { it.copy(npcEmojiLod = enabled) } }
+
+    fun setNpcFullEmoji(enabled: Boolean) { _uiState.update { it.copy(npcFullEmoji = enabled) } }
 
     fun setShowRoadNetwork(show: Boolean) {
         _uiState.update { it.copy(showRoadNetwork = show) }
