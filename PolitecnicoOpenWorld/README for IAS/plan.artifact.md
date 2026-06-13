@@ -75,6 +75,7 @@ via co-located `ViewModelProvider.Factory` instances.
 | Leaflet tile interception | `features/map_exterior/ui/CachingWebViewClient.kt` |
 | NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` |
 | Wanted level / police AI (spawn, road-snapped chase, disembark, carjack, retreat) | `domain/models/ai/PoliceManager.kt` (driven by `WorldMapViewModel.runPoliceTick`) |
+| Prankedy special hostile NPC (AI / VM glue / sprites) | `domain/models/ai/PrankedyManager.kt` (driven by `WorldMapViewModel.runPrankedyTick`), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
 | Patrol sprite (no-repaint `POLICE_TOPDOWN`) | `features/map_exterior/ui/components/PoliceSpriteManager.kt`; cop = 👮 emoji via `emojiToDrawable` in `WorldMapDrawingUtils.kt` |
 | Zombie minigame logic | `features/zombie_minigame/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`) |
 | Zombie minigame state | `features/zombie_minigame/viewmodel/ZombieGameState.kt` |
@@ -155,6 +156,13 @@ via co-located `ViewModelProvider.Factory` instances.
   - *Contact damage* (`applyNpcContactDamage`): NOT host-gated — each client damages **its
     own** player from nearby aggro NPCs.
   - **Two-way traffic:** spawn direction randomized + right-side `LANE_OFFSET`.
+- **Prankedy (special hostile NPC):** toggled via `WorldMapState.prankedyEnabled` (Options menu,
+  default OFF). `PrankedyManager` (client-local, like police) chases the player and throws a gas tank
+  (`hitPlayer` → `takeDamage`); if an NPC aggresses the player within ~50 m it targets that NPC instead.
+  Closes to ~8 m, plays an 800 ms throw windup (`p_atack`), launches `p_objeto`; the hit is **dodgeable**
+  (`IMPACT_RADIUS`). Road-snapped, killable (melee → respawn 60 s), hidden while driving. Rendered on
+  native OSM + web (Leaflet). Tick/spawn run from the **member** game loop (not the shadowed extension).
+  See README-for-IAS 03/04 and `PR_CHANGES_EN.md`.
   - **Death/respawn** (`triggerWastedSequence`): clears combat state and respawns ~80 m from
     the death spot **inside the already-cached zone** (snapped to road via
     `getNearestPointOnNetwork`) — no ESCOM teleport / new tile download. Movement & vehicle
@@ -320,7 +328,11 @@ via co-located `ViewModelProvider.Factory` instances.
 OSM/Google/Web navigation with snap-to-road; persistent street + tile caching;
 procedural NPCs (pedestrians + 6 cars) with **personality traits, run-over-while-driving,
 aggressive retaliation/carjack reactions, and two-way traffic**; **realistic traffic AI
-(intersection commitment to prevent shaking, rear-end collision avoidance, per-car speed variation)**;
+(intersection commitment to prevent shaking, rear-end collision avoidance, per-car speed variation,
+and player-overtaking — cars advance their road node while dodging instead of orbiting the player)**;
+**tuned NPC density (lower base caps 18/38) and NPC sprite culling exactly at the fog edge
+(`NPC_CULL_MARGIN_M=0`), with police (🚓 waypoints) and Prankedy always visible**;
+**boardable patrol cars (`PoliceManager.boardPatrol`) → boarding sets wanted level to 5★**;
 **smooth zoom transitions when entering/exiting vehicles** (lerped over ~300 ms);
 **GTA-style wanted level / police
 (0–5 stars, road-snapped patrol pursuit, 👮 cops that punch & shoot, vehicle chases + carjack, retreat
@@ -333,7 +345,8 @@ collectibles with persistent inventory; waypoint navigation with greedy road-gra
 routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch,
 **over-zoom to z22 (scaled from z19) with loading-screen z19/z17 prefetch, default max zoom**;
 **player-anchored fog-of-war on native + web (driving-rotation safe)**; **real-meter NPC/player
-sizing unified across renderers**; **landscape-safe scrollable Options menu**; main-menu version
+sizing unified across renderers**; **CDMX Metro station icons (`metroCDMX/icon.webp`) at every
+`metro.json` station on all 3 renderers (native `Marker`, web `updateMetro`, Google `Marker`)**; **landscape-safe scrollable Options menu**; main-menu version
 bound to `BuildConfig.VERSION_NAME` with auto-shrinking title; full zombie survival minigame (lobby + 7 buildings,
 dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens, damage feedback
 FX) with **online mode backed by a dedicated authoritative zombie server**

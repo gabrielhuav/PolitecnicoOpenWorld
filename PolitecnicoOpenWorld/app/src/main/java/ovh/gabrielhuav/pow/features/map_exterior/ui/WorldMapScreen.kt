@@ -44,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
@@ -118,6 +119,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsCont
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyHireDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuGroup
@@ -164,13 +166,21 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.isActive
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
 import kotlin.math.cos
 
 // ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
 // Los NPC siguen viviendo en memoria/simulación; solo dibujamos los que caen
 // dentro del viewport visible. El radio escala con el zoom (metros por pixel),
 // así nunca se ocultan NPCs que de verdad están en pantalla.
-internal const val NPC_CULL_MARGIN_M = 15.0
+// FIX "veo NPCs fuera del fog of war": el margen era +15 m sobre el radio de
+// neblina (70 m), así que los civiles se dibujaban hasta 85 m, fuera de la zona
+// despejada. A 0 m el culling de sprites coincide EXACTO con el borde del fog
+// (los 3 renderers usan npcVisionRadiusMeters). La policía fuera del fog sigue
+// mostrándose como waypoint 🚓 (handoff limpio en 70 m) y Prankedy aparte.
+internal const val NPC_CULL_MARGIN_M = 0.0
 
 // ══════════════════════════════════════════════════════════════════════════
 //  RADIO DE VISIÓN (neblina). ⬅️  CAMBIA ESTE VALOR PARA VER MÁS O MENOS.
@@ -333,6 +343,15 @@ fun WorldMapScreen(
     // limpiarlos al dejar de estar buscado sin spamear updatePolice cuando no hay policías.
     val lastWebPoliceHolder = remember { booleanArrayOf(false) }
     val lastWebZombieHolder = remember { booleanArrayOf(false) }
+    // 🚇 Estaciones de metro (estáticas): se reenvían al WebView solo al cambiar la lista
+    // (+ heartbeat), como los landmarks. El icono se carga del asset metroCDMX/icon.webp.
+    val lastWebMetroHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.MetroStation>>(1) }
+    val webMetroTick = remember { intArrayOf(0) }
+    // Debug Interiores (web): solo reenviamos el navGraph al WebView cuando cambia el
+    // estado del overlay o la lista de landmarks (no por frame).
+    val lastWebIpOn = remember { booleanArrayOf(false) }
+    val lastWebIpLm = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Landmark>>(1) }
+    val lastWebIpColl = remember { arrayOfNulls<ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig>(1) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
@@ -612,6 +631,31 @@ fun WorldMapScreen(
                             }
                         }
                     }
+                    // 🚇 ESTACIONES DE METRO: icono de la red CDMX en cada estación (paridad con
+                    // OSM nativo / web). Marcador estático de tamaño fijo (~24 dp).
+                    val metroIconG = remember {
+                        try {
+                            val raw = context.assets.open("metroCDMX/icon.webp").use { android.graphics.BitmapFactory.decodeStream(it) }
+                            val px = (24 * context.resources.displayMetrics.density).toInt().coerceAtLeast(16)
+                            val scaled = android.graphics.Bitmap.createScaledBitmap(raw, px, px, true)
+                            BitmapDescriptorFactory.fromBitmap(scaled)
+                        } catch (e: Exception) { BitmapDescriptorFactory.defaultMarker() }
+                    }
+                    uiState.metroStations.forEach { station ->
+                        key("metro_${station.name}") {
+                            val mPos = LatLng(station.location.latitude, station.location.longitude)
+                            val mState = remember { MarkerState(position = mPos) }
+                            mState.position = mPos
+                            com.google.maps.android.compose.Marker(
+                                state = mState,
+                                icon = metroIconG,
+                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                flat = true,
+                                title = station.name
+                            )
+                        }
+                    }
+
                     // Mostrar calles solo si estamos cerca
                     if (uiState.showRoadNetwork && uiState.zoomLevel >= 15.5) {
                         roadNetwork.forEach { way ->
@@ -661,21 +705,21 @@ fun WorldMapScreen(
                                         val config = npc.visualConfig!!
                                         "GM_PED_${config.bodyFolder}_${config.hairId}_${config.hairColor.value}_${config.shirtColor.value}_${config.pantsColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == NpcType.CAR -> {
+                                    npc.type == NpcType.CAR && !npc.isPoliceSkin -> {
                                         var angle = npc.rotationAngle % 360f
                                         if (angle < 0) angle += 360f
                                         val frameIndex = (angle / 7.5f).roundToInt() % 48
                                         val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                         "GM_CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == NpcType.POLICE_CAR -> {
+                                    npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin -> {
                                         var angle = npc.rotationAngle % 360f
                                         if (angle < 0) angle += 360f
                                         val frameIndex = (angle / 7.5f).roundToInt() % 48
                                         val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
-                                        "GM_POLICE_${frameIndex}_${dynamicScale}"
+                                        "GM_POLICE_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == NpcType.POLICE_COP -> "GM_COP_EMOJI"
+                                    npc.type == NpcType.POLICE_COP -> "GM_COP_EMOJI_H${qHealth}_D${npc.isDying}"
                                     npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                         val timeMs = System.currentTimeMillis()
                                         val frameIndex = ((timeMs / 220L) % 9L).toInt()
@@ -705,7 +749,7 @@ fun WorldMapScreen(
                                             d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
                                             d?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                         }
-                                        npc.type == NpcType.CAR -> {
+                                        npc.type == NpcType.CAR && !npc.isPoliceSkin -> {
                                             val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                             var d = VehicleSpriteManager.getTintedCarNpc(context, npc.rotationAngle, npc.carColor, screenDensity, npc.carModel)
                                             d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
@@ -715,18 +759,21 @@ fun WorldMapScreen(
                                                 ExactSizeDrawable(it, fw, fh)
                                             }
                                         }
-                                        npc.type == NpcType.POLICE_CAR -> {
+                                        npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin -> {
                                             val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                             val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.getPoliceCar(context, npc.rotationAngle, screenDensity)
                                             d?.let {
                                                 val fw = ((it.intrinsicWidth / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
                                                 val fh = ((it.intrinsicHeight / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
-                                                ExactSizeDrawable(it, fw, fh)
+                                                val withHealth = drawHealthBarOnDrawable(context, it, npc.health, npc.isDying)
+                                                ExactSizeDrawable(withHealth ?: it, fw, fh)
                                             }
                                         }
                                         npc.type == NpcType.POLICE_COP -> {
                                             val px = (18 * screenDensity).toInt()
-                                            emojiToDrawable(context, "👮", px)
+                                            var d: android.graphics.drawable.Drawable? = emojiToDrawable(context, "👮", px)
+                                            d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
+                                            d
                                         }
                                         npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                             val timeMs = System.currentTimeMillis()
@@ -855,13 +902,14 @@ fun WorldMapScreen(
                                 val position = LatLng(collectible.latitude, collectible.longitude)
                                 val markerState = remember { MarkerState(position = position) }
                                 markerState.position = position
+                                val isHand = collectible.name == "Objeto Misterioso ESCOM" || collectible.id == "global_zombie_hand"
 
                                 com.google.maps.android.compose.Marker(
                                     state = markerState,
                                     icon = iconDescriptor,
                                     anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                                     flat = true,
-                                    rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
+                                    rotation = if (isHand) 0f else ((System.currentTimeMillis() / 30) % 360).toFloat()
                                 )
                             }
                         }
@@ -1004,7 +1052,7 @@ fun WorldMapScreen(
                                 // su SVG genérico en vez del asset real. Ahora la tratamos como un
                                 // coche-imagen: generamos su sprite (PoliceSpriteManager, sin tintar),
                                 // lo registramos en imgCache y lo enviamos como tipo "CAR".
-                                val isPolice = npc.type == NpcType.POLICE_CAR
+                                val isPolice = npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
                                 val frameIndex = (angle / 7.5f).roundToInt() % 48
@@ -1157,6 +1205,18 @@ fun WorldMapScreen(
                         val landmarksJson = gson.toJson(landmarksPayload)
                         wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks(${JSONObject.quote(landmarksJson)});", null)
                         } // fin guard landmarks web (solo se reenvían al cambiar / heartbeat)
+
+                        // 🚇 ESTACIONES DE METRO: icono fijo en cada estación. Estáticas, así que
+                        // solo se reenvían al cambiar la lista (+ heartbeat, por si el primer envío
+                        // llegó antes de que el HTML definiera updateMetro).
+                        webMetroTick[0]++
+                        if (uiState.metroStations !== lastWebMetroHolder[0] || webMetroTick[0] % 45 == 0) {
+                            lastWebMetroHolder[0] = uiState.metroStations
+                            val metroPayload = uiState.metroStations.map {
+                                mapOf("name" to it.name, "lat" to it.location.latitude, "lng" to it.location.longitude)
+                            }
+                            wv.evaluateJavascript("if(typeof updateMetro==='function')updateMetro(${JSONObject.quote(gson.toJson(metroPayload))});", null)
+                        }
                         if (uiState.showRoadNetwork) {
                             val roadsPayload = roadNetwork.map { way ->
                                 mapOf(
@@ -1169,6 +1229,47 @@ fun WorldMapScreen(
                             wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads(${JSONObject.quote(roadsJson)});", null)
                         } else {
                             wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads('[]');", null)
+                        }
+
+                        // 🔧 DEBUG INTERIORES (web): dibuja el navGraph de los landmarks (ESCOM)
+                        // para ver por dónde se puede caminar (verde) y por dónde van autos (naranja).
+                        // Convertimos localX/localY → global aquí (el Leaflet no tiene esa geometría).
+                        val ipOn = uiState.showInteriorDebugOverlay
+                        if (ipOn != lastWebIpOn[0] || (ipOn && (uiState.landmarks !== lastWebIpLm[0] || uiState.exteriorCollisions !== lastWebIpColl[0]))) {
+                            lastWebIpOn[0] = ipOn
+                            lastWebIpLm[0] = uiState.landmarks
+                            lastWebIpColl[0] = uiState.exteriorCollisions
+                            if (ipOn) {
+                                // Caminos del navGraph (verde/naranja).
+                                val paths = uiState.landmarks.flatMap { lm ->
+                                    val ng = lm.navGraph ?: return@flatMap emptyList<Map<String, Any>>()
+                                    ng.ways.filter { it.nodes.size >= 2 }.map { w ->
+                                        mapOf(
+                                            "id" to "${lm.id}_${w.id}",
+                                            "walk" to w.isForPeople,
+                                            "nodes" to w.nodes.map {
+                                                val g = lm.toGlobalGeoPoint(it.localX, it.localY)
+                                                mapOf("lat" to g.latitude, "lng" to g.longitude)
+                                            }
+                                        )
+                                    }
+                                }
+                                // Zonas NO caminables (polígonos rojos) + bardas (líneas rojas).
+                                val cfg = uiState.exteriorCollisions
+                                val blocks = cfg?.polygons?.filter { it.nodes.size >= 3 }?.mapIndexed { i, poly ->
+                                    mapOf("id" to "blk_$i", "nodes" to poly.nodes.map { mapOf("lat" to it.lat, "lng" to it.lon) })
+                                } ?: emptyList()
+                                val walls = cfg?.walls?.mapIndexed { i, wl ->
+                                    mapOf("id" to "wl_$i", "nodes" to listOf(
+                                        mapOf("lat" to wl.lat1, "lng" to wl.lon1),
+                                        mapOf("lat" to wl.lat2, "lng" to wl.lon2)
+                                    ))
+                                } ?: emptyList()
+                                val ipObj = mapOf("paths" to paths, "blocks" to blocks, "walls" to walls)
+                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths(${JSONObject.quote(gson.toJson(ipObj))});", null)
+                            } else {
+                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths('{}');", null)
+                            }
                         }
                         val destMarker = uiState.destinationMarker
                         if (destMarker != null) wv.evaluateJavascript("if(typeof updateDestinationMarker==='function')updateDestinationMarker(${destMarker.latitude}, ${destMarker.longitude});", null)
@@ -1217,6 +1318,89 @@ fun WorldMapScreen(
                                 mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude)
                             }
                             wv.evaluateJavascript("if(typeof updateZombies==='function')updateZombies(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(zombiePayload)});", null)
+                        }
+
+                        // ─── PRANKEDY (compañero) en WEB ──────────────────────────────────
+                        // Su sprite NO es un NPC normal (assets propios), así que se dibuja con
+                        // su propio marcador Leaflet. Se envía CADA frame (FUERA del guard de la
+                        // lista de NPCs) porque se mueve suave siguiendo al jugador.
+                        run {
+                            val pkLoc = uiState.prankedyLocation
+                            if (pkLoc != null && !uiState.isDriving) {
+                                val pkTime = System.currentTimeMillis()
+                                val pkAnim = uiState.prankedyAnimState
+                                val pkFrames = when (pkAnim) {
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.IDLE -> 3
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.WALK -> 9
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN -> 8
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN_TANQUE -> 9
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.ATTACK -> 5
+                                }
+                                val pkFrame = ((pkTime / 200L) % pkFrames).toInt()
+                                val pkKey = "PRANKEDY_WEB_${pkAnim.name}_${uiState.prankedyFacingRight}_$pkFrame"
+                                val pkB64 = base64Cache[pkKey]
+                                if (pkB64 == null) {
+                                    base64Cache[pkKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
+                                            .getDrawable(context, pkAnim, pkTime, highResRenderScale, uiState.prankedyFacingRight)
+                                        val bmp = d?.bitmap
+                                        if (bmp != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bmp.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
+                                            val b64 = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { base64Cache[pkKey] = b64 }
+                                        }
+                                    }
+                                }
+                                if (!pkB64.isNullOrEmpty() && !registeredWebImages.contains(pkKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$pkKey'] = '$pkB64';", null)
+                                    registeredWebImages.add(pkKey)
+                                }
+                                val pkFlip = if (uiState.prankedyFacingRight) 1 else -1
+                                val pkDlg = uiState.prankedyDialogue?.let { JSONObject.quote(it) } ?: "null"
+                                val pkHealth = uiState.prankedyHealth
+                                val pkMaxHealth = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager.MAX_HEALTH
+                                wv.evaluateJavascript("if(typeof updatePrankedy==='function')updatePrankedy({lat:${pkLoc.latitude},lng:${pkLoc.longitude},imageKey:'$pkKey',flip:$pkFlip,dialogue:$pkDlg,health:$pkHealth,maxHealth:$pkMaxHealth});", null)
+                            } else {
+                                wv.evaluateJavascript("if(typeof clearPrankedy==='function')clearPrankedy();", null)
+                            }
+                        }
+
+                        // ─── PRANKEDY: proyectil (tanque de gas, p_objeto) en WEB ──────────
+                        run {
+                            val pjStart = uiState.prankedyProjectileStart
+                            val pjEnd = uiState.prankedyProjectileTarget
+                            if (uiState.prankedyProjectileActive && pjStart != null && pjEnd != null && !uiState.isDriving) {
+                                val pjP = uiState.prankedyProjectileProgress
+                                val pjLat = pjStart.latitude + (pjEnd.latitude - pjStart.latitude) * pjP
+                                val pjLon = pjStart.longitude + (pjEnd.longitude - pjStart.longitude) * pjP
+                                val pjTime = System.currentTimeMillis()
+                                val pjFrame = ((pjTime / 150L) % 3L).toInt()
+                                val pjKey = "PRANKEDY_PROJ_WEB_$pjFrame"
+                                val pjB64 = base64Cache[pjKey]
+                                if (pjB64 == null) {
+                                    base64Cache[pjKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
+                                            .getProjectileDrawable(context, pjTime, highResRenderScale)
+                                        val bmp = d?.bitmap
+                                        if (bmp != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bmp.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
+                                            val b64 = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { base64Cache[pjKey] = b64 }
+                                        }
+                                    }
+                                }
+                                if (!pjB64.isNullOrEmpty() && !registeredWebImages.contains(pjKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$pjKey'] = '$pjB64';", null)
+                                    registeredWebImages.add(pjKey)
+                                }
+                                wv.evaluateJavascript("if(typeof updatePrankedyProjectile==='function')updatePrankedyProjectile({lat:$pjLat,lng:$pjLon,imageKey:'$pjKey'});", null)
+                            } else {
+                                wv.evaluateJavascript("if(typeof clearPrankedyProjectile==='function')clearPrankedyProjectile();", null)
+                            }
                         }
                     }
                 )
@@ -1569,6 +1753,13 @@ fun WorldMapScreen(
                                     Icons.Default.Warning,
                                     if (uiState.globalZombieMode) Color(0xFFE53935) else Color.White
                                 ) { viewModel.toggleGlobalZombieMode() })
+                                // Prankedy: NPC hostil que te ataca (y te defiende de otros NPCs).
+                                // Toggle on/off, igual que el apocalipsis.
+                                add(OptionMenuItem(
+                                    if (uiState.prankedyEnabled) "Desactivar Prankedy" else "Activar Prankedy",
+                                    Icons.Default.Face,
+                                    if (uiState.prankedyEnabled) Color(0xFFD4AF37) else Color.White
+                                ) { viewModel.togglePrankedy() })
                             }
                         )
                     )
@@ -1895,6 +2086,31 @@ fun WorldMapScreen(
         Box(modifier = Modifier.fillMaxSize().padding(top = 70.dp), contentAlignment = Alignment.TopCenter) {
             Text(text = promptText, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp, modifier = Modifier.background(color = Color(0xFF3B0D1B).copy(alpha = 0.85f), shape = RoundedCornerShape(8.dp)).padding(horizontal = 24.dp, vertical = 12.dp))
         }
+    }
+
+    uiState.prankedyDialogue?.let { dialogueText ->
+        Box(modifier = Modifier.fillMaxSize().padding(top = 130.dp), contentAlignment = Alignment.TopCenter) {
+            Text(
+                text = dialogueText,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                modifier = Modifier
+                    .background(color = Color(0xFF222222).copy(alpha = 0.9f), shape = RoundedCornerShape(12.dp))
+                    .border(2.dp, Color(0xFFFFCC00), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            )
+        }
+    }
+
+    if (uiState.showPrankedyHireDialog) {
+        PrankedyHireDialog(
+            context = context,
+            isHireable = uiState.prankedyIsHireable,
+            hireableInSeconds = uiState.prankedyHireableInSeconds,
+            onHire = { viewModel.onHirePrankedy() },
+            onDismiss = { viewModel.dismissPrankedyDialog() }
+        )
     }
 
     uiState.showClaimedPopupFor?.let { collectible ->

@@ -138,8 +138,11 @@ class NpcAiManager {
         this.exteriorCollisions = config
     }
 
-    private val maxActiveNpcs get() = ((if (globalZombieMode) 45 else 26) * popFactor).toInt().coerceIn(6, 120)
-    private val maxTotalNpcs  get() = ((if (globalZombieMode) 90 else 55) * popFactor).toInt().coerceIn(12, 240)
+    // FIX "se generan muchos NPCs": bajamos los topes base (18 activos / 38 totales,
+    // antes 26/55) para reducir la saturación; siguen escalando por popFactor (gama +
+    // ciudad + ajuste del usuario), así que NO se hardcodea la densidad final.
+    private val maxActiveNpcs get() = ((if (globalZombieMode) 45 else 18) * popFactor).toInt().coerceIn(6, 120)
+    private val maxTotalNpcs  get() = ((if (globalZombieMode) 90 else 38) * popFactor).toInt().coerceIn(12, 240)
 
     private val SPAWN_SCAN_MS = 500L
     @Volatile private var lastSpawnScanMs = 0L
@@ -196,10 +199,10 @@ class NpcAiManager {
     // órbitas/oscilaciones). El coche NPC desplaza su OBJETIVO perpendicularmente
     // mientras el jugador esté en su trayectoria; al rebasarlo el offset se apaga
     // y el smoothing normal lo reincorpora a su carril. Sin tocar su posición.
-    private val TRAFFIC_AVOID_RADIUS = 0.00012     // ~13 m: distancia al jugador para empezar a abrirse
-    private val TRAFFIC_AVOID_PATH_HALF = 0.00005  // ~5.5 m: medio ancho de "su trayectoria"
-    private val TRAFFIC_AVOID_BEHIND = 0.00005     // ~5.5 m: mantener el offset hasta rebasar por completo
-    private val TRAFFIC_AVOID_OFFSET = 0.00003     // ~3.3 m: apertura máxima (≈ un carril)
+    private val TRAFFIC_AVOID_RADIUS = 0.00008     // ~9 m: distancia al jugador para empezar a abrirse
+    private val TRAFFIC_AVOID_PATH_HALF = 0.00004  // ~4.4 m: medio ancho de "su trayectoria"
+    private val TRAFFIC_AVOID_BEHIND = 0.00004     // ~4.4 m: mantener el offset hasta rebasar por completo
+    private val TRAFFIC_AVOID_OFFSET = 0.000015    // ~1.6 m: apertura máxima (medio carril, no se sale de la red)
     private val TRAFFIC_AVOID_LOOKAHEAD = 0.00008  // ~9 m: el objetivo de esquive es LOCAL (ver moveNpc)
 
     @Volatile private var networkIsReady = false
@@ -1069,8 +1072,8 @@ class NpcAiManager {
         }
 
         return if (dist < actualSpeed) {
-            val pauseTime = if (npc.type == NpcType.PERSON && Random.nextFloat() < 0.25f) {
-                System.currentTimeMillis() + Random.nextLong(2000, 4000)
+            val pauseTime = if (npc.type == NpcType.PERSON && Random.nextFloat() < 0.08f) {
+                System.currentTimeMillis() + Random.nextLong(800, 1800)
             } else {
                 npc.chatUntil
             }
@@ -1343,6 +1346,7 @@ class NpcAiManager {
         // offset se recalcula cada tick a partir de la geometría, así que: abre →
         // pasa → se apaga solo → el smoothing lo regresa al carril. Nunca se toca
         // la posición del NPC (eso causaba las órbitas alrededor del jugador).
+        var avoidingPlayer = false
         if (npc.type == NpcType.CAR) {
             val relLat = aggroPlayerLat - npc.location.latitude
             val relLon = aggroPlayerLon - npc.location.longitude
@@ -1372,6 +1376,7 @@ class NpcAiManager {
                         // retoma su nodo y se reincorpora al carr0il.
                         tLat = npc.location.latitude + fLat * TRAFFIC_AVOID_LOOKAHEAD + pLat * s * strength
                         tLon = npc.location.longitude + fLon * TRAFFIC_AVOID_LOOKAHEAD + pLon * s * strength
+                        avoidingPlayer = true
                     }
                 }
             }
@@ -1464,10 +1469,23 @@ class NpcAiManager {
             return npc.copy(speed = 0.0, isMoving = false)
         }
 
-        return if (dist < actualSpeed) {
-            npc.copy(currentWay = way, location = GeoPoint(tLat, tLon), targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
+        // FIX "rara vez me rebasan / dan vueltas en círculos": cuando el coche esquiva
+        // al jugador persigue un carrot LOCAL (~9 m), así que `dist` nunca baja de
+        // actualSpeed y el `targetNodeIndex` NO avanzaba → al apagarse el esquive el
+        // nodo base quedaba DETRÁS y el coche se daba la vuelta hacia el jugador
+        // (bucle/órbita). Si mientras esquiva ya REBASÓ el nodo base (quedó detrás del
+        // avance), avanzamos el índice: el coche sigue su ruta y te rebasa de verdad.
+        val stepLat = sin(moveRad) * actualSpeed
+        val stepLon = cos(moveRad) * actualSpeed
+        val newLat = npc.location.latitude + stepLat
+        val newLon = npc.location.longitude + stepLon
+        val passedBaseNode = avoidingPlayer &&
+            ((baseTarget.lat - newLat) * stepLat + (baseTarget.lon - newLon) * stepLon) < 0.0
+
+        return if (dist < actualSpeed || passedBaseNode) {
+            npc.copy(currentWay = way, location = if (dist < actualSpeed) GeoPoint(tLat, tLon) else GeoPoint(newLat, newLon), targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
         } else {
-            npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(npc.location.latitude + sin(moveRad) * actualSpeed, npc.location.longitude + cos(moveRad) * actualSpeed), rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
+            npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(newLat, newLon), rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
         }
     }
 

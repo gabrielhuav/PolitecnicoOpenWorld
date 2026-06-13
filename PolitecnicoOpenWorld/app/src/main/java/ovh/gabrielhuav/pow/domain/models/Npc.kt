@@ -116,5 +116,12 @@ data class Npc(
     val commitmentTicks: Int = 0,
     // Variación de velocidad: cada auto tiene un multiplicador aleatorio (0.8–1.2)
     // para que no todos viajen exactamente a la misma velocidad.
-    val speedVariation: Float = 1.0f
+    val speedVariation: Float = 1.0f,
+
+    // ─── SKIN DE PATRULLA en un coche tipo CAR ────────────────────────────────
+    // true = aunque su `type` sea CAR (para que la IA lo conduzca como tráfico
+    // normal y NO lo despawnee), se dibuja con el asset de patrulla. Lo activa el
+    // coche que queda al BAJARTE de una patrulla robada, para que siga viéndose
+    // como patrulla. Cosmético/local (no se serializa en MultiplayerNpc).
+    val isPoliceSkin: Boolean = false
 )

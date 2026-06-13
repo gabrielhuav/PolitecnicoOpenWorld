@@ -106,6 +106,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickControlle
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
@@ -244,6 +245,10 @@ internal fun NativeOsmMap(
         },
         modifier = Modifier.fillMaxSize(),
         update = { view ->
+            val timeMs = System.currentTimeMillis()
+            val screenDensity = context.resources.displayMetrics.density
+            val highResRenderScale = 1.0f * screenDensity
+
             if (uiState.isDesignerMode) {
                 view.setOnTouchListener(null)
                 view.isClickable = true
@@ -453,10 +458,9 @@ internal fun NativeOsmMap(
             if (pLocB != null) {
                 val mppB = (40075016.686 * Math.cos(Math.toRadians(pLocB.latitude))) /
                         (256.0 * Math.pow(2.0, uiState.zoomLevel))
-                val densB = context.resources.displayMetrics.density
-                val bulletPx = ((0.30 / mppB) * densB).toInt().coerceIn(6, 22) // bala pequeña
-                val gunPx = ((1.0 / mppB) * densB).toInt().coerceIn(14, 72)
-                val nowB = System.currentTimeMillis()
+                val bulletPx = ((0.30 / mppB) * screenDensity).toInt().coerceIn(6, 22) // bala pequeña
+                val gunPx = ((1.0 / mppB) * screenDensity).toInt().coerceIn(14, 72)
+                val nowB = timeMs
                 val BULLET_MS = 420.0
                 // Crece los pools según haga falta.
                 while (policeBulletPool.size < shots.size) {
@@ -499,7 +503,7 @@ internal fun NativeOsmMap(
                 }
 
                 // ─── 📞 NPCs llamando a la policía (carjack) ─────────────────────
-                val phonePx = ((0.9 / mppB) * densB).toInt().coerceIn(12, 64)
+                val phonePx = ((0.9 / mppB) * screenDensity).toInt().coerceIn(12, 64)
                 val callingNpcs = uiState.npcs.filter { it.callingUntil > nowB }
                 val callIds = callingNpcs.map { it.id }.toSet()
                 val phoneIt = phoneCache.iterator()
@@ -520,7 +524,7 @@ internal fun NativeOsmMap(
                 }
 
                 // ─── 📢 Zombis SCOUT gritando (alarma de horda) ──────────────────
-                val screamPx = ((1.0 / mppB) * densB).toInt().coerceIn(14, 72)
+                val screamPx = ((1.0 / mppB) * screenDensity).toInt().coerceIn(14, 72)
                 val screamingNpcs = uiState.npcs.filter {
                     it.type == NpcType.ZOMBIE &&
                         it.zombieRole == ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT &&
@@ -578,9 +582,6 @@ internal fun NativeOsmMap(
 
                 val currentZoom = view.zoomLevelDouble
                 val isZoomedIn = currentZoom >= 16
-                val timeMs = System.currentTimeMillis()
-                val screenDensity = context.resources.displayMetrics.density
-                val highResRenderScale = 1.0f * screenDensity
 
                 // ─── CULLING POR DISTANCIA ──────────────────────────────
                 // OPT: solo reconstruimos los marcadores de NPC cuando la LISTA cambió
@@ -655,13 +656,14 @@ internal fun NativeOsmMap(
                                     emojiToDrawable(context, emoji, px)
                                 }
                                 marker.rotation = 0f
-                            } else if (npc.type == NpcType.POLICE_CAR) {
-                                // PATRULLA: asset especial sin repintar, mismo tamaño que un auto.
+                            } else if (npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin) {
+                                // PATRULLA (o coche con skin de patrulla tras bajarte de una robada):
+                                // asset especial sin repintar, mismo tamaño que un auto.
                                 val exactPixels = ((4.0 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(16)
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
                                 val frameIndex = (angle / 7.5f).roundToInt() % 48
-                                val cacheKey = "POLICE_${frameIndex}_${exactPixels}"
+                                val cacheKey = "POLICE_${frameIndex}_${exactPixels}_H${npc.health.toInt()}_D${npc.isDying}"
                                 val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                     val baseDrawable = PoliceSpriteManager.getPoliceCar(context, angle, highResRenderScale)
                                     baseDrawable?.let { drawable ->
@@ -669,7 +671,8 @@ internal fun NativeOsmMap(
                                         val finalWidthPx: Int; val finalHeightPx: Int
                                         if (ratio > 1f) { finalWidthPx = exactPixels; finalHeightPx = (exactPixels / ratio).toInt() }
                                         else { finalHeightPx = exactPixels; finalWidthPx = (exactPixels * ratio).toInt() }
-                                        ExactSizeDrawable(drawable, finalWidthPx, finalHeightPx)
+                                        val withHealth = drawHealthBarOnDrawable(context, drawable, npc.health, npc.isDying)
+                                        ExactSizeDrawable(withHealth ?: drawable, finalWidthPx, finalHeightPx)
                                     } ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
                                 }
                                 marker.icon = cachedIcon
@@ -677,9 +680,10 @@ internal fun NativeOsmMap(
                             } else if (npc.type == NpcType.POLICE_COP) {
                                 // POLICÍA A PIE: no hay asset de persona → se dibuja con un EMOJI.
                                 val exactPixels = ((1.05 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(14)
-                                val cacheKey = "COP_EMOJI_${exactPixels}"
+                                val cacheKey = "COP_EMOJI_${exactPixels}_H${npc.health.toInt()}_D${npc.isDying}"
                                 val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                    emojiToDrawable(context, "👮", exactPixels)
+                                    val baseDrawable = emojiToDrawable(context, "👮", exactPixels)
+                                    drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying) ?: baseDrawable
                                 }
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f
@@ -693,7 +697,16 @@ internal fun NativeOsmMap(
                                 val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                 val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
 
-                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                // FIX "peatón invisible que me pega": si el sprite del personaje aún
+                                // NO está listo (assets fríos tras un TP / liberados por onTrimMemory),
+                                // getModularNpcDrawable devuelve null. ANTES se cacheaba un drawable
+                                // TRANSPARENTE bajo el cacheKey → el peatón quedaba invisible (pero
+                                // seguía vivo y te golpeaba). Ahora: si el sprite falla NO se cachea el
+                                // fallo (se reintenta cada frame) y se muestra un emoji 🧍 visible.
+                                val cachedSprite = nativeDrawableCache[cacheKey]
+                                if (cachedSprite != null) {
+                                    marker.icon = cachedSprite
+                                } else {
                                     var baseDrawable = CharacterSpriteManager.getModularNpcDrawable(
                                         context = context,
                                         visualConfig = npc.visualConfig!!,
@@ -704,10 +717,18 @@ internal fun NativeOsmMap(
                                         displayName = npc.displayName
                                     )
                                     baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
-                                    baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
-                                        ?: ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                                    val built = baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                    if (built != null) {
+                                        nativeDrawableCache[cacheKey] = built
+                                        marker.icon = built
+                                    } else {
+                                        // Fallback SIEMPRE visible (nunca un NPC invisible). No se cachea
+                                        // bajo cacheKey → se reintenta el sprite real cuando cargue.
+                                        marker.icon = nativeDrawableCache.getOrPut("PED_FALLBACK_$exactPixels") {
+                                            emojiToDrawable(context, "🧍", exactPixels)
+                                        }
+                                    }
                                 }
-                                marker.icon = cachedIcon
                                 marker.rotation = 0f
 
                             } else if (npc.type == NpcType.CAR) {
@@ -843,7 +864,7 @@ internal fun NativeOsmMap(
                             }
                         }
                         marker.icon = cachedIcon
-                        val isHand = collectible.name == "Objeto Misterioso ESCOM"
+                        val isHand = collectible.name == "Objeto Misterioso ESCOM" || collectible.id == "global_zombie_hand"
                         marker.rotation = if (isHand) 0f else ((System.currentTimeMillis() / 30) % 360).toFloat()
                     } else {
                         marker.setAlpha(0f)
@@ -974,6 +995,16 @@ internal fun NativeOsmMap(
                     view.setTag(ovh.gabrielhuav.pow.R.id.player_marker_tag.let { it + 100 }, it)
                 }
 
+            // Overlays del Debug Interiores: caminos del navGraph (líneas) + zonas NO caminables
+            // (polígonos rojos) + bardas. Se reconstruyen SOLO cuando cambian los landmarks o las
+            // colisiones (no por frame). Sig[0]=landmarks, Sig[1]=exteriorCollisions.
+            @Suppress("UNCHECKED_CAST")
+            val interiorPathCache = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 250 }) as? MutableList<org.osmdroid.views.overlay.Overlay>)
+                ?: mutableListOf<org.osmdroid.views.overlay.Overlay>().also { view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 250 }, it) }
+            @Suppress("UNCHECKED_CAST")
+            val interiorPathSig = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 260 }) as? Array<Any?>)
+                ?: arrayOfNulls<Any?>(2).also { view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 260 }, it) }
+
             if (uiState.showInteriorDebugOverlay) {
                 InteriorBuilding.entries.forEach { b ->
                     val marker = debugMarkerCache[b.id] ?: Marker(view).apply {
@@ -1004,9 +1035,66 @@ internal fun NativeOsmMap(
                 val bb = EscomBoundingBox
                 bbox.setPoints(listOf(bb.topLeft, bb.topRight, bb.bottomRight, bb.bottomLeft, bb.topLeft))
                 bbox.isEnabled = true
+
+                // CAMINOS ADICIONALES (navGraph de los landmarks): muestra por dónde se puede
+                // caminar (verde = peatonal) y por dónde van los autos (naranja). Se reconstruye
+                // solo si cambió la lista de landmarks (evita rehacerlo cada frame).
+                if (interiorPathSig[0] !== uiState.landmarks || interiorPathSig[1] !== uiState.exteriorCollisions) {
+                    interiorPathSig[0] = uiState.landmarks
+                    interiorPathSig[1] = uiState.exteriorCollisions
+                    interiorPathCache.forEach { view.overlays.remove(it) }
+                    interiorPathCache.clear()
+                    // 1) ZONAS NO CAMINABLES (polígonos rojos translúcidos, p. ej. el edificio ESCOM).
+                    uiState.exteriorCollisions?.polygons?.forEach { poly ->
+                        if (poly.nodes.size < 3) return@forEach
+                        val polygon = org.osmdroid.views.overlay.Polygon().apply {
+                            points = poly.nodes.map { GeoPoint(it.lat, it.lon) }
+                            fillPaint.color = android.graphics.Color.argb(90, 220, 40, 40)   // rojo translúcido = NO entrar
+                            outlinePaint.color = android.graphics.Color.argb(230, 200, 0, 0)
+                            outlinePaint.strokeWidth = 4f
+                            outlinePaint.isAntiAlias = true
+                        }
+                        interiorPathCache.add(polygon)
+                        view.overlays.add(polygon)
+                    }
+                    // 2) BARDAS (líneas rojas gruesas).
+                    uiState.exteriorCollisions?.walls?.forEach { wall ->
+                        val line = Polyline().apply {
+                            outlinePaint.color = android.graphics.Color.argb(230, 220, 0, 0)
+                            outlinePaint.strokeWidth = 7f
+                            outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                            outlinePaint.isAntiAlias = true
+                            setPoints(listOf(GeoPoint(wall.lat1, wall.lon1), GeoPoint(wall.lat2, wall.lon2)))
+                        }
+                        interiorPathCache.add(line)
+                        view.overlays.add(line)
+                    }
+                    // 3) CAMINOS del navGraph (verde = caminable, naranja = autos).
+                    uiState.landmarks.forEach { lm ->
+                        val ng = lm.navGraph ?: return@forEach
+                        ng.ways.forEach { w ->
+                            if (w.nodes.size < 2) return@forEach
+                            val pts = w.nodes.map { lm.toGlobalGeoPoint(it.localX, it.localY) }
+                            val line = Polyline().apply {
+                                outlinePaint.color = if (w.isForPeople)
+                                    android.graphics.Color.argb(230, 76, 200, 80)   // verde = caminable
+                                else
+                                    android.graphics.Color.argb(230, 255, 140, 0)   // naranja = autos
+                                outlinePaint.strokeWidth = if (w.isForPeople) 5f else 7f
+                                outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                                outlinePaint.isAntiAlias = true
+                                setPoints(pts)
+                            }
+                            interiorPathCache.add(line)
+                            view.overlays.add(line)
+                        }
+                    }
+                }
+                interiorPathCache.forEach { it.isEnabled = true }
             } else {
                 debugMarkerCache.values.forEach { it.setAlpha(0f) }
                 (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 200 }) as? Polyline)?.isEnabled = false
+                interiorPathCache.forEach { it.isEnabled = false }
             }
 
             // ─── METRO STATIONS OVERLAY ────────────────────────────────────────────────
@@ -1027,7 +1115,6 @@ internal fun NativeOsmMap(
                 uiState.metroStations.forEach { station ->
                     val marker = metroMarkerCache[station.name] ?: Marker(view).apply {
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        val screenDensity = context.resources.displayMetrics.density
                         val exactPixels = (24 * screenDensity).toInt()
                         val cacheKey = "OSM_METRO_ICON"
                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
@@ -1116,11 +1203,134 @@ internal fun NativeOsmMap(
                     (NPC_FOG_VISION_METERS / mpp).toFloat() else 300f
                 // Mantener la neblina SIEMPRE al frente (los marcadores se añaden después).
                 view.overlays.remove(fog); view.overlays.add(fog)
-                view.invalidate()
             }
+
+            // ─── PRANKEDY: renderizado siempre en capa superior (tras la niebla) ──
+            renderPrankedyOnMap(view, uiState, context, nativeDrawableCache, screenDensity, timeMs)
+
+            view.invalidate()
         }
     )
 }
+
+private fun renderPrankedyOnMap(
+    view: MapView,
+    uiState: WorldMapState,
+    context: Context,
+    nativeDrawableCache: MutableMap<String, android.graphics.drawable.Drawable>,
+    screenDensity: Float,
+    timeMs: Long
+) {
+    val prankedyTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 700
+    val prankedyProjTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 701
+    val prankedyIndicatorTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 702
+
+    val prankedyLoc = uiState.prankedyLocation
+
+    // Mostramos a Prankedy si tiene ubicación y el jugador NO va en coche (al conducir el
+    // compañero "sube" → su asset se oculta; reaparece al bajarse). Esto cubre las fases
+    // NOT_HIRED (vagabundo) y HIRED (compañero); en fase DEAD location es null → oculto.
+    val shouldShow = prankedyLoc != null && !uiState.isDriving
+    
+    val prankedyMarker = (view.getTag(prankedyTag) as? Marker) ?: Marker(view).apply {
+        title = "PRANKEDY_MARKER"
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        setInfoWindow(null)
+        view.setTag(prankedyTag, this)
+        view.overlays.add(this) // al final de overlays (arriba de todo)
+    }
+
+    val prankedyIndicatorMarker = (view.getTag(prankedyIndicatorTag) as? Marker) ?: Marker(view).apply {
+        title = "PRANKEDY_INDICATOR"
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) // Flota arriba
+        setInfoWindow(null)
+        view.setTag(prankedyIndicatorTag, this)
+        view.overlays.add(this)
+    }
+    
+    if (shouldShow) {
+        // Moverlo al final siempre (encima de fog y otros markers)
+        view.overlays.remove(prankedyMarker)
+        view.overlays.add(prankedyMarker)
+        view.overlays.remove(prankedyIndicatorMarker)
+        view.overlays.add(prankedyIndicatorMarker)
+
+        val metersPerPixel = (40075016.686 * kotlin.math.cos(Math.toRadians(prankedyLoc!!.latitude))) /
+                (256.0 * 2.0.pow(view.zoomLevelDouble))
+        // Tamaño en METROS reales = peatón (~1.3 m), para igualar a los NPCs normales.
+        val exactPixels = ((1.3 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(24)
+        val cacheKey = "PRANKEDY_${uiState.prankedyAnimState}_${uiState.prankedyFacingRight}_${(timeMs / 180L) % 8}_${exactPixels}"
+        
+        val icon = nativeDrawableCache.getOrPut(cacheKey) {
+            var baseDrawable: android.graphics.drawable.Drawable? = PrankedySpriteManager.getDrawable(context, uiState.prankedyAnimState, timeMs, screenDensity, uiState.prankedyFacingRight)
+            baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, uiState.prankedyHealth, false, ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager.MAX_HEALTH)
+            baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                ?: emojiToDrawable(context, "🎭", exactPixels) // Fallback visible si falla asset
+        }
+        prankedyMarker.icon = icon
+        prankedyMarker.position = prankedyLoc
+        prankedyMarker.isEnabled = true
+        prankedyMarker.setAlpha(1f)
+
+        // Indicador flotante (🎭) - Aumentado a 80dp
+        val indicatorSize = (80 * screenDensity).toInt()
+        val indicatorIcon = nativeDrawableCache.getOrPut("PR_IND_$indicatorSize") {
+            emojiToDrawable(context, "🎭", indicatorSize)
+        }
+        prankedyIndicatorMarker.icon = indicatorIcon
+        prankedyIndicatorMarker.position = prankedyLoc
+        // Indicador 🎭 flotante DESHABILITADO: que Prankedy se vea como un peatón más
+        // (mismo tamaño, sin emoji gigante encima).
+        prankedyIndicatorMarker.isEnabled = false
+        prankedyIndicatorMarker.setAlpha(0f)
+        
+    } else {
+        prankedyMarker.isEnabled = false
+        prankedyMarker.setAlpha(0f)
+        prankedyIndicatorMarker.isEnabled = false
+        prankedyIndicatorMarker.setAlpha(0f)
+    }
+
+    // Proyectil
+    val projMarker = (view.getTag(prankedyProjTag) as? Marker) ?: Marker(view).apply {
+        title = "PRANKEDY_PROJ_MARKER"
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        setInfoWindow(null)
+        view.setTag(prankedyProjTag, this)
+        view.overlays.add(this)
+    }
+
+    if (uiState.prankedyProjectileActive && uiState.prankedyProjectileStart != null && uiState.prankedyProjectileTarget != null) {
+        view.overlays.remove(projMarker)
+        view.overlays.add(projMarker)
+
+        val start = uiState.prankedyProjectileStart
+        val end = uiState.prankedyProjectileTarget
+        val p = uiState.prankedyProjectileProgress
+
+        val currentLat = start.latitude + (end.latitude - start.latitude) * p
+        val currentLon = start.longitude + (end.longitude - start.longitude) * p
+        projMarker.position = GeoPoint(currentLat, currentLon)
+
+        val mpp = (40075016.686 * kotlin.math.cos(Math.toRadians(currentLat))) /
+                (256.0 * 2.0.pow(view.zoomLevelDouble))
+        val exactPixels = ((0.6 / mpp) * screenDensity).toInt().coerceAtLeast(8)
+        val cacheKey = "PRANKEDY_PROJ_${(timeMs / 100L) % 4}_${exactPixels}"
+
+        val icon = nativeDrawableCache.getOrPut(cacheKey) {
+            PrankedySpriteManager.getProjectileDrawable(context, timeMs, screenDensity)
+                ?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                ?: emojiToDrawable(context, "📦", exactPixels) // Fallback visible
+        }
+        projMarker.icon = icon
+        projMarker.isEnabled = true
+        projMarker.setAlpha(1f)
+    } else {
+        projMarker.isEnabled = false
+        projMarker.setAlpha(0f)
+    }
+}
+
 
 /**
  * Overlay de osmdroid que pinta la neblina (fog of war) centrada en la posición
