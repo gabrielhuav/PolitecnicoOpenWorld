@@ -1,7 +1,70 @@
 <resources>
     <string name="app_name">PolitecnicoOpenWorld</string>
+
+    <!-- ─── Diálogo salir (existente) ─── -->
     <string name="exit_dialog_title">¿Qué deseas hacer?</string>
     <string name="exit_dialog_text">¿Quieres volver al menú principal o salir de la aplicación?</string>
     <string name="exit_dialog_confirm">Volver al Menú</string>
     <string name="exit_dialog_dismiss">Salir</string>
+
+    <!-- ─── Menú principal (features/main_menu) ─── -->
+    <string name="menu_version">v%1$s - ESCOM Edition</string>
+    <string name="menu_start_game">INICIAR JUEGO</string>
+    <string name="menu_load_game">CARGAR PARTIDA</string>
+    <string name="menu_multiplayer">MULTIJUGADOR</string>
+    <string name="menu_settings">AJUSTES</string>
+    <string name="menu_collectibles">COLECCIONABLES</string>
+    <string name="menu_mp_dialog_title">Conectar a Servidor</string>
+    <string name="menu_mp_username_label">Nombre de Usuario</string>
+    <string name="menu_mp_connect">Conectar</string>
+    <string name="menu_cancel">Cancelar</string>
+    <string name="menu_cancel_caps">CANCELAR</string>
+    <string name="menu_warmup_fail_title">Servidor no disponible</string>
+    <string name="menu_warmup_fail_text">El servidor multijugador tarda demasiado en responder. Intenta de nuevo en unos segundos.</string>
+    <string name="menu_retry">REINTENTAR</string>
+    <string name="menu_close">Cerrar</string>
+    <string name="menu_warmup_title">DESPERTANDO SERVIDOR</string>
+    <string name="menu_warmup_text">El servidor multijugador está en reposo.\nDespertándolo... %1$ds</string>
+    <string name="menu_warmup_hint">Puede tardar hasta 60 segundos.</string>
+
+    <!-- ─── Ajustes (features/settings) ─── -->
+    <string name="settings_title">AJUSTES DEL JUEGO</string>
+    <string name="settings_back">Volver</string>
+    <string name="settings_exit_to_menu">SALIR AL MENÚ</string>
+    <string name="settings_none_available">Sin ajustes disponibles actualmente.</string>
+    <string name="settings_cat_map">Mapa</string>
+    <string name="settings_cat_controls">Controles</string>
+    <string name="settings_cat_gameplay">Jugabilidad</string>
+    <string name="settings_cat_interface">Interfaz</string>
+    <string name="settings_npc_count">Cantidad de NPCs</string>
+    <string name="settings_npc_count_desc">Multiplica peatones, autos y zombis. Se combina automáticamente con la gama de tu teléfono y con la densidad de la zona (ciudad = más). Actual: %1$d%%</string>
+    <string name="settings_npc_less">Menos (gama baja)</string>
+    <string name="settings_npc_more">Más (gama alta)</string>
+    <string name="settings_npc_lod_title">Optimizar dibujado de NPCs</string>
+    <string name="settings_npc_lod_desc">Dibuja como emoji 🧍🚗🧟 los NPCs lejanos y reserva el sprite completo solo para los muy cercanos. Reduce el costo de render (ideal en multijugador con muchos NPCs).</string>
+    <string name="settings_npc_full_title">Optimizar para gama baja</string>
+    <string name="settings_npc_full_desc">Reemplaza TODOS los assets de los NPCs por emojis 🧍🚗🧟👮, sin importar la distancia. No se generan sprites ni bitmaps: el modo más ligero posible, para equipos muy débiles.</string>
+    <string name="settings_map_provider">Proveedor de Mapa</string>
+    <string name="settings_map_change">Cambiar Mapa</string>
+    <string name="settings_map_restore">Restaurar Mapa</string>
+    <string name="settings_road_network">Red de Caminos</string>
+    <string name="settings_road_network_desc">Dibuja las vías transitables en el mapa</string>
+    <string name="settings_move_style">Estilo de Movimiento</string>
+    <string name="settings_screen_size">Tamaño en Pantalla: %1$d%%</string>
+    <string name="settings_size_portrait">Límite ajustado a 100% por modo vertical.</string>
+    <string name="settings_size_landscape">No superará los límites de la pantalla.</string>
+    <string name="settings_swap_sides">Intercambiar Lados</string>
+    <string name="settings_swap_sides_desc">Mueve la acción a la izquierda</string>
+    <string name="settings_save">GUARDAR CONFIGURACIÓN</string>
+    <string name="settings_cache_widget">Widget de caché</string>
+    <string name="settings_cache_widget_desc">Muestra fuente de datos</string>
+    <string name="settings_fps_widget">Widget de FPS</string>
+    <string name="settings_fps_widget_desc">Mide el rendimiento gráfico</string>
+    <string name="settings_zoom_widget">Widget de zoom</string>
+    <string name="settings_zoom_widget_desc">Muestra el nivel de zoom actual en vivo</string>
+    <string name="settings_speedometer">Velocímetro</string>
+    <string name="settings_speedometer_desc">Muestra tu velocidad (km/h) al conducir</string>
+    <string name="settings_language">Idioma</string>
+    <string name="settings_language_system">Sistema (predeterminado)</string>
+    <string name="settings_controls_saved">Configuración de controles guardada</string>
 </resources>

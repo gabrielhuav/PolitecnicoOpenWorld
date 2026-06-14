@@ -340,6 +340,25 @@ matrices por defecto son **border-only** hasta reemplazarse.
   asset es un STRING (literal o `"$folder/..."`); un rename mal hecho falla en RUNTIME, no al compilar —
   verifica que cada literal resuelva a un archivo existente.
 
+- **i18n / internacionalización (strings.xml + cambio de idioma):** los textos de UI se externalizan a
+  recursos. **Base = español** en `res/values/strings.xml`; **inglés** en `res/values-en/strings.xml`
+  (paridad 1:1 de claves). Para añadir un idioma (p. ej. ruso) basta con crear `res/values-ru/strings.xml`
+  y sumar su etiqueta a `LocaleHelper.SUPPORTED` (el selector de Ajustes lo muestra solo). Reglas:
+  - En Composables usa `stringResource(R.string.clave[, args])`; en no-Composables (Activity) `getString(...)`.
+    Para textos en lambdas `onClick` (no son Composables) **hoistea** el `stringResource` a un `val` antes.
+  - **Formato:** args posicionales `%1$s`/`%1$d`; un `%` literal en una cadena CON args va como `%%`.
+  - **Modelos/enums** que llevaban texto (p. ej. `SettingsCategory.title`) pasan a `@StringRes titleRes`
+    y la View resuelve con `stringResource`. Los `displayName` técnicos/propios (MapProvider, ControlType)
+    se dejan como están (nombres propios).
+  - **Cambio de idioma sin AppCompat:** `i18n/LocaleHelper.wrap(ctx, tag)` envuelve el Context en
+    `MainActivity.attachBaseContext`; la elección se persiste en `SettingsRepository.get/saveLanguage`
+    ("" = sistema) y el selector (`SettingsScreen` → Interfaz) **recrea la Activity** al cambiar.
+  - **Migración por feature (fases):** ya migrados `main_menu` y `settings` (patrón). Pendiente: el resto
+    de features (los grandes `map_exterior`/`interiores.zombies` concentran la mayoría de strings). NO migrar
+    rutas de assets, tipos de mensaje de red (`"PLAYER_UPDATE"`…), tags de log ni URLs: NO son texto de UI.
+  - **Claves:** `snake_case`, prefijadas por feature (`menu_*`, `settings_*`). Toda clave nueva va en
+    `values/` **y** `values-en/` (una contradicción/ausencia = bug; mantén la paridad).
+
 ---
 
 ## 13. PROTOCOLO DE ACTUALIZACIÓN DE DOCS / DOC UPDATE PROTOCOL (obligatorio / mandatory)

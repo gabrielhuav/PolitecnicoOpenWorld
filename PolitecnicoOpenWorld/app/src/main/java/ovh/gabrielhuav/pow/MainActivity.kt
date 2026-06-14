@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -67,6 +68,13 @@ private const val SPAWN_ESCOM_LAT = 19.504603
 private const val SPAWN_ESCOM_LON = -99.145985
 
 class MainActivity : ComponentActivity() {
+
+    // i18n: aplica el idioma elegido (Ajustes) envolviendo el Context base antes de
+    // que se inflen los recursos. "" = idioma del sistema. Ver i18n/LocaleHelper.kt.
+    override fun attachBaseContext(newBase: Context) {
+        val lang = ovh.gabrielhuav.pow.data.repository.SettingsRepository(newBase).getLanguage()
+        super.attachBaseContext(ovh.gabrielhuav.pow.i18n.LocaleHelper.wrap(newBase, lang))
+    }
 
     private val worldMapViewModel: WorldMapViewModel by viewModels {
         WorldMapViewModel.Factory(this)
@@ -229,7 +237,7 @@ class MainActivity : ComponentActivity() {
                                         swap = settingsState.tempSwapControls
                                     )
 
-                                    android.widget.Toast.makeText(this@MainActivity, "Configuración de controles guardada", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(this@MainActivity, getString(R.string.settings_controls_saved), android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 // Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {
@@ -240,7 +248,10 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("main_menu") { inclusive = true }
                                         launchSingleTop = true
                                     }
-                                }
+                                },
+                                // i18n: idioma actual + cambio (persiste; SettingsScreen recrea la Activity).
+                                currentLanguage = settingsState.language,
+                                onLanguageChanged = { tag -> settingsViewModel.changeLanguage(tag) }
                             )
                         }
 

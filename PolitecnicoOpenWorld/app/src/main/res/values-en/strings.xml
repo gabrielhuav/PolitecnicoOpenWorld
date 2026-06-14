@@ -1,0 +1,70 @@
+<resources>
+    <string name="app_name">PolitecnicoOpenWorld</string>
+
+    <!-- ─── Exit dialog ─── -->
+    <string name="exit_dialog_title">What do you want to do?</string>
+    <string name="exit_dialog_text">Do you want to go back to the main menu or exit the app?</string>
+    <string name="exit_dialog_confirm">Back to Menu</string>
+    <string name="exit_dialog_dismiss">Exit</string>
+
+    <!-- ─── Main menu ─── -->
+    <string name="menu_version">v%1$s - ESCOM Edition</string>
+    <string name="menu_start_game">START GAME</string>
+    <string name="menu_load_game">LOAD GAME</string>
+    <string name="menu_multiplayer">MULTIPLAYER</string>
+    <string name="menu_settings">SETTINGS</string>
+    <string name="menu_collectibles">COLLECTIBLES</string>
+    <string name="menu_mp_dialog_title">Connect to Server</string>
+    <string name="menu_mp_username_label">Username</string>
+    <string name="menu_mp_connect">Connect</string>
+    <string name="menu_cancel">Cancel</string>
+    <string name="menu_cancel_caps">CANCEL</string>
+    <string name="menu_warmup_fail_title">Server unavailable</string>
+    <string name="menu_warmup_fail_text">The multiplayer server is taking too long to respond. Try again in a few seconds.</string>
+    <string name="menu_retry">RETRY</string>
+    <string name="menu_close">Close</string>
+    <string name="menu_warmup_title">WAKING SERVER</string>
+    <string name="menu_warmup_text">The multiplayer server is asleep.\nWaking it up... %1$ds</string>
+    <string name="menu_warmup_hint">It may take up to 60 seconds.</string>
+
+    <!-- ─── Settings ─── -->
+    <string name="settings_title">GAME SETTINGS</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_exit_to_menu">EXIT TO MENU</string>
+    <string name="settings_none_available">No settings available right now.</string>
+    <string name="settings_cat_map">Map</string>
+    <string name="settings_cat_controls">Controls</string>
+    <string name="settings_cat_gameplay">Gameplay</string>
+    <string name="settings_cat_interface">Interface</string>
+    <string name="settings_npc_count">NPC Amount</string>
+    <string name="settings_npc_count_desc">Multiplies pedestrians, cars and zombies. Automatically combined with your phone tier and the area density (city = more). Current: %1$d%%</string>
+    <string name="settings_npc_less">Fewer (low-end)</string>
+    <string name="settings_npc_more">More (high-end)</string>
+    <string name="settings_npc_lod_title">Optimize NPC drawing</string>
+    <string name="settings_npc_lod_desc">Draws far NPCs as emojis 🧍🚗🧟 and keeps the full sprite only for very close ones. Cuts render cost (ideal in multiplayer with many NPCs).</string>
+    <string name="settings_npc_full_title">Optimize for low-end</string>
+    <string name="settings_npc_full_desc">Replaces ALL NPC assets with emojis 🧍🚗🧟👮 regardless of distance. No sprites or bitmaps are generated: the lightest possible mode, for very weak devices.</string>
+    <string name="settings_map_provider">Map Provider</string>
+    <string name="settings_map_change">Change Map</string>
+    <string name="settings_map_restore">Reset Map</string>
+    <string name="settings_road_network">Road Network</string>
+    <string name="settings_road_network_desc">Draws the walkable roads on the map</string>
+    <string name="settings_move_style">Movement Style</string>
+    <string name="settings_screen_size">On-screen Size: %1$d%%</string>
+    <string name="settings_size_portrait">Limited to 100% in portrait mode.</string>
+    <string name="settings_size_landscape">It will not exceed the screen bounds.</string>
+    <string name="settings_swap_sides">Swap Sides</string>
+    <string name="settings_swap_sides_desc">Moves the action to the left</string>
+    <string name="settings_save">SAVE SETTINGS</string>
+    <string name="settings_cache_widget">Cache widget</string>
+    <string name="settings_cache_widget_desc">Shows data source</string>
+    <string name="settings_fps_widget">FPS widget</string>
+    <string name="settings_fps_widget_desc">Measures graphics performance</string>
+    <string name="settings_zoom_widget">Zoom widget</string>
+    <string name="settings_zoom_widget_desc">Shows the current zoom level live</string>
+    <string name="settings_speedometer">Speedometer</string>
+    <string name="settings_speedometer_desc">Shows your speed (km/h) while driving</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">System (default)</string>
+    <string name="settings_controls_saved">Controls settings saved</string>
+</resources>
