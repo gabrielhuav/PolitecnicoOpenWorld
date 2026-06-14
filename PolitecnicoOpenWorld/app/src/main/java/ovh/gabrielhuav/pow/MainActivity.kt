@@ -42,6 +42,7 @@ import ovh.gabrielhuav.pow.features.interior.ui.CanchasFutbolScreen
 import ovh.gabrielhuav.pow.features.interior.ui.EdificioScreen
 import ovh.gabrielhuav.pow.features.interior.ui.EstacionamientoScreen
 import ovh.gabrielhuav.pow.features.interior.ui.MetroStationInteriorScreen
+import ovh.gabrielhuav.pow.features.interior.ui.MetrobusStationInteriorScreen
 import ovh.gabrielhuav.pow.features.interior.ui.PalapasScreen
 import ovh.gabrielhuav.pow.features.interior.ui.DeportivoBeisScreen
 import ovh.gabrielhuav.pow.features.interior.ui.DeportivoFutbolScreen
@@ -425,7 +426,34 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-
+                        
+                        // ─── ESTACIONES METROBÚS ──────────────────────────────────
+                        composable(
+                            route = "metrobus_station_interior/{stationName}?spawnX={spawnX}&spawnY={spawnY}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("stationName") { type = androidx.navigation.NavType.StringType },
+                                androidx.navigation.navArgument("spawnX") { type = androidx.navigation.NavType.FloatType; defaultValue = -1f },
+                                androidx.navigation.navArgument("spawnY") { type = androidx.navigation.NavType.FloatType; defaultValue = -1f }
+                            )
+                        ) { backStackEntry ->
+                            val stationName = backStackEntry.arguments?.getString("stationName") ?: "Desconocida"
+                            val spawnX = backStackEntry.arguments?.getFloat("spawnX") ?: -1f
+                            val spawnY = backStackEntry.arguments?.getFloat("spawnY") ?: -1f
+                            MetrobusStationInteriorScreen(
+                                stationName = stationName,
+                                spawnX = spawnX,
+                                spawnY = spawnY,
+                                onExit = { currentStation ->
+                                    worldMapViewModel.teleportToMetrobusStation(currentStation)
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
+                                onTeleportToStation = { newStation, x, y ->
+                                    navController.navigate("metrobus_station_interior/$newStation?spawnX=$x&spawnY=$y") {
+                                        popUpTo("world_map") { inclusive = false }
+                                    }
+                                }
+                            )
+                        }
                         // ─── MINIJUEGO DE ZOMBIS ──────────────────────────────────
                         // Anillo circular de cuartos con IA de zombis, combate mutuo
                         // y pantalla de victoria. Al ganar (o al salir), se hace

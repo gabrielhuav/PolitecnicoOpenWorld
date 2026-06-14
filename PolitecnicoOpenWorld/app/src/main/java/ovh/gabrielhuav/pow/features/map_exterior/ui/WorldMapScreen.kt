@@ -1945,4 +1945,30 @@ fun WorldMapScreen(
             onNavigateToInterior("metro_station_interior/${station.name}")
         }
     }
+
+    // ─── Metrobús Fade Overlay ───────────────────────────────────────────────
+    val metrobusFadeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(uiState.showMetrobusFade) {
+        if (uiState.showMetrobusFade) {
+            metrobusFadeAlpha.animateTo(1f, animationSpec = androidx.compose.animation.core.tween(600))
+            viewModel.onMetrobusFadeComplete()
+            kotlinx.coroutines.delay(200)
+            metrobusFadeAlpha.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(400))
+        }
+    }
+    if (metrobusFadeAlpha.value > 0f) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFC21D24).copy(alpha = metrobusFadeAlpha.value))
+        )
+    }
+
+    LaunchedEffect(uiState.metrobusFadeCompleteStation) {
+        val station = uiState.metrobusFadeCompleteStation
+        if (station != null) {
+            viewModel.consumeMetrobusFadeComplete()
+            onNavigateToInterior("metrobus_station_interior/${station.name}")
+        }
+    }
 }
