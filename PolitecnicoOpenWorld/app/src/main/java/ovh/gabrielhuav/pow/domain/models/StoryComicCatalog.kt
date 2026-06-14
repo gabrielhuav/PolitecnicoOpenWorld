@@ -1,35 +1,38 @@
 package ovh.gabrielhuav.pow.domain.models
 
 // Panel del cómic de la intro (prólogo de la campaña). `assetPath` apunta a una imagen en
-// la carpeta assets/ (recomendado .webp 1080×1920, con un recuadro BLANCO en la parte de
-// abajo para el texto). `text` es el texto de la historia que el código dibuja sobre ese
-// recuadro blanco (ver StoryIntroScreen).
+// la carpeta assets/. `text` es el texto que el código dibuja sobre el RECUADRO BLANCO de la
+// imagen. Como el recuadro está a distinta altura en cada panel, la posición del cuadro de
+// texto es ajustable: `boxTopFrac`/`boxHeightFrac` (fracción 0..1 de la pantalla) y `fontSp`
+// son los valores POR DEFECTO; el editor in-game los sobrescribe y los persiste
+// (StoryLayoutRepository). Ver StoryIntroScreen.
 data class ComicPanel(
     val assetPath: String,
-    val text: String
+    val text: String,
+    val boxTopFrac: Float = 0.70f,
+    val boxHeightFrac: Float = 0.24f,
+    val fontSp: Float = 15f,
+    val boxWidthFrac: Float = 0.9f
 )
 
-// Catálogo del cómic por escuela. ⚠️ EDITA esto: pon tus imágenes en
-// app/src/main/assets/story/ y cambia el texto. Puedes añadir o quitar paneles
-// libremente; la pantalla de intro soporta cualquier número.
+// Catalogo del comic por escuela. Los 8 paneles del prologo estan en
+// assets/STORY/INTRO/IntroPOW1.webp ... IntroPOW8.webp (imagenes HORIZONTALES: la intro
+// fuerza orientacion landscape). EDITA el `text` de cada panel con
+// el dialogo real de la historia. La posicion del cuadro de texto se ajusta in-game (editor).
 object StoryComicCatalog {
 
     private val escom = listOf(
-        ComicPanel(
-            "story/panel_01.webp",
-            "En la ENCB del Politécnico, Prankedy mezcla por accidente una sustancia corrosiva…"
-        ),
-        ComicPanel(
-            "story/panel_02.webp",
-            "La sustancia se propaga y algo empieza a salir terriblemente mal."
-        ),
-        ComicPanel(
-            "story/panel_03.webp",
-            "Estás en la ESCOM. Es momento de averiguar qué fue lo que pasó."
-        )
+        ComicPanel("STORY/INTRO/IntroPOW1.webp", "Texto del panel 1..."),
+        ComicPanel("STORY/INTRO/IntroPOW2.webp", "Texto del panel 2..."),
+        ComicPanel("STORY/INTRO/IntroPOW3.webp", "Texto del panel 3..."),
+        ComicPanel("STORY/INTRO/IntroPOW4.webp", "Texto del panel 4..."),
+        ComicPanel("STORY/INTRO/IntroPOW5.webp", "Texto del panel 5..."),
+        ComicPanel("STORY/INTRO/IntroPOW6.webp", "Texto del panel 6..."),
+        ComicPanel("STORY/INTRO/IntroPOW7.webp", "Texto del panel 7..."),
+        ComicPanel("STORY/INTRO/IntroPOW8.webp", "Texto del panel 8...")
     )
 
-    // Paneles para la escuela elegida (por ahora todas usan el prólogo de ESCOM).
+    // Paneles para la escuela elegida (por ahora todas usan el prologo de ESCOM).
     fun forSchool(schoolId: String): List<ComicPanel> = when (schoolId) {
         else -> escom
     }

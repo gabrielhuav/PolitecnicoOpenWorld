@@ -64,11 +64,20 @@ vehicleColor, skin, nearbyNpcs: List<SavedNpc>, objectiveId, objectiveDone, save
   elegido (posición/vida/buscado/vehículo/skin/objetivo + NPCs cercanos).
 
 ### 🆕 Intro como CÓMIC + Objetivos (Misión 1) 
-**ES:** `StoryIntroScreen` ahora es un **visor de cómic**: muestra los paneles de `StoryComicCatalog`
-(imágenes en `assets/story/*.webp`, 1080×1920 recomendado, con un **recuadro blanco abajo** donde el código
-dibuja el `text` de cada panel). Navegas tocando la mitad derecha (siguiente) / izquierda (anterior); en el
-último panel, tocar → **INICIAR** (flujo existente: guarda + spawn ESCOM + carga de assets). Si una imagen
-falta en assets, se muestra un panel oscuro con el texto (no crashea).
+**ES:** `StoryIntroScreen` ahora es un **visor de cómic**: muestra los 8 paneles de `StoryComicCatalog`
+(`assets/STORY/INTRO/IntroPOW1..8.webp`, imágenes **HORIZONTALES** → la pantalla **fuerza orientación
+landscape** mientras dura la intro vía `requestedOrientation` y la restaura al salir; `MainActivity` declara
+`configChanges` para que el giro no recree la Activity). Tienen un **recuadro blanco** donde el código dibuja
+el `text` de cada panel. Navegas tocando la mitad derecha (siguiente) / izquierda (anterior); **"Saltar"** salta toda la intro;
+en el último panel, tocar → **INICIAR** (guarda + spawn ESCOM + carga de assets). Si una imagen falta, se
+muestra un panel oscuro con el texto (no crashea).
+- **🆕 Editor in-game del cuadro de texto:** como el recuadro blanco está a distinta altura por panel, el botón
+  **"Editar"** activa un editor para **mover** (arrastrar o Subir/Bajar), **redimensionar** (Alto ±) y cambiar
+  el **tamaño de letra** (Letra ±) del cuadro, **por panel**. Se persiste en
+  **`data/repository/StoryLayoutRepository.kt`** (`StoryBoxLayout(topFrac, heightFrac, fontSp)` en
+  SharedPreferences `pow_story_layout`); "Guardar" guarda ese panel, "Todas" aplica a todos. Los defaults viven
+  en `ComicPanel` (`boxTopFrac/boxHeightFrac/fontSp`). El editor muestra los valores (top/alto/letra) por si
+  quieres fijarlos en el catálogo.
 - **Objetivos:** `domain/models/CampaignMission.kt` (`CampaignObjective`, `MissionCatalog.first = ir_encb`,
   "Ve a la ENCB"). Al COMENZAR se fija el objetivo; el **game loop** (`checkObjectiveProgress`, solo si
   `inCampaign`) lo marca cumplido al entrar en `arriveRadiusMeters` del destino. **Widget de Objetivos
