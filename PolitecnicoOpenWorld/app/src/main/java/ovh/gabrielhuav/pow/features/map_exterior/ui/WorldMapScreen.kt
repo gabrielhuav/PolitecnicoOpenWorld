@@ -143,8 +143,6 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.deleteSelectedLandmark
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportLandmarksToUri
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importLandmarksFromUri
-// MODO HISTORIA: guardado manual desde el menú de Opciones (extensión del VM).
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
 // Editor del Debug Interiores: seleccionar herramienta / deshacer / limpiar / exportar (extensiones del VM).
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.undoLastDebugShape
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitDebugStroke
@@ -224,7 +222,8 @@ fun WorldMapScreen(
     viewModel: WorldMapViewModel = viewModel(factory = WorldMapViewModel.Factory(context)),
     onNavigateToMainMenu: () -> Unit = {},
     onNavigateToSettings: () -> Unit,
-    onNavigateToInterior: (String) -> Unit = {}
+    onNavigateToInterior: (String) -> Unit = {},
+    onRequestSaveGame: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val roadNetwork by viewModel.roadNetworkFlow.collectAsState()
@@ -1792,10 +1791,9 @@ fun WorldMapScreen(
                             id = "opciones", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_options), icon = Icons.Default.Tune,
                             items = buildList {
                                 add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_change_skin), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
-                                // MODO HISTORIA: guardado manual de la partida (estado completo en JSON).
+                                // MODO HISTORIA: guardado manual → abre el selector de slots.
                                 add(OptionMenuItem("Guardar partida", Icons.Default.School, Color(0xFF4CAF50)) {
-                                    viewModel.saveGame(context)
-                                    android.widget.Toast.makeText(context, "Partida guardada", android.widget.Toast.LENGTH_SHORT).show()
+                                    onRequestSaveGame()
                                 })
                                 add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_teleport), Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
                                 // (Submenú "Ir a…" eliminado: "Ir a ESCOM" ya es el primer punto de
@@ -2064,6 +2062,19 @@ fun WorldMapScreen(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(8.dp)
+            )
+        }
+
+        // ─── WIDGET DE OBJETIVOS (Modo Historia) — siempre visible si hay objetivo ──
+        uiState.currentObjective?.let { obj ->
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
+                objective = obj,
+                done = uiState.objectiveDone,
+                playerLocation = uiState.currentLocation,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .systemBarsPadding()
+                    .padding(start = 12.dp, top = 12.dp)
             )
         }
 

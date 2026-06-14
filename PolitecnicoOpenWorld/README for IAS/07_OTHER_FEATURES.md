@@ -43,19 +43,37 @@ escuela** y **"CARGAR PARTIDA"** (habilitado solo si hay una partida guardada). 
 - Lee la partida de **`data/repository/CampaignRepository.kt`** (SharedPreferences `pow_campaign`:
   `saveCampaign(schoolId)`/`hasSave`/`getSavedSchoolId`/`getSavedAt`/`clearCampaign`).
 
-### 🆕 Sistema de guardado COMPLETO en JSON — `data/repository/SaveGameRepository.kt`
-**ES:** `CampaignRepository` (prefs) solo dice QUÉ escuela y habilita "CARGAR PARTIDA". El **estado
-completo** de la sesión se guarda en un **archivo JSON** (`filesDir/pow_campaign_save.json`):
+### 🆕 Sistema de guardado COMPLETO en JSON con SLOTS — `data/repository/SaveGameRepository.kt`
+**ES:** `CampaignRepository` (prefs) solo dice QUÉ escuela. El **estado completo** se guarda en **JSON con
+hasta `SLOT_COUNT`=5 SLOTS** (`filesDir/pow_campaign_save_<n>.json`):
 `GameSaveData(schoolId, lat, lon, health, wantedLevel, isDriving, isDrivingPoliceCar, vehicleModel,
-vehicleColor, skin, nearbyNpcs: List<SavedNpc>, savedAt)`; `SavedNpc(id, type, lat, lon, health, rotation)`.
-- **Guardado:** **MANUAL** con el ítem **"Guardar partida"** del menú de Opciones del mapa, y **AUTO-GUARDADO
-  al salir** al menú o cerrar la app (solo si `WorldMapViewModel.inCampaign`; MUNDO LIBRE no guarda).
-- **API del VM (extensiones en `viewmodel/WorldMapSaveGame.kt`):** `saveGame(context)`, `loadGame(context):
-  Boolean`, `buildSaveData(schoolId)`, `restoreSaveData(data)`. Campos nuevos en el VM:
-  `campaignSchoolId`, `inCampaign` (los fija `MainActivity` al COMENZAR/CARGAR/MUNDO LIBRE).
-- **"COMENZAR"** ahora SÍ carga y spawnea en ESCOM (ver el fix de `setStorySpawn` en 04/09); borra el JSON
-  anterior para empezar de cero. **"CARGAR PARTIDA"** restaura el estado completo (posición/vida/buscado/
-  vehículo/skin) y re-inyecta los NPCs cercanos guardados; si no hay JSON, cae al spawn de la escuela.
+vehicleColor, skin, nearbyNpcs: List<SavedNpc>, objectiveId, objectiveDone, savedAt)`. API del repo:
+`save(slot,data)`, `load(slot)`, `hasSave(slot)`, `anySave()`, `firstEmptySlot()`, `summaries(): List<SaveSlotSummary>`, `clear(slot)`.
+- **Selector de slots:** `features/main_menu/ui/SaveSlotsDialog.kt` (`SaveSlotsMode.LOAD`/`SAVE`) muestra los 5
+  slots con escuela + fecha. Lo hospeda **`MainActivity`** a nivel de Activity (un diálogo de GUARDAR común a
+  mapa e interiores; otro de CARGAR en `story_mode`).
+- **Guardado MANUAL** desde el ítem **"Guardar partida"** — disponible en el menú de Opciones del **mapa
+  global Y en interiores** (`ZombieGameScreen`); ambos llaman `onRequestSaveGame` → abre el selector y eliges
+  slot. **AUTO-GUARDADO** al salir/cerrar escribe en el **slot activo** (`campaignSlot`), solo si `inCampaign`.
+- **API del VM (extensiones en `viewmodel/WorldMapSaveGame.kt`):** `saveGame(context, slot)`,
+  `loadGame(context, slot): Boolean`, `buildSaveData(schoolId)`, `restoreSaveData(data)`,
+  `setCampaignObjective(obj)`, `checkObjectiveProgress(loc)`. Campos del VM: `campaignSchoolId`, `inCampaign`,
+  `campaignSlot` (los fija `MainActivity`).
+- **"COMENZAR"** ocupa el **primer slot vacío** (no pisa otras partidas), fija el objetivo de la Misión 1 y
+  spawnea en ESCOM. **"CARGAR PARTIDA"** abre el selector de slots y restaura el estado completo del slot
+  elegido (posición/vida/buscado/vehículo/skin/objetivo + NPCs cercanos).
+
+### 🆕 Intro como CÓMIC + Objetivos (Misión 1) 
+**ES:** `StoryIntroScreen` ahora es un **visor de cómic**: muestra los paneles de `StoryComicCatalog`
+(imágenes en `assets/story/*.webp`, 1080×1920 recomendado, con un **recuadro blanco abajo** donde el código
+dibuja el `text` de cada panel). Navegas tocando la mitad derecha (siguiente) / izquierda (anterior); en el
+último panel, tocar → **INICIAR** (flujo existente: guarda + spawn ESCOM + carga de assets). Si una imagen
+falta en assets, se muestra un panel oscuro con el texto (no crashea).
+- **Objetivos:** `domain/models/CampaignMission.kt` (`CampaignObjective`, `MissionCatalog.first = ir_encb`,
+  "Ve a la ENCB"). Al COMENZAR se fija el objetivo; el **game loop** (`checkObjectiveProgress`, solo si
+  `inCampaign`) lo marca cumplido al entrar en `arriveRadiusMeters` del destino. **Widget de Objetivos
+  SIEMPRE visible** (`ui/components/ObjectivesWidget.kt`, HUD arriba-izquierda con título + distancia). El
+  objetivo se guarda/restaura en `GameSaveData`. ⚠️ Las coords de la ENCB en `MissionCatalog` son aproximadas.
 
 ### `ui/StoryModeScreen.kt` + `ui/StoryIntroScreen.kt`
 - `StoryModeScreen`: prólogo + tarjetas de escuela (`SchoolCard`) + "CARGAR PARTIDA" (on solo con guardado;

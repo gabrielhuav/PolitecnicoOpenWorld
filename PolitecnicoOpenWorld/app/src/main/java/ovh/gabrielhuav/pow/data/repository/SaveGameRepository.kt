@@ -4,12 +4,11 @@ import android.content.Context
 import com.google.gson.Gson
 import java.io.File
 
-// ─── PARTIDA COMPLETA DEL MODO HISTORIA (JSON) ────────────────────────────────
-// A diferencia de CampaignRepository (que solo guarda la ESCUELA + fecha en
-// SharedPreferences para habilitar "CARGAR PARTIDA" en el menú), aquí guardamos el
-// ESTADO COMPLETO de la sesión en un archivo JSON dentro del almacenamiento interno
-// de la app: posición (coordenadas), vida, nivel de búsqueda, vehículo, skin y los
-// NPCs activos cercanos. Es la fuente de verdad de "CARGAR PARTIDA".
+// ─── PARTIDA COMPLETA DEL MODO HISTORIA (JSON, CON SLOTS) ─────────────────────
+// Cada partida se guarda como un archivo JSON por SLOT (pow_campaign_save_<n>.json,
+// n = 1..SLOT_COUNT) en el almacenamiento interno. Guarda el ESTADO COMPLETO de la
+// sesión: escuela, posición (coordenadas), vida, nivel de búsqueda, vehículo, skin,
+// NPCs activos cercanos y el objetivo de la campaña. Permite tener varias partidas.
 
 data class GameSaveData(
     val schoolId: String,
@@ -23,6 +22,8 @@ data class GameSaveData(
     val vehicleColor: Int?,
     val skin: String,            // PlayerSkin.name
     val nearbyNpcs: List<SavedNpc> = emptyList(),
+    val objectiveId: String? = null,   // id del objetivo activo (MissionCatalog)
+    val objectiveDone: Boolean = false,
     val savedAt: Long
 )
 
@@ -37,36 +38,54 @@ data class SavedNpc(
     val rotation: Float
 )
 
-// Lee/escribe la partida completa como un único archivo JSON. Tolerante a fallos:
-// si el disco falla o el JSON está corrupto, devuelve null (la partida ligera de
-// CampaignRepository sigue habilitando el menú con un spawn por defecto).
+// Resumen de un slot para pintar el menú de slots (sin exponer todo el JSON).
+data class SaveSlotSummary(
+    val slot: Int,
+    val exists: Boolean,
+    val schoolId: String?,
+    val savedAt: Long
+)
+
+// Lee/escribe las partidas por slot. Tolerante a fallos: si el disco falla o el JSON está
+// corrupto, devuelve null/empty (la app sigue, mostrando el slot como vacío).
 class SaveGameRepository(context: Context) {
 
     private val appContext = context.applicationContext
     private val gson = Gson()
-    private val file: File get() = File(appContext.filesDir, SAVE_FILE)
 
-    /** Guarda (o sobrescribe) la partida completa en JSON. */
-    fun save(data: GameSaveData) {
-        try {
-            file.writeText(gson.toJson(data))
-        } catch (_: Exception) { /* sin disco: la partida ligera sigue funcionando */ }
+    private fun file(slot: Int): File = File(appContext.filesDir, "pow_campaign_save_$slot.json")
+
+    /** Guarda (o sobrescribe) la partida del slot indicado. */
+    fun save(slot: Int, data: GameSaveData) {
+        if (slot !in 1..SLOT_COUNT) return
+        try { file(slot).writeText(gson.toJson(data)) } catch (_: Exception) {}
     }
 
-    /** Lee la partida completa, o null si no existe / está corrupta. */
-    fun load(): GameSaveData? = try {
-        if (file.exists()) gson.fromJson(file.readText(), GameSaveData::class.java) else null
+    /** Lee la partida del slot, o null si no existe / está corrupta. */
+    fun load(slot: Int): GameSaveData? = try {
+        val f = file(slot)
+        if (f.exists()) gson.fromJson(f.readText(), GameSaveData::class.java) else null
     } catch (_: Exception) { null }
 
-    /** ¿Hay una partida completa guardada en JSON? */
-    fun hasSave(): Boolean = file.exists()
+    /** ¿El slot tiene una partida? */
+    fun hasSave(slot: Int): Boolean = file(slot).exists()
 
-    /** Borra la partida completa. */
-    fun clear() {
-        try { if (file.exists()) file.delete() } catch (_: Exception) {}
+    /** ¿Hay alguna partida en cualquier slot? (habilita "CARGAR PARTIDA" en el menú). */
+    fun anySave(): Boolean = (1..SLOT_COUNT).any { hasSave(it) }
+
+    /** Primer slot vacío (para no sobrescribir partidas al COMENZAR una nueva), o 1 si todos llenos. */
+    fun firstEmptySlot(): Int = (1..SLOT_COUNT).firstOrNull { !hasSave(it) } ?: 1
+
+    /** Resumen de los SLOT_COUNT slots, para el menú de selección. */
+    fun summaries(): List<SaveSlotSummary> = (1..SLOT_COUNT).map { s ->
+        val d = load(s)
+        SaveSlotSummary(slot = s, exists = d != null, schoolId = d?.schoolId, savedAt = d?.savedAt ?: 0L)
     }
 
+    /** Borra la partida del slot. */
+    fun clear(slot: Int) { try { val f = file(slot); if (f.exists()) f.delete() } catch (_: Exception) {} }
+
     companion object {
-        private const val SAVE_FILE = "pow_campaign_save.json"
+        const val SLOT_COUNT = 5
     }
 }

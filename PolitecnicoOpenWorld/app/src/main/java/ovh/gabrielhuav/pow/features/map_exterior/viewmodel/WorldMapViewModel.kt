@@ -425,6 +425,9 @@ class WorldMapViewModel(
                         }
                         checkCollectibleProximity(location.latitude, location.longitude)
 
+                        // MODO HISTORIA: ¿llegó al objetivo de campaña (p. ej. la ENCB)?
+                        if (inCampaign) checkObjectiveProgress(location)
+
                         checkDestinationArrival()
 
                         if (tickCount % 30 == 0L && _uiState.value.destinationMarker != null) {
@@ -1403,6 +1406,9 @@ class WorldMapViewModel(
     // salir). MUNDO LIBRE pone inCampaign=false y no auto-guarda. Ver WorldMapSaveGame.kt.
     internal var campaignSchoolId: String = "escom"
     internal var inCampaign: Boolean = false
+    // Slot de guardado activo (1..SaveGameRepository.SLOT_COUNT). Lo fija MainActivity al
+    // COMENZAR/CARGAR; el auto-guardado al salir escribe en este slot.
+    internal var campaignSlot: Int = 1
 
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }

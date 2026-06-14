@@ -34,7 +34,7 @@ import ovh.gabrielhuav.pow.features.main_menu.viewmodel.StoryModeViewModel
 @Composable
 fun StoryModeScreen(
     onStartCampaign: (CampaignSchool) -> Unit,
-    onLoadCampaign: (CampaignSchool) -> Unit,
+    onLoadCampaign: () -> Unit,   // abre el diálogo de slots para CARGAR
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -123,16 +123,14 @@ fun StoryModeScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // ─── Cargar partida (habilitado solo si hay guardado) ─────────
-            val savedSchool = viewModel.savedSchool()
+            // ─── Cargar partida (abre el selector de slots; habilitado si hay alguno) ─────────
             MenuButton(
                 text = stringResource(R.string.story_load_game),
-                onClick = { savedSchool?.let { onLoadCampaign(it) } },
-                enabled = state.hasSave && savedSchool != null
+                onClick = { onLoadCampaign() },
+                enabled = state.hasSave
             )
             Text(
-                text = if (state.hasSave && savedSchool != null)
-                    stringResource(R.string.story_saved_at, savedSchool.displayName)
+                text = if (state.hasSave) "Elige un slot para cargar tu partida."
                 else stringResource(R.string.story_no_saves),
                 color = Color.White.copy(alpha = 0.55f),
                 fontSize = 12.sp,

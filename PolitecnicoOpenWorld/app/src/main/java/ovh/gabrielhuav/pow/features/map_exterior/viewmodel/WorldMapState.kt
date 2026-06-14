@@ -174,6 +174,12 @@ data class WorldMapState(
     val debugEditNavPed: List<List<GeoPoint>> = emptyList(),                               // caminos VERDES (peatonal)
     val debugEditNavCar: List<List<GeoPoint>> = emptyList(),                               // caminos NARANJAS (autos)
 
+    // ─── MODO HISTORIA: objetivo de campaña + widget de Objetivos ────────────
+    // Objetivo activo (Misión 1 = ir a la ENCB). El widget de Objetivos lo muestra
+    // (título + distancia) siempre que haya uno. `objectiveDone` se marca al llegar.
+    val currentObjective: ovh.gabrielhuav.pow.domain.models.CampaignObjective? = null,
+    val objectiveDone: Boolean = false,
+
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,
 
