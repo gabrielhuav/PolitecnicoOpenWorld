@@ -155,13 +155,13 @@
   },
   {
     "assetPath": "DOORS/ESCOM_DOOR.webp",
-    "id": 20,
-    "latitude": 19.474867,
-    "longitude": -99.043344,
+    "id": 30,
+    "latitude": 19.475661999653365,
+    "longitude": -99.04685319953819,
     "name": "Entrada FES Aragón",
-    "rotationAngle": 0.0,
-    "scaleFactor": 0.60,
-    "scaleX": 0.60,
-    "scaleY": 0.60
+    "rotationAngle": 108.4186,
+    "scaleFactor": 1.408552,
+    "scaleX": 1.408552,
+    "scaleY": 1.3911047
   }
 ]

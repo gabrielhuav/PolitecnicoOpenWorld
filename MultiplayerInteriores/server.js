@@ -82,6 +82,10 @@ function makeRoomDef(id, type, matrix, zombieCount, spawn) {
     };
 }
 
+// Id de la sala de Interiores de FES Aragon (debe coincidir con
+// ZombieRoomCatalog.FES_ID del cliente).
+const FES_ID = 'fes_interior';
+
 const ROOMS = (() => {
     const ov = loadMatrixOverrides();
     const map = {};
@@ -89,6 +93,11 @@ const ROOMS = (() => {
     BUILDING_ORDER.forEach((id, i) => {
         map[id] = makeRoomDef(id, 'BUILDING', ov[id] || BUILDING_MATRIX, 4 + (i % 3), { x: 0.50, y: 0.55 });
     });
+    // INTERIOR DE FES ARAGON: sala independiente, tipo LOBBY = zona segura sin zombis
+    // (ensureRoomState solo siembra zombis en salas BUILDING). El servidor solo relaya
+    // a los jugadores de esta sala (separados por roomId). Para darle zombis propios a
+    // FES, cambia 'LOBBY' por 'BUILDING' y zombieCount > 0.
+    map[FES_ID] = makeRoomDef(FES_ID, 'LOBBY', ov[FES_ID] || LOBBY_MATRIX, 0, { x: 0.50, y: 0.55 });
     return map;
 })();
 

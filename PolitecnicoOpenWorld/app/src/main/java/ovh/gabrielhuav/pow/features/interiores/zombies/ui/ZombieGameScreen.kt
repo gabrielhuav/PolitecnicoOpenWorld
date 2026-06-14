@@ -95,12 +95,14 @@ fun ZombieGameScreen(
     isMultiplayer: Boolean,
     playerName: String,
     onNavigateToSettings: () -> Unit = {},
-    debugHitboxes: Boolean = false
+    debugHitboxes: Boolean = false,
+    // Sala inicial de Interiores: por defecto el lobby de ESCOM; la puerta FES la fija a FES_ID.
+    startRoomId: String = ZombieRoomCatalog.LOBBY_ID
 ) {
     val context = LocalContext.current
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
     val viewModel: ZombieGameViewModel = viewModel(
-        factory = ZombieGameViewModel.Factory(context, serverUrl, playerName)
+        factory = ZombieGameViewModel.Factory(context, serverUrl, playerName, startRoomId)
     )
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current

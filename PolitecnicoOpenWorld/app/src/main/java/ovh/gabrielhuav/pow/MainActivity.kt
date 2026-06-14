@@ -518,14 +518,24 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ─── MINIJUEGO DE ZOMBIS ──────────────────────────────────
-                        // Anillo circular de cuartos con IA de zombis, combate mutuo
-                        // y pantalla de victoria. Al ganar (o al salir), se hace
-                        // popBackStack hasta world_map para preservar el open world.
-                        // debugHitboxes = true para calibrar exitHitbox y ver la
-                        // matriz de colisión pintada sobre cada cuarto.
-                        composable(route = "interiores_zombies") {
+                        // ─── INTERIORES (motor de salas) ──────────────────────────
+                        // Salas con IA de zombis, combate y pantalla de victoria. Es el
+                        // sistema de INTERIORES de cualquier edificio: el arg opcional
+                        // `startRoom` elige la sala inicial (lobby de ESCOM por defecto;
+                        // las puertas FES pasan `fes_interior`). Al salir, popBackStack
+                        // hasta world_map para preservar el open world.
+                        composable(
+                            route = "interiores_zombies?startRoom={startRoom}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("startRoom") {
+                                    type = androidx.navigation.NavType.StringType
+                                    defaultValue = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
+                                }
+                            )
+                        ) { backStackEntry ->
                             val wmState by worldMapViewModel.uiState.collectAsState()
+                            val startRoom = backStackEntry.arguments?.getString("startRoom")
+                                ?: ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
                             ZombieGameScreen(
                                 onExitToWorld = {
                                     navController.popBackStack("world_map", inclusive = false)
@@ -533,7 +543,8 @@ class MainActivity : ComponentActivity() {
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
                                 onNavigateToSettings = { navController.navigate("settings") },
-                                debugHitboxes = false
+                                debugHitboxes = false,
+                                startRoomId = startRoom
                             )
                         }
 

@@ -47,7 +47,10 @@ class ZombieGameViewModel(
     internal val settingsRepository: SettingsRepository,
     // URL del servidor de zombis. null = partida offline (un jugador).
     internal val serverUrl: String?,
-    internal val playerName: String
+    internal val playerName: String,
+    // Sala donde arranca la sesión de Interiores. Por defecto el lobby de ESCOM;
+    // la puerta "Entrada FES Aragón" la fija a ZombieRoomCatalog.FES_ID.
+    internal val startRoomId: String = ZombieRoomCatalog.LOBBY_ID
 ) : ViewModel() {
 
     internal val _state = MutableStateFlow(
@@ -110,7 +113,11 @@ class ZombieGameViewModel(
             } finally {
                 if (isActive) {
                     _state.update { it.copy(isLoading = false) }
-                    loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+                    // Arranca en la sala pedida (FES o lobby). Si el id no existe en el
+                    // catálogo (indexOfRoom = -1), cae al lobby de ESCOM.
+                    val startIdx = ZombieRoomCatalog.indexOfRoom(startRoomId)
+                        .takeIf { it >= 0 } ?: ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID)
+                    loadRoom(startIdx)
                     startGameLoop()
                     connectIfNeeded()
                 }
@@ -1135,7 +1142,8 @@ class ZombieGameViewModel(
     class Factory(
         private val context: Context,
         private val serverUrl: String?,
-        private val playerName: String
+        private val playerName: String,
+        private val startRoomId: String = ZombieRoomCatalog.LOBBY_ID
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -1143,7 +1151,8 @@ class ZombieGameViewModel(
                 context.applicationContext,
                 SettingsRepository(context.applicationContext),
                 serverUrl,
-                playerName
+                playerName,
+                startRoomId
             ) as T
         }
     }

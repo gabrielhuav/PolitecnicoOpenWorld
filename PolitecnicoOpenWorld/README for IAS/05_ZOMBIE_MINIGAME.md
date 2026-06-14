@@ -11,6 +11,16 @@
 **ES:** Anillo de salas: un **lobby** con puertas a cada edificio de ESCOM (7 edificios). Dentro de un
 edificio, puertas EXIT conectan vecinos y una central vuelve al lobby. **Online: zombis e items son
 autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación local completa**.
+
+> **🆕 Sala de inicio parametrizable (FES Aragón):** este es el **motor de INTERIORES** de cualquier
+> edificio, no sólo ESCOM. La sala donde arranca la sesión la fija el arg de navegación
+> **`interiores_zombies?startRoom={id}`** → `ZombieGameViewModel.startRoomId` (default
+> `ZombieRoomCatalog.LOBBY_ID`). La puerta **"Entrada FES Aragón"** del open world entra con
+> `startRoom=fes_interior`: una sala independiente del anillo de ESCOM (`ZombieRoomCatalog.FES_ID`,
+> fondo `BUILDINGS/FES_Ar/FES_Arg_int.webp`, **tipo LOBBY = zona segura sin zombis**, una puerta de
+> salida al mapa). El servidor la conoce (`server.js` ROOMS[`fes_interior`], LOBBY → sin zombis, solo
+> relay por `roomId`). Para darle zombis/cuartos propios a FES: pásala a `BUILDING` (cliente + server) o
+> añade más salas `fes_*`.
 **EN:** Ring of rooms: a **lobby** with doors to each ESCOM building (7 buildings). Inside a building,
 EXIT doors connect neighbors and a central door returns to the lobby. **Online: zombies and items are
 server-authoritative** (`MultiplayerInteriores/`); **offline: full local simulation**.

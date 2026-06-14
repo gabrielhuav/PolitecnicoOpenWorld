@@ -83,6 +83,7 @@ via co-located `ViewModelProvider.Factory` instances.
 | Zombie net models (client) | `features/interiores/zombies/viewmodel/Zombienetmodels.kt` |
 | Zombie rendering + camera + damage FX | `features/interiores/zombies/ui/ZombieGameScreen.kt` |
 | ESCOM simple interiors + metro (was `interior`) | `features/interiores/escom/{ui,viewmodel}/` |
+| Door → interior entry (generic, `DOORS/` landmarks) | `WorldMapViewModel.checkCollectibleProximity` (detect) + `handleInteraction` (route by door name) + `WorldMapDesigner` (door backfill/relocate). **FES door → `interiores_zombies?startRoom=fes_interior`** (Interiors engine, own room). Room: `ZombieRoomCatalog.FES_ID` (client) + `ROOMS['fes_interior']` (server). Start room threaded via `ZombieGameViewModel.startRoomId`. Unused-now FES simple interior: `FesInteriorScreen.kt`, route `interior_fes` |
 | ShineCTO easter egg (was `shinecto`) | `features/interiores/shinecto/{ui,viewmodel}/` |
 | Zombie rooms / doors / collision | `domain/models/zombie/ZombieModels.kt`, `ZombieRoomCatalog.kt` |
 | Zombie collision-matrix persistence | `data/repository/CollisionMatrixRepository.kt` (`collision_matrices.json`) |

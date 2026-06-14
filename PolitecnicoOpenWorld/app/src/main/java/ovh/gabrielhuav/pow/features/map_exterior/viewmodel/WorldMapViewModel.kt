@@ -2483,10 +2483,20 @@ class WorldMapViewModel(
                 }
             }
             nearby.id.startsWith("escom_door_") -> {
-                val targetRoute = when (nearby.name) {
-                    "Entrada Campo Béisbol" -> "interior_deportivo_beis"
-                    "Entrada Campo Fútbol" -> "interior_deportivo_futbol"
-                    "Entrada FES Aragón"    -> "interior_fes"     // ← NUEVO
+                // Enrutamos la puerta a su interior por el NOMBRE del landmark. Usamos
+                // `contains` (no match exacto) para tolerar variantes/acentos/espacios al
+                // colocar la puerta en el Diseñador: si el nombre no casa EXACTO, antes la
+                // puerta caía al `else` y mandaba al minijuego zombi por error. Las puertas
+                // ESCOM (p. ej. "Puerta Norte/Sur ESCOM") siguen yendo al minijuego por el else.
+                val n = nearby.name
+                val targetRoute = when {
+                    n.contains("Béisbol", ignoreCase = true) || n.contains("Beisbol", ignoreCase = true) -> "interior_deportivo_beis"
+                    n.contains("Fútbol", ignoreCase = true) || n.contains("Futbol", ignoreCase = true) -> "interior_deportivo_futbol"
+                    // FES Aragón usa el MOTOR DE INTERIORES (mismos controles, opciones, botones
+                    // de acción y HUD ZONA/vida/MODO) pero arranca en SU PROPIA sala "fes_interior"
+                    // (no el lobby de ESCOM): el arg startRoom selecciona la sala del catálogo.
+                    n.contains("FES", ignoreCase = true) -> "interiores_zombies?startRoom=fes_interior"
+                    // Puertas ESCOM (Norte/Sur, etc.) → lobby de ESCOM (sin arg = default).
                     else -> "interiores_zombies"
                 }
                 _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }

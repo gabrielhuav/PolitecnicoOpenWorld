@@ -6,6 +6,12 @@ object ZombieRoomCatalog {
     const val LOBBY_ID = "lobby_campus"
     const val EXIT_TO_WORLD = "__WORLD__"
 
+    // Sala de INTERIORES de FES Aragón. Es una sala independiente del anillo de ESCOM:
+    // se entra desde la puerta "Entrada FES Aragón" del open world (ruta
+    // interiores_zombies?startRoom=fes_interior). Tipo LOBBY = zona segura sin zombis
+    // (el servidor sólo siembra zombis en salas BUILDING) y con puerta de salida al mapa.
+    const val FES_ID = "fes_interior"
+
     private val buildingOrder = listOf(
         "za_auditorio", "za_biblioteca", "za_cafeteria",
         "za_edificio", "za_estacionamiento", "za_palapas", "za_canchas_futbol"
@@ -107,6 +113,30 @@ object ZombieRoomCatalog {
                 )
             )
         }
+        // ─── INTERIOR DE FES ARAGÓN ──────────────────────────────────────────
+        // Sala independiente (no es parte del anillo de ESCOM). Tipo LOBBY = zona
+        // segura: sin zombis (el server sólo los siembra en BUILDING), sin "limpiar
+        // para salir", y al morir te cura en sitio (ver ZombieGameViewModel WASTED).
+        // Su única puerta sale al mapa global. Para añadir zombis/cuartos propios de
+        // FES en el futuro: pásala a BUILDING y/o agrega más salas "fes_*".
+        add(
+            ZombieRoom(
+                id = FES_ID,
+                type = ZoneType.LOBBY,
+                backgroundAsset = "BUILDINGS/FES_Ar/FES_Arg_int.webp",
+                displayName = "FES Aragón",
+                worldWidth = 1920f,
+                worldHeight = 1080f,
+                zoom = 1.0f,
+                playerSpawnFrac = NormPoint(0.50f, 0.55f),
+                doors = listOf(
+                    ZoneDoor(NormRect(0.42f, 0.86f, 0.58f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
+                ),
+                zombieCount = 0,
+                gridCols = 30,
+                collisionMatrix = LOBBY_MATRIX
+            )
+        )
     }
 
     private val byId = rooms.associateBy { it.id }

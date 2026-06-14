@@ -133,6 +133,12 @@ BUILDING_ORDER=[...7 edificios...]   EFFECTS=[...6 SkillEffect...]
 > Las matrices por defecto son **border-only** y deben coincidir filas/cols con las del cliente
 > (`ZombieRoomCatalog`) hasta reemplazarse por `collision_matrices.json` (cargado con
 > `loadMatrixOverrides`). / Default matrices are border-only and must match client rows/cols.
+>
+> **🆕 Sala FES (`FES_ID='fes_interior'`):** `ROOMS` incluye la sala de Interiores de FES Aragón como
+> **tipo `LOBBY`** (zona segura). `ensureRoomState` sólo siembra zombis en salas `BUILDING`, así que FES
+> **no tiene zombis**: el server sólo **relaya** a sus jugadores (separados por `roomId`). Debe seguir
+> coincidiendo con `ZombieRoomCatalog.FES_ID` del cliente. Para zombis propios de FES: cámbiala a
+> `BUILDING` con `zombieCount>0` aquí y en el cliente.
 
 ### IA de zombis v2 / zombie AI v2
 
