@@ -1927,14 +1927,8 @@ class WorldMapViewModel(
             // salvo que cometas un nuevo delito en tu nueva vida).
             carjackStartTime = 0L
             _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null) }
-            // RESPAWN EN LA MISMA ZONA YA DESCARGADA (ahorra recursos: no teletransporta a
-            // ESCOM ni descarga teselas nuevas). Reaparece a ~80 m del lugar de muerte,
-            // pegado a la red de calles ya cacheada; si no hay calles, en el mismo punto.
-            val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
-            val ang = Math.random() * 2.0 * Math.PI
-            val r = 0.0007 // ~77 m
-            val candidate = GeoPoint(deathLoc.latitude + sin(ang) * r, deathLoc.longitude + cos(ang) * r)
-            val respawn = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(candidate) else deathLoc
+            // RESPAWN EN ESCOM: Al morir, el jugador es llevado de vuelta a la ESCOM.
+            val respawn = GeoPoint(19.504603, -99.145985)
             _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
             playerHealth = maxPlayerHealth
             // Reiniciar contadores de animación y activar inmunidad temporal (2 s) para que
