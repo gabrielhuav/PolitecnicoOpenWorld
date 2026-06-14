@@ -164,12 +164,11 @@ data class WorldMapState(
     val currentWayId: Int = 100,                           // ID del carril actual
 
     // ─── EDITOR DEL DEBUG INTERIORES ─────────────────────────────────────────
-    // Permite EDITAR las líneas del overlay caminando con el jugador: capturas
-    // puntos (debugEditPoints = forma en curso), terminas la forma y se "commitea"
-    // a la lista del color/tipo correspondiente. Se dibujan en vivo (NativeOsmMap)
-    // y se exportan/importan a JSON (formato exterior_collisions + navPaths).
+    // Permite EDITAR las líneas del overlay DIBUJANDO con el dedo en el mapa (estilo Paint):
+    // arrastras para una línea (WALL/NAV_*) o un rectángulo (BLOCK) y se "commitea" a la lista
+    // del color/tipo. Se dibujan en vivo (NativeOsmMap) y se exportan/importan a JSON
+    // (formato exterior_collisions + navPaths).
     val debugEditTool: DebugEditTool = DebugEditTool.NONE,
-    val debugEditPoints: List<GeoPoint> = emptyList(),                                     // forma en curso
     val debugEditWalls: List<ovh.gabrielhuav.pow.domain.models.CollisionWall> = emptyList(),     // bardas ROJAS editadas
     val debugEditBlocks: List<ovh.gabrielhuav.pow.domain.models.CollisionPolygon> = emptyList(), // zonas ROJAS editadas
     val debugEditNavPed: List<List<GeoPoint>> = emptyList(),                               // caminos VERDES (peatonal)

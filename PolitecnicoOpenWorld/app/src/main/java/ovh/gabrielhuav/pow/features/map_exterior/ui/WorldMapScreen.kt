@@ -145,10 +145,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportLandmarksToUri
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importLandmarksFromUri
 // MODO HISTORIA: guardado manual desde el menú de Opciones (extensión del VM).
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
-// Editor del Debug Interiores: capturar/exportar geometría (extensiones del VM).
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.captureDebugEditPoint
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.undoDebugEditPoint
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.finishDebugEditShape
+// Editor del Debug Interiores: seleccionar herramienta / deshacer / limpiar / exportar (extensiones del VM).
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.undoLastDebugShape
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitDebugStroke
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearDebugEdits
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setDebugEditTool
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportDebugEditsToUri
@@ -1458,6 +1457,23 @@ fun WorldMapScreen(
             }
         }
 
+        // ───── CAPA DE DIBUJO DEL EDITOR (Debug Interiores) ─────────────────────
+        // Va SOBRE el mapa (cualquier renderer: web/OSM/Google) y DEBAJO de los botones y
+        // el panel (que se dibujan después). Con herramienta activa intercepta el toque:
+        // el mapa NO se mueve y dibujas líneas/rectángulos. Con NONE deja pasar el gesto.
+        if (uiState.showInteriorDebugOverlay) {
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.InteriorDebugDrawSurface(
+                tool = uiState.debugEditTool,
+                walls = uiState.debugEditWalls,
+                blocks = uiState.debugEditBlocks,
+                navPed = uiState.debugEditNavPed,
+                navCar = uiState.debugEditNavCar,
+                center = uiState.currentLocation,
+                zoom = uiState.zoomLevel,
+                onCommit = { t, pts -> viewModel.commitDebugStroke(t, pts) }
+            )
+        }
+
         // ─── CAPA DE NEBLINA (fog of war estilo Age of Empires) — SIEMPRE ACTIVA ──
         // El radio visible se fija en METROS reales (no cambia con el zoom): se
         // convierte a píxeles según el zoom actual. Fuera del radio se aplica un
@@ -2029,27 +2045,25 @@ fun WorldMapScreen(
         }
 
         // ─── PANEL DEL EDITOR DE LÍNEAS (Debug Interiores) ───────────────────────
-        // Visible cuando el overlay de Debug Interiores está activo. Permite editar
-        // bardas/zonas rojas y caminos verdes/naranjas caminando con el jugador.
+        // Visible cuando el overlay de Debug Interiores está activo. Barra horizontal
+        // abajo (los controles de movimiento se ocultan al editar). Se DIBUJA con el dedo
+        // sobre el mapa: arrastre = línea (bardas/caminos) o rectángulo (zonas rojas).
         if (uiState.showInteriorDebugOverlay) {
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.InteriorDebugEditorPanel(
                 tool = uiState.debugEditTool,
-                inProgressCount = uiState.debugEditPoints.size,
                 wallsCount = uiState.debugEditWalls.size,
                 blocksCount = uiState.debugEditBlocks.size,
                 navPedCount = uiState.debugEditNavPed.size,
                 navCarCount = uiState.debugEditNavCar.size,
                 onSelectTool = { viewModel.setDebugEditTool(it) },
-                onCapture = { viewModel.captureDebugEditPoint() },
-                onUndo = { viewModel.undoDebugEditPoint() },
-                onFinish = { viewModel.finishDebugEditShape() },
+                onUndo = { viewModel.undoLastDebugShape() },
                 onClear = { viewModel.clearDebugEdits() },
                 onExport = { collisionsExportLauncher.launch("exterior_collisions_editado.json") },
                 onImport = { collisionsImportLauncher.launch(arrayOf("application/json", "*/*")) },
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(12.dp)
-                    .fillMaxWidth(0.42f)
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(8.dp)
             )
         }
 
@@ -2081,7 +2095,7 @@ fun WorldMapScreen(
             }
         }
 
-        if (!uiState.isDesignerMode) { // Oculta joystick y botones en modo diseñador
+        if (!uiState.isDesignerMode && !uiState.showInteriorDebugOverlay) { // Oculta joystick y botones en modo diseñador y al editar el Debug Interiores
             Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (uiState.isDriving) {
                 // D-pad de conducción: SOLO gira (IZQ/DER). Arriba/abajo quedan inertes

@@ -34,67 +34,68 @@ data class DebugNavPath(
     val points: List<GeoNode> = emptyList()
 )
 
-// Selecciona la herramienta de edición (color/tipo). Cambiar de herramienta descarta
-// la forma en curso para no mezclar tipos.
+// Selecciona la herramienta de edición (color/tipo). Mientras haya una herramienta
+// activa, el mapa NO panea: el touch dibuja (ver NativeOsmMap). NONE = volver a panear.
 fun WorldMapViewModel.setDebugEditTool(tool: DebugEditTool) {
-    _uiState.update { it.copy(debugEditTool = tool, debugEditPoints = emptyList()) }
+    _uiState.update { it.copy(debugEditTool = tool) }
 }
 
-// Captura un punto en la posición ACTUAL del jugador (se añade a la forma en curso).
-fun WorldMapViewModel.captureDebugEditPoint() {
-    val s = _uiState.value
-    if (s.debugEditTool == DebugEditTool.NONE) return
-    val loc = s.currentLocation ?: return
-    _uiState.update { it.copy(debugEditPoints = it.debugEditPoints + loc) }
-}
-
-// Deshace el último punto capturado de la forma en curso.
-fun WorldMapViewModel.undoDebugEditPoint() {
-    _uiState.update {
-        if (it.debugEditPoints.isEmpty()) it
-        else it.copy(debugEditPoints = it.debugEditPoints.dropLast(1))
-    }
-}
-
-// "Commitea" la forma en curso a su lista según la herramienta activa y limpia los
-// puntos. WALL/BLOCK necesitan ≥2 / ≥3 puntos; los caminos del navGraph ≥2.
-fun WorldMapViewModel.finishDebugEditShape() {
-    val s = _uiState.value
-    val pts = s.debugEditPoints
-    when (s.debugEditTool) {
+// Commitea un TRAZO dibujado con el dedo (arrastre en el mapa, estilo Paint). La View
+// (NativeOsmMap) convierte los píxeles del gesto a coordenadas (`projection.fromPixels`)
+// y llama aquí: líneas (WALL/NAV_*) = [inicio, fin]; zonas (BLOCK) = 4 esquinas del
+// rectángulo. Se añade a la lista del tipo correspondiente.
+fun WorldMapViewModel.commitDebugStroke(tool: DebugEditTool, points: List<GeoPoint>) {
+    if (points.size < 2) return
+    when (tool) {
         DebugEditTool.WALL -> {
-            if (pts.size < 2) return
             // Cada par consecutivo de puntos es una barda (segmento rojo).
-            val newWalls = pts.zipWithNext().mapIndexed { i, (a, b) ->
+            val newWalls = points.zipWithNext().mapIndexed { i, (a, b) ->
                 CollisionWall("barda_editada_${System.currentTimeMillis()}_$i",
                     a.latitude, a.longitude, b.latitude, b.longitude)
             }
-            _uiState.update { it.copy(debugEditWalls = it.debugEditWalls + newWalls, debugEditPoints = emptyList()) }
+            _uiState.update { it.copy(debugEditWalls = it.debugEditWalls + newWalls) }
         }
         DebugEditTool.BLOCK -> {
-            if (pts.size < 3) return
+            if (points.size < 3) return
             val poly = CollisionPolygon("zona_editada_${System.currentTimeMillis()}",
-                pts.map { GeoNode(it.latitude, it.longitude) })
-            _uiState.update { it.copy(debugEditBlocks = it.debugEditBlocks + poly, debugEditPoints = emptyList()) }
+                points.map { GeoNode(it.latitude, it.longitude) })
+            _uiState.update { it.copy(debugEditBlocks = it.debugEditBlocks + poly) }
         }
-        DebugEditTool.NAV_PED -> {
-            if (pts.size < 2) return
-            _uiState.update { it.copy(debugEditNavPed = it.debugEditNavPed + listOf(pts), debugEditPoints = emptyList()) }
-        }
-        DebugEditTool.NAV_CAR -> {
-            if (pts.size < 2) return
-            _uiState.update { it.copy(debugEditNavCar = it.debugEditNavCar + listOf(pts), debugEditPoints = emptyList()) }
-        }
+        DebugEditTool.NAV_PED ->
+            _uiState.update { it.copy(debugEditNavPed = it.debugEditNavPed + listOf(points)) }
+        DebugEditTool.NAV_CAR ->
+            _uiState.update { it.copy(debugEditNavCar = it.debugEditNavCar + listOf(points)) }
         DebugEditTool.NONE -> {}
     }
 }
 
-// Borra TODA la geometría editada (rojas + caminos) y la forma en curso. No toca las
-// colisiones cargadas del archivo (exteriorCollisions), que se siguen dibujando aparte.
+// Deshace el ÚLTIMO trazo dibujado del tipo de la herramienta activa (si NONE, intenta
+// quitar de cualquier lista no vacía, en orden razonable).
+fun WorldMapViewModel.undoLastDebugShape() {
+    _uiState.update { s ->
+        when {
+            s.debugEditTool == DebugEditTool.WALL && s.debugEditWalls.isNotEmpty() ->
+                s.copy(debugEditWalls = s.debugEditWalls.dropLast(1))
+            s.debugEditTool == DebugEditTool.BLOCK && s.debugEditBlocks.isNotEmpty() ->
+                s.copy(debugEditBlocks = s.debugEditBlocks.dropLast(1))
+            s.debugEditTool == DebugEditTool.NAV_PED && s.debugEditNavPed.isNotEmpty() ->
+                s.copy(debugEditNavPed = s.debugEditNavPed.dropLast(1))
+            s.debugEditTool == DebugEditTool.NAV_CAR && s.debugEditNavCar.isNotEmpty() ->
+                s.copy(debugEditNavCar = s.debugEditNavCar.dropLast(1))
+            s.debugEditNavCar.isNotEmpty() -> s.copy(debugEditNavCar = s.debugEditNavCar.dropLast(1))
+            s.debugEditNavPed.isNotEmpty() -> s.copy(debugEditNavPed = s.debugEditNavPed.dropLast(1))
+            s.debugEditWalls.isNotEmpty() -> s.copy(debugEditWalls = s.debugEditWalls.dropLast(1))
+            s.debugEditBlocks.isNotEmpty() -> s.copy(debugEditBlocks = s.debugEditBlocks.dropLast(1))
+            else -> s
+        }
+    }
+}
+
+// Borra TODA la geometría editada (rojas + caminos). No toca las colisiones cargadas del
+// archivo (exteriorCollisions), que se siguen dibujando aparte.
 fun WorldMapViewModel.clearDebugEdits() {
     _uiState.update {
         it.copy(
-            debugEditPoints = emptyList(),
             debugEditWalls = emptyList(),
             debugEditBlocks = emptyList(),
             debugEditNavPed = emptyList(),
@@ -143,8 +144,7 @@ fun WorldMapViewModel.importDebugEditsFromUri(context: Context, uri: android.net
                     debugEditWalls = data.walls,
                     debugEditBlocks = data.polygons,
                     debugEditNavPed = navPed,
-                    debugEditNavCar = navCar,
-                    debugEditPoints = emptyList()
+                    debugEditNavCar = navCar
                 )
             }
         } catch (e: Exception) {

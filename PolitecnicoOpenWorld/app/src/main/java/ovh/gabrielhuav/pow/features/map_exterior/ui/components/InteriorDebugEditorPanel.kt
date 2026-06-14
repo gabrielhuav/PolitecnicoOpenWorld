@@ -3,12 +3,12 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -16,29 +16,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DebugEditTool
 
 // ─── PANEL DEL EDITOR DEL DEBUG INTERIORES ────────────────────────────────────
-// Panel flotante para EDITAR las líneas del overlay caminando con el jugador:
+// Barra HORIZONTAL compacta (abajo). Eliges una herramienta (color/tipo) y luego
+// DIBUJAS con el dedo sobre el mapa (NativeOsmMap): arrastras para una línea
+// (bardas/caminos) o un rectángulo (zonas rojas), igual que en Paint.
 //  ROJO   = barda (WALL) / zona NO caminable (BLOCK)
-//  VERDE  = camino peatonal (NAV_PED)
-//  NARANJA= camino de autos / estacionamiento (NAV_CAR)
-// Flujo: elige herramienta → "Capturar" en cada punto (caminando) → "Terminar forma".
-// "Exportar" guarda todo a JSON (formato exterior_collisions + navPaths).
+//  VERDE  = camino peatonal (NAV_PED) · NARANJA = camino de autos (NAV_CAR)
 @Composable
 fun InteriorDebugEditorPanel(
     tool: DebugEditTool,
-    inProgressCount: Int,
     wallsCount: Int,
     blocksCount: Int,
     navPedCount: Int,
     navCarCount: Int,
     onSelectTool: (DebugEditTool) -> Unit,
-    onCapture: () -> Unit,
     onUndo: () -> Unit,
-    onFinish: () -> Unit,
     onClear: () -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
@@ -46,63 +43,43 @@ fun InteriorDebugEditorPanel(
 ) {
     Column(
         modifier = modifier
-            .background(Color(0xE6101015), RoundedCornerShape(12.dp))
-            .padding(10.dp)
-            .verticalScroll(rememberScrollState()),
+            .background(Color(0xE6101015), RoundedCornerShape(14.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text("Editor de líneas (Debug)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        Text("Puntos en curso: $inProgressCount", color = Color(0xFFB0BEC5), fontSize = 11.sp)
+        val hint = if (tool == DebugEditTool.NONE)
+            "Editor de líneas — elige una herramienta y dibuja con el dedo en el mapa"
+        else
+            "Dibuja con el dedo: arrastra para ${if (tool == DebugEditTool.BLOCK) "un rectángulo" else "una línea"}"
+        Text(hint, color = Color(0xFFCFD8DC), fontSize = 11.sp, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth())
 
-        // Selector de herramienta (color/tipo).
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            ToolButton("Barda", Color(0xFFD32F2F), tool == DebugEditTool.WALL, Modifier.weight(1f)) { onSelectTool(DebugEditTool.WALL) }
-            ToolButton("Zona", Color(0xFFB71C1C), tool == DebugEditTool.BLOCK, Modifier.weight(1f)) { onSelectTool(DebugEditTool.BLOCK) }
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            ToolButton("Peatonal", Color(0xFF4CAF50), tool == DebugEditTool.NAV_PED, Modifier.weight(1f)) { onSelectTool(DebugEditTool.NAV_PED) }
-            ToolButton("Autos", Color(0xFFFF8F00), tool == DebugEditTool.NAV_CAR, Modifier.weight(1f)) { onSelectTool(DebugEditTool.NAV_CAR) }
-        }
-
-        // Acciones de captura.
-        Button(onClick = onCapture, modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))) {
-            Text("Capturar punto", fontSize = 12.sp)
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Button(onClick = onUndo, modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF455A64))) {
-                Text("Deshacer", fontSize = 11.sp)
-            }
-            Button(onClick = onFinish, modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A1B9A))) {
-                Text("Terminar", fontSize = 11.sp)
-            }
+        // Fila 1: herramientas (color/tipo).
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            BarButton("Barda", Color(0xFFD32F2F), tool == DebugEditTool.WALL, Modifier.weight(1f)) { onSelectTool(DebugEditTool.WALL) }
+            BarButton("Zona", Color(0xFFB71C1C), tool == DebugEditTool.BLOCK, Modifier.weight(1f)) { onSelectTool(DebugEditTool.BLOCK) }
+            BarButton("Peatonal", Color(0xFF4CAF50), tool == DebugEditTool.NAV_PED, Modifier.weight(1f)) { onSelectTool(DebugEditTool.NAV_PED) }
+            BarButton("Autos", Color(0xFFFF8F00), tool == DebugEditTool.NAV_CAR, Modifier.weight(1f)) { onSelectTool(DebugEditTool.NAV_CAR) }
         }
 
-        Text("Editado → bardas: $wallsCount · zonas: $blocksCount · peatonal: $navPedCount · autos: $navCarCount",
-            color = Color(0xFFB0BEC5), fontSize = 10.sp)
+        // Fila 2: acciones.
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            BarButton("Deshacer", Color(0xFF455A64), false, Modifier.weight(1f)) { onUndo() }
+            BarButton("Limpiar", Color(0xFF8D6E63), false, Modifier.weight(1f)) { onClear() }
+            BarButton("Exportar", Color(0xFF2E7D32), false, Modifier.weight(1f)) { onExport() }
+            BarButton("Importar", Color(0xFF00695C), false, Modifier.weight(1f)) { onImport() }
+        }
 
-        // Guardar / cargar geometría.
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Button(onClick = onExport, modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))) {
-                Text("Exportar", fontSize = 11.sp)
-            }
-            Button(onClick = onImport, modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00695C))) {
-                Text("Importar", fontSize = 11.sp)
-            }
-        }
-        Button(onClick = onClear, modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8D6E63))) {
-            Text("Limpiar todo", fontSize = 11.sp)
-        }
+        Text(
+            "bardas $wallsCount · zonas $blocksCount · peatonal $navPedCount · autos $navCarCount",
+            color = Color(0xFF90A4AE), fontSize = 10.sp, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
 @Composable
-private fun ToolButton(
+private fun BarButton(
     label: String,
     color: Color,
     selected: Boolean,
@@ -111,11 +88,19 @@ private fun ToolButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.heightIn(min = 40.dp),
+        shape = RoundedCornerShape(10.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) color else color.copy(alpha = 0.35f)
+            containerColor = if (selected) color else color.copy(alpha = 0.45f)
         )
     ) {
-        Text(label, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        Text(
+            label,
+            color = Color.White,
+            fontSize = 12.sp,
+            maxLines = 1,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }

@@ -142,6 +142,9 @@ internal fun NativeOsmMap(
     nativeMapRef: MutableState<MapView?>,
 ) {
     var hasTriggeredNativePan by remember { mutableStateOf(false) }
+    // NOTA: el DIBUJO del editor del Debug Interiores se hace en una capa Compose POR ENCIMA
+    // del mapa (InteriorDebugDrawSurface en WorldMapScreen), válida para cualquier renderer
+    // (web/OSM/Google). Aquí ya no se intercepta el touch para dibujar.
 
     // OPT gama baja: holder NO observable de la última lista de NPCs renderizada. El
     // `update` corre en CADA recomposición (~30 Hz por el jugador) pero los NPCs cambian
@@ -275,7 +278,10 @@ internal fun NativeOsmMap(
                 view.isClickable = false
             }
 
-            if (!uiState.isUserPanningMap) {
+            // En el editor del Debug Interiores SE MANTIENE centrado en el jugador (aunque el
+            // usuario intente panear): la capa de dibujo Compose asume centro = jugador para
+            // convertir pantalla↔coordenadas, así que el centro debe ser estable.
+            if (!uiState.isUserPanningMap || uiState.showInteriorDebugOverlay) {
                 uiState.currentLocation?.let { view.controller.setCenter(it) }
             }
 
@@ -1272,24 +1278,11 @@ internal fun NativeOsmMap(
                     }
                 }
                 editOverlayCache.forEach { it.isEnabled = true }
-                // Forma EN CURSO (línea blanca punteada): se redibuja al capturar puntos.
-                val inProgressLine = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 720 }) as? Polyline)
-                    ?: Polyline().apply {
-                        outlinePaint.color = android.graphics.Color.WHITE
-                        outlinePaint.strokeWidth = 5f
-                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(16f, 10f), 0f)
-                        view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 720 }, this)
-                        view.overlays.add(this)
-                    }
-                if (uiState.debugEditPoints.size >= 2) {
-                    inProgressLine.setPoints(uiState.debugEditPoints)
-                    inProgressLine.isEnabled = true
-                } else {
-                    inProgressLine.isEnabled = false
-                }
             } else {
                 editOverlayCache.forEach { it.isEnabled = false }
+                // Oculta las previsualizaciones del trazo en curso (línea y rectángulo).
                 (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 720 }) as? Polyline)?.isEnabled = false
+                (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 730 }) as? org.osmdroid.views.overlay.Polygon)?.isEnabled = false
             }
 
             // ─── NEBLINA ANCLADA AL JUGADOR ─────────────────────────────────────

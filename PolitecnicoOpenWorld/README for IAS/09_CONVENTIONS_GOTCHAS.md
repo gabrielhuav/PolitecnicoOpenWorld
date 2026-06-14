@@ -369,11 +369,18 @@ matrices por defecto son **border-only** hasta reemplazarse.
   **AUTO al salir/cerrar** (solo si `WorldMapViewModel.inCampaign`; MUNDO LIBRE lo pone en false y NO guarda).
   `MainActivity` es el punto de DI (fija `campaignSchoolId`/`inCampaign` y dispara el auto-guardado).
 - **Editor del Debug Interiores (líneas rojas/verdes/naranjas):** con `showInteriorDebugOverlay` activo,
-  `InteriorDebugEditorPanel` + `WorldMapDebugEditor.kt` (extensiones, sin gemelo miembro) EDITAN la geometría
-  caminando con el jugador (`DebugEditTool` WALL/BLOCK/NAV_PED/NAV_CAR; capturar/terminar/deshacer/limpiar/
-  exportar/importar JSON). Vive en `WorldMapState.debugEdit*` y se dibuja en un **overlay AISLADO** en
-  `NativeOsmMap` (tags +700/+710/+720), SIN tocar el overlay de archivo ni `exteriorCollisions`. Web/Google
-  nativo = pendiente.
+  `InteriorDebugEditorPanel` (barra horizontal abajo; los controles de movimiento se **ocultan** al editar) +
+  `WorldMapDebugEditor.kt` (extensiones, sin gemelo miembro) EDITAN la geometría **DIBUJANDO con el dedo**
+  (estilo Paint): `DebugEditTool` WALL/BLOCK/NAV_PED/NAV_CAR; **arrastre = línea o rectángulo**; deshacer/
+  limpiar/exportar/importar JSON. **El dibujo es una CAPA COMPOSE por encima del mapa (`InteriorDebugDrawSurface`
+  en `WorldMapScreen`), NO código de un renderer concreto** — antes estaba en `NativeOsmMap` (osmdroid) y por eso
+  **no funcionaba con el proveedor por defecto, que es WEB (CARTO/Leaflet)**: el mapa se movía en vez de dibujar.
+  La capa Compose va sobre el renderer (web/OSM/Google) y bajo los botones/panel; con `tool != NONE` consume el
+  gesto **desde el ACTION_DOWN** (`awaitEachGesture` + `consume()`) para que el mapa NO panee; con NONE deja pasar.
+  Convierte pantalla↔coordenadas con **Web Mercator** (`256·densidad·2^zoom`) **asumiendo centro = jugador**, así
+  que en modo debug el mapa **se mantiene centrado en el jugador** (`!isUserPanningMap || showInteriorDebugOverlay`).
+  Commitea con `commitDebugStroke`. La geometría vive en `WorldMapState.debugEdit*`. (OSM nativo conserva además su
+  overlay propio de geometría editada en tags +700/+710, redundante con la capa Compose pero inofensivo.)
 - **Interiores expandible por campus (NO hardcodear el lobby de ESCOM):** el motor de Interiores
   (`interiores.zombies`) sirve para cualquier campus. Salas nuevas vía `ZombieRoomCatalog.campusRooms(...)`
   (`addAll` por campus; ESCOM = anillo bespoke, no lo toques). La sala inicial la elige la ruta
