@@ -281,7 +281,7 @@ RUN_TANQUE, ATTACK`.
 
 **Constantes clave / key constants:**
 ```
-ATTACK_RADIUS=0.00007(~8m)   ATTACK_ANIM_MS=800(windup p_atack)   PROJECTILE_FLIGHT_MS=900
+ATTACK_RADIUS=0.00007(~8m)   ATTACK_ANIM_MS=800(windup p_attack)   PROJECTILE_FLIGHT_MS=900
 IMPACT_RADIUS=0.00005(~5.5m, esquivable)   AGGRO_DETECT_RADIUS=0.00045(~50m, detecta agresor)
 RUN_TANQUE_SPEED=0.0000075   ATTACK_DAMAGE_PROJECTILE=22   ATTACK_COOLDOWN_MS=2800
 MAX_HEALTH=80   RESPAWN_COOLDOWN_MS=60000   ENEMY_CONTACT_(RADIUS/DAMAGE/COOLDOWN_MS)
@@ -300,7 +300,7 @@ MAX_HEALTH=80   RESPAWN_COOLDOWN_MS=60000   ENEMY_CONTACT_(RADIUS/DAMAGE/COOLDOW
 - **Anti-traba:** al correr, si el `snap` a la calle no acerca al objetivo, usa el paso DIRECTO ese tick;
   y si lleva > `STUCK_TIME_MS` (1.5 s) sin avanzar (`STUCK_EPS`) estando lejos, `relocateNear` lo reubica
   cerca del jugador sobre calle **sin curarlo** (no usa `spawn`, que resetea vida). Ver 09. Corre con tanque (`RUN_TANQUE`); al
-  llegar a `ATTACK_RADIUS` hace el **windup** (`p_atack`, 800 ms quieto) y AL TERMINAR lanza el tanque
+  llegar a `ATTACK_RADIUS` hace el **windup** (`p_attack`, 800 ms quieto) y AL TERMINAR lanza el tanque
   (`p_objeto`). El proyectil viaja y al caer **solo pega si el objetivo sigue dentro de `IMPACT_RADIUS`**
   (esquivable si te mueves; `hitPlayer` → `takeDamage` en el VM).
 - **Snap a la calle:** el VM le pasa `snapToRoad = getNearestPointOnNetwork`; todo su movimiento se

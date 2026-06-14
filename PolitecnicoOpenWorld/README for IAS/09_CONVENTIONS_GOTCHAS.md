@@ -307,6 +307,39 @@ matrices por defecto son **border-only** hasta reemplazarse.
   (`p_objeto`) **solo pega si sigues dentro de `IMPACT_RADIUS`** al caer (esquivable). El sprite va a ~1.3 m
   (tamaño peatón), sin emoji flotante. IA → 03; render → 04; PR → `PR_CHANGES_EN.md`.
 
+- **Umbrella `interiores` (reestructura grande):** `features/zombie_minigame/`, `features/interior/` y
+  `features/shinecto/` se fusionaron bajo **`features/interiores/`** con 4 subpaquetes: **`core`**
+  (compartido: `DesignerTarget`+`CameraTransform` en `core/viewmodel/InteriorDesignerModels.kt`;
+  `PlayerView`/`PlayerHealthBarFixed`/`RemotePlayerView`+`playerViewPath` en `core/ui/InteriorPlayerViews.kt`;
+  designer layers en `core/ui`), **`escom`** (interiores simples + metro, antes `interior/`), **`zombies`**
+  (antes `zombie_minigame/`) y **`shinecto`**. Objetivo: separar zombis de interiores y poder añadir más
+  universidades. El metro y shinecto ya **NO** importan del paquete de zombis (toman lo compartido de `core`).
+  El `CollisionMatrixRepository` (su package ya era `data.repository`) se movió físicamente a `data/repository/`.
+  Ruta de nav `"zombie_minigame"` → **`"interiores_zombies"`**. Al añadir una universidad nueva, crea
+  `interiores/<uni>/` reutilizando `core`. **No** re-acoplar `escom`/`shinecto` a `zombies`.
+- **Spawn FIJO en ESCOM:** `MainActivity` ahora arranca SIEMPRE en el punto del teletransporte "ESCOM"
+  (`SPAWN_ESCOM_LAT=19.504603`, `SPAWN_ESCOM_LON=-99.145985`, = `TeleportCatalog.zones[0]`), ignorando el
+  GPS real (`fetchCurrentLocation`/fallback ya solo llaman a `updateInitialLocation(ESCOM)`). Para volver al
+  spawn por GPS, restablece la lectura de `getCurrentLocation` en `fetchCurrentLocation`.
+- **Detección de modo en servidores:** el cliente de interiores (`ZombieGameViewModel`) envía un campo
+  **`mode`** ("interiores" = lobby tranquilo | "zombies" = edificio/horda o lobby con apocalipsis;
+  `currentNetMode()`) en `JOIN_ROOM` y `PLAYER_UPDATE`. El mundo abierto ya distingue **mapa global**
+  (instancia `"normal"`) de **zombies global** (instancia `"apocalipsis"`) vía `JOIN_INSTANCE`. Los
+  `server.js` (no incluidos en este checkout) deben leer estas señales para enrutar/contabilizar por modo
+  (ver 08). No re-introducir un flag global de apocalipsis (rompe el instancing).
+- **Convención de nombres de assets (inglés/snake_case):** se renombraron carpetas/archivos con español o
+  typos: `PRINCIPAL→MAIN`, `INTERIORES→INTERIORS`, `LUGARES→PLACES`, `ZOMBIS_MOD→ZOMBIES_MOD`,
+  `coleccionables→collectibles`, `metroCDMX→metro_cdmx`, `assetsNPC/cabello→assetsNPC/hair`,
+  `assetsNPC/otherPlayer→assetsNPC/other_player` (¡también el literal `bodyFolder="other_player"`!),
+  `Prankedy/p_atack→p_attack` (typo; prefix `p_attack_`), `shineCTO→shine_cto`,
+  `deportivomiguelaleman→deportivo_miguel_aleman`, `plazalindavista→plaza_lindavista`,
+  `ZOMBIES_MOD/interiores→interiors`, `zombi_hand→zombie_hand`, `Carga_Mod_Zombi→load_zombie_mod`,
+  `metro_cdmx/mapa.png→map.png`. **PENDIENTE (alto riesgo, requiere la app para verificar el arte):** las
+  SUBcarpetas de skin camelCase (`MAIN/escomgirlIdle`, `MAIN/lazaroWalk`…, construidas en `PlayerSkin` con
+  `"${skinFolder}Idle"`) y los ~500 frames de vehículos (`White_*_CLEAN_All_###`, ya en inglés). Toda ruta de
+  asset es un STRING (literal o `"$folder/..."`); un rename mal hecho falla en RUNTIME, no al compilar —
+  verifica que cada literal resuelva a un archivo existente.
+
 ---
 
 ## 13. PROTOCOLO DE ACTUALIZACIÓN DE DOCS / DOC UPDATE PROTOCOL (obligatorio / mandatory)

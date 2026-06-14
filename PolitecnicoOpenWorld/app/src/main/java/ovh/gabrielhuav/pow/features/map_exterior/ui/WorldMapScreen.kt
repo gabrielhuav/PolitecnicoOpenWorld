@@ -223,7 +223,7 @@ fun WorldMapScreen(
     val widthCache = remember { mutableStateMapOf<String, Float>() }
     val heightCache = remember { mutableStateMapOf<String, Float>() }
     // OPT memoria gama baja (≤2 GB): esta caché de drawables (NPCs, patrullas, balas,
-    // coleccionables…) se indexa por FIRMA VISUAL (incluye salud/zoom/frame), así que en
+    // collectibles…) se indexa por FIRMA VISUAL (incluye salud/zoom/frame), así que en
     // sesiones largas crecía SIN LÍMITE y podía agotar la RAM (OOM). La acotamos con un
     // LRU por orden de acceso (mismo patrón que googleMapsIconCache): al pasar el tope se
     // descarta la entrada más vieja; si vuelve a hacer falta se regenera (idéntico en
@@ -307,7 +307,7 @@ fun WorldMapScreen(
             viewModel.clearPendingInteriorDestination()
             if (viewModel.pendingZombieMinigame) {
                 viewModel.clearPendingZombieMinigame()
-                onNavigateToInterior("zombie_minigame")
+                onNavigateToInterior("interiores_zombies")
             } else {
                 onNavigateToInterior(target.routeName)
             }
@@ -357,7 +357,7 @@ fun WorldMapScreen(
     val lastWebPoliceHolder = remember { booleanArrayOf(false) }
     val lastWebZombieHolder = remember { booleanArrayOf(false) }
     // 🚇 Estaciones de metro (estáticas): se reenvían al WebView solo al cambiar la lista
-    // (+ heartbeat), como los landmarks. El icono se carga del asset metroCDMX/icon.webp.
+    // (+ heartbeat), como los landmarks. El icono se carga del asset metro_cdmx/icon.webp.
     val lastWebMetroHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.MetroStation>>(1) }
     val webMetroTick = remember { intArrayOf(0) }
     // Debug Interiores (web): solo reenviamos el navGraph al WebView cuando cambia el
@@ -648,7 +648,7 @@ fun WorldMapScreen(
                     // OSM nativo / web). Marcador estático de tamaño fijo (~24 dp).
                     val metroIconG = remember {
                         try {
-                            val raw = context.assets.open("metroCDMX/icon.webp").use { android.graphics.BitmapFactory.decodeStream(it) }
+                            val raw = context.assets.open("metro_cdmx/icon.webp").use { android.graphics.BitmapFactory.decodeStream(it) }
                             val px = (24 * context.resources.displayMetrics.density).toInt().coerceAtLeast(16)
                             val scaled = android.graphics.Bitmap.createScaledBitmap(raw, px, px, true)
                             BitmapDescriptorFactory.fromBitmap(scaled)

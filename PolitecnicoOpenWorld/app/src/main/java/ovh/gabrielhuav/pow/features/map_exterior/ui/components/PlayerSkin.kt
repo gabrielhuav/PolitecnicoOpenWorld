@@ -3,19 +3,19 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui.components
 /**
  * Define cada skin disponible para el jugador principal.
  *
- * Convención de assets (todos en assets/PRINCIPAL/):
+ * Convención de assets (todos en assets/MAIN/):
  *   <skinFolder>Idle/   →  <skinPrefix>i_<frame>.webp   (frames 1–idleFrames)
  *   <skinFolder>Walk/   →  <skinPrefix>w_<frame>.webp   (frames 1–walkFrames)
  *   <skinFolder>Run/    →  <skinPrefix>r_<frame>.webp   (frames 1–runFrames)
  *   <skinFolder>Special/→  <skinPrefix>s_<frame>.webp   (frames 1–specialFrames)
  *
  * Para agregar una skin nueva:
- *   1. Coloca los sprites en assets/PRINCIPAL/<skinFolder>{Idle|Walk|Run|Special}/
+ *   1. Coloca los sprites en assets/MAIN/<skinFolder>{Idle|Walk|Run|Special}/
  *   2. Agrega una entrada al enum con sus valores correspondientes.
  */
 enum class PlayerSkin(
     val displayName: String,
-    /** Subcarpeta dentro de PRINCIPAL/, sin barra final */
+    /** Subcarpeta dentro de MAIN/, sin barra final */
     val skinFolder: String,
     /** Prefijo del archivo antes de la letra de acción, p.ej. "lazaro_" */
     val skinPrefix: String,
@@ -24,7 +24,7 @@ enum class PlayerSkin(
     val runFrames: Int = 6,
     val specialFrames: Int = 8,
     /** Ruta al sprite de previsualización (idle frame 1) */
-    val previewAsset: String = "PRINCIPAL/${skinFolder}Idle/${skinPrefix}i_1.webp"
+    val previewAsset: String = "MAIN/${skinFolder}Idle/${skinPrefix}i_1.webp"
 ) {
     LAZARO(
         displayName = "Lázaro",
@@ -52,8 +52,8 @@ enum class PlayerSkin(
     // ─────────────────────────────────────────────────────────────────────
     ;
 
-    fun idlePath(frame: Int)   = "PRINCIPAL/${skinFolder}Idle/${skinPrefix}i_$frame.webp"
-    fun walkPath(frame: Int)   = "PRINCIPAL/${skinFolder}Walk/${skinPrefix}w_$frame.webp"
-    fun runPath(frame: Int)    = "PRINCIPAL/${skinFolder}Run/${skinPrefix}r_$frame.webp"
-    fun specialPath(frame: Int)= "PRINCIPAL/${skinFolder}Special/${skinPrefix}s_$frame.webp"
+    fun idlePath(frame: Int)   = "MAIN/${skinFolder}Idle/${skinPrefix}i_$frame.webp"
+    fun walkPath(frame: Int)   = "MAIN/${skinFolder}Walk/${skinPrefix}w_$frame.webp"
+    fun runPath(frame: Int)    = "MAIN/${skinFolder}Run/${skinPrefix}r_$frame.webp"
+    fun specialPath(frame: Int)= "MAIN/${skinFolder}Special/${skinPrefix}s_$frame.webp"
 }

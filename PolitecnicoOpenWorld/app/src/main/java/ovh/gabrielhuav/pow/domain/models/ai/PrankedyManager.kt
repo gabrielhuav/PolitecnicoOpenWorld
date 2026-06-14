@@ -54,7 +54,7 @@ class PrankedyManager {
         const val ATTACK_RADIUS            = 0.00007  // ~8 m → se acerca antes de lanzar el tanque
         const val ATTACK_DAMAGE_PROJECTILE = 22f
         const val ATTACK_COOLDOWN_MS       = 2800L
-        const val ATTACK_ANIM_MS           = 800L     // duración de la animación de lanzamiento (p_atack)
+        const val ATTACK_ANIM_MS           = 800L     // duración de la animación de lanzamiento (p_attack)
         const val PROJECTILE_FLIGHT_MS     = 900L     // tiempo que tarda el proyectil en llegar
         const val IMPACT_RADIUS            = 0.00005  // ~5.5 m: si te alejas del punto de impacto, falla
         // Radio ALREDEDOR DEL JUGADOR para detectar a un NPC que lo esté agrediendo.
@@ -151,7 +151,7 @@ class PrankedyManager {
     // ANTI-TRABA: última posición de referencia y momento del último avance real.
     private var lastStuckPos: GeoPoint? = null
     private var lastProgressMs: Long = 0L
-    // Windup de ataque: primero se reproduce la animación p_atack y AL TERMINAR se lanza el tanque.
+    // Windup de ataque: primero se reproduce la animación p_attack y AL TERMINAR se lanza el tanque.
     private var attackAnimUntil: Long = 0L
     private var pendingLaunch: Boolean = false
     private var pendingTargetLoc: GeoPoint? = null
@@ -245,7 +245,7 @@ class PrankedyManager {
             }
         }
 
-        // 1b. WINDUP: mientras corre la animación p_atack, se queda QUIETO (no se mueve ni
+        // 1b. WINDUP: mientras corre la animación p_attack, se queda QUIETO (no se mueve ni
         //     re-evalúa objetivo). Así se ve la secuencia de lanzamiento completa.
         if (now < attackAnimUntil) {
             animState = PrankedyAnimState.ATTACK
@@ -296,7 +296,7 @@ class PrankedyManager {
         val distToTarget = dist(loc, targetLoc)
         when {
             distToTarget <= ATTACK_RADIUS && now >= attackCooldownUntil && !projectileActive -> {
-                // ─ INICIAR WINDUP: primero la animación de lanzamiento (p_atack); el tanque
+                // ─ INICIAR WINDUP: primero la animación de lanzamiento (p_attack); el tanque
                 //   (p_objeto) se suelta AL TERMINAR la animación (ver paso "3.b" arriba).
                 animState = PrankedyAnimState.ATTACK
                 attackAnimUntil = now + ATTACK_ANIM_MS

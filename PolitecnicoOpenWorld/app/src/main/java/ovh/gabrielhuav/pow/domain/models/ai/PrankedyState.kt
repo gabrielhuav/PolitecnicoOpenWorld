@@ -6,7 +6,7 @@ enum class PrankedyAnimState {
     WALK,          // caminando tranquilo (p_walk_#.webp)
     RUN,           // corriendo para seguir al jugador (p_run_#.webp)
     RUN_TANQUE,    // sprint de ataque hacia enemigo (p_run_tanque_#.webp)
-    ATTACK,        // animación de golpe/lanzamiento (p_atack_#.webp)
+    ATTACK,        // animación de golpe/lanzamiento (p_attack_#.webp)
 }
 
 /** Fase del ciclo de vida del compañero. */

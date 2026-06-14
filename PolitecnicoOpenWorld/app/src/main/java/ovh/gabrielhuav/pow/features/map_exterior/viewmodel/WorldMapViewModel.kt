@@ -1010,7 +1010,7 @@ class WorldMapViewModel(
                         val isRemoteDriving = msg.isDriving == true
 
                         val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
-                            bodyFolder = "otherPlayer",
+                            bodyFolder = "other_player",
                             bodyPrefix = "p_mult_",
                             hairId = 1,
                             hairColor = androidx.compose.ui.graphics.Color.White,
@@ -1755,10 +1755,10 @@ class WorldMapViewModel(
             _uiState.update { it.copy(nearbyMetroStation = null, interactionPrompt = null) }
         }
 
-        // 2. Recopilamos los coleccionables normales y de ESCOM (nuestro código)
+        // 2. Recopilamos los collectibles normales y de ESCOM (nuestro código)
         val baseItems = _uiState.value.activeCollectibles + _escomItems.value
 
-        // Convertimos los Landmarks de tipo "Puerta" en coleccionables virtuales interactuables
+        // Convertimos los Landmarks de tipo "Puerta" en collectibles virtuales interactuables
         val doorItems = _uiState.value.landmarks
             .filter { it.assetPath.contains("DOORS/") }
             .map { doorLandmark ->
@@ -2425,7 +2425,7 @@ class WorldMapViewModel(
     /**
      * Interacción con la mano: en lugar de entrar a un interior concreto, marca
      * el flag pendingZombieMinigame para que, tras el video, WorldMapScreen
-     * navegue a la ruta "zombie_minigame".
+     * navegue a la ruta "interiores_zombies" (modo Interiores → capa zombis).
      */
     fun handleInteraction() {
         val nearbyMetro = _uiState.value.nearbyMetroStation
@@ -2451,7 +2451,7 @@ class WorldMapViewModel(
                 val targetRoute = when (nearby.name) {
                     "Entrada Campo Béisbol" -> "interior_deportivo_beis"
                     "Entrada Campo Fútbol" -> "interior_deportivo_futbol"
-                    else -> "zombie_minigame"
+                    else -> "interiores_zombies"
                 }
                 _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }
             }
@@ -2616,7 +2616,7 @@ class WorldMapViewModel(
                 id          = ShineCTOLocation.MARKER_ID,
                 name        = ShineCTOLocation.MARKER_NAME,
                 description = "easter_egg",
-                assetPath   = "LUGARES/shineCTO/s_logo.webp",
+                assetPath   = "PLACES/shine_cto/s_logo.webp",
                 latitude    = ShineCTOLocation.LAT,
                 longitude   = ShineCTOLocation.LON
             )
@@ -2678,4 +2678,4 @@ class WorldMapViewModel(
     fun consumeMetroFadeComplete() {
         _uiState.update { it.copy(metroFadeCompleteStation = null) }
     }
-}
+}

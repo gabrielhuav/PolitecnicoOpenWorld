@@ -765,7 +765,7 @@ internal fun NativeOsmMap(
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f
                             } else if (npc.type == NpcType.ZOMBIE) {
-                                // 🧟 ZOMBIE: usa los assets de ZOMBIS_MOD/z_walk.
+                                // 🧟 ZOMBIE: usa los assets de ZOMBIES_MOD/z_walk.
                                 // Tamaño similar al de los peatones (1.3 m).
                                 // Tamaño por rol: TANK más grande, RUNNER algo más pequeño.
                                 val roleSizeMul = when (npc.zombieRole) {
@@ -1119,7 +1119,7 @@ internal fun NativeOsmMap(
                         val cacheKey = "OSM_METRO_ICON"
                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                             try {
-                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("metroCDMX/icon.webp"))
+                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("metro_cdmx/icon.webp"))
                                 if (bitmap != null) {
                                     val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
                                     ExactSizeDrawable(spriteDrawable, exactPixels, exactPixels)

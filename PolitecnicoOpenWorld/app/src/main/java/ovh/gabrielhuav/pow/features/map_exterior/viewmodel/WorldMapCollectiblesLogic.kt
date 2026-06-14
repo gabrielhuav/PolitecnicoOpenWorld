@@ -120,7 +120,7 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
             _uiState.update { it.copy(nearbyMetroStation = null, interactionPrompt = null) }
         }
 
-        // 2. Verificar cercanía a otros objetos (coleccionables, puertas)
+        // 2. Verificar cercanía a otros objetos (collectibles, puertas)
         val doorLandmarkItems = _uiState.value.landmarks
             .filter { it.assetPath == ESCOM_DOOR_ASSET }
             .map { lm ->

@@ -80,7 +80,12 @@ caché, FPS, **zoom** (nivel de zoom actual en vivo) y **velocímetro** (km/h al
 
 ---
 
-## ShineCTO easter egg (`features/shinecto/`)
+## ShineCTO easter egg (`features/interiores/shinecto/`)
+
+> **🆕 Reestructura:** antes `features/shinecto/`; ahora **`features/interiores/shinecto/`** (subpaquete de
+> la umbrella `interiores`). Usa `PlayerView`/`PlayerHealthBarFixed` desde **`interiores.core.ui`** (antes de
+> `zombie_minigame`). Su asset es `PLACES/shine_cto/` (antes `LUGARES/shineCTO/`). / Now under the `interiores`
+> umbrella; shared player views come from `interiores.core.ui`.
 
 **ES:** Interior easter-egg accesible al acercarse a `ShineCTOLocation` (lat 19.459049, lon -99.163251,
 `TRIGGER_RADIUS` 0.00015). Mini-juego social de bebidas.

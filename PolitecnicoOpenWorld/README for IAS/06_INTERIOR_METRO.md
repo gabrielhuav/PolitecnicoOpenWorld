@@ -1,4 +1,10 @@
-# 06 · Interiores + Metro / Interiors + Metro (`features/interior/`)
+# 06 · Interiores + Metro / Interiors + Metro (`features/interiores/escom/`)
+
+> **🆕 Reestructura:** el antiguo `features/interior/` ahora es **`features/interiores/escom/`** (subpaquete
+> de la umbrella `interiores`, pensado para crecer a más universidades además de ESCOM). El metro importa
+> los tipos compartidos `DesignerTarget`/`CameraTransform` y los designer layers desde **`interiores.core`**
+> (antes los tomaba de `zombie_minigame`). / Was `features/interior/`; now `features/interiores/escom/`;
+> shared designer types/layers come from `interiores.core`.
 
 **ES:** Interiores 2D simples (sin zombis): 7 edificios de ESCOM + 2 deportivos + estaciones de metro.
 Cada uno es una pantalla Compose sobre un fondo, con movimiento validado por una `CollisionGrid`.

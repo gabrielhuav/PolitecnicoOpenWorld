@@ -47,7 +47,7 @@ object CharacterSpriteManager {
     fun getHairSprite(context: Context, hairId: Int): ImageBitmap? {
         hairCache.get(hairId)?.let { return it }
         return try {
-            val inputStream: InputStream = context.assets.open("assetsNPC/cabello/hair_$hairId.webp")
+            val inputStream: InputStream = context.assets.open("assetsNPC/hair/hair_$hairId.webp")
             val bmp = BitmapFactory.decodeStream(inputStream).asImageBitmap()
             hairCache.put(hairId, bmp)
             inputStream.close()
