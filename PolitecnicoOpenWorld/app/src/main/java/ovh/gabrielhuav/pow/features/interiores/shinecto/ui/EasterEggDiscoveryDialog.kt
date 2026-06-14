@@ -16,12 +16,14 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import ovh.gabrielhuav.pow.R
 
 /**
  * Easter-egg discovery modal.
@@ -67,7 +69,7 @@ fun EasterEggDiscoveryDialog(onConfirm: () -> Unit) {
                 )
 
                 Text(
-                    text = "¡LUGAR SECRETO DESCUBIERTO!",
+                    text = stringResource(R.string.ee_title),
                     color = Color(0xFFD4AF37),
                     fontWeight = FontWeight.Black,
                     fontSize = if (isLandscape) 16.sp else 20.sp,
@@ -84,9 +86,7 @@ fun EasterEggDiscoveryDialog(onConfirm: () -> Unit) {
                 )
 
                 Text(
-                    text = "Has encontrado un recinto oculto. " +
-                            "Dicen que aquí las bebidas son legendarias… " +
-                            "pero que cada sorbo te pasa factura. ¿Te atreves a entrar?",
+                    text = stringResource(R.string.ee_text),
                     color = Color.LightGray,
                     fontSize = if (isLandscape) 13.sp else 15.sp,
                     textAlign = TextAlign.Center,
@@ -108,7 +108,7 @@ fun EasterEggDiscoveryDialog(onConfirm: () -> Unit) {
                         .shadow(8.dp, shape)
                 ) {
                     Text(
-                        "ENTRAR",
+                        stringResource(R.string.ee_enter),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 2.sp

@@ -54,6 +54,8 @@ import ovh.gabrielhuav.pow.features.interiores.shinecto.viewmodel.ShineCTOIntera
 import ovh.gabrielhuav.pow.features.interiores.shinecto.viewmodel.ShineCTOViewModel
 import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerHealthBarFixed
 import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerView
+import androidx.compose.ui.res.stringResource
+import ovh.gabrielhuav.pow.R
 import kotlin.math.max
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 
@@ -276,7 +278,7 @@ private fun InteractableDots(
                     .background(Color(0xFF8BC34A).copy(alpha = drinkGlowAlpha), CircleShape)
             )
             if (drinkBitmap != null) {
-                Image(bitmap = drinkBitmap, contentDescription = "Bebida", modifier = Modifier.fillMaxSize())
+                Image(bitmap = drinkBitmap, contentDescription = stringResource(R.string.sc_cd_drink), modifier = Modifier.fillMaxSize())
             } else {
                 Box(modifier = Modifier.fillMaxSize().background(Color(0xFF8BC34A).copy(alpha = 0.8f), CircleShape))
             }
@@ -295,7 +297,7 @@ private fun InteractableDots(
                 .size(shineSizeDp)
         ) {
             shineBitmap?.let {
-                Image(bitmap = it, contentDescription = "Coleccionable Shine", modifier = Modifier.fillMaxSize())
+                Image(bitmap = it, contentDescription = stringResource(R.string.sc_cd_collectible), modifier = Modifier.fillMaxSize())
             } ?: Box(modifier = Modifier.fillMaxSize().background(Color(0xFFFFD700).copy(alpha = 0.85f), CircleShape))
         }
     }
@@ -324,7 +326,7 @@ private fun ShineCTOHud(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            val floorLabel = if (state.floor == ShineCTOFloor.GROUND) "Planta Baja" else "Planta Alta"
+            val floorLabel = if (state.floor == ShineCTOFloor.GROUND) stringResource(R.string.sc_floor_ground) else stringResource(R.string.sc_floor_upper)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -333,10 +335,10 @@ private fun ShineCTOHud(
                     onClick = onBack,
                     modifier = Modifier.background(Color.Black.copy(alpha = 0.6f), CircleShape)
                 ) {
-                    Icon(Icons.Default.ArrowBack, "Salir", tint = Color.White)
+                    Icon(Icons.Default.ArrowBack, stringResource(R.string.sc_cd_exit), tint = Color.White)
                 }
                 Text(
-                    text = "SHINE CTO • $floorLabel",
+                    text = stringResource(R.string.sc_header, floorLabel),
                     color = Color(0xFFD4AF37),
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
@@ -346,7 +348,7 @@ private fun ShineCTOHud(
                 )
                 if (state.drinkCount > 0) {
                     Text(
-                        text = "🍺 ×${state.drinkCount}",
+                        text = stringResource(R.string.sc_drinks, state.drinkCount),
                         color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,

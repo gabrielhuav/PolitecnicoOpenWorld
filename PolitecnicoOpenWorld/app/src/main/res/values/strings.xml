@@ -67,4 +67,40 @@
     <string name="settings_language">Idioma</string>
     <string name="settings_language_system">Sistema (predeterminado)</string>
     <string name="settings_controls_saved">Configuración de controles guardada</string>
+
+    <!-- ─── HUD de interiores/zombis (features/interiores/zombies) ─── -->
+    <string name="zhud_zone">ZONA: %1$s</string>
+    <string name="zhud_zombies">ZOMBIS: %1$d/%2$d</string>
+    <string name="zhud_players">JUGADORES: %1$d</string>
+    <string name="zhud_mode">MODO: %1$s  (mantén Y)</string>
+    <string name="zhud_mode_melee">GOLPE</string>
+    <string name="zhud_mode_ranged">ARMA</string>
+    <string name="zhud_combat_mode">MODO DE COMBATE</string>
+    <string name="zhud_close">Cerrar</string>
+
+    <!-- ─── Comunes ─── -->
+    <string name="common_yes">Sí</string>
+    <string name="common_no">No</string>
+
+    <!-- ─── Minijuego interiores: pantallas y opciones ─── -->
+    <string name="zgame_exit_lobby_title">Volver al Lobby</string>
+    <string name="zgame_exit_lobby_text">¿Estás seguro de que quieres volver al lobby? Perderás el progreso de este edificio.</string>
+    <string name="zgame_victory_title">¡Felicidades!</string>
+    <string name="zgame_victory_text">Edificio despejado. Usa las salidas EXIT para continuar.</string>
+    <string name="zgame_cd_settings">Ajustes</string>
+    <string name="zgame_cd_skin">Cambiar skin</string>
+    <string name="zgame_opt_designer">Diseñador</string>
+    <string name="zgame_opt_exit_map">Salir al mapa</string>
+
+    <!-- ─── ShineCTO (features/interiores/shinecto) ─── -->
+    <string name="sc_cd_drink">Bebida</string>
+    <string name="sc_cd_collectible">Coleccionable Shine</string>
+    <string name="sc_cd_exit">Salir</string>
+    <string name="sc_floor_ground">Planta Baja</string>
+    <string name="sc_floor_upper">Planta Alta</string>
+    <string name="sc_header">SHINE CTO • %1$s</string>
+    <string name="sc_drinks">🍺 ×%1$d</string>
+    <string name="ee_title">¡LUGAR SECRETO DESCUBIERTO!</string>
+    <string name="ee_text">Has encontrado un recinto oculto. Dicen que aquí las bebidas son legendarias… pero que cada sorbo te pasa factura. ¿Te atreves a entrar?</string>
+    <string name="ee_enter">ENTRAR</string>
 </resources>

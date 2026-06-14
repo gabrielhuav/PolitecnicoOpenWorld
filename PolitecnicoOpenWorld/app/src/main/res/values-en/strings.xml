@@ -67,4 +67,40 @@
     <string name="settings_language">Language</string>
     <string name="settings_language_system">System (default)</string>
     <string name="settings_controls_saved">Controls settings saved</string>
+
+    <!-- ─── Interiors/zombies HUD ─── -->
+    <string name="zhud_zone">ZONE: %1$s</string>
+    <string name="zhud_zombies">ZOMBIES: %1$d/%2$d</string>
+    <string name="zhud_players">PLAYERS: %1$d</string>
+    <string name="zhud_mode">MODE: %1$s  (hold Y)</string>
+    <string name="zhud_mode_melee">MELEE</string>
+    <string name="zhud_mode_ranged">WEAPON</string>
+    <string name="zhud_combat_mode">COMBAT MODE</string>
+    <string name="zhud_close">Close</string>
+
+    <!-- ─── Common ─── -->
+    <string name="common_yes">Yes</string>
+    <string name="common_no">No</string>
+
+    <!-- ─── Interiors minigame: screens & options ─── -->
+    <string name="zgame_exit_lobby_title">Back to Lobby</string>
+    <string name="zgame_exit_lobby_text">Are you sure you want to go back to the lobby? You will lose the progress in this building.</string>
+    <string name="zgame_victory_title">Congratulations</string>
+    <string name="zgame_victory_text">Building cleared. Use the EXIT doors to continue.</string>
+    <string name="zgame_cd_settings">Settings</string>
+    <string name="zgame_cd_skin">Change skin</string>
+    <string name="zgame_opt_designer">Designer</string>
+    <string name="zgame_opt_exit_map">Exit to map</string>
+
+    <!-- ─── ShineCTO ─── -->
+    <string name="sc_cd_drink">Drink</string>
+    <string name="sc_cd_collectible">Shine collectible</string>
+    <string name="sc_cd_exit">Exit</string>
+    <string name="sc_floor_ground">Ground Floor</string>
+    <string name="sc_floor_upper">Upper Floor</string>
+    <string name="sc_header">SHINE CTO • %1$s</string>
+    <string name="sc_drinks">🍺 ×%1$d</string>
+    <string name="ee_title">SECRET PLACE DISCOVERED!</string>
+    <string name="ee_text">You found a hidden venue. They say the drinks here are legendary… but every sip takes its toll. Do you dare to enter?</string>
+    <string name="ee_enter">ENTER</string>
 </resources>

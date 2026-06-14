@@ -352,6 +352,37 @@ class ZombieGameViewModel(
     internal fun playerDamageFactor(): Float =
         if (hasEffect(SkillEffect.FUERZA_BRUTA)) PLAYER_DMG_BRUTE_FACTOR else 1f
 
+    // Garantiza que el spawn caiga en una celda CAMINABLE (fuera de la matriz de
+    // colisión). Si el punto pedido está bloqueado (p. ej. la puerta de retorno al
+    // lobby cae sobre una pared), busca en anillos crecientes el punto válido más
+    // cercano. Arregla el bug "salgo del Edificio Principal y no me puedo mover".
+    internal fun nearestWalkableSpawn(x: Float, y: Float, room: ZombieRoom): Pair<Float, Float> {
+        fun ok(px: Float, py: Float): Boolean =
+            px >= PLAYER_RADIUS && py >= PLAYER_RADIUS &&
+            px <= room.worldWidth - PLAYER_RADIUS && py <= room.worldHeight - PLAYER_RADIUS &&
+            !room.isBlockedPixel(px, py)
+
+        val cx = x.coerceIn(PLAYER_RADIUS, room.worldWidth - PLAYER_RADIUS)
+        val cy = y.coerceIn(PLAYER_RADIUS, room.worldHeight - PLAYER_RADIUS)
+        if (ok(cx, cy)) return cx to cy
+
+        // Búsqueda en anillos (16 direcciones) hasta cubrir la sala.
+        val step = PLAYER_RADIUS
+        val maxR = maxOf(room.worldWidth, room.worldHeight)
+        var r = step
+        while (r <= maxR) {
+            for (a in 0 until 16) {
+                val ang = a * (Math.PI.toFloat() / 8f)
+                val px = cx + cos(ang) * r
+                val py = cy + sin(ang) * r
+                if (ok(px, py)) return px to py
+            }
+            r += step
+        }
+        // Último recurso: el centro de la sala (casi siempre caminable).
+        return (room.worldWidth / 2f) to (room.worldHeight / 2f)
+    }
+
     // ─── CARGA DE ZONA ─────────────────────────────────────
     internal fun loadRoom(index: Int) {
         val room = ZombieRoomCatalog.rooms[index]
@@ -359,8 +390,10 @@ class ZombieGameViewModel(
 
         val pendingX = _state.value.pendingSpawnX
         val pendingY = _state.value.pendingSpawnY
-        val spawnX = pendingX ?: (room.playerSpawnFrac.x * room.worldWidth)
-        val spawnY = pendingY ?: (room.playerSpawnFrac.y * room.worldHeight)
+        val rawSpawnX = pendingX ?: (room.playerSpawnFrac.x * room.worldWidth)
+        val rawSpawnY = pendingY ?: (room.playerSpawnFrac.y * room.worldHeight)
+        // Snap del spawn a una celda caminable (no dentro de la matriz de colisión).
+        val (spawnX, spawnY) = nearestWalkableSpawn(rawSpawnX, rawSpawnY, room)
 
         val hasWeapon = _state.value.combatMode == CombatMode.RANGED
 

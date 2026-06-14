@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -71,6 +72,7 @@ import ovh.gabrielhuav.pow.features.interiores.core.ui.RemotePlayerView    // vi
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieGameViewModel
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
 import kotlin.math.max
 import androidx.compose.material.icons.filled.Person
@@ -540,9 +542,9 @@ fun ZombieGameScreen(
                             .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(16.dp))
                             .padding(24.dp)
                     ) {
-                        Text("Volver al Lobby", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text(stringResource(R.string.zgame_exit_lobby_title), color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Text(
-                            "¿Estás seguro de que quieres volver al lobby? Perderás el progreso de este edificio.",
+                            stringResource(R.string.zgame_exit_lobby_text),
                             color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -551,13 +553,13 @@ fun ZombieGameScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21)),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f)
-                            ) { Text("No", color = Color.White, fontWeight = FontWeight.Bold) }
+                            ) { Text(stringResource(R.string.common_no), color = Color.White, fontWeight = FontWeight.Bold) }
                             Button(
                                 onClick = { viewModel.confirmExitToLobby() },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f)
-                            ) { Text("Sí", color = Color.White, fontWeight = FontWeight.Bold) }
+                            ) { Text(stringResource(R.string.common_yes), color = Color.White, fontWeight = FontWeight.Bold) }
                         }
                     }
                 }
@@ -567,10 +569,10 @@ fun ZombieGameScreen(
             if (state.showVictoryScreen) {
                 Box(Modifier.fillMaxSize().background(Color(0xCC000000)), Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Congratulations", color = Color(0xFFD4AF37), fontSize = 44.sp,
+                        Text(stringResource(R.string.zgame_victory_title), color = Color(0xFFD4AF37), fontSize = 44.sp,
                             fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, textAlign = TextAlign.Center)
                         Spacer(Modifier.height(12.dp))
-                        Text("Edificio despejado. Usa las salidas EXIT para continuar.", color = Color.White, fontSize = 16.sp)
+                        Text(stringResource(R.string.zgame_victory_text), color = Color.White, fontSize = 16.sp)
                     }
                 }
             }
@@ -619,14 +621,14 @@ fun ZombieGameScreen(
                 onClick = onNavigateToSettings,
                 modifier = Modifier.background(Color.White.copy(alpha = 0.85f), CircleShape)
             ) {
-                Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black)
+                Icon(Icons.Default.Settings, stringResource(R.string.zgame_cd_settings), tint = Color.Black)
             }
             if (!state.designerMode) {
                 IconButton(
                     onClick = { viewModel.toggleSkinSelector(true) },
                     modifier = Modifier.background(Color(0xFFD91B5B).copy(alpha = 0.9f), CircleShape)
                 ) {
-                    Icon(Icons.Default.Person, "Cambiar skin", tint = Color.White)
+                    Icon(Icons.Default.Person, stringResource(R.string.zgame_cd_skin), tint = Color.White)
                 }
                 var optionsExpanded by remember { mutableStateOf(false) }
                 OptionsMenu(
@@ -635,8 +637,8 @@ fun ZombieGameScreen(
                     openGroupId = null,
                     onOpenGroupChange = {},
                     entries = listOf(
-                        OptionMenuItem("Diseñador", Icons.Default.Architecture) { viewModel.toggleDesignerMode() },
-                        OptionMenuItem("Salir al mapa", Icons.Default.ExitToApp) { viewModel.exitToWorld() }
+                        OptionMenuItem(stringResource(R.string.zgame_opt_designer), Icons.Default.Architecture) { viewModel.toggleDesignerMode() },
+                        OptionMenuItem(stringResource(R.string.zgame_opt_exit_map), Icons.Default.ExitToApp) { viewModel.exitToWorld() }
                     )
                 )
             }

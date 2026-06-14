@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,6 +53,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieGameState
 import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerHealthBarFixed   // barra de vida compartida (core)
+import ovh.gabrielhuav.pow.R
 
 @Composable
 fun ZombieHud(
@@ -81,17 +83,17 @@ fun ZombieHud(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("ZONA: ${roomName.uppercase()}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                Text(stringResource(R.string.zhud_zone, roomName.uppercase()), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.background(Color(0xFF6B1C3A).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
                         .padding(horizontal = 12.dp, vertical = 6.dp))
                 if (isBuilding && state.zombieModeActivated) {
-                    Text("ZOMBIS: ${state.zombiesRemaining}/${state.totalZombies}", color = Color.White, fontSize = 12.sp,
+                    Text(stringResource(R.string.zhud_zombies, state.zombiesRemaining, state.totalZombies), color = Color.White, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.background(Color(0xFFD32F2F).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
                             .padding(horizontal = 12.dp, vertical = 6.dp))
                 }
                 if (state.remotePlayers.isNotEmpty()) {
-                    Text("JUGADORES: ${state.remotePlayers.size + 1}", color = Color.White, fontSize = 12.sp,
+                    Text(stringResource(R.string.zhud_players, state.remotePlayers.size + 1), color = Color.White, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.background(Color(0xFF2196F3).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
                             .padding(horizontal = 12.dp, vertical = 6.dp))
@@ -99,7 +101,7 @@ fun ZombieHud(
             }
             PlayerHealthBarFixed(health = state.playerHealth)
             Text(
-                text = "MODO: ${if (state.combatMode == CombatMode.MELEE) "GOLPE" else "ARMA"}  (mantén Y)",
+                text = stringResource(R.string.zhud_mode, if (state.combatMode == CombatMode.MELEE) stringResource(R.string.zhud_mode_melee) else stringResource(R.string.zhud_mode_ranged)),
                 color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .background(Color(0xFF2A1C21).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
@@ -175,10 +177,10 @@ fun ZombieHud(
                         .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(16.dp))
                         .padding(24.dp)
                 ) {
-                    Text("MODO DE COMBATE", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    WeaponMenuButton("GOLPE", state.combatMode == CombatMode.MELEE) { onSelectMode(CombatMode.MELEE) }
-                    WeaponMenuButton("ARMA", state.combatMode == CombatMode.RANGED) { onSelectMode(CombatMode.RANGED) }
-                    TextButton(onClick = onDismissWeaponMenu) { Text("Cerrar", color = Color.White) }
+                    Text(stringResource(R.string.zhud_combat_mode), color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    WeaponMenuButton(stringResource(R.string.zhud_mode_melee), state.combatMode == CombatMode.MELEE) { onSelectMode(CombatMode.MELEE) }
+                    WeaponMenuButton(stringResource(R.string.zhud_mode_ranged), state.combatMode == CombatMode.RANGED) { onSelectMode(CombatMode.RANGED) }
+                    TextButton(onClick = onDismissWeaponMenu) { Text(stringResource(R.string.zhud_close), color = Color.White) }
                 }
             }
         }
