@@ -1579,7 +1579,7 @@ fun WorldMapScreen(
         if (!uiState.isRoadNetworkReady) {
             Row(modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp).background(Color.Black.copy(alpha = 0.65f), CircleShape).padding(horizontal = 14.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CircularProgressIndicator(Modifier.size(14.dp), Color(0xFFD4AF37), strokeWidth = 2.dp)
-                Text("Cargando calles...", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_loading_streets), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -1611,11 +1611,11 @@ fun WorldMapScreen(
 
         Column(modifier = Modifier.align(Alignment.TopStart).padding(top = 64.dp, start = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AnimatedVisibility(visible = uiState.showCacheWidget, enter = fadeIn(), exit = fadeOut()) { CacheStatusWidget(roadSource = uiState.roadSource, tileSource = uiState.tileSource, mapProvider = uiState.mapProvider) }
-            AnimatedVisibility(visible = uiState.showFpsWidget, enter = fadeIn(), exit = fadeOut()) { CacheChip(label = "Rendimiento", text = "$currentFps FPS", color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F), isLoading = false) }
+            AnimatedVisibility(visible = uiState.showFpsWidget, enter = fadeIn(), exit = fadeOut()) { CacheChip(label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_performance), text = "$currentFps FPS", color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F), isLoading = false) }
             // Widget de nivel de zoom (Ajustes → Interfaz): muestra el zoom actual en vivo
             // para identificar el nivel óptimo (pinch para cambiarlo).
             AnimatedVisibility(visible = uiState.showZoomWidget, enter = fadeIn(), exit = fadeOut()) {
-                CacheChip(label = "Zoom", text = "z = ${"%.1f".format(uiState.zoomLevel)}", color = Color(0xFF7FB2FF), isLoading = false)
+                CacheChip(label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_zoom), text = "z = ${"%.1f".format(uiState.zoomLevel)}", color = Color(0xFF7FB2FF), isLoading = false)
             }
             // Velocímetro (Ajustes → Interfaz): velocidad en km/h, SOLO al conducir.
             // CALIBRADO a sensación de manejo, no al desplazamiento geográfico real: el
@@ -1626,7 +1626,7 @@ fun WorldMapScreen(
                 val frac = (speedAbs / 0.000017).toFloat().coerceIn(0f, 1f) // MAX_SPEED del coche
                 val kmh = (frac * 120f).roundToInt()
                 CacheChip(
-                    label = "Velocidad",
+                    label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_speed),
                     text = "🚗 $kmh km/h",
                     color = when {
                         frac < 0.5f -> Color(0xFF4CAF50)
@@ -1646,7 +1646,7 @@ fun WorldMapScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(Icons.Default.Architecture, null, tint = Color.Black, modifier = Modifier.size(14.dp))
-                    Text("DISEÑADOR", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer), color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1665,7 +1665,7 @@ fun WorldMapScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text("ABANDONAR DISEÑADOR", color = Color(0xFFD4AF37), fontWeight = FontWeight.Black, fontSize = 18.sp, textAlign = TextAlign.Center)
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_exit), color = Color(0xFFD4AF37), fontWeight = FontWeight.Black, fontSize = 18.sp, textAlign = TextAlign.Center)
                         Text(
                             "¿Deseas salir del modo diseñador y restaurar la interfaz de juego normal?",
                             color = Color.White,
@@ -1681,7 +1681,7 @@ fun WorldMapScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFFFFF)),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Seguir editando", color = Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_continue), color = Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
                             }
                             Button(
                                 onClick = {
@@ -1691,7 +1691,7 @@ fun WorldMapScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37)),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Aceptar", color = Color.Black, fontWeight = FontWeight.Bold)
+                                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_accept), color = Color.Black, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1735,7 +1735,7 @@ fun WorldMapScreen(
                 entries = buildList {
                     add(
                         OptionMenuGroup(
-                            id = "opciones", label = "Opciones", icon = Icons.Default.Tune,
+                            id = "opciones", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_options), icon = Icons.Default.Tune,
                             items = buildList {
                                 add(OptionMenuItem("Cambiar skin", Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
                                 add(OptionMenuItem("Teletransportarse...", Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
@@ -1747,7 +1747,7 @@ fun WorldMapScreen(
                                 add(
                                     OptionMenuGroup(
                                         id = "disenador_debug",
-                                        label = "Diseñador / Debug",
+                                        label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_designer),
                                         icon = Icons.Default.Architecture,
                                         tint = if (uiState.isDesignerMode || uiState.showInteriorDebugOverlay) Color(0xFFD4AF37) else Color.White,
                                         items = buildList {
@@ -1778,7 +1778,7 @@ fun WorldMapScreen(
                     )
                     add(
                         OptionMenuGroup(
-                            id = "mapa", label = "Mapa", icon = Icons.Default.LocationOn,
+                            id = "mapa", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_map), icon = Icons.Default.LocationOn,
                             items = buildList {
                                 // (Submenú "Zoom (acercar / alejar)" eliminado: el zoom se hace
                                 // con pinch de dos dedos en los tres renderers.)
@@ -1796,7 +1796,7 @@ fun WorldMapScreen(
                                     if (isZoomed) {
                                         add(
                                             OptionMenuGroup(
-                                                id = "centrar_jugador", label = "Centrar en jugador",
+                                                id = "centrar_jugador", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_center),
                                                 icon = Icons.Default.Person,
                                                 items = buildList {
                                                     add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
@@ -1859,20 +1859,20 @@ fun WorldMapScreen(
                 if (!uiState.pendingProviderReady) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         CircularProgressIndicator(Modifier.size(16.dp), Color(0xFFD4AF37), strokeWidth = 2.dp)
-                        Text("Preparando ${pending.displayName}...", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_preparing_model, pending.displayName), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 } else {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${pending.displayName} listo ✓", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_model_ready, pending.displayName), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = { viewModel.commitMapProvider() },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                                 shape = RoundedCornerShape(20.dp)
-                            ) { Text("Cambiar", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_change), fontWeight = FontWeight.Bold, fontSize = 13.sp) }
                             TextButton(onClick = { viewModel.cancelPendingProvider() }) {
-                                Text("Descartar", color = Color(0xFFCCCCCC), fontSize = 13.sp)
+                                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_discard), color = Color(0xFFCCCCCC), fontSize = 13.sp)
                             }
                         }
                     }
@@ -1883,10 +1883,10 @@ fun WorldMapScreen(
         if (uiState.showTeleportMenu) {
             AlertDialog(
                 onDismissRequest = { viewModel.toggleTeleportMenu(false) },
-                title = { Text("Puntos de Teletransporte", fontWeight = FontWeight.Bold) },
+                title = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_title), fontWeight = FontWeight.Bold) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Selecciona tu estatua o destino:", fontSize = 14.sp)
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_subtitle), fontSize = 14.sp)
                         LazyColumn(modifier = Modifier.fillMaxHeight(0.5f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             // Primera opción: tu ubicación REAL (GPS del dispositivo, p. ej. volver a
                             // casa). Movida aquí desde el antiguo submenú "Ir a…".
@@ -1914,7 +1914,7 @@ fun WorldMapScreen(
                                         } catch (_: SecurityException) {}
                                     }
                                     viewModel.toggleTeleportMenu(false)
-                                }, modifier = Modifier.fillMaxWidth()) { Text("📍 Ir a tu Ubicación (GPS)") }
+                                }, modifier = Modifier.fillMaxWidth()) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_gps)) }
                             }
                             items(TeleportCatalog.zones) { zone ->
                                 Button(onClick = { viewModel.teleportTo(zone.latitude, zone.longitude) }, modifier = Modifier.fillMaxWidth()) { Text(zone.name) }
@@ -1922,7 +1922,7 @@ fun WorldMapScreen(
                         }
                     }
                 },
-                confirmButton = { TextButton(onClick = { viewModel.toggleTeleportMenu(false) }) { Text("Cancelar") } }
+                confirmButton = { TextButton(onClick = { viewModel.toggleTeleportMenu(false) }) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_close)) } }
             )
         }
 
@@ -2009,7 +2009,7 @@ fun WorldMapScreen(
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color.Red),
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 110.dp)
             ) {
-                androidx.compose.material3.Text("SALIR DEL APOCALIPSIS", color = androidx.compose.ui.graphics.Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_apocalypse), color = androidx.compose.ui.graphics.Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             }
         }
 
@@ -2085,7 +2085,7 @@ fun WorldMapScreen(
             LaunchedEffect(Unit) {
                 androidx.compose.animation.core.animate(initialValue = 0.5f, targetValue = 1.3f, animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)) { value, _ -> scale = value }
             }
-            Text(text = "WASTED", color = Color(0xFFD32F2F), fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale))
+            Text(text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_wasted), color = Color(0xFFD32F2F), fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale))
         }
     }
     if (uiState.showZombiVideo) {

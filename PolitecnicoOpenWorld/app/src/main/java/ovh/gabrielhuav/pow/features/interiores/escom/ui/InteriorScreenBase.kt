@@ -225,7 +225,7 @@ private fun InteriorPlayerSprite(state: InteriorState) {
     if (img != null) {
         Image(
             bitmap = img,
-            contentDescription = "Personaje",
+            contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_character),
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {

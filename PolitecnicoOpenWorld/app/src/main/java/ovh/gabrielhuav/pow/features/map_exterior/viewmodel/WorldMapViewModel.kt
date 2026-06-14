@@ -1286,10 +1286,10 @@ class WorldMapViewModel(
                 it.copy(routeDebugWaypoints = it.routeDebugWaypoints + loc)
             }
 
-            android.widget.Toast.makeText(context, "Nodo $debugNodeIdCounter capturado", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(ovh.gabrielhuav.pow.R.string.toast_node_captured, debugNodeIdCounter), android.widget.Toast.LENGTH_SHORT).show()
             debugNodeIdCounter++
         } else {
-            android.widget.Toast.makeText(context, "Estás fuera del edificio", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(ovh.gabrielhuav.pow.R.string.toast_outside_building), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
     // REFACTOR: ensureIndex/candidates/getNearestPointOnNetwork/project viven SOLO en
@@ -2540,7 +2540,7 @@ class WorldMapViewModel(
                 escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
                 reader.close()
             } catch (e: Exception) {
-                android.widget.Toast.makeText(context, "Error leyendo escom_navgraph.json", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(ovh.gabrielhuav.pow.R.string.toast_error_escom_navgraph), android.widget.Toast.LENGTH_SHORT).show()
                 return
             }
         }
@@ -2550,7 +2550,7 @@ class WorldMapViewModel(
         // 2. Buscar el edificio ESCOM en el mapa
         val escomLandmarkBase = _uiState.value.landmarks.find { it.assetPath.contains("building_escom", ignoreCase = true) }
         if (escomLandmarkBase == null) {
-            android.widget.Toast.makeText(context, "Error: ESCOM no está en el mapa", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(ovh.gabrielhuav.pow.R.string.toast_error_escom_missing), android.widget.Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -2590,7 +2590,7 @@ class WorldMapViewModel(
         // 7. Refrescar la pantalla
         updateNpcsState()
 
-        android.widget.Toast.makeText(context, "🚗 Auto inyectado en MICRO_LANDMARK", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(context, context.getString(ovh.gabrielhuav.pow.R.string.toast_car_injected), android.widget.Toast.LENGTH_SHORT).show()
     }
 
     // ─── Selector de skin ────────────────────────────────────────────────
@@ -2678,4 +2678,4 @@ class WorldMapViewModel(
     fun consumeMetroFadeComplete() {
         _uiState.update { it.copy(metroFadeCompleteStation = null) }
     }
-}
+}

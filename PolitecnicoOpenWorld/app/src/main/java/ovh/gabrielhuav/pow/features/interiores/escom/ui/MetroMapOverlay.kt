@@ -147,7 +147,7 @@ fun MetroMapOverlay(
                     ) {
                         Image(
                             bitmap = mapBitmap!!,
-                            contentDescription = "Mapa del Metro",
+                            contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_metro_map),
                             modifier = Modifier.fillMaxSize(),
                             contentScale = androidx.compose.ui.layout.ContentScale.FillBounds
                         )
@@ -237,7 +237,7 @@ fun MetroMapOverlay(
                 onClick = { viewModel.closeMetroMap() },
                 modifier = Modifier.background(Color.Red, RoundedCornerShape(8.dp))
             ) {
-                Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = Color.White)
+                Icon(Icons.Default.Close, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_close), tint = Color.White)
             }
         }
 
@@ -270,16 +270,16 @@ fun MetroMapOverlay(
                         )
                     }
                     IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Añadir Estación", tint = Color.Green)
+                        Icon(Icons.Default.Add, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_add_station), tint = Color.Green)
                     }
                     IconButton(onClick = { viewModel.deleteSelectedGlobalWaypoint() }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red)
+                        Icon(Icons.Default.Delete, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_delete), tint = Color.Red)
                     }
                     IconButton(onClick = onImportGlobal) {
-                        Icon(Icons.Default.Upload, contentDescription = "Importar", tint = Color.Cyan)
+                        Icon(Icons.Default.Upload, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_import), tint = Color.Cyan)
                     }
                     IconButton(onClick = onExportGlobal) {
-                        Icon(Icons.Default.Download, contentDescription = "Exportar", tint = Color.Cyan)
+                        Icon(Icons.Default.Download, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_export), tint = Color.Cyan)
                     }
                 }
                 
@@ -287,7 +287,7 @@ fun MetroMapOverlay(
                     onClick = { viewModel.saveGlobalWaypoints() },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Guardar")
+                    Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_save))
                 }
             }
 
@@ -323,13 +323,13 @@ fun AddStationDialog(
                 .fillMaxHeight(0.8f)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Seleccionar Estación", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.metro_select_station), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 OutlinedTextField(
                     value = state.mapSearchQuery,
                     onValueChange = onSearch,
-                    label = { Text("Buscar", color = Color.Gray) },
+                    label = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_search), color = Color.Gray) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -365,7 +365,7 @@ fun AddStationDialog(
                     modifier = Modifier.align(Alignment.End),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
-                    Text("Cancelar")
+                    Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.menu_cancel))
                 }
             }
         }

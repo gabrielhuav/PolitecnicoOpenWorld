@@ -129,7 +129,7 @@ fun CollectibleClaimDialog(
                     // Botón estilizado como el del menú
                     modifier = Modifier.fillMaxWidth(0.7f).height(56.dp).shadow(8.dp, shape)
                 ) {
-                    Text("CONTINUAR", fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_continue), fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 }
             }
         }

@@ -319,7 +319,7 @@ fun DesignerPanel(
                             onCheckedChange = onToggleParkingMode,
                             modifier = Modifier.scale(0.7f)
                         )
-                        Text("Cajón Estac.", fontSize = 10.sp, color = Color.White)
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_parking), fontSize = 10.sp, color = Color.White)
                     }
                     Button(
                         onClick = onNewWay,

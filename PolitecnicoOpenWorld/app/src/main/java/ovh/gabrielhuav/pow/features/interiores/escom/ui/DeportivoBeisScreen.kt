@@ -18,7 +18,7 @@ fun DeportivoBeisScreen(onExit: () -> Unit) {
     InteriorScreenBase(
         viewModel = viewModel,
         backgroundAssetPath = "PLACES/deportivo_miguel_aleman/campo_beis.webp",
-        title = "Campo de Béisbol",
+        title = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.escom_baseball_field),
         onExit = onExit
     )
 }

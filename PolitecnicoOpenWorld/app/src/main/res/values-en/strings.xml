@@ -26,6 +26,7 @@
     <string name="menu_warmup_title">WAKING SERVER</string>
     <string name="menu_warmup_text">The multiplayer server is asleep.\nWaking it up... %1$ds</string>
     <string name="menu_warmup_hint">It may take up to 60 seconds.</string>
+    <string name="menu_return">RETURN TO MENU</string>
 
     <!-- ─── Settings ─── -->
     <string name="settings_title">GAME SETTINGS</string>
@@ -77,6 +78,73 @@
     <string name="zhud_mode_ranged">WEAPON</string>
     <string name="zhud_combat_mode">COMBAT MODE</string>
     <string name="zhud_close">Close</string>
+
+    <!-- ─── Additional Common ─── -->
+    <string name="common_close">Close</string>
+    <string name="common_continue">CONTINUE</string>
+    <string name="common_save">Save</string>
+    <string name="common_search">Search</string>
+
+    <!-- ─── Exterior Map (features/map_exterior) ─── -->
+    <string name="wm_loading_streets">Loading streets...</string>
+    <string name="wm_designer">DESIGNER</string>
+    <string name="wm_designer_exit">EXIT DESIGNER</string>
+    <string name="wm_designer_continue">Keep editing</string>
+    <string name="wm_designer_accept">Accept</string>
+    <string name="wm_preparing_model">Preparing %1$s...</string>
+    <string name="wm_model_ready">%1$s ready ✓</string>
+    <string name="wm_change">Change</string>
+    <string name="wm_discard">Discard</string>
+    <string name="wm_tp_title">Teleportation Points</string>
+    <string name="wm_tp_subtitle">Select your statue or destination:</string>
+    <string name="wm_tp_gps">📍 Go to your Location (GPS)</string>
+    <string name="wm_exit_apocalypse">EXIT APOCALYPSE</string>
+    <string name="wm_chip_streets">Streets</string>
+    <string name="wm_chip_loading">Loading...</string>
+    <string name="wm_chip_local_db">Local (DB)</string>
+    <string name="wm_chip_network">Overpass API</string>
+    <string name="wm_chip_map">Map</string>
+    <string name="wm_chip_performance">Performance</string>
+    <string name="wm_chip_zoom">Zoom</string>
+    <string name="wm_chip_speed">Speed</string>
+    <string name="wm_fab_options">Options</string>
+    <string name="wm_fab_designer">Designer / Debug</string>
+    <string name="wm_fab_map">Map</string>
+    <string name="wm_fab_center">Center on player</string>
+    <string name="wm_wasted">WASTED</string>
+    <string name="wm_designer_parking">Parking Spot</string>
+    <string name="wm_designer_add_building">Add Building</string>
+
+    <!-- ─── Toast Messages ─── -->
+    <string name="toast_node_captured">Node %1$d captured</string>
+    <string name="toast_outside_building">You are outside the building</string>
+    <string name="toast_error_escom_navgraph">Error reading escom_navgraph.json</string>
+    <string name="toast_error_escom_missing">Error: ESCOM is not on the map</string>
+    <string name="toast_car_injected">🚗 Car injected into MICRO_LANDMARK</string>
+
+    <!-- ─── Content Descriptions ─── -->
+    <string name="cd_prankedy">Prankedy</string>
+    <string name="cd_player">Player</string>
+    <string name="cd_player_vehicle">Player Vehicle</string>
+    <string name="cd_main_character">Main Character</string>
+    <string name="cd_zombie_hand">Zombie Hand</string>
+    <string name="cd_character">Character</string>
+    <string name="cd_metro_map">Metro Map</string>
+    <string name="cd_add_station">Add Station</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_import">Import</string>
+    <string name="cd_export">Export</string>
+    <string name="cd_metro_player">Metro Player</string>
+    <string name="escom_baseball_field">Baseball Field</string>
+    <string name="escom_football_field">Football Field</string>
+
+    <!-- ─── Additional Interiors and Zombies ─── -->
+    <string name="ig_reset">RESET</string>
+    <string name="ig_export">EXPORT</string>
+    <string name="ig_import">IMPORT</string>
+    <string name="ig_exit">EXIT</string>
+    <string name="metro_select_station">Select Station</string>
+    <string name="interior_hp">%1$d HP</string>
 
     <!-- ─── Common ─── -->
     <string name="common_yes">Yes</string>

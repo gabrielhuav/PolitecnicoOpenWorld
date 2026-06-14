@@ -437,7 +437,7 @@ fun ZombieGameScreen(
                 handBitmap?.let { bmp ->
                     Image(
                         bitmap = bmp,
-                        contentDescription = "Mano Zombi",
+                        contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_zombie_hand),
                         modifier = Modifier
                             .absoluteOffset(
                                 x = with(density) { (handScreenX - handSizePx / 2f).toDp() },
@@ -772,7 +772,7 @@ private fun DesignerToolbar(
                 modifier = Modifier.weight(1f).height(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
                 shape = RoundedCornerShape(8.dp)
-            ) { Text("RESET", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_reset), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
@@ -780,15 +780,15 @@ private fun DesignerToolbar(
                 modifier = Modifier.weight(1f).height(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
                 shape = RoundedCornerShape(8.dp)
-            ) { Text("EXPORTAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_export), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             Button(
                 onClick = onImport,
                 modifier = Modifier.weight(1f).height(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
                 shape = RoundedCornerShape(8.dp)
-            ) { Text("IMPORTAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_import), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             TextButton(onClick = onExit, modifier = Modifier.height(40.dp)) {
-                Text("SALIR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_exit), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -820,4 +820,4 @@ private fun computeCamera(
     offsetX = if (scaledW <= viewW) (viewW - scaledW) / 2f else offsetX.coerceIn(viewW - scaledW, 0f)
     offsetY = if (scaledH <= viewH) (viewH - scaledH) / 2f else offsetY.coerceIn(viewH - scaledH, 0f)
     return CameraTransform(offsetX, offsetY, scale)
-}
+}

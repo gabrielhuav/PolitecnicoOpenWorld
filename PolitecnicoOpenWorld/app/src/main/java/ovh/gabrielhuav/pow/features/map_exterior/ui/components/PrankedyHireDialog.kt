@@ -139,7 +139,7 @@ fun PrankedyHireDialog(
                     if (bmp != null) {
                         Image(
                             bitmap = bmp,
-                            contentDescription = "Prankedy",
+                            contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_prankedy),
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
                         )

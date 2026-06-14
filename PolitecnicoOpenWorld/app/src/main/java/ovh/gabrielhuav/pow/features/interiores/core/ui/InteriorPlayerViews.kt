@@ -65,7 +65,7 @@ internal fun PlayerHealthBarFixed(health: Float) {
             color = when { health > 60f -> Color(0xFF4CAF50); health > 30f -> Color(0xFFFFEB3B); else -> Color(0xFFF44336) },
             trackColor = Color.Transparent
         )
-        Text("${health.toInt()} HP", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.interior_hp, health.toInt()), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.Center))
     }
 }
