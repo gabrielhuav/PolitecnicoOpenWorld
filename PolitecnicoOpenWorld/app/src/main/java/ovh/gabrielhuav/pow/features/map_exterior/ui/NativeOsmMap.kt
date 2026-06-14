@@ -1202,6 +1202,96 @@ internal fun NativeOsmMap(
                 (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 300 }) as? Polyline)?.isEnabled = false
             }
 
+            // ─── EDITOR DEL DEBUG INTERIORES (geometría editada + forma en curso) ──────
+            // Dibuja la geometría que el usuario está EDITANDO sobre el overlay de debug:
+            // bardas/zonas ROJAS, caminos VERDES (peatonal) y NARANJAS (autos) ya commiteados,
+            // más la forma EN CURSO (línea blanca punteada). Aislado del overlay de archivo
+            // (interiorPathCache): se reconstruye solo si cambia alguna lista editada.
+            @Suppress("UNCHECKED_CAST")
+            val editOverlayCache = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 700 }) as? MutableList<org.osmdroid.views.overlay.Overlay>)
+                ?: mutableListOf<org.osmdroid.views.overlay.Overlay>().also { view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 700 }, it) }
+            @Suppress("UNCHECKED_CAST")
+            val editSig = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 710 }) as? Array<Any?>)
+                ?: arrayOfNulls<Any?>(4).also { view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 710 }, it) }
+
+            if (uiState.showInteriorDebugOverlay) {
+                if (editSig[0] !== uiState.debugEditWalls || editSig[1] !== uiState.debugEditBlocks ||
+                    editSig[2] !== uiState.debugEditNavPed || editSig[3] !== uiState.debugEditNavCar) {
+                    editSig[0] = uiState.debugEditWalls
+                    editSig[1] = uiState.debugEditBlocks
+                    editSig[2] = uiState.debugEditNavPed
+                    editSig[3] = uiState.debugEditNavCar
+                    editOverlayCache.forEach { view.overlays.remove(it) }
+                    editOverlayCache.clear()
+                    // Zonas ROJAS editadas (polígonos translúcidos).
+                    uiState.debugEditBlocks.forEach { poly ->
+                        if (poly.nodes.size < 3) return@forEach
+                        val polygon = org.osmdroid.views.overlay.Polygon().apply {
+                            points = poly.nodes.map { GeoPoint(it.lat, it.lon) }
+                            fillPaint.color = android.graphics.Color.argb(90, 220, 40, 40)
+                            outlinePaint.color = android.graphics.Color.argb(230, 200, 0, 0)
+                            outlinePaint.strokeWidth = 4f
+                            outlinePaint.isAntiAlias = true
+                        }
+                        editOverlayCache.add(polygon); view.overlays.add(polygon)
+                    }
+                    // Bardas ROJAS editadas.
+                    uiState.debugEditWalls.forEach { wall ->
+                        val line = Polyline().apply {
+                            outlinePaint.color = android.graphics.Color.argb(230, 220, 0, 0)
+                            outlinePaint.strokeWidth = 7f
+                            outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                            outlinePaint.isAntiAlias = true
+                            setPoints(listOf(GeoPoint(wall.lat1, wall.lon1), GeoPoint(wall.lat2, wall.lon2)))
+                        }
+                        editOverlayCache.add(line); view.overlays.add(line)
+                    }
+                    // Caminos VERDES (peatonal) editados.
+                    uiState.debugEditNavPed.forEach { path ->
+                        if (path.size < 2) return@forEach
+                        val line = Polyline().apply {
+                            outlinePaint.color = android.graphics.Color.argb(230, 76, 200, 80)
+                            outlinePaint.strokeWidth = 5f
+                            outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                            outlinePaint.isAntiAlias = true
+                            setPoints(path)
+                        }
+                        editOverlayCache.add(line); view.overlays.add(line)
+                    }
+                    // Caminos NARANJAS (autos) editados.
+                    uiState.debugEditNavCar.forEach { path ->
+                        if (path.size < 2) return@forEach
+                        val line = Polyline().apply {
+                            outlinePaint.color = android.graphics.Color.argb(230, 255, 140, 0)
+                            outlinePaint.strokeWidth = 7f
+                            outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                            outlinePaint.isAntiAlias = true
+                            setPoints(path)
+                        }
+                        editOverlayCache.add(line); view.overlays.add(line)
+                    }
+                }
+                editOverlayCache.forEach { it.isEnabled = true }
+                // Forma EN CURSO (línea blanca punteada): se redibuja al capturar puntos.
+                val inProgressLine = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 720 }) as? Polyline)
+                    ?: Polyline().apply {
+                        outlinePaint.color = android.graphics.Color.WHITE
+                        outlinePaint.strokeWidth = 5f
+                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(16f, 10f), 0f)
+                        view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 720 }, this)
+                        view.overlays.add(this)
+                    }
+                if (uiState.debugEditPoints.size >= 2) {
+                    inProgressLine.setPoints(uiState.debugEditPoints)
+                    inProgressLine.isEnabled = true
+                } else {
+                    inProgressLine.isEnabled = false
+                }
+            } else {
+                editOverlayCache.forEach { it.isEnabled = false }
+                (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 720 }) as? Polyline)?.isEnabled = false
+            }
+
             // ─── NEBLINA ANCLADA AL JUGADOR ─────────────────────────────────────
             (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 600) as? FogOverlay)?.let { fog ->
                 fog.player = uiState.currentLocation

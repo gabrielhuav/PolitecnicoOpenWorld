@@ -47,6 +47,14 @@ data class PoliceShot(
 enum class RoadSource { LOADING, LOCAL_DB, NETWORK }
 enum class TileSource  { LOCAL_OSM, LOCAL_CACHE, NETWORK }
 
+// Herramienta activa del EDITOR del Debug Interiores. Define qué geometría se dibuja
+// al capturar puntos caminando con el jugador:
+//   WALL    = barda (línea ROJA, bloquea el paso)
+//   BLOCK   = zona NO caminable (polígono ROJO translúcido, p. ej. un edificio)
+//   NAV_PED = camino peatonal (línea VERDE, por donde caminan los NPCs)
+//   NAV_CAR = camino de autos / estacionamiento (línea NARANJA)
+enum class DebugEditTool { NONE, WALL, BLOCK, NAV_PED, NAV_CAR }
+
 data class WorldMapState(
     val currentLocation: GeoPoint? = null,
     val isLoadingLocation: Boolean = true,
@@ -154,6 +162,18 @@ data class WorldMapState(
     val routeDebugWaypoints: List<GeoPoint> = emptyList(), // Las "migas de pan"
     val isParkingSlotMode: Boolean = false,                // Flag del Checkbox
     val currentWayId: Int = 100,                           // ID del carril actual
+
+    // ─── EDITOR DEL DEBUG INTERIORES ─────────────────────────────────────────
+    // Permite EDITAR las líneas del overlay caminando con el jugador: capturas
+    // puntos (debugEditPoints = forma en curso), terminas la forma y se "commitea"
+    // a la lista del color/tipo correspondiente. Se dibujan en vivo (NativeOsmMap)
+    // y se exportan/importan a JSON (formato exterior_collisions + navPaths).
+    val debugEditTool: DebugEditTool = DebugEditTool.NONE,
+    val debugEditPoints: List<GeoPoint> = emptyList(),                                     // forma en curso
+    val debugEditWalls: List<ovh.gabrielhuav.pow.domain.models.CollisionWall> = emptyList(),     // bardas ROJAS editadas
+    val debugEditBlocks: List<ovh.gabrielhuav.pow.domain.models.CollisionPolygon> = emptyList(), // zonas ROJAS editadas
+    val debugEditNavPed: List<List<GeoPoint>> = emptyList(),                               // caminos VERDES (peatonal)
+    val debugEditNavCar: List<List<GeoPoint>> = emptyList(),                               // caminos NARANJAS (autos)
 
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,

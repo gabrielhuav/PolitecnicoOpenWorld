@@ -43,6 +43,20 @@ escuela** y **"CARGAR PARTIDA"** (habilitado solo si hay una partida guardada). 
 - Lee la partida de **`data/repository/CampaignRepository.kt`** (SharedPreferences `pow_campaign`:
   `saveCampaign(schoolId)`/`hasSave`/`getSavedSchoolId`/`getSavedAt`/`clearCampaign`).
 
+### 🆕 Sistema de guardado COMPLETO en JSON — `data/repository/SaveGameRepository.kt`
+**ES:** `CampaignRepository` (prefs) solo dice QUÉ escuela y habilita "CARGAR PARTIDA". El **estado
+completo** de la sesión se guarda en un **archivo JSON** (`filesDir/pow_campaign_save.json`):
+`GameSaveData(schoolId, lat, lon, health, wantedLevel, isDriving, isDrivingPoliceCar, vehicleModel,
+vehicleColor, skin, nearbyNpcs: List<SavedNpc>, savedAt)`; `SavedNpc(id, type, lat, lon, health, rotation)`.
+- **Guardado:** **MANUAL** con el ítem **"Guardar partida"** del menú de Opciones del mapa, y **AUTO-GUARDADO
+  al salir** al menú o cerrar la app (solo si `WorldMapViewModel.inCampaign`; MUNDO LIBRE no guarda).
+- **API del VM (extensiones en `viewmodel/WorldMapSaveGame.kt`):** `saveGame(context)`, `loadGame(context):
+  Boolean`, `buildSaveData(schoolId)`, `restoreSaveData(data)`. Campos nuevos en el VM:
+  `campaignSchoolId`, `inCampaign` (los fija `MainActivity` al COMENZAR/CARGAR/MUNDO LIBRE).
+- **"COMENZAR"** ahora SÍ carga y spawnea en ESCOM (ver el fix de `setStorySpawn` en 04/09); borra el JSON
+  anterior para empezar de cero. **"CARGAR PARTIDA"** restaura el estado completo (posición/vida/buscado/
+  vehículo/skin) y re-inyecta los NPCs cercanos guardados; si no hay JSON, cae al spawn de la escuela.
+
 ### `ui/StoryModeScreen.kt` + `ui/StoryIntroScreen.kt`
 - `StoryModeScreen`: prólogo + tarjetas de escuela (`SchoolCard`) + "CARGAR PARTIDA" (on solo con guardado;
   reanuda en la escuela guardada vía `onLoadCampaign`) + "COMENZAR" (`onStartCampaign` → navega a la intro) +
@@ -50,8 +64,9 @@ escuela** y **"CARGAR PARTIDA"** (habilitado solo si hay una partida guardada). 
 - `StoryIntroScreen` ("Listo para Iniciar"): **placeholder** narrativo (futuros banners/sprites del prólogo).
   Al **INICIAR** (`onBegin`) `MainActivity` **guarda** la partida (`campaignRepository.saveCampaign(school.id)`),
   fija el spawn (`setStorySpawn`) y navega a `world_map`. "CARGAR PARTIDA" hace lo mismo **sin** guardar de nuevo.
-- El guardado lo escribe **`MainActivity`** (punto de DI), no las Views. Por ahora la partida guarda solo la
-  escuela (cuando exista progreso de Misión 1 se añaden campos a `CampaignRepository`).
+- El guardado lo escribe **`MainActivity`** (punto de DI), no las Views. La partida ligera (escuela) va a
+  `CampaignRepository`; el **estado completo** (posición/vida/buscado/vehículo/skin/NPCs) va al JSON de
+  `SaveGameRepository` (ver "Sistema de guardado COMPLETO" arriba).
 
 ### `domain/models/SchoolCatalog.kt`
 `CampaignSchool(id, displayName, latitude, longitude, available)` + `object SchoolCatalog.schools`.

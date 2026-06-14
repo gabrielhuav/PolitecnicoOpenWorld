@@ -1335,15 +1335,30 @@ class WorldMapViewModel(
     // mundo aún no está cargado.
     fun setStorySpawn(lat: Double, lon: Double) {
         val loc = GeoPoint(lat, lon)
+        // FIX "se queda cargando": prepareMapForEntry() es idempotente (gateada por
+        // mapPrepStarted, que es de la Activity y persiste entre navegaciones). Si el
+        // jugador ya entró al mundo una vez (p. ej. MUNDO LIBRE), re-armar isMapReady=false
+        // aquí NO volvía a descargar los tiles → la compuerta de carga no se soltaba nunca.
+        // Solución: hacer que el spawn de campaña se comporte como un TELETRANSPORTE, que sí
+        // re-descarga (gateMapDownloadAfterTeleport NO está gateado por mapPrepStarted).
+        inCampaign = true            // sesión de campaña → habilita el auto-guardado al salir
+        npcWarmupCycles = 0          // re-arma el warm-up de NPCs del gate de carga
+        lastNetworkFetchLocation = null  // fuerza el re-fetch de calles alrededor de la escuela
+        lastFetchAttemptMs = 0L
         _uiState.update {
             it.copy(
                 currentLocation = loc,
                 isLoadingLocation = false,
                 isMapReady = false,        // ← re-activa la compuerta de carga del mapa
                 isRoadNetworkReady = false, // ← y la de la red de calles
-                npcsWarmedUp = false        // ← y el warm-up de NPCs (orden: tiles → calles → NPCs)
+                npcsWarmedUp = false,       // ← y el warm-up de NPCs (orden: tiles → calles → NPCs)
+                isUserPanningMap = false    // ← recentra el mapa y reactiva la neblina
             )
         }
+        // Descarga el mapa de la escuela ANTES de soltar al jugador (en paralelo a la
+        // recarga de calles). Esto SÍ pone isMapReady=true al terminar, sin depender de
+        // prepareMapForEntry (idempotente). Así "COMENZAR" carga y spawnea en la escuela.
+        gateMapDownloadAfterTeleport()
         checkPrankedySpawn(loc)
     }
 
@@ -1381,6 +1396,13 @@ class WorldMapViewModel(
     // ─── CARGA INICIAL DEL MAPA (gate de entrada con % de progreso) ───────────
     // (estado usado por WorldMapProviders.kt; las funciones viven allá)
     internal var mapPrepStarted = false
+
+    // ─── MODO HISTORIA: contexto de la partida actual (para el guardado JSON) ──
+    // Escuela de la campaña en curso (la fija MainActivity al COMENZAR/CARGAR) e
+    // indicador de si estamos en una sesión de campaña (para el auto-guardado al
+    // salir). MUNDO LIBRE pone inCampaign=false y no auto-guarda. Ver WorldMapSaveGame.kt.
+    internal var campaignSchoolId: String = "escom"
+    internal var inCampaign: Boolean = false
 
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }

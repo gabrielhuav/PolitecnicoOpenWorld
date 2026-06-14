@@ -143,6 +143,16 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.deleteSelectedLandmark
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportLandmarksToUri
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importLandmarksFromUri
+// MODO HISTORIA: guardado manual desde el menú de Opciones (extensión del VM).
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
+// Editor del Debug Interiores: capturar/exportar geometría (extensiones del VM).
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.captureDebugEditPoint
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.undoDebugEditPoint
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.finishDebugEditShape
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearDebugEdits
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setDebugEditTool
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportDebugEditsToUri
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importDebugEditsFromUri
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadLandmarks
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveSelectedLandmark
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.prepareMapForEntry
@@ -254,6 +264,13 @@ fun WorldMapScreen(
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.importLandmarksFromUri(context, it) }
+    }
+    // Editor del Debug Interiores: exportar/importar la geometría editada (colisiones + caminos).
+    val collisionsExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let { viewModel.exportDebugEditsToUri(context, it) }
+    }
+    val collisionsImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { viewModel.importDebugEditsFromUri(context, it) }
     }
 
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap?>() }
@@ -1759,6 +1776,11 @@ fun WorldMapScreen(
                             id = "opciones", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_options), icon = Icons.Default.Tune,
                             items = buildList {
                                 add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_change_skin), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                                // MODO HISTORIA: guardado manual de la partida (estado completo en JSON).
+                                add(OptionMenuItem("Guardar partida", Icons.Default.School, Color(0xFF4CAF50)) {
+                                    viewModel.saveGame(context)
+                                    android.widget.Toast.makeText(context, "Partida guardada", android.widget.Toast.LENGTH_SHORT).show()
+                                })
                                 add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_teleport), Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
                                 // (Submenú "Ir a…" eliminado: "Ir a ESCOM" ya es el primer punto de
                                 // "Teletransportarse…" y "Ir a tu Ubicación (GPS)" se movió al inicio
@@ -2003,6 +2025,31 @@ fun WorldMapScreen(
                         .fillMaxWidth(0.35f) // 45% del ancho en horizontal
                         .fillMaxHeight()     // Ocupa casi todo el alto lateral
                 }
+            )
+        }
+
+        // ─── PANEL DEL EDITOR DE LÍNEAS (Debug Interiores) ───────────────────────
+        // Visible cuando el overlay de Debug Interiores está activo. Permite editar
+        // bardas/zonas rojas y caminos verdes/naranjas caminando con el jugador.
+        if (uiState.showInteriorDebugOverlay) {
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.InteriorDebugEditorPanel(
+                tool = uiState.debugEditTool,
+                inProgressCount = uiState.debugEditPoints.size,
+                wallsCount = uiState.debugEditWalls.size,
+                blocksCount = uiState.debugEditBlocks.size,
+                navPedCount = uiState.debugEditNavPed.size,
+                navCarCount = uiState.debugEditNavCar.size,
+                onSelectTool = { viewModel.setDebugEditTool(it) },
+                onCapture = { viewModel.captureDebugEditPoint() },
+                onUndo = { viewModel.undoDebugEditPoint() },
+                onFinish = { viewModel.finishDebugEditShape() },
+                onClear = { viewModel.clearDebugEdits() },
+                onExport = { collisionsExportLauncher.launch("exterior_collisions_editado.json") },
+                onImport = { collisionsImportLauncher.launch(arrayOf("application/json", "*/*")) },
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(12.dp)
+                    .fillMaxWidth(0.42f)
             )
         }
 

@@ -354,6 +354,26 @@ matrices por defecto son **border-only** hasta reemplazarse.
   `npcsWarmedUp`. Para habilitar FES Aragón/UAM: pon `available=true` en `SchoolCatalog` (sus coords ya
   alimentan el spawn). `StoryModeViewModel` usa `Factory(context)` para leer la partida (NavBackStackEntry
   → re-lee al entrar). Las pantallas de campaña usan `windowInsetsPadding(WindowInsets.systemBars)`.
+- **FIX "se queda cargando" al COMENZAR/CARGAR (Modo Historia):** `prepareMapForEntry()` es **idempotente**
+  (gateada por `mapPrepStarted`, de la Activity, persiste entre navegaciones). Si ya entraste al mundo una vez
+  (p. ej. MUNDO LIBRE), re-armar `isMapReady=false` en `setStorySpawn` NO volvía a descargar los tiles → la
+  compuerta **nunca se soltaba**. Fix: `setStorySpawn` ahora se comporta como **teletransporte** (resetea
+  `lastNetworkFetchLocation`/`lastFetchAttemptMs`/`npcWarmupCycles`, pone `inCampaign=true` y llama
+  `gateMapDownloadAfterTeleport()`, que SÍ re-descarga y pone `isMapReady=true` sin depender de
+  `mapPrepStarted`). No volver a confiar solo en `prepareMapForEntry` para el spawn de campaña.
+- **Guardado de partida (JSON) = `SaveGameRepository`, NO `CampaignRepository`:** `CampaignRepository`
+  (prefs) solo guarda ESCUELA + fecha (habilita "CARGAR PARTIDA"). El **estado completo** (posición, vida,
+  nivel de búsqueda, vehículo, skin, NPCs cercanos) va a un **JSON** (`filesDir/pow_campaign_save.json`) vía
+  `SaveGameRepository` + las extensiones `WorldMapSaveGame.kt` (`saveGame`/`loadGame`/`buildSaveData`/
+  `restoreSaveData`, **sin gemelo miembro**). Guardado **MANUAL** (ítem "Guardar partida" del menú Opciones) y
+  **AUTO al salir/cerrar** (solo si `WorldMapViewModel.inCampaign`; MUNDO LIBRE lo pone en false y NO guarda).
+  `MainActivity` es el punto de DI (fija `campaignSchoolId`/`inCampaign` y dispara el auto-guardado).
+- **Editor del Debug Interiores (líneas rojas/verdes/naranjas):** con `showInteriorDebugOverlay` activo,
+  `InteriorDebugEditorPanel` + `WorldMapDebugEditor.kt` (extensiones, sin gemelo miembro) EDITAN la geometría
+  caminando con el jugador (`DebugEditTool` WALL/BLOCK/NAV_PED/NAV_CAR; capturar/terminar/deshacer/limpiar/
+  exportar/importar JSON). Vive en `WorldMapState.debugEdit*` y se dibuja en un **overlay AISLADO** en
+  `NativeOsmMap` (tags +700/+710/+720), SIN tocar el overlay de archivo ni `exteriorCollisions`. Web/Google
+  nativo = pendiente.
 - **Interiores expandible por campus (NO hardcodear el lobby de ESCOM):** el motor de Interiores
   (`interiores.zombies`) sirve para cualquier campus. Salas nuevas vía `ZombieRoomCatalog.campusRooms(...)`
   (`addAll` por campus; ESCOM = anillo bespoke, no lo toques). La sala inicial la elige la ruta
