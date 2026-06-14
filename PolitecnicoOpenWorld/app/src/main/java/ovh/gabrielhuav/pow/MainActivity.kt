@@ -48,6 +48,7 @@ import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoBeisScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoFutbolScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.FesInteriorScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.StoryModeScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.StoryIntroScreen
 import ovh.gabrielhuav.pow.domain.models.SchoolCatalog
@@ -480,6 +481,11 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(route = "interior_deportivo_futbol") {
                             DeportivoFutbolScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
+                        composable(route = "interior_fes") {
+                            FesInteriorScreen(
                                 onExit = { navController.popBackStack("world_map", inclusive = false) }
                             )
                         }

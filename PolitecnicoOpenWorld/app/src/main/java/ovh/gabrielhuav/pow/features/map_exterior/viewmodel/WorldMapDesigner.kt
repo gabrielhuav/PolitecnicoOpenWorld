@@ -92,6 +92,22 @@ fun WorldMapViewModel.loadLandmarks(context: Context) {
                 )
                 backfillNeeded = true
             }
+            // Backfill: inserta la Entrada FES Aragón si no existe
+            if (entities.none { it.name == "Entrada FES Aragón" }) {
+                dao.insertLandmark(
+                    LandmarkEntity(
+                        name = "Entrada FES Aragón",
+                        latitude = 19.474867,
+                        longitude = -99.043344,
+                        assetPath = "DOORS/ESCOM_DOOR.webp",
+                        scaleFactor = 0.60f,
+                        rotationAngle = 0.0f,
+                        scaleX = 0.60f,
+                        scaleY = 0.60f
+                    )
+                )
+                backfillNeeded = true
+            }
             if (backfillNeeded) {
                 entities = dao.getAllLandmarks()
             }

@@ -2486,10 +2486,12 @@ class WorldMapViewModel(
                 val targetRoute = when (nearby.name) {
                     "Entrada Campo Béisbol" -> "interior_deportivo_beis"
                     "Entrada Campo Fútbol" -> "interior_deportivo_futbol"
+                    "Entrada FES Aragón"    -> "interior_fes"     // ← NUEVO
                     else -> "interiores_zombies"
                 }
                 _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }
             }
+
             nearby.id == ShineCTOLocation.MARKER_ID -> {
                 _uiState.update { it.copy(showShineCTODiscovery = true) }
             }

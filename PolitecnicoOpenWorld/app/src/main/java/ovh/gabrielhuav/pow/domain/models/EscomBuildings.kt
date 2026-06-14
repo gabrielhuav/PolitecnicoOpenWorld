@@ -71,6 +71,13 @@ enum class InteriorBuilding(
         location = GeoPoint(19.50425, -99.14705),
         backgroundAsset = "INTERIORS/ESCOM/z_canchas_futbol.webp",
         routeName = "interior_canchas_futbol"
+    ),
+    FES_INTERIOR(
+        id = "fes_interior",
+        displayName = "Interior FES Aragón",
+        location = GeoPoint(19.474867, -99.043344),
+        backgroundAsset = "BUILDINGS/FES_Ar/FES_Arg_int.webp",
+        routeName = "interior_fes"
     );
 
     companion object {
