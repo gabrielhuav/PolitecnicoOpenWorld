@@ -57,13 +57,13 @@ fun AssetPickerDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    "Selecciona un asset. Se colocará en tu posición actual.",
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_select_asset_hint),
                     fontSize = 12.sp,
                     color = Color.Gray
                 )
                 if (availableAssets.isEmpty()) {
                     Text(
-                        "No hay assets disponibles.",
+                        androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_no_assets_available),
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 12.sp
                     )

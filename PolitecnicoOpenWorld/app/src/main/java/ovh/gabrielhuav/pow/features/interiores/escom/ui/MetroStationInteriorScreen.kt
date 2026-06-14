@@ -352,7 +352,7 @@ fun MetroStationInteriorScreen(
             state.activeDoor?.let { door ->
                 Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
                     Text(
-                        text = "PRESIONA X PARA ${door.label.uppercase()}",
+                        text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_press_x_door, door.label.uppercase()),
                         color = Color.White,
                         fontWeight = FontWeight.Black,
                         fontSize = 15.sp,
@@ -394,7 +394,7 @@ fun MetroStationInteriorScreen(
             }
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "ESTACIÓN $stationName".uppercase(),
+                text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_station_name, stationName).uppercase(),
                 color = Color(0xFFF07B00),
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
@@ -501,7 +501,7 @@ private fun DesignerToolbar(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            "DISEÑADOR · ${roomName.uppercase()}",
+            androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer_room, roomName.uppercase()),
             color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 12.sp
         )
         // Selector de objetivo: MATRIZ de colisión o WAYPOINTS (puertas).
@@ -511,14 +511,14 @@ private fun DesignerToolbar(
         }
         Text(
             if (isWaypoints)
-                (if (hasSelectedDoor) "Arrastra para mover la puerta seleccionada."
-                 else "Toca una puerta para seleccionarla y arrástrala.")
+                (if (hasSelectedDoor) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_drag_door)
+                 else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_touch_door))
             else "Toca o arrastra sobre la rejilla. Rojo = pared.",
             color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp
         )
             if (isWaypoints && hasSelectedDoor) {
                 Text(
-                    "TAMAÑO DEL WAYPOINT",
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_waypoint_size),
                     color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -535,7 +535,7 @@ private fun DesignerToolbar(
             }
             // ─── TAMAÑO DE LA MATRIZ ───────────────────────────────
             Text(
-                "TAMAÑO  ${gridCols} × ${gridRows} (col × fil)",
+                androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_size_grid, gridCols, gridRows),
                 color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -551,7 +551,7 @@ private fun DesignerToolbar(
                 modifier = Modifier.weight(1f).height(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 shape = RoundedCornerShape(8.dp)
-            ) { Text(if (dirty) "GUARDAR*" else "GUARDAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ) { Text(if (dirty) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save_unsaved) else "GUARDAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             Button(
                 onClick = onReset,
                 modifier = Modifier.weight(1f).height(40.dp),

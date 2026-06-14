@@ -421,13 +421,18 @@ fun WorldMapScreen(
                     landmarkBitmapCache[lm.assetPath] = bmp // escrito en Main (post-withContext)
                 }
             }
-            val tips = remember { listOf(
-                "Mantén presionado Y para teletransportarte a otros lugares.",
+            val tipTeleport = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_teleport)
+            val tipDesigner = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_designer)
+            val tipWanted = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_wanted)
+            val tipShine = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_shine)
+            
+            val tips = listOf(
+                tipTeleport,
                 "Presiona Y cerca de un auto para robarlo.",
-                "Usa el modo diseñador para personalizar el mapa con tus propios edificios.",
-                "Golpear civiles o policías aumentará tu nivel de búsqueda.",
-                "Visita el Shine CTO para descubrir secretos del Politécnico."
-            )}
+                tipDesigner,
+                tipWanted,
+                tipShine
+            )
             var currentTipIndex by remember { mutableIntStateOf(0) }
 
             LaunchedEffect(Unit) {
@@ -445,10 +450,10 @@ fun WorldMapScreen(
                 else -> 0.92f // mapa listo: sembrando NPCs y edificios
             }.coerceIn(0f, 1f)
             val statusText = when {
-                uiState.isLoadingLocation -> "Obteniendo tu ubicación..."
-                !uiState.isRoadNetworkReady -> "Cargando las calles..."
-                !uiState.isMapReady -> "Descargando el mapa..."
-                else -> "Colocando NPCs y edificios..."
+                uiState.isLoadingLocation -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_getting_location)
+                !uiState.isRoadNetworkReady -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_loading_streets)
+                !uiState.isMapReady -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_downloading_map)
+                else -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_placing_npcs_buildings)
             }
             Column(
                 modifier = Modifier.align(Alignment.Center),
@@ -472,14 +477,14 @@ fun WorldMapScreen(
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Preparando Politécnico Open World",
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_preparing_world),
                     color = Color(0xFFAAAAAA),
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(24.dp))
                 Text(
-                    text = "Consejo: ${tips[currentTipIndex]}",
+                    text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_format, tips[currentTipIndex]),
                     color = Color(0xFFD4AF37),
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -1590,11 +1595,11 @@ fun WorldMapScreen(
         if (uiState.zonePrefetchActive || uiState.zoneOfflineWarning || uiState.zoneOfflineReady) {
             val (chipText, chipColor) = when {
                 uiState.zonePrefetchActive ->
-                    "Descargando zona ${(uiState.zonePrefetchProgress * 100).roundToInt()}%" to Color(0xCC1E2A38)
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_downloading_zone, (uiState.zonePrefetchProgress * 100).roundToInt()) to Color(0xCC1E2A38)
                 uiState.zoneOfflineWarning ->
-                    "Sin conexión: zona incompleta" to Color(0xCC8A1F1F)
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_offline_incomplete) to Color(0xCC8A1F1F)
                 else ->
-                    "Zona lista offline ✓" to Color(0xCC1F5A2E)
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_zone_ready_offline) to Color(0xCC1F5A2E)
             }
             Row(
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = if (!uiState.isRoadNetworkReady) 104.dp else 72.dp)
@@ -1667,7 +1672,7 @@ fun WorldMapScreen(
                     ) {
                         Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_exit), color = Color(0xFFD4AF37), fontWeight = FontWeight.Black, fontSize = 18.sp, textAlign = TextAlign.Center)
                         Text(
-                            "¿Deseas salir del modo diseñador y restaurar la interfaz de juego normal?",
+                            androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_exit_confirm),
                             color = Color.White,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
@@ -1713,7 +1718,7 @@ fun WorldMapScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "Presiona el icono del lapiz para editar alguna contrucción",
+                    text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_edit_hint),
                     color = Color.White,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
@@ -1737,13 +1742,13 @@ fun WorldMapScreen(
                         OptionMenuGroup(
                             id = "opciones", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_options), icon = Icons.Default.Tune,
                             items = buildList {
-                                add(OptionMenuItem("Cambiar skin", Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
-                                add(OptionMenuItem("Teletransportarse...", Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
+                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_change_skin), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_teleport), Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
                                 // (Submenú "Ir a…" eliminado: "Ir a ESCOM" ya es el primer punto de
                                 // "Teletransportarse…" y "Ir a tu Ubicación (GPS)" se movió al inicio
                                 // de esa misma lista.)
-                                // Submenú anidado: agrupa "Modo Diseñador" + "Debug Interiores"
-                                // (+ "Agregar Asset" cuando el diseñador está activo).
+                                // Submenú anidado: agrupa "Modo Diseñador" + androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_debug_interiors)
+                                // (+ androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_add_asset) cuando el diseñador está activo).
                                 add(
                                     OptionMenuGroup(
                                         id = "disenador_debug",
@@ -1751,10 +1756,10 @@ fun WorldMapScreen(
                                         icon = Icons.Default.Architecture,
                                         tint = if (uiState.isDesignerMode || uiState.showInteriorDebugOverlay) Color(0xFFD4AF37) else Color.White,
                                         items = buildList {
-                                            add(OptionMenuItem("Modo Diseñador", Icons.Default.Architecture, if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White) { viewModel.toggleDesignerMode(!uiState.isDesignerMode) })
-                                            add(OptionMenuItem("Debug Interiores", Icons.Default.LocationOn, if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White) { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) })
+                                            add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_mode_designer), Icons.Default.Architecture, if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White) { viewModel.toggleDesignerMode(!uiState.isDesignerMode) })
+                                            add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_debug_interiors), Icons.Default.LocationOn, if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White) { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) })
                                             if (uiState.isDesignerMode) {
-                                                add(OptionMenuItem("Agregar Asset", Icons.Default.Add, Color(0xFF4CAF50)) { viewModel.showAssetPicker(true) })
+                                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_add_asset), Icons.Default.Add, Color(0xFF4CAF50)) { viewModel.showAssetPicker(true) })
                                             }
                                         }
                                     )
@@ -1762,14 +1767,14 @@ fun WorldMapScreen(
                                 // Apocalipsis Zombi Global: activar/desactivar desde CUALQUIER lugar
                                 // (no solo con la mano de ESCOM). Toggle global; se replica por red.
                                 add(OptionMenuItem(
-                                    if (uiState.globalZombieMode) "Desactivar Apocalipsis" else "Activar Apocalipsis",
+                                    if (uiState.globalZombieMode) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_apocalypse_off) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_apocalypse_on),
                                     Icons.Default.Warning,
                                     if (uiState.globalZombieMode) Color(0xFFE53935) else Color.White
                                 ) { viewModel.toggleGlobalZombieMode() })
                                 // Prankedy: NPC hostil que te ataca (y te defiende de otros NPCs).
                                 // Toggle on/off, igual que el apocalipsis.
                                 add(OptionMenuItem(
-                                    if (uiState.prankedyEnabled) "Desactivar Prankedy" else "Activar Prankedy",
+                                    if (uiState.prankedyEnabled) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_prankedy_off) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_prankedy_on),
                                     Icons.Default.Face,
                                     if (uiState.prankedyEnabled) Color(0xFFD4AF37) else Color.White
                                 ) { viewModel.togglePrankedy() })
@@ -1785,7 +1790,7 @@ fun WorldMapScreen(
                                 // Centrar en jugador: SIEMPRE disponible (antes solo al panear),
                                 // para volver al jugador en cualquier momento. Si el usuario ha
                                 // cambiado el zoom respecto al de juego, esta opción EVOLUCIONA a
-                                // un submenú con "Centrar en jugador" y "Hacer zoom en el jugador".
+                                // un submenú con androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_center_player) y androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_zoom_player).
                                 run {
                                     // Default actual por estado: 22 a pie, 21 conduciendo (20 rápido).
                                     val defaultZoom = if (uiState.isDriving)
@@ -1799,19 +1804,19 @@ fun WorldMapScreen(
                                                 id = "centrar_jugador", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_center),
                                                 icon = Icons.Default.Person,
                                                 items = buildList {
-                                                    add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
-                                                    add(OptionMenuItem("Hacer zoom en el jugador", Icons.Default.Add, Color(0xFFD4AF37)) { viewModel.zoomToPlayer() })
+                                                    add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_center_player), Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
+                                                    add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_zoom_player), Icons.Default.Add, Color(0xFFD4AF37)) { viewModel.zoomToPlayer() })
                                                 }
                                             )
                                         )
                                     } else {
-                                        add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
+                                        add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_center_player), Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
                                     }
                                 }
                                 if (uiState.isTargetingWaypoint) {
                                     // Apuntando: confirmar o cancelar TAMBIÉN desde el menú (no
                                     // botones flotantes que tapen los controles).
-                                    add(OptionMenuItem("Establecer destino aquí", Icons.Default.LocationOn, Color(0xFF4CAF50)) {
+                                    add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_set_destination), Icons.Default.LocationOn, Color(0xFF4CAF50)) {
                                         if (uiState.mapProvider == MapProvider.OSM) {
                                             nativeMapRef.value?.let { mv ->
                                                 val center = mv.mapCenter
@@ -1821,11 +1826,11 @@ fun WorldMapScreen(
                                             webViewRef.value?.evaluateJavascript("if(window.Android && window.Android.notifyCenterForWaypoint) { var c = map.getCenter(); window.Android.notifyCenterForWaypoint(c.lat, c.lng); }", null)
                                         }
                                     })
-                                    add(OptionMenuItem("Cancelar apuntado", Icons.Default.Close, Color(0xFFE53935)) { viewModel.toggleWaypointTargeting(false) })
+                                    add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_cancel_aim), Icons.Default.Close, Color(0xFFE53935)) { viewModel.toggleWaypointTargeting(false) })
                                 } else if (uiState.isUserPanningMap && !uiState.isDesignerMode && !uiState.isDriving) {
-                                    add(OptionMenuItem("Apuntar waypoint", Icons.Default.LocationOn, Color(0xFF4CAF50)) { viewModel.toggleWaypointTargeting(true) })
+                                    add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_aim_waypoint), Icons.Default.LocationOn, Color(0xFF4CAF50)) { viewModel.toggleWaypointTargeting(true) })
                                     if (uiState.destinationMarker != null) {
-                                        add(OptionMenuItem("Eliminar destino", Icons.Default.Close, Color(0xFFE53935)) { viewModel.clearDestinationMarker() })
+                                        add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_remove_destination), Icons.Default.Close, Color(0xFFE53935)) { viewModel.clearDestinationMarker() })
                                     }
                                 }
                             }

@@ -230,7 +230,7 @@ fun MetroMapOverlay(
                 onClick = { viewModel.toggleMapDesignerMode() },
                 colors = ButtonDefaults.buttonColors(containerColor = if (state.mapDesignerMode) Color(0xFFF07B00) else Color.DarkGray)
             ) {
-                Text(if (state.mapDesignerMode) "Modo Diseñador" else "Editar Mapa", color = Color.White)
+                Text(if (state.mapDesignerMode) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer_mode) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_edit_map), color = Color.White)
             }
             
             IconButton(
@@ -265,7 +265,7 @@ fun MetroMapOverlay(
                     ) {
                         Icon(
                             imageVector = if (state.mapDesignerMoveMode) Icons.Default.PanTool else Icons.Default.TouchApp,
-                            contentDescription = if (state.mapDesignerMoveMode) "Bloquear Mapa" else "Mover Mapa",
+                            contentDescription = if (state.mapDesignerMoveMode) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_lock_map) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_move_map),
                             tint = Color.White
                         )
                     }

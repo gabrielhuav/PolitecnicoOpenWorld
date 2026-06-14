@@ -171,4 +171,102 @@
     <string name="ee_title">¡LUGAR SECRETO DESCUBIERTO!</string>
     <string name="ee_text">Has encontrado un recinto oculto. Dicen que aquí las bebidas son legendarias… pero que cada sorbo te pasa factura. ¿Te atreves a entrar?</string>
     <string name="ee_enter">ENTRAR</string>
+
+    <!-- More map strings -->
+    <string name="wm_carjack_warning">¡Te van a bajar del auto! ¡Acelera!</string>
+    <string name="wm_horde_approaching">🧟 ¡UNA HORDA SE ACERCA!</string>
+    <string name="wm_wait_loading">⏳ Espera: el mundo aún está cargando…</string>
+    <string name="wm_prompt_metro">PRESIONA X PARA ENTRAR A ESTACIÓN %1$s</string>
+    <string name="wm_prankedy_down">🎭 ¡Prankedy cayó! Volverá más tarde…</string>
+    <string name="wm_tip_teleport">Mantén presionado Y para teletransportarte a otros lugares.</string>
+    <string name="wm_tip_designer">Usa el modo diseñador para personalizar el mapa con tus propios edificios.</string>
+    <string name="wm_tip_wanted">Golpear civiles o policías aumentará tu nivel de búsqueda.</string>
+    <string name="wm_tip_shine">Visita el Shine CTO para descubrir secretos del Politécnico.</string>
+    <string name="wm_getting_location">Obteniendo tu ubicación...</string>
+    <string name="wm_preparing_world">Preparando Politécnico Open World</string>
+    <string name="wm_offline_incomplete">Sin conexión: zona incompleta</string>
+    <string name="wm_designer_exit_confirm">¿Deseas salir del modo diseñador y restaurar la interfaz de juego normal?</string>
+    <string name="wm_designer_edit_hint">Presiona el icono del lapiz para editar alguna contrucción</string>
+    <string name="wm_mode_designer">Modo Diseñador</string>
+    <string name="wm_set_destination">Establecer destino aquí</string>
+    <string name="wm_tile_local_osm">Local (osmdroid)</string>
+    <string name="wm_tile_local_cache">Local (caché)</string>
+    <string name="wm_tile_network">Red</string>
+    <string name="wm_prankedy_found">🎭 COMPAÑERO ENCONTRADO</string>
+    <string name="wm_prankedy_desc">Un personaje misterioso que apareció en los pasillos del Politécnico. Con él de tu lado, los enemigos tienen poco que hacer.\n\n⚔️ Ataca NPCs hostiles automáticamente\n</string>
+    <string name="wm_prankedy_cooldown">⏳ EN PENALIZACIÓN: %1$ds</string>
+
+
+    <!-- More map strings 2 -->
+    <string name="int_lock_map">Bloquear Mapa</string>
+    <string name="int_edit_map">Editar Mapa</string>
+    <string name="int_designer_mode">Modo Diseñador</string>
+    <string name="int_move_map">Mover Mapa</string>
+    <string name="int_drag_door">Arrastra para mover la puerta seleccionada.</string>
+    <string name="int_designer_room">DISEÑADOR · %1$s</string>
+    <string name="int_station_name">ESTACIÓN %1$s</string>
+    <string name="int_save_unsaved">GUARDAR*</string>
+    <string name="int_press_x_door">PRESIONA X PARA %1$s</string>
+    <string name="int_size_grid">TAMAÑO  %1$d × %2$d (col × fil)</string>
+    <string name="int_waypoint_size">TAMAÑO DEL WAYPOINT</string>
+    <string name="int_touch_door">Toca una puerta para seleccionarla y arrástrala.</string>
+    
+    <string name="sh_drinks_two">Dos bebidas… empiezas a sentirlo.</string>
+    <string name="sh_drinks_count">¡%1$d bebidas!</string>
+    <string name="sh_drinks_special">¡Aparece algo especial en la barra…!</string>
+    <string name="sh_drinks_first">¡Salud! La primera siempre entra bien.</string>
+    
+    <string name="wm_choose_character">Elegir personaje</string>
+    <string name="wm_select_skin">Selecciona la skin del jugador:</string>
+    
+    <string name="wm_opt_apocalypse_on">Activar Apocalipsis</string>
+    <string name="wm_opt_apocalypse_off">Desactivar Apocalipsis</string>
+    <string name="wm_opt_prankedy_on">Activar Prankedy</string>
+    <string name="wm_opt_prankedy_off">Desactivar Prankedy</string>
+    <string name="wm_opt_add_asset">Agregar Asset</string>
+    <string name="wm_opt_aim_waypoint">Apuntar waypoint</string>
+    <string name="wm_opt_change_skin">Cambiar skin</string>
+    <string name="wm_opt_cancel_aim">Cancelar apuntado</string>
+    <string name="wm_opt_center_player">Centrar en jugador</string>
+    <string name="wm_placing_npcs_buildings">Colocando NPCs y edificios...</string>
+    <string name="wm_tip_format">Consejo: %1$s</string>
+    <string name="wm_opt_debug_interiors">Debug Interiores</string>
+    <string name="wm_downloading_map">Descargando el mapa...</string>
+    <string name="wm_downloading_zone">Descargando zona %1$d%%</string>
+    <string name="wm_opt_remove_destination">Eliminar destino</string>
+    <string name="wm_opt_zoom_player">Hacer zoom en el jugador</string>
+    <string name="wm_opt_teleport">Teletransportarse...</string>
+    <string name="wm_zone_ready_offline">Zona lista offline ✓</string>
+    
+    <string name="wm_no_assets_available">No hay assets disponibles.</string>
+    <string name="wm_select_asset_hint">Selecciona un asset. Se colocará en tu posición actual.</string>
+    
+    <string name="wm_new_collectible">¡NUEVO COLECCIONABLE!</string>
+    
+    <string name="wm_designer_height">ALTO: %1$s</string>
+    <string name="wm_designer_width">ANCHO: %1$s</string>
+    <string name="wm_designer_edit_asset">EDICIÓN DE ASSET</string>
+    <string name="wm_designer_rotation">ROTACIÓN: %1$d°</string>
+    <string name="wm_designer_spawn_car">SPAWN AUTO</string>
+    
+    <string name="wm_options">Opciones</string>
+    
+    <string name="wm_close">Cerrar</string>
+    <string name="wm_double_tap_close">Doble tap para cerrar</string>
+    <string name="wm_prankedy_desc_part1">Un personaje misterioso que apareció en los pasillos del Politécnico. </string>
+    <string name="wm_prankedy_hire">⚔️ CONTRATAR</string>
+    
+    <string name="wm_press_x_discover">PRESIONA X PARA DESCUBRIR</string>
+    <string name="wm_press_x_enter">PRESIONA X PARA ENTRAR</string>
+    <string name="wm_press_x_interact">PRESIONA X PARA INTERACTUAR</string>
+    <string name="wm_press_x_pickup">PRESIONA X PARA RECOGER</string>
+    
+    <string name="wm_parking_spot">Cajón de estacionamiento</string>
+    <string name="wm_press_x_activate_zombie">PRESIONA X PARA ACTIVAR MODO ZOMBI</string>
+    <string name="wm_press_x_deactivate_zombie">PRESIONA X PARA DESACTIVAR MODO ZOMBI</string>
+    <string name="wm_waypoint_lane">Punto de ruta (Carril %1$d)</string>
+    
+    <string name="settings_dpad">Cruz de Botones</string>
+    <string name="settings_joystick">Joystick Virtual</string>
+
 </resources>

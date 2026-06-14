@@ -66,7 +66,7 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
     // Si Prankedy murió este tick, avisar al jugador (location ya es null → el render lo oculta).
     if (result.justDied) {
         _uiState.update { it.copy(
-            interactionPrompt = "🎭 ¡Prankedy cayó! Volverá más tarde…",
+            interactionPrompt = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_prankedy_down),
             showPrankedyHireDialog = false
         ) }
     }

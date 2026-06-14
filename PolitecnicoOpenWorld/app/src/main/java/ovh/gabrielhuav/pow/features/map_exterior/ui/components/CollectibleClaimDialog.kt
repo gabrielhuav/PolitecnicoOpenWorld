@@ -82,7 +82,7 @@ fun CollectibleClaimDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    text = "¡NUEVO COLECCIONABLE!",
+                    text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_new_collectible),
                     color = Color(0xFFD4AF37),
                     fontWeight = FontWeight.Bold,
                     fontSize = if (isLandscape) 20.sp else 24.sp,

@@ -25,9 +25,10 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 class ShineCTOViewModel(
+    application: android.app.Application,
     private val settingsRepository: SettingsRepository,
     private val collectibleRepository: CollectibleRepository
-) : ViewModel() {
+) : androidx.lifecycle.AndroidViewModel(application) {
 
     @Volatile
     private var shineCollectibleClaimed = false
@@ -288,10 +289,10 @@ class ShineCTOViewModel(
         val unlockCollectible =
             newCount >= ShineCTOState.DRINKS_TO_UNLOCK && !s.shineCollectibleActive
         val msg = when {
-            unlockCollectible -> "¡Aparece algo especial en la barra…!"
-            newCount == 1 -> "¡Salud! La primera siempre entra bien."
-            newCount == 2 -> "Dos bebidas… empiezas a sentirlo."
-            else -> "¡${newCount} bebidas!"
+            unlockCollectible -> getLocalizedString(ovh.gabrielhuav.pow.R.string.sh_drinks_special)
+            newCount == 1 -> getLocalizedString(ovh.gabrielhuav.pow.R.string.sh_drinks_first)
+            newCount == 2 -> getLocalizedString(ovh.gabrielhuav.pow.R.string.sh_drinks_two)
+            else -> getLocalizedString(ovh.gabrielhuav.pow.R.string.sh_drinks_count, newCount)
         }
         _state.update {
             it.copy(
@@ -333,6 +334,21 @@ class ShineCTOViewModel(
         _state.update { it.copy(showClaimedPopupFor = null) }
     }
 
+    fun getLocalizedString(resId: Int, vararg args: Any): String {
+        val lang = settingsRepository.getLanguage()
+        val baseContext = getApplication<android.app.Application>()
+        val contextToUse = if (lang.isNotEmpty()) {
+            val locale = java.util.Locale(lang)
+            val config = android.content.res.Configuration(baseContext.resources.configuration)
+            config.setLocale(locale)
+            baseContext.createConfigurationContext(config)
+        } else {
+            baseContext
+        }
+        return contextToUse.getString(resId, *args)
+    }
+
+
     // ─── Factory ────────────────────────────────────────────────────────────────
 
     class Factory(private val context: Context) : ViewModelProvider.Factory {
@@ -340,6 +356,7 @@ class ShineCTOViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             val db = PowDatabase.getInstance(context.applicationContext)
             return ShineCTOViewModel(
+                context.applicationContext as android.app.Application,
                 SettingsRepository(context.applicationContext),
                 CollectibleRepository(db.collectibleDao())
             ) as T

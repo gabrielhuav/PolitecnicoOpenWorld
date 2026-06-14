@@ -72,7 +72,7 @@ internal fun CacheStatusWidget(roadSource: RoadSource, tileSource: TileSource, m
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         CacheChip(label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_streets), text  = when (roadSource) { RoadSource.LOADING -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_loading); RoadSource.LOCAL_DB -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_local_db); RoadSource.NETWORK -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_network) }, color = when (roadSource) { RoadSource.LOADING -> Color(0xFFD4AF37); RoadSource.LOCAL_DB -> Color(0xFF4CAF50); RoadSource.NETWORK -> Color(0xFF2196F3) }, isLoading = roadSource == RoadSource.LOADING)
         if (mapProvider != MapProvider.OSM) {
-            val tileLabel = when (tileSource) { TileSource.LOCAL_OSM -> "Local (osmdroid)"; TileSource.LOCAL_CACHE -> "Local (caché)"; TileSource.NETWORK -> "Red" }
+            val tileLabel = when (tileSource) { TileSource.LOCAL_OSM -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tile_local_osm); TileSource.LOCAL_CACHE -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tile_local_cache); TileSource.NETWORK -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tile_network) }
             val tileColor = when (tileSource) { TileSource.LOCAL_OSM, TileSource.LOCAL_CACHE -> Color(0xFF4CAF50); TileSource.NETWORK -> Color(0xFF2196F3) }
             CacheChip(label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_map), text = tileLabel, color = tileColor, isLoading = false)
         }
