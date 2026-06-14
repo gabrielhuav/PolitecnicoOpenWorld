@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
@@ -26,6 +27,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ovh.gabrielhuav.pow.BuildConfig
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuState
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuViewModel
 
@@ -87,7 +89,7 @@ fun MainMenuScreen(
         }
 
         Text(
-            text = "v${BuildConfig.VERSION_NAME} - ESCOM Edition", color = Color.White.copy(alpha = 0.3f),
+            text = stringResource(R.string.menu_version, BuildConfig.VERSION_NAME), color = Color.White.copy(alpha = 0.3f),
             fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         )
@@ -96,12 +98,12 @@ fun MainMenuScreen(
         if (state.showMultiplayerDialog) {
             AlertDialog(
                 onDismissRequest = { viewModel.updateShowMultiplayerDialog(false) },
-                title = { Text("Conectar a Servidor") },
+                title = { Text(stringResource(R.string.menu_mp_dialog_title)) },
                 text = {
                     OutlinedTextField(
                         value = state.playerName,
                         onValueChange = { viewModel.updatePlayerName(it) },
-                        label = { Text("Nombre de Usuario") },
+                        label = { Text(stringResource(R.string.menu_mp_username_label)) },
                         singleLine = true
                     )
                 },
@@ -109,14 +111,15 @@ fun MainMenuScreen(
                     TextButton(
                         onClick = {
                             viewModel.updateShowMultiplayerDialog(false)
+                            // "Jugador_" es un id generado de respaldo (no es texto de UI traducible).
                             val finalName = state.playerName.ifBlank { "Jugador_${(1000..9999).random()}" }
                             onNavigateToMap(true, finalName)
                         }
-                    ) { Text("Conectar") }
+                    ) { Text(stringResource(R.string.menu_mp_connect)) }
                 },
                 dismissButton = {
                     TextButton(onClick = { viewModel.updateShowMultiplayerDialog(false) }) {
-                        Text("Cancelar")
+                        Text(stringResource(R.string.menu_cancel))
                     }
                 }
             )
@@ -134,22 +137,17 @@ fun MainMenuScreen(
         if (state.warmupFailed) {
             AlertDialog(
                 onDismissRequest = { viewModel.dismissWarmupError() },
-                title = { Text("Servidor no disponible") },
-                text = {
-                    Text(
-                        "El servidor multijugador tarda demasiado en responder. " +
-                                "Intenta de nuevo en unos segundos."
-                    )
-                },
+                title = { Text(stringResource(R.string.menu_warmup_fail_title)) },
+                text = { Text(stringResource(R.string.menu_warmup_fail_text)) },
                 confirmButton = {
                     TextButton(onClick = {
                         viewModel.dismissWarmupError()
                         viewModel.onMultiplayerPressed() // reintenta
-                    }) { Text("REINTENTAR") }
+                    }) { Text(stringResource(R.string.menu_retry)) }
                 },
                 dismissButton = {
                     TextButton(onClick = { viewModel.dismissWarmupError() }) {
-                        Text("Cerrar")
+                        Text(stringResource(R.string.menu_close))
                     }
                 }
             )
@@ -217,7 +215,7 @@ fun MenuButtonsList(
     onNavigateToCollectibles: () -> Unit
 ) {
     MenuButton(
-        text = "INICIAR JUEGO",
+        text = stringResource(R.string.menu_start_game),
         onClick = {
             viewModel.onStartGame()
             onNavigateToMap(false, null)
@@ -226,21 +224,21 @@ fun MenuButtonsList(
     )
     Spacer(Modifier.height(16.dp))
 
-    MenuButton(text = "CARGAR PARTIDA", onClick = {}, enabled = false)
+    MenuButton(text = stringResource(R.string.menu_load_game), onClick = {}, enabled = false)
     Spacer(Modifier.height(16.dp))
 
     // El botón MULTIJUGADOR dispara el warmup ANTES de mostrar el diálogo
     // de nombre. Mientras dura el warmup queda deshabilitado para evitar
     // que el usuario lance dos pings en paralelo.
     MenuButton(
-        text = "MULTIJUGADOR",
+        text = stringResource(R.string.menu_multiplayer),
         onClick = { viewModel.onMultiplayerPressed() },
         enabled = !state.isWarmingUp
     )
     Spacer(Modifier.height(16.dp))
 
     MenuButton(
-        text = "AJUSTES",
+        text = stringResource(R.string.menu_settings),
         onClick = onNavigateToSettings,
         enabled = !state.isWarmingUp,
         color = Color(0xFF6B1C3A)
@@ -248,7 +246,7 @@ fun MenuButtonsList(
     Spacer(Modifier.height(16.dp))
 
     MenuButton(
-        text = "COLECCIONABLES",
+        text = stringResource(R.string.menu_collectibles),
         onClick = onNavigateToCollectibles,
         enabled = !state.isWarmingUp,
         color = Color(0xFF6B1C3A)
@@ -293,7 +291,7 @@ private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "DESPERTANDO SERVIDOR",
+                    text = stringResource(R.string.menu_warmup_title),
                     color = Color(0xFFD4AF37),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
@@ -308,7 +306,7 @@ private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
                 )
 
                 Text(
-                    text = "El servidor multijugador está en reposo.\nDespertándolo... ${secondsElapsed}s",
+                    text = stringResource(R.string.menu_warmup_text, secondsElapsed),
                     color = Color.White.copy(alpha = 0.85f),
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -316,7 +314,7 @@ private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
                 )
 
                 Text(
-                    text = "Puede tardar hasta 60 segundos.",
+                    text = stringResource(R.string.menu_warmup_hint),
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 11.sp,
                     textAlign = TextAlign.Center
@@ -329,7 +327,7 @@ private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                 ) {
-                    Text("CANCELAR", fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                    Text(stringResource(R.string.menu_cancel_caps), fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
                 }
             }
         }

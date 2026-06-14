@@ -13,6 +13,15 @@ cd MultiplayerInteriores && docker compose up -d   # host :8081 → contenedor :
 ```
 URLs inyectadas / injected: `BuildConfig.MULTIPLAYER_SERVER_URL`, `BuildConfig.INTERIORS_SERVER_URL`.
 
+> **🆕 Detección de modo (3 modos) / mode detection:** el servidor debe distinguir **mapa global**,
+> **interiores** y **modo zombies**. Señales del cliente: el **mundo abierto** manda `JOIN_INSTANCE`
+> con `instance` `"normal"` (mapa global) o `"apocalipsis"` (zombies global). El **servidor de interiores**
+> recibe un campo nuevo **`mode`** en `JOIN_ROOM`/`PLAYER_UPDATE`: `"interiores"` (lobby tranquilo) o
+> `"zombies"` (edificio con horda / lobby con apocalipsis) — `ZombieGameViewModel.currentNetMode()`. Los
+> `server.js` **no están en este checkout**; deben leer estas señales (instancia + `mode`) para enrutar,
+> contabilizar y separar a los jugadores por modo. / Servers must tell apart global map, interiors and
+> zombie mode using `JOIN_INSTANCE.instance` (open world) and the new `mode` field (interiors server).
+
 ---
 
 > **🔀 INSTANCING (Normal vs Apocalipsis):** el mundo abierto está **sharded por `ws.instance`**
@@ -157,9 +166,9 @@ el cable **no cambia**. / AI state lives in non-serialized fields; the `ZOMBIE_S
 | Mensaje / Message | Dir | Significado |
 |---|---|---|
 | `SESSION_INIT` | S→C | Asigna `sessionId` |
-| `JOIN_ROOM` | C→S | Entrar a una sala (`roomId`) |
+| `JOIN_ROOM` | C→S | Entrar a una sala (`roomId`, `displayName`, `x`, `y`, **`mode`**) |
 | `ROOM_SNAPSHOT` | S→C | Estado inicial de la sala al unirse |
-| `PLAYER_UPDATE` | C↔S | Pose del jugador (x,y **fraccionarios**, action, facing, health) |
+| `PLAYER_UPDATE` | C↔S | Pose del jugador (x,y **fraccionarios**, action, facing, health, **`mode`**) |
 | `PLAYER_LEFT_ROOM` | S→C | Otro jugador salió |
 | `ZOMBIE_STATE` | S→C | **Autoritativo:** lista de `NetZombie` + `NetItem` + **`NetInteriorNpc[]` (civiles)** + `totalZombies` |
 | `PLAYER_CORRECT` | S→C | **Coords server-authoritative:** el servidor rechazó una posición dentro de pared (validó contra la matriz de la sala con `isBlocked`) y manda la posición válida `{x,y}` (fracción) para que el cliente ajuste al jugador |

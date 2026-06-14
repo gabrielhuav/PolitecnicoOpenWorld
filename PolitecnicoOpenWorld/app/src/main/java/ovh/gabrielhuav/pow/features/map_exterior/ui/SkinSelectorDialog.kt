@@ -93,7 +93,7 @@ fun SkinSelectorDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Elegir personaje",
+                text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_choose_character),
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
             )
@@ -101,7 +101,7 @@ fun SkinSelectorDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "Selecciona la skin del jugador:",
+                    text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_select_skin),
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -122,7 +122,7 @@ fun SkinSelectorDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cerrar") }
+            TextButton(onClick = onDismiss) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_close)) }
         }
     )
 }

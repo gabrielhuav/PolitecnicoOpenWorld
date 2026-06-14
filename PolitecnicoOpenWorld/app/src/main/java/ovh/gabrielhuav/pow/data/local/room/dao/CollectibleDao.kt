@@ -21,7 +21,7 @@ interface CollectibleDao {
     @Query("UPDATE collectibles SET isCollected = 1 WHERE id = :collectibleId")
     suspend fun markAsCollected(collectibleId: String)
 
-    // Inserta la lista inicial de coleccionables
+    // Inserta la lista inicial de collectibles
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInitialCollectibles(collectibles: List<CollectibleEntity>)
 

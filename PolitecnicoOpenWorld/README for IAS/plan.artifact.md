@@ -77,10 +77,13 @@ via co-located `ViewModelProvider.Factory` instances.
 | Wanted level / police AI (spawn, road-snapped chase, disembark, carjack, retreat) | `domain/models/ai/PoliceManager.kt` (driven by `WorldMapViewModel.runPoliceTick`) |
 | Prankedy special hostile NPC (AI / VM glue / sprites) | `domain/models/ai/PrankedyManager.kt` (driven by `WorldMapViewModel.runPrankedyTick`), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
 | Patrol sprite (no-repaint `POLICE_TOPDOWN`) | `features/map_exterior/ui/components/PoliceSpriteManager.kt`; cop = 👮 emoji via `emojiToDrawable` in `WorldMapDrawingUtils.kt` |
-| Zombie minigame logic | `features/zombie_minigame/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`) |
-| Zombie minigame state | `features/zombie_minigame/viewmodel/ZombieGameState.kt` |
-| Zombie net models (client) | `features/zombie_minigame/viewmodel/Zombienetmodels.kt` |
-| Zombie rendering + camera + damage FX | `features/zombie_minigame/ui/ZombieGameScreen.kt` |
+| Interiors umbrella shared types | `features/interiores/core/viewmodel/InteriorDesignerModels.kt` (`DesignerTarget`, `CameraTransform`), `features/interiores/core/ui/InteriorPlayerViews.kt` (`PlayerView`, `PlayerHealthBarFixed`, `RemotePlayerView`) |
+| Zombie layer logic (was `zombie_minigame`) | `features/interiores/zombies/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`) |
+| Zombie layer state | `features/interiores/zombies/viewmodel/ZombieGameState.kt` |
+| Zombie net models (client) | `features/interiores/zombies/viewmodel/Zombienetmodels.kt` |
+| Zombie rendering + camera + damage FX | `features/interiores/zombies/ui/ZombieGameScreen.kt` |
+| ESCOM simple interiors + metro (was `interior`) | `features/interiores/escom/{ui,viewmodel}/` |
+| ShineCTO easter egg (was `shinecto`) | `features/interiores/shinecto/{ui,viewmodel}/` |
 | Zombie rooms / doors / collision | `domain/models/zombie/ZombieModels.kt`, `ZombieRoomCatalog.kt` |
 | Zombie collision-matrix persistence | `data/repository/CollisionMatrixRepository.kt` (`collision_matrices.json`) |
 | Settings (map/controls/gameplay/interface) | `features/settings/{ui,viewmodel}/...` |
@@ -159,7 +162,7 @@ via co-located `ViewModelProvider.Factory` instances.
 - **Prankedy (special hostile NPC):** toggled via `WorldMapState.prankedyEnabled` (Options menu,
   default OFF). `PrankedyManager` (client-local, like police) chases the player and throws a gas tank
   (`hitPlayer` → `takeDamage`); if an NPC aggresses the player within ~50 m it targets that NPC instead.
-  Closes to ~8 m, plays an 800 ms throw windup (`p_atack`), launches `p_objeto`; the hit is **dodgeable**
+  Closes to ~8 m, plays an 800 ms throw windup (`p_attack`), launches `p_objeto`; the hit is **dodgeable**
   (`IMPACT_RADIUS`). Road-snapped, killable (melee → respawn 60 s), hidden while driving. Rendered on
   native OSM + web (Leaflet). Tick/spawn run from the **member** game loop (not the shadowed extension).
   See README-for-IAS 03/04 and `PR_CHANGES_EN.md`.
@@ -345,7 +348,7 @@ collectibles with persistent inventory; waypoint navigation with greedy road-gra
 routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch,
 **over-zoom to z22 (scaled from z19) with loading-screen z19/z17 prefetch, default max zoom**;
 **player-anchored fog-of-war on native + web (driving-rotation safe)**; **real-meter NPC/player
-sizing unified across renderers**; **CDMX Metro station icons (`metroCDMX/icon.webp`) at every
+sizing unified across renderers**; **CDMX Metro station icons (`metro_cdmx/icon.webp`) at every
 `metro.json` station on all 3 renderers (native `Marker`, web `updateMetro`, Google `Marker`)**; **landscape-safe scrollable Options menu**; main-menu version
 bound to `BuildConfig.VERSION_NAME` with auto-shrinking title; full zombie survival minigame (lobby + 7 buildings,
 dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens, damage feedback

@@ -85,7 +85,7 @@ fun DesignerPanel(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "EDICIÓN DE ASSET",
+                androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_edit_asset),
                 color = Color(0xFFD4AF37),
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp
@@ -262,7 +262,7 @@ fun DesignerPanel(
 
                     // ROTACIÓN
                     Text(
-                        "ROTACIÓN: ${landmark.rotationAngle.toInt()}°",
+                        androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_rotation, landmark.rotationAngle.toInt()),
                         color = Color.White,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.SemiBold
@@ -319,7 +319,7 @@ fun DesignerPanel(
                             onCheckedChange = onToggleParkingMode,
                             modifier = Modifier.scale(0.7f)
                         )
-                        Text("Cajón Estac.", fontSize = 10.sp, color = Color.White)
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_parking), fontSize = 10.sp, color = Color.White)
                     }
                     Button(
                         onClick = onNewWay,
@@ -364,7 +364,7 @@ fun DesignerPanel(
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
-                            "SPAWN AUTO",
+                            androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_spawn_car),
                             color = Color.White,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold

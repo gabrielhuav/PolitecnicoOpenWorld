@@ -423,7 +423,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             data.forEach(function(s) {
                 if (metroMarkers[s.name]) { metroMarkers[s.name].setLatLng([s.lat, s.lng]); return; }
                 var sz = 26;
-                var html = '<img src="file:///android_asset/metroCDMX/icon.webp" ' +
+                var html = '<img src="file:///android_asset/metro_cdmx/icon.webp" ' +
                            'style="width:' + sz + 'px; height:' + sz + 'px; transform:translate(-50%,-50%); display:block;">';
                 var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                 metroMarkers[s.name] = L.marker([s.lat, s.lng], { icon: icon, interactive: false, zIndexOffset: 400 }).addTo(map);

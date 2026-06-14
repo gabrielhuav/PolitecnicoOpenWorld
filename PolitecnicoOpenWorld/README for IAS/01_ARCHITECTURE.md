@@ -55,10 +55,13 @@ app/src/main/java/ovh/gabrielhuav/pow/
 ├── domain/models/       # Modelos puros + IA                       → ver 03
 ├── features/            # Módulos por feature: <name>/ui + <name>/viewmodel
 │   ├── main_menu/        → ver 07
-│   ├── map_exterior/     → ver 04  (núcleo del open world)
-│   ├── interior/         → ver 06
-│   ├── zombie_minigame/  → ver 05
-│   ├── shinecto/         → ver 07  (easter egg)
+│   ├── map_exterior/     → ver 04  (núcleo del open world / EXTERIORES)
+│   ├── interiores/       # UMBRELLA del modo Interiores (expandible a más universidades)
+│   │   ├── core/          # COMPARTIDO: DesignerTarget+CameraTransform (viewmodel),
+│   │   │                  #   PlayerView/PlayerHealthBarFixed/RemotePlayerView + designer layers (ui)
+│   │   ├── escom/         → ver 06  (interiores simples ESCOM + metro; antes features/interior/)
+│   │   ├── zombies/       → ver 05  (capa de zombis; antes features/zombie_minigame/)
+│   │   └── shinecto/      → ver 07  (easter egg; antes features/shinecto/)
 │   └── settings/         → ver 07
 ├── ui/theme/            # Tema Material 3 (Color.kt, Theme.kt, Type.kt)
 └── MainActivity.kt      # Single-Activity + Compose NavHost
@@ -74,11 +77,11 @@ app/src/main/java/ovh/gabrielhuav/pow/
 | `settings` | `SettingsScreen` |
 | `world_map` | `WorldMapScreen` (open world) |
 | `collectibles` | `CollectiblesScreen` |
-| `interior_auditorio` … `interior_canchas_futbol` | 7 interiores ESCOM (`InteriorScreenBase`) |
-| `interior_deportivo_beis`, `interior_deportivo_futbol` | Interiores deportivos |
-| `metro_station_interior/{stationName}?spawnX={spawnX}&spawnY={spawnY}` | `MetroStationInteriorScreen` (ruta parametrizada) |
-| `zombie_minigame` | `ZombieGameScreen` |
-| `shinecto_interior` | `ShineCTOScreen` (easter egg) |
+| `interior_auditorio` … `interior_canchas_futbol` | 7 interiores ESCOM (`InteriorScreenBase`, paquete `interiores.escom.ui`) |
+| `interior_deportivo_beis`, `interior_deportivo_futbol` | Interiores deportivos (`interiores.escom.ui`) |
+| `metro_station_interior/{stationName}?spawnX={spawnX}&spawnY={spawnY}` | `MetroStationInteriorScreen` (`interiores.escom.ui`, ruta parametrizada) |
+| `interiores_zombies` | `ZombieGameScreen` (`interiores.zombies.ui`; ruta antes llamada `zombie_minigame`) |
+| `shinecto_interior` | `ShineCTOScreen` (`interiores.shinecto.ui`, easter egg) |
 
 **MainActivity** también: configura osmdroid (`configureOsmdroid`), pide permisos y obtiene la
 ubicación con Fused Location Provider (`checkPermissionsAndFetchLocation`, `fetchCurrentLocation`),

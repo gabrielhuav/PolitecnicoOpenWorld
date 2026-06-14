@@ -74,7 +74,7 @@ internal fun WorldMapViewModel.handleCarjack(driving: Boolean, aggressorAdjacent
         return
     }
     if (carjackStartTime == 0L) carjackStartTime = now
-    _uiState.update { it.copy(carjackWarning = "¡Te van a bajar del auto! ¡Acelera!") }
+    _uiState.update { it.copy(carjackWarning = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_carjack_warning)) }
     if (now - carjackStartTime >= CARJACK_MS) {
         carjackStartTime = 0L
         _uiState.update { it.copy(carjackWarning = null) }
