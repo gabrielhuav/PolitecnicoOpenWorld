@@ -49,6 +49,9 @@ import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoFutbolScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.StoryModeScreen
+import ovh.gabrielhuav.pow.features.main_menu.ui.StoryIntroScreen
+import ovh.gabrielhuav.pow.domain.models.SchoolCatalog
+import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
@@ -90,6 +93,10 @@ class MainActivity : ComponentActivity() {
         CollectiblesViewModel.Factory(this)
     }
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    // Persistencia de la partida del MODO HISTORIA (campaña). Es el punto de DI:
+    // MainActivity escribe el guardado al INICIAR/CARGAR (las pantallas solo emiten intención).
+    private val campaignRepository: CampaignRepository by lazy { CampaignRepository(this) }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -188,12 +195,52 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // ─── MODO HISTORIA / Campaña ──────────────────────────────
-                        // Prólogo + selección de escuela. Al COMENZAR, fija el spawn de
-                        // la escuela elegida (setStorySpawn) y arranca el open world como
-                        // campaña. ESCOM es la única jugable por ahora.
+                        // Prólogo + selección de escuela. "COMENZAR" lleva a la intro
+                        // ("Listo para Iniciar"); "CARGAR PARTIDA" reanuda directo en la
+                        // escuela guardada. ESCOM es la única jugable por ahora.
                         composable(route = "story_mode") {
+                            // Arranca el mundo de la campaña: fija el spawn de la escuela y
+                            // navega al mapa (limpia el menú del back stack).
+                            val enterCampaignWorld = remember(worldMapViewModel, navController) {
+                                { school: ovh.gabrielhuav.pow.domain.models.CampaignSchool ->
+                                    worldMapViewModel.disconnectFromMultiplayer()
+                                    worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
+                                    navController.navigate("world_map") {
+                                        popUpTo("main_menu") { inclusive = true }
+                                    }
+                                    Unit
+                                }
+                            }
                             StoryModeScreen(
+                                // COMENZAR: pasa por la intro antes de entrar al mundo.
                                 onStartCampaign = { school ->
+                                    navController.navigate("story_intro/${school.id}")
+                                },
+                                // CARGAR PARTIDA: reanuda directo en la escuela guardada.
+                                onLoadCampaign = { school -> enterCampaignWorld(school) },
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        // ─── MODO HISTORIA · Intro ("Listo para Iniciar") ─────────
+                        // Placeholder narrativo. Al INICIAR, GUARDA la partida (para que
+                        // "CARGAR PARTIDA" funcione luego) y arranca el mundo en la escuela.
+                        composable(
+                            route = "story_intro/{schoolId}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("schoolId") {
+                                    type = androidx.navigation.NavType.StringType
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val schoolId = backStackEntry.arguments?.getString("schoolId")
+                            val school = SchoolCatalog.schools.firstOrNull { it.id == schoolId }
+                                ?: SchoolCatalog.default
+                            StoryIntroScreen(
+                                school = school,
+                                onBegin = {
+                                    // Guarda la partida de campaña (escuela elegida).
+                                    campaignRepository.saveCampaign(school.id)
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
                                     navController.navigate("world_map") {

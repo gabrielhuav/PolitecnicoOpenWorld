@@ -31,19 +31,27 @@ defecto) y `menu_load_game` es **"MODO HISTORIA"** (antes deshabilitado; ahora n
 
 **ES:** Pantalla de campaña accesible desde **"MODO HISTORIA"** (ruta `story_mode`). Muestra el **prólogo**
 (brote del Politécnico: Prankedy crea por accidente una sustancia corrosiva en la ENCB), un **selector de
-escuela** y un botón **"CARGAR PARTIDA"** deshabilitado (aún no hay sistema de guardado).
-**EN:** Campaign screen reached from **"STORY MODE"** (`story_mode` route): prologue + school picker +
-disabled **"LOAD GAME"** (no save system yet).
+escuela** y **"CARGAR PARTIDA"** (habilitado solo si hay una partida guardada). "COMENZAR" pasa por la
+**intro** (`story_intro/{schoolId}`, "Listo para Iniciar") antes de entrar al mundo.
+**EN:** Campaign screen from **"STORY MODE"** (`story_mode`): prologue + school picker + **"LOAD GAME"**
+(enabled only if a save exists). "START" goes through the **intro** (`story_intro/{schoolId}`) first.
 
 ### `viewmodel/StoryModeViewModel.kt` + `StoryModeState.kt`
-- Alcance **NavBackStackEntry** (se instancia con `viewModel()` en el Composable). `StoryModeState` solo
-  guarda `selectedSchoolId` (default = primera escuela disponible).
-- API: `selectSchool(id)` (ignora escuelas no disponibles), `selectedSchool(): CampaignSchool`.
+- Alcance **NavBackStackEntry** (se instancia con `viewModel(factory = Factory(context))`, así re-lee el
+  guardado cada vez que se entra). `StoryModeState`: `selectedSchoolId` + `hasSave`/`savedSchoolId`/`savedAt`.
+- API: `selectSchool(id)` (ignora escuelas no disponibles), `selectedSchool()`, `savedSchool(): CampaignSchool?`.
+- Lee la partida de **`data/repository/CampaignRepository.kt`** (SharedPreferences `pow_campaign`:
+  `saveCampaign(schoolId)`/`hasSave`/`getSavedSchoolId`/`getSavedAt`/`clearCampaign`).
 
-### `ui/StoryModeScreen.kt`
-Prólogo (`story_prologue`) + tarjetas de escuela (`SchoolCard`) + "CARGAR PARTIDA" (off) + "COMENZAR"/"VOLVER".
-"COMENZAR" llama `onStartCampaign(school)`; `MainActivity` fija el spawn con
-`WorldMapViewModel.setStorySpawn(lat, lon)` y navega a `world_map` (popUpTo `main_menu` inclusive).
+### `ui/StoryModeScreen.kt` + `ui/StoryIntroScreen.kt`
+- `StoryModeScreen`: prólogo + tarjetas de escuela (`SchoolCard`) + "CARGAR PARTIDA" (on solo con guardado;
+  reanuda en la escuela guardada vía `onLoadCampaign`) + "COMENZAR" (`onStartCampaign` → navega a la intro) +
+  "VOLVER". Usa `windowInsetsPadding(WindowInsets.systemBars)` para no chocar con la barra de navegación.
+- `StoryIntroScreen` ("Listo para Iniciar"): **placeholder** narrativo (futuros banners/sprites del prólogo).
+  Al **INICIAR** (`onBegin`) `MainActivity` **guarda** la partida (`campaignRepository.saveCampaign(school.id)`),
+  fija el spawn (`setStorySpawn`) y navega a `world_map`. "CARGAR PARTIDA" hace lo mismo **sin** guardar de nuevo.
+- El guardado lo escribe **`MainActivity`** (punto de DI), no las Views. Por ahora la partida guarda solo la
+  escuela (cuando exista progreso de Misión 1 se añaden campos a `CampaignRepository`).
 
 ### `domain/models/SchoolCatalog.kt`
 `CampaignSchool(id, displayName, latitude, longitude, available)` + `object SchoolCatalog.schools`.

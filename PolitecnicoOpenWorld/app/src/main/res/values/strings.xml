@@ -39,8 +39,14 @@
     <string name="story_school_locked_desc">Próximamente</string>
     <string name="story_load_game">CARGAR PARTIDA</string>
     <string name="story_no_saves">Sin partidas guardadas</string>
+    <string name="story_saved_at">Partida guardada · %1$s</string>
     <string name="story_start">COMENZAR</string>
     <string name="story_back">VOLVER</string>
+    <!-- Intro de campaña ("Listo para Iniciar") -->
+    <string name="story_intro_ready">Listo para Iniciar</string>
+    <string name="story_intro_school">Escuela de inicio: %1$s</string>
+    <string name="story_intro_placeholder">Aquí irá el prólogo de la historia (la broma de Prankedy que salió mal en la ENCB…). Por ahora, ¡prepárate para comenzar tu aventura!</string>
+    <string name="story_intro_begin">INICIAR</string>
 
     <!-- ─── Ajustes (features/settings) ─── -->
     <string name="settings_title">AJUSTES DEL JUEGO</string>

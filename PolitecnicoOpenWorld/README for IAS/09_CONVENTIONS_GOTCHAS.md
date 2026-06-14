@@ -343,12 +343,17 @@ matrices por defecto son **border-only** hasta reemplazarse.
 - **Menú: "MUNDO LIBRE" vs "MODO HISTORIA" + spawn de campaña:** el 1er botón del menú
   (`menu_start_game` = **MUNDO LIBRE**) es el open world sin campaña (spawn por defecto, ESCOM).
   El 2º (`menu_load_game` = **MODO HISTORIA**) navega a `story_mode` (`StoryModeScreen`): prólogo +
-  selector de escuela (`SchoolCatalog`, solo ESCOM `available=true`) + "CARGAR PARTIDA" deshabilitado
-  (sin guardado aún). Al "COMENZAR", `MainActivity` llama `WorldMapViewModel.setStorySpawn(lat, lon)`
-  — **NO uses `updateInitialLocation`**: está gateada por `isLoadingLocation` (ya consumida en
-  `onCreate`), así que no movería el spawn. `setStorySpawn` es miembro sin gemelo de extensión y
-  re-arma `isMapReady`/`isRoadNetworkReady`/`npcsWarmedUp`. Para habilitar FES Aragón/UAM: pon
-  `available=true` en `SchoolCatalog` (sus coords ya alimentan el spawn).
+  selector de escuela (`SchoolCatalog`, solo ESCOM `available=true`) + "CARGAR PARTIDA". "COMENZAR"
+  pasa por la **intro** `story_intro/{schoolId}` (`StoryIntroScreen`, "Listo para Iniciar", placeholder);
+  al **INICIAR**, `MainActivity` **guarda** la partida (`CampaignRepository.saveCampaign`) y arranca el
+  mundo. "CARGAR PARTIDA" se habilita solo si `CampaignRepository.hasSave()` y reanuda en la escuela
+  guardada (sin re-guardar). El **guardado lo escribe `MainActivity`** (punto de DI), no las Views.
+  Para el spawn usa `WorldMapViewModel.setStorySpawn(lat, lon)` — **NO `updateInitialLocation`**: está
+  gateada por `isLoadingLocation` (ya consumida en `onCreate`), así que no movería el spawn.
+  `setStorySpawn` es miembro sin gemelo de extensión y re-arma `isMapReady`/`isRoadNetworkReady`/
+  `npcsWarmedUp`. Para habilitar FES Aragón/UAM: pon `available=true` en `SchoolCatalog` (sus coords ya
+  alimentan el spawn). `StoryModeViewModel` usa `Factory(context)` para leer la partida (NavBackStackEntry
+  → re-lee al entrar). Las pantallas de campaña usan `windowInsetsPadding(WindowInsets.systemBars)`.
 - **i18n / internacionalización (strings.xml + cambio de idioma):** los textos de UI se externalizan a
   recursos. **Base = español** en `res/values/strings.xml`; **inglés** en `res/values-en/strings.xml`
   (paridad 1:1 de claves). Para añadir un idioma (p. ej. ruso) basta con crear `res/values-ru/strings.xml`

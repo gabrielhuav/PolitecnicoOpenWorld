@@ -91,7 +91,7 @@ via co-located `ViewModelProvider.Factory` instances.
 | Tile cache (Room) | `data/cache/TileCache.kt` + `data/local/room/dao/MapTileDao.kt` |
 | Road-network cache (Room) | `data/cache/RoadNetworkCache.kt` + `RoadNetworkDao.kt` |
 | Multiplayer warm-up (Render) | `features/main_menu/ui/ServerWarmupManager.kt` (package `data.network`) |
-| Story Mode / campaign (prologue + school picker) | `features/main_menu/ui/StoryModeScreen.kt` + `features/main_menu/viewmodel/StoryModeViewModel.kt` (route `story_mode`); schools in `domain/models/SchoolCatalog.kt`; spawn via `WorldMapViewModel.setStorySpawn` |
+| Story Mode / campaign (prologue + school picker + intro + save/load) | `features/main_menu/ui/StoryModeScreen.kt` + `StoryIntroScreen.kt` + `features/main_menu/viewmodel/StoryModeViewModel.kt` (routes `story_mode`, `story_intro/{schoolId}`); schools in `domain/models/SchoolCatalog.kt`; save in `data/repository/CampaignRepository.kt` (written by `MainActivity`); spawn via `WorldMapViewModel.setStorySpawn` |
 | **Unified offline tile cache (native OSM)** | `data/cache/RoomTileModuleProvider.kt` (osmdroid module → Room, browser UA) |
 | **Per-zone tile prefetch (offline, ~2km)** | `data/cache/TilePrefetchManager.kt` + `WorldMapRoadNetwork.kt::prefetchCurrentZoneTiles` |
 | **Open-world server (v2)** | `Multiplayer/server.js` |
@@ -353,8 +353,9 @@ sizing unified across renderers**; **CDMX Metro station icons (`metro_cdmx/icon.
 `metro.json` station on all 3 renderers (native `Marker`, web `updateMetro`, Google `Marker`)**; **landscape-safe scrollable Options menu**; main-menu version
 bound to `BuildConfig.VERSION_NAME` with auto-shrinking title; **Story Mode / campaign entry
 (menu buttons renamed to "FREE ROAM" + "STORY MODE"; `story_mode` screen with prologue + school
-picker — only ESCOM playable, FES Aragón/UAM disabled; campaign spawn via `setStorySpawn`; no save
-system yet)**; full zombie survival minigame (lobby + 7 buildings,
+picker — only ESCOM playable, FES Aragón/UAM disabled — an intro screen "Ready to Start"
+(`story_intro`), and a working save/load (`CampaignRepository`): START saves the campaign so LOAD GAME
+resumes; campaign spawn via `setStorySpawn`)**; full zombie survival minigame (lobby + 7 buildings,
 dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens, damage feedback
 FX) with **online mode backed by a dedicated authoritative zombie server**
 (`MultiplayerZombie/`: flow-field + LOS + separation AI) and a collision Designer

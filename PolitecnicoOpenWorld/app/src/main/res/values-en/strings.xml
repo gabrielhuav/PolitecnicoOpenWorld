@@ -39,8 +39,14 @@
     <string name="story_school_locked_desc">Coming soon</string>
     <string name="story_load_game">LOAD GAME</string>
     <string name="story_no_saves">No saved games</string>
+    <string name="story_saved_at">Saved game · %1$s</string>
     <string name="story_start">START</string>
     <string name="story_back">BACK</string>
+    <!-- Campaign intro ("Ready to Start") -->
+    <string name="story_intro_ready">Ready to Start</string>
+    <string name="story_intro_school">Starting school: %1$s</string>
+    <string name="story_intro_placeholder">The story prologue will go here (Prankedy\'s prank gone wrong at the ENCB…). For now, get ready to begin your adventure!</string>
+    <string name="story_intro_begin">START</string>
 
     <!-- ─── Settings ─── -->
     <string name="settings_title">GAME SETTINGS</string>

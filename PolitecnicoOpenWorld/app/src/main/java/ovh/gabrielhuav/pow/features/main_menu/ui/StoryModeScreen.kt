@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,15 +28,17 @@ import ovh.gabrielhuav.pow.features.main_menu.viewmodel.StoryModeViewModel
 /**
  * Pantalla del MODO HISTORIA / Campaña. Muestra el prólogo (brote del Politécnico),
  * deja elegir la escuela de inicio (ESCOM jugable; FES Aragón y UAM en desarrollo) y
- * tiene "CARGAR PARTIDA" deshabilitado (aún no hay sistema de guardado). "COMENZAR"
- * arranca la campaña en la escuela elegida (el spawn lo fija MainActivity → WorldMapViewModel).
+ * tiene "CARGAR PARTIDA" (habilitado solo si hay una partida guardada). "COMENZAR"
+ * lleva a la pantalla de intro ("Listo para Iniciar") antes de entrar al mundo.
  */
 @Composable
 fun StoryModeScreen(
     onStartCampaign: (CampaignSchool) -> Unit,
+    onLoadCampaign: (CampaignSchool) -> Unit,
     onBack: () -> Unit
 ) {
-    val viewModel: StoryModeViewModel = viewModel()
+    val context = LocalContext.current
+    val viewModel: StoryModeViewModel = viewModel(factory = StoryModeViewModel.Factory(context))
     val state by viewModel.state.collectAsState()
 
     val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
@@ -44,7 +47,10 @@ fun StoryModeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 28.dp)
+                // Respeta las barras del sistema (estado + navegación) para que el
+                // botón "VOLVER" no choque con los botones del dispositivo.
+                .windowInsetsPadding(WindowInsets.systemBars)
+                .padding(horizontal = 24.dp, vertical = 24.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -117,15 +123,18 @@ fun StoryModeScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // ─── Cargar partida (sin sistema de guardado todavía) ─────────
+            // ─── Cargar partida (habilitado solo si hay guardado) ─────────
+            val savedSchool = viewModel.savedSchool()
             MenuButton(
                 text = stringResource(R.string.story_load_game),
-                onClick = {},
-                enabled = false
+                onClick = { savedSchool?.let { onLoadCampaign(it) } },
+                enabled = state.hasSave && savedSchool != null
             )
             Text(
-                text = stringResource(R.string.story_no_saves),
-                color = Color.White.copy(alpha = 0.45f),
+                text = if (state.hasSave && savedSchool != null)
+                    stringResource(R.string.story_saved_at, savedSchool.displayName)
+                else stringResource(R.string.story_no_saves),
+                color = Color.White.copy(alpha = 0.55f),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 6.dp)
             )
@@ -144,6 +153,9 @@ fun StoryModeScreen(
                 onClick = onBack,
                 color = Color(0xFF4A1226)
             )
+
+            // Margen extra al final del scroll, además de los insets del sistema.
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
