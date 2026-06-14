@@ -3,6 +3,8 @@ package ovh.gabrielhuav.pow.features.main_menu.ui
 import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -70,6 +72,35 @@ fun StoryIntroScreen(
     val context = LocalContext.current
     val panels = remember(school.id) { StoryComicCatalog.forSchool(school.id) }
     val repo = remember { StoryLayoutRepository(context) }
+
+    // EXPORTAR: vuelca la configuración de TODOS los paneles a un archivo JSON (para no
+    // depender solo del dispositivo) y además escribe en Logcat (tag STORY_LAYOUT) las líneas
+    // `ComicPanel(...)` listas para PEGAR como defaults en StoryComicCatalog.kt (repo).
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            val f3 = { v: Float -> "%.3f".format(java.util.Locale.US, v) }
+            val json = buildString {
+                append("[\n")
+                panels.forEachIndexed { i, p ->
+                    val l = repo.layoutFor(i, StoryBoxLayout(p.boxTopFrac, p.boxHeightFrac, p.fontSp, p.boxWidthFrac))
+                    append("""  {"panel": ${i + 1}, "asset": "${p.assetPath}", "topFrac": ${f3(l.topFrac)}, "heightFrac": ${f3(l.heightFrac)}, "widthFrac": ${f3(l.widthFrac)}, "fontSp": ${"%.0f".format(java.util.Locale.US, l.fontSp)}}""")
+                    append(if (i < panels.size - 1) ",\n" else "\n")
+                }
+                append("]\n")
+            }
+            val kt = buildString {
+                append("// Pega estos defaults en StoryComicCatalog (uno por ComicPanel):\n")
+                panels.forEachIndexed { i, p ->
+                    val l = repo.layoutFor(i, StoryBoxLayout(p.boxTopFrac, p.boxHeightFrac, p.fontSp, p.boxWidthFrac))
+                    append("ComicPanel(\"${p.assetPath}\", \"...\", boxTopFrac = ${f3(l.topFrac)}f, boxHeightFrac = ${f3(l.heightFrac)}f, fontSp = ${"%.0f".format(java.util.Locale.US, l.fontSp)}f, boxWidthFrac = ${f3(l.widthFrac)}f),\n")
+                }
+            }
+            android.util.Log.d("STORY_LAYOUT", "\n$kt")
+            try { context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) } } catch (_: Exception) {}
+        }
+    }
 
     // Las imágenes del cómic son HORIZONTALES: forzamos orientación landscape mientras se
     // ve la intro y restauramos la orientación previa al salir (entrar al mundo / volver).
@@ -255,6 +286,11 @@ fun StoryIntroScreen(
                     }
                     PillButton("Todas", Color(0xAA00695C), Modifier.weight(1f)) {
                         repo.saveAll(panels.size, StoryBoxLayout(topFrac, heightFrac, fontSp, widthFrac))
+                    }
+                    PillButton("Exportar", Color(0xAA1565C0), Modifier.weight(1f)) {
+                        // Guarda el panel actual y exporta TODO a JSON (+ Logcat con los defaults).
+                        repo.save(index, StoryBoxLayout(topFrac, heightFrac, fontSp, widthFrac))
+                        exportLauncher.launch("story_layout.json")
                     }
                 }
             }

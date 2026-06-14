@@ -75,9 +75,12 @@ muestra un panel oscuro con el texto (no crashea).
   **"Editar"** activa un editor para **mover** (arrastrar o Subir/Bajar), **redimensionar** (Alto ±) y cambiar
   el **tamaño de letra** (Letra ±) del cuadro, **por panel**. Se persiste en
   **`data/repository/StoryLayoutRepository.kt`** (`StoryBoxLayout(topFrac, heightFrac, fontSp)` en
-  SharedPreferences `pow_story_layout`); "Guardar" guarda ese panel, "Todas" aplica a todos. Los defaults viven
-  en `ComicPanel` (`boxTopFrac/boxHeightFrac/fontSp`). El editor muestra los valores (top/alto/letra) por si
-  quieres fijarlos en el catálogo.
+  SharedPreferences `pow_story_layout`); "Guardar" guarda ese panel, "Todas" aplica a todos. También ajusta
+  el **ancho** (`Ancho ±`, `boxWidthFrac`) — el cuadro va centrado. Los defaults viven en `ComicPanel`
+  (`boxTopFrac/boxHeightFrac/boxWidthFrac/fontSp`). **⚠️ El ajuste se guarda SOLO en el dispositivo**
+  (SharedPreferences), no en el repo: por eso hay un botón **"Exportar"** que vuelca TODOS los paneles a un
+  **JSON** (vía selector de archivo) y además escribe en **Logcat** (tag `STORY_LAYOUT`) las líneas
+  `ComicPanel(...)` listas para PEGAR como defaults en `StoryComicCatalog.kt` (así la config queda en el código).
 - **Objetivos:** `domain/models/CampaignMission.kt` (`CampaignObjective`, `MissionCatalog.first = ir_encb`,
   "Ve a la ENCB"). Al COMENZAR se fija el objetivo; el **game loop** (`checkObjectiveProgress`, solo si
   `inCampaign`) lo marca cumplido al entrar en `arriveRadiusMeters` del destino. **Widget de Objetivos

@@ -228,8 +228,9 @@ matrices por defecto son **border-only** hasta reemplazarse.
   se avanza `targetNodeIndex` aunque no haya "alcanzado" el carrot. Así sigue su ruta y te rebasa de
   verdad. No quitar la condición (sin ella vuelve el bucle).
 - **Población de NPCs — topes base bajados:** `NpcAiManager.maxActiveNpcs`/`maxTotalNpcs` base no-zombi
-  pasaron de 26/55 a **18/38** (siguen escalando por `popFactor`) para reducir la saturación ("se generan
-  muchos NPCs"). Ajusta densidad por estos topes/factores, no hardcodeando otra cosa.
+  pasaron de 26/55 → 18/38 → **10/22** (siguen escalando por `popFactor`) para una densidad más realista
+  ("se generan muchos NPCs"). Además la **aparición es gradual**: `SPAWN_SCAN_MS`=900 ms (antes 500) y
+  **máx 2 spawns por escaneo** (antes 4). Ajusta densidad por estos topes/factores, no hardcodeando otra cosa.
 - **Culling de NPCs = borde del fog (`NPC_CULL_MARGIN_M=0`):** antes era +15 m sobre `NPC_FOG_VISION_METERS`
   (70 m), así que los civiles se dibujaban hasta 85 m, FUERA de la zona despejada ("veo NPCs fuera del fog").
   A 0 m el culling de sprites (los 3 renderers usan `npcVisionRadiusMeters`) coincide EXACTO con el borde
