@@ -108,6 +108,7 @@ import org.json.JSONObject
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polyline
@@ -737,7 +738,11 @@ fun WorldMapScreen(
                                         val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                         "GM_POLICE_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == NpcType.POLICE_COP -> "GM_COP_EMOJI_H${qHealth}_D${npc.isDying}"
+                                    npc.type == NpcType.POLICE_COP -> {
+                                        val isAttacking = npc.policeCanShoot && !npc.isMoving
+                                        val animFrame = if (isAttacking) 0 else ((timeMs / 150L) % 6).toInt()
+                                        "GM_COP_SPRITE_${isAttacking}_${animFrame}_${npc.facingRight}_H${qHealth}_D${npc.isDying}"
+                                    }
                                     npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                         val timeMs = System.currentTimeMillis()
                                         val frameIndex = ((timeMs / 220L) % 9L).toInt()
@@ -788,8 +793,14 @@ fun WorldMapScreen(
                                             }
                                         }
                                         npc.type == NpcType.POLICE_COP -> {
-                                            val px = (18 * screenDensity).toInt()
-                                            var d: android.graphics.drawable.Drawable? = emojiToDrawable(context, "👮", px)
+                                            val isAttacking = npc.policeCanShoot && !npc.isMoving
+                                            val exactPixels = (18 * screenDensity).toInt()
+                                            var d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager.getDrawable(
+                                                context, isAttacking, timeMs, screenDensity, npc.facingRight
+                                            ) as android.graphics.drawable.Drawable?
+                                            if (d == null) {
+                                                d = emojiToDrawable(context, "👮", exactPixels)
+                                            }
                                             d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
                                             d
                                         }
@@ -964,6 +975,7 @@ fun WorldMapScreen(
                     modifier = Modifier.fillMaxSize(),
                     update = { wv ->
                         webViewRef.value = wv
+                        val timeMs = System.currentTimeMillis()
                         if (!uiState.isUserPanningMap) {
                             // Zoom SIN truncar (.toInt() peleaba con syncZoom cuando el estado
                             // queda en medios pasos tras un pinch, p. ej. 21.5 vs 21).
@@ -1109,13 +1121,13 @@ fun WorldMapScreen(
                             } else if (npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
                                 val config = npc.visualConfig!!
-                                val frameIndex = CharacterSpriteManager.getFrameIndex(context, config, currentlyMoving, System.currentTimeMillis()) ?: 0
+                                val frameIndex = CharacterSpriteManager.getFrameIndex(context, config, currentlyMoving, timeMs) ?: 0
                                 val cacheKey = "npc_mod_${config.bodyFolder}_${config.hairId}_${npc.facingRight}_${frameIndex}_${density}"
                                 val base64Image = base64Cache[cacheKey]
                                 if (base64Image == null) {
                                     base64Cache[cacheKey] = ""
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
-                                        val bitmap = CharacterSpriteManager.generateAssembledBitmap(context, config, currentlyMoving, System.currentTimeMillis())
+                                        val bitmap = CharacterSpriteManager.generateAssembledBitmap(context, config, currentlyMoving, timeMs)
                                         if (bitmap != null) {
                                             val out = java.io.ByteArrayOutputStream()
                                             bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
@@ -1129,7 +1141,6 @@ fun WorldMapScreen(
                                 }
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, if (npc.facingRight) 1 else -1, npc.displayName, health = npc.health, isDying = npc.isDying)
                             } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
-                                val timeMs = System.currentTimeMillis()
                                 // FIX web: el frame DEBE acotarse a los 9 del walk (% 9), igual que
                                 // getZombieDrawable. Antes era (timeMs/220).toInt() (entero creciente),
                                 // así que cada frame creaba un cacheKey nuevo cuya imagen base64 (async)
@@ -1165,17 +1176,20 @@ fun WorldMapScreen(
                                 val webHp = if (npc.maxHealth > 0f) (npc.health / npc.maxHealth * 100f) else npc.health
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, null, health = webHp, isDying = npc.isDying)
                             } else if (npc.type == NpcType.POLICE_COP) {
-                                // FIX web: el policía A PIE no tiene asset → en web salía como un SVG
-                                // genérico (vector verde). Igual que en nativo lo dibujamos como emoji
-                                // 👮: generamos su bitmap una vez, lo cacheamos y lo enviamos como
-                                // imagen de peatón (type "MODULAR", tamaño ~persona).
-                                val cacheKey = "cop_emoji_${density}"
+                                val isAttacking = npc.policeCanShoot && !npc.isMoving
+                                val animFrame = if (isAttacking) 0 else ((timeMs / 150L) % 6).toInt()
+                                val cacheKey = "cop_sprite_${isAttacking}_${animFrame}_${npc.facingRight}_${density}"
                                 val base64Image = base64Cache[cacheKey]
                                 if (base64Image == null) {
                                     base64Cache[cacheKey] = ""
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
                                         val px = (96 * density).toInt().coerceAtLeast(48)
-                                        val bitmap = (emojiToDrawable(context, "👮", px) as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                        var bitmap = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager.getDrawable(
+                                            context, isAttacking, timeMs, density, npc.facingRight
+                                        )?.bitmap
+                                        if (bitmap == null) {
+                                            bitmap = (emojiToDrawable(context, "👮", px) as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                        }
                                         if (bitmap != null) {
                                             val out = java.io.ByteArrayOutputStream()
                                             bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
@@ -1190,7 +1204,8 @@ fun WorldMapScreen(
                                     wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                     registeredWebImages.add(cacheKey)
                                 }
-                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, npc.displayName, health = npc.health, isDying = npc.isDying)
+                                val webHp = if (npc.maxHealth > 0f) (npc.health / npc.maxHealth * 100f) else npc.health
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, null, health = webHp, isDying = npc.isDying)
                             } else {
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, npc.type.name, null, npc.type.drawableName, null, npc.displayName, health = npc.health, isDying = npc.isDying)
                             }
@@ -1345,7 +1360,7 @@ fun WorldMapScreen(
                         run {
                             val pkLoc = uiState.prankedyLocation
                             if (pkLoc != null && !uiState.isDriving) {
-                                val pkTime = System.currentTimeMillis()
+                                val pkTime = timeMs
                                 val pkAnim = uiState.prankedyAnimState
                                 val pkFrames = when (pkAnim) {
                                     ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.IDLE -> 3
@@ -1361,7 +1376,7 @@ fun WorldMapScreen(
                                     base64Cache[pkKey] = ""
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
                                         val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
-                                            .getDrawable(context, pkAnim, pkTime, highResRenderScale, uiState.prankedyFacingRight)
+                                            .getDrawable(context, pkAnim, timeMs, highResRenderScale, uiState.prankedyFacingRight)
                                         val bmp = d?.bitmap
                                         if (bmp != null) {
                                             val out = java.io.ByteArrayOutputStream()
@@ -1393,7 +1408,7 @@ fun WorldMapScreen(
                                 val pjP = uiState.prankedyProjectileProgress
                                 val pjLat = pjStart.latitude + (pjEnd.latitude - pjStart.latitude) * pjP
                                 val pjLon = pjStart.longitude + (pjEnd.longitude - pjStart.longitude) * pjP
-                                val pjTime = System.currentTimeMillis()
+                                val pjTime = timeMs
                                 val pjFrame = ((pjTime / 150L) % 3L).toInt()
                                 val pjKey = "PRANKEDY_PROJ_WEB_$pjFrame"
                                 val pjB64 = base64Cache[pjKey]
@@ -1401,7 +1416,7 @@ fun WorldMapScreen(
                                     base64Cache[pjKey] = ""
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
                                         val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
-                                            .getProjectileDrawable(context, pjTime, highResRenderScale)
+                                            .getProjectileDrawable(context, timeMs, highResRenderScale)
                                         val bmp = d?.bitmap
                                         if (bmp != null) {
                                             val out = java.io.ByteArrayOutputStream()

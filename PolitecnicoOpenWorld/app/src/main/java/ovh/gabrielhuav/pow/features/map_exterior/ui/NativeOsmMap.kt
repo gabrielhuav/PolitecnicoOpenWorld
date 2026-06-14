@@ -98,6 +98,7 @@ import ovh.gabrielhuav.pow.domain.models.NpcType
 import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
@@ -678,12 +679,22 @@ internal fun NativeOsmMap(
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f
                             } else if (npc.type == NpcType.POLICE_COP) {
-                                // POLICÍA A PIE: no hay asset de persona → se dibuja con un EMOJI.
                                 val exactPixels = ((1.05 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(14)
-                                val cacheKey = "COP_EMOJI_${exactPixels}_H${npc.health.toInt()}_D${npc.isDying}"
+                                val isAttacking = npc.policeCanShoot && !npc.isMoving
+                                val animFrame = if (isAttacking) 0 else ((timeMs / 150L) % 6).toInt()
+                                val cacheKey = "COP_SPRITE_${isAttacking}_${animFrame}_${exactPixels}_${npc.facingRight}_H${npc.health.toInt()}_D${npc.isDying}"
                                 val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
-                                    val baseDrawable = emojiToDrawable(context, "👮", exactPixels)
-                                    drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying) ?: baseDrawable
+                                    val spriteDrawable = PoliceNpcSpriteManager.getDrawable(
+                                        context, isAttacking, timeMs, screenDensity, npc.facingRight
+                                    )
+                                    var baseDrawable: android.graphics.drawable.Drawable? = spriteDrawable
+                                    baseDrawable = drawHealthBarOnDrawable(context, baseDrawable, npc.health, npc.isDying)
+                                    baseDrawable?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
+                                        ?: run {
+                                            // ── FALLBACK: emoji 👮 (si los .webp no cargan) ──
+                                            val emoji = emojiToDrawable(context, "👮", exactPixels)
+                                            drawHealthBarOnDrawable(context, emoji, npc.health, npc.isDying) ?: emoji
+                                        }
                                 }
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f

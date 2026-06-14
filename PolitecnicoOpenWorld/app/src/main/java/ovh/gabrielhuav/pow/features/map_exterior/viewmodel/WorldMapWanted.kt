@@ -101,6 +101,7 @@ internal fun WorldMapViewModel.forceExitVehicle() {
     )
     remoteEntities[abandonedCar.id] = abandonedCar
     _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }
+    prankedyManager.onVehicleInteraction()
     updateNpcsState()
 }
 
