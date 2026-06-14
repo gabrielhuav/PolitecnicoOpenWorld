@@ -82,7 +82,7 @@ fun CollectibleClaimDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    text = "¡NUEVO COLECCIONABLE!",
+                    text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_new_collectible),
                     color = Color(0xFFD4AF37),
                     fontWeight = FontWeight.Bold,
                     fontSize = if (isLandscape) 20.sp else 24.sp,
@@ -129,7 +129,7 @@ fun CollectibleClaimDialog(
                     // Botón estilizado como el del menú
                     modifier = Modifier.fillMaxWidth(0.7f).height(56.dp).shadow(8.dp, shape)
                 ) {
-                    Text("CONTINUAR", fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_continue), fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 }
             }
         }

@@ -1,0 +1,272 @@
+<resources>
+    <string name="app_name">PolitecnicoOpenWorld</string>
+
+    <!-- ─── Exit dialog ─── -->
+    <string name="exit_dialog_title">What do you want to do?</string>
+    <string name="exit_dialog_text">Do you want to go back to the main menu or exit the app?</string>
+    <string name="exit_dialog_confirm">Back to Menu</string>
+    <string name="exit_dialog_dismiss">Exit</string>
+
+    <!-- ─── Main menu ─── -->
+    <string name="menu_version">v%1$s - ESCOM Edition</string>
+    <string name="menu_start_game">START GAME</string>
+    <string name="menu_load_game">LOAD GAME</string>
+    <string name="menu_multiplayer">MULTIPLAYER</string>
+    <string name="menu_settings">SETTINGS</string>
+    <string name="menu_collectibles">COLLECTIBLES</string>
+    <string name="menu_mp_dialog_title">Connect to Server</string>
+    <string name="menu_mp_username_label">Username</string>
+    <string name="menu_mp_connect">Connect</string>
+    <string name="menu_cancel">Cancel</string>
+    <string name="menu_cancel_caps">CANCEL</string>
+    <string name="menu_warmup_fail_title">Server unavailable</string>
+    <string name="menu_warmup_fail_text">The multiplayer server is taking too long to respond. Try again in a few seconds.</string>
+    <string name="menu_retry">RETRY</string>
+    <string name="menu_close">Close</string>
+    <string name="menu_warmup_title">WAKING SERVER</string>
+    <string name="menu_warmup_text">The multiplayer server is asleep.\nWaking it up... %1$ds</string>
+    <string name="menu_warmup_hint">It may take up to 60 seconds.</string>
+    <string name="menu_return">RETURN TO MENU</string>
+
+    <!-- ─── Settings ─── -->
+    <string name="settings_title">GAME SETTINGS</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_exit_to_menu">EXIT TO MENU</string>
+    <string name="settings_none_available">No settings available right now.</string>
+    <string name="settings_cat_map">Map</string>
+    <string name="settings_cat_controls">Controls</string>
+    <string name="settings_cat_gameplay">Gameplay</string>
+    <string name="settings_cat_interface">Interface</string>
+    <string name="settings_npc_count">NPC Amount</string>
+    <string name="settings_npc_count_desc">Multiplies pedestrians, cars and zombies. Automatically combined with your phone tier and the area density (city = more). Current: %1$d%%</string>
+    <string name="settings_npc_less">Fewer (low-end)</string>
+    <string name="settings_npc_more">More (high-end)</string>
+    <string name="settings_npc_lod_title">Optimize NPC drawing</string>
+    <string name="settings_npc_lod_desc">Draws far NPCs as emojis 🧍🚗🧟 and keeps the full sprite only for very close ones. Cuts render cost (ideal in multiplayer with many NPCs).</string>
+    <string name="settings_npc_full_title">Optimize for low-end</string>
+    <string name="settings_npc_full_desc">Replaces ALL NPC assets with emojis 🧍🚗🧟👮 regardless of distance. No sprites or bitmaps are generated: the lightest possible mode, for very weak devices.</string>
+    <string name="settings_map_provider">Map Provider</string>
+    <string name="settings_map_change">Change Map</string>
+    <string name="settings_map_restore">Reset Map</string>
+    <string name="settings_road_network">Road Network</string>
+    <string name="settings_road_network_desc">Draws the walkable roads on the map</string>
+    <string name="settings_move_style">Movement Style</string>
+    <string name="settings_screen_size">On-screen Size: %1$d%%</string>
+    <string name="settings_size_portrait">Limited to 100% in portrait mode.</string>
+    <string name="settings_size_landscape">It will not exceed the screen bounds.</string>
+    <string name="settings_swap_sides">Swap Sides</string>
+    <string name="settings_swap_sides_desc">Moves the action to the left</string>
+    <string name="settings_save">SAVE SETTINGS</string>
+    <string name="settings_cache_widget">Cache widget</string>
+    <string name="settings_cache_widget_desc">Shows data source</string>
+    <string name="settings_fps_widget">FPS widget</string>
+    <string name="settings_fps_widget_desc">Measures graphics performance</string>
+    <string name="settings_zoom_widget">Zoom widget</string>
+    <string name="settings_zoom_widget_desc">Shows the current zoom level live</string>
+    <string name="settings_speedometer">Speedometer</string>
+    <string name="settings_speedometer_desc">Shows your speed (km/h) while driving</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">System (default)</string>
+    <string name="settings_controls_saved">Controls settings saved</string>
+
+    <!-- ─── Interiors/zombies HUD ─── -->
+    <string name="zhud_zone">ZONE: %1$s</string>
+    <string name="zhud_zombies">ZOMBIES: %1$d/%2$d</string>
+    <string name="zhud_players">PLAYERS: %1$d</string>
+    <string name="zhud_mode">MODE: %1$s  (hold Y)</string>
+    <string name="zhud_mode_melee">MELEE</string>
+    <string name="zhud_mode_ranged">WEAPON</string>
+    <string name="zhud_combat_mode">COMBAT MODE</string>
+    <string name="zhud_close">Close</string>
+
+    <!-- ─── Additional Common ─── -->
+    <string name="common_close">Close</string>
+    <string name="common_continue">CONTINUE</string>
+    <string name="common_save">Save</string>
+    <string name="common_search">Search</string>
+
+    <!-- ─── Exterior Map (features/map_exterior) ─── -->
+    <string name="wm_loading_streets">Loading streets...</string>
+    <string name="wm_designer">DESIGNER</string>
+    <string name="wm_designer_exit">EXIT DESIGNER</string>
+    <string name="wm_designer_continue">Keep editing</string>
+    <string name="wm_designer_accept">Accept</string>
+    <string name="wm_preparing_model">Preparing %1$s...</string>
+    <string name="wm_model_ready">%1$s ready ✓</string>
+    <string name="wm_change">Change</string>
+    <string name="wm_discard">Discard</string>
+    <string name="wm_tp_title">Teleportation Points</string>
+    <string name="wm_tp_subtitle">Select your statue or destination:</string>
+    <string name="wm_tp_gps">📍 Go to your Location (GPS)</string>
+    <string name="wm_exit_apocalypse">EXIT APOCALYPSE</string>
+    <string name="wm_chip_streets">Streets</string>
+    <string name="wm_chip_loading">Loading...</string>
+    <string name="wm_chip_local_db">Local (DB)</string>
+    <string name="wm_chip_network">Overpass API</string>
+    <string name="wm_chip_map">Map</string>
+    <string name="wm_chip_performance">Performance</string>
+    <string name="wm_chip_zoom">Zoom</string>
+    <string name="wm_chip_speed">Speed</string>
+    <string name="wm_fab_options">Options</string>
+    <string name="wm_fab_designer">Designer / Debug</string>
+    <string name="wm_fab_map">Map</string>
+    <string name="wm_fab_center">Center on player</string>
+    <string name="wm_wasted">WASTED</string>
+    <string name="wm_designer_parking">Parking Spot</string>
+    <string name="wm_designer_add_building">Add Building</string>
+
+    <!-- ─── Toast Messages ─── -->
+    <string name="toast_node_captured">Node %1$d captured</string>
+    <string name="toast_outside_building">You are outside the building</string>
+    <string name="toast_error_escom_navgraph">Error reading escom_navgraph.json</string>
+    <string name="toast_error_escom_missing">Error: ESCOM is not on the map</string>
+    <string name="toast_car_injected">🚗 Car injected into MICRO_LANDMARK</string>
+
+    <!-- ─── Content Descriptions ─── -->
+    <string name="cd_prankedy">Prankedy</string>
+    <string name="cd_player">Player</string>
+    <string name="cd_player_vehicle">Player Vehicle</string>
+    <string name="cd_main_character">Main Character</string>
+    <string name="cd_zombie_hand">Zombie Hand</string>
+    <string name="cd_character">Character</string>
+    <string name="cd_metro_map">Metro Map</string>
+    <string name="cd_add_station">Add Station</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_import">Import</string>
+    <string name="cd_export">Export</string>
+    <string name="cd_metro_player">Metro Player</string>
+    <string name="escom_baseball_field">Baseball Field</string>
+    <string name="escom_football_field">Football Field</string>
+
+    <!-- ─── Additional Interiors and Zombies ─── -->
+    <string name="ig_reset">RESET</string>
+    <string name="ig_export">EXPORT</string>
+    <string name="ig_import">IMPORT</string>
+    <string name="ig_exit">EXIT</string>
+    <string name="metro_select_station">Select Station</string>
+    <string name="interior_hp">%1$d HP</string>
+
+    <!-- ─── Common ─── -->
+    <string name="common_yes">Yes</string>
+    <string name="common_no">No</string>
+
+    <!-- ─── Interiors minigame: screens & options ─── -->
+    <string name="zgame_exit_lobby_title">Back to Lobby</string>
+    <string name="zgame_exit_lobby_text">Are you sure you want to go back to the lobby? You will lose the progress in this building.</string>
+    <string name="zgame_victory_title">Congratulations</string>
+    <string name="zgame_victory_text">Building cleared. Use the EXIT doors to continue.</string>
+    <string name="zgame_cd_settings">Settings</string>
+    <string name="zgame_cd_skin">Change skin</string>
+    <string name="zgame_opt_designer">Designer</string>
+    <string name="zgame_opt_exit_map">Exit to map</string>
+
+    <!-- ─── ShineCTO ─── -->
+    <string name="sc_cd_drink">Drink</string>
+    <string name="sc_cd_collectible">Shine collectible</string>
+    <string name="sc_cd_exit">Exit</string>
+    <string name="sc_floor_ground">Ground Floor</string>
+    <string name="sc_floor_upper">Upper Floor</string>
+    <string name="sc_header">SHINE CTO • %1$s</string>
+    <string name="sc_drinks">🍺 ×%1$d</string>
+    <string name="ee_title">SECRET PLACE DISCOVERED!</string>
+    <string name="ee_text">You found a hidden venue. They say the drinks here are legendary… but every sip takes its toll. Do you dare to enter?</string>
+    <string name="ee_enter">ENTER</string>
+
+    <!-- More map strings -->
+    <string name="wm_carjack_warning">They\'re pulling you out of the car! Accelerate!</string>
+    <string name="wm_horde_approaching">🧟 A HORDE IS APPROACHING!</string>
+    <string name="wm_wait_loading">⏳ Wait: the world is still loading…</string>
+    <string name="wm_prompt_metro">PRESS X TO ENTER STATION %1$s</string>
+    <string name="wm_prankedy_down">🎭 Prankedy fell! He will return later…</string>
+    <string name="wm_tip_teleport">Hold Y to teleport to other places.</string>
+    <string name="wm_tip_designer">Use the designer mode to customize the map with your own buildings.</string>
+    <string name="wm_tip_wanted">Hitting civilians or police will increase your wanted level.</string>
+    <string name="wm_tip_shine">Visit the Shine CTO to discover Polytechnic secrets.</string>
+    <string name="wm_getting_location">Getting your location...</string>
+    <string name="wm_preparing_world">Preparing Politecnico Open World</string>
+    <string name="wm_offline_incomplete">Offline: incomplete area</string>
+    <string name="wm_designer_exit_confirm">Do you want to exit designer mode and restore the normal game interface?</string>
+    <string name="wm_designer_edit_hint">Press the pencil icon to edit a building</string>
+    <string name="wm_mode_designer">Designer Mode</string>
+    <string name="wm_set_destination">Set destination here</string>
+    <string name="wm_tile_local_osm">Local (osmdroid)</string>
+    <string name="wm_tile_local_cache">Local (cache)</string>
+    <string name="wm_tile_network">Network</string>
+    <string name="wm_prankedy_found">🎭 COMPANION FOUND</string>
+    <string name="wm_prankedy_desc">A mysterious character that appeared in the halls of the Polytechnic. With him on your side, enemies have little chance.\n\n⚔️ Attacks hostile NPCs automatically\n</string>
+    <string name="wm_prankedy_cooldown">⏳ IN PENALTY: %1$ds</string>
+
+
+    <!-- More map strings 2 -->
+    <string name="int_lock_map">Lock Map</string>
+    <string name="int_edit_map">Edit Map</string>
+    <string name="int_designer_mode">Designer Mode</string>
+    <string name="int_move_map">Move Map</string>
+    <string name="int_drag_door">Drag to move the selected door.</string>
+    <string name="int_designer_room">DESIGNER · %1$s</string>
+    <string name="int_station_name">STATION %1$s</string>
+    <string name="int_save_unsaved">SAVE*</string>
+    <string name="int_press_x_door">PRESS X TO %1$s</string>
+    <string name="int_size_grid">SIZE  %1$d × %2$d (col × row)</string>
+    <string name="int_waypoint_size">WAYPOINT SIZE</string>
+    <string name="int_touch_door">Tap a door to select it and drag it.</string>
+    
+    <string name="sh_drinks_two">Two drinks… you start feeling it.</string>
+    <string name="sh_drinks_count">%1$d drinks!</string>
+    <string name="sh_drinks_special">Something special appears at the bar…!</string>
+    <string name="sh_drinks_first">Cheers! The first one always goes down easy.</string>
+    
+    <string name="wm_choose_character">Choose character</string>
+    <string name="wm_select_skin">Select player skin:</string>
+    
+    <string name="wm_opt_apocalypse_on">Enable Apocalypse</string>
+    <string name="wm_opt_apocalypse_off">Disable Apocalypse</string>
+    <string name="wm_opt_prankedy_on">Enable Prankedy</string>
+    <string name="wm_opt_prankedy_off">Disable Prankedy</string>
+    <string name="wm_opt_add_asset">Add Asset</string>
+    <string name="wm_opt_aim_waypoint">Aim Waypoint</string>
+    <string name="wm_opt_change_skin">Change Skin</string>
+    <string name="wm_opt_cancel_aim">Cancel Aim</string>
+    <string name="wm_opt_center_player">Center on player</string>
+    <string name="wm_placing_npcs_buildings">Placing NPCs and buildings...</string>
+    <string name="wm_tip_format">Tip: %1$s</string>
+    <string name="wm_opt_debug_interiors">Debug Interiors</string>
+    <string name="wm_downloading_map">Downloading map...</string>
+    <string name="wm_downloading_zone">Downloading zone %1$d%%</string>
+    <string name="wm_opt_remove_destination">Remove Destination</string>
+    <string name="wm_opt_zoom_player">Zoom to player</string>
+    <string name="wm_opt_teleport">Teleport...</string>
+    <string name="wm_zone_ready_offline">Zone ready offline ✓</string>
+    
+    <string name="wm_no_assets_available">No assets available.</string>
+    <string name="wm_select_asset_hint">Select an asset. It will be placed at your current position.</string>
+    
+    <string name="wm_new_collectible">NEW COLLECTIBLE!</string>
+    
+    <string name="wm_designer_height">HEIGHT: %1$s</string>
+    <string name="wm_designer_width">WIDTH: %1$s</string>
+    <string name="wm_designer_edit_asset">EDIT ASSET</string>
+    <string name="wm_designer_rotation">ROTATION: %1$d°</string>
+    <string name="wm_designer_spawn_car">SPAWN CAR</string>
+    
+    <string name="wm_options">Options</string>
+    
+    <string name="wm_close">Close</string>
+    <string name="wm_double_tap_close">Double tap to close</string>
+    <string name="wm_prankedy_desc_part1">A mysterious character that appeared in the halls of the Polytechnic. </string>
+    <string name="wm_prankedy_hire">⚔️ HIRE</string>
+    
+    <string name="wm_press_x_discover">PRESS X TO DISCOVER</string>
+    <string name="wm_press_x_enter">PRESS X TO ENTER</string>
+    <string name="wm_press_x_interact">PRESS X TO INTERACT</string>
+    <string name="wm_press_x_pickup">PRESS X TO PICKUP</string>
+    
+    <string name="wm_parking_spot">Parking spot</string>
+    <string name="wm_press_x_activate_zombie">PRESS X TO ACTIVATE ZOMBIE MODE</string>
+    <string name="wm_press_x_deactivate_zombie">PRESS X TO DEACTIVATE ZOMBIE MODE</string>
+    <string name="wm_waypoint_lane">Waypoint (Lane %1$d)</string>
+    
+    <string name="settings_dpad">D-Pad</string>
+    <string name="settings_joystick">Virtual Joystick</string>
+
+</resources>

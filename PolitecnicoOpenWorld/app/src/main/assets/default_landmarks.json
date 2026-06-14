@@ -83,12 +83,12 @@
     "longitude": -99.1285163718726,
     "rotationAngle": 360.0,
     "scaleFactor": 2.3671417,
-    "assetPath": "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp",
+    "assetPath": "PLACES/deportivo_miguel_aleman/deportivo_miguelaleman.webp",
     "scaleX": 2.3671417,
     "scaleY": 2.3671417
   },
   {
-    "assetPath": "LUGARES/plazalindavista/plaza_lindavista.webp",
+    "assetPath": "PLACES/plaza_lindavista/plaza_lindavista.webp",
     "id": 17,
     "latitude": 19.491605000000032,
     "longitude": -99.13371099999956,

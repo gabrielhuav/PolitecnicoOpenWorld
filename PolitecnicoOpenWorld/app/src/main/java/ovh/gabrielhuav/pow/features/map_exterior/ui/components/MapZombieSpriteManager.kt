@@ -9,7 +9,7 @@ import ovh.gabrielhuav.pow.domain.models.Npc
 
 /**
  * Gestor de sprites de zombis para el mapa global (open world).
- * Carga los assets de ZOMBIS_MOD/z_walk y los cachea para el renderizado de NPCs.
+ * Carga los assets de ZOMBIES_MOD/z_walk y los cachea para el renderizado de NPCs.
  */
 object MapZombieSpriteManager {
     private const val WALK_FRAME_COUNT = 9
@@ -38,7 +38,7 @@ object MapZombieSpriteManager {
             0 // Frame estático cuando no se mueve
         }
 
-        val assetPath = "ZOMBIS_MOD/z_walk/z_walk_${frameIndex + 1}.webp"
+        val assetPath = "ZOMBIES_MOD/z_walk/z_walk_${frameIndex + 1}.webp"
         val roundedScale = Math.round(scale * 20f) / 20f
         // El ROL entra en la clave: cada rol es un palette swap (tinte) distinto del MISMO asset,
         // así no gastamos RAM en sprites nuevos y cada tinte se cachea por separado.

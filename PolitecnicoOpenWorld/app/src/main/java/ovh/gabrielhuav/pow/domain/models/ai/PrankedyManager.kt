@@ -54,7 +54,7 @@ class PrankedyManager {
         const val ATTACK_RADIUS            = 0.00007  // ~8 m → se acerca antes de lanzar el tanque
         const val ATTACK_DAMAGE_PROJECTILE = 22f
         const val ATTACK_COOLDOWN_MS       = 2800L
-        const val ATTACK_ANIM_MS           = 800L     // duración de la animación de lanzamiento (p_atack)
+        const val ATTACK_ANIM_MS           = 800L     // duración de la animación de lanzamiento (p_attack)
         const val PROJECTILE_FLIGHT_MS     = 900L     // tiempo que tarda el proyectil en llegar
         const val IMPACT_RADIUS            = 0.00005  // ~5.5 m: si te alejas del punto de impacto, falla
         // Radio ALREDEDOR DEL JUGADOR para detectar a un NPC que lo esté agrediendo.
@@ -79,18 +79,37 @@ class PrankedyManager {
         const val HIRE_PENALTY_MS          = 60_000L  // (legado)
 
         // ── Frases ───────────────────────────────────────────────────────────
-        // Burlas mientras te ataca a TI:
-        val IDLE_PHRASES = listOf(
-            "¡Toma esto! 🎯",
-            "El rey de las bromas ataca 🎭",
-            "Nadie escapa de mí...",
-            "¡Sorpresa! 💥",
-            "Hoy la víctima eres tú.",
-            "¡No te lo esperabas!",
-            "¡Plof! 📦",
-            "Esto es solo por diversión 😈"
+        // Contexto A: Hostilidad / molestia (golpes del jugador, múltiples impactos)
+        val HOSTILITY_PHRASES = listOf(
+            "¿Otra vez vienes a chingar la madre, cabrón?",
+            "Me agarraste de tu puerquito.",
+            "Ya estoy hasta la madre aquí, ya parece pinche feria...",
+            "La próxima vez que vengas, güey, voy a traer a mi banda... para que te rompan tu madre.",
+            "¿Qué me ves la cara o qué, güey?",
+            "¡Te gusta andar de pinche payaso, güey!",
+            "¿Qué te pasa, ridículo?",
+            "Ya me colmaron la pinche paciencia, ya estuvo bien.",
+            "¿Qué onda, perros?",
+            "Soy el doctor... me puedes decir morenazo de fuego para los cuates.",
+            "Se me hace que tienes la mollera sumida.",
+            "Soy tu ángel de la guarda y te vengo a cuidar."
         )
-        // Frases cuando te defiende de otro NPC:
+
+        // Contexto B: Interacción con vehículos (choques, subirse por la fuerza)
+        val VEHICLE_PHRASES = listOf(
+            "¡Se bajan de mi carro ahorita o les parto su madre de una!",
+            "¡Ya me tienen hasta la madre los dos cabrones, vienen dando lata!",
+            "¡Bájense ya de mi carro, me tienen harto!"
+        )
+
+        // Contexto D: Modo Broma / Huida (daño crítico o escapando)
+        val FLEE_PHRASES = listOf(
+            "¡Es una broma, es una broma! ¡Ahí está la cámara!",
+            "Tranquilo, viejo. Relájate.",
+            "¡Ah, caray! ¡Soy yo, soy yo!"
+        )
+
+        // Frases cuando te defiende de otro NPC (mantener algunas genéricas de apoyo):
         val HIRED_PHRASES = listOf(
             "¡Ese no te toca! 🎯",
             "¡Yo me encargo!",
@@ -151,7 +170,7 @@ class PrankedyManager {
     // ANTI-TRABA: última posición de referencia y momento del último avance real.
     private var lastStuckPos: GeoPoint? = null
     private var lastProgressMs: Long = 0L
-    // Windup de ataque: primero se reproduce la animación p_atack y AL TERMINAR se lanza el tanque.
+    // Windup de ataque: primero se reproduce la animación p_attack y AL TERMINAR se lanza el tanque.
     private var attackAnimUntil: Long = 0L
     private var pendingLaunch: Boolean = false
     private var pendingTargetLoc: GeoPoint? = null
@@ -245,7 +264,7 @@ class PrankedyManager {
             }
         }
 
-        // 1b. WINDUP: mientras corre la animación p_atack, se queda QUIETO (no se mueve ni
+        // 1b. WINDUP: mientras corre la animación p_attack, se queda QUIETO (no se mueve ni
         //     re-evalúa objetivo). Así se ve la secuencia de lanzamiento completa.
         if (now < attackAnimUntil) {
             animState = PrankedyAnimState.ATTACK
@@ -296,7 +315,7 @@ class PrankedyManager {
         val distToTarget = dist(loc, targetLoc)
         when {
             distToTarget <= ATTACK_RADIUS && now >= attackCooldownUntil && !projectileActive -> {
-                // ─ INICIAR WINDUP: primero la animación de lanzamiento (p_atack); el tanque
+                // ─ INICIAR WINDUP: primero la animación de lanzamiento (p_attack); el tanque
                 //   (p_objeto) se suelta AL TERMINAR la animación (ver paso "3.b" arriba).
                 animState = PrankedyAnimState.ATTACK
                 attackAnimUntil = now + ATTACK_ANIM_MS
@@ -306,7 +325,11 @@ class PrankedyManager {
                 pendingTargetId = targetId
                 pendingTargetIsPlayer = targetIsPlayer
                 facingRight = targetLoc.longitude >= loc.longitude
-                triggerDialogue((if (targetIsPlayer) IDLE_PHRASES else HIRED_PHRASES).random(), now, 2000L)
+                val isCritical = health < MAX_HEALTH * 0.25f
+                triggerDialogue(
+                    pickContextualPhrase(targetIsPlayer, isInVehicleContext = false, isCriticalHealth = isCritical),
+                    now, 2500L
+                )
             }
             distToTarget > ATTACK_RADIUS -> {
                 // ─ CORRER CON TANQUE hacia el objetivo
@@ -397,15 +420,26 @@ class PrankedyManager {
     fun takeDamage(amount: Float, now: Long = System.currentTimeMillis()): Boolean {
         if (phase == PrankedyPhase.DEAD) return false
         health = (health - amount).coerceAtLeast(0f)
+        // Frase de pánico al entrar en salud crítica (< 25%)
+        if (health > 0f && health < MAX_HEALTH * 0.25f) {
+            triggerDialogue(FLEE_PHRASES.random(), now, 2500L)
+        }
         if (health <= 0f) {
             phase = PrankedyPhase.DEAD
-            respawnAt  = now + RESPAWN_COOLDOWN_MS
+            respawnAt = now + RESPAWN_COOLDOWN_MS
             hireableAt = now + RESPAWN_COOLDOWN_MS + HIRE_PENALTY_MS
             location = null
             projectileActive = false
             return true
         }
         return false
+    }
+
+    /** Hook: interacción vehicular cerca de Prankedy (choque, carjack). */
+    fun onVehicleInteraction(now: Long = System.currentTimeMillis()) {
+        if (phase != PrankedyPhase.DEAD && currentDialogue == null) {
+            triggerDialogue(VEHICLE_PHRASES.random(), now, 3000L)
+        }
     }
 
     /** Hook: el jugador recibió daño (lo notifica el VM). Suelta una frase de defensa. */
@@ -415,7 +449,21 @@ class PrankedyManager {
         }
     }
 
-    /** (Legado) Ya no es contratable. */
+    /** Determina qué frase decir según el contexto. */
+    private fun pickContextualPhrase(
+        targetIsPlayer: Boolean,
+        isInVehicleContext: Boolean,
+        isCriticalHealth: Boolean
+    ): String {
+        return when {
+            isCriticalHealth -> FLEE_PHRASES.random()
+            isInVehicleContext -> VEHICLE_PHRASES.random()
+            targetIsPlayer -> HOSTILITY_PHRASES.random()
+            else -> HIRED_PHRASES.random()
+        }
+    }
+
+    /** Estado de la IA de combate. */
     fun isHireable(now: Long = System.currentTimeMillis()): Boolean = false
 
     /** (Legado) */

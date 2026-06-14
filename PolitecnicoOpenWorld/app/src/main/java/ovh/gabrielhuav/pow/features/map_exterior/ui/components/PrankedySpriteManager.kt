@@ -27,7 +27,7 @@ object PrankedySpriteManager {
         PrankedyAnimState.WALK       to AnimDef("p_walk",      "p_walk_",       9),
         PrankedyAnimState.RUN        to AnimDef("p_run",       "p_run_",        8),
         PrankedyAnimState.RUN_TANQUE to AnimDef("p_run_tanque","p_run_tanque_", 9),
-        PrankedyAnimState.ATTACK     to AnimDef("p_atack",     "p_atack_",      5),
+        PrankedyAnimState.ATTACK     to AnimDef("p_attack",     "p_attack_",      5),
     )
 
     // ── Caché de Bitmaps crudos (carpeta/frame → Bitmap) ─────────────────────

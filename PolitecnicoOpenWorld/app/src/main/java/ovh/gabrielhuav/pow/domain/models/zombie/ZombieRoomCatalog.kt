@@ -94,7 +94,7 @@ object ZombieRoomCatalog {
                 ZombieRoom(
                     id = id,
                     type = ZoneType.BUILDING,
-                    backgroundAsset = "ZOMBIS_MOD/interiores/$id.webp",
+                    backgroundAsset = "ZOMBIES_MOD/interiors/$id.webp",
                     displayName = buildingDisplayName(id),
                     worldWidth = 1920f,
                     worldHeight = 1080f,

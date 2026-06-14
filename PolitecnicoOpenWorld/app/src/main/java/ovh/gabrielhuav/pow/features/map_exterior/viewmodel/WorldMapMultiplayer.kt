@@ -196,7 +196,7 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
                         val isRemoteDriving = msg.isDriving == true
 
                         val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
-                            bodyFolder = "otherPlayer",
+                            bodyFolder = "other_player",
                             bodyPrefix = "p_mult_",
                             hairId = 1,
                             hairColor = androidx.compose.ui.graphics.Color.White,

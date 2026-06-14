@@ -24,6 +24,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_NPC_FULL_EMOJI = "NPC_FULL_EMOJI"  // TODOS los NPCs como emoji (gama baja)
         private const val KEY_SHOW_ZOOM_WIDGET = "SHOW_ZOOM_WIDGET" // widget de nivel de zoom (Interfaz)
         private const val KEY_SHOW_SPEEDOMETER = "SHOW_SPEEDOMETER"  // widget velocímetro al conducir (Interfaz)
+        private const val KEY_LANGUAGE = "APP_LANGUAGE"             // idioma de la UI (BCP-47; "" = sistema)
         const val NPC_DENSITY_MIN = 0.4f
         const val NPC_DENSITY_MAX = 1.6f
     }
@@ -114,5 +115,15 @@ class SettingsRepository(context: Context) {
     fun getShowSpeedometer(): Boolean = prefs.getBoolean(KEY_SHOW_SPEEDOMETER, true)
     fun saveShowSpeedometer(show: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_SPEEDOMETER, show).apply()
+    }
+
+    // ─── Idioma / i18n ───────────────────────────────────────────────────────
+    // Etiqueta BCP-47 del idioma de la UI ("es", "en", …). "" = seguir el idioma
+    // del sistema. Se aplica envolviendo el Context en MainActivity.attachBaseContext
+    // (ver i18n/LocaleHelper.kt); al cambiarlo se recrea la Activity.
+
+    fun getLanguage(): String = prefs.getString(KEY_LANGUAGE, "") ?: ""
+    fun saveLanguage(tag: String) {
+        prefs.edit().putString(KEY_LANGUAGE, tag).apply()
     }
 }

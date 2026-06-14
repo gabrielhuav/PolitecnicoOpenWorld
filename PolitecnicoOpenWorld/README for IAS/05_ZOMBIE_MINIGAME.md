@@ -1,4 +1,12 @@
-# 05 · Minijuego Zombi / Zombie minigame (`features/zombie_minigame/`)
+# 05 · Capa de Zombis / Zombie layer (`features/interiores/zombies/`)
+
+> **🆕 Reestructura:** el antiguo `features/zombie_minigame/` ahora es **`features/interiores/zombies/`**
+> (subpaquete de la umbrella `interiores`). Los tipos compartidos `DesignerTarget` y `CameraTransform`
+> se movieron a `interiores/core/viewmodel/InteriorDesignerModels.kt`, y `PlayerView`/`PlayerHealthBarFixed`/
+> `RemotePlayerView` a `interiores/core/ui/InteriorPlayerViews.kt`. La ruta de navegación pasó de
+> `"zombie_minigame"` a **`"interiores_zombies"`**. Paquetes nuevos: `Zombie*Kt` = `interiores.zombies.{ui,viewmodel}`;
+> designer layers = `interiores.core.ui`. / Was `features/zombie_minigame/`; now `features/interiores/zombies/`
+> under the `interiores` umbrella; shared types extracted to `interiores/core/`; route renamed to `interiores_zombies`.
 
 **ES:** Anillo de salas: un **lobby** con puertas a cada edificio de ESCOM (7 edificios). Dentro de un
 edificio, puertas EXIT conectan vecinos y una central vuelve al lobby. **Online: zombis e items son

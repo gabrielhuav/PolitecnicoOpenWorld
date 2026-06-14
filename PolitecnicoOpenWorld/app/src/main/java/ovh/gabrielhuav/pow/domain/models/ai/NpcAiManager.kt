@@ -176,7 +176,7 @@ class NpcAiManager {
     val POLICE_SPEED_MULT = 3.2f
     val POLICE_SHOOT_DIST = 0.00025
     val POLICE_SHOOT_DAMAGE = 40f
-    val POLICE_SHOOT_COOLDOWN_MS = 700L
+    val POLICE_SHOOT_COOLDOWN_MS = 1200L
     @Volatile var lastPoliceSpawnMs = 0L
 
     private val parkedTimers = java.util.concurrent.ConcurrentHashMap<String, Long>()

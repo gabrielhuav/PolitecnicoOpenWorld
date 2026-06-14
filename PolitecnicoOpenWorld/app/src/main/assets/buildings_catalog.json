@@ -66,7 +66,7 @@
   {
     "id": "deportivo_miguel_aleman",
     "displayName": "Deportivo Miguel Alemán",
-    "assetPath": "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp",
+    "assetPath": "PLACES/deportivo_miguel_aleman/deportivo_miguelaleman.webp",
     "defaultScale": 0.15,
     "baseWidthMeters": 180.0,
     "baseHeightMeters": 150.0
@@ -74,7 +74,7 @@
   {
     "id": "plaza_lindavista",
     "displayName": "Plaza Lindavista",
-    "assetPath": "LUGARES/plazalindavista/plaza_lindavista.webp",
+    "assetPath": "PLACES/plaza_lindavista/plaza_lindavista.webp",
     "defaultScale": 0.15,
     "baseWidthMeters": 250.0,
     "baseHeightMeters": 200.0

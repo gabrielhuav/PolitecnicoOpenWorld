@@ -116,7 +116,7 @@ fun PrankedyHireDialog(
             ) {
                 // ── Título ────────────────────────────────────────────────────
                 Text(
-                    text = "🎭 COMPAÑERO ENCONTRADO",
+                    text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_prankedy_found),
                     color = Color(0xFFD4AF37),
                     fontSize = if (isLandscape) 18.sp else 22.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -139,7 +139,7 @@ fun PrankedyHireDialog(
                     if (bmp != null) {
                         Image(
                             bitmap = bmp,
-                            contentDescription = "Prankedy",
+                            contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_prankedy),
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
                         )
@@ -169,7 +169,7 @@ fun PrankedyHireDialog(
 
                 // ── Descripción ───────────────────────────────────────────────
                 Text(
-                    text = "Un personaje misterioso que apareció en los pasillos del Politécnico. " +
+                    text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_prankedy_desc_part1) +
                            "Experto en travesuras y en lanzar objetos a distancia. " +
                            "Con él de tu lado, los enemigos tienen poco que hacer.\n\n" +
                            "⚔️ Ataca NPCs hostiles automáticamente\n" +
@@ -200,14 +200,14 @@ fun PrankedyHireDialog(
                 ) {
                     if (isHireable) {
                         Text(
-                            text = "⚔️ CONTRATAR",
+                            text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_prankedy_hire),
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 15.sp,
                             letterSpacing = 1.sp
                         )
                     } else {
                         Text(
-                            text = "⏳ EN PENALIZACIÓN: ${secsLeft}s",
+                            text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_prankedy_cooldown, secsLeft),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         )
@@ -217,14 +217,14 @@ fun PrankedyHireDialog(
                 // ── Botón CERRAR ──────────────────────────────────────────────
                 androidx.compose.material3.TextButton(onClick = onDismiss) {
                     Text(
-                        text = "Cerrar",
+                        text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_close),
                         color = Color(0xFF888888),
                         fontSize = 13.sp
                     )
                 }
 
                 Text(
-                    text = "Doble tap para cerrar",
+                    text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_double_tap_close),
                     color = Color(0xFF555555),
                     fontSize = 10.sp,
                     fontStyle = FontStyle.Italic

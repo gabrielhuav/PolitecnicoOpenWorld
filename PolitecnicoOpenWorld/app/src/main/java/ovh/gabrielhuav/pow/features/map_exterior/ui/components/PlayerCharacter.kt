@@ -130,7 +130,7 @@ fun PlayerCharacter(
             ) {
                 Icon(
                     imageVector = Icons.Default.Person,
-                    contentDescription = "Jugador",
+                    contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_player),
                     tint = if (uiState.isDriving) Color.Blue else Color(0xFFD91B5B),
                     modifier = Modifier.size(14.dp)
                 )
@@ -179,7 +179,7 @@ fun PlayerCharacter(
 
                     Image(
                         bitmap = img,
-                        contentDescription = "Player Vehicle",
+                        contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_player_vehicle),
                         // requiredSize: IGNORA el límite de 60.dp del Box contenedor; si no,
                         // a zoom alto el coche del jugador quedaba recortado (~60dp) y se veía
                         // más pequeño que los autos NPC (que no tienen ese tope).
@@ -238,7 +238,7 @@ fun PlayerCharacter(
                     }
                     Image(
                         bitmap = img,
-                        contentDescription = "Personaje Principal",
+                        contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_main_character),
                         modifier = modifier
                             .requiredSize(exactPersonDp)
                             .graphicsLayer {

@@ -22,6 +22,9 @@ data class SettingsState(
     val npcEmojiLod: Boolean = false,    // "Optimizar dibujado de NPCs": NPCs lejanos como emoji
     val npcFullEmoji: Boolean = false,   // "Optimizar para gama baja": TODOS los NPCs como emoji
 
+    // ─── i18n: idioma de la UI (BCP-47; "" = seguir el del sistema) ──────────
+    val language: String = "",
+
     // ─── Valores TEMPORALES de controles ─────────────────────────────────────
     // La UI de controles edita estos; NO afectan al juego hasta presionar GUARDAR,
     // momento en el que se copian a los committeados de arriba y se persisten.

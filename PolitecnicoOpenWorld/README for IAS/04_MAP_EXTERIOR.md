@@ -230,10 +230,10 @@ usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Can
   reales hasta z19). Default OSM = zoom máx 22.
 - **Lambda `update` ~30 Hz — mantener barata** (ver 09): landmarks `GroundOverlay` solo re-`setPosition`/
   `setImage` cuando cambia su firma (`landmarkSigCache`); las puertas (`DOORS/`) sí refrescan cada frame;
-  ~160 marcadores de metro con el **icono `metroCDMX/icon.webp`** (24 dp, `ExactSizeDrawable`), **culleados
+  ~160 marcadores de metro con el **icono `metro_cdmx/icon.webp`** (24 dp, `ExactSizeDrawable`), **culleados
   por viewport** (`Marker.isEnabled`).
 - **Icono del Metro en los 3 renderers (paridad):** cada estación de `metroStations` (cargado de
-  `res/raw/metro.json`) muestra `metroCDMX/icon.webp`. OSM nativo = `Marker` 24 dp; **web** = `updateMetro`
+  `res/raw/metro.json`) muestra `metro_cdmx/icon.webp`. OSM nativo = `Marker` 24 dp; **web** = `updateMetro`
   en `WorldMapLeafletHtml` (img fija ~26 px vía `file:///android_asset/`, push con guarda desde
   `WorldMapScreen`, `lastWebMetroHolder` + heartbeat); **Google nativo** = `Marker` 24 dp con
   `BitmapDescriptor` cacheado. Tamaño FIJO en pantalla (no metros), como los demás POIs de metro.
@@ -262,10 +262,10 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
   `emojiToDrawable` en `WorldMapDrawingUtils.kt`.
 - **`nativeDrawableCache`** (declarado en `WorldMapScreen`, usado por `NativeOsmMap`) es un **LRU por
   orden de acceso** (cap ~384); sus claves embeben salud/zoom/frame → nunca volver a `mutableMapOf` (OOM).
-- `MapZombieSpriteManager` (`ui/components/`) — carga `ZOMBIS_MOD/z_walk/z_walk_1..9.webp` (9 frames),
+- `MapZombieSpriteManager` (`ui/components/`) — carga `ZOMBIES_MOD/z_walk/z_walk_1..9.webp` (9 frames),
   `getZombieDrawable(context, npc, timeMs, scale)`. Liberado en `onTrimMemory`.
 - `PrankedySpriteManager` (`ui/components/`) — sprites del **NPC especial Prankedy**: frames `.webp` de
-  `assetsNPC/Prankedy/{p_idle,p_walk,p_run,p_run_tanque,p_atack}` + proyectil `p_objeto`, con `LruCache`
+  `assetsNPC/Prankedy/{p_idle,p_walk,p_run,p_run_tanque,p_attack}` + proyectil `p_objeto`, con `LruCache`
   + emoji de fallback. Render en **OSM nativo** (`renderPrankedyOnMap` en `NativeOsmMap`, ~1.3 m como un
   peatón, **sin** indicador flotante, proyectil interpolado encima de la niebla) **y web** (`updatePrankedy`/
   `updatePrankedyProjectile` en `WorldMapLeafletHtml`, base64 por frame empujado desde `WorldMapScreen`).

@@ -61,11 +61,12 @@ import ovh.gabrielhuav.pow.data.repository.MetroRepository
 import ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig
 
 class WorldMapViewModel(
+    application: android.app.Application,
     internal val roadNetworkCache: RoadNetworkCache,
     val tileCache: TileCache,
     internal val settingsRepository: SettingsRepository,
     internal val collectibleRepository: CollectibleRepository
-) : ViewModel() {
+) : androidx.lifecycle.AndroidViewModel(application) {
 
     var playerHealth by mutableStateOf(100f)
         internal set
@@ -118,6 +119,7 @@ class WorldMapViewModel(
             val appCtx = context.applicationContext
             val database = PowDatabase.getInstance(appCtx)
             val vm = WorldMapViewModel(
+                application = appCtx as android.app.Application,
                 roadNetworkCache = RoadNetworkCache(database.roadNetworkDao()),
                 tileCache        = TileCache(database.mapTileDao()),
                 settingsRepository = SettingsRepository(appCtx),
@@ -639,7 +641,7 @@ class WorldMapViewModel(
                                 if (npcAiManager.hordeIncomingAt != 0L && npcAiManager.hordeIncomingAt != lastHordeSeenMs) {
                                     lastHordeSeenMs = npcAiManager.hordeIncomingAt
                                     launch(kotlinx.coroutines.Dispatchers.Main) {
-                                        _uiState.update { it.copy(interactionPrompt = "🧟 ¡UNA HORDA SE ACERCA!") }
+                                        _uiState.update { it.copy(interactionPrompt = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_horde_approaching)) }
                                         kotlinx.coroutines.delay(3500)
                                         _uiState.update { if (it.interactionPrompt == "🧟 ¡UNA HORDA SE ACERCA!") it.copy(interactionPrompt = null) else it }
                                     }
@@ -740,6 +742,21 @@ class WorldMapViewModel(
     }
 
     fun stopGameLoop() { gameLoopJob?.cancel(); gameLoopJob = null }
+
+    fun getLocalizedString(resId: Int, vararg args: Any): String {
+        val lang = settingsRepository.getLanguage()
+        val baseContext = getApplication<android.app.Application>()
+        val contextToUse = if (lang.isNotEmpty()) {
+            val locale = java.util.Locale(lang)
+            val config = android.content.res.Configuration(baseContext.resources.configuration)
+            config.setLocale(locale)
+            baseContext.createConfigurationContext(config)
+        } else {
+            baseContext
+        }
+        return contextToUse.getString(resId, *args)
+    }
+
 
     private var exteriorCollisions: ExteriorCollisionsConfig? = null
 
@@ -1010,7 +1027,7 @@ class WorldMapViewModel(
                         val isRemoteDriving = msg.isDriving == true
 
                         val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
-                            bodyFolder = "otherPlayer",
+                            bodyFolder = "other_player",
                             bodyPrefix = "p_mult_",
                             hairId = 1,
                             hairColor = androidx.compose.ui.graphics.Color.White,
@@ -1267,7 +1284,7 @@ class WorldMapViewModel(
 
             // Usamos el flag del estado
             val isParking = state.isParkingSlotMode
-            val desc = if (isParking) "Cajón de estacionamiento" else "Punto de ruta (Carril ${state.currentWayId})"
+            val desc = if (isParking) getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_parking_spot) else getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_waypoint_lane, state.currentWayId)
 
             val jsonNode = """
         {
@@ -1286,10 +1303,10 @@ class WorldMapViewModel(
                 it.copy(routeDebugWaypoints = it.routeDebugWaypoints + loc)
             }
 
-            android.widget.Toast.makeText(context, "Nodo $debugNodeIdCounter capturado", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_node_captured, debugNodeIdCounter), android.widget.Toast.LENGTH_SHORT).show()
             debugNodeIdCounter++
         } else {
-            android.widget.Toast.makeText(context, "Estás fuera del edificio", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_outside_building), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
     // REFACTOR: ensureIndex/candidates/getNearestPointOnNetwork/project viven SOLO en
@@ -1488,6 +1505,7 @@ class WorldMapViewModel(
                 // Si el coche traía skin de patrulla (una patrulla que abandonaste), al
                 // re-subirte vuelves a conducirla con el skin de policía.
                 _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false, isDrivingPoliceCar = carNpc.isPoliceSkin) }
+                prankedyManager.onVehicleInteraction()
                 updateNpcsState()
                 return
             }
@@ -1520,6 +1538,7 @@ class WorldMapViewModel(
                         isDrivingPoliceCar = true,
                         wantedLevel = MAX_WANTED_LEVEL
                     ) }
+                    prankedyManager.onVehicleInteraction()
                     updateNpcsState()
                 }
             }
@@ -1541,6 +1560,7 @@ class WorldMapViewModel(
             )
             remoteEntities[abandonedCar.id] = abandonedCar
             _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }
+            prankedyManager.onVehicleInteraction()
             updateNpcsState()
         }
     }
@@ -1622,7 +1642,7 @@ class WorldMapViewModel(
         // que dejaban la carga a medias y los NPCs mal puestos.
         val st0 = _uiState.value
         if (!st0.isLoadingLocation && (!st0.isMapReady || !st0.isRoadNetworkReady)) {
-            _uiState.update { it.copy(showTeleportMenu = false, interactionPrompt = "⏳ Espera: el mundo aún está cargando…") }
+            _uiState.update { it.copy(showTeleportMenu = false, interactionPrompt = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_wait_loading)) }
             viewModelScope.launch {
                 delay(2500)
                 _uiState.update { if (it.interactionPrompt?.startsWith("⏳") == true) it.copy(interactionPrompt = null) else it }
@@ -1741,7 +1761,7 @@ class WorldMapViewModel(
                 _uiState.update { it.copy(nearbyMetroStation = nearbyMetro, nearbyCollectible = null) }
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
-                    val promptText = "PRESIONA X PARA ENTRAR A ESTACIÓN ${nearbyMetro.name.uppercase()}"
+                    val promptText = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_prompt_metro, nearbyMetro.name.uppercase())
                     _uiState.update { it.copy(interactionPrompt = promptText) }
                     kotlinx.coroutines.delay(3000)
                     _uiState.update { it.copy(interactionPrompt = null) }
@@ -1755,10 +1775,10 @@ class WorldMapViewModel(
             _uiState.update { it.copy(nearbyMetroStation = null, interactionPrompt = null) }
         }
 
-        // 2. Recopilamos los coleccionables normales y de ESCOM (nuestro código)
+        // 2. Recopilamos los collectibles normales y de ESCOM (nuestro código)
         val baseItems = _uiState.value.activeCollectibles + _escomItems.value
 
-        // Convertimos los Landmarks de tipo "Puerta" en coleccionables virtuales interactuables
+        // Convertimos los Landmarks de tipo "Puerta" en collectibles virtuales interactuables
         val doorItems = _uiState.value.landmarks
             .filter { it.assetPath.contains("DOORS/") }
             .map { doorLandmark ->
@@ -1791,11 +1811,11 @@ class WorldMapViewModel(
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
                     val promptText = when {
-                        activeItem.id == "global_zombie_hand" -> if (_uiState.value.globalZombieMode) "PRESIONA X PARA DESACTIVAR MODO ZOMBI" else "PRESIONA X PARA ACTIVAR MODO ZOMBI"
-                        activeItem.name == "Objeto Misterioso ESCOM" -> "PRESIONA X PARA INTERACTUAR"
-                        activeItem.id == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA ENTRAR"
-                        activeItem.id.startsWith("escom_door_")      -> "PRESIONA X PARA ENTRAR" // <--- Aquí aparece el texto de la puerta
-                        else -> "PRESIONA X PARA RECOGER"
+                        activeItem.id == "global_zombie_hand" -> if (_uiState.value.globalZombieMode) getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_deactivate_zombie) else getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_activate_zombie)
+                        activeItem.name == "Objeto Misterioso ESCOM" -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_interact)
+                        activeItem.id == ShineCTOLocation.MARKER_ID  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter)
+                        activeItem.id.startsWith("escom_door_")      -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter) // <--- Aquí aparece el texto de la puerta
+                        else -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_pickup)
                     }
 
                     _uiState.update { it.copy(interactionPrompt = promptText) }
@@ -1907,14 +1927,8 @@ class WorldMapViewModel(
             // salvo que cometas un nuevo delito en tu nueva vida).
             carjackStartTime = 0L
             _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null) }
-            // RESPAWN EN LA MISMA ZONA YA DESCARGADA (ahorra recursos: no teletransporta a
-            // ESCOM ni descarga teselas nuevas). Reaparece a ~80 m del lugar de muerte,
-            // pegado a la red de calles ya cacheada; si no hay calles, en el mismo punto.
-            val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
-            val ang = Math.random() * 2.0 * Math.PI
-            val r = 0.0007 // ~77 m
-            val candidate = GeoPoint(deathLoc.latitude + sin(ang) * r, deathLoc.longitude + cos(ang) * r)
-            val respawn = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(candidate) else deathLoc
+            // RESPAWN EN ESCOM: Al morir, el jugador es llevado de vuelta a la ESCOM.
+            val respawn = GeoPoint(19.504603, -99.145985)
             _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
             playerHealth = maxPlayerHealth
             // Reiniciar contadores de animación y activar inmunidad temporal (2 s) para que
@@ -2425,7 +2439,7 @@ class WorldMapViewModel(
     /**
      * Interacción con la mano: en lugar de entrar a un interior concreto, marca
      * el flag pendingZombieMinigame para que, tras el video, WorldMapScreen
-     * navegue a la ruta "zombie_minigame".
+     * navegue a la ruta "interiores_zombies" (modo Interiores → capa zombis).
      */
     fun handleInteraction() {
         val nearbyMetro = _uiState.value.nearbyMetroStation
@@ -2451,7 +2465,7 @@ class WorldMapViewModel(
                 val targetRoute = when (nearby.name) {
                     "Entrada Campo Béisbol" -> "interior_deportivo_beis"
                     "Entrada Campo Fútbol" -> "interior_deportivo_futbol"
-                    else -> "zombie_minigame"
+                    else -> "interiores_zombies"
                 }
                 _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }
             }
@@ -2540,7 +2554,7 @@ class WorldMapViewModel(
                 escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
                 reader.close()
             } catch (e: Exception) {
-                android.widget.Toast.makeText(context, "Error leyendo escom_navgraph.json", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_error_escom_navgraph), android.widget.Toast.LENGTH_SHORT).show()
                 return
             }
         }
@@ -2550,7 +2564,7 @@ class WorldMapViewModel(
         // 2. Buscar el edificio ESCOM en el mapa
         val escomLandmarkBase = _uiState.value.landmarks.find { it.assetPath.contains("building_escom", ignoreCase = true) }
         if (escomLandmarkBase == null) {
-            android.widget.Toast.makeText(context, "Error: ESCOM no está en el mapa", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_error_escom_missing), android.widget.Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -2590,7 +2604,7 @@ class WorldMapViewModel(
         // 7. Refrescar la pantalla
         updateNpcsState()
 
-        android.widget.Toast.makeText(context, "🚗 Auto inyectado en MICRO_LANDMARK", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_car_injected), android.widget.Toast.LENGTH_SHORT).show()
     }
 
     // ─── Selector de skin ────────────────────────────────────────────────
@@ -2616,7 +2630,7 @@ class WorldMapViewModel(
                 id          = ShineCTOLocation.MARKER_ID,
                 name        = ShineCTOLocation.MARKER_NAME,
                 description = "easter_egg",
-                assetPath   = "LUGARES/shineCTO/s_logo.webp",
+                assetPath   = "PLACES/shine_cto/s_logo.webp",
                 latitude    = ShineCTOLocation.LAT,
                 longitude   = ShineCTOLocation.LON
             )

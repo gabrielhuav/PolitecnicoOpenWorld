@@ -15,10 +15,10 @@ object ShineCTOLocation {
 
     val geoPoint get() = GeoPoint(LAT, LON)
 
-    /** ID estable usado como clave en coleccionables / markers. */
+    /** ID estable usado como clave en collectibles / markers. */
     const val MARKER_ID = "easter_shinecto"
     const val MARKER_NAME = "Lugar Misterioso"
-    const val MARKER_ASSET = "LUGARES/shineCTO/s_logo.webp"
+    const val MARKER_ASSET = "PLACES/shine_cto/s_logo.webp"
 }
 
 enum class ShineCTOFloor {
