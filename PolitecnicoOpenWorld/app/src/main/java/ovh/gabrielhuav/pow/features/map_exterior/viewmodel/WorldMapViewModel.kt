@@ -1488,6 +1488,7 @@ class WorldMapViewModel(
                 // Si el coche traía skin de patrulla (una patrulla que abandonaste), al
                 // re-subirte vuelves a conducirla con el skin de policía.
                 _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false, isDrivingPoliceCar = carNpc.isPoliceSkin) }
+                prankedyManager.onVehicleInteraction()
                 updateNpcsState()
                 return
             }
@@ -1520,6 +1521,7 @@ class WorldMapViewModel(
                         isDrivingPoliceCar = true,
                         wantedLevel = MAX_WANTED_LEVEL
                     ) }
+                    prankedyManager.onVehicleInteraction()
                     updateNpcsState()
                 }
             }
@@ -1541,6 +1543,7 @@ class WorldMapViewModel(
             )
             remoteEntities[abandonedCar.id] = abandonedCar
             _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }
+            prankedyManager.onVehicleInteraction()
             updateNpcsState()
         }
     }
