@@ -354,6 +354,33 @@ matrices por defecto son **border-only** hasta reemplazarse.
   `npcsWarmedUp`. Para habilitar FES Aragón/UAM: pon `available=true` en `SchoolCatalog` (sus coords ya
   alimentan el spawn). `StoryModeViewModel` usa `Factory(context)` para leer la partida (NavBackStackEntry
   → re-lee al entrar). Las pantallas de campaña usan `windowInsetsPadding(WindowInsets.systemBars)`.
+- **FIX "se queda cargando" al COMENZAR/CARGAR (Modo Historia):** `prepareMapForEntry()` es **idempotente**
+  (gateada por `mapPrepStarted`, de la Activity, persiste entre navegaciones). Si ya entraste al mundo una vez
+  (p. ej. MUNDO LIBRE), re-armar `isMapReady=false` en `setStorySpawn` NO volvía a descargar los tiles → la
+  compuerta **nunca se soltaba**. Fix: `setStorySpawn` ahora se comporta como **teletransporte** (resetea
+  `lastNetworkFetchLocation`/`lastFetchAttemptMs`/`npcWarmupCycles`, pone `inCampaign=true` y llama
+  `gateMapDownloadAfterTeleport()`, que SÍ re-descarga y pone `isMapReady=true` sin depender de
+  `mapPrepStarted`). No volver a confiar solo en `prepareMapForEntry` para el spawn de campaña.
+- **Guardado de partida (JSON) = `SaveGameRepository`, NO `CampaignRepository`:** `CampaignRepository`
+  (prefs) solo guarda ESCUELA + fecha (habilita "CARGAR PARTIDA"). El **estado completo** (posición, vida,
+  nivel de búsqueda, vehículo, skin, NPCs cercanos) va a un **JSON** (`filesDir/pow_campaign_save.json`) vía
+  `SaveGameRepository` + las extensiones `WorldMapSaveGame.kt` (`saveGame`/`loadGame`/`buildSaveData`/
+  `restoreSaveData`, **sin gemelo miembro**). Guardado **MANUAL** (ítem "Guardar partida" del menú Opciones) y
+  **AUTO al salir/cerrar** (solo si `WorldMapViewModel.inCampaign`; MUNDO LIBRE lo pone en false y NO guarda).
+  `MainActivity` es el punto de DI (fija `campaignSchoolId`/`inCampaign` y dispara el auto-guardado).
+- **Editor del Debug Interiores (líneas rojas/verdes/naranjas):** con `showInteriorDebugOverlay` activo,
+  `InteriorDebugEditorPanel` (barra horizontal abajo; los controles de movimiento se **ocultan** al editar) +
+  `WorldMapDebugEditor.kt` (extensiones, sin gemelo miembro) EDITAN la geometría **DIBUJANDO con el dedo**
+  (estilo Paint): `DebugEditTool` WALL/BLOCK/NAV_PED/NAV_CAR; **arrastre = línea o rectángulo**; deshacer/
+  limpiar/exportar/importar JSON. **El dibujo es una CAPA COMPOSE por encima del mapa (`InteriorDebugDrawSurface`
+  en `WorldMapScreen`), NO código de un renderer concreto** — antes estaba en `NativeOsmMap` (osmdroid) y por eso
+  **no funcionaba con el proveedor por defecto, que es WEB (CARTO/Leaflet)**: el mapa se movía en vez de dibujar.
+  La capa Compose va sobre el renderer (web/OSM/Google) y bajo los botones/panel; con `tool != NONE` consume el
+  gesto **desde el ACTION_DOWN** (`awaitEachGesture` + `consume()`) para que el mapa NO panee; con NONE deja pasar.
+  Convierte pantalla↔coordenadas con **Web Mercator** (`256·densidad·2^zoom`) **asumiendo centro = jugador**, así
+  que en modo debug el mapa **se mantiene centrado en el jugador** (`!isUserPanningMap || showInteriorDebugOverlay`).
+  Commitea con `commitDebugStroke`. La geometría vive en `WorldMapState.debugEdit*`. (OSM nativo conserva además su
+  overlay propio de geometría editada en tags +700/+710, redundante con la capa Compose pero inofensivo.)
 - **Interiores expandible por campus (NO hardcodear el lobby de ESCOM):** el motor de Interiores
   (`interiores.zombies`) sirve para cualquier campus. Salas nuevas vía `ZombieRoomCatalog.campusRooms(...)`
   (`addAll` por campus; ESCOM = anillo bespoke, no lo toques). La sala inicial la elige la ruta

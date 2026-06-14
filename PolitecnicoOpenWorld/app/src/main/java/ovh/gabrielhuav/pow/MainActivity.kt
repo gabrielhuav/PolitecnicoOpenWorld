@@ -59,6 +59,11 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 // REFACTOR: extensiones del VM (WorldMapProviders.kt) → requieren import explícito.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
+// MODO HISTORIA: guardado/carga de la partida (JSON). Las extensiones del VM viven
+// en WorldMapSaveGame.kt y requieren import explícito desde fuera del paquete viewmodel.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
+import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
 import ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieGameScreen
@@ -172,6 +177,9 @@ class MainActivity : ComponentActivity() {
                         ) {
                             MainMenuScreen(
                                 onNavigateToMap = { isMultiplayer, playerName ->
+                                    // MUNDO LIBRE (sin campaña): no es una sesión de Modo Historia,
+                                    // así que NO se auto-guarda al salir.
+                                    worldMapViewModel.inCampaign = false
                                     if (isMultiplayer && !playerName.isNullOrBlank()) {
                                         // Usando la variable de entorno de Gradle (BuildConfig)
                                         worldMapViewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL, playerName)
@@ -205,7 +213,14 @@ class MainActivity : ComponentActivity() {
                             val enterCampaignWorld = remember(worldMapViewModel, navController) {
                                 { school: ovh.gabrielhuav.pow.domain.models.CampaignSchool ->
                                     worldMapViewModel.disconnectFromMultiplayer()
-                                    worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
+                                    // CARGAR PARTIDA: restaura el estado COMPLETO desde el JSON
+                                    // (posición, vida, nivel de búsqueda, vehículo, skin, NPCs).
+                                    // Si no hay JSON (partida ligera antigua), cae al spawn de la escuela.
+                                    val loaded = worldMapViewModel.loadGame(this@MainActivity)
+                                    if (!loaded) {
+                                        worldMapViewModel.campaignSchoolId = school.id
+                                        worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
+                                    }
                                     navController.navigate("world_map") {
                                         popUpTo("main_menu") { inclusive = true }
                                     }
@@ -217,7 +232,7 @@ class MainActivity : ComponentActivity() {
                                 onStartCampaign = { school ->
                                     navController.navigate("story_intro/${school.id}")
                                 },
-                                // CARGAR PARTIDA: reanuda directo en la escuela guardada.
+                                // CARGAR PARTIDA: reanuda la partida guardada (estado completo).
                                 onLoadCampaign = { school -> enterCampaignWorld(school) },
                                 onBack = { navController.popBackStack() }
                             )
@@ -240,8 +255,13 @@ class MainActivity : ComponentActivity() {
                             StoryIntroScreen(
                                 school = school,
                                 onBegin = {
-                                    // Guarda la partida de campaña (escuela elegida).
+                                    // COMENZAR partida NUEVA: guarda la escuela (habilita "CARGAR
+                                    // PARTIDA") y BORRA cualquier partida completa anterior para
+                                    // empezar de cero (el estado real se guardará al salir / con el
+                                    // botón "Guardar partida" del menú de Opciones).
                                     campaignRepository.saveCampaign(school.id)
+                                    SaveGameRepository(this@MainActivity).clear()
+                                    worldMapViewModel.campaignSchoolId = school.id
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
                                     navController.navigate("world_map") {
@@ -337,6 +357,9 @@ class MainActivity : ComponentActivity() {
                             // Lógica compartida para volver al menú principal
                             val navigateBackToMainMenu = remember(worldMapViewModel, navController) {
                                 {
+                                    // AUTO-GUARDADO: si estamos en Modo Historia, persistimos el
+                                    // estado completo antes de volver al menú (Mundo Libre no guarda).
+                                    if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity)
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     navController.navigate("main_menu") {
                                         popUpTo("world_map") { inclusive = true }
@@ -364,6 +387,8 @@ class MainActivity : ComponentActivity() {
                                     dismissButton = {
                                         TextButton(onClick = {
                                             showExitDialog = false
+                                            // AUTO-GUARDADO también al cerrar la app desde el diálogo.
+                                            if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity)
                                             worldMapViewModel.disconnectFromMultiplayer()
                                             this@MainActivity.finish()
                                         }) {
