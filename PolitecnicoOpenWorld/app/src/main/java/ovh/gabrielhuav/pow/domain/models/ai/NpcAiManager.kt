@@ -351,7 +351,7 @@ class NpcAiManager {
 
                     val availableSlots = getAvailableParkingSlots(landmark, serverNpcs)
                     if (availableSlots.isNotEmpty()) {
-                        val fillPercentage = Random.nextFloat() * 0.3f + 0.5f
+                        val fillPercentage = 1.0f // Llenar todos los lugares disponibles para tener más vehículos
                         val numToSpawn = (availableSlots.size * fillPercentage).toInt().coerceAtLeast(1)
                         val slotsToUse = availableSlots.shuffled().take(numToSpawn)
                         var timerOffset = Random.nextLong(15000L, 25000L)
@@ -1110,6 +1110,7 @@ class NpcAiManager {
 
     private fun moveNpc(npc: Npc, network: List<MapWay>, now: Long, speedScale: Float): Npc? {
         if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) {
+            if (npc.currentLocalWay == null) return npc
             val wakeUpTime = parkedTimers[npc.id]
 
             if (wakeUpTime == null) {

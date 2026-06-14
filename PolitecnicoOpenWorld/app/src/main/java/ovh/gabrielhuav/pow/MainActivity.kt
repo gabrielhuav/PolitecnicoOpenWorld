@@ -48,6 +48,7 @@ import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoBeisScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoFutbolScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
+import ovh.gabrielhuav.pow.features.main_menu.ui.StoryModeScreen
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
@@ -179,7 +180,27 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToCollectibles = {
                                     navController.navigate("collectibles")
+                                },
+                                onNavigateToStory = {
+                                    navController.navigate("story_mode")
                                 }
+                            )
+                        }
+
+                        // ─── MODO HISTORIA / Campaña ──────────────────────────────
+                        // Prólogo + selección de escuela. Al COMENZAR, fija el spawn de
+                        // la escuela elegida (setStorySpawn) y arranca el open world como
+                        // campaña. ESCOM es la única jugable por ahora.
+                        composable(route = "story_mode") {
+                            StoryModeScreen(
+                                onStartCampaign = { school ->
+                                    worldMapViewModel.disconnectFromMultiplayer()
+                                    worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
+                                    navController.navigate("world_map") {
+                                        popUpTo("main_menu") { inclusive = true }
+                                    }
+                                },
+                                onBack = { navController.popBackStack() }
                             )
                         }
 

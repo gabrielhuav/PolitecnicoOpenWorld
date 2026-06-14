@@ -9,8 +9,8 @@
 
     <!-- ─── Menú principal (features/main_menu) ─── -->
     <string name="menu_version">v%1$s - ESCOM Edition</string>
-    <string name="menu_start_game">INICIAR JUEGO</string>
-    <string name="menu_load_game">CARGAR PARTIDA</string>
+    <string name="menu_start_game">MUNDO LIBRE</string>
+    <string name="menu_load_game">MODO HISTORIA</string>
     <string name="menu_multiplayer">MULTIJUGADOR</string>
     <string name="menu_settings">AJUSTES</string>
     <string name="menu_collectibles">COLECCIONABLES</string>
@@ -27,6 +27,20 @@
     <string name="menu_warmup_text">El servidor multijugador está en reposo.\nDespertándolo... %1$ds</string>
     <string name="menu_warmup_hint">Puede tardar hasta 60 segundos.</string>
     <string name="menu_return">VOLVER AL MENÚ</string>
+
+    <!-- ─── Modo Historia / Campaña (features/main_menu) ─── -->
+    <string name="story_title">MODO HISTORIA</string>
+    <string name="story_subtitle">El brote del Politécnico</string>
+    <string name="story_prologue_heading">PRÓLOGO</string>
+    <string name="story_prologue">Cierto día, en la ENCB, Prankedy llegó haciendo de las suyas y, por una broma, terminó accidentalmente en mitad de un experimento de proyecto de titulación: la creación de una sustancia corrosiva, capaz de envenenar y penetrar el látex. El error pasa desapercibido… y el tiempo pasa.</string>
+    <string name="story_choose_school">Elige tu escuela</string>
+    <string name="story_school_unavailable">En desarrollo</string>
+    <string name="story_school_escom_desc">Zacatenco, CDMX · Disponible</string>
+    <string name="story_school_locked_desc">Próximamente</string>
+    <string name="story_load_game">CARGAR PARTIDA</string>
+    <string name="story_no_saves">Sin partidas guardadas</string>
+    <string name="story_start">COMENZAR</string>
+    <string name="story_back">VOLVER</string>
 
     <!-- ─── Ajustes (features/settings) ─── -->
     <string name="settings_title">AJUSTES DEL JUEGO</string>

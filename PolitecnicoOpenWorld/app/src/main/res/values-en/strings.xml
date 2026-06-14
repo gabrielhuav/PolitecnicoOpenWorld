@@ -9,8 +9,8 @@
 
     <!-- ─── Main menu ─── -->
     <string name="menu_version">v%1$s - ESCOM Edition</string>
-    <string name="menu_start_game">START GAME</string>
-    <string name="menu_load_game">LOAD GAME</string>
+    <string name="menu_start_game">FREE ROAM</string>
+    <string name="menu_load_game">STORY MODE</string>
     <string name="menu_multiplayer">MULTIPLAYER</string>
     <string name="menu_settings">SETTINGS</string>
     <string name="menu_collectibles">COLLECTIBLES</string>
@@ -27,6 +27,20 @@
     <string name="menu_warmup_text">The multiplayer server is asleep.\nWaking it up... %1$ds</string>
     <string name="menu_warmup_hint">It may take up to 60 seconds.</string>
     <string name="menu_return">RETURN TO MENU</string>
+
+    <!-- ─── Story Mode / Campaign (features/main_menu) ─── -->
+    <string name="story_title">STORY MODE</string>
+    <string name="story_subtitle">The Politécnico outbreak</string>
+    <string name="story_prologue_heading">PROLOGUE</string>
+    <string name="story_prologue">One day, at the ENCB, Prankedy showed up pulling his usual pranks and, because of one of them, accidentally ended up in the middle of a thesis-project experiment: the creation of a corrosive substance, able to poison and seep through latex. The mistake goes unnoticed… and time goes by.</string>
+    <string name="story_choose_school">Choose your school</string>
+    <string name="story_school_unavailable">In development</string>
+    <string name="story_school_escom_desc">Zacatenco, Mexico City · Available</string>
+    <string name="story_school_locked_desc">Coming soon</string>
+    <string name="story_load_game">LOAD GAME</string>
+    <string name="story_no_saves">No saved games</string>
+    <string name="story_start">START</string>
+    <string name="story_back">BACK</string>
 
     <!-- ─── Settings ─── -->
     <string name="settings_title">GAME SETTINGS</string>

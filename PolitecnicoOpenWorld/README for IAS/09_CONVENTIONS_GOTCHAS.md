@@ -340,6 +340,15 @@ matrices por defecto son **border-only** hasta reemplazarse.
   asset es un STRING (literal o `"$folder/..."`); un rename mal hecho falla en RUNTIME, no al compilar —
   verifica que cada literal resuelva a un archivo existente.
 
+- **Menú: "MUNDO LIBRE" vs "MODO HISTORIA" + spawn de campaña:** el 1er botón del menú
+  (`menu_start_game` = **MUNDO LIBRE**) es el open world sin campaña (spawn por defecto, ESCOM).
+  El 2º (`menu_load_game` = **MODO HISTORIA**) navega a `story_mode` (`StoryModeScreen`): prólogo +
+  selector de escuela (`SchoolCatalog`, solo ESCOM `available=true`) + "CARGAR PARTIDA" deshabilitado
+  (sin guardado aún). Al "COMENZAR", `MainActivity` llama `WorldMapViewModel.setStorySpawn(lat, lon)`
+  — **NO uses `updateInitialLocation`**: está gateada por `isLoadingLocation` (ya consumida en
+  `onCreate`), así que no movería el spawn. `setStorySpawn` es miembro sin gemelo de extensión y
+  re-arma `isMapReady`/`isRoadNetworkReady`/`npcsWarmedUp`. Para habilitar FES Aragón/UAM: pon
+  `available=true` en `SchoolCatalog` (sus coords ya alimentan el spawn).
 - **i18n / internacionalización (strings.xml + cambio de idioma):** los textos de UI se externalizan a
   recursos. **Base = español** en `res/values/strings.xml`; **inglés** en `res/values-en/strings.xml`
   (paridad 1:1 de claves). Para añadir un idioma (p. ej. ruso) basta con crear `res/values-ru/strings.xml`

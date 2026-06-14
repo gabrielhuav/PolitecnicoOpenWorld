@@ -35,7 +35,8 @@ import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuViewModel
 fun MainMenuScreen(
     onNavigateToMap: (isMultiplayer: Boolean, playerName: String?) -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToCollectibles: () -> Unit
+    onNavigateToCollectibles: () -> Unit,
+    onNavigateToStory: () -> Unit
 ) {
     val viewModel: MainMenuViewModel = viewModel()
     val state by viewModel.state.collectAsState()
@@ -66,7 +67,8 @@ fun MainMenuScreen(
                         viewModel = viewModel,
                         onNavigateToMap = onNavigateToMap,
                         onNavigateToSettings = onNavigateToSettings,
-                        onNavigateToCollectibles = onNavigateToCollectibles
+                        onNavigateToCollectibles = onNavigateToCollectibles,
+                        onNavigateToStory = onNavigateToStory
                     )
                 }
             }
@@ -83,7 +85,8 @@ fun MainMenuScreen(
                     viewModel = viewModel,
                     onNavigateToMap = onNavigateToMap,
                     onNavigateToSettings = onNavigateToSettings,
-                    onNavigateToCollectibles = onNavigateToCollectibles
+                    onNavigateToCollectibles = onNavigateToCollectibles,
+                    onNavigateToStory = onNavigateToStory
                 )
             }
         }
@@ -212,8 +215,10 @@ fun MenuButtonsList(
     viewModel: MainMenuViewModel,
     onNavigateToMap: (isMultiplayer: Boolean, playerName: String?) -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToCollectibles: () -> Unit
+    onNavigateToCollectibles: () -> Unit,
+    onNavigateToStory: () -> Unit
 ) {
+    // MUNDO LIBRE: el open world sin campaña (antes "Iniciar Juego"). Spawn por defecto.
     MenuButton(
         text = stringResource(R.string.menu_start_game),
         onClick = {
@@ -224,7 +229,12 @@ fun MenuButtonsList(
     )
     Spacer(Modifier.height(16.dp))
 
-    MenuButton(text = stringResource(R.string.menu_load_game), onClick = {}, enabled = false)
+    // MODO HISTORIA: abre la pantalla de campaña (prólogo + elegir escuela + cargar partida).
+    MenuButton(
+        text = stringResource(R.string.menu_load_game),
+        onClick = onNavigateToStory,
+        enabled = !state.isWarmingUp
+    )
     Spacer(Modifier.height(16.dp))
 
     // El botón MULTIJUGADOR dispara el warmup ANTES de mostrar el diálogo

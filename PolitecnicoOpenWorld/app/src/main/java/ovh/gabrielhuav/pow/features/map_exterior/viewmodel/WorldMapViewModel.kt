@@ -1327,6 +1327,26 @@ class WorldMapViewModel(
         }
     }
 
+    // MODO HISTORIA: fija la escuela de inicio elegida en el menú de campaña.
+    // A diferencia de [updateInitialLocation] (gateada por isLoadingLocation, ya
+    // consumida en MainActivity.onCreate), esto FUERZA el punto de aparición y
+    // re-arma las compuertas de carga para que el mapa y las calles se descarguen
+    // alrededor de la escuela elegida. Se llama ANTES de navegar al mapa, cuando el
+    // mundo aún no está cargado.
+    fun setStorySpawn(lat: Double, lon: Double) {
+        val loc = GeoPoint(lat, lon)
+        _uiState.update {
+            it.copy(
+                currentLocation = loc,
+                isLoadingLocation = false,
+                isMapReady = false,        // ← re-activa la compuerta de carga del mapa
+                isRoadNetworkReady = false, // ← y la de la red de calles
+                npcsWarmedUp = false        // ← y el warm-up de NPCs (orden: tiles → calles → NPCs)
+            )
+        }
+        checkPrankedySpawn(loc)
+    }
+
     fun updateActionState(action: GameAction, isPressed: Boolean) {
         when (action) {
             GameAction.A -> {
@@ -1556,7 +1576,8 @@ class WorldMapViewModel(
                 isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded,
                 // Si te bajas de una PATRULLA robada, el coche que queda conserva el skin de
                 // patrulla (sigue siendo tipo CAR para que la IA lo conduzca como tráfico).
-                isPoliceSkin = _uiState.value.isDrivingPoliceCar
+                isPoliceSkin = _uiState.value.isDrivingPoliceCar,
+                navState = if (isInsideEscom(loc.latitude, loc.longitude)) ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED else ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
             )
             remoteEntities[abandonedCar.id] = abandonedCar
             _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }

@@ -601,7 +601,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
             } else {
                 if (!cachedImg) return;
-                var bubStyle = 'position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:4px; color:#1a1a1a; background:#FFF; border:2px solid #D4AF37; padding:3px 8px; border-radius:8px; font-size:13px; font-weight:bold; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,0.4); z-index:200;';
+                var bubStyle = 'position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:4px; color:#1a1a1a; background:#FFF; border:2px solid #D4AF37; padding:3px 8px; border-radius:8px; font-size:13px; font-weight:bold; white-space:pre-wrap; max-width:200px; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.4); z-index:200;';
                 var html = '<div class="pk-c" style="position:absolute; transform:translate(-50%,-50%); width:' + px + 'px; height:' + px + 'px;">' + hbHtml +
                     '<div class="pk-bub" style="' + bubStyle + ' display:' + (dlg ? 'block' : 'none') + ';">' + dlg + '</div>' +
                     '<img src="' + cachedImg + '" style="width:100%; height:100%; display:block; transform:scaleX(' + flip + ');"></div>';

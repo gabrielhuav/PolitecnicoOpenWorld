@@ -21,6 +21,40 @@ Successful pings cached for 60 s.
 
 ### `ui/MainMenuScreen.kt`
 Menú principal; título ligado a `BuildConfig.VERSION_NAME` con auto-shrink que nunca parte de línea.
+**Botones (renombrados):** `menu_start_game` ahora es **"MUNDO LIBRE"** (open world sin campaña, spawn por
+defecto) y `menu_load_game` es **"MODO HISTORIA"** (antes deshabilitado; ahora navega a `story_mode` vía
+`onNavigateToStory`).
+
+---
+
+## Modo Historia / Campaña (`features/main_menu/`)
+
+**ES:** Pantalla de campaña accesible desde **"MODO HISTORIA"** (ruta `story_mode`). Muestra el **prólogo**
+(brote del Politécnico: Prankedy crea por accidente una sustancia corrosiva en la ENCB), un **selector de
+escuela** y un botón **"CARGAR PARTIDA"** deshabilitado (aún no hay sistema de guardado).
+**EN:** Campaign screen reached from **"STORY MODE"** (`story_mode` route): prologue + school picker +
+disabled **"LOAD GAME"** (no save system yet).
+
+### `viewmodel/StoryModeViewModel.kt` + `StoryModeState.kt`
+- Alcance **NavBackStackEntry** (se instancia con `viewModel()` en el Composable). `StoryModeState` solo
+  guarda `selectedSchoolId` (default = primera escuela disponible).
+- API: `selectSchool(id)` (ignora escuelas no disponibles), `selectedSchool(): CampaignSchool`.
+
+### `ui/StoryModeScreen.kt`
+Prólogo (`story_prologue`) + tarjetas de escuela (`SchoolCard`) + "CARGAR PARTIDA" (off) + "COMENZAR"/"VOLVER".
+"COMENZAR" llama `onStartCampaign(school)`; `MainActivity` fija el spawn con
+`WorldMapViewModel.setStorySpawn(lat, lon)` y navega a `world_map` (popUpTo `main_menu` inclusive).
+
+### `domain/models/SchoolCatalog.kt`
+`CampaignSchool(id, displayName, latitude, longitude, available)` + `object SchoolCatalog.schools`.
+Solo **ESCOM** está `available = true` (= `TeleportCatalog.zones[0]`); **FES Aragón** y **UAM** quedan en
+desarrollo (`available = false`, deshabilitadas en la UI). `displayName` es nombre propio (no se traduce).
+
+### `WorldMapViewModel.setStorySpawn(lat, lon)` (miembro)
+Fuerza el punto de aparición de la campaña y re-arma las compuertas de carga
+(`isMapReady`/`isRoadNetworkReady`/`npcsWarmedUp = false`) para descargar el mundo alrededor de la escuela
+elegida. A diferencia de `updateInitialLocation` (gateada por `isLoadingLocation`, ya consumida en
+`MainActivity.onCreate`), **no** está gateada. Sin gemelo de extensión.
 
 ---
 

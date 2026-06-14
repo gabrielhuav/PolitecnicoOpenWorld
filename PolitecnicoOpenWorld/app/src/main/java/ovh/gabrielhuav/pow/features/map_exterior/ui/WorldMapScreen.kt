@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -2128,7 +2129,9 @@ fun WorldMapScreen(
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 modifier = Modifier
+                    .widthIn(max = 280.dp)
                     .background(color = Color(0xFF222222).copy(alpha = 0.9f), shape = RoundedCornerShape(12.dp))
                     .border(2.dp, Color(0xFFFFCC00), RoundedCornerShape(12.dp))
                     .padding(horizontal = 20.dp, vertical = 10.dp)

@@ -74,6 +74,7 @@ app/src/main/java/ovh/gabrielhuav/pow/
 | Ruta / Route | Pantalla / Screen |
 |---|---|
 | `main_menu` | `MainMenuScreen` |
+| `story_mode` | `StoryModeScreen` (Modo Historia / Campaña: prólogo + elegir escuela) |
 | `settings` | `SettingsScreen` |
 | `world_map` | `WorldMapScreen` (open world) |
 | `collectibles` | `CollectiblesScreen` |
