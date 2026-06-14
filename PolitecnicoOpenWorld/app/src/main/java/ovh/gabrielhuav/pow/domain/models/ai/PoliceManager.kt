@@ -38,6 +38,7 @@ class PoliceManager {
         const val PUNCH_DIST = 0.00003         // ~3 m: solo te pegan si están JUSTO a tu lado
         const val PUNCH_DAMAGE = 5f
         const val PUNCH_COOLDOWN_MS = 1400L
+        const val SHOOT_FRAME_MS = 1000L         // Duración del frame de disparo (quieto)
         const val SHOOT_RANGE = 0.0002         // ~22 m: disparan solo si están bastante cerca
         const val SHOOT_DAMAGE = 4f
         const val SHOOT_COOLDOWN_MS = 2400L
@@ -140,7 +141,7 @@ class PoliceManager {
     private fun advanceAlong(
         unit: Npc, tLat: Double, tLon: Double, speed: Double, now: Long,
         snap: ((GeoPoint) -> GeoPoint)?, pathfind: ((GeoPoint, GeoPoint) -> List<GeoPoint>)?
-    ): Pair<GeoPoint, Float> {
+    ): Triple<GeoPoint, Float, Boolean> {
         val id = unit.id
 
         // (Re)calcular la ruta si no hay, está vacía, o caducó (el objetivo se mueve).
@@ -180,7 +181,7 @@ class PoliceManager {
     private fun stepOnRoad(
         from: GeoPoint, toLat: Double, toLon: Double, speed: Double,
         snap: ((GeoPoint) -> GeoPoint)?
-    ): Pair<GeoPoint, Float> {
+    ): Triple<GeoPoint, Float, Boolean> {
         val dLat = toLat - from.latitude
         val dLon = toLon - from.longitude
         val a = atan2(dLat, dLon)
@@ -191,7 +192,8 @@ class PoliceManager {
         val rot = if (mLat * mLat + mLon * mLon > 1e-14)
             (-Math.toDegrees(atan2(mLat, mLon)).toFloat() + 360f) % 360f
         else (-Math.toDegrees(a).toFloat() + 360f) % 360f
-        return placed to rot
+        val facing = if (mLat * mLat + mLon * mLon > 1e-14) mLon >= 0 else cos(a) >= 0
+        return Triple(placed, rot, facing)
     }
 
     fun update(
@@ -221,8 +223,8 @@ class PoliceManager {
                 val spd = if (unit.type == NpcType.POLICE_CAR) CAR_SPEED else COP_SPEED
                 val awayLat = unit.location.latitude + (unit.location.latitude - playerLat)
                 val awayLon = unit.location.longitude + (unit.location.longitude - playerLon)
-                val (loc, rot) = stepOnRoad(unit.location, awayLat, awayLon, spd, snap)
-                units[unit.id] = unit.copy(location = loc, rotationAngle = rot, isMoving = true)
+                val (loc, rot, facing) = stepOnRoad(unit.location, awayLat, awayLon, spd, snap)
+                units[unit.id] = unit.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
             }
             return PoliceTick(units.values.toList(), 0f, 0f, false, destroyed, false)
         }
@@ -278,12 +280,15 @@ class PoliceManager {
                         repeat(numCops) { i -> makeCop(unit, i, unit.policeCanShoot).let { units[it.id] = it } }
                     } else {
                         // Persecución con RUTA por las calles (pathfinding + anti-atasco).
-                        val (loc, rot) = advanceAlong(unit, playerLat, playerLon, CAR_SPEED, now, snap, pathfind)
-                        units[unit.id] = unit.copy(location = loc, rotationAngle = rot, isMoving = true)
+                        val (loc, rot, facing) = advanceAlong(unit, playerLat, playerLon, CAR_SPEED, now, snap, pathfind)
+                        units[unit.id] = unit.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
                     }
                 }
 
                 NpcType.POLICE_COP -> {
+                    val lastShoot = shootCooldowns[unit.id] ?: 0L
+                    val isShootingFrame = now - lastShoot < SHOOT_FRAME_MS
+
                     // VOLVIENDO A LA PATRULLA (te alejaste en coche).
                     if (unit.policeReturning) {
                         val car = units[unit.policeCarId]
@@ -294,20 +299,26 @@ class PoliceManager {
                             if (cDist <= BOARD_DIST) { units.remove(unit.id); destroyed.add(unit.id) }
                             else {
                                 // Vuelven a la patrulla por la calle (ruta + anti-atasco).
-                                val (loc, rot) = advanceAlong(unit,
+                                val (loc, rot, facing) = advanceAlong(unit,
                                     car.location.latitude, car.location.longitude, COP_SPEED, now, snap, pathfind)
-                                units[unit.id] = unit.copy(location = loc, rotationAngle = rot, isMoving = true)
+                                units[unit.id] = unit.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
                             }
                         }
                         continue
                     }
 
                     val dist = dist(unit.location.latitude, unit.location.longitude, playerLat, playerLon)
-                    if (dist > COP_STOP_DIST) {
+                    
+                    if (isShootingFrame) {
+                        // Mientras dura el frame de disparo, se queda quieto mirando al jugador.
+                        val a = atan2(playerLat - unit.location.latitude, playerLon - unit.location.longitude)
+                        val rot = (-Math.toDegrees(a).toFloat() + 360f) % 360f
+                        units[unit.id] = unit.copy(rotationAngle = rot, facingRight = cos(a) >= 0, isMoving = false)
+                    } else if (dist > COP_STOP_DIST) {
                         // Persiguen por la calle (ruta + anti-atasco): no atraviesan edificios
                         // pero tampoco se quedan trabados.
-                        val (loc, rot) = advanceAlong(unit, playerLat, playerLon, COP_SPEED, now, snap, pathfind)
-                        units[unit.id] = unit.copy(location = loc, rotationAngle = rot, isMoving = true)
+                        val (loc, rot, facing) = advanceAlong(unit, playerLat, playerLon, COP_SPEED, now, snap, pathfind)
+                        units[unit.id] = unit.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
                     } else {
                         units[unit.id] = unit.copy(isMoving = false)
                     }
@@ -335,6 +346,11 @@ class PoliceManager {
                                 if (prankedyIsShootTarget) { prankedyDamage += SHOOT_DAMAGE } else { damage += SHOOT_DAMAGE }
                                 impact = true
                                 shots.add(unit.location to GeoPoint(playerLat, playerLon)) // bala visible
+                                
+                                // Forzar que se quede quieto y mire al jugador al disparar
+                                val a = atan2(playerLat - unit.location.latitude, playerLon - unit.location.longitude)
+                                val rot = (-Math.toDegrees(a).toFloat() + 360f) % 360f
+                                units[unit.id] = units[unit.id]!!.copy(rotationAngle = rot, facingRight = cos(a) >= 0, isMoving = false)
                             }
                         }
                     }
