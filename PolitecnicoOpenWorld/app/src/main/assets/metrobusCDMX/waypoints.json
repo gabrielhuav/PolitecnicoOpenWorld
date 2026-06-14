@@ -1,0 +1,32 @@
+[
+  {
+    "hitboxFrac": { "left": 0.15, "top": 0.35, "right": 0.35, "bottom": 0.5 },
+    "targetRoomId": "taquilla",
+    "label": "Taquilla",
+    "kind": "GENERIC"
+  },
+  {
+    "hitboxFrac": { "left": 0.42, "top": 0.52, "right": 0.62, "bottom": 0.64 },
+    "targetRoomId": "torniquetes",
+    "label": "Torniquetes",
+    "kind": "GENERIC"
+  },
+  {
+    "hitboxFrac": { "left": 0.08, "top": 0.08, "right": 0.92, "bottom": 0.28 },
+    "targetRoomId": "anden",
+    "label": "Andén",
+    "kind": "GENERIC"
+  },
+  {
+    "hitboxFrac": { "left": 0.42, "top": 0.64, "right": 0.62, "bottom": 0.76 },
+    "targetRoomId": "salir_torniquetes",
+    "label": "Salir Torniquetes",
+    "kind": "GENERIC"
+  },
+  {
+    "hitboxFrac": { "left": 0.35, "top": 0.78, "right": 0.65, "bottom": 0.92 },
+    "targetRoomId": "salida",
+    "label": "Salida",
+    "kind": "GENERIC"
+  }
+]

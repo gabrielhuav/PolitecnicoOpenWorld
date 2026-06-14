@@ -58,6 +58,7 @@ import java.io.InputStreamReader
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
 import ovh.gabrielhuav.pow.data.repository.MetroRepository
+import ovh.gabrielhuav.pow.data.repository.MetrobusRepository
 import ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig
 
 class WorldMapViewModel(
@@ -1572,6 +1573,18 @@ class WorldMapViewModel(
         }
     }
 
+    fun teleportToMetrobusStation(stationName: String) {
+    val station = _uiState.value.metrobusStations.find { it.name.equals(stationName, ignoreCase = true) }
+    station?.let { teleportTo(it.location.latitude, it.location.longitude) }
+    }
+
+    fun loadMetrobusStations(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val stations = MetrobusRepository.loadStations(context)
+            _uiState.update { it.copy(metrobusStations = stations) }
+        }
+    }
+
     fun toggleTeleportMenu(show: Boolean) { _uiState.update { it.copy(showTeleportMenu = show) } }
 
     fun teleportTo(lat: Double, lon: Double) {
@@ -1711,6 +1724,28 @@ class WorldMapViewModel(
         // Si no está cerca de un metro, limpia el estado de metro
         if (_uiState.value.nearbyMetroStation != null) {
             _uiState.update { it.copy(nearbyMetroStation = null, interactionPrompt = null) }
+        }
+
+        // 1b. Verificar cercanía a estaciones del Metrobús
+        val metrobusStations = _uiState.value.metrobusStations
+        val nearbyMetrobus = metrobusStations.minByOrNull { playerGeo.distanceToAsDouble(it.location) }
+
+        if (nearbyMetrobus != null && playerGeo.distanceToAsDouble(nearbyMetrobus.location) <= INTERACT_RADIUS_METERS) {
+            if (_uiState.value.nearbyMetrobusStation?.name != nearbyMetrobus.name) {
+                _uiState.update { it.copy(nearbyMetrobusStation = nearbyMetrobus, nearbyCollectible = null) }
+                promptJob?.cancel()
+                promptJob = viewModelScope.launch {
+                    val promptText = "PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS ${nearbyMetrobus.name.uppercase()}"
+                    _uiState.update { it.copy(interactionPrompt = promptText) }
+                    kotlinx.coroutines.delay(3000)
+                    _uiState.update { it.copy(interactionPrompt = null) }
+                }
+            }
+            return
+        }
+
+        if (_uiState.value.nearbyMetrobusStation != null) {
+            _uiState.update { it.copy(nearbyMetrobusStation = null, interactionPrompt = null) }
         }
 
         // 2. Recopilamos los coleccionables normales y de ESCOM (nuestro código)
@@ -2396,6 +2431,12 @@ class WorldMapViewModel(
             return
         }
 
+        val nearbyMetrobus = _uiState.value.nearbyMetrobusStation
+        if (nearbyMetrobus != null) {
+            _uiState.update { it.copy(showMetrobusFade = true) }
+            return
+        }
+
         val nearby = _uiState.value.nearbyCollectible ?: return
 
         when {
@@ -2635,5 +2676,23 @@ class WorldMapViewModel(
 
     fun consumeMetroFadeComplete() {
         _uiState.update { it.copy(metroFadeCompleteStation = null) }
+    }
+
+    fun onMetrobusFadeComplete() {
+        val station = _uiState.value.nearbyMetrobusStation
+        if (station != null) {
+            _uiState.update {
+                it.copy(
+                    showMetrobusFade = false,
+                    metrobusFadeCompleteStation = station,
+                    nearbyMetrobusStation = null,
+                    interactionPrompt = null
+                )
+            }
+        }
+    }
+
+    fun consumeMetrobusFadeComplete() {
+        _uiState.update { it.copy(metrobusFadeCompleteStation = null) }
     }
 }
