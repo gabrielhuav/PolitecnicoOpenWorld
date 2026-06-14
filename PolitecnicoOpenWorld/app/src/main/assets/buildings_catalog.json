@@ -87,4 +87,29 @@
     "baseWidthMeters": 260.0,
     "baseHeightMeters": 172.4
   }
+,
+  {
+    "id": "uam_azc_iz",
+    "displayName": "UAM Azca (Izq)",
+    "assetPath": "BUILDINGS/UAM_Azc/UAM_Azc_Iz.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 200.0,
+    "baseHeightMeters": 168.0
+  },
+  {
+    "id": "uam_azc_d",
+    "displayName": "UAM Azca (Der)",
+    "assetPath": "BUILDINGS/UAM_Azc/UAM_Azc_D.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 200.0,
+    "baseHeightMeters": 168.0
+  },
+  {
+    "id": "autobuses_norte",
+    "displayName": "Autobuses del Norte",
+    "assetPath": "BUILDINGS/CENTRAL/Central_norte.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 250.0,
+    "baseHeightMeters": 300.0
+  }
 ]
