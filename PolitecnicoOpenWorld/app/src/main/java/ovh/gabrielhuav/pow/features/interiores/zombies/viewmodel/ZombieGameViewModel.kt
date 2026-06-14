@@ -86,6 +86,8 @@ class ZombieGameViewModel(
     internal var lastRangedShotMs = 0L
     internal var yPressStartMs = 0L
     internal var lastRoomId: String? = null
+    // INTERIORES EXPANDIBLE: lobby destino del diálogo "volver al lobby" (campus-agnóstico).
+    internal var pendingLobbyTarget: String? = null
 
     init {
         _state.update { it.copy(isLoading = true) }
@@ -337,8 +339,15 @@ class ZombieGameViewModel(
         return !r.isBlockedPixel(x, y)
     }
 
+    // INTERIORES EXPANDIBLE: el lobby (campus) que tiene una puerta hacia este edificio.
+    // Campus-agnóstico (sirve para ESCOM, FES, UAM…); cae al lobby de ESCOM si no se halla.
+    internal fun lobbyForBuilding(buildingId: String): ZombieRoom =
+        ZombieRoomCatalog.rooms.firstOrNull { room ->
+            room.type == ZoneType.LOBBY && room.doors.any { it.targetRoomId == buildingId }
+        } ?: ZombieRoomCatalog.roomById(ZombieRoomCatalog.LOBBY_ID)!!
+
     internal fun spawnAtLobbyDoorFor(fromBuildingId: String): Pair<Float, Float>? {
-        val lobby = ZombieRoomCatalog.roomById(ZombieRoomCatalog.LOBBY_ID) ?: return null
+        val lobby = lobbyForBuilding(fromBuildingId)
         val door = lobby.doors.firstOrNull { it.targetRoomId == fromBuildingId } ?: return null
         val hb = door.hitboxFrac.toWorldRect(lobby.worldWidth, lobby.worldHeight)
 
@@ -658,7 +667,8 @@ class ZombieGameViewModel(
             }
             lastRoomId = diedInRoom.id
             _state.update { it.copy(showWastedScreen = false, playerHealth = 100f) }
-            loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
+            // Respawn en el lobby DEL CAMPUS donde moriste (ESCOM o FES), no siempre ESCOM.
+            loadRoom(ZombieRoomCatalog.indexOfRoom(lobbyForBuilding(diedInRoom.id).id))
         }
     }
 
@@ -700,7 +710,11 @@ class ZombieGameViewModel(
                 .contains(s.playerX, s.playerY)
         } ?: return
 
-        if (door.targetRoomId == ZombieRoomCatalog.LOBBY_ID && room.type == ZoneType.BUILDING) {
+        // Puerta de un EDIFICIO hacia el lobby de SU campus (ESCOM o FES): pide confirmación.
+        // Generalizado: el destino es cualquier sala LOBBY (antes sólo el lobby de ESCOM).
+        val targetIsLobby = ZombieRoomCatalog.roomById(door.targetRoomId)?.type == ZoneType.LOBBY
+        if (targetIsLobby && room.type == ZoneType.BUILDING) {
+            pendingLobbyTarget = door.targetRoomId
             _state.update { it.copy(showExitToLobbyDialog = true) }
             return
         }
@@ -709,7 +723,9 @@ class ZombieGameViewModel(
 
     fun confirmExitToLobby() {
         _state.update { it.copy(showExitToLobbyDialog = false) }
-        goToRoom(ZombieRoomCatalog.LOBBY_ID)
+        // Vuelve al lobby del campus (ESCOM por defecto si no hay destino pendiente).
+        goToRoom(pendingLobbyTarget ?: ZombieRoomCatalog.LOBBY_ID)
+        pendingLobbyTarget = null
     }
 
     fun dismissExitToLobby() {

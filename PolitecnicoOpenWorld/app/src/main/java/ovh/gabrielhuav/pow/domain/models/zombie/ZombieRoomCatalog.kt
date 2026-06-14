@@ -113,30 +113,92 @@ object ZombieRoomCatalog {
                 )
             )
         }
-        // ─── INTERIOR DE FES ARAGÓN ──────────────────────────────────────────
-        // Sala independiente (no es parte del anillo de ESCOM). Tipo LOBBY = zona
-        // segura: sin zombis (el server sólo los siembra en BUILDING), sin "limpiar
-        // para salir", y al morir te cura en sitio (ver ZombieGameViewModel WASTED).
-        // Su única puerta sale al mapa global. Para añadir zombis/cuartos propios de
-        // FES en el futuro: pásala a BUILDING y/o agrega más salas "fes_*".
+        // ─── CAMPUS FES ARAGÓN (Interiores expandible) ───────────────────────
+        // FES se añade como un CAMPUS aparte (lobby propio + sus edificios) usando el
+        // helper genérico `campusRooms`. Para sumar otra universidad (p. ej. UAM) basta
+        // con OTRO addAll(campusRooms(...)) — sin tocar el anillo bespoke de ESCOM.
+        // El "Edificio Principal" de FES reusa TEMPORALMENTE el fondo del de ESCOM.
+        addAll(
+            campusRooms(
+                lobbyId = FES_ID,
+                lobbyDisplayName = "FES Aragón",
+                lobbyBackground = "BUILDINGS/FES_Ar/FES_Arg_int.webp",
+                buildings = listOf(
+                    BuildingSpec(
+                        id = "fes_edificio",
+                        displayName = "Edificio Principal",
+                        backgroundAsset = "ZOMBIES_MOD/interiors/za_edificio.webp",
+                        zombieCount = 4
+                    )
+                )
+            )
+        )
+    }
+
+    // ─── INTERIORES EXPANDIBLE: definición de un campus ───────────────────────
+    // Un edificio de un campus nuevo. (id estable, nombre visible, fondo, nº de zombis.)
+    data class BuildingSpec(
+        val id: String,
+        val displayName: String,
+        val backgroundAsset: String,
+        val zombieCount: Int
+    )
+
+    // Genera las salas de un CAMPUS de Interiores: 1 lobby (zona segura, sin zombis) +
+    // N edificios (con zombis), con las puertas YA cableadas. Reutilizable para FES, UAM…
+    // El lobby tiene una puerta por edificio (auto-distribuidas arriba) + salida al mapa;
+    // cada edificio tiene una puerta de regreso a SU lobby (campus-agnóstico). ESCOM NO usa
+    // este helper (mantiene su anillo bespoke). Las matrices son border-only y deben
+    // coincidir con el servidor (LOBBY 30×30, BUILDING 30×20).
+    private fun campusRooms(
+        lobbyId: String,
+        lobbyDisplayName: String,
+        lobbyBackground: String,
+        buildings: List<BuildingSpec>
+    ): List<ZombieRoom> = buildList {
+        val lobbyDoors = buildList {
+            buildings.forEachIndexed { i, b ->
+                val left = (0.18f + i * 0.22f).coerceAtMost(0.78f)
+                add(ZoneDoor(NormRect(left, 0.12f, left + 0.16f, 0.24f), b.id, b.displayName, DoorKind.TO_BUILDING))
+            }
+            add(ZoneDoor(NormRect(0.42f, 0.86f, 0.58f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD))
+        }
         add(
             ZombieRoom(
-                id = FES_ID,
+                id = lobbyId,
                 type = ZoneType.LOBBY,
-                backgroundAsset = "BUILDINGS/FES_Ar/FES_Arg_int.webp",
-                displayName = "FES Aragón",
+                backgroundAsset = lobbyBackground,
+                displayName = lobbyDisplayName,
                 worldWidth = 1920f,
                 worldHeight = 1080f,
                 zoom = 1.0f,
                 playerSpawnFrac = NormPoint(0.50f, 0.55f),
-                doors = listOf(
-                    ZoneDoor(NormRect(0.42f, 0.86f, 0.58f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
-                ),
+                doors = lobbyDoors,
                 zombieCount = 0,
                 gridCols = 30,
                 collisionMatrix = LOBBY_MATRIX
             )
         )
+        buildings.forEach { b ->
+            add(
+                ZombieRoom(
+                    id = b.id,
+                    type = ZoneType.BUILDING,
+                    backgroundAsset = b.backgroundAsset,
+                    displayName = b.displayName,
+                    worldWidth = 1920f,
+                    worldHeight = 1080f,
+                    zoom = 1.0f,
+                    playerSpawnFrac = NormPoint(0.50f, 0.55f),
+                    doors = listOf(
+                        ZoneDoor(NormRect(0.40f, 0.86f, 0.60f, 0.99f), lobbyId, "Volver al Lobby", DoorKind.GENERIC)
+                    ),
+                    zombieCount = b.zombieCount,
+                    gridCols = 40,
+                    collisionMatrix = BUILDING_MATRIX
+                )
+            )
+        }
     }
 
     private val byId = rooms.associateBy { it.id }

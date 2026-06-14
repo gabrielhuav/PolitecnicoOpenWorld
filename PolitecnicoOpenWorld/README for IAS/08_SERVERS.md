@@ -134,11 +134,14 @@ BUILDING_ORDER=[...7 edificios...]   EFFECTS=[...6 SkillEffect...]
 > (`ZombieRoomCatalog`) hasta reemplazarse por `collision_matrices.json` (cargado con
 > `loadMatrixOverrides`). / Default matrices are border-only and must match client rows/cols.
 >
-> **🆕 Sala FES (`FES_ID='fes_interior'`):** `ROOMS` incluye la sala de Interiores de FES Aragón como
-> **tipo `LOBBY`** (zona segura). `ensureRoomState` sólo siembra zombis en salas `BUILDING`, así que FES
-> **no tiene zombis**: el server sólo **relaya** a sus jugadores (separados por `roomId`). Debe seguir
-> coincidiendo con `ZombieRoomCatalog.FES_ID` del cliente. Para zombis propios de FES: cámbiala a
-> `BUILDING` con `zombieCount>0` aquí y en el cliente.
+> **🆕 Campus FES (`FES_ID='fes_interior'` + `fes_edificio`):** `ROOMS` incluye el campus de FES Aragón:
+> el **lobby `fes_interior`** (tipo `LOBBY`, zona segura, sólo relay — `ensureRoomState` no siembra zombis
+> en `LOBBY`) y el **edificio `fes_edificio`** (tipo `BUILDING`, `zombieCount=4` → el server SÍ siembra
+> zombis autoritativos). Deben coincidir con `ZombieRoomCatalog` del cliente (ids, tipos, matrices
+> border-only). **Patrón expandible:** para añadir UAM, replica estas dos líneas con ids `uam_*`. El
+> servidor del **mundo abierto** (`Multiplayer/`) **no cambia** con esto: la transición open-world→interior
+> la maneja el cliente (VM Activity-scoped mantiene conexión y coordenadas; el back stack preserva
+> `world_map`), así que al salir del interior vuelves al mismo punto.
 
 ### IA de zombis v2 / zombie AI v2
 

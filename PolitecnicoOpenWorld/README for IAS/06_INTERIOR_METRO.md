@@ -50,9 +50,11 @@ Luego: fade (`showEscomDoorFade`) → `onEscomDoorFadeComplete` → `MainActivit
 → navega a la ruta. **FES Aragón** usa el **motor de INTERIORES** (`interiores_zombies`, mismos controles,
 opciones, botones de acción y HUD ZONA/vida/MODO) pero arranca en **SU PROPIA sala**: la puerta
 **"Entrada FES Aragón"** (`WorldMapDesigner` la backfillea/reubica junto al TP de FES si falta o está lejos;
-assetPath `DOORS/ESCOM_DOOR.webp`) → **`interiores_zombies?startRoom=fes_interior`** → sala
-`ZombieRoomCatalog.FES_ID` (fondo `BUILDINGS/FES_Ar/FES_Arg_int.webp`, tipo LOBBY = zona segura, salida al
-mapa). Ver 05 (sala de inicio parametrizable) y 08 (server). La pantalla simple `FesInteriorScreen`
+assetPath `DOORS/ESCOM_DOOR.webp`) → **`interiores_zombies?startRoom=fes_interior`** → **campus FES**:
+lobby `ZombieRoomCatalog.FES_ID` (fondo `FES_Arg_int.webp`, zona segura, salida al mapa) **con una puerta a
+su edificio `fes_edificio`** ("Edificio Principal", copia temporal del de ESCOM, con zombis online). El
+campus se genera con el helper expandible `campusRooms(...)`. Ver 05 (Interiores expandible) y 08 (server).
+La pantalla simple `FesInteriorScreen`
 (ruta `interior_fes`, `InteriorScreenBase`) **existe pero la puerta YA NO la usa**: queda reservada.
 Cada `InteriorBuilding` (incl. `FES_INTERIOR`) define su `routeName`, `location` y `backgroundAsset` (ver 03).
 
