@@ -13,6 +13,48 @@ import ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase
  * Patrón: idéntico a WorldMapWanted.kt (extensiones internas sobre el VM).
  */
 
+// ─── MODO HISTORIA: PRANKEDY COMO ACOMPAÑANTE (campaña ENCB) ──────────────────
+
+// Coordenadas de la ENCB y radio del "vecindario": el acompañante SOLO se enciende aquí.
+private const val ENCB_LAT = 19.5001588
+private const val ENCB_LON = -99.1450298
+// Radio "ajustado": ~220 m. Incluye el spawn EXACTO de la ENCB (dist≈0, tras el outro) pero
+// EXCLUYE a ESCOM (~505 m del spawn de la intro), para que el acompañante NO se encienda
+// prematuramente si el game loop del mundo corre con location=ESCOM antes del outro.
+private const val ENCB_NEIGHBORHOOD_DEG = 0.002
+
+/**
+ * Enciende a Prankedy en modo ACOMPAÑANTE (fase HIRED) UNA sola vez, y SOLO si:
+ *  - estamos en una sesión de campaña (`inCampaign == true`), y
+ *  - el jugador está en el vecindario de la ENCB.
+ * Fija el objetivo "Lleva a un lugar seguro a Prankedy". En MUNDO LIBRE (inCampaign=false)
+ * o fuera de la ENCB no hace NADA (no interfiere con el Prankedy hostil del menú de Opciones
+ * ni con otros mapas). La bandera `prankedyCompanionActivated` evita re-spawns cada tick;
+ * `setStorySpawn` la re-arma en cada entrada de campaña.
+ */
+internal fun WorldMapViewModel.maybeSpawnPrankedyCompanion(
+    playerLoc: GeoPoint,
+    now: Long = System.currentTimeMillis()
+) {
+    if (!inCampaign || prankedyCompanionActivated) return
+    val dLat = playerLoc.latitude - ENCB_LAT
+    val dLon = playerLoc.longitude - ENCB_LON
+    if (kotlin.math.sqrt(dLat * dLat + dLon * dLon) > ENCB_NEIGHBORHOOD_DEG) return
+
+    prankedyCompanionActivated = true
+    prankedyManager.spawnCompanion(playerLoc, roadNetwork, now)
+    setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY)
+    _uiState.update {
+        it.copy(
+            prankedyEnabled = true,
+            prankedyLocation = prankedyManager.location,
+            prankedyVisible  = prankedyManager.location != null && !it.isDriving,
+            prankedyPhase    = prankedyManager.phase,
+            prankedyAnimState = prankedyManager.animState
+        )
+    }
+}
+
 // ─── TICK PRINCIPAL ──────────────────────────────────────────────────────────
 
 // ─── SPAWN Y CONTROL ─────────────────────────────────────────────────────────

@@ -86,8 +86,16 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
   que **reusa `StoryIntroScreen`** con `sequenceId = StoryComicCatalog.ENCB_OUTRO_ID` (paneles
   `STORY/INTRO/IntroPOW9..11.webp`, vía la nueva `StoryComicCatalog.sequence(id)`). Al ser otra pantalla, la
   **UI de juego (joysticks/indicadores/objetivo) queda oculta**. Al terminar `IntroPOW11` (o "Saltar"/"Volver")
-  se entra al **MUNDO LIBRE** ya configurado de la campaña (spawn/objetivo/slot fijados al INICIAR la intro):
-  `navigate("world_map") { popUpTo("story_outro"){inclusive=true} }`.
+  **`MainActivity` llama `setStorySpawn(19.5001588, -99.1450298)` (coords EXCLUSIVAS de la ENCB, solo aquí)** y
+  entra al mundo: `navigate("world_map") { popUpTo("story_outro"){inclusive=true} }`. `setStorySpawn` activa
+  `inCampaign=true`. El **MUNDO LIBRE** del menú NO se altera: `onNavigateToMap` fuerza `inCampaign=false` y
+  `fetchCurrentLocation`→`updateInitialLocation(SPAWN_ESCOM_LAT/LON)` (spawn ESCOM canónico intacto).
+- **🆕 Prankedy ACOMPAÑANTE (solo campaña ENCB):** al entrar al mundo en la ENCB,
+  `WorldMapPrankedy.maybeSpawnPrankedyCompanion` (en el game loop, gateado por `inCampaign` && vecindario ENCB,
+  bandera `prankedyCompanionActivated` re-armada por `setStorySpawn`) enciende a Prankedy en fase **`HIRED`**
+  (`spawnCompanion`): te **sigue** con animaciones `p_walk`/`p_run` (sin atacarte) y fija el objetivo
+  **`MissionCatalog.ESCOLTAR_PRANKEDY`** → el widget muestra **"Lleva a un lugar seguro a Prankedy"**. En
+  MUNDO LIBRE no aparece (sigue el Prankedy hostil manual del menú de Opciones). Ver 03 (fase HIRED) y 04.
 - **🆕 Editor in-game del cuadro de texto:** como el recuadro blanco está a distinta altura por panel, el botón
   **"Editar"** activa un editor para **mover** (arrastrar o Subir/Bajar), **redimensionar** (Alto ±) y cambiar
   el **tamaño de letra** (Letra ±) del cuadro, **por panel**. Se persiste en

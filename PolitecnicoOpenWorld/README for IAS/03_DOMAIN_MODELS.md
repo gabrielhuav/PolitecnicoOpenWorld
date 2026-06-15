@@ -276,8 +276,13 @@ chases the player and throws a gas tank, but **sides with you** to attack any NP
 VM-driven per tick, client-local. Not hireable.
 
 **Fases / phases** (`PrankedyState.kt`): `PrankedyPhase` = `NOT_HIRED` (= activo/hostil, estado vivo),
-`DEAD` (timer de respawn); `HIRED` quedó **sin uso** (legado). `PrankedyAnimState` = `IDLE, WALK, RUN,
-RUN_TANQUE, ATTACK`.
+`DEAD` (timer de respawn); **🆕 `HIRED` = modo ACOMPAÑANTE del Modo Historia** (campaña ENCB): te sigue de
+forma pacífica (sin atacarte ni lanzar el tanque). Se entra con **`spawnCompanion(nearPlayer, roadNetwork, now)`**
+(= `spawn` + `phase=HIRED`); en `tick`, si `phase==HIRED` corre **`tickFollow`** en vez de `tickCombat`
+(camina `p_walk` si estás algo lejos —`FOLLOW_WALK_DIST`≈20 m—, corre `p_run` si más, IDLE si cerca
+—`FOLLOW_STOP_DIST`≈10 m—; engancha a la calle como el combate). `PrankedyAnimState` = `IDLE, WALK, RUN,
+RUN_TANQUE, ATTACK`. La activación (solo `inCampaign` && vecindario ENCB) la hace
+`WorldMapPrankedy.maybeSpawnPrankedyCompanion` (ver 04/07).
 
 **Constantes clave / key constants:**
 ```

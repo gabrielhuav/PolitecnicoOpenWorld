@@ -341,11 +341,17 @@ class MainActivity : ComponentActivity() {
                                 school = SchoolCatalog.default,
                                 sequenceId = ovh.gabrielhuav.pow.domain.models.StoryComicCatalog.ENCB_OUTRO_ID,
                                 onBegin = {
+                                    // SPAWN ENCB EXCLUSIVO DEL MODO HISTORIA: solo aquí, al
+                                    // terminar el outro (IntroPOW11), el jugador aparece en la
+                                    // ENCB. setStorySpawn fija la posición y activa inCampaign=true.
+                                    worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
                                     navController.navigate("world_map") {
                                         popUpTo("story_outro") { inclusive = true }
                                     }
                                 },
                                 onBack = {
+                                    // Misma transición narrativa (saltar/volver el outro): ENCB.
+                                    worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
                                     navController.navigate("world_map") {
                                         popUpTo("story_outro") { inclusive = true }
                                     }

@@ -426,7 +426,11 @@ class WorldMapViewModel(
                         checkCollectibleProximity(location.latitude, location.longitude)
 
                         // MODO HISTORIA: ¿llegó al objetivo de campaña (p. ej. la ENCB)?
-                        if (inCampaign) checkObjectiveProgress(location)
+                        // y, en el vecindario de la ENCB, enciende a Prankedy acompañante.
+                        if (inCampaign) {
+                            checkObjectiveProgress(location)
+                            maybeSpawnPrankedyCompanion(location)
+                        }
 
                         checkDestinationArrival()
 
@@ -1345,6 +1349,7 @@ class WorldMapViewModel(
         // Solución: hacer que el spawn de campaña se comporte como un TELETRANSPORTE, que sí
         // re-descarga (gateMapDownloadAfterTeleport NO está gateado por mapPrepStarted).
         inCampaign = true            // sesión de campaña → habilita el auto-guardado al salir
+        prankedyCompanionActivated = false  // re-arma el encendido del acompañante en la ENCB
         npcWarmupCycles = 0          // re-arma el warm-up de NPCs del gate de carga
         lastNetworkFetchLocation = null  // fuerza el re-fetch de calles alrededor de la escuela
         lastFetchAttemptMs = 0L
@@ -1406,6 +1411,9 @@ class WorldMapViewModel(
     // salir). MUNDO LIBRE pone inCampaign=false y no auto-guarda. Ver WorldMapSaveGame.kt.
     internal var campaignSchoolId: String = "escom"
     internal var inCampaign: Boolean = false
+    // MODO HISTORIA: el acompañante Prankedy (fase HIRED) se enciende una sola vez por entrada
+    // de campaña, solo en el vecindario de la ENCB. setStorySpawn re-arma esta bandera.
+    internal var prankedyCompanionActivated: Boolean = false
     // Slot de guardado activo (1..SaveGameRepository.SLOT_COUNT). Lo fija MainActivity al
     // COMENZAR/CARGAR; el auto-guardado al salir escribe en este slot.
     internal var campaignSlot: Int = 1
