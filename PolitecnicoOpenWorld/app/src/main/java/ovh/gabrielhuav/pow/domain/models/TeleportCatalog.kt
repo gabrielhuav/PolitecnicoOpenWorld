@@ -10,15 +10,14 @@ data class TeleportZone(
 // Catálogo global. Aquí agregarás todos tus nuevos destinos.
 object TeleportCatalog {
     val zones = listOf(
-        TeleportZone("ESCOM", 19.504603, -99.145985),
-        TeleportZone("Plaza Torres", 19.506750, -99.144139),
-        TeleportZone("FES ARAGON", 19.475167, -99.047444),
-        TeleportZone("Coyote de Nezahualcóyotl", 19.399806, -99.028167),
-        TeleportZone("Shine CTO", 19.459049, -99.163251),
+        TeleportZone("ESCOM", 19.504694, -99.146633),
+        TeleportZone("Plaza Torres", 19.506550, -99.144139),
+        TeleportZone("FES ARAGON", 19.474867, -99.043343),
+        TeleportZone("Coyote de Nezahualcóyotl", 19.399791, -99.028970),
+        TeleportZone("Shine CTO", 19.459038, -99.163328),
         TeleportZone("Deportivo - Campo Béisbol", 19.494200, -99.129200),
         TeleportZone("Deportivo - Campo Fútbol", 19.492800, -99.127800),
         TeleportZone("Estadio Azteca", 19.302889, -99.150460),
-        TeleportZone("UAM Azcapotzalco", 19.504331, -99.186130),
-        TeleportZone("Autobuses del Norte", 19.479282, -99.139952)
+        TeleportZone("CECyT 9 Bátiz (Voca 9)", 19.453533, -99.175314)
     )
 }

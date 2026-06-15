@@ -1,7 +1,7 @@
 package ovh.gabrielhuav.pow
 
 import android.Manifest
-import android.content.Context
+import android.content.ComponentCallbacks2
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -36,6 +36,7 @@ import androidx.preference.PreferenceManager
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
+import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.AuditorioScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.BibliotecaScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.CafeteriaScreen
@@ -47,46 +48,23 @@ import ovh.gabrielhuav.pow.features.interiores.escom.ui.MetrobusStationInteriorS
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.PalapasScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoBeisScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoFutbolScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.Voca9Screen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.FesInteriorScreen
-import ovh.gabrielhuav.pow.features.main_menu.ui.StoryModeScreen
-import ovh.gabrielhuav.pow.features.main_menu.ui.StoryIntroScreen
-import ovh.gabrielhuav.pow.domain.models.SchoolCatalog
-import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 // REFACTOR: extensiones del VM (WorldMapProviders.kt) → requieren import explícito.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
-// MODO HISTORIA: guardado/carga de la partida (JSON). Las extensiones del VM viven
-// en WorldMapSaveGame.kt y requieren import explícito desde fuera del paquete viewmodel.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
-import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
-import ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieGameScreen
+import ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
 import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.EasterEggDiscoveryDialog
 import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.ShineCTOScreen
-
-// Spawn fijo: coordenadas del punto de teletransporte "ESCOM" (ver TeleportCatalog).
-// El juego SIEMPRE arranca en ESCOM, sin depender del GPS real del dispositivo.
-private const val SPAWN_ESCOM_LAT = 19.504603
-private const val SPAWN_ESCOM_LON = -99.145985
-
 class MainActivity : ComponentActivity() {
-
-    // i18n: aplica el idioma elegido (Ajustes) envolviendo el Context base antes de
-    // que se inflen los recursos. "" = idioma del sistema. Ver i18n/LocaleHelper.kt.
-    override fun attachBaseContext(newBase: Context) {
-        val lang = ovh.gabrielhuav.pow.data.repository.SettingsRepository(newBase).getLanguage()
-        super.attachBaseContext(ovh.gabrielhuav.pow.i18n.LocaleHelper.wrap(newBase, lang))
-    }
 
     private val worldMapViewModel: WorldMapViewModel by viewModels {
         WorldMapViewModel.Factory(this)
@@ -102,10 +80,6 @@ class MainActivity : ComponentActivity() {
     }
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
-    // Persistencia de la partida del MODO HISTORIA (campaña). Es el punto de DI:
-    // MainActivity escribe el guardado al INICIAR/CARGAR (las pantallas solo emiten intención).
-    private val campaignRepository: CampaignRepository by lazy { CampaignRepository(this) }
-
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -113,7 +87,7 @@ class MainActivity : ComponentActivity() {
             permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
             fetchCurrentLocation()
         } else {
-            worldMapViewModel.updateInitialLocation(SPAWN_ESCOM_LAT, SPAWN_ESCOM_LON)
+            worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
         }
     }
 
@@ -124,13 +98,12 @@ class MainActivity : ComponentActivity() {
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+        if (level >= TRIM_MEMORY_RUNNING_LOW) {
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.clearCaches()
-            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.clearCaches()
-            ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieSpriteManager.clearCaches()
         }
     }
 
@@ -168,24 +141,6 @@ class MainActivity : ComponentActivity() {
 
                     val navController = rememberNavController()
 
-                    // Diálogo de GUARDAR (selector de slots) a nivel de Activity: lo disparan
-                    // tanto el mapa global como los interiores (callback onRequestSaveGame),
-                    // porque el estado vive en el worldMapViewModel (Activity-scoped).
-                    var showSaveDialog by remember { mutableStateOf(false) }
-                    if (showSaveDialog) {
-                        ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
-                            title = "Guardar partida",
-                            summaries = SaveGameRepository(this@MainActivity).summaries(),
-                            mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.SAVE,
-                            onPick = { slot ->
-                                showSaveDialog = false
-                                worldMapViewModel.saveGame(this@MainActivity, slot)
-                                android.widget.Toast.makeText(this@MainActivity, "Partida guardada (slot $slot)", android.widget.Toast.LENGTH_SHORT).show()
-                            },
-                            onDismiss = { showSaveDialog = false }
-                        )
-                    }
-
                     NavHost(navController = navController, startDestination = "main_menu") {
 
                         composable(
@@ -197,9 +152,6 @@ class MainActivity : ComponentActivity() {
                         ) {
                             MainMenuScreen(
                                 onNavigateToMap = { isMultiplayer, playerName ->
-                                    // MUNDO LIBRE (sin campaña): no es una sesión de Modo Historia,
-                                    // así que NO se auto-guarda al salir.
-                                    worldMapViewModel.inCampaign = false
                                     if (isMultiplayer && !playerName.isNullOrBlank()) {
                                         // Usando la variable de entorno de Gradle (BuildConfig)
                                         worldMapViewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL, playerName)
@@ -216,146 +168,6 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToCollectibles = {
                                     navController.navigate("collectibles")
-                                },
-                                onNavigateToStory = {
-                                    navController.navigate("story_mode")
-                                }
-                            )
-                        }
-
-                        // ─── MODO HISTORIA / Campaña ──────────────────────────────
-                        // Prólogo + selección de escuela. "COMENZAR" lleva a la intro
-                        // ("Listo para Iniciar"); "CARGAR PARTIDA" reanuda directo en la
-                        // escuela guardada. ESCOM es la única jugable por ahora.
-                        composable(route = "story_mode") {
-                            // CARGAR PARTIDA: muestra el selector de slots. Al elegir un slot con
-                            // partida, restaura el estado completo (posición/vida/buscado/vehículo/
-                            // skin/NPCs/objetivo) y entra al mundo.
-                            var showLoadDialog by remember { mutableStateOf(false) }
-                            StoryModeScreen(
-                                onStartCampaign = { school ->
-                                    navController.navigate("story_intro/${school.id}")
-                                },
-                                onLoadCampaign = { showLoadDialog = true },
-                                onBack = { navController.popBackStack() }
-                            )
-                            if (showLoadDialog) {
-                                ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
-                                    title = "Cargar partida",
-                                    summaries = SaveGameRepository(this@MainActivity).summaries(),
-                                    mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.LOAD,
-                                    onPick = { slot ->
-                                        showLoadDialog = false
-                                        worldMapViewModel.disconnectFromMultiplayer()
-                                        if (worldMapViewModel.loadGame(this@MainActivity, slot)) {
-                                            navController.navigate("world_map") {
-                                                popUpTo("main_menu") { inclusive = true }
-                                            }
-                                        }
-                                    },
-                                    onDismiss = { showLoadDialog = false }
-                                )
-                            }
-                        }
-
-                        // ─── MODO HISTORIA · Intro ("Listo para Iniciar") ─────────
-                        // Placeholder narrativo. Al INICIAR, GUARDA la partida (para que
-                        // "CARGAR PARTIDA" funcione luego) y arranca el mundo en la escuela.
-                        composable(
-                            route = "story_intro/{schoolId}",
-                            arguments = listOf(
-                                androidx.navigation.navArgument("schoolId") {
-                                    type = androidx.navigation.NavType.StringType
-                                }
-                            )
-                        ) { backStackEntry ->
-                            val schoolId = backStackEntry.arguments?.getString("schoolId")
-                            val school = SchoolCatalog.schools.firstOrNull { it.id == schoolId }
-                                ?: SchoolCatalog.default
-                            StoryIntroScreen(
-                                school = school,
-                                onBegin = {
-                                    // COMENZAR partida NUEVA: ocupa el primer slot VACÍO (para no
-                                    // pisar otras partidas) y fija el objetivo de la Misión 1.
-                                    // El estado se guardará al salir o con "Guardar partida".
-                                    campaignRepository.saveCampaign(school.id)
-                                    val slot = SaveGameRepository(this@MainActivity).firstEmptySlot()
-                                    SaveGameRepository(this@MainActivity).clear(slot)
-                                    worldMapViewModel.campaignSchoolId = school.id
-                                    worldMapViewModel.campaignSlot = slot
-                                    worldMapViewModel.disconnectFromMultiplayer()
-                                    worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
-                                    worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.first)
-                                    // Tras el último panel de la intro (IntroPOW8), la transición
-                                    // entra al PRIMER interior de la campaña: el Lobby de la ENCB.
-                                    // popUpTo main_menu inclusive DESTRUYE la pantalla de la intro
-                                    // (story_intro) y libera los bitmaps IntroPOW1..8 de memoria.
-                                    navController.navigate("encb_lobby") {
-                                        popUpTo("main_menu") { inclusive = true }
-                                    }
-                                },
-                                onBack = { navController.popBackStack() }
-                            )
-                        }
-
-                        // ─── MODO HISTORIA · Lobby ENCB (primer interior JUGABLE) ──
-                        // Reusa el MOTOR DE INTERIORES (ZombieGameScreen) con la sala
-                        // `encb_lobby` (zona segura, sin zombis/mano/waypoints; ver
-                        // ZombieRoomCatalog). Mismos controles, cámara, colisiones y aura
-                        // que el lobby de ESCOM. Es una sesión de campaña offline
-                        // (onBegin ya hizo disconnectFromMultiplayer). Al salir (menú de
-                        // Opciones → "Salir al mapa") arranca el open world ya configurado
-                        // (spawn/objetivo/slot); popUpTo encb_lobby inclusive libera el lobby.
-                        composable(route = "encb_lobby") {
-                            val wmState by worldMapViewModel.uiState.collectAsState()
-                            ZombieGameScreen(
-                                onExitToWorld = {
-                                    navController.navigate("world_map") {
-                                        popUpTo("encb_lobby") { inclusive = true }
-                                    }
-                                },
-                                isMultiplayer = wmState.isMultiplayer,
-                                playerName = wmState.playerName,
-                                onNavigateToSettings = { navController.navigate("settings") },
-                                debugHitboxes = false,
-                                startRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID,
-                                onRequestSaveGame = { showSaveDialog = true },
-                                // Waypoint final de ENCB_LAB2 → reanuda la narrativa (cómic
-                                // ENCB_OUTRO). popUpTo encb_lobby inclusive libera el motor de
-                                // interiores (la cadena de salas) antes de mostrar el cómic.
-                                onPlayStoryOutro = {
-                                    navController.navigate("story_outro") {
-                                        popUpTo("encb_lobby") { inclusive = true }
-                                    }
-                                }
-                            )
-                        }
-
-                        // ─── MODO HISTORIA · Outro (2ª parte de la intro: IntroPOW9..11) ──
-                        // Reusa el visor de cómic (StoryIntroScreen) con la secuencia
-                        // ENCB_OUTRO. Al ser otra pantalla, la UI de juego (joysticks/objetivo)
-                        // queda oculta por completo. Al terminar el último panel (IntroPOW11) o
-                        // saltar, se entra al MUNDO LIBRE ya configurado en la campaña
-                        // (spawn/objetivo/slot fijados al INICIAR la intro).
-                        composable(route = "story_outro") {
-                            StoryIntroScreen(
-                                school = SchoolCatalog.default,
-                                sequenceId = ovh.gabrielhuav.pow.domain.models.StoryComicCatalog.ENCB_OUTRO_ID,
-                                onBegin = {
-                                    // SPAWN ENCB EXCLUSIVO DEL MODO HISTORIA: solo aquí, al
-                                    // terminar el outro (IntroPOW11), el jugador aparece en la
-                                    // ENCB. setStorySpawn fija la posición y activa inCampaign=true.
-                                    worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
-                                    navController.navigate("world_map") {
-                                        popUpTo("story_outro") { inclusive = true }
-                                    }
-                                },
-                                onBack = {
-                                    // Misma transición narrativa (saltar/volver el outro): ENCB.
-                                    worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
-                                    navController.navigate("world_map") {
-                                        popUpTo("story_outro") { inclusive = true }
-                                    }
                                 }
                             )
                         }
@@ -415,7 +227,7 @@ class MainActivity : ComponentActivity() {
                                         swap = settingsState.tempSwapControls
                                     )
 
-                                    android.widget.Toast.makeText(this@MainActivity, getString(R.string.settings_controls_saved), android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(this@MainActivity, "Configuración de controles guardada", android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 // Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {
@@ -426,10 +238,7 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("main_menu") { inclusive = true }
                                         launchSingleTop = true
                                     }
-                                },
-                                // i18n: idioma actual + cambio (persiste; SettingsScreen recrea la Activity).
-                                currentLanguage = settingsState.language,
-                                onLanguageChanged = { tag -> settingsViewModel.changeLanguage(tag) }
+                                }
                             )
                         }
 
@@ -445,9 +254,6 @@ class MainActivity : ComponentActivity() {
                             // Lógica compartida para volver al menú principal
                             val navigateBackToMainMenu = remember(worldMapViewModel, navController) {
                                 {
-                                    // AUTO-GUARDADO: si estamos en Modo Historia, persistimos el
-                                    // estado completo en el slot activo antes de volver al menú.
-                                    if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity, worldMapViewModel.campaignSlot)
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     navController.navigate("main_menu") {
                                         popUpTo("world_map") { inclusive = true }
@@ -475,8 +281,6 @@ class MainActivity : ComponentActivity() {
                                     dismissButton = {
                                         TextButton(onClick = {
                                             showExitDialog = false
-                                            // AUTO-GUARDADO también al cerrar la app desde el diálogo.
-                                            if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity, worldMapViewModel.campaignSlot)
                                             worldMapViewModel.disconnectFromMultiplayer()
                                             this@MainActivity.finish()
                                         }) {
@@ -501,26 +305,40 @@ class MainActivity : ComponentActivity() {
                                 // Callback que se dispara cuando el video de ZombiHand
                                 // termina y hay un edificio destino pendiente.
                                 onNavigateToInterior = { routeName ->
+                                    // Esta función ya no se usa para zombis, se centraliza abajo.
                                     navController.navigate(routeName)
-                                },
-                                // "Guardar partida" → abre el selector de slots (a nivel Activity).
-                                onRequestSaveGame = { showSaveDialog = true }
+                                }
                             )
                             // ─── ShineCTO: navegar al interior cuando el VM lo indique ───
                             val uiState by worldMapViewModel.uiState.collectAsState()
+
+                            // CENTRALIZACIÓN DE NAVEGACIÓN:
+                            // Este bloque vigila cuándo termina un video de carga (mano zombi) 
+                            // o un fade de puerta, y mueve la pantalla al destino guardado.
+                            LaunchedEffect(uiState.showZombiVideo, uiState.escomDoorFadeComplete) {
+                                val target = uiState.pendingInteriorDestination
+                                
+                                // CASO A: Terminó el video de la mano zombi (ZombiHand)
+                                if (!uiState.showZombiVideo && worldMapViewModel.pendingZombieMinigame && target != null) {
+                                    val roomId = if (target == InteriorBuilding.VOCA9) "voca9" else "lobby_campus"
+                                    android.util.Log.d("Navigation", "Navegando a Lobby Zombie: $roomId")
+                                    worldMapViewModel.clearPendingInteriorDestination()
+                                    worldMapViewModel.clearPendingZombieMinigame()
+                                    navController.navigate("zombie_minigame/$roomId")
+                                }
+
+                                // CASO B: Terminó el fade de la puerta (ESCOM / Voca 9 / Deportivos)
+                                if (uiState.escomDoorFadeComplete) {
+                                    val route = worldMapViewModel.consumeEscomDoorNavigation()
+                                    android.util.Log.d("Navigation", "Navegando a Puerta: $route")
+                                    navController.navigate(route)
+                                }
+                            }
 
                             LaunchedEffect(uiState.navigateToShineCTO) {
                                 if (uiState.navigateToShineCTO) {
                                     worldMapViewModel.consumeNavigateToShineCTO()
                                     navController.navigate("shinecto_interior")
-                                }
-                            }
-
-                            // NUEVO BLOQUE: Navegar al minijuego tras el fade de la puerta
-                            LaunchedEffect(uiState.escomDoorFadeComplete) {
-                                if (uiState.escomDoorFadeComplete) {
-                                    val destination = worldMapViewModel.consumeEscomDoorNavigation() ?: "interiores_zombies"
-                                    navController.navigate(destination)
                                 }
                             }
 
@@ -554,6 +372,11 @@ class MainActivity : ComponentActivity() {
                         // Cada edificio es un destino independiente. Al hacer back o
                         // tocar el botón de salir, se hace popBackStack hasta world_map
                         // (sin inclusive) para preservar el estado del open world.
+                        composable(route = "interior_voca9") {
+                            Voca9Screen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
                         composable(route = "interior_auditorio") {
                             AuditorioScreen(
                                 onExit = { navController.popBackStack("world_map", inclusive = false) }
@@ -596,11 +419,6 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(route = "interior_deportivo_futbol") {
                             DeportivoFutbolScreen(
-                                onExit = { navController.popBackStack("world_map", inclusive = false) }
-                            )
-                        }
-                        composable(route = "interior_fes") {
-                            FesInteriorScreen(
                                 onExit = { navController.popBackStack("world_map", inclusive = false) }
                             )
                         }
@@ -661,24 +479,23 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ─── INTERIORES (motor de salas) ──────────────────────────
-                        // Salas con IA de zombis, combate y pantalla de victoria. Es el
-                        // sistema de INTERIORES de cualquier edificio: el arg opcional
-                        // `startRoom` elige la sala inicial (lobby de ESCOM por defecto;
-                        // las puertas FES pasan `fes_interior`). Al salir, popBackStack
-                        // hasta world_map para preservar el open world.
+                        // ─── MINIJUEGO DE ZOMBIS ──────────────────────────────────
+                        // Anillo circular de cuartos con IA de zombis, combate mutuo
+                        // y pantalla de victoria. Al ganar (o al salir), se hace
+                        // popBackStack hasta world_map para preservar el open world.
+                        // debugHitboxes = true para calibrar exitHitbox y ver la
+                        // matriz de colisión pintada sobre cada cuarto.
                         composable(
-                            route = "interiores_zombies?startRoom={startRoom}",
+                            route = "zombie_minigame/{roomId}",
                             arguments = listOf(
-                                androidx.navigation.navArgument("startRoom") {
+                                androidx.navigation.navArgument("roomId") {
                                     type = androidx.navigation.NavType.StringType
-                                    defaultValue = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
+                                    defaultValue = "lobby_campus"
                                 }
                             )
                         ) { backStackEntry ->
+                            val roomId = backStackEntry.arguments?.getString("roomId") ?: "lobby_campus"
                             val wmState by worldMapViewModel.uiState.collectAsState()
-                            val startRoom = backStackEntry.arguments?.getString("startRoom")
-                                ?: ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
                             ZombieGameScreen(
                                 onExitToWorld = {
                                     navController.popBackStack("world_map", inclusive = false)
@@ -687,10 +504,7 @@ class MainActivity : ComponentActivity() {
                                 playerName = wmState.playerName,
                                 onNavigateToSettings = { navController.navigate("settings") },
                                 debugHitboxes = false,
-                                startRoomId = startRoom,
-                                // "Guardar partida" disponible también en interiores (mismo selector
-                                // de slots; el estado del mundo se conserva en el worldMapViewModel).
-                                onRequestSaveGame = { showSaveDialog = true }
+                                initialRoomId = roomId
                             )
                         }
 
@@ -736,9 +550,34 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun fetchCurrentLocation() {
-        // SPAWN FIJO EN ESCOM: el juego siempre arranca en el punto del teletransporte
-        // "ESCOM" (ver TeleportCatalog), sin depender del GPS real del dispositivo. Antes
-        // se spawneaba en la ubicación GPS; ahora ESCOM es el punto de inicio canónico.
-        worldMapViewModel.updateInitialLocation(SPAWN_ESCOM_LAT, SPAWN_ESCOM_LON)
+        // FIX spawn impreciso: lastLocation es una CACHÉ (puede ser de hace horas o de
+        // otra zona → "no es exactamente mi ubicación"). Pedimos una lectura FRESCA de
+        // alta precisión y solo caemos a lastLocation / default si falla o tarda.
+        try {
+            fusedLocationClient.getCurrentLocation(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null
+            ).addOnSuccessListener { location ->
+                if (location != null) {
+                    worldMapViewModel.updateInitialLocation(location.latitude, location.longitude)
+                } else {
+                    fetchLastLocationFallback()
+                }
+            }.addOnFailureListener { fetchLastLocationFallback() }
+        } catch (_: SecurityException) {
+            worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
+        }
+    }
+
+    private fun fetchLastLocationFallback() {
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null)
+                    worldMapViewModel.updateInitialLocation(location.latitude, location.longitude)
+                else
+                    worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
+            }
+        } catch (_: SecurityException) {
+            worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
+        }
     }
 }

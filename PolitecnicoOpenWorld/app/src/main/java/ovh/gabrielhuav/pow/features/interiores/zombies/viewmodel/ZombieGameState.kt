@@ -62,6 +62,7 @@ data class ZombieGameState(
     val controlType: ControlType = ControlType.JOYSTICK,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
+    val selectedSkin: ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin.LAZARO,
     val isLoading: Boolean = true,
     val remotePlayers: List<RemoteZombiePlayer> = emptyList(),
     val interiorNpcs: List<RemoteZombiePlayer> = emptyList(),

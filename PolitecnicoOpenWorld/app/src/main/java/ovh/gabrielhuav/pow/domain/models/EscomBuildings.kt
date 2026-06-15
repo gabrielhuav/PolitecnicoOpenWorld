@@ -23,61 +23,75 @@ enum class InteriorBuilding(
     val backgroundAsset: String,
     val routeName: String
 ) {
+    VOCA9(
+        id = "voca9",
+        displayName = "CECyT 9 Bátiz",
+        location = GeoPoint(19.45370, -99.17540),
+        backgroundAsset = "BUILDINGS/IPN/building_voca9.webp",
+        routeName = "interior_voca9"
+    ),
     AUDITORIO(
-        id = "auditorio",
+        id = "za_auditorio",
         displayName = "Auditorio",
         location = GeoPoint(19.50480, -99.14640),
-        backgroundAsset = "INTERIORS/ESCOM/z_auditorio.webp",
+        backgroundAsset = "ZOMBIS_MOD/interiores/za_auditorio.webp",
         routeName = "interior_auditorio"
     ),
     BIBLIOTECA(
-        id = "biblioteca",
+        id = "za_biblioteca",
         displayName = "Biblioteca",
         location = GeoPoint(19.50445, -99.14705),
-        backgroundAsset = "INTERIORS/ESCOM/z_biblioteca.webp",
+        backgroundAsset = "ZOMBIS_MOD/interiores/za_biblioteca.webp",
         routeName = "interior_biblioteca"
     ),
     CAFETERIA(
-        id = "cafeteria",
+        id = "za_cafeteria",
         displayName = "Cafetería",
         location = GeoPoint(19.50425, -99.14660),
-        backgroundAsset = "INTERIORS/ESCOM/z_cafeteria.webp",
+        backgroundAsset = "ZOMBIS_MOD/interiores/za_cafeteria.webp",
         routeName = "interior_cafeteria"
     ),
     EDIFICIO(
-        id = "edificio",
+        id = "za_edificio",
         displayName = "Edificio Principal",
         location = GeoPoint(19.50470, -99.14695),
-        backgroundAsset = "INTERIORS/ESCOM/z_edificio.webp",
+        backgroundAsset = "ZOMBIS_MOD/interiores/za_edificio.webp",
         routeName = "interior_edificio"
     ),
     ESTACIONAMIENTO(
-        id = "estacionamiento",
+        id = "za_estacionamiento",
         displayName = "Estacionamiento",
         location = GeoPoint(19.50435, -99.14635),
-        backgroundAsset = "INTERIORS/ESCOM/z_estacionamiento.webp",
+        backgroundAsset = "ZOMBIS_MOD/interiores/za_estacionamiento.webp",
         routeName = "interior_estacionamiento"
     ),
     PALAPAS(
-        id = "palapas",
+        id = "za_palapas",
         displayName = "Palapas",
         location = GeoPoint(19.50460, -99.14720),
-        backgroundAsset = "INTERIORS/ESCOM/z_palapas.webp",
+        backgroundAsset = "ZOMBIS_MOD/interiores/za_palapas.webp",
         routeName = "interior_palapas"
     ),
     CANCHAS_FUTBOL(
-        id = "canchas_futbol",
+        id = "za_canchas_futbol",
         displayName = "Canchas de Futbol",
         location = GeoPoint(19.50425, -99.14705),
-        backgroundAsset = "INTERIORS/ESCOM/z_canchas_futbol.webp",
+        backgroundAsset = "ZOMBIS_MOD/interiores/za_canchas_futbol.webp",
         routeName = "interior_canchas_futbol"
     ),
-    FES_INTERIOR(
-        id = "fes_interior",
-        displayName = "Interior FES Aragón",
-        location = GeoPoint(19.474867, -99.043344),
-        backgroundAsset = "BUILDINGS/FES_Ar/FES_Arg_int.webp",
-        routeName = "interior_fes"
+    DEPORTIVO_BEIS(
+        id = "deportivo_beis",
+        displayName = "Campo de Béisbol",
+        location = GeoPoint(19.494200, -99.129200),
+        backgroundAsset = "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp",
+        routeName = "interior_deportivo_beis"
+    ),
+    DEPORTIVO_FUTBOL(
+        id = "deportivo_futbol",
+        displayName = "Campo de Fútbol",
+        location = GeoPoint(19.492800, -99.127800),
+        backgroundAsset = "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp",
+        routeName = "interior_deportivo_futbol"
     );
 
     companion object {

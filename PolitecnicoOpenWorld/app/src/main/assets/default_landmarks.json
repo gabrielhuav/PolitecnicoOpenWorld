@@ -1,16 +1,5 @@
 [
   {
-    "id": 0,
-    "name": "Shine CTO",
-    "latitude": 19.45908368468466,
-    "longitude": -99.163338,
-    "assetPath": "BUILDINGS/BAR/Shine.webp",
-    "scaleFactor": 0.15,
-    "rotationAngle": 0.0,
-    "scaleX": 0.15,
-    "scaleY": 0.15
-  },
-  {
     "assetPath": "BUILDINGS/IPN/building_escom.webp",
     "id": 1,
     "latitude": 19.504694288807826,
@@ -77,18 +66,18 @@
     "scaleY": 1.1525397
   },
   {
+    "assetPath": "LUGARES/deportivomiguelaleman/deportivo_miguelaleman.webp",
     "id": 16,
-    "name": "Deportivo Miguel Alemán",
     "latitude": 19.493527319568926,
     "longitude": -99.1285163718726,
+    "name": "Deportivo Miguel Alemán",
     "rotationAngle": 360.0,
     "scaleFactor": 2.3671417,
-    "assetPath": "PLACES/deportivo_miguel_aleman/deportivo_miguelaleman.webp",
     "scaleX": 2.3671417,
     "scaleY": 2.3671417
   },
   {
-    "assetPath": "PLACES/plaza_lindavista/plaza_lindavista.webp",
+    "assetPath": "LUGARES/plazalindavista/plaza_lindavista.webp",
     "id": 17,
     "latitude": 19.491605000000032,
     "longitude": -99.13371099999956,
@@ -121,47 +110,36 @@
     "scaleY": 0.6
   },
   {
-    "assetPath": "BUILDINGS/UAM_Azc/UAM_Azc_D.webp",
+    "assetPath": "BUILDINGS/IPN/building_voca9.webp",
+    "id": 21,
+    "latitude": 19.45353301845074,
+    "longitude": -99.17531464484065,
+    "name": "CECyT 9 Bátiz",
+    "rotationAngle": 210.94089,
+    "scaleFactor": 1.5762501,
+    "scaleX": 1.5762501,
+    "scaleY": 1.5337452
+  },
+  {
+    "assetPath": "BUILDINGS/BAR/Shine.webp",
     "id": 24,
-    "latitude": 19.503302494691965,
-    "longitude": -99.18495543723525,
-    "name": "UAM Azca (Der)",
-    "rotationAngle": 0.0,
-    "scaleFactor": 1.8429654,
-    "scaleX": 1.8429654,
-    "scaleY": 0.15
+    "latitude": 19.459038634489882,
+    "longitude": -99.1633282698258,
+    "name": "Shine CTO",
+    "rotationAngle": 285.0,
+    "scaleFactor": 0.5,
+    "scaleX": 0.5,
+    "scaleY": 0.5
   },
   {
-    "assetPath": "BUILDINGS/UAM_Azc/UAM_Azc_Iz.webp",
+    "assetPath": "DOORS/VOCA9_DOOR.png",
     "id": 26,
-    "latitude": 19.503301670025046,
-    "longitude": -99.18843913077218,
-    "name": "UAM Azca (Izq)",
-    "rotationAngle": 0.0,
-    "scaleFactor": 1.8429654,
-    "scaleX": 1.8429654,
-    "scaleY": 0.15
-  },
-  {
-    "assetPath": "BUILDINGS/CENTRAL/Central_norte.webp",
-    "id": 27,
-    "latitude": 19.479223101634144,
-    "longitude": -99.13899800970746,
-    "name": "Autobuses del Norte",
-    "rotationAngle": 0.0,
-    "scaleFactor": 1.5481718,
-    "scaleX": 1.5481718,
-    "scaleY": 0.15
-  },
-  {
-    "assetPath": "DOORS/ESCOM_DOOR.webp",
-    "id": 30,
-    "latitude": 19.475661999653365,
-    "longitude": -99.04685319953819,
-    "name": "Entrada FES Aragón",
-    "rotationAngle": 108.4186,
-    "scaleFactor": 1.408552,
-    "scaleX": 1.408552,
-    "scaleY": 1.3911047
+    "latitude": 19.453126000000065,
+    "longitude": -99.17549400000011,
+    "name": "Puerta Voca 9",
+    "rotationAngle": 37.0,
+    "scaleFactor": 0.11,
+    "scaleX": 0.11,
+    "scaleY": 0.11
   }
 ]
