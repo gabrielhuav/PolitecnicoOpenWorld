@@ -154,12 +154,23 @@ fun StoryIntroScreen(
 
         // Imagen del panel.
         if (image != null) {
-            Image(
-                bitmap = image,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            // MARCO DE AISLAMIENTO: contenedor elástico (fillMaxSize) con padding seguro para
+            // que la ilustración "flote" centrada con margen y NUNCA toque los bordes físicos.
+            // ContentScale.Fit garantiza que el panel COMPLETO quepa sin recortes en celulares
+            // alargados/pequeños; el fondo oscuro temático del BoxWithConstraints rellena
+            // limpiamente las barras laterales/superiores ("letterbox") cuando la proporción
+            // de la imagen no coincide con la de la pantalla.
+            Box(
+                modifier = Modifier.fillMaxSize().padding(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    bitmap = image,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
         } else {
             Box(modifier = Modifier.fillMaxSize().background(
                 Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
