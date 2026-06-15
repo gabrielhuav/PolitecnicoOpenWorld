@@ -1,57 +1,1795 @@
 [
-    {
-        "hitboxFrac": {
-            "bottom": 0.18371633,
-            "left": 0.33312076,
-            "right": 0.37312078,
-            "top": 0.14371629
-        },
-        "kind": "GENERIC",
-        "label": "Politécnico",
-        "targetRoomId": "Politécnico"
-    },
-    {
-        "hitboxFrac": {
-            "bottom": 0.22315936,
-            "left": 0.35125622,
-            "right": 0.39125624,
-            "top": 0.18315935
-        },
-        "kind": "GENERIC",
-        "label": "Instituto del Petróleo",
-        "targetRoomId": "Instituto del Petróleo"
-    },
-    {
-        "hitboxFrac": {
-            "bottom": 0.27225062,
-            "left": 0.37613133,
-            "right": 0.41613132,
-            "top": 0.23225065
-        },
-        "kind": "GENERIC",
-        "label": "Autobuses del Norte",
-        "targetRoomId": "Autobuses del Norte"
-    },
-    {
-        "hitboxFrac": {
-            "bottom": 0.30336168,
-            "left": 0.3899374,
-            "right": 0.42993736,
-            "top": 0.2633617
-        },
-        "kind": "GENERIC",
-        "label": "La Raza",
-        "targetRoomId": "La Raza"
-    },
-    {
-        "hitboxFrac": {
-            "bottom": 0.41320693,
-            "left": 0.37903538,
-            "right": 0.41903538,
-            "top": 0.373207
-        },
-        "kind": "GENERIC",
-        "label": "Garibaldi - Lagunilla",
-        "targetRoomId": "Garibaldi - Lagunilla"
-    }
+   {
+      "hitboxFrac": {
+         "bottom": 0.18371633,
+         "left": 0.33312076,
+         "right": 0.37312078,
+         "top": 0.14371629
+      },
+      "kind": "GENERIC",
+      "label": "Politécnico",
+      "targetRoomId": "Politécnico"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.22315936,
+         "left": 0.35125622,
+         "right": 0.39125624,
+         "top": 0.18315935
+      },
+      "kind": "GENERIC",
+      "label": "Instituto del Petróleo",
+      "targetRoomId": "Instituto del Petróleo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.27225062,
+         "left": 0.37613133,
+         "right": 0.41613132,
+         "top": 0.23225065
+      },
+      "kind": "GENERIC",
+      "label": "Autobuses del Norte",
+      "targetRoomId": "Autobuses del Norte"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.30336168,
+         "left": 0.3899374,
+         "right": 0.42993736,
+         "top": 0.2633617
+      },
+      "kind": "GENERIC",
+      "label": "La Raza",
+      "targetRoomId": "La Raza"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.23431896,
+         "left": 0.4081937,
+         "right": 0.44819346,
+         "top": 0.19431888
+      },
+      "kind": "GENERIC",
+      "label": "Lindavista",
+      "targetRoomId": "Lindavista"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.2515673,
+         "left": 0.4389027,
+         "right": 0.47890276,
+         "top": 0.21156734
+      },
+      "kind": "GENERIC",
+      "label": "Deportivo 18 de Marzo",
+      "targetRoomId": "Deportivo 18 de Marzo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.26116604,
+         "left": 0.47845197,
+         "right": 0.5184523,
+         "top": 0.22116603
+      },
+      "kind": "GENERIC",
+      "label": "La Villa - Basílica",
+      "targetRoomId": "La Villa - Basílica"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.25080413,
+         "left": 0.5421167,
+         "right": 0.5821167,
+         "top": 0.21080418
+      },
+      "kind": "GENERIC",
+      "label": "Martín Carrera",
+      "targetRoomId": "Martín Carrera"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.20699467,
+         "left": 0.47301534,
+         "right": 0.5130153,
+         "top": 0.16699462
+      },
+      "kind": "GENERIC",
+      "label": "Indios Verdes",
+      "targetRoomId": "Indios Verdes"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.27698085,
+         "left": 0.41683677,
+         "right": 0.4568368,
+         "top": 0.23698084
+      },
+      "kind": "GENERIC",
+      "label": "Potrero",
+      "targetRoomId": "Potrero"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.22427925,
+         "left": 0.30592293,
+         "right": 0.34592292,
+         "top": 0.18427934
+      },
+      "kind": "GENERIC",
+      "label": "Vallejo",
+      "targetRoomId": "Vallejo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.23294315,
+         "left": 0.2770468,
+         "right": 0.3170468,
+         "top": 0.19294308
+      },
+      "kind": "GENERIC",
+      "label": "Norte 45",
+      "targetRoomId": "Norte 45"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.22131181,
+         "left": 0.2190544,
+         "right": 0.25905436,
+         "top": 0.18131179
+      },
+      "kind": "GENERIC",
+      "label": "Ferrería - Arena Ciudad de México",
+      "targetRoomId": "Ferrería - Arena Ciudad de México"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.22663212,
+         "left": 0.15999158,
+         "right": 0.19999154,
+         "top": 0.18663222
+      },
+      "kind": "GENERIC",
+      "label": "UAM Azcapotzalco",
+      "targetRoomId": "UAM Azcapotzalco"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.17643015,
+         "left": 0.09974196,
+         "right": 0.13974193,
+         "top": 0.13643016
+      },
+      "kind": "GENERIC",
+      "label": "El Rosario",
+      "targetRoomId": "El Rosario"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.2244108,
+         "left": 0.117082536,
+         "right": 0.15708247,
+         "top": 0.18441081
+      },
+      "kind": "GENERIC",
+      "label": "Aquiles Serdán",
+      "targetRoomId": "Aquiles Serdán"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.20725204,
+         "left": 0.1288631,
+         "right": 0.1688631,
+         "top": 0.16725196
+      },
+      "kind": "GENERIC",
+      "label": "Tezozómoc",
+      "targetRoomId": "Tezozómoc"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.26961172,
+         "left": 0.14407508,
+         "right": 0.18407513,
+         "top": 0.22961177
+      },
+      "kind": "GENERIC",
+      "label": "Camarones",
+      "targetRoomId": "Camarones"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.3076656,
+         "left": 0.14245448,
+         "right": 0.18245442,
+         "top": 0.2676656
+      },
+      "kind": "GENERIC",
+      "label": "Refinería",
+      "targetRoomId": "Refinería"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.3509109,
+         "left": 0.1374578,
+         "right": 0.17745787,
+         "top": 0.31091085
+      },
+      "kind": "GENERIC",
+      "label": "Tacuba",
+      "targetRoomId": "Tacuba"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.410583,
+         "left": 0.13240388,
+         "right": 0.17240389,
+         "top": 0.370583
+      },
+      "kind": "GENERIC",
+      "label": "San Joaquín",
+      "targetRoomId": "San Joaquín"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.45966512,
+         "left": 0.13509461,
+         "right": 0.17509452,
+         "top": 0.41966516
+      },
+      "kind": "GENERIC",
+      "label": "Polanco",
+      "targetRoomId": "Polanco"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.48853776,
+         "left": 0.13172734,
+         "right": 0.1717274,
+         "top": 0.44853768
+      },
+      "kind": "GENERIC",
+      "label": "Auditorio",
+      "targetRoomId": "Auditorio"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5481112,
+         "left": 0.13240129,
+         "right": 0.17240126,
+         "top": 0.50811124
+      },
+      "kind": "GENERIC",
+      "label": "Constituyentes",
+      "targetRoomId": "Constituyentes"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.58412343,
+         "left": 0.15127997,
+         "right": 0.19128,
+         "top": 0.5441235
+      },
+      "kind": "GENERIC",
+      "label": "Tacubaya",
+      "targetRoomId": "Tacubaya"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.65876,
+         "left": 0.15472837,
+         "right": 0.19472837,
+         "top": 0.61876
+      },
+      "kind": "GENERIC",
+      "label": "San Antonio",
+      "targetRoomId": "San Antonio"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.69344455,
+         "left": 0.1488557,
+         "right": 0.18885563,
+         "top": 0.6534446
+      },
+      "kind": "GENERIC",
+      "label": "Mixcoac",
+      "targetRoomId": "Mixcoac"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7469987,
+         "left": 0.14020146,
+         "right": 0.18020143,
+         "top": 0.7069989
+      },
+      "kind": "GENERIC",
+      "label": "Barranca del Muerto",
+      "targetRoomId": "Barranca del Muerto"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7036023,
+         "left": 0.18707192,
+         "right": 0.2270718,
+         "top": 0.66360235
+      },
+      "kind": "GENERIC",
+      "label": "Insurgentes Sur",
+      "targetRoomId": "Insurgentes Sur"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7104579,
+         "left": 0.22276995,
+         "right": 0.26277,
+         "top": 0.67045784
+      },
+      "kind": "GENERIC",
+      "label": "Hospital 20 de Noviembre",
+      "targetRoomId": "Hospital 20 de Noviembre"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7179372,
+         "left": 0.25735074,
+         "right": 0.29735067,
+         "top": 0.6779372
+      },
+      "kind": "GENERIC",
+      "label": "Zapata",
+      "targetRoomId": "Zapata"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.73425144,
+         "left": 0.29755375,
+         "right": 0.33755374,
+         "top": 0.6942514
+      },
+      "kind": "GENERIC",
+      "label": "Parque de los Venados",
+      "targetRoomId": "Parque de los Venados"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7520662,
+         "left": 0.32390496,
+         "right": 0.36390498,
+         "top": 0.7120662
+      },
+      "kind": "GENERIC",
+      "label": "Eje Central",
+      "targetRoomId": "Eje Central"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7524032,
+         "left": 0.3600279,
+         "right": 0.40002793,
+         "top": 0.7124032
+      },
+      "kind": "GENERIC",
+      "label": "Ermita",
+      "targetRoomId": "Ermita"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7678769,
+         "left": 0.46147618,
+         "right": 0.5014764,
+         "top": 0.7278769
+      },
+      "kind": "GENERIC",
+      "label": "Mexicaltzingo",
+      "targetRoomId": "Mexicaltzingo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.77890027,
+         "left": 0.5430529,
+         "right": 0.58305293,
+         "top": 0.73890024
+      },
+      "kind": "GENERIC",
+      "label": "Atlalilco",
+      "targetRoomId": "Atlalilco"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7677207,
+         "left": 0.60777545,
+         "right": 0.6477755,
+         "top": 0.7277207
+      },
+      "kind": "GENERIC",
+      "label": "Iztapalapa",
+      "targetRoomId": "Iztapalapa"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7838728,
+         "left": 0.64361393,
+         "right": 0.6836139,
+         "top": 0.7438728
+      },
+      "kind": "GENERIC",
+      "label": "Cerro de la Estrella",
+      "targetRoomId": "Cerro de la Estrella"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.80022097,
+         "left": 0.687294,
+         "right": 0.727294,
+         "top": 0.760221
+      },
+      "kind": "GENERIC",
+      "label": "UAM-I",
+      "targetRoomId": "UAM-I"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.8210703,
+         "left": 0.74116766,
+         "right": 0.7811677,
+         "top": 0.78107035
+      },
+      "kind": "GENERIC",
+      "label": "Constitución de 1917",
+      "targetRoomId": "Constitución de 1917"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.37084678,
+         "left": 0.35474592,
+         "right": 0.3947459,
+         "top": 0.33084688
+      },
+      "kind": "GENERIC",
+      "label": "Tlatelolco",
+      "targetRoomId": "Tlatelolco"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.44224942,
+         "left": 0.34297732,
+         "right": 0.3829773,
+         "top": 0.40224937
+      },
+      "kind": "GENERIC",
+      "label": "Hidalgo",
+      "targetRoomId": "Hidalgo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.4848795,
+         "left": 0.33424255,
+         "right": 0.3742425,
+         "top": 0.44487953
+      },
+      "kind": "GENERIC",
+      "label": "Balderas",
+      "targetRoomId": "Balderas"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.45981544,
+         "left": 0.33812356,
+         "right": 0.37812355,
+         "top": 0.41981554
+      },
+      "kind": "GENERIC",
+      "label": "Juárez",
+      "targetRoomId": "Juárez"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.43371484,
+         "left": 0.47852823,
+         "right": 0.51852846,
+         "top": 0.39371476
+      },
+      "kind": "GENERIC",
+      "label": "Niños Héroes - Poder Judicial CDMX",
+      "targetRoomId": "Niños Héroes - Poder Judicial CDMX"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5691708,
+         "left": 0.30261934,
+         "right": 0.34261933,
+         "top": 0.5291707
+      },
+      "kind": "GENERIC",
+      "label": "Centro Médico",
+      "targetRoomId": "Centro Médico"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.61442953,
+         "left": 0.29971772,
+         "right": 0.33971772,
+         "top": 0.5744296
+      },
+      "kind": "GENERIC",
+      "label": "Etiopía - Plaza de la Transparencia",
+      "targetRoomId": "Etiopía - Plaza de la Transparencia"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7574895,
+         "left": 0.22512476,
+         "right": 0.26512462,
+         "top": 0.7174894
+      },
+      "kind": "GENERIC",
+      "label": "Coyoacán",
+      "targetRoomId": "Coyoacán"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7854541,
+         "left": 0.20334692,
+         "right": 0.2433469,
+         "top": 0.74545413
+      },
+      "kind": "GENERIC",
+      "label": "Viveros - Derechos Humanos",
+      "targetRoomId": "Viveros - Derechos Humanos"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.8125802,
+         "left": 0.18197267,
+         "right": 0.22197263,
+         "top": 0.7725802
+      },
+      "kind": "GENERIC",
+      "label": "Miguel Ángel de Quevedo",
+      "targetRoomId": "Miguel Ángel de Quevedo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.8597183,
+         "left": 0.19749613,
+         "right": 0.23749617,
+         "top": 0.81971836
+      },
+      "kind": "GENERIC",
+      "label": "Copilco",
+      "targetRoomId": "Copilco"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.901967,
+         "left": 0.22205395,
+         "right": 0.262054,
+         "top": 0.861967
+      },
+      "kind": "GENERIC",
+      "label": "Universidad",
+      "targetRoomId": "Universidad"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.34061882,
+         "left": 0.43662623,
+         "right": 0.4766262,
+         "top": 0.3006188
+      },
+      "kind": "GENERIC",
+      "label": "Misterios",
+      "targetRoomId": "Misterios"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.3559613,
+         "left": 0.47436485,
+         "right": 0.5143645,
+         "top": 0.31596133
+      },
+      "kind": "GENERIC",
+      "label": "Valle Gómez",
+      "targetRoomId": "Valle Gómez"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.37135342,
+         "left": 0.50000095,
+         "right": 0.54000103,
+         "top": 0.33135343
+      },
+      "kind": "GENERIC",
+      "label": "Consulado",
+      "targetRoomId": "Consulado"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.38921127,
+         "left": 0.5430984,
+         "right": 0.5830984,
+         "top": 0.3492113
+      },
+      "kind": "GENERIC",
+      "label": "Eduardo Molina",
+      "targetRoomId": "Eduardo Molina"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.41130838,
+         "left": 0.6265117,
+         "right": 0.66651165,
+         "top": 0.37130836
+      },
+      "kind": "GENERIC",
+      "label": "Oceanía",
+      "targetRoomId": "Oceanía"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.4580314,
+         "left": 0.6211676,
+         "right": 0.66116756,
+         "top": 0.41803142
+      },
+      "kind": "GENERIC",
+      "label": "Terminal Aérea",
+      "targetRoomId": "Terminal Aérea"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5015547,
+         "left": 0.6300111,
+         "right": 0.67001104,
+         "top": 0.4615546
+      },
+      "kind": "GENERIC",
+      "label": "Hangares",
+      "targetRoomId": "Hangares"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.53556776,
+         "left": 0.6898949,
+         "right": 0.7298949,
+         "top": 0.49556774
+      },
+      "kind": "GENERIC",
+      "label": "Pantitlán",
+      "targetRoomId": "Pantitlán"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.34814486,
+         "left": 0.02297937,
+         "right": 0.06297932,
+         "top": 0.30814487
+      },
+      "kind": "GENERIC",
+      "label": "Cuatro Caminos",
+      "targetRoomId": "Cuatro Caminos"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.34808317,
+         "left": 0.07389855,
+         "right": 0.11389856,
+         "top": 0.3080832
+      },
+      "kind": "GENERIC",
+      "label": "Panteones",
+      "targetRoomId": "Panteones"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.362202,
+         "left": 0.18733594,
+         "right": 0.22733596,
+         "top": 0.3222019
+      },
+      "kind": "GENERIC",
+      "label": "Cuitláhuac",
+      "targetRoomId": "Cuitláhuac"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.3805294,
+         "left": 0.21006598,
+         "right": 0.25006592,
+         "top": 0.34052938
+      },
+      "kind": "GENERIC",
+      "label": "Popotla",
+      "targetRoomId": "Popotla"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.39660513,
+         "left": 0.23065701,
+         "right": 0.27065706,
+         "top": 0.35660514
+      },
+      "kind": "GENERIC",
+      "label": "Colegio Militar",
+      "targetRoomId": "Colegio Militar"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.41619712,
+         "left": 0.2529123,
+         "right": 0.29291233,
+         "top": 0.3761971
+      },
+      "kind": "GENERIC",
+      "label": "Normal",
+      "targetRoomId": "Normal"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.42739302,
+         "left": 0.28511482,
+         "right": 0.3251148,
+         "top": 0.38739303
+      },
+      "kind": "GENERIC",
+      "label": "San Cosme",
+      "targetRoomId": "San Cosme"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.4367012,
+         "left": 0.31533837,
+         "right": 0.35533834,
+         "top": 0.39670122
+      },
+      "kind": "GENERIC",
+      "label": "Revolución",
+      "targetRoomId": "Revolución"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.4476822,
+         "left": 0.37253594,
+         "right": 0.4125359,
+         "top": 0.40768224
+      },
+      "kind": "GENERIC",
+      "label": "Bellas Artes",
+      "targetRoomId": "Bellas Artes"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.45135954,
+         "left": 0.39579275,
+         "right": 0.43579277,
+         "top": 0.41135958
+      },
+      "kind": "GENERIC",
+      "label": "Allende",
+      "targetRoomId": "Allende"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.46515074,
+         "left": 0.41200525,
+         "right": 0.45200524,
+         "top": 0.4251508
+      },
+      "kind": "GENERIC",
+      "label": "Zócalo - Tenochtitlán",
+      "targetRoomId": "Zócalo - Tenochtitlán"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.48946977,
+         "left": 0.40778017,
+         "right": 0.44778013,
+         "top": 0.4494698
+      },
+      "kind": "GENERIC",
+      "label": "Pino Suárez",
+      "targetRoomId": "Pino Suárez"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.53437173,
+         "left": 0.39881253,
+         "right": 0.43881255,
+         "top": 0.4943719
+      },
+      "kind": "GENERIC",
+      "label": "San Antonio Abad",
+      "targetRoomId": "San Antonio Abad"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.56086284,
+         "left": 0.39458522,
+         "right": 0.43458524,
+         "top": 0.5208628
+      },
+      "kind": "GENERIC",
+      "label": "Chabacano",
+      "targetRoomId": "Chabacano"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5919626,
+         "left": 0.3891814,
+         "right": 0.4291814,
+         "top": 0.5519626
+      },
+      "kind": "GENERIC",
+      "label": "Viaducto",
+      "targetRoomId": "Viaducto"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.61970186,
+         "left": 0.3839251,
+         "right": 0.42392507,
+         "top": 0.57970184
+      },
+      "kind": "GENERIC",
+      "label": "Xola",
+      "targetRoomId": "Xola"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.64644444,
+         "left": 0.3800913,
+         "right": 0.42009136,
+         "top": 0.6064445
+      },
+      "kind": "GENERIC",
+      "label": "Villa de Cortés",
+      "targetRoomId": "Villa de Cortés"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7222182,
+         "left": 0.3666538,
+         "right": 0.40665382,
+         "top": 0.6822182
+      },
+      "kind": "GENERIC",
+      "label": "Portales",
+      "targetRoomId": "Portales"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.787495,
+         "left": 0.34657505,
+         "right": 0.386575,
+         "top": 0.74749506
+      },
+      "kind": "GENERIC",
+      "label": "General Anaya",
+      "targetRoomId": "General Anaya"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.82304734,
+         "left": 0.3647137,
+         "right": 0.40471363,
+         "top": 0.7830473
+      },
+      "kind": "GENERIC",
+      "label": "Tasqueña",
+      "targetRoomId": "Tasqueña"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.6293739,
+         "left": 0.15717709,
+         "right": 0.19717708,
+         "top": 0.589374
+      },
+      "kind": "GENERIC",
+      "label": "San Pedro de los Pinos",
+      "targetRoomId": "San Pedro de los Pinos"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.59803927,
+         "left": 0.09124331,
+         "right": 0.13124332,
+         "top": 0.5580393
+      },
+      "kind": "GENERIC",
+      "label": "Observatorio",
+      "targetRoomId": "Observatorio"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.57215476,
+         "left": 0.19228941,
+         "right": 0.23228945,
+         "top": 0.5321547
+      },
+      "kind": "GENERIC",
+      "label": "Patriotismo",
+      "targetRoomId": "Patriotismo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5698407,
+         "left": 0.24031186,
+         "right": 0.28031188,
+         "top": 0.52984077
+      },
+      "kind": "GENERIC",
+      "label": "Chilpancingo",
+      "targetRoomId": "Chilpancingo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.56440985,
+         "left": 0.35496116,
+         "right": 0.39496115,
+         "top": 0.52440995
+      },
+      "kind": "GENERIC",
+      "label": "Lázaro Cárdenas",
+      "targetRoomId": "Lázaro Cárdenas"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5583831,
+         "left": 0.4625802,
+         "right": 0.5025802,
+         "top": 0.518383
+      },
+      "kind": "GENERIC",
+      "label": "Jamaica",
+      "targetRoomId": "Jamaica"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5593415,
+         "left": 0.5030468,
+         "right": 0.543047,
+         "top": 0.51934147
+      },
+      "kind": "GENERIC",
+      "label": "Mixiuhca",
+      "targetRoomId": "Mixiuhca"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.56324774,
+         "left": 0.54946595,
+         "right": 0.589466,
+         "top": 0.5232478
+      },
+      "kind": "GENERIC",
+      "label": "Velódromo",
+      "targetRoomId": "Velódromo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5642234,
+         "left": 0.61695784,
+         "right": 0.65695786,
+         "top": 0.52422345
+      },
+      "kind": "GENERIC",
+      "label": "Ciudad Deportiva",
+      "targetRoomId": "Ciudad Deportiva"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.567933,
+         "left": 0.6582009,
+         "right": 0.6982009,
+         "top": 0.527933
+      },
+      "kind": "GENERIC",
+      "label": "Puebla",
+      "targetRoomId": "Puebla"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.67519057,
+         "left": 0.37350127,
+         "right": 0.41350126,
+         "top": 0.63519055
+      },
+      "kind": "GENERIC",
+      "label": "Nativitas",
+      "targetRoomId": "Nativitas"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.40625244,
+         "left": 0.31989965,
+         "right": 0.35989967,
+         "top": 0.3662525
+      },
+      "kind": "GENERIC",
+      "label": "Buenavista",
+      "targetRoomId": "Buenavista"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.41457927,
+         "left": 0.37768278,
+         "right": 0.41768274,
+         "top": 0.3745793
+      },
+      "kind": "GENERIC",
+      "label": "Garibaldi - Lagunilla",
+      "targetRoomId": "Garibaldi - Lagunilla"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.41984212,
+         "left": 0.41583312,
+         "right": 0.4558331,
+         "top": 0.379842
+      },
+      "kind": "GENERIC",
+      "label": "Lagunilla",
+      "targetRoomId": "Lagunilla"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.42025113,
+         "left": 0.44875005,
+         "right": 0.48874998,
+         "top": 0.38025117
+      },
+      "kind": "GENERIC",
+      "label": "Tepito",
+      "targetRoomId": "Tepito"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.47452003,
+         "left": 0.49354163,
+         "right": 0.5335415,
+         "top": 0.43452
+      },
+      "kind": "GENERIC",
+      "label": "San Lázaro",
+      "targetRoomId": "San Lázaro"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.44204515,
+         "left": 0.55801034,
+         "right": 0.59801024,
+         "top": 0.40204516
+      },
+      "kind": "GENERIC",
+      "label": "Ricardo Flores Magón",
+      "targetRoomId": "Ricardo Flores Magón"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.42910987,
+         "left": 0.58644533,
+         "right": 0.62644535,
+         "top": 0.38910988
+      },
+      "kind": "GENERIC",
+      "label": "Romero Rubio",
+      "targetRoomId": "Romero Rubio"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.3958033,
+         "left": 0.6521341,
+         "right": 0.69213414,
+         "top": 0.35580337
+      },
+      "kind": "GENERIC",
+      "label": "Deportivo Oceanía",
+      "targetRoomId": "Deportivo Oceanía"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.36043367,
+         "left": 0.70453745,
+         "right": 0.7445375,
+         "top": 0.32043365
+      },
+      "kind": "GENERIC",
+      "label": "Bosque de Aragón",
+      "targetRoomId": "Bosque de Aragón"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.34560382,
+         "left": 0.7493932,
+         "right": 0.78939325,
+         "top": 0.30560383
+      },
+      "kind": "GENERIC",
+      "label": "Villa de Aragón",
+      "targetRoomId": "Villa de Aragón"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.3016465,
+         "left": 0.77606666,
+         "right": 0.8160667,
+         "top": 0.2616465
+      },
+      "kind": "GENERIC",
+      "label": "Nezahualcóyotl",
+      "targetRoomId": "Nezahualcóyotl"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.26207286,
+         "left": 0.7978341,
+         "right": 0.8378341,
+         "top": 0.22207287
+      },
+      "kind": "GENERIC",
+      "label": "Impulsora",
+      "targetRoomId": "Impulsora"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.22216032,
+         "left": 0.81828105,
+         "right": 0.858281,
+         "top": 0.18216032
+      },
+      "kind": "GENERIC",
+      "label": "Río de los Remedios",
+      "targetRoomId": "Río de los Remedios"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.18471704,
+         "left": 0.8366765,
+         "right": 0.87667644,
+         "top": 0.14471705
+      },
+      "kind": "GENERIC",
+      "label": "Muzquiz",
+      "targetRoomId": "Muzquiz"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.13237448,
+         "left": 0.8630081,
+         "right": 0.9030081,
+         "top": 0.09237453
+      },
+      "kind": "GENERIC",
+      "label": "Ecatepec",
+      "targetRoomId": "Ecatepec"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.10560891,
+         "left": 0.875158,
+         "right": 0.915158,
+         "top": 0.06560899
+      },
+      "kind": "GENERIC",
+      "label": "Olímpica",
+      "targetRoomId": "Olímpica"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.07419352,
+         "left": 0.8913081,
+         "right": 0.93130815,
+         "top": 0.034193527
+      },
+      "kind": "GENERIC",
+      "label": "Plaza Aragón",
+      "targetRoomId": "Plaza Aragón"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.04763403,
+         "left": 0.9053365,
+         "right": 0.94533646,
+         "top": 0.0076340544
+      },
+      "kind": "GENERIC",
+      "label": "Ciudad Azteca",
+      "targetRoomId": "Ciudad Azteca"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.8337861,
+         "left": 0.52751225,
+         "right": 0.5675122,
+         "top": 0.7937861
+      },
+      "kind": "GENERIC",
+      "label": "Culhuacán",
+      "targetRoomId": "Culhuacán"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.8724773,
+         "left": 0.526281,
+         "right": 0.56628096,
+         "top": 0.8324773
+      },
+      "kind": "GENERIC",
+      "label": "San Andrés Tomatlán",
+      "targetRoomId": "San Andrés Tomatlán"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.8988147,
+         "left": 0.5568907,
+         "right": 0.5968908,
+         "top": 0.8588147
+      },
+      "kind": "GENERIC",
+      "label": "Lomas Estrella",
+      "targetRoomId": "Lomas Estrella"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.90428203,
+         "left": 0.60151964,
+         "right": 0.6415196,
+         "top": 0.864282
+      },
+      "kind": "GENERIC",
+      "label": "Calle 11",
+      "targetRoomId": "Calle 11"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.9095109,
+         "left": 0.64171827,
+         "right": 0.6817183,
+         "top": 0.8695109
+      },
+      "kind": "GENERIC",
+      "label": "Periférico Oriente",
+      "targetRoomId": "Periférico Oriente"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.9295616,
+         "left": 0.67589587,
+         "right": 0.7158959,
+         "top": 0.88956165
+      },
+      "kind": "GENERIC",
+      "label": "Tezonco",
+      "targetRoomId": "Tezonco"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.93619776,
+         "left": 0.72222424,
+         "right": 0.76222426,
+         "top": 0.89619774
+      },
+      "kind": "GENERIC",
+      "label": "Olivos",
+      "targetRoomId": "Olivos"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.9434081,
+         "left": 0.7648679,
+         "right": 0.8048679,
+         "top": 0.903408
+      },
+      "kind": "GENERIC",
+      "label": "Nopalera",
+      "targetRoomId": "Nopalera"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.9483009,
+         "left": 0.8081514,
+         "right": 0.84815145,
+         "top": 0.9083009
+      },
+      "kind": "GENERIC",
+      "label": "Zapotitlán",
+      "targetRoomId": "Zapotitlán"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.9592311,
+         "left": 0.841749,
+         "right": 0.88174903,
+         "top": 0.91923094
+      },
+      "kind": "GENERIC",
+      "label": "Tlatenco",
+      "targetRoomId": "Tlatenco"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.99608296,
+         "left": 0.8672058,
+         "right": 0.9072058,
+         "top": 0.956083
+      },
+      "kind": "GENERIC",
+      "label": "Tláhuac",
+      "targetRoomId": "Tláhuac"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.29339758,
+         "left": 0.5256551,
+         "right": 0.5656551,
+         "top": 0.25339758
+      },
+      "kind": "GENERIC",
+      "label": "Talismán",
+      "targetRoomId": "Talismán"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.33326375,
+         "left": 0.5063336,
+         "right": 0.5463337,
+         "top": 0.2932638
+      },
+      "kind": "GENERIC",
+      "label": "Bondojito",
+      "targetRoomId": "Bondojito"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.3951238,
+         "left": 0.49494818,
+         "right": 0.53494817,
+         "top": 0.35512376
+      },
+      "kind": "GENERIC",
+      "label": "Canal del Norte",
+      "targetRoomId": "Canal del Norte"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.4828146,
+         "left": 0.47052792,
+         "right": 0.5105276,
+         "top": 0.44281456
+      },
+      "kind": "GENERIC",
+      "label": "Candelaria ",
+      "targetRoomId": "Candelaria "
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5081532,
+         "left": 0.46807685,
+         "right": 0.5080768,
+         "top": 0.468153
+      },
+      "kind": "GENERIC",
+      "label": "Fray Servando",
+      "targetRoomId": "Fray Servando"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5758176,
+         "left": 0.46342394,
+         "right": 0.5034238,
+         "top": 0.5358175
+      },
+      "kind": "GENERIC",
+      "label": "Santa Anita",
+      "targetRoomId": "Santa Anita"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5704696,
+         "left": 0.43880016,
+         "right": 0.47880012,
+         "top": 0.5304697
+      },
+      "kind": "GENERIC",
+      "label": "La Viga",
+      "targetRoomId": "La Viga"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.54175025,
+         "left": 0.3551607,
+         "right": 0.3951607,
+         "top": 0.50175023
+      },
+      "kind": "GENERIC",
+      "label": "Obrera",
+      "targetRoomId": "Obrera"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5101687,
+         "left": 0.35775608,
+         "right": 0.3977561,
+         "top": 0.4701686
+      },
+      "kind": "GENERIC",
+      "label": "Doctores",
+      "targetRoomId": "Doctores"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.48808298,
+         "left": 0.38604867,
+         "right": 0.42604867,
+         "top": 0.44808275
+      },
+      "kind": "GENERIC",
+      "label": "Isabel la Católica",
+      "targetRoomId": "Isabel la Católica"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.48640803,
+         "left": 0.3662198,
+         "right": 0.40621978,
+         "top": 0.4464079
+      },
+      "kind": "GENERIC",
+      "label": "Salto del Agua",
+      "targetRoomId": "Salto del Agua"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.48794055,
+         "left": 0.4417255,
+         "right": 0.48172545,
+         "top": 0.44794047
+      },
+      "kind": "GENERIC",
+      "label": "Merced",
+      "targetRoomId": "Merced"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.48935744,
+         "left": 0.31054935,
+         "right": 0.35054934,
+         "top": 0.44935733
+      },
+      "kind": "GENERIC",
+      "label": "Cuauhtémoc",
+      "targetRoomId": "Cuauhtémoc"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.4986728,
+         "left": 0.2655345,
+         "right": 0.30553448,
+         "top": 0.45867285
+      },
+      "kind": "GENERIC",
+      "label": "Insurgentes",
+      "targetRoomId": "Insurgentes"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5071863,
+         "left": 0.22200468,
+         "right": 0.26200476,
+         "top": 0.46718636
+      },
+      "kind": "GENERIC",
+      "label": "Sevilla",
+      "targetRoomId": "Sevilla"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.51343536,
+         "left": 0.20145778,
+         "right": 0.24145776,
+         "top": 0.47343576
+      },
+      "kind": "GENERIC",
+      "label": "Chapultepec",
+      "targetRoomId": "Chapultepec"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5429052,
+         "left": 0.17188919,
+         "right": 0.2118892,
+         "top": 0.5029053
+      },
+      "kind": "GENERIC",
+      "label": "Juanacatlán",
+      "targetRoomId": "Juanacatlán"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.46872616,
+         "left": 0.37106597,
+         "right": 0.411066,
+         "top": 0.42872602
+      },
+      "kind": "GENERIC",
+      "label": "San Juan de Letrán",
+      "targetRoomId": "San Juan de Letrán"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.65731215,
+         "left": 0.29004642,
+         "right": 0.3300464,
+         "top": 0.6173122
+      },
+      "kind": "GENERIC",
+      "label": "Eugenia",
+      "targetRoomId": "Eugenia"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.6791848,
+         "left": 0.28141487,
+         "right": 0.3214149,
+         "top": 0.63918483
+      },
+      "kind": "GENERIC",
+      "label": "División del Norte",
+      "targetRoomId": "División del Norte"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5169575,
+         "left": 0.32593802,
+         "right": 0.36593807,
+         "top": 0.4769576
+      },
+      "kind": "GENERIC",
+      "label": "Niños Héroes - Poder Judicial CDMX",
+      "targetRoomId": "Niños Héroes - Poder Judicial CDMX"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.4872857,
+         "left": 0.521715,
+         "right": 0.56171507,
+         "top": 0.44728577
+      },
+      "kind": "GENERIC",
+      "label": "Moctezuma",
+      "targetRoomId": "Moctezuma"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.50385106,
+         "left": 0.5541065,
+         "right": 0.5941065,
+         "top": 0.46385074
+      },
+      "kind": "GENERIC",
+      "label": "Balbuena",
+      "targetRoomId": "Balbuena"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.51643014,
+         "left": 0.5822814,
+         "right": 0.62228143,
+         "top": 0.47643018
+      },
+      "kind": "GENERIC",
+      "label": "Boulevard Puerto Aéreo",
+      "targetRoomId": "Boulevard Puerto Aéreo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.530602,
+         "left": 0.6140118,
+         "right": 0.6540118,
+         "top": 0.49060178
+      },
+      "kind": "GENERIC",
+      "label": "Gómez Farías",
+      "targetRoomId": "Gómez Farías"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.5471978,
+         "left": 0.6500417,
+         "right": 0.6900417,
+         "top": 0.5071978
+      },
+      "kind": "GENERIC",
+      "label": "Zaragoza",
+      "targetRoomId": "Zaragoza"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.6044906,
+         "left": 0.49985552,
+         "right": 0.53985536,
+         "top": 0.5644906
+      },
+      "kind": "GENERIC",
+      "label": "Coyuya",
+      "targetRoomId": "Coyuya"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.6453741,
+         "left": 0.5044178,
+         "right": 0.5444177,
+         "top": 0.60537416
+      },
+      "kind": "GENERIC",
+      "label": "Iztacalco",
+      "targetRoomId": "Iztacalco"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.67989,
+         "left": 0.5170048,
+         "right": 0.5570046,
+         "top": 0.63988996
+      },
+      "kind": "GENERIC",
+      "label": "Apatlaco",
+      "targetRoomId": "Apatlaco"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.7069987,
+         "left": 0.5243235,
+         "right": 0.5643234,
+         "top": 0.6669987
+      },
+      "kind": "GENERIC",
+      "label": "Aculco",
+      "targetRoomId": "Aculco"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.73448414,
+         "left": 0.51707053,
+         "right": 0.55707055,
+         "top": 0.6944842
+      },
+      "kind": "GENERIC",
+      "label": "Escuadrón 201",
+      "targetRoomId": "Escuadrón 201"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.3851095,
+         "left": 0.59430665,
+         "right": 0.63430667,
+         "top": 0.3451095
+      },
+      "kind": "GENERIC",
+      "label": "Aragón",
+      "targetRoomId": "Aragón"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.57518995,
+         "left": 0.7024676,
+         "right": 0.7424676,
+         "top": 0.5351901
+      },
+      "kind": "GENERIC",
+      "label": "Agrícola Oriental",
+      "targetRoomId": "Agrícola Oriental"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.6067767,
+         "left": 0.7602617,
+         "right": 0.8002617,
+         "top": 0.56677675
+      },
+      "kind": "GENERIC",
+      "label": "Canal de San Juan",
+      "targetRoomId": "Canal de San Juan"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.6355757,
+         "left": 0.8199696,
+         "right": 0.85996956,
+         "top": 0.5955757
+      },
+      "kind": "GENERIC",
+      "label": "Tepalcates",
+      "targetRoomId": "Tepalcates"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.6729564,
+         "left": 0.83224976,
+         "right": 0.8722497,
+         "top": 0.63295645
+      },
+      "kind": "GENERIC",
+      "label": "Guelatao",
+      "targetRoomId": "Guelatao"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.72192746,
+         "left": 0.8470725,
+         "right": 0.88707244,
+         "top": 0.68192744
+      },
+      "kind": "GENERIC",
+      "label": "Peñón Viejo",
+      "targetRoomId": "Peñón Viejo"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.75693464,
+         "left": 0.8614279,
+         "right": 0.9014278,
+         "top": 0.7169347
+      },
+      "kind": "GENERIC",
+      "label": "Acatitla",
+      "targetRoomId": "Acatitla"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.797497,
+         "left": 0.8737846,
+         "right": 0.91378456,
+         "top": 0.757497
+      },
+      "kind": "GENERIC",
+      "label": "Santa Marta",
+      "targetRoomId": "Santa Marta"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.8253093,
+         "left": 0.8903118,
+         "right": 0.9303118,
+         "top": 0.78530926
+      },
+      "kind": "GENERIC",
+      "label": "Los Reyes",
+      "targetRoomId": "Los Reyes"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.8310621,
+         "left": 0.9165509,
+         "right": 0.9565509,
+         "top": 0.79106206
+      },
+      "kind": "GENERIC",
+      "label": "La Paz",
+      "targetRoomId": "La Paz"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.54404503,
+         "left": 0.30749813,
+         "right": 0.34749812,
+         "top": 0.5040452
+      },
+      "kind": "GENERIC",
+      "label": "Hospital General",
+      "targetRoomId": "Hospital General"
+   },
+   {
+      "hitboxFrac": {
+         "bottom": 0.40966076,
+         "left": 0.3506103,
+         "right": 0.39061028,
+         "top": 0.3696608
+      },
+      "kind": "GENERIC",
+      "label": "Guerrero",
+      "targetRoomId": "Guerrero"
+   }
 ]
