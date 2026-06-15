@@ -95,6 +95,8 @@ persists. (osmdroid's built-in downloader uses UA = packageName and was throttle
 | `MetroRepository` | `object`. `loadStations(context): List<MetroStation>` desde `res/raw/metro` (GeoJSON: name, routes, coords). |
 | `WaypointRepository` | `object`. Persiste puertas de salas zombi (`ZoneDoor`) en `waypoints.json`. `DoorDef`↔`ZoneDoor`, `Store(version, rooms: Map<roomId, List<DoorDef>>)`, `load/save/exportJson/importJson/clear`. |
 | `CollisionMatrixRepository` | Matrices de colisión zombi en `collision_matrices.json` (mismo formato que lee el servidor zombi — ver 05/08). |
+| `CampaignRepository` | **SharedPreferences** `pow_campaign`. Partida LIGERA del Modo Historia: solo escuela + fecha (`saveCampaign`/`hasSave`/`getSavedSchoolId`/`getSavedAt`/`clearCampaign`). Habilita "CARGAR PARTIDA". |
+| 🆕 `SaveGameRepository` | Partidas COMPLETAS del Modo Historia en **JSON con SLOTS** (`filesDir/pow_campaign_save_<n>.json`, n=1..`SLOT_COUNT`=5): `GameSaveData(schoolId, lat, lon, health, wantedLevel, isDriving, isDrivingPoliceCar, vehicleModel, vehicleColor, skin, nearbyNpcs, objectiveId, objectiveDone, savedAt)`. API: `save(slot,data)/load(slot)/hasSave(slot)/anySave()/firstEmptySlot()/summaries()/clear(slot)`. La escribe el VM vía `WorldMapSaveGame.kt`; selector de slots en `SaveSlotsDialog` (ver 04/07). |
 
 > **ES:** Nota: existe también `features/zombie_minigame/ui/components/Collisionmatrixrepository.kt`
 > (duplicado por refactor); el canónico es `data/repository/CollisionMatrixRepository.kt`.

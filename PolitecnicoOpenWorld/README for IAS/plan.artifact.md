@@ -94,6 +94,9 @@ via co-located `ViewModelProvider.Factory` instances.
 | Road-network cache (Room) | `data/cache/RoadNetworkCache.kt` + `RoadNetworkDao.kt` |
 | Multiplayer warm-up (Render) | `features/main_menu/ui/ServerWarmupManager.kt` (package `data.network`) |
 | Story Mode / campaign (prologue + school picker + intro + save/load) | `features/main_menu/ui/StoryModeScreen.kt` + `StoryIntroScreen.kt` + `features/main_menu/viewmodel/StoryModeViewModel.kt` (routes `story_mode`, `story_intro/{schoolId}`); schools in `domain/models/SchoolCatalog.kt`; save in `data/repository/CampaignRepository.kt` (written by `MainActivity`); spawn via `WorldMapViewModel.setStorySpawn` |
+| 🆕 Save/load game (JSON, 5 SLOTS) | `data/repository/SaveGameRepository.kt` (`GameSaveData`/`SavedNpc`, `pow_campaign_save_N.json`, `summaries()`) + `WorldMapSaveGame.kt` (`saveGame(ctx,slot)`/`loadGame(ctx,slot)`/`buildSaveData`/`restoreSaveData`); slot picker `features/main_menu/ui/SaveSlotsDialog.kt`; "Guardar partida" in Options of BOTH world map AND interiors (`ZombieGameScreen`), dialog hosted in `MainActivity`; auto-save on exit |
+| 🆕 Comic intro + objectives | `domain/models/StoryComicCatalog.kt` (panels `assets/story/*.webp` + text) → comic `features/main_menu/ui/StoryIntroScreen.kt`; `domain/models/CampaignMission.kt` (`MissionCatalog.first` = ir_encb) + `ui/components/ObjectivesWidget.kt` (always-on HUD); `WorldMapViewModel.checkObjectiveProgress` marks done on arrival |
+| 🆕 Debug Interiors LINE editor (red/green/orange) | `features/map_exterior/viewmodel/WorldMapDebugEditor.kt` (`DebugEditTool`, capture/finish/export) + `ui/components/InteriorDebugEditorPanel.kt`; live render in `NativeOsmMap` editor overlay |
 | **Unified offline tile cache (native OSM)** | `data/cache/RoomTileModuleProvider.kt` (osmdroid module → Room, browser UA) |
 | **Per-zone tile prefetch (offline, ~2km)** | `data/cache/TilePrefetchManager.kt` + `WorldMapRoadNetwork.kt::prefetchCurrentZoneTiles` |
 | **Open-world server (v2)** | `Multiplayer/server.js` |
@@ -356,8 +359,12 @@ sizing unified across renderers**; **CDMX Metro station icons (`metro_cdmx/icon.
 bound to `BuildConfig.VERSION_NAME` with auto-shrinking title; **Story Mode / campaign entry
 (menu buttons renamed to "FREE ROAM" + "STORY MODE"; `story_mode` screen with prologue + school
 picker — only ESCOM playable, FES Aragón/UAM disabled — an intro screen "Ready to Start"
-(`story_intro`), and a working save/load (`CampaignRepository`): START saves the campaign so LOAD GAME
-resumes; campaign spawn via `setStorySpawn`)**; full zombie survival minigame (lobby + 7 buildings,
+(`story_intro`), and a working save/load: START saves the campaign so LOAD GAME
+resumes; campaign spawn via `setStorySpawn` — **now fixed so START/LOAD reliably load (no more stuck
+loading screen) and a FULL JSON save (`SaveGameRepository`: position, health, wanted, vehicle, skin,
+nearby NPCs) saved manually from Options + auto on exit; LOAD restores the full state**)**; **Debug
+Interiors is now a LINE editor** (walk-and-drop points to edit red walls/zones + green/orange nav paths,
+with export/import JSON; `WorldMapDebugEditor.kt`); full zombie survival minigame (lobby + 7 buildings,
 dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens, damage feedback
 FX) with **online mode backed by a dedicated authoritative zombie server**
 (`MultiplayerZombie/`: flow-field + LOS + separation AI) and a collision Designer

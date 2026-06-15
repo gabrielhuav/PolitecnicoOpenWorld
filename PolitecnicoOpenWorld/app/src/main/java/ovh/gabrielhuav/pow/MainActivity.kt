@@ -60,6 +60,12 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 // REFACTOR: extensiones del VM (WorldMapProviders.kt) → requieren import explícito.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
+// MODO HISTORIA: guardado/carga de la partida (JSON). Las extensiones del VM viven
+// en WorldMapSaveGame.kt y requieren import explícito desde fuera del paquete viewmodel.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
+import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
 import ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieGameScreen
@@ -162,6 +168,24 @@ class MainActivity : ComponentActivity() {
 
                     val navController = rememberNavController()
 
+                    // Diálogo de GUARDAR (selector de slots) a nivel de Activity: lo disparan
+                    // tanto el mapa global como los interiores (callback onRequestSaveGame),
+                    // porque el estado vive en el worldMapViewModel (Activity-scoped).
+                    var showSaveDialog by remember { mutableStateOf(false) }
+                    if (showSaveDialog) {
+                        ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
+                            title = "Guardar partida",
+                            summaries = SaveGameRepository(this@MainActivity).summaries(),
+                            mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.SAVE,
+                            onPick = { slot ->
+                                showSaveDialog = false
+                                worldMapViewModel.saveGame(this@MainActivity, slot)
+                                android.widget.Toast.makeText(this@MainActivity, "Partida guardada (slot $slot)", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            onDismiss = { showSaveDialog = false }
+                        )
+                    }
+
                     NavHost(navController = navController, startDestination = "main_menu") {
 
                         composable(
@@ -173,6 +197,9 @@ class MainActivity : ComponentActivity() {
                         ) {
                             MainMenuScreen(
                                 onNavigateToMap = { isMultiplayer, playerName ->
+                                    // MUNDO LIBRE (sin campaña): no es una sesión de Modo Historia,
+                                    // así que NO se auto-guarda al salir.
+                                    worldMapViewModel.inCampaign = false
                                     if (isMultiplayer && !playerName.isNullOrBlank()) {
                                         // Usando la variable de entorno de Gradle (BuildConfig)
                                         worldMapViewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL, playerName)
@@ -201,27 +228,34 @@ class MainActivity : ComponentActivity() {
                         // ("Listo para Iniciar"); "CARGAR PARTIDA" reanuda directo en la
                         // escuela guardada. ESCOM es la única jugable por ahora.
                         composable(route = "story_mode") {
-                            // Arranca el mundo de la campaña: fija el spawn de la escuela y
-                            // navega al mapa (limpia el menú del back stack).
-                            val enterCampaignWorld = remember(worldMapViewModel, navController) {
-                                { school: ovh.gabrielhuav.pow.domain.models.CampaignSchool ->
-                                    worldMapViewModel.disconnectFromMultiplayer()
-                                    worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
-                                    navController.navigate("world_map") {
-                                        popUpTo("main_menu") { inclusive = true }
-                                    }
-                                    Unit
-                                }
-                            }
+                            // CARGAR PARTIDA: muestra el selector de slots. Al elegir un slot con
+                            // partida, restaura el estado completo (posición/vida/buscado/vehículo/
+                            // skin/NPCs/objetivo) y entra al mundo.
+                            var showLoadDialog by remember { mutableStateOf(false) }
                             StoryModeScreen(
-                                // COMENZAR: pasa por la intro antes de entrar al mundo.
                                 onStartCampaign = { school ->
                                     navController.navigate("story_intro/${school.id}")
                                 },
-                                // CARGAR PARTIDA: reanuda directo en la escuela guardada.
-                                onLoadCampaign = { school -> enterCampaignWorld(school) },
+                                onLoadCampaign = { showLoadDialog = true },
                                 onBack = { navController.popBackStack() }
                             )
+                            if (showLoadDialog) {
+                                ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
+                                    title = "Cargar partida",
+                                    summaries = SaveGameRepository(this@MainActivity).summaries(),
+                                    mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.LOAD,
+                                    onPick = { slot ->
+                                        showLoadDialog = false
+                                        worldMapViewModel.disconnectFromMultiplayer()
+                                        if (worldMapViewModel.loadGame(this@MainActivity, slot)) {
+                                            navController.navigate("world_map") {
+                                                popUpTo("main_menu") { inclusive = true }
+                                            }
+                                        }
+                                    },
+                                    onDismiss = { showLoadDialog = false }
+                                )
+                            }
                         }
 
                         // ─── MODO HISTORIA · Intro ("Listo para Iniciar") ─────────
@@ -241,10 +275,17 @@ class MainActivity : ComponentActivity() {
                             StoryIntroScreen(
                                 school = school,
                                 onBegin = {
-                                    // Guarda la partida de campaña (escuela elegida).
+                                    // COMENZAR partida NUEVA: ocupa el primer slot VACÍO (para no
+                                    // pisar otras partidas) y fija el objetivo de la Misión 1.
+                                    // El estado se guardará al salir o con "Guardar partida".
                                     campaignRepository.saveCampaign(school.id)
+                                    val slot = SaveGameRepository(this@MainActivity).firstEmptySlot()
+                                    SaveGameRepository(this@MainActivity).clear(slot)
+                                    worldMapViewModel.campaignSchoolId = school.id
+                                    worldMapViewModel.campaignSlot = slot
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
+                                    worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.first)
                                     navController.navigate("world_map") {
                                         popUpTo("main_menu") { inclusive = true }
                                     }
@@ -338,6 +379,9 @@ class MainActivity : ComponentActivity() {
                             // Lógica compartida para volver al menú principal
                             val navigateBackToMainMenu = remember(worldMapViewModel, navController) {
                                 {
+                                    // AUTO-GUARDADO: si estamos en Modo Historia, persistimos el
+                                    // estado completo en el slot activo antes de volver al menú.
+                                    if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity, worldMapViewModel.campaignSlot)
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     navController.navigate("main_menu") {
                                         popUpTo("world_map") { inclusive = true }
@@ -365,6 +409,8 @@ class MainActivity : ComponentActivity() {
                                     dismissButton = {
                                         TextButton(onClick = {
                                             showExitDialog = false
+                                            // AUTO-GUARDADO también al cerrar la app desde el diálogo.
+                                            if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity, worldMapViewModel.campaignSlot)
                                             worldMapViewModel.disconnectFromMultiplayer()
                                             this@MainActivity.finish()
                                         }) {
@@ -390,7 +436,9 @@ class MainActivity : ComponentActivity() {
                                 // termina y hay un edificio destino pendiente.
                                 onNavigateToInterior = { routeName ->
                                     navController.navigate(routeName)
-                                }
+                                },
+                                // "Guardar partida" → abre el selector de slots (a nivel Activity).
+                                onRequestSaveGame = { showSaveDialog = true }
                             )
                             // ─── ShineCTO: navegar al interior cuando el VM lo indique ───
                             val uiState by worldMapViewModel.uiState.collectAsState()
@@ -573,7 +621,10 @@ class MainActivity : ComponentActivity() {
                                 playerName = wmState.playerName,
                                 onNavigateToSettings = { navController.navigate("settings") },
                                 debugHitboxes = false,
-                                startRoomId = startRoom
+                                startRoomId = startRoom,
+                                // "Guardar partida" disponible también en interiores (mismo selector
+                                // de slots; el estado del mundo se conserva en el worldMapViewModel).
+                                onRequestSaveGame = { showSaveDialog = true }
                             )
                         }
 

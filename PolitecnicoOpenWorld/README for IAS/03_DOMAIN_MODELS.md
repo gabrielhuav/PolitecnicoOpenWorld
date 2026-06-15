@@ -141,7 +141,7 @@ userPopulationFactor`:
   4. **Rebase del jugador (anti-órbita):** al esquivar al jugador el coche persigue un carrot local, así que
      ahora avanza `targetNodeIndex` en cuanto REBASA el nodo base (`avoidingPlayer` + producto punto en el
      return de `moveNpc`); sin esto se daba la vuelta y orbitaba sin rebasar (ver 09).
-- **Topes base de población:** `maxActiveNpcs`/`maxTotalNpcs` no-zombi = **18/38** (antes 26/55), siguen
+- **Topes base de población:** `maxActiveNpcs`/`maxTotalNpcs` no-zombi = **10/22** (antes 18/38; densidad más realista al caminar; `SPAWN_SCAN_MS`=900 y máx 2 spawns/escaneo), siguen
   escalando por `popFactor` (ver 09).
 - `triggerFear(lat, lon)` — marca evento de miedo; los COWARD cercanos huyen (`applyPendingFear`).
 - `rollTrait()` — PASSIVE/COWARD/AGGRESSIVE según `aggressiveRatio`.
