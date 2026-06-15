@@ -24,7 +24,19 @@ object MissionCatalog {
         targetLon = -99.148900
     )
 
-    private val all = listOf(IR_ENCB)
+    // Escolta: Prankedy te acompaña (fase HIRED) y debes llevarlo a un lugar seguro. Solo se
+    // activa en campaña y en el vecindario de la ENCB (ver WorldMapPrankedy.maybeSpawnPrankedyCompanion).
+    // arriveRadiusMeters=0 → el widget NO lo auto-marca como cumplido (cierre narrativo, no por llegada).
+    val ESCOLTAR_PRANKEDY = CampaignObjective(
+        id = "escoltar_prankedy",
+        title = "Lleva a un lugar seguro a Prankedy",
+        description = "Protege a Prankedy y llévalo a un lugar seguro.",
+        targetLat = 19.5001588,
+        targetLon = -99.1450298,
+        arriveRadiusMeters = 0.0
+    )
+
+    private val all = listOf(IR_ENCB, ESCOLTAR_PRANKEDY)
 
     // Objetivo con el que arranca una campaña nueva.
     val first: CampaignObjective = IR_ENCB

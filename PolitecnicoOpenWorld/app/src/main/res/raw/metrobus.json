@@ -1,0 +1,6319 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "20 de Noviembre",
+        "latitud": 19.42932,
+        "longitud": -99.13402,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.13402, 19.42932],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "314 Memorial New's Divine",
+        "latitud": 19.50053,
+        "longitud": -99.08847,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.08847, 19.50053],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "314 Memorial New's Divine",
+        "latitud": 19.50088,
+        "longitud": -99.08891,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.08891, 19.50088],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "414",
+        "latitud": 19.46843,
+        "longitud": -99.07159,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.07159, 19.46843],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "416 Oriente",
+        "latitud": 19.47114,
+        "longitud": -99.07091,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.07091, 19.47114],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "416 Poniente",
+        "latitud": 19.47252,
+        "longitud": -99.07938,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.07938, 19.47252],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "482",
+        "latitud": 19.46686,
+        "longitud": -99.07552,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.07552, 19.46686],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "5 de Mayo",
+        "latitud": 19.49699,
+        "longitud": -99.08996,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.08996, 19.49699],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "5 de Mayo",
+        "latitud": 19.49716,
+        "longitud": -99.09044,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.09044, 19.49716],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Aculco",
+        "latitud": 19.37491,
+        "longitud": -99.10789,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.10789, 19.37491],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Aculco",
+        "latitud": 19.37485,
+        "longitud": -99.10807,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.10807, 19.37485],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ahuehuete",
+        "latitud": 19.42851,
+        "longitud": -99.16479,
+        "altitud": 2246
+      },
+      "geometry": {
+        "coordinates": [-99.16479, 19.42851],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ahuehuete",
+        "latitud": 19.42804,
+        "longitud": -99.16518,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.16518, 19.42804],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Alameda Oriente",
+        "latitud": 19.43077,
+        "longitud": -99.05338,
+        "altitud": 2227
+      },
+      "geometry": {
+        "coordinates": [-99.05338, 19.43077],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Alameda Tacubaya",
+        "latitud": 19.401473,
+        "longitud": -99.185882,
+        "altitud": 2261
+      },
+      "geometry": {
+        "coordinates": [-99.185882, 19.401473],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Alamos",
+        "latitud": 19.39475,
+        "longitud": -99.14294,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.14294, 19.39475],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Altavista",
+        "latitud": 19.3509,
+        "longitud": -99.18636,
+        "altitud": 2272
+      },
+      "geometry": {
+        "coordinates": [-99.18636, 19.3509],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Altavista",
+        "latitud": 19.3509,
+        "longitud": -99.18636,
+        "altitud": 2272
+      },
+      "geometry": {
+        "coordinates": [-99.18636, 19.3509],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Álvaro Obregón",
+        "latitud": 19.41655,
+        "longitud": -99.16506,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.16506, 19.41655],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Amajac",
+        "latitud": 19.43501,
+        "longitud": -99.15337,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.15337, 19.43501],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Amajac",
+        "latitud": 19.43416,
+        "longitud": -99.15353,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.15353, 19.43416],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Amajac",
+        "latitud": 19.434,
+        "longitud": -99.15316,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.15316, 19.434],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Amajac",
+        "latitud": 19.43353,
+        "longitud": -99.15358,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15358, 19.43353],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Amajac",
+        "latitud": 19.434,
+        "longitud": -99.15316,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.15316, 19.434],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Amajac",
+        "latitud": 19.43353,
+        "longitud": -99.15358,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15358, 19.43353],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Amores",
+        "latitud": 19.39688,
+        "longitud": -99.16382,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.16382, 19.39688],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ampliación Providencia",
+        "latitud": 19.47985,
+        "longitud": -99.0753,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.0753, 19.47985],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Andrés Molina",
+        "latitud": 19.39768,
+        "longitud": -99.1297,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.1297, 19.39768],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Antonio Maceo",
+        "latitud": 19.40487,
+        "longitud": -99.1859,
+        "altitud": 2257
+      },
+      "geometry": {
+        "coordinates": [-99.1859, 19.40487],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Antropología",
+        "latitud": 19.42472,
+        "longitud": -99.18441,
+        "altitud": 2251
+      },
+      "geometry": {
+        "coordinates": [-99.18441, 19.42472],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Antropología",
+        "latitud": 19.42462,
+        "longitud": -99.18566,
+        "altitud": 2254
+      },
+      "geometry": {
+        "coordinates": [-99.18566, 19.42462],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Apatlaco",
+        "latitud": 19.37805,
+        "longitud": -99.10915,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.10915, 19.37805],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Apatlaco",
+        "latitud": 19.37808,
+        "longitud": -99.109,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.109, 19.37808],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Archivo General de la Nación",
+        "latitud": 19.43497,
+        "longitud": -99.11462,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.11462, 19.43497],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Archivo General de la Nación",
+        "latitud": 19.43536,
+        "longitud": -99.11518,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.11518, 19.43536],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Archivo General de la Nación",
+        "latitud": 19.43726,
+        "longitud": -99.11438,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.11438, 19.43726],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Atanasio G. Saravia",
+        "latitud": 19.36126,
+        "longitud": -99.11028,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.11028, 19.36126],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Auditorio",
+        "latitud": 19.42609,
+        "longitud": -99.19339,
+        "altitud": 2262
+      },
+      "geometry": {
+        "coordinates": [-99.19339, 19.42609],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Auditorio",
+        "latitud": 19.42572,
+        "longitud": -99.1936,
+        "altitud": 2259
+      },
+      "geometry": {
+        "coordinates": [-99.1936, 19.42572],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Avenida del Taller",
+        "latitud": 19.41278,
+        "longitud": -99.11282,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.11282, 19.41278],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Av. Talismán",
+        "latitud": 19.47899,
+        "longitud": -99.12108,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.12108, 19.47899],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Av. Talismán",
+        "latitud": 19.47849,
+        "longitud": -99.1212,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.1212, 19.47849],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ayuntamiento",
+        "latitud": 19.2926,
+        "longitud": -99.17754,
+        "altitud": 2284
+      },
+      "geometry": {
+        "coordinates": [-99.17754, 19.2926],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Balderas",
+        "latitud": 19.42807,
+        "longitud": -99.14874,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14874, 19.42807],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Balderas",
+        "latitud": 19.42807,
+        "longitud": -99.14874,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14874, 19.42807],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Balderas",
+        "latitud": 19.42807,
+        "longitud": -99.14874,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14874, 19.42807],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Barrio San Antonio",
+        "latitud": 19.34313,
+        "longitud": -99.11244,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.11244, 19.34313],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Bellas Artes",
+        "latitud": 19.43641,
+        "longitud": -99.14172,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.14172, 19.43641],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Bellas Artes",
+        "latitud": 19.43641,
+        "longitud": -99.14182,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.14182, 19.43641],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Buenavista",
+        "latitud": 19.44613,
+        "longitud": -99.152,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.152, 19.44613],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Buenavista",
+        "latitud": 19.44684,
+        "longitud": -99.15313,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15313, 19.44684],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Buenavista",
+        "latitud": 19.44613,
+        "longitud": -99.152,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.152, 19.44613],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Buenavista",
+        "latitud": 19.44684,
+        "longitud": -99.15313,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15313, 19.44684],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Buenavista",
+        "latitud": 19.44486,
+        "longitud": -99.15227,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15227, 19.44486],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Cafetales",
+        "latitud": 19.33372,
+        "longitud": -99.11315,
+        "altitud": 2239
+      },
+      "geometry": {
+        "coordinates": [-99.11315, 19.33372],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Calle 6",
+        "latitud": 19.42111,
+        "longitud": -99.05852,
+        "altitud": 2227
+      },
+      "geometry": {
+        "coordinates": [-99.05852, 19.42111],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Calzada del Hueso",
+        "latitud": 19.30091,
+        "longitud": -99.11354,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.11354, 19.30091],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Calzada Taxqueña",
+        "latitud": 19.33876,
+        "longitud": -99.113,
+        "altitud": 2239
+      },
+      "geometry": {
+        "coordinates": [-99.113, 19.33876],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Campeche",
+        "latitud": 19.40977,
+        "longitud": -99.16727,
+        "altitud": 2239
+      },
+      "geometry": {
+        "coordinates": [-99.16727, 19.40977],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Campo Marte",
+        "latitud": 19.42664,
+        "longitud": -99.19944,
+        "altitud": 2264
+      },
+      "geometry": {
+        "coordinates": [-99.19944, 19.42664],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Campo Marte",
+        "latitud": 19.42703,
+        "longitud": -99.19946,
+        "altitud": 2267
+      },
+      "geometry": {
+        "coordinates": [-99.19946, 19.42703],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Canal de Apatlaco",
+        "latitud": 19.38283,
+        "longitud": -99.11082,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.11082, 19.38283],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Canal de Apatlaco",
+        "latitud": 19.38281,
+        "longitud": -99.11095,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.11095, 19.38281],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Canal del Norte",
+        "latitud": 19.4496,
+        "longitud": -99.11037,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.11037, 19.4496],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Canal de San Juan",
+        "latitud": 19.39671,
+        "longitud": -99.05655,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.05655, 19.39671],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Cañaverales",
+        "latitud": 19.29541,
+        "longitud": -99.11449,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.11449, 19.29541],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Canela",
+        "latitud": 19.39785,
+        "longitud": -99.10934,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.10934, 19.39785],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Casas Alemán",
+        "latitud": 19.47432,
+        "longitud": -99.08837,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.08837, 19.47432],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "CCH Oriente",
+        "latitud": 19.38333,
+        "longitud": -99.06079,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.06079, 19.38333],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "CCU",
+        "latitud": 19.31516,
+        "longitud": -99.18753,
+        "altitud": 2313
+      },
+      "geometry": {
+        "coordinates": [-99.18753, 19.31516],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Cecilio Robelo",
+        "latitud": 19.42548,
+        "longitud": -99.11904,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.11904, 19.42548],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Cecilio Robelo",
+        "latitud": 19.42517,
+        "longitud": -99.11987,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.11987, 19.42517],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Centro Médico",
+        "latitud": 19.40727,
+        "longitud": -99.15513,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15513, 19.40727],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Centro Médico",
+        "latitud": 19.40727,
+        "longitud": -99.15513,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15513, 19.40727],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Centro Médico",
+        "latitud": 19.40727,
+        "longitud": -99.15513,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15513, 19.40727],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Centro SCOP",
+        "latitud": 19.39525,
+        "longitud": -99.14676,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.14676, 19.39525],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Chapultepec",
+        "latitud": 19.42406,
+        "longitud": -99.17427,
+        "altitud": 2244
+      },
+      "geometry": {
+        "coordinates": [-99.17427, 19.42406],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Chapultepec",
+        "latitud": 19.42359,
+        "longitud": -99.17467,
+        "altitud": 2244
+      },
+      "geometry": {
+        "coordinates": [-99.17467, 19.42359],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Chapultepec",
+        "latitud": 19.424061181,
+        "longitud": -99.174258483,
+        "altitud": 2244
+      },
+      "geometry": {
+        "coordinates": [-99.174258483, 19.424061181],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Chapultepec",
+        "latitud": 19.42406,
+        "longitud": -99.17427,
+        "altitud": 2244
+      },
+      "geometry": {
+        "coordinates": [-99.17427, 19.42406],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Chapultepec",
+        "latitud": 19.42359,
+        "longitud": -99.17467,
+        "altitud": 2244
+      },
+      "geometry": {
+        "coordinates": [-99.17467, 19.42359],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Chapultepec",
+        "latitud": 19.423587083,
+        "longitud": -99.174673607,
+        "altitud": 2244
+      },
+      "geometry": {
+        "coordinates": [-99.174673607, 19.423587083],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Chilpancingo",
+        "latitud": 19.40658,
+        "longitud": -99.1683,
+        "altitud": 2239
+      },
+      "geometry": {
+        "coordinates": [-99.1683, 19.40658],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Churubusco Oriente",
+        "latitud": 19.37156,
+        "longitud": -99.10775,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.10775, 19.37156],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Churubusco Oriente",
+        "latitud": 19.37163,
+        "longitud": -99.10799,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.10799, 19.37163],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Circuito",
+        "latitud": 19.46261,
+        "longitud": -99.14401,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.14401, 19.46261],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Circuito",
+        "latitud": 19.46261,
+        "longitud": -99.14401,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.14401, 19.46261],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Circuito",
+        "latitud": 19.46329,
+        "longitud": -99.14406,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.14406, 19.46329],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Circuito Cuemanco",
+        "latitud": 19.28104,
+        "longitud": -99.1168,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1168, 19.28104],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ciudad de los Deportes",
+        "latitud": 19.38245,
+        "longitud": -99.17614,
+        "altitud": 2257
+      },
+      "geometry": {
+        "coordinates": [-99.17614, 19.38245],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ciudad de los Deportes",
+        "latitud": 19.38245,
+        "longitud": -99.17614,
+        "altitud": 2257
+      },
+      "geometry": {
+        "coordinates": [-99.17614, 19.38245],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ciudad Universitaria",
+        "latitud": 19.32295,
+        "longitud": -99.18847,
+        "altitud": 2300
+      },
+      "geometry": {
+        "coordinates": [-99.18847, 19.32295],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Clave",
+        "latitud": 19.46494,
+        "longitud": -99.12636,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.12636, 19.46494],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Clave",
+        "latitud": 19.46441,
+        "longitud": -99.12648,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.12648, 19.46441],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Colegio de Bachilleres 1",
+        "latitud": 19.51164,
+        "longitud": -99.19731,
+        "altitud": 2248
+      },
+      "geometry": {
+        "coordinates": [-99.19731, 19.51164],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Colegio de Bachilleres 3",
+        "latitud": 19.38632,
+        "longitud": -99.11163,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.11163, 19.38632],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Colegio de Bachilleres 3",
+        "latitud": 19.38632,
+        "longitud": -99.11173,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.11173, 19.38632],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Colegio de Bachilleres 9",
+        "latitud": 19.4698,
+        "longitud": -99.065,
+        "altitud": 2227
+      },
+      "geometry": {
+        "coordinates": [-99.065, 19.4698],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Colonia del Valle",
+        "latitud": 19.38569,
+        "longitud": -99.17509,
+        "altitud": 2257
+      },
+      "geometry": {
+        "coordinates": [-99.17509, 19.38569],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Colonia del Valle",
+        "latitud": 19.38569,
+        "longitud": -99.17509,
+        "altitud": 2257
+      },
+      "geometry": {
+        "coordinates": [-99.17509, 19.38569],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Coltongo",
+        "latitud": 19.47985,
+        "longitud": -99.14833,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.14833, 19.47985],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Constitución de Apatztingán",
+        "latitud": 19.38903,
+        "longitud": -99.05985,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.05985, 19.38903],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Corregidora",
+        "latitud": 19.29407,
+        "longitud": -99.18103,
+        "altitud": 2296
+      },
+      "geometry": {
+        "coordinates": [-99.18103, 19.29407],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Coyuya",
+        "latitud": 19.39828,
+        "longitud": -99.11678,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.11678, 19.39828],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Cuahutémoc",
+        "latitud": 19.44259,
+        "longitud": -99.15242,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15242, 19.44259],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Cuahutémoc",
+        "latitud": 19.44214,
+        "longitud": -99.15245,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.15245, 19.44214],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Cuauhtémoc",
+        "latitud": 19.42496,
+        "longitud": -99.1537,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.1537, 19.42496],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Cuauhtémoc",
+        "latitud": 19.42496,
+        "longitud": -99.1537,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.1537, 19.42496],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Cuauhtémoc",
+        "latitud": 19.42496,
+        "longitud": -99.1537,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.1537, 19.42496],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Cuitláhuac",
+        "latitud": 19.47415,
+        "longitud": -99.14616,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14616, 19.47415],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Defensoría Pública",
+        "latitud": 19.43311,
+        "longitud": -99.15063,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15063, 19.43311],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Defensoría Pública",
+        "latitud": 19.43336,
+        "longitud": -99.15101,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15101, 19.43336],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "De La Salle",
+        "latitud": 19.40759,
+        "longitud": -99.18351,
+        "altitud": 2248
+      },
+      "geometry": {
+        "coordinates": [-99.18351, 19.40759],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "De La Salle",
+        "latitud": 19.409020086,
+        "longitud": -99.183466735,
+        "altitud": 2252
+      },
+      "geometry": {
+        "coordinates": [-99.183466735, 19.409020086],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "De La Salle",
+        "latitud": 19.408368343,
+        "longitud": -99.184207758,
+        "altitud": 2250
+      },
+      "geometry": {
+        "coordinates": [-99.184207758, 19.408368343],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "De Las Culturas",
+        "latitud": 19.51094,
+        "longitud": -99.19261,
+        "altitud": 2245
+      },
+      "geometry": {
+        "coordinates": [-99.19261, 19.51094],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Delegación Gustavo A. Madero",
+        "latitud": 19.48389,
+        "longitud": -99.11234,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.11234, 19.48389],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Delegación Gustavo A. Madero",
+        "latitud": 19.48368,
+        "longitud": -99.11392,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.11392, 19.48368],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Del Moral",
+        "latitud": 19.3842,
+        "longitud": -99.07092,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.07092, 19.3842],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "De Los Misterios",
+        "latitud": 19.48721,
+        "longitud": -99.11795,
+        "altitud": 2242
+      },
+      "geometry": {
+        "coordinates": [-99.11795, 19.48721],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "De Los Misterios",
+        "latitud": 19.4876,
+        "longitud": -99.11783,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.11783, 19.4876],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Deportivo 18 de Marzo",
+        "latitud": 19.48629,
+        "longitud": -99.12453,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.12453, 19.48629],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Deportivo 18 de Marzo",
+        "latitud": 19.48629,
+        "longitud": -99.12453,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.12453, 19.48629],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Deportivo 18 de Marzo",
+        "latitud": 19.4866,
+        "longitud": -99.1224,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.1224, 19.4866],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Deportivo Eduardo Molina",
+        "latitud": 19.44478,
+        "longitud": -99.11212,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.11212, 19.44478],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Deportivo Los Galeana",
+        "latitud": 19.47846,
+        "longitud": -99.07805,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.07805, 19.47846],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "DIF Xochimilco",
+        "latitud": 19.27747,
+        "longitud": -99.11809,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.11809, 19.27747],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "División del Norte",
+        "latitud": 19.37993,
+        "longitud": -99.15897,
+        "altitud": 2243
+      },
+      "geometry": {
+        "coordinates": [-99.15897, 19.37993],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "División del Norte",
+        "latitud": 19.37993,
+        "longitud": -99.15897,
+        "altitud": 2243
+      },
+      "geometry": {
+        "coordinates": [-99.15897, 19.37993],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Doctor Vértiz",
+        "latitud": 19.39561,
+        "longitud": -99.15171,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15171, 19.39561],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Dr. Gálvez",
+        "latitud": 19.34071,
+        "longitud": -99.19004,
+        "altitud": 2288
+      },
+      "geometry": {
+        "coordinates": [-99.19004, 19.34071],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Dr. Gálvez",
+        "latitud": 19.34071,
+        "longitud": -99.19004,
+        "altitud": 2288
+      },
+      "geometry": {
+        "coordinates": [-99.19004, 19.34071],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Dr. Márquez",
+        "latitud": 19.41111,
+        "longitud": -99.15484,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.15484, 19.41111],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Dr. Márquez",
+        "latitud": 19.41111,
+        "longitud": -99.15484,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.15484, 19.41111],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Dr. Márquez",
+        "latitud": 19.41111,
+        "longitud": -99.15484,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.15484, 19.41111],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Durango",
+        "latitud": 19.41993,
+        "longitud": -99.16406,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.16406, 19.41993],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Eduardo Molina",
+        "latitud": 19.42718,
+        "longitud": -99.11623,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.11623, 19.42718],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Eje Central",
+        "latitud": 19.4303,
+        "longitud": -99.1408,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.1408, 19.4303],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Eje Central",
+        "latitud": 19.43033,
+        "longitud": -99.14193,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.14193, 19.43033],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Ahuehuete",
+        "latitud": 19.428497764,
+        "longitud": -99.164834251,
+        "altitud": 2246
+      },
+      "geometry": {
+        "coordinates": [-99.164834251, 19.428497764],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Ahuehuete",
+        "latitud": 19.428067901,
+        "longitud": -99.165058632,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.165058632, 19.428067901],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Ángel",
+        "latitud": 19.42642,
+        "longitud": -99.16866,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.16866, 19.42642],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Ángel",
+        "latitud": 19.42665,
+        "longitud": -99.16876,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.16876, 19.42665],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Ángel",
+        "latitud": 19.426686259,
+        "longitud": -99.16864362,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.16864362, 19.426686259],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Ángel",
+        "latitud": 19.426418143,
+        "longitud": -99.168657535,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.168657535, 19.426418143],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Ángel",
+        "latitud": 19.42642,
+        "longitud": -99.16866,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.16866, 19.42642],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Caballito",
+        "latitud": 19.43607,
+        "longitud": -99.14906,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14906, 19.43607],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Caballito",
+        "latitud": 19.43503,
+        "longitud": -99.15039,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.15039, 19.43503],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Caballito",
+        "latitud": 19.43607,
+        "longitud": -99.14906,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14906, 19.43607],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Caballito",
+        "latitud": 19.43503,
+        "longitud": -99.15039,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.15039, 19.43503],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Caminero",
+        "latitud": 19.27931,
+        "longitud": -99.16908,
+        "altitud": 2287
+      },
+      "geometry": {
+        "coordinates": [-99.16908, 19.27931],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Chopo",
+        "latitud": 19.44335,
+        "longitud": -99.15441,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15441, 19.44335],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Coyol",
+        "latitud": 19.48746,
+        "longitud": -99.09401,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.09401, 19.48746],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Coyol",
+        "latitud": 19.48746,
+        "longitud": -99.09447,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.09447, 19.48746],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Rodeo",
+        "latitud": 19.39166,
+        "longitud": -99.08708,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.08708, 19.39166],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Rosario",
+        "latitud": 19.50717,
+        "longitud": -99.19955,
+        "altitud": 2247
+      },
+      "geometry": {
+        "coordinates": [-99.19955, 19.50717],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Salvador",
+        "latitud": 19.42987,
+        "longitud": -99.13854,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.13854, 19.42987],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "El Salvador",
+        "latitud": 19.43007,
+        "longitud": -99.13942,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.13942, 19.43007],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ermita Iztapalapa",
+        "latitud": 19.35663,
+        "longitud": -99.11134,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.11134, 19.35663],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Escandón",
+        "latitud": 19.40441,
+        "longitud": -99.17383,
+        "altitud": 2242
+      },
+      "geometry": {
+        "coordinates": [-99.17383, 19.40441],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Escuadrón 201",
+        "latitud": 19.36604,
+        "longitud": -99.10919,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.10919, 19.36604],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "ESIME Culhuacán",
+        "latitud": 19.32921,
+        "longitud": -99.11354,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.11354, 19.32921],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Etiopía",
+        "latitud": 19.397,
+        "longitud": -99.1559,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1559, 19.397],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Etiopía",
+        "latitud": 19.39584,
+        "longitud": -99.155,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.155, 19.39584],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Etiopía",
+        "latitud": 19.397,
+        "longitud": -99.1559,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1559, 19.397],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Etiopía",
+        "latitud": 19.397,
+        "longitud": -99.1559,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1559, 19.397],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Eugenia",
+        "latitud": 19.38595,
+        "longitud": -99.15723,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.15723, 19.38595],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Eugenia",
+        "latitud": 19.38595,
+        "longitud": -99.15723,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.15723, 19.38595],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Euzkaro",
+        "latitud": 19.48252,
+        "longitud": -99.12763,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.12763, 19.48252],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Euzkaro",
+        "latitud": 19.48252,
+        "longitud": -99.12763,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.12763, 19.48252],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Excélsior",
+        "latitud": 19.47232,
+        "longitud": -99.1236,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1236, 19.47232],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Excélsior",
+        "latitud": 19.47059,
+        "longitud": -99.12416,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.12416, 19.47059],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Felix Cuevas",
+        "latitud": 19.37425,
+        "longitud": -99.1788,
+        "altitud": 2256
+      },
+      "geometry": {
+        "coordinates": [-99.1788, 19.37425],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Felix Cuevas",
+        "latitud": 19.37425,
+        "longitud": -99.1788,
+        "altitud": 2256
+      },
+      "geometry": {
+        "coordinates": [-99.1788, 19.37425],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ferocarriles Nacionales",
+        "latitud": 19.50487,
+        "longitud": -99.1886,
+        "altitud": 2244
+      },
+      "geometry": {
+        "coordinates": [-99.1886, 19.50487],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ferrocarril de Cintura",
+        "latitud": 19.43614,
+        "longitud": -99.12081,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.12081, 19.43614],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ferrocarril de Cintura",
+        "latitud": 19.436,
+        "longitud": -99.12161,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.12161, 19.436],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Francia",
+        "latitud": 19.35848,
+        "longitud": -99.18391,
+        "altitud": 2270
+      },
+      "geometry": {
+        "coordinates": [-99.18391, 19.35848],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Francia",
+        "latitud": 19.35848,
+        "longitud": -99.18391,
+        "altitud": 2270
+      },
+      "geometry": {
+        "coordinates": [-99.18391, 19.35848],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Francisco Morazán",
+        "latitud": 19.46705,
+        "longitud": -99.06183,
+        "altitud": 2227
+      },
+      "geometry": {
+        "coordinates": [-99.06183, 19.46705],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Fuentes Brotantes",
+        "latitud": 19.2881,
+        "longitud": -99.1746,
+        "altitud": 2292
+      },
+      "geometry": {
+        "coordinates": [-99.1746, 19.2881],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ganaderos",
+        "latitud": 19.35014,
+        "longitud": -99.11081,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.11081, 19.35014],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ganaderos",
+        "latitud": 19.35014,
+        "longitud": -99.11095,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.11095, 19.35014],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Gandhi",
+        "latitud": 19.42407,
+        "longitud": -99.18014,
+        "altitud": 2249
+      },
+      "geometry": {
+        "coordinates": [-99.18014, 19.42407],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Gandhi",
+        "latitud": 19.42389,
+        "longitud": -99.18091,
+        "altitud": 2251
+      },
+      "geometry": {
+        "coordinates": [-99.18091, 19.42389],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Garibaldi",
+        "latitud": 19.44486,
+        "longitud": -99.1387,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.1387, 19.44486],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Garibaldi",
+        "latitud": 19.44351,
+        "longitud": -99.13955,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.13955, 19.44351],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Garibaldi",
+        "latitud": 19.44486,
+        "longitud": -99.1387,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.1387, 19.44486],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Garibaldi",
+        "latitud": 19.44351,
+        "longitud": -99.13955,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.13955, 19.44351],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Garrido",
+        "latitud": 19.4835,
+        "longitud": -99.11936,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.11936, 19.4835],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Garrido",
+        "latitud": 19.48305,
+        "longitud": -99.11948,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.11948, 19.48305],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "General Antonio de León",
+        "latitud": 19.38538,
+        "longitud": -99.05173,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.05173, 19.38538],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Glorieta Cuitláhuac",
+        "latitud": 19.44947,
+        "longitud": -99.13399,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.13399, 19.44947],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Glorieta Cuitláhuac",
+        "latitud": 19.44725,
+        "longitud": -99.13564,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.13564, 19.44725],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Glorieta Cuitláhuac",
+        "latitud": 19.44725,
+        "longitud": -99.13564,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.13564, 19.44725],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Glorieta Cuitláhuac",
+        "latitud": 19.44742,
+        "longitud": -99.13578,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.13578, 19.44742],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Glorieta Insurgentes",
+        "latitud": 19.42339,
+        "longitud": -99.16254,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.16254, 19.42339],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Glorieta Insurgentes",
+        "latitud": 19.42413,
+        "longitud": -99.16324,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.16324, 19.42413],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Glorieta Violeta",
+        "latitud": 19.44155,
+        "longitud": -99.14234,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.14234, 19.44155],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Glorieta Violeta",
+        "latitud": 19.43955,
+        "longitud": -99.1441,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.1441, 19.43955],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Glorieta Violeta",
+        "latitud": 19.44155,
+        "longitud": -99.14234,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.14234, 19.44155],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Glorieta Violeta",
+        "latitud": 19.43955,
+        "longitud": -99.1441,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.1441, 19.43955],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Goma",
+        "latitud": 19.39689,
+        "longitud": -99.10001,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.10001, 19.39689],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Gran Canal",
+        "latitud": 19.47709,
+        "longitud": -99.09293,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.09293, 19.47709],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Guerrero",
+        "latitud": 19.44603,
+        "longitud": -99.14721,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.14721, 19.44603],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Guerrero",
+        "latitud": 19.44603,
+        "longitud": -99.14721,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.14721, 19.44603],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hamburgo",
+        "latitud": 19.42752,
+        "longitud": -99.16124,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.16124, 19.42752],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hamburgo",
+        "latitud": 19.43005,
+        "longitud": -99.16153,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.16153, 19.43005],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hamburgo",
+        "latitud": 19.42918,
+        "longitud": -99.16279,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.16279, 19.42918],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hamburgo",
+        "latitud": 19.430048765,
+        "longitud": -99.161504809,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.161504809, 19.430048765],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hamburgo",
+        "latitud": 19.43005,
+        "longitud": -99.16153,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.16153, 19.43005],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hamburgo",
+        "latitud": 19.42918,
+        "longitud": -99.16279,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.16279, 19.42918],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hamburgo",
+        "latitud": 19.429170161,
+        "longitud": -99.162797341,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.162797341, 19.429170161],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Héroe de Nacozari",
+        "latitud": 19.47116,
+        "longitud": -99.14504,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.14504, 19.47116],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hidalgo",
+        "latitud": 19.43601,
+        "longitud": -99.14721,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.14721, 19.43601],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hidalgo",
+        "latitud": 19.43601,
+        "longitud": -99.14721,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.14721, 19.43601],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hidalgo",
+        "latitud": 19.4373,
+        "longitud": -99.14615,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.14615, 19.4373],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hidalgo",
+        "latitud": 19.43728,
+        "longitud": -99.14621,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.14621, 19.43728],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hidalgo",
+        "latitud": 19.43787,
+        "longitud": -99.14638,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.14638, 19.43787],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hidalgo",
+        "latitud": 19.43663,
+        "longitud": -99.1476,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1476, 19.43663],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hidalgo",
+        "latitud": 19.43787,
+        "longitud": -99.14638,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.14638, 19.43787],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hidalgo",
+        "latitud": 19.43663,
+        "longitud": -99.1476,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1476, 19.43663],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hospital Balbuena",
+        "latitud": 19.4251,
+        "longitud": -99.11615,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.11615, 19.4251],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hospital General",
+        "latitud": 19.41444,
+        "longitud": -99.15456,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15456, 19.41444],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hospital General",
+        "latitud": 19.41444,
+        "longitud": -99.15456,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15456, 19.41444],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hospital General",
+        "latitud": 19.41444,
+        "longitud": -99.15456,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15456, 19.41444],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hospital General La Villa",
+        "latitud": 19.48037,
+        "longitud": -99.10119,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.10119, 19.48037],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hospital General Troncoso",
+        "latitud": 19.40546,
+        "longitud": -99.11357,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.11357, 19.40546],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hospital Infantil La Villa",
+        "latitud": 19.48804,
+        "longitud": -99.1147,
+        "altitud": 2253
+      },
+      "geometry": {
+        "coordinates": [-99.1147, 19.48804],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hospital Infantil La Villa",
+        "latitud": 19.48708,
+        "longitud": -99.11381,
+        "altitud": 2245
+      },
+      "geometry": {
+        "coordinates": [-99.11381, 19.48708],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Hospital La Raza",
+        "latitud": 19.46799,
+        "longitud": -99.14385,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14385, 19.46799],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Indios Verdes",
+        "latitud": 19.49682,
+        "longitud": -99.11972,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.11972, 19.49682],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Indios Verdes",
+        "latitud": 19.4933,
+        "longitud": -99.121,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.121, 19.4933],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Indios Verdes",
+        "latitud": 19.49682,
+        "longitud": -99.11972,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.11972, 19.49682],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Indios Verdes",
+        "latitud": 19.4933,
+        "longitud": -99.121,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.121, 19.4933],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Instituto del Petróleo",
+        "latitud": 19.49315,
+        "longitud": -99.14517,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14517, 19.49315],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Instituto Politécnico Nacional",
+        "latitud": 19.49043,
+        "longitud": -99.13265,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.13265, 19.49043],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Isabel la Católica",
+        "latitud": 19.42969,
+        "longitud": -99.13659,
+        "altitud": 2239
+      },
+      "geometry": {
+        "coordinates": [-99.13659, 19.42969],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Isabel la Católica",
+        "latitud": 19.42962,
+        "longitud": -99.13701,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.13701, 19.42962],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Iztacalco",
+        "latitud": 19.39655,
+        "longitud": -99.09596,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.09596, 19.39655],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Jardín Pushkin",
+        "latitud": 19.4204,
+        "longitud": -99.15408,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.15408, 19.4204],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Jardín Pushkin",
+        "latitud": 19.4204,
+        "longitud": -99.15408,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.15408, 19.4204],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Jardín Pushkin",
+        "latitud": 19.4204,
+        "longitud": -99.15408,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.15408, 19.4204],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "José María Velasco",
+        "latitud": 19.36176,
+        "longitud": -99.18285,
+        "altitud": 2269
+      },
+      "geometry": {
+        "coordinates": [-99.18285, 19.36176],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "José María Velasco",
+        "latitud": 19.36176,
+        "longitud": -99.18285,
+        "altitud": 2269
+      },
+      "geometry": {
+        "coordinates": [-99.18285, 19.36176],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Juárez",
+        "latitud": 19.43129,
+        "longitud": -99.14803,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.14803, 19.43129],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Juárez",
+        "latitud": 19.43129,
+        "longitud": -99.14803,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.14803, 19.43129],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Juárez",
+        "latitud": 19.43129,
+        "longitud": -99.14803,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.14803, 19.43129],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Juárez",
+        "latitud": 19.43126,
+        "longitud": -99.14774,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.14774, 19.43126],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Juárez",
+        "latitud": 19.43131,
+        "longitud": -99.14839,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.14839, 19.43131],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Júpiter",
+        "latitud": 19.50861,
+        "longitud": -99.15924,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.15924, 19.50861],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Bombilla",
+        "latitud": 19.34682,
+        "longitud": -99.18773,
+        "altitud": 2271
+      },
+      "geometry": {
+        "coordinates": [-99.18773, 19.34682],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Bombilla",
+        "latitud": 19.34682,
+        "longitud": -99.18773,
+        "altitud": 2271
+      },
+      "geometry": {
+        "coordinates": [-99.18773, 19.34682],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Diana",
+        "latitud": 19.42563,
+        "longitud": -99.17092,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.17092, 19.42563],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Diana",
+        "latitud": 19.42459,
+        "longitud": -99.17254,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.17254, 19.42459],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Diana",
+        "latitud": 19.42566829,
+        "longitud": -99.17089197,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.17089197, 19.42566829],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Diana",
+        "latitud": 19.42563,
+        "longitud": -99.17092,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.17092, 19.42563],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Diana",
+        "latitud": 19.424582829,
+        "longitud": -99.172513628,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.172513628, 19.424582829],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Diana",
+        "latitud": 19.42459,
+        "longitud": -99.17254,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.17254, 19.42459],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Joya",
+        "latitud": 19.28032,
+        "longitud": -99.16999,
+        "altitud": 2285
+      },
+      "geometry": {
+        "coordinates": [-99.16999, 19.28032],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Merced",
+        "latitud": 19.42545,
+        "longitud": -99.12595,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.12595, 19.42545],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Patera",
+        "latitud": 19.50366,
+        "longitud": -99.15727,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.15727, 19.50366],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Piedad",
+        "latitud": 19.39797,
+        "longitud": -99.17111,
+        "altitud": 2243
+      },
+      "geometry": {
+        "coordinates": [-99.17111, 19.39797],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Piedad",
+        "latitud": 19.39797,
+        "longitud": -99.17111,
+        "altitud": 2243
+      },
+      "geometry": {
+        "coordinates": [-99.17111, 19.39797],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Pradera",
+        "latitud": 19.47313,
+        "longitud": -99.06867,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.06867, 19.47313],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Raza",
+        "latitud": 19.4687,
+        "longitud": -99.13899,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.13899, 19.4687],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Raza",
+        "latitud": 19.4687,
+        "longitud": -99.13899,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.13899, 19.4687],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Raza",
+        "latitud": 19.46733,
+        "longitud": -99.14095,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14095, 19.46733],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Las Américas",
+        "latitud": 19.39346,
+        "longitud": -99.13435,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.13435, 19.39346],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Las Bombas",
+        "latitud": 19.31147,
+        "longitud": -99.11074,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.11074, 19.31147],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Las Cruces Sur",
+        "latitud": 19.42616,
+        "longitud": -99.12992,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.12992, 19.42616],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Viga",
+        "latitud": 19.39806,
+        "longitud": -99.12456,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.12456, 19.39806],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Villa",
+        "latitud": 19.48543,
+        "longitud": -99.1196,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.1196, 19.48543],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "La Virgen",
+        "latitud": 19.32068,
+        "longitud": -99.11362,
+        "altitud": 2239
+      },
+      "geometry": {
+        "coordinates": [-99.11362, 19.32068],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Leyes de Reforma",
+        "latitud": 19.38347,
+        "longitud": -99.06582,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.06582, 19.38347],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Lindavista - Vallejo",
+        "latitud": 19.49378,
+        "longitud": -99.14804,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.14804, 19.49378],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Loreto Fabela",
+        "latitud": 19.4674,
+        "longitud": -99.08098,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.08098, 19.4674],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Luz Saviñón",
+        "latitud": 19.39091,
+        "longitud": -99.15644,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.15644, 19.39091],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Luz Saviñón",
+        "latitud": 19.39091,
+        "longitud": -99.15644,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.15644, 19.39091],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Magdalena de las Salinas",
+        "latitud": 19.48388,
+        "longitud": -99.14986,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.14986, 19.48388],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Manuela Sáenz",
+        "latitud": 19.32421,
+        "longitud": -99.11397,
+        "altitud": 2239
+      },
+      "geometry": {
+        "coordinates": [-99.11397, 19.32421],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Manuel González",
+        "latitud": 19.4571,
+        "longitud": -99.14893,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.14893, 19.4571],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Manuel González",
+        "latitud": 19.4571,
+        "longitud": -99.14893,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.14893, 19.4571],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Martín Carrera",
+        "latitud": 19.48204,
+        "longitud": -99.10534,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.10534, 19.48204],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mercado Beethoven",
+        "latitud": 19.45761,
+        "longitud": -99.12918,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.12918, 19.45761],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mercado Beethoven",
+        "latitud": 19.45714,
+        "longitud": -99.12928,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.12928, 19.45714],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mercado de Sonora",
+        "latitud": 19.42318,
+        "longitud": -99.12392,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.12392, 19.42318],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mercado Morelos",
+        "latitud": 19.44128,
+        "longitud": -99.11343,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.11343, 19.44128],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mercado Sonora Sur",
+        "latitud": 19.42311,
+        "longitud": -99.1267,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.1267, 19.42311],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mercados San Juan",
+        "latitud": 19.43061,
+        "longitud": -99.14355,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14355, 19.43061],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mercados San Juan",
+        "latitud": 19.43077,
+        "longitud": -99.14465,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.14465, 19.43077],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Metro Coyuya",
+        "latitud": 19.39828,
+        "longitud": -99.1136,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.1136, 19.39828],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Metro Coyuya",
+        "latitud": 19.39939,
+        "longitud": -99.11353,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.11353, 19.39939],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "México Tenochtitlan",
+        "latitud": 19.43903,
+        "longitud": -99.15327,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.15327, 19.43903],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "México Tenochtitlan",
+        "latitud": 19.43864,
+        "longitud": -99.15346,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15346, 19.43864],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Miguel Laurent",
+        "latitud": 19.37434,
+        "longitud": -99.16038,
+        "altitud": 2245
+      },
+      "geometry": {
+        "coordinates": [-99.16038, 19.37434],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Miguel Laurent",
+        "latitud": 19.37434,
+        "longitud": -99.16038,
+        "altitud": 2245
+      },
+      "geometry": {
+        "coordinates": [-99.16038, 19.37434],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mina",
+        "latitud": 19.44058,
+        "longitud": -99.14855,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.14855, 19.44058],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mina",
+        "latitud": 19.44058,
+        "longitud": -99.14855,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.14855, 19.44058],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Misterios",
+        "latitud": 19.46107,
+        "longitud": -99.12764,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.12764, 19.46107],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Misterios",
+        "latitud": 19.46239,
+        "longitud": -99.12732,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.12732, 19.46239],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mixcalco",
+        "latitud": 19.43632,
+        "longitud": -99.12416,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.12416, 19.43632],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mixcalco",
+        "latitud": 19.43636,
+        "longitud": -99.12341,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.12341, 19.43636],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Mixiuhca",
+        "latitud": 19.4082,
+        "longitud": -99.11328,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.11328, 19.4082],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Moctezuma",
+        "latitud": 19.42689,
+        "longitud": -99.11198,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.11198, 19.42689],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Moctezuma",
+        "latitud": 19.42631,
+        "longitud": -99.11136,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.11136, 19.42631],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Moctezuma",
+        "latitud": 19.42606,
+        "longitud": -99.11144,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.11144, 19.42606],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Montevideo",
+        "latitud": 19.49611,
+        "longitud": -99.15446,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.15446, 19.49611],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Montevideo",
+        "latitud": 19.49488,
+        "longitud": -99.15306,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.15306, 19.49488],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Morelos",
+        "latitud": 19.43579,
+        "longitud": -99.11824,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.11824, 19.43579],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Morelos",
+        "latitud": 19.43581,
+        "longitud": -99.119,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.119, 19.43581],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Museo de la Ciudad",
+        "latitud": 19.42893,
+        "longitud": -99.1328,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.1328, 19.42893],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Museo San Carlos",
+        "latitud": 19.43823,
+        "longitud": -99.1506,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.1506, 19.43823],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Museo San Carlos",
+        "latitud": 19.43827,
+        "longitud": -99.15078,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.15078, 19.43827],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Muyuguarda",
+        "latitud": 19.28522,
+        "longitud": -99.11549,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.11549, 19.28522],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Nápoles",
+        "latitud": 19.38969,
+        "longitud": -99.17379,
+        "altitud": 2253
+      },
+      "geometry": {
+        "coordinates": [-99.17379, 19.38969],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Nápoles",
+        "latitud": 19.38969,
+        "longitud": -99.17379,
+        "altitud": 2253
+      },
+      "geometry": {
+        "coordinates": [-99.17379, 19.38969],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Necaxa",
+        "latitud": 19.47648,
+        "longitud": -99.12203,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.12203, 19.47648],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Necaxa",
+        "latitud": 19.47514,
+        "longitud": -99.12246,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.12246, 19.47514],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Nicolás Bravo",
+        "latitud": 19.3935,
+        "longitud": -99.05093,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.05093, 19.3935],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Norte 45",
+        "latitud": 19.49635,
+        "longitud": -99.15975,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.15975, 19.49635],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Norte 59",
+        "latitud": 19.49762,
+        "longitud": -99.16555,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.16555, 19.49762],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Nuevo León",
+        "latitud": 19.40204,
+        "longitud": -99.16978,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.16978, 19.40204],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Nuevo León",
+        "latitud": 19.40204,
+        "longitud": -99.16978,
+        "altitud": 2240
+      },
+      "geometry": {
+        "coordinates": [-99.16978, 19.40204],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Nuevo León",
+        "latitud": 19.4035,
+        "longitud": -99.17041,
+        "altitud": 2247
+      },
+      "geometry": {
+        "coordinates": [-99.17041, 19.4035],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Obrero Mundial",
+        "latitud": 19.40106,
+        "longitud": -99.1556,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1556, 19.40106],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Obrero Mundial",
+        "latitud": 19.40106,
+        "longitud": -99.1556,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1556, 19.40106],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Obrero Mundial",
+        "latitud": 19.40106,
+        "longitud": -99.1556,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1556, 19.40106],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Olivo",
+        "latitud": 19.35463,
+        "longitud": -99.18516,
+        "altitud": 2268
+      },
+      "geometry": {
+        "coordinates": [-99.18516, 19.35463],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Olivo",
+        "latitud": 19.35463,
+        "longitud": -99.18516,
+        "altitud": 2268
+      },
+      "geometry": {
+        "coordinates": [-99.18516, 19.35463],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Oriente 101",
+        "latitud": 19.46083,
+        "longitud": -99.10542,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.10542, 19.46083],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Oriente 101",
+        "latitud": 19.4609,
+        "longitud": -99.10568,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.10568, 19.4609],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Oriente 116",
+        "latitud": 19.39026,
+        "longitud": -99.11266,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.11266, 19.39026],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Pantitlán",
+        "latitud": 19.41707,
+        "longitud": -99.07345,
+        "altitud": 2226
+      },
+      "geometry": {
+        "coordinates": [-99.07345, 19.41707],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "París",
+        "latitud": 19.4324,
+        "longitud": -99.15597,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.15597, 19.4324],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "París",
+        "latitud": 19.4326,
+        "longitud": -99.15615,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.15615, 19.4326],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "París",
+        "latitud": 19.43239472,
+        "longitud": -99.155905455,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.155905455, 19.43239472],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "París",
+        "latitud": 19.43266182,
+        "longitud": -99.155958079,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.155958079, 19.43266182],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "París",
+        "latitud": 19.4324,
+        "longitud": -99.15597,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.15597, 19.4324],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "París",
+        "latitud": 19.4326,
+        "longitud": -99.15615,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.15615, 19.4326],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Parque Hundido",
+        "latitud": 19.37959,
+        "longitud": -99.17707,
+        "altitud": 2256
+      },
+      "geometry": {
+        "coordinates": [-99.17707, 19.37959],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Parque Hundido",
+        "latitud": 19.37959,
+        "longitud": -99.17707,
+        "altitud": 2256
+      },
+      "geometry": {
+        "coordinates": [-99.17707, 19.37959],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Parque Lira",
+        "latitud": 19.40779,
+        "longitud": -99.1891,
+        "altitud": 2257
+      },
+      "geometry": {
+        "coordinates": [-99.1891, 19.40779],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Patriotismo",
+        "latitud": 19.40557,
+        "longitud": -99.17737,
+        "altitud": 2244
+      },
+      "geometry": {
+        "coordinates": [-99.17737, 19.40557],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Peralvillo",
+        "latitud": 19.45371,
+        "longitud": -99.13081,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.13081, 19.45371],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Peralvillo",
+        "latitud": 19.45274,
+        "longitud": -99.13102,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.13102, 19.45274],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Perisur",
+        "latitud": 19.30411,
+        "longitud": -99.18613,
+        "altitud": 2302
+      },
+      "geometry": {
+        "coordinates": [-99.18613, 19.30411],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Pino Suárez",
+        "latitud": 19.42666,
+        "longitud": -99.13278,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.13278, 19.42666],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Pino Suárez Sur",
+        "latitud": 19.4261,
+        "longitud": -99.13421,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.13421, 19.4261],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Plaza de la República",
+        "latitud": 19.43605,
+        "longitud": -99.15732,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.15732, 19.43605],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Plaza de la República",
+        "latitud": 19.43713,
+        "longitud": -99.15398,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.15398, 19.43713],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Plaza de la República",
+        "latitud": 19.4368,
+        "longitud": -99.15414,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.15414, 19.4368],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Poliforum",
+        "latitud": 19.3933,
+        "longitud": -99.17262,
+        "altitud": 2251
+      },
+      "geometry": {
+        "coordinates": [-99.17262, 19.3933],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Poliforum",
+        "latitud": 19.3933,
+        "longitud": -99.17262,
+        "altitud": 2251
+      },
+      "geometry": {
+        "coordinates": [-99.17262, 19.3933],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Poniente 128",
+        "latitud": 19.48955,
+        "longitud": -99.15196,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.15196, 19.48955],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Poniente 134",
+        "latitud": 19.49269,
+        "longitud": -99.15317,
+        "altitud": 2238
+      },
+      "geometry": {
+        "coordinates": [-99.15317, 19.49269],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Poniente 146",
+        "latitud": 19.49999,
+        "longitud": -99.15588,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.15588, 19.49999],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Potrero",
+        "latitud": 19.47664,
+        "longitud": -99.13247,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.13247, 19.47664],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Potrero",
+        "latitud": 19.47664,
+        "longitud": -99.13247,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.13247, 19.47664],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Preparatoria 1",
+        "latitud": 19.27351,
+        "longitud": -99.12051,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.12051, 19.27351],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Preparatoria 3",
+        "latitud": 19.4833,
+        "longitud": -99.09583,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.09583, 19.4833],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Preparatoria 3",
+        "latitud": 19.4836,
+        "longitud": -99.09618,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.09618, 19.4836],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Progreso Nacional",
+        "latitud": 19.51969,
+        "longitud": -99.16377,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.16377, 19.51969],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Pueblo los Reyes",
+        "latitud": 19.34798,
+        "longitud": -99.11134,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.11134, 19.34798],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Pueblo San Juan de Aragón",
+        "latitud": 19.47101,
+        "longitud": -99.08636,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.08636, 19.47101],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Pueblo Sta. Cruz Atoyac",
+        "latitud": 19.37159,
+        "longitud": -99.16098,
+        "altitud": 2248
+      },
+      "geometry": {
+        "coordinates": [-99.16098, 19.37159],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Pueblo Sta. Cruz Atoyac",
+        "latitud": 19.37159,
+        "longitud": -99.16098,
+        "altitud": 2248
+      },
+      "geometry": {
+        "coordinates": [-99.16098, 19.37159],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Recreo",
+        "latitud": 19.39379,
+        "longitud": -99.11357,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.11357, 19.39379],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Recreo",
+        "latitud": 19.39389,
+        "longitud": -99.11368,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.11368, 19.39389],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Reforma",
+        "latitud": 19.4329,
+        "longitud": -99.15871,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.15871, 19.4329],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Reforma",
+        "latitud": 19.43111,
+        "longitud": -99.15854,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15854, 19.43111],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Reforma",
+        "latitud": 19.43143,
+        "longitud": -99.15871,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15871, 19.43143],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Reforma",
+        "latitud": 19.43111,
+        "longitud": -99.15854,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15854, 19.43111],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Reforma",
+        "latitud": 19.431106483,
+        "longitud": -99.15854425,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15854425, 19.431106483],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Reforma",
+        "latitud": 19.431433443,
+        "longitud": -99.158705394,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.158705394, 19.431433443],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Reforma",
+        "latitud": 19.43143,
+        "longitud": -99.15871,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15871, 19.43143],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "República de Argentina",
+        "latitud": 19.43736,
+        "longitud": -99.13119,
+        "altitud": 2239
+      },
+      "geometry": {
+        "coordinates": [-99.13119, 19.43736],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "República de Argentina",
+        "latitud": 19.43741,
+        "longitud": -99.132,
+        "altitud": 2239
+      },
+      "geometry": {
+        "coordinates": [-99.132, 19.43741],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "República de Chile",
+        "latitud": 19.43788,
+        "longitud": -99.13502,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.13502, 19.43788],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "República de Chile",
+        "latitud": 19.43797,
+        "longitud": -99.1359,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.1359, 19.43797],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Revolución",
+        "latitud": 19.44035,
+        "longitud": -99.15541,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.15541, 19.44035],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ricardo Flores Magón",
+        "latitud": 19.45178,
+        "longitud": -99.1459,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.1459, 19.45178],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Ricardo Flores Magón",
+        "latitud": 19.45178,
+        "longitud": -99.1459,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.1459, 19.45178],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Riobamba",
+        "latitud": 19.48865,
+        "longitud": -99.1279,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.1279, 19.48865],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río Churubusco",
+        "latitud": 19.36878,
+        "longitud": -99.18057,
+        "altitud": 2261
+      },
+      "geometry": {
+        "coordinates": [-99.18057, 19.36878],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río Churubusco",
+        "latitud": 19.36878,
+        "longitud": -99.18057,
+        "altitud": 2261
+      },
+      "geometry": {
+        "coordinates": [-99.18057, 19.36878],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río Consulado",
+        "latitud": 19.45359,
+        "longitud": -99.10834,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.10834, 19.45359],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río Consulado",
+        "latitud": 19.45369,
+        "longitud": -99.10854,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.10854, 19.45369],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río de Guadalupe",
+        "latitud": 19.47594,
+        "longitud": -99.09895,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.09895, 19.47594],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río de Guadalupe",
+        "latitud": 19.47607,
+        "longitud": -99.0993,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.0993, 19.47607],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río de los Remedios",
+        "latitud": 19.50711,
+        "longitud": -99.08593,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.08593, 19.50711],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río Frío",
+        "latitud": 19.38763,
+        "longitud": -99.07428,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.07428, 19.38763],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río Mayo",
+        "latitud": 19.38696,
+        "longitud": -99.08002,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.08002, 19.38696],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río Santa Coleta",
+        "latitud": 19.45599,
+        "longitud": -99.10741,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.10741, 19.45599],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río Santa Coleta",
+        "latitud": 19.45608,
+        "longitud": -99.10756,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.10756, 19.45608],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Río Tecolutla",
+        "latitud": 19.38906,
+        "longitud": -99.08315,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.08315, 19.38906],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Robles Domínguez",
+        "latitud": 19.46862,
+        "longitud": -99.12498,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.12498, 19.46862],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Robles Domínguez",
+        "latitud": 19.46684,
+        "longitud": -99.12557,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.12557, 19.46684],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Rojo Gómez",
+        "latitud": 19.38451,
+        "longitud": -99.07637,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.07637, 19.38451],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Bartolo",
+        "latitud": 19.49196,
+        "longitud": -99.13911,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.13911, 19.49196],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San José de la Escalera",
+        "latitud": 19.52272,
+        "longitud": -99.16556,
+        "altitud": 2242
+      },
+      "geometry": {
+        "coordinates": [-99.16556, 19.52272],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Juan de Aragón",
+        "latitud": 19.47984,
+        "longitud": -99.09731,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.09731, 19.47984],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Juan de Aragón",
+        "latitud": 19.47996,
+        "longitud": -99.09772,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.09772, 19.47996],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Juan de Aragón",
+        "latitud": 19.47876,
+        "longitud": -99.09717,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.09717, 19.47876],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Lázaro",
+        "latitud": 19.43112,
+        "longitud": -99.11543,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.11543, 19.43112],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Lázaro Norte",
+        "latitud": 19.43122,
+        "longitud": -99.1152,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.1152, 19.43122],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Lázaro Oriente",
+        "latitud": 19.43091,
+        "longitud": -99.11517,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.11517, 19.43091],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Lázaro Sur",
+        "latitud": 19.4304,
+        "longitud": -99.11533,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.11533, 19.4304],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Pablo",
+        "latitud": 19.42558,
+        "longitud": -99.1307,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.1307, 19.42558],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Simón",
+        "latitud": 19.45963,
+        "longitud": -99.14642,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14642, 19.45963],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "San Simón",
+        "latitud": 19.45963,
+        "longitud": -99.14642,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14642, 19.45963],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Santa Ursula",
+        "latitud": 19.28326,
+        "longitud": -99.1753,
+        "altitud": 2309
+      },
+      "geometry": {
+        "coordinates": [-99.1753, 19.28326],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Sonora",
+        "latitud": 19.41327,
+        "longitud": -99.16612,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.16612, 19.41327],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tacubaya",
+        "latitud": 19.40199,
+        "longitud": -99.18701,
+        "altitud": 2260
+      },
+      "geometry": {
+        "coordinates": [-99.18701, 19.40199],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Talisman",
+        "latitud": 19.471,
+        "longitud": -99.1011,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.1011, 19.471],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Talisman",
+        "latitud": 19.47108,
+        "longitud": -99.10141,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.10141, 19.47108],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Teatro Blanquita",
+        "latitud": 19.43843,
+        "longitud": -99.13908,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.13908, 19.43843],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Teatro Blanquita",
+        "latitud": 19.43864,
+        "longitud": -99.13997,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.13997, 19.43864],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Teatro de los Insurgentes",
+        "latitud": 19.36493,
+        "longitud": -99.18183,
+        "altitud": 2269
+      },
+      "geometry": {
+        "coordinates": [-99.18183, 19.36493],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Teatro de los Insurgentes",
+        "latitud": 19.36493,
+        "longitud": -99.18183,
+        "altitud": 2269
+      },
+      "geometry": {
+        "coordinates": [-99.18183, 19.36493],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Teatro del Pueblo",
+        "latitud": 19.43685,
+        "longitud": -99.12704,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.12704, 19.43685],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Teatro del Pueblo",
+        "latitud": 19.43677,
+        "longitud": -99.12762,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.12762, 19.43677],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tecnoparque",
+        "latitud": 19.50247,
+        "longitud": -99.17888,
+        "altitud": 2245
+      },
+      "geometry": {
+        "coordinates": [-99.17888, 19.50247],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tenayuca",
+        "latitud": 19.52862,
+        "longitud": -99.17011,
+        "altitud": 2248
+      },
+      "geometry": {
+        "coordinates": [-99.17011, 19.52862],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tepalcates",
+        "latitud": 19.39077,
+        "longitud": -99.04761,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.04761, 19.39077],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tepetlapa",
+        "latitud": 19.31634,
+        "longitud": -99.11163,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.11163, 19.31634],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Terminal 1 - Aeropuerto",
+        "latitud": 19.43531,
+        "longitud": -99.08367,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.08367, 19.43531],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Terminal 2 - Aeropuerto",
+        "latitud": 19.42148,
+        "longitud": -99.07725,
+        "altitud": 2249
+      },
+      "geometry": {
+        "coordinates": [-99.07725, 19.42148],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tlacotal",
+        "latitud": 19.39722,
+        "longitud": -99.10391,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.10391, 19.39722],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tlatelolco",
+        "latitud": 19.45556,
+        "longitud": -99.14505,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.14505, 19.45556],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tlatelolco",
+        "latitud": 19.45556,
+        "longitud": -99.14505,
+        "altitud": 2237
+      },
+      "geometry": {
+        "coordinates": [-99.14505, 19.45556],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tolnáhuac",
+        "latitud": 19.45989,
+        "longitud": -99.14406,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14406, 19.45989],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tolnáhuac",
+        "latitud": 19.45989,
+        "longitud": -99.14406,
+        "altitud": 2235
+      },
+      "geometry": {
+        "coordinates": [-99.14406, 19.45989],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tres Anegas",
+        "latitud": 19.51551,
+        "longitud": -99.16193,
+        "altitud": 2243
+      },
+      "geometry": {
+        "coordinates": [-99.16193, 19.51551],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tres Culturas",
+        "latitud": 19.45126,
+        "longitud": -99.13258,
+        "altitud": 2236
+      },
+      "geometry": {
+        "coordinates": [-99.13258, 19.45126],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Tres Culturas",
+        "latitud": 19.45072,
+        "longitud": -99.13262,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.13262, 19.45072],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "UAM Azcapotzalco",
+        "latitud": 19.50401,
+        "longitud": -99.18399,
+        "altitud": 2244
+      },
+      "geometry": {
+        "coordinates": [-99.18399, 19.50401],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "UPIICSA",
+        "latitud": 19.39394,
+        "longitud": -99.09039,
+        "altitud": 2233
+      },
+      "geometry": {
+        "coordinates": [-99.09039, 19.39394],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Vasco de Quiroga",
+        "latitud": 19.4932,
+        "longitud": -99.09159,
+        "altitud": 2232
+      },
+      "geometry": {
+        "coordinates": [-99.09159, 19.4932],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Vasco de Quiroga",
+        "latitud": 19.49335,
+        "longitud": -99.09202,
+        "altitud": 2231
+      },
+      "geometry": {
+        "coordinates": [-99.09202, 19.49335],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Venustiano Carranza",
+        "latitud": 19.41837,
+        "longitud": -99.11222,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.11222, 19.41837],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Viaducto",
+        "latitud": 19.40131,
+        "longitud": -99.16809,
+        "altitud": 2241
+      },
+      "geometry": {
+        "coordinates": [-99.16809, 19.40131],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Victoria",
+        "latitud": 19.4673,
+        "longitud": -99.10263,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.10263, 19.4673],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Victoria",
+        "latitud": 19.46742,
+        "longitud": -99.10291,
+        "altitud": 2230
+      },
+      "geometry": {
+        "coordinates": [-99.10291, 19.46742],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Villa de Aragón",
+        "latitud": 19.46492,
+        "longitud": -99.05952,
+        "altitud": 2227
+      },
+      "geometry": {
+        "coordinates": [-99.05952, 19.46492],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Villa Olímpica",
+        "latitud": 19.29909,
+        "longitud": -99.18551,
+        "altitud": 2292
+      },
+      "geometry": {
+        "coordinates": [-99.18551, 19.29909],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Vista Hermosa",
+        "latitud": 19.30681,
+        "longitud": -99.11179,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.11179, 19.30681],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Vocacional 5",
+        "latitud": 19.43159,
+        "longitud": -99.15022,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15022, 19.43159],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Vocacional 5",
+        "latitud": 19.43176,
+        "longitud": -99.15095,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.15095, 19.43176],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Volcán de Fuego",
+        "latitud": 19.47697,
+        "longitud": -99.07252,
+        "altitud": 2229
+      },
+      "geometry": {
+        "coordinates": [-99.07252, 19.47697],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routes": ["Metrobús"],
+        "name": "Xola",
+        "latitud": 19.39437,
+        "longitud": -99.14025,
+        "altitud": 2234
+      },
+      "geometry": {
+        "coordinates": [-99.14025, 19.39437],
+        "type": "Point"
+      }
+    }
+  ]
+}

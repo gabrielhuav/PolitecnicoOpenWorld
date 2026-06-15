@@ -137,6 +137,21 @@ O(candidatos cercanos).
 **EN:** The player **can't leave roads**. Every move is validated against a **spatial grid index**
 (`Seg` + `HashMap<cell, List<Seg>>`), running snap-to-road in O(nearby candidates).
 
+> **🆕 ZONAS LIBRES (campus): ESCOM y ENCB.** Dentro del bounding box de ESCOM (`ESCOM_BASE_LAT/LON` ±
+> `ESCOM_OFFSET`) o de la **ENCB** (`ENCB_BASE_LAT=19.5001588`, `ENCB_BASE_LON=-99.1450298`, `ENCB_OFFSET=0.0012`,
+> ~130 m) se **suspende el snap-to-road**: `moveCharacter`/`moveCharacterByAngle` consultan
+> `isFreeMovementZone(lat,lon)` (= `isInsideEscom || isInsideEncb`, miembros `internal`) y mueven al jugador a la
+> coordenada `(x,y)` libre (tras la aduana de choque de bardas). **Prankedy** hace lo mismo: `runPrankedyTick`
+> calcula `freeZone` desde la posición del jugador y, si está en campus, **apaga el snap** (`snapToRoad` devuelve
+> el punto sin tocar) → persigue en **línea recta (steer-to-target)** a `p_run`. El estado es **per-tick**: al
+> salir del perímetro vuelve el snap normal (salvo que entre al box de ESCOM, también libre). Ver 03 (Prankedy) y 07.
+>
+> **🆕 Regla visual simétrica (ESCOM y ENCB):** `updateVisibleRoads(location, force)` comprueba al inicio
+> `isFreeMovementZone(location)`; si es true **vacía `_roadNetworkFlow` (emptyList) y hace `return`** (salta el
+> filtro en `Dispatchers.Default`), de modo que **dentro de cualquiera de los dos campus NO se pintan las líneas
+> de calles** (las amarillas de Overpass). Al salir del box recupera el filtrado normal. Misma condición que el
+> movimiento libre, así ambas zonas quedan limpias.
+
 - `ensureIndex()` / `candidates(loc): List<Seg>` / `getNearestPointOnNetwork(t): GeoPoint` /
   `project(p, v, w): GeoPoint` (proyección punto-segmento).
 - `pack(r, c): Long`, `cell(v): Int` (celda de grid), `CELL` (tamaño de celda).
@@ -272,6 +287,11 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
   peatón, **sin** indicador flotante, proyectil interpolado encima de la niebla) **y web** (`updatePrankedy`/
   `updatePrankedyProjectile` en `WorldMapLeafletHtml`, base64 por frame empujado desde `WorldMapScreen`).
   Google nativo = pendiente. IA/comportamiento → ver 03.
+- **🆕 Línea GPS de campaña (Modo Historia):** ruta A* `findRoadRoute(ENCB, ESCOM)` (en `WorldMapRouting.kt`,
+  sobre la red vial) → `WorldMapState.campaignRouteWaypoints`, dibujada como **`Polyline` ROJA** en OSM nativo
+  (`NativeOsmMap`, tag `route_overlay_tag+900`, `overlays.add(0,…)` → sobre teselas, bajo personajes/HUD) y en
+  web (JS `updateCampaignRoute` en `WorldMapLeafletHtml`). La activa `maybeSpawnPrankedyCompanion` y la oculta
+  `maybeHideCampaignRouteNearEscom` (~100 m de ESCOM) en `WorldMapPrankedy.kt`. Google nativo = pendiente. Ver 07.
 - **LOD de emojis (gama baja):** si `uiState.npcEmojiLod` (Ajustes→Jugabilidad), `NativeOsmMap` dibuja los
   NPCs a **>40 m** del jugador como un **emoji barato** (🧍/🚗/🧟/👮 cacheado por tipo+tamaño) en vez del
   sprite/bitmap completo; solo los muy cercanos llevan el asset. Recorta el costo de render. **Solo OSM

@@ -37,17 +37,18 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
 import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
-import ovh.gabrielhuav.pow.features.interior.ui.AuditorioScreen
-import ovh.gabrielhuav.pow.features.interior.ui.BibliotecaScreen
-import ovh.gabrielhuav.pow.features.interior.ui.CafeteriaScreen
-import ovh.gabrielhuav.pow.features.interior.ui.CanchasFutbolScreen
-import ovh.gabrielhuav.pow.features.interior.ui.EdificioScreen
-import ovh.gabrielhuav.pow.features.interior.ui.EstacionamientoScreen
-import ovh.gabrielhuav.pow.features.interior.ui.MetroStationInteriorScreen
-import ovh.gabrielhuav.pow.features.interior.ui.PalapasScreen
-import ovh.gabrielhuav.pow.features.interior.ui.DeportivoBeisScreen
-import ovh.gabrielhuav.pow.features.interior.ui.DeportivoFutbolScreen
-import ovh.gabrielhuav.pow.features.interior.ui.Voca9Screen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.AuditorioScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.BibliotecaScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.CafeteriaScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.CanchasFutbolScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.EdificioScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.EstacionamientoScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.MetroStationInteriorScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.MetrobusStationInteriorScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.PalapasScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoBeisScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoFutbolScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.Voca9Screen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
@@ -61,8 +62,8 @@ import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
 import ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
-import ovh.gabrielhuav.pow.features.shinecto.ui.EasterEggDiscoveryDialog
-import ovh.gabrielhuav.pow.features.shinecto.ui.ShineCTOScreen
+import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.EasterEggDiscoveryDialog
+import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.ShineCTOScreen
 class MainActivity : ComponentActivity() {
 
     private val worldMapViewModel: WorldMapViewModel by viewModels {
@@ -444,6 +445,34 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onTeleportToStation = { newStation, x, y ->
                                     navController.navigate("metro_station_interior/$newStation?spawnX=$x&spawnY=$y") {
+                                        popUpTo("world_map") { inclusive = false }
+                                    }
+                                }
+                            )
+                        }
+                        
+                        // ─── ESTACIONES METROBÚS ──────────────────────────────────
+                        composable(
+                            route = "metrobus_station_interior/{stationName}?spawnX={spawnX}&spawnY={spawnY}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("stationName") { type = androidx.navigation.NavType.StringType },
+                                androidx.navigation.navArgument("spawnX") { type = androidx.navigation.NavType.FloatType; defaultValue = -1f },
+                                androidx.navigation.navArgument("spawnY") { type = androidx.navigation.NavType.FloatType; defaultValue = -1f }
+                            )
+                        ) { backStackEntry ->
+                            val stationName = backStackEntry.arguments?.getString("stationName") ?: "Desconocida"
+                            val spawnX = backStackEntry.arguments?.getFloat("spawnX") ?: -1f
+                            val spawnY = backStackEntry.arguments?.getFloat("spawnY") ?: -1f
+                            MetrobusStationInteriorScreen(
+                                stationName = stationName,
+                                spawnX = spawnX,
+                                spawnY = spawnY,
+                                onExit = { currentStation ->
+                                    worldMapViewModel.teleportToMetrobusStation(currentStation)
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
+                                onTeleportToStation = { newStation, x, y ->
+                                    navController.navigate("metrobus_station_interior/$newStation?spawnX=$x&spawnY=$y") {
                                         popUpTo("world_map") { inclusive = false }
                                     }
                                 }

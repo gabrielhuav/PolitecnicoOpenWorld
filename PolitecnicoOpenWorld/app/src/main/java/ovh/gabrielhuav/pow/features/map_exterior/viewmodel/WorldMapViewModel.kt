@@ -58,6 +58,7 @@ import java.io.InputStreamReader
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
 import ovh.gabrielhuav.pow.data.repository.MetroRepository
+import ovh.gabrielhuav.pow.data.repository.MetrobusRepository
 import ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig
 
 class WorldMapViewModel(
@@ -197,6 +198,10 @@ class WorldMapViewModel(
     internal val ROAD_NODE_GRID_SIZE_DEG = 0.001
 
     internal var lastVisibleRoadUpdateLocation: GeoPoint? = null
+    // 🆕 ¿El tick anterior el jugador estaba en zona libre (ESCOM/ENCB)? Sirve para FORZAR un
+    // repintado inmediato de las calles en el tick en que SALE de la zona (el flow quedó vacío
+    // y el throttle por distancia lo suprimiría porque el campus es pequeño).
+    internal var wasInFreeMovementZone = false
     internal val VISIBLE_ROAD_UPDATE_THRESHOLD = 0.002
     internal val VISIBLE_ROAD_RADIUS = 0.006
 
@@ -281,6 +286,14 @@ class WorldMapViewModel(
     internal val VOCA9_BASE_LAT = 19.45370
     internal val VOCA9_BASE_LON = -99.17540
     internal val VOCA9_OFFSET = 0.0008
+    // ─── ZONA LIBRE DE LA ENCB (Modo Historia) ───────────────────────────────
+    // Bounding box centrado en el spawn de la ENCB. Dentro de él se SUSPENDE la
+    // restricción de malla vial (igual que en ESCOM): el jugador y Prankedy se
+    // mueven 100% libres por explanadas/áreas verdes. Offset ligeramente mayor que
+    // el de ESCOM para cubrir todo el campus (~0.0012° ≈ 130 m de radio).
+    internal val ENCB_BASE_LAT = 19.5001588
+    internal val ENCB_BASE_LON = -99.1450298
+    internal val ENCB_OFFSET = 0.0012
 
     internal val ESCOM_DOOR_ASSET = "DOORS/ESCOM_DOOR.webp"
     internal val ESCOM_DOOR_INTERACT_RADIUS = 0.00020   // ~20 m
@@ -422,6 +435,13 @@ class WorldMapViewModel(
                         }
                         checkCollectibleProximity(location.latitude, location.longitude)
 
+                        // MODO HISTORIA: ¿llegó al objetivo de campaña (p. ej. la ENCB)?
+                        // y, en el vecindario de la ENCB, enciende a Prankedy acompañante.
+                        if (inCampaign) {
+                            checkObjectiveProgress(location)
+                            maybeSpawnPrankedyCompanion(location)
+                            maybeHideCampaignRouteNearEscom(location)
+                        }
                         checkDestinationArrival()
 
                         if (tickCount % 30 == 0L && _uiState.value.destinationMarker != null) {
@@ -877,8 +897,26 @@ class WorldMapViewModel(
     }
 
     private fun updateVisibleRoads(playerLoc: GeoPoint, force: Boolean = false) {
+        // 🆕 ZONA LIBRE (ESCOM/ENCB): dentro de cualquiera de los dos campus NO se pintan las
+        // líneas de calles. Vaciamos el Flow de inmediato y SALTAMOS el filtro en Default (sin
+        // parpadeo/recarga). Al SALIR del perímetro, la condición falla y se repinta normal.
+        // ⚠️ Esta es la versión MIEMBRO (gana sobre la extensión homónima de WorldMapRoadNetwork.kt,
+        // gotcha del archivo 09): es la que realmente se ejecuta, por eso el check va AQUÍ.
+        if (isFreeMovementZone(playerLoc.latitude, playerLoc.longitude)) {
+            wasInFreeMovementZone = true
+            if (_roadNetworkFlow.value.isNotEmpty()) _roadNetworkFlow.value = emptyList()
+            return
+        }
+        // SALIDA de zona libre: en el primer tick fuera del campus FORZAMOS el repintado, porque
+        // el flow quedó vacío al entrar y el throttle por distancia lo suprimiría (el campus es
+        // pequeño → el jugador no se ha alejado del último punto pintado). Así las calles
+        // reaparecen al instante al pisar el mundo abierto.
+        val leftFreeZone = wasInFreeMovementZone
+        wasInFreeMovementZone = false
+        val effectiveForce = force || leftFreeZone
+
         val lastUpdate = lastVisibleRoadUpdateLocation
-        if (!force && lastUpdate != null) {
+        if (!effectiveForce && lastUpdate != null) {
             val dist = distance(playerLoc, lastUpdate)
             if (dist < VISIBLE_ROAD_UPDATE_THRESHOLD) return
         }
@@ -890,7 +928,13 @@ class WorldMapViewModel(
                     distance(playerLoc, GeoPoint(node.lat, node.lon)) <= VISIBLE_ROAD_RADIUS
                 }
             }
-            _roadNetworkFlow.value = visible
+            // Anti-carrera: si para cuando termina el filtro el jugador YA está en zona libre,
+            // no repintamos (evita que una corutina lanzada en el borde reponga las líneas).
+            if (!isFreeMovementZone(playerLoc.latitude, playerLoc.longitude)) {
+                _roadNetworkFlow.value = visible
+            } else if (_roadNetworkFlow.value.isNotEmpty()) {
+                _roadNetworkFlow.value = emptyList()
+            }
         }
     }
 
@@ -1160,6 +1204,12 @@ class WorldMapViewModel(
             return // CHOCÓ: Rompemos la función y el jugador no avanza
         }
 
+        // ZONA LIBRE (ESCOM / ENCB): se suspende la malla vial → movimiento (x,y) 100% libre.
+        if (isFreeMovementZone(temp.latitude, temp.longitude)) {
+            _uiState.update { it.copy(currentLocation = temp) }
+            return
+        }
+
         val nearest = getNearestPointOnNetwork(temp)
         val dist    = distance(temp, nearest)
         val radius  = 0.000012
@@ -1201,6 +1251,12 @@ class WorldMapViewModel(
         // ADUANA DE CHOQUE JOYSTICK
         if (isCollisionDetected(loc.latitude, loc.longitude, temp.latitude, temp.longitude)) {
             return // CHOCÓ: Rompemos la función
+        }
+
+        // ZONA LIBRE (ESCOM / ENCB): se suspende la malla vial → movimiento (x,y) 100% libre.
+        if (isFreeMovementZone(temp.latitude, temp.longitude)) {
+            _uiState.update { it.copy(currentLocation = temp) }
+            return
         }
 
         val nearest = getNearestPointOnNetwork(temp)
@@ -1309,8 +1365,47 @@ class WorldMapViewModel(
         sqrt((a.latitude - b.latitude).pow(2) + (a.longitude - b.longitude).pow(2))
 
     fun updateInitialLocation(lat: Double, lon: Double) {
-        if (_uiState.value.isLoadingLocation)
-            _uiState.update { it.copy(currentLocation = GeoPoint(lat, lon), isLoadingLocation = false) }
+        val loc = GeoPoint(lat, lon)
+        if (_uiState.value.isLoadingLocation) {
+            _uiState.update { it.copy(currentLocation = loc, isLoadingLocation = false) }
+            checkPrankedySpawn(loc) // Iniciar spawn del compañero en cuanto sabemos dónde está el jugador
+        }
+    }
+
+    // MODO HISTORIA: fija la escuela de inicio elegida en el menú de campaña.
+    // A diferencia de [updateInitialLocation] (gateada por isLoadingLocation, ya
+    // consumida en MainActivity.onCreate), esto FUERZA el punto de aparición y
+    // re-arma las compuertas de carga para que el mapa y las calles se descarguen
+    // alrededor de la escuela elegida. Se llama ANTES de navegar al mapa, cuando el
+    // mundo aún no está cargado.
+    fun setStorySpawn(lat: Double, lon: Double) {
+        val loc = GeoPoint(lat, lon)
+        // FIX "se queda cargando": prepareMapForEntry() es idempotente (gateada por
+        // mapPrepStarted, que es de la Activity y persiste entre navegaciones). Si el
+        // jugador ya entró al mundo una vez (p. ej. MUNDO LIBRE), re-armar isMapReady=false
+        // aquí NO volvía a descargar los tiles → la compuerta de carga no se soltaba nunca.
+        // Solución: hacer que el spawn de campaña se comporte como un TELETRANSPORTE, que sí
+        // re-descarga (gateMapDownloadAfterTeleport NO está gateado por mapPrepStarted).
+        inCampaign = true            // sesión de campaña → habilita el auto-guardado al salir
+        prankedyCompanionActivated = false  // re-arma el encendido del acompañante en la ENCB
+        npcWarmupCycles = 0          // re-arma el warm-up de NPCs del gate de carga
+        lastNetworkFetchLocation = null  // fuerza el re-fetch de calles alrededor de la escuela
+        lastFetchAttemptMs = 0L
+        _uiState.update {
+            it.copy(
+                currentLocation = loc,
+                isLoadingLocation = false,
+                isMapReady = false,        // ← re-activa la compuerta de carga del mapa
+                isRoadNetworkReady = false, // ← y la de la red de calles
+                npcsWarmedUp = false,       // ← y el warm-up de NPCs (orden: tiles → calles → NPCs)
+                isUserPanningMap = false    // ← recentra el mapa y reactiva la neblina
+            )
+        }
+        // Descarga el mapa de la escuela ANTES de soltar al jugador (en paralelo a la
+        // recarga de calles). Esto SÍ pone isMapReady=true al terminar, sin depender de
+        // prepareMapForEntry (idempotente). Así "COMENZAR" carga y spawnea en la escuela.
+        gateMapDownloadAfterTeleport()
+        checkPrankedySpawn(loc)
     }
 
     fun updateActionState(action: GameAction, isPressed: Boolean) {
@@ -1348,6 +1443,18 @@ class WorldMapViewModel(
     // (estado usado por WorldMapProviders.kt; las funciones viven allá)
     internal var mapPrepStarted = false
 
+    // ─── MODO HISTORIA: contexto de la partida actual (para el guardado JSON) ──
+    // Escuela de la campaña en curso (la fija MainActivity al COMENZAR/CARGAR) e
+    // indicador de si estamos en una sesión de campaña (para el auto-guardado al
+    // salir). MUNDO LIBRE pone inCampaign=false y no auto-guarda. Ver WorldMapSaveGame.kt.
+    internal var campaignSchoolId: String = "escom"
+    internal var inCampaign: Boolean = false
+    // MODO HISTORIA: el acompañante Prankedy (fase HIRED) se enciende una sola vez por entrada
+    // de campaña, solo en el vecindario de la ENCB. setStorySpawn re-arma esta bandera.
+    internal var prankedyCompanionActivated: Boolean = false
+    // Slot de guardado activo (1..SaveGameRepository.SLOT_COUNT). Lo fija MainActivity al
+    // COMENZAR/CARGAR; el auto-guardado al salir escribe en este slot.
+    internal var campaignSlot: Int = 1
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
 
@@ -1577,6 +1684,18 @@ class WorldMapViewModel(
         }
     }
 
+    fun teleportToMetrobusStation(stationName: String) {
+    val station = _uiState.value.metrobusStations.find { it.name.equals(stationName, ignoreCase = true) }
+    station?.let { teleportTo(it.location.latitude, it.location.longitude) }
+    }
+
+    fun loadMetrobusStations(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val stations = MetrobusRepository.loadStations(context)
+            _uiState.update { it.copy(metrobusStations = stations) }
+        }
+    }
+
     fun toggleTeleportMenu(show: Boolean) { _uiState.update { it.copy(showTeleportMenu = show) } }
 
     fun teleportTo(lat: Double, lon: Double) {
@@ -1718,7 +1837,29 @@ class WorldMapViewModel(
             _uiState.update { it.copy(nearbyMetroStation = null, interactionPrompt = null) }
         }
 
-        // 2. Recopilamos los coleccionables normales y de ESCOM (nuestro código)
+        // 1b. Verificar cercanía a estaciones del Metrobús
+        val metrobusStations = _uiState.value.metrobusStations
+        val nearbyMetrobus = metrobusStations.minByOrNull { playerGeo.distanceToAsDouble(it.location) }
+
+        if (nearbyMetrobus != null && playerGeo.distanceToAsDouble(nearbyMetrobus.location) <= INTERACT_RADIUS_METERS) {
+            if (_uiState.value.nearbyMetrobusStation?.name != nearbyMetrobus.name) {
+                _uiState.update { it.copy(nearbyMetrobusStation = nearbyMetrobus, nearbyCollectible = null) }
+                promptJob?.cancel()
+                promptJob = viewModelScope.launch {
+                    val promptText = "PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS ${nearbyMetrobus.name.uppercase()}"
+                    _uiState.update { it.copy(interactionPrompt = promptText) }
+                    kotlinx.coroutines.delay(3000)
+                    _uiState.update { it.copy(interactionPrompt = null) }
+                }
+            }
+            return
+        }
+
+        if (_uiState.value.nearbyMetrobusStation != null) {
+            _uiState.update { it.copy(nearbyMetrobusStation = null, interactionPrompt = null) }
+        }
+
+        // 2. Recopilamos los collectibles normales y de ESCOM (nuestro código)
         val baseItems = _uiState.value.activeCollectibles + _escomItems.value
 
         // Convertimos los Landmarks de tipo "Puerta" en coleccionables virtuales interactuables
@@ -2412,6 +2553,12 @@ class WorldMapViewModel(
             return
         }
 
+        val nearbyMetrobus = _uiState.value.nearbyMetrobusStation
+        if (nearbyMetrobus != null) {
+            _uiState.update { it.copy(showMetrobusFade = true) }
+            return
+        }
+
         val nearby = _uiState.value.nearbyCollectible ?: return
 
         when {
@@ -2535,6 +2682,19 @@ class WorldMapViewModel(
         // Coordenadas exactas del nuevo mapa para la Voca 9
         return abs(lat - 19.453533) < 0.0015 &&
                abs(lon - -99.175314) < 0.0015
+    }
+
+    // ¿El punto está dentro del bounding box del campus de la ENCB? (zona libre de campaña)
+    internal fun isInsideEncb(lat: Double, lon: Double): Boolean {
+        return abs(lat - ENCB_BASE_LAT) < ENCB_OFFSET &&
+                abs(lon - ENCB_BASE_LON) < ENCB_OFFSET
+    }
+
+    // ZONA DE MOVIMIENTO LIBRE: ESCOM o ENCB. Dentro de cualquiera de los dos campus se
+    // suspende la restricción de malla vial (jugador y Prankedy se mueven libres en (x,y)).
+    // internal → accesible también desde las extensiones (p. ej. WorldMapPrankedy.kt).
+    internal fun isFreeMovementZone(lat: Double, lon: Double): Boolean {
+        return isInsideEscom(lat, lon) || isInsideEncb(lat, lon) || isInsideVoca9(lat, lon)
     }
 
 
@@ -2694,5 +2854,22 @@ class WorldMapViewModel(
 
     fun consumeMetroFadeComplete() {
         _uiState.update { it.copy(metroFadeCompleteStation = null) }
+    }
+    fun onMetrobusFadeComplete() {
+        val station = _uiState.value.nearbyMetrobusStation
+        if (station != null) {
+            _uiState.update {
+                it.copy(
+                    showMetrobusFade = false,
+                    metrobusFadeCompleteStation = station,
+                    nearbyMetrobusStation = null,
+                    interactionPrompt = null
+                )
+            }
+        }
+    }
+
+    fun consumeMetrobusFadeComplete() {
+        _uiState.update { it.copy(metrobusFadeCompleteStation = null) }
     }
 }

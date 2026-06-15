@@ -75,7 +75,9 @@ app/src/main/java/ovh/gabrielhuav/pow/
 |---|---|
 | `main_menu` | `MainMenuScreen` |
 | `story_mode` | `StoryModeScreen` (Modo Historia / Campaña: prólogo + elegir escuela + cargar partida) |
-| `story_intro/{schoolId}` | `StoryIntroScreen` ("Listo para Iniciar"; placeholder narrativo, guarda partida al INICIAR) |
+| `story_intro/{schoolId}` | `StoryIntroScreen` (intro cómic; al INICIAR/último panel guarda partida y entra a `encb_lobby`) |
+| `encb_lobby` | `ZombieGameScreen` (motor de Interiores; `startRoom=encb_lobby`). Entrada a la **cadena LINEAL del Modo Historia**: `encb_lobby → encb_salon1 → encb_lab1 → encb_lab2` (salas LOBBY, fondos `INTERIORS/ENCB/*.webp`, sin zombis/mano; puerta de AVANCE con X en cada una, sin salida al mapa entre medias). Transiciones internas en el mismo VM. El waypoint final de `encb_lab2` (X) sale a la narrativa → ruta `story_outro` (sentinela `EXIT_TO_STORY_OUTRO`). Objetivo superpuesto |
+| `story_outro` | `StoryIntroScreen` (visor de cómic con `sequenceId = StoryComicCatalog.ENCB_OUTRO_ID`: 2ª parte de la intro, `IntroPOW9..11.webp`). Oculta la UI de juego; al terminar/saltar → `world_map` (mundo de la campaña) |
 | `settings` | `SettingsScreen` |
 | `world_map` | `WorldMapScreen` (open world) |
 | `collectibles` | `CollectiblesScreen` |

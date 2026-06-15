@@ -699,6 +699,26 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
             }
         }
+        // ─── LÍNEA GPS DE CAMPAÑA (roja, Modo Historia: ENCB → ESCOM) ───
+        // Línea ROJA sólida en el overlayPane (paths), que en Leaflet queda DEBAJO de los
+        // marcadores (personajes) y del HUD de Compose. interactive:false = no roba toques.
+        var campaignRoute = null;
+        function updateCampaignRoute(routePoints) {
+            if (campaignRoute) { map.removeLayer(campaignRoute); campaignRoute = null; }
+            if (routePoints && routePoints.length > 1) {
+                var pts = [];
+                for (var i = 0; i < routePoints.length; i++) {
+                    var p = routePoints[i];
+                    if (p && typeof p.lat !== 'undefined' && typeof p.lng !== 'undefined') pts.push([p.lat, p.lng]);
+                }
+                if (pts.length > 1) {
+                    campaignRoute = L.polyline(pts, {
+                        color: '#E00000', weight: 6, opacity: 0.95,
+                        lineCap: 'round', lineJoin: 'round', interactive: false
+                    }).addTo(map);
+                }
+            }
+        }
         function clearDestinationMarker() {
             if (destinationMarker) {
                 map.removeLayer(destinationMarker);
