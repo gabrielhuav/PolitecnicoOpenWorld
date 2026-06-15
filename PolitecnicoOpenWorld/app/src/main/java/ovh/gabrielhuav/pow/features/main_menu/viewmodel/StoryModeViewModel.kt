@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import ovh.gabrielhuav.pow.data.repository.CampaignRepository
+import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.domain.models.CampaignSchool
 import ovh.gabrielhuav.pow.domain.models.SchoolCatalog
 
@@ -16,17 +17,18 @@ import ovh.gabrielhuav.pow.domain.models.SchoolCatalog
 // selección de escuela y la lectura de la partida guardada (CampaignRepository). La
 // escritura del guardado y el spawn viven en MainActivity al COMENZAR/INICIAR.
 class StoryModeViewModel(
-    private val campaignRepository: CampaignRepository
+    private val campaignRepository: CampaignRepository,
+    private val saveGameRepository: SaveGameRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(StoryModeState())
     val state: StateFlow<StoryModeState> = _state.asStateFlow()
 
     init {
-        // Lee la partida guardada para habilitar "CARGAR PARTIDA".
+        // "CARGAR PARTIDA" se habilita si HAY alguna partida en cualquier slot (JSON).
         _state.update {
             it.copy(
-                hasSave = campaignRepository.hasSave(),
+                hasSave = saveGameRepository.anySave(),
                 savedSchoolId = campaignRepository.getSavedSchoolId(),
                 savedAt = campaignRepository.getSavedAt()
             )
@@ -55,7 +57,7 @@ class StoryModeViewModel(
         private val appContext = context.applicationContext
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return StoryModeViewModel(CampaignRepository(appContext)) as T
+            return StoryModeViewModel(CampaignRepository(appContext), SaveGameRepository(appContext)) as T
         }
     }
 }

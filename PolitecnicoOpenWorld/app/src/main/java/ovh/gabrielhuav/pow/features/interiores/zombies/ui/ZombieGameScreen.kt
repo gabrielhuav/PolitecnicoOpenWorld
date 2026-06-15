@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -97,7 +98,9 @@ fun ZombieGameScreen(
     onNavigateToSettings: () -> Unit = {},
     debugHitboxes: Boolean = false,
     // Sala inicial de Interiores: por defecto el lobby de ESCOM; la puerta FES la fija a FES_ID.
-    startRoomId: String = ZombieRoomCatalog.LOBBY_ID
+    startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
+    // MODO HISTORIA: abre el selector de slots para guardar la partida (también en interiores).
+    onRequestSaveGame: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
@@ -640,6 +643,8 @@ fun ZombieGameScreen(
                     onOpenGroupChange = {},
                     entries = listOf(
                         OptionMenuItem(stringResource(R.string.zgame_opt_designer), Icons.Default.Architecture) { viewModel.toggleDesignerMode() },
+                        // MODO HISTORIA: guardar partida también desde interiores (selector de slots).
+                        OptionMenuItem("Guardar partida", Icons.Default.Save) { onRequestSaveGame() },
                         OptionMenuItem(stringResource(R.string.zgame_opt_exit_map), Icons.Default.ExitToApp) { viewModel.exitToWorld() }
                     )
                 )

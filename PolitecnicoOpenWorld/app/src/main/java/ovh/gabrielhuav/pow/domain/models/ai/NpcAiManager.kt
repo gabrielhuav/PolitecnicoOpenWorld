@@ -138,13 +138,14 @@ class NpcAiManager {
         this.exteriorCollisions = config
     }
 
-    // FIX "se generan muchos NPCs": bajamos los topes base (18 activos / 38 totales,
-    // antes 26/55) para reducir la saturación; siguen escalando por popFactor (gama +
+    // FIX "se generan muchos NPCs": topes base BAJOS (10 activos / 22 totales, antes 18/38)
+    // para una densidad más realista al caminar; siguen escalando por popFactor (gama +
     // ciudad + ajuste del usuario), así que NO se hardcodea la densidad final.
-    private val maxActiveNpcs get() = ((if (globalZombieMode) 45 else 18) * popFactor).toInt().coerceIn(6, 120)
-    private val maxTotalNpcs  get() = ((if (globalZombieMode) 90 else 38) * popFactor).toInt().coerceIn(12, 240)
+    private val maxActiveNpcs get() = ((if (globalZombieMode) 45 else 10) * popFactor).toInt().coerceIn(4, 120)
+    private val maxTotalNpcs  get() = ((if (globalZombieMode) 90 else 22) * popFactor).toInt().coerceIn(8, 240)
 
-    private val SPAWN_SCAN_MS = 500L
+    // Cadencia de aparición más lenta (antes 500 ms): los NPCs entran de a pocos, no en masa.
+    private val SPAWN_SCAN_MS = 900L
     @Volatile private var lastSpawnScanMs = 0L
     private val simRadius      = 0.0010
     private val despawnDistance = 0.0028
@@ -412,7 +413,8 @@ class NpcAiManager {
                     }
                     val carQuotaFull = activeCarCount >=
                         (maxActiveNpcs * carPopulationRatio).toInt().coerceAtLeast(2)
-                    val numToSpawn = minOf(4, maxActiveNpcs - activeCount)
+                    // Máx 2 por escaneo (antes 4): aparición gradual, no en bloque.
+                    val numToSpawn = minOf(2, maxActiveNpcs - activeCount)
                     for (i in 0 until numToSpawn) {
                         var spawnedStudent = false
 
