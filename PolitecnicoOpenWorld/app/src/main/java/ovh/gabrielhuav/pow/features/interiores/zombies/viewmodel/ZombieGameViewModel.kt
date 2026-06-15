@@ -53,6 +53,9 @@ class ZombieGameViewModel(
     internal val startRoomId: String = ZombieRoomCatalog.LOBBY_ID
 ) : ViewModel() {
 
+    internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(applicationContext)
+    internal var lastZombieSoundMs = 0L
+
     internal val _state = MutableStateFlow(
         ZombieGameState(
             controlType  = settingsRepository.getControlType(),
@@ -534,6 +537,7 @@ class ZombieGameViewModel(
     fun performPlayerAttack() {
         val now = System.currentTimeMillis()
         if (now - lastPlayerAttackMs < PLAYER_ATTACK_COOLDOWN_MS) return
+        soundManager.playPunch()
         lastPlayerAttackMs = now
 
         val s = _state.value
@@ -568,6 +572,7 @@ class ZombieGameViewModel(
     // ─── COMBATE A DISTANCIA ───────────────────────────────
     internal fun fireProjectile() {
         if (_state.value.showWastedScreen) return // muerto: no dispara
+        soundManager.playShoot()
         val now = System.currentTimeMillis()
         if (now - lastRangedShotMs < RANGED_COOLDOWN_MS) return
         lastRangedShotMs = now
@@ -686,6 +691,7 @@ class ZombieGameViewModel(
             _state.update { cur ->
                 cur.copy(items = cur.items.filter { it.id != itemId }, nearbyItemId = null)
             }
+            soundManager.playItem()
             applyEffect(item.effect)
             return
         }

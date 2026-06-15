@@ -48,7 +48,23 @@ internal fun ZombieGameViewModel.tick() {
 
         // Pantallas bloqueantes / modo diseñador: no simular.
         if (s.showVictoryScreen || s.showWastedScreen || s.isExitingToWorld ||
-            s.showExitToLobbyDialog || s.designerMode) return
+            s.showExitToLobbyDialog || s.designerMode) {
+            soundManager.stopWalk()
+            soundManager.stopRun()
+            return
+        }
+
+        when (s.playerAction) {
+            PlayerAction.WALK -> { soundManager.playWalk(); soundManager.stopRun() }
+            PlayerAction.RUN -> { soundManager.playRun(); soundManager.stopWalk() }
+            else -> { soundManager.stopWalk(); soundManager.stopRun() }
+        }
+
+        val zombieNear = s.zombies.any { !it.isDying && hypot(it.x - s.playerX, it.y - s.playerY) < 300f }
+        if (zombieNear && now - lastZombieSoundMs > 5000L) {
+            soundManager.playZombieNear()
+            lastZombieSoundMs = now
+        }
 
         if (isMultiplayer) tickOnline(s, now) else tickOffline(s, now)
     }

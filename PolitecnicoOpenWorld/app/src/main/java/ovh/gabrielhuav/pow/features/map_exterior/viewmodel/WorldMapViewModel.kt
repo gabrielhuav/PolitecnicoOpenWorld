@@ -68,6 +68,8 @@ class WorldMapViewModel(
     internal val collectibleRepository: CollectibleRepository
 ) : androidx.lifecycle.AndroidViewModel(application) {
 
+    internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(application)
+
     var playerHealth by mutableStateOf(100f)
         internal set
     val maxPlayerHealth = 100f
@@ -1998,6 +2000,7 @@ class WorldMapViewModel(
         val now = System.currentTimeMillis()
         if (now - lastAttackTime < ATTACK_COOLDOWN_MS) return
         lastAttackTime = now
+        soundManager.playPunch()
         viewModelScope.launch(Dispatchers.Default) {
             delay(300L)
             val playerLoc = _uiState.value.currentLocation ?: return@launch
