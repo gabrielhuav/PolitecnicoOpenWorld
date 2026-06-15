@@ -137,6 +137,15 @@ O(candidatos cercanos).
 **EN:** The player **can't leave roads**. Every move is validated against a **spatial grid index**
 (`Seg` + `HashMap<cell, List<Seg>>`), running snap-to-road in O(nearby candidates).
 
+> **🆕 ZONAS LIBRES (campus): ESCOM y ENCB.** Dentro del bounding box de ESCOM (`ESCOM_BASE_LAT/LON` ±
+> `ESCOM_OFFSET`) o de la **ENCB** (`ENCB_BASE_LAT=19.5001588`, `ENCB_BASE_LON=-99.1450298`, `ENCB_OFFSET=0.0012`,
+> ~130 m) se **suspende el snap-to-road**: `moveCharacter`/`moveCharacterByAngle` consultan
+> `isFreeMovementZone(lat,lon)` (= `isInsideEscom || isInsideEncb`, miembros `internal`) y mueven al jugador a la
+> coordenada `(x,y)` libre (tras la aduana de choque de bardas). **Prankedy** hace lo mismo: `runPrankedyTick`
+> calcula `freeZone` desde la posición del jugador y, si está en campus, **apaga el snap** (`snapToRoad` devuelve
+> el punto sin tocar) → persigue en **línea recta (steer-to-target)** a `p_run`. El estado es **per-tick**: al
+> salir del perímetro vuelve el snap normal (salvo que entre al box de ESCOM, también libre). Ver 03 (Prankedy) y 07.
+
 - `ensureIndex()` / `candidates(loc): List<Seg>` / `getNearestPointOnNetwork(t): GeoPoint` /
   `project(p, v, w): GeoPoint` (proyección punto-segmento).
 - `pack(r, c): Long`, `cell(v): Int` (celda de grid), `CELL` (tamaño de celda).

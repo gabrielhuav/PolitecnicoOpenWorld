@@ -282,6 +282,15 @@ class WorldMapViewModel(
     internal val ESCOM_BASE_LON = -99.14674
     internal val ESCOM_OFFSET = 0.001
 
+    // ─── ZONA LIBRE DE LA ENCB (Modo Historia) ───────────────────────────────
+    // Bounding box centrado en el spawn de la ENCB. Dentro de él se SUSPENDE la
+    // restricción de malla vial (igual que en ESCOM): el jugador y Prankedy se
+    // mueven 100% libres por explanadas/áreas verdes. Offset ligeramente mayor que
+    // el de ESCOM para cubrir todo el campus (~0.0012° ≈ 130 m de radio).
+    internal val ENCB_BASE_LAT = 19.5001588
+    internal val ENCB_BASE_LON = -99.1450298
+    internal val ENCB_OFFSET = 0.0012
+
     internal val ESCOM_DOOR_ASSET = "DOORS/ESCOM_DOOR.webp"
     internal val ESCOM_DOOR_INTERACT_RADIUS = 0.00020   // ~20 m
 
@@ -1179,6 +1188,12 @@ class WorldMapViewModel(
             return // CHOCÓ: Rompemos la función y el jugador no avanza
         }
 
+        // ZONA LIBRE (ESCOM / ENCB): se suspende la malla vial → movimiento (x,y) 100% libre.
+        if (isFreeMovementZone(temp.latitude, temp.longitude)) {
+            _uiState.update { it.copy(currentLocation = temp) }
+            return
+        }
+
         val nearest = getNearestPointOnNetwork(temp)
         val dist    = distance(temp, nearest)
         val radius  = 0.000012
@@ -1220,6 +1235,12 @@ class WorldMapViewModel(
         // ADUANA DE CHOQUE JOYSTICK
         if (isCollisionDetected(loc.latitude, loc.longitude, temp.latitude, temp.longitude)) {
             return // CHOCÓ: Rompemos la función
+        }
+
+        // ZONA LIBRE (ESCOM / ENCB): se suspende la malla vial → movimiento (x,y) 100% libre.
+        if (isFreeMovementZone(temp.latitude, temp.longitude)) {
+            _uiState.update { it.copy(currentLocation = temp) }
+            return
         }
 
         val nearest = getNearestPointOnNetwork(temp)
@@ -2605,6 +2626,19 @@ class WorldMapViewModel(
     private fun isInsideEscom(lat: Double, lon: Double): Boolean {
         return abs(lat - ESCOM_BASE_LAT) < ESCOM_OFFSET &&
                 abs(lon - ESCOM_BASE_LON) < ESCOM_OFFSET
+    }
+
+    // ¿El punto está dentro del bounding box del campus de la ENCB? (zona libre de campaña)
+    internal fun isInsideEncb(lat: Double, lon: Double): Boolean {
+        return abs(lat - ENCB_BASE_LAT) < ENCB_OFFSET &&
+                abs(lon - ENCB_BASE_LON) < ENCB_OFFSET
+    }
+
+    // ZONA DE MOVIMIENTO LIBRE: ESCOM o ENCB. Dentro de cualquiera de los dos campus se
+    // suspende la restricción de malla vial (jugador y Prankedy se mueven libres en (x,y)).
+    // internal → accesible también desde las extensiones (p. ej. WorldMapPrankedy.kt).
+    internal fun isFreeMovementZone(lat: Double, lon: Double): Boolean {
+        return isInsideEscom(lat, lon) || isInsideEncb(lat, lon)
     }
 
 

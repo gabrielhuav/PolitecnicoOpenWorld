@@ -117,6 +117,10 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
     if (!_uiState.value.prankedyEnabled) return
     val pm = prankedyManager
 
+    // ZONA LIBRE: ¿el jugador está dentro del campus de la ENCB (o ESCOM)? Si sí, Prankedy
+    // deja de calcular ruta por nodos de calle y persigue en línea recta (steer-to-target).
+    val freeZone = isFreeMovementZone(playerLoc.latitude, playerLoc.longitude)
+
     // Ejecutar la IA
     val allNpcs = remoteEntities.values.toList() + policeManager.activeUnits()
     val result = pm.tick(
@@ -125,8 +129,12 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
         isDriving  = _uiState.value.isDriving,
         now        = now,
         roadNetwork = roadNetwork,
-        // Mantiene a Prankedy SOBRE las calles (mismo índice espacial que usa el jugador).
-        snapToRoad = { p -> if (_uiState.value.isRoadNetworkReady) getNearestPointOnNetwork(p) else p },
+        // ZONA LIBRE (ESCOM / ENCB): si el jugador está en el campus, se APAGA el snap a calles
+        // → Prankedy persigue en LÍNEA RECTA (steer-to-target) por explanadas/áreas verdes. Fuera
+        // del campus vuelve a mantenerse SOBRE las calles (mismo índice que usa el jugador).
+        snapToRoad = { p ->
+            if (!freeZone && _uiState.value.isRoadNetworkReady) getNearestPointOnNetwork(p) else p
+        },
         // Acompañante (HIRED): iguala la velocidad del jugador (corre si el jugador corre).
         playerRunning = _uiState.value.isRunning
     )
