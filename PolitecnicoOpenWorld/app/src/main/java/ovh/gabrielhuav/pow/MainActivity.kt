@@ -318,7 +318,38 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToSettings = { navController.navigate("settings") },
                                 debugHitboxes = false,
                                 startRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID,
-                                onRequestSaveGame = { showSaveDialog = true }
+                                onRequestSaveGame = { showSaveDialog = true },
+                                // Waypoint final de ENCB_LAB2 → reanuda la narrativa (cómic
+                                // ENCB_OUTRO). popUpTo encb_lobby inclusive libera el motor de
+                                // interiores (la cadena de salas) antes de mostrar el cómic.
+                                onPlayStoryOutro = {
+                                    navController.navigate("story_outro") {
+                                        popUpTo("encb_lobby") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
+                        // ─── MODO HISTORIA · Outro (2ª parte de la intro: IntroPOW9..11) ──
+                        // Reusa el visor de cómic (StoryIntroScreen) con la secuencia
+                        // ENCB_OUTRO. Al ser otra pantalla, la UI de juego (joysticks/objetivo)
+                        // queda oculta por completo. Al terminar el último panel (IntroPOW11) o
+                        // saltar, se entra al MUNDO LIBRE ya configurado en la campaña
+                        // (spawn/objetivo/slot fijados al INICIAR la intro).
+                        composable(route = "story_outro") {
+                            StoryIntroScreen(
+                                school = SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.StoryComicCatalog.ENCB_OUTRO_ID,
+                                onBegin = {
+                                    navController.navigate("world_map") {
+                                        popUpTo("story_outro") { inclusive = true }
+                                    }
+                                },
+                                onBack = {
+                                    navController.navigate("world_map") {
+                                        popUpTo("story_outro") { inclusive = true }
+                                    }
+                                }
                             )
                         }
 

@@ -494,6 +494,12 @@ class ZombieGameViewModel(
             _state.update { it.copy(isExitingToWorld = true) }
             return
         }
+        // MODO HISTORIA: waypoint final de ENCB_LAB2 → salir a la narrativa (cómic ENCB_OUTRO).
+        if (targetRoomId == ZombieRoomCatalog.EXIT_TO_STORY_OUTRO) {
+            gameLoopJob?.cancel()
+            _state.update { it.copy(isExitingToStoryOutro = true) }
+            return
+        }
 
         val fromRoom = currentRoom()
         val idx = ZombieRoomCatalog.indexOfRoom(targetRoomId)

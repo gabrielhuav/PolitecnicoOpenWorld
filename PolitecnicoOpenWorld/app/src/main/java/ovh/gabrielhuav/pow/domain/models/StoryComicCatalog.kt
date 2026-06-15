@@ -36,4 +36,23 @@ object StoryComicCatalog {
     fun forSchool(schoolId: String): List<ComicPanel> = when (schoolId) {
         else -> escom
     }
+
+    // ─── SEGUNDA PARTE DE LA INTRO / OUTRO de la ENCB (Modo Historia) ─────────
+    // Se reproduce al activar el waypoint final de ENCB_LAB2 (ver ZombieRoomCatalog),
+    // cerrando el ciclo de exploracion interna. Son 3 paneles HORIZONTALES nuevos en
+    // assets/STORY/INTRO/IntroPOW9..11.webp. EDITA el `text` con el dialogo real.
+    const val ENCB_OUTRO_ID = "encb_outro"
+
+    private val encbOutro = listOf(
+        ComicPanel("STORY/INTRO/IntroPOW9.webp", "Texto del panel 9..."),
+        ComicPanel("STORY/INTRO/IntroPOW10.webp", "Texto del panel 10..."),
+        ComicPanel("STORY/INTRO/IntroPOW11.webp", "Texto del panel 11...")
+    )
+
+    // Devuelve una secuencia narrativa por id (para StoryIntroScreen). ENCB_OUTRO_ID =
+    // segunda parte de la intro; cualquier otro id cae al prologo de ESCOM.
+    fun sequence(sequenceId: String): List<ComicPanel> = when (sequenceId) {
+        ENCB_OUTRO_ID -> encbOutro
+        else -> escom
+    }
 }

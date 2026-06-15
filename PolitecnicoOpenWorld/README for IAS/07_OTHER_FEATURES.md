@@ -74,10 +74,20 @@ en el último panel (IntroPOW8), tocar → **INICIAR**: guarda la partida, fija 
 de ir directo al mundo. El lobby **reusa el motor de salas** (`ZombieGameScreen` con
 `startRoom=ZombieRoomCatalog.ENCB_LOBBY_ID`, ver 05): mismos controles/cámara/colisiones/aura que el lobby
 de ESCOM, pero sala `LOBBY` **sin zombis, sin mano zombi y sin puertas/waypoints** (`doors=emptyList()`),
-con el banner **"Objetivo: Investiga qué pasó"** superpuesto. La navegación usa
+con el banner **"Objetivo: Investiga qué pasó"** superpuesto. El lobby es la entrada de una **cadena LINEAL de
+4 salas** `encb_lobby → encb_salon1 → encb_lab1 → encb_lab2` (todas LOBBY, fondos `INTERIORS/ENCB/*.webp`): cada
+una tiene UNA puerta de AVANCE (waypoint X → `goToRoom(next)`), ninguna tiene salida al mapa entre medias (flujo
+"atrapado"), y el banner de objetivo se mantiene en las 4 (`ZombieRoomCatalog.ENCB_STORY_ROOM_IDS`). Las
+transiciones internas ocurren en el mismo `ZombieGameScreen`/VM. La navegación a la intro usa
 `popUpTo("main_menu") { inclusive = true }`, lo que **destruye `StoryIntroScreen` y libera los bitmaps
-IntroPOW1..8**. La salida (menú de Opciones → "Salir al mapa") arranca `world_map`. Si una imagen falta, se
-muestra un panel oscuro con el texto (no crashea).
+IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no crashea).
+- **🆕 OUTRO / 2ª parte de la intro (`ENCB_OUTRO`):** el **waypoint final de `encb_lab2`** (X) cierra la
+  exploración y reanuda la narrativa: `goToRoom(EXIT_TO_STORY_OUTRO)` → `onPlayStoryOutro` → ruta `story_outro`,
+  que **reusa `StoryIntroScreen`** con `sequenceId = StoryComicCatalog.ENCB_OUTRO_ID` (paneles
+  `STORY/INTRO/IntroPOW9..11.webp`, vía la nueva `StoryComicCatalog.sequence(id)`). Al ser otra pantalla, la
+  **UI de juego (joysticks/indicadores/objetivo) queda oculta**. Al terminar `IntroPOW11` (o "Saltar"/"Volver")
+  se entra al **MUNDO LIBRE** ya configurado de la campaña (spawn/objetivo/slot fijados al INICIAR la intro):
+  `navigate("world_map") { popUpTo("story_outro"){inclusive=true} }`.
 - **🆕 Editor in-game del cuadro de texto:** como el recuadro blanco está a distinta altura por panel, el botón
   **"Editar"** activa un editor para **mover** (arrastrar o Subir/Bajar), **redimensionar** (Alto ±) y cambiar
   el **tamaño de letra** (Letra ±) del cuadro, **por panel**. Se persiste en
