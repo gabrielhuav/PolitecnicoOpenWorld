@@ -13,6 +13,15 @@ cd MultiplayerInteriores && docker compose up -d   # host :8081 → contenedor :
 ```
 URLs inyectadas / injected: `BuildConfig.MULTIPLAYER_SERVER_URL`, `BuildConfig.INTERIORS_SERVER_URL`.
 
+> **🆕 Detección de modo (3 modos) / mode detection:** el servidor debe distinguir **mapa global**,
+> **interiores** y **modo zombies**. Señales del cliente: el **mundo abierto** manda `JOIN_INSTANCE`
+> con `instance` `"normal"` (mapa global) o `"apocalipsis"` (zombies global). El **servidor de interiores**
+> recibe un campo nuevo **`mode`** en `JOIN_ROOM`/`PLAYER_UPDATE`: `"interiores"` (lobby tranquilo) o
+> `"zombies"` (edificio con horda / lobby con apocalipsis) — `ZombieGameViewModel.currentNetMode()`. Los
+> `server.js` **no están en este checkout**; deben leer estas señales (instancia + `mode`) para enrutar,
+> contabilizar y separar a los jugadores por modo. / Servers must tell apart global map, interiors and
+> zombie mode using `JOIN_INSTANCE.instance` (open world) and the new `mode` field (interiors server).
+
 ---
 
 > **🔀 INSTANCING (Normal vs Apocalipsis):** el mundo abierto está **sharded por `ws.instance`**
@@ -124,6 +133,15 @@ BUILDING_ORDER=[...7 edificios...]   EFFECTS=[...6 SkillEffect...]
 > Las matrices por defecto son **border-only** y deben coincidir filas/cols con las del cliente
 > (`ZombieRoomCatalog`) hasta reemplazarse por `collision_matrices.json` (cargado con
 > `loadMatrixOverrides`). / Default matrices are border-only and must match client rows/cols.
+>
+> **🆕 Campus FES (`FES_ID='fes_interior'` + `fes_edificio`):** `ROOMS` incluye el campus de FES Aragón:
+> el **lobby `fes_interior`** (tipo `LOBBY`, zona segura, sólo relay — `ensureRoomState` no siembra zombis
+> en `LOBBY`) y el **edificio `fes_edificio`** (tipo `BUILDING`, `zombieCount=4` → el server SÍ siembra
+> zombis autoritativos). Deben coincidir con `ZombieRoomCatalog` del cliente (ids, tipos, matrices
+> border-only). **Patrón expandible:** para añadir UAM, replica estas dos líneas con ids `uam_*`. El
+> servidor del **mundo abierto** (`Multiplayer/`) **no cambia** con esto: la transición open-world→interior
+> la maneja el cliente (VM Activity-scoped mantiene conexión y coordenadas; el back stack preserva
+> `world_map`), así que al salir del interior vuelves al mismo punto.
 
 ### IA de zombis v2 / zombie AI v2
 
@@ -157,9 +175,9 @@ el cable **no cambia**. / AI state lives in non-serialized fields; the `ZOMBIE_S
 | Mensaje / Message | Dir | Significado |
 |---|---|---|
 | `SESSION_INIT` | S→C | Asigna `sessionId` |
-| `JOIN_ROOM` | C→S | Entrar a una sala (`roomId`) |
+| `JOIN_ROOM` | C→S | Entrar a una sala (`roomId`, `displayName`, `x`, `y`, **`mode`**) |
 | `ROOM_SNAPSHOT` | S→C | Estado inicial de la sala al unirse |
-| `PLAYER_UPDATE` | C↔S | Pose del jugador (x,y **fraccionarios**, action, facing, health) |
+| `PLAYER_UPDATE` | C↔S | Pose del jugador (x,y **fraccionarios**, action, facing, health, **`mode`**) |
 | `PLAYER_LEFT_ROOM` | S→C | Otro jugador salió |
 | `ZOMBIE_STATE` | S→C | **Autoritativo:** lista de `NetZombie` + `NetItem` + **`NetInteriorNpc[]` (civiles)** + `totalZombies` |
 | `PLAYER_CORRECT` | S→C | **Coords server-authoritative:** el servidor rechazó una posición dentro de pared (validó contra la matriz de la sala con `isBlocked`) y manda la posición válida `{x,y}` (fracción) para que el cliente ajuste al jugador |

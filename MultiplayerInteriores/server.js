@@ -82,6 +82,10 @@ function makeRoomDef(id, type, matrix, zombieCount, spawn) {
     };
 }
 
+// Id de la sala de Interiores de FES Aragon (debe coincidir con
+// ZombieRoomCatalog.FES_ID del cliente).
+const FES_ID = 'fes_interior';
+
 const ROOMS = (() => {
     const ov = loadMatrixOverrides();
     const map = {};
@@ -89,6 +93,14 @@ const ROOMS = (() => {
     BUILDING_ORDER.forEach((id, i) => {
         map[id] = makeRoomDef(id, 'BUILDING', ov[id] || BUILDING_MATRIX, 4 + (i % 3), { x: 0.50, y: 0.55 });
     });
+    // CAMPUS FES ARAGON (Interiores expandible): un lobby (zona segura, sin zombis) + sus
+    // edificios (BUILDING, con zombis autoritativos del server). Debe coincidir con
+    // ZombieRoomCatalog del cliente (ids, tipos, matrices). Para añadir UAM: replica este
+    // patron con sus propios ids 'uam_*'.
+    map[FES_ID] = makeRoomDef(FES_ID, 'LOBBY', ov[FES_ID] || LOBBY_MATRIX, 0, { x: 0.50, y: 0.55 });
+    // "Edificio Principal" de FES (copia temporal del de ESCOM). BUILDING → el server
+    // siembra zombis (ensureRoomState).
+    map['fes_edificio'] = makeRoomDef('fes_edificio', 'BUILDING', ov['fes_edificio'] || BUILDING_MATRIX, 4, { x: 0.50, y: 0.55 });
     return map;
 })();
 

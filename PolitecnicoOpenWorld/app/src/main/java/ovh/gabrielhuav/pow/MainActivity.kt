@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -35,19 +36,24 @@ import androidx.preference.PreferenceManager
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
-import ovh.gabrielhuav.pow.features.interior.ui.AuditorioScreen
-import ovh.gabrielhuav.pow.features.interior.ui.BibliotecaScreen
-import ovh.gabrielhuav.pow.features.interior.ui.CafeteriaScreen
-import ovh.gabrielhuav.pow.features.interior.ui.CanchasFutbolScreen
-import ovh.gabrielhuav.pow.features.interior.ui.EdificioScreen
-import ovh.gabrielhuav.pow.features.interior.ui.EstacionamientoScreen
-import ovh.gabrielhuav.pow.features.interior.ui.MetroStationInteriorScreen
-import ovh.gabrielhuav.pow.features.interior.ui.MetrobusStationInteriorScreen
-import ovh.gabrielhuav.pow.features.interior.ui.PalapasScreen
-import ovh.gabrielhuav.pow.features.interior.ui.DeportivoBeisScreen
-import ovh.gabrielhuav.pow.features.interior.ui.DeportivoFutbolScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.AuditorioScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.BibliotecaScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.CafeteriaScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.CanchasFutbolScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.EdificioScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.EstacionamientoScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.MetroStationInteriorScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.MetrobusStationInteriorScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.PalapasScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoBeisScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoFutbolScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.FesInteriorScreen
+import ovh.gabrielhuav.pow.features.main_menu.ui.StoryModeScreen
+import ovh.gabrielhuav.pow.features.main_menu.ui.StoryIntroScreen
+import ovh.gabrielhuav.pow.domain.models.SchoolCatalog
+import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
@@ -56,12 +62,25 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
-import ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieGameScreen
+import ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
-import ovh.gabrielhuav.pow.features.shinecto.ui.EasterEggDiscoveryDialog
-import ovh.gabrielhuav.pow.features.shinecto.ui.ShineCTOScreen
+import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.EasterEggDiscoveryDialog
+import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.ShineCTOScreen
+
+// Spawn fijo: coordenadas del punto de teletransporte "ESCOM" (ver TeleportCatalog).
+// El juego SIEMPRE arranca en ESCOM, sin depender del GPS real del dispositivo.
+private const val SPAWN_ESCOM_LAT = 19.504603
+private const val SPAWN_ESCOM_LON = -99.145985
+
 class MainActivity : ComponentActivity() {
+
+    // i18n: aplica el idioma elegido (Ajustes) envolviendo el Context base antes de
+    // que se inflen los recursos. "" = idioma del sistema. Ver i18n/LocaleHelper.kt.
+    override fun attachBaseContext(newBase: Context) {
+        val lang = ovh.gabrielhuav.pow.data.repository.SettingsRepository(newBase).getLanguage()
+        super.attachBaseContext(ovh.gabrielhuav.pow.i18n.LocaleHelper.wrap(newBase, lang))
+    }
 
     private val worldMapViewModel: WorldMapViewModel by viewModels {
         WorldMapViewModel.Factory(this)
@@ -77,6 +96,10 @@ class MainActivity : ComponentActivity() {
     }
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
+    // Persistencia de la partida del MODO HISTORIA (campaña). Es el punto de DI:
+    // MainActivity escribe el guardado al INICIAR/CARGAR (las pantallas solo emiten intención).
+    private val campaignRepository: CampaignRepository by lazy { CampaignRepository(this) }
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -84,7 +107,7 @@ class MainActivity : ComponentActivity() {
             permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
             fetchCurrentLocation()
         } else {
-            worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
+            worldMapViewModel.updateInitialLocation(SPAWN_ESCOM_LAT, SPAWN_ESCOM_LON)
         }
     }
 
@@ -99,8 +122,9 @@ class MainActivity : ComponentActivity() {
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.clearCaches()
-            ovh.gabrielhuav.pow.features.zombie_minigame.ui.ZombieSpriteManager.clearCaches()
+            ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieSpriteManager.clearCaches()
         }
     }
 
@@ -165,7 +189,67 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToCollectibles = {
                                     navController.navigate("collectibles")
+                                },
+                                onNavigateToStory = {
+                                    navController.navigate("story_mode")
                                 }
+                            )
+                        }
+
+                        // ─── MODO HISTORIA / Campaña ──────────────────────────────
+                        // Prólogo + selección de escuela. "COMENZAR" lleva a la intro
+                        // ("Listo para Iniciar"); "CARGAR PARTIDA" reanuda directo en la
+                        // escuela guardada. ESCOM es la única jugable por ahora.
+                        composable(route = "story_mode") {
+                            // Arranca el mundo de la campaña: fija el spawn de la escuela y
+                            // navega al mapa (limpia el menú del back stack).
+                            val enterCampaignWorld = remember(worldMapViewModel, navController) {
+                                { school: ovh.gabrielhuav.pow.domain.models.CampaignSchool ->
+                                    worldMapViewModel.disconnectFromMultiplayer()
+                                    worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
+                                    navController.navigate("world_map") {
+                                        popUpTo("main_menu") { inclusive = true }
+                                    }
+                                    Unit
+                                }
+                            }
+                            StoryModeScreen(
+                                // COMENZAR: pasa por la intro antes de entrar al mundo.
+                                onStartCampaign = { school ->
+                                    navController.navigate("story_intro/${school.id}")
+                                },
+                                // CARGAR PARTIDA: reanuda directo en la escuela guardada.
+                                onLoadCampaign = { school -> enterCampaignWorld(school) },
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        // ─── MODO HISTORIA · Intro ("Listo para Iniciar") ─────────
+                        // Placeholder narrativo. Al INICIAR, GUARDA la partida (para que
+                        // "CARGAR PARTIDA" funcione luego) y arranca el mundo en la escuela.
+                        composable(
+                            route = "story_intro/{schoolId}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("schoolId") {
+                                    type = androidx.navigation.NavType.StringType
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val schoolId = backStackEntry.arguments?.getString("schoolId")
+                            val school = SchoolCatalog.schools.firstOrNull { it.id == schoolId }
+                                ?: SchoolCatalog.default
+                            StoryIntroScreen(
+                                school = school,
+                                onBegin = {
+                                    // Guarda la partida de campaña (escuela elegida).
+                                    campaignRepository.saveCampaign(school.id)
+                                    worldMapViewModel.disconnectFromMultiplayer()
+                                    worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
+                                    navController.navigate("world_map") {
+                                        popUpTo("main_menu") { inclusive = true }
+                                    }
+                                },
+                                onBack = { navController.popBackStack() }
                             )
                         }
 
@@ -224,7 +308,7 @@ class MainActivity : ComponentActivity() {
                                         swap = settingsState.tempSwapControls
                                     )
 
-                                    android.widget.Toast.makeText(this@MainActivity, "Configuración de controles guardada", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(this@MainActivity, getString(R.string.settings_controls_saved), android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 // Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {
@@ -235,7 +319,10 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("main_menu") { inclusive = true }
                                         launchSingleTop = true
                                     }
-                                }
+                                },
+                                // i18n: idioma actual + cambio (persiste; SettingsScreen recrea la Activity).
+                                currentLanguage = settingsState.language,
+                                onLanguageChanged = { tag -> settingsViewModel.changeLanguage(tag) }
                             )
                         }
 
@@ -318,7 +405,7 @@ class MainActivity : ComponentActivity() {
                             // NUEVO BLOQUE: Navegar al minijuego tras el fade de la puerta
                             LaunchedEffect(uiState.escomDoorFadeComplete) {
                                 if (uiState.escomDoorFadeComplete) {
-                                    val destination = worldMapViewModel.consumeEscomDoorNavigation() ?: "zombie_minigame"
+                                    val destination = worldMapViewModel.consumeEscomDoorNavigation() ?: "interiores_zombies"
                                     navController.navigate(destination)
                                 }
                             }
@@ -398,6 +485,11 @@ class MainActivity : ComponentActivity() {
                                 onExit = { navController.popBackStack("world_map", inclusive = false) }
                             )
                         }
+                        composable(route = "interior_fes") {
+                            FesInteriorScreen(
+                                onExit = { navController.popBackStack("world_map", inclusive = false) }
+                            )
+                        }
                         
                         // ─── ESTACIONES METRO ──────────────────────────────────────
                         composable(
@@ -454,14 +546,25 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        // ─── MINIJUEGO DE ZOMBIS ──────────────────────────────────
-                        // Anillo circular de cuartos con IA de zombis, combate mutuo
-                        // y pantalla de victoria. Al ganar (o al salir), se hace
-                        // popBackStack hasta world_map para preservar el open world.
-                        // debugHitboxes = true para calibrar exitHitbox y ver la
-                        // matriz de colisión pintada sobre cada cuarto.
-                        composable(route = "zombie_minigame") {
+
+                        // ─── INTERIORES (motor de salas) ──────────────────────────
+                        // Salas con IA de zombis, combate y pantalla de victoria. Es el
+                        // sistema de INTERIORES de cualquier edificio: el arg opcional
+                        // `startRoom` elige la sala inicial (lobby de ESCOM por defecto;
+                        // las puertas FES pasan `fes_interior`). Al salir, popBackStack
+                        // hasta world_map para preservar el open world.
+                        composable(
+                            route = "interiores_zombies?startRoom={startRoom}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("startRoom") {
+                                    type = androidx.navigation.NavType.StringType
+                                    defaultValue = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
+                                }
+                            )
+                        ) { backStackEntry ->
                             val wmState by worldMapViewModel.uiState.collectAsState()
+                            val startRoom = backStackEntry.arguments?.getString("startRoom")
+                                ?: ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
                             ZombieGameScreen(
                                 onExitToWorld = {
                                     navController.popBackStack("world_map", inclusive = false)
@@ -469,7 +572,8 @@ class MainActivity : ComponentActivity() {
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
                                 onNavigateToSettings = { navController.navigate("settings") },
-                                debugHitboxes = false
+                                debugHitboxes = false,
+                                startRoomId = startRoom
                             )
                         }
 
@@ -515,34 +619,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun fetchCurrentLocation() {
-        // FIX spawn impreciso: lastLocation es una CACHÉ (puede ser de hace horas o de
-        // otra zona → "no es exactamente mi ubicación"). Pedimos una lectura FRESCA de
-        // alta precisión y solo caemos a lastLocation / default si falla o tarda.
-        try {
-            fusedLocationClient.getCurrentLocation(
-                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null
-            ).addOnSuccessListener { location ->
-                if (location != null) {
-                    worldMapViewModel.updateInitialLocation(location.latitude, location.longitude)
-                } else {
-                    fetchLastLocationFallback()
-                }
-            }.addOnFailureListener { fetchLastLocationFallback() }
-        } catch (e: SecurityException) {
-            worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
-        }
-    }
-
-    private fun fetchLastLocationFallback() {
-        try {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null)
-                    worldMapViewModel.updateInitialLocation(location.latitude, location.longitude)
-                else
-                    worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
-            }
-        } catch (e: SecurityException) {
-            worldMapViewModel.updateInitialLocation(19.5045, -99.1469)
-        }
+        // SPAWN FIJO EN ESCOM: el juego siempre arranca en el punto del teletransporte
+        // "ESCOM" (ver TeleportCatalog), sin depender del GPS real del dispositivo. Antes
+        // se spawneaba en la ubicación GPS; ahora ESCOM es el punto de inicio canónico.
+        worldMapViewModel.updateInitialLocation(SPAWN_ESCOM_LAT, SPAWN_ESCOM_LON)
     }
 }

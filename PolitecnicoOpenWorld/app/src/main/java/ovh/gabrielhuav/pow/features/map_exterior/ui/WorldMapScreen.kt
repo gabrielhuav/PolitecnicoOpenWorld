@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
@@ -107,6 +109,7 @@ import org.json.JSONObject
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polyline
@@ -118,6 +121,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsCont
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyHireDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuGroup
@@ -164,13 +168,22 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.isActive
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
 import kotlin.math.cos
+import androidx.compose.runtime.DisposableEffect
 
 // ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
 // Los NPC siguen viviendo en memoria/simulación; solo dibujamos los que caen
 // dentro del viewport visible. El radio escala con el zoom (metros por pixel),
 // así nunca se ocultan NPCs que de verdad están en pantalla.
-internal const val NPC_CULL_MARGIN_M = 15.0
+// FIX "veo NPCs fuera del fog of war": el margen era +15 m sobre el radio de
+// neblina (70 m), así que los civiles se dibujaban hasta 85 m, fuera de la zona
+// despejada. A 0 m el culling de sprites coincide EXACTO con el borde del fog
+// (los 3 renderers usan npcVisionRadiusMeters). La policía fuera del fog sigue
+// mostrándose como waypoint 🚓 (handoff limpio en 70 m) y Prankedy aparte.
+internal const val NPC_CULL_MARGIN_M = 0.0
 
 // ══════════════════════════════════════════════════════════════════════════
 //  RADIO DE VISIÓN (neblina). ⬅️  CAMBIA ESTE VALOR PARA VER MÁS O MENOS.
@@ -212,7 +225,7 @@ fun WorldMapScreen(
     val widthCache = remember { mutableStateMapOf<String, Float>() }
     val heightCache = remember { mutableStateMapOf<String, Float>() }
     // OPT memoria gama baja (≤2 GB): esta caché de drawables (NPCs, patrullas, balas,
-    // coleccionables…) se indexa por FIRMA VISUAL (incluye salud/zoom/frame), así que en
+    // collectibles…) se indexa por FIRMA VISUAL (incluye salud/zoom/frame), así que en
     // sesiones largas crecía SIN LÍMITE y podía agotar la RAM (OOM). La acotamos con un
     // LRU por orden de acceso (mismo patrón que googleMapsIconCache): al pasar el tope se
     // descarta la entrada más vieja; si vuelve a hacer falta se regenera (idéntico en
@@ -275,6 +288,18 @@ fun WorldMapScreen(
         viewModel.showInitialHealthBar()
     }
 
+    //Configuración de ciclo de vida de la skin
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshSkin()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     // Cuando el video de carga termina y hay un destino pendiente, navegar.
     // Si la interacción fue con la mano (pendingZombieMinigame), vamos al minijuego
     // de zombis (que arranca en el lobby/croquis). Si no, al interior normal.
@@ -284,7 +309,7 @@ fun WorldMapScreen(
             viewModel.clearPendingInteriorDestination()
             if (viewModel.pendingZombieMinigame) {
                 viewModel.clearPendingZombieMinigame()
-                onNavigateToInterior("zombie_minigame")
+                onNavigateToInterior("interiores_zombies")
             } else {
                 onNavigateToInterior(target.routeName)
             }
@@ -333,6 +358,15 @@ fun WorldMapScreen(
     // limpiarlos al dejar de estar buscado sin spamear updatePolice cuando no hay policías.
     val lastWebPoliceHolder = remember { booleanArrayOf(false) }
     val lastWebZombieHolder = remember { booleanArrayOf(false) }
+    // 🚇 Estaciones de metro (estáticas): se reenvían al WebView solo al cambiar la lista
+    // (+ heartbeat), como los landmarks. El icono se carga del asset metro_cdmx/icon.webp.
+    val lastWebMetroHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.MetroStation>>(1) }
+    val webMetroTick = remember { intArrayOf(0) }
+    // Debug Interiores (web): solo reenviamos el navGraph al WebView cuando cambia el
+    // estado del overlay o la lista de landmarks (no por frame).
+    val lastWebIpOn = remember { booleanArrayOf(false) }
+    val lastWebIpLm = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Landmark>>(1) }
+    val lastWebIpColl = remember { arrayOfNulls<ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig>(1) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
@@ -389,13 +423,18 @@ fun WorldMapScreen(
                     landmarkBitmapCache[lm.assetPath] = bmp // escrito en Main (post-withContext)
                 }
             }
-            val tips = remember { listOf(
-                "Mantén presionado Y para teletransportarte a otros lugares.",
+            val tipTeleport = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_teleport)
+            val tipDesigner = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_designer)
+            val tipWanted = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_wanted)
+            val tipShine = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_shine)
+            
+            val tips = listOf(
+                tipTeleport,
                 "Presiona Y cerca de un auto para robarlo.",
-                "Usa el modo diseñador para personalizar el mapa con tus propios edificios.",
-                "Golpear civiles o policías aumentará tu nivel de búsqueda.",
-                "Visita el Shine CTO para descubrir secretos del Politécnico."
-            )}
+                tipDesigner,
+                tipWanted,
+                tipShine
+            )
             var currentTipIndex by remember { mutableIntStateOf(0) }
 
             LaunchedEffect(Unit) {
@@ -413,10 +452,10 @@ fun WorldMapScreen(
                 else -> 0.92f // mapa listo: sembrando NPCs y edificios
             }.coerceIn(0f, 1f)
             val statusText = when {
-                uiState.isLoadingLocation -> "Obteniendo tu ubicación..."
-                !uiState.isRoadNetworkReady -> "Cargando las calles..."
-                !uiState.isMapReady -> "Descargando el mapa..."
-                else -> "Colocando NPCs y edificios..."
+                uiState.isLoadingLocation -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_getting_location)
+                !uiState.isRoadNetworkReady -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_loading_streets)
+                !uiState.isMapReady -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_downloading_map)
+                else -> androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_placing_npcs_buildings)
             }
             Column(
                 modifier = Modifier.align(Alignment.Center),
@@ -440,14 +479,14 @@ fun WorldMapScreen(
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Preparando Politécnico Open World",
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_preparing_world),
                     color = Color(0xFFAAAAAA),
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(24.dp))
                 Text(
-                    text = "Consejo: ${tips[currentTipIndex]}",
+                    text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_format, tips[currentTipIndex]),
                     color = Color(0xFFD4AF37),
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -612,6 +651,31 @@ fun WorldMapScreen(
                             }
                         }
                     }
+                    // 🚇 ESTACIONES DE METRO: icono de la red CDMX en cada estación (paridad con
+                    // OSM nativo / web). Marcador estático de tamaño fijo (~24 dp).
+                    val metroIconG = remember {
+                        try {
+                            val raw = context.assets.open("metro_cdmx/icon.webp").use { android.graphics.BitmapFactory.decodeStream(it) }
+                            val px = (24 * context.resources.displayMetrics.density).toInt().coerceAtLeast(16)
+                            val scaled = android.graphics.Bitmap.createScaledBitmap(raw, px, px, true)
+                            BitmapDescriptorFactory.fromBitmap(scaled)
+                        } catch (e: Exception) { BitmapDescriptorFactory.defaultMarker() }
+                    }
+                    uiState.metroStations.forEach { station ->
+                        key("metro_${station.name}") {
+                            val mPos = LatLng(station.location.latitude, station.location.longitude)
+                            val mState = remember { MarkerState(position = mPos) }
+                            mState.position = mPos
+                            com.google.maps.android.compose.Marker(
+                                state = mState,
+                                icon = metroIconG,
+                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                flat = true,
+                                title = station.name
+                            )
+                        }
+                    }
+
                     // Mostrar calles solo si estamos cerca
                     if (uiState.showRoadNetwork && uiState.zoomLevel >= 15.5) {
                         roadNetwork.forEach { way ->
@@ -661,21 +725,25 @@ fun WorldMapScreen(
                                         val config = npc.visualConfig!!
                                         "GM_PED_${config.bodyFolder}_${config.hairId}_${config.hairColor.value}_${config.shirtColor.value}_${config.pantsColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == NpcType.CAR -> {
+                                    npc.type == NpcType.CAR && !npc.isPoliceSkin -> {
                                         var angle = npc.rotationAngle % 360f
                                         if (angle < 0) angle += 360f
                                         val frameIndex = (angle / 7.5f).roundToInt() % 48
                                         val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                         "GM_CAR_${npc.carModel.name}_${npc.carColor}_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == NpcType.POLICE_CAR -> {
+                                    npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin -> {
                                         var angle = npc.rotationAngle % 360f
                                         if (angle < 0) angle += 360f
                                         val frameIndex = (angle / 7.5f).roundToInt() % 48
                                         val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
-                                        "GM_POLICE_${frameIndex}_${dynamicScale}"
+                                        "GM_POLICE_${frameIndex}_${dynamicScale}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == NpcType.POLICE_COP -> "GM_COP_EMOJI"
+                                    npc.type == NpcType.POLICE_COP -> {
+                                        val isAttacking = npc.policeCanShoot && !npc.isMoving
+                                        val animFrame = if (isAttacking) 0 else ((timeMs / 150L) % 6).toInt()
+                                        "GM_COP_SPRITE_${isAttacking}_${animFrame}_${npc.facingRight}_H${qHealth}_D${npc.isDying}"
+                                    }
                                     npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                         val timeMs = System.currentTimeMillis()
                                         val frameIndex = ((timeMs / 220L) % 9L).toInt()
@@ -705,7 +773,7 @@ fun WorldMapScreen(
                                             d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
                                             d?.let { ExactSizeDrawable(it, exactPixels, exactPixels) }
                                         }
-                                        npc.type == NpcType.CAR -> {
+                                        npc.type == NpcType.CAR && !npc.isPoliceSkin -> {
                                             val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                             var d = VehicleSpriteManager.getTintedCarNpc(context, npc.rotationAngle, npc.carColor, screenDensity, npc.carModel)
                                             d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
@@ -715,18 +783,27 @@ fun WorldMapScreen(
                                                 ExactSizeDrawable(it, fw, fh)
                                             }
                                         }
-                                        npc.type == NpcType.POLICE_CAR -> {
+                                        npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin -> {
                                             val dynamicScale = (1.4 * 2.0.pow(renderZoom - 19.0)).toFloat().coerceIn(0.2f, 1.4f)
                                             val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager.getPoliceCar(context, npc.rotationAngle, screenDensity)
                                             d?.let {
                                                 val fw = ((it.intrinsicWidth / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
                                                 val fh = ((it.intrinsicHeight / screenDensity) / screenDensity * dynamicScale * screenDensity).toInt()
-                                                ExactSizeDrawable(it, fw, fh)
+                                                val withHealth = drawHealthBarOnDrawable(context, it, npc.health, npc.isDying)
+                                                ExactSizeDrawable(withHealth ?: it, fw, fh)
                                             }
                                         }
                                         npc.type == NpcType.POLICE_COP -> {
-                                            val px = (18 * screenDensity).toInt()
-                                            emojiToDrawable(context, "👮", px)
+                                            val isAttacking = npc.policeCanShoot && !npc.isMoving
+                                            val exactPixels = (18 * screenDensity).toInt()
+                                            var d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager.getDrawable(
+                                                context, isAttacking, timeMs, screenDensity, npc.facingRight
+                                            ) as android.graphics.drawable.Drawable?
+                                            if (d == null) {
+                                                d = emojiToDrawable(context, "👮", exactPixels)
+                                            }
+                                            d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
+                                            d
                                         }
                                         npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
                                             val timeMs = System.currentTimeMillis()
@@ -855,13 +932,14 @@ fun WorldMapScreen(
                                 val position = LatLng(collectible.latitude, collectible.longitude)
                                 val markerState = remember { MarkerState(position = position) }
                                 markerState.position = position
+                                val isHand = collectible.name == "Objeto Misterioso ESCOM" || collectible.id == "global_zombie_hand"
 
                                 com.google.maps.android.compose.Marker(
                                     state = markerState,
                                     icon = iconDescriptor,
                                     anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                                     flat = true,
-                                    rotation = ((System.currentTimeMillis() / 30) % 360).toFloat()
+                                    rotation = if (isHand) 0f else ((System.currentTimeMillis() / 30) % 360).toFloat()
                                 )
                             }
                         }
@@ -898,6 +976,7 @@ fun WorldMapScreen(
                     modifier = Modifier.fillMaxSize(),
                     update = { wv ->
                         webViewRef.value = wv
+                        val timeMs = System.currentTimeMillis()
                         if (!uiState.isUserPanningMap) {
                             // Zoom SIN truncar (.toInt() peleaba con syncZoom cuando el estado
                             // queda en medios pasos tras un pinch, p. ej. 21.5 vs 21).
@@ -1004,7 +1083,7 @@ fun WorldMapScreen(
                                 // su SVG genérico en vez del asset real. Ahora la tratamos como un
                                 // coche-imagen: generamos su sprite (PoliceSpriteManager, sin tintar),
                                 // lo registramos en imgCache y lo enviamos como tipo "CAR".
-                                val isPolice = npc.type == NpcType.POLICE_CAR
+                                val isPolice = npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
                                 val frameIndex = (angle / 7.5f).roundToInt() % 48
@@ -1043,13 +1122,13 @@ fun WorldMapScreen(
                             } else if (npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
                                 val config = npc.visualConfig!!
-                                val frameIndex = CharacterSpriteManager.getFrameIndex(context, config, currentlyMoving, System.currentTimeMillis()) ?: 0
+                                val frameIndex = CharacterSpriteManager.getFrameIndex(context, config, currentlyMoving, timeMs) ?: 0
                                 val cacheKey = "npc_mod_${config.bodyFolder}_${config.hairId}_${npc.facingRight}_${frameIndex}_${density}"
                                 val base64Image = base64Cache[cacheKey]
                                 if (base64Image == null) {
                                     base64Cache[cacheKey] = ""
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
-                                        val bitmap = CharacterSpriteManager.generateAssembledBitmap(context, config, currentlyMoving, System.currentTimeMillis())
+                                        val bitmap = CharacterSpriteManager.generateAssembledBitmap(context, config, currentlyMoving, timeMs)
                                         if (bitmap != null) {
                                             val out = java.io.ByteArrayOutputStream()
                                             bitmap.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
@@ -1063,7 +1142,6 @@ fun WorldMapScreen(
                                 }
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, if (npc.facingRight) 1 else -1, npc.displayName, health = npc.health, isDying = npc.isDying)
                             } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
-                                val timeMs = System.currentTimeMillis()
                                 // FIX web: el frame DEBE acotarse a los 9 del walk (% 9), igual que
                                 // getZombieDrawable. Antes era (timeMs/220).toInt() (entero creciente),
                                 // así que cada frame creaba un cacheKey nuevo cuya imagen base64 (async)
@@ -1099,17 +1177,20 @@ fun WorldMapScreen(
                                 val webHp = if (npc.maxHealth > 0f) (npc.health / npc.maxHealth * 100f) else npc.health
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, null, health = webHp, isDying = npc.isDying)
                             } else if (npc.type == NpcType.POLICE_COP) {
-                                // FIX web: el policía A PIE no tiene asset → en web salía como un SVG
-                                // genérico (vector verde). Igual que en nativo lo dibujamos como emoji
-                                // 👮: generamos su bitmap una vez, lo cacheamos y lo enviamos como
-                                // imagen de peatón (type "MODULAR", tamaño ~persona).
-                                val cacheKey = "cop_emoji_${density}"
+                                val isAttacking = npc.policeCanShoot && !npc.isMoving
+                                val animFrame = if (isAttacking) 0 else ((timeMs / 150L) % 6).toInt()
+                                val cacheKey = "cop_sprite_${isAttacking}_${animFrame}_${npc.facingRight}_${density}"
                                 val base64Image = base64Cache[cacheKey]
                                 if (base64Image == null) {
                                     base64Cache[cacheKey] = ""
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
                                         val px = (96 * density).toInt().coerceAtLeast(48)
-                                        val bitmap = (emojiToDrawable(context, "👮", px) as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                        var bitmap = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager.getDrawable(
+                                            context, isAttacking, timeMs, density, npc.facingRight
+                                        )?.bitmap
+                                        if (bitmap == null) {
+                                            bitmap = (emojiToDrawable(context, "👮", px) as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                                        }
                                         if (bitmap != null) {
                                             val out = java.io.ByteArrayOutputStream()
                                             bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
@@ -1124,7 +1205,8 @@ fun WorldMapScreen(
                                     wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
                                     registeredWebImages.add(cacheKey)
                                 }
-                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, npc.displayName, health = npc.health, isDying = npc.isDying)
+                                val webHp = if (npc.maxHealth > 0f) (npc.health / npc.maxHealth * 100f) else npc.health
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, null, health = webHp, isDying = npc.isDying)
                             } else {
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, npc.type.name, null, npc.type.drawableName, null, npc.displayName, health = npc.health, isDying = npc.isDying)
                             }
@@ -1157,6 +1239,18 @@ fun WorldMapScreen(
                         val landmarksJson = gson.toJson(landmarksPayload)
                         wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks(${JSONObject.quote(landmarksJson)});", null)
                         } // fin guard landmarks web (solo se reenvían al cambiar / heartbeat)
+
+                        // 🚇 ESTACIONES DE METRO: icono fijo en cada estación. Estáticas, así que
+                        // solo se reenvían al cambiar la lista (+ heartbeat, por si el primer envío
+                        // llegó antes de que el HTML definiera updateMetro).
+                        webMetroTick[0]++
+                        if (uiState.metroStations !== lastWebMetroHolder[0] || webMetroTick[0] % 45 == 0) {
+                            lastWebMetroHolder[0] = uiState.metroStations
+                            val metroPayload = uiState.metroStations.map {
+                                mapOf("name" to it.name, "lat" to it.location.latitude, "lng" to it.location.longitude)
+                            }
+                            wv.evaluateJavascript("if(typeof updateMetro==='function')updateMetro(${JSONObject.quote(gson.toJson(metroPayload))});", null)
+                        }
                         if (uiState.showRoadNetwork) {
                             val roadsPayload = roadNetwork.map { way ->
                                 mapOf(
@@ -1169,6 +1263,47 @@ fun WorldMapScreen(
                             wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads(${JSONObject.quote(roadsJson)});", null)
                         } else {
                             wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads('[]');", null)
+                        }
+
+                        // 🔧 DEBUG INTERIORES (web): dibuja el navGraph de los landmarks (ESCOM)
+                        // para ver por dónde se puede caminar (verde) y por dónde van autos (naranja).
+                        // Convertimos localX/localY → global aquí (el Leaflet no tiene esa geometría).
+                        val ipOn = uiState.showInteriorDebugOverlay
+                        if (ipOn != lastWebIpOn[0] || (ipOn && (uiState.landmarks !== lastWebIpLm[0] || uiState.exteriorCollisions !== lastWebIpColl[0]))) {
+                            lastWebIpOn[0] = ipOn
+                            lastWebIpLm[0] = uiState.landmarks
+                            lastWebIpColl[0] = uiState.exteriorCollisions
+                            if (ipOn) {
+                                // Caminos del navGraph (verde/naranja).
+                                val paths = uiState.landmarks.flatMap { lm ->
+                                    val ng = lm.navGraph ?: return@flatMap emptyList<Map<String, Any>>()
+                                    ng.ways.filter { it.nodes.size >= 2 }.map { w ->
+                                        mapOf(
+                                            "id" to "${lm.id}_${w.id}",
+                                            "walk" to w.isForPeople,
+                                            "nodes" to w.nodes.map {
+                                                val g = lm.toGlobalGeoPoint(it.localX, it.localY)
+                                                mapOf("lat" to g.latitude, "lng" to g.longitude)
+                                            }
+                                        )
+                                    }
+                                }
+                                // Zonas NO caminables (polígonos rojos) + bardas (líneas rojas).
+                                val cfg = uiState.exteriorCollisions
+                                val blocks = cfg?.polygons?.filter { it.nodes.size >= 3 }?.mapIndexed { i, poly ->
+                                    mapOf("id" to "blk_$i", "nodes" to poly.nodes.map { mapOf("lat" to it.lat, "lng" to it.lon) })
+                                } ?: emptyList()
+                                val walls = cfg?.walls?.mapIndexed { i, wl ->
+                                    mapOf("id" to "wl_$i", "nodes" to listOf(
+                                        mapOf("lat" to wl.lat1, "lng" to wl.lon1),
+                                        mapOf("lat" to wl.lat2, "lng" to wl.lon2)
+                                    ))
+                                } ?: emptyList()
+                                val ipObj = mapOf("paths" to paths, "blocks" to blocks, "walls" to walls)
+                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths(${JSONObject.quote(gson.toJson(ipObj))});", null)
+                            } else {
+                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths('{}');", null)
+                            }
                         }
                         val destMarker = uiState.destinationMarker
                         if (destMarker != null) wv.evaluateJavascript("if(typeof updateDestinationMarker==='function')updateDestinationMarker(${destMarker.latitude}, ${destMarker.longitude});", null)
@@ -1217,6 +1352,89 @@ fun WorldMapScreen(
                                 mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude)
                             }
                             wv.evaluateJavascript("if(typeof updateZombies==='function')updateZombies(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(zombiePayload)});", null)
+                        }
+
+                        // ─── PRANKEDY (compañero) en WEB ──────────────────────────────────
+                        // Su sprite NO es un NPC normal (assets propios), así que se dibuja con
+                        // su propio marcador Leaflet. Se envía CADA frame (FUERA del guard de la
+                        // lista de NPCs) porque se mueve suave siguiendo al jugador.
+                        run {
+                            val pkLoc = uiState.prankedyLocation
+                            if (pkLoc != null && !uiState.isDriving) {
+                                val pkTime = timeMs
+                                val pkAnim = uiState.prankedyAnimState
+                                val pkFrames = when (pkAnim) {
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.IDLE -> 3
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.WALK -> 9
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN -> 8
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN_TANQUE -> 9
+                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.ATTACK -> 5
+                                }
+                                val pkFrame = ((pkTime / 200L) % pkFrames).toInt()
+                                val pkKey = "PRANKEDY_WEB_${pkAnim.name}_${uiState.prankedyFacingRight}_$pkFrame"
+                                val pkB64 = base64Cache[pkKey]
+                                if (pkB64 == null) {
+                                    base64Cache[pkKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
+                                            .getDrawable(context, pkAnim, timeMs, highResRenderScale, uiState.prankedyFacingRight)
+                                        val bmp = d?.bitmap
+                                        if (bmp != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bmp.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
+                                            val b64 = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { base64Cache[pkKey] = b64 }
+                                        }
+                                    }
+                                }
+                                if (!pkB64.isNullOrEmpty() && !registeredWebImages.contains(pkKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$pkKey'] = '$pkB64';", null)
+                                    registeredWebImages.add(pkKey)
+                                }
+                                val pkFlip = if (uiState.prankedyFacingRight) 1 else -1
+                                val pkDlg = uiState.prankedyDialogue?.let { JSONObject.quote(it) } ?: "null"
+                                val pkHealth = uiState.prankedyHealth
+                                val pkMaxHealth = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager.MAX_HEALTH
+                                wv.evaluateJavascript("if(typeof updatePrankedy==='function')updatePrankedy({lat:${pkLoc.latitude},lng:${pkLoc.longitude},imageKey:'$pkKey',flip:$pkFlip,dialogue:$pkDlg,health:$pkHealth,maxHealth:$pkMaxHealth});", null)
+                            } else {
+                                wv.evaluateJavascript("if(typeof clearPrankedy==='function')clearPrankedy();", null)
+                            }
+                        }
+
+                        // ─── PRANKEDY: proyectil (tanque de gas, p_objeto) en WEB ──────────
+                        run {
+                            val pjStart = uiState.prankedyProjectileStart
+                            val pjEnd = uiState.prankedyProjectileTarget
+                            if (uiState.prankedyProjectileActive && pjStart != null && pjEnd != null && !uiState.isDriving) {
+                                val pjP = uiState.prankedyProjectileProgress
+                                val pjLat = pjStart.latitude + (pjEnd.latitude - pjStart.latitude) * pjP
+                                val pjLon = pjStart.longitude + (pjEnd.longitude - pjStart.longitude) * pjP
+                                val pjTime = timeMs
+                                val pjFrame = ((pjTime / 150L) % 3L).toInt()
+                                val pjKey = "PRANKEDY_PROJ_WEB_$pjFrame"
+                                val pjB64 = base64Cache[pjKey]
+                                if (pjB64 == null) {
+                                    base64Cache[pjKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
+                                            .getProjectileDrawable(context, timeMs, highResRenderScale)
+                                        val bmp = d?.bitmap
+                                        if (bmp != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bmp.compress(android.graphics.Bitmap.CompressFormat.WEBP, 90, out)
+                                            val b64 = "data:image/webp;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { base64Cache[pjKey] = b64 }
+                                        }
+                                    }
+                                }
+                                if (!pjB64.isNullOrEmpty() && !registeredWebImages.contains(pjKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$pjKey'] = '$pjB64';", null)
+                                    registeredWebImages.add(pjKey)
+                                }
+                                wv.evaluateJavascript("if(typeof updatePrankedyProjectile==='function')updatePrankedyProjectile({lat:$pjLat,lng:$pjLon,imageKey:'$pjKey'});", null)
+                            } else {
+                                wv.evaluateJavascript("if(typeof clearPrankedyProjectile==='function')clearPrankedyProjectile();", null)
+                            }
                         }
                     }
                 )
@@ -1382,7 +1600,7 @@ fun WorldMapScreen(
         if (!uiState.isRoadNetworkReady) {
             Row(modifier = Modifier.align(Alignment.TopCenter).padding(top = 72.dp).background(Color.Black.copy(alpha = 0.65f), CircleShape).padding(horizontal = 14.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CircularProgressIndicator(Modifier.size(14.dp), Color(0xFFD4AF37), strokeWidth = 2.dp)
-                Text("Cargando calles...", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_loading_streets), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -1393,11 +1611,11 @@ fun WorldMapScreen(
         if (uiState.zonePrefetchActive || uiState.zoneOfflineWarning || uiState.zoneOfflineReady) {
             val (chipText, chipColor) = when {
                 uiState.zonePrefetchActive ->
-                    "Descargando zona ${(uiState.zonePrefetchProgress * 100).roundToInt()}%" to Color(0xCC1E2A38)
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_downloading_zone, (uiState.zonePrefetchProgress * 100).roundToInt()) to Color(0xCC1E2A38)
                 uiState.zoneOfflineWarning ->
-                    "Sin conexión: zona incompleta" to Color(0xCC8A1F1F)
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_offline_incomplete) to Color(0xCC8A1F1F)
                 else ->
-                    "Zona lista offline ✓" to Color(0xCC1F5A2E)
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_zone_ready_offline) to Color(0xCC1F5A2E)
             }
             Row(
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = if (!uiState.isRoadNetworkReady) 104.dp else 72.dp)
@@ -1414,11 +1632,11 @@ fun WorldMapScreen(
 
         Column(modifier = Modifier.align(Alignment.TopStart).padding(top = 64.dp, start = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AnimatedVisibility(visible = uiState.showCacheWidget, enter = fadeIn(), exit = fadeOut()) { CacheStatusWidget(roadSource = uiState.roadSource, tileSource = uiState.tileSource, mapProvider = uiState.mapProvider) }
-            AnimatedVisibility(visible = uiState.showFpsWidget, enter = fadeIn(), exit = fadeOut()) { CacheChip(label = "Rendimiento", text = "$currentFps FPS", color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F), isLoading = false) }
+            AnimatedVisibility(visible = uiState.showFpsWidget, enter = fadeIn(), exit = fadeOut()) { CacheChip(label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_performance), text = "$currentFps FPS", color = if (currentFps >= 24) Color(0xFF4CAF50) else Color(0xFFD32F2F), isLoading = false) }
             // Widget de nivel de zoom (Ajustes → Interfaz): muestra el zoom actual en vivo
             // para identificar el nivel óptimo (pinch para cambiarlo).
             AnimatedVisibility(visible = uiState.showZoomWidget, enter = fadeIn(), exit = fadeOut()) {
-                CacheChip(label = "Zoom", text = "z = ${"%.1f".format(uiState.zoomLevel)}", color = Color(0xFF7FB2FF), isLoading = false)
+                CacheChip(label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_zoom), text = "z = ${"%.1f".format(uiState.zoomLevel)}", color = Color(0xFF7FB2FF), isLoading = false)
             }
             // Velocímetro (Ajustes → Interfaz): velocidad en km/h, SOLO al conducir.
             // CALIBRADO a sensación de manejo, no al desplazamiento geográfico real: el
@@ -1429,7 +1647,7 @@ fun WorldMapScreen(
                 val frac = (speedAbs / 0.000017).toFloat().coerceIn(0f, 1f) // MAX_SPEED del coche
                 val kmh = (frac * 120f).roundToInt()
                 CacheChip(
-                    label = "Velocidad",
+                    label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_speed),
                     text = "🚗 $kmh km/h",
                     color = when {
                         frac < 0.5f -> Color(0xFF4CAF50)
@@ -1449,7 +1667,7 @@ fun WorldMapScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(Icons.Default.Architecture, null, tint = Color.Black, modifier = Modifier.size(14.dp))
-                    Text("DISEÑADOR", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer), color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1468,9 +1686,9 @@ fun WorldMapScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text("ABANDONAR DISEÑADOR", color = Color(0xFFD4AF37), fontWeight = FontWeight.Black, fontSize = 18.sp, textAlign = TextAlign.Center)
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_exit), color = Color(0xFFD4AF37), fontWeight = FontWeight.Black, fontSize = 18.sp, textAlign = TextAlign.Center)
                         Text(
-                            "¿Deseas salir del modo diseñador y restaurar la interfaz de juego normal?",
+                            androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_exit_confirm),
                             color = Color.White,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
@@ -1484,7 +1702,7 @@ fun WorldMapScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFFFFF)),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Seguir editando", color = Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_continue), color = Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
                             }
                             Button(
                                 onClick = {
@@ -1494,7 +1712,7 @@ fun WorldMapScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37)),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Aceptar", color = Color.Black, fontWeight = FontWeight.Bold)
+                                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_accept), color = Color.Black, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1516,7 +1734,7 @@ fun WorldMapScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "Presiona el icono del lapiz para editar alguna contrucción",
+                    text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_edit_hint),
                     color = Color.White,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
@@ -1538,26 +1756,26 @@ fun WorldMapScreen(
                 entries = buildList {
                     add(
                         OptionMenuGroup(
-                            id = "opciones", label = "Opciones", icon = Icons.Default.Tune,
+                            id = "opciones", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_options), icon = Icons.Default.Tune,
                             items = buildList {
-                                add(OptionMenuItem("Cambiar skin", Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
-                                add(OptionMenuItem("Teletransportarse...", Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
+                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_change_skin), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_teleport), Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
                                 // (Submenú "Ir a…" eliminado: "Ir a ESCOM" ya es el primer punto de
                                 // "Teletransportarse…" y "Ir a tu Ubicación (GPS)" se movió al inicio
                                 // de esa misma lista.)
-                                // Submenú anidado: agrupa "Modo Diseñador" + "Debug Interiores"
-                                // (+ "Agregar Asset" cuando el diseñador está activo).
+                                // Submenú anidado: agrupa "Modo Diseñador" + androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_debug_interiors)
+                                // (+ androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_add_asset) cuando el diseñador está activo).
                                 add(
                                     OptionMenuGroup(
                                         id = "disenador_debug",
-                                        label = "Diseñador / Debug",
+                                        label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_designer),
                                         icon = Icons.Default.Architecture,
                                         tint = if (uiState.isDesignerMode || uiState.showInteriorDebugOverlay) Color(0xFFD4AF37) else Color.White,
                                         items = buildList {
-                                            add(OptionMenuItem("Modo Diseñador", Icons.Default.Architecture, if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White) { viewModel.toggleDesignerMode(!uiState.isDesignerMode) })
-                                            add(OptionMenuItem("Debug Interiores", Icons.Default.LocationOn, if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White) { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) })
+                                            add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_mode_designer), Icons.Default.Architecture, if (uiState.isDesignerMode) Color(0xFFD4AF37) else Color.White) { viewModel.toggleDesignerMode(!uiState.isDesignerMode) })
+                                            add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_debug_interiors), Icons.Default.LocationOn, if (uiState.showInteriorDebugOverlay) Color(0xFFFFC107) else Color.White) { viewModel.toggleInteriorDebugOverlay(!uiState.showInteriorDebugOverlay) })
                                             if (uiState.isDesignerMode) {
-                                                add(OptionMenuItem("Agregar Asset", Icons.Default.Add, Color(0xFF4CAF50)) { viewModel.showAssetPicker(true) })
+                                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_add_asset), Icons.Default.Add, Color(0xFF4CAF50)) { viewModel.showAssetPicker(true) })
                                             }
                                         }
                                     )
@@ -1565,23 +1783,30 @@ fun WorldMapScreen(
                                 // Apocalipsis Zombi Global: activar/desactivar desde CUALQUIER lugar
                                 // (no solo con la mano de ESCOM). Toggle global; se replica por red.
                                 add(OptionMenuItem(
-                                    if (uiState.globalZombieMode) "Desactivar Apocalipsis" else "Activar Apocalipsis",
+                                    if (uiState.globalZombieMode) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_apocalypse_off) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_apocalypse_on),
                                     Icons.Default.Warning,
                                     if (uiState.globalZombieMode) Color(0xFFE53935) else Color.White
                                 ) { viewModel.toggleGlobalZombieMode() })
+                                // Prankedy: NPC hostil que te ataca (y te defiende de otros NPCs).
+                                // Toggle on/off, igual que el apocalipsis.
+                                add(OptionMenuItem(
+                                    if (uiState.prankedyEnabled) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_prankedy_off) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_prankedy_on),
+                                    Icons.Default.Face,
+                                    if (uiState.prankedyEnabled) Color(0xFFD4AF37) else Color.White
+                                ) { viewModel.togglePrankedy() })
                             }
                         )
                     )
                     add(
                         OptionMenuGroup(
-                            id = "mapa", label = "Mapa", icon = Icons.Default.LocationOn,
+                            id = "mapa", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_map), icon = Icons.Default.LocationOn,
                             items = buildList {
                                 // (Submenú "Zoom (acercar / alejar)" eliminado: el zoom se hace
                                 // con pinch de dos dedos en los tres renderers.)
                                 // Centrar en jugador: SIEMPRE disponible (antes solo al panear),
                                 // para volver al jugador en cualquier momento. Si el usuario ha
                                 // cambiado el zoom respecto al de juego, esta opción EVOLUCIONA a
-                                // un submenú con "Centrar en jugador" y "Hacer zoom en el jugador".
+                                // un submenú con androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_center_player) y androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_zoom_player).
                                 run {
                                     // Default actual por estado: 22 a pie, 21 conduciendo (20 rápido).
                                     val defaultZoom = if (uiState.isDriving)
@@ -1592,22 +1817,22 @@ fun WorldMapScreen(
                                     if (isZoomed) {
                                         add(
                                             OptionMenuGroup(
-                                                id = "centrar_jugador", label = "Centrar en jugador",
+                                                id = "centrar_jugador", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_center),
                                                 icon = Icons.Default.Person,
                                                 items = buildList {
-                                                    add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
-                                                    add(OptionMenuItem("Hacer zoom en el jugador", Icons.Default.Add, Color(0xFFD4AF37)) { viewModel.zoomToPlayer() })
+                                                    add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_center_player), Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
+                                                    add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_zoom_player), Icons.Default.Add, Color(0xFFD4AF37)) { viewModel.zoomToPlayer() })
                                                 }
                                             )
                                         )
                                     } else {
-                                        add(OptionMenuItem("Centrar en jugador", Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
+                                        add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_center_player), Icons.Default.Person, Color(0xFF2196F3)) { viewModel.centerOnPlayer() })
                                     }
                                 }
                                 if (uiState.isTargetingWaypoint) {
                                     // Apuntando: confirmar o cancelar TAMBIÉN desde el menú (no
                                     // botones flotantes que tapen los controles).
-                                    add(OptionMenuItem("Establecer destino aquí", Icons.Default.LocationOn, Color(0xFF4CAF50)) {
+                                    add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_set_destination), Icons.Default.LocationOn, Color(0xFF4CAF50)) {
                                         if (uiState.mapProvider == MapProvider.OSM) {
                                             nativeMapRef.value?.let { mv ->
                                                 val center = mv.mapCenter
@@ -1617,11 +1842,11 @@ fun WorldMapScreen(
                                             webViewRef.value?.evaluateJavascript("if(window.Android && window.Android.notifyCenterForWaypoint) { var c = map.getCenter(); window.Android.notifyCenterForWaypoint(c.lat, c.lng); }", null)
                                         }
                                     })
-                                    add(OptionMenuItem("Cancelar apuntado", Icons.Default.Close, Color(0xFFE53935)) { viewModel.toggleWaypointTargeting(false) })
+                                    add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_cancel_aim), Icons.Default.Close, Color(0xFFE53935)) { viewModel.toggleWaypointTargeting(false) })
                                 } else if (uiState.isUserPanningMap && !uiState.isDesignerMode && !uiState.isDriving) {
-                                    add(OptionMenuItem("Apuntar waypoint", Icons.Default.LocationOn, Color(0xFF4CAF50)) { viewModel.toggleWaypointTargeting(true) })
+                                    add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_aim_waypoint), Icons.Default.LocationOn, Color(0xFF4CAF50)) { viewModel.toggleWaypointTargeting(true) })
                                     if (uiState.destinationMarker != null) {
-                                        add(OptionMenuItem("Eliminar destino", Icons.Default.Close, Color(0xFFE53935)) { viewModel.clearDestinationMarker() })
+                                        add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_remove_destination), Icons.Default.Close, Color(0xFFE53935)) { viewModel.clearDestinationMarker() })
                                     }
                                 }
                             }
@@ -1655,20 +1880,20 @@ fun WorldMapScreen(
                 if (!uiState.pendingProviderReady) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         CircularProgressIndicator(Modifier.size(16.dp), Color(0xFFD4AF37), strokeWidth = 2.dp)
-                        Text("Preparando ${pending.displayName}...", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_preparing_model, pending.displayName), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 } else {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${pending.displayName} listo ✓", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_model_ready, pending.displayName), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = { viewModel.commitMapProvider() },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                                 shape = RoundedCornerShape(20.dp)
-                            ) { Text("Cambiar", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_change), fontWeight = FontWeight.Bold, fontSize = 13.sp) }
                             TextButton(onClick = { viewModel.cancelPendingProvider() }) {
-                                Text("Descartar", color = Color(0xFFCCCCCC), fontSize = 13.sp)
+                                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_discard), color = Color(0xFFCCCCCC), fontSize = 13.sp)
                             }
                         }
                     }
@@ -1679,10 +1904,10 @@ fun WorldMapScreen(
         if (uiState.showTeleportMenu) {
             AlertDialog(
                 onDismissRequest = { viewModel.toggleTeleportMenu(false) },
-                title = { Text("Puntos de Teletransporte", fontWeight = FontWeight.Bold) },
+                title = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_title), fontWeight = FontWeight.Bold) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Selecciona tu estatua o destino:", fontSize = 14.sp)
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_subtitle), fontSize = 14.sp)
                         LazyColumn(modifier = Modifier.fillMaxHeight(0.5f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             // Primera opción: tu ubicación REAL (GPS del dispositivo, p. ej. volver a
                             // casa). Movida aquí desde el antiguo submenú "Ir a…".
@@ -1710,7 +1935,7 @@ fun WorldMapScreen(
                                         } catch (_: SecurityException) {}
                                     }
                                     viewModel.toggleTeleportMenu(false)
-                                }, modifier = Modifier.fillMaxWidth()) { Text("📍 Ir a tu Ubicación (GPS)") }
+                                }, modifier = Modifier.fillMaxWidth()) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_gps)) }
                             }
                             items(TeleportCatalog.zones) { zone ->
                                 Button(onClick = { viewModel.teleportTo(zone.latitude, zone.longitude) }, modifier = Modifier.fillMaxWidth()) { Text(zone.name) }
@@ -1718,7 +1943,7 @@ fun WorldMapScreen(
                         }
                     }
                 },
-                confirmButton = { TextButton(onClick = { viewModel.toggleTeleportMenu(false) }) { Text("Cancelar") } }
+                confirmButton = { TextButton(onClick = { viewModel.toggleTeleportMenu(false) }) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_close)) } }
             )
         }
 
@@ -1805,7 +2030,7 @@ fun WorldMapScreen(
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color.Red),
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 110.dp)
             ) {
-                androidx.compose.material3.Text("SALIR DEL APOCALIPSIS", color = androidx.compose.ui.graphics.Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_apocalypse), color = androidx.compose.ui.graphics.Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             }
         }
 
@@ -1881,7 +2106,7 @@ fun WorldMapScreen(
             LaunchedEffect(Unit) {
                 androidx.compose.animation.core.animate(initialValue = 0.5f, targetValue = 1.3f, animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)) { value, _ -> scale = value }
             }
-            Text(text = "WASTED", color = Color(0xFFD32F2F), fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale))
+            Text(text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_wasted), color = Color(0xFFD32F2F), fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale))
         }
     }
     if (uiState.showZombiVideo) {
@@ -1895,6 +2120,33 @@ fun WorldMapScreen(
         Box(modifier = Modifier.fillMaxSize().padding(top = 70.dp), contentAlignment = Alignment.TopCenter) {
             Text(text = promptText, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp, modifier = Modifier.background(color = Color(0xFF3B0D1B).copy(alpha = 0.85f), shape = RoundedCornerShape(8.dp)).padding(horizontal = 24.dp, vertical = 12.dp))
         }
+    }
+
+    uiState.prankedyDialogue?.let { dialogueText ->
+        Box(modifier = Modifier.fillMaxSize().padding(top = 130.dp), contentAlignment = Alignment.TopCenter) {
+            Text(
+                text = dialogueText,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier
+                    .widthIn(max = 280.dp)
+                    .background(color = Color(0xFF222222).copy(alpha = 0.9f), shape = RoundedCornerShape(12.dp))
+                    .border(2.dp, Color(0xFFFFCC00), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            )
+        }
+    }
+
+    if (uiState.showPrankedyHireDialog) {
+        PrankedyHireDialog(
+            context = context,
+            isHireable = uiState.prankedyIsHireable,
+            hireableInSeconds = uiState.prankedyHireableInSeconds,
+            onHire = { viewModel.onHirePrankedy() },
+            onDismiss = { viewModel.dismissPrankedyDialog() }
+        )
     }
 
     uiState.showClaimedPopupFor?.let { collectible ->

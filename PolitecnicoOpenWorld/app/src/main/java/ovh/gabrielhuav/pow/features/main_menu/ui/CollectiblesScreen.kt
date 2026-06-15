@@ -115,7 +115,7 @@ fun CollectiblesScreen(
                     .height(56.dp)
                     .shadow(elevation = 8.dp, shape = shape)
             ) {
-                Text("VOLVER AL MENÚ", fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.menu_return), fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
             }
         }
 

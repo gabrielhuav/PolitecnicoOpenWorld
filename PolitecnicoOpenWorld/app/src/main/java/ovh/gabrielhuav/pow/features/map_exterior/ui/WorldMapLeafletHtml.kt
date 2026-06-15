@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
-internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
+
+internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -59,6 +60,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         var npcMarkers = {};
         var collectibleMarkers = {};
         var landmarkMarkers = {};
+        var metroMarkers = {};         // 🚇 icono del Metro CDMX en cada estación (estático)
         var designerMarkers = {};      // ✏️ lápices de edición del Modo Diseñador (uno por landmark)
         var isDesignerMode = false;
         var selectedLandmarkId = null;
@@ -67,6 +69,8 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
         var policeWpLines = {};     // líneas punteadas jugador → patrulla
         var zombieWpMarkers = {};   // 🧟 de zombis fuera del fog (modo apocalipsis, paridad con OSM nativo)
         var zombieWpLines = {};     // líneas ROJAS punteadas jugador → zombi
+        var prankedyMarker = null;  // 🎭 compañero Prankedy (sprite propio en web, paridad con OSM nativo)
+        var prankedyProjMarker = null;  // 📦 tanque de gas que lanza Prankedy (p_objeto)
 
         var isZooming = false;
         var zoomStartAt = 0;
@@ -407,6 +411,25 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
             });
         }
         
+        // 🚇 ESTACIONES DE METRO: icono fijo de la red CDMX en cada estación. Son
+        // estáticas, así que solo se crean una vez (el push las reenvía con guarda en
+        // Kotlin). Tamaño fijo en pantalla (~26 px), igual que el OSM nativo (24 dp).
+        function updateMetro(jsonStr) {
+            var data = JSON.parse(jsonStr);
+            var currentIds = new Set(data.map(function(s){ return String(s.name); }));
+            for (var id in metroMarkers) {
+                if (!currentIds.has(id)) { map.removeLayer(metroMarkers[id]); delete metroMarkers[id]; }
+            }
+            data.forEach(function(s) {
+                if (metroMarkers[s.name]) { metroMarkers[s.name].setLatLng([s.lat, s.lng]); return; }
+                var sz = 26;
+                var html = '<img src="file:///android_asset/metro_cdmx/icon.webp" ' +
+                           'style="width:' + sz + 'px; height:' + sz + 'px; transform:translate(-50%,-50%); display:block;">';
+                var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
+                metroMarkers[s.name] = L.marker([s.lat, s.lng], { icon: icon, interactive: false, zIndexOffset: 400 }).addTo(map);
+            });
+        }
+
         function updateNpcs(data) {
             if (isZooming) return;
             var currentZoom = map.getZoom();
@@ -456,14 +479,21 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                             var fill = hb.querySelector('.npc-hb-fill');
                             if (fill) { fill.style.width = hbPct + '%'; fill.style.background = hbColor; }
                         }
-                        if ((npc.type === 'CAR' || npc.type === 'MODULAR') && img && wrapper) {
+                        if (npc.type === 'CAR' || npc.type === 'MODULAR') {
                             var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
-                            if (!cachedImg) return;
-                            if (img.src !== cachedImg) img.src = cachedImg;
-                            wrapper.style.width = finalW + 'px';
-                            wrapper.style.height = finalH + 'px';
-                            if (npc.flip !== undefined) img.style.transform = 'scaleX(' + npc.flip + ')';
-                        } else if (wrapper && npc.type !== 'CAR' && npc.type !== 'MODULAR') {
+                            // FIX "NPC invisible": si el sprite aún no está listo NO ocultamos el
+                            // NPC (antes hacía return y no se veía aunque te golpeara). Si el marcador
+                            // actual es un fallback (sin <img>) y ya llegó el sprite, lo recreamos.
+                            if (cachedImg && !img) {
+                                map.removeLayer(npcMarkers[npc.id]); delete npcMarkers[npc.id];
+                            } else if (cachedImg && img && wrapper) {
+                                if (img.src !== cachedImg) img.src = cachedImg;
+                                wrapper.style.width = finalW + 'px';
+                                wrapper.style.height = finalH + 'px';
+                                if (npc.flip !== undefined) img.style.transform = 'scaleX(' + npc.flip + ')';
+                            }
+                            // si !cachedImg: se queda el fallback emoji (posición ya actualizada arriba)
+                        } else if (wrapper) {
                             wrapper.style.transform = 'translate(-50%, -50%) rotate(0deg)';
                         }
                     }
@@ -471,9 +501,15 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                     var html = '';
                     if (npc.type === 'CAR' || npc.type === 'MODULAR') {
                         var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
-                        if (!cachedImg) return;
-                        var flipStyle = (npc.flip !== undefined) ? 'transform: scaleX(' + npc.flip + ');' : '';
-                        html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px;">' + nameTagHtml + hbHtml + '<img src="'+cachedImg+'" style="width:100%; height:100%; display:block; ' + flipStyle + '"></div>';
+                        if (cachedImg) {
+                            var flipStyle = (npc.flip !== undefined) ? 'transform: scaleX(' + npc.flip + ');' : '';
+                            html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px;">' + nameTagHtml + hbHtml + '<img src="'+cachedImg+'" style="width:100%; height:100%; display:block; ' + flipStyle + '"></div>';
+                        } else {
+                            // FIX "NPC invisible": fallback visible (🧍/🚗) mientras se genera el
+                            // sprite base64. Al estar listo, el bloque de actualización lo recrea.
+                            var em = (npc.type === 'CAR') ? '🚗' : '🧍';
+                            html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px; display:flex; align-items:center; justify-content:center; font-size:'+Math.round(finalH*0.85)+'px; line-height:1;">' + nameTagHtml + hbHtml + em + '</div>';
+                        }
                     } else {
                         var pUrl = 'file:///android_asset/' + npc.drawable + '.svg';
                         html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate(0deg); width:24px; height:24px;">' + nameTagHtml + hbHtml + '<img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
@@ -527,6 +563,77 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                 }
             });
         }
+        // ─── PRANKEDY (compañero) ───────────────────────────────────────────────────
+        // Dibuja el sprite propio de Prankedy con su marcador (paridad con OSM nativo).
+        // Se llama CADA frame; clearPrankedy() lo oculta (al subir a un coche o al morir).
+        function updatePrankedy(npc) {
+            if (isZooming) return;
+            if (!npc || npc.lat === null || npc.lat === undefined) { if (prankedyMarker) { map.removeLayer(prankedyMarker); prankedyMarker = null; } return; }
+            var currentZoom = map.getZoom();
+            var ppm = (256 * Math.pow(2, currentZoom)) / (40075016 * Math.cos((npc.lat || 19.5) * Math.PI / 180));
+            var px = Math.round(Math.max(12, 1.3 * ppm));
+            var cachedImg = (window.imgCache && npc.imageKey) ? window.imgCache[npc.imageKey] : '';
+            var flip = (npc.flip !== undefined) ? npc.flip : 1;
+            var dlg = npc.dialogue ? escapeHtml(npc.dialogue) : '';
+            var hp = (npc.health === undefined || npc.health === null) ? 80 : npc.health;
+            var maxHp = (npc.maxHealth === undefined || npc.maxHealth === null) ? 80 : npc.maxHealth;
+            var showHb = hp < maxHp;
+            var hbPct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+            var hbColor = hbPct > 60 ? '#4CAF50' : (hbPct > 30 ? '#FFEB3B' : '#F44336');
+            var hbHtml = '<div class="npc-hb" style="position:absolute; top:-16px; left:50%; transform:translateX(-50%); width:36px; height:8px; background:rgba(0,0,0,0.5); border-radius:4px; overflow:hidden; z-index:120; display:' + (showHb ? 'block' : 'none') + ';"><div class="npc-hb-fill" style="width:' + hbPct + '%; height:100%; background:' + hbColor + ';"></div></div>';
+
+            if (prankedyMarker) {
+                prankedyMarker.setLatLng([npc.lat, npc.lng]);
+                var el = prankedyMarker.getElement();
+                if (el) {
+                    var wrapper = el.querySelector('.pk-c');
+                    var img = el.querySelector('img');
+                    var bub = el.querySelector('.pk-bub');
+                    var hb = el.querySelector('.npc-hb');
+                    if (img && cachedImg) { if (img.src !== cachedImg) img.src = cachedImg; img.style.transform = 'scaleX(' + flip + ')'; }
+                    if (wrapper) { wrapper.style.width = px + 'px'; wrapper.style.height = px + 'px'; }
+                    if (bub) { bub.innerHTML = dlg; bub.style.display = dlg ? 'block' : 'none'; }
+                    if (hb) {
+                        hb.style.display = showHb ? 'block' : 'none';
+                        var fill = hb.querySelector('.npc-hb-fill');
+                        if (fill) { fill.style.width = hbPct + '%'; fill.style.background = hbColor; }
+                    }
+                }
+            } else {
+                if (!cachedImg) return;
+                var bubStyle = 'position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:4px; color:#1a1a1a; background:#FFF; border:2px solid #D4AF37; padding:3px 8px; border-radius:8px; font-size:13px; font-weight:bold; white-space:pre-wrap; max-width:200px; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.4); z-index:200;';
+                var html = '<div class="pk-c" style="position:absolute; transform:translate(-50%,-50%); width:' + px + 'px; height:' + px + 'px;">' + hbHtml +
+                    '<div class="pk-bub" style="' + bubStyle + ' display:' + (dlg ? 'block' : 'none') + ';">' + dlg + '</div>' +
+                    '<img src="' + cachedImg + '" style="width:100%; height:100%; display:block; transform:scaleX(' + flip + ');"></div>';
+                var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
+                prankedyMarker = L.marker([npc.lat, npc.lng], { icon: icon, interactive: false, zIndexOffset: 1500 }).addTo(map);
+            }
+        }
+        function clearPrankedy() { if (prankedyMarker) { map.removeLayer(prankedyMarker); prankedyMarker = null; } }
+        // Proyectil (tanque de gas) de Prankedy en vuelo.
+        function updatePrankedyProjectile(o) {
+            if (!o || o.lat === null || o.lat === undefined) { if (prankedyProjMarker) { map.removeLayer(prankedyProjMarker); prankedyProjMarker = null; } return; }
+            var currentZoom = map.getZoom();
+            var ppm = (256 * Math.pow(2, currentZoom)) / (40075016 * Math.cos((o.lat || 19.5) * Math.PI / 180));
+            var px = Math.round(Math.max(10, 0.9 * ppm));
+            var cachedImg = (window.imgCache && o.imageKey) ? window.imgCache[o.imageKey] : '';
+            if (prankedyProjMarker) {
+                prankedyProjMarker.setLatLng([o.lat, o.lng]);
+                var el = prankedyProjMarker.getElement();
+                if (el) {
+                    var img = el.querySelector('img');
+                    var w = el.querySelector('.pkp-c');
+                    if (img && cachedImg && img.src !== cachedImg) img.src = cachedImg;
+                    if (w) { w.style.width = px + 'px'; w.style.height = px + 'px'; }
+                }
+            } else {
+                if (!cachedImg) return;
+                var html = '<div class="pkp-c" style="position:absolute; transform:translate(-50%,-50%); width:' + px + 'px; height:' + px + 'px;"><img src="' + cachedImg + '" style="width:100%; height:100%; display:block;"></div>';
+                var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
+                prankedyProjMarker = L.marker([o.lat, o.lng], { icon: icon, interactive: false, zIndexOffset: 1600 }).addTo(map);
+            }
+        }
+        function clearPrankedyProjectile() { if (prankedyProjMarker) { map.removeLayer(prankedyProjMarker); prankedyProjMarker = null; } }
         var playerMarker = null;
         function updatePlayerMarker(lat, lng, isInFreeNavigation) {
             if (!isInFreeNavigation) {
@@ -636,6 +743,42 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
                     }).addTo(map);
                     roadLayers[way.id].bringToFront();
                 }
+            });
+        }
+
+        // 🔧 DEBUG INTERIORES: caminos del navGraph (verde=peatonal, naranja=autos), zonas NO
+        // caminables (polígonos rojos, p. ej. el edificio ESCOM) y bardas (líneas rojas). Recibe
+        // un objeto {paths, blocks, walls} con coords lat/lng global; '{}' limpia todo.
+        var interiorPathLayers = {};
+        function updateInteriorPaths(jsonStr) {
+            var data = JSON.parse(jsonStr) || {};
+            var items = [];
+            (data.paths || []).forEach(function(w){ items.push({ id:'p_'+w.id, kind:'path', walk:w.walk, nodes:w.nodes }); });
+            (data.blocks || []).forEach(function(b){ items.push({ id:'b_'+b.id, kind:'block', nodes:b.nodes }); });
+            (data.walls || []).forEach(function(wl){ items.push({ id:'w_'+wl.id, kind:'wall', nodes:wl.nodes }); });
+            var currentIds = new Set(items.map(function(x){ return String(x.id); }));
+            for (var id in interiorPathLayers) {
+                if (!currentIds.has(id)) { map.removeLayer(interiorPathLayers[id]); delete interiorPathLayers[id]; }
+            }
+            items.forEach(function(x) {
+                var latlngs = x.nodes.map(function(n){ return [n.lat, n.lng]; });
+                if (interiorPathLayers[x.id]) {
+                    interiorPathLayers[x.id].setLatLngs(latlngs);
+                    interiorPathLayers[x.id].bringToFront();
+                    return;
+                }
+                var layer;
+                if (x.kind === 'block') {
+                    layer = L.polygon(latlngs, { color:'#C80000', weight:3, fillColor:'#DC2828', fillOpacity:0.35, interactive:false });
+                } else if (x.kind === 'wall') {
+                    layer = L.polyline(latlngs, { color:'#DC0000', weight:7, opacity:0.9, lineCap:'round', interactive:false });
+                } else {
+                    var color = x.walk ? '#4CC850' : '#FF8C00';
+                    var weight = x.walk ? 5 : 7;
+                    layer = L.polyline(latlngs, { color:color, weight:weight, opacity:0.9, lineCap:'round', lineJoin:'round', interactive:false });
+                }
+                layer.addTo(map); layer.bringToFront();
+                interiorPathLayers[x.id] = layer;
             });
         }
     </script>

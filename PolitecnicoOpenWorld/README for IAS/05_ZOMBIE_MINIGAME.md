@@ -1,8 +1,37 @@
-# 05 · Minijuego Zombi / Zombie minigame (`features/zombie_minigame/`)
+# 05 · Capa de Zombis / Zombie layer (`features/interiores/zombies/`)
+
+> **🆕 Reestructura:** el antiguo `features/zombie_minigame/` ahora es **`features/interiores/zombies/`**
+> (subpaquete de la umbrella `interiores`). Los tipos compartidos `DesignerTarget` y `CameraTransform`
+> se movieron a `interiores/core/viewmodel/InteriorDesignerModels.kt`, y `PlayerView`/`PlayerHealthBarFixed`/
+> `RemotePlayerView` a `interiores/core/ui/InteriorPlayerViews.kt`. La ruta de navegación pasó de
+> `"zombie_minigame"` a **`"interiores_zombies"`**. Paquetes nuevos: `Zombie*Kt` = `interiores.zombies.{ui,viewmodel}`;
+> designer layers = `interiores.core.ui`. / Was `features/zombie_minigame/`; now `features/interiores/zombies/`
+> under the `interiores` umbrella; shared types extracted to `interiores/core/`; route renamed to `interiores_zombies`.
 
 **ES:** Anillo de salas: un **lobby** con puertas a cada edificio de ESCOM (7 edificios). Dentro de un
 edificio, puertas EXIT conectan vecinos y una central vuelve al lobby. **Online: zombis e items son
 autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación local completa**.
+
+> **🆕 Modo INTERIORES expandible (ESCOM, FES, UAM…):** este es el **motor de INTERIORES** de cualquier
+> edificio/campus, no sólo ESCOM. La sala donde arranca la sesión la fija el arg de navegación
+> **`interiores_zombies?startRoom={id}`** → `ZombieGameViewModel.startRoomId` (default
+> `ZombieRoomCatalog.LOBBY_ID`). La puerta **"Entrada FES Aragón"** entra con `startRoom=fes_interior`.
+>
+> **Cómo añadir un campus (recipe):** `ZombieRoomCatalog` expone el helper **`campusRooms(lobbyId,
+> lobbyDisplayName, lobbyBackground, buildings)`** (+ `data class BuildingSpec`) que genera **1 lobby
+> (zona segura, sin zombis) + N edificios (con zombis)** con las puertas YA cableadas (lobby→edificio,
+> edificio→lobby, lobby→mapa). **ESCOM mantiene su anillo bespoke**; los campus nuevos se agregan con un
+> `addAll(campusRooms(...))`. **FES** ya está añadido así: lobby `fes_interior` (fondo `FES_Arg_int.webp`)
+> + edificio **`fes_edificio`** ("Edificio Principal", **reusa TEMPORALMENTE** el fondo de ESCOM
+> `za_edificio.webp`, `zombieCount=4`). El servidor replica el campus (`server.js` ROOMS: `fes_interior`
+> LOBBY + `fes_edificio` BUILDING).
+>
+> **Lógica campus-agnóstica (sin hardcodear el lobby de ESCOM):** `ZombieGameViewModel.lobbyForBuilding(id)`
+> resuelve el lobby de CADA edificio (puerta entrante); lo usan `spawnAtLobbyDoorFor`, el respawn de WASTED
+> y el diálogo "volver al lobby" (`pendingLobbyTarget`). Antes estos clavaban `LOBBY_ID` (ESCOM).
+> La **mano/activación de zombis** del lobby sigue siendo de ESCOM (gateada por `LOBBY_ID`): **offline**,
+> los edificios sólo siembran zombis con el modo activado, así que la horda de FES se ve **online**
+> (el server siembra en `BUILDING`); para FES offline con zombis habría que darle su propia activación.
 **EN:** Ring of rooms: a **lobby** with doors to each ESCOM building (7 buildings). Inside a building,
 EXIT doors connect neighbors and a central door returns to the lobby. **Online: zombies and items are
 server-authoritative** (`MultiplayerInteriores/`); **offline: full local simulation**.

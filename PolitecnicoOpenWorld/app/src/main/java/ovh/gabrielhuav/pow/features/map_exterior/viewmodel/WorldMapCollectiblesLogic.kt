@@ -89,7 +89,8 @@ internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerL
                 isSpawningCollectible.set(false)
             }
         }
-    }
+    }
+
 
 internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, playerLon: Double) {
         val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
@@ -106,7 +107,7 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 _uiState.update { it.copy(nearbyMetroStation = nearbyMetro, nearbyCollectible = null) }
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
-                    val promptText = "PRESIONA X PARA ENTRAR A ESTACIÓN ${nearbyMetro.name.uppercase()}"
+                    val promptText = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_prompt_metro, nearbyMetro.name.uppercase())
                     _uiState.update { it.copy(interactionPrompt = promptText) }
                     kotlinx.coroutines.delay(3000)
                     _uiState.update { it.copy(interactionPrompt = null) }
@@ -120,7 +121,7 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
             _uiState.update { it.copy(nearbyMetroStation = null, interactionPrompt = null) }
         }
 
-        // 2. Verificar cercanía a otros objetos (coleccionables, puertas)
+        // 2. Verificar cercanía a otros objetos (collectibles, puertas)
         val doorLandmarkItems = _uiState.value.landmarks
             .filter { it.assetPath == ESCOM_DOOR_ASSET }
             .map { lm ->
@@ -148,10 +149,10 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
                     val promptText = when {
-                        activeItem.name == "Objeto Misterioso ESCOM"  -> "PRESIONA X PARA INTERACTUAR"
-                        activeItem.id  == ShineCTOLocation.MARKER_ID  -> "PRESIONA X PARA DESCUBRIR"
-                        activeItem.id.startsWith("escom_door_")       -> "PRESIONA X PARA ENTRAR"
-                        else                                           -> "PRESIONA X PARA RECOGER"
+                        activeItem.name == "Objeto Misterioso ESCOM"  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_interact)
+                        activeItem.id  == ShineCTOLocation.MARKER_ID  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_discover)
+                        activeItem.id.startsWith("escom_door_")       -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter)
+                        else                                           -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_pickup)
                     }
 
                     _uiState.update { it.copy(interactionPrompt = promptText) }
@@ -166,4 +167,5 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 _uiState.update { it.copy(nearbyCollectible = null, interactionPrompt = null) }
             }
         }
-    }
+    }
+

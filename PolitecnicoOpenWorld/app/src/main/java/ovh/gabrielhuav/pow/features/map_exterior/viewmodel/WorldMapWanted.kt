@@ -74,7 +74,7 @@ internal fun WorldMapViewModel.handleCarjack(driving: Boolean, aggressorAdjacent
         return
     }
     if (carjackStartTime == 0L) carjackStartTime = now
-    _uiState.update { it.copy(carjackWarning = "¡Te van a bajar del auto! ¡Acelera!") }
+    _uiState.update { it.copy(carjackWarning = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_carjack_warning)) }
     if (now - carjackStartTime >= CARJACK_MS) {
         carjackStartTime = 0L
         _uiState.update { it.copy(carjackWarning = null) }
@@ -95,10 +95,13 @@ internal fun WorldMapViewModel.forceExitVehicle() {
         isMoving = false,
         carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
         carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt(),
-        isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded
+        isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded,
+        // Conserva el skin de patrulla si te bajaron a la fuerza de una patrulla robada.
+        isPoliceSkin = _uiState.value.isDrivingPoliceCar
     )
     remoteEntities[abandonedCar.id] = abandonedCar
-    _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true) }
+    _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }
+    prankedyManager.onVehicleInteraction()
     updateNpcsState()
 }
 
@@ -119,7 +122,10 @@ internal fun WorldMapViewModel.runPoliceTick(location: GeoPoint) {
         playerInVehicle = driving,
         now = now,
         snap = { gp -> getNearestPointOnNetwork(gp) },
-        pathfind = { from, to -> findRoadRoute(from, to) }   // A* real por calles
+        pathfind = { from, to -> findRoadRoute(from, to) },   // A* real por calles
+        prankedyLoc = prankedyManager.location,
+        isPrankedyFighting = prankedyManager.location != null && prankedyManager.phase != ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.DEAD &&
+                             (prankedyManager.animState == ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.ATTACK || prankedyManager.animState == ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN_TANQUE)
     )
 
     // BALAS VISIBLES: guardamos los disparos nuevos con su timestamp y purgamos los
@@ -136,6 +142,9 @@ internal fun WorldMapViewModel.runPoliceTick(location: GeoPoint) {
     // directo: te persiguen y, si te detienes, te bajan del vehículo (carjack).
     if (tick.damage > 0f && !driving) {
         viewModelScope.launch(Dispatchers.Main) { takeDamage(tick.damage) }
+    }
+    if (tick.prankedyDamage > 0f) {
+        prankedyManager.takeDamage(tick.prankedyDamage, now)
     }
 
     // CARJACK: si conduces y un perseguidor te alcanza, te avisa; si no aceleras (te

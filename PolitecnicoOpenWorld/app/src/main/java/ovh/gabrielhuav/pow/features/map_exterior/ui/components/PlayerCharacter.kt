@@ -130,7 +130,7 @@ fun PlayerCharacter(
             ) {
                 Icon(
                     imageVector = Icons.Default.Person,
-                    contentDescription = "Jugador",
+                    contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_player),
                     tint = if (uiState.isDriving) Color.Blue else Color(0xFFD91B5B),
                     modifier = Modifier.size(14.dp)
                 )
@@ -145,19 +145,26 @@ fun PlayerCharacter(
 
                 val carModel = uiState.currentVehicleModel ?: CarModel.SEDAN
                 val carColor = uiState.currentVehicleColor ?: 0xFFFFFFFF.toInt()
+                val isPoliceCar = uiState.isDrivingPoliceCar
                 val visualRotation = 270f
 
                 // Usamos la densidad pura para generar un sprite nítido
                 val renderScale = density
 
-                val bitmapKey = "${carModel.name}_${visualRotation}_${carColor}_$renderScale"
+                // Si conduces una PATRULLA robada se usa el asset de policía (sin tinte),
+                // igual que las patrullas NPC; si no, el auto normal tintado por color/modelo.
+                val bitmapKey = if (isPoliceCar) "POLICE_${visualRotation}_$renderScale"
+                    else "${carModel.name}_${visualRotation}_${carColor}_$renderScale"
                 var carImage by remember { mutableStateOf<ImageBitmap?>(null) }
                 var lastKey by remember { mutableStateOf("") }
 
                 if (lastKey != bitmapKey) {
-                    val drawable = VehicleSpriteManager.getTintedCarNpc(
-                        context, visualRotation, carColor, renderScale, carModel
-                    )
+                    val drawable = if (isPoliceCar)
+                        PoliceSpriteManager.getPoliceCar(context, visualRotation, renderScale)
+                    else
+                        VehicleSpriteManager.getTintedCarNpc(
+                            context, visualRotation, carColor, renderScale, carModel
+                        )
                     val bitmap =
                         (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
                     carImage = bitmap?.asImageBitmap()
@@ -172,7 +179,7 @@ fun PlayerCharacter(
 
                     Image(
                         bitmap = img,
-                        contentDescription = "Player Vehicle",
+                        contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_player_vehicle),
                         // requiredSize: IGNORA el límite de 60.dp del Box contenedor; si no,
                         // a zoom alto el coche del jugador quedaba recortado (~60dp) y se veía
                         // más pequeño que los autos NPC (que no tienen ese tope).
@@ -231,7 +238,7 @@ fun PlayerCharacter(
                     }
                     Image(
                         bitmap = img,
-                        contentDescription = "Personaje Principal",
+                        contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_main_character),
                         modifier = modifier
                             .requiredSize(exactPersonDp)
                             .graphicsLayer {

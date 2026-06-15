@@ -1,4 +1,10 @@
-# 06 · Interiores + Metro / Interiors + Metro (`features/interior/`)
+# 06 · Interiores + Metro / Interiors + Metro (`features/interiores/escom/`)
+
+> **🆕 Reestructura:** el antiguo `features/interior/` ahora es **`features/interiores/escom/`** (subpaquete
+> de la umbrella `interiores`, pensado para crecer a más universidades además de ESCOM). El metro importa
+> los tipos compartidos `DesignerTarget`/`CameraTransform` y los designer layers desde **`interiores.core`**
+> (antes los tomaba de `zombie_minigame`). / Was `features/interior/`; now `features/interiores/escom/`;
+> shared designer types/layers come from `interiores.core`.
 
 **ES:** Interiores 2D simples (sin zombis): 7 edificios de ESCOM + 2 deportivos + estaciones de metro.
 Cada uno es una pantalla Compose sobre un fondo, con movimiento validado por una `CollisionGrid`.
@@ -25,17 +31,32 @@ class CollisionGrid(val grid: Array<IntArray>) {       // 0=libre, !=0=bloqueado
 
 - **`ui/InteriorScreenBase.kt`** — pantalla base reutilizable. Las pantallas concretas (`AuditorioScreen`,
   `BibliotecaScreen`, `CafeteriaScreen`, `EdificioScreen`, `EstacionamientoScreen`, `PalapasScreen`,
-  `CanchasFutbolScreen`, `DeportivoBeisScreen`, `DeportivoFutbolScreen`) son envoltorios finos que pasan
-  el `backgroundAsset` / config y delegan en la base.
+  `CanchasFutbolScreen`, `DeportivoBeisScreen`, `DeportivoFutbolScreen`, **`FesInteriorScreen`**) son
+  envoltorios finos que pasan el `backgroundAsset` / config y delegan en la base. El **botón de salida**
+  de la base llama `onExit` → `popBackStack("world_map")` (vuelves al mapa global en la misma posición).
 - **`viewmodel/InteriorViewModel.kt`** (NavBackStackEntry-scoped, `Factory`):
   - Estado: `InteriorState` (posición del jugador, facing, running, etc.).
   - `moveByAngle(angleRad)`, `moveDirection(direction)`, `applyMovement(newX, newY, dxForFacing)`,
     `updatePlayer(x, y, dxForFacing)`, `setRunning(running)`, `setInitialPosition(x, y)`.
   - Movimiento normalizado [0,1], validado contra la `CollisionGrid` (`isWalkable`).
 
-**Entrada / entry:** desde el open world, una puerta ESCOM (`spawnEscomDoors`) dispara
-`pendingDoorDestination` → fade (`showEscomDoorFade`) → navega a `interior_<id>` (ver mapa de rutas en 01).
-Cada `InteriorBuilding` define su `routeName`, `location` y `backgroundAsset` (ver 03).
+**Entrada / entry (genérica, NO solo ESCOM):** cualquier landmark cuyo `assetPath` contenga `DOORS/` se
+vuelve una puerta interactuable. `checkCollectibleProximity` (MIEMBRO del VM) lo detecta como
+`nearbyCollectible` con `id="escom_door_<landmarkId>"` dentro de `ESCOM_DOOR_INTERACT_RADIUS` (~20 m) y
+muestra "PRESIONA X PARA ENTRAR". Al pulsar **X**, `handleInteraction` (MIEMBRO) enruta por el **nombre**
+del landmark (substring, tolerante a acentos/espacios): `…Béisbol→interior_deportivo_beis`,
+`…Fútbol→interior_deportivo_futbol`, `…FES→interior_fes`, y el resto (puertas ESCOM) → `interiores_zombies`.
+Luego: fade (`showEscomDoorFade`) → `onEscomDoorFadeComplete` → `MainActivity` lee `consumeEscomDoorNavigation()`
+→ navega a la ruta. **FES Aragón** usa el **motor de INTERIORES** (`interiores_zombies`, mismos controles,
+opciones, botones de acción y HUD ZONA/vida/MODO) pero arranca en **SU PROPIA sala**: la puerta
+**"Entrada FES Aragón"** (`WorldMapDesigner` la backfillea/reubica junto al TP de FES si falta o está lejos;
+assetPath `DOORS/ESCOM_DOOR.webp`) → **`interiores_zombies?startRoom=fes_interior`** → **campus FES**:
+lobby `ZombieRoomCatalog.FES_ID` (fondo `FES_Arg_int.webp`, zona segura, salida al mapa) **con una puerta a
+su edificio `fes_edificio`** ("Edificio Principal", copia temporal del de ESCOM, con zombis online). El
+campus se genera con el helper expandible `campusRooms(...)`. Ver 05 (Interiores expandible) y 08 (server).
+La pantalla simple `FesInteriorScreen`
+(ruta `interior_fes`, `InteriorScreenBase`) **existe pero la puerta YA NO la usa**: queda reservada.
+Cada `InteriorBuilding` (incl. `FES_INTERIOR`) define su `routeName`, `location` y `backgroundAsset` (ver 03).
 
 ---
 

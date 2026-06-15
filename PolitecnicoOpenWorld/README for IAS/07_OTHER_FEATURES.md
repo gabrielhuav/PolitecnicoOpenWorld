@@ -21,6 +21,48 @@ Successful pings cached for 60 s.
 
 ### `ui/MainMenuScreen.kt`
 Menú principal; título ligado a `BuildConfig.VERSION_NAME` con auto-shrink que nunca parte de línea.
+**Botones (renombrados):** `menu_start_game` ahora es **"MUNDO LIBRE"** (open world sin campaña, spawn por
+defecto) y `menu_load_game` es **"MODO HISTORIA"** (antes deshabilitado; ahora navega a `story_mode` vía
+`onNavigateToStory`).
+
+---
+
+## Modo Historia / Campaña (`features/main_menu/`)
+
+**ES:** Pantalla de campaña accesible desde **"MODO HISTORIA"** (ruta `story_mode`). Muestra el **prólogo**
+(brote del Politécnico: Prankedy crea por accidente una sustancia corrosiva en la ENCB), un **selector de
+escuela** y **"CARGAR PARTIDA"** (habilitado solo si hay una partida guardada). "COMENZAR" pasa por la
+**intro** (`story_intro/{schoolId}`, "Listo para Iniciar") antes de entrar al mundo.
+**EN:** Campaign screen from **"STORY MODE"** (`story_mode`): prologue + school picker + **"LOAD GAME"**
+(enabled only if a save exists). "START" goes through the **intro** (`story_intro/{schoolId}`) first.
+
+### `viewmodel/StoryModeViewModel.kt` + `StoryModeState.kt`
+- Alcance **NavBackStackEntry** (se instancia con `viewModel(factory = Factory(context))`, así re-lee el
+  guardado cada vez que se entra). `StoryModeState`: `selectedSchoolId` + `hasSave`/`savedSchoolId`/`savedAt`.
+- API: `selectSchool(id)` (ignora escuelas no disponibles), `selectedSchool()`, `savedSchool(): CampaignSchool?`.
+- Lee la partida de **`data/repository/CampaignRepository.kt`** (SharedPreferences `pow_campaign`:
+  `saveCampaign(schoolId)`/`hasSave`/`getSavedSchoolId`/`getSavedAt`/`clearCampaign`).
+
+### `ui/StoryModeScreen.kt` + `ui/StoryIntroScreen.kt`
+- `StoryModeScreen`: prólogo + tarjetas de escuela (`SchoolCard`) + "CARGAR PARTIDA" (on solo con guardado;
+  reanuda en la escuela guardada vía `onLoadCampaign`) + "COMENZAR" (`onStartCampaign` → navega a la intro) +
+  "VOLVER". Usa `windowInsetsPadding(WindowInsets.systemBars)` para no chocar con la barra de navegación.
+- `StoryIntroScreen` ("Listo para Iniciar"): **placeholder** narrativo (futuros banners/sprites del prólogo).
+  Al **INICIAR** (`onBegin`) `MainActivity` **guarda** la partida (`campaignRepository.saveCampaign(school.id)`),
+  fija el spawn (`setStorySpawn`) y navega a `world_map`. "CARGAR PARTIDA" hace lo mismo **sin** guardar de nuevo.
+- El guardado lo escribe **`MainActivity`** (punto de DI), no las Views. Por ahora la partida guarda solo la
+  escuela (cuando exista progreso de Misión 1 se añaden campos a `CampaignRepository`).
+
+### `domain/models/SchoolCatalog.kt`
+`CampaignSchool(id, displayName, latitude, longitude, available)` + `object SchoolCatalog.schools`.
+Solo **ESCOM** está `available = true` (= `TeleportCatalog.zones[0]`); **FES Aragón** y **UAM** quedan en
+desarrollo (`available = false`, deshabilitadas en la UI). `displayName` es nombre propio (no se traduce).
+
+### `WorldMapViewModel.setStorySpawn(lat, lon)` (miembro)
+Fuerza el punto de aparición de la campaña y re-arma las compuertas de carga
+(`isMapReady`/`isRoadNetworkReady`/`npcsWarmedUp = false`) para descargar el mundo alrededor de la escuela
+elegida. A diferencia de `updateInitialLocation` (gateada por `isLoadingLocation`, ya consumida en
+`MainActivity.onCreate`), **no** está gateada. Sin gemelo de extensión.
 
 ---
 
@@ -80,7 +122,12 @@ caché, FPS, **zoom** (nivel de zoom actual en vivo) y **velocímetro** (km/h al
 
 ---
 
-## ShineCTO easter egg (`features/shinecto/`)
+## ShineCTO easter egg (`features/interiores/shinecto/`)
+
+> **🆕 Reestructura:** antes `features/shinecto/`; ahora **`features/interiores/shinecto/`** (subpaquete de
+> la umbrella `interiores`). Usa `PlayerView`/`PlayerHealthBarFixed` desde **`interiores.core.ui`** (antes de
+> `zombie_minigame`). Su asset es `PLACES/shine_cto/` (antes `LUGARES/shineCTO/`). / Now under the `interiores`
+> umbrella; shared player views come from `interiores.core.ui`.
 
 **ES:** Interior easter-egg accesible al acercarse a `ShineCTOLocation` (lat 19.459049, lon -99.163251,
 `TRIGGER_RADIUS` 0.00015). Mini-juego social de bebidas.

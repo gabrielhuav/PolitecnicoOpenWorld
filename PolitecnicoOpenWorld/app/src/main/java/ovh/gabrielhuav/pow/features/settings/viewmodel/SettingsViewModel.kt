@@ -30,6 +30,7 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
                 npcDensity = repository.getNpcDensity(),
                 npcEmojiLod = repository.getNpcEmojiLod(),
                 npcFullEmoji = repository.getNpcFullEmoji(),
+                language = repository.getLanguage(),
                 // Los temporales arrancan sincronizados con lo persistido.
                 tempControlType = type,
                 tempControlsScale = scale,
@@ -87,6 +88,13 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun toggleNpcFullEmoji(enabled: Boolean) {
         _state.update { it.copy(npcFullEmoji = enabled) }
         repository.saveNpcFullEmoji(enabled)
+    }
+
+    // i18n: persiste el idioma de la UI. La Activity debe recrearse para que tome
+    // efecto (se aplica en MainActivity.attachBaseContext). Ver SettingsScreen.
+    fun changeLanguage(tag: String) {
+        _state.update { it.copy(language = tag) }
+        repository.saveLanguage(tag)
     }
 
     // Función para guardar: sincroniza los temporales a los committeados y persiste.

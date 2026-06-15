@@ -75,11 +75,17 @@ via co-located `ViewModelProvider.Factory` instances.
 | Leaflet tile interception | `features/map_exterior/ui/CachingWebViewClient.kt` |
 | NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` |
 | Wanted level / police AI (spawn, road-snapped chase, disembark, carjack, retreat) | `domain/models/ai/PoliceManager.kt` (driven by `WorldMapViewModel.runPoliceTick`) |
+| Prankedy special hostile NPC (AI / VM glue / sprites) | `domain/models/ai/PrankedyManager.kt` (driven by `WorldMapViewModel.runPrankedyTick`), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
 | Patrol sprite (no-repaint `POLICE_TOPDOWN`) | `features/map_exterior/ui/components/PoliceSpriteManager.kt`; cop = 👮 emoji via `emojiToDrawable` in `WorldMapDrawingUtils.kt` |
-| Zombie minigame logic | `features/zombie_minigame/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`) |
-| Zombie minigame state | `features/zombie_minigame/viewmodel/ZombieGameState.kt` |
-| Zombie net models (client) | `features/zombie_minigame/viewmodel/Zombienetmodels.kt` |
-| Zombie rendering + camera + damage FX | `features/zombie_minigame/ui/ZombieGameScreen.kt` |
+| Interiors umbrella shared types | `features/interiores/core/viewmodel/InteriorDesignerModels.kt` (`DesignerTarget`, `CameraTransform`), `features/interiores/core/ui/InteriorPlayerViews.kt` (`PlayerView`, `PlayerHealthBarFixed`, `RemotePlayerView`) |
+| Zombie layer logic (was `zombie_minigame`) | `features/interiores/zombies/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`) |
+| Zombie layer state | `features/interiores/zombies/viewmodel/ZombieGameState.kt` |
+| Zombie net models (client) | `features/interiores/zombies/viewmodel/Zombienetmodels.kt` |
+| Zombie rendering + camera + damage FX | `features/interiores/zombies/ui/ZombieGameScreen.kt` |
+| ESCOM simple interiors + metro (was `interior`) | `features/interiores/escom/{ui,viewmodel}/` |
+| Door → interior entry (generic, `DOORS/` landmarks) | `WorldMapViewModel.checkCollectibleProximity` (detect) + `handleInteraction` (route by door name) + `WorldMapDesigner` (door backfill/relocate). **FES door → `interiores_zombies?startRoom=fes_interior`**; start room threaded via `ZombieGameViewModel.startRoomId`. Unused-now FES simple interior: `FesInteriorScreen.kt`, route `interior_fes` |
+| Interiors expandable per campus (ESCOM/FES/UAM) | `ZombieRoomCatalog.campusRooms(...)`+`BuildingSpec` (lobby+buildings, doors wired; ESCOM = bespoke ring). FES: `fes_interior` LOBBY + `fes_edificio` BUILDING (client) ↔ `ROOMS` in `MultiplayerInteriores/server.js`. Campus-agnostic VM: `lobbyForBuilding(id)`, `pendingLobbyTarget` (replaced hardcoded `LOBBY_ID`) |
+| ShineCTO easter egg (was `shinecto`) | `features/interiores/shinecto/{ui,viewmodel}/` |
 | Zombie rooms / doors / collision | `domain/models/zombie/ZombieModels.kt`, `ZombieRoomCatalog.kt` |
 | Zombie collision-matrix persistence | `data/repository/CollisionMatrixRepository.kt` (`collision_matrices.json`) |
 | Settings (map/controls/gameplay/interface) | `features/settings/{ui,viewmodel}/...` |
@@ -87,6 +93,7 @@ via co-located `ViewModelProvider.Factory` instances.
 | Tile cache (Room) | `data/cache/TileCache.kt` + `data/local/room/dao/MapTileDao.kt` |
 | Road-network cache (Room) | `data/cache/RoadNetworkCache.kt` + `RoadNetworkDao.kt` |
 | Multiplayer warm-up (Render) | `features/main_menu/ui/ServerWarmupManager.kt` (package `data.network`) |
+| Story Mode / campaign (prologue + school picker + intro + save/load) | `features/main_menu/ui/StoryModeScreen.kt` + `StoryIntroScreen.kt` + `features/main_menu/viewmodel/StoryModeViewModel.kt` (routes `story_mode`, `story_intro/{schoolId}`); schools in `domain/models/SchoolCatalog.kt`; save in `data/repository/CampaignRepository.kt` (written by `MainActivity`); spawn via `WorldMapViewModel.setStorySpawn` |
 | **Unified offline tile cache (native OSM)** | `data/cache/RoomTileModuleProvider.kt` (osmdroid module → Room, browser UA) |
 | **Per-zone tile prefetch (offline, ~2km)** | `data/cache/TilePrefetchManager.kt` + `WorldMapRoadNetwork.kt::prefetchCurrentZoneTiles` |
 | **Open-world server (v2)** | `Multiplayer/server.js` |
@@ -155,6 +162,13 @@ via co-located `ViewModelProvider.Factory` instances.
   - *Contact damage* (`applyNpcContactDamage`): NOT host-gated — each client damages **its
     own** player from nearby aggro NPCs.
   - **Two-way traffic:** spawn direction randomized + right-side `LANE_OFFSET`.
+- **Prankedy (special hostile NPC):** toggled via `WorldMapState.prankedyEnabled` (Options menu,
+  default OFF). `PrankedyManager` (client-local, like police) chases the player and throws a gas tank
+  (`hitPlayer` → `takeDamage`); if an NPC aggresses the player within ~50 m it targets that NPC instead.
+  Closes to ~8 m, plays an 800 ms throw windup (`p_attack`), launches `p_objeto`; the hit is **dodgeable**
+  (`IMPACT_RADIUS`). Road-snapped, killable (melee → respawn 60 s), hidden while driving. Rendered on
+  native OSM + web (Leaflet). Tick/spawn run from the **member** game loop (not the shadowed extension).
+  See README-for-IAS 03/04 and `PR_CHANGES_EN.md`.
   - **Death/respawn** (`triggerWastedSequence`): clears combat state and respawns ~80 m from
     the death spot **inside the already-cached zone** (snapped to road via
     `getNearestPointOnNetwork`) — no ESCOM teleport / new tile download. Movement & vehicle
@@ -320,7 +334,11 @@ via co-located `ViewModelProvider.Factory` instances.
 OSM/Google/Web navigation with snap-to-road; persistent street + tile caching;
 procedural NPCs (pedestrians + 6 cars) with **personality traits, run-over-while-driving,
 aggressive retaliation/carjack reactions, and two-way traffic**; **realistic traffic AI
-(intersection commitment to prevent shaking, rear-end collision avoidance, per-car speed variation)**;
+(intersection commitment to prevent shaking, rear-end collision avoidance, per-car speed variation,
+and player-overtaking — cars advance their road node while dodging instead of orbiting the player)**;
+**tuned NPC density (lower base caps 18/38) and NPC sprite culling exactly at the fog edge
+(`NPC_CULL_MARGIN_M=0`), with police (🚓 waypoints) and Prankedy always visible**;
+**boardable patrol cars (`PoliceManager.boardPatrol`) → boarding sets wanted level to 5★**;
 **smooth zoom transitions when entering/exiting vehicles** (lerped over ~300 ms);
 **GTA-style wanted level / police
 (0–5 stars, road-snapped patrol pursuit, 👮 cops that punch & shoot, vehicle chases + carjack, retreat
@@ -333,8 +351,13 @@ collectibles with persistent inventory; waypoint navigation with greedy road-gra
 routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch,
 **over-zoom to z22 (scaled from z19) with loading-screen z19/z17 prefetch, default max zoom**;
 **player-anchored fog-of-war on native + web (driving-rotation safe)**; **real-meter NPC/player
-sizing unified across renderers**; **landscape-safe scrollable Options menu**; main-menu version
-bound to `BuildConfig.VERSION_NAME` with auto-shrinking title; full zombie survival minigame (lobby + 7 buildings,
+sizing unified across renderers**; **CDMX Metro station icons (`metro_cdmx/icon.webp`) at every
+`metro.json` station on all 3 renderers (native `Marker`, web `updateMetro`, Google `Marker`)**; **landscape-safe scrollable Options menu**; main-menu version
+bound to `BuildConfig.VERSION_NAME` with auto-shrinking title; **Story Mode / campaign entry
+(menu buttons renamed to "FREE ROAM" + "STORY MODE"; `story_mode` screen with prologue + school
+picker — only ESCOM playable, FES Aragón/UAM disabled — an intro screen "Ready to Start"
+(`story_intro`), and a working save/load (`CampaignRepository`): START saves the campaign so LOAD GAME
+resumes; campaign spawn via `setStorySpawn`)**; full zombie survival minigame (lobby + 7 buildings,
 dual combat, 6 power-ups, dynamic lighting, WASTED/Victory screens, damage feedback
 FX) with **online mode backed by a dedicated authoritative zombie server**
 (`MultiplayerZombie/`: flow-field + LOS + separation AI) and a collision Designer

@@ -31,7 +31,9 @@ CharacterVisualConfig?, displayName, health: Float=100, isDying, navState, curre
 currentLandmark, fearUntil/fearFromLat/fearFromLon (huida), chatUntil/chatPartnerId (charlas),
 trait, aggroUntil (embestida), policeDisembarked, policeCanShoot, policeCarId, policeReturning,
 callingUntil, committedTargetNodeIndex: Int? = null, commitmentTicks: Int = 0,
-speedVariation: Float = 1.0f (aleatorio 0.8–1.2 al spawn)`.
+speedVariation: Float = 1.0f (aleatorio 0.8–1.2 al spawn),
+isPoliceSkin: Boolean = false (coche tipo CAR que se DIBUJA como patrulla; lo deja el coche al bajarte
+de una patrulla robada — la IA lo conduce como tráfico normal y no lo despawnea; cosmético/local)`.
 
 > Los campos de IA (trait, fear*, aggro*, chat*) **no se serializan** al servidor; solo `health`,
 > `isDying`, `aggroUntil` viajan en `NPC_BATCH_UPDATE`. / AI fields are not serialized; only
@@ -136,6 +138,11 @@ userPopulationFactor`:
      su velocidad (frena) proporcionalmente para no chocar por detrás.
   3. **Variación de velocidad:** la velocidad base `CAR_SPEED` se multiplica por `speedVariation`
      (aleatorio 0.8–1.2 al spawn) para que no todos los autos vayan exactamente a la misma velocidad.
+  4. **Rebase del jugador (anti-órbita):** al esquivar al jugador el coche persigue un carrot local, así que
+     ahora avanza `targetNodeIndex` en cuanto REBASA el nodo base (`avoidingPlayer` + producto punto en el
+     return de `moveNpc`); sin esto se daba la vuelta y orbitaba sin rebasar (ver 09).
+- **Topes base de población:** `maxActiveNpcs`/`maxTotalNpcs` no-zombi = **18/38** (antes 26/55), siguen
+  escalando por `popFactor` (ver 09).
 - `triggerFear(lat, lon)` — marca evento de miedo; los COWARD cercanos huyen (`applyPendingFear`).
 - `rollTrait()` — PASSIVE/COWARD/AGGRESSIVE según `aggressiveRatio`.
 - `moveAggroNpc(...)` — embestida hacia el jugador (ignora el grafo de calles).
@@ -248,12 +255,65 @@ desiredCarsFor(wantedLevel): 1★→1 … 5★→8
   `getNearestPointOnNetwork`), suelta 2–3 cops, golpea/dispara, maneja carjack y retirada.
 - `PoliceTick(units, damage, impact, destroyedIds, adjacentThreat, shots: List<Pair<GeoPoint,GeoPoint>>)`.
 - `activeUnits(): List<Npc>`, `playerHitPolice(lat, lon, radius, damage): List<String>`, `clearAll()`.
+- `boardPatrol(id): Npc?` — el jugador SE SUBE a una patrulla: saca la unidad (POLICE_CAR) y la devuelve;
+  el VM la convierte en su vehículo, difunde `POLICE_DESTROY` y pone `wantedLevel=MAX` (5★). Ver 04/09.
 - Internos: `stepOnRoad(...)` (un paso snapeado + rotación según dirección), `advanceAlong(...)`
   (sigue una ruta cacheada con TTL/atasco/desvío), `carRoute`/`carRouteIdx` por unidad.
 
 **Comportamiento / behavior:** patrulla fuera de la fog → waypoint 🚓 + línea de ruta; dentro de la
 fog → asset real. En auto, cops re-abordan (`policeReturning`) y pueden bajarte (carjack). A
 `wantedLevel==0` (incl. muerte) **se retiran** (no se borran de golpe), emitiendo `POLICE_DESTROY`.
+
+---
+
+## `domain/models/ai/PrankedyManager.kt` — NPC especial Prankedy / special hostile NPC
+
+**ES:** Kotlin puro (como `PoliceManager`). NPC **hostil** "rey de las bromas": persigue al jugador y
+le lanza un **tanque de gas**, pero si otro NPC está agrediendo al jugador, **se pone de su lado** y
+ataca a ese NPC. Lo simula el VM cada tick (`runPrankedyTick`), local a cada cliente (como la policía).
+**No** se contrata (el flujo de "contratar" se eliminó). / **EN:** Pure Kotlin. **Hostile** NPC that
+chases the player and throws a gas tank, but **sides with you** to attack any NPC aggressing you.
+VM-driven per tick, client-local. Not hireable.
+
+**Fases / phases** (`PrankedyState.kt`): `PrankedyPhase` = `NOT_HIRED` (= activo/hostil, estado vivo),
+`DEAD` (timer de respawn); `HIRED` quedó **sin uso** (legado). `PrankedyAnimState` = `IDLE, WALK, RUN,
+RUN_TANQUE, ATTACK`.
+
+**Constantes clave / key constants:**
+```
+ATTACK_RADIUS=0.00007(~8m)   ATTACK_ANIM_MS=800(windup p_attack)   PROJECTILE_FLIGHT_MS=900
+IMPACT_RADIUS=0.00005(~5.5m, esquivable)   AGGRO_DETECT_RADIUS=0.00045(~50m, detecta agresor)
+RUN_TANQUE_SPEED=0.0000075   ATTACK_DAMAGE_PROJECTILE=22   ATTACK_COOLDOWN_MS=2800
+MAX_HEALTH=80   RESPAWN_COOLDOWN_MS=60000   ENEMY_CONTACT_(RADIUS/DAMAGE/COOLDOWN_MS)
+```
+
+**API / lógica:**
+- `tick(playerLoc, npcs, isDriving, now, roadNetwork, snapToRoad?)` → `PrankedyTickResult(hitNpcId,
+  projectileDamage, justDied, hitPlayer)`. Si `isDriving`, se oculta (IDLE).
+- **Spawn robusto** (`spawn`/`findSpawnPoint`): 3 niveles → nodo de calle a ~35 m → nodo de calle más
+  cercano → offset aleatorio (siempre aparece), sobre la red viaria.
+- **Combate:** `findAggressorNearPlayer` (NPC con `aggroUntil>now` o `ZOMBIE` a ≤50 m **del jugador**;
+  **NO** incluye `POLICE_COP` — antes los perseguía y se alejaba de ti al llegar la policía)
+  → si existe, objetivo = ese NPC; si no, objetivo = el **jugador**.
+- **Correa (leash) `LEASH_MAX`≈33 m:** Prankedy SIEMPRE se mantiene cerca de ti. Si quedó más lejos que
+  `LEASH_MAX` del jugador, IGNORA al agresor y vuelve a tu lado (objetivo = jugador). Así no "se aleja".
+- **Anti-traba:** al correr, si el `snap` a la calle no acerca al objetivo, usa el paso DIRECTO ese tick;
+  y si lleva > `STUCK_TIME_MS` (1.5 s) sin avanzar (`STUCK_EPS`) estando lejos, `relocateNear` lo reubica
+  cerca del jugador sobre calle **sin curarlo** (no usa `spawn`, que resetea vida). Ver 09. Corre con tanque (`RUN_TANQUE`); al
+  llegar a `ATTACK_RADIUS` hace el **windup** (`p_attack`, 800 ms quieto) y AL TERMINAR lanza el tanque
+  (`p_objeto`). El proyectil viaja y al caer **solo pega si el objetivo sigue dentro de `IMPACT_RADIUS`**
+  (esquivable si te mueves; `hitPlayer` → `takeDamage` en el VM).
+- **Snap a la calle:** el VM le pasa `snapToRoad = getNearestPointOnNetwork`; todo su movimiento se
+  engancha a la red (no atraviesa edificios).
+- **Daño/muerte:** `takeDamage()`; a 0 HP → `DEAD`, oculto, respawn a los 60 s. El jugador lo golpea
+  (`performPlayerAttack` → `takeDamage` si está a ≤`ATTACK_RADIUS`); los NPCs hostiles en contacto
+  también lo lastiman.
+- **Toggle:** `deactivate()` lo quita del mapa; lo gobierna `WorldMapState.prankedyEnabled` (item de
+  Opciones "Activar/Desactivar Prankedy", **default OFF**); `checkPrankedySpawn`/`runPrankedyTick`
+  no-opean si está apagado.
+
+> Render (sprites `assetsNPC/Prankedy/` + proyectil) en **OSM nativo y web (Leaflet)** — ver 04.
+> El tick/spawn corren desde el **game loop MIEMBRO** de `WorldMapViewModel.kt` (no la extensión muerta).
 
 ---
 

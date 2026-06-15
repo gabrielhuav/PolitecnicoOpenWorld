@@ -220,6 +220,69 @@ matrices por defecto son **border-only** hasta reemplazarse.
   offset se apaga y el smoothing lo reincorpora. La geometría es auto-reforzante (el lado elegido
   se estabiliza solo). **No re-introducir empujones de posición** — cualquier esquive nuevo debe
   mover objetivos/rumbos, no posiciones.
+- **Rebase de NPCs — AVANCE de nodo al esquivar (anti-órbita):** mientras un coche esquiva al jugador,
+  `moveNpc` persigue un carrot LOCAL (~9 m), por lo que `dist` nunca baja de `actualSpeed` y el
+  `targetNodeIndex` NO avanzaba: al apagarse el esquive el nodo base quedaba DETRÁS y el coche se daba
+  la vuelta hacia el jugador → bucle/órbita ("rara vez me rebasan"). Fix: una bandera `avoidingPlayer`
+  y, en el return final, si el coche ya REBASÓ el nodo base (producto punto `(baseTarget - newPos)·paso < 0`),
+  se avanza `targetNodeIndex` aunque no haya "alcanzado" el carrot. Así sigue su ruta y te rebasa de
+  verdad. No quitar la condición (sin ella vuelve el bucle).
+- **Población de NPCs — topes base bajados:** `NpcAiManager.maxActiveNpcs`/`maxTotalNpcs` base no-zombi
+  pasaron de 26/55 a **18/38** (siguen escalando por `popFactor`) para reducir la saturación ("se generan
+  muchos NPCs"). Ajusta densidad por estos topes/factores, no hardcodeando otra cosa.
+- **Culling de NPCs = borde del fog (`NPC_CULL_MARGIN_M=0`):** antes era +15 m sobre `NPC_FOG_VISION_METERS`
+  (70 m), así que los civiles se dibujaban hasta 85 m, FUERA de la zona despejada ("veo NPCs fuera del fog").
+  A 0 m el culling de sprites (los 3 renderers usan `npcVisionRadiusMeters`) coincide EXACTO con el borde
+  del fog. La policía fuera del fog sigue como waypoint 🚓 (handoff limpio en 70 m mientras `wantedLevel>0`)
+  y Prankedy tiene render propio sin culling → **Prankedy y policía siempre visibles**. No volver a subir
+  el margen (re-aparecen NPCs fuera del fog).
+- **Subirse a PATRULLAS (POLICE_CAR) = 5★:** las patrullas las posee `PoliceManager` (no `remoteEntities`).
+  `PoliceManager.boardPatrol(id)` saca la unidad y la devuelve; `onInteractButtonPressed` (MIEMBRO del VM),
+  si no hay coche civil cerca, busca una patrulla en `policeManager.activeUnits()` dentro de `INTERACT_RADIUS`,
+  la aborda, difunde `POLICE_DESTROY` y fija `wantedLevel = MAX_WANTED_LEVEL`. **Skin de patrulla
+  conducible:** `WorldMapState.isDrivingPoliceCar` (se pone al abordar, se limpia al bajarse/carjack/morir);
+  `PlayerCharacter` dibuja el asset de `PoliceSpriteManager.getPoliceCar` en vez del coche tintado. El
+  avatar conductor es un overlay Compose común a los 3 renderers → un solo cambio cubre OSM/Google/web.
+  El flag DEBE limpiarse en TODAS las salidas (`onInteractButtonPressed` else, `forceExitVehicle`,
+  `triggerWastedSequence`) o conducirías un auto civil con skin de patrulla.
+- **Patrulla ABANDONADA conserva el skin (`Npc.isPoliceSkin`):** al bajarte de una patrulla robada el
+  coche que queda NO puede ser `type=POLICE_CAR`: los coches abandonados se re-simulan por la IA y un
+  POLICE_CAR no casa con ninguna vía en `moveNpc` → `return null` → **se despawnea**. Solución: el coche
+  abandonado es `type=CAR` con `isPoliceSkin=true` (lo ponen `onInteractButtonPressed` else y
+  `forceExitVehicle`). La IA lo conduce como tráfico normal y los **3 renderers** lo dibujan como patrulla
+  cuando `type==POLICE_CAR || isPoliceSkin`. Es re-abordable por el filtro civil (sigue siendo CAR); al
+  re-subirte, `isDrivingPoliceCar = carNpc.isPoliceSkin`. No genera waypoint falso (el de policía filtra
+  por `type==POLICE_CAR`). `isPoliceSkin` NO viaja en `MultiplayerNpc` (cosmético/local).
+- **Prankedy SIEMPRE cerca de ti (leash + no caza cops):** `findAggressorNearPlayer` ya **no** incluye
+  `POLICE_COP` (los perseguía y se alejaba al llegar la policía) y hay una **correa** (`LEASH_MAX`≈33 m):
+  si Prankedy quedó más lejos que eso del jugador, ignora al agresor y su objetivo pasa a ser el jugador
+  (regresa a tu lado). No re-añadir cops al detector ni quitar la correa.
+- **Prankedy ANTI-TRABA (igual que la policía):** el `snap` a la calle podía dejarlo "pegado" a un nodo
+  sin avanzar ("se traba y ya no te hace nada"). Dos defensas en `PrankedyManager`: (1) al correr, si el
+  punto snapeado NO acerca al objetivo, usa el paso DIRECTO ese tick; (2) si lleva > `STUCK_TIME_MS`
+  (1.5 s) sin moverse > `STUCK_EPS` mientras está lejos, `relocateNear` lo reubica sobre calle cerca del
+  jugador **SIN curarlo** (conserva vida/estado). No usar `spawn()` para reubicar (resetea la vida).
+- **NPC "invisible" que te golpea (peatón sin sprite):** si `CharacterSpriteManager.getModularNpcDrawable`
+  devuelve `null` (frames del asset aún no cargados, p. ej. tras un TP o tras `onTrimMemory`), el peatón
+  se simulaba (y te pegaba) pero no se veía. Causas por renderer: **OSM nativo** cacheaba un drawable
+  **transparente** bajo el `cacheKey` (invisible permanente); **web** hacía `if(!cachedImg) return` (no
+  creaba el marcador). Fix: **nunca dejar un NPC invisible**. Nativo: si el sprite es null NO se cachea el
+  fallo (se reintenta) y se muestra emoji 🧍 (`PED_FALLBACK_*`). Web: fallback 🧍/🚗 mientras se genera el
+  base64, y al llegar el sprite el marcador se recrea. Google nativo ya caía a `defaultMarker()` (visible).
+  Regla: cualquier rama de render de NPC debe terminar en algo VISIBLE, nunca en transparente/return.
+- **Mano del Apocalipsis ELIMINADA de ESCOM:** `spawnEscomItems` ya NO crea el collectible
+  `global_zombie_hand`. El modo zombi global se activa SOLO por Opciones → "Activar/Desactivar
+  Apocalipsis" (y el botón flotante de salida). El game loop sigue llamando a `spawnEscomItems` al entrar
+  a ESCOM, pero ahora solo marca `isZombieHandSpawned=true` (sin mano). No re-spawnear la mano.
+- **"Debug Interiores" dibuja el navGraph + zonas NO caminables:** el overlay (`showInteriorDebugOverlay`)
+  además de los puntos de edificios + bbox de ESCOM, dibuja: (a) **caminos del `navGraph`** de cada landmark
+  (VERDE = `isForPeople`, NARANJA = `isForCars`), y (b) las **colisiones** de `exterior_collisions.json`:
+  **polígonos ROJOS translúcidos** = `exteriorCollisions.polygons` (zonas donde NO se puede caminar, p. ej. el
+  edificio ESCOM) + **líneas ROJAS** = `walls` (bardas). `exteriorCollisions` antes era privado del VM; ahora
+  se expone en `WorldMapState` (`loadExteriorCollisions` hace `_uiState.update`) para poder dibujarlo.
+  Implementado en **OSM nativo** (`NativeOsmMap`: `Polygon`/`Polyline` cacheados, rebuild solo si cambian
+  landmarks o colisiones) y **web** (`updateInteriorPaths` recibe `{paths, blocks, walls}`; el VM convierte
+  `localX/localY → global` con `toGlobalGeoPoint`). Google nativo = pendiente (como el resto del overlay).
 - **Zoom automático por estado + SUAVIZADO:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
   loop miembro) cambia `targetZoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
   `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del
@@ -236,6 +299,91 @@ matrices por defecto son **border-only** hasta reemplazarse.
   no"; (d) `NpcAiManager` **re-puebla** campus (ESCOM) si está marcado como poblado pero sin NPCs vivos
   (cooldown 30 s) — antes los NPCs se despawneaban a ~310 m pero el campus solo se "des-poblaba" a ~2.2 km;
   (e) el re-fetch de red (miembro) ahora también reconstruye `rebuildRoadNodeGrid` + `buildRoadGraph`.
+- **Prankedy (NPC especial) — loop miembro + paridad de render + toggle:** su tick/spawn deben correr en
+  el **game loop MIEMBRO** de `WorldMapViewModel.kt` (la extensión `WorldMapGameLoop.kt` está sombreada →
+  no corría: "no aparecía en el mapa"). Se dibuja en **OSM nativo Y web** (solo nativo no basta: el default
+  es web/CARTO). El estado vive en `WorldMapState.prankedyEnabled` (item de Opciones "Activar/Desactivar
+  Prankedy", **default OFF**); `checkPrankedySpawn`/`runPrankedyTick` no-opean si está apagado. El tanque
+  (`p_objeto`) **solo pega si sigues dentro de `IMPACT_RADIUS`** al caer (esquivable). El sprite va a ~1.3 m
+  (tamaño peatón), sin emoji flotante. IA → 03; render → 04; PR → `PR_CHANGES_EN.md`.
+
+- **Umbrella `interiores` (reestructura grande):** `features/zombie_minigame/`, `features/interior/` y
+  `features/shinecto/` se fusionaron bajo **`features/interiores/`** con 4 subpaquetes: **`core`**
+  (compartido: `DesignerTarget`+`CameraTransform` en `core/viewmodel/InteriorDesignerModels.kt`;
+  `PlayerView`/`PlayerHealthBarFixed`/`RemotePlayerView`+`playerViewPath` en `core/ui/InteriorPlayerViews.kt`;
+  designer layers en `core/ui`), **`escom`** (interiores simples + metro, antes `interior/`), **`zombies`**
+  (antes `zombie_minigame/`) y **`shinecto`**. Objetivo: separar zombis de interiores y poder añadir más
+  universidades. El metro y shinecto ya **NO** importan del paquete de zombis (toman lo compartido de `core`).
+  El `CollisionMatrixRepository` (su package ya era `data.repository`) se movió físicamente a `data/repository/`.
+  Ruta de nav `"zombie_minigame"` → **`"interiores_zombies"`**. Al añadir una universidad nueva, crea
+  `interiores/<uni>/` reutilizando `core`. **No** re-acoplar `escom`/`shinecto` a `zombies`.
+- **Spawn FIJO en ESCOM:** `MainActivity` ahora arranca SIEMPRE en el punto del teletransporte "ESCOM"
+  (`SPAWN_ESCOM_LAT=19.504603`, `SPAWN_ESCOM_LON=-99.145985`, = `TeleportCatalog.zones[0]`), ignorando el
+  GPS real (`fetchCurrentLocation`/fallback ya solo llaman a `updateInitialLocation(ESCOM)`). Para volver al
+  spawn por GPS, restablece la lectura de `getCurrentLocation` en `fetchCurrentLocation`.
+- **Detección de modo en servidores:** el cliente de interiores (`ZombieGameViewModel`) envía un campo
+  **`mode`** ("interiores" = lobby tranquilo | "zombies" = edificio/horda o lobby con apocalipsis;
+  `currentNetMode()`) en `JOIN_ROOM` y `PLAYER_UPDATE`. El mundo abierto ya distingue **mapa global**
+  (instancia `"normal"`) de **zombies global** (instancia `"apocalipsis"`) vía `JOIN_INSTANCE`. Los
+  `server.js` (no incluidos en este checkout) deben leer estas señales para enrutar/contabilizar por modo
+  (ver 08). No re-introducir un flag global de apocalipsis (rompe el instancing).
+- **Convención de nombres de assets (inglés/snake_case):** se renombraron carpetas/archivos con español o
+  typos: `PRINCIPAL→MAIN`, `INTERIORES→INTERIORS`, `LUGARES→PLACES`, `ZOMBIS_MOD→ZOMBIES_MOD`,
+  `coleccionables→collectibles`, `metroCDMX→metro_cdmx`, `assetsNPC/cabello→assetsNPC/hair`,
+  `assetsNPC/otherPlayer→assetsNPC/other_player` (¡también el literal `bodyFolder="other_player"`!),
+  `Prankedy/p_atack→p_attack` (typo; prefix `p_attack_`), `shineCTO→shine_cto`,
+  `deportivomiguelaleman→deportivo_miguel_aleman`, `plazalindavista→plaza_lindavista`,
+  `ZOMBIES_MOD/interiores→interiors`, `zombi_hand→zombie_hand`, `Carga_Mod_Zombi→load_zombie_mod`,
+  `metro_cdmx/mapa.png→map.png`. **PENDIENTE (alto riesgo, requiere la app para verificar el arte):** las
+  SUBcarpetas de skin camelCase (`MAIN/escomgirlIdle`, `MAIN/lazaroWalk`…, construidas en `PlayerSkin` con
+  `"${skinFolder}Idle"`) y los ~500 frames de vehículos (`White_*_CLEAN_All_###`, ya en inglés). Toda ruta de
+  asset es un STRING (literal o `"$folder/..."`); un rename mal hecho falla en RUNTIME, no al compilar —
+  verifica que cada literal resuelva a un archivo existente.
+
+- **Menú: "MUNDO LIBRE" vs "MODO HISTORIA" + spawn de campaña:** el 1er botón del menú
+  (`menu_start_game` = **MUNDO LIBRE**) es el open world sin campaña (spawn por defecto, ESCOM).
+  El 2º (`menu_load_game` = **MODO HISTORIA**) navega a `story_mode` (`StoryModeScreen`): prólogo +
+  selector de escuela (`SchoolCatalog`, solo ESCOM `available=true`) + "CARGAR PARTIDA". "COMENZAR"
+  pasa por la **intro** `story_intro/{schoolId}` (`StoryIntroScreen`, "Listo para Iniciar", placeholder);
+  al **INICIAR**, `MainActivity` **guarda** la partida (`CampaignRepository.saveCampaign`) y arranca el
+  mundo. "CARGAR PARTIDA" se habilita solo si `CampaignRepository.hasSave()` y reanuda en la escuela
+  guardada (sin re-guardar). El **guardado lo escribe `MainActivity`** (punto de DI), no las Views.
+  Para el spawn usa `WorldMapViewModel.setStorySpawn(lat, lon)` — **NO `updateInitialLocation`**: está
+  gateada por `isLoadingLocation` (ya consumida en `onCreate`), así que no movería el spawn.
+  `setStorySpawn` es miembro sin gemelo de extensión y re-arma `isMapReady`/`isRoadNetworkReady`/
+  `npcsWarmedUp`. Para habilitar FES Aragón/UAM: pon `available=true` en `SchoolCatalog` (sus coords ya
+  alimentan el spawn). `StoryModeViewModel` usa `Factory(context)` para leer la partida (NavBackStackEntry
+  → re-lee al entrar). Las pantallas de campaña usan `windowInsetsPadding(WindowInsets.systemBars)`.
+- **Interiores expandible por campus (NO hardcodear el lobby de ESCOM):** el motor de Interiores
+  (`interiores.zombies`) sirve para cualquier campus. Salas nuevas vía `ZombieRoomCatalog.campusRooms(...)`
+  (`addAll` por campus; ESCOM = anillo bespoke, no lo toques). La sala inicial la elige la ruta
+  **`interiores_zombies?startRoom={id}`** → `ZombieGameViewModel.startRoomId`. El VM debe ser
+  **campus-agnóstico**: usa `lobbyForBuilding(buildingId)` (no `roomById(LOBBY_ID)`) para spawn de retorno,
+  respawn de WASTED y el diálogo "volver al lobby" (`pendingLobbyTarget`). **Cliente y servidor de
+  Interiores deben coincidir** en ids/tipos/matrices (`ROOMS` en `MultiplayerInteriores/server.js`:
+  LOBBY = relay sin zombis, BUILDING = `ensureRoomState` siembra). La **mano/activación de zombis** del
+  lobby sigue gateada por `LOBBY_ID` (sólo ESCOM): offline los edificios sólo siembran zombis con el modo
+  activado; FES tiene horda **online** (el server siembra en BUILDING). La transición open-world↔interior
+  **no** toca `Multiplayer/server.js`: el `WorldMapViewModel` (Activity-scoped) + el back stack preservan
+  conexión y coordenadas.
+- **i18n / internacionalización (strings.xml + cambio de idioma):** los textos de UI se externalizan a
+  recursos. **Base = español** en `res/values/strings.xml`; **inglés** en `res/values-en/strings.xml`
+  (paridad 1:1 de claves). Para añadir un idioma (p. ej. ruso) basta con crear `res/values-ru/strings.xml`
+  y sumar su etiqueta a `LocaleHelper.SUPPORTED` (el selector de Ajustes lo muestra solo). Reglas:
+  - En Composables usa `stringResource(R.string.clave[, args])`; en no-Composables (Activity) `getString(...)`.
+    Para textos en lambdas `onClick` (no son Composables) **hoistea** el `stringResource` a un `val` antes.
+  - **Formato:** args posicionales `%1$s`/`%1$d`; un `%` literal en una cadena CON args va como `%%`.
+  - **Modelos/enums** que llevaban texto (p. ej. `SettingsCategory.title`) pasan a `@StringRes titleRes`
+    y la View resuelve con `stringResource`. Los `displayName` técnicos/propios (MapProvider, ControlType)
+    se dejan como están (nombres propios).
+  - **Cambio de idioma sin AppCompat:** `i18n/LocaleHelper.wrap(ctx, tag)` envuelve el Context en
+    `MainActivity.attachBaseContext`; la elección se persiste en `SettingsRepository.get/saveLanguage`
+    ("" = sistema) y el selector (`SettingsScreen` → Interfaz) **recrea la Activity** al cambiar.
+  - **Migración por feature (fases):** ya migrados `main_menu` y `settings` (patrón). Pendiente: el resto
+    de features (los grandes `map_exterior`/`interiores.zombies` concentran la mayoría de strings). NO migrar
+    rutas de assets, tipos de mensaje de red (`"PLAYER_UPDATE"`…), tags de log ni URLs: NO son texto de UI.
+  - **Claves:** `snake_case`, prefijadas por feature (`menu_*`, `settings_*`). Toda clave nueva va en
+    `values/` **y** `values-en/` (una contradicción/ausencia = bug; mantén la paridad).
 
 ---
 

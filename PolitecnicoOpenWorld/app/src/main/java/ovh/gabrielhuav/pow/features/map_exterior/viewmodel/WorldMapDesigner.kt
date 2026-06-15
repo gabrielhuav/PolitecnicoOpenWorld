@@ -93,6 +93,36 @@ fun WorldMapViewModel.loadLandmarks(context: Context) {
                 )
                 backfillNeeded = true
             }
+            // Backfill/reubicación de la puerta "Entrada FES Aragón". Posición canónica:
+            // junto al teletransporte de FES Aragón (TeleportCatalog: 19.475167, -99.047444)
+            // para que al llegar por TP no haya que caminar mucho hasta la puerta.
+            val fesDoorLat = 19.475167
+            val fesDoorLon = -99.047530
+            val existingFesDoor = entities.firstOrNull { it.name == "Entrada FES Aragón" }
+            if (existingFesDoor == null) {
+                dao.insertLandmark(
+                    LandmarkEntity(
+                        name = "Entrada FES Aragón",
+                        latitude = fesDoorLat,
+                        longitude = fesDoorLon,
+                        assetPath = "DOORS/ESCOM_DOOR.webp",
+                        scaleFactor = 0.60f,
+                        rotationAngle = 0.0f,
+                        scaleX = 0.60f,
+                        scaleY = 0.60f
+                    )
+                )
+                backfillNeeded = true
+            } else {
+                // Ya existe: si está LEJOS de la posición canónica (> ~33 m) la reubicamos
+                // junto al TP. Por debajo de ese umbral se respeta el ajuste fino del Diseñador.
+                val dLat = existingFesDoor.latitude - fesDoorLat
+                val dLon = existingFesDoor.longitude - fesDoorLon
+                if (kotlin.math.sqrt(dLat * dLat + dLon * dLon) > 0.0003) {
+                    dao.updateLandmark(existingFesDoor.copy(latitude = fesDoorLat, longitude = fesDoorLon))
+                    backfillNeeded = true
+                }
+            }
             if (backfillNeeded) {
                 entities = dao.getAllLandmarks()
             }

@@ -21,9 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.i18n.LocaleHelper
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
@@ -47,7 +51,9 @@ fun SettingsScreen(
     onNpcEmojiLodToggled: (Boolean) -> Unit,
     onNpcFullEmojiToggled: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
-    onExitToMainMenu: () -> Unit
+    onExitToMainMenu: () -> Unit,
+    currentLanguage: String = "",
+    onLanguageChanged: (String) -> Unit = {}
 ) {
     val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
 
@@ -63,10 +69,10 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onNavigateBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.settings_back), tint = Color.White)
             }
             Text(
-                text = "AJUSTES DEL JUEGO",
+                text = stringResource(R.string.settings_title),
                 color = Color(0xFFD4AF37),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -111,9 +117,9 @@ fun SettingsScreen(
                             .padding(16.dp)
                             .verticalScroll(contentScrollState)
                     ) {
-                        Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -126,7 +132,7 @@ fun SettingsScreen(
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
                         border = BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.5f))
                     ) {
-                        Text("SALIR AL MENÚ", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.settings_exit_to_menu), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             } else {
@@ -144,13 +150,13 @@ fun SettingsScreen(
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
                             border = BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.5f))
-                        ) { Text("SALIR AL MENÚ", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                        ) { Text(stringResource(R.string.settings_exit_to_menu), fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                     }
 
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
-                        Text(state.selectedCategory.title.uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
                     }
                 }
             }
@@ -176,7 +182,7 @@ private fun CategoryItemHorizontal(category: SettingsCategory, isSelected: Boole
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = category.title,
+            text = stringResource(category.titleRes),
             color = if (isSelected) Color.White else Color.Gray,
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp
@@ -195,7 +201,7 @@ private fun CategoryItem(category: SettingsCategory, isSelected: Boolean, onClic
     ) {
         Icon(category.icon, contentDescription = null, tint = if (isSelected) Color.White else Color.Gray)
         Spacer(Modifier.width(12.dp))
-        Text(category.title, color = if (isSelected) Color.White else Color.Gray, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(category.titleRes), color = if (isSelected) Color.White else Color.Gray, fontWeight = FontWeight.SemiBold)
     }
 }
 @Composable
@@ -213,7 +219,9 @@ private fun SettingsContent(
     onRoadNetworkToggled: (Boolean) -> Unit,
     onNpcDensityChanged: (Float) -> Unit,
     onNpcEmojiLodToggled: (Boolean) -> Unit,
-    onNpcFullEmojiToggled: (Boolean) -> Unit
+    onNpcFullEmojiToggled: (Boolean) -> Unit,
+    currentLanguage: String,
+    onLanguageChanged: (String) -> Unit
 ) {
     when (state.selectedCategory) {
         is SettingsCategory.Map -> MapProviderSetting(
@@ -222,8 +230,8 @@ private fun SettingsContent(
         )
         is SettingsCategory.Controls -> ControlsSettingsConfig(state.tempControlType, state.tempControlsScale, state.tempSwapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
         is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled, state.npcFullEmoji, onNpcFullEmojiToggled)
-        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled)
-        else -> Text("Sin ajustes disponibles actualmente.", color = Color.Gray)
+        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, currentLanguage, onLanguageChanged)
+        else -> Text(stringResource(R.string.settings_none_available), color = Color.Gray)
     }
 }
 
@@ -238,12 +246,11 @@ private fun GameplaySettings(
 ) {
     Column {
         // ─── Densidad de NPCs ────────────────────────────────────────────────
-        Text("Cantidad de NPCs", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.settings_npc_count), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
         val pct = (npcDensity * 100).toInt()
         Text(
-            "Multiplica peatones, autos y zombis. Se combina automáticamente con la gama de tu " +
-                "teléfono y con la densidad de la zona (ciudad = más). Actual: ${pct}%",
+            stringResource(R.string.settings_npc_count_desc, pct),
             color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp
         )
         Spacer(Modifier.height(8.dp))
@@ -258,8 +265,8 @@ private fun GameplaySettings(
             )
         )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Menos (gama baja)", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
-            Text("Más (gama alta)", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+            Text(stringResource(R.string.settings_npc_less), color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+            Text(stringResource(R.string.settings_npc_more), color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
         }
 
         Spacer(Modifier.height(24.dp))
@@ -271,11 +278,9 @@ private fun GameplaySettings(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Optimizar dibujado de NPCs", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_npc_lod_title), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "Dibuja como emoji 🧍🚗🧟 los NPCs lejanos y reserva el sprite completo solo para " +
-                        "los muy cercanos. Reduce el costo de render (ideal en multijugador con muchos " +
-                        "NPCs).",
+                    stringResource(R.string.settings_npc_lod_desc),
                     color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp
                 )
             }
@@ -298,11 +303,9 @@ private fun GameplaySettings(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Optimizar para gama baja", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_npc_full_title), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "Reemplaza TODOS los assets de los NPCs por emojis 🧍🚗🧟👮, sin importar la " +
-                        "distancia. No se generan sprites ni bitmaps: el modo más ligero posible, " +
-                        "para equipos muy débiles.",
+                    stringResource(R.string.settings_npc_full_desc),
                     color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp
                 )
             }
@@ -330,7 +333,7 @@ private fun MapProviderSetting(
     val hasPendingChange = tempProvider != current
 
     Column {
-        Text("Proveedor de Mapa", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+        Text(stringResource(R.string.settings_map_provider), color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
         Spacer(Modifier.height(8.dp))
         Box {
             OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth(),
@@ -374,7 +377,7 @@ private fun MapProviderSetting(
                 ),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Cambiar Mapa", color = if (hasPendingChange) Color.White else Color.Gray)
+                Text(stringResource(R.string.settings_map_change), color = if (hasPendingChange) Color.White else Color.Gray)
             }
 
             OutlinedButton(
@@ -387,7 +390,7 @@ private fun MapProviderSetting(
                 border = BorderStroke(1.dp, if (hasPendingChange) Color(0xFFD4AF37) else Color(0xFF2A1C21)),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Restaurar Mapa")
+                Text(stringResource(R.string.settings_map_restore))
             }
         }
         // ── Agregar al final de la Column de MapProviderSetting ──
@@ -398,8 +401,8 @@ private fun MapProviderSetting(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text("Red de Caminos", color = Color.White, fontWeight = FontWeight.Bold)
-                Text("Dibuja las vías transitables en el mapa", color = Color.Gray, fontSize = 12.sp)
+                Text(stringResource(R.string.settings_road_network), color = Color.White, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_road_network_desc), color = Color.Gray, fontSize = 12.sp)
             }
             Switch(
                 checked = showRoadNetwork,
@@ -439,7 +442,7 @@ private fun ControlsSettingsConfig(
 
         // 1. Selector de Tipo
         Column {
-            Text("Estilo de Movimiento", color = Color.White, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.settings_move_style), color = Color.White, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ControlType.entries.forEach { option ->
@@ -458,9 +461,9 @@ private fun ControlsSettingsConfig(
 
         // 2. Deslizador de Tamaño (ACTUALIZADO CON RESPONSIVIDAD)
         Column {
-            Text("Tamaño en Pantalla: ${(safeScale * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.settings_screen_size, (safeScale * 100).toInt()), color = Color.White, fontWeight = FontWeight.Bold)
             Text(
-                text = if (isPortrait) "Límite ajustado a 100% por modo vertical." else "No superará los límites de la pantalla.",
+                text = if (isPortrait) stringResource(R.string.settings_size_portrait) else stringResource(R.string.settings_size_landscape),
                 color = Color.Gray,
                 fontSize = 12.sp
             )
@@ -482,8 +485,8 @@ private fun ControlsSettingsConfig(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text("Intercambiar Lados", color = Color.White, fontWeight = FontWeight.Bold)
-                Text("Mueve la acción a la izquierda", color = Color.Gray, fontSize = 12.sp)
+                Text(stringResource(R.string.settings_swap_sides), color = Color.White, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_swap_sides_desc), color = Color.Gray, fontSize = 12.sp)
             }
             Switch(
                 checked = isSwapped,
@@ -503,7 +506,58 @@ private fun ControlsSettingsConfig(
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37))
         ) {
-            Text("GUARDAR CONFIGURACIÓN", color = Color.White, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.settings_save), color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+// i18n: selector de idioma de la UI. Al elegir uno persiste vía el VM y recrea la
+// Activity para que MainActivity.attachBaseContext aplique el nuevo locale.
+// Para añadir más idiomas (p. ej. ruso) basta con crear res/values-ru/strings.xml y
+// sumar su etiqueta a LocaleHelper.SUPPORTED; este selector los muestra solo.
+@Composable
+private fun LanguageSetting(current: String, onChanged: (String) -> Unit) {
+    val context = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+    val currentLabel = if (current.isBlank())
+        stringResource(R.string.settings_language_system)
+    else LocaleHelper.SUPPORTED.firstOrNull { it.first == current }?.second ?: current
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(stringResource(R.string.settings_language), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White, containerColor = Color(0xFF2A1C21)),
+                border = BorderStroke(1.dp, Color(0xFF6B1C3A))
+            ) {
+                Text(currentLabel)
+                Icon(Icons.Default.ArrowDropDown, null, tint = Color(0xFFD4AF37))
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.background(Color(0xFF2A1C21))
+            ) {
+                LocaleHelper.SUPPORTED.forEach { (tag, label) ->
+                    val display = if (tag.isBlank()) stringResource(R.string.settings_language_system) else label
+                    DropdownMenuItem(
+                        text = { Text(display, color = Color.White) },
+                        onClick = {
+                            expanded = false
+                            if (tag != current) {
+                                onChanged(tag)
+                                // Recrear la Activity para aplicar el nuevo idioma.
+                                (context as? android.app.Activity)?.recreate()
+                            }
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -517,14 +571,19 @@ private fun DiagnosticWidgetsSetting(
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
     onZoomWidgetToggled: (Boolean) -> Unit,
-    onSpeedometerToggled: (Boolean) -> Unit
+    onSpeedometerToggled: (Boolean) -> Unit,
+    currentLanguage: String,
+    onLanguageChanged: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Selector de idioma (i18n)
+        LanguageSetting(currentLanguage, onLanguageChanged)
+
         // Toggle de Caché
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
-                Text("Widget de caché", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text("Muestra fuente de datos", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text(stringResource(R.string.settings_cache_widget), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_cache_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
             }
             Switch(
                 checked = cacheEnabled,
@@ -536,8 +595,8 @@ private fun DiagnosticWidgetsSetting(
         // Toggle de FPS
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
-                Text("Widget de FPS", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text("Mide el rendimiento gráfico", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text(stringResource(R.string.settings_fps_widget), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_fps_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
             }
             Switch(
                 checked = fpsEnabled,
@@ -549,8 +608,8 @@ private fun DiagnosticWidgetsSetting(
         // Toggle de nivel de Zoom
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
-                Text("Widget de zoom", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text("Muestra el nivel de zoom actual en vivo", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text(stringResource(R.string.settings_zoom_widget), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_zoom_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
             }
             Switch(
                 checked = zoomWidgetEnabled,
@@ -562,8 +621,8 @@ private fun DiagnosticWidgetsSetting(
         // Toggle de Velocímetro
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
-                Text("Velocímetro", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text("Muestra tu velocidad (km/h) al conducir", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text(stringResource(R.string.settings_speedometer), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_speedometer_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
             }
             Switch(
                 checked = speedometerEnabled,
