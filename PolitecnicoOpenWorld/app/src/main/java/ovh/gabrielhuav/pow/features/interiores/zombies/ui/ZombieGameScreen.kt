@@ -532,6 +532,26 @@ fun ZombieGameScreen(
                 }
             }
 
+            // ─── OBJETIVO (solo en el Lobby ENCB del Modo Historia) ─────────────
+            // Banner superpuesto, siempre visible mientras el jugador esté en esta sala.
+            if (room.id == ZombieRoomCatalog.ENCB_LOBBY_ID) {
+                Box(
+                    Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
+                    Alignment.TopCenter
+                ) {
+                    Text(
+                        "Objetivo: Investiga qué pasó",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .background(Color(0xCC000000), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
             // ─── DIÁLOGO DE CONFIRMACIÓN DE SALIDA ──────────────
             if (state.showExitToLobbyDialog) {
                 Box(

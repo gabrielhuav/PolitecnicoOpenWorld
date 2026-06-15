@@ -32,6 +32,15 @@ autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación 
 > La **mano/activación de zombis** del lobby sigue siendo de ESCOM (gateada por `LOBBY_ID`): **offline**,
 > los edificios sólo siembran zombis con el modo activado, así que la horda de FES se ve **online**
 > (el server siembra en `BUILDING`); para FES offline con zombis habría que darle su propia activación.
+> **🆕 Sala STANDALONE (sin campus): Lobby ENCB del Modo Historia.** Además de los campus (lobby + edificios),
+> el catálogo permite **un lobby suelto**: `ZombieRoomCatalog.ENCB_LOBBY_ID = "encb_lobby"`, tipo `LOBBY`,
+> fondo `INTERIORS/ENCB/ENCB_lobby.webp`, `zombieCount=0` y **`doors = emptyList()`** (sin puertas → sin
+> indicadores/flechas/waypoints; la salida al mapa se hace por el menú de Opciones → "Salir al mapa"). Como la
+> mano zombi, el fondo apocalíptico, el prompt "Mano Misteriosa" y el spawn de horda están **gateados a
+> `LOBBY_ID`/`BUILDING`**, en `encb_lobby` no aparecen. Se entra tras la intro con
+> `interiores_zombies?startRoom=encb_lobby` (en `MainActivity`, ruta `encb_lobby`). `ZombieGameScreen` pinta el
+> banner **"Objetivo: Investiga qué pasó"** cuando `room.id == ENCB_LOBBY_ID`. Ver 06/07.
+
 **EN:** Ring of rooms: a **lobby** with doors to each ESCOM building (7 buildings). Inside a building,
 EXIT doors connect neighbors and a central door returns to the lobby. **Online: zombies and items are
 server-authoritative** (`MultiplayerInteriores/`); **offline: full local simulation**.

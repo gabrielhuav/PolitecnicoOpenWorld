@@ -12,6 +12,12 @@ object ZombieRoomCatalog {
     // (el servidor sólo siembra zombis en salas BUILDING) y con puerta de salida al mapa.
     const val FES_ID = "fes_interior"
 
+    // MODO HISTORIA: lobby de la ENCB, 1er escenario JUGABLE tras la intro (IntroPOW8).
+    // Sala independiente del anillo de ESCOM, tipo LOBBY = zona segura SIN zombis, SIN
+    // mano zombi (gateada a LOBBY_ID) y SIN puertas (doors vacías → no se dibujan flechas
+    // ni waypoints). Se entra con interiores_zombies?startRoom=encb_lobby (ver MainActivity).
+    const val ENCB_LOBBY_ID = "encb_lobby"
+
     private val buildingOrder = listOf(
         "za_auditorio", "za_biblioteca", "za_cafeteria",
         "za_edificio", "za_estacionamiento", "za_palapas", "za_canchas_futbol"
@@ -131,6 +137,28 @@ object ZombieRoomCatalog {
                         zombieCount = 4
                     )
                 )
+            )
+        )
+        // ─── LOBBY ENCB (MODO HISTORIA) ──────────────────────────────────────
+        // Sala STANDALONE (no es un campus con edificios): solo el lobby. Tipo LOBBY =
+        // zona segura sin zombis; `doors = emptyList()` → sin flechas/waypoints ni puerta
+        // de salida flotante (la salida al mapa se hace por el menú de Opciones). La mano
+        // zombi y el fondo apocalíptico están gateados a LOBBY_ID, así que aquí no aplican.
+        // worldWidth/Height se sobrescriben en init() con las dimensiones reales del asset.
+        add(
+            ZombieRoom(
+                id = ENCB_LOBBY_ID,
+                type = ZoneType.LOBBY,
+                backgroundAsset = "INTERIORS/ENCB/ENCB_lobby.webp",
+                displayName = "Lobby ENCB",
+                worldWidth = 1920f,
+                worldHeight = 1080f,
+                zoom = 1.0f,
+                playerSpawnFrac = NormPoint(0.50f, 0.55f),
+                doors = emptyList(),
+                zombieCount = 0,
+                gridCols = 30,
+                collisionMatrix = LOBBY_MATRIX
             )
         )
     }

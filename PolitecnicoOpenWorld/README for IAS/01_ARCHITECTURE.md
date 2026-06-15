@@ -75,7 +75,8 @@ app/src/main/java/ovh/gabrielhuav/pow/
 |---|---|
 | `main_menu` | `MainMenuScreen` |
 | `story_mode` | `StoryModeScreen` (Modo Historia / Campaña: prólogo + elegir escuela + cargar partida) |
-| `story_intro/{schoolId}` | `StoryIntroScreen` ("Listo para Iniciar"; placeholder narrativo, guarda partida al INICIAR) |
+| `story_intro/{schoolId}` | `StoryIntroScreen` (intro cómic; al INICIAR/último panel guarda partida y entra a `encb_lobby`) |
+| `encb_lobby` | `ZombieGameScreen` (motor de Interiores; `startRoom=encb_lobby`, sala LOBBY del Modo Historia tras la intro; fondo `INTERIORS/ENCB/ENCB_lobby.webp`, sin zombis/mano/puertas + objetivo superpuesto; salida por menú de Opciones → `world_map`) |
 | `settings` | `SettingsScreen` |
 | `world_map` | `WorldMapScreen` (open world) |
 | `collectibles` | `CollectiblesScreen` |

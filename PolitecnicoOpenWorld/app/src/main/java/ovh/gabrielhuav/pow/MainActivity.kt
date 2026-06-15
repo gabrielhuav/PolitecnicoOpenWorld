@@ -285,11 +285,40 @@ class MainActivity : ComponentActivity() {
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
                                     worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.first)
-                                    navController.navigate("world_map") {
+                                    // Tras el último panel de la intro (IntroPOW8), la transición
+                                    // entra al PRIMER interior de la campaña: el Lobby de la ENCB.
+                                    // popUpTo main_menu inclusive DESTRUYE la pantalla de la intro
+                                    // (story_intro) y libera los bitmaps IntroPOW1..8 de memoria.
+                                    navController.navigate("encb_lobby") {
                                         popUpTo("main_menu") { inclusive = true }
                                     }
                                 },
                                 onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        // ─── MODO HISTORIA · Lobby ENCB (primer interior JUGABLE) ──
+                        // Reusa el MOTOR DE INTERIORES (ZombieGameScreen) con la sala
+                        // `encb_lobby` (zona segura, sin zombis/mano/waypoints; ver
+                        // ZombieRoomCatalog). Mismos controles, cámara, colisiones y aura
+                        // que el lobby de ESCOM. Es una sesión de campaña offline
+                        // (onBegin ya hizo disconnectFromMultiplayer). Al salir (menú de
+                        // Opciones → "Salir al mapa") arranca el open world ya configurado
+                        // (spawn/objetivo/slot); popUpTo encb_lobby inclusive libera el lobby.
+                        composable(route = "encb_lobby") {
+                            val wmState by worldMapViewModel.uiState.collectAsState()
+                            ZombieGameScreen(
+                                onExitToWorld = {
+                                    navController.navigate("world_map") {
+                                        popUpTo("encb_lobby") { inclusive = true }
+                                    }
+                                },
+                                isMultiplayer = wmState.isMultiplayer,
+                                playerName = wmState.playerName,
+                                onNavigateToSettings = { navController.navigate("settings") },
+                                debugHitboxes = false,
+                                startRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID,
+                                onRequestSaveGame = { showSaveDialog = true }
                             )
                         }
 

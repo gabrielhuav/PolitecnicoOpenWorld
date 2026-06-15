@@ -69,7 +69,14 @@ vehicleColor, skin, nearbyNpcs: List<SavedNpc>, objectiveId, objectiveDone, save
 landscape** mientras dura la intro vía `requestedOrientation` y la restaura al salir; `MainActivity` declara
 `configChanges` para que el giro no recree la Activity). Tienen un **recuadro blanco** donde el código dibuja
 el `text` de cada panel. Navegas tocando la mitad derecha (siguiente) / izquierda (anterior); **"Saltar"** salta toda la intro;
-en el último panel, tocar → **INICIAR** (guarda + spawn ESCOM + carga de assets). Si una imagen falta, se
+en el último panel (IntroPOW8), tocar → **INICIAR**: guarda la partida, fija spawn ESCOM + objetivo, y
+**transiciona al primer interior JUGABLE de la campaña: el Lobby de la ENCB** (ruta `encb_lobby`), en vez
+de ir directo al mundo. El lobby **reusa el motor de salas** (`ZombieGameScreen` con
+`startRoom=ZombieRoomCatalog.ENCB_LOBBY_ID`, ver 05): mismos controles/cámara/colisiones/aura que el lobby
+de ESCOM, pero sala `LOBBY` **sin zombis, sin mano zombi y sin puertas/waypoints** (`doors=emptyList()`),
+con el banner **"Objetivo: Investiga qué pasó"** superpuesto. La navegación usa
+`popUpTo("main_menu") { inclusive = true }`, lo que **destruye `StoryIntroScreen` y libera los bitmaps
+IntroPOW1..8**. La salida (menú de Opciones → "Salir al mapa") arranca `world_map`. Si una imagen falta, se
 muestra un panel oscuro con el texto (no crashea).
 - **🆕 Editor in-game del cuadro de texto:** como el recuadro blanco está a distinta altura por panel, el botón
   **"Editar"** activa un editor para **mover** (arrastrar o Subir/Bajar), **redimensionar** (Alto ±) y cambiar
@@ -93,7 +100,8 @@ muestra un panel oscuro con el texto (no crashea).
   "VOLVER". Usa `windowInsetsPadding(WindowInsets.systemBars)` para no chocar con la barra de navegación.
 - `StoryIntroScreen` ("Listo para Iniciar"): **placeholder** narrativo (futuros banners/sprites del prólogo).
   Al **INICIAR** (`onBegin`) `MainActivity` **guarda** la partida (`campaignRepository.saveCampaign(school.id)`),
-  fija el spawn (`setStorySpawn`) y navega a `world_map`. "CARGAR PARTIDA" hace lo mismo **sin** guardar de nuevo.
+  fija el spawn (`setStorySpawn`) + objetivo y navega a **`encb_lobby`** (Lobby ENCB) con `popUpTo("main_menu")
+  { inclusive = true }`; el lobby sale a `world_map`. "CARGAR PARTIDA" entra directo a `world_map` **sin** guardar de nuevo.
 - El guardado lo escribe **`MainActivity`** (punto de DI), no las Views. La partida ligera (escuela) va a
   `CampaignRepository`; el **estado completo** (posición/vida/buscado/vehículo/skin/NPCs) va al JSON de
   `SaveGameRepository` (ver "Sistema de guardado COMPLETO" arriba).
