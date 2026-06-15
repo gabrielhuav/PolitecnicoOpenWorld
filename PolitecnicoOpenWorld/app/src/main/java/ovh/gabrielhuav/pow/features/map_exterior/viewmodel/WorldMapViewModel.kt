@@ -198,6 +198,10 @@ class WorldMapViewModel(
     internal val ROAD_NODE_GRID_SIZE_DEG = 0.001
 
     internal var lastVisibleRoadUpdateLocation: GeoPoint? = null
+    // 🆕 ¿El tick anterior el jugador estaba en zona libre (ESCOM/ENCB)? Sirve para FORZAR un
+    // repintado inmediato de las calles en el tick en que SALE de la zona (el flow quedó vacío
+    // y el throttle por distancia lo suprimiría porque el campus es pequeño).
+    internal var wasInFreeMovementZone = false
     internal val VISIBLE_ROAD_UPDATE_THRESHOLD = 0.002
     internal val VISIBLE_ROAD_RADIUS = 0.006
 
@@ -905,8 +909,26 @@ class WorldMapViewModel(
     }
 
     private fun updateVisibleRoads(playerLoc: GeoPoint, force: Boolean = false) {
+        // 🆕 ZONA LIBRE (ESCOM/ENCB): dentro de cualquiera de los dos campus NO se pintan las
+        // líneas de calles. Vaciamos el Flow de inmediato y SALTAMOS el filtro en Default (sin
+        // parpadeo/recarga). Al SALIR del perímetro, la condición falla y se repinta normal.
+        // ⚠️ Esta es la versión MIEMBRO (gana sobre la extensión homónima de WorldMapRoadNetwork.kt,
+        // gotcha del archivo 09): es la que realmente se ejecuta, por eso el check va AQUÍ.
+        if (isFreeMovementZone(playerLoc.latitude, playerLoc.longitude)) {
+            wasInFreeMovementZone = true
+            if (_roadNetworkFlow.value.isNotEmpty()) _roadNetworkFlow.value = emptyList()
+            return
+        }
+        // SALIDA de zona libre: en el primer tick fuera del campus FORZAMOS el repintado, porque
+        // el flow quedó vacío al entrar y el throttle por distancia lo suprimiría (el campus es
+        // pequeño → el jugador no se ha alejado del último punto pintado). Así las calles
+        // reaparecen al instante al pisar el mundo abierto.
+        val leftFreeZone = wasInFreeMovementZone
+        wasInFreeMovementZone = false
+        val effectiveForce = force || leftFreeZone
+
         val lastUpdate = lastVisibleRoadUpdateLocation
-        if (!force && lastUpdate != null) {
+        if (!effectiveForce && lastUpdate != null) {
             val dist = distance(playerLoc, lastUpdate)
             if (dist < VISIBLE_ROAD_UPDATE_THRESHOLD) return
         }
@@ -918,7 +940,13 @@ class WorldMapViewModel(
                     distance(playerLoc, GeoPoint(node.lat, node.lon)) <= VISIBLE_ROAD_RADIUS
                 }
             }
-            _roadNetworkFlow.value = visible
+            // Anti-carrera: si para cuando termina el filtro el jugador YA está en zona libre,
+            // no repintamos (evita que una corutina lanzada en el borde reponga las líneas).
+            if (!isFreeMovementZone(playerLoc.latitude, playerLoc.longitude)) {
+                _roadNetworkFlow.value = visible
+            } else if (_roadNetworkFlow.value.isNotEmpty()) {
+                _roadNetworkFlow.value = emptyList()
+            }
         }
     }
 
