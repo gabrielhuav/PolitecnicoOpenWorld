@@ -51,10 +51,10 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickControlle
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.features.zombie_minigame.ui.components.CollisionMatrixDesignerLayer
-import ovh.gabrielhuav.pow.features.zombie_minigame.ui.components.WaypointDesignerLayer
-import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.CameraTransform
-import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.DesignerTarget
+import ovh.gabrielhuav.pow.features.interiores.core.ui.CollisionMatrixDesignerLayer
+import ovh.gabrielhuav.pow.features.interiores.core.ui.WaypointDesignerLayer
+import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
+import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 
 private val MB_RED = Color(0xFFC21D24)
 private val BACKGROUND_MB_ASSET = "metrobusCDMX/inside.png"

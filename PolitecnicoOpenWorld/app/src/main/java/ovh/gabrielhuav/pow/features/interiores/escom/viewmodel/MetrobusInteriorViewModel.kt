@@ -23,7 +23,7 @@ import ovh.gabrielhuav.pow.domain.models.zombie.NormRect
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
-import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.DesignerTarget
+import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin

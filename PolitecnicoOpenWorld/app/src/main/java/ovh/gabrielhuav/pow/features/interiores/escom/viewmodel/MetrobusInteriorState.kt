@@ -3,8 +3,7 @@ package ovh.gabrielhuav.pow.features.interiores.escom.viewmodel
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.DesignerTarget
-
+import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 enum class MetrobusHotspot {
     TAQUILLA, TORNIQUETES, ANDEN, SALIR_TORNIQUETES, SALIDA
 }
