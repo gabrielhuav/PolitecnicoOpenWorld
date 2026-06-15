@@ -571,6 +571,23 @@ internal fun NativeOsmMap(
                 routeOverlay.isEnabled = false
             }
 
+            // ─── LÍNEA GPS DE CAMPAÑA (roja, Modo Historia: ENCB → ESCOM) ───
+            // Polyline propia (tag +900) añadida al fondo de overlays (índice 0): se dibuja
+            // sobre las teselas pero por DEBAJO de marcadores/sprites de personajes y del HUD.
+            val campaignRouteOverlay = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 900 }) as? Polyline)
+                ?: Polyline().apply {
+                    outlinePaint.color = android.graphics.Color.RED
+                    outlinePaint.strokeWidth = 9f
+                    view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 900 }, this)
+                    view.overlays.add(0, this)
+                }
+            if (uiState.campaignRouteWaypoints.isNotEmpty()) {
+                campaignRouteOverlay.setPoints(uiState.campaignRouteWaypoints)
+                campaignRouteOverlay.isEnabled = true
+            } else {
+                campaignRouteOverlay.isEnabled = false
+            }
+
             val zoomDiff = abs(view.zoomLevelDouble - uiState.zoomLevel)
             when {
                 zoomDiff < 0.01 -> {}
@@ -1164,6 +1181,55 @@ internal fun NativeOsmMap(
             } else {
                 metroMarkerCache.values.forEach { it.isEnabled = false; it.setAlpha(0f) }
             }
+
+            // ─── METROBÚS STATIONS OVERLAY ────────────────────────────────────────────────
+            @Suppress("UNCHECKED_CAST")
+            val metrobusMarkerCache = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 500 }) as? MutableMap<String, Marker>)
+                ?: mutableMapOf<String, Marker>().also {
+                    view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 500 }, it)
+                }
+
+            if (uiState.zoomLevel >= 14.0) {
+                val metrobusBox = try { view.boundingBox } catch (_: Exception) { null }
+                val mbLatM = if (metrobusBox != null) (metrobusBox.latNorth - metrobusBox.latSouth) * 0.4 else 0.0
+                val mbLonM = if (metrobusBox != null) (metrobusBox.lonEast - metrobusBox.lonWest) * 0.4 else 0.0
+                uiState.metrobusStations.forEach { station ->
+                    val marker = metrobusMarkerCache[station.name] ?: Marker(view).apply {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        val screenDensity = context.resources.displayMetrics.density
+                        val exactPixels = (24 * screenDensity).toInt()
+                        val cacheKey = "OSM_METROBUS_ICON"
+                        val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                            try {
+                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("metrobusCDMX/icon.png"))
+                                if (bitmap != null) {
+                                    val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                                    ExactSizeDrawable(spriteDrawable, exactPixels, exactPixels)
+                                } else ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                            } catch (e: Exception) {
+                                ContextCompat.getDrawable(context, android.R.color.transparent)!!
+                            }
+                        }
+                        icon = cachedIcon
+                        title = station.name
+                        snippet = station.routes.joinToString(", ")
+                        isFlat = true
+                        metrobusMarkerCache[station.name] = this
+                        view.overlays.add(this)
+                    }
+                    marker.position = station.location
+                    val inView = metrobusBox == null || (
+                        station.location.latitude <= metrobusBox.latNorth + mbLatM &&
+                        station.location.latitude >= metrobusBox.latSouth - mbLatM &&
+                        station.location.longitude <= metrobusBox.lonEast + mbLonM &&
+                        station.location.longitude >= metrobusBox.lonWest - mbLonM)
+                    marker.isEnabled = inView
+                    marker.setAlpha(if (inView) 1f else 0f)
+                }
+            } else {
+                metrobusMarkerCache.values.forEach { it.isEnabled = false; it.setAlpha(0f) }
+            }
+
 
             // ─── OVERLAY CREADOR DE RUTAS (MIGAS DE PAN Y CARRILES) ────────────────────────
             // Dibujamos la ruta si estamos en modo diseñador y hay puntos guardados

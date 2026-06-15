@@ -89,7 +89,9 @@ fun ZombieGameScreen(
     playerName: String,
     onNavigateToSettings: () -> Unit = {},
     debugHitboxes: Boolean = false,
-    initialRoomId: String? = null
+    initialRoomId: String? = null,
+    onRequestSaveGame: () -> Unit = {},
+    onPlayStoryOutro: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
@@ -117,6 +119,10 @@ fun ZombieGameScreen(
 
     LaunchedEffect(state.isExitingToWorld) {
         if (state.isExitingToWorld) { viewModel.consumeExit(); onExitToWorld() }
+    }
+    // MODO HISTORIA: salida del motor de interiores hacia el cómic ENCB_OUTRO.
+    LaunchedEffect(state.isExitingToStoryOutro) {
+        if (state.isExitingToStoryOutro) { viewModel.consumeExit(); onPlayStoryOutro() }
     }
 
     val room = ZombieRoomCatalog.rooms[state.currentRoomIndex]
@@ -526,6 +532,27 @@ fun ZombieGameScreen(
                     Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
                         modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
                             .padding(horizontal = 18.dp, vertical = 9.dp))
+                }
+            }
+
+            // ─── OBJETIVO (salas del Modo Historia ENCB) ────────────────────────
+            // Banner superpuesto, siempre visible mientras el jugador esté en la cadena
+            // lineal de la ENCB (lobby → salón → lab1 → lab2).
+            if (room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS) {
+                Box(
+                    Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
+                    Alignment.TopCenter
+                ) {
+                    Text(
+                        "Objetivo: Investiga qué pasó",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .background(Color(0xCC000000), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
                 }
             }
 

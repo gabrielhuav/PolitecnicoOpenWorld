@@ -13,6 +13,72 @@ import ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase
  * Patrón: idéntico a WorldMapWanted.kt (extensiones internas sobre el VM).
  */
 
+// ─── MODO HISTORIA: PRANKEDY COMO ACOMPAÑANTE (campaña ENCB) ──────────────────
+
+// Coordenadas de la ENCB y radio del "vecindario": el acompañante SOLO se enciende aquí.
+private const val ENCB_LAT = 19.5001588
+private const val ENCB_LON = -99.1450298
+// Radio "ajustado": ~220 m. Incluye el spawn EXACTO de la ENCB (dist≈0, tras el outro) pero
+// EXCLUYE a ESCOM (~505 m del spawn de la intro), para que el acompañante NO se encienda
+// prematuramente si el game loop del mundo corre con location=ESCOM antes del outro.
+private const val ENCB_NEIGHBORHOOD_DEG = 0.002
+
+// Destino "lugar seguro" de la misión = ESCOM. La línea GPS roja va de la ENCB a aquí.
+private const val ESCOM_LAT = 19.504603
+private const val ESCOM_LON = -99.145985
+private const val ESCOM_ARRIVE_DEG = 0.0009   // ~100 m: al entrar, la línea GPS desaparece
+
+/**
+ * Enciende a Prankedy en modo ACOMPAÑANTE (fase HIRED) UNA sola vez, y SOLO si:
+ *  - estamos en una sesión de campaña (`inCampaign == true`), y
+ *  - el jugador está en el vecindario de la ENCB.
+ * Fija el objetivo "Lleva a un lugar seguro a Prankedy". En MUNDO LIBRE (inCampaign=false)
+ * o fuera de la ENCB no hace NADA (no interfiere con el Prankedy hostil del menú de Opciones
+ * ni con otros mapas). La bandera `prankedyCompanionActivated` evita re-spawns cada tick;
+ * `setStorySpawn` la re-arma en cada entrada de campaña.
+ */
+internal fun WorldMapViewModel.maybeSpawnPrankedyCompanion(
+    playerLoc: GeoPoint,
+    now: Long = System.currentTimeMillis()
+) {
+    if (!inCampaign || prankedyCompanionActivated) return
+    val dLat = playerLoc.latitude - ENCB_LAT
+    val dLon = playerLoc.longitude - ENCB_LON
+    if (kotlin.math.sqrt(dLat * dLat + dLon * dLon) > ENCB_NEIGHBORHOOD_DEG) return
+
+    prankedyCompanionActivated = true
+    prankedyManager.spawnCompanion(playerLoc, roadNetwork, now)
+    setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY)
+
+    // LÍNEA GPS de campaña: ruta A* (sobre la red vial) desde la ENCB hasta la ESCOM (lugar
+    // seguro). findRoadRoute garantiza una ruta CONECTADA POR CALLES; si no hay grafo, cae a
+    // recta como último recurso. Se calcula UNA vez aquí (al encender el acompañante).
+    val gpsRoute = findRoadRoute(playerLoc, GeoPoint(ESCOM_LAT, ESCOM_LON))
+    _uiState.update {
+        it.copy(
+            prankedyEnabled = true,
+            prankedyLocation = prankedyManager.location,
+            prankedyVisible  = prankedyManager.location != null && !it.isDriving,
+            prankedyPhase    = prankedyManager.phase,
+            prankedyAnimState = prankedyManager.animState,
+            campaignRouteWaypoints = gpsRoute
+        )
+    }
+}
+
+/**
+ * MODO HISTORIA: oculta la línea GPS roja cuando el jugador llega al "lugar seguro" (ESCOM).
+ * Se llama cada tick del game loop (solo en campaña). Limpieza idempotente.
+ */
+internal fun WorldMapViewModel.maybeHideCampaignRouteNearEscom(playerLoc: GeoPoint) {
+    if (_uiState.value.campaignRouteWaypoints.isEmpty()) return
+    val dLat = playerLoc.latitude - ESCOM_LAT
+    val dLon = playerLoc.longitude - ESCOM_LON
+    if (kotlin.math.sqrt(dLat * dLat + dLon * dLon) <= ESCOM_ARRIVE_DEG) {
+        _uiState.update { it.copy(campaignRouteWaypoints = emptyList()) }
+    }
+}
+
 // ─── TICK PRINCIPAL ──────────────────────────────────────────────────────────
 
 // ─── SPAWN Y CONTROL ─────────────────────────────────────────────────────────
@@ -51,6 +117,10 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
     if (!_uiState.value.prankedyEnabled) return
     val pm = prankedyManager
 
+    // ZONA LIBRE: ¿el jugador está dentro del campus de la ENCB (o ESCOM)? Si sí, Prankedy
+    // deja de calcular ruta por nodos de calle y persigue en línea recta (steer-to-target).
+    val freeZone = isFreeMovementZone(playerLoc.latitude, playerLoc.longitude)
+
     // Ejecutar la IA
     val allNpcs = remoteEntities.values.toList() + policeManager.activeUnits()
     val result = pm.tick(
@@ -59,8 +129,14 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
         isDriving  = _uiState.value.isDriving,
         now        = now,
         roadNetwork = roadNetwork,
-        // Mantiene a Prankedy SOBRE las calles (mismo índice espacial que usa el jugador).
-        snapToRoad = { p -> if (_uiState.value.isRoadNetworkReady) getNearestPointOnNetwork(p) else p }
+        // ZONA LIBRE (ESCOM / ENCB): si el jugador está en el campus, se APAGA el snap a calles
+        // → Prankedy persigue en LÍNEA RECTA (steer-to-target) por explanadas/áreas verdes. Fuera
+        // del campus vuelve a mantenerse SOBRE las calles (mismo índice que usa el jugador).
+        snapToRoad = { p ->
+            if (!freeZone && _uiState.value.isRoadNetworkReady) getNearestPointOnNetwork(p) else p
+        },
+        // Acompañante (HIRED): iguala la velocidad del jugador (corre si el jugador corre).
+        playerRunning = _uiState.value.isRunning
     )
 
     // Si Prankedy murió este tick, avisar al jugador (location ya es null → el render lo oculta).

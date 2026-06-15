@@ -48,6 +48,9 @@ data class ZombieGameState(
     val showVictoryScreen: Boolean = false,
     val showWastedScreen: Boolean = false,
     val isExitingToWorld: Boolean = false,
+    // MODO HISTORIA: el waypoint final de ENCB_LAB2 NO cambia de sala física, sino que
+    // pide salir del motor de interiores y reanudar la narrativa (cómic ENCB_OUTRO).
+    val isExitingToStoryOutro: Boolean = false,
 
     val showExitToLobbyDialog: Boolean = false,
     val showExitGuide: Boolean = false,

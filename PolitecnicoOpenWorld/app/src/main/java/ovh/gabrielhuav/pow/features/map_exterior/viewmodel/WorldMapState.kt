@@ -141,6 +141,9 @@ data class WorldMapState(
     val isTargetingWaypoint: Boolean = false,
     val routeWaypoints: List<GeoPoint> = emptyList(),
     val showDestinationRoute: Boolean = true,
+    // MODO HISTORIA: línea GPS ROJA de la misión "Lleva a Prankedy a un lugar seguro"
+    // (ruta A* ENCB→ESCOM sobre la red vial). Vacía = sin línea (free roam o ya llegó).
+    val campaignRouteWaypoints: List<GeoPoint> = emptyList(),
     val destinationArrivalThreshold: Double = 20.0,
     val showZombiVideo: Boolean = false,
     val isZombieHandSpawned: Boolean = false,
@@ -207,6 +210,13 @@ data class WorldMapState(
     val nearbyMetroStation: ovh.gabrielhuav.pow.domain.models.MetroStation? = null,
     val showMetroFade: Boolean = false,
     val metroFadeCompleteStation: ovh.gabrielhuav.pow.domain.models.MetroStation? = null,
+
+    
+    // ─── Metrobús Stations ────────────────────────────────────────────────────
+    val metrobusStations: List<ovh.gabrielhuav.pow.domain.models.MetrobusStation> = emptyList(),
+    val nearbyMetrobusStation: ovh.gabrielhuav.pow.domain.models.MetrobusStation? = null,
+    val showMetrobusFade: Boolean = false,
+    val metrobusFadeCompleteStation: ovh.gabrielhuav.pow.domain.models.MetrobusStation? = null,
 
     // ─── Pre-descarga de tiles de la zona actual (offline) ───────────────────
     // Solo aplica al proveedor nativo OSM (caché Room unificada). Permite seguir

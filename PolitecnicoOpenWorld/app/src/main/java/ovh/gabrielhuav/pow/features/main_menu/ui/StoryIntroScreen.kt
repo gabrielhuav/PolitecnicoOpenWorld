@@ -67,10 +67,16 @@ import ovh.gabrielhuav.pow.domain.models.StoryComicCatalog
 fun StoryIntroScreen(
     school: CampaignSchool,
     onBegin: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    // MODO HISTORIA: si != null reproduce esa secuencia (p. ej. StoryComicCatalog.ENCB_OUTRO_ID,
+    // 2ª parte de la intro) en vez del prologo de la escuela. Reusa toda la lógica del visor.
+    sequenceId: String? = null
 ) {
     val context = LocalContext.current
-    val panels = remember(school.id) { StoryComicCatalog.forSchool(school.id) }
+    val panels = remember(school.id, sequenceId) {
+        if (sequenceId != null) StoryComicCatalog.sequence(sequenceId)
+        else StoryComicCatalog.forSchool(school.id)
+    }
     val repo = remember { StoryLayoutRepository(context) }
 
     // EXPORTAR: vuelca la configuración de TODOS los paneles a un archivo JSON (para no
@@ -148,12 +154,23 @@ fun StoryIntroScreen(
 
         // Imagen del panel.
         if (image != null) {
-            Image(
-                bitmap = image,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            // MARCO DE AISLAMIENTO: contenedor elástico (fillMaxSize) con padding seguro para
+            // que la ilustración "flote" centrada con margen y NUNCA toque los bordes físicos.
+            // ContentScale.Fit garantiza que el panel COMPLETO quepa sin recortes en celulares
+            // alargados/pequeños; el fondo oscuro temático del BoxWithConstraints rellena
+            // limpiamente las barras laterales/superiores ("letterbox") cuando la proporción
+            // de la imagen no coincide con la de la pantalla.
+            Box(
+                modifier = Modifier.fillMaxSize().padding(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    bitmap = image,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
         } else {
             Box(modifier = Modifier.fillMaxSize().background(
                 Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))

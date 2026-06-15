@@ -69,8 +69,40 @@ vehicleColor, skin, nearbyNpcs: List<SavedNpc>, objectiveId, objectiveDone, save
 landscape** mientras dura la intro vía `requestedOrientation` y la restaura al salir; `MainActivity` declara
 `configChanges` para que el giro no recree la Activity). Tienen un **recuadro blanco** donde el código dibuja
 el `text` de cada panel. Navegas tocando la mitad derecha (siguiente) / izquierda (anterior); **"Saltar"** salta toda la intro;
-en el último panel, tocar → **INICIAR** (guarda + spawn ESCOM + carga de assets). Si una imagen falta, se
-muestra un panel oscuro con el texto (no crashea).
+en el último panel (IntroPOW8), tocar → **INICIAR**: guarda la partida, fija spawn ESCOM + objetivo, y
+**transiciona al primer interior JUGABLE de la campaña: el Lobby de la ENCB** (ruta `encb_lobby`), en vez
+de ir directo al mundo. El lobby **reusa el motor de salas** (`ZombieGameScreen` con
+`startRoom=ZombieRoomCatalog.ENCB_LOBBY_ID`, ver 05): mismos controles/cámara/colisiones/aura que el lobby
+de ESCOM, pero sala `LOBBY` **sin zombis, sin mano zombi y sin puertas/waypoints** (`doors=emptyList()`),
+con el banner **"Objetivo: Investiga qué pasó"** superpuesto. El lobby es la entrada de una **cadena LINEAL de
+4 salas** `encb_lobby → encb_salon1 → encb_lab1 → encb_lab2` (todas LOBBY, fondos `INTERIORS/ENCB/*.webp`): cada
+una tiene UNA puerta de AVANCE (waypoint X → `goToRoom(next)`), ninguna tiene salida al mapa entre medias (flujo
+"atrapado"), y el banner de objetivo se mantiene en las 4 (`ZombieRoomCatalog.ENCB_STORY_ROOM_IDS`). Las
+transiciones internas ocurren en el mismo `ZombieGameScreen`/VM. La navegación a la intro usa
+`popUpTo("main_menu") { inclusive = true }`, lo que **destruye `StoryIntroScreen` y libera los bitmaps
+IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no crashea).
+- **🆕 OUTRO / 2ª parte de la intro (`ENCB_OUTRO`):** el **waypoint final de `encb_lab2`** (X) cierra la
+  exploración y reanuda la narrativa: `goToRoom(EXIT_TO_STORY_OUTRO)` → `onPlayStoryOutro` → ruta `story_outro`,
+  que **reusa `StoryIntroScreen`** con `sequenceId = StoryComicCatalog.ENCB_OUTRO_ID` (paneles
+  `STORY/INTRO/IntroPOW9..11.webp`, vía la nueva `StoryComicCatalog.sequence(id)`). Al ser otra pantalla, la
+  **UI de juego (joysticks/indicadores/objetivo) queda oculta**. Al terminar `IntroPOW11` (o "Saltar"/"Volver")
+  **`MainActivity` llama `setStorySpawn(19.5001588, -99.1450298)` (coords EXCLUSIVAS de la ENCB, solo aquí)** y
+  entra al mundo: `navigate("world_map") { popUpTo("story_outro"){inclusive=true} }`. `setStorySpawn` activa
+  `inCampaign=true`. El **MUNDO LIBRE** del menú NO se altera: `onNavigateToMap` fuerza `inCampaign=false` y
+  `fetchCurrentLocation`→`updateInitialLocation(SPAWN_ESCOM_LAT/LON)` (spawn ESCOM canónico intacto).
+- **🆕 Prankedy ACOMPAÑANTE (solo campaña ENCB):** al entrar al mundo en la ENCB,
+  `WorldMapPrankedy.maybeSpawnPrankedyCompanion` (en el game loop, gateado por `inCampaign` && vecindario ENCB,
+  bandera `prankedyCompanionActivated` re-armada por `setStorySpawn`) enciende a Prankedy en fase **`HIRED`**
+  (`spawnCompanion`): te **sigue** con animaciones `p_walk`/`p_run` (sin atacarte) y fija el objetivo
+  **`MissionCatalog.ESCOLTAR_PRANKEDY`** → el widget muestra **"Lleva a un lugar seguro a Prankedy"**. En
+  MUNDO LIBRE no aparece (sigue el Prankedy hostil manual del menú de Opciones). Ver 03 (fase HIRED) y 04.
+- **🆕 Línea GPS de campaña (ENCB → ESCOM):** al encender el acompañante, `maybeSpawnPrankedyCompanion`
+  calcula con **A*** (`findRoadRoute`, sobre la red vial) una ruta de la ENCB a la ESCOM ("lugar seguro") y la
+  guarda en **`WorldMapState.campaignRouteWaypoints`**. Se dibuja como **línea ROJA sólida** por encima de las
+  teselas y **por debajo de personajes/HUD**: en OSM nativo es un `Polyline` rojo (tag `route_overlay_tag+900`,
+  `overlays.add(0,…)`); en web/Leaflet la función JS **`updateCampaignRoute`** (`WorldMapLeafletHtml`) dibuja un
+  `L.polyline` rojo en el overlayPane. **Desaparece** cuando el jugador entra a ~100 m de la ESCOM
+  (`maybeHideCampaignRouteNearEscom` vacía la lista en el game loop). Solo en campaña.
 - **🆕 Editor in-game del cuadro de texto:** como el recuadro blanco está a distinta altura por panel, el botón
   **"Editar"** activa un editor para **mover** (arrastrar o Subir/Bajar), **redimensionar** (Alto ±) y cambiar
   el **tamaño de letra** (Letra ±) del cuadro, **por panel**. Se persiste en
@@ -93,7 +125,8 @@ muestra un panel oscuro con el texto (no crashea).
   "VOLVER". Usa `windowInsetsPadding(WindowInsets.systemBars)` para no chocar con la barra de navegación.
 - `StoryIntroScreen` ("Listo para Iniciar"): **placeholder** narrativo (futuros banners/sprites del prólogo).
   Al **INICIAR** (`onBegin`) `MainActivity` **guarda** la partida (`campaignRepository.saveCampaign(school.id)`),
-  fija el spawn (`setStorySpawn`) y navega a `world_map`. "CARGAR PARTIDA" hace lo mismo **sin** guardar de nuevo.
+  fija el spawn (`setStorySpawn`) + objetivo y navega a **`encb_lobby`** (Lobby ENCB) con `popUpTo("main_menu")
+  { inclusive = true }`; el lobby sale a `world_map`. "CARGAR PARTIDA" entra directo a `world_map` **sin** guardar de nuevo.
 - El guardado lo escribe **`MainActivity`** (punto de DI), no las Views. La partida ligera (escuela) va a
   `CampaignRepository`; el **estado completo** (posición/vida/buscado/vehículo/skin/NPCs) va al JSON de
   `SaveGameRepository` (ver "Sistema de guardado COMPLETO" arriba).
