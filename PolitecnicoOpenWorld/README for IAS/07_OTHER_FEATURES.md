@@ -96,6 +96,13 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
   (`spawnCompanion`): te **sigue** con animaciones `p_walk`/`p_run` (sin atacarte) y fija el objetivo
   **`MissionCatalog.ESCOLTAR_PRANKEDY`** → el widget muestra **"Lleva a un lugar seguro a Prankedy"**. En
   MUNDO LIBRE no aparece (sigue el Prankedy hostil manual del menú de Opciones). Ver 03 (fase HIRED) y 04.
+- **🆕 Línea GPS de campaña (ENCB → ESCOM):** al encender el acompañante, `maybeSpawnPrankedyCompanion`
+  calcula con **A*** (`findRoadRoute`, sobre la red vial) una ruta de la ENCB a la ESCOM ("lugar seguro") y la
+  guarda en **`WorldMapState.campaignRouteWaypoints`**. Se dibuja como **línea ROJA sólida** por encima de las
+  teselas y **por debajo de personajes/HUD**: en OSM nativo es un `Polyline` rojo (tag `route_overlay_tag+900`,
+  `overlays.add(0,…)`); en web/Leaflet la función JS **`updateCampaignRoute`** (`WorldMapLeafletHtml`) dibuja un
+  `L.polyline` rojo en el overlayPane. **Desaparece** cuando el jugador entra a ~100 m de la ESCOM
+  (`maybeHideCampaignRouteNearEscom` vacía la lista en el game loop). Solo en campaña.
 - **🆕 Editor in-game del cuadro de texto:** como el recuadro blanco está a distinta altura por panel, el botón
   **"Editar"** activa un editor para **mover** (arrastrar o Subir/Bajar), **redimensionar** (Alto ±) y cambiar
   el **tamaño de letra** (Letra ±) del cuadro, **por panel**. Se persiste en

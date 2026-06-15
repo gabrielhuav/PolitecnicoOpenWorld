@@ -430,6 +430,7 @@ class WorldMapViewModel(
                         if (inCampaign) {
                             checkObjectiveProgress(location)
                             maybeSpawnPrankedyCompanion(location)
+                            maybeHideCampaignRouteNearEscom(location)
                         }
 
                         checkDestinationArrival()

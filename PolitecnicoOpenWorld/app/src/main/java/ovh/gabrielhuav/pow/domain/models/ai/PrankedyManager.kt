@@ -51,8 +51,9 @@ class PrankedyManager {
         const val RUN_TANQUE_SPEED  = 0.0000075
 
         // ── Acompañante (fase HIRED): umbrales de seguimiento al jugador ──────
-        const val FOLLOW_STOP_DIST  = 0.00009   // ~10 m: lo bastante cerca → se queda IDLE
-        const val FOLLOW_WALK_DIST  = 0.00018   // ~20 m: camina (p_walk); más lejos corre (p_run)
+        // Parada MUY cerca para que no se quede rezagado (antes ~10 m → ~3 m).
+        const val FOLLOW_STOP_DIST  = 0.00003   // ~3.3 m: pegado al jugador → IDLE
+        const val FOLLOW_WALK_DIST  = 0.00011   // ~12 m: camina (p_walk); más lejos corre (p_run)
 
         // ── Combate ──────────────────────────────────────────────────────────
         const val ATTACK_RADIUS            = 0.00007  // ~8 m → se acerca antes de lanzar el tanque
@@ -201,7 +202,9 @@ class PrankedyManager {
         isDriving: Boolean,
         now: Long,
         roadNetwork: List<MapWay>,
-        snapToRoad: ((GeoPoint) -> GeoPoint)? = null
+        snapToRoad: ((GeoPoint) -> GeoPoint)? = null,
+        // Acompañante (HIRED): si el jugador corre, Prankedy iguala la velocidad (p_run).
+        playerRunning: Boolean = false
     ): PrankedyTickResult {
         snapToRoadFn = snapToRoad
         // Si el jugador va en coche, Prankedy desaparece visualmente (sin perder su estado).
@@ -219,7 +222,7 @@ class PrankedyManager {
 
         // ACOMPAÑANTE (HIRED): modo seguidor pacífico. Te sigue (camina/corre), sin atacarte
         // ni lanzar el tanque. Solo se usa en la campaña ENCB (ver maybeSpawnPrankedyCompanion).
-        if (phase == PrankedyPhase.HIRED) return tickFollow(loc, playerLoc, now)
+        if (phase == PrankedyPhase.HIRED) return tickFollow(loc, playerLoc, now, playerRunning)
 
         // ANTI-TRABA: si está LEJOS del jugador (debería estar moviéndose) y no avanza en
         // STUCK_TIME_MS, se reubica cerca de ti sobre la calle. NO se cura (conserva vida y
@@ -363,21 +366,31 @@ class PrankedyManager {
 
     /**
      * Lógica ACOMPAÑANTE (fase HIRED): Prankedy te sigue de forma pacífica. Nunca te ataca
-     * ni lanza el tanque. Camina (p_walk) si estás algo lejos y corre (p_run) si te alejas
-     * más; si ya está cerca, se queda IDLE. Se mantiene enganchado a la calle como el jugador.
+     * ni lanza el tanque. CORRE (p_run, RUN_SPEED) si el jugador corre o si está lejos; si no,
+     * CAMINA (p_walk); si ya está pegado (FOLLOW_STOP_DIST ~3 m) se queda IDLE. Su trayectoria
+     * está ESTRICTAMENTE restringida a la red vial (snap a calle SIEMPRE, sin atajos por
+     * césped/edificios). La orientación del sprite se calcula con el VECTOR DE MOVIMIENTO real
+     * (no la posición del jugador) para que mire hacia donde avanza y no parezca caminar al revés.
      */
-    private fun tickFollow(loc: GeoPoint, playerLoc: GeoPoint, now: Long): PrankedyTickResult {
+    private fun tickFollow(loc: GeoPoint, playerLoc: GeoPoint, now: Long, playerRunning: Boolean): PrankedyTickResult {
         projectileActive = false
         val d = dist(loc, playerLoc)
         if (d > FOLLOW_STOP_DIST) {
-            val speed = if (d > FOLLOW_WALK_DIST) RUN_SPEED else WALK_SPEED
-            animState = if (d > FOLLOW_WALK_DIST) PrankedyAnimState.RUN else PrankedyAnimState.WALK
-            // Paso hacia el jugador, enganchado a la calle salvo que el snap no progrese
-            // (mismo truco anti-traba que el modo combate) para no quedarse pegado a un nodo.
-            val raw = stepToward(loc, playerLoc, speed)
-            val snapped = snap(raw)
-            location = if (dist(snapped, playerLoc) <= dist(loc, playerLoc) - speed * 0.25) snapped else raw
-            facingRight = playerLoc.longitude >= loc.longitude
+            // Empate de velocidad: corre si el jugador corre (igual aceleración) o si está lejos.
+            val running = playerRunning || d > FOLLOW_WALK_DIST
+            val speed = if (running) RUN_SPEED else WALK_SPEED
+            animState = if (running) PrankedyAnimState.RUN else PrankedyAnimState.WALK
+            // ROAD-ONLY ESTRICTO: el siguiente punto se proyecta SIEMPRE sobre la red vial
+            // (snap), de modo que Prankedy solo pisa calles/banquetas transitables.
+            val newLoc = snap(stepToward(loc, playerLoc, speed))
+            // Orientación por el ángulo del DESPLAZAMIENTO real: atan2(dLat, dLon). El sprite
+            // solo se voltea en horizontal → mira a la derecha si avanzó hacia el este (cos>0).
+            val moveLon = newLoc.longitude - loc.longitude
+            val moveLat = newLoc.latitude - loc.latitude
+            if (kotlin.math.abs(moveLon) > 1e-9 || kotlin.math.abs(moveLat) > 1e-9) {
+                facingRight = kotlin.math.cos(kotlin.math.atan2(moveLat, moveLon)) >= 0.0
+            }
+            location = newLoc
         } else {
             animState = PrankedyAnimState.IDLE
         }
