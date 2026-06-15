@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.features.interiores.zombies.ui
+package ovh.gabrielhuav.pow.features.zombie_minigame.ui
 
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,7 +46,6 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -66,19 +64,13 @@ import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
-import ovh.gabrielhuav.pow.features.interiores.core.ui.CollisionMatrixDesignerLayer
-import ovh.gabrielhuav.pow.features.interiores.core.ui.WaypointDesignerLayer
-import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerView          // vista de jugador compartida (core)
-import ovh.gabrielhuav.pow.features.interiores.core.ui.RemotePlayerView    // vista de jugador remoto/civil (core)
-import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
-import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieGameViewModel
-import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.features.zombie_minigame.ui.components.CollisionMatrixDesignerLayer
+import ovh.gabrielhuav.pow.features.zombie_minigame.ui.components.WaypointDesignerLayer
+import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.CameraTransform
+import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.DesignerTarget
+import ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.ZombieGameViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
 import kotlin.math.max
-import androidx.compose.material.icons.filled.Person
-import ovh.gabrielhuav.pow.features.map_exterior.ui.SkinSelectorDialog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 
 private const val ZOMBIE_SPRITE_BASE = 60f
 private const val PLAYER_SPRITE_BASE = 56f
@@ -97,15 +89,12 @@ fun ZombieGameScreen(
     playerName: String,
     onNavigateToSettings: () -> Unit = {},
     debugHitboxes: Boolean = false,
-    // Sala inicial de Interiores: por defecto el lobby de ESCOM; la puerta FES la fija a FES_ID.
-    startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
-    // MODO HISTORIA: abre el selector de slots para guardar la partida (también en interiores).
-    onRequestSaveGame: () -> Unit = {}
+    initialRoomId: String? = null
 ) {
     val context = LocalContext.current
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
     val viewModel: ZombieGameViewModel = viewModel(
-        factory = ZombieGameViewModel.Factory(context, serverUrl, playerName, startRoomId)
+        factory = ZombieGameViewModel.Factory(context, serverUrl, playerName, initialRoomId)
     )
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current
@@ -131,11 +120,17 @@ fun ZombieGameScreen(
     }
 
     val room = ZombieRoomCatalog.rooms[state.currentRoomIndex]
+    val isVocaRoom = room.id.startsWith("v9") || room.id == "voca9"
+    
     val effectiveBgAsset = when {
         room.id == ZombieRoomCatalog.LOBBY_ID && state.zombieModeActivated ->
-            "ZOMBIES_MOD/BUILDINGS_Z/building_escom_zombie.webp"
-        room.type == ZoneType.BUILDING && !state.zombieModeActivated ->
-            "INTERIORS/ESCOM/z_${room.id.removePrefix("za_")}.webp"
+            "ZOMBIS_MOD/BUILDINGS_Z/building_escom_zombie.webp"
+        room.id == ZombieRoomCatalog.V9_LOBBY_ID && state.zombieModeActivated ->
+            room.backgroundAsset
+        room.type == ZoneType.BUILDING && !state.zombieModeActivated -> {
+            if (isVocaRoom) room.backgroundAsset
+            else "INTERIORES/ESCOM/z_${room.id.removePrefix("za_")}.webp"
+        }
         else -> room.backgroundAsset
     }
     var background by remember(effectiveBgAsset) { mutableStateOf<ImageBitmap?>(null) }
@@ -328,7 +323,8 @@ fun ZombieGameScreen(
                 }
 
                 // Zombis
-                val zSize = ZOMBIE_SPRITE_BASE * cam.scale
+                val roomSpriteScale = if (room.id.startsWith("v9") || room.id == "voca9") 1.4f else 1.0f
+                val zSize = ZOMBIE_SPRITE_BASE * cam.scale * roomSpriteScale
                 state.zombies.forEach { z ->
                     if (!onScreen(z.x, z.y)) return@forEach
                     key(z.id) {
@@ -345,7 +341,7 @@ fun ZombieGameScreen(
                 }
 
                 // Jugadores remotos
-                val rpSize = PLAYER_SPRITE_BASE * cam.scale
+                val rpSize = PLAYER_SPRITE_BASE * cam.scale * roomSpriteScale
                 state.remotePlayers.forEach { rp ->
                     if (!onScreen(rp.x, rp.y)) return@forEach
                     key(rp.id) {
@@ -364,6 +360,7 @@ fun ZombieGameScreen(
 
                 // NPCs civiles del interior (autoritativos del servidor): figuras humanas que
                 // deambulan/huyen de los zombis. Reusan RemotePlayerView (sin nombre).
+                val civSize = PLAYER_SPRITE_BASE * cam.scale * roomSpriteScale
                 state.interiorNpcs.forEach { npc ->
                     if (!onScreen(npc.x, npc.y)) return@forEach
                     key("civ_${npc.id}") {
@@ -371,10 +368,10 @@ fun ZombieGameScreen(
                             name = "",
                             action = npc.action,
                             facingRight = npc.facingRight,
-                            sizePx = rpSize,
+                            sizePx = civSize,
                             modifier = Modifier.absoluteOffset(
-                                x = with(density) { toScreenX(npc.x).toDp() } - with(density) { (rpSize / 2).toDp() },
-                                y = with(density) { toScreenY(npc.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                                x = with(density) { toScreenX(npc.x).toDp() } - with(density) { (civSize / 2).toDp() },
+                                y = with(density) { toScreenY(npc.y).toDp() } - with(density) { (civSize / 2).toDp() }
                             )
                         )
                     }
@@ -405,14 +402,14 @@ fun ZombieGameScreen(
                 }
 
                 // Jugador local
-                val pSize = PLAYER_SPRITE_BASE * cam.scale
+                val pSize = PLAYER_SPRITE_BASE * cam.scale * roomSpriteScale
                 // MUERTE: al morir, el jugador queda como "fantasmita" (semitransparente),
                 // igual que la animación de muerte de un NPC.
                 val ghostAlpha = if (state.showWastedScreen) 0.3f else 1f
                 PlayerView(
                     action = state.playerAction, facingRight = state.isPlayerFacingRight,
                     damagePulse = state.damagePulseTrigger, sizePx = pSize,
-                    skin = state.selectedSkin,                         // ← NUEVO
+                    skin = state.selectedSkin,
                     modifier = Modifier
                         .absoluteOffset(
                             x = with(density) { toScreenX(state.playerX).toDp() } - with(density) { (pSize / 2).toDp() },
@@ -421,8 +418,8 @@ fun ZombieGameScreen(
                         .alpha(ghostAlpha)
                 )
             }
-            // ─── Mano zombi fija en el lobby (desaparece tras activar el modo zombie) ──
-            if (room.id == ZombieRoomCatalog.LOBBY_ID && !state.zombieModeActivated) {
+            // ─── Mano zombi fija en los lobbies (desaparece tras activar el modo zombie) ──
+            if ((room.id == ZombieRoomCatalog.LOBBY_ID || room.id == ZombieRoomCatalog.V9_LOBBY_ID) && !state.zombieModeActivated) {
                 val handNx = 0.50f
                 val handNy = 0.45f
                 val handSizePx = 64f * cam.scale
@@ -434,7 +431,7 @@ fun ZombieGameScreen(
                 LaunchedEffect(Unit) {
                     handBitmap = withContext(Dispatchers.IO) {
                         try {
-                            context.assets.open("ZOMBIES_MOD/zombie_hand.webp")
+                            context.assets.open("ZOMBIS_MOD/zombi_hand.webp")
                                 .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
                         } catch (e: Exception) { null }
                     }
@@ -442,7 +439,7 @@ fun ZombieGameScreen(
                 handBitmap?.let { bmp ->
                     Image(
                         bitmap = bmp,
-                        contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_zombie_hand),
+                        contentDescription = "Mano Zombi",
                         modifier = Modifier
                             .absoluteOffset(
                                 x = with(density) { (handScreenX - handSizePx / 2f).toDp() },
@@ -547,9 +544,9 @@ fun ZombieGameScreen(
                             .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(16.dp))
                             .padding(24.dp)
                     ) {
-                        Text(stringResource(R.string.zgame_exit_lobby_title), color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("Volver al Lobby", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Text(
-                            stringResource(R.string.zgame_exit_lobby_text),
+                            "¿Estás seguro de que quieres volver al lobby? Perderás el progreso de este edificio.",
                             color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -558,13 +555,13 @@ fun ZombieGameScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21)),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f)
-                            ) { Text(stringResource(R.string.common_no), color = Color.White, fontWeight = FontWeight.Bold) }
+                            ) { Text("No", color = Color.White, fontWeight = FontWeight.Bold) }
                             Button(
                                 onClick = { viewModel.confirmExitToLobby() },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f)
-                            ) { Text(stringResource(R.string.common_yes), color = Color.White, fontWeight = FontWeight.Bold) }
+                            ) { Text("Sí", color = Color.White, fontWeight = FontWeight.Bold) }
                         }
                     }
                 }
@@ -574,10 +571,10 @@ fun ZombieGameScreen(
             if (state.showVictoryScreen) {
                 Box(Modifier.fillMaxSize().background(Color(0xCC000000)), Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(stringResource(R.string.zgame_victory_title), color = Color(0xFFD4AF37), fontSize = 44.sp,
+                        Text("Congratulations", color = Color(0xFFD4AF37), fontSize = 44.sp,
                             fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, textAlign = TextAlign.Center)
                         Spacer(Modifier.height(12.dp))
-                        Text(stringResource(R.string.zgame_victory_text), color = Color.White, fontSize = 16.sp)
+                        Text("Edificio despejado. Usa las salidas EXIT para continuar.", color = Color.White, fontSize = 16.sp)
                     }
                 }
             }
@@ -626,15 +623,9 @@ fun ZombieGameScreen(
                 onClick = onNavigateToSettings,
                 modifier = Modifier.background(Color.White.copy(alpha = 0.85f), CircleShape)
             ) {
-                Icon(Icons.Default.Settings, stringResource(R.string.zgame_cd_settings), tint = Color.Black)
+                Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black)
             }
             if (!state.designerMode) {
-                IconButton(
-                    onClick = { viewModel.toggleSkinSelector(true) },
-                    modifier = Modifier.background(Color(0xFFD91B5B).copy(alpha = 0.9f), CircleShape)
-                ) {
-                    Icon(Icons.Default.Person, stringResource(R.string.zgame_cd_skin), tint = Color.White)
-                }
                 var optionsExpanded by remember { mutableStateOf(false) }
                 OptionsMenu(
                     expanded = optionsExpanded,
@@ -642,10 +633,8 @@ fun ZombieGameScreen(
                     openGroupId = null,
                     onOpenGroupChange = {},
                     entries = listOf(
-                        OptionMenuItem(stringResource(R.string.zgame_opt_designer), Icons.Default.Architecture) { viewModel.toggleDesignerMode() },
-                        // MODO HISTORIA: guardar partida también desde interiores (selector de slots).
-                        OptionMenuItem("Guardar partida", Icons.Default.Save) { onRequestSaveGame() },
-                        OptionMenuItem(stringResource(R.string.zgame_opt_exit_map), Icons.Default.ExitToApp) { viewModel.exitToWorld() }
+                        OptionMenuItem("Diseñador", Icons.Default.Architecture) { viewModel.toggleDesignerMode() },
+                        OptionMenuItem("Salir al mapa", Icons.Default.ExitToApp) { viewModel.exitToWorld() }
                     )
                 )
             }
@@ -656,14 +645,6 @@ fun ZombieGameScreen(
             ZombiVideoPlayer(
                 context = context,
                 onDismiss = { viewModel.onZombieCinematicDismissed() }
-            )
-        }
-        if (state.showSkinSelector) {
-            SkinSelectorDialog(
-                currentSkin    = state.selectedSkin,
-                context        = context,
-                onSkinSelected = { viewModel.selectSkin(it) },
-                onDismiss      = { viewModel.toggleSkinSelector(false) }
             )
         }
         // ─── TOOLBAR DEL DISEÑADOR ──────────────────────────────
@@ -735,7 +716,7 @@ private fun DesignerToolbar(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer_room, roomName.uppercase()),
+            "DISEÑADOR · ${roomName.uppercase()}",
             color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 12.sp
         )
         // Selector de objetivo: MATRIZ de colisión o WAYPOINTS (puertas).
@@ -745,8 +726,8 @@ private fun DesignerToolbar(
         }
         Text(
             if (isWaypoints)
-                (if (hasSelectedDoor) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_drag_door)
-                 else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_touch_door))
+                (if (hasSelectedDoor) "Arrastra para mover la puerta seleccionada."
+                 else "Toca una puerta para seleccionarla y arrástrala.")
             else "Toca o arrastra sobre la rejilla. Rojo = pared.",
             color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp
         )
@@ -757,7 +738,7 @@ private fun DesignerToolbar(
             }
             // ─── TAMAÑO DE LA MATRIZ ───────────────────────────────
             Text(
-                androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_size_grid, gridCols, gridRows),
+                "TAMAÑO  ${gridCols} × ${gridRows} (col × fil)",
                 color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -773,13 +754,13 @@ private fun DesignerToolbar(
                 modifier = Modifier.weight(1f).height(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 shape = RoundedCornerShape(8.dp)
-            ) { Text(if (dirty) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save_unsaved) else "GUARDAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ) { Text(if (dirty) "GUARDAR*" else "GUARDAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             Button(
                 onClick = onReset,
                 modifier = Modifier.weight(1f).height(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
                 shape = RoundedCornerShape(8.dp)
-            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_reset), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ) { Text("RESET", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
@@ -787,15 +768,15 @@ private fun DesignerToolbar(
                 modifier = Modifier.weight(1f).height(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
                 shape = RoundedCornerShape(8.dp)
-            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_export), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ) { Text("EXPORTAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             Button(
                 onClick = onImport,
                 modifier = Modifier.weight(1f).height(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
                 shape = RoundedCornerShape(8.dp)
-            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_import), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ) { Text("IMPORTAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             TextButton(onClick = onExit, modifier = Modifier.height(40.dp)) {
-                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_exit), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("SALIR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

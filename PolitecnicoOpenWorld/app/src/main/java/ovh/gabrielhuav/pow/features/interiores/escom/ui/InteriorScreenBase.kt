@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.features.interiores.escom.ui
+package ovh.gabrielhuav.pow.features.interior.ui
 
 import android.content.res.Configuration
 import android.graphics.BitmapFactory
@@ -30,8 +30,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorState
-import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorViewModel
+import ovh.gabrielhuav.pow.features.interior.viewmodel.InteriorState
+import ovh.gabrielhuav.pow.features.interior.viewmodel.InteriorViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
@@ -178,12 +178,13 @@ private fun InteriorPlayerSprite(state: InteriorState) {
     val context = LocalContext.current
     val action = state.playerAction
     val isFacingRight = state.isFacingRight
+    val skin = state.selectedSkin
 
     var currentFrame by remember { mutableIntStateOf(1) }
     var currentImage by remember { mutableStateOf<ImageBitmap?>(null) }
     val bitmapCache = remember { mutableMapOf<String, ImageBitmap?>() }
 
-    LaunchedEffect(action) {
+    LaunchedEffect(action, skin) {
         currentFrame = 1
         while (true) {
             val maxFrames = when (action) {
@@ -192,11 +193,14 @@ private fun InteriorPlayerSprite(state: InteriorState) {
                 PlayerAction.SPECIAL -> 8
                 PlayerAction.RUN -> 6
             }
+            
+            val skinPrefix = skin.name.lowercase()
+            
             val assetPath = when (action) {
-                PlayerAction.IDLE    -> "MAIN/lazaroIdle/lazaro_i_$currentFrame.webp"
-                PlayerAction.WALK    -> "MAIN/lazaroWalk/lazaro_w_$currentFrame.webp"
-                PlayerAction.SPECIAL -> "MAIN/lazaroSpecial/lazaro_s_$currentFrame.webp"
-                PlayerAction.RUN     -> "MAIN/lazaroRun/lazaro_r_$currentFrame.webp"
+                PlayerAction.IDLE    -> "PRINCIPAL/${skinPrefix}Idle/${skinPrefix}_i_$currentFrame.webp"
+                PlayerAction.WALK    -> "PRINCIPAL/${skinPrefix}Walk/${skinPrefix}_w_$currentFrame.webp"
+                PlayerAction.SPECIAL -> "PRINCIPAL/${skinPrefix}Special/${skinPrefix}_s_$currentFrame.webp"
+                PlayerAction.RUN     -> "PRINCIPAL/${skinPrefix}Run/${skinPrefix}_r_$currentFrame.webp"
             }
             if (!bitmapCache.containsKey(assetPath)) {
                 val bmp = withContext(Dispatchers.IO) {
@@ -225,7 +229,7 @@ private fun InteriorPlayerSprite(state: InteriorState) {
     if (img != null) {
         Image(
             bitmap = img,
-            contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_character),
+            contentDescription = "Personaje",
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {

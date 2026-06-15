@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel
+package ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -16,7 +16,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
-import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget   // tipo compartido (core)
 import ovh.gabrielhuav.pow.data.repository.CollisionMatrixRepository
 import ovh.gabrielhuav.pow.data.repository.WaypointRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
@@ -48,18 +47,16 @@ class ZombieGameViewModel(
     // URL del servidor de zombis. null = partida offline (un jugador).
     internal val serverUrl: String?,
     internal val playerName: String,
-    // Sala donde arranca la sesión de Interiores. Por defecto el lobby de ESCOM;
-    // la puerta "Entrada FES Aragón" la fija a ZombieRoomCatalog.FES_ID.
-    internal val startRoomId: String = ZombieRoomCatalog.LOBBY_ID
+    private val initialRoomId: String? = null
 ) : ViewModel() {
 
     internal val _state = MutableStateFlow(
         ZombieGameState(
-            controlType  = settingsRepository.getControlType(),
+            controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
             swapControls = settingsRepository.getSwapControls(),
-            selectedSkin = settingsRepository.getPlayerSkin(),     // ← NUEVO
-            isLoading    = false
+            selectedSkin = settingsRepository.getPlayerSkin(),
+            isLoading = false
         )
     )
     val state: StateFlow<ZombieGameState> = _state.asStateFlow()
@@ -86,8 +83,6 @@ class ZombieGameViewModel(
     internal var lastRangedShotMs = 0L
     internal var yPressStartMs = 0L
     internal var lastRoomId: String? = null
-    // INTERIORES EXPANDIBLE: lobby destino del diálogo "volver al lobby" (campus-agnóstico).
-    internal var pendingLobbyTarget: String? = null
 
     init {
         _state.update { it.copy(isLoading = true) }
@@ -115,11 +110,12 @@ class ZombieGameViewModel(
             } finally {
                 if (isActive) {
                     _state.update { it.copy(isLoading = false) }
-                    // Arranca en la sala pedida (FES o lobby). Si el id no existe en el
-                    // catálogo (indexOfRoom = -1), cae al lobby de ESCOM.
-                    val startIdx = ZombieRoomCatalog.indexOfRoom(startRoomId)
-                        .takeIf { it >= 0 } ?: ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID)
-                    loadRoom(startIdx)
+                    val startRoom = initialRoomId ?: ZombieRoomCatalog.LOBBY_ID
+                    val idx = ZombieRoomCatalog.indexOfRoom(startRoom)
+                    android.util.Log.d("ZombieGameVM", "ID recibido: $startRoom -> Índice calculado: $idx")
+                    
+                    val finalIdx = idx.coerceAtLeast(0)
+                    loadRoom(finalIdx)
                     startGameLoop()
                     connectIfNeeded()
                 }
@@ -150,9 +146,6 @@ class ZombieGameViewModel(
                     "type" to "JOIN_ROOM",
                     "roomId" to room.id,
                     "displayName" to playerName,
-                    // El servidor de interiores usa esto para saber el modo de la sala:
-                    // "zombies" (edificio/horda) o "interiores" (lobby sin zombis).
-                    "mode" to currentNetMode(),
                     // FRACCIONES [0,1]
                     "x" to (_state.value.playerX / room.worldWidth),
                     "y" to (_state.value.playerY / room.worldHeight)
@@ -242,9 +235,6 @@ class ZombieGameViewModel(
                 mapOf(
                     "type" to "PLAYER_UPDATE",
                     "displayName" to playerName,
-                    // MODO de interiores que el servidor debe detectar: "zombies" (edificio
-                    // con horda o lobby con apocalipsis) vs "interiores" (lobby tranquilo).
-                    "mode" to currentNetMode(),
                     "x" to (s.playerX / room.worldWidth),
                     "y" to (s.playerY / room.worldHeight),
                     "action" to s.playerAction.name,
@@ -286,7 +276,7 @@ class ZombieGameViewModel(
         } ?: emptyList()
         // NPCs civiles (autoritativos): se renderizan como figuras humanas (RemotePlayerView).
         val civs = msg.npcs?.map { nn ->
-            ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.RemoteZombiePlayer(
+            ovh.gabrielhuav.pow.features.zombie_minigame.viewmodel.RemoteZombiePlayer(
                 id = nn.id, displayName = "",
                 x = nn.x * w, y = nn.y * h,
                 action = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction.WALK,
@@ -322,16 +312,6 @@ class ZombieGameViewModel(
     // ─── ACCESO ────────────────────────────────────────────
     internal fun currentRoom(): ZombieRoom = ZombieRoomCatalog.rooms[_state.value.currentRoomIndex]
 
-    // Modo de interiores que viaja al servidor para que distinga "interiores" (lobby
-    // tranquilo, sin zombis) de "zombies" (edificio con horda, o lobby con el apocalipsis
-    // activado). El mundo abierto NO usa esto: allí el modo es la instancia ws
-    // ("normal" = mapa global, "apocalipsis" = zombies global) vía JOIN_INSTANCE.
-    internal fun currentNetMode(): String {
-        val room = currentRoom()
-        return if (room.type == ZoneType.BUILDING || _state.value.zombieModeActivated) "zombies"
-        else "interiores"
-    }
-
     internal fun isWalkable(x: Float, y: Float): Boolean {
         val r = currentRoom()
         if (x < PLAYER_RADIUS || y < PLAYER_RADIUS ||
@@ -339,15 +319,9 @@ class ZombieGameViewModel(
         return !r.isBlockedPixel(x, y)
     }
 
-    // INTERIORES EXPANDIBLE: el lobby (campus) que tiene una puerta hacia este edificio.
-    // Campus-agnóstico (sirve para ESCOM, FES, UAM…); cae al lobby de ESCOM si no se halla.
-    internal fun lobbyForBuilding(buildingId: String): ZombieRoom =
-        ZombieRoomCatalog.rooms.firstOrNull { room ->
-            room.type == ZoneType.LOBBY && room.doors.any { it.targetRoomId == buildingId }
-        } ?: ZombieRoomCatalog.roomById(ZombieRoomCatalog.LOBBY_ID)!!
-
     internal fun spawnAtLobbyDoorFor(fromBuildingId: String): Pair<Float, Float>? {
-        val lobby = lobbyForBuilding(fromBuildingId)
+        val lobbyId = ZombieRoomCatalog.getLobbyForRoom(fromBuildingId)
+        val lobby = ZombieRoomCatalog.roomById(lobbyId) ?: return null
         val door = lobby.doors.firstOrNull { it.targetRoomId == fromBuildingId } ?: return null
         val hb = door.hitboxFrac.toWorldRect(lobby.worldWidth, lobby.worldHeight)
 
@@ -368,37 +342,6 @@ class ZombieGameViewModel(
     internal fun playerDamageFactor(): Float =
         if (hasEffect(SkillEffect.FUERZA_BRUTA)) PLAYER_DMG_BRUTE_FACTOR else 1f
 
-    // Garantiza que el spawn caiga en una celda CAMINABLE (fuera de la matriz de
-    // colisión). Si el punto pedido está bloqueado (p. ej. la puerta de retorno al
-    // lobby cae sobre una pared), busca en anillos crecientes el punto válido más
-    // cercano. Arregla el bug "salgo del Edificio Principal y no me puedo mover".
-    internal fun nearestWalkableSpawn(x: Float, y: Float, room: ZombieRoom): Pair<Float, Float> {
-        fun ok(px: Float, py: Float): Boolean =
-            px >= PLAYER_RADIUS && py >= PLAYER_RADIUS &&
-            px <= room.worldWidth - PLAYER_RADIUS && py <= room.worldHeight - PLAYER_RADIUS &&
-            !room.isBlockedPixel(px, py)
-
-        val cx = x.coerceIn(PLAYER_RADIUS, room.worldWidth - PLAYER_RADIUS)
-        val cy = y.coerceIn(PLAYER_RADIUS, room.worldHeight - PLAYER_RADIUS)
-        if (ok(cx, cy)) return cx to cy
-
-        // Búsqueda en anillos (16 direcciones) hasta cubrir la sala.
-        val step = PLAYER_RADIUS
-        val maxR = maxOf(room.worldWidth, room.worldHeight)
-        var r = step
-        while (r <= maxR) {
-            for (a in 0 until 16) {
-                val ang = a * (Math.PI.toFloat() / 8f)
-                val px = cx + cos(ang) * r
-                val py = cy + sin(ang) * r
-                if (ok(px, py)) return px to py
-            }
-            r += step
-        }
-        // Último recurso: el centro de la sala (casi siempre caminable).
-        return (room.worldWidth / 2f) to (room.worldHeight / 2f)
-    }
-
     // ─── CARGA DE ZONA ─────────────────────────────────────
     internal fun loadRoom(index: Int) {
         val room = ZombieRoomCatalog.rooms[index]
@@ -406,10 +349,8 @@ class ZombieGameViewModel(
 
         val pendingX = _state.value.pendingSpawnX
         val pendingY = _state.value.pendingSpawnY
-        val rawSpawnX = pendingX ?: (room.playerSpawnFrac.x * room.worldWidth)
-        val rawSpawnY = pendingY ?: (room.playerSpawnFrac.y * room.worldHeight)
-        // Snap del spawn a una celda caminable (no dentro de la matriz de colisión).
-        val (spawnX, spawnY) = nearestWalkableSpawn(rawSpawnX, rawSpawnY, room)
+        val spawnX = pendingX ?: (room.playerSpawnFrac.x * room.worldWidth)
+        val spawnY = pendingY ?: (room.playerSpawnFrac.y * room.worldHeight)
 
         val hasWeapon = _state.value.combatMode == CombatMode.RANGED
 
@@ -667,8 +608,8 @@ class ZombieGameViewModel(
             }
             lastRoomId = diedInRoom.id
             _state.update { it.copy(showWastedScreen = false, playerHealth = 100f) }
-            // Respawn en el lobby DEL CAMPUS donde moriste (ESCOM o FES), no siempre ESCOM.
-            loadRoom(ZombieRoomCatalog.indexOfRoom(lobbyForBuilding(diedInRoom.id).id))
+            val lobbyId = ZombieRoomCatalog.getLobbyForRoom(diedInRoom.id)
+            loadRoom(ZombieRoomCatalog.indexOfRoom(lobbyId))
         }
     }
 
@@ -690,7 +631,8 @@ class ZombieGameViewModel(
             return
         }
         // 2b. Mano zombi en lobby
-        if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID) {
+        val currentRoomId = currentRoom().id
+        if (currentRoomId == ZombieRoomCatalog.LOBBY_ID || currentRoomId == ZombieRoomCatalog.V9_LOBBY_ID) {
             val handNx = 0.50f
             val handNy = 0.45f
             val room = currentRoom()
@@ -698,6 +640,7 @@ class ZombieGameViewModel(
             val handWy = handNy * room.worldHeight
             val distToHand = hypot(s.playerX - handWx, s.playerY - handWy)
             if (distToHand < 80f && !s.zombieModeActivated) {
+                // Seteamos el lobby correcto para la cinemática
                 _state.update { it.copy(showZombieCinematic = true) }
                 return
             }
@@ -710,11 +653,8 @@ class ZombieGameViewModel(
                 .contains(s.playerX, s.playerY)
         } ?: return
 
-        // Puerta de un EDIFICIO hacia el lobby de SU campus (ESCOM o FES): pide confirmación.
-        // Generalizado: el destino es cualquier sala LOBBY (antes sólo el lobby de ESCOM).
-        val targetIsLobby = ZombieRoomCatalog.roomById(door.targetRoomId)?.type == ZoneType.LOBBY
-        if (targetIsLobby && room.type == ZoneType.BUILDING) {
-            pendingLobbyTarget = door.targetRoomId
+        val lobbyId = ZombieRoomCatalog.getLobbyForRoom(room.id)
+        if (door.targetRoomId == lobbyId && room.type == ZoneType.BUILDING) {
             _state.update { it.copy(showExitToLobbyDialog = true) }
             return
         }
@@ -722,10 +662,9 @@ class ZombieGameViewModel(
     }
 
     fun confirmExitToLobby() {
+        val lobbyId = ZombieRoomCatalog.getLobbyForRoom(currentRoom().id)
         _state.update { it.copy(showExitToLobbyDialog = false) }
-        // Vuelve al lobby del campus (ESCOM por defecto si no hay destino pendiente).
-        goToRoom(pendingLobbyTarget ?: ZombieRoomCatalog.LOBBY_ID)
-        pendingLobbyTarget = null
+        goToRoom(lobbyId)
     }
 
     fun dismissExitToLobby() {
@@ -864,17 +803,9 @@ class ZombieGameViewModel(
     fun consumeExit() { gameLoopJob?.cancel() }
 
     fun onZombieCinematicDismissed() {
+        val currentRoomId = currentRoom().id
         _state.update { it.copy(showZombieCinematic = false, zombieModeActivated = true) }
-        loadRoom(ZombieRoomCatalog.indexOfRoom(ZombieRoomCatalog.LOBBY_ID))
-    }
-
-    fun toggleSkinSelector(show: Boolean) {
-        _state.update { it.copy(showSkinSelector = show) }
-    }
-
-    fun selectSkin(skin: ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin) {
-        settingsRepository.savePlayerSkin(skin)
-        _state.update { it.copy(selectedSkin = skin, showSkinSelector = false) }
+        loadRoom(ZombieRoomCatalog.indexOfRoom(currentRoomId))
     }
 
     // ─── MODO DISEÑADOR DE LA MATRIZ DE COLISIÓN ───────────
@@ -1159,7 +1090,7 @@ class ZombieGameViewModel(
         private val context: Context,
         private val serverUrl: String?,
         private val playerName: String,
-        private val startRoomId: String = ZombieRoomCatalog.LOBBY_ID
+        private val initialRoomId: String? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -1168,7 +1099,7 @@ class ZombieGameViewModel(
                 SettingsRepository(context.applicationContext),
                 serverUrl,
                 playerName,
-                startRoomId
+                initialRoomId
             ) as T
         }
     }
