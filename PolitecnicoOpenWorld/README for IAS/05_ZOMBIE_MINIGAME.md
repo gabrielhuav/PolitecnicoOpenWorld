@@ -32,6 +32,23 @@ autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación 
 > La **mano/activación de zombis** del lobby sigue siendo de ESCOM (gateada por `LOBBY_ID`): **offline**,
 > los edificios sólo siembran zombis con el modo activado, así que la horda de FES se ve **online**
 > (el server siembra en `BUILDING`); para FES offline con zombis habría que darle su propia activación.
+> **🆕 Cadena STANDALONE del Modo Historia (ENCB).** Además de los campus (lobby + edificios), el catálogo
+> registra una **cadena LINEAL de 4 salas sueltas**, todas tipo `LOBBY` (zona segura, `zombieCount=0`):
+> `ENCB_LOBBY_ID="encb_lobby"` → `ENCB_SALON1_ID="encb_salon1"` → `ENCB_LAB1_ID="encb_lab1"` →
+> `ENCB_LAB2_ID="encb_lab2"` (fondos `INTERIORS/ENCB/ENCB_{lobby,salon1,lab1,lab2}.webp`). Se construyen con el
+> helper `encbStoryRoom(id, displayName, background, nextRoomId)`: cada sala lleva **UNA puerta de AVANCE**
+> (`ZoneDoor` `TO_BUILDING`, hitbox arriba-centro) hacia la siguiente → al pisarla y pulsar **X**,
+> `onInteract` → `goToRoom(next)` (LOBBY→LOBBY, sin diálogo). La **última (`encb_lab2`)** tiene un **waypoint
+> final** cuyo `targetRoomId` es el sentinela **`EXIT_TO_STORY_OUTRO`**: `goToRoom` lo intercepta (igual que
+> `EXIT_TO_WORLD`), pone `isExitingToStoryOutro=true` y `ZombieGameScreen` invoca `onPlayStoryOutro()` →
+> `MainActivity` navega a `story_outro` (cómic `ENCB_OUTRO`, ver 07). **NINGUNA** sala tiene puerta `TO_WORLD`
+> → sin flechas/marcadores de escape (flujo "atrapado"; la única salida directa al mapa es
+> el menú de Opciones → "Salir al mapa"). Mano zombi, fondo apocalíptico, prompt "Mano Misteriosa" y horda están
+> **gateados a `LOBBY_ID`/`BUILDING`**, así que en estas salas no aparecen. Se entra tras la intro con
+> `interiores_zombies?startRoom=encb_lobby` (en `MainActivity`, ruta `encb_lobby`); las transiciones internas
+> ocurren dentro del mismo `ZombieGameScreen` (mismo VM). El banner **"Objetivo: Investiga qué pasó"** se pinta
+> cuando `room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS`. Ver 06/07.
+
 **EN:** Ring of rooms: a **lobby** with doors to each ESCOM building (7 buildings). Inside a building,
 EXIT doors connect neighbors and a central door returns to the lobby. **Online: zombies and items are
 server-authoritative** (`MultiplayerInteriores/`); **offline: full local simulation**.

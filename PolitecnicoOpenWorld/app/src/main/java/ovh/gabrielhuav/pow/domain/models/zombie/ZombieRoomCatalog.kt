@@ -5,12 +5,31 @@ object ZombieRoomCatalog {
 
     const val LOBBY_ID = "lobby_campus"
     const val EXIT_TO_WORLD = "__WORLD__"
+    // MODO HISTORIA: targetRoomId "sentinela" — una puerta con este destino NO carga otra
+    // sala, sino que dispara la salida del motor de interiores hacia la narrativa (cómic
+    // ENCB_OUTRO). Lo intercepta ZombieGameViewModel.goToRoom (igual que EXIT_TO_WORLD).
+    const val EXIT_TO_STORY_OUTRO = "__STORY_OUTRO__"
 
     // Sala de INTERIORES de FES Aragón. Es una sala independiente del anillo de ESCOM:
     // se entra desde la puerta "Entrada FES Aragón" del open world (ruta
     // interiores_zombies?startRoom=fes_interior). Tipo LOBBY = zona segura sin zombis
     // (el servidor sólo siembra zombis en salas BUILDING) y con puerta de salida al mapa.
     const val FES_ID = "fes_interior"
+
+    // MODO HISTORIA: cadena LINEAL de salas de la ENCB (tras la intro IntroPOW8).
+    // Todas son salas INDEPENDIENTES del anillo de ESCOM, tipo LOBBY = zona segura SIN
+    // zombis y SIN mano zombi (gateada a LOBBY_ID). El flujo es:
+    //   encb_lobby → encb_salon1 → encb_lab1 → encb_lab2  (sin salida al mapa entre medias;
+    //   navegación "atrapada" en el flujo interno). Cada sala tiene UNA puerta de AVANCE a la
+    //   siguiente (waypoint interactivo, tecla X); la última (encb_lab2) no tiene puertas.
+    const val ENCB_LOBBY_ID = "encb_lobby"
+    const val ENCB_SALON1_ID = "encb_salon1"
+    const val ENCB_LAB1_ID = "encb_lab1"
+    const val ENCB_LAB2_ID = "encb_lab2"
+
+    // Salas del Modo Historia de la ENCB. ZombieGameScreen pinta el banner de objetivo
+    // ("Objetivo: Investiga qué pasó") cuando la sala actual pertenece a este conjunto.
+    val ENCB_STORY_ROOM_IDS = setOf(ENCB_LOBBY_ID, ENCB_SALON1_ID, ENCB_LAB1_ID, ENCB_LAB2_ID)
 
     private val buildingOrder = listOf(
         "za_auditorio", "za_biblioteca", "za_cafeteria",
@@ -133,7 +152,53 @@ object ZombieRoomCatalog {
                 )
             )
         )
+        // ─── CADENA LINEAL DEL MODO HISTORIA (ENCB) ──────────────────────────
+        // Salas STANDALONE (no es un campus con edificios), tipo LOBBY = zona segura sin
+        // zombis. La mano zombi y el fondo apocalíptico están gateados a LOBBY_ID, así que
+        // aquí no aplican. Cada sala tiene UNA puerta de AVANCE a la siguiente (waypoint X);
+        // NINGUNA tiene puerta de salida al mapa (flujo interno "atrapado"). La ÚLTIMA
+        // (encb_lab2) tiene un waypoint final que sale a la narrativa (cómic ENCB_OUTRO)
+        // vía EXIT_TO_STORY_OUTRO. worldWidth/Height se sobrescriben en init() con las
+        // dimensiones reales del asset.
+        add(encbStoryRoom(ENCB_LOBBY_ID,  "Lobby ENCB",  "INTERIORS/ENCB/ENCB_lobby.webp",  ENCB_SALON1_ID))
+        add(encbStoryRoom(ENCB_SALON1_ID, "Salón ENCB",  "INTERIORS/ENCB/ENCB_salon1.webp", ENCB_LAB1_ID))
+        add(encbStoryRoom(ENCB_LAB1_ID,   "Lab. ENCB 1", "INTERIORS/ENCB/ENCB_lab1.webp",   ENCB_LAB2_ID))
+        add(encbStoryRoom(ENCB_LAB2_ID,   "Lab. ENCB 2", "INTERIORS/ENCB/ENCB_lab2.webp",   EXIT_TO_STORY_OUTRO))
     }
+
+    // ─── MODO HISTORIA ENCB: fábrica de una sala de la cadena lineal ──────────
+    // Sala tipo LOBBY (zona segura, sin zombis). Si `nextTargetId != null` agrega UNA puerta
+    // de AVANCE (waypoint interactivo, tecla X) centrada arriba cuyo `targetRoomId` es
+    // `nextTargetId`: puede ser la SIGUIENTE sala (carga jugable) o el sentinela
+    // EXIT_TO_STORY_OUTRO (sale al cómic; lo intercepta goToRoom). Si es null, la sala queda
+    // SIN puertas. No se añade ninguna puerta TO_WORLD (sin marcadores de escape al mapa).
+    private fun encbStoryRoom(
+        id: String,
+        displayName: String,
+        backgroundAsset: String,
+        nextTargetId: String?
+    ): ZombieRoom = ZombieRoom(
+        id = id,
+        type = ZoneType.LOBBY,
+        backgroundAsset = backgroundAsset,
+        displayName = displayName,
+        worldWidth = 1920f,
+        worldHeight = 1080f,
+        zoom = 1.0f,
+        playerSpawnFrac = NormPoint(0.50f, 0.62f),
+        doors = if (nextTargetId == null) emptyList()
+                else listOf(
+                    ZoneDoor(
+                        NormRect(0.42f, 0.12f, 0.58f, 0.26f),
+                        nextTargetId,
+                        "Continuar",
+                        DoorKind.TO_BUILDING
+                    )
+                ),
+        zombieCount = 0,
+        gridCols = 30,
+        collisionMatrix = LOBBY_MATRIX
+    )
 
     // ─── INTERIORES EXPANDIBLE: definición de un campus ───────────────────────
     // Un edificio de un campus nuevo. (id estable, nombre visible, fondo, nº de zombis.)

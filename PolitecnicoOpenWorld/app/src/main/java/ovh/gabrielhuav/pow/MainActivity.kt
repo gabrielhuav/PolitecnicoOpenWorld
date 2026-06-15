@@ -286,11 +286,77 @@ class MainActivity : ComponentActivity() {
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
                                     worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.first)
-                                    navController.navigate("world_map") {
+                                    // Tras el último panel de la intro (IntroPOW8), la transición
+                                    // entra al PRIMER interior de la campaña: el Lobby de la ENCB.
+                                    // popUpTo main_menu inclusive DESTRUYE la pantalla de la intro
+                                    // (story_intro) y libera los bitmaps IntroPOW1..8 de memoria.
+                                    navController.navigate("encb_lobby") {
                                         popUpTo("main_menu") { inclusive = true }
                                     }
                                 },
                                 onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        // ─── MODO HISTORIA · Lobby ENCB (primer interior JUGABLE) ──
+                        // Reusa el MOTOR DE INTERIORES (ZombieGameScreen) con la sala
+                        // `encb_lobby` (zona segura, sin zombis/mano/waypoints; ver
+                        // ZombieRoomCatalog). Mismos controles, cámara, colisiones y aura
+                        // que el lobby de ESCOM. Es una sesión de campaña offline
+                        // (onBegin ya hizo disconnectFromMultiplayer). Al salir (menú de
+                        // Opciones → "Salir al mapa") arranca el open world ya configurado
+                        // (spawn/objetivo/slot); popUpTo encb_lobby inclusive libera el lobby.
+                        composable(route = "encb_lobby") {
+                            val wmState by worldMapViewModel.uiState.collectAsState()
+                            ZombieGameScreen(
+                                onExitToWorld = {
+                                    navController.navigate("world_map") {
+                                        popUpTo("encb_lobby") { inclusive = true }
+                                    }
+                                },
+                                isMultiplayer = wmState.isMultiplayer,
+                                playerName = wmState.playerName,
+                                onNavigateToSettings = { navController.navigate("settings") },
+                                debugHitboxes = false,
+                                startRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID,
+                                onRequestSaveGame = { showSaveDialog = true },
+                                // Waypoint final de ENCB_LAB2 → reanuda la narrativa (cómic
+                                // ENCB_OUTRO). popUpTo encb_lobby inclusive libera el motor de
+                                // interiores (la cadena de salas) antes de mostrar el cómic.
+                                onPlayStoryOutro = {
+                                    navController.navigate("story_outro") {
+                                        popUpTo("encb_lobby") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
+                        // ─── MODO HISTORIA · Outro (2ª parte de la intro: IntroPOW9..11) ──
+                        // Reusa el visor de cómic (StoryIntroScreen) con la secuencia
+                        // ENCB_OUTRO. Al ser otra pantalla, la UI de juego (joysticks/objetivo)
+                        // queda oculta por completo. Al terminar el último panel (IntroPOW11) o
+                        // saltar, se entra al MUNDO LIBRE ya configurado en la campaña
+                        // (spawn/objetivo/slot fijados al INICIAR la intro).
+                        composable(route = "story_outro") {
+                            StoryIntroScreen(
+                                school = SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.StoryComicCatalog.ENCB_OUTRO_ID,
+                                onBegin = {
+                                    // SPAWN ENCB EXCLUSIVO DEL MODO HISTORIA: solo aquí, al
+                                    // terminar el outro (IntroPOW11), el jugador aparece en la
+                                    // ENCB. setStorySpawn fija la posición y activa inCampaign=true.
+                                    worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
+                                    navController.navigate("world_map") {
+                                        popUpTo("story_outro") { inclusive = true }
+                                    }
+                                },
+                                onBack = {
+                                    // Misma transición narrativa (saltar/volver el outro): ENCB.
+                                    worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
+                                    navController.navigate("world_map") {
+                                        popUpTo("story_outro") { inclusive = true }
+                                    }
+                                }
                             )
                         }
 

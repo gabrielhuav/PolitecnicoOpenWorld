@@ -48,7 +48,7 @@ internal fun ZombieGameViewModel.tick() {
 
         // Pantallas bloqueantes / modo diseñador: no simular.
         if (s.showVictoryScreen || s.showWastedScreen || s.isExitingToWorld ||
-            s.showExitToLobbyDialog || s.designerMode) return
+            s.isExitingToStoryOutro || s.showExitToLobbyDialog || s.designerMode) return
 
         if (isMultiplayer) tickOnline(s, now) else tickOffline(s, now)
     }

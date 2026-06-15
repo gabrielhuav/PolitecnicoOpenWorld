@@ -1332,6 +1332,13 @@ fun WorldMapScreen(
                             }
                         } else wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(0, 0, [], false);", null)
 
+                        // MODO HISTORIA: línea GPS roja de campaña (ENCB → ESCOM). Se dibuja/limpia
+                        // según el estado; al llegar a ESCOM el VM la vacía y aquí se borra sola.
+                        if (uiState.campaignRouteWaypoints.isNotEmpty()) {
+                            val campJson = uiState.campaignRouteWaypoints.map { mapOf("lat" to it.latitude, "lng" to it.longitude) }.let { gson.toJson(it) }
+                            wv.evaluateJavascript("if(typeof updateCampaignRoute==='function')updateCampaignRoute($campJson);", null)
+                        } else wv.evaluateJavascript("if(typeof updateCampaignRoute==='function')updateCampaignRoute([]);", null)
+
                         // Waypoints de patrullas FUERA de la neblina (paridad con OSM nativo):
                         // 🚓 + línea punteada jugador→patrulla mientras te buscan. Las patrullas
                         // DENTRO de la neblina ya se dibujan como sprite (no llevan waypoint).

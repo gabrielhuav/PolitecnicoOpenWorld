@@ -141,6 +141,9 @@ data class WorldMapState(
     val isTargetingWaypoint: Boolean = false,
     val routeWaypoints: List<GeoPoint> = emptyList(),
     val showDestinationRoute: Boolean = true,
+    // MODO HISTORIA: línea GPS ROJA de la misión "Lleva a Prankedy a un lugar seguro"
+    // (ruta A* ENCB→ESCOM sobre la red vial). Vacía = sin línea (free roam o ya llegó).
+    val campaignRouteWaypoints: List<GeoPoint> = emptyList(),
     val destinationArrivalThreshold: Double = 20.0,
     val showZombiVideo: Boolean = false,
     val isZombieHandSpawned: Boolean = false,
