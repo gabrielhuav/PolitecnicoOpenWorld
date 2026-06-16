@@ -167,6 +167,7 @@ fun StoryIntroScreen(
             "IntroPOW5.webp" -> {
                 soundManager.stopAllStorySounds()
                 soundManager.playStoryRunning(loop = true)
+                soundManager.playPuerquito()
             }
             "IntroPOW6.webp" -> {
                 soundManager.stopAllStorySounds()
@@ -212,12 +213,15 @@ fun StoryIntroScreen(
     var panelOffX by remember { mutableFloatStateOf(0f) }
     var panelOffY by remember { mutableFloatStateOf(0f) }
 
-    val image = remember(panel.assetPath) {
-        try {
-            context.assets.open(panel.assetPath).use {
-                android.graphics.BitmapFactory.decodeStream(it)?.asImageBitmap()
-            }
-        } catch (_: Exception) { null }
+    // SKIN: ciertos paneles del cómic (IntroPOW9/10/11/15) cambian según la skin elegida en
+    // "Cambiar Skin": por defecto IntroPOW9.webp (Lázaro/hombre); con la mujer IntroPOW9Girl.webp;
+    // con el robot IntroPOW9Robot.webp. El resto de paneles NO cambian. Si la variante no existe,
+    // cae al panel por defecto.
+    val comicSuffix = remember {
+        ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getPlayerSkin().comicSuffix
+    }
+    val image = remember(panel.assetPath, comicSuffix) {
+        loadComicPanel(context, panel.assetPath, comicSuffix)
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D11))) {
@@ -412,6 +416,37 @@ private fun PillButton(
             .clickable { onClick() }
             .padding(horizontal = 10.dp, vertical = 6.dp)
     )
+}
+
+// Paneles del cómic que CAMBIAN según la skin (Cambiar Skin). Para estos, si la skin tiene
+// `comicSuffix` (p. ej. "Girl"/"Robot"), se intenta primero IntroPOW9Girl.webp / IntroPOW9Robot.webp;
+// si no existe, se usa el panel por defecto (IntroPOW9.webp = Lázaro/hombre).
+private val SKIN_VARIANT_PANELS = setOf(
+    "STORY/INTRO/IntroPOW9.webp",
+    "STORY/INTRO/IntroPOW10.webp",
+    "STORY/INTRO/IntroPOW11.webp",
+    "STORY/INTRO/IntroPOW15.webp"
+)
+
+// Carga el bitmap del panel, eligiendo la variante de skin cuando aplica (con fallback al default).
+private fun loadComicPanel(
+    context: Context,
+    assetPath: String,
+    comicSuffix: String
+): androidx.compose.ui.graphics.ImageBitmap? {
+    val candidates = buildList {
+        if (comicSuffix.isNotEmpty() && assetPath in SKIN_VARIANT_PANELS) {
+            add(assetPath.removeSuffix(".webp") + comicSuffix + ".webp")   // variante de skin
+        }
+        add(assetPath)   // panel por defecto / fallback
+    }
+    for (path in candidates) {
+        val bmp = try {
+            context.assets.open(path).use { android.graphics.BitmapFactory.decodeStream(it)?.asImageBitmap() }
+        } catch (_: Exception) { null }
+        if (bmp != null) return bmp
+    }
+    return null
 }
 
 // Desenvuelve el Context (puede venir envuelto por LocaleHelper.wrap) hasta la Activity,

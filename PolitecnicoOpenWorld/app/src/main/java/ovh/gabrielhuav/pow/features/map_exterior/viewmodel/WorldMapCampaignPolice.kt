@@ -32,6 +32,31 @@ private const val CROWD_SPEED = 0.0000016             // caminan despacio, hacia
 private const val CROWD_DESPAWN_DEG = 0.0009          // ~100 m: al salir de tu fog se eliminan
 private const val CROWD_SPAWN_OFFSET = 0.00006        // ~6 m de la puerta al aparecer
 
+// Apunta el objetivo (y por tanto el waypoint 🎯, la línea guía, la distancia del widget y la
+// llegada) a la PUERTA de la ESCOM REAL: el landmark `DOORS/ESCOM_DOOR.webp` más cercano colocado
+// con el Diseñador (donde el jugador interactúa para entrar). Si no hay puerta colocada, conserva
+// el destino configurado. Solo aplica a los objetivos de la ESCOM (escolta / ingresar).
+internal fun WorldMapViewModel.syncObjectiveToEscomDoor(playerLoc: GeoPoint) {
+    val obj = _uiState.value.currentObjective ?: return
+    if (obj.id != MissionCatalog.ESCOLTAR_PRANKEDY.id && obj.id != MissionCatalog.INGRESAR_ESCOM.id) return
+    // Puertas de la ESCOM: landmarks colocados con el Diseñador (DOORS/ESCOM_DOOR.webp) +
+    // las puertas placeholder de spawnEscomDoors (escom_door_*). Estas son donde el jugador
+    // interactúa para entrar; el objetivo apunta a la MÁS CERCANA.
+    val doorLocs = ArrayList<GeoPoint>()
+    _uiState.value.landmarks.filter { it.assetPath == ESCOM_DOOR_ASSET }.forEach { doorLocs.add(it.location) }
+    _escomItems.value.filter { it.id.startsWith("escom_door_") }.forEach { doorLocs.add(GeoPoint(it.latitude, it.longitude)) }
+    if (doorLocs.isEmpty()) return
+    val nearest = doorLocs.minByOrNull {
+        val dLat = it.latitude - playerLoc.latitude
+        val dLon = it.longitude - playerLoc.longitude
+        dLat * dLat + dLon * dLon
+    } ?: return
+    if (kotlin.math.abs(obj.targetLat - nearest.latitude) > 1e-6 ||
+        kotlin.math.abs(obj.targetLon - nearest.longitude) > 1e-6) {
+        _uiState.update { it.copy(currentObjective = obj.copy(targetLat = nearest.latitude, targetLon = nearest.longitude)) }
+    }
+}
+
 internal fun WorldMapViewModel.isCampaignEscortActive(): Boolean {
     if (!inCampaign) return false
     val obj = _uiState.value.currentObjective ?: return false

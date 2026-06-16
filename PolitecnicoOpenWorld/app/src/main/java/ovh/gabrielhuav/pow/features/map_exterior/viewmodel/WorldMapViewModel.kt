@@ -653,6 +653,8 @@ class WorldMapViewModel(
                         // búsqueda del mundo libre, para que no choquen. Fuera de la escolta corre
                         // la policía normal del mundo libre. Al terminar la escolta (o salir de la
                         // campaña) se limpia la policía de campaña.
+                        // El objetivo de la ESCOM apunta a la PUERTA real (landmark) más cercana.
+                        if (isCampaignEscortActive() || isMission2ChaseActive()) syncObjectiveToEscomDoor(location)
                         when {
                             // MISIÓN 1: escolta (2 a pie, te siguen a distancia).
                             isCampaignEscortActive() -> {
@@ -2671,6 +2673,13 @@ class WorldMapViewModel(
                     n.contains("FES", ignoreCase = true) -> "interiores_zombies?startRoom=fes_interior"
                     // Puertas ESCOM (Norte/Sur, etc.) → lobby de ESCOM (sin arg = default).
                     else -> "interiores_zombies"
+                }
+                // MODO HISTORIA · Misión 2 "Ingresa a la ESCOM": se cumple al ENTRAR por la puerta
+                // (este es el momento de "ingresar"). Marca el objetivo cumplido + jingle.
+                if (_uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id
+                    && !_uiState.value.objectiveDone) {
+                    _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.title ?: ""}") }
+                    soundManager.playMisionCumplida()
                 }
                 _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }
             }

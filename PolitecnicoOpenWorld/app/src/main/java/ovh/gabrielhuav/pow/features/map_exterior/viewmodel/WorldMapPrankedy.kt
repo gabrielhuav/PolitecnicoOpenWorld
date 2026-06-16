@@ -23,9 +23,10 @@ private const val ENCB_LON = -99.1450298
 // prematuramente si el game loop del mundo corre con location=ESCOM antes del outro.
 private const val ENCB_NEIGHBORHOOD_DEG = 0.002
 
-// Destino "lugar seguro" de la misión = ESCOM. La línea GPS roja va de la ENCB a aquí.
-private const val ESCOM_LAT = 19.504603
-private const val ESCOM_LON = -99.145985
+// Destino de la misión = PUERTA de la ESCOM (puerta norte). La línea GPS roja va de la ENCB
+// a la puerta (mismo punto que el objetivo ESCOLTAR_PRANKEDY).
+private const val ESCOM_LAT = ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_DOOR_LAT
+private const val ESCOM_LON = ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_DOOR_LON
 private const val ESCOM_ARRIVE_DEG = 0.0009   // ~100 m: al entrar, la línea GPS desaparece
 
 /**

@@ -37,6 +37,8 @@ class SoundManager private constructor(context: Context) {
     private var queTeTraesSoundId = -1
     private var contestameSoundId = -1
     private var paraleSoundId = -1
+    private var puerquitoSoundId = -1        // SFX en IntroPOW5 del cómic
+    private var misionCumplidaSoundId = -1   // jingle al cumplir la misión
 
     private var walkStreamId = -1
     private var runStreamId = -1
@@ -83,6 +85,9 @@ class SoundManager private constructor(context: Context) {
             queTeTraesSoundId = soundPool?.load(assetManager.openFd("sonidos/que te traes.m4a"), 1) ?: -1
             contestameSoundId = soundPool?.load(assetManager.openFd("sonidos/contestame.m4a"), 1) ?: -1
             paraleSoundId = soundPool?.load(assetManager.openFd("sonidos/parale.m4a"), 1) ?: -1
+            // SFX del cómic (IntroPOW5) y jingle de misión cumplida.
+            puerquitoSoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/Puerquito.mp3"), 1) ?: -1
+            misionCumplidaSoundId = soundPool?.load(assetManager.openFd("sonidos/MisionCumplida.mp3"), 1) ?: -1
         } catch (e: Exception) {
             Log.e("SoundManager", "Error loading sounds", e)
         }
@@ -263,6 +268,17 @@ class SoundManager private constructor(context: Context) {
     fun playParale() {
         val streamId = soundPool?.play(paraleSoundId, 1f, 1f, 1, 0, 1f) ?: -1
         if (streamId != -1) storyStreamIds.add(streamId)
+    }
+
+    // SFX del panel IntroPOW5 del cómic (se detiene con stopAllStorySounds al cambiar de panel).
+    fun playPuerquito() {
+        val streamId = soundPool?.play(puerquitoSoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        if (streamId != -1) storyStreamIds.add(streamId)
+    }
+
+    // Jingle al CUMPLIR la misión (no es del cómic: no se registra en storyStreamIds).
+    fun playMisionCumplida() {
+        soundPool?.play(misionCumplidaSoundId, 1f, 1f, 1, 0, 1f)
     }
 
     fun stopAllStorySounds() {

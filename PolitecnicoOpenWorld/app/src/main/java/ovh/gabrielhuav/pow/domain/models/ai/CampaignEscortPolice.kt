@@ -30,10 +30,10 @@ class CampaignEscortPolice {
 
     companion object {
         const val COP_COUNT = 2
-        const val SPAWN_BEHIND = 0.00085    // ~94 m: aparecen DETRÁS, fuera de la niebla
-        const val FOLLOW_DISTANCE = 0.00068 // ~76 m: distancia considerable (un poco más cerca; > niebla 70 m → sigue como waypoint)
-        const val RESUME_BAND = 0.00015     // ~17 m de histéresis: evita el tembleque en el borde
-        const val COP_SPEED = 0.0000030     // por tick: a pie y LENTOS (no te alcanzan corriendo)
+        const val SPAWN_BEHIND = 0.0005     // ~55 m: aparecen DETRÁS, cerca y visibles
+        const val FOLLOW_DISTANCE = 0.0004  // ~45 m: te siguen DE CERCA (visibles como sprite, no tan lejos)
+        const val RESUME_BAND = 0.00012     // ~13 m de histéresis: evita el tembleque en el borde
+        const val COP_SPEED = 0.0000032     // por tick: a pie y lentos (no te alcanzan corriendo)
 
         // ─── MISIÓN 2 (persecución) ──────────────────────────────────────────
         const val CHASE_SPEED = 0.0000050   // más rápido que la escolta (presionan), pero escapable a pie

@@ -224,6 +224,9 @@ class MainActivity : ComponentActivity() {
                                     // así que NO se auto-guarda al salir.
                                     worldMapViewModel.inCampaign = false
                                     worldMapViewModel.currentInteriorRoomId = null
+                                    // MUNDO LIBRE no tiene objetivo de campaña: lo limpiamos para que
+                                    // el cuadro de OBJETIVO no quede colgado del Modo Historia.
+                                    worldMapViewModel.setCampaignObjective(null)
                                     // La música es exclusiva de la misión: en MUNDO LIBRE no debe sonar.
                                     ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).apply {
                                         stopInvestigarMusic(); stopLugarSeguroMusic(); stopMainMusic()

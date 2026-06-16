@@ -24,32 +24,39 @@ object MissionCatalog {
         targetLon = -99.148900
     )
 
-    // Escolta: Prankedy te acompaña (fase HIRED) y debes llevarlo a la ESCOM (el "lugar seguro").
+    // PUERTA de la ESCOM (puerta norte, de WorldMapEscom.spawnEscomDoors). Es el destino de la
+    // Misión 1 y de donde sale la multitud al llegar. Compartida por los objetivos y la línea GPS.
+    const val ESCOM_DOOR_LAT = 19.50490
+    const val ESCOM_DOOR_LON = -99.14674
+
+    // Escolta: Prankedy te acompaña (fase HIRED) y debes llevarlo a la PUERTA de la ESCOM.
     // Solo se activa en campaña y en el vecindario de la ENCB (ver WorldMapPrankedy.maybeSpawnPrankedyCompanion).
-    // El destino es la ESCOM (mismo punto donde se oculta la línea GPS y para la música); al
-    // entrar en arriveRadiusMeters se marca cumplido.
+    // Al entrar en arriveRadiusMeters de la puerta se marca cumplido → dispara el cómic + la persecución.
+    // El destino REAL se ajusta en runtime a la PUERTA de la ESCOM más cercana (landmark
+    // DOORS/ESCOM_DOOR.webp) vía WorldMapCampaignPolice.syncObjectiveToEscomDoor. El radio es
+    // pequeño: basta con llegar y quedar AL LADO de la puerta (no hay que interactuar).
     val ESCOLTAR_PRANKEDY = CampaignObjective(
         id = "escoltar_prankedy",
-        title = "Lleva a Prankedy a la ESCOM",
-        description = "Protege a Prankedy y escóltalo hasta la ESCOM (lugar seguro).",
-        targetLat = 19.504603,
-        targetLon = -99.145985,
-        arriveRadiusMeters = 80.0
+        title = "Lleva a Prankedy a la puerta de la ESCOM",
+        description = "Protege a Prankedy y escóltalo hasta la PUERTA de la ESCOM.",
+        targetLat = ESCOM_DOOR_LAT,
+        targetLon = ESCOM_DOOR_LON,
+        arriveRadiusMeters = 12.0
     )
 
     // Misión 2: tras llegar a la ESCOM, te persiguen y debes INGRESAR a la ESCOM (entrar al
     // edificio). El destino es el centro de la ESCOM con un radio pequeño (al acercarte a la
     // entrada se cumple). Lo activa MainActivity tras el cómic IntroPOW12..14.
-    // Radio PEQUEÑO (20 m) y MENOR que el de ESCOLTAR_PRANKEDY (80 m): la Misión 1 se cumple
-    // al ACERCARTE a la ESCOM (80 m), así que al iniciar la Misión 2 sigues lejos de los 20 m y
-    // debes APROXIMARTE a la entrada (no se cumple sola).
+    // arriveRadiusMeters = 0 → NO se cumple por cercanía (si fuera por cercanía se cumpliría sola,
+    // porque ya estás en la puerta tras la Misión 1). Se cumple al INTERACTUAR/ENTRAR por la puerta
+    // de la ESCOM (lo marca WorldMapViewModel al disparar el fade de la puerta). Ver checkObjectiveProgress.
     val INGRESAR_ESCOM = CampaignObjective(
         id = "ingresar_escom",
         title = "Ingresa a la ESCOM",
-        description = "¡Te persiguen! Entra a la ESCOM para ponerte a salvo.",
-        targetLat = 19.504603,
-        targetLon = -99.145985,
-        arriveRadiusMeters = 20.0
+        description = "¡Te persiguen! Entra por la puerta de la ESCOM para ponerte a salvo.",
+        targetLat = ESCOM_DOOR_LAT,
+        targetLon = ESCOM_DOOR_LON,
+        arriveRadiusMeters = 0.0
     )
 
     private val all = listOf(IR_ENCB, ESCOLTAR_PRANKEDY, INGRESAR_ESCOM)

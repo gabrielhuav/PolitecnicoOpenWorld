@@ -1372,8 +1372,10 @@ internal fun NativeOsmMap(
             }
 
             // ─── WAYPOINT DEL OBJETIVO (Modo Historia) ───────────────────────────
-            // Marca el destino del objetivo de campaña con un 🎯 (además del camino rojo).
+            // Marca el destino del objetivo con un 🎯 Y una LÍNEA jugador→objetivo (te indica
+            // a DÓNDE IR aunque el destino esté fuera de pantalla), además del camino rojo.
             val objWpTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 760
+            val objLineTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 761
             val objMarker = (view.getTag(objWpTag) as? Marker) ?: Marker(view).apply {
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 setInfoWindow(null)
@@ -1382,14 +1384,31 @@ internal fun NativeOsmMap(
                 view.setTag(objWpTag, this)
                 view.overlays.add(this)
             }
+            val objLine = (view.getTag(objLineTag) as? Polyline) ?: Polyline().apply {
+                outlinePaint.color = android.graphics.Color.argb(170, 255, 193, 7) // ámbar
+                outlinePaint.strokeWidth = 7f
+                outlinePaint.isAntiAlias = true
+                outlinePaint.style = android.graphics.Paint.Style.STROKE
+                outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(22f, 16f), 0f)
+                setInfoWindow(null)
+                view.setTag(objLineTag, this)
+                view.overlays.add(0, this) // bajo los marcadores
+            }
             val campObj = uiState.currentObjective
+            val campPlayer = uiState.currentLocation
             if (campObj != null && !uiState.objectiveDone) {
-                objMarker.position = GeoPoint(campObj.targetLat, campObj.targetLon)
+                val target = GeoPoint(campObj.targetLat, campObj.targetLon)
+                objMarker.position = target
                 objMarker.isEnabled = true
                 objMarker.setAlpha(0.9f)
+                if (campPlayer != null) {
+                    objLine.setPoints(listOf(GeoPoint(campPlayer.latitude, campPlayer.longitude), target))
+                    objLine.isEnabled = true
+                }
             } else {
                 objMarker.isEnabled = false
                 objMarker.setAlpha(0f)
+                objLine.isEnabled = false
             }
 
             // ─── PRANKEDY: renderizado siempre en capa superior (tras la niebla) ──

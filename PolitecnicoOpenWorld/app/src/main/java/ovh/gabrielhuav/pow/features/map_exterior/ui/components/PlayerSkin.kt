@@ -24,7 +24,13 @@ enum class PlayerSkin(
     val runFrames: Int = 25,
     val specialFrames: Int = 25,
     /** Ruta al sprite de previsualización (idle frame 1) */
-    val previewAsset: String = "MAIN/${skinFolder}Idle/${skinPrefix}i_1.webp"
+    val previewAsset: String = "MAIN/${skinFolder}Idle/${skinPrefix}i_1.webp",
+    /**
+     * Sufijo del cómic del Modo Historia para los paneles que cambian según la skin
+     * (IntroPOW9/10/11/15). "" = panel por defecto (Lázaro/hombre). Ej.: con "Girl" se usa
+     * `IntroPOW9Girl.webp`; con "Robot" se usa `IntroPOW9Robot.webp`. Ver StoryIntroScreen.
+     */
+    val comicSuffix: String = ""
 ) {
     LAZARO(
         displayName = "Lázaro",
@@ -32,7 +38,8 @@ enum class PlayerSkin(
         skinPrefix  = "lazaro_",
         idleFrames   = 6,   // tienes 6
         walkFrames   = 6,   // tienes 6
-        specialFrames = 8   // tienes 8
+        specialFrames = 8,  // tienes 8
+        comicSuffix = ""    // panel por defecto (hombre)
     ),
 
     escomgirl(
@@ -42,12 +49,14 @@ enum class PlayerSkin(
         idleFrames   = 6,   // tienes 6
         walkFrames   = 5,   // tienes 5
         runFrames    = 4,   // tienes 4
-        specialFrames = 6   // tienes 6
+        specialFrames = 6,  // tienes 6
+        comicSuffix = "Girl"
     ),
     robot(
         displayName = "Robot Estudiantx",
         skinFolder  = "robot",
         skinPrefix  = "robot_",
+        comicSuffix = "Robot"
     ),
     // ── Agrega aquí nuevas skins ──────────────────────────────────────────
     // Ejemplo con una skin "Ana":

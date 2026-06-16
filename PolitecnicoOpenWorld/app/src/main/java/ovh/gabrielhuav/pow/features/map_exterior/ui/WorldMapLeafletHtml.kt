@@ -544,15 +544,22 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         }
         // ─── WAYPOINT DEL OBJETIVO (Modo Historia) ──────────────────────────────────
         // Marca el destino del objetivo de campaña con un 🎯 (además del camino rojo).
-        function updateObjectiveWp(lat, lng) {
+        function updateObjectiveWp(playerLat, playerLng, lat, lng) {
             if (lat === null || lat === undefined) {
                 if (window.__objWp) { map.removeLayer(window.__objWp); window.__objWp = null; }
+                if (window.__objLine) { map.removeLayer(window.__objLine); window.__objLine = null; }
                 return;
             }
             if (window.__objWp) { window.__objWp.setLatLng([lat, lng]); }
             else {
                 var icon = L.divIcon({ html: '<div style="font-size:28px; transform:translate(-50%,-50%);">🎯</div>', className: '', iconSize: [0,0] });
                 window.__objWp = L.marker([lat, lng], { icon: icon, interactive: false, zIndexOffset: 850 }).addTo(map);
+            }
+            // Línea jugador→objetivo: te indica a DÓNDE IR aunque el destino esté fuera de pantalla.
+            var pts = [[playerLat, playerLng], [lat, lng]];
+            if (window.__objLine) { window.__objLine.setLatLngs(pts); }
+            else {
+                window.__objLine = L.polyline(pts, { color: '#FFC107', weight: 4, opacity: 0.65, dashArray: '22, 16', interactive: false }).addTo(map);
             }
         }
         // ─── WAYPOINTS DE ZOMBIS (fuera del fog, modo apocalipsis) ──────────────────
