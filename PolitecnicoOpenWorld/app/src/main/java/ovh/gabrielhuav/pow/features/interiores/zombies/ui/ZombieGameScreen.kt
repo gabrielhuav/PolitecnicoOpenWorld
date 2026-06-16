@@ -566,7 +566,8 @@ fun ZombieGameScreen(
                         fontSize = 15.sp,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
-                            .background(Color(0xCC000000), RoundedCornerShape(10.dp))
+                            .alpha(0.85f)   // difuminado para no chocar con los widgets
+                            .background(Color(0x99000000), RoundedCornerShape(10.dp))
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }

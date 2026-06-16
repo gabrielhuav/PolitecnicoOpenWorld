@@ -24,12 +24,21 @@ import kotlin.math.sqrt
  */
 class CampaignEscortPolice {
 
+    // ESCORT = Misión 1 (2 policías que te SIGUEN a distancia, despacio).
+    // CHASE  = Misión 2 (varios policías que te PERSIGUEN para obligarte a entrar a la ESCOM).
+    enum class Mode { ESCORT, CHASE }
+
     companion object {
         const val COP_COUNT = 2
-        const val SPAWN_BEHIND = 0.00095    // ~105 m: aparecen DETRÁS, fuera de la niebla
-        const val FOLLOW_DISTANCE = 0.00078 // ~87 m: distancia considerable (> niebla 70 m → waypoint)
+        const val SPAWN_BEHIND = 0.00085    // ~94 m: aparecen DETRÁS, fuera de la niebla
+        const val FOLLOW_DISTANCE = 0.00068 // ~76 m: distancia considerable (un poco más cerca; > niebla 70 m → sigue como waypoint)
         const val RESUME_BAND = 0.00015     // ~17 m de histéresis: evita el tembleque en el borde
         const val COP_SPEED = 0.0000030     // por tick: a pie y LENTOS (no te alcanzan corriendo)
+
+        // ─── MISIÓN 2 (persecución) ──────────────────────────────────────────
+        const val CHASE_SPEED = 0.0000050   // más rápido que la escolta (presionan), pero escapable a pie
+        const val CHASE_SPAWN_RING = 0.0013 // ~145 m: aparecen ALGO LEJOS, rodeándote
+        const val CHASE_CONTACT = 0.00004   // ~4.5 m: a esta distancia ya te "alcanzaron" (se detienen encima)
 
         // Pathfinding / anti-atasco (mismos umbrales que PoliceManager).
         const val ROUTE_TTL_MS = 1500L      // recalcular la ruta hacia ti cada ~1.5 s
@@ -37,6 +46,9 @@ class CampaignEscortPolice {
         const val STUCK_TIME_MS = 1500L     // si no avanza 1.5 s, va DIRECTO un momento para despegarse
         const val STUCK_EPS = 0.00002       // ~2 m: umbral de "no se movió"
     }
+
+    @Volatile var mode: Mode = Mode.ESCORT
+        private set
 
     private val units = ConcurrentHashMap<String, Npc>()
     // Estado de ruta por policía (A* sobre la red de calles).
@@ -53,28 +65,47 @@ class CampaignEscortPolice {
         stuckPos.clear(); stuckSince.clear()
     }
 
-    /** Crea los 2 policías DETRÁS del jugador (en abanico), sobre la calle si hay `snap`. */
+    /** MISIÓN 1: crea los 2 policías DETRÁS del jugador (en abanico) que lo SIGUEN a distancia. */
     fun spawn(playerLat: Double, playerLon: Double, snap: ((GeoPoint) -> GeoPoint)? = null) {
         clear()
+        mode = Mode.ESCORT
         for (i in 0 until COP_COUNT) {
             val ang = Math.PI + (if (i == 0) -0.30 else 0.30)   // detrás, abierto en abanico
             val raw = GeoPoint(
                 playerLat + sin(ang) * SPAWN_BEHIND,
                 playerLon + cos(ang) * SPAWN_BEHIND
             )
-            val placed = snap?.invoke(raw) ?: raw
-            val id = "CAMPAIGN_COP_$i"
-            units[id] = Npc(
-                id = id,
-                type = NpcType.POLICE_COP,
-                location = placed,
-                speed = COP_SPEED,
-                isRemote = false,
-                isMoving = true,
-                policeDisembarked = true,   // ya está "a pie" (no pertenece a ninguna patrulla)
-                policeCanShoot = false       // NUNCA dispara: es escolta narrativa
-            )
+            spawnCop(i, raw, snap)
         }
+    }
+
+    /** MISIÓN 2: crea `count` policías ALGO LEJOS (en un anillo alrededor) que te PERSIGUEN. */
+    fun spawnChase(count: Int, playerLat: Double, playerLon: Double, snap: ((GeoPoint) -> GeoPoint)? = null) {
+        clear()
+        mode = Mode.CHASE
+        for (i in 0 until count) {
+            val ang = (2.0 * Math.PI * i / count)   // repartidos alrededor del jugador
+            val raw = GeoPoint(
+                playerLat + sin(ang) * CHASE_SPAWN_RING,
+                playerLon + cos(ang) * CHASE_SPAWN_RING
+            )
+            spawnCop(i, raw, snap)
+        }
+    }
+
+    private fun spawnCop(i: Int, raw: GeoPoint, snap: ((GeoPoint) -> GeoPoint)?) {
+        val placed = snap?.invoke(raw) ?: raw
+        val id = "CAMPAIGN_COP_$i"
+        units[id] = Npc(
+            id = id,
+            type = NpcType.POLICE_COP,
+            location = placed,
+            speed = COP_SPEED,
+            isRemote = false,
+            isMoving = true,
+            policeDisembarked = true,   // ya está "a pie" (no pertenece a ninguna patrulla)
+            policeCanShoot = false       // NUNCA dispara
+        )
     }
 
     /**
@@ -90,15 +121,17 @@ class CampaignEscortPolice {
         snap: ((GeoPoint) -> GeoPoint)? = null,
         pathfind: ((GeoPoint, GeoPoint) -> List<GeoPoint>)? = null
     ) {
+        val stopDist = if (mode == Mode.CHASE) CHASE_CONTACT else FOLLOW_DISTANCE
+        val speed = if (mode == Mode.CHASE) CHASE_SPEED else COP_SPEED
         for (u in units.values.toList()) {
             val d = dist(u.location.latitude, u.location.longitude, playerLat, playerLon)
-            if (d <= FOLLOW_DISTANCE) {
-                // Mantiene la distancia: deja de avanzar y olvida la ruta (se recalcula al alejarse).
+            if (d <= stopDist) {
+                // ESCORT: mantiene la distancia. CHASE: ya te alcanzó (se queda encima).
                 forgetRoute(u.id)
                 if (u.isMoving) units[u.id] = u.copy(isMoving = false)
                 continue
             }
-            val (loc, rot, facing) = advanceAlong(u, playerLat, playerLon, COP_SPEED, now, snap, pathfind)
+            val (loc, rot, facing) = advanceAlong(u, playerLat, playerLon, speed, now, snap, pathfind)
             units[u.id] = u.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
         }
     }

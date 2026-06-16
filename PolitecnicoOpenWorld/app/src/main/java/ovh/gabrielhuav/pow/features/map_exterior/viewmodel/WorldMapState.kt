@@ -182,6 +182,10 @@ data class WorldMapState(
     // (título + distancia) siempre que haya uno. `objectiveDone` se marca al llegar.
     val currentObjective: ovh.gabrielhuav.pow.domain.models.CampaignObjective? = null,
     val objectiveDone: Boolean = false,
+    // MODO HISTORIA · Misión 2: al cumplir la Misión 1 (llegar a la ESCOM) se pone a true para
+    // que MainActivity reproduzca el cómic IntroPOW12..14 y luego arranque la persecución.
+    // MainActivity lo consume (lo vuelve a false) al navegar al cómic.
+    val pendingMission2Intro: Boolean = false,
 
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,

@@ -262,6 +262,12 @@ class WorldMapViewModel(
     internal val campaignEscortPolice = ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice()
     // Spawn diferido (una vez por activación); setStorySpawn la re-arma en cada entrada de campaña.
     internal var campaignPoliceActivated = false
+    // MISIÓN 2: persecución de 6 policías + multitud saliendo de la ESCOM (ver WorldMapCampaignPolice.kt).
+    internal var mission2ChaseActivated = false
+    // Multitud de NPCs que SALEN de la puerta de la ESCOM (hora de salida) y se despawnean al
+    // salir de tu fog of war. Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs.
+    internal val mission2Crowd = ConcurrentHashMap<String, Npc>()
+    internal var mission2CrowdLastSpawn = 0L
 
     // ─── PRANKEDY (NPC compañero) ─────────────────────────────────────────────
     internal val prankedyManager = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager()
@@ -647,14 +653,26 @@ class WorldMapViewModel(
                         // búsqueda del mundo libre, para que no choquen. Fuera de la escolta corre
                         // la policía normal del mundo libre. Al terminar la escolta (o salir de la
                         // campaña) se limpia la policía de campaña.
-                        if (isCampaignEscortActive()) {
-                            if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
-                                runCampaignEscortTick(location)
+                        when {
+                            // MISIÓN 1: escolta (2 a pie, te siguen a distancia).
+                            isCampaignEscortActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runCampaignEscortTick(location)
+                                }
                             }
-                        } else {
-                            if (campaignPoliceActivated) clearCampaignEscort()
-                            if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
-                                runPoliceTick(location)
+                            // MISIÓN 2: persecución (6 policías) + multitud saliendo de la ESCOM.
+                            isMission2ChaseActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runMission2Tick(location)
+                                }
+                            }
+                            // Fuera de la campaña / misión cumplida: limpia la policía de campaña y
+                            // corre la policía normal del mundo libre.
+                            else -> {
+                                if (campaignPoliceActivated || mission2ChaseActivated) clearCampaignPolice()
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runPoliceTick(location)
+                                }
                             }
                         }
 
@@ -1421,7 +1439,9 @@ class WorldMapViewModel(
         inCampaign = true            // sesión de campaña → habilita el auto-guardado al salir
         prankedyCompanionActivated = false  // re-arma el encendido del acompañante en la ENCB
         campaignPoliceActivated = false     // re-arma la policía de escolta de la Misión 1
+        mission2ChaseActivated = false      // re-arma la persecución de la Misión 2
         campaignEscortPolice.clear()
+        mission2Crowd.clear()
         npcWarmupCycles = 0          // re-arma el warm-up de NPCs del gate de carga
         lastNetworkFetchLocation = null  // fuerza el re-fetch de calles alrededor de la escuela
         lastFetchAttemptMs = 0L

@@ -37,7 +37,22 @@ object MissionCatalog {
         arriveRadiusMeters = 80.0
     )
 
-    private val all = listOf(IR_ENCB, ESCOLTAR_PRANKEDY)
+    // Misión 2: tras llegar a la ESCOM, te persiguen y debes INGRESAR a la ESCOM (entrar al
+    // edificio). El destino es el centro de la ESCOM con un radio pequeño (al acercarte a la
+    // entrada se cumple). Lo activa MainActivity tras el cómic IntroPOW12..14.
+    // Radio PEQUEÑO (20 m) y MENOR que el de ESCOLTAR_PRANKEDY (80 m): la Misión 1 se cumple
+    // al ACERCARTE a la ESCOM (80 m), así que al iniciar la Misión 2 sigues lejos de los 20 m y
+    // debes APROXIMARTE a la entrada (no se cumple sola).
+    val INGRESAR_ESCOM = CampaignObjective(
+        id = "ingresar_escom",
+        title = "Ingresa a la ESCOM",
+        description = "¡Te persiguen! Entra a la ESCOM para ponerte a salvo.",
+        targetLat = 19.504603,
+        targetLon = -99.145985,
+        arriveRadiusMeters = 20.0
+    )
+
+    private val all = listOf(IR_ENCB, ESCOLTAR_PRANKEDY, INGRESAR_ESCOM)
 
     // Objetivo con el que arranca una campaña nueva.
     val first: CampaignObjective = IR_ENCB

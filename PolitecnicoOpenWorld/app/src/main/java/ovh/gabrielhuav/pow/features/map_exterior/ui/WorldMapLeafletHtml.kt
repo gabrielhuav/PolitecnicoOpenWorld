@@ -542,6 +542,19 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
             });
         }
+        // ─── WAYPOINT DEL OBJETIVO (Modo Historia) ──────────────────────────────────
+        // Marca el destino del objetivo de campaña con un 🎯 (además del camino rojo).
+        function updateObjectiveWp(lat, lng) {
+            if (lat === null || lat === undefined) {
+                if (window.__objWp) { map.removeLayer(window.__objWp); window.__objWp = null; }
+                return;
+            }
+            if (window.__objWp) { window.__objWp.setLatLng([lat, lng]); }
+            else {
+                var icon = L.divIcon({ html: '<div style="font-size:28px; transform:translate(-50%,-50%);">🎯</div>', className: '', iconSize: [0,0] });
+                window.__objWp = L.marker([lat, lng], { icon: icon, interactive: false, zIndexOffset: 850 }).addTo(map);
+            }
+        }
         // ─── WAYPOINTS DE ZOMBIS (fuera del fog, modo apocalipsis) ──────────────────
         // Paridad con OSM nativo: cada zombi FUERA de tu campo de visión se marca con un
         // 🧟 y una línea ROJA punteada desde el jugador, para saber de dónde vienen.

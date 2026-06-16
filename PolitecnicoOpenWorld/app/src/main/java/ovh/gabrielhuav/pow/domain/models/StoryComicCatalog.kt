@@ -66,10 +66,25 @@ object StoryComicCatalog {
         ComicPanel("STORY/INTRO/IntroPOW11.webp", "Me metí en un pedo y necesito tu ayuda\nNo sé salir de aquí, ayúdame.")
     )
 
+    // ─── MISIÓN 2: llegada a la ESCOM (Modo Historia) ────────────────────────
+    // Se reproduce al cumplir la Misión 1 (llegar a la ESCOM con Prankedy). Son 3 paneles
+    // HORIZONTALES nuevos en assets/STORY/INTRO/IntroPOW12..14.webp. EDITA el `text`.
+    // Tras esta secuencia se retoma la jugabilidad con la persecución (6 policías) y el
+    // objetivo "Ingresa a la ESCOM".
+    const val MISSION2_INTRO_ID = "mission2_intro"
+
+    private val mission2Intro = listOf(
+        ComicPanel("STORY/INTRO/IntroPOW12.webp", ""),
+        ComicPanel("STORY/INTRO/IntroPOW13.webp", ""),
+        ComicPanel("STORY/INTRO/IntroPOW14.webp", "")
+    )
+
     // Devuelve una secuencia narrativa por id (para StoryIntroScreen). ENCB_OUTRO_ID =
-    // segunda parte de la intro; cualquier otro id cae al prologo de ESCOM.
+    // segunda parte de la intro; MISSION2_INTRO_ID = llegada a la ESCOM; cualquier otro id
+    // cae al prologo de ESCOM.
     fun sequence(sequenceId: String): List<ComicPanel> = when (sequenceId) {
         ENCB_OUTRO_ID -> encbOutro
+        MISSION2_INTRO_ID -> mission2Intro
         else -> escom
     }
 }

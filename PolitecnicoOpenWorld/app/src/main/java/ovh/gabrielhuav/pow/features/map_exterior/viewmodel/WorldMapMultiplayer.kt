@@ -286,6 +286,6 @@ internal fun WorldMapViewModel.updateNpcsState() {
         // Civiles/jugadores remotos + policía propia (simulada) + policía remota (solo render)
         // + policía de la CAMPAÑA (escolta de la Misión 1, clase aparte; ver WorldMapCampaignPolice.kt).
         val combined = remoteEntities.values + policeManager.activeUnits() +
-            remotePolice.values + campaignEscortPolice.activeUnits()
+            remotePolice.values + campaignEscortPolice.activeUnits() + mission2Crowd.values
         _uiState.update { it.copy(npcs = combined.toList()) }
     }

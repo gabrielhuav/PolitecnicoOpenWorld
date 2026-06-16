@@ -1371,6 +1371,27 @@ internal fun NativeOsmMap(
                 view.overlays.remove(fog); view.overlays.add(fog)
             }
 
+            // ─── WAYPOINT DEL OBJETIVO (Modo Historia) ───────────────────────────
+            // Marca el destino del objetivo de campaña con un 🎯 (además del camino rojo).
+            val objWpTag = ovh.gabrielhuav.pow.R.id.route_overlay_tag + 760
+            val objMarker = (view.getTag(objWpTag) as? Marker) ?: Marker(view).apply {
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                setInfoWindow(null)
+                val px = (30 * context.resources.displayMetrics.density).toInt()
+                icon = emojiToDrawable(context, "🎯", px)
+                view.setTag(objWpTag, this)
+                view.overlays.add(this)
+            }
+            val campObj = uiState.currentObjective
+            if (campObj != null && !uiState.objectiveDone) {
+                objMarker.position = GeoPoint(campObj.targetLat, campObj.targetLon)
+                objMarker.isEnabled = true
+                objMarker.setAlpha(0.9f)
+            } else {
+                objMarker.isEnabled = false
+                objMarker.setAlpha(0f)
+            }
+
             // ─── PRANKEDY: renderizado siempre en capa superior (tras la niebla) ──
             renderPrankedyOnMap(view, uiState, context, nativeDrawableCache, screenDensity, timeMs)
 

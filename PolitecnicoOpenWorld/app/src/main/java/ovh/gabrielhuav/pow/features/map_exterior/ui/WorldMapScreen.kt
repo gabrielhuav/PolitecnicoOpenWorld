@@ -122,6 +122,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyHireDialog
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuGroup
@@ -1361,6 +1362,14 @@ fun WorldMapScreen(
                             wv.evaluateJavascript("if(typeof updatePolice==='function')updatePolice(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(policePayload)});", null)
                         }
 
+                        // Waypoint del OBJETIVO de campaña (🎯) en el destino, además del camino rojo.
+                        val campObjW = uiState.currentObjective
+                        if (campObjW != null && !uiState.objectiveDone) {
+                            wv.evaluateJavascript("if(typeof updateObjectiveWp==='function')updateObjectiveWp(${campObjW.targetLat}, ${campObjW.targetLon});", null)
+                        } else {
+                            wv.evaluateJavascript("if(typeof updateObjectiveWp==='function')updateObjectiveWp(null,null);", null)
+                        }
+
                         // Waypoints de ZOMBIS FUERA del fog (paridad con OSM nativo): 🧟 + línea
                         // ROJA punteada jugador→zombi en modo apocalipsis. Los zombis DENTRO del
                         // fog ya se dibujan con su sprite (no llevan waypoint).
@@ -1623,6 +1632,17 @@ fun WorldMapScreen(
                     )
                 }
             }
+        }
+
+        // ─── WIDGET DE OBJETIVO (Modo Historia) ──────────────────────────────────
+        // Centrado arriba y difuminado para no chocar con los widgets de las esquinas.
+        uiState.currentObjective?.let { obj ->
+            ObjectivesWidget(
+                objective = obj,
+                done = uiState.objectiveDone,
+                playerLocation = uiState.currentLocation,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
+            )
         }
 
         // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────

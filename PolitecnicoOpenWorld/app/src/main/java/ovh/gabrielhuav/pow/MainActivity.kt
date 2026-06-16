@@ -65,6 +65,8 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission2Intro
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission2
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
@@ -436,6 +438,26 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        // ─── MODO HISTORIA · Misión 2 (llegada a la ESCOM: IntroPOW12..14) ──
+                        // Cómic que se reproduce al cumplir la Misión 1. Al terminar, arranca la
+                        // Misión 2 (objetivo "Ingresa a la ESCOM" + persecución de 6 policías +
+                        // multitud saliendo de la ESCOM) y vuelve al mundo (popBackStack a world_map,
+                        // que sigue debajo en el backstack).
+                        composable(route = "story_mission2") {
+                            StoryIntroScreen(
+                                school = SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.StoryComicCatalog.MISSION2_INTRO_ID,
+                                onBegin = {
+                                    worldMapViewModel.startMission2()
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
+                                onBack = {
+                                    worldMapViewModel.startMission2()
+                                    navController.popBackStack("world_map", inclusive = false)
+                                }
+                            )
+                        }
+
 
                         // Registramos la ruta de Ajustes
                         composable(route = "settings") {
@@ -597,6 +619,15 @@ class MainActivity : ComponentActivity() {
                                 if (uiState.navigateToShineCTO) {
                                     worldMapViewModel.consumeNavigateToShineCTO()
                                     navController.navigate("shinecto_interior")
+                                }
+                            }
+
+                            // MODO HISTORIA · Misión 1 cumplida (llegaste a la ESCOM) → cómic
+                            // IntroPOW12..14; al volver arranca la persecución de la Misión 2.
+                            LaunchedEffect(uiState.pendingMission2Intro) {
+                                if (uiState.pendingMission2Intro) {
+                                    worldMapViewModel.consumePendingMission2Intro()
+                                    navController.navigate("story_mission2")
                                 }
                             }
 

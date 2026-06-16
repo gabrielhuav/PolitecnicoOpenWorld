@@ -147,5 +147,10 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
     val dist = kotlin.math.sqrt(mLat * mLat + mLon * mLon)
     if (dist <= obj.arriveRadiusMeters) {
         _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${obj.title}") }
+        // MISIÓN 1 cumplida (llegaste a la ESCOM con Prankedy) → dispara el cómic IntroPOW12..14
+        // (MainActivity lo reproduce) y, al volver, arranca la persecución de la Misión 2.
+        if (obj.id == MissionCatalog.ESCOLTAR_PRANKEDY.id) {
+            _uiState.update { it.copy(pendingMission2Intro = true) }
+        }
     }
 }
