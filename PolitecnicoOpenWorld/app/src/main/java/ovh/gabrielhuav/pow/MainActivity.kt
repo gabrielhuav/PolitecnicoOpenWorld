@@ -288,6 +288,8 @@ class MainActivity : ComponentActivity() {
                                     worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.first)
                                     // Tras el último panel de la intro (IntroPOW8), la transición
                                     // entra al PRIMER interior de la campaña: el Lobby de la ENCB.
+                                    // Inicia la música de investigar.
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).playInvestigarMusic()
                                     // popUpTo main_menu inclusive DESTRUYE la pantalla de la intro
                                     // (story_intro) y libera los bitmaps IntroPOW1..8 de memoria.
                                     navController.navigate("encb_lobby") {
@@ -310,6 +312,7 @@ class MainActivity : ComponentActivity() {
                             val wmState by worldMapViewModel.uiState.collectAsState()
                             ZombieGameScreen(
                                 onExitToWorld = {
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).stopInvestigarMusic()
                                     navController.navigate("world_map") {
                                         popUpTo("encb_lobby") { inclusive = true }
                                     }
@@ -324,6 +327,7 @@ class MainActivity : ComponentActivity() {
                                 // ENCB_OUTRO). popUpTo encb_lobby inclusive libera el motor de
                                 // interiores (la cadena de salas) antes de mostrar el cómic.
                                 onPlayStoryOutro = {
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).stopInvestigarMusic()
                                     navController.navigate("story_outro") {
                                         popUpTo("encb_lobby") { inclusive = true }
                                     }
@@ -346,6 +350,8 @@ class MainActivity : ComponentActivity() {
                                     // terminar el outro (IntroPOW11), el jugador aparece en la
                                     // ENCB. setStorySpawn fija la posición y activa inCampaign=true.
                                     worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
+                                    // Inicia la música de dirigirse al lugar seguro
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).playLugarSeguroMusic()
                                     navController.navigate("world_map") {
                                         popUpTo("story_outro") { inclusive = true }
                                     }
@@ -353,6 +359,7 @@ class MainActivity : ComponentActivity() {
                                 onBack = {
                                     // Misma transición narrativa (saltar/volver el outro): ENCB.
                                     worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).playLugarSeguroMusic()
                                     navController.navigate("world_map") {
                                         popUpTo("story_outro") { inclusive = true }
                                     }
@@ -449,6 +456,14 @@ class MainActivity : ComponentActivity() {
                                     // estado completo en el slot activo antes de volver al menú.
                                     if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity, worldMapViewModel.campaignSlot)
                                     worldMapViewModel.disconnectFromMultiplayer()
+                                    
+                                    // Detener audios del modo historia al salir al menu
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).apply {
+                                        stopInvestigarMusic()
+                                        stopLugarSeguroMusic()
+                                        stopMainMusic()
+                                    }
+                                    
                                     navController.navigate("main_menu") {
                                         popUpTo("world_map") { inclusive = true }
                                         launchSingleTop = true

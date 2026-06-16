@@ -2,11 +2,17 @@ package ovh.gabrielhuav.pow.features.audio
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.media.SoundPool
 import android.util.Log
 
 class SoundManager private constructor(context: Context) {
     private var soundPool: SoundPool? = null
+    
+    // Background Music MediaPlayers
+    private var investigarMediaPlayer: MediaPlayer? = null
+    private var lugarSeguroMediaPlayer: MediaPlayer? = null
+    private var mainSoundMediaPlayer: MediaPlayer? = null
     
     private var walkSoundId = -1
     private var runSoundId = -1
@@ -77,6 +83,32 @@ class SoundManager private constructor(context: Context) {
             paraleSoundId = soundPool?.load(assetManager.openFd("sonidos/parale.m4a"), 1) ?: -1
         } catch (e: Exception) {
             Log.e("SoundManager", "Error loading sounds", e)
+        }
+
+        try {
+            context.assets.openFd("sonidos/instrumentalfondo/investigar.wav").use { afd ->
+                investigarMediaPlayer = MediaPlayer().apply {
+                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    prepare()
+                    isLooping = true
+                }
+            }
+            context.assets.openFd("sonidos/instrumentalfondo/lugarseguro.wav").use { afd ->
+                lugarSeguroMediaPlayer = MediaPlayer().apply {
+                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    prepare()
+                    isLooping = true
+                }
+            }
+            context.assets.openFd("sonidos/instrumentalfondo/mainsound.wav").use { afd ->
+                mainSoundMediaPlayer = MediaPlayer().apply {
+                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    prepare()
+                    isLooping = true
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SoundManager", "Error loading background music", e)
         }
     }
 
@@ -225,9 +257,55 @@ class SoundManager private constructor(context: Context) {
         stopRun()
     }
 
+    // Background Music Methods
+    fun playInvestigarMusic() {
+        investigarMediaPlayer?.let { if (!it.isPlaying) it.start() }
+    }
+    
+    fun stopInvestigarMusic() {
+        investigarMediaPlayer?.let {
+            if (it.isPlaying) {
+                it.pause()
+                it.seekTo(0)
+            }
+        }
+    }
+
+    fun playLugarSeguroMusic() {
+        lugarSeguroMediaPlayer?.let { if (!it.isPlaying) it.start() }
+    }
+    
+    fun stopLugarSeguroMusic() {
+        lugarSeguroMediaPlayer?.let {
+            if (it.isPlaying) {
+                it.pause()
+                it.seekTo(0)
+            }
+        }
+    }
+
+    fun playMainMusic() {
+        mainSoundMediaPlayer?.let { if (!it.isPlaying) it.start() }
+    }
+    
+    fun stopMainMusic() {
+        mainSoundMediaPlayer?.let {
+            if (it.isPlaying) {
+                it.pause()
+                it.seekTo(0)
+            }
+        }
+    }
+
     fun release() {
         soundPool?.release()
         soundPool = null
+        investigarMediaPlayer?.release()
+        investigarMediaPlayer = null
+        lugarSeguroMediaPlayer?.release()
+        lugarSeguroMediaPlayer = null
+        mainSoundMediaPlayer?.release()
+        mainSoundMediaPlayer = null
     }
 
     companion object {
