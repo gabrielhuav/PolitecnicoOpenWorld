@@ -136,6 +136,13 @@ fun ZombieGameScreen(
         if (state.isExitingToStoryOutro) { viewModel.consumeExit(); onPlayStoryOutro() }
     }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.soundManager.stopWalk()
+            viewModel.soundManager.stopRun()
+        }
+    }
+
     val room = ZombieRoomCatalog.rooms[state.currentRoomIndex]
     val effectiveBgAsset = when {
         room.id == ZombieRoomCatalog.LOBBY_ID && state.zombieModeActivated ->

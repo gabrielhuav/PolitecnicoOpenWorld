@@ -35,6 +35,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -108,13 +110,18 @@ fun StoryIntroScreen(
         }
     }
 
+    val soundManager = remember { ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(context) }
+
     // Las imágenes del cómic son HORIZONTALES: forzamos orientación landscape mientras se
     // ve la intro y restauramos la orientación previa al salir (entrar al mundo / volver).
     DisposableEffect(Unit) {
+        soundManager.stopWalk()
+        soundManager.stopRun()
         val activity = context.findActivityOrNull()
         val previous = activity?.requestedOrientation
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         onDispose {
+            soundManager.stopAllStorySounds()
             activity?.requestedOrientation = previous ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
@@ -125,6 +132,60 @@ fun StoryIntroScreen(
     var editing by remember { mutableStateOf(false) }
 
     val panel = panels[index]
+
+    LaunchedEffect(panel.assetPath) {
+        val assetName = panel.assetPath.substringAfterLast("/")
+        when (assetName) {
+            "IntroPOW1.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playFlash()
+            }
+            "IntroPOW2.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playStoryRunning(loop = true)
+                soundManager.playCrystal()
+            }
+            "IntroPOW3.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playHitWall()
+            }
+            "IntroPOW4.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playStoryRunning(loop = true)
+            }
+            "IntroPOW5.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playStoryRunning(loop = true)
+            }
+            "IntroPOW6.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playStoryRunning(loop = true)
+                soundManager.playPolice1()
+                delay(3000)
+                soundManager.playPolice2(loop = true)
+            }
+            "IntroPOW7.webp" -> {
+                soundManager.stopStoryRunning()
+                soundManager.playPolice2(loop = true)
+                soundManager.playBottleFalling()
+            }
+            "IntroPOW8.webp" -> {
+                soundManager.playPolice2(loop = true)
+                soundManager.playCrystal()
+            }
+            "IntroPOW9.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playDoorOpen()
+            }
+            "IntroPOW10.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playScare()
+            }
+            "IntroPOW11.webp" -> {
+                soundManager.stopAllStorySounds()
+            }
+        }
+    }
     val isLast = index >= panels.size - 1
 
     // Layout del cuadro de texto del panel actual (guardado o default del catalogo).
