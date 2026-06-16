@@ -47,10 +47,16 @@ internal fun WorldMapViewModel.syncObjectiveToEscomDoor(playerLoc: GeoPoint) {
         .filter { it.id.startsWith("escom_door_") }.map { GeoPoint(it.latitude, it.longitude) }
     val doors = if (landmarkDoors.isNotEmpty()) landmarkDoors else placeholderDoors
     if (doors.isEmpty()) return
-    // ELECCIÓN DETERMINISTA (ordenada), NO "la más cercana": con dos puertas, elegir la más
-    // cercana hacía que el objetivo SALTARA entre ambas cada frame (parpadeo / "repetido"). Así
-    // se fija SIEMPRE la misma puerta y el marcador no parpadea.
-    val chosen = doors.sortedWith(compareBy({ it.latitude }, { it.longitude })).first()
+    // ELECCIÓN DETERMINISTA: la puerta más cercana a la PUERTA CANÓNICA de la ESCOM
+    // (ESCOM_DOOR_LAT/LON), NO la de menor latitud. Antes, ordenar por latitud elegía la puerta
+    // más al sur, que podía ser la de FES Aragón (otro campus que reusa el mismo asset
+    // ESCOM_DOOR), y el objetivo apuntaba a FES en vez de a la ESCOM. Como las coords canónicas
+    // son fijas, sigue siendo determinista (no parpadea entre puertas).
+    val chosen = doors.minByOrNull { d ->
+        val dLat = d.latitude - ESCOM_DOOR_LAT
+        val dLon = d.longitude - ESCOM_DOOR_LON
+        dLat * dLat + dLon * dLon
+    } ?: return
     if (kotlin.math.abs(obj.targetLat - chosen.latitude) > 1e-6 ||
         kotlin.math.abs(obj.targetLon - chosen.longitude) > 1e-6) {
         _uiState.update { it.copy(currentObjective = obj.copy(targetLat = chosen.latitude, targetLon = chosen.longitude)) }

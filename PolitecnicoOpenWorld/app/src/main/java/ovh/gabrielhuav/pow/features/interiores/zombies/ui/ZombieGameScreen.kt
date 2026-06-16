@@ -77,6 +77,10 @@ import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
 import kotlin.math.max
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ScreenRotation
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import ovh.gabrielhuav.pow.features.map_exterior.ui.SkinSelectorDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 
@@ -670,11 +674,22 @@ fun ZombieGameScreen(
                 Icon(Icons.Default.Settings, stringResource(R.string.zgame_cd_settings), tint = Color.Black)
             }
             if (!state.designerMode) {
-                IconButton(
-                    onClick = { viewModel.toggleSkinSelector(true) },
-                    modifier = Modifier.background(Color(0xFFD91B5B).copy(alpha = 0.9f), CircleShape)
-                ) {
-                    Icon(Icons.Default.Person, stringResource(R.string.zgame_cd_skin), tint = Color.White)
+                // BOTÓN DE ORIENTACIÓN (solo en HORIZONTAL): la secuencia/cómic fuerza landscape,
+                // pero al terminar la partida no podemos forzar que se quede en horizontal; este
+                // botón permite CAMBIAR A VERTICAL. Ocupa el sitio que antes tenía el botón
+                // "Elegir personaje" (que se movió al menú de Opciones).
+                val configuration = LocalConfiguration.current
+                val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                if (isLandscape) {
+                    IconButton(
+                        onClick = {
+                            context.findActivityOrNull()?.requestedOrientation =
+                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        },
+                        modifier = Modifier.background(Color(0xFFD91B5B).copy(alpha = 0.9f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.ScreenRotation, stringResource(R.string.zgame_cd_to_portrait), tint = Color.White)
+                    }
                 }
                 var optionsExpanded by remember { mutableStateOf(false) }
                 OptionsMenu(
@@ -683,6 +698,8 @@ fun ZombieGameScreen(
                     openGroupId = null,
                     onOpenGroupChange = {},
                     entries = listOf(
+                        // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto.
+                        OptionMenuItem(stringResource(R.string.wm_choose_character), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) },
                         OptionMenuItem(stringResource(R.string.zgame_opt_designer), Icons.Default.Architecture) { viewModel.toggleDesignerMode() },
                         // MODO HISTORIA: guardar partida también desde interiores (selector de slots).
                         OptionMenuItem("Guardar partida", Icons.Default.Save) { onRequestSaveGame() },
@@ -868,4 +885,15 @@ private fun computeCamera(
     offsetX = if (scaledW <= viewW) (viewW - scaledW) / 2f else offsetX.coerceIn(viewW - scaledW, 0f)
     offsetY = if (scaledH <= viewH) (viewH - scaledH) / 2f else offsetY.coerceIn(viewH - scaledH, 0f)
     return CameraTransform(offsetX, offsetY, scale)
+}
+
+// Desenvuelve el Context (puede venir envuelto por LocaleHelper.wrap) hasta la Activity,
+// para poder fijar la orientación de pantalla (cambiar a vertical) desde el juego.
+private fun android.content.Context.findActivityOrNull(): android.app.Activity? {
+    var ctx: android.content.Context? = this
+    while (ctx is android.content.ContextWrapper) {
+        if (ctx is android.app.Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
 }

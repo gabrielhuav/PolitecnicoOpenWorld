@@ -177,6 +177,7 @@
     <string name="zgame_victory_text">Edificio despejado. Usa las salidas EXIT para continuar.</string>
     <string name="zgame_cd_settings">Ajustes</string>
     <string name="zgame_cd_skin">Cambiar skin</string>
+    <string name="zgame_cd_to_portrait">Cambiar a vertical</string>
     <string name="zgame_opt_designer">Diseñador</string>
     <string name="zgame_opt_exit_map">Salir al mapa</string>
 

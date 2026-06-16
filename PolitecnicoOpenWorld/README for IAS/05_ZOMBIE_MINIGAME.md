@@ -206,3 +206,9 @@ data class ZombieServerMessage(type, sessionId, id, displayName, roomId, zone, x
 - FX de daño: screen shake, viñeta roja que **escala con HP perdido** (`damagePulseTrigger`), pulso de
   vida baja, knockback a zombis, recoil del jugador. Iluminación dinámica en interiores oscuros.
 - Pantallas WASTED / Victory. SkillEffects dibujados como iconos Canvas puros.
+- **🆕 Botonera arriba-derecha:** Ajustes (siempre) + un botón de **ORIENTACIÓN** que **solo aparece en
+  HORIZONTAL** y cambia la app a **VERTICAL** (`requestedOrientation = SCREEN_ORIENTATION_PORTRAIT`,
+  helper `findActivityOrNull`) + el menú de **Opciones**. **"Elegir personaje"** (selector de skin,
+  `wm_choose_character` → `toggleSkinSelector`) **ya NO es un botón suelto**: se movió al **menú de
+  Opciones** (primer ítem); su antiguo sitio lo ocupa el botón de orientación. El banner de OBJETIVO de
+  la cadena ENCB sigue arriba-centro (`ENCB_STORY_ROOM_IDS`).

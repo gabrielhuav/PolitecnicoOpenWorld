@@ -177,6 +177,7 @@
     <string name="zgame_victory_text">Building cleared. Use the EXIT doors to continue.</string>
     <string name="zgame_cd_settings">Settings</string>
     <string name="zgame_cd_skin">Change skin</string>
+    <string name="zgame_cd_to_portrait">Switch to portrait</string>
     <string name="zgame_opt_designer">Designer</string>
     <string name="zgame_opt_exit_map">Exit to map</string>
 

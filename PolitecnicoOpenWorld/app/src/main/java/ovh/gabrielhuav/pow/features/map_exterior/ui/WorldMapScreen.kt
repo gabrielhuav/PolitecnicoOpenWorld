@@ -2115,18 +2115,8 @@ fun WorldMapScreen(
             )
         }
 
-        // ─── WIDGET DE OBJETIVOS (Modo Historia) — siempre visible si hay objetivo ──
-        uiState.currentObjective?.let { obj ->
-            ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
-                objective = obj,
-                done = uiState.objectiveDone,
-                playerLocation = uiState.currentLocation,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .systemBarsPadding()
-                    .padding(start = 12.dp, top = 12.dp)
-            )
-        }
+        // (El widget de OBJETIVO se dibuja UNA sola vez, arriba-centro — ver más arriba.
+        // Antes había aquí un segundo widget arriba-izquierda que duplicaba el objetivo.)
 
         val configuration = LocalConfiguration.current
         val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT

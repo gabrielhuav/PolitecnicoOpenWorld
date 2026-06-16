@@ -32,7 +32,8 @@ object MissionCatalog {
     // Escolta: Prankedy te acompaña (fase HIRED) y debes llevarlo a la PUERTA de la ESCOM.
     // Solo se activa en campaña y en el vecindario de la ENCB (ver WorldMapPrankedy.maybeSpawnPrankedyCompanion).
     // Al entrar en arriveRadiusMeters de la puerta se marca cumplido → dispara el cómic + la persecución.
-    // El destino REAL se ajusta en runtime a la PUERTA de la ESCOM más cercana (landmark
+    // El destino REAL se ajusta en runtime a la PUERTA de la ESCOM más cercana A LAS COORDS
+    // CANÓNICAS de la ESCOM (no a la de menor latitud, que podía ser la de FES Aragón) (landmark
     // DOORS/ESCOM_DOOR.webp) vía WorldMapCampaignPolice.syncObjectiveToEscomDoor. El radio es
     // pequeño: basta con llegar y quedar AL LADO de la puerta (no hay que interactuar).
     val ESCOLTAR_PRANKEDY = CampaignObjective(
