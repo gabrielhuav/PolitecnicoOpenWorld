@@ -417,8 +417,9 @@ fun ZombieGameScreen(
                     }
                 }
 
-                // Jugador local
-                val pSize = PLAYER_SPRITE_BASE * cam.scale
+                // Jugador local. `room.playerScaleMul` agranda el sprite solo en salas que
+                // lo necesitan (p. ej. ENCB_salon1, donde el fondo lo hacía ver diminuto).
+                val pSize = PLAYER_SPRITE_BASE * cam.scale * room.playerScaleMul
                 // MUERTE: al morir, el jugador queda como "fantasmita" (semitransparente),
                 // igual que la animación de muerte de un NPC.
                 val ghostAlpha = if (state.showWastedScreen) 0.3f else 1f

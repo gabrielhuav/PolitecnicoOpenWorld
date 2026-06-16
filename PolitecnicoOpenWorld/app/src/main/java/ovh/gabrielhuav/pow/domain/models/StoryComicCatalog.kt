@@ -22,14 +22,31 @@ data class ComicPanel(
 object StoryComicCatalog {
 
     private val escom = listOf(
-        ComicPanel("STORY/INTRO/IntroPOW1.webp", "Texto del panel 1..."),
-        ComicPanel("STORY/INTRO/IntroPOW2.webp", "Texto del panel 2..."),
-        ComicPanel("STORY/INTRO/IntroPOW3.webp", "Texto del panel 3..."),
-        ComicPanel("STORY/INTRO/IntroPOW4.webp", "Texto del panel 4..."),
-        ComicPanel("STORY/INTRO/IntroPOW5.webp", "Texto del panel 5..."),
-        ComicPanel("STORY/INTRO/IntroPOW6.webp", "Texto del panel 6..."),
-        ComicPanel("STORY/INTRO/IntroPOW7.webp", "Texto del panel 7..."),
-        ComicPanel("STORY/INTRO/IntroPOW8.webp", "Texto del panel 8...")
+        ComicPanel(
+            "STORY/INTRO/IntroPOW1.webp",
+            "Este es un buen lugar.\nAgarremos a este wey para la broma"
+        ),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW2.webp",
+            "Que onda Compa. Que te traes.\nYa valió"),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW3.webp",
+            "A ver perro, contestame.\nQue te pasa"),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW4.webp",
+            "Córrele gordo, amonos.\nPerro. No te irás a ninguna parte."),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW5.webp",
+            "Inche viejo. Por aquí puedo perderlo\n¡¿ENCB?! ¡Te...tengo!"),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW6.webp",
+            "¡¿A donde crees que vas?!"),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW7.webp",
+            "¡No esta vacío! No importa, me tengo que esconder"),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW8.webp",
+            "¡Llevenselo al perro! A ver si muy salsa.")
     )
 
     // Paneles para la escuela elegida (por ahora todas usan el prologo de ESCOM).

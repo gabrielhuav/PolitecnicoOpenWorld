@@ -134,6 +134,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Al pasar la app a segundo plano (botón home, multitarea, pantalla apagada, etc.):
+    //  1. AUTO-GUARDADO del Modo Historia: si estamos en campaña, persistimos el estado
+    //     completo en el slot activo para no perder el progreso (antes solo se guardaba
+    //     al salir explícitamente al menú → si cerrabas la app empezabas de 0).
+    //  2. Detenemos TODO el audio (incl. la música del Modo Historia, que seguía sonando
+    //     en segundo plano). Se reanuda en onResume.
+    override fun onPause() {
+        super.onPause()
+        if (worldMapViewModel.inCampaign) {
+            worldMapViewModel.saveGame(this, worldMapViewModel.campaignSlot)
+        }
+        ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this).pauseAllForBackground()
+    }
+
+    // Al volver al primer plano: reanuda las pistas que estaban sonando antes de salir.
+    override fun onResume() {
+        super.onResume()
+        ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this).resumeAllFromBackground()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         configureOsmdroid()

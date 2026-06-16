@@ -118,6 +118,11 @@ data class ZombieRoom(
     //  - Valor grande   → celdas pequeñas (trazo fino, más precisión).
     // null = usar el valor por defecto global.
     val gridCols: Int? = null,
+    // Multiplicador de tamaño del SPRITE DEL JUGADOR para esta sala. Algunos fondos
+    // (p. ej. ENCB_salon1) están dibujados a una escala que hace ver al jugador
+    // diminuto; con este factor se agranda SOLO en esa sala sin tocar el resto.
+    // 1f = tamaño normal.
+    val playerScaleMul: Float = 1f,
     val collisionGridFrac: List<NormRect> = emptyList(),
     // Matriz de colisión de la sala (lobby/edificio). Es VAR para poder
     // sobreescribirla en caliente desde el Modo Diseñador. null = sin colisiones.

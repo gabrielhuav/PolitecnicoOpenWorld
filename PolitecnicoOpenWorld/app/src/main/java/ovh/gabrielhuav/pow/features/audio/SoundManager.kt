@@ -297,6 +297,42 @@ class SoundManager private constructor(context: Context) {
         }
     }
 
+    // ── Pausa/Reanudación al salir/volver de la app (Activity.onPause/onResume) ──
+    // Pistas de fondo (MediaPlayer) que estaban sonando al irse a segundo plano, para
+    // reanudar exactamente las mismas al volver.
+    private val pausedForBackground = mutableListOf<MediaPlayer>()
+
+    /**
+     * Pausa TODO el audio porque la app pasa a segundo plano. Antes, la música del
+     * Modo Historia (MediaPlayer en loop) seguía sonando aunque salieras de la app.
+     * Recuerda qué pistas estaban activas para reanudarlas en [resumeAllFromBackground].
+     */
+    fun pauseAllForBackground() {
+        // SFX/streams (caminar, correr, sonidos de historia en loop, etc.)
+        soundPool?.autoPause()
+        // Música de fondo
+        pausedForBackground.clear()
+        listOfNotNull(investigarMediaPlayer, lugarSeguroMediaPlayer, mainSoundMediaPlayer).forEach { mp ->
+            try {
+                if (mp.isPlaying) {
+                    mp.pause()
+                    pausedForBackground.add(mp)
+                }
+            } catch (e: Exception) {
+                Log.e("SoundManager", "Error pausing music for background", e)
+            }
+        }
+    }
+
+    /** Reanuda el audio que se pausó al ir a segundo plano (Activity.onResume). */
+    fun resumeAllFromBackground() {
+        soundPool?.autoResume()
+        pausedForBackground.forEach { mp ->
+            try { mp.start() } catch (e: Exception) { Log.e("SoundManager", "Error resuming music", e) }
+        }
+        pausedForBackground.clear()
+    }
+
     fun release() {
         soundPool?.release()
         soundPool = null

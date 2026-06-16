@@ -1385,21 +1385,21 @@ fun WorldMapScreen(
                             if (pkLoc != null && !uiState.isDriving) {
                                 val pkTime = timeMs
                                 val pkAnim = uiState.prankedyAnimState
-                                val pkFrames = when (pkAnim) {
-                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.IDLE -> 3
-                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.WALK -> 9
-                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN -> 8
-                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN_TANQUE -> 9
-                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.ATTACK -> 5
-                                }
-                                val pkFrame = ((pkTime / 200L) % pkFrames).toInt()
-                                val pkKey = "PRANKEDY_WEB_${pkAnim.name}_${uiState.prankedyFacingRight}_$pkFrame"
+                                // Índice de frame respetando el intervalo por animación (IDLE va más lento).
+                                val pkFrame = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
+                                    .currentFrameIndex0(pkAnim, pkTime)
+                                // El bitmap se genera SIEMPRE mirando a la derecha (facingRight = true);
+                                // la orientación la aplica el CSS (transform: scaleX(flip)) en updatePrankedy.
+                                // Antes se volteaba el bitmap Y además el CSS → doble volteo: al ir a la
+                                // izquierda Prankedy acababa mirando a la derecha. Por eso el bitmap NO se
+                                // voltea aquí y la clave de caché ya no depende de facingRight.
+                                val pkKey = "PRANKEDY_WEB_${pkAnim.name}_$pkFrame"
                                 val pkB64 = base64Cache[pkKey]
                                 if (pkB64 == null) {
                                     base64Cache[pkKey] = ""
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
                                         val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
-                                            .getDrawable(context, pkAnim, timeMs, highResRenderScale, uiState.prankedyFacingRight)
+                                            .getDrawable(context, pkAnim, timeMs, highResRenderScale, facingRight = true)
                                         val bmp = d?.bitmap
                                         if (bmp != null) {
                                             val out = java.io.ByteArrayOutputStream()

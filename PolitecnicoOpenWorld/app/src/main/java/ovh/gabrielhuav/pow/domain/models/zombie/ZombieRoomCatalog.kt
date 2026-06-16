@@ -160,23 +160,30 @@ object ZombieRoomCatalog {
         // (encb_lab2) tiene un waypoint final que sale a la narrativa (cómic ENCB_OUTRO)
         // vía EXIT_TO_STORY_OUTRO. worldWidth/Height se sobrescriben en init() con las
         // dimensiones reales del asset.
-        add(encbStoryRoom(ENCB_LOBBY_ID,  "Lobby ENCB",  "INTERIORS/ENCB/ENCB_lobby.webp",  ENCB_SALON1_ID))
-        add(encbStoryRoom(ENCB_SALON1_ID, "Salón ENCB",  "INTERIORS/ENCB/ENCB_salon1.webp", ENCB_LAB1_ID))
-        add(encbStoryRoom(ENCB_LAB1_ID,   "Lab. ENCB 1", "INTERIORS/ENCB/ENCB_lab1.webp",   ENCB_LAB2_ID))
-        add(encbStoryRoom(ENCB_LAB2_ID,   "Lab. ENCB 2", "INTERIORS/ENCB/ENCB_lab2.webp",   EXIT_TO_STORY_OUTRO))
+        // Cada sala lleva un waypoint de AVANCE (→ siguiente) y, salvo el lobby (entrada),
+        // un waypoint de RETROCESO (← anterior), para poder ir y venir por la cadena.
+        // ENCB_salon1: el fondo deja ver al jugador diminuto → playerScaleMul = 3f.
+        add(encbStoryRoom(ENCB_LOBBY_ID,  "Lobby ENCB",  "INTERIORS/ENCB/ENCB_lobby.webp",  nextTargetId = ENCB_SALON1_ID))
+        add(encbStoryRoom(ENCB_SALON1_ID, "Salón ENCB",  "INTERIORS/ENCB/ENCB_salon1.webp", nextTargetId = ENCB_LAB1_ID, prevTargetId = ENCB_LOBBY_ID, playerScaleMul = 3f))
+        add(encbStoryRoom(ENCB_LAB1_ID,   "Lab. ENCB 1", "INTERIORS/ENCB/ENCB_lab1.webp",   nextTargetId = ENCB_LAB2_ID, prevTargetId = ENCB_SALON1_ID))
+        add(encbStoryRoom(ENCB_LAB2_ID,   "Lab. ENCB 2", "INTERIORS/ENCB/ENCB_lab2.webp",   nextTargetId = EXIT_TO_STORY_OUTRO, prevTargetId = ENCB_LAB1_ID))
     }
 
     // ─── MODO HISTORIA ENCB: fábrica de una sala de la cadena lineal ──────────
-    // Sala tipo LOBBY (zona segura, sin zombis). Si `nextTargetId != null` agrega UNA puerta
-    // de AVANCE (waypoint interactivo, tecla X) centrada arriba cuyo `targetRoomId` es
-    // `nextTargetId`: puede ser la SIGUIENTE sala (carga jugable) o el sentinela
-    // EXIT_TO_STORY_OUTRO (sale al cómic; lo intercepta goToRoom). Si es null, la sala queda
-    // SIN puertas. No se añade ninguna puerta TO_WORLD (sin marcadores de escape al mapa).
+    // Sala tipo LOBBY (zona segura, sin zombis). Waypoints (puertas interactivas, tecla X):
+    //  - `nextTargetId != null` → puerta de AVANCE (→) a la derecha hacia la SIGUIENTE sala
+    //    (carga jugable) o el sentinela EXIT_TO_STORY_OUTRO (sale al cómic; lo intercepta goToRoom).
+    //  - `prevTargetId != null` → puerta de RETROCESO (←) a la izquierda hacia la sala ANTERIOR.
+    // Así se puede ir Y volver por la cadena (el lobby, entrada de la narrativa, NO lleva
+    // retroceso). NUNCA se añade una puerta TO_WORLD (sin marcadores de escape al mapa).
+    // `playerScaleMul` agranda el sprite del jugador SOLO en esta sala (ENCB_salon1 lo necesita).
     private fun encbStoryRoom(
         id: String,
         displayName: String,
         backgroundAsset: String,
-        nextTargetId: String?
+        nextTargetId: String?,
+        prevTargetId: String? = null,
+        playerScaleMul: Float = 1f
     ): ZombieRoom = ZombieRoom(
         id = id,
         type = ZoneType.LOBBY,
@@ -186,17 +193,33 @@ object ZombieRoomCatalog {
         worldHeight = 1080f,
         zoom = 1.0f,
         playerSpawnFrac = NormPoint(0.50f, 0.62f),
-        doors = if (nextTargetId == null) emptyList()
-                else listOf(
+        doors = buildList {
+            // Avance (→) a la derecha.
+            if (nextTargetId != null) {
+                add(
                     ZoneDoor(
-                        NormRect(0.42f, 0.12f, 0.58f, 0.26f),
+                        NormRect(0.82f, 0.40f, 0.97f, 0.60f),
                         nextTargetId,
-                        "Continuar",
-                        DoorKind.TO_BUILDING
+                        "Continuar →",
+                        DoorKind.EXIT_NEXT
                     )
-                ),
+                )
+            }
+            // Retroceso (←) a la izquierda.
+            if (prevTargetId != null) {
+                add(
+                    ZoneDoor(
+                        NormRect(0.03f, 0.40f, 0.18f, 0.60f),
+                        prevTargetId,
+                        "← Regresar",
+                        DoorKind.EXIT_PREV
+                    )
+                )
+            }
+        },
         zombieCount = 0,
         gridCols = 30,
+        playerScaleMul = playerScaleMul,
         collisionMatrix = LOBBY_MATRIX
     )
 

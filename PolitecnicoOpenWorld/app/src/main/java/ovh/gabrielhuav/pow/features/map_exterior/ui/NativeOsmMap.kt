@@ -1419,7 +1419,10 @@ private fun renderPrankedyOnMap(
                 (256.0 * 2.0.pow(view.zoomLevelDouble))
         // Tamaño en METROS reales = peatón (~1.3 m), para igualar a los NPCs normales.
         val exactPixels = ((1.3 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(24)
-        val cacheKey = "PRANKEDY_${uiState.prankedyAnimState}_${uiState.prankedyFacingRight}_${(timeMs / 180L) % 8}_${exactPixels}"
+        // Frame 0-based respetando el intervalo por animación (IDLE va más lento) → la clave
+        // de caché coincide con el frame real que devuelve getDrawable (sin regenerar de más).
+        val pkFrameIdx = PrankedySpriteManager.currentFrameIndex0(uiState.prankedyAnimState, timeMs)
+        val cacheKey = "PRANKEDY_${uiState.prankedyAnimState}_${uiState.prankedyFacingRight}_${pkFrameIdx}_${exactPixels}"
         
         val icon = nativeDrawableCache.getOrPut(cacheKey) {
             var baseDrawable: android.graphics.drawable.Drawable? = PrankedySpriteManager.getDrawable(context, uiState.prankedyAnimState, timeMs, screenDensity, uiState.prankedyFacingRight)
