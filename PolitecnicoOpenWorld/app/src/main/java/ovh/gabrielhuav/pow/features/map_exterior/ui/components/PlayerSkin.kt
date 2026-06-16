@@ -19,10 +19,10 @@ enum class PlayerSkin(
     val skinFolder: String,
     /** Prefijo del archivo antes de la letra de acción, p.ej. "lazaro_" */
     val skinPrefix: String,
-    val idleFrames: Int = 6,
-    val walkFrames: Int = 6,
+    val idleFrames: Int = 25,
+    val walkFrames: Int = 25,
     val runFrames: Int = 25,
-    val specialFrames: Int = 8,
+    val specialFrames: Int = 25,
     /** Ruta al sprite de previsualización (idle frame 1) */
     val previewAsset: String = "MAIN/${skinFolder}Idle/${skinPrefix}i_1.webp"
 ) {
@@ -30,6 +30,9 @@ enum class PlayerSkin(
         displayName = "Lázaro",
         skinFolder  = "lazaro",
         skinPrefix  = "lazaro_",
+        idleFrames   = 6,   // tienes 6
+        walkFrames   = 6,   // tienes 6
+        specialFrames = 8   // tienes 8
     ),
 
     escomgirl(
@@ -45,8 +48,6 @@ enum class PlayerSkin(
         displayName = "Robot Estudiantx",
         skinFolder  = "robot",
         skinPrefix  = "robot_",
-        idleFrames   = 1,   // tienes 1
-
     ),
     // ── Agrega aquí nuevas skins ──────────────────────────────────────────
     // Ejemplo con una skin "Ana":
