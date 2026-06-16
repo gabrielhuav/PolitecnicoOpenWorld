@@ -144,14 +144,17 @@ fun StoryIntroScreen(
                 soundManager.stopAllStorySounds()
                 soundManager.playStoryRunning(loop = true)
                 soundManager.playCrystal()
+                soundManager.playQueTeTraes()
             }
             "IntroPOW3.webp" -> {
                 soundManager.stopAllStorySounds()
                 soundManager.playHitWall()
+                soundManager.playContestame()
             }
             "IntroPOW4.webp" -> {
                 soundManager.stopAllStorySounds()
                 soundManager.playStoryRunning(loop = true)
+                soundManager.playParale()
             }
             "IntroPOW5.webp" -> {
                 soundManager.stopAllStorySounds()
