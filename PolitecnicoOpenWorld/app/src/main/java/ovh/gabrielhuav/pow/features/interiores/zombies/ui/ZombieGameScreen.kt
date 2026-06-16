@@ -102,7 +102,10 @@ fun ZombieGameScreen(
     // MODO HISTORIA: abre el selector de slots para guardar la partida (también en interiores).
     onRequestSaveGame: () -> Unit = {},
     // MODO HISTORIA: el waypoint final de ENCB_LAB2 pide reanudar la narrativa (cómic ENCB_OUTRO).
-    onPlayStoryOutro: () -> Unit = {}
+    onPlayStoryOutro: () -> Unit = {},
+    // MODO HISTORIA: notifica la sala actual (id de ZombieRoomCatalog) al entrar y en cada
+    // cambio de sala, para que el guardado sepa en qué interior estaba el jugador.
+    onRoomChanged: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
@@ -144,6 +147,8 @@ fun ZombieGameScreen(
     }
 
     val room = ZombieRoomCatalog.rooms[state.currentRoomIndex]
+    // Avisa la sala actual (entrada + cada transición interna) para el guardado de partida.
+    LaunchedEffect(state.currentRoomIndex) { onRoomChanged(room.id) }
     val effectiveBgAsset = when {
         room.id == ZombieRoomCatalog.LOBBY_ID && state.zombieModeActivated ->
             "ZOMBIES_MOD/BUILDINGS_Z/building_escom_zombie.webp"

@@ -28,25 +28,25 @@ object StoryComicCatalog {
         ),
         ComicPanel(
             "STORY/INTRO/IntroPOW2.webp",
-            "Que onda Compa. Que te traes.\nYa valió"),
+            "¡Chin! Ya valió"),
         ComicPanel(
             "STORY/INTRO/IntroPOW3.webp",
-            "A ver perro, contestame.\nQue te pasa"),
+            "A ver perro, contestame.\n¿Qué te pasa?"),
         ComicPanel(
             "STORY/INTRO/IntroPOW4.webp",
-            "Córrele gordo, amonos.\nPerro. No te irás a ninguna parte."),
+            "Córrele gordo.\nNo te irás a ninguna parte."),
         ComicPanel(
             "STORY/INTRO/IntroPOW5.webp",
-            "Inche viejo. Por aquí puedo perderlo\n¡¿ENCB?! ¡Te...tengo!"),
+            "Inche viejo. Por aquí puedo perderlo"),
         ComicPanel(
             "STORY/INTRO/IntroPOW6.webp",
-            "¡¿A donde crees que vas?!"),
+            ""),
         ComicPanel(
             "STORY/INTRO/IntroPOW7.webp",
-            "¡No esta vacío! No importa, me tengo que esconder"),
+            "¿No esta vacío? No importa, me tengo que esconder"),
         ComicPanel(
             "STORY/INTRO/IntroPOW8.webp",
-            "¡Llevenselo al perro! A ver si muy salsa.")
+            "¡Llévense al perro! A ver si muy salsa.")
     )
 
     // Paneles para la escuela elegida (por ahora todas usan el prologo de ESCOM).

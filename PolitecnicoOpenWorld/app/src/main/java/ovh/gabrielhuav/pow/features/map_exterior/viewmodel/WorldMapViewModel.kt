@@ -1470,6 +1470,10 @@ class WorldMapViewModel(
     // Slot de guardado activo (1..SaveGameRepository.SLOT_COUNT). Lo fija MainActivity al
     // COMENZAR/CARGAR; el auto-guardado al salir escribe en este slot.
     internal var campaignSlot: Int = 1
+    // Sala de interiores actual (id de ZombieRoomCatalog) o null si el jugador está en el
+    // MAPA GLOBAL. Lo mantiene MainActivity (onRoomChanged al entrar/cambiar de sala, null al
+    // salir al mapa). El guardado lo persiste para que CARGAR reabra el interior correcto.
+    internal var currentInteriorRoomId: String? = null
 
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
