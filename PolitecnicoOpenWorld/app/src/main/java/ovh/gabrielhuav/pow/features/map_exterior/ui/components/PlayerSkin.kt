@@ -33,13 +33,20 @@ enum class PlayerSkin(
     ),
 
     escomgirl(
-        displayName = "Estudiante Escom",
+        displayName = "Estudianta",
         skinFolder  = "escomgirl",
         skinPrefix  = "escomgirl_",
         idleFrames   = 6,   // tienes 6
         walkFrames   = 5,   // tienes 5
         runFrames    = 4,   // tienes 4
         specialFrames = 6   // tienes 6
+    ),
+    robot(
+        displayName = "Robot Estudiantx",
+        skinFolder  = "robot",
+        skinPrefix  = "robot_",
+        idleFrames   = 1,   // tienes 1
+
     ),
     // ── Agrega aquí nuevas skins ──────────────────────────────────────────
     // Ejemplo con una skin "Ana":
