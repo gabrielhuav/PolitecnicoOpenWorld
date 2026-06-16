@@ -135,6 +135,10 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
     val s = _uiState.value
     val obj = s.currentObjective ?: return
     if (s.objectiveDone) return
+    // Objetivos con radio <= 0 (p. ej. ESCOLTAR_PRANKEDY) NO se cumplen por llegada: su cierre
+    // es NARRATIVO. Sin esta guarda, como su destino coincide con el spawn de la ENCB, la
+    // distancia daba 0 ( <= 0 ) y se marcaba "cumplido" nada más empezar. Ver CampaignMission.kt.
+    if (obj.arriveRadiusMeters <= 0.0) return
     val dLat = location.latitude - obj.targetLat
     val dLon = location.longitude - obj.targetLon
     // Conversión grados→metros aprox. (1° lat ≈ 111_320 m; lon corregido por latitud).

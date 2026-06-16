@@ -256,6 +256,13 @@ class WorldMapViewModel(
     internal val policeManager = ovh.gabrielhuav.pow.domain.models.ai.PoliceManager()
     internal val MAX_WANTED_LEVEL = 5
 
+    // ─── POLICÍA DE LA CAMPAÑA (Modo Historia · Misión 1) ────────────────────
+    // SEPARADA del sistema de búsqueda del mundo libre para que no choquen los comportamientos.
+    // Son 2 policías a pie que siguen al jugador a distancia (ver WorldMapCampaignPolice.kt).
+    internal val campaignEscortPolice = ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice()
+    // Spawn diferido (una vez por activación); setStorySpawn la re-arma en cada entrada de campaña.
+    internal var campaignPoliceActivated = false
+
     // ─── PRANKEDY (NPC compañero) ─────────────────────────────────────────────
     internal val prankedyManager = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager()
     // Policía REMOTA (de otros jugadores): solo se renderiza, no se simula. id -> (npc, lastSeenMs).
@@ -635,10 +642,20 @@ class WorldMapViewModel(
                             }
                         }
 
-                        // POLICÍA: nivel de búsqueda (spawn de patrullas, persecución,
-                        // golpes/disparos) y decaimiento. La simula el dueño del nivel.
-                        if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
-                            runPoliceTick(location)
+                        // POLICÍA. Durante la MISIÓN 1 (escolta) corre la policía de la CAMPAÑA
+                        // (clase aparte: 2 a pie, siguen a distancia, 1★) y NO el sistema de
+                        // búsqueda del mundo libre, para que no choquen. Fuera de la escolta corre
+                        // la policía normal del mundo libre. Al terminar la escolta (o salir de la
+                        // campaña) se limpia la policía de campaña.
+                        if (isCampaignEscortActive()) {
+                            if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                runCampaignEscortTick(location)
+                            }
+                        } else {
+                            if (campaignPoliceActivated) clearCampaignEscort()
+                            if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                runPoliceTick(location)
+                            }
                         }
 
                         maybeRefetchRoadNetwork(location)
@@ -1403,6 +1420,8 @@ class WorldMapViewModel(
         // re-descarga (gateMapDownloadAfterTeleport NO está gateado por mapPrepStarted).
         inCampaign = true            // sesión de campaña → habilita el auto-guardado al salir
         prankedyCompanionActivated = false  // re-arma el encendido del acompañante en la ENCB
+        campaignPoliceActivated = false     // re-arma la policía de escolta de la Misión 1
+        campaignEscortPolice.clear()
         npcWarmupCycles = 0          // re-arma el warm-up de NPCs del gate de carga
         lastNetworkFetchLocation = null  // fuerza el re-fetch de calles alrededor de la escuela
         lastFetchAttemptMs = 0L

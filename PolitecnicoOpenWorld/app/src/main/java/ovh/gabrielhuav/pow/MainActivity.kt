@@ -222,6 +222,10 @@ class MainActivity : ComponentActivity() {
                                     // así que NO se auto-guarda al salir.
                                     worldMapViewModel.inCampaign = false
                                     worldMapViewModel.currentInteriorRoomId = null
+                                    // La música es exclusiva de la misión: en MUNDO LIBRE no debe sonar.
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).apply {
+                                        stopInvestigarMusic(); stopLugarSeguroMusic(); stopMainMusic()
+                                    }
                                     if (isMultiplayer && !playerName.isNullOrBlank()) {
                                         // Usando la variable de entorno de Gradle (BuildConfig)
                                         worldMapViewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL, playerName)
@@ -254,13 +258,27 @@ class MainActivity : ComponentActivity() {
                             // partida, restaura el estado completo (posición/vida/buscado/vehículo/
                             // skin/NPCs/objetivo) y entra al mundo.
                             var showLoadDialog by remember { mutableStateOf(false) }
+                            // COMENZAR: antes de la intro se elige el SLOT MANUAL donde quedará la
+                            // partida nueva (los 2 slots de auto-guardado salen deshabilitados).
+                            var newGameSchool by remember { mutableStateOf<ovh.gabrielhuav.pow.domain.models.CampaignSchool?>(null) }
                             StoryModeScreen(
-                                onStartCampaign = { school ->
-                                    navController.navigate("story_intro/${school.id}")
-                                },
+                                onStartCampaign = { school -> newGameSchool = school },
                                 onLoadCampaign = { showLoadDialog = true },
                                 onBack = { navController.popBackStack() }
                             )
+                            newGameSchool?.let { school ->
+                                ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
+                                    title = "Nueva partida · elige slot",
+                                    summariesProvider = { SaveGameRepository(this@MainActivity).summaries() },
+                                    mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.SAVE,
+                                    onDelete = { slot -> SaveGameRepository(this@MainActivity).clear(slot) },
+                                    onPick = { slot ->
+                                        newGameSchool = null
+                                        navController.navigate("story_intro/${school.id}?slot=$slot")
+                                    },
+                                    onDismiss = { newGameSchool = null }
+                                )
+                            }
                             if (showLoadDialog) {
                                 ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
                                     title = "Cargar partida",
@@ -292,23 +310,28 @@ class MainActivity : ComponentActivity() {
                         // Placeholder narrativo. Al INICIAR, GUARDA la partida (para que
                         // "CARGAR PARTIDA" funcione luego) y arranca el mundo en la escuela.
                         composable(
-                            route = "story_intro/{schoolId}",
+                            route = "story_intro/{schoolId}?slot={slot}",
                             arguments = listOf(
                                 androidx.navigation.navArgument("schoolId") {
                                     type = androidx.navigation.NavType.StringType
+                                },
+                                androidx.navigation.navArgument("slot") {
+                                    type = androidx.navigation.NavType.IntType
+                                    defaultValue = -1   // -1 = no se eligió slot manual
                                 }
                             )
                         ) { backStackEntry ->
                             val schoolId = backStackEntry.arguments?.getString("schoolId")
                             val school = SchoolCatalog.schools.firstOrNull { it.id == schoolId }
                                 ?: SchoolCatalog.default
+                            // Slot MANUAL elegido al COMENZAR (donde quedará esta partida nueva).
+                            val chosenSlot = backStackEntry.arguments?.getInt("slot") ?: -1
                             StoryIntroScreen(
                                 school = school,
                                 onBegin = {
-                                    // COMENZAR partida NUEVA: el AUTO-GUARDADO se encarga solo (escribe
-                                    // en los 2 slots de auto-guardado reservados, rotando). Limpiamos esos
-                                    // 2 slots para empezar la campaña fresca; los 5 slots MANUALES quedan
-                                    // intactos (se usan con "Guardar partida"). Fija la Misión 1.
+                                    // COMENZAR partida NUEVA: el AUTO-GUARDADO usa los 2 slots reservados
+                                    // (rotando). Limpiamos esos 2 para empezar fresco. Además, si el jugador
+                                    // eligió un SLOT MANUAL, guardamos ahí la partida inicial. Fija la Misión 1.
                                     campaignRepository.saveCampaign(school.id)
                                     SaveGameRepository(this@MainActivity).clearAutoSlots()
                                     worldMapViewModel.campaignSchoolId = school.id
@@ -317,6 +340,11 @@ class MainActivity : ComponentActivity() {
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
                                     worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.first)
+                                    // Guardado MANUAL inicial en el slot elegido (para que "CARGAR PARTIDA"
+                                    // lo muestre desde ya). Los autoguardados posteriores van a los slots auto.
+                                    if (chosenSlot in SaveGameRepository.MANUAL_SLOTS) {
+                                        worldMapViewModel.saveGame(this@MainActivity, chosenSlot)
+                                    }
                                     // Tras el último panel de la intro (IntroPOW8), la transición
                                     // entra al PRIMER interior de la campaña: el Lobby de la ENCB.
                                     // Inicia la música de investigar.

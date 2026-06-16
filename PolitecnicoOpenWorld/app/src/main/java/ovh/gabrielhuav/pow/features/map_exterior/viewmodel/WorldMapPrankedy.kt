@@ -76,6 +76,11 @@ internal fun WorldMapViewModel.maybeHideCampaignRouteNearEscom(playerLoc: GeoPoi
     val dLon = playerLoc.longitude - ESCOM_LON
     if (kotlin.math.sqrt(dLat * dLat + dLon * dLon) <= ESCOM_ARRIVE_DEG) {
         _uiState.update { it.copy(campaignRouteWaypoints = emptyList()) }
+        // Llegaste al "lugar seguro": la misión de escolta termina. La música es EXCLUSIVA de
+        // la misión, así que aquí deja de sonar (no debe seguir en el mundo libre tras cumplirla).
+        soundManager.stopLugarSeguroMusic()
+        soundManager.stopInvestigarMusic()
+        soundManager.stopMainMusic()
     }
 }
 

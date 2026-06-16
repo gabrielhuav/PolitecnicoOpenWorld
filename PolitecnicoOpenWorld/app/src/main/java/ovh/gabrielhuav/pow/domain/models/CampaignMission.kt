@@ -24,16 +24,17 @@ object MissionCatalog {
         targetLon = -99.148900
     )
 
-    // Escolta: Prankedy te acompaña (fase HIRED) y debes llevarlo a un lugar seguro. Solo se
-    // activa en campaña y en el vecindario de la ENCB (ver WorldMapPrankedy.maybeSpawnPrankedyCompanion).
-    // arriveRadiusMeters=0 → el widget NO lo auto-marca como cumplido (cierre narrativo, no por llegada).
+    // Escolta: Prankedy te acompaña (fase HIRED) y debes llevarlo a la ESCOM (el "lugar seguro").
+    // Solo se activa en campaña y en el vecindario de la ENCB (ver WorldMapPrankedy.maybeSpawnPrankedyCompanion).
+    // El destino es la ESCOM (mismo punto donde se oculta la línea GPS y para la música); al
+    // entrar en arriveRadiusMeters se marca cumplido.
     val ESCOLTAR_PRANKEDY = CampaignObjective(
         id = "escoltar_prankedy",
-        title = "Lleva a un lugar seguro a Prankedy",
-        description = "Protege a Prankedy y llévalo a un lugar seguro.",
-        targetLat = 19.5001588,
-        targetLon = -99.1450298,
-        arriveRadiusMeters = 0.0
+        title = "Lleva a Prankedy a la ESCOM",
+        description = "Protege a Prankedy y escóltalo hasta la ESCOM (lugar seguro).",
+        targetLat = 19.504603,
+        targetLon = -99.145985,
+        arriveRadiusMeters = 80.0
     )
 
     private val all = listOf(IR_ENCB, ESCOLTAR_PRANKEDY)

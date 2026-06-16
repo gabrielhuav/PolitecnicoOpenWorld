@@ -162,11 +162,11 @@ object ZombieRoomCatalog {
         // dimensiones reales del asset.
         // Cada sala lleva un waypoint de AVANCE (→ siguiente) y, salvo el lobby (entrada),
         // un waypoint de RETROCESO (← anterior), para poder ir y venir por la cadena.
-        // ENCB_salon1: el fondo deja ver al jugador diminuto → playerScaleMul = 3f.
+        // salon1/lab1/lab2: sus fondos dejan ver al jugador diminuto → playerScaleMul = 3f.
         add(encbStoryRoom(ENCB_LOBBY_ID,  "Lobby ENCB",  "INTERIORS/ENCB/ENCB_lobby.webp",  nextTargetId = ENCB_SALON1_ID))
         add(encbStoryRoom(ENCB_SALON1_ID, "Salón ENCB",  "INTERIORS/ENCB/ENCB_salon1.webp", nextTargetId = ENCB_LAB1_ID, prevTargetId = ENCB_LOBBY_ID, playerScaleMul = 3f))
-        add(encbStoryRoom(ENCB_LAB1_ID,   "Lab. ENCB 1", "INTERIORS/ENCB/ENCB_lab1.webp",   nextTargetId = ENCB_LAB2_ID, prevTargetId = ENCB_SALON1_ID))
-        add(encbStoryRoom(ENCB_LAB2_ID,   "Lab. ENCB 2", "INTERIORS/ENCB/ENCB_lab2.webp",   nextTargetId = EXIT_TO_STORY_OUTRO, prevTargetId = ENCB_LAB1_ID))
+        add(encbStoryRoom(ENCB_LAB1_ID,   "Lab. ENCB 1", "INTERIORS/ENCB/ENCB_lab1.webp",   nextTargetId = ENCB_LAB2_ID, prevTargetId = ENCB_SALON1_ID, playerScaleMul = 3f))
+        add(encbStoryRoom(ENCB_LAB2_ID,   "Lab. ENCB 2", "INTERIORS/ENCB/ENCB_lab2.webp",   nextTargetId = EXIT_TO_STORY_OUTRO, prevTargetId = ENCB_LAB1_ID, playerScaleMul = 3f))
     }
 
     // ─── MODO HISTORIA ENCB: fábrica de una sala de la cadena lineal ──────────
