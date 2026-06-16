@@ -352,7 +352,7 @@ class NpcAiManager {
 
                     val availableSlots = getAvailableParkingSlots(landmark, serverNpcs)
                     if (availableSlots.isNotEmpty()) {
-                        val fillPercentage = 1.0f // Llenar todos los lugares disponibles para tener más vehículos
+                        val fillPercentage = kotlin.random.Random.nextFloat() * 0.8f + 0.1f // Aleatorio entre 10% y 90%
                         val numToSpawn = (availableSlots.size * fillPercentage).toInt().coerceAtLeast(1)
                         val slotsToUse = availableSlots.shuffled().take(numToSpawn)
                         var timerOffset = Random.nextLong(15000L, 25000L)
