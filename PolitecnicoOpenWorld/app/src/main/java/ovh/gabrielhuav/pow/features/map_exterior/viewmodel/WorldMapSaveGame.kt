@@ -22,8 +22,8 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 // Radio (grados ≈ 130 m) alrededor del jugador para considerar un NPC "cercano".
 private const val SAVE_NPC_RADIUS_DEG = 0.0012
 
-// Construye el snapshot de la sesión actual.
-fun WorldMapViewModel.buildSaveData(schoolId: String): GameSaveData {
+// Construye el snapshot de la sesión actual. `saveType` = "MANUAL" / "AUTO".
+fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL"): GameSaveData {
     val s = _uiState.value
     val loc = s.currentLocation ?: GeoPoint(19.504603, -99.145985) // fallback: ESCOM
     val nearby = s.npcs
@@ -56,15 +56,22 @@ fun WorldMapViewModel.buildSaveData(schoolId: String): GameSaveData {
         nearbyNpcs = nearby,
         objectiveId = s.currentObjective?.id,
         objectiveDone = s.objectiveDone,
+        interiorRoomId = currentInteriorRoomId,   // null si está en el mapa global
+        saveType = saveType,
         savedAt = System.currentTimeMillis()
     )
 }
 
-// Guarda la partida COMPLETA en el SLOT indicado (JSON) + la partida ligera (escuela,
-// SharedPreferences) que habilita "CARGAR PARTIDA". Fija el slot como activo (auto-guardado).
-fun WorldMapViewModel.saveGame(context: Context, slot: Int) {
-    campaignSlot = slot
-    SaveGameRepository(context).save(slot, buildSaveData(campaignSchoolId))
+// Guarda la partida COMPLETA en un SLOT (JSON) + la partida ligera (escuela, SharedPreferences)
+// que habilita "CARGAR PARTIDA". `auto` = true → AUTO-GUARDADO: ignora `slot` y escribe en un
+// slot de auto-guardado reservado (rotando entre los 2). `auto` = false → guardado MANUAL en el
+// `slot` elegido (debe ser un slot manual). Fija el slot escrito como activo.
+fun WorldMapViewModel.saveGame(context: Context, slot: Int, auto: Boolean = false) {
+    val repo = SaveGameRepository(context)
+    val targetSlot = if (auto) repo.nextAutoSlot() else slot
+    campaignSlot = targetSlot
+    val type = if (auto) "AUTO" else "MANUAL"
+    repo.save(targetSlot, buildSaveData(campaignSchoolId, type))
     CampaignRepository(context).saveCampaign(campaignSchoolId)
 }
 
@@ -76,6 +83,9 @@ fun WorldMapViewModel.restoreSaveData(data: GameSaveData) {
     val skin = PlayerSkin.entries.firstOrNull { it.name == data.skin } ?: PlayerSkin.LAZARO
     val model = data.vehicleModel?.let { name -> CarModel.entries.firstOrNull { it.name == name } }
     val objective = MissionCatalog.byId(data.objectiveId)
+    // Recordamos el interior guardado (null = mapa global). MainActivity decide la ruta de
+    // reentrada (un interior o el mapa global) a partir de este valor tras loadGame.
+    currentInteriorRoomId = data.interiorRoomId
     _uiState.update {
         it.copy(
             wantedLevel = data.wantedLevel,
