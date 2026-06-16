@@ -50,6 +50,11 @@ class PrankedyManager {
         const val RUN_SPEED         = 0.000005
         const val RUN_TANQUE_SPEED  = 0.0000075
 
+        // ── Acompañante (fase HIRED): umbrales de seguimiento al jugador ──────
+        // Parada MUY cerca para que no se quede rezagado (antes ~10 m → ~3 m).
+        const val FOLLOW_STOP_DIST  = 0.00003   // ~3.3 m: pegado al jugador → IDLE
+        const val FOLLOW_WALK_DIST  = 0.00011   // ~12 m: camina (p_walk); más lejos corre (p_run)
+
         // ── Combate ──────────────────────────────────────────────────────────
         const val ATTACK_RADIUS            = 0.00007  // ~8 m → se acerca antes de lanzar el tanque
         const val ATTACK_DAMAGE_PROJECTILE = 22f
@@ -197,7 +202,9 @@ class PrankedyManager {
         isDriving: Boolean,
         now: Long,
         roadNetwork: List<MapWay>,
-        snapToRoad: ((GeoPoint) -> GeoPoint)? = null
+        snapToRoad: ((GeoPoint) -> GeoPoint)? = null,
+        // Acompañante (HIRED): si el jugador corre, Prankedy iguala la velocidad (p_run).
+        playerRunning: Boolean = false
     ): PrankedyTickResult {
         snapToRoadFn = snapToRoad
         // Si el jugador va en coche, Prankedy desaparece visualmente (sin perder su estado).
@@ -212,6 +219,10 @@ class PrankedyManager {
         }
 
         val loc = location ?: return PrankedyTickResult()
+
+        // ACOMPAÑANTE (HIRED): modo seguidor pacífico. Te sigue (camina/corre), sin atacarte
+        // ni lanzar el tanque. Solo se usa en la campaña ENCB (ver maybeSpawnPrankedyCompanion).
+        if (phase == PrankedyPhase.HIRED) return tickFollow(loc, playerLoc, now, playerRunning)
 
         // ANTI-TRABA: si está LEJOS del jugador (debería estar moviéndose) y no avanza en
         // STUCK_TIME_MS, se reubica cerca de ti sobre la calle. NO se cura (conserva vida y
@@ -353,6 +364,40 @@ class PrankedyManager {
         return PrankedyTickResult(hitNpcId = hitNpcId, hitPlayer = hitPlayer)
     }
 
+    /**
+     * Lógica ACOMPAÑANTE (fase HIRED): Prankedy te sigue de forma pacífica. Nunca te ataca
+     * ni lanza el tanque. CORRE (p_run, RUN_SPEED) si el jugador corre o si está lejos; si no,
+     * CAMINA (p_walk); si ya está pegado (FOLLOW_STOP_DIST ~3 m) se queda IDLE. Su trayectoria
+     * está ESTRICTAMENTE restringida a la red vial (snap a calle SIEMPRE, sin atajos por
+     * césped/edificios). La orientación del sprite se calcula con el VECTOR DE MOVIMIENTO real
+     * (no la posición del jugador) para que mire hacia donde avanza y no parezca caminar al revés.
+     */
+    private fun tickFollow(loc: GeoPoint, playerLoc: GeoPoint, now: Long, playerRunning: Boolean): PrankedyTickResult {
+        projectileActive = false
+        val d = dist(loc, playerLoc)
+        if (d > FOLLOW_STOP_DIST) {
+            // Empate de velocidad: corre si el jugador corre (igual aceleración) o si está lejos.
+            val running = playerRunning || d > FOLLOW_WALK_DIST
+            val speed = if (running) RUN_SPEED else WALK_SPEED
+            animState = if (running) PrankedyAnimState.RUN else PrankedyAnimState.WALK
+            // ROAD-ONLY ESTRICTO: el siguiente punto se proyecta SIEMPRE sobre la red vial
+            // (snap), de modo que Prankedy solo pisa calles/banquetas transitables.
+            val newLoc = snap(stepToward(loc, playerLoc, speed))
+            // Orientación por el ángulo del DESPLAZAMIENTO real: atan2(dLat, dLon). El sprite
+            // solo se voltea en horizontal → mira a la derecha si avanzó hacia el este (cos>0).
+            val moveLon = newLoc.longitude - loc.longitude
+            val moveLat = newLoc.latitude - loc.latitude
+            if (kotlin.math.abs(moveLon) > 1e-9 || kotlin.math.abs(moveLat) > 1e-9) {
+                facingRight = kotlin.math.cos(kotlin.math.atan2(moveLat, moveLon)) >= 0.0
+            }
+            location = newLoc
+        } else {
+            animState = PrankedyAnimState.IDLE
+        }
+        tickDialogue(now)
+        return PrankedyTickResult()   // acompañante: nunca golpea al jugador ni a NPCs
+    }
+
     /** Limpia el diálogo si ya expiró. */
     private fun tickDialogue(now: Long) {
         if (currentDialogue != null && now > dialogueUntil) {
@@ -400,6 +445,17 @@ class PrankedyManager {
         pendingTargetLoc = null
         currentDialogue = null
         dialogueUntil = 0L
+    }
+
+    /**
+     * Spawnea a Prankedy como ACOMPAÑANTE (fase HIRED): aparece cerca del jugador, sobre la
+     * calle, y empieza a seguirte sin atacarte. Lo usa SOLO la campaña ENCB
+     * (ver WorldMapPrankedy.maybeSpawnPrankedyCompanion).
+     */
+    fun spawnCompanion(nearPlayer: GeoPoint, roadNetwork: List<MapWay>, now: Long = System.currentTimeMillis()) {
+        spawn(nearPlayer, roadNetwork, now)
+        phase = PrankedyPhase.HIRED
+        animState = PrankedyAnimState.IDLE
     }
 
     /** (Legado, sin uso: ya no es contratable). */

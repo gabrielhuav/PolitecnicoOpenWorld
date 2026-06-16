@@ -111,5 +111,13 @@
     "defaultScale": 0.15,
     "baseWidthMeters": 250.0,
     "baseHeightMeters": 300.0
+  },
+  {
+    "id": "encb_lobby",
+    "displayName": "Lobby ENCB",
+    "assetPath": "BUILDINGS/IPN/ENCB_lobby.webp",
+    "defaultScale": 0.15,
+    "baseWidthMeters": 105.0,
+    "baseHeightMeters": 150.0
   }
 ]

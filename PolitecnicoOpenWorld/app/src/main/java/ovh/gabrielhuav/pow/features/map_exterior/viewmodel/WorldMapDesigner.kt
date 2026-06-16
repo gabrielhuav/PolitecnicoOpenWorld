@@ -25,6 +25,7 @@ import ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager
 fun WorldMapViewModel.loadLandmarks(context: Context) {
     loadExteriorCollisions(context) // ESTO CARGA EL JSON DE MUROS
     loadMetroStations(context)
+    loadMetrobusStations(context)
     viewModelScope.launch(Dispatchers.IO) {
         try {
             LandmarkCatalogManager.loadCatalog(context)

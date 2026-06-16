@@ -34,6 +34,11 @@ class CollisionGrid(val grid: Array<IntArray>) {       // 0=libre, !=0=bloqueado
   `CanchasFutbolScreen`, `DeportivoBeisScreen`, `DeportivoFutbolScreen`, **`FesInteriorScreen`**) son
   envoltorios finos que pasan el `backgroundAsset` / config y delegan en la base. El **botón de salida**
   de la base llama `onExit` → `popBackStack("world_map")` (vuelves al mapa global en la misma posición).
+- **🆕 Modo Historia ENCB (cadena lineal)** — NO usa este motor simple, sino el **motor de salas**
+  (`ZombieGameScreen`, ver 05): 4 salas tipo `LOBBY` encadenadas `encb_lobby → encb_salon1 → encb_lab1 →
+  encb_lab2` (`ZombieRoomCatalog.encbStoryRoom(...)`, fondos `INTERIORS/ENCB/*.webp`, sin zombis/mano). Cada
+  sala tiene UNA puerta de AVANCE (X → `goToRoom(next)`); ninguna tiene salida al mapa (flujo atrapado). Banner
+  "Objetivo: Investiga qué pasó" en todas (`ENCB_STORY_ROOM_IDS`). Entrada: `interiores_zombies?startRoom=encb_lobby`.
 - **`viewmodel/InteriorViewModel.kt`** (NavBackStackEntry-scoped, `Factory`):
   - Estado: `InteriorState` (posición del jugador, facing, running, etc.).
   - `moveByAngle(angleRad)`, `moveDirection(direction)`, `applyMovement(newX, newY, dxForFacing)`,

@@ -1332,6 +1332,13 @@ fun WorldMapScreen(
                             }
                         } else wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(0, 0, [], false);", null)
 
+                        // MODO HISTORIA: línea GPS roja de campaña (ENCB → ESCOM). Se dibuja/limpia
+                        // según el estado; al llegar a ESCOM el VM la vacía y aquí se borra sola.
+                        if (uiState.campaignRouteWaypoints.isNotEmpty()) {
+                            val campJson = uiState.campaignRouteWaypoints.map { mapOf("lat" to it.latitude, "lng" to it.longitude) }.let { gson.toJson(it) }
+                            wv.evaluateJavascript("if(typeof updateCampaignRoute==='function')updateCampaignRoute($campJson);", null)
+                        } else wv.evaluateJavascript("if(typeof updateCampaignRoute==='function')updateCampaignRoute([]);", null)
+
                         // Waypoints de patrullas FUERA de la neblina (paridad con OSM nativo):
                         // 🚓 + línea punteada jugador→patrulla mientras te buscan. Las patrullas
                         // DENTRO de la neblina ya se dibujan como sprite (no llevan waypoint).
@@ -2267,6 +2274,32 @@ fun WorldMapScreen(
         if (station != null) {
             viewModel.consumeMetroFadeComplete()
             onNavigateToInterior("metro_station_interior/${station.name}")
+        }
+    }
+
+    // ─── Metrobús Fade Overlay ───────────────────────────────────────────────
+    val metrobusFadeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(uiState.showMetrobusFade) {
+        if (uiState.showMetrobusFade) {
+            metrobusFadeAlpha.animateTo(1f, animationSpec = androidx.compose.animation.core.tween(600))
+            viewModel.onMetrobusFadeComplete()
+            kotlinx.coroutines.delay(200)
+            metrobusFadeAlpha.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(400))
+        }
+    }
+    if (metrobusFadeAlpha.value > 0f) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFC21D24).copy(alpha = metrobusFadeAlpha.value))
+        )
+    }
+
+    LaunchedEffect(uiState.metrobusFadeCompleteStation) {
+        val station = uiState.metrobusFadeCompleteStation
+        if (station != null) {
+            viewModel.consumeMetrobusFadeComplete()
+            onNavigateToInterior("metrobus_station_interior/${station.name}")
         }
     }
 }

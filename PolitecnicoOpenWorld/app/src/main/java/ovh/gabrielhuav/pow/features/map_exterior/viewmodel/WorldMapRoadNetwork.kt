@@ -57,13 +57,29 @@ import androidx.compose.runtime.setValue
 import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
 
 internal fun WorldMapViewModel.updateVisibleRoads(location: GeoPoint, force: Boolean = false) {
-        if (!_uiState.value.showRoadNetwork || roadNetwork.isEmpty()) {
+        // 🆕 ZONA LIBRE (ESCOM o ENCB, regla visual simétrica al movimiento libre): dentro de
+        // cualquiera de los dos campus NO se pintan las líneas de calles transitables. Vaciamos
+        // el Flow de inmediato y SALTAMOS el filtro en Dispatchers.Default (evita parpadeo/recarga
+        // de las líneas amarillas de Overpass sobre el campus). Al SALIR del perímetro, la
+        // condición deja de cumplirse y la función recupera su comportamiento estándar.
+        if (isFreeMovementZone(location.latitude, location.longitude)) {
+            wasInFreeMovementZone = true
             if (_roadNetworkFlow.value.isNotEmpty()) _roadNetworkFlow.value = emptyList()
             return
         }
+        if (!_uiState.value.showRoadNetwork || roadNetwork.isEmpty()) {
+            wasInFreeMovementZone = false
+            if (_roadNetworkFlow.value.isNotEmpty()) _roadNetworkFlow.value = emptyList()
+            return
+        }
+        // SALIDA de zona libre: forzamos el repintado en el primer tick fuera del campus (el flow
+        // quedó vacío al entrar y el throttle por distancia lo suprimiría). Ver versión MIEMBRO.
+        val leftFreeZone = wasInFreeMovementZone
+        wasInFreeMovementZone = false
+        val effectiveForce = force || leftFreeZone
         val lastLoc = lastVisibleRoadUpdateLocation
         // Solo recalculamos si forzamos la actualización o si el jugador se movió lo suficiente (~200m)
-        if (force || lastLoc == null || distance(lastLoc, location) > VISIBLE_ROAD_UPDATE_THRESHOLD) {
+        if (effectiveForce || lastLoc == null || distance(lastLoc, location) > VISIBLE_ROAD_UPDATE_THRESHOLD) {
             lastVisibleRoadUpdateLocation = location
             // Ejecutamos el filtro en un hilo secundario para no trabar el Game Loop
             viewModelScope.launch(Dispatchers.Default) {

@@ -100,7 +100,9 @@ fun ZombieGameScreen(
     // Sala inicial de Interiores: por defecto el lobby de ESCOM; la puerta FES la fija a FES_ID.
     startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
     // MODO HISTORIA: abre el selector de slots para guardar la partida (también en interiores).
-    onRequestSaveGame: () -> Unit = {}
+    onRequestSaveGame: () -> Unit = {},
+    // MODO HISTORIA: el waypoint final de ENCB_LAB2 pide reanudar la narrativa (cómic ENCB_OUTRO).
+    onPlayStoryOutro: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
@@ -128,6 +130,10 @@ fun ZombieGameScreen(
 
     LaunchedEffect(state.isExitingToWorld) {
         if (state.isExitingToWorld) { viewModel.consumeExit(); onExitToWorld() }
+    }
+    // MODO HISTORIA: salida del motor de interiores hacia el cómic ENCB_OUTRO.
+    LaunchedEffect(state.isExitingToStoryOutro) {
+        if (state.isExitingToStoryOutro) { viewModel.consumeExit(); onPlayStoryOutro() }
     }
 
     val room = ZombieRoomCatalog.rooms[state.currentRoomIndex]
@@ -529,6 +535,27 @@ fun ZombieGameScreen(
                     Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
                         modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
                             .padding(horizontal = 18.dp, vertical = 9.dp))
+                }
+            }
+
+            // ─── OBJETIVO (salas del Modo Historia ENCB) ────────────────────────
+            // Banner superpuesto, siempre visible mientras el jugador esté en la cadena
+            // lineal de la ENCB (lobby → salón → lab1 → lab2).
+            if (room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS) {
+                Box(
+                    Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
+                    Alignment.TopCenter
+                ) {
+                    Text(
+                        "Objetivo: Investiga qué pasó",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .background(Color(0xCC000000), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
                 }
             }
 
