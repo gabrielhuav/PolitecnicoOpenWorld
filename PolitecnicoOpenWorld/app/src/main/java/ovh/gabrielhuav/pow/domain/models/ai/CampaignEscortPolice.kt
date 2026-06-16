@@ -31,9 +31,22 @@ class CampaignEscortPolice {
     companion object {
         const val COP_COUNT = 2
         const val SPAWN_BEHIND = 0.0005     // ~55 m: aparecen DETRÁS, cerca y visibles
-        const val FOLLOW_DISTANCE = 0.0004  // ~45 m: te siguen DE CERCA (visibles como sprite, no tan lejos)
+        const val FOLLOW_DISTANCE = 0.0004  // ~45 m: distancia INICIAL de la escolta
         const val RESUME_BAND = 0.00012     // ~13 m de histéresis: evita el tembleque en el borde
         const val COP_SPEED = 0.0000032     // por tick: a pie y lentos (no te alcanzan corriendo)
+
+        // ─── ESCOLTA (Misión 1): se acercan CADA VEZ MÁS con el tiempo y atacan a Prankedy ──
+        // La distancia que mantienen ENCOGE de FOLLOW_DISTANCE a ESCORT_CONTACT en CLOSE_IN_MS,
+        // así "te alcanzan pero tardan". Al estar en contacto, atacan a Prankedy.
+        const val ESCORT_CONTACT = 0.00003      // ~3.3 m: ya alcanzaron
+        const val CLOSE_IN_MS = 70000L          // ~70 s para cerrar de 45 m a contacto (tardan; da chance de llegar)
+        const val ESCORT_ATTACK_RANGE = 0.00004 // ~4.5 m: a esta distancia de Prankedy lo golpean
+        const val ESCORT_ATTACK_DAMAGE = 7f
+        const val ESCORT_ATTACK_COOLDOWN_MS = 1100L
+
+        // Teleport: si el policía queda a MÁS del DOBLE de tu fog of war (~70 m → 2× = ~140 m),
+        // se reubica cerca de ti (te alejaste demasiado). ~140 m en grados.
+        const val TELEPORT_DIST = 0.00126       // ~140 m (2× fog)
 
         // ─── MISIÓN 2 (persecución) ──────────────────────────────────────────
         const val CHASE_SPEED = 0.0000050   // más rápido que la escolta (presionan), pero escapable a pie
@@ -41,7 +54,7 @@ class CampaignEscortPolice {
         const val CHASE_CONTACT = 0.00004   // ~4.5 m: a esta distancia ya te "alcanzaron" (se detienen encima)
 
         // Pathfinding / anti-atasco (mismos umbrales que PoliceManager).
-        const val ROUTE_TTL_MS = 1500L      // recalcular la ruta hacia ti cada ~1.5 s
+        const val ROUTE_TTL_MS = 1500L      // recalcular la ruta hacia el objetivo cada ~1.5 s
         const val WAYPOINT_REACH = 0.00012  // ~13 m: distancia para pasar al siguiente nodo
         const val STUCK_TIME_MS = 1500L     // si no avanza 1.5 s, va DIRECTO un momento para despegarse
         const val STUCK_EPS = 0.00002       // ~2 m: umbral de "no se movió"
@@ -49,6 +62,7 @@ class CampaignEscortPolice {
 
     @Volatile var mode: Mode = Mode.ESCORT
         private set
+    @Volatile private var spawnTimeMs = 0L
 
     private val units = ConcurrentHashMap<String, Npc>()
     // Estado de ruta por policía (A* sobre la red de calles).
@@ -57,18 +71,20 @@ class CampaignEscortPolice {
     private val routeTime = ConcurrentHashMap<String, Long>()
     private val stuckPos = ConcurrentHashMap<String, GeoPoint>()
     private val stuckSince = ConcurrentHashMap<String, Long>()
+    private val attackCooldown = ConcurrentHashMap<String, Long>()
 
     fun activeUnits(): List<Npc> = units.values.toList()
     fun isActive(): Boolean = units.isNotEmpty()
     fun clear() {
         units.clear(); route.clear(); routeIdx.clear(); routeTime.clear()
-        stuckPos.clear(); stuckSince.clear()
+        stuckPos.clear(); stuckSince.clear(); attackCooldown.clear()
     }
 
     /** MISIÓN 1: crea los 2 policías DETRÁS del jugador (en abanico) que lo SIGUEN a distancia. */
     fun spawn(playerLat: Double, playerLon: Double, snap: ((GeoPoint) -> GeoPoint)? = null) {
         clear()
         mode = Mode.ESCORT
+        spawnTimeMs = System.currentTimeMillis()
         for (i in 0 until COP_COUNT) {
             val ang = Math.PI + (if (i == 0) -0.30 else 0.30)   // detrás, abierto en abanico
             val raw = GeoPoint(
@@ -83,6 +99,7 @@ class CampaignEscortPolice {
     fun spawnChase(count: Int, playerLat: Double, playerLon: Double, snap: ((GeoPoint) -> GeoPoint)? = null) {
         clear()
         mode = Mode.CHASE
+        spawnTimeMs = System.currentTimeMillis()
         for (i in 0 until count) {
             val ang = (2.0 * Math.PI * i / count)   // repartidos alrededor del jugador
             val raw = GeoPoint(
@@ -109,31 +126,66 @@ class CampaignEscortPolice {
     }
 
     /**
-     * Un ciclo de seguimiento. Cada policía:
-     *  - si ya está dentro de [FOLLOW_DISTANCE] → se queda (mantiene la distancia considerable);
-     *  - si está más lejos → avanza DESPACIO hacia el jugador siguiendo la RUTA por las calles
-     *    (A*), así no se atasca ni atraviesa edificios.
+     * Un ciclo. `targetLat/targetLon` = a quién PERSIGUEN: en ESCORT es **Prankedy** (lo van a
+     * atacar); en CHASE es el jugador. `playerLat/playerLon` se usa para el teleport (si el
+     * policía queda a > [TELEPORT_DIST] del JUGADOR, se reubica cerca).
+     *
+     * Devuelve el **daño total infligido a Prankedy** este tick (0 en CHASE), para que el VM lo
+     * aplique y dispare "MISIÓN FALLIDA" si lo mata.
      */
     fun tick(
         playerLat: Double,
         playerLon: Double,
+        targetLat: Double,
+        targetLon: Double,
         now: Long,
         snap: ((GeoPoint) -> GeoPoint)? = null,
         pathfind: ((GeoPoint, GeoPoint) -> List<GeoPoint>)? = null
-    ) {
-        val stopDist = if (mode == Mode.CHASE) CHASE_CONTACT else FOLLOW_DISTANCE
+    ): Float {
+        // ESCORT: la distancia que mantienen ENCOGE con el tiempo (te alcanzan pero tardan).
+        val stopDist = if (mode == Mode.CHASE) CHASE_CONTACT else {
+            val t = ((now - spawnTimeMs).toDouble() / CLOSE_IN_MS).coerceIn(0.0, 1.0)
+            FOLLOW_DISTANCE + (ESCORT_CONTACT - FOLLOW_DISTANCE) * t
+        }
         val speed = if (mode == Mode.CHASE) CHASE_SPEED else COP_SPEED
+        var prankedyDamage = 0f
+
         for (u in units.values.toList()) {
-            val d = dist(u.location.latitude, u.location.longitude, playerLat, playerLon)
+            // TELEPORT: si te alejaste a > 2× tu fog, reubica al policía cerca de ti (detrás).
+            if (dist(u.location.latitude, u.location.longitude, playerLat, playerLon) > TELEPORT_DIST) {
+                relocateNear(u, playerLat, playerLon, snap)
+                continue
+            }
+
+            val d = dist(u.location.latitude, u.location.longitude, targetLat, targetLon)
+
+            // ESCORT: si llegó a Prankedy, lo ATACA (con cooldown por policía).
+            if (mode == Mode.ESCORT && d <= ESCORT_ATTACK_RANGE) {
+                if (now - (attackCooldown[u.id] ?: 0L) >= ESCORT_ATTACK_COOLDOWN_MS) {
+                    attackCooldown[u.id] = now
+                    prankedyDamage += ESCORT_ATTACK_DAMAGE
+                }
+            }
+
             if (d <= stopDist) {
-                // ESCORT: mantiene la distancia. CHASE: ya te alcanzó (se queda encima).
                 forgetRoute(u.id)
                 if (u.isMoving) units[u.id] = u.copy(isMoving = false)
                 continue
             }
-            val (loc, rot, facing) = advanceAlong(u, playerLat, playerLon, speed, now, snap, pathfind)
+            val (loc, rot, facing) = advanceAlong(u, targetLat, targetLon, speed, now, snap, pathfind)
             units[u.id] = u.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
         }
+        return prankedyDamage
+    }
+
+    // Reubica al policía cerca del jugador (detrás), sobre la calle si hay snap. Conserva el
+    // cronómetro de cierre (sigue acercándose) y olvida su ruta vieja.
+    private fun relocateNear(unit: Npc, playerLat: Double, playerLon: Double, snap: ((GeoPoint) -> GeoPoint)?) {
+        val ang = Math.PI + (Math.random() - 0.5)   // detrás, con algo de variación
+        val raw = GeoPoint(playerLat + sin(ang) * SPAWN_BEHIND, playerLon + cos(ang) * SPAWN_BEHIND)
+        val placed = snap?.invoke(raw) ?: raw
+        forgetRoute(unit.id)
+        units[unit.id] = unit.copy(location = placed, isMoving = true)
     }
 
     private fun forgetRoute(id: String) {

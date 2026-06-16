@@ -276,9 +276,11 @@ class SoundManager private constructor(context: Context) {
         if (streamId != -1) storyStreamIds.add(streamId)
     }
 
-    // Jingle al CUMPLIR la misión (no es del cómic: no se registra en storyStreamIds).
+    // Jingle al CUMPLIR la misión. Se REGISTRA en storyStreamIds para que `stopAllStorySounds`
+    // lo corte cuando arranca el cómic (si no, seguía sonando durante toda la secuencia).
     fun playMisionCumplida() {
-        soundPool?.play(misionCumplidaSoundId, 1f, 1f, 1, 0, 1f)
+        val streamId = soundPool?.play(misionCumplidaSoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        if (streamId != -1) storyStreamIds.add(streamId)
     }
 
     fun stopAllStorySounds() {

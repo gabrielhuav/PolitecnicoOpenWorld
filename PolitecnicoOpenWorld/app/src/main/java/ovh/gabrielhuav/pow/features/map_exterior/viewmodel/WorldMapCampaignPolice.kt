@@ -39,21 +39,21 @@ private const val CROWD_SPAWN_OFFSET = 0.00006        // ~6 m de la puerta al ap
 internal fun WorldMapViewModel.syncObjectiveToEscomDoor(playerLoc: GeoPoint) {
     val obj = _uiState.value.currentObjective ?: return
     if (obj.id != MissionCatalog.ESCOLTAR_PRANKEDY.id && obj.id != MissionCatalog.INGRESAR_ESCOM.id) return
-    // Puertas de la ESCOM: landmarks colocados con el Diseñador (DOORS/ESCOM_DOOR.webp) +
-    // las puertas placeholder de spawnEscomDoors (escom_door_*). Estas son donde el jugador
-    // interactúa para entrar; el objetivo apunta a la MÁS CERCANA.
-    val doorLocs = ArrayList<GeoPoint>()
-    _uiState.value.landmarks.filter { it.assetPath == ESCOM_DOOR_ASSET }.forEach { doorLocs.add(it.location) }
-    _escomItems.value.filter { it.id.startsWith("escom_door_") }.forEach { doorLocs.add(GeoPoint(it.latitude, it.longitude)) }
-    if (doorLocs.isEmpty()) return
-    val nearest = doorLocs.minByOrNull {
-        val dLat = it.latitude - playerLoc.latitude
-        val dLon = it.longitude - playerLoc.longitude
-        dLat * dLat + dLon * dLon
-    } ?: return
-    if (kotlin.math.abs(obj.targetLat - nearest.latitude) > 1e-6 ||
-        kotlin.math.abs(obj.targetLon - nearest.longitude) > 1e-6) {
-        _uiState.update { it.copy(currentObjective = obj.copy(targetLat = nearest.latitude, targetLon = nearest.longitude)) }
+    // Puertas de la ESCOM donde el jugador interactúa para entrar. Preferimos las colocadas con
+    // el Diseñador (landmarks DOORS/ESCOM_DOOR.webp); si no hay, las placeholder (escom_door_*).
+    val landmarkDoors = _uiState.value.landmarks
+        .filter { it.assetPath == ESCOM_DOOR_ASSET }.map { it.location }
+    val placeholderDoors = _escomItems.value
+        .filter { it.id.startsWith("escom_door_") }.map { GeoPoint(it.latitude, it.longitude) }
+    val doors = if (landmarkDoors.isNotEmpty()) landmarkDoors else placeholderDoors
+    if (doors.isEmpty()) return
+    // ELECCIÓN DETERMINISTA (ordenada), NO "la más cercana": con dos puertas, elegir la más
+    // cercana hacía que el objetivo SALTARA entre ambas cada frame (parpadeo / "repetido"). Así
+    // se fija SIEMPRE la misma puerta y el marcador no parpadea.
+    val chosen = doors.sortedWith(compareBy({ it.latitude }, { it.longitude })).first()
+    if (kotlin.math.abs(obj.targetLat - chosen.latitude) > 1e-6 ||
+        kotlin.math.abs(obj.targetLon - chosen.longitude) > 1e-6) {
+        _uiState.update { it.copy(currentObjective = obj.copy(targetLat = chosen.latitude, targetLon = chosen.longitude)) }
     }
 }
 
@@ -76,11 +76,25 @@ internal fun WorldMapViewModel.runCampaignEscortTick(playerLoc: GeoPoint) {
         campaignPoliceActivated = true
         campaignEscortPolice.spawn(playerLoc.latitude, playerLoc.longitude, snap)
     }
-    campaignEscortPolice.tick(
+    // Los policías PERSIGUEN A PRANKEDY (lo van a atacar) y se acercan cada vez más con el tiempo.
+    val pkLoc = prankedyManager.location
+    val tgtLat = pkLoc?.latitude ?: playerLoc.latitude
+    val tgtLon = pkLoc?.longitude ?: playerLoc.longitude
+    val pkDamage = campaignEscortPolice.tick(
         playerLat = playerLoc.latitude, playerLon = playerLoc.longitude,
+        targetLat = tgtLat, targetLon = tgtLon,
         now = System.currentTimeMillis(), snap = snap,
         pathfind = { from, to -> findRoadRoute(from, to) }
     )
+    // La policía SÍ puede dañar a Prankedy (tú no). Si lo MATAN → MISIÓN FALLIDA.
+    if (pkDamage > 0f && pkLoc != null) {
+        val died = prankedyManager.takeDamage(pkDamage)
+        _uiState.update { it.copy(prankedyHealth = prankedyManager.health) }
+        if (died) {
+            clearCampaignPolice()
+            _uiState.update { it.copy(showMissionFailed = true, prankedyLocation = null, prankedyVisible = false) }
+        }
+    }
     if (_uiState.value.wantedLevel != 1) _uiState.update { it.copy(wantedLevel = 1) }
     updateNpcsState()
 }
@@ -93,8 +107,10 @@ internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
         campaignEscortPolice.spawnChase(6, playerLoc.latitude, playerLoc.longitude, snap)
         mission2CrowdLastSpawn = 0L
     }
+    // MISIÓN 2: persiguen al JUGADOR (no hay Prankedy que atacar).
     campaignEscortPolice.tick(
         playerLat = playerLoc.latitude, playerLon = playerLoc.longitude,
+        targetLat = playerLoc.latitude, targetLon = playerLoc.longitude,
         now = System.currentTimeMillis(), snap = snap,
         pathfind = { from, to -> findRoadRoute(from, to) }
     )

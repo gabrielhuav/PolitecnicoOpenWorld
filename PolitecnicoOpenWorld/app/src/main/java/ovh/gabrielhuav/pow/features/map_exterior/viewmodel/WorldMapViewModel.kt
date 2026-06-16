@@ -1228,7 +1228,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacter(direction: Direction) {
-        if (_uiState.value.showWastedScreen) return // muerto: sin movimiento (WASTED)
+        if (_uiState.value.showWastedScreen || _uiState.value.showMissionFailed) return // muerto/misión fallida: sin movimiento
         // Si el mapa está descentrado (exploración), el primer toque de los controles
         // de movimiento (izquierda) recentra en el jugador (SIN cambiar el zoom) en vez
         // de moverlo a ciegas fuera de cuadro.
@@ -1283,7 +1283,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacterByAngle(angleRad: Double) {
-        if (_uiState.value.showWastedScreen) return // muerto: sin movimiento (WASTED)
+        if (_uiState.value.showWastedScreen || _uiState.value.showMissionFailed) return // muerto/misión fallida
         // Igual que moveCharacter: con el mapa descentrado, recentrar en el jugador (sin zoom).
         if (_uiState.value.isUserPanningMap) { centerOnPlayer(); return }
         val loc = _uiState.value.currentLocation ?: return
@@ -1454,7 +1454,8 @@ class WorldMapViewModel(
                 isMapReady = false,        // ← re-activa la compuerta de carga del mapa
                 isRoadNetworkReady = false, // ← y la de la red de calles
                 npcsWarmedUp = false,       // ← y el warm-up de NPCs (orden: tiles → calles → NPCs)
-                isUserPanningMap = false    // ← recentra el mapa y reactiva la neblina
+                isUserPanningMap = false,   // ← recentra el mapa y reactiva la neblina
+                showMissionFailed = false   // ← limpia un posible "MISIÓN FALLIDA" anterior
             )
         }
         // Descarga el mapa de la escuela ANTES de soltar al jugador (en paralelo a la
@@ -2145,10 +2146,15 @@ class WorldMapViewModel(
             // PRANKEDY hostil: el jugador puede defenderse golpeándolo. Si lo mata, desaparece
             // y reaparece tras un tiempo (lo gestiona PrankedyManager; el render lo oculta al
             // quedar su location en null).
-            prankedyManager.location?.let { pkLoc ->
-                if (distance(playerLoc, pkLoc) <= ATTACK_RADIUS) {
-                    prankedyManager.takeDamage(PLAYER_PUNCH_DAMAGE)
-                    viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() }
+            // En el MODO HISTORIA (escolta, fase HIRED) Prankedy es tu acompañante: TÚ NO le
+            // puedes pegar (solo la policía puede dañarlo). Fuera de la escolta (Prankedy hostil)
+            // sí puedes golpearlo para defenderte.
+            if (prankedyManager.phase != ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED) {
+                prankedyManager.location?.let { pkLoc ->
+                    if (distance(playerLoc, pkLoc) <= ATTACK_RADIUS) {
+                        prankedyManager.takeDamage(PLAYER_PUNCH_DAMAGE)
+                        viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() }
+                    }
                 }
             }
             // MIEDO AL COMBATE (SP y host MP): cada golpe asusta a los civiles cercanos,

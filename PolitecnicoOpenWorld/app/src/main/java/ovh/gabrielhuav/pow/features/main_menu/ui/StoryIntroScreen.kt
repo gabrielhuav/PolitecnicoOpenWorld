@@ -121,6 +121,9 @@ fun StoryIntroScreen(
     DisposableEffect(Unit) {
         soundManager.stopWalk()
         soundManager.stopRun()
+        // Corta cualquier SFX previo (p. ej. el jingle de "misión cumplida") al ABRIR el cómic,
+        // para que no siga sonando durante toda la secuencia.
+        soundManager.stopAllStorySounds()
         // Música de fondo del cómic de la intro (IntroPOW1..8): suena en bucle TODA la secuencia
         // (los SFX por panel usan SoundPool y no la cortan). Se detiene al salir de la pantalla.
         if (isIntroSequence) soundManager.playPrankedyRemixMusic()

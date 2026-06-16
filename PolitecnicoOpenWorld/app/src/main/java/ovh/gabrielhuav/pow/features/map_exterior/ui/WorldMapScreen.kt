@@ -1646,6 +1646,25 @@ fun WorldMapScreen(
             )
         }
 
+        // ─── MISIÓN FALLIDA (Modo Historia: la policía mató a Prankedy) ──────────
+        // Pantalla a pantalla completa, estilo "WASTED", con el texto EN 2 LÍNEAS.
+        if (uiState.showMissionFailed) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color(0xDD000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "MISIÓN\nFALLIDA",
+                    color = Color(0xFFD32F2F),
+                    fontSize = 54.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 5.sp,
+                    lineHeight = 60.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+
         // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────
         uiState.carjackWarning?.let { warn ->
             Box(

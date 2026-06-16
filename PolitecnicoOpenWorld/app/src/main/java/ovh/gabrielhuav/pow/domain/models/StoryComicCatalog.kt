@@ -67,8 +67,8 @@ object StoryComicCatalog {
     )
 
     // ─── MISIÓN 2: llegada a la ESCOM (Modo Historia) ────────────────────────
-    // Se reproduce al cumplir la Misión 1 (llegar a la ESCOM con Prankedy). Son 3 paneles
-    // HORIZONTALES nuevos en assets/STORY/INTRO/IntroPOW12..14.webp. EDITA el `text`.
+    // Se reproduce al cumplir la Misión 1 (llegar a la ESCOM con Prankedy). Son 4 paneles
+    // HORIZONTALES en assets/STORY/INTRO/IntroPOW12..15.webp (IntroPOW15 cambia según la skin). EDITA el `text`.
     // Tras esta secuencia se retoma la jugabilidad con la persecución (6 policías) y el
     // objetivo "Ingresa a la ESCOM".
     const val MISSION2_INTRO_ID = "mission2_intro"
@@ -76,7 +76,8 @@ object StoryComicCatalog {
     private val mission2Intro = listOf(
         ComicPanel("STORY/INTRO/IntroPOW12.webp", ""),
         ComicPanel("STORY/INTRO/IntroPOW13.webp", ""),
-        ComicPanel("STORY/INTRO/IntroPOW14.webp", "")
+        ComicPanel("STORY/INTRO/IntroPOW14.webp", ""),
+        ComicPanel("STORY/INTRO/IntroPOW15.webp", "")   // 4º panel (cambia según skin)
     )
 
     // Devuelve una secuencia narrativa por id (para StoryIntroScreen). ENCB_OUTRO_ID =

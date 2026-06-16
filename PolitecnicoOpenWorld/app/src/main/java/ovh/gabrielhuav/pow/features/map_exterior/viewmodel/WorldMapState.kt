@@ -127,6 +127,8 @@ data class WorldMapState(
     val showClaimedPopupFor: ActiveCollectible? = null,
     val interactionPrompt: String? = null,
     val showWastedScreen: Boolean = false,
+    // MODO HISTORIA: pantalla "MISIÓN FALLIDA" (cuando la policía mata a Prankedy en la escolta).
+    val showMissionFailed: Boolean = false,
 
     // ─── NIVEL DE BÚSQUEDA (estilo GTA) ──────────────────────────────────────
     // Sube al golpear NPCs; mientras sea > 0 aparecen patrullas que te persiguen.

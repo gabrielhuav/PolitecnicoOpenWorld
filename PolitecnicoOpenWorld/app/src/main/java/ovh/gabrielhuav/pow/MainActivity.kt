@@ -629,8 +629,22 @@ class MainActivity : ComponentActivity() {
                             // IntroPOW12..14; al volver arranca la persecución de la Misión 2.
                             LaunchedEffect(uiState.pendingMission2Intro) {
                                 if (uiState.pendingMission2Intro) {
+                                    // OJO: NO consumir el flag ANTES del delay; al cambiar el flag
+                                    // se cancela este LaunchedEffect y el cómic nunca se lanzaba.
+                                    // Deja sonar el jingle de "misión cumplida" un momento y LUEGO
+                                    // navega al cómic (consumir + navigate van seguidos, sin suspensión).
+                                    kotlinx.coroutines.delay(2200)
                                     worldMapViewModel.consumePendingMission2Intro()
                                     navController.navigate("story_mission2")
+                                }
+                            }
+
+                            // MODO HISTORIA · MISIÓN FALLIDA (la policía mató a Prankedy): muestra
+                            // la pantalla ~4 s y vuelve al menú principal.
+                            LaunchedEffect(uiState.showMissionFailed) {
+                                if (uiState.showMissionFailed) {
+                                    kotlinx.coroutines.delay(4000)
+                                    navigateBackToMainMenu()
                                 }
                             }
 

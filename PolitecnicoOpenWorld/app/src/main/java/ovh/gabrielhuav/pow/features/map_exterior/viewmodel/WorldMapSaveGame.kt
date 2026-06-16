@@ -126,7 +126,8 @@ fun WorldMapViewModel.loadGame(context: Context, slot: Int): Boolean {
 // ─── OBJETIVOS DE CAMPAÑA ─────────────────────────────────────────────────────
 // Fija el objetivo activo (lo llama MainActivity al COMENZAR una campaña nueva).
 fun WorldMapViewModel.setCampaignObjective(objective: ovh.gabrielhuav.pow.domain.models.CampaignObjective?) {
-    _uiState.update { it.copy(currentObjective = objective, objectiveDone = false) }
+    // Al cambiar de objetivo (nueva misión, MUNDO LIBRE, etc.) se limpia un posible "MISIÓN FALLIDA".
+    _uiState.update { it.copy(currentObjective = objective, objectiveDone = false, showMissionFailed = false) }
 }
 
 // Comprueba si el jugador llegó al objetivo (lo llama el game loop). Al entrar en el radio
