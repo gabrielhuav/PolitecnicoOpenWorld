@@ -21,7 +21,7 @@ enum class PlayerSkin(
     val skinPrefix: String,
     val idleFrames: Int = 6,
     val walkFrames: Int = 6,
-    val runFrames: Int = 6,
+    val runFrames: Int = 25,
     val specialFrames: Int = 8,
     /** Ruta al sprite de previsualización (idle frame 1) */
     val previewAsset: String = "MAIN/${skinFolder}Idle/${skinPrefix}i_1.webp"
