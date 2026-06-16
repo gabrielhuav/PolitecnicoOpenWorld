@@ -336,7 +336,11 @@ class MainActivity : ComponentActivity() {
                                     SaveGameRepository(this@MainActivity).clearAutoSlots()
                                     worldMapViewModel.campaignSchoolId = school.id
                                     worldMapViewModel.campaignSlot = SaveGameRepository.AUTO_SLOTS.first()
-                                    worldMapViewModel.currentInteriorRoomId = null
+                                    // La campaña ARRANCA en el interior del Lobby de la ENCB, así que
+                                    // el guardado inicial debe apuntar AHÍ (no al mapa global); si no,
+                                    // al cargar esa partida te mandaba al mundo en vez del interior.
+                                    worldMapViewModel.currentInteriorRoomId =
+                                        ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
                                     worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.first)

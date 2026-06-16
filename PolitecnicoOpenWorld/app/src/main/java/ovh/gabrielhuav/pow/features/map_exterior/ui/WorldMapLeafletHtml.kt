@@ -530,7 +530,8 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 if (policeWpMarkers[p.id]) {
                     policeWpMarkers[p.id].setLatLng([p.lat, p.lng]);
                 } else {
-                    var icon = L.divIcon({ html: '<div style="font-size:26px; transform:translate(-50%,-50%);">🚓</div>', className: '', iconSize: [0,0] });
+                    var emoji = p.emoji || '🚓';
+                    var icon = L.divIcon({ html: '<div style="font-size:26px; transform:translate(-50%,-50%);">' + emoji + '</div>', className: '', iconSize: [0,0] });
                     policeWpMarkers[p.id] = L.marker([p.lat, p.lng], { icon: icon, interactive: false, zIndexOffset: 800 }).addTo(map);
                 }
                 var pts = [[playerLat, playerLng], [p.lat, p.lng]];

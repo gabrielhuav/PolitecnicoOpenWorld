@@ -112,16 +112,24 @@ fun StoryIntroScreen(
 
     val soundManager = remember { ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(context) }
 
+    // ¿Es la secuencia de INTRO (prólogo IntroPOW1..8) y no el OUTRO (IntroPOW9..11)?
+    // La música de fondo del cómic solo suena en la intro.
+    val isIntroSequence = sequenceId != StoryComicCatalog.ENCB_OUTRO_ID
+
     // Las imágenes del cómic son HORIZONTALES: forzamos orientación landscape mientras se
     // ve la intro y restauramos la orientación previa al salir (entrar al mundo / volver).
     DisposableEffect(Unit) {
         soundManager.stopWalk()
         soundManager.stopRun()
+        // Música de fondo del cómic de la intro (IntroPOW1..8): suena en bucle TODA la secuencia
+        // (los SFX por panel usan SoundPool y no la cortan). Se detiene al salir de la pantalla.
+        if (isIntroSequence) soundManager.playPrankedyRemixMusic()
         val activity = context.findActivityOrNull()
         val previous = activity?.requestedOrientation
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         onDispose {
             soundManager.stopAllStorySounds()
+            soundManager.stopPrankedyRemixMusic()
             activity?.requestedOrientation = previous ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }

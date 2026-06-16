@@ -1343,9 +1343,11 @@ fun WorldMapScreen(
                         // 🚓 + línea punteada jugador→patrulla mientras te buscan. Las patrullas
                         // DENTRO de la neblina ya se dibujan como sprite (no llevan waypoint).
                         val plocW = uiState.currentLocation
+                        // Patrullas (mundo libre) + 2 policías de la ESCOLTA de campaña (a pie).
                         val patrolsW = if (plocW != null && uiState.wantedLevel > 0) {
                             uiState.npcs.filter {
-                                it.type == NpcType.POLICE_CAR &&
+                                (it.type == NpcType.POLICE_CAR ||
+                                    (it.type == NpcType.POLICE_COP && it.id.startsWith("CAMPAIGN_COP"))) &&
                                     !npcWithinRadius(it.location.latitude, it.location.longitude,
                                         plocW.latitude, plocW.longitude, NPC_FOG_VISION_METERS)
                             }
@@ -1353,7 +1355,8 @@ fun WorldMapScreen(
                         if (patrolsW.isNotEmpty() || lastWebPoliceHolder[0]) {
                             lastWebPoliceHolder[0] = patrolsW.isNotEmpty()
                             val policePayload = patrolsW.map {
-                                mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude)
+                                mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude,
+                                    "emoji" to if (it.type == NpcType.POLICE_COP) "👮" else "🚓")
                             }
                             wv.evaluateJavascript("if(typeof updatePolice==='function')updatePolice(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(policePayload)});", null)
                         }

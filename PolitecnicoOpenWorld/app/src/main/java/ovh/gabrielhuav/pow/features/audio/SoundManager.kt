@@ -13,6 +13,8 @@ class SoundManager private constructor(context: Context) {
     private var investigarMediaPlayer: MediaPlayer? = null
     private var lugarSeguroMediaPlayer: MediaPlayer? = null
     private var mainSoundMediaPlayer: MediaPlayer? = null
+    // Música de fondo del CÓMIC de la intro (IntroPOW1..8 del Modo Historia).
+    private var prankedyRemixMediaPlayer: MediaPlayer? = null
     
     private var walkSoundId = -1
     private var runSoundId = -1
@@ -109,6 +111,21 @@ class SoundManager private constructor(context: Context) {
             }
         } catch (e: Exception) {
             Log.e("SoundManager", "Error loading background music", e)
+        }
+
+        // Música del cómic de la intro (en su propio try: si el archivo aún no existe, el
+        // resto del audio sigue funcionando). Colócalo en:
+        //   app/src/main/assets/sonidos/instrumentalfondo/musicaPrankedyRemix.mp3
+        try {
+            context.assets.openFd("sonidos/instrumentalfondo/musicaPrankedyRemix.mp3").use { afd ->
+                prankedyRemixMediaPlayer = MediaPlayer().apply {
+                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    prepare()
+                    isLooping = true
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SoundManager", "Error loading musicaPrankedyRemix.mp3 (¿falta el archivo en assets/sonidos/instrumentalfondo/?)", e)
         }
     }
 
@@ -287,9 +304,24 @@ class SoundManager private constructor(context: Context) {
     fun playMainMusic() {
         mainSoundMediaPlayer?.let { if (!it.isPlaying) it.start() }
     }
-    
+
     fun stopMainMusic() {
         mainSoundMediaPlayer?.let {
+            if (it.isPlaying) {
+                it.pause()
+                it.seekTo(0)
+            }
+        }
+    }
+
+    // Música de fondo del cómic de la intro (IntroPOW1..8). Suena en bucle mientras se ve la
+    // secuencia y se detiene al salir de ella.
+    fun playPrankedyRemixMusic() {
+        prankedyRemixMediaPlayer?.let { if (!it.isPlaying) it.start() }
+    }
+
+    fun stopPrankedyRemixMusic() {
+        prankedyRemixMediaPlayer?.let {
             if (it.isPlaying) {
                 it.pause()
                 it.seekTo(0)
@@ -312,7 +344,7 @@ class SoundManager private constructor(context: Context) {
         soundPool?.autoPause()
         // Música de fondo
         pausedForBackground.clear()
-        listOfNotNull(investigarMediaPlayer, lugarSeguroMediaPlayer, mainSoundMediaPlayer).forEach { mp ->
+        listOfNotNull(investigarMediaPlayer, lugarSeguroMediaPlayer, mainSoundMediaPlayer, prankedyRemixMediaPlayer).forEach { mp ->
             try {
                 if (mp.isPlaying) {
                     mp.pause()
@@ -342,6 +374,8 @@ class SoundManager private constructor(context: Context) {
         lugarSeguroMediaPlayer = null
         mainSoundMediaPlayer?.release()
         mainSoundMediaPlayer = null
+        prankedyRemixMediaPlayer?.release()
+        prankedyRemixMediaPlayer = null
     }
 
     companion object {

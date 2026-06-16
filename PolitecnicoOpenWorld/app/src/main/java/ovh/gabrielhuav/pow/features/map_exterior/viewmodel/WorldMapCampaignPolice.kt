@@ -34,7 +34,14 @@ internal fun WorldMapViewModel.runCampaignEscortTick(playerLoc: GeoPoint) {
         campaignEscortPolice.spawn(playerLoc.latitude, playerLoc.longitude, snap)
     }
 
-    campaignEscortPolice.tick(playerLoc.latitude, playerLoc.longitude, snap)
+    // Siguen al jugador por la RED DE CALLES (A*) para no atascarse, despacio.
+    campaignEscortPolice.tick(
+        playerLat = playerLoc.latitude,
+        playerLon = playerLoc.longitude,
+        now = System.currentTimeMillis(),
+        snap = snap,
+        pathfind = { from, to -> findRoadRoute(from, to) }
+    )
 
     // 1 ESTRELLA mientras dura la escolta (solo indicador; NO invoca al sistema de búsqueda real,
     // que está desactivado durante la misión —el game loop no llama a runPoliceTick aquí—).

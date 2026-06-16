@@ -333,8 +333,12 @@ internal fun NativeOsmMap(
             val playerLocWp = uiState.currentLocation
             // Solo se marcan mientras te BUSCAN (wantedLevel > 0). Al morir/perder estrellas
             // la policía se retira pero ya no debe marcarse (no te está persiguiendo).
+            // Incluye las PATRULLAS (mundo libre) y los 2 policías de la ESCOLTA de campaña
+            // (POLICE_COP "CAMPAIGN_COP_*"): ambos se marcan con waypoint mientras te siguen.
             val patrolsToMark = if (playerLocWp != null && uiState.wantedLevel > 0) {
-                uiState.npcs.filter { it.type == NpcType.POLICE_CAR &&
+                uiState.npcs.filter {
+                    (it.type == NpcType.POLICE_CAR ||
+                        (it.type == NpcType.POLICE_COP && it.id.startsWith("CAMPAIGN_COP"))) &&
                     !npcWithinRadius(it.location.latitude, it.location.longitude,
                         playerLocWp.latitude, playerLocWp.longitude, NPC_FOG_VISION_METERS) }
             } else emptyList()
@@ -366,7 +370,9 @@ internal fun NativeOsmMap(
                     // EMOJI de patrulla mientras viene de lejos (fuera del fog). Al entrar
                     // al fog desaparece este waypoint y se ve el asset real de la patrulla.
                     val px = (26 * context.resources.displayMetrics.density).toInt()
-                    icon = emojiToDrawable(context, "🚓", px)
+                    // 👮 si es un policía a pie de la escolta; 🚓 si es una patrulla del mundo libre.
+                    val wpEmoji = if (patrol.type == NpcType.POLICE_COP) "👮" else "🚓"
+                    icon = emojiToDrawable(context, wpEmoji, px)
                     policeWpCache[patrol.id] = this
                     view.overlays.add(this)
                 }
