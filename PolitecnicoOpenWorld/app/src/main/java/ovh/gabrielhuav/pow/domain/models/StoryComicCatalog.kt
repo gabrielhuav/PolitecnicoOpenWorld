@@ -61,9 +61,9 @@ object StoryComicCatalog {
     const val ENCB_OUTRO_ID = "encb_outro"
 
     private val encbOutro = listOf(
-        ComicPanel("STORY/INTRO/IntroPOW9.webp", "Texto del panel 9..."),
-        ComicPanel("STORY/INTRO/IntroPOW10.webp", "Texto del panel 10..."),
-        ComicPanel("STORY/INTRO/IntroPOW11.webp", "Texto del panel 11...")
+        ComicPanel("STORY/INTRO/IntroPOW9.webp", "¿Quién es?..."),
+        ComicPanel("STORY/INTRO/IntroPOW10.webp", "Relax, relax.\n"),
+        ComicPanel("STORY/INTRO/IntroPOW11.webp", "Me metí en un pedo y necesito tu ayuda\nNo sé salir de aquí, ayúdame.")
     )
 
     // Devuelve una secuencia narrativa por id (para StoryIntroScreen). ENCB_OUTRO_ID =
