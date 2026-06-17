@@ -62,6 +62,7 @@ class ZombieGameViewModel(
             controlsScale = settingsRepository.getControlsScale(),
             swapControls = settingsRepository.getSwapControls(),
             selectedSkin = settingsRepository.getPlayerSkin(),     // ← NUEVO
+            showCoordsWidget = settingsRepository.getShowCoordsWidget(),
             isLoading    = false
         )
     )
@@ -516,6 +517,16 @@ class ZombieGameViewModel(
 
         if (targetRoom.type == ZoneType.LOBBY && fromRoom.type == ZoneType.BUILDING) {
             spawnAtLobbyDoorFor(fromRoom.id)?.let { (sx, sy) ->
+                _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
+            }
+        } else if (!(fromRoom.type == ZoneType.LOBBY && targetRoom.type == ZoneType.BUILDING)) {
+            // TP puerta↔puerta: aparece junto a la puerta del cuarto DESTINO que regresa al
+            // cuarto de ORIGEN. Así, al pulsar "Continuar →" en el cuarto N, spawneas justo en la
+            // puerta "← Regresar" del cuarto N+1 (y viceversa), en vez de en el centro del mapa.
+            // (Se excluye "lobby → edificio": esa entrada conserva su spawn central + siembra de zombis.)
+            targetRoom.doors.firstOrNull { it.targetRoomId == fromRoom.id }?.let { backDoor ->
+                val sx = backDoor.hitboxFrac.centerXFrac() * targetRoom.worldWidth
+                val sy = backDoor.hitboxFrac.centerYFrac() * targetRoom.worldHeight
                 _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
             }
         }

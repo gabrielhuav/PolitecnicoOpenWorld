@@ -8,7 +8,14 @@ import android.util.Log
 
 class SoundManager private constructor(context: Context) {
     private var soundPool: SoundPool? = null
-    
+
+    // ─── Volumen (Ajustes → Audio), 0f..1f. Persistido en SettingsRepository. ─────────────
+    //   sfxVolume   = efectos (SoundPool): se multiplica en cada play() y se aplica en vivo
+    //                 a los streams en loop (caminar/correr/carro/…) vía setSfxVolume.
+    //   musicVolume = música de fondo (MediaPlayer): se aplica con setVolume a cada pista.
+    @Volatile private var sfxVolume = 1f
+    @Volatile private var musicVolume = 1f
+
     // Background Music MediaPlayers
     private var investigarMediaPlayer: MediaPlayer? = null
     private var lugarSeguroMediaPlayer: MediaPlayer? = null
@@ -134,11 +141,45 @@ class SoundManager private constructor(context: Context) {
         } catch (e: Exception) {
             Log.e("SoundManager", "Error loading musicaPrankedyRemix.mp3 (¿falta el archivo en assets/sonidos/instrumentalfondo/?)", e)
         }
+
+        // Carga el volumen guardado (Ajustes → Audio) y lo aplica a la música ya cargada.
+        try {
+            val repo = ovh.gabrielhuav.pow.data.repository.SettingsRepository(context)
+            sfxVolume = repo.getSfxVolume()
+            musicVolume = repo.getMusicVolume()
+            applyMusicVolume()
+        } catch (e: Exception) {
+            Log.e("SoundManager", "Error loading saved volumes", e)
+        }
+    }
+
+    // ─── Volumen: API para Ajustes → Audio ────────────────────────────────────
+    private fun applyMusicVolume() {
+        listOfNotNull(investigarMediaPlayer, lugarSeguroMediaPlayer, mainSoundMediaPlayer, prankedyRemixMediaPlayer).forEach { mp ->
+            try { mp.setVolume(musicVolume, musicVolume) } catch (e: Exception) { /* ignora */ }
+        }
+    }
+
+    /** Volumen de la MÚSICA de fondo (0f..1f). Se aplica a todas las pistas en vivo. */
+    fun setMusicVolume(v: Float) {
+        musicVolume = v.coerceIn(0f, 1f)
+        applyMusicVolume()
+    }
+
+    /** Volumen de los EFECTOS (0f..1f). Afecta los nuevos play() y los streams en loop activos. */
+    fun setSfxVolume(v: Float) {
+        sfxVolume = v.coerceIn(0f, 1f)
+        // Actualiza en vivo los streams en loop (respetando su volumen base relativo).
+        if (walkStreamId != -1) soundPool?.setVolume(walkStreamId, sfxVolume, sfxVolume)
+        if (runStreamId != -1) soundPool?.setVolume(runStreamId, sfxVolume, sfxVolume)
+        if (carStreamId != -1) soundPool?.setVolume(carStreamId, 0.5f * sfxVolume, 0.5f * sfxVolume)
+        if (storyRunningStreamId != -1) soundPool?.setVolume(storyRunningStreamId, sfxVolume, sfxVolume)
+        if (police2StreamId != -1) soundPool?.setVolume(police2StreamId, 0.7f * sfxVolume, 0.7f * sfxVolume)
     }
 
     fun playWalk() {
         if (walkStreamId == -1) {
-            walkStreamId = soundPool?.play(walkSoundId, 1f, 1f, 1, -1, 1f) ?: -1
+            walkStreamId = soundPool?.play(walkSoundId, sfxVolume, sfxVolume, 1, -1, 1f) ?: -1
         }
     }
 
@@ -151,7 +192,7 @@ class SoundManager private constructor(context: Context) {
 
     fun playRun() {
         if (runStreamId == -1) {
-            runStreamId = soundPool?.play(runSoundId, 1f, 1f, 1, -1, 1f) ?: -1
+            runStreamId = soundPool?.play(runSoundId, sfxVolume, sfxVolume, 1, -1, 1f) ?: -1
         }
     }
 
@@ -164,7 +205,7 @@ class SoundManager private constructor(context: Context) {
 
     fun playCar() {
         if (carStreamId == -1) {
-            carStreamId = soundPool?.play(carSoundId, 0.5f, 0.5f, 1, -1, 1f) ?: -1
+            carStreamId = soundPool?.play(carSoundId, 0.5f * sfxVolume, 0.5f * sfxVolume, 1, -1, 1f) ?: -1
         }
     }
 
@@ -176,29 +217,29 @@ class SoundManager private constructor(context: Context) {
     }
 
     fun playShoot() {
-        soundPool?.play(shootSoundId, 1f, 1f, 1, 0, 1f)
+        soundPool?.play(shootSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
     }
 
     fun playPunch() {
-        soundPool?.play(punchSoundId, 1f, 1f, 1, 0, 1f)
+        soundPool?.play(punchSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
     }
 
     fun playItem() {
-        soundPool?.play(itemSoundId, 1f, 1f, 1, 0, 1f)
+        soundPool?.play(itemSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
     }
 
     fun playZombieNear() {
-        soundPool?.play(zombieSoundId, 1f, 1f, 1, 0, 1f)
+        soundPool?.play(zombieSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
     }
 
     // Story Methods
     fun playFlash() {
-        soundPool?.play(flashSoundId, 1f, 1f, 1, 0, 1f)
+        soundPool?.play(flashSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
     }
 
     fun playStoryRunning(loop: Boolean = false) {
         if (loop && storyRunningStreamId != -1) return // already playing loop
-        val streamId = soundPool?.play(runningSoundId, 1f, 1f, 1, if (loop) -1 else 0, 1f) ?: -1
+        val streamId = soundPool?.play(runningSoundId, sfxVolume, sfxVolume, 1, if (loop) -1 else 0, 1f) ?: -1
         if (streamId != -1) {
             storyStreamIds.add(streamId)
             if (loop) storyRunningStreamId = streamId
@@ -214,22 +255,22 @@ class SoundManager private constructor(context: Context) {
     }
 
     fun playCrystal() {
-        val streamId = soundPool?.play(crystalSoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        val streamId = soundPool?.play(crystalSoundId, sfxVolume, sfxVolume, 1, 0, 1f) ?: -1
         if (streamId != -1) storyStreamIds.add(streamId)
     }
 
     fun playHitWall() {
-        soundPool?.play(hitSoundId, 1f, 1f, 1, 0, 1f)
+        soundPool?.play(hitSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
     }
 
     fun playPolice1() {
-        val streamId = soundPool?.play(police1SoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        val streamId = soundPool?.play(police1SoundId, sfxVolume, sfxVolume, 1, 0, 1f) ?: -1
         if (streamId != -1) storyStreamIds.add(streamId)
     }
 
     fun playPolice2(loop: Boolean = false) {
         if (loop && police2StreamId != -1) return // already playing loop
-        val streamId = soundPool?.play(police2SoundId, 0.7f, 0.7f, 1, if (loop) -1 else 0, 1f) ?: -1
+        val streamId = soundPool?.play(police2SoundId, 0.7f * sfxVolume, 0.7f * sfxVolume, 1, if (loop) -1 else 0, 1f) ?: -1
         if (streamId != -1) {
             storyStreamIds.add(streamId)
             if (loop) police2StreamId = streamId
@@ -245,49 +286,49 @@ class SoundManager private constructor(context: Context) {
     }
 
     fun playBottleFalling() {
-        soundPool?.play(bottleSoundId, 1f, 1f, 1, 0, 1f)
+        soundPool?.play(bottleSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
     }
 
     fun playDoorOpen() {
-        soundPool?.play(doorOpenSoundId, 1f, 1f, 1, 0, 1f)
+        soundPool?.play(doorOpenSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
     }
 
     fun playScare() {
-        soundPool?.play(scareSoundId, 1f, 1f, 1, 0, 1f)
+        soundPool?.play(scareSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
     }
 
     /** SFX "Zombies Are Coming" — suena en el panel IntroPOW8 del cómic de la intro. */
     fun playZombiesAreComing() {
-        val streamId = soundPool?.play(zombiesAreComingSoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        val streamId = soundPool?.play(zombiesAreComingSoundId, sfxVolume, sfxVolume, 1, 0, 1f) ?: -1
         if (streamId != -1) storyStreamIds.add(streamId)
     }
 
     // Mission 1 Methods
     fun playQueTeTraes() {
-        val streamId = soundPool?.play(queTeTraesSoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        val streamId = soundPool?.play(queTeTraesSoundId, sfxVolume, sfxVolume, 1, 0, 1f) ?: -1
         if (streamId != -1) storyStreamIds.add(streamId)
     }
 
     fun playContestame() {
-        val streamId = soundPool?.play(contestameSoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        val streamId = soundPool?.play(contestameSoundId, sfxVolume, sfxVolume, 1, 0, 1f) ?: -1
         if (streamId != -1) storyStreamIds.add(streamId)
     }
 
     fun playParale() {
-        val streamId = soundPool?.play(paraleSoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        val streamId = soundPool?.play(paraleSoundId, sfxVolume, sfxVolume, 1, 0, 1f) ?: -1
         if (streamId != -1) storyStreamIds.add(streamId)
     }
 
     // SFX del panel IntroPOW5 del cómic (se detiene con stopAllStorySounds al cambiar de panel).
     fun playPuerquito() {
-        val streamId = soundPool?.play(puerquitoSoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        val streamId = soundPool?.play(puerquitoSoundId, sfxVolume, sfxVolume, 1, 0, 1f) ?: -1
         if (streamId != -1) storyStreamIds.add(streamId)
     }
 
     // Jingle al CUMPLIR la misión. Se REGISTRA en storyStreamIds para que `stopAllStorySounds`
     // lo corte cuando arranca el cómic (si no, seguía sonando durante toda la secuencia).
     fun playMisionCumplida() {
-        val streamId = soundPool?.play(misionCumplidaSoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        val streamId = soundPool?.play(misionCumplidaSoundId, sfxVolume, sfxVolume, 1, 0, 1f) ?: -1
         if (streamId != -1) storyStreamIds.add(streamId)
     }
 

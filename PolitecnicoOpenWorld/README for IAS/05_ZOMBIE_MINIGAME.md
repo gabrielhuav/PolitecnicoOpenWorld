@@ -210,10 +210,14 @@ data class ZombieServerMessage(type, sessionId, id, displayName, roomId, zone, x
   (selector de skin, `wm_choose_character` → `toggleSkinSelector`) **ya NO es un botón suelto**: es el
   **primer ítem del menú de Opciones**. El banner de OBJETIVO de la cadena ENCB sigue arriba-centro
   (`ENCB_STORY_ROOM_IDS`).
-- **🆕 Orientación SIEMPRE landscape:** el juego (mapa global, interiores y cómics) se fuerza a horizontal;
-  solo los menús (`main_menu`, `story_mode`, `settings`, `collectibles`) permiten vertical. Se gestiona en
-  **`MainActivity`** con un `NavController.OnDestinationChangedListener` (ÚNICA fuente de verdad por ruta;
-  `requestedOrientation = SCREEN_ORIENTATION_SENSOR_LANDSCAPE`). Las pantallas ya **no** fijan orientación.
+- **🆕 Orientación landscape in-game + ROTAR EN PAUSA:** el juego (mapa global, interiores y cómics) se
+  fuerza a horizontal; los menús (`main_menu`, `story_mode`, `settings`, `collectibles`) permiten vertical.
+  Base por ruta en **`MainActivity`** (`NavController.OnDestinationChangedListener`,
+  `requestedOrientation = SCREEN_ORIENTATION_SENSOR_LANDSCAPE`). **🆕 EXCEPCIÓN (pausa):** al abrir el
+  **menú de Opciones** in-game (`WorldMapScreen` y `ZombieGameScreen`) se permite **rotar** (incl. vertical):
+  un `LaunchedEffect(optionsExpanded)` pone `SCREEN_ORIENTATION_UNSPECIFIED` mientras el menú está abierto y
+  vuelve a `SENSOR_LANDSCAPE` al cerrarlo. En `ZombieGameScreen` el `optionsExpanded` se **hoistea** al tope
+  del composable (lo usa `OptionsMenu`). Así: in-game = horizontal; pausa (Opciones) o Ajustes = rotable.
 - **🆕 Panel del Diseñador movible/redimensionable:** `DesignerToolbar` lleva un **asa "⠿ Mover"** (arrástrala;
   toca = recentrar) y botones **−/+** que escalan el panel (`graphicsLayer`, 0.5–1×) para que no tape la sala.
 - **🆕 Diseñador — acciones SIEMPRE accesibles:** el **botón de SALIR** del modo diseñador está SIEMPRE

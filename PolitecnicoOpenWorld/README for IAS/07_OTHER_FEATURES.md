@@ -158,8 +158,12 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
 
 ### `domain/models/SchoolCatalog.kt`
 `CampaignSchool(id, displayName, latitude, longitude, available)` + `object SchoolCatalog.schools`.
-Solo **ESCOM** está `available = true` (= `TeleportCatalog.zones[0]`); **FES Aragón** y **UAM** quedan en
-desarrollo (`available = false`, deshabilitadas en la UI). `displayName` es nombre propio (no se traduce).
+Solo la 1ª está `available = true` (= `TeleportCatalog.zones[0]`); las otras quedan en desarrollo
+(`available = false`, deshabilitadas en la UI). `displayName` es nombre propio (no se traduce).
+> **🆕 Nombres visibles = institución:** `displayName` ahora muestra la institución: **`escom` → "IPN"**
+> y **`fes_aragon` → "UNAM"** (UAM se queda como "UAM"). Los **`id` NO cambian** (`"escom"`/`"fes_aragon"`
+> alimentan spawn/guardado); solo cambia el texto que ve el jugador (`SchoolCard` usa `school.displayName`).
+> El botón **"COMENZAR" → "NUEVA PARTIDA"** (`R.string.story_start`, es/en).
 
 ### `WorldMapViewModel.setStorySpawn(lat, lon)` (miembro)
 Fuerza el punto de aparición de la campaña y re-arma las compuertas de carga
@@ -190,8 +194,13 @@ enum class ControlType { DPAD, JOYSTICK }                 // models/ControlType.
 enum class SettingsCategory { ... }                       // models/SettingsCategory.kt (pestañas)
 ```
 
+> **🆕 Default = `JOYSTICK`:** el tipo de control por defecto es **JOYSTICK** (antes DPAD). Lo fija
+> `SettingsRepository.getControlType()` (default JOYSTICK) y se replica en los defaults de los `*State`
+> (`WorldMapState`, `SettingsState.controlType`/`tempControlType`; los interiores ya eran JOYSTICK). Las
+> "flechitas" (DPAD) siguen disponibles en Ajustes → Controles.
+
 ### `viewmodel/SettingsViewModel.kt` + `SettingsState.kt`
-**ES:** Pestañas: Mapa / Controles / Gameplay / Interfaz. **Los controles son "staged":** los cambios
+**ES:** Pestañas: Mapa / Controles / Gameplay / Interfaz / **🆕 Audio**. **Los controles son "staged":** los cambios
 viven en campos `temp*` y **solo se aplican al pulsar GUARDAR**; salir descarta.
 **EN:** Tabs: Map / Controls / Gameplay / Interface. **Controls are staged:** changes live in `temp*`
 fields and **only apply on SAVE**; leaving discards.
@@ -199,6 +208,16 @@ fields and **only apply on SAVE**; leaving discards.
 - `selectCategory(category)`, `changeMapProvider(provider)`, `toggleCacheWidget/FpsWidget(enabled)`,
   `toggleZoomWidget(enabled)` y `toggleSpeedometer(enabled)` (ambos persisten; pestaña Interfaz:
   widget de nivel de zoom en vivo + velocímetro km/h visible solo al conducir, default activado).
+- `toggleCoordsWidget(enabled)` (persiste; pestaña Interfaz: **widget de coordenadas X/Y/Z**, default
+  oculto). Mismo patrón que zoom/velocímetro: `SettingsRepository.get/saveShowCoordsWidget`, se empuja al
+  mapa en vivo desde `MainActivity` (`worldMapViewModel.toggleCoordsWidget`) y los interiores lo leen al
+  entrar (`ZombieGameState`/`InteriorState.showCoordsWidget` desde el repo). Render → ver 04/06.
+- **🆕 Audio (pestaña nueva):** `changeMusicVolume(v)` / `changeSfxVolume(v)` (0f..1f, persisten al instante en
+  `SettingsRepository.get/saveMusicVolume`/`SfxVolume`). `SettingsState.musicVolume`/`sfxVolume` (default 1.0).
+  La UI son 2 sliders (`AudioSettings` en `SettingsScreen`). `MainActivity` los empuja en vivo al
+  **`SoundManager`** (`setMusicVolume`/`setSfxVolume`); además `SoundManager` los lee del repo en su `init`
+  (se aplican al arrancar). Música = `MediaPlayer.setVolume`; efectos = se multiplican en cada `play()` del
+  `SoundPool` y se ajustan en vivo los streams en loop. Nueva categoría `SettingsCategory.Audio`.
 - Staged: `changeControlType(type)`, `changeControlsScale(scale)`, `toggleSwapControls(swap)` → escriben
   `tempControlType/tempControlsScale/tempSwapControls`.
 - `saveControlsSettings()` (commit + persiste vía `SettingsRepository` + empuja al mapa),

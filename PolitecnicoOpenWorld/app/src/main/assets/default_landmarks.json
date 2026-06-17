@@ -163,5 +163,16 @@
     "scaleFactor": 1.408552,
     "scaleX": 1.408552,
     "scaleY": 1.3911047
+  },
+  {
+    "assetPath": "BUILDINGS/IPN/ENCB_lobby.webp",
+    "id": 32,
+    "latitude": 19.500109866709817,
+    "longitude": -99.14498296945283,
+    "name": "Lobby ENCB",
+    "rotationAngle": 0.0,
+    "scaleFactor": 0.15,
+    "scaleX": 0.15,
+    "scaleY": 0.15
   }
 ]

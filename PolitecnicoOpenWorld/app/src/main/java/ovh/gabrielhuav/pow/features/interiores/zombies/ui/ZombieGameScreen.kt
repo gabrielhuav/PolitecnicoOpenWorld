@@ -123,6 +123,17 @@ fun ZombieGameScreen(
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current
 
+    // ORIENTACIÓN: el motor de Interiores va SIEMPRE en horizontal, PERO al abrir el menú
+    // de Opciones (= pausa) se permite ROTAR (incl. vertical); al cerrarlo vuelve a
+    // horizontal. `optionsExpanded` está hoisteado aquí (lo usa OptionsMenu abajo) para
+    // poder anular la orientación solo durante la pausa. Ver 09 (gotcha de orientación).
+    var optionsExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(optionsExpanded) {
+        (context as? android.app.Activity)?.requestedOrientation =
+            if (optionsExpanded) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+    }
+
     // Export/Import del JSON de matrices (igual que el mapa principal con landmarks).
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -689,9 +700,9 @@ fun ZombieGameScreen(
                 }
             }
             if (!state.designerMode) {
-                // "Elegir personaje" (selector de skin) vive en el menú de Opciones; el juego va
-                // SIEMPRE en horizontal (no hay botón de orientación).
-                var optionsExpanded by remember { mutableStateOf(false) }
+                // "Elegir personaje" (selector de skin) vive en el menú de Opciones. El juego va
+                // en horizontal salvo EN PAUSA (este menú abierto), donde se permite rotar.
+                // `optionsExpanded` está hoisteado arriba (controla la orientación).
                 OptionsMenu(
                     expanded = optionsExpanded,
                     onExpandedChange = { optionsExpanded = it },

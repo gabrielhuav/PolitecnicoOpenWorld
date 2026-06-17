@@ -52,6 +52,9 @@ fun CollectiblesScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                // Respeta las barras del sistema (status + barra de navegación del teléfono)
+                // para que "VOLVER AL MENÚ" no quede tapado por la barra de gestos/botones.
+                .systemBarsPadding()
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

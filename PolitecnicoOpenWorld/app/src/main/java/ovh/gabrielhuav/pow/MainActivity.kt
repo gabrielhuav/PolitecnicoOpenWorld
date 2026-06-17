@@ -176,7 +176,7 @@ class MainActivity : ComponentActivity() {
                     // Esto evita recomposiciones destructivas al navegar.
                     val settingsState by settingsViewModel.state.collectAsState()
                     var providerInitialized by remember { mutableStateOf(false) }
-                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.showZoomWidget, settingsState.showSpeedometer, settingsState.showRoadNetwork) {
+                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.showZoomWidget, settingsState.showSpeedometer, settingsState.showCoordsWidget, settingsState.showRoadNetwork) {
                         if (!providerInitialized) {
                             // Arranque: aplica el proveedor guardado de inmediato (sin aviso).
                             worldMapViewModel.setMapProvider(settingsState.mapProvider)
@@ -189,6 +189,7 @@ class MainActivity : ComponentActivity() {
                         worldMapViewModel.toggleFpsWidget(settingsState.showFpsWidget)
                         worldMapViewModel.toggleZoomWidget(settingsState.showZoomWidget)
                         worldMapViewModel.toggleSpeedometer(settingsState.showSpeedometer)
+                        worldMapViewModel.toggleCoordsWidget(settingsState.showCoordsWidget)
                         worldMapViewModel.setShowRoadNetwork(settingsState.showRoadNetwork)
                     }
 
@@ -520,6 +521,19 @@ class MainActivity : ComponentActivity() {
                                 onSpeedometerToggled = {
                                     settingsViewModel.toggleSpeedometer(it)
                                     worldMapViewModel.toggleSpeedometer(it)
+                                },
+                                onCoordsWidgetToggled = {
+                                    settingsViewModel.toggleCoordsWidget(it)
+                                    worldMapViewModel.toggleCoordsWidget(it)
+                                },
+                                // Audio: persisten en Ajustes Y se aplican en vivo al SoundManager.
+                                onMusicVolumeChanged = {
+                                    settingsViewModel.changeMusicVolume(it)
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).setMusicVolume(it)
+                                },
+                                onSfxVolumeChanged = {
+                                    settingsViewModel.changeSfxVolume(it)
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).setSfxVolume(it)
                                 },
                                 onRoadNetworkToggled = { settingsViewModel.toggleRoadNetwork(it) },
                                 onControlTypeChanged = { settingsViewModel.changeControlType(it) },

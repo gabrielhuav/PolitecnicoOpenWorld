@@ -159,7 +159,8 @@ class WorldMapViewModel(
             npcEmojiLod   = settingsRepository.getNpcEmojiLod(),  // optimizar dibujado de NPCs (LOD)
             npcFullEmoji  = settingsRepository.getNpcFullEmoji(), // optimizar para gama baja (emoji total)
             showZoomWidget = settingsRepository.getShowZoomWidget(),
-            showSpeedometer = settingsRepository.getShowSpeedometer()
+            showSpeedometer = settingsRepository.getShowSpeedometer(),
+            showCoordsWidget = settingsRepository.getShowCoordsWidget()
         )
     )
     // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
@@ -1535,6 +1536,7 @@ class WorldMapViewModel(
     fun toggleZoomWidget(show: Boolean) { _uiState.update { it.copy(showZoomWidget = show) } }
 
     fun toggleSpeedometer(show: Boolean) { _uiState.update { it.copy(showSpeedometer = show) } }
+    fun toggleCoordsWidget(show: Boolean) { _uiState.update { it.copy(showCoordsWidget = show) } }
     fun updateShowCacheWidget(show: Boolean) = _uiState.update { it.copy(showCacheWidget = show) }
     fun updateShowFpsWidget(show: Boolean) = _uiState.update { it.copy(showFpsWidget = show) }
 

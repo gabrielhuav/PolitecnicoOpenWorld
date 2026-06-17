@@ -21,5 +21,6 @@ data class InteriorState(
     val controlType: ControlType = ControlType.JOYSTICK,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
+    val showCoordsWidget: Boolean = false, // widget de coordenadas X/Y/Z (Ajustes → Interfaz)
     val isLoading: Boolean = true
 )

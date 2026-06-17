@@ -129,6 +129,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuGroup
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadController
@@ -390,6 +391,16 @@ fun WorldMapScreen(
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
     var optionsExpanded by remember { mutableStateOf(false) }
     var optionsOpenGroup by remember { mutableStateOf<String?>(null) }
+
+    // ORIENTACIÓN: el juego (mapa global) va SIEMPRE en horizontal, PERO al abrir el
+    // menú de Opciones (= pausa) se permite ROTAR (incl. vertical). Al cerrarlo vuelve a
+    // horizontal. La ruta sigue siendo la base (ver MainActivity); aquí solo se anula en
+    // pausa. Ver 09 (gotcha de orientación).
+    LaunchedEffect(optionsExpanded) {
+        (context as? android.app.Activity)?.requestedOrientation =
+            if (optionsExpanded) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+    }
 
     LaunchedEffect(uiState.isUserPanningMap) {
         if (!uiState.isUserPanningMap) {
@@ -1759,6 +1770,15 @@ fun WorldMapScreen(
                     isLoading = false
                 )
             }
+            // Widget de coordenadas (Ajustes → Interfaz): X=longitud, Y=latitud, Z=GLOBAL.
+            AnimatedVisibility(visible = uiState.showCoordsWidget, enter = fadeIn(), exit = fadeOut()) {
+                val loc = uiState.currentLocation
+                CoordsWidget(
+                    x = loc?.let { "%.5f".format(it.longitude) } ?: "--",
+                    y = loc?.let { "%.5f".format(it.latitude) } ?: "--",
+                    z = "GLOBAL"
+                )
+            }
             AnimatedVisibility(visible = uiState.isDesignerMode, enter = fadeIn(), exit = fadeOut()) {
                 Row(
                     modifier = Modifier
@@ -2140,10 +2160,13 @@ fun WorldMapScreen(
 
         val configuration = LocalConfiguration.current
         val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
-        val maxScale = if (isPortrait) 1.0f else 1.4f
+        // Misma altura/escala que los controles de INTERIORES (ZombieHud): se igualaron
+        // estos valores + systemBarsPadding para que los controles queden a la misma altura
+        // en el mundo global y en los interiores.
+        val maxScale = if (isPortrait) 0.95f else 1.3f
         val effectiveScale = uiState.controlsScale.coerceAtMost(maxScale)
-        val sidePadding = if (isPortrait) 16.dp else 64.dp
-        val bottomPadding = if (isPortrait) 48.dp else 32.dp
+        val sidePadding = if (isPortrait) 8.dp else 32.dp
+        val bottomPadding = if (isPortrait) 32.dp else 20.dp
 
         // En HORIZONTAL, al abrir el menú de Opciones, este (arriba a la derecha) se
         // extiende hacia abajo y choca con el control de la derecha (D-pad/diamante).
@@ -2167,7 +2190,7 @@ fun WorldMapScreen(
         }
 
         if (!uiState.isDesignerMode && !uiState.showInteriorDebugOverlay) { // Oculta joystick y botones en modo diseñador y al editar el Debug Interiores
-            Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding).systemBarsPadding(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (uiState.isDriving) {
                 // D-pad de conducción: SOLO gira (IZQ/DER). Arriba/abajo quedan inertes
                 // a propósito — gas y freno viven únicamente en el diamante PS4.

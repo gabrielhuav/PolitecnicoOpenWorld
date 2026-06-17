@@ -27,6 +27,9 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
                 showRoadNetwork = repository.getShowRoadNetwork(),
                 showZoomWidget = repository.getShowZoomWidget(),
                 showSpeedometer = repository.getShowSpeedometer(),
+                showCoordsWidget = repository.getShowCoordsWidget(),
+                musicVolume = repository.getMusicVolume(),
+                sfxVolume = repository.getSfxVolume(),
                 npcDensity = repository.getNpcDensity(),
                 npcEmojiLod = repository.getNpcEmojiLod(),
                 npcFullEmoji = repository.getNpcFullEmoji(),
@@ -51,6 +54,22 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun toggleSpeedometer(enabled: Boolean) {
         _state.update { it.copy(showSpeedometer = enabled) }
         repository.saveShowSpeedometer(enabled)
+    }
+    fun toggleCoordsWidget(enabled: Boolean) {
+        _state.update { it.copy(showCoordsWidget = enabled) }
+        repository.saveShowCoordsWidget(enabled)
+    }
+
+    // Audio: persisten al instante; MainActivity los empuja en vivo al SoundManager.
+    fun changeMusicVolume(v: Float) {
+        val c = v.coerceIn(0f, 1f)
+        _state.update { it.copy(musicVolume = c) }
+        repository.saveMusicVolume(c)
+    }
+    fun changeSfxVolume(v: Float) {
+        val c = v.coerceIn(0f, 1f)
+        _state.update { it.copy(sfxVolume = c) }
+        repository.saveSfxVolume(c)
     }
 
     // Los cambios de controles solo tocan el estado TEMPORAL: no afectan al juego

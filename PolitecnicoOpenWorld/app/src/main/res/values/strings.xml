@@ -32,7 +32,7 @@
     <string name="story_title">MODO HISTORIA</string>
     <string name="story_subtitle">El brote del Politécnico</string>
     <string name="story_prologue_heading">PRÓLOGO</string>
-    <string name="story_prologue">Cierto día, en la ENCB, Prankedy llegó haciendo de las suyas y, por una broma, terminó accidentalmente en mitad de un experimento de proyecto de titulación: la creación de una sustancia corrosiva, capaz de envenenar y penetrar el látex. El error pasa desapercibido… y el tiempo pasa.</string>
+    <string name="story_prologue">Cierto día, en la ENCB, Prankedy llegó haciendo de las suyas y, por una broma, terminó accidentalmente en mitad de un experimento que provocó la creación de un compuesto desconocido e infeccioso, capaz de penetrar el látex. El error pasa desapercibido… y el tiempo pasa.</string>
     <string name="story_choose_school">Elige tu escuela</string>
     <string name="story_school_unavailable">En desarrollo</string>
     <string name="story_school_escom_desc">Zacatenco, CDMX · Disponible</string>
@@ -40,7 +40,7 @@
     <string name="story_load_game">CARGAR PARTIDA</string>
     <string name="story_no_saves">Sin partidas guardadas</string>
     <string name="story_saved_at">Partida guardada · %1$s</string>
-    <string name="story_start">COMENZAR</string>
+    <string name="story_start">NUEVA PARTIDA</string>
     <string name="story_back">VOLVER</string>
     <!-- Intro de campaña ("Listo para Iniciar") -->
     <string name="story_intro_ready">Listo para Iniciar</string>
@@ -85,6 +85,11 @@
     <string name="settings_zoom_widget_desc">Muestra el nivel de zoom actual en vivo</string>
     <string name="settings_speedometer">Velocímetro</string>
     <string name="settings_speedometer_desc">Muestra tu velocidad (km/h) al conducir</string>
+    <string name="settings_coords_widget">Coordenadas (X/Y/Z)</string>
+    <string name="settings_coords_widget_desc">Muestra tu posición X/Y/Z en el mundo y en interiores</string>
+    <string name="settings_cat_audio">Audio</string>
+    <string name="settings_music_volume">Volumen de música</string>
+    <string name="settings_sfx_volume">Volumen de efectos</string>
     <string name="settings_language">Idioma</string>
     <string name="settings_language_system">Sistema (predeterminado)</string>
     <string name="settings_controls_saved">Configuración de controles guardada</string>

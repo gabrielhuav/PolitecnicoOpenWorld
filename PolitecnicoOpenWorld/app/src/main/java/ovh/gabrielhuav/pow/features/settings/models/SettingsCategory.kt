@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.ui.graphics.vector.ImageVector
 import ovh.gabrielhuav.pow.R
 
@@ -16,4 +17,5 @@ sealed class SettingsCategory(@StringRes val titleRes: Int, val icon: ImageVecto
     object Controls : SettingsCategory(R.string.settings_cat_controls, Icons.Default.Gamepad)
     object Gameplay : SettingsCategory(R.string.settings_cat_gameplay, Icons.Default.SportsEsports)
     object Interface : SettingsCategory(R.string.settings_cat_interface, Icons.Default.Layers)
+    object Audio : SettingsCategory(R.string.settings_cat_audio, Icons.Default.VolumeUp)
 }

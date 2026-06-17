@@ -348,7 +348,11 @@ and player-overtaking — cars advance their road node while dodging instead of 
 on death; multiplayer-replicated)**; **working melee combat vs NPCs AND remote players in online mode**
 (attacker-authoritative via existing `PLAYER_DAMAGE` message, ensuring `displayName` is never blank);
 zone-delegated open-world multiplayer (server v2: AOI + host throttle + rate-limit
-+ sanitization + ghost GC); vehicle driving; configurable controls; 8 map
++ sanitization + ghost GC); vehicle driving; **configurable controls (default = JOYSTICK; same
+control height in open world and interiors)**; **optional X/Y/Z coordinates widget (Settings →
+Interface) in both world and interiors**; **landscape in-game but rotatable while the Options menu
+(pause) is open**; **separate Music/SFX volume sliders (Settings → Audio, applied by `SoundManager`)**;
+**door-to-door room teleports (spawn at the connecting door, not the map center)**; 8 map
 providers; editable landmarks with JSON import/export (Designer Mode); 6 lore
 collectibles with persistent inventory; waypoint navigation with greedy road-graph
 routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch,

@@ -412,6 +412,48 @@ matrices por defecto son **border-only** hasta reemplazarse.
     rutas de assets, tipos de mensaje de red (`"PLAYER_UPDATE"`…), tags de log ni URLs: NO son texto de UI.
   - **Claves:** `snake_case`, prefijadas por feature (`menu_*`, `settings_*`). Toda clave nueva va en
     `values/` **y** `values-en/` (una contradicción/ausencia = bug; mantén la paridad).
+- **🆕 Control por defecto = `JOYSTICK`:** lo fija `SettingsRepository.getControlType()` (default JOYSTICK,
+  antes DPAD). Como TODOS los VMs leen el tipo de ahí al iniciar (`WorldMapViewModel`, `ZombieGameViewModel`,
+  `InteriorViewModel`, `MetroInteriorViewModel`, `ShineCTOViewModel`), basta ese cambio; los defaults de los
+  `*State` (`WorldMapState`, `SettingsState.controlType`/`tempControlType`) se pusieron en JOYSTICK por
+  coherencia del primer frame. DPAD sigue eligible en Ajustes → Controles (no se persiste hasta GUARDAR).
+- **🆕 Controles a la MISMA ALTURA (global = interiores):** la fila de controles del mapa global
+  (`WorldMapScreen`) se igualó a la de interiores (`ZombieHud`): `sidePadding 8/32`, `bottomPadding 32/20`,
+  `maxScale 0.95/1.3` (portrait/landscape) **+ `.systemBarsPadding()`** en el `Row`. Si retocas una, ajusta
+  la otra para que no se desincronicen.
+- **🆕 Orientación: rotar SOLO en pausa (menú de Opciones):** además de la base por ruta de `MainActivity`
+  (in-game = `SENSOR_LANDSCAPE`; menús = vertical), `WorldMapScreen` y `ZombieGameScreen` añaden un
+  `LaunchedEffect(optionsExpanded)` que pone `SCREEN_ORIENTATION_UNSPECIFIED` mientras el menú de Opciones
+  está abierto y restaura `SENSOR_LANDSCAPE` al cerrarlo. En `ZombieGameScreen` `optionsExpanded` se hoisteó
+  al tope del composable. Es una EXCEPCIÓN deliberada a "las pantallas no fijan orientación": solo en pausa.
+  Ver 05.
+- **🆕 Widget de coordenadas X/Y/Z (`showCoordsWidget`, Ajustes → Interfaz, default oculto):** composable
+  reusable `CoordsWidget(x,y,z)` en `GameControllers.kt`. Z = "dónde": **GLOBAL** en el mundo abierto
+  (`WorldMapScreen`, X=lon, Y=lat), o el **nombre de la sala/interior** en interiores (`ZombieHud` con
+  `roomName`, `InteriorScreenBase` con `title`; X/Y = posición del jugador). Toggle con el mismo patrón que
+  zoom/velocímetro: `SettingsRepository.get/saveShowCoordsWidget`, campo en `SettingsState`/`WorldMapState`/
+  `ZombieGameState`/`InteriorState`, push en vivo al mapa desde `MainActivity`. Métro/Métrobus/ShineCTO aún
+  no lo muestran (mismo patrón si se desea: añadir `showCoordsWidget` a su `*State` + `CoordsWidget` al HUD).
+  **`CoordsWidget` es un CHIP DE UNA SOLA LÍNEA** con el MISMO estilo/tamaño que `CacheChip` (fondo
+  `Black α0.72`, `RoundedCornerShape(20.dp)`, `padding(h10,v5)`, punto 8.dp, texto 11sp Medium): así TODOS
+  los widgets de Interfaz quedan uniformes en altura (antes era un bloque de 3 líneas y se veía más alto).
+- **🆕 Volumen separado música/efectos (Ajustes → Audio):** persistido en `SettingsRepository`
+  (`get/saveMusicVolume`/`SfxVolume`, default 1.0), `SettingsState.musicVolume`/`sfxVolume`,
+  `SettingsViewModel.changeMusicVolume`/`changeSfxVolume`. **`SoundManager` es la autoridad de audio:**
+  `setMusicVolume` (→ `MediaPlayer.setVolume` en las 4 pistas) y `setSfxVolume` (multiplica cada `play()`
+  del `SoundPool` por `sfxVolume` y reajusta los streams en loop con `setVolume`). `SoundManager.init` LEE
+  el volumen del repo y lo aplica al arrancar; `MainActivity` lo empuja en vivo al cambiar el slider. Si
+  añades un nuevo `play()`, multiplica su volumen por `sfxVolume` (si no, ese efecto ignora el slider).
+- **🆕 TP entre salas = puerta↔puerta (`ZombieGameViewModel.goToRoom`):** al cambiar de sala se spawnea en
+  la puerta del cuarto DESTINO cuyo `targetRoomId == fromRoom.id` (no en el centro). Cubre la cadena ENCB
+  (Continuar↔Regresar) y los vecinos de edificios. EXCEPCIÓN: "lobby → edificio" mantiene spawn central +
+  siembra de zombis; "edificio → lobby" sigue con `spawnAtLobbyDoorFor`. No quitar la exclusión (entrar a
+  un edificio debe seguir centrando al jugador para la siembra). Ver 06.
+- **🆕 Menús de pantalla completa vs barra del sistema:** las pantallas de menú (p. ej. `CollectiblesScreen`)
+  deben usar `systemBarsPadding()` para que sus botones (p. ej. "VOLVER AL MENÚ") no queden tapados por la
+  barra de gestos/navegación del teléfono. (Las de campaña ya usaban `windowInsetsPadding`.)
+- **🆕 Nombres de escuela de campaña = institución:** `SchoolCatalog` muestra `IPN` (`id="escom"`) y `UNAM`
+  (`id="fes_aragon"`); los `id` NO cambian (alimentan spawn/guardado). Botón `story_start = "NUEVA PARTIDA"`.
 
 ---
 

@@ -398,6 +398,35 @@ fun Modifier.repeatingClickable(
     }
 }
 
+// ==========================================
+// WIDGET DE COORDENADAS (X / Y / Z)
+// ==========================================
+// Muestra la posición actual del jugador. Reusable por el mundo global y los interiores.
+//   X / Y = coordenadas (lon/lat en global, píxeles/normalizado en interiores).
+//   Z     = "dónde está": GLOBAL en el mundo abierto, o el nombre de la sala en interiores.
+// Se activa/desactiva en Ajustes → Interfaz.
+// IMPORTANTE: se dibuja como un CHIP DE UNA SOLA LÍNEA con el MISMO estilo/tamaño que los demás
+// widgets de Interfaz (CacheChip): mismo fondo, forma, padding, punto y tipografía, para que todos
+// los widgets queden uniformes (antes era un bloque de 3 líneas, más alto que el resto).
+@Composable
+fun CoordsWidget(
+    x: String,
+    y: String,
+    z: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF7FD1FF)))
+        Text(text = "X $x  Y $y  Z $z", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
 /**
  * Modificador personalizado que detecta el inicio y fin de una pulsación física.
  */

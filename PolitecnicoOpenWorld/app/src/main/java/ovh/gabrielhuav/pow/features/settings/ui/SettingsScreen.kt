@@ -42,6 +42,9 @@ fun SettingsScreen(
     onFpsToggled: (Boolean) -> Unit,
     onZoomWidgetToggled: (Boolean) -> Unit,
     onSpeedometerToggled: (Boolean) -> Unit,
+    onCoordsWidgetToggled: (Boolean) -> Unit,
+    onMusicVolumeChanged: (Float) -> Unit,
+    onSfxVolumeChanged: (Float) -> Unit,
     onRoadNetworkToggled: (Boolean) -> Unit,
     onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
@@ -94,7 +97,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface)
+                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface, SettingsCategory.Audio)
                         categories.forEach { category ->
                             CategoryItemHorizontal(
                                 category = category,
@@ -119,7 +122,7 @@ fun SettingsScreen(
                     ) {
                         Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -139,7 +142,7 @@ fun SettingsScreen(
                 // DISEÑO HORIZONTAL (LANDSCAPE)
                 Row(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Column(modifier = Modifier.weight(0.3f).fillMaxHeight().verticalScroll(sidebarScrollState)) {
-                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface)
+                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface, SettingsCategory.Audio)
                         categories.forEach { category ->
                             CategoryItem(category = category, isSelected = state.selectedCategory == category, onClick = { onCategorySelected(category) })
                         }
@@ -156,7 +159,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
                         Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
                     }
                 }
             }
@@ -212,6 +215,9 @@ private fun SettingsContent(
     onFpsToggled: (Boolean) -> Unit,
     onZoomWidgetToggled: (Boolean) -> Unit,
     onSpeedometerToggled: (Boolean) -> Unit,
+    onCoordsWidgetToggled: (Boolean) -> Unit,
+    onMusicVolumeChanged: (Float) -> Unit,
+    onSfxVolumeChanged: (Float) -> Unit,
     onSaveClicked: () -> Unit,
     onControlTypeChanged: (ControlType) -> Unit,
     onControlsScaleChanged: (Float) -> Unit,
@@ -230,7 +236,8 @@ private fun SettingsContent(
         )
         is SettingsCategory.Controls -> ControlsSettingsConfig(state.tempControlType, state.tempControlsScale, state.tempSwapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
         is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled, state.npcFullEmoji, onNpcFullEmojiToggled)
-        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, currentLanguage, onLanguageChanged)
+        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, state.showCoordsWidget, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, currentLanguage, onLanguageChanged)
+        is SettingsCategory.Audio -> AudioSettings(state.musicVolume, state.sfxVolume, onMusicVolumeChanged, onSfxVolumeChanged)
         else -> Text(stringResource(R.string.settings_none_available), color = Color.Gray)
     }
 }
@@ -563,15 +570,53 @@ private fun LanguageSetting(current: String, onChanged: (String) -> Unit) {
 }
 
 @Composable
+private fun AudioSettings(
+    musicVolume: Float,
+    sfxVolume: Float,
+    onMusicVolumeChanged: (Float) -> Unit,
+    onSfxVolumeChanged: (Float) -> Unit
+) {
+    Column {
+        // ─── Volumen de música ───────────────────────────────────────────────
+        Text(stringResource(R.string.settings_music_volume), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        Text("${(musicVolume * 100).toInt()}%", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+        Spacer(Modifier.height(8.dp))
+        Slider(
+            value = musicVolume,
+            onValueChange = onMusicVolumeChanged,
+            valueRange = 0f..1f,
+            colors = SliderDefaults.colors(thumbColor = Color(0xFFD4AF37), activeTrackColor = Color(0xFF6B1C3A))
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        // ─── Volumen de efectos ──────────────────────────────────────────────
+        Text(stringResource(R.string.settings_sfx_volume), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        Text("${(sfxVolume * 100).toInt()}%", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+        Spacer(Modifier.height(8.dp))
+        Slider(
+            value = sfxVolume,
+            onValueChange = onSfxVolumeChanged,
+            valueRange = 0f..1f,
+            colors = SliderDefaults.colors(thumbColor = Color(0xFFD4AF37), activeTrackColor = Color(0xFF6B1C3A))
+        )
+    }
+}
+
+@Composable
 private fun DiagnosticWidgetsSetting(
     cacheEnabled: Boolean,
     fpsEnabled: Boolean,
     zoomWidgetEnabled: Boolean,
     speedometerEnabled: Boolean,
+    coordsWidgetEnabled: Boolean,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
     onZoomWidgetToggled: (Boolean) -> Unit,
     onSpeedometerToggled: (Boolean) -> Unit,
+    onCoordsWidgetToggled: (Boolean) -> Unit,
     currentLanguage: String,
     onLanguageChanged: (String) -> Unit
 ) {
@@ -627,6 +672,19 @@ private fun DiagnosticWidgetsSetting(
             Switch(
                 checked = speedometerEnabled,
                 onCheckedChange = onSpeedometerToggled,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+            )
+        }
+
+        // Toggle del widget de coordenadas (X / Y / Z)
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text(stringResource(R.string.settings_coords_widget), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_coords_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+            }
+            Switch(
+                checked = coordsWidgetEnabled,
+                onCheckedChange = onCoordsWidgetToggled,
                 colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
             )
         }

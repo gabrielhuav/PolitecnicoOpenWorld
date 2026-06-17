@@ -83,7 +83,9 @@ data class WorldMapState(
     val showZoomWidget: Boolean = false,
     // Widget velocímetro (Ajustes → Interfaz): velocidad en km/h, visible solo al conducir.
     val showSpeedometer: Boolean = true,
-    val controlType: ControlType = ControlType.DPAD,
+    // Widget de coordenadas (Ajustes → Interfaz): X=longitud, Y=latitud, Z=GLOBAL.
+    val showCoordsWidget: Boolean = false,
+    val controlType: ControlType = ControlType.JOYSTICK, // Default: JOYSTICK (las flechitas se cambian en Ajustes)
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
 

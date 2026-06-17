@@ -66,8 +66,9 @@ data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
 - **Mapa/carga:** `currentLocation, isLoadingLocation, zoomLevel, mapProvider, pendingProvider,
   pendingProviderReady, isMapReady, mapLoadProgress, roadSource, tileSource, isRoadNetworkReady`.
 - **Render flags:** `showCacheWidget(=true), showFpsWidget, showZoomWidget (widget de nivel de zoom,
-  Ajustes→Interfaz), showSpeedometer (=true; velocímetro km/h, solo al conducir), showRoadNetwork,
-  isUserPanningMap`.
+  Ajustes→Interfaz), showSpeedometer (=true; velocímetro km/h, solo al conducir), showCoordsWidget
+  (widget de coordenadas X/Y/Z, Ajustes→Interfaz, default oculto; X=lon, Y=lat, Z="GLOBAL"),
+  showRoadNetwork, isUserPanningMap`.
 - **Zoom por estado (constantes en `WorldMapState.kt`):** `ZOOM_ON_FOOT=22`, `ZOOM_DRIVING=21`,
   `ZOOM_DRIVING_FAST=20` (≥85% de MAX_SPEED baja a 20; histéresis al 65%). `updateAutoZoom()` corre
   cada tick del game loop y solo actúa en TRANSICIONES de modo (el pinch manual se respeta).

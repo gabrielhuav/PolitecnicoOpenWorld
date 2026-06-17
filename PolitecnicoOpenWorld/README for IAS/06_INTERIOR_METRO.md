@@ -106,3 +106,13 @@ data class MetroInteriorState( ... )
 - **ES:** Las matrices/waypoints del metro se persisten vía los mismos JSON que el resto del diseñador
   (`collision_matrices.json`, `waypoints.json` y waypoints globales). / Metro matrices/waypoints persist
   via the same designer JSON files.
+- **🆕 Widget de coordenadas (X/Y/Z):** `InteriorScreenBase` (interiores simples ESCOM) y `ZombieHud`
+  (motor de interiores) muestran `CoordsWidget` si `state.showCoordsWidget` (leído del repo al entrar):
+  X/Y = posición del jugador, **Z = nombre del interior/sala** (`title` / `roomName`). Toggle en
+  Ajustes → Interfaz. Metro/Metrobús/ShineCTO aún no lo muestran. Ver 04/07/09.
+- **🆕 TP puerta↔puerta entre salas (cadena ENCB y vecinos):** `ZombieGameViewModel.goToRoom` ya no
+  spawnea en el centro del cuarto destino: busca en el cuarto DESTINO la puerta cuyo `targetRoomId` es el
+  cuarto de ORIGEN y spawnea ahí (`hitboxFrac.centerXFrac/YFrac × world`). Así, "Continuar →" en el cuarto
+  N te deja en la puerta "← Regresar" del cuarto N+1 (y viceversa). Se EXCLUYE "lobby → edificio" (esa
+  entrada conserva su spawn central + siembra de zombis). El caso "edificio → lobby" sigue usando
+  `spawnAtLobbyDoorFor`. Ver 09.
