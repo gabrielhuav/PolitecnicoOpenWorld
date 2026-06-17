@@ -161,6 +161,17 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
     val s = _uiState.value
     val obj = s.currentObjective ?: return
     if (s.objectiveDone) return
+    // MISIÓN 2 (INGRESAR_ESCOM): se cumple EN CUANTO aparece el prompt "Presiona X para entrar a la
+    // ESCOM" (ya estás junto a la puerta), sin tener que PEGARTE ni pulsar X. El nearbyCollectible de
+    // la puerta lo pone checkCollectibleProximity dentro de ESCOM_DOOR_INTERACT_RADIUS (~20 m). El
+    // X sigue funcionando para ENTRAR al interior; esto solo adelanta el "objetivo cumplido".
+    if (obj.id == MissionCatalog.INGRESAR_ESCOM.id) {
+        if (s.nearbyCollectible?.id?.startsWith("escom_door_") == true) {
+            _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${obj.title}") }
+            soundManager.playMisionCumplida()
+        }
+        return
+    }
     // Objetivos con radio <= 0 (p. ej. ESCOLTAR_PRANKEDY) NO se cumplen por llegada: su cierre
     // es NARRATIVO. Sin esta guarda, como su destino coincide con el spawn de la ENCB, la
     // distancia daba 0 ( <= 0 ) y se marcaba "cumplido" nada más empezar. Ver CampaignMission.kt.

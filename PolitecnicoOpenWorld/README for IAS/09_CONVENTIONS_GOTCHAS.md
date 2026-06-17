@@ -493,7 +493,24 @@ matrices por defecto son **border-only** hasta reemplazarse.
   (`VehicleDPadController`). Gas/freno siguen en el diamante PS4.
 - **🆕 Multitud civil de ESCOM (Misión 2) = 50+ desde punto fijo:** `updateEscomCrowd` ahora spawnea desde
   `CROWD_SPAWN` (no la puerta), `CROWD_MAX=55`, intervalo 150 ms; se alejan, se despawnean al salir del fog y se
-  reemplazan por nuevos. (Ojo gama baja: son NPCs PERSON; si pesa, baja `CROWD_MAX`.)
+  reemplazan por nuevos. (Ojo gama baja: son NPCs PERSON; si pesa, baja `CROWD_MAX`.) **🆕 La multitud camina
+  HACIA `MISSION2_POLICE_SPAWN`** (~80%, por `id.hashCode()%5`) → multitud y policías van en direcciones OPUESTAS.
+- **🆕 Misión 2 (INGRESAR_ESCOM) se cumple con el PROMPT de la puerta:** `checkObjectiveProgress` marca el
+  objetivo cumplido EN CUANTO `nearbyCollectible` es un `escom_door_*` (prompt "Presiona X para entrar a la
+  ESCOM", ~20 m), sin tener que pegarse ni pulsar X. El X sigue ENTRANDO al interior.
+- **🆕 Prankedy entra a la ESCOM LENTO y visible (Misión 2):** `runMission2PrankedyEscape` ahora camina
+  (`playerRunning=false`), SIN snap a calles (beeline a la puerta, que está fuera de la vía → ya no "nunca
+  llega"), umbral de entrada `MISSION2_PRANKEDY_ENTER_DEG=0.00006` (~6.6 m, casi pegado) y pausa 2.4 s.
+- **🆕 Movimiento LIBRE del jugador sobre assets/landmarks (`isOnLandmark`):** `moveCharacter`/
+  `moveCharacterByAngle` suspenden el snap a calles si el jugador está SOBRE el footprint de un landmark
+  (caja `baseW/H × escala`). **Es SOLO para el jugador**: `isOnLandmark` NO se mete en `isFreeMovementZone`, así
+  las calles SIGUEN dibujándose y los NPCs SIGUEN atados a la malla vial. (En zonas ESCOM/ENCB ya era libre.)
+- **🆕 NavGraph sin `isForCars`/`isForPeople` → `normalizeNavGraph`:** Gson NO aplica los defaults de Kotlin a
+  campos AUSENTES del JSON. `escom_navgraph.json` no trae `isForCars`/`isForPeople` en las `ways` → llegaban
+  `false` y los autos del estacionamiento NO casaban con ningún carril (`matchType` en `NpcAiManager`) →
+  "no surten efecto". `normalizeNavGraph` (se aplica al cargar en `loadLandmarks` y `spawnDynamicCarInEscom`)
+  re-clasifica por convención de id (id<200=autos, id>=200=peatonal) las ways sin clasificar. Mismo gotcha que
+  el coalesce de `scaleX/scaleY` en `loadLandmarks`. (Los nodos de slot usan `isParkingSlot`.)
 
 ---
 

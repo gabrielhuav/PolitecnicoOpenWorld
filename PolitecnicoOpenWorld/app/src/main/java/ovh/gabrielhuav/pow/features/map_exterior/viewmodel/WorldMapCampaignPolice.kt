@@ -32,7 +32,7 @@ private const val ESCOM_DOOR_LON = -99.14674
 // objetivo de la ESCOM hacia fuera del campus.
 private const val ESCOM_DOOR_NEAR_RADIUS = 0.0015
 // MISIÓN 2: a esta distancia de la puerta, Prankedy "entra" a la ESCOM (desaparece) — ~20 m.
-private const val MISSION2_PRANKEDY_ENTER_DEG = 0.00018
+private const val MISSION2_PRANKEDY_ENTER_DEG = 0.00006   // ~6.6 m: camina casi hasta la puerta antes de meterse
 // Diálogo de Prankedy al meterse a la ESCOM (huyendo). Texto de historia, en español (igual que
 // HIRED_PHRASES de PrankedyManager, que también están hardcodeadas).
 private const val MISSION2_PRANKEDY_BYE = "Ahí nos vemos"
@@ -50,8 +50,8 @@ private const val CROWD_SPAWN_LON = -99.14625
 
 // Punto FIJO desde donde APARECEN los 6 policías de la persecución de la Misión 2 (tras el
 // cómic IntroPOW12..14). Antes spawneaban relativos al jugador; ahora salen siempre de aquí.
-private const val MISSION2_POLICE_SPAWN_LAT = 19.50488
-private const val MISSION2_POLICE_SPAWN_LON = -99.14569
+private const val MISSION2_POLICE_SPAWN_LAT = 19.50484
+private const val MISSION2_POLICE_SPAWN_LON = -99.14561
 
 // Apunta el objetivo (y por tanto el waypoint 🎯, la línea guía, la distancia del widget y la
 // llegada) a la PUERTA de la ESCOM REAL: el landmark `DOORS/ESCOM_DOOR.webp` más cercano colocado
@@ -192,12 +192,22 @@ private fun WorldMapViewModel.updateEscomCrowd(playerLoc: GeoPoint, door: GeoPoi
             visualConfig = randomCrowdVisual()
         )
     }
-    // Mueve cada NPC ALEJÁNDOLO de la entrada y lo despawnea si sale del fog del jugador.
+    // Mueve cada NPC y lo despawnea si sale del fog del jugador. La GRAN MAYORÍA (~80%) camina
+    // HACIA donde aparecen los policías (MISSION2_POLICE_SPAWN) → multitud y policías van en
+    // direcciones OPUESTAS (se cruzan); una minoría se dispersa alejándose de la salida.
     for (npc in mission2Crowd.values.toList()) {
-        val dDoorLat = npc.location.latitude - doorLat
-        val dDoorLon = npc.location.longitude - doorLon
-        val a = if (dDoorLat * dDoorLat + dDoorLon * dDoorLon > 1e-12)
-            atan2(dDoorLat, dDoorLon) else Math.random() * 2.0 * Math.PI
+        val towardPolice = (npc.id.hashCode() % 5) != 0   // ~4 de cada 5
+        val a = if (towardPolice) {
+            atan2(
+                MISSION2_POLICE_SPAWN_LAT - npc.location.latitude,
+                MISSION2_POLICE_SPAWN_LON - npc.location.longitude
+            )
+        } else {
+            val dDoorLat = npc.location.latitude - doorLat
+            val dDoorLon = npc.location.longitude - doorLon
+            if (dDoorLat * dDoorLat + dDoorLon * dDoorLon > 1e-12)
+                atan2(dDoorLat, dDoorLon) else Math.random() * 2.0 * Math.PI
+        }
         val moved = GeoPoint(
             npc.location.latitude + sin(a) * CROWD_SPEED,
             npc.location.longitude + cos(a) * CROWD_SPEED
@@ -270,7 +280,7 @@ internal fun WorldMapViewModel.runMission2PrankedyEscape(playerLoc: GeoPoint, no
         mission2PrankedyEntered = true
         _uiState.update { it.copy(prankedyDialogue = MISSION2_PRANKEDY_BYE) }
         viewModelScope.launch {
-            kotlinx.coroutines.delay(1600)
+            kotlinx.coroutines.delay(2400)   // pausa más larga frente a la puerta: se nota que se mete
             prankedyManager.deactivate()
             _uiState.update {
                 it.copy(prankedyEnabled = false, prankedyVisible = false,
@@ -279,16 +289,17 @@ internal fun WorldMapViewModel.runMission2PrankedyEscape(playerLoc: GeoPoint, no
         }
         return
     }
-    // Corre HACIA LA PUERTA (no hacia el jugador): tickFollow con target = puerta, corriendo.
-    val freeZone = isFreeMovementZone(playerLoc.latitude, playerLoc.longitude)
+    // Camina HACIA LA PUERTA (no hacia el jugador): tickFollow con target = puerta. CAMINANDO
+    // (playerRunning=false, BASTANTE LENTO para que se note) y SIN snap a calles (beeline directo a
+    // la puerta, que está fuera de la vía → evita que "nunca llegue" por quedarse en la calle).
     pm.tick(
         playerLoc = door,
         npcs = emptyList(),
         isDriving = false,
         now = now,
         roadNetwork = roadNetwork,
-        snapToRoad = { p -> if (!freeZone && _uiState.value.isRoadNetworkReady) getNearestPointOnNetwork(p) else p },
-        playerRunning = true
+        snapToRoad = { p -> p },
+        playerRunning = false
     )
     _uiState.update {
         it.copy(

@@ -1289,8 +1289,10 @@ class WorldMapViewModel(
             return // CHOCÓ: Rompemos la función y el jugador no avanza
         }
 
-        // ZONA LIBRE (ESCOM / ENCB): se suspende la malla vial → movimiento (x,y) 100% libre.
-        if (isFreeMovementZone(temp.latitude, temp.longitude)) {
+        // ZONA LIBRE (ESCOM / ENCB) o SOBRE UN ASSET/LANDMARK: se suspende la malla vial → el
+        // JUGADOR se mueve libre en (x,y). (isOnLandmark es solo para ti; las calles siguen
+        // visibles y los NPCs siguen atados a la malla.)
+        if (isFreeMovementZone(temp.latitude, temp.longitude) || isOnLandmark(temp.latitude, temp.longitude)) {
             _uiState.update { it.copy(currentLocation = temp) }
             return
         }
@@ -1338,8 +1340,9 @@ class WorldMapViewModel(
             return // CHOCÓ: Rompemos la función
         }
 
-        // ZONA LIBRE (ESCOM / ENCB): se suspende la malla vial → movimiento (x,y) 100% libre.
-        if (isFreeMovementZone(temp.latitude, temp.longitude)) {
+        // ZONA LIBRE (ESCOM / ENCB) o SOBRE UN ASSET/LANDMARK: se suspende la malla vial → el
+        // JUGADOR se mueve libre en (x,y) (solo tú; las calles siguen visibles y los NPCs atados).
+        if (isFreeMovementZone(temp.latitude, temp.longitude) || isOnLandmark(temp.latitude, temp.longitude)) {
             _uiState.update { it.copy(currentLocation = temp) }
             return
         }
@@ -2833,6 +2836,38 @@ class WorldMapViewModel(
         return isInsideEscom(lat, lon) || isInsideEncb(lat, lon)
     }
 
+    // ¿El punto cae SOBRE el footprint de algún landmark/asset del mapa? Se usa SOLO para el
+    // movimiento del JUGADOR: estando sobre un asset (p. ej. el estacionamiento) se suspende el
+    // snap a la red de calles y te mueves libre en (x,y). OJO: NO se mete en isFreeMovementZone
+    // a propósito → así las calles SIGUEN dibujándose y los NPCs SIGUEN atados a la malla vial.
+    // Footprint = caja del asset en metros (baseW/H × escala), alineada a ejes (ignora rotación).
+    internal fun isOnLandmark(lat: Double, lon: Double): Boolean {
+        val lms = _uiState.value.landmarks
+        if (lms.isEmpty()) return false
+        val cosLat = kotlin.math.cos(Math.toRadians(lat))
+        for (lm in lms) {
+            val halfW = (lm.baseWidthMeters * lm.scaleX) / 2.0
+            val halfH = (lm.baseHeightMeters * lm.scaleY) / 2.0
+            val dLatM = (lat - lm.location.latitude) * 111_320.0
+            val dLonM = (lon - lm.location.longitude) * 111_320.0 * cosLat
+            if (kotlin.math.abs(dLatM) <= halfH && kotlin.math.abs(dLonM) <= halfW) return true
+        }
+        return false
+    }
+
+    // Normaliza un navgraph recién deserializado. Gson NO aplica los defaults de Kotlin a los campos
+    // AUSENTES del JSON: si los `ways` de escom_navgraph.json no traen isForCars/isForPeople, llegan
+    // como `false` → los autos NO casan con NINGÚN carril (matchType en NpcAiManager) y los carros del
+    // estacionamiento "no surten efecto". Restauramos la intención por la convención de id que ya usa la
+    // IA (id < 200 = autos, id >= 200 = peatonal). Solo toca ways que vienen sin clasificar (ambos false).
+    internal fun normalizeNavGraph(ng: LandmarkNavGraph?): LandmarkNavGraph? {
+        if (ng == null) return null
+        val fixedWays = ng.ways.map { w ->
+            if (!w.isForCars && !w.isForPeople) w.copy(isForCars = w.id < 200, isForPeople = w.id >= 200) else w
+        }
+        return ng.copy(ways = fixedWays)
+    }
+
 
     fun checkDestinationArrival() {
         val destination = _uiState.value.destinationMarker ?: return
@@ -2847,7 +2882,7 @@ class WorldMapViewModel(
             try {
                 val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
                 val reader = java.io.InputStreamReader(inputStream)
-                escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
+                escomNavGraph = normalizeNavGraph(Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java))
                 reader.close()
             } catch (e: Exception) {
                 android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_error_escom_navgraph), android.widget.Toast.LENGTH_SHORT).show()

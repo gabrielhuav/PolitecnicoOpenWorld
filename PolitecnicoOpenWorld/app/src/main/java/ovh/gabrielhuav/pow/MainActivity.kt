@@ -344,6 +344,10 @@ class MainActivity : ComponentActivity() {
                                             // sala (sobre world_map, que queda en el backstack para "Salir al mapa").
                                             val roomId = worldMapViewModel.currentInteriorRoomId
                                             if (roomId != null) {
+                                                // FIX: al CARGAR en un interior (p. ej. ENCB) la música no
+                                                // sonaba (la entrada normal sí la arranca). Arrancamos el
+                                                // tema "investigar" (interiores) antes de navegar a la sala.
+                                                ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).playInvestigarMusic()
                                                 navController.navigate("interiores_zombies?startRoom=$roomId")
                                             }
                                         }

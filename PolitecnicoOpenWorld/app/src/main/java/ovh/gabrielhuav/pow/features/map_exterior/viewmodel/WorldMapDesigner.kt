@@ -135,7 +135,7 @@ fun WorldMapViewModel.loadLandmarks(context: Context) {
                 try {
                     val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
                     val reader = java.io.InputStreamReader(inputStream)
-                    escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
+                    escomNavGraph = normalizeNavGraph(Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java))
                     reader.close()
                 } catch (e: Exception) {
                     Log.e("WorldMapViewModel", "No se pudo cargar el navGraph de ESCOM al inicio", e)

@@ -751,7 +751,9 @@ fun ZombieGameScreen(
                     else importLauncher.launch(arrayOf("application/json", "*/*"))
                 },
                 onExit = viewModel::toggleDesignerMode,
-                modifier = Modifier.align(Alignment.BottomCenter)
+                // Esquina inferior-IZQUIERDA por defecto (no centrado): así NO tapa el centro del
+                // mapa al pintar la matriz. Es arrástrable (asa ⠿) y escalable (−/+).
+                modifier = Modifier.align(Alignment.BottomStart)
             )
         }
     }
@@ -801,7 +803,9 @@ private fun DesignerToolbar(
             }
             .padding(12.dp)
             .heightIn(max = maxToolbarH)
-            .fillMaxWidth(0.96f)
+            // Más ANGOSTO (antes 0.96 = casi toda la pantalla, tapaba el mapa de lado a lado).
+            // Ocupa ~55% del ancho → deja libre la mayor parte del mapa para pintar la matriz.
+            .fillMaxWidth(0.55f)
             .background(Color(0xFF1E1E24).copy(alpha = 0.95f), RoundedCornerShape(12.dp))
             .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(12.dp))
             .padding(12.dp),
@@ -814,7 +818,7 @@ private fun DesignerToolbar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "⠿  Mover  (arrástrame · toca = recentrar)",
+                "⠿ Mover (toca = recentrar)",
                 color = Color(0xFFFFD54F), fontSize = 10.sp, fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center, maxLines = 1,
                 modifier = Modifier

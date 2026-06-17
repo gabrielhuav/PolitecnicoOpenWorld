@@ -474,15 +474,26 @@ fun CoordsWidget(
     z: String,
     modifier: Modifier = Modifier
 ) {
+    // Compacto para acercar su ANCHO al de los demás chips de Interfaz (tiene 3 valores → siempre algo
+    // más ancho, pero con fuente 10sp + padding/espaciado reducidos queda mucho más angosto).
     Row(
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF7FD1FF)))
-        Text(text = "X $x  Y $y  Z $z", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF7FD1FF)))
+        // UNA SOLA LÍNEA (sin wrap): así no se parte en 2 líneas desiguales como antes; igual que
+        // los demás chips de Interfaz, que tampoco se envuelven.
+        Text(
+            text = "X $x Y $y Z $z",
+            color = Color.White,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false
+        )
     }
 }
 
