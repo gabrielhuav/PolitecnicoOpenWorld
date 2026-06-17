@@ -28,6 +28,11 @@ private const val ENCB_NEIGHBORHOOD_DEG = 0.002
 private const val ESCOM_LAT = ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_DOOR_LAT
 private const val ESCOM_LON = ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_DOOR_LON
 private const val ESCOM_ARRIVE_DEG = 0.0009   // ~100 m: al entrar, la línea GPS desaparece
+// H: Prankedy "se sube" al coche cuando llega a <= esta distancia de ti (metros).
+private const val PRANKEDY_BOARD_DIST_M = 5.0
+// H: timeout de seguridad: si no llega en este tiempo, se teletransporta y se sube igual
+// (evita que el coche quede bloqueado para siempre si no puede pathear hasta ti).
+private const val PRANKEDY_BOARD_TIMEOUT_MS = 8000L
 
 /**
  * Enciende a Prankedy en modo ACOMPAÑANTE (fase HIRED) UNA sola vez, y SOLO si:
@@ -122,6 +127,9 @@ internal fun WorldMapViewModel.checkPrankedySpawn(playerLoc: GeoPoint, now: Long
 internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
     if (!_uiState.value.prankedyEnabled) return
     val pm = prankedyManager
+    // H: ¿Prankedy está SUBIENDO al coche? Mientras tanto sigue a PIE hacia ti (isDriving=false
+    // en su tick) aunque tú ya estés en el coche, para que corra hasta tu posición y "se suba".
+    val boarding = _uiState.value.prankedyBoarding
 
     // ZONA LIBRE: ¿el jugador está dentro del campus de la ENCB (o ESCOM)? Si sí, Prankedy
     // deja de calcular ruta por nodos de calle y persigue en línea recta (steer-to-target).
@@ -132,7 +140,7 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
     val result = pm.tick(
         playerLoc  = playerLoc,
         npcs       = allNpcs,
-        isDriving  = _uiState.value.isDriving,
+        isDriving  = _uiState.value.isDriving && !boarding,
         now        = now,
         roadNetwork = roadNetwork,
         // ZONA LIBRE (ESCOM / ENCB): si el jugador está en el campus, se APAGA el snap a calles
@@ -171,6 +179,19 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
         }
     }
 
+    // H: ABORDAJE — mientras sube, cuando Prankedy llega a tu posición (o si murió / dejó de ser
+    // acompañante) se "sube" y termina el bloqueo del coche (deja de bloquearte el avance).
+    if (boarding) {
+        val pl = pm.location
+        val arrived = pl != null && pl.distanceToAsDouble(playerLoc) <= PRANKEDY_BOARD_DIST_M
+        val timedOut = now - prankedyBoardingStartMs > PRANKEDY_BOARD_TIMEOUT_MS
+        if (pm.phase != PrankedyPhase.HIRED || pl == null || arrived || timedOut) {
+            if (timedOut) pm.warpTo(playerLoc)   // no llegó a tiempo: se "sube" igual
+            _uiState.update { it.copy(prankedyBoarding = false) }
+        }
+    }
+    val stillBoarding = _uiState.value.prankedyBoarding
+
     // Sincronizar WorldMapState con el estado de PrankedyManager
     val prankedyLoc = pm.location
     val proj = pm.projectileActive
@@ -179,7 +200,8 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
             prankedyLocation         = prankedyLoc,
             prankedyAnimState        = pm.animState,
             prankedyFacingRight      = pm.facingRight,
-            prankedyVisible          = prankedyLoc != null && !_uiState.value.isDriving,
+            // ABORDANDO → visible aunque estés en el coche (corre hacia ti); ya subido → oculto al conducir.
+            prankedyVisible          = prankedyLoc != null && (stillBoarding || !_uiState.value.isDriving),
             prankedyHealth           = pm.health,
             prankedyProjectileActive = proj,
             prankedyProjectileStart  = if (proj) pm.projectileStart else null,

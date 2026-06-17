@@ -460,10 +460,11 @@ class MainActivity : ComponentActivity() {
                                 school = SchoolCatalog.default,
                                 sequenceId = ovh.gabrielhuav.pow.domain.models.StoryComicCatalog.ENCB_OUTRO_ID,
                                 onBegin = {
-                                    // SPAWN ENCB EXCLUSIVO DEL MODO HISTORIA: solo aquí, al
-                                    // terminar el outro (IntroPOW11), el jugador aparece en la
-                                    // ENCB. setStorySpawn fija la posición y activa inCampaign=true.
-                                    worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
+                                    // SPAWN EXCLUSIVO DEL MODO HISTORIA: al terminar el outro
+                                    // (IntroPOW11), el jugador entra al mapa global en el punto de
+                                    // arranque de la Misión 1 (checkpoint de la escolta).
+                                    // setStorySpawn fija la posición y activa inCampaign=true.
+                                    worldMapViewModel.setStorySpawn(ovh.gabrielhuav.pow.domain.models.MissionCatalog.MISSION1_SPAWN_LAT, ovh.gabrielhuav.pow.domain.models.MissionCatalog.MISSION1_SPAWN_LON)
                                     worldMapViewModel.currentInteriorRoomId = null
                                     // Inicia la música de dirigirse al lugar seguro
                                     ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).playLugarSeguroMusic()
@@ -472,8 +473,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onBack = {
-                                    // Misma transición narrativa (saltar/volver el outro): ENCB.
-                                    worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
+                                    // Misma transición narrativa (saltar/volver el outro): mismo checkpoint.
+                                    worldMapViewModel.setStorySpawn(ovh.gabrielhuav.pow.domain.models.MissionCatalog.MISSION1_SPAWN_LAT, ovh.gabrielhuav.pow.domain.models.MissionCatalog.MISSION1_SPAWN_LON)
                                     worldMapViewModel.currentInteriorRoomId = null
                                     ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).playLugarSeguroMusic()
                                     navController.navigate("world_map") {

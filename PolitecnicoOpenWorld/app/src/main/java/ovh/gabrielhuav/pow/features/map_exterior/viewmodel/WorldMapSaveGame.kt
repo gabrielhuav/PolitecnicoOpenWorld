@@ -130,7 +130,17 @@ fun WorldMapViewModel.loadGame(context: Context, slot: Int): Boolean {
 // re-arma la escolta de la Misión 1.
 fun WorldMapViewModel.retryCampaignMission(context: Context) {
     clearCampaignPolice()
-    if (!loadGame(context, campaignSlot)) {
+    // Objetivo que estabas haciendo al fallar (triggerWastedSequence NO cambia el objetivo).
+    val failedObjId = _uiState.value.currentObjective?.id
+    if (failedObjId == MissionCatalog.ESCOLTAR_PRANKEDY.id) {
+        // ESCOLTA (Misión 1): "vuelve a empezar desde que entras al mapa global" → reaparece en el
+        // CHECKPOINT de entrada (MISSION1_SPAWN), NO en la posición guardada (que era el START en
+        // ESCOM/IPN y por eso te "teleportaba a ESCOM"). setStorySpawn re-arma el acompañante y la
+        // policía de escolta; checkPrankedySpawn + respawnPrankedyCompanionHere ponen a Prankedy contigo.
+        setStorySpawn(MissionCatalog.MISSION1_SPAWN_LAT, MissionCatalog.MISSION1_SPAWN_LON)
+        setCampaignObjective(MissionCatalog.ESCOLTAR_PRANKEDY)
+        playerHealth = maxPlayerHealth
+    } else if (!loadGame(context, campaignSlot)) {
         setCampaignObjective(MissionCatalog.ESCOLTAR_PRANKEDY)
     }
     // Prankedy DEBE estar contigo al reintentar.

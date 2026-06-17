@@ -86,7 +86,8 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
   que **reusa `StoryIntroScreen`** con `sequenceId = StoryComicCatalog.ENCB_OUTRO_ID` (paneles
   `STORY/INTRO/IntroPOW9..11.webp`, vía la nueva `StoryComicCatalog.sequence(id)`). Al ser otra pantalla, la
   **UI de juego (joysticks/indicadores/objetivo) queda oculta**. Al terminar `IntroPOW11` (o "Saltar"/"Volver")
-  **`MainActivity` llama `setStorySpawn(19.5001588, -99.1450298)` (coords EXCLUSIVAS de la ENCB, solo aquí)** y
+  **`MainActivity` llama `setStorySpawn(MissionCatalog.MISSION1_SPAWN_LAT, _LON)` (19.50102, -99.14421 =
+  CHECKPOINT de la Misión 1, donde se entra al mapa global; antes eran las coords de la ENCB)** y
   entra al mundo: `navigate("world_map") { popUpTo("story_outro"){inclusive=true} }`. `setStorySpawn` activa
   `inCampaign=true`. El **MUNDO LIBRE** del menú NO se altera: `onNavigateToMap` fuerza `inCampaign=false` y
   `fetchCurrentLocation`→`updateInitialLocation(SPAWN_ESCOM_LAT/LON)` (spawn ESCOM canónico intacto).

@@ -29,6 +29,18 @@ object MissionCatalog {
     const val ESCOM_DOOR_LAT = 19.50490
     const val ESCOM_DOOR_LON = -99.14674
 
+    // Punto donde el jugador ENTRA al mapa global tras el outro de la intro (al terminar la 2ª
+    // secuencia de cómics). Es el CHECKPOINT de la Misión 1 (escolta): si fallas la misión,
+    // reapareces AQUÍ (no en ESCOM ni en la posición guardada). X = lon, Y = lat.
+    const val MISSION1_SPAWN_LAT = 19.50102
+    const val MISSION1_SPAWN_LON = -99.14421
+
+    // A <= ESCOM_FORCEWALK_RADIUS_M de este punto (durante la escolta/ingreso) el coche SOLO da
+    // reversa: obliga al jugador a BAJARSE y entrar a pie por la puerta de la ESCOM. X=lon, Y=lat.
+    const val ESCOM_FORCEWALK_LAT = 19.50500
+    const val ESCOM_FORCEWALK_LON = -99.14596
+    const val ESCOM_FORCEWALK_RADIUS_M = 50.0
+
     // Escolta: Prankedy te acompaña (fase HIRED) y debes llevarlo a la PUERTA de la ESCOM.
     // Solo se activa en campaña y en el vecindario de la ENCB (ver WorldMapPrankedy.maybeSpawnPrankedyCompanion).
     // Al entrar en arriveRadiusMeters de la puerta se marca cumplido → dispara el cómic + la persecución.

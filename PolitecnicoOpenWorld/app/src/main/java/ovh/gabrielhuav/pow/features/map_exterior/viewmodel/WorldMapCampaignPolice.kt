@@ -37,12 +37,21 @@ private const val MISSION2_PRANKEDY_ENTER_DEG = 0.00018
 // HIRED_PHRASES de PrankedyManager, que también están hardcodeadas).
 private const val MISSION2_PRANKEDY_BYE = "Ahí nos vemos"
 
-// Multitud de salida de la ESCOM.
-private const val CROWD_MAX = 14
-private const val CROWD_SPAWN_INTERVAL_MS = 450L      // sale 1 cada ~0.45 s (flujo continuo)
+// Multitud de salida de la ESCOM. Salen 50+ civiles desde un PUNTO FIJO; se alejan y se
+// despawnean al salir de tu fog of war, y se reemplazan por nuevos (flujo continuo).
+private const val CROWD_MAX = 55
+private const val CROWD_SPAWN_INTERVAL_MS = 150L      // sale 1 cada ~0.15 s → llega rápido a 50+
 private const val CROWD_SPEED = 0.0000016             // caminan despacio, hacia afuera
 private const val CROWD_DESPAWN_DEG = 0.0009          // ~100 m: al salir de tu fog se eliminan
-private const val CROWD_SPAWN_OFFSET = 0.00006        // ~6 m de la puerta al aparecer
+private const val CROWD_SPAWN_OFFSET = 0.00006        // ~6 m del punto de salida al aparecer
+// Punto FIJO desde donde SALE la multitud civil (no la puerta del objetivo). X=lon, Y=lat.
+private const val CROWD_SPAWN_LAT = 19.50512
+private const val CROWD_SPAWN_LON = -99.14625
+
+// Punto FIJO desde donde APARECEN los 6 policías de la persecución de la Misión 2 (tras el
+// cómic IntroPOW12..14). Antes spawneaban relativos al jugador; ahora salen siempre de aquí.
+private const val MISSION2_POLICE_SPAWN_LAT = 19.50488
+private const val MISSION2_POLICE_SPAWN_LON = -99.14569
 
 // Apunta el objetivo (y por tanto el waypoint 🎯, la línea guía, la distancia del widget y la
 // llegada) a la PUERTA de la ESCOM REAL: el landmark `DOORS/ESCOM_DOOR.webp` más cercano colocado
@@ -133,10 +142,11 @@ internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
     val door = mission2DoorTarget()
     if (!mission2ChaseActivated) {
         mission2ChaseActivated = true
-        // Policías en el LADO CONTRARIO a la entrada 🎯 (detrás del jugador respecto a la puerta),
-        // para empujarlo hacia ella; la multitud sale de la propia entrada.
+        // Los 6 policías aparecen desde un PUNTO FIJO (MISSION2_POLICE_SPAWN), no relativos al
+        // jugador. `awayFrom = door` los coloca en el lado contrario a la entrada para empujarte
+        // hacia ella; la multitud sale de la propia entrada.
         campaignEscortPolice.spawnChase(
-            6, playerLoc.latitude, playerLoc.longitude, snap,
+            6, MISSION2_POLICE_SPAWN_LAT, MISSION2_POLICE_SPAWN_LON, snap,
             awayFromLat = door.latitude, awayFromLon = door.longitude
         )
         mission2CrowdLastSpawn = 0L
@@ -159,8 +169,9 @@ internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
 // MULTITUD: spawnea NPCs en la ENTRADA marcada con 🎯 (la puerta del objetivo) y los aleja; los
 // despawnea al salir del fog. `door` es la entrada real (objetivo sincronizado), no una constante.
 private fun WorldMapViewModel.updateEscomCrowd(playerLoc: GeoPoint, door: GeoPoint) {
-    val doorLat = door.latitude
-    val doorLon = door.longitude
+    // La multitud sale de un PUNTO FIJO (no de la puerta del objetivo) y se aleja de él.
+    val doorLat = CROWD_SPAWN_LAT
+    val doorLon = CROWD_SPAWN_LON
     val now = System.currentTimeMillis()
     // Spawn por goteo desde la entrada (en una dirección aleatoria, ya separados unos metros).
     if (mission2Crowd.size < CROWD_MAX && now - mission2CrowdLastSpawn > CROWD_SPAWN_INTERVAL_MS) {

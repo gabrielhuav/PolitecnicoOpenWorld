@@ -469,6 +469,31 @@ matrices por defecto son **border-only** hasta reemplazarse.
 - **🆕 Resize de la MATRIZ del diseñador (interiores) = ANCLADO:** en `DesignerToolbar` (`ZombieGameScreen`)
   el bloque de tamaño (texto + `COL ±`/`FIL ±`) se sacó del scroll del medio y va **anclado abajo** (solo en
   modo MATRIZ): en pantallas bajas quedaba al final del scroll y se recortaba → "desapareció el resize".
+- **🆕 Coords FIJAS de la campaña (constantes en `MissionCatalog`):** el Modo Historia usa puntos fijos en vez
+  de relativos al jugador (X=lon, Y=lat). `MISSION1_SPAWN` (19.50102, -99.14421) = entrada al mapa global tras
+  el outro = CHECKPOINT de la escolta (MainActivity lo usa en `setStorySpawn`). `ESCOM_FORCEWALK` (19.50500,
+  -99.14596, radio 50 m). Los policías de la Misión 2 salen de `MISSION2_POLICE_SPAWN` (19.50488, -99.14569,
+  en `WorldMapCampaignPolice`) y la multitud civil de `CROWD_SPAWN` (19.50512, -99.14625). Para reubicar algo,
+  cambia la constante (no hardcodees en otra parte).
+- **🆕 Reintento de misión = CHECKPOINT, no la posición guardada:** `retryCampaignMission` para la escolta
+  (`ESCOLTAR_PRANKEDY`) hace `setStorySpawn(MISSION1_SPAWN)` (no `loadGame`, que restauraba el START en ESCOM y
+  por eso "te teleportaba a ESCOM"). Captura el objetivo ANTES de cualquier `loadGame`.
+- **🆕 Coche obligado a pie cerca de ESCOM (Misión):** en la física del coche (game loop MIEMBRO), a <=50 m de
+  `ESCOM_FORCEWALK` y con objetivo escolta/ingreso, `forceWalkNearEscom` BLOQUEA el avance (gas) y anula la
+  velocidad positiva → SOLO reversa, para forzar bajarse y entrar a pie. No quitar el gate del objetivo (si no,
+  bloquearía el coche en mundo libre).
+- **🆕 Prankedy se SUBE al coche contigo (`prankedyBoarding`):** al abordar un coche con Prankedy ACOMPAÑANTE
+  (HIRED), `onInteractButtonPressed` pone `prankedyBoarding=true`; la física del coche NO avanza (speed=0) y
+  `runPrankedyTick` pasa `isDriving=false` al `tick` (Prankedy corre a pie hasta ti). Al llegar a <=5 m
+  (`PRANKEDY_BOARD_DIST_M`) o si murió, se limpia el flag (se "sube" → se oculta) y el coche ya avanza. El flag
+  se limpia también al bajarte. `runPrankedyTick` corre cada tick AUNQUE conduzcas (no gateado por isDriving),
+  por eso el abordaje se completa.
+- **🆕 Joystick en MODO MANEJO:** `VehicleJoystickController` (dirige izq/der por el eje X, press/release). En
+  `WorldMapScreen` la rama de conducción usa joystick si `controlType==JOYSTICK`, si no las flechitas
+  (`VehicleDPadController`). Gas/freno siguen en el diamante PS4.
+- **🆕 Multitud civil de ESCOM (Misión 2) = 50+ desde punto fijo:** `updateEscomCrowd` ahora spawnea desde
+  `CROWD_SPAWN` (no la puerta), `CROWD_MAX=55`, intervalo 150 ms; se alejan, se despawnean al salir del fog y se
+  reemplazan por nuevos. (Ojo gama baja: son NPCs PERSON; si pesa, baja `CROWD_MAX`.)
 
 ---
 

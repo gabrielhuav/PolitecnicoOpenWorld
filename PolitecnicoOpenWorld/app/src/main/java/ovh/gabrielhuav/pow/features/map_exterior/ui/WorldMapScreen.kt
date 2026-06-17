@@ -133,6 +133,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleJoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.Ps4ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
@@ -2188,13 +2189,22 @@ fun WorldMapScreen(
                 // D-pad de conducción: SOLO gira (IZQ/DER). Arriba/abajo quedan inertes
                 // a propósito — gas y freno viven únicamente en el diamante PS4.
                 val drivingDpad = @Composable { m: Modifier ->
-                    VehicleDPadController(
-                        modifier = m.scale(effectiveScale),
-                        onUp = { /* sin uso en conducción */ },
-                        onDown = { /* sin uso en conducción */ },
-                        onLeft = { viewModel.steerLeft(it) },
-                        onRight = { viewModel.steerRight(it) }
-                    )
+                    // Respeta la preferencia de control: JOYSTICK = joystick de dirección (izq/der);
+                    // D-pad = flechitas. Gas/freno siempre en el diamante PS4 (drivingActions).
+                    if (uiState.controlType == ControlType.JOYSTICK)
+                        VehicleJoystickController(
+                            modifier = m.scale(effectiveScale),
+                            onSteerLeft = { viewModel.steerLeft(it) },
+                            onSteerRight = { viewModel.steerRight(it) }
+                        )
+                    else
+                        VehicleDPadController(
+                            modifier = m.scale(effectiveScale),
+                            onUp = { /* sin uso en conducción */ },
+                            onDown = { /* sin uso en conducción */ },
+                            onLeft = { viewModel.steerLeft(it) },
+                            onRight = { viewModel.steerRight(it) }
+                        )
                 }
                 // Diamante estilo PS4: △ SALIR · ✕ gas · ○ freno · □ freno de mano.
                 val drivingActions = @Composable { m: Modifier ->

@@ -119,6 +119,65 @@ fun JoystickController(
     }
 }
 // ==========================================
+// JOYSTICK DE CONDUCCIÓN (solo dirige IZQ/DER)
+// ==========================================
+// Variante del joystick para el MODO MANEJO: el eje X dirige (izquierda/derecha) llamando a
+// steerLeft/steerRight (press/release). Arriba/abajo no se usan (gas/freno viven en el diamante
+// PS4). Así el modo conducción también respeta la preferencia de JOYSTICK (antes solo D-pad).
+@Composable
+fun VehicleJoystickController(
+    modifier: Modifier = Modifier,
+    backgroundAlpha: Float = 0.4f,
+    onSteerLeft: (Boolean) -> Unit,
+    onSteerRight: (Boolean) -> Unit
+) {
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    // Estado de dirección actual, para emitir press/release solo en los cambios.
+    var steering by remember { mutableStateOf(0) } // -1 izq, 0 centro, +1 der
+
+    fun setSteer(dir: Int) {
+        if (dir == steering) return
+        // Suelta la dirección anterior y presiona la nueva.
+        if (steering < 0) onSteerLeft(false)
+        if (steering > 0) onSteerRight(false)
+        if (dir < 0) onSteerLeft(true)
+        if (dir > 0) onSteerRight(true)
+        steering = dir
+    }
+
+    Box(
+        modifier = modifier
+            .size(ControllerBaseSize)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f)))
+            .pointerInput(Unit) {
+                val deadzone = 18.dp.toPx()
+                detectDragGestures(
+                    onDragEnd = { offset = Offset.Zero; setSteer(0) },
+                    onDragCancel = { offset = Offset.Zero; setSteer(0) },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        val newOffset = offset + dragAmount
+                        val maxRadius = (size.width / 2f) - 24.dp.toPx()
+                        val distance = sqrt(newOffset.x * newOffset.x + newOffset.y * newOffset.y)
+                        offset = if (distance > maxRadius) newOffset * (maxRadius / distance) else newOffset
+                        setSteer(if (offset.x < -deadzone) -1 else if (offset.x > deadzone) 1 else 0)
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.DarkGray.copy(alpha = 0.8f))
+        )
+    }
+}
+
+// ==========================================
 // CONTROL DIRECCIONAL (D-PAD)
 // ==========================================
 @Composable

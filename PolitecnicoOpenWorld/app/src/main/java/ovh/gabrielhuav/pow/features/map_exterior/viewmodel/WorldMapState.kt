@@ -253,5 +253,8 @@ data class WorldMapState(
     val showPrankedyHireDialog: Boolean = false,    // muestra el modal de contratar
     val prankedyIsHireable: Boolean = true,         // false = en penalización
     val prankedyHireableInSeconds: Int = 0,         // countdown de penalización
-    val prankedyDialogue: String? = null            // texto de la burbuja flotante
+    val prankedyDialogue: String? = null,           // texto de la burbuja flotante
+    // MODO HISTORIA: Prankedy está SUBIENDO al coche (corre hasta ti). Mientras es true, el coche
+    // no avanza (no puedes irte sin él) y Prankedy sigue visible corriendo hacia tu posición.
+    val prankedyBoarding: Boolean = false
 )

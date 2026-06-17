@@ -375,6 +375,10 @@ class WorldMapViewModel(
     // volcado de la IA y el NPC_BATCH_UPDATE deben IGNORAR unos segundos (si no, el
     // snapshot viejo re-insertaba el coche que acabas de abordar y se duplicaba).
     internal var lastVehicleToggleMs = 0L
+    // H: instante en que Prankedy empezó a "subir" al coche (escolta). Sirve de timeout de
+    // seguridad: si no llega en PRANKEDY_BOARD_TIMEOUT_MS, se le teletransporta contigo y se sube
+    // (evita que el coche quede bloqueado para siempre si no puede pathear hasta ti).
+    internal var prankedyBoardingStartMs = 0L
 
     // Contador de ciclos de IA tras (re)cargar el mundo, para el warm-up de NPCs del
     // gate de carga (npcsWarmedUp). Se reinicia en cada teleport.
@@ -482,6 +486,20 @@ class WorldMapViewModel(
                             var currentSpeed = _uiState.value.vehicleSpeed
                             var currentRotation = _uiState.value.vehicleRotation
 
+                            // H: si Prankedy está SUBIENDO al coche, el coche NO avanza hasta que se suba.
+                            val prankedyBoarding = _uiState.value.prankedyBoarding
+                            if (prankedyBoarding) currentSpeed = 0.0
+                            // I: a <= 50 m de la ESCOM (durante la escolta/ingreso) el coche SOLO da reversa
+                            //    → te obliga a BAJARTE y entrar a pie por la puerta.
+                            val driveObjId = _uiState.value.currentObjective?.id
+                            val forceWalkNearEscom = inCampaign &&
+                                (driveObjId == ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
+                                 driveObjId == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id) &&
+                                location.distanceToAsDouble(GeoPoint(
+                                    ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_FORCEWALK_LAT,
+                                    ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_FORCEWALK_LON)
+                                ) <= ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_FORCEWALK_RADIUS_M
+
                             if (isSteeringLeftPressed && currentSpeed != 0.0) {
                                 currentRotation -= if (currentSpeed > 0) 2f else 3f
                             }
@@ -489,17 +507,19 @@ class WorldMapViewModel(
                                 currentRotation += if (currentSpeed > 0) 2f else 3f
                             }
 
-                            if (isGasPressed) {
+                            if (isGasPressed && !prankedyBoarding && !forceWalkNearEscom) {
                                 val speedRatio = (currentSpeed / MAX_SPEED).coerceIn(0.0, 1.0)
                                 val dynamicAcc = ACCELERATION * (1.0 - speedRatio * 0.75) // Cuesta más llegar al 100%
                                 currentSpeed = (currentSpeed + dynamicAcc).coerceAtMost(MAX_SPEED)
-                            } else if (isBrakePressed) {
+                            } else if (isBrakePressed && !prankedyBoarding) {
                                 currentSpeed -= BRAKING_FRICTION
                                 if (currentSpeed < -MAX_SPEED / 2) currentSpeed = -MAX_SPEED / 2
                             } else {
                                 if (currentSpeed > 0) currentSpeed = (currentSpeed - (ACCELERATION / 2)).coerceAtLeast(0.0)
                                 if (currentSpeed < 0) currentSpeed = (currentSpeed + (ACCELERATION / 2)).coerceAtMost(0.0)
                             }
+                            // I: refuerza "solo reversa" cerca de la ESCOM (anula cualquier avance hacia adelante).
+                            if (forceWalkNearEscom && currentSpeed > 0.0) currentSpeed = 0.0
 
                             val angleRad = Math.toRadians(currentRotation.toDouble())
                             val dx = kotlin.math.sin(angleRad) * currentSpeed
@@ -1674,6 +1694,13 @@ class WorldMapViewModel(
                 // Si el coche traía skin de patrulla (una patrulla que abandonaste), al
                 // re-subirte vuelves a conducirla con el skin de policía.
                 _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false, isDrivingPoliceCar = carNpc.isPoliceSkin) }
+                // H (Modo Historia): si Prankedy es tu ACOMPAÑANTE (escolta), debe SUBIR contigo: corre
+                // hasta tu posición y el coche NO avanza hasta que se sube (lo completa runPrankedyTick).
+                if (prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED &&
+                    _uiState.value.prankedyEnabled && prankedyManager.location != null) {
+                    prankedyBoardingStartMs = nowMs
+                    _uiState.update { it.copy(prankedyBoarding = true) }
+                }
                 prankedyManager.onVehicleInteraction()
                 updateNpcsState()
                 return
@@ -1729,7 +1756,7 @@ class WorldMapViewModel(
                 navState = if (isInsideEscom(loc.latitude, loc.longitude)) ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED else ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
             )
             remoteEntities[abandonedCar.id] = abandonedCar
-            _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }
+            _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false, prankedyBoarding = false) }
             prankedyManager.onVehicleInteraction()
             updateNpcsState()
         }
