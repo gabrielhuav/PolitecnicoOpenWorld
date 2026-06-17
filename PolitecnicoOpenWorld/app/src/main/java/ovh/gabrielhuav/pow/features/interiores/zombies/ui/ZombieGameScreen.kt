@@ -116,6 +116,9 @@ fun ZombieGameScreen(
     onRoomChanged: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
+    // Modo Desarrollador: si está APAGADO se ocultan botones de prueba (Diseñador, y "Salir al mapa"
+    // durante la Misión 1). Se lee una vez al entrar a la pantalla.
+    val developerMode = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getDeveloperMode() }
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
     val viewModel: ZombieGameViewModel = viewModel(
         factory = ZombieGameViewModel.Factory(context, serverUrl, playerName, startRoomId)
@@ -697,14 +700,23 @@ fun ZombieGameScreen(
                     onExpandedChange = { optionsExpanded = it },
                     openGroupId = null,
                     onOpenGroupChange = {},
-                    entries = listOf(
-                        // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto.
-                        OptionMenuItem(stringResource(R.string.wm_choose_character), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) },
-                        OptionMenuItem(stringResource(R.string.zgame_opt_designer), Icons.Default.Architecture) { viewModel.toggleDesignerMode() },
-                        // MODO HISTORIA: guardar partida también desde interiores (selector de slots).
-                        OptionMenuItem("Guardar partida", Icons.Default.Save) { onRequestSaveGame() },
-                        OptionMenuItem(stringResource(R.string.zgame_opt_exit_map), Icons.Default.ExitToApp) { viewModel.exitToWorld() }
-                    )
+                    entries = run {
+                        // Misión 1 = cadena de salas ENCB del Modo Historia.
+                        val inMission1 = room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS
+                        val sChar = stringResource(R.string.wm_choose_character)
+                        val sDesigner = stringResource(R.string.zgame_opt_designer)
+                        val sExitMap = stringResource(R.string.zgame_opt_exit_map)
+                        buildList {
+                            // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto.
+                            add(OptionMenuItem(sChar, Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                            // "Diseñador": solo en Modo Desarrollador.
+                            if (developerMode) add(OptionMenuItem(sDesigner, Icons.Default.Architecture) { viewModel.toggleDesignerMode() })
+                            // MODO HISTORIA: guardar partida también desde interiores (selector de slots).
+                            add(OptionMenuItem("Guardar partida", Icons.Default.Save) { onRequestSaveGame() })
+                            // "Salir al mapa": en Misión 1 se oculta salvo en Modo Desarrollador.
+                            if (developerMode || !inMission1) add(OptionMenuItem(sExitMap, Icons.Default.ExitToApp) { viewModel.exitToWorld() })
+                        }
+                    }
                 )
             }
         }

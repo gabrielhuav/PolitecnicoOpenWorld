@@ -233,6 +233,10 @@ fun WorldMapScreen(
     onRetryMission: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // Modo Desarrollador: si está APAGADO se ocultan los botones de prueba del menú de Opciones
+    // (Teletransportarse, Diseñador/Debug, Activar Apocalipsis, Desactivar Prankedy). Se lee al entrar.
+    val devModeContext = androidx.compose.ui.platform.LocalContext.current
+    val developerMode = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(devModeContext).getDeveloperMode() }
     val roadNetwork by viewModel.roadNetworkFlow.collectAsState()
     val escomItems by viewModel.escomItems.collectAsState()
     val allCollectibles = uiState.activeCollectibles + escomItems
@@ -1915,13 +1919,13 @@ fun WorldMapScreen(
                                 add(OptionMenuItem("Guardar partida", Icons.Default.School, Color(0xFF4CAF50)) {
                                     onRequestSaveGame()
                                 })
-                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_teleport), Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
+                                // Teletransportarse: solo en Modo Desarrollador.
+                                if (developerMode) add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_teleport), Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })
                                 // (Submenú "Ir a…" eliminado: "Ir a ESCOM" ya es el primer punto de
                                 // "Teletransportarse…" y "Ir a tu Ubicación (GPS)" se movió al inicio
                                 // de esa misma lista.)
-                                // Submenú anidado: agrupa "Modo Diseñador" + androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_debug_interiors)
-                                // (+ androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_add_asset) cuando el diseñador está activo).
-                                add(
+                                // Submenú anidado "Diseñador / Debug": solo en Modo Desarrollador.
+                                if (developerMode) add(
                                     OptionMenuGroup(
                                         id = "disenador_debug",
                                         label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_designer),
@@ -1936,16 +1940,14 @@ fun WorldMapScreen(
                                         }
                                     )
                                 )
-                                // Apocalipsis Zombi Global: activar/desactivar desde CUALQUIER lugar
-                                // (no solo con la mano de ESCOM). Toggle global; se replica por red.
-                                add(OptionMenuItem(
+                                // Apocalipsis Zombi Global: solo en Modo Desarrollador.
+                                if (developerMode) add(OptionMenuItem(
                                     if (uiState.globalZombieMode) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_apocalypse_off) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_apocalypse_on),
                                     Icons.Default.Warning,
                                     if (uiState.globalZombieMode) Color(0xFFE53935) else Color.White
                                 ) { viewModel.toggleGlobalZombieMode() })
-                                // Prankedy: NPC hostil que te ataca (y te defiende de otros NPCs).
-                                // Toggle on/off, igual que el apocalipsis.
-                                add(OptionMenuItem(
+                                // Prankedy (toggle manual hostil): solo en Modo Desarrollador.
+                                if (developerMode) add(OptionMenuItem(
                                     if (uiState.prankedyEnabled) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_prankedy_off) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_prankedy_on),
                                     Icons.Default.Face,
                                     if (uiState.prankedyEnabled) Color(0xFFD4AF37) else Color.White

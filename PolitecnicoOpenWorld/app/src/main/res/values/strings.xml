@@ -8,7 +8,7 @@
     <string name="exit_dialog_dismiss">Salir</string>
 
     <!-- ─── Menú principal (features/main_menu) ─── -->
-    <string name="menu_version">v%1$s - ESCOM Edition</string>
+    <string name="menu_version">ALPHA - v%1$s</string>
     <string name="menu_start_game">MUNDO LIBRE</string>
     <string name="menu_load_game">MODO HISTORIA</string>
     <string name="menu_multiplayer">MULTIJUGADOR</string>

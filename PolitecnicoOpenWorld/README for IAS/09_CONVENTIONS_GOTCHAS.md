@@ -501,9 +501,16 @@ matrices por defecto son **border-only** hasta reemplazarse.
     entrar en código fuente ni en estos docs.
 - **🆕 Modo Desarrollador (`developerMode`, Ajustes → Interfaz, default oculto):** switch persistente con el
   mismo patrón que los widgets (`SettingsRepository.get/saveDeveloperMode`, `SettingsState.developerMode`,
-  `SettingsViewModel.toggleDeveloperMode`, wired en `MainActivity.onDeveloperModeToggled`). Sirve para revelar
-  botones de prueba que se ocultarán en la versión final: las pantallas con esos botones deben observar
-  `developerMode` para mostrarlos/ocultarlos (cableado caso por caso, pendiente). Strings
+  `SettingsViewModel.toggleDeveloperMode`, wired en `MainActivity.onDeveloperModeToggled`). Revela botones de
+  prueba que con el modo APAGADO quedan ocultos para el jugador. **Cableado (cada pantalla lee
+  `SettingsRepository(context).getDeveloperMode()` UNA vez al entrar):**
+  - `StoryIntroScreen`: oculta el botón **"Editar"** (editor del cuadro de texto del cómic).
+  - `ZombieGameScreen` (interiores, menú Opciones): oculta **"Diseñador"**; y **"Salir al mapa"** solo cuando
+    la sala está en la cadena `ZombieRoomCatalog.ENCB_STORY_ROOM_IDS` (Misión 1) → `developerMode || !inMission1`.
+  - `WorldMapScreen` (mundo, menú Opciones): oculta **"Teletransportarse"**, el grupo **"Diseñador / Debug"**
+    (Modo Diseñador + Debug Interiores + Agregar asset), **"Activar/Desactivar Apocalipsis"** y el toggle de
+    **Prankedy**.
+  Como se lee con `remember` al entrar, el cambio aplica al re-entrar a la pantalla (no en vivo). Strings
   `settings_developer_mode`/`_desc` (es+en).
 - **🆕 Widget de coordenadas X/Y/Z (`showCoordsWidget`, Ajustes → Interfaz, default oculto):** composable
   reusable `CoordsWidget(x,y,z)` en `GameControllers.kt`. Z = "dónde": **GLOBAL** en el mundo abierto

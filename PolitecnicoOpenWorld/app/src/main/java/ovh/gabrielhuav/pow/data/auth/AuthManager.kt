@@ -50,6 +50,9 @@ class AuthManager(context: Context) {
         GoogleSignIn.getClient(appContext, gsoBuilder.build())
     }
 
+    /** ¿Firebase está CONFIGURADO en este build? (false si falta google-services.json / no se inicializó). */
+    fun isAvailable(): Boolean = firebaseAuth != null
+
     /** ¿La sesión de Firebase está activa ahora mismo? */
     fun isSignedIn(): Boolean = firebaseAuth?.currentUser != null
 

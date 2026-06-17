@@ -112,6 +112,14 @@ permissions + Fused Location, and frees sprite caches on `onTrimMemory` (see 09)
 ## Build / run
 
 - **Cliente:** abrir en Android Studio → **Build → Rebuild Project**.
+- **🆕 Firebase es OPCIONAL para compilar (contribuidores / PRs):** el plugin `google-services` se aplica
+  **solo si existe `app/google-services.json`** (condicional al final de `app/build.gradle.kts`). Ese archivo
+  está en `.gitignore`, así que cualquiera puede clonar y compilar/correr SIN él. Sin el json: el **login
+  con Google** queda deshabilitado (`AuthManager.isAvailable()=false`, degrada sin crashear), pero el
+  **multijugador SÍ funciona en modo ANÓNIMO** — el gate de MULTIJUGADOR detecta que Firebase no está
+  disponible y conecta sin token; los servidores en **modo suave** (`AUTH_REQUIRED` no = true) aceptan la
+  conexión. Con el json, el multijugador exige sesión de Google. El maintainer agrega el json (y configura
+  `FIREBASE_SERVICE_ACCOUNT` en los servidores) para habilitar la identidad por cuenta.
 - **URLs de servidor / Server URLs** inyectadas vía Gradle → `BuildConfig.MULTIPLAYER_SERVER_URL`
   (open world) y `BuildConfig.INTERIORS_SERVER_URL` (zombi). Versión en menú: `BuildConfig.VERSION_NAME`.
 - **Servidores (separados, ambos escuchan en contenedor `:8080`, `GET /status`, `WS /`):**

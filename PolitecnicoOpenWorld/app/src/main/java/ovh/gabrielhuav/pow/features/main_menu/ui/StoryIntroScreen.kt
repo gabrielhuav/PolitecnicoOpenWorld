@@ -138,6 +138,9 @@ fun StoryIntroScreen(
 
     var index by remember { mutableIntStateOf(0) }
     var editing by remember { mutableStateOf(false) }
+    // Modo Desarrollador: el botón "Editar" (editor del cuadro de texto del cómic) solo se muestra
+    // con el Modo Desarrollador activo; apagado, queda oculto para los jugadores.
+    val developerMode = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getDeveloperMode() }
 
     val panel = panels[index]
 
@@ -337,8 +340,10 @@ fun StoryIntroScreen(
                     .background(Color(0x88000000), RoundedCornerShape(10.dp))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             )
-            PillButton(if (editing) "Listo" else "Editar", if (editing) Color(0xAA2E7D32) else Color(0xAA37474F)) {
-                editing = !editing
+            if (developerMode) {
+                PillButton(if (editing) "Listo" else "Editar", if (editing) Color(0xAA2E7D32) else Color(0xAA37474F)) {
+                    editing = !editing
+                }
             }
             Box(modifier = Modifier.weight(1f))
             PillButton(if (isLast) "Iniciar" else "Saltar", Color(0xAA8C2A2A)) { onBegin() }

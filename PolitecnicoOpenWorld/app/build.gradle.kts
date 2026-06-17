@@ -4,8 +4,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
-    // Firebase Authentication: requiere app/google-services.json (lo agregas tú).
-    alias(libs.plugins.google.services)
+    // NOTA: el plugin google-services NO se aplica aquí. Se aplica condicionalmente al final
+    // de este archivo SOLO si existe app/google-services.json, para que el proyecto compile
+    // sin ese archivo (contribuidores / PRs). El classpath del plugin lo declara el build.gradle.kts raíz.
 }
 
 android {
@@ -16,8 +17,8 @@ android {
         applicationId = "ovh.gabrielhuav.pow"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.0.0.5"
+        versionCode = 6
+        versionName = "1.0.0.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -114,4 +115,18 @@ secrets {
     // Configure which keys should be ignored by the plugin by providing regular expressions.
     // "sdk.dir" is ignored by default.
     ignoreList.add("sdk.*")       // Ignore all keys matching the regexp "sdk.*"
+}
+
+// ─── Firebase (opcional para contribuidores) ──────────────────────────────────
+// El plugin google-services SOLO se aplica si existe app/google-services.json. Así
+// cualquiera puede clonar el repo y compilar/correr el juego SIN el archivo (que está
+// en .gitignore). En ese caso, el login con Google / multijugador queda DESHABILITADO
+// en tiempo de ejecución (AuthManager degrada sin crashear), pero todo lo demás (un
+// jugador, Modo Historia, mapa, interiores) funciona. El maintainer agrega el json para
+// habilitar el multijugador.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    logger.lifecycle("google-services.json encontrado → Firebase Auth HABILITADO.")
+} else {
+    logger.warn("google-services.json NO encontrado → Firebase Auth deshabilitado en este build (el multijugador no funcionará). Es normal en clones/PRs sin el archivo.")
 }

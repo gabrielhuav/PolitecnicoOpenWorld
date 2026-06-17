@@ -73,11 +73,16 @@ fun MainMenuScreen(
             }
         }
     }
-    // Acción del botón MULTIJUGADOR (y reintento): si no hay sesión, abre Google Sign-In;
-    // si ya hay sesión (o Auth no está configurado), sigue el flujo normal.
+    // Acción del botón MULTIJUGADOR (y reintento):
+    //  - Si Firebase NO está configurado en este build (sin google-services.json, p. ej. clones/PRs),
+    //    se entra ANÓNIMO: los servidores en modo suave aceptan la conexión sin token.
+    //  - Si Firebase está configurado y NO hay sesión, se abre Google Sign-In.
+    //  - Si ya hay sesión, se sigue el flujo normal.
     val onMultiplayer: () -> Unit = {
-        if (authManager == null || authManager.isSignedIn()) viewModel.onMultiplayerPressed()
-        else signInLauncher.launch(authManager.signInIntent())
+        if (authManager == null || !authManager.isAvailable() || authManager.isSignedIn())
+            viewModel.onMultiplayerPressed()
+        else
+            signInLauncher.launch(authManager.signInIntent())
     }
 
     val configuration = LocalConfiguration.current
