@@ -229,6 +229,39 @@ fun WorldMapViewModel.dismissPrankedyDialog() {
     _uiState.update { it.copy(showPrankedyHireDialog = false) }
 }
 
+/**
+ * Coloca al ACOMPAÑANTE (Prankedy, fase HIRED) en `loc` de inmediato — p. ej. al TELETRANSPORTARTE,
+ * para que "se teletransporte contigo" en vez de quedarse caminando media ciudad. No hace nada si
+ * Prankedy no es acompañante. tickFollow lo ajusta a la calle en el siguiente tick.
+ */
+internal fun WorldMapViewModel.warpPrankedyCompanionTo(loc: GeoPoint) {
+    if (prankedyManager.phase != PrankedyPhase.HIRED) return
+    prankedyManager.warpTo(loc)
+    _uiState.update { it.copy(prankedyLocation = loc, prankedyVisible = !it.isDriving) }
+}
+
+/**
+ * Reintento de misión: re-enciende al ACOMPAÑANTE en la posición actual del jugador para que SIEMPRE
+ * esté contigo (el respawn del game loop está gateado al vecindario de la ENCB, y la misión pudo
+ * fallar lejos de ahí). Resetea su salud.
+ */
+internal fun WorldMapViewModel.respawnPrankedyCompanionHere() {
+    val loc = _uiState.value.currentLocation ?: return
+    prankedyCompanionActivated = true
+    prankedyManager.spawnCompanion(loc, roadNetwork)
+    prankedyManager.warpTo(loc)
+    setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY)
+    _uiState.update {
+        it.copy(
+            prankedyEnabled = true,
+            prankedyLocation = prankedyManager.location,
+            prankedyVisible = prankedyManager.location != null && !it.isDriving,
+            prankedyHealth = prankedyManager.health,
+            prankedyPhase = prankedyManager.phase
+        )
+    }
+}
+
 /** Activa o desactiva a Prankedy (NPC hostil) desde el menú de Opciones. */
 fun WorldMapViewModel.togglePrankedy() {
     val enabled = !_uiState.value.prankedyEnabled

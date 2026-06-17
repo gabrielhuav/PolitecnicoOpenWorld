@@ -192,6 +192,17 @@ class MainActivity : ComponentActivity() {
                         worldMapViewModel.setShowRoadNetwork(settingsState.showRoadNetwork)
                     }
 
+                    // CONTROLES (D-pad/joystick, escala, swap): se aplican EN VIVO al GUARDARLOS en
+                    // Ajustes — `settingsState` ya trae los valores COMMITTEADOS por saveControlsSettings,
+                    // así que no hay que salir al menú y volver a entrar para que el cambio surta efecto.
+                    LaunchedEffect(settingsState.controlType, settingsState.controlsScale, settingsState.swapControls) {
+                        worldMapViewModel.updateControlSettings(
+                            settingsState.controlType,
+                            settingsState.controlsScale,
+                            settingsState.swapControls
+                        )
+                    }
+
                     val navController = rememberNavController()
 
                     // ORIENTACIÓN: el JUEGO (mapa global, interiores y cómics) va SIEMPRE en

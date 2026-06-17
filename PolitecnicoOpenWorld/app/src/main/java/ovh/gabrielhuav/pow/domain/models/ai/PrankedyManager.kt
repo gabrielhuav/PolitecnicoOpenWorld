@@ -458,6 +458,10 @@ class PrankedyManager {
         animState = PrankedyAnimState.IDLE
     }
 
+    /** Reubica a Prankedy en `loc` de inmediato (teletransporte del jugador / reintento de misión).
+     *  `location` tiene private set, por eso se expone este método. tickFollow lo ajusta a la calle. */
+    fun warpTo(loc: GeoPoint) { location = loc }
+
     /** (Legado, sin uso: ya no es contratable). */
     fun hire() { /* no-op: Prankedy ahora es un NPC hostil */ }
 

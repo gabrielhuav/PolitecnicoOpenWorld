@@ -87,6 +87,11 @@ class ZombieGameViewModel(
 
     internal var lastPlayerAttackMs = 0L
     internal var lastRangedShotMs = 0L
+    // Ventana (ms) durante la que se muestra la animación de ATAQUE (SPECIAL) tras DISPARAR.
+    // Acotada por tiempo para que NO se quede pegada al moverse: move() reescribía SPECIAL en
+    // bucle y, al disparar moviéndote, la animación de ataque se quedaba activa para siempre.
+    private var attackAnimUntilMs = 0L
+    private val ATTACK_ANIM_MS = 200L
     internal var yPressStartMs = 0L
     internal var lastRoomId: String? = null
     // INTERIORES EXPANDIBLE: lobby destino del diálogo "volver al lobby" (campus-agnóstico).
@@ -582,6 +587,7 @@ class ZombieGameViewModel(
         val now = System.currentTimeMillis()
         if (now - lastRangedShotMs < RANGED_COOLDOWN_MS) return
         lastRangedShotMs = now
+        attackAnimUntilMs = now + ATTACK_ANIM_MS
 
         val s = _state.value
         var dx = s.aimDirX
@@ -611,8 +617,11 @@ class ZombieGameViewModel(
         }
         idleJob?.cancel()
         idleJob = viewModelScope.launch {
-            delay(150)
-            _state.update { it.copy(playerAction = PlayerAction.IDLE) }
+            delay(ATTACK_ANIM_MS)
+            // Solo resetea si la ventana de ataque ya venció (no se re-disparó) y seguimos en SPECIAL.
+            if (System.currentTimeMillis() >= attackAnimUntilMs) {
+                _state.update { if (it.playerAction == PlayerAction.SPECIAL) it.copy(playerAction = PlayerAction.IDLE) else it }
+            }
         }
     }
 
@@ -787,7 +796,12 @@ class ZombieGameViewModel(
         }
 
         val facing = if (abs(dxForFacing) > 0.001f) dxForFacing > 0 else _state.value.isPlayerFacingRight
-        val action = if (_state.value.playerAction == PlayerAction.SPECIAL) PlayerAction.SPECIAL
+        // ATAQUE: MELEE mantiene SPECIAL mientras se SOSTIENE el botón; RANGED solo durante la
+        // ventana de animación (attackAnimUntilMs). Así, al DISPARAR moviéndote, la animación de
+        // ataque ya NO se queda pegada (antes move() reescribía SPECIAL en bucle).
+        val attacking = _state.value.playerAction == PlayerAction.SPECIAL &&
+            (_state.value.combatMode == CombatMode.MELEE || System.currentTimeMillis() < attackAnimUntilMs)
+        val action = if (attacking) PlayerAction.SPECIAL
         else if (_state.value.isRunning) PlayerAction.RUN else PlayerAction.WALK
 
         val mdx = fx - curX
@@ -800,7 +814,10 @@ class ZombieGameViewModel(
         _state.update { it.copy(playerX = fx, playerY = fy, playerAction = action, isPlayerFacingRight = facing, aimDirX = adx, aimDirY = ady) }
         idleJob = viewModelScope.launch {
             delay(150)
-            if (_state.value.playerAction != PlayerAction.SPECIAL) {
+            // Al DETENERte, vuelve a IDLE salvo que estés SOSTENIENDO el cuerpo a cuerpo (MELEE).
+            val st = _state.value
+            val meleeHeld = st.playerAction == PlayerAction.SPECIAL && st.combatMode == CombatMode.MELEE
+            if (!meleeHeld) {
                 _state.update { it.copy(playerAction = PlayerAction.IDLE) }
             }
         }

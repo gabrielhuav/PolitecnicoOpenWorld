@@ -39,6 +39,7 @@ class SoundManager private constructor(context: Context) {
     private var paraleSoundId = -1
     private var puerquitoSoundId = -1        // SFX en IntroPOW5 del cómic
     private var misionCumplidaSoundId = -1   // jingle al cumplir la misión
+    private var zombiesAreComingSoundId = -1 // SFX "los zombis vienen" en IntroPOW8 del cómic
 
     private var walkStreamId = -1
     private var runStreamId = -1
@@ -88,6 +89,7 @@ class SoundManager private constructor(context: Context) {
             // SFX del cómic (IntroPOW5) y jingle de misión cumplida.
             puerquitoSoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/Puerquito.mp3"), 1) ?: -1
             misionCumplidaSoundId = soundPool?.load(assetManager.openFd("sonidos/MisionCumplida.mp3"), 1) ?: -1
+            zombiesAreComingSoundId = soundPool?.load(assetManager.openFd("sonidos/zombiesAreComing.mp3"), 1) ?: -1
         } catch (e: Exception) {
             Log.e("SoundManager", "Error loading sounds", e)
         }
@@ -252,6 +254,12 @@ class SoundManager private constructor(context: Context) {
 
     fun playScare() {
         soundPool?.play(scareSoundId, 1f, 1f, 1, 0, 1f)
+    }
+
+    /** SFX "Zombies Are Coming" — suena en el panel IntroPOW8 del cómic de la intro. */
+    fun playZombiesAreComing() {
+        val streamId = soundPool?.play(zombiesAreComingSoundId, 1f, 1f, 1, 0, 1f) ?: -1
+        if (streamId != -1) storyStreamIds.add(streamId)
     }
 
     // Mission 1 Methods

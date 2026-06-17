@@ -184,6 +184,7 @@ fun StoryIntroScreen(
             "IntroPOW8.webp" -> {
                 soundManager.playPolice2(loop = true)
                 soundManager.playCrystal()
+                soundManager.playZombiesAreComing()
             }
             "IntroPOW9.webp" -> {
                 soundManager.stopAllStorySounds()

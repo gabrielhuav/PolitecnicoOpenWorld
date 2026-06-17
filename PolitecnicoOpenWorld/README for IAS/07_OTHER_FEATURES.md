@@ -90,6 +90,30 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
   entra al mundo: `navigate("world_map") { popUpTo("story_outro"){inclusive=true} }`. `setStorySpawn` activa
   `inCampaign=true`. El **MUNDO LIBRE** del menú NO se altera: `onNavigateToMap` fuerza `inCampaign=false` y
   `fetchCurrentLocation`→`updateInitialLocation(SPAWN_ESCOM_LAT/LON)` (spawn ESCOM canónico intacto).
+- **🆕 Prankedy se TELETRANSPORTA contigo:** si usas el teletransporte (`teleportTo`), el acompañante (fase
+  `HIRED`) se reubica en tu nueva posición vía `WorldMapPrankedy.warpPrankedyCompanionTo` →
+  `PrankedyManager.warpTo` (su `location` tiene private set). Sin esto se quedaba caminando media ciudad.
+- **🆕 REINTENTAR MISIÓN (pantalla "MISIÓN FALLIDA"):** ya no vuelve sola al menú; muestra **"REINTENTAR
+  MISIÓN"** (recarga el slot activo vía `retryCampaignMission` → `loadGame`, re-arma policía y limpia el
+  estado) y **"Salir al menú"**. Al reintentar, **Prankedy vuelve contigo** (`respawnPrankedyCompanionHere`,
+  no depende del gate de vecindario ENCB del game loop). Callback `onRetryMission` (WorldMapScreen→MainActivity).
+- **🆕 MORIR en una misión = MISIÓN FALLIDA (checkpoint):** si te matan estando en una misión de campaña
+  (`inCampaign` && objetivo `ESCOLTAR_PRANKEDY`/`INGRESAR_ESCOM`), `triggerWastedSequence` NO hace el respawn
+  normal cerca del lugar de muerte: tras un WASTED breve pone `showMissionFailed = true` → reintentas desde el
+  **último checkpoint** (mismo botón REINTENTAR). Fuera de misión, respawn normal a ~77 m.
+- **🆕 Misión 2 = HUIDA de Prankedy:** al arrancar la Misión 2, Prankedy ya **no te sigue**: `runMission2Prankedy
+  Escape` (en vez de `runPrankedyTick`) lo hace **CORRER hacia la puerta de la ESCOM** (reusa `tickFollow` con la
+  puerta como objetivo); la **policía lo persigue** (en `runMission2Tick`, `target` = Prankedy mientras está
+  vivo; aparecen por el **lado contrario a la puerta**) y la **multitud sale** de la puerta. Al llegar (~20 m,
+  `MISSION2_PRANKEDY_ENTER_DEG`) **ENTRA** (desaparece) con el diálogo **"Ahí nos vemos"** y `mission2Prankedy
+  Entered=true` (deja de animarse; la policía pasa a perseguir al jugador).
+- **🆕 Controles EN VIVO:** al **Guardar** D-pad/joystick (escala/swap) en Ajustes, un `LaunchedEffect` de
+  `MainActivity` (key = settings COMMITTEADOS) llama `updateControlSettings`, así el cambio se aplica sin salir
+  al menú y volver a entrar.
+- **🆕 Audio: la música se CORTA al volver a un menú.** El listener de orientación de `MainActivity`
+  (`OnDestinationChangedListener`), al entrar a una ruta de menú (`main_menu`/`story_mode`/`settings`/
+  `collectibles`), llama `stopInvestigarMusic`/`stopLugarSeguroMusic`/`stopMainMusic`/`stopPrankedyRemixMusic`/
+  `stopAllStorySounds`, así ningún MediaPlayer de fondo sigue sonando al salir del juego/cómic.
 - **🆕 Prankedy ACOMPAÑANTE (solo campaña ENCB):** al entrar al mundo en la ENCB,
   `WorldMapPrankedy.maybeSpawnPrankedyCompanion` (en el game loop, gateado por `inCampaign` && vecindario ENCB,
   bandera `prankedyCompanionActivated` re-armada por `setStorySpawn`) enciende a Prankedy en fase **`HIRED`**

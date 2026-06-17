@@ -1,6 +1,8 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig
 import ovh.gabrielhuav.pow.domain.models.MissionCatalog
@@ -29,6 +31,11 @@ private const val ESCOM_DOOR_LON = -99.14674
 // campos deportivos del Deportivo Miguel Alemán); sin este filtro, esas puertas "secuestraban" el
 // objetivo de la ESCOM hacia fuera del campus.
 private const val ESCOM_DOOR_NEAR_RADIUS = 0.0015
+// MISIÓN 2: a esta distancia de la puerta, Prankedy "entra" a la ESCOM (desaparece) — ~20 m.
+private const val MISSION2_PRANKEDY_ENTER_DEG = 0.00018
+// Diálogo de Prankedy al meterse a la ESCOM (huyendo). Texto de historia, en español (igual que
+// HIRED_PHRASES de PrankedyManager, que también están hardcodeadas).
+private const val MISSION2_PRANKEDY_BYE = "Ahí nos vemos"
 
 // Multitud de salida de la ESCOM.
 private const val CROWD_MAX = 14
@@ -134,10 +141,13 @@ internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
         )
         mission2CrowdLastSpawn = 0L
     }
-    // MISIÓN 2: persiguen al JUGADOR (no hay Prankedy que atacar).
+    // MISIÓN 2: PERSIGUEN A PRANKEDY mientras huye a la puerta; cuando entra (location == null)
+    // pasan a perseguir al JUGADOR.
+    val pk = prankedyManager.location
     campaignEscortPolice.tick(
         playerLat = playerLoc.latitude, playerLon = playerLoc.longitude,
-        targetLat = playerLoc.latitude, targetLon = playerLoc.longitude,
+        targetLat = pk?.latitude ?: playerLoc.latitude,
+        targetLon = pk?.longitude ?: playerLoc.longitude,
         now = System.currentTimeMillis(), snap = snap,
         pathfind = { from, to -> findRoadRoute(from, to) }
     )
@@ -228,8 +238,56 @@ internal fun WorldMapViewModel.consumePendingMission2Intro() {
 // multitud que sale de la ESCOM arrancan SOLAS en el game loop al estar activo este objetivo.
 internal fun WorldMapViewModel.startMission2() {
     mission2ChaseActivated = false   // re-arma el spawn de la persecución
+    mission2PrankedyEntered = false  // re-arma la huida de Prankedy a la puerta
     mission2Crowd.clear()
     setCampaignObjective(MissionCatalog.INGRESAR_ESCOM)
+}
+
+// MISIÓN 2: Prankedy CORRE hacia la puerta de la ESCOM y se METE (desaparece) diciendo
+// "Ahí nos vemos", mientras la policía lo persigue por detrás y la multitud sale de la puerta.
+// Reusa la IA de seguimiento (tickFollow) pero con la PUERTA como objetivo en vez del jugador.
+// El game loop la llama en vez de runPrankedyTick mientras dura la huida.
+internal fun WorldMapViewModel.runMission2PrankedyEscape(playerLoc: GeoPoint, now: Long) {
+    val pm = prankedyManager
+    val pkLoc = pm.location
+    if (!_uiState.value.prankedyEnabled || pkLoc == null) return
+    val door = mission2DoorTarget()
+    val dLat = pkLoc.latitude - door.latitude
+    val dLon = pkLoc.longitude - door.longitude
+    if (sqrt(dLat * dLat + dLon * dLon) <= MISSION2_PRANKEDY_ENTER_DEG) {
+        // Llegó a la puerta: muestra el diálogo y, tras un momento, ENTRA a la ESCOM (desaparece).
+        mission2PrankedyEntered = true
+        _uiState.update { it.copy(prankedyDialogue = MISSION2_PRANKEDY_BYE) }
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(1600)
+            prankedyManager.deactivate()
+            _uiState.update {
+                it.copy(prankedyEnabled = false, prankedyVisible = false,
+                        prankedyLocation = null, prankedyDialogue = null)
+            }
+        }
+        return
+    }
+    // Corre HACIA LA PUERTA (no hacia el jugador): tickFollow con target = puerta, corriendo.
+    val freeZone = isFreeMovementZone(playerLoc.latitude, playerLoc.longitude)
+    pm.tick(
+        playerLoc = door,
+        npcs = emptyList(),
+        isDriving = false,
+        now = now,
+        roadNetwork = roadNetwork,
+        snapToRoad = { p -> if (!freeZone && _uiState.value.isRoadNetworkReady) getNearestPointOnNetwork(p) else p },
+        playerRunning = true
+    )
+    _uiState.update {
+        it.copy(
+            prankedyLocation = pm.location,
+            prankedyAnimState = pm.animState,
+            prankedyFacingRight = pm.facingRight,
+            prankedyVisible = pm.location != null && !it.isDriving,
+            prankedyPhase = pm.phase
+        )
+    }
 }
 
 // Limpia TODA la policía de campaña (escolta + persecución + multitud). Idempotente.
@@ -246,6 +304,7 @@ internal fun WorldMapViewModel.clearCampaignPolice() {
     val had = campaignEscortPolice.isActive() || mission2Crowd.isNotEmpty()
     campaignPoliceActivated = false
     mission2ChaseActivated = false
+    mission2PrankedyEntered = false
     campaignEscortPolice.clear()
     mission2Crowd.clear()
     if (had) {

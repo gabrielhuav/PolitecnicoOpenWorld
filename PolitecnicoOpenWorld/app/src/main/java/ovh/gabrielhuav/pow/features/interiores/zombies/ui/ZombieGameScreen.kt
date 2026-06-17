@@ -804,7 +804,6 @@ private fun DesignerToolbar(
             .fillMaxWidth(0.96f)
             .background(Color(0xFF1E1E24).copy(alpha = 0.95f), RoundedCornerShape(12.dp))
             .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(12.dp))
-            .verticalScroll(toolbarScroll)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -833,6 +832,12 @@ private fun DesignerToolbar(
             ToolButton("−", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale - 0.1f).coerceIn(0.5f, 1f) }
             ToolButton("+", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale + 0.1f).coerceIn(0.5f, 1f) }
         }
+        // CONTENIDO DESPLAZABLE (lo del medio). Las ACCIONES (Guardar/Exportar/Salir) van FUERA,
+        // ancladas abajo, para que NUNCA se recorten (en MATRIZ hay más filas y antes se cortaban).
+        Column(
+            modifier = Modifier.weight(1f, fill = false).verticalScroll(toolbarScroll),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
         Text(
             androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer_room, roomName.uppercase()),
             color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 12.sp
@@ -866,6 +871,8 @@ private fun DesignerToolbar(
                 ToolButton("FIL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
             }
         }
+        }
+        // ─── ACCIONES ANCLADAS (siempre visibles, fuera del scroll) ──
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = onSave,

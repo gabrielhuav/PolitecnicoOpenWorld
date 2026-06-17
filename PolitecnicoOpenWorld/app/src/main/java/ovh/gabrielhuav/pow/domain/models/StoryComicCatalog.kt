@@ -24,29 +24,37 @@ object StoryComicCatalog {
     private val escom = listOf(
         ComicPanel(
             "STORY/INTRO/IntroPOW1.webp",
-            "Este es un buen lugar.\nAgarremos a este wey para la broma"
+            "Este es un buen lugar.\nAgarremos a este wey para la broma",
+            boxTopFrac = 0.772f, boxHeightFrac = 0.200f, fontSp = 15f, boxWidthFrac = 0.940f
         ),
         ComicPanel(
             "STORY/INTRO/IntroPOW2.webp",
-            "¡Chin! Ya valió"),
+            "¡Chin! Ya valió",
+            boxTopFrac = 0.830f, boxHeightFrac = 0.180f, fontSp = 15f, boxWidthFrac = 0.720f),
         ComicPanel(
             "STORY/INTRO/IntroPOW3.webp",
-            "A ver perro, contestame.\n¿Qué te pasa?"),
+            "A ver perro, contestame.\n¿Qué te pasa?",
+            boxTopFrac = 0.782f, boxHeightFrac = 0.200f, fontSp = 15f, boxWidthFrac = 0.940f),
         ComicPanel(
             "STORY/INTRO/IntroPOW4.webp",
-            "Córrele gordo.\nNo te irás a ninguna parte."),
+            "Córrele gordo.\nNo te irás a ninguna parte.",
+            boxTopFrac = 0.835f, boxHeightFrac = 0.140f, fontSp = 15f, boxWidthFrac = 0.900f),
         ComicPanel(
             "STORY/INTRO/IntroPOW5.webp",
-            "Inche viejo. Por aquí puedo perderlo"),
+            "Inche viejo. Por aquí puedo perderlo",
+            boxTopFrac = 0.840f, boxHeightFrac = 0.140f, fontSp = 15f, boxWidthFrac = 0.940f),
         ComicPanel(
             "STORY/INTRO/IntroPOW6.webp",
-            ""),
+            "",
+            boxTopFrac = 0.700f, boxHeightFrac = 0.240f, fontSp = 15f, boxWidthFrac = 0.900f),
         ComicPanel(
             "STORY/INTRO/IntroPOW7.webp",
-            "¿No esta vacío? No importa, me tengo que esconder"),
+            "¿No esta vacío? No importa, me tengo que esconder",
+            boxTopFrac = 0.779f, boxHeightFrac = 0.190f, fontSp = 15f, boxWidthFrac = 0.920f),
         ComicPanel(
             "STORY/INTRO/IntroPOW8.webp",
-            "¡Llévense al perro! A ver si muy salsa.")
+            "¡Llévense al perro! A ver si muy salsa.",
+            boxTopFrac = 0.786f, boxHeightFrac = 0.180f, fontSp = 15f, boxWidthFrac = 0.920f)
     )
 
     // Paneles para la escuela elegida (por ahora todas usan el prologo de ESCOM).
@@ -62,11 +70,11 @@ object StoryComicCatalog {
 
     private val encbOutro = listOf(
         ComicPanel("STORY/INTRO/IntroPOW9.webp", "¿Quién es?...",
-            boxTopFrac = 0.751f, boxHeightFrac = 0.240f, fontSp = 15f, boxWidthFrac = 0.900f),
+            boxTopFrac = 0.860f, boxHeightFrac = 0.110f, fontSp = 15f, boxWidthFrac = 0.820f),
         ComicPanel("STORY/INTRO/IntroPOW10.webp", "Relax, relax.\n",
-            boxTopFrac = 0.767f, boxHeightFrac = 0.240f, fontSp = 15f, boxWidthFrac = 0.900f),
+            boxTopFrac = 0.856f, boxHeightFrac = 0.110f, fontSp = 16f, boxWidthFrac = 0.720f),
         ComicPanel("STORY/INTRO/IntroPOW11.webp", "Me metí en un pedo y necesito tu ayuda\nNo sé salir de aquí, ayúdame.",
-            boxTopFrac = 0.700f, boxHeightFrac = 0.240f, fontSp = 15f, boxWidthFrac = 0.900f)
+            boxTopFrac = 0.853f, boxHeightFrac = 0.120f, fontSp = 15f, boxWidthFrac = 0.720f)
     )
 
     // ─── MISIÓN 2: llegada a la ESCOM (Modo Historia) ────────────────────────

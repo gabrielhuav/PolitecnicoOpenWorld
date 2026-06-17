@@ -133,6 +133,8 @@ fun WorldMapViewModel.retryCampaignMission(context: Context) {
     if (!loadGame(context, campaignSlot)) {
         setCampaignObjective(MissionCatalog.ESCOLTAR_PRANKEDY)
     }
+    // Prankedy DEBE estar contigo al reintentar.
+    respawnPrankedyCompanionHere()
     _uiState.update { it.copy(showMissionFailed = false) }
 }
 
@@ -160,6 +162,15 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
     val mLon = dLon * 111_320.0 * kotlin.math.cos(Math.toRadians(obj.targetLat))
     val dist = kotlin.math.sqrt(mLat * mLat + mLon * mLon)
     if (dist <= obj.arriveRadiusMeters) {
+        // ESCOLTA: solo se cumple si PRANKEDY también está junto a la puerta (lo escoltaste de
+        // verdad). Llegar tú SOLO a la puerta (al salir de un interior, tras un respawn o en coche)
+        // NO debe completar la misión — ese era el bug de "te sales de la ESCOM y se completa sola".
+        if (obj.id == MissionCatalog.ESCOLTAR_PRANKEDY.id) {
+            val pk = prankedyManager.location ?: return
+            val pmLat = (pk.latitude - obj.targetLat) * 111_320.0
+            val pmLon = (pk.longitude - obj.targetLon) * 111_320.0 * kotlin.math.cos(Math.toRadians(obj.targetLat))
+            if (kotlin.math.sqrt(pmLat * pmLat + pmLon * pmLon) > 45.0) return
+        }
         _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${obj.title}") }
         // Jingle de "misión cumplida".
         soundManager.playMisionCumplida()

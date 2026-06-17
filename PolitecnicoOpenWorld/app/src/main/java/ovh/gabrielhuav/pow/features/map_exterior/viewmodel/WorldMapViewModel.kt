@@ -264,6 +264,8 @@ class WorldMapViewModel(
     internal var campaignPoliceActivated = false
     // MISIÓN 2: persecución de 6 policías + multitud saliendo de la ESCOM (ver WorldMapCampaignPolice.kt).
     internal var mission2ChaseActivated = false
+    // MISIÓN 2: true una vez que Prankedy ENTRA a la ESCOM (huyendo); deja de animarse a partir de ahí.
+    internal var mission2PrankedyEntered = false
     // Multitud de NPCs que SALEN de la puerta de la ESCOM (hora de salida) y se despawnean al
     // salir de tu fog of war. Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs.
     internal val mission2Crowd = ConcurrentHashMap<String, Npc>()
@@ -633,7 +635,17 @@ class WorldMapViewModel(
                         // idempotente (solo spawnea si location==null && phase!=DEAD) y garantiza el
                         // spawn aunque updateInitialLocation no se haya disparado.
                         checkPrankedySpawn(location)
-                        runPrankedyTick(location, System.currentTimeMillis())
+                        // MISIÓN 2: Prankedy ya NO te sigue; CORRE hacia la puerta de la ESCOM y se
+                        // mete (huyendo de la policía, que lo persigue por detrás). Tras entrar, no
+                        // se le anima más. Fuera de eso, corre su seguimiento normal.
+                        val nowMs = System.currentTimeMillis()
+                        val m2 = isMission2ChaseActive()
+                        when {
+                            m2 && mission2PrankedyEntered -> { /* ya entró: no animar a Prankedy */ }
+                            m2 && prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED ->
+                                runMission2PrankedyEscape(location, nowMs)
+                            else -> runPrankedyTick(location, nowMs)
+                        }
 
                         // BALAS de la POLICÍA DEL APOCALIPSIS (caza-zombis): el Host las acumula en
                         // movePoliceHunter; aquí las volcamos a policeShots para DIBUJARLAS (runPoliceTick
@@ -1861,6 +1873,8 @@ class WorldMapViewModel(
                 carjackWarning = null
             )
         }
+        // El acompañante (Prankedy, campaña) se TELETRANSPORTA contigo (si no, quedaba atrás).
+        warpPrankedyCompanionTo(newLocation)
         lastNetworkFetchLocation = null
         lastFetchAttemptMs = 0L
         // Descarga el mapa de la nueva zona ANTES de soltar al jugador (en paralelo a
