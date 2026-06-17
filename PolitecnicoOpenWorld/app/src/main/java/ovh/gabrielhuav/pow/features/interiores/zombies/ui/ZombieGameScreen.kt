@@ -77,10 +77,14 @@ import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
 import kotlin.math.max
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.ScreenRotation
-import android.content.pm.ActivityInfo
-import android.content.res.Configuration
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import ovh.gabrielhuav.pow.features.map_exterior.ui.SkinSelectorDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 
@@ -673,24 +677,20 @@ fun ZombieGameScreen(
             ) {
                 Icon(Icons.Default.Settings, stringResource(R.string.zgame_cd_settings), tint = Color.Black)
             }
-            if (!state.designerMode) {
-                // BOTÓN DE ORIENTACIÓN (solo en HORIZONTAL): la secuencia/cómic fuerza landscape,
-                // pero al terminar la partida no podemos forzar que se quede en horizontal; este
-                // botón permite CAMBIAR A VERTICAL. Ocupa el sitio que antes tenía el botón
-                // "Elegir personaje" (que se movió al menú de Opciones).
-                val configuration = LocalConfiguration.current
-                val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-                if (isLandscape) {
-                    IconButton(
-                        onClick = {
-                            context.findActivityOrNull()?.requestedOrientation =
-                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                        },
-                        modifier = Modifier.background(Color(0xFFD91B5B).copy(alpha = 0.9f), CircleShape)
-                    ) {
-                        Icon(Icons.Default.ScreenRotation, stringResource(R.string.zgame_cd_to_portrait), tint = Color.White)
-                    }
+            // En MODO DISEÑADOR, botón de SALIR SIEMPRE visible: la toolbar inferior puede quedar
+            // recortada en pantallas bajas (sobre todo en MATRIZ, que tiene más filas), así que sin
+            // esto el usuario se quedaba "atrapado" en el modo diseñador.
+            if (state.designerMode) {
+                IconButton(
+                    onClick = { viewModel.toggleDesignerMode() },
+                    modifier = Modifier.background(Color(0xFFD32F2F).copy(alpha = 0.92f), CircleShape)
+                ) {
+                    Icon(Icons.Default.ExitToApp, stringResource(R.string.ig_exit), tint = Color.White)
                 }
+            }
+            if (!state.designerMode) {
+                // "Elegir personaje" (selector de skin) vive en el menú de Opciones; el juego va
+                // SIEMPRE en horizontal (no hay botón de orientación).
                 var optionsExpanded by remember { mutableStateOf(false) }
                 OptionsMenu(
                     expanded = optionsExpanded,
@@ -782,16 +782,57 @@ private fun DesignerToolbar(
     modifier: Modifier = Modifier
 ) {
     val isWaypoints = target == DesignerTarget.WAYPOINTS
+    // El panel del diseñador es intrusivo: se puede MOVER (asa, arrástrala) y CAMBIAR DE TAMAÑO
+    // (botones −/+, escala 0.5–1) para que no tape la sala mientras editas.
+    var offX by remember { mutableFloatStateOf(0f) }
+    var offY by remember { mutableFloatStateOf(0f) }
+    var scale by remember { mutableFloatStateOf(1f) }
+    // En pantallas BAJAS (landscape) el panel no cabía y se recortaban "Guardar"/"Exportar":
+    // limitamos su alto y lo hacemos DESPLAZABLE (scroll) para que SIEMPRE se alcancen todos.
+    val toolbarScroll = rememberScrollState()
+    val maxToolbarH = (LocalConfiguration.current.screenHeightDp * 0.9f).dp
     Column(
         modifier = modifier
+            .offset { IntOffset(offX.roundToInt(), offY.roundToInt()) }
             .systemBarsPadding()
+            .graphicsLayer {
+                scaleX = scale; scaleY = scale
+                transformOrigin = TransformOrigin(0.5f, 1f)   // encoge desde abajo-centro
+            }
             .padding(12.dp)
+            .heightIn(max = maxToolbarH)
             .fillMaxWidth(0.96f)
             .background(Color(0xFF1E1E24).copy(alpha = 0.95f), RoundedCornerShape(12.dp))
             .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(12.dp))
+            .verticalScroll(toolbarScroll)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // ─── ASA: arrastra para MOVER · toca para recentrar · −/+ cambia el TAMAÑO ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "⠿  Mover  (arrástrame · toca = recentrar)",
+                color = Color(0xFFFFD54F), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center, maxLines = 1,
+                modifier = Modifier
+                    .weight(1f)
+                    .background(Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+                    .pointerInput(Unit) {
+                        detectDragGestures { _, drag ->
+                            offX += drag.x * scale
+                            offY += drag.y * scale
+                        }
+                    }
+                    .clickable { offX = 0f; offY = 0f }
+                    .padding(vertical = 6.dp)
+            )
+            ToolButton("−", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale - 0.1f).coerceIn(0.5f, 1f) }
+            ToolButton("+", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale + 0.1f).coerceIn(0.5f, 1f) }
+        }
         Text(
             androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer_room, roomName.uppercase()),
             color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 12.sp
@@ -885,15 +926,4 @@ private fun computeCamera(
     offsetX = if (scaledW <= viewW) (viewW - scaledW) / 2f else offsetX.coerceIn(viewW - scaledW, 0f)
     offsetY = if (scaledH <= viewH) (viewH - scaledH) / 2f else offsetY.coerceIn(viewH - scaledH, 0f)
     return CameraTransform(offsetX, offsetY, scale)
-}
-
-// Desenvuelve el Context (puede venir envuelto por LocaleHelper.wrap) hasta la Activity,
-// para poder fijar la orientación de pantalla (cambiar a vertical) desde el juego.
-private fun android.content.Context.findActivityOrNull(): android.app.Activity? {
-    var ctx: android.content.Context? = this
-    while (ctx is android.content.ContextWrapper) {
-        if (ctx is android.app.Activity) return ctx
-        ctx = ctx.baseContext
-    }
-    return null
 }

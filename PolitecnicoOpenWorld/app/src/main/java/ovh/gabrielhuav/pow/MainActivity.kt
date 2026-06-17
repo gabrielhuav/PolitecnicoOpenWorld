@@ -20,6 +20,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.content.pm.ActivityInfo
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -64,6 +67,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
 // en WorldMapSaveGame.kt y requieren import explícito desde fuera del paquete viewmodel.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.retryCampaignMission
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission2Intro
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission2
@@ -189,6 +193,32 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val navController = rememberNavController()
+
+                    // ORIENTACIÓN: el JUEGO (mapa global, interiores y cómics) va SIEMPRE en
+                    // horizontal; solo los menús (main_menu, story_mode, settings, collectibles)
+                    // permiten vertical. ÚNICA fuente de verdad: por DESTINO de navegación (evita
+                    // carreras de dispose entre pantallas).
+                    DisposableEffect(navController) {
+                        val portraitRoutes = setOf("main_menu", "story_mode", "settings", "collectibles")
+                        val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
+                            val route = destination.route
+                            val isMenu = route != null && portraitRoutes.any {
+                                route == it || route.startsWith("$it/") || route.startsWith("$it?")
+                            }
+                            this@MainActivity.requestedOrientation =
+                                if (isMenu) ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                                else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            if (isMenu) {
+                                // Al volver a un menú, corta TODA la música de fondo del juego/cómic
+                                // (MediaPlayers en loop), que se quedaba sonando al salir.
+                                val sm = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity)
+                                sm.stopInvestigarMusic(); sm.stopLugarSeguroMusic(); sm.stopMainMusic()
+                                sm.stopPrankedyRemixMusic(); sm.stopAllStorySounds()
+                            }
+                        }
+                        navController.addOnDestinationChangedListener(listener)
+                        onDispose { navController.removeOnDestinationChangedListener(listener) }
+                    }
 
                     // Diálogo de GUARDAR (selector de slots) a nivel de Activity: lo disparan
                     // tanto el mapa global como los interiores (callback onRequestSaveGame),
@@ -613,7 +643,10 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(routeName)
                                 },
                                 // "Guardar partida" → abre el selector de slots (a nivel Activity).
-                                onRequestSaveGame = { showSaveDialog = true }
+                                onRequestSaveGame = { showSaveDialog = true },
+                                // MISIÓN FALLIDA → "Reintentar": recarga el slot activo (reinicia la
+                                // misión) sin pasar por el menú principal.
+                                onRetryMission = { worldMapViewModel.retryCampaignMission(this@MainActivity) }
                             )
                             // ─── ShineCTO: navegar al interior cuando el VM lo indique ───
                             val uiState by worldMapViewModel.uiState.collectAsState()
@@ -639,14 +672,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            // MODO HISTORIA · MISIÓN FALLIDA (la policía mató a Prankedy): muestra
-                            // la pantalla ~4 s y vuelve al menú principal.
-                            LaunchedEffect(uiState.showMissionFailed) {
-                                if (uiState.showMissionFailed) {
-                                    kotlinx.coroutines.delay(4000)
-                                    navigateBackToMainMenu()
-                                }
-                            }
+                            // MODO HISTORIA · MISIÓN FALLIDA (la policía mató a Prankedy): la pantalla
+                            // se queda con botones "REINTENTAR MISIÓN" (recarga el slot) y "Salir al
+                            // menú"; ya NO vuelve sola al menú. (Ver WorldMapScreen / retryCampaignMission.)
 
                             // NUEVO BLOQUE: Navegar al minijuego tras el fade de la puerta
                             LaunchedEffect(uiState.escomDoorFadeComplete) {

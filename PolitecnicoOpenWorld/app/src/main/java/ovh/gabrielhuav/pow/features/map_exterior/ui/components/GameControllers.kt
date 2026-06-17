@@ -407,8 +407,15 @@ fun Modifier.detectHoldEvent(onHoldEvent: (isPressed: Boolean) -> Unit): Modifie
         awaitFirstDown(requireUnconsumed = false)
         onHoldEvent(true)
 
-        // 2. Esperamos a que levante el dedo o deslice fuera del área
-        waitForUpOrCancellation()
-        onHoldEvent(false)
+        // 2. Esperamos a que levante el dedo o deslice fuera del área.
+        //    IMPORTANTE: el `finally` GARANTIZA que se notifique el "soltar" (false) AUNQUE la
+        //    corrutina del gesto se cancele (recomposición, el botón sale de pantalla, otro
+        //    pointerInput toma el evento…). Sin esto, el "release" se perdía y `playerAction`
+        //    se quedaba en SPECIAL → el jugador "golpeaba todo el tiempo".
+        try {
+            waitForUpOrCancellation()
+        } finally {
+            onHoldEvent(false)
+        }
     }
 }

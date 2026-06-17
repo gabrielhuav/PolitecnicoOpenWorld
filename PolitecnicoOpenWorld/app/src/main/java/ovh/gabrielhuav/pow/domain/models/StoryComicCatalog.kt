@@ -61,9 +61,12 @@ object StoryComicCatalog {
     const val ENCB_OUTRO_ID = "encb_outro"
 
     private val encbOutro = listOf(
-        ComicPanel("STORY/INTRO/IntroPOW9.webp", "¿Quién es?..."),
-        ComicPanel("STORY/INTRO/IntroPOW10.webp", "Relax, relax.\n"),
-        ComicPanel("STORY/INTRO/IntroPOW11.webp", "Me metí en un pedo y necesito tu ayuda\nNo sé salir de aquí, ayúdame.")
+        ComicPanel("STORY/INTRO/IntroPOW9.webp", "¿Quién es?...",
+            boxTopFrac = 0.751f, boxHeightFrac = 0.240f, fontSp = 15f, boxWidthFrac = 0.900f),
+        ComicPanel("STORY/INTRO/IntroPOW10.webp", "Relax, relax.\n",
+            boxTopFrac = 0.767f, boxHeightFrac = 0.240f, fontSp = 15f, boxWidthFrac = 0.900f),
+        ComicPanel("STORY/INTRO/IntroPOW11.webp", "Me metí en un pedo y necesito tu ayuda\nNo sé salir de aquí, ayúdame.",
+            boxTopFrac = 0.700f, boxHeightFrac = 0.240f, fontSp = 15f, boxWidthFrac = 0.900f)
     )
 
     // ─── MISIÓN 2: llegada a la ESCOM (Modo Historia) ────────────────────────

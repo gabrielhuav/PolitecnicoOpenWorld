@@ -95,13 +95,33 @@ class CampaignEscortPolice {
         }
     }
 
-    /** MISIÓN 2: crea `count` policías ALGO LEJOS (en un anillo alrededor) que te PERSIGUEN. */
-    fun spawnChase(count: Int, playerLat: Double, playerLon: Double, snap: ((GeoPoint) -> GeoPoint)? = null) {
+    /**
+     * MISIÓN 2: crea `count` policías ALGO LEJOS que te PERSIGUEN.
+     *
+     * Si se pasa [awayFromLat]/[awayFromLon] (la ENTRADA marcada con 🎯), los policías aparecen en
+     * el **LADO CONTRARIO** a esa entrada — un abanico centrado en la dirección puerta→jugador, es
+     * decir DETRÁS del jugador respecto a la puerta — para EMPUJARLO hacia la entrada. Si no se
+     * pasa, caen en un anillo completo alrededor (comportamiento anterior).
+     */
+    fun spawnChase(
+        count: Int, playerLat: Double, playerLon: Double,
+        snap: ((GeoPoint) -> GeoPoint)? = null,
+        awayFromLat: Double? = null, awayFromLon: Double? = null
+    ) {
         clear()
         mode = Mode.CHASE
         spawnTimeMs = System.currentTimeMillis()
+        // Dirección puerta→jugador (hacia el lado opuesto a la entrada). null = anillo completo.
+        val baseAng = if (awayFromLat != null && awayFromLon != null)
+            atan2(playerLat - awayFromLat, playerLon - awayFromLon) else null
+        val spread = Math.toRadians(110.0)   // abanico de ~110° en el lado contrario
         for (i in 0 until count) {
-            val ang = (2.0 * Math.PI * i / count)   // repartidos alrededor del jugador
+            val ang = if (baseAng != null) {
+                val frac = if (count > 1) i.toDouble() / (count - 1) else 0.5
+                baseAng - spread / 2.0 + spread * frac
+            } else {
+                2.0 * Math.PI * i / count   // repartidos alrededor del jugador
+            }
             val raw = GeoPoint(
                 playerLat + sin(ang) * CHASE_SPAWN_RING,
                 playerLon + cos(ang) * CHASE_SPAWN_RING
