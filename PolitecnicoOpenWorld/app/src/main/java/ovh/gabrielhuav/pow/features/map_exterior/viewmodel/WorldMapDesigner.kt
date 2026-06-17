@@ -187,6 +187,12 @@ fun WorldMapViewModel.loadLandmarks(context: Context) {
 
             _uiState.update { currentState -> currentState.copy(landmarks = domainLandmarks) }
 
+            // DIAGNÓSTICO (filtra Logcat por POW_DBG): cuántos landmarks cargaron, cuántos con navGraph,
+            // y el estado del de ESCOM (navGraph adjunto, nº de slots de estacionamiento, tamaño base).
+            val escomLm = domainLandmarks.firstOrNull { it.assetPath.contains("building_escom", true) }
+            val escomSlots = escomLm?.navGraph?.ways?.sumOf { w -> w.nodes.count { n -> n.isParkingSlot } } ?: 0
+            Log.d("POW_DBG", "loadLandmarks: total=${domainLandmarks.size} conNavGraph=${domainLandmarks.count { it.navGraph != null }} | ESCOM: existe=${escomLm != null} navGraph=${escomLm?.navGraph != null} slots=$escomSlots baseW=${escomLm?.baseWidthMeters} baseH=${escomLm?.baseHeightMeters} scaleX=${escomLm?.scaleX} scaleY=${escomLm?.scaleY}")
+
         } catch (e: Exception) {
             Log.e("WorldMapViewModel", "Error fatal al cargar las estructuras estáticas", e)
         }

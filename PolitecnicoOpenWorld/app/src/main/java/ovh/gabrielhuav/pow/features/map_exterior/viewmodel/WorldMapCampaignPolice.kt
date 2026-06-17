@@ -149,6 +149,7 @@ internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
             6, MISSION2_POLICE_SPAWN_LAT, MISSION2_POLICE_SPAWN_LON, snap,
             awayFromLat = door.latitude, awayFromLon = door.longitude
         )
+        android.util.Log.d("POW_DBG", "Misión 2: spawnChase de 6 policías desde ($MISSION2_POLICE_SPAWN_LAT,$MISSION2_POLICE_SPAWN_LON)")
         mission2CrowdLastSpawn = 0L
     }
     // MISIÓN 2: PERSIGUEN A PRANKEDY mientras huye a la puerta; cuando entra (location == null)
@@ -262,6 +263,7 @@ internal fun WorldMapViewModel.startMission2() {
     mission2PrankedyEntered = false  // re-arma la huida de Prankedy a la puerta
     mission2Crowd.clear()
     setCampaignObjective(MissionCatalog.INGRESAR_ESCOM)
+    android.util.Log.d("POW_DBG", "startMission2(): objetivo=INGRESAR_ESCOM, se re-arma persecución+multitud")
 }
 
 // MISIÓN 2: Prankedy CORRE hacia la puerta de la ESCOM y se METE (desaparece) diciendo
@@ -299,7 +301,8 @@ internal fun WorldMapViewModel.runMission2PrankedyEscape(playerLoc: GeoPoint, no
         now = now,
         roadNetwork = roadNetwork,
         snapToRoad = { p -> p },
-        playerRunning = false
+        playerRunning = false,
+        catchup = false   // huida LENTA a la puerta: sin catch-up ni teleport
     )
     _uiState.update {
         it.copy(

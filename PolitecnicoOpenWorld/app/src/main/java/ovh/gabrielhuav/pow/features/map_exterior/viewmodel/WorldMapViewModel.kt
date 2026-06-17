@@ -379,6 +379,7 @@ class WorldMapViewModel(
     // seguridad: si no llega en PRANKEDY_BOARD_TIMEOUT_MS, se le teletransporta contigo y se sube
     // (evita que el coche quede bloqueado para siempre si no puede pathear hasta ti).
     internal var prankedyBoardingStartMs = 0L
+    internal var lastObjDbgMs = 0L   // throttle del log de diagnóstico de objetivos/misión (POW_DBG)
 
     // Contador de ciclos de IA tras (re)cargar el mundo, para el warm-up de NPCs del
     // gate de carga (npcsWarmedUp). Se reinicia en cada teleport.
@@ -2845,15 +2846,27 @@ class WorldMapViewModel(
         val lms = _uiState.value.landmarks
         if (lms.isEmpty()) return false
         val cosLat = kotlin.math.cos(Math.toRadians(lat))
+        var bestEdgeM = Double.MAX_VALUE   // diagnóstico: qué tan "dentro/fuera" del landmark más cercano
+        var on = false
         for (lm in lms) {
             val halfW = (lm.baseWidthMeters * lm.scaleX) / 2.0
             val halfH = (lm.baseHeightMeters * lm.scaleY) / 2.0
             val dLatM = (lat - lm.location.latitude) * 111_320.0
             val dLonM = (lon - lm.location.longitude) * 111_320.0 * cosLat
-            if (kotlin.math.abs(dLatM) <= halfH && kotlin.math.abs(dLonM) <= halfW) return true
+            val edge = kotlin.math.max(kotlin.math.abs(dLatM) - halfH, kotlin.math.abs(dLonM) - halfW)
+            if (edge < bestEdgeM) bestEdgeM = edge
+            if (kotlin.math.abs(dLatM) <= halfH && kotlin.math.abs(dLonM) <= halfW) { on = true }
         }
-        return false
+        // DIAGNÓSTICO (POW_DBG, throttle ~1.5 s): nº de landmarks y "borde" del más cercano (m). Si
+        // bestEdge>0 NUNCA estás sobre un asset (footprints chicos o estás siempre en la calle).
+        val nowDbg = System.currentTimeMillis()
+        if (nowDbg - lastLandmarkDbgMs > 1500L) {
+            lastLandmarkDbgMs = nowDbg
+            android.util.Log.d("POW_DBG", "isOnLandmark: lms=${lms.size} on=$on bordeMasCercano=${"%.1f".format(bestEdgeM)}m")
+        }
+        return on
     }
+    private var lastLandmarkDbgMs = 0L
 
     // Normaliza un navgraph recién deserializado. Gson NO aplica los defaults de Kotlin a los campos
     // AUSENTES del JSON: si los `ways` de escom_navgraph.json no traen isForCars/isForPeople, llegan

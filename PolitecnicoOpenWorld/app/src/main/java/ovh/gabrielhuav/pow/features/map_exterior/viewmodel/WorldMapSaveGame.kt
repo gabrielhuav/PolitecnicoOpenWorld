@@ -161,18 +161,12 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
     val s = _uiState.value
     val obj = s.currentObjective ?: return
     if (s.objectiveDone) return
-    // MISIÓN 2 (INGRESAR_ESCOM): se cumple EN CUANTO aparece el prompt "Presiona X para entrar a la
-    // ESCOM" (ya estás junto a la puerta), sin tener que PEGARTE ni pulsar X. El nearbyCollectible de
-    // la puerta lo pone checkCollectibleProximity dentro de ESCOM_DOOR_INTERACT_RADIUS (~20 m). El
-    // X sigue funcionando para ENTRAR al interior; esto solo adelanta el "objetivo cumplido".
-    if (obj.id == MissionCatalog.INGRESAR_ESCOM.id) {
-        if (s.nearbyCollectible?.id?.startsWith("escom_door_") == true) {
-            _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${obj.title}") }
-            soundManager.playMisionCumplida()
-        }
-        return
-    }
-    // Objetivos con radio <= 0 (p. ej. ESCOLTAR_PRANKEDY) NO se cumplen por llegada: su cierre
+    // ⚠️ NO auto-completar INGRESAR_ESCOM por cercanía: la Misión 2 ES la PERSECUCIÓN y se cierra al
+    // ENTRAR por la puerta (X → handleInteraction). Si se completara al estar cerca, como tras la
+    // Misión 1 ya estás pegado a la puerta, se cumplía al INSTANTE → la persecución (`runMission2Tick`,
+    // gateada por `!objectiveDone`) NUNCA arrancaba (policías/multitud/huida de Prankedy) y además
+    // sonaba el jingle 2 veces. Su radio = 0 hace que el guard de abajo la salte (cierre = narrativo/X).
+    // Objetivos con radio <= 0 (p. ej. ESCOLTAR_PRANKEDY / INGRESAR_ESCOM) NO se cumplen por llegada:
     // es NARRATIVO. Sin esta guarda, como su destino coincide con el spawn de la ENCB, la
     // distancia daba 0 ( <= 0 ) y se marcaba "cumplido" nada más empezar. Ver CampaignMission.kt.
     if (obj.arriveRadiusMeters <= 0.0) return
@@ -182,6 +176,21 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
     val mLat = dLat * 111_320.0
     val mLon = dLon * 111_320.0 * kotlin.math.cos(Math.toRadians(obj.targetLat))
     val dist = kotlin.math.sqrt(mLat * mLat + mLon * mLon)
+    // DIAGNÓSTICO (POW_DBG, ~2 s): tu distancia al objetivo, el radio, y la distancia de Prankedy al
+    // destino (la ESCOLTA exige AMBOS < su radio). Si tuDist baja pero no se cumple → Prankedy está lejos.
+    run {
+        val nowDbg = System.currentTimeMillis()
+        if (nowDbg - lastObjDbgMs > 2000L) {
+            lastObjDbgMs = nowDbg
+            val pk = prankedyManager.location
+            val pkDist = pk?.let {
+                val a = (it.latitude - obj.targetLat) * 111_320.0
+                val b = (it.longitude - obj.targetLon) * 111_320.0 * kotlin.math.cos(Math.toRadians(obj.targetLat))
+                kotlin.math.sqrt(a * a + b * b)
+            }
+            android.util.Log.d("POW_DBG", "objetivo=${obj.id} tuDist=${"%.1f".format(dist)}m radio=${obj.arriveRadiusMeters}m prankedyDist=${pkDist?.let { "%.1f".format(it) }}m")
+        }
+    }
     if (dist <= obj.arriveRadiusMeters) {
         // ESCOLTA: solo se cumple si PRANKEDY también está junto a la puerta (lo escoltaste de
         // verdad). Llegar tú SOLO a la puerta (al salir de un interior, tras un respawn o en coche)
@@ -198,6 +207,7 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
         // MISIÓN 1 cumplida (llegaste a la PUERTA de la ESCOM con Prankedy) → dispara el cómic
         // IntroPOW12..14 (MainActivity) y, al volver, arranca la persecución de la Misión 2.
         if (obj.id == MissionCatalog.ESCOLTAR_PRANKEDY.id) {
+            android.util.Log.d("POW_DBG", "MISIÓN 1 (ESCOLTAR) CUMPLIDA → pendingMission2Intro=true (debe arrancar cómic + Misión 2)")
             _uiState.update { it.copy(pendingMission2Intro = true) }
         }
     }

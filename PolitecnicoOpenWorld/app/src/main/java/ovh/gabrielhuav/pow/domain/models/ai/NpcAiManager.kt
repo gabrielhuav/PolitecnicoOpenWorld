@@ -109,6 +109,7 @@ class NpcAiManager {
     private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
     private val cachedLandmarks = AtomicReference<List<Landmark>>(emptyList())
     private val cachedNavLandmarks = AtomicReference<List<Landmark>>(emptyList())
+    @Volatile private var lastParkingDbgMs = 0L   // throttle del log de diagnóstico del estacionamiento
 
     fun setLandmarks(landmarks: List<Landmark>) {
         cachedLandmarks.set(landmarks)
@@ -338,6 +339,17 @@ class NpcAiManager {
 
             val activeLandmarks = cachedNavLandmarks.get()
 
+            // DIAGNÓSTICO (POW_DBG, cada ~2 s): cuántos landmarks con navGraph ve la IA y a qué distancia
+            // está el más cercano. Si activeLandmarks=0 → el navGraph NO llega a la IA (problema de carga).
+            val nowDbg = System.currentTimeMillis()
+            if (nowDbg - lastParkingDbgMs > 2000L) {
+                lastParkingDbgMs = nowDbg
+                val nearest = activeLandmarks.minByOrNull { calculateDistance(pLat0, pLon0, it.location.latitude, it.location.longitude) }
+                val nd = nearest?.let { calculateDistance(pLat0, pLon0, it.location.latitude, it.location.longitude) }
+                val poblado = nearest?.let { populatedLandmarks.contains(it.id.toString()) }
+                android.util.Log.d("POW_DBG", "parking: navLandmarks=${activeLandmarks.size} nearestId=${nearest?.id} nearestDist=$nd yaPoblado=$poblado (umbral<0.01) maxTotalNpcs=$maxTotalNpcs npcsVivos=${serverNpcs.size} globalZombie=$globalZombieMode")
+            }
+
             for (landmark in activeLandmarks) {
                 val dist = calculateDistance(pLat0, pLon0, landmark.location.latitude, landmark.location.longitude)
                 val lmKey = landmark.id.toString()
@@ -347,10 +359,13 @@ class NpcAiManager {
                     serverNpcs.none { it.displayName.isNullOrEmpty() && it.currentLandmark?.id == landmark.id } &&
                     System.currentTimeMillis() >= (landmarkRepopulateAt[lmKey] ?: 0L)
                 if (dist < 0.01 && (!populatedLandmarks.contains(lmKey) || needsRepopulate)) {
+                  try {
+                    android.util.Log.d("POW_DBG", "parking ENTRA al bloque lm=$lmKey dist=$dist (slots a buscar...)")
                     populatedLandmarks.add(lmKey)
                     landmarkRepopulateAt[lmKey] = System.currentTimeMillis() + LANDMARK_REPOPULATE_COOLDOWN_MS
 
                     val availableSlots = getAvailableParkingSlots(landmark, serverNpcs)
+                    var dbgSpawned = 0
                     if (availableSlots.isNotEmpty()) {
                         val fillPercentage = kotlin.random.Random.nextFloat() * 0.8f + 0.1f // Aleatorio entre 10% y 90%
                         val numToSpawn = (availableSlots.size * fillPercentage).toInt().coerceAtLeast(1)
@@ -360,10 +375,12 @@ class NpcAiManager {
                             if (serverNpcs.size < maxTotalNpcs) {
                                 val newCar = spawnParkedCar(landmark, slot.first, slot.second, timerOffset)
                                 serverNpcs.add(newCar)
+                                dbgSpawned++
                                 timerOffset += Random.nextLong(15000L, 30000L)
                             }
                         }
                     }
+                    android.util.Log.d("POW_DBG", "parking POBLANDO lm=${landmark.id} dist=$dist slotsLibres=${availableSlots.size} spawneados=$dbgSpawned (npcs=${serverNpcs.size}/$maxTotalNpcs)")
 
                     val navGraph = landmark.navGraph
                     if (navGraph != null && !globalZombieMode) {
@@ -379,6 +396,9 @@ class NpcAiManager {
                             }
                         }
                     }
+                  } catch (e: Exception) {
+                    android.util.Log.e("POW_DBG", "parking EXCEPCIÓN al poblar lm=$lmKey", e)
+                  }
                 } else if (dist >= 0.02) {
                     populatedLandmarks.remove(landmark.id.toString())
                 }
