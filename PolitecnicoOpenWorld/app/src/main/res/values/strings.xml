@@ -27,6 +27,8 @@
     <string name="menu_warmup_text">El servidor multijugador está en reposo.\nDespertándolo... %1$ds</string>
     <string name="menu_warmup_hint">Puede tardar hasta 60 segundos.</string>
     <string name="menu_return">VOLVER AL MENÚ</string>
+    <!-- Botón genérico de retroceso (coleccionables, ajustes) -->
+    <string name="menu_back">VOLVER</string>
 
     <!-- ─── Modo Historia / Campaña (features/main_menu) ─── -->
     <string name="story_title">MODO HISTORIA</string>
@@ -87,6 +89,8 @@
     <string name="settings_speedometer_desc">Muestra tu velocidad (km/h) al conducir</string>
     <string name="settings_coords_widget">Coordenadas (X/Y/Z)</string>
     <string name="settings_coords_widget_desc">Muestra tu posición X/Y/Z en el mundo y en interiores</string>
+    <string name="settings_developer_mode">Modo Desarrollador</string>
+    <string name="settings_developer_mode_desc">Muestra opciones y botones de prueba reservados para desarrollo</string>
     <string name="settings_cat_audio">Audio</string>
     <string name="settings_music_volume">Volumen de música</string>
     <string name="settings_sfx_volume">Volumen de efectos</string>

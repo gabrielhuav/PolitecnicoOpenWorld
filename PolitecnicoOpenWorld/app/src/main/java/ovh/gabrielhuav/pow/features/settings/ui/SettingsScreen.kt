@@ -9,8 +9,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -43,6 +46,7 @@ fun SettingsScreen(
     onZoomWidgetToggled: (Boolean) -> Unit,
     onSpeedometerToggled: (Boolean) -> Unit,
     onCoordsWidgetToggled: (Boolean) -> Unit,
+    onDeveloperModeToggled: (Boolean) -> Unit,
     onMusicVolumeChanged: (Float) -> Unit,
     onSfxVolumeChanged: (Float) -> Unit,
     onRoadNetworkToggled: (Boolean) -> Unit,
@@ -122,20 +126,27 @@ fun SettingsScreen(
                     ) {
                         Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Botón de Salir abajo
-                    OutlinedButton(
+                    // Botón "VOLVER" abajo (mismo diseño que coleccionables / Modo Historia)
+                    val backShape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)
+                    Button(
                         onClick = onExitToMainMenu,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
-                        border = BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.5f))
+                        shape = backShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF6B1C3A),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .padding(bottom = 8.dp)
+                            .shadow(elevation = 8.dp, shape = backShape)
                     ) {
-                        Text(stringResource(R.string.settings_exit_to_menu), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.menu_back), fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     }
                 }
             } else {
@@ -147,19 +158,26 @@ fun SettingsScreen(
                             CategoryItem(category = category, isSelected = state.selectedCategory == category, onClick = { onCategorySelected(category) })
                         }
                         Spacer(modifier = Modifier.height(32.dp))
-                        OutlinedButton(
+                        val backShape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)
+                        Button(
                             onClick = onExitToMainMenu,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
-                            border = BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.5f))
-                        ) { Text(stringResource(R.string.settings_exit_to_menu), fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                            shape = backShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF6B1C3A),
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .padding(bottom = 16.dp)
+                                .shadow(elevation = 8.dp, shape = backShape)
+                        ) { Text(stringResource(R.string.menu_back), fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) }
                     }
 
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
                         Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
                     }
                 }
             }
@@ -216,6 +234,7 @@ private fun SettingsContent(
     onZoomWidgetToggled: (Boolean) -> Unit,
     onSpeedometerToggled: (Boolean) -> Unit,
     onCoordsWidgetToggled: (Boolean) -> Unit,
+    onDeveloperModeToggled: (Boolean) -> Unit,
     onMusicVolumeChanged: (Float) -> Unit,
     onSfxVolumeChanged: (Float) -> Unit,
     onSaveClicked: () -> Unit,
@@ -236,7 +255,7 @@ private fun SettingsContent(
         )
         is SettingsCategory.Controls -> ControlsSettingsConfig(state.tempControlType, state.tempControlsScale, state.tempSwapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
         is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled, state.npcFullEmoji, onNpcFullEmojiToggled)
-        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, state.showCoordsWidget, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, currentLanguage, onLanguageChanged)
+        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, state.showCoordsWidget, state.developerMode, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, currentLanguage, onLanguageChanged)
         is SettingsCategory.Audio -> AudioSettings(state.musicVolume, state.sfxVolume, onMusicVolumeChanged, onSfxVolumeChanged)
         else -> Text(stringResource(R.string.settings_none_available), color = Color.Gray)
     }
@@ -612,11 +631,13 @@ private fun DiagnosticWidgetsSetting(
     zoomWidgetEnabled: Boolean,
     speedometerEnabled: Boolean,
     coordsWidgetEnabled: Boolean,
+    developerModeEnabled: Boolean,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
     onZoomWidgetToggled: (Boolean) -> Unit,
     onSpeedometerToggled: (Boolean) -> Unit,
     onCoordsWidgetToggled: (Boolean) -> Unit,
+    onDeveloperModeToggled: (Boolean) -> Unit,
     currentLanguage: String,
     onLanguageChanged: (String) -> Unit
 ) {
@@ -624,11 +645,28 @@ private fun DiagnosticWidgetsSetting(
         // Selector de idioma (i18n)
         LanguageSetting(currentLanguage, onLanguageChanged)
 
+        // Modo Desarrollador: revela botones/opciones de prueba (se ocultarán en la
+        // versión final). Las pantallas deben observar state.developerMode.
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_developer_mode), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_developer_mode_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
+            }
+            Switch(
+                checked = developerModeEnabled,
+                onCheckedChange = onDeveloperModeToggled,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+            )
+        }
+
         // Toggle de Caché
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
+            // weight(1f) deja que la descripción ocupe el ancho disponible; así
+            // TextAlign.Justify reparte el texto cuando ocupa 2+ líneas (la última
+            // línea queda alineada a la izquierda, así que en 1 línea no se nota).
+            Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.settings_cache_widget), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text(stringResource(R.string.settings_cache_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text(stringResource(R.string.settings_cache_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
             }
             Switch(
                 checked = cacheEnabled,
@@ -639,9 +677,9 @@ private fun DiagnosticWidgetsSetting(
 
         // Toggle de FPS
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.settings_fps_widget), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text(stringResource(R.string.settings_fps_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text(stringResource(R.string.settings_fps_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
             }
             Switch(
                 checked = fpsEnabled,
@@ -652,9 +690,9 @@ private fun DiagnosticWidgetsSetting(
 
         // Toggle de nivel de Zoom
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.settings_zoom_widget), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text(stringResource(R.string.settings_zoom_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text(stringResource(R.string.settings_zoom_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
             }
             Switch(
                 checked = zoomWidgetEnabled,
@@ -665,9 +703,9 @@ private fun DiagnosticWidgetsSetting(
 
         // Toggle de Velocímetro
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.settings_speedometer), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text(stringResource(R.string.settings_speedometer_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text(stringResource(R.string.settings_speedometer_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
             }
             Switch(
                 checked = speedometerEnabled,
@@ -678,9 +716,9 @@ private fun DiagnosticWidgetsSetting(
 
         // Toggle del widget de coordenadas (X / Y / Z)
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.settings_coords_widget), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text(stringResource(R.string.settings_coords_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text(stringResource(R.string.settings_coords_widget_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
             }
             Switch(
                 checked = coordsWidgetEnabled,

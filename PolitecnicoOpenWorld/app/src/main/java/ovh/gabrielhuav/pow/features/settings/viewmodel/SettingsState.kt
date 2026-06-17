@@ -12,6 +12,7 @@ data class SettingsState(
     val showZoomWidget: Boolean = false, // widget de nivel de zoom (Interfaz)
     val showSpeedometer: Boolean = true, // widget velocímetro al conducir (Interfaz)
     val showCoordsWidget: Boolean = false, // widget de coordenadas X/Y/Z (Interfaz)
+    val developerMode: Boolean = false, // Modo Desarrollador: revela botones/opciones de prueba que se ocultarán en la versión final
 
     // ─── Audio: volumen de música y efectos (0f..1f) ─────────────────────────
     val musicVolume: Float = 1.0f,

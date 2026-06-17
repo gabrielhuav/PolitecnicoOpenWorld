@@ -151,6 +151,8 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.undoLastDebugShape
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitDebugStroke
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearDebugEdits
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setDebugEditTool
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DebugEditTool
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCampaignRouteNpcsDebug
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportDebugEditsToUri
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importDebugEditsFromUri
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadLandmarks
@@ -2171,14 +2173,20 @@ fun WorldMapScreen(
                 blocksCount = uiState.debugEditBlocks.size,
                 navPedCount = uiState.debugEditNavPed.size,
                 navCarCount = uiState.debugEditNavCar.size,
+                routeNpcsActive = uiState.npcs.any { it.id.startsWith("CAMPAIGN_ROUTE_") },
                 onSelectTool = { viewModel.setDebugEditTool(it) },
                 onUndo = { viewModel.undoLastDebugShape() },
                 onClear = { viewModel.clearDebugEdits() },
                 onExport = { collisionsExportLauncher.launch("exterior_collisions_editado.json") },
                 onImport = { collisionsImportLauncher.launch(arrayOf("application/json", "*/*")) },
+                onToggleRouteNpcs = { viewModel.toggleCampaignRouteNpcsDebug() },
+                onExit = {
+                    viewModel.setDebugEditTool(DebugEditTool.NONE)
+                    viewModel.toggleInteriorDebugOverlay(false)
+                },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
+                    .fillMaxWidth(0.6f)
                     .padding(8.dp)
             )
         }

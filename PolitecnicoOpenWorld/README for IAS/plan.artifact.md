@@ -279,6 +279,25 @@ via co-located `ViewModelProvider.Factory` instances.
 - With the map off-center (`isUserPanningMap`), the left movement controls
   (`moveCharacter`/`moveCharacterByAngle`) **recenter on the player** (no zoom
   change) on first tap instead of moving blindly off-screen.
+- **Orientation is decided ONLY by `MainActivity` per navigation route** (in-game =
+  `SENSOR_LANDSCAPE`; menu routes = `UNSPECIFIED`); screens never set orientation. Settings is the
+  one route opened from BOTH a menu (portrait OK) and the game (must stay landscape): it takes a
+  `fromGame` arg — `settings?fromGame=true` from the game vs `settings` from the menu — and the
+  route listener reads `arguments.getBoolean("fromGame")` to keep it landscape. Exact-route checks on
+  Settings must use `route?.startsWith("settings")` because of the `?fromGame=...` suffix.
+- The **"BACK" button** (`menu_back` = VOLVER/BACK) is shared by Collectibles and Settings with the
+  same filled red `CutCornerShape` style. Interface widget descriptions use `TextAlign.Justify` inside
+  a `Column.weight(1f)` so 2+ line texts spread evenly (reuse for any new multi-line widget).
+- **AI NPCs live in `remoteEntities`** (the per-tick `setServerNpcs` clears+refills `NpcAiManager`'s list
+  from it, then the host writes the simulated NPCs back). To inject persistent NPCs, put them in
+  `remoteEntities` (empty `displayName`); `addServerNpcs` only seeds the current tick. The **60 campaign
+  route NPCs** (`WorldMapCampaignRouteNpcs.kt`) build a virtual `MapWay` from `campaignRouteWaypoints` and
+  carry id prefix `CAMPAIGN_ROUTE_` to stay exempt from despawn/cull; `moveNpc` walks them back-and-forth.
+  Mission-2 endgame cops gather at `mission2PrankedyExitPoint` (where Prankedy vanished). The **Debug
+  Interiors panel** is movable/resizable/scrollable and has a "Salir" button.
+- **Developer Mode** (`SettingsState.developerMode`, `SettingsRepository.get/saveDeveloperMode`,
+  Settings → Interface, default off) is the flag screens should observe to hide test-only buttons in
+  the final build (per-screen wiring still TODO).
 - Room DB is currently `@Database` v8 with `MIGRATION_7_8` + destructive fallback.
 - Persisted prefs go through `SettingsRepository` (SharedPreferences), not Room.
 - The **client and both servers must agree on collision matrices**: the Designer

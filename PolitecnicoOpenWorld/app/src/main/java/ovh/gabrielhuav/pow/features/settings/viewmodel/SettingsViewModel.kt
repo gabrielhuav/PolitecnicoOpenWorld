@@ -28,6 +28,7 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
                 showZoomWidget = repository.getShowZoomWidget(),
                 showSpeedometer = repository.getShowSpeedometer(),
                 showCoordsWidget = repository.getShowCoordsWidget(),
+                developerMode = repository.getDeveloperMode(),
                 musicVolume = repository.getMusicVolume(),
                 sfxVolume = repository.getSfxVolume(),
                 npcDensity = repository.getNpcDensity(),
@@ -58,6 +59,12 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun toggleCoordsWidget(enabled: Boolean) {
         _state.update { it.copy(showCoordsWidget = enabled) }
         repository.saveShowCoordsWidget(enabled)
+    }
+    // Modo Desarrollador: persiste al instante. Las pantallas que tengan botones de
+    // prueba deben observar state.developerMode para mostrarlos/ocultarlos.
+    fun toggleDeveloperMode(enabled: Boolean) {
+        _state.update { it.copy(developerMode = enabled) }
+        repository.saveDeveloperMode(enabled)
     }
 
     // Audio: persisten al instante; MainActivity los empuja en vivo al SoundManager.

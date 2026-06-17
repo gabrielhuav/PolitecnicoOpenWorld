@@ -27,6 +27,8 @@
     <string name="menu_warmup_text">The multiplayer server is asleep.\nWaking it up... %1$ds</string>
     <string name="menu_warmup_hint">It may take up to 60 seconds.</string>
     <string name="menu_return">RETURN TO MENU</string>
+    <!-- Generic back button (collectibles, settings) -->
+    <string name="menu_back">BACK</string>
 
     <!-- ─── Story Mode / Campaign (features/main_menu) ─── -->
     <string name="story_title">STORY MODE</string>
@@ -87,6 +89,8 @@
     <string name="settings_speedometer_desc">Shows your speed (km/h) while driving</string>
     <string name="settings_coords_widget">Coordinates (X/Y/Z)</string>
     <string name="settings_coords_widget_desc">Shows your X/Y/Z position in the world and indoors</string>
+    <string name="settings_developer_mode">Developer Mode</string>
+    <string name="settings_developer_mode_desc">Shows test options and buttons reserved for development</string>
     <string name="settings_cat_audio">Audio</string>
     <string name="settings_music_volume">Music volume</string>
     <string name="settings_sfx_volume">Sound effects volume</string>

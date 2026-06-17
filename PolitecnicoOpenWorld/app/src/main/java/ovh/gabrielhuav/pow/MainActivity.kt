@@ -212,9 +212,13 @@ class MainActivity : ComponentActivity() {
                     // carreras de dispose entre pantallas).
                     DisposableEffect(navController) {
                         val portraitRoutes = setOf("main_menu", "story_mode", "settings", "collectibles")
-                        val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
+                        val listener = NavController.OnDestinationChangedListener { _, destination, arguments ->
                             val route = destination.route
-                            val isMenu = route != null && portraitRoutes.any {
+                            // AJUSTES abierto DESDE EL JUEGO (fromGame=true) debe permanecer
+                            // horizontal como el resto del juego; abierto desde el menú sí
+                            // permite vertical. El arg llega en el Bundle del destino.
+                            val fromGame = arguments?.getBoolean("fromGame") == true
+                            val isMenu = route != null && !fromGame && portraitRoutes.any {
                                 route == it || route.startsWith("$it/") || route.startsWith("$it?")
                             }
                             this@MainActivity.requestedOrientation =
@@ -434,7 +438,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
-                                onNavigateToSettings = { navController.navigate("settings") },
+                                onNavigateToSettings = { navController.navigate("settings?fromGame=true") },
                                 debugHitboxes = false,
                                 startRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID,
                                 onRequestSaveGame = { showSaveDialog = true },
@@ -510,7 +514,15 @@ class MainActivity : ComponentActivity() {
 
 
                         // Registramos la ruta de Ajustes
-                        composable(route = "settings") {
+                        composable(
+                            route = "settings?fromGame={fromGame}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("fromGame") {
+                                    type = androidx.navigation.NavType.BoolType
+                                    defaultValue = false
+                                }
+                            )
+                        ) {
                             val settingsState by settingsViewModel.state.collectAsState()
 
                             SettingsScreen(
@@ -531,6 +543,7 @@ class MainActivity : ComponentActivity() {
                                     settingsViewModel.toggleCoordsWidget(it)
                                     worldMapViewModel.toggleCoordsWidget(it)
                                 },
+                                onDeveloperModeToggled = { settingsViewModel.toggleDeveloperMode(it) },
                                 // Audio: persisten en Ajustes Y se aplican en vivo al SoundManager.
                                 onMusicVolumeChanged = {
                                     settingsViewModel.changeMusicVolume(it)
@@ -560,7 +573,7 @@ class MainActivity : ComponentActivity() {
                                 onNavigateBack = {
                                     // Descartar cambios de controles no guardados al salir.
                                     settingsViewModel.discardControlsChanges()
-                                    if (navController.currentDestination?.route == "settings") {
+                                    if (navController.currentDestination?.route?.startsWith("settings") == true) {
                                         navController.popBackStack()
                                     }
                                 },
@@ -665,7 +678,8 @@ class MainActivity : ComponentActivity() {
                                 viewModel = worldMapViewModel,
                                 onNavigateToMainMenu = navigateBackToMainMenu,
                                 onNavigateToSettings = {
-                                    navController.navigate("settings")
+                                    // Desde el JUEGO: mantener horizontal en Ajustes.
+                                    navController.navigate("settings?fromGame=true")
                                 },
                                 // Callback que se dispara cuando el video de ZombiHand
                                 // termina y hay un edificio destino pendiente.
@@ -877,7 +891,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
-                                onNavigateToSettings = { navController.navigate("settings") },
+                                onNavigateToSettings = { navController.navigate("settings?fromGame=true") },
                                 debugHitboxes = false,
                                 startRoomId = startRoom,
                                 // "Guardar partida" disponible también en interiores (mismo selector

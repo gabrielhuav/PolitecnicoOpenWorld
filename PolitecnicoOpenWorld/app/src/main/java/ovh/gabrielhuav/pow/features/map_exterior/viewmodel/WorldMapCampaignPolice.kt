@@ -168,12 +168,15 @@ internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
     // (Sin esperar a que estén cerca: la fase de REUNIÓN los trae a la puerta desde donde sea, así
     // SIEMPRE los ves llegar a la entrada, aunque hayan quedado lejos.)
     if (mission2PrankedyEntered && campaignEscortPolice.isActive() && !campaignEscortPolice.isResolving()) {
+        // Punto de reunión = donde EXACTAMENTE se metió Prankedy (no la puerta del objetivo, que queda
+        // unos metros más allá). Si por lo que sea no se guardó, cae a la puerta.
+        val gather = mission2PrankedyExitPoint ?: door
         campaignEscortPolice.startResolution(
-            door.latitude, door.longitude,
+            gather.latitude, gather.longitude,
             MISSION2_POLICE_SPAWN_LAT, MISSION2_POLICE_SPAWN_LON,
             System.currentTimeMillis()
         )
-        android.util.Log.d("POW_DBG", "Misión 2 REMATE: Prankedy entró → 6 policías van a la puerta, platican y se reparten")
+        android.util.Log.d("POW_DBG", "Misión 2 REMATE: Prankedy entró en (${gather.latitude},${gather.longitude}) → 6 policías van AHÍ, platican y se reparten")
     }
     updateEscomCrowd(playerLoc, door)
     if (_uiState.value.wantedLevel != 1) _uiState.update { it.copy(wantedLevel = 1) }
@@ -274,6 +277,7 @@ internal fun WorldMapViewModel.consumePendingMission2Intro() {
 internal fun WorldMapViewModel.startMission2() {
     mission2ChaseActivated = false   // re-arma el spawn de la persecución
     mission2PrankedyEntered = false  // re-arma la huida de Prankedy a la puerta
+    mission2PrankedyExitPoint = null // re-arma el punto de reunión del REMATE
     mission2Crowd.clear()
     setCampaignObjective(MissionCatalog.INGRESAR_ESCOM)
     android.util.Log.d("POW_DBG", "startMission2(): objetivo=INGRESAR_ESCOM, se re-arma persecución+multitud")
@@ -293,6 +297,8 @@ internal fun WorldMapViewModel.runMission2PrankedyEscape(playerLoc: GeoPoint, no
     if (sqrt(dLat * dLat + dLon * dLon) <= MISSION2_PRANKEDY_ENTER_DEG) {
         // Llegó a la puerta: muestra el diálogo y, tras un momento, ENTRA a la ESCOM (desaparece).
         mission2PrankedyEntered = true
+        // Guarda el punto EXACTO donde se metió: aquí se reúne la policía a "platicar" (REMATE).
+        mission2PrankedyExitPoint = pkLoc
         _uiState.update { it.copy(prankedyDialogue = MISSION2_PRANKEDY_BYE) }
         viewModelScope.launch {
             kotlinx.coroutines.delay(2400)   // pausa más larga frente a la puerta: se nota que se mete
@@ -339,10 +345,13 @@ private fun WorldMapViewModel.mission2DoorTarget(): GeoPoint {
 }
 
 internal fun WorldMapViewModel.clearCampaignPolice() {
+    // Los NPCs sembrados sobre la línea roja también se retiran al terminar/salir de la campaña.
+    clearCampaignRouteNpcs()
     val had = campaignEscortPolice.isActive() || mission2Crowd.isNotEmpty()
     campaignPoliceActivated = false
     mission2ChaseActivated = false
     mission2PrankedyEntered = false
+    mission2PrankedyExitPoint = null
     campaignEscortPolice.clear()
     mission2Crowd.clear()
     if (had) {

@@ -178,7 +178,9 @@ elegida. A diferencia de `updateInitialLocation` (gateada por `isLoadingLocation
 
 - **`viewmodel/CollectiblesViewModel.kt`** (Activity-scoped, `Factory(context)`): lee
   `CollectibleRepository.allCollectiblesFlow` → inventario reactivo.
-- **`ui/CollectiblesScreen.kt`**: pantalla de inventario (ruta `collectibles`).
+- **`ui/CollectiblesScreen.kt`**: pantalla de inventario (ruta `collectibles`). El botón inferior dice
+  **"VOLVER"** (`R.string.menu_back`, antes `menu_return` = "VOLVER AL MENÚ"); diseño `Button` rojo
+  (`0xFF6B1C3A`) con `CutCornerShape(16,16)` — el MISMO que reusa el botón "VOLVER" de Ajustes.
 - **Lógica de spawn/recogida** está en el open world: `WorldMapCollectiblesLogic.kt` (ver 04). 6
   coleccionables de lore sembrados en Room (`CollectibleRepository`). Una **Mano Zombi** especial solo
   aparece dentro del bounding box de ESCOM y dispara la cinemática al minijuego.
@@ -242,6 +244,26 @@ Pestañas + sliders. Escala adaptativa 60%–140% (cap 100% en portrait), swap d
 `GameplaySettings` (Jugabilidad): slider de cantidad de NPCs + switches "Optimizar dibujado de NPCs"
 (LOD) y "Optimizar para gama baja" (emoji total). `DiagnosticWidgetsSetting` (Interfaz): widgets de
 caché, FPS, **zoom** (nivel de zoom actual en vivo) y **velocímetro** (km/h al conducir).
+> **🆕 Botón "VOLVER" (antes "SALIR AL MENÚ"):** el botón inferior de salida (portrait y landscape) ahora
+> dice **"VOLVER"** (`R.string.menu_back`) con el MISMO diseño que coleccionables: `Button` relleno rojo
+> `0xFF6B1C3A`, `CutCornerShape(16,16)`, `height 56.dp` + `shadow`. Su acción NO cambió (`onExitToMainMenu`
+> → vuelve al menú principal). `R.string.settings_exit_to_menu` queda sin uso.
+> **🆕 Descripciones justificadas:** en `DiagnosticWidgetsSetting` cada fila envuelve título+descripción en
+> `Column(Modifier.weight(1f))` y la descripción usa `TextAlign.Justify`; así los textos de 2+ líneas (p. ej.
+> Coordenadas X/Y/Z) se reparten a lo ancho (la última línea queda a la izquierda → en 1 línea no se nota).
+> Patrón a reusar en cualquier widget que crezca a 2+ líneas.
+> **🆕 Modo Desarrollador (`developerMode`, Interfaz, default oculto):** switch nuevo arriba de la pestaña
+> Interfaz. Mismo patrón que zoom/velocímetro: `SettingsRepository.get/saveDeveloperMode`,
+> `SettingsState.developerMode`, `SettingsViewModel.toggleDeveloperMode`, wired en `MainActivity`
+> (`onDeveloperModeToggled`). Pensado para ocultar botones de prueba en la versión final: las pantallas que
+> tengan esos botones deben observar `developerMode` para mostrarlos/ocultarlos (aún por cablear caso por caso).
+> Strings `settings_developer_mode`/`_desc` (es+en).
+> **🆕 Ajustes desde el JUEGO se mantiene HORIZONTAL:** la ruta de Ajustes acepta el arg `fromGame`
+> (`settings?fromGame={fromGame}`, BoolType default false). Las navegaciones in-game (WorldMapScreen, ZombieHud,
+> encb_lobby) llaman `navigate("settings?fromGame=true")`; las del menú principal siguen en `settings`. El
+> listener de orientación de `MainActivity` lee el `fromGame` del Bundle del destino: si es `true`, Ajustes NO
+> cuenta como menú vertical y queda `SENSOR_LANDSCAPE`. Sigue la convención del 09 (orientación SOLO por ruta;
+> las pantallas no la fijan).
 
 ---
 

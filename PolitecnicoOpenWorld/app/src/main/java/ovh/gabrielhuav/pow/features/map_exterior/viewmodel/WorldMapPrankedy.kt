@@ -70,6 +70,8 @@ internal fun WorldMapViewModel.maybeSpawnPrankedyCompanion(
             campaignRouteWaypoints = gpsRoute
         )
     }
+    // 60 NPCs que CAMINAN por la línea roja (ENCB→ESCOM) durante la misión de escolta.
+    spawnCampaignRouteNpcs(gpsRoute)
 }
 
 /**
@@ -82,6 +84,8 @@ internal fun WorldMapViewModel.maybeHideCampaignRouteNearEscom(playerLoc: GeoPoi
     val dLon = playerLoc.longitude - ESCOM_LON
     if (kotlin.math.sqrt(dLat * dLat + dLon * dLon) <= ESCOM_ARRIVE_DEG) {
         _uiState.update { it.copy(campaignRouteWaypoints = emptyList()) }
+        // Al desaparecer la línea roja, también se retiran los NPCs sembrados sobre ella.
+        clearCampaignRouteNpcs()
         // Llegaste al "lugar seguro": la misión de escolta termina. La música es EXCLUSIVA de
         // la misión, así que aquí deja de sonar (no debe seguir en el mundo libre tras cumplirla).
         soundManager.stopLugarSeguroMusic()

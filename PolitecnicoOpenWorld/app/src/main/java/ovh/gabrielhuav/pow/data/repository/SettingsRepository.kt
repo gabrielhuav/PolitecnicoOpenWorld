@@ -25,6 +25,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_SHOW_ZOOM_WIDGET = "SHOW_ZOOM_WIDGET" // widget de nivel de zoom (Interfaz)
         private const val KEY_SHOW_SPEEDOMETER = "SHOW_SPEEDOMETER"  // widget velocímetro al conducir (Interfaz)
         private const val KEY_SHOW_COORDS_WIDGET = "SHOW_COORDS_WIDGET" // widget de coordenadas X/Y/Z (Interfaz)
+        private const val KEY_DEVELOPER_MODE = "DEVELOPER_MODE" // Modo Desarrollador (Interfaz): muestra botones/opciones de prueba
         private const val KEY_MUSIC_VOLUME = "MUSIC_VOLUME" // volumen música 0f..1f (Audio)
         private const val KEY_SFX_VOLUME = "SFX_VOLUME"     // volumen efectos 0f..1f (Audio)
         private const val KEY_LANGUAGE = "APP_LANGUAGE"             // idioma de la UI (BCP-47; "" = sistema)
@@ -125,6 +126,15 @@ class SettingsRepository(context: Context) {
     fun getShowCoordsWidget(): Boolean = prefs.getBoolean(KEY_SHOW_COORDS_WIDGET, false)
     fun saveShowCoordsWidget(show: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_COORDS_WIDGET, show).apply()
+    }
+
+    // ─── Interfaz: Modo Desarrollador. Default = desactivado. ──
+    // Cuando está activo, la UI revela botones/opciones de prueba que se ocultarán
+    // en la versión final del juego.
+
+    fun getDeveloperMode(): Boolean = prefs.getBoolean(KEY_DEVELOPER_MODE, false)
+    fun saveDeveloperMode(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DEVELOPER_MODE, enabled).apply()
     }
 
     // ─── Audio: volumen de música y efectos (0f..1f). Default = 1.0 (máximo). ──

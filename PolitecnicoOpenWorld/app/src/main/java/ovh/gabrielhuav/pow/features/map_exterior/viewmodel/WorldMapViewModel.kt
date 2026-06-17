@@ -267,6 +267,9 @@ class WorldMapViewModel(
     internal var mission2ChaseActivated = false
     // MISIÓN 2: true una vez que Prankedy ENTRA a la ESCOM (huyendo); deja de animarse a partir de ahí.
     internal var mission2PrankedyEntered = false
+    // MISIÓN 2: posición EXACTA donde Prankedy desespawneó al meterse a la ESCOM. La policía del REMATE
+    // se reúne AQUÍ a "platicar" (no en la puerta del objetivo, que queda unos metros más allá).
+    internal var mission2PrankedyExitPoint: org.osmdroid.util.GeoPoint? = null
     // Multitud de NPCs que SALEN de la puerta de la ESCOM (hora de salida) y se despawnean al
     // salir de tu fog of war. Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs.
     internal val mission2Crowd = ConcurrentHashMap<String, Npc>()

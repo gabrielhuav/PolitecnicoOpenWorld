@@ -25,6 +25,11 @@ class NpcAiManager {
         const val CAR_SPEED = 0.000008
         const val PERSON_SPEED = 0.0000015
 
+        // NPCs de PRUEBA sembrados a lo largo de la ruta roja de campaña (debug + misión).
+        // Llevan este prefijo de id para quedar EXENTOS del despawn por distancia y del cull
+        // por maxTotalNpcs: deben sobrevivir repartidos por TODA la ruta (no solo cerca del jugador).
+        const val ROUTE_NPC_PREFIX = "CAMPAIGN_ROUTE_"
+
         // ─── Parámetros de comportamiento (compartidos SP/MP: el host los corre) ───
         const val FEAR_RADIUS = 0.0018
         const val FEAR_DURATION_MS = 4500L
@@ -262,6 +267,18 @@ class NpcAiManager {
         serverNpcs.addAll(npcs)
     }
 
+    /**
+     * Inyecta NPCs adicionales en la lista del servidor de IA SIN borrar los existentes
+     * (a diferencia de [setServerNpcs]). El ciclo [updateNpcs]/[moveNpc] los avanzará por su
+     * `currentWay`. Dedup por id (no duplica si ya están). Usado para sembrar los NPCs de la
+     * ruta roja de campaña sin esperar al siguiente re-sync desde remoteEntities.
+     */
+    fun addServerNpcs(npcs: List<Npc>) {
+        if (npcs.isEmpty()) return
+        val existing = serverNpcs.mapTo(HashSet()) { it.id }
+        serverNpcs.addAll(npcs.filter { it.id !in existing })
+    }
+
     fun getServerNpcs(): List<Npc> = serverNpcs
 
     private fun isNativeWayOverlappingCustom(way: MapWay, activeLandmarks: List<Landmark>): Boolean {
@@ -331,6 +348,9 @@ class NpcAiManager {
                         // distancia (si no, al poblarlos de LEJOS se borraban al instante → "no aparecen").
                         // Se limpian cuando el jugador SALE del campus (dist>=0.02, más abajo).
                         it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED &&
+                        // Los NPCs de la RUTA roja de campaña están repartidos por TODA la ruta:
+                        // exentos del despawn por distancia (se limpian aparte al acabar la misión).
+                        !it.id.startsWith(ROUTE_NPC_PREFIX) &&
                         calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude) > despawnDistance
             }
             serverNpcs.removeAll(toRemove)
@@ -340,7 +360,8 @@ class NpcAiManager {
             var activeCount = 0
             var totalCount = 0
             for (n in serverNpcs) {
-                if (n.displayName.isNullOrEmpty()) {
+                // Los NPCs de la ruta de campaña NO cuentan para el cupo (son escenografía exenta).
+                if (n.displayName.isNullOrEmpty() && !n.id.startsWith(ROUTE_NPC_PREFIX)) {
                     totalCount++
                     if (calculateDistance(n.location.latitude, n.location.longitude, pLat0, pLon0) <= simRadius) activeCount++
                 }
@@ -348,7 +369,7 @@ class NpcAiManager {
 
             if (totalCount > maxTotalNpcs) {
                 val excess = totalCount - maxTotalNpcs
-                val farthest = serverNpcs.filter { it.displayName.isNullOrEmpty() && it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED }
+                val farthest = serverNpcs.filter { it.displayName.isNullOrEmpty() && it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED && !it.id.startsWith(ROUTE_NPC_PREFIX) }
                     .sortedByDescending { calculateDistance(it.location.latitude, it.location.longitude, pLat0, pLon0) }
                     .take(excess)
                 serverNpcs.removeAll(farthest)
@@ -626,7 +647,9 @@ class NpcAiManager {
                 if (!npc.displayName.isNullOrEmpty()) {
                     npc
                 } else if (calculateDistance(npc.location.latitude, npc.location.longitude, pLat0, pLon0) > simRadius) {
-                    npc
+                    // Fuera del radio de simulación no se mueven (LOD). Los NPCs de ruta deben quedar
+                    // QUIETOS (no reproducir la animación de caminado en el sitio) hasta acercarse.
+                    if (npc.id.startsWith(ROUTE_NPC_PREFIX) && npc.isMoving) npc.copy(isMoving = false) else npc
                 } else {
                     if (npc.dodgeUntil > now) {
                         val ds = personSpeed * 10.0
@@ -646,10 +669,14 @@ class NpcAiManager {
                     } else {
                         val speedScale = if (npc.type == NpcType.CAR) carFollowScale(npc, cars) else 1f
                         val moved = moveNpc(npc, currentNetwork, now, speedScale)
-                        if (moved == null) {
+                        if (moved == null && !npc.id.startsWith(ROUTE_NPC_PREFIX)) {
                             synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                            null
+                        } else {
+                            // Los NPCs de ruta NUNCA se despawnean por la IA (p. ej. nodo dentro de un
+                            // landmark): si moveNpc no pudo moverlos, se quedan quietos en su sitio.
+                            moved ?: npc.copy(isMoving = false)
                         }
-                        moved
                     }
                 }
             }

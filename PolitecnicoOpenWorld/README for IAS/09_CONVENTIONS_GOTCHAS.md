@@ -427,6 +427,45 @@ matrices por defecto son **border-only** hasta reemplazarse.
   orientación.** (Se probó un `LaunchedEffect(optionsExpanded)` que rotaba al abrir Opciones, pero al usuario
   le resultó molesto y se REVIRTIÓ: rotar = solo en una RUTA de menú, p. ej. Ajustes.) No re-añadir overrides
   de orientación a nivel de pantalla. Ver 05.
+  - **🆕 Excepción `fromGame` en Ajustes:** Ajustes se abre desde el menú (vertical OK) y desde el JUEGO
+    (debe seguir horizontal). Se resuelve SIN tocar las pantallas: la ruta es `settings?fromGame={fromGame}`
+    (BoolType, default false). El menú principal navega a `settings` (fromGame=false → `UNSPECIFIED`); el juego
+    navega a `settings?fromGame=true` (→ `SENSOR_LANDSCAPE`). El `OnDestinationChangedListener` lee
+    `arguments?.getBoolean("fromGame")` del Bundle del destino y, si es true, NO trata Ajustes como menú
+    vertical. Sigue siendo "orientación por RUTA" (el arg es parte de la ruta). ⚠️ Por el `?fromGame=...`, los
+    chequeos de ruta exacta deben usar `route?.startsWith("settings")` (ya ajustado en `onNavigateBack`).
+- **🆕 NPCs de IA = `remoteEntities` es la FUENTE DE VERDAD (no `serverNpcs`):** en el game loop, cada
+  ~3 ticks `setServerNpcs(remoteEntities.filter{displayName vacío})` **CLEAR+refill** la lista del motor
+  desde `remoteEntities`; tras simular, el host vuelca `getServerNpcs()` de vuelta a `remoteEntities` y
+  `updateNpcsState()` los pinta. Por eso, para INYECTAR NPCs persistentes hay que meterlos en
+  `remoteEntities` (con `displayName` vacío); meterlos solo en `serverNpcs` se borra al siguiente re-sync.
+  `NpcAiManager.addServerNpcs(list)` existe para sembrarlos sin esperar un tick, pero la persistencia vive
+  en `remoteEntities`. Single-player: `isServerDelegatedHost=true` (default) → la simulación corre.
+- **🆕 60 NPCs que CAMINAN por la ruta roja de campaña (`WorldMapCampaignRouteNpcs.kt`):** desde
+  `campaignRouteWaypoints` se arma un `MapWay` virtual (ids negativos para no chocar con OSM,
+  `isForPeople=true`) y 60 `Npc` con `currentWay`=esa ruta. `moveNpc` los lleva nodo a nodo; al no haber
+  vías conectadas en los extremos (ids negativos no están en `nodeToWays`), **invierten la dirección** →
+  van y vienen. Llevan id con prefijo `NpcAiManager.ROUTE_NPC_PREFIX` (`"CAMPAIGN_ROUTE_"`) que los deja
+  **EXENTOS del despawn por distancia y del cull por `maxTotalNpcs`** (si no, se borraban lejos del
+  jugador); fuera del `simRadius` se ponen `isMoving=false` (no “caminan en el sitio”) y si `moveNpc`
+  devuelve null NO se despawnean (se quedan quietos). Disparo: automático en `maybeSpawnPrankedyCompanion`
+  (escolta) y manual con el botón del panel Debug Interiores (`toggleCampaignRouteNpcsDebug`). Se limpian
+  en `maybeHideCampaignRouteNearEscom` y en `clearCampaignPolice`.
+- **🆕 REMATE Misión 2: la policía se reúne donde Prankedy SE METIÓ:** al entrar Prankedy a la ESCOM se
+  guarda su posición exacta en `mission2PrankedyExitPoint`; `runMission2Tick` pasa ESE punto a
+  `startResolution` (antes pasaba la puerta del objetivo, unos metros más allá). Se resetea en
+  `startMission2`/`clearCampaignPolice`.
+- **🆕 Panel Debug Interiores movible + Salir (`InteriorDebugEditorPanel`):** el editor de líneas de
+  colisión del mapa global ahora es movible/redimensionable/scroll (mismo patrón que el panel del
+  diseñador de matrices: asa con `detectDragGestures`, `graphicsLayer` scale −/+, `heightIn(max=90%)` +
+  `verticalScroll`) y tiene botón **"Salir"** (`onExit` → `setDebugEditTool(NONE)` +
+  `toggleInteriorDebugOverlay(false)`). Aloja además el botón de debug de los NPCs de ruta.
+- **🆕 Modo Desarrollador (`developerMode`, Ajustes → Interfaz, default oculto):** switch persistente con el
+  mismo patrón que los widgets (`SettingsRepository.get/saveDeveloperMode`, `SettingsState.developerMode`,
+  `SettingsViewModel.toggleDeveloperMode`, wired en `MainActivity.onDeveloperModeToggled`). Sirve para revelar
+  botones de prueba que se ocultarán en la versión final: las pantallas con esos botones deben observar
+  `developerMode` para mostrarlos/ocultarlos (cableado caso por caso, pendiente). Strings
+  `settings_developer_mode`/`_desc` (es+en).
 - **🆕 Widget de coordenadas X/Y/Z (`showCoordsWidget`, Ajustes → Interfaz, default oculto):** composable
   reusable `CoordsWidget(x,y,z)` en `GameControllers.kt`. Z = "dónde": **GLOBAL** en el mundo abierto
   (`WorldMapScreen`, X=lon, Y=lat), o el **nombre de la sala/interior** en interiores (`ZombieHud` con
