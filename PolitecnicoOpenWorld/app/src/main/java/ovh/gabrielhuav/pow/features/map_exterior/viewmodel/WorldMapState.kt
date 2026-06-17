@@ -83,7 +83,9 @@ data class WorldMapState(
     val showZoomWidget: Boolean = false,
     // Widget velocímetro (Ajustes → Interfaz): velocidad en km/h, visible solo al conducir.
     val showSpeedometer: Boolean = true,
-    val controlType: ControlType = ControlType.DPAD,
+    // Widget de coordenadas (Ajustes → Interfaz): X=longitud, Y=latitud, Z=GLOBAL.
+    val showCoordsWidget: Boolean = false,
+    val controlType: ControlType = ControlType.JOYSTICK, // Default: JOYSTICK (las flechitas se cambian en Ajustes)
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
 
@@ -127,6 +129,8 @@ data class WorldMapState(
     val showClaimedPopupFor: ActiveCollectible? = null,
     val interactionPrompt: String? = null,
     val showWastedScreen: Boolean = false,
+    // MODO HISTORIA: pantalla "MISIÓN FALLIDA" (cuando la policía mata a Prankedy en la escolta).
+    val showMissionFailed: Boolean = false,
 
     // ─── NIVEL DE BÚSQUEDA (estilo GTA) ──────────────────────────────────────
     // Sube al golpear NPCs; mientras sea > 0 aparecen patrullas que te persiguen.
@@ -182,6 +186,10 @@ data class WorldMapState(
     // (título + distancia) siempre que haya uno. `objectiveDone` se marca al llegar.
     val currentObjective: ovh.gabrielhuav.pow.domain.models.CampaignObjective? = null,
     val objectiveDone: Boolean = false,
+    // MODO HISTORIA · Misión 2: al cumplir la Misión 1 (llegar a la ESCOM) se pone a true para
+    // que MainActivity reproduzca el cómic IntroPOW12..14 y luego arranque la persecución.
+    // MainActivity lo consume (lo vuelve a false) al navegar al cómic.
+    val pendingMission2Intro: Boolean = false,
 
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,
@@ -245,5 +253,8 @@ data class WorldMapState(
     val showPrankedyHireDialog: Boolean = false,    // muestra el modal de contratar
     val prankedyIsHireable: Boolean = true,         // false = en penalización
     val prankedyHireableInSeconds: Int = 0,         // countdown de penalización
-    val prankedyDialogue: String? = null            // texto de la burbuja flotante
+    val prankedyDialogue: String? = null,           // texto de la burbuja flotante
+    // MODO HISTORIA: Prankedy está SUBIENDO al coche (corre hasta ti). Mientras es true, el coche
+    // no avanza (no puedes irte sin él) y Prankedy sigue visible corriendo hacia tu posición.
+    val prankedyBoarding: Boolean = false
 )

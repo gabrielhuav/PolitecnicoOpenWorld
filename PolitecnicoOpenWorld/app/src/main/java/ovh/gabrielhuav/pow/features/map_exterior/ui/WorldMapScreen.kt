@@ -122,15 +122,18 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyHireDialog
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuGroup
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleJoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.Ps4ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
@@ -148,6 +151,8 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.undoLastDebugShape
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitDebugStroke
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearDebugEdits
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setDebugEditTool
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DebugEditTool
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCampaignRouteNpcsDebug
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportDebugEditsToUri
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importDebugEditsFromUri
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadLandmarks
@@ -223,7 +228,9 @@ fun WorldMapScreen(
     onNavigateToMainMenu: () -> Unit = {},
     onNavigateToSettings: () -> Unit,
     onNavigateToInterior: (String) -> Unit = {},
-    onRequestSaveGame: () -> Unit = {}
+    onRequestSaveGame: () -> Unit = {},
+    // MODO HISTORIA: reintentar la misión fallida sin volver al menú (recarga el slot activo).
+    onRetryMission: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val roadNetwork by viewModel.roadNetworkFlow.collectAsState()
@@ -387,6 +394,9 @@ fun WorldMapScreen(
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
     var optionsExpanded by remember { mutableStateOf(false) }
     var optionsOpenGroup by remember { mutableStateOf<String?>(null) }
+    // NOTA: el menú de Opciones in-game NO cambia la orientación (el juego va SIEMPRE en
+    // horizontal). Solo los menús de RUTA (Ajustes, etc.) permiten rotar — lo gestiona
+    // MainActivity por destino de navegación. Ver 09.
 
     LaunchedEffect(uiState.isUserPanningMap) {
         if (!uiState.isUserPanningMap) {
@@ -712,6 +722,18 @@ fun WorldMapScreen(
                         val currentZoom = uiState.zoomLevel
                         val renderZoom = round(currentZoom * 2) / 2.0
 
+                        // Burbuja 💬 (remate Misión 2: policías que "platican"). Icono cacheado una vez.
+                        val talkBubbleIcon = remember {
+                            val px = (22 * screenDensity).toInt()
+                            val d = emojiToDrawable(context, "💬", px)
+                            val bm = android.graphics.Bitmap.createBitmap(
+                                d.intrinsicWidth.coerceAtLeast(1), d.intrinsicHeight.coerceAtLeast(1),
+                                android.graphics.Bitmap.Config.ARGB_8888
+                            )
+                            val c = android.graphics.Canvas(bm); d.setBounds(0, 0, bm.width, bm.height); d.draw(c)
+                            BitmapDescriptorFactory.fromBitmap(bm)
+                        }
+
                         // Culling por neblina: solo se dibujan los NPC dentro del radio de visión (fijo en metros).
                         val centerCull = uiState.currentLocation
                         val cullRadiusM = centerCull?.let { npcVisionRadiusMeters() }
@@ -866,6 +888,19 @@ fun WorldMapScreen(
                                     flat = true,
                                     alpha = if (npc.isDying) 0.5f else 1.0f
                                 )
+                                // Burbuja 💬 flotando encima mientras el NPC "platica" (remate Misión 2).
+                                // `remember` SIEMPRE se llama (no condicional); solo el Marker es condicional.
+                                val bubbleState = remember { MarkerState(position = position) }
+                                bubbleState.position = position
+                                if (npc.talkingUntil > timeMs) {
+                                    com.google.maps.android.compose.Marker(
+                                        state = bubbleState,
+                                        icon = talkBubbleIcon,
+                                        anchor = androidx.compose.ui.geometry.Offset(0.5f, 1.9f),
+                                        flat = true,
+                                        zIndex = 50f
+                                    )
+                                }
                             }
                         }
                     }
@@ -1229,6 +1264,15 @@ fun WorldMapScreen(
 
                         wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs(${gson.toJson(npcPayloads)});", null)
                         } // fin guard web: lista de NPCs sin cambios → no se reenvía al WebView
+
+                        // BURBUJAS 💬 de "platica" (remate Misión 2): se envían CADA frame (fuera del
+                        // guard) para seguir la posición de cada policía mientras dura `talkingUntil`.
+                        val nowBubble = System.currentTimeMillis()
+                        val talkPayload = uiState.npcs
+                            .filter { it.talkingUntil > nowBubble }
+                            .map { mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude) }
+                        wv.evaluateJavascript("if(typeof updateTalkBubbles==='function')updateTalkBubbles(${gson.toJson(talkPayload)});", null)
+
                         wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
 
                         // OPT FPS web: serializar y reenviar landmarks SOLO cuando cambian
@@ -1343,9 +1387,11 @@ fun WorldMapScreen(
                         // 🚓 + línea punteada jugador→patrulla mientras te buscan. Las patrullas
                         // DENTRO de la neblina ya se dibujan como sprite (no llevan waypoint).
                         val plocW = uiState.currentLocation
+                        // Patrullas (mundo libre) + 2 policías de la ESCOLTA de campaña (a pie).
                         val patrolsW = if (plocW != null && uiState.wantedLevel > 0) {
                             uiState.npcs.filter {
-                                it.type == NpcType.POLICE_CAR &&
+                                (it.type == NpcType.POLICE_CAR ||
+                                    (it.type == NpcType.POLICE_COP && it.id.startsWith("CAMPAIGN_COP"))) &&
                                     !npcWithinRadius(it.location.latitude, it.location.longitude,
                                         plocW.latitude, plocW.longitude, NPC_FOG_VISION_METERS)
                             }
@@ -1353,9 +1399,19 @@ fun WorldMapScreen(
                         if (patrolsW.isNotEmpty() || lastWebPoliceHolder[0]) {
                             lastWebPoliceHolder[0] = patrolsW.isNotEmpty()
                             val policePayload = patrolsW.map {
-                                mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude)
+                                mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude,
+                                    "emoji" to if (it.type == NpcType.POLICE_COP) "👮" else "🚓")
                             }
                             wv.evaluateJavascript("if(typeof updatePolice==='function')updatePolice(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(policePayload)});", null)
+                        }
+
+                        // Waypoint del OBJETIVO (🎯) + línea jugador→objetivo (te indica a dónde ir).
+                        val campObjW = uiState.currentObjective
+                        val campPlocW = uiState.currentLocation
+                        if (campObjW != null && !uiState.objectiveDone && campPlocW != null) {
+                            wv.evaluateJavascript("if(typeof updateObjectiveWp==='function')updateObjectiveWp(${campPlocW.latitude}, ${campPlocW.longitude}, ${campObjW.targetLat}, ${campObjW.targetLon});", null)
+                        } else {
+                            wv.evaluateJavascript("if(typeof updateObjectiveWp==='function')updateObjectiveWp(null,null,null,null);", null)
                         }
 
                         // Waypoints de ZOMBIS FUERA del fog (paridad con OSM nativo): 🧟 + línea
@@ -1385,21 +1441,21 @@ fun WorldMapScreen(
                             if (pkLoc != null && !uiState.isDriving) {
                                 val pkTime = timeMs
                                 val pkAnim = uiState.prankedyAnimState
-                                val pkFrames = when (pkAnim) {
-                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.IDLE -> 3
-                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.WALK -> 9
-                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN -> 8
-                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN_TANQUE -> 9
-                                    ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.ATTACK -> 5
-                                }
-                                val pkFrame = ((pkTime / 200L) % pkFrames).toInt()
-                                val pkKey = "PRANKEDY_WEB_${pkAnim.name}_${uiState.prankedyFacingRight}_$pkFrame"
+                                // Índice de frame respetando el intervalo por animación (IDLE va más lento).
+                                val pkFrame = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
+                                    .currentFrameIndex0(pkAnim, pkTime)
+                                // El bitmap se genera SIEMPRE mirando a la derecha (facingRight = true);
+                                // la orientación la aplica el CSS (transform: scaleX(flip)) en updatePrankedy.
+                                // Antes se volteaba el bitmap Y además el CSS → doble volteo: al ir a la
+                                // izquierda Prankedy acababa mirando a la derecha. Por eso el bitmap NO se
+                                // voltea aquí y la clave de caché ya no depende de facingRight.
+                                val pkKey = "PRANKEDY_WEB_${pkAnim.name}_$pkFrame"
                                 val pkB64 = base64Cache[pkKey]
                                 if (pkB64 == null) {
                                     base64Cache[pkKey] = ""
                                     coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
                                         val d = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
-                                            .getDrawable(context, pkAnim, timeMs, highResRenderScale, uiState.prankedyFacingRight)
+                                            .getDrawable(context, pkAnim, timeMs, highResRenderScale, facingRight = true)
                                         val bmp = d?.bitmap
                                         if (bmp != null) {
                                             val out = java.io.ByteArrayOutputStream()
@@ -1622,6 +1678,54 @@ fun WorldMapScreen(
             }
         }
 
+        // ─── WIDGET DE OBJETIVO (Modo Historia) ──────────────────────────────────
+        // Centrado arriba y difuminado para no chocar con los widgets de las esquinas.
+        uiState.currentObjective?.let { obj ->
+            ObjectivesWidget(
+                objective = obj,
+                done = uiState.objectiveDone,
+                playerLocation = uiState.currentLocation,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
+            )
+        }
+
+        // ─── MISIÓN FALLIDA (Modo Historia: la policía mató a Prankedy) ──────────
+        // Pantalla a pantalla completa, estilo "WASTED", con el texto EN 2 LÍNEAS.
+        if (uiState.showMissionFailed) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color(0xDD000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "MISIÓN\nFALLIDA",
+                        color = Color(0xFFD32F2F),
+                        fontSize = 54.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 5.sp,
+                        lineHeight = 60.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(28.dp))
+                    // REINTENTAR: reinicia la misión en sitio (sin volver a la pantalla de inicio).
+                    Button(
+                        onClick = { onRetryMission() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth(0.6f).height(50.dp)
+                    ) {
+                        Text("REINTENTAR MISIÓN", color = Color.White, fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp, letterSpacing = 1.sp)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = { onNavigateToMainMenu() }) {
+                        Text("Salir al menú", color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
         // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────
         uiState.carjackWarning?.let { warn ->
             Box(
@@ -1694,6 +1798,15 @@ fun WorldMapScreen(
                         else -> Color(0xFFE53935)
                     },
                     isLoading = false
+                )
+            }
+            // Widget de coordenadas (Ajustes → Interfaz): X=longitud, Y=latitud, Z=GLOBAL.
+            AnimatedVisibility(visible = uiState.showCoordsWidget, enter = fadeIn(), exit = fadeOut()) {
+                val loc = uiState.currentLocation
+                CoordsWidget(
+                    x = loc?.let { "%.5f".format(it.longitude) } ?: "--",
+                    y = loc?.let { "%.5f".format(it.latitude) } ?: "--",
+                    z = "GLOBAL"
                 )
             }
             AnimatedVisibility(visible = uiState.isDesignerMode, enter = fadeIn(), exit = fadeOut()) {
@@ -2060,37 +2173,36 @@ fun WorldMapScreen(
                 blocksCount = uiState.debugEditBlocks.size,
                 navPedCount = uiState.debugEditNavPed.size,
                 navCarCount = uiState.debugEditNavCar.size,
+                routeNpcsActive = uiState.npcs.any { it.id.startsWith("CAMPAIGN_ROUTE_") },
                 onSelectTool = { viewModel.setDebugEditTool(it) },
                 onUndo = { viewModel.undoLastDebugShape() },
                 onClear = { viewModel.clearDebugEdits() },
                 onExport = { collisionsExportLauncher.launch("exterior_collisions_editado.json") },
                 onImport = { collisionsImportLauncher.launch(arrayOf("application/json", "*/*")) },
+                onToggleRouteNpcs = { viewModel.toggleCampaignRouteNpcsDebug() },
+                onExit = {
+                    viewModel.setDebugEditTool(DebugEditTool.NONE)
+                    viewModel.toggleInteriorDebugOverlay(false)
+                },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
+                    .fillMaxWidth(0.6f)
                     .padding(8.dp)
             )
         }
 
-        // ─── WIDGET DE OBJETIVOS (Modo Historia) — siempre visible si hay objetivo ──
-        uiState.currentObjective?.let { obj ->
-            ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
-                objective = obj,
-                done = uiState.objectiveDone,
-                playerLocation = uiState.currentLocation,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .systemBarsPadding()
-                    .padding(start = 12.dp, top = 12.dp)
-            )
-        }
+        // (El widget de OBJETIVO se dibuja UNA sola vez, arriba-centro — ver más arriba.
+        // Antes había aquí un segundo widget arriba-izquierda que duplicaba el objetivo.)
 
         val configuration = LocalConfiguration.current
         val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
-        val maxScale = if (isPortrait) 1.0f else 1.4f
+        // Misma altura/escala que los controles de INTERIORES (ZombieHud): se igualaron
+        // estos valores + systemBarsPadding para que los controles queden a la misma altura
+        // en el mundo global y en los interiores.
+        val maxScale = if (isPortrait) 0.95f else 1.3f
         val effectiveScale = uiState.controlsScale.coerceAtMost(maxScale)
-        val sidePadding = if (isPortrait) 16.dp else 64.dp
-        val bottomPadding = if (isPortrait) 48.dp else 32.dp
+        val sidePadding = if (isPortrait) 8.dp else 32.dp
+        val bottomPadding = if (isPortrait) 32.dp else 20.dp
 
         // En HORIZONTAL, al abrir el menú de Opciones, este (arriba a la derecha) se
         // extiende hacia abajo y choca con el control de la derecha (D-pad/diamante).
@@ -2114,18 +2226,27 @@ fun WorldMapScreen(
         }
 
         if (!uiState.isDesignerMode && !uiState.showInteriorDebugOverlay) { // Oculta joystick y botones en modo diseñador y al editar el Debug Interiores
-            Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding).systemBarsPadding(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (uiState.isDriving) {
                 // D-pad de conducción: SOLO gira (IZQ/DER). Arriba/abajo quedan inertes
                 // a propósito — gas y freno viven únicamente en el diamante PS4.
                 val drivingDpad = @Composable { m: Modifier ->
-                    VehicleDPadController(
-                        modifier = m.scale(effectiveScale),
-                        onUp = { /* sin uso en conducción */ },
-                        onDown = { /* sin uso en conducción */ },
-                        onLeft = { viewModel.steerLeft(it) },
-                        onRight = { viewModel.steerRight(it) }
-                    )
+                    // Respeta la preferencia de control: JOYSTICK = joystick de dirección (izq/der);
+                    // D-pad = flechitas. Gas/freno siempre en el diamante PS4 (drivingActions).
+                    if (uiState.controlType == ControlType.JOYSTICK)
+                        VehicleJoystickController(
+                            modifier = m.scale(effectiveScale),
+                            onSteerLeft = { viewModel.steerLeft(it) },
+                            onSteerRight = { viewModel.steerRight(it) }
+                        )
+                    else
+                        VehicleDPadController(
+                            modifier = m.scale(effectiveScale),
+                            onUp = { /* sin uso en conducción */ },
+                            onDown = { /* sin uso en conducción */ },
+                            onLeft = { viewModel.steerLeft(it) },
+                            onRight = { viewModel.steerRight(it) }
+                        )
                 }
                 // Diamante estilo PS4: △ SALIR · ✕ gas · ○ freno · □ freno de mano.
                 val drivingActions = @Composable { m: Modifier ->

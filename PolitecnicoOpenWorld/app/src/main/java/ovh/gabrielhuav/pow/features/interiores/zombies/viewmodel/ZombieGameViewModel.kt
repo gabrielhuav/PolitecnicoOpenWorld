@@ -53,12 +53,16 @@ class ZombieGameViewModel(
     internal val startRoomId: String = ZombieRoomCatalog.LOBBY_ID
 ) : ViewModel() {
 
+    internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(applicationContext)
+    internal var lastZombieSoundMs = 0L
+
     internal val _state = MutableStateFlow(
         ZombieGameState(
             controlType  = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
             swapControls = settingsRepository.getSwapControls(),
             selectedSkin = settingsRepository.getPlayerSkin(),     // ← NUEVO
+            showCoordsWidget = settingsRepository.getShowCoordsWidget(),
             isLoading    = false
         )
     )
@@ -84,6 +88,11 @@ class ZombieGameViewModel(
 
     internal var lastPlayerAttackMs = 0L
     internal var lastRangedShotMs = 0L
+    // Ventana (ms) durante la que se muestra la animación de ATAQUE (SPECIAL) tras DISPARAR.
+    // Acotada por tiempo para que NO se quede pegada al moverse: move() reescribía SPECIAL en
+    // bucle y, al disparar moviéndote, la animación de ataque se quedaba activa para siempre.
+    private var attackAnimUntilMs = 0L
+    private val ATTACK_ANIM_MS = 200L
     internal var yPressStartMs = 0L
     internal var lastRoomId: String? = null
     // INTERIORES EXPANDIBLE: lobby destino del diálogo "volver al lobby" (campus-agnóstico).
@@ -510,6 +519,36 @@ class ZombieGameViewModel(
             spawnAtLobbyDoorFor(fromRoom.id)?.let { (sx, sy) ->
                 _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
             }
+        } else if (!(fromRoom.type == ZoneType.LOBBY && targetRoom.type == ZoneType.BUILDING)) {
+            // TP puerta↔puerta: aparece JUNTO a la puerta del cuarto DESTINO que regresa al cuarto de
+            // ORIGEN (al pulsar "Continuar →" en el cuarto N, spawneas junto a la "← Regresar" del N+1,
+            // y viceversa), en vez de en el centro. (Se excluye "lobby → edificio": esa entrada conserva
+            // su spawn central + siembra de zombis.)
+            // ⚠️ CLAVE: el spawn debe quedar JUSTO FUERA del hitbox de esa puerta. `onInteract` dispara la
+            // puerta cuyo hitbox contiene al jugador, así que si spawneas DENTRO, la siguiente X te regresa
+            // al cuarto anterior (rebote = "TP mal"). Antes se desplazaba un 30% fijo hacia el centro, lo
+            // que NO bastaba si la puerta era grande o estaba cerca del centro (caso encb_lobby). Ahora se
+            // empuja por la ORILLA de la puerta que da al interior (el eje donde está más pegada a un muro),
+            // quedando fuera del rectángulo + margen, SEA CUAL SEA su tamaño o posición.
+            targetRoom.doors.firstOrNull { it.targetRoomId == fromRoom.id }?.let { backDoor ->
+                val r = backDoor.hitboxFrac
+                val fx = (r.left + r.right) * 0.5f
+                val fy = (r.top + r.bottom) * 0.5f
+                val halfW = (r.right - r.left) * 0.5f
+                val halfH = (r.bottom - r.top) * 0.5f
+                val margin = 0.04f // ~4% del cuarto: te deja parado pegado a la puerta, pero fuera del hitbox
+                var sxFrac = fx
+                var syFrac = fy
+                // Sale por el eje donde la puerta está MÁS descentrada (su lado contra el muro), hacia el centro.
+                if (kotlin.math.abs(0.5f - fx) >= kotlin.math.abs(0.5f - fy)) {
+                    sxFrac = fx + (if (0.5f - fx >= 0f) 1f else -1f) * (halfW + margin)
+                } else {
+                    syFrac = fy + (if (0.5f - fy >= 0f) 1f else -1f) * (halfH + margin)
+                }
+                sxFrac = sxFrac.coerceIn(0.04f, 0.96f)
+                syFrac = syFrac.coerceIn(0.04f, 0.96f)
+                _state.update { it.copy(pendingSpawnX = sxFrac * targetRoom.worldWidth, pendingSpawnY = syFrac * targetRoom.worldHeight) }
+            }
         }
 
         lastRoomId = fromRoom.id
@@ -540,6 +579,7 @@ class ZombieGameViewModel(
     fun performPlayerAttack() {
         val now = System.currentTimeMillis()
         if (now - lastPlayerAttackMs < PLAYER_ATTACK_COOLDOWN_MS) return
+        soundManager.playPunch()
         lastPlayerAttackMs = now
 
         val s = _state.value
@@ -574,9 +614,11 @@ class ZombieGameViewModel(
     // ─── COMBATE A DISTANCIA ───────────────────────────────
     internal fun fireProjectile() {
         if (_state.value.showWastedScreen) return // muerto: no dispara
+        soundManager.playShoot()
         val now = System.currentTimeMillis()
         if (now - lastRangedShotMs < RANGED_COOLDOWN_MS) return
         lastRangedShotMs = now
+        attackAnimUntilMs = now + ATTACK_ANIM_MS
 
         val s = _state.value
         var dx = s.aimDirX
@@ -606,8 +648,11 @@ class ZombieGameViewModel(
         }
         idleJob?.cancel()
         idleJob = viewModelScope.launch {
-            delay(150)
-            _state.update { it.copy(playerAction = PlayerAction.IDLE) }
+            delay(ATTACK_ANIM_MS)
+            // Solo resetea si la ventana de ataque ya venció (no se re-disparó) y seguimos en SPECIAL.
+            if (System.currentTimeMillis() >= attackAnimUntilMs) {
+                _state.update { if (it.playerAction == PlayerAction.SPECIAL) it.copy(playerAction = PlayerAction.IDLE) else it }
+            }
         }
     }
 
@@ -692,6 +737,7 @@ class ZombieGameViewModel(
             _state.update { cur ->
                 cur.copy(items = cur.items.filter { it.id != itemId }, nearbyItemId = null)
             }
+            soundManager.playItem()
             applyEffect(item.effect)
             return
         }
@@ -781,7 +827,12 @@ class ZombieGameViewModel(
         }
 
         val facing = if (abs(dxForFacing) > 0.001f) dxForFacing > 0 else _state.value.isPlayerFacingRight
-        val action = if (_state.value.playerAction == PlayerAction.SPECIAL) PlayerAction.SPECIAL
+        // ATAQUE: MELEE mantiene SPECIAL mientras se SOSTIENE el botón; RANGED solo durante la
+        // ventana de animación (attackAnimUntilMs). Así, al DISPARAR moviéndote, la animación de
+        // ataque ya NO se queda pegada (antes move() reescribía SPECIAL en bucle).
+        val attacking = _state.value.playerAction == PlayerAction.SPECIAL &&
+            (_state.value.combatMode == CombatMode.MELEE || System.currentTimeMillis() < attackAnimUntilMs)
+        val action = if (attacking) PlayerAction.SPECIAL
         else if (_state.value.isRunning) PlayerAction.RUN else PlayerAction.WALK
 
         val mdx = fx - curX
@@ -794,7 +845,10 @@ class ZombieGameViewModel(
         _state.update { it.copy(playerX = fx, playerY = fy, playerAction = action, isPlayerFacingRight = facing, aimDirX = adx, aimDirY = ady) }
         idleJob = viewModelScope.launch {
             delay(150)
-            if (_state.value.playerAction != PlayerAction.SPECIAL) {
+            // Al DETENERte, vuelve a IDLE salvo que estés SOSTENIENDO el cuerpo a cuerpo (MELEE).
+            val st = _state.value
+            val meleeHeld = st.playerAction == PlayerAction.SPECIAL && st.combatMode == CombatMode.MELEE
+            if (!meleeHeld) {
                 _state.update { it.copy(playerAction = PlayerAction.IDLE) }
             }
         }

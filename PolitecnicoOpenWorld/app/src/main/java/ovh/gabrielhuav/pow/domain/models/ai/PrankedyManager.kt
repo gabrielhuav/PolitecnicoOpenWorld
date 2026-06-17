@@ -49,6 +49,11 @@ class PrankedyManager {
         const val WALK_SPEED        = 0.0000018
         const val RUN_SPEED         = 0.000005
         const val RUN_TANQUE_SPEED  = 0.0000075
+        // Acompañante (HIRED): el jugador corre a 0.000006 (> RUN_SPEED), así que sin esto Prankedy
+        // NUNCA te alcanza. CATCH-UP = más rápido cuanto más lejos; WARP = si quedó demasiado lejos
+        // (atascado/TP/te fuiste corriendo) se teletransporta a tu lado para SIEMPRE estar contigo.
+        const val COMPANION_MAX_SPEED = 0.000013   // tope de alcance (~2.2× correr; supera al jugador)
+        const val COMPANION_WARP_DIST = 0.0004     // ~44 m: más lejos que esto → se teletransporta
 
         // ── Acompañante (fase HIRED): umbrales de seguimiento al jugador ──────
         // Parada MUY cerca para que no se quede rezagado (antes ~10 m → ~3 m).
@@ -204,7 +209,10 @@ class PrankedyManager {
         roadNetwork: List<MapWay>,
         snapToRoad: ((GeoPoint) -> GeoPoint)? = null,
         // Acompañante (HIRED): si el jugador corre, Prankedy iguala la velocidad (p_run).
-        playerRunning: Boolean = false
+        playerRunning: Boolean = false,
+        // catchup = true (acompañante): alcance rápido + warp a tu lado si quedó lejos. false: seguimiento
+        // normal SIN catch-up/warp (lo usa la HUIDA de la Misión 2 a la puerta, que debe ser LENTA).
+        catchup: Boolean = true
     ): PrankedyTickResult {
         snapToRoadFn = snapToRoad
         // Si el jugador va en coche, Prankedy desaparece visualmente (sin perder su estado).
@@ -222,7 +230,7 @@ class PrankedyManager {
 
         // ACOMPAÑANTE (HIRED): modo seguidor pacífico. Te sigue (camina/corre), sin atacarte
         // ni lanzar el tanque. Solo se usa en la campaña ENCB (ver maybeSpawnPrankedyCompanion).
-        if (phase == PrankedyPhase.HIRED) return tickFollow(loc, playerLoc, now, playerRunning)
+        if (phase == PrankedyPhase.HIRED) return tickFollow(loc, playerLoc, now, playerRunning, catchup)
 
         // ANTI-TRABA: si está LEJOS del jugador (debería estar moviéndose) y no avanza en
         // STUCK_TIME_MS, se reubica cerca de ti sobre la calle. NO se cura (conserva vida y
@@ -372,13 +380,30 @@ class PrankedyManager {
      * césped/edificios). La orientación del sprite se calcula con el VECTOR DE MOVIMIENTO real
      * (no la posición del jugador) para que mire hacia donde avanza y no parezca caminar al revés.
      */
-    private fun tickFollow(loc: GeoPoint, playerLoc: GeoPoint, now: Long, playerRunning: Boolean): PrankedyTickResult {
+    private fun tickFollow(loc: GeoPoint, playerLoc: GeoPoint, now: Long, playerRunning: Boolean, catchup: Boolean): PrankedyTickResult {
         projectileActive = false
         val d = dist(loc, playerLoc)
+        // SIEMPRE A TU LADO (solo acompañante, catchup=true): si quedó DEMASIADO lejos (atascado,
+        // teletransporte, o te fuiste lejos), se teletransporta a tu lado en vez de tardar en alcanzarte.
+        if (catchup && d > COMPANION_WARP_DIST) {
+            location = snap(playerLoc)
+            animState = PrankedyAnimState.RUN
+            tickDialogue(now)
+            return PrankedyTickResult()
+        }
         if (d > FOLLOW_STOP_DIST) {
-            // Empate de velocidad: corre si el jugador corre (igual aceleración) o si está lejos.
+            // Corre si el jugador corre o si está lejos.
             val running = playerRunning || d > FOLLOW_WALK_DIST
-            val speed = if (running) RUN_SPEED else WALK_SPEED
+            // ACOMPAÑANTE lejos → CATCH-UP (más rápido cuanto más lejos, por encima de tu correr) para
+            // alcanzarte aunque corras o te subas a un coche. Sin catchup (huida Misión 2) → correr normal.
+            val speed = when {
+                catchup && d > FOLLOW_WALK_DIST -> {
+                    val over = ((d - FOLLOW_WALK_DIST) / FOLLOW_WALK_DIST).toFloat().coerceIn(0f, 6f)
+                    (RUN_SPEED * (1.6f + over)).coerceAtMost(COMPANION_MAX_SPEED)
+                }
+                running -> RUN_SPEED
+                else -> WALK_SPEED
+            }
             animState = if (running) PrankedyAnimState.RUN else PrankedyAnimState.WALK
             // ROAD-ONLY ESTRICTO: el siguiente punto se proyecta SIEMPRE sobre la red vial
             // (snap), de modo que Prankedy solo pisa calles/banquetas transitables.
@@ -457,6 +482,10 @@ class PrankedyManager {
         phase = PrankedyPhase.HIRED
         animState = PrankedyAnimState.IDLE
     }
+
+    /** Reubica a Prankedy en `loc` de inmediato (teletransporte del jugador / reintento de misión).
+     *  `location` tiene private set, por eso se expone este método. tickFollow lo ajusta a la calle. */
+    fun warpTo(loc: GeoPoint) { location = loc }
 
     /** (Legado, sin uso: ya no es contratable). */
     fun hire() { /* no-op: Prankedy ahora es un NPC hostil */ }

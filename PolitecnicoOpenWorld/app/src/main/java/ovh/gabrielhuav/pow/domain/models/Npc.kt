@@ -108,6 +108,10 @@ data class Npc(
     // p. ej. el conductor al que le robaste el coche.
     val callingUntil: Long = 0L,
 
+    // Mientras now < talkingUntil, el NPC muestra una burbuja ❓/💬 (está "platicando/reaccionando").
+    // Lo usan los policías del REMATE de la Misión 2 cuando Prankedy se les escapa a la ESCOM.
+    val talkingUntil: Long = 0L,
+
     // ─── TRÁFICO REALISTA (compromiso de intersección + variación de velocidad) ──
     // Compromiso de intersección: evita que el NPC "tiemble" decidiendo en cada tick.
     // Una vez que elige una salida en una bifurcación, se compromete a esa vía

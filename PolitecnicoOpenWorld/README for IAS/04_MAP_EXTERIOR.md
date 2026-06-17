@@ -66,8 +66,9 @@ data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
 - **Mapa/carga:** `currentLocation, isLoadingLocation, zoomLevel, mapProvider, pendingProvider,
   pendingProviderReady, isMapReady, mapLoadProgress, roadSource, tileSource, isRoadNetworkReady`.
 - **Render flags:** `showCacheWidget(=true), showFpsWidget, showZoomWidget (widget de nivel de zoom,
-  Ajustes→Interfaz), showSpeedometer (=true; velocímetro km/h, solo al conducir), showRoadNetwork,
-  isUserPanningMap`.
+  Ajustes→Interfaz), showSpeedometer (=true; velocímetro km/h, solo al conducir), showCoordsWidget
+  (widget de coordenadas X/Y/Z, Ajustes→Interfaz, default oculto; X=lon, Y=lat, Z="GLOBAL"),
+  showRoadNetwork, isUserPanningMap`.
 - **Zoom por estado (constantes en `WorldMapState.kt`):** `ZOOM_ON_FOOT=22`, `ZOOM_DRIVING=21`,
   `ZOOM_DRIVING_FAST=20` (≥85% de MAX_SPEED baja a 20; histéresis al 65%). `updateAutoZoom()` corre
   cada tick del game loop y solo actúa en TRANSICIONES de modo (el pinch manual se respeta).
@@ -288,7 +289,7 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
   `updatePrankedyProjectile` en `WorldMapLeafletHtml`, base64 por frame empujado desde `WorldMapScreen`).
   Google nativo = pendiente. IA/comportamiento → ver 03.
 - **🆕 Línea GPS de campaña (Modo Historia):** ruta A* `findRoadRoute(ENCB, ESCOM)` (en `WorldMapRouting.kt`,
-  sobre la red vial) → `WorldMapState.campaignRouteWaypoints`, dibujada como **`Polyline` ROJA** en OSM nativo
+  sobre la red vial) → `WorldMapState.campaignRouteWaypoints`, dibujada como **`Polyline` VERDE VIVO (`#00E676`, gruesa)** en OSM nativo
   (`NativeOsmMap`, tag `route_overlay_tag+900`, `overlays.add(0,…)` → sobre teselas, bajo personajes/HUD) y en
   web (JS `updateCampaignRoute` en `WorldMapLeafletHtml`). La activa `maybeSpawnPrankedyCompanion` y la oculta
   `maybeHideCampaignRouteNearEscom` (~100 m de ESCOM) en `WorldMapPrankedy.kt`. Google nativo = pendiente. Ver 07.

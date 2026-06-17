@@ -27,6 +27,9 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+// Autenticacion: verificacion de ID tokens de Firebase (modo suave por defecto).
+const { initFirebaseAuth, verifyClient } = require('./auth');
+initFirebaseAuth();
 
 const app = express();
 app.use(cors());
@@ -428,7 +431,8 @@ function stepZombie(z, target, def, st, now) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const wss = new WebSocket.Server({ server });
+// verifyClient verifica el token ANTES de aceptar la conexion (rechaza en modo estricto).
+const wss = new WebSocket.Server({ server, verifyClient });
 
 function broadcastToRoom(roomId, senderWs, messageAsString) {
     wss.clients.forEach((client) => {
@@ -659,8 +663,11 @@ const playerGcInterval = setInterval(() => {
     }
 }, 5000);
 
-wss.on('connection', (ws) => {
-    ws.sessionId = uuidv4();
+wss.on('connection', (ws, req) => {
+    // Identidad: si el token se verifico, usamos el UID de Firebase como sessionId
+    // (reemplaza al device id). Si no (modo suave / anonimo), un UUID aleatorio.
+    ws.firebaseUid = (req && req.firebaseUid) ? req.firebaseUid : null;
+    ws.sessionId = ws.firebaseUid || uuidv4();
     ws.isAlive = true;
     ws.missedPings = 0;
     ws.roomId = null;

@@ -135,7 +135,7 @@ fun WorldMapViewModel.loadLandmarks(context: Context) {
                 try {
                     val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
                     val reader = java.io.InputStreamReader(inputStream)
-                    escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
+                    escomNavGraph = normalizeNavGraph(Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java))
                     reader.close()
                 } catch (e: Exception) {
                     Log.e("WorldMapViewModel", "No se pudo cargar el navGraph de ESCOM al inicio", e)
@@ -186,6 +186,12 @@ fun WorldMapViewModel.loadLandmarks(context: Context) {
             }
 
             _uiState.update { currentState -> currentState.copy(landmarks = domainLandmarks) }
+
+            // DIAGNÓSTICO (filtra Logcat por POW_DBG): cuántos landmarks cargaron, cuántos con navGraph,
+            // y el estado del de ESCOM (navGraph adjunto, nº de slots de estacionamiento, tamaño base).
+            val escomLm = domainLandmarks.firstOrNull { it.assetPath.contains("building_escom", true) }
+            val escomSlots = escomLm?.navGraph?.ways?.sumOf { w -> w.nodes.count { n -> n.isParkingSlot } } ?: 0
+            Log.d("POW_DBG", "loadLandmarks: total=${domainLandmarks.size} conNavGraph=${domainLandmarks.count { it.navGraph != null }} | ESCOM: existe=${escomLm != null} navGraph=${escomLm?.navGraph != null} slots=$escomSlots baseW=${escomLm?.baseWidthMeters} baseH=${escomLm?.baseHeightMeters} scaleX=${escomLm?.scaleX} scaleY=${escomLm?.scaleY}")
 
         } catch (e: Exception) {
             Log.e("WorldMapViewModel", "Error fatal al cargar las estructuras estáticas", e)

@@ -279,6 +279,30 @@ via co-located `ViewModelProvider.Factory` instances.
 - With the map off-center (`isUserPanningMap`), the left movement controls
   (`moveCharacter`/`moveCharacterByAngle`) **recenter on the player** (no zoom
   change) on first tap instead of moving blindly off-screen.
+- **Orientation is decided ONLY by `MainActivity` per navigation route** (in-game =
+  `SENSOR_LANDSCAPE`; menu routes = `UNSPECIFIED`); screens never set orientation. Settings is the
+  one route opened from BOTH a menu (portrait OK) and the game (must stay landscape): it takes a
+  `fromGame` arg — `settings?fromGame=true` from the game vs `settings` from the menu — and the
+  route listener reads `arguments.getBoolean("fromGame")` to keep it landscape. Exact-route checks on
+  Settings must use `route?.startsWith("settings")` because of the `?fromGame=...` suffix.
+- The **"BACK" button** (`menu_back` = VOLVER/BACK) is shared by Collectibles and Settings with the
+  same filled red `CutCornerShape` style. Interface widget descriptions use `TextAlign.Justify` inside
+  a `Column.weight(1f)` so 2+ line texts spread evenly (reuse for any new multi-line widget).
+- **Auth (Firebase + Google Sign-In)** lives in `data/auth/` (`AuthManager`, `AuthSession`). Multiplayer
+  requires sign-in (gate in `MainMenuScreen`); local play/Story Mode don't. The Firebase UID replaces the
+  device id. `WebSocketManager` sends `Authorization: Bearer <idToken>` from `AuthSession`; both Node
+  servers verify it in `auth.js`/`verifyClient` (soft mode unless `AUTH_REQUIRED=true`). Account screen in
+  Settings → Account, with account deletion (Play Store requirement). Needs `google-services.json` (you add it).
+- **AI NPCs live in `remoteEntities`** (the per-tick `setServerNpcs` clears+refills `NpcAiManager`'s list
+  from it, then the host writes the simulated NPCs back). To inject persistent NPCs, put them in
+  `remoteEntities` (empty `displayName`); `addServerNpcs` only seeds the current tick. The **60 campaign
+  route NPCs** (`WorldMapCampaignRouteNpcs.kt`) build a virtual `MapWay` from `campaignRouteWaypoints` and
+  carry id prefix `CAMPAIGN_ROUTE_` to stay exempt from despawn/cull; `moveNpc` walks them back-and-forth.
+  Mission-2 endgame cops gather at `mission2PrankedyExitPoint` (where Prankedy vanished). The **Debug
+  Interiors panel** is movable/resizable/scrollable and has a "Salir" button.
+- **Developer Mode** (`SettingsState.developerMode`, `SettingsRepository.get/saveDeveloperMode`,
+  Settings → Interface, default off) is the flag screens should observe to hide test-only buttons in
+  the final build (per-screen wiring still TODO).
 - Room DB is currently `@Database` v8 with `MIGRATION_7_8` + destructive fallback.
 - Persisted prefs go through `SettingsRepository` (SharedPreferences), not Room.
 - The **client and both servers must agree on collision matrices**: the Designer
@@ -348,7 +372,11 @@ and player-overtaking — cars advance their road node while dodging instead of 
 on death; multiplayer-replicated)**; **working melee combat vs NPCs AND remote players in online mode**
 (attacker-authoritative via existing `PLAYER_DAMAGE` message, ensuring `displayName` is never blank);
 zone-delegated open-world multiplayer (server v2: AOI + host throttle + rate-limit
-+ sanitization + ghost GC); vehicle driving; configurable controls; 8 map
++ sanitization + ghost GC); vehicle driving; **configurable controls (default = JOYSTICK; same
+control height in open world and interiors)**; **optional X/Y/Z coordinates widget (Settings →
+Interface) in both world and interiors**; **landscape in-game but rotatable while the Options menu
+(pause) is open**; **separate Music/SFX volume sliders (Settings → Audio, applied by `SoundManager`)**;
+**door-to-door room teleports (spawn at the connecting door, not the map center)**; 8 map
 providers; editable landmarks with JSON import/export (Designer Mode); 6 lore
 collectibles with persistent inventory; waypoint navigation with greedy road-graph
 routing; 6 ESCOM interiors; native OSM now offline-unified with the Web tile cache + per-zone prefetch,

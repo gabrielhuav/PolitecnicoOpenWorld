@@ -120,6 +120,55 @@ internal fun WorldMapViewModel.startGameLoop() {
                             }
                         }
 
+                        // Audio Management
+                        if (!_uiState.value.isDriving) {
+                            when (_uiState.value.playerAction) {
+                                PlayerAction.WALK -> {
+                                    soundManager.playWalk()
+                                    soundManager.stopRun()
+                                }
+                                PlayerAction.RUN -> {
+                                    soundManager.playRun()
+                                    soundManager.stopWalk()
+                                }
+                                else -> {
+                                    soundManager.stopWalk()
+                                    soundManager.stopRun()
+                                }
+                            }
+                        } else {
+                            soundManager.stopWalk()
+                            soundManager.stopRun()
+                        }
+                        
+                        var anyCarMoving = false
+                        if (_uiState.value.isDriving && kotlin.math.abs(_uiState.value.vehicleSpeed) > 0.0) {
+                            anyCarMoving = true
+                        } else {
+                            for (npc in remoteEntities.values) {
+                                if ((npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.CAR || npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_CAR) && npc.isMoving) {
+                                    if (distance(location, npc.location) < 0.001) {
+                                        anyCarMoving = true
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                        if (anyCarMoving) soundManager.playCar() else soundManager.stopCar()
+
+                        if (tickCount % 150 == 0L) {
+                            var zombieNear = false
+                            for (npc in remoteEntities.values) {
+                                if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
+                                    if (distance(location, npc.location) < 0.0005) {
+                                        zombieNear = true
+                                        break
+                                    }
+                                }
+                            }
+                            if (zombieNear) soundManager.playZombieNear()
+                        }
+
                         if (tickCount % 30 == 0L) {
                             trySpawningCollectible(location.latitude, location.longitude)
                         }

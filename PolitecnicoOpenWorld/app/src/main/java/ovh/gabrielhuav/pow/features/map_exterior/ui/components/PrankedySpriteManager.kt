@@ -20,15 +20,39 @@ import ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState
 object PrankedySpriteManager {
 
     // ── Definición de animaciones ─────────────────────────────────────────────
-    private data class AnimDef(val folder: String, val prefix: String, val frameCount: Int)
+    // `frameIntervalMs` = ms entre cambios de frame. IDLE va MÁS LENTO (respiración
+    // tranquila); el resto mantiene el ritmo ágil de antes (200 ms).
+    private data class AnimDef(
+        val folder: String,
+        val prefix: String,
+        val frameCount: Int,
+        val frameIntervalMs: Long = 200L
+    )
 
     private val ANIM_MAP = mapOf(
-        PrankedyAnimState.IDLE       to AnimDef("p_idle",      "p_idle_",       3),
+        PrankedyAnimState.IDLE       to AnimDef("p_idle",      "p_idle_",       3, 500L),
         PrankedyAnimState.WALK       to AnimDef("p_walk",      "p_walk_",       9),
         PrankedyAnimState.RUN        to AnimDef("p_run",       "p_run_",        8),
         PrankedyAnimState.RUN_TANQUE to AnimDef("p_run_tanque","p_run_tanque_", 9),
         PrankedyAnimState.ATTACK     to AnimDef("p_attack",     "p_attack_",      5),
     )
+
+    private fun defOf(animState: PrankedyAnimState): AnimDef =
+        ANIM_MAP[animState] ?: ANIM_MAP[PrankedyAnimState.IDLE]!!
+
+    /** Nº de frames de la animación. */
+    fun frameCountOf(animState: PrankedyAnimState): Int = defOf(animState).frameCount
+
+    /** ms entre frames de la animación (IDLE va más lento que el resto). */
+    fun frameIntervalOf(animState: PrankedyAnimState): Long = defOf(animState).frameIntervalMs
+
+    /** Índice de frame 0-based para `timeMs`, respetando el intervalo por animación.
+     *  Lo usan los renderers (web/OSM nativo) para construir su clave de caché de modo
+     *  que coincida con el frame que devuelve [getDrawable]. */
+    fun currentFrameIndex0(animState: PrankedyAnimState, timeMs: Long): Int {
+        val def = defOf(animState)
+        return ((timeMs / def.frameIntervalMs) % def.frameCount).toInt()
+    }
 
     // ── Caché de Bitmaps crudos (carpeta/frame → Bitmap) ─────────────────────
     // 24 entradas: suficiente para las 5 animaciones × frames típicos
@@ -65,8 +89,8 @@ object PrankedySpriteManager {
         scale: Float,
         facingRight: Boolean
     ): BitmapDrawable? {
-        val def = ANIM_MAP[animState] ?: ANIM_MAP[PrankedyAnimState.IDLE]!!
-        val frameIndex = ((timeMs / 200L) % def.frameCount).toInt() + 1  // 1-based, sin ceros
+        val def = defOf(animState)
+        val frameIndex = ((timeMs / def.frameIntervalMs) % def.frameCount).toInt() + 1  // 1-based, sin ceros
         val roundedScale = roundScale(scale)
         val cacheKey = "${animState.name}_${frameIndex}_${roundedScale}_$facingRight"
 

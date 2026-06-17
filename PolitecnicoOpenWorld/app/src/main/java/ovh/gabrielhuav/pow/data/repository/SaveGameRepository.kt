@@ -24,6 +24,12 @@ data class GameSaveData(
     val nearbyNpcs: List<SavedNpc> = emptyList(),
     val objectiveId: String? = null,   // id del objetivo activo (MissionCatalog)
     val objectiveDone: Boolean = false,
+    // Sala de interiores donde se guardó la partida (id del ZombieRoomCatalog) o null si
+    // se guardó en el MAPA GLOBAL. Al CARGAR, si no es null se reentra a ese interior.
+    val interiorRoomId: String? = null,
+    // Tipo de guardado: "MANUAL" (el jugador eligió slot) o "AUTO" (al salir/cerrar la app).
+    // Nullable por compatibilidad con guardados antiguos (Gson los deja en null).
+    val saveType: String? = null,
     val savedAt: Long
 )
 
@@ -43,7 +49,9 @@ data class SaveSlotSummary(
     val slot: Int,
     val exists: Boolean,
     val schoolId: String?,
-    val savedAt: Long
+    val savedAt: Long,
+    val interiorRoomId: String? = null,   // null = mapa global; si no, sala de interiores
+    val saveType: String? = null          // "MANUAL" / "AUTO"
 )
 
 // Lee/escribe las partidas por slot. Tolerante a fallos: si el disco falla o el JSON está
@@ -73,19 +81,43 @@ class SaveGameRepository(context: Context) {
     /** ¿Hay alguna partida en cualquier slot? (habilita "CARGAR PARTIDA" en el menú). */
     fun anySave(): Boolean = (1..SLOT_COUNT).any { hasSave(it) }
 
-    /** Primer slot vacío (para no sobrescribir partidas al COMENZAR una nueva), o 1 si todos llenos. */
-    fun firstEmptySlot(): Int = (1..SLOT_COUNT).firstOrNull { !hasSave(it) } ?: 1
+    /** Primer slot MANUAL vacío (para no sobrescribir partidas al COMENZAR una nueva). */
+    fun firstEmptyManualSlot(): Int = MANUAL_SLOTS.firstOrNull { !hasSave(it) } ?: MANUAL_SLOTS.first()
+
+    /** ¿El slot es de AUTO-GUARDADO (reservado, no se puede guardar manualmente en él)? */
+    fun isAutoSlot(slot: Int): Boolean = slot in AUTO_SLOTS
+
+    /** Slot de AUTO-GUARDADO donde escribir ahora: el vacío primero; si los dos están llenos,
+     *  el más ANTIGUO (rota entre los 2 auto-slots → siempre se conservan los 2 más recientes). */
+    fun nextAutoSlot(): Int {
+        AUTO_SLOTS.firstOrNull { !hasSave(it) }?.let { return it }
+        return AUTO_SLOTS.minByOrNull { load(it)?.savedAt ?: 0L } ?: AUTO_SLOTS.first()
+    }
+
+    /** Borra ambos slots de AUTO-GUARDADO (al COMENZAR una partida nueva, empiezan limpios). */
+    fun clearAutoSlots() { AUTO_SLOTS.forEach { clear(it) } }
 
     /** Resumen de los SLOT_COUNT slots, para el menú de selección. */
     fun summaries(): List<SaveSlotSummary> = (1..SLOT_COUNT).map { s ->
         val d = load(s)
-        SaveSlotSummary(slot = s, exists = d != null, schoolId = d?.schoolId, savedAt = d?.savedAt ?: 0L)
+        SaveSlotSummary(
+            slot = s,
+            exists = d != null,
+            schoolId = d?.schoolId,
+            savedAt = d?.savedAt ?: 0L,
+            interiorRoomId = d?.interiorRoomId,
+            saveType = d?.saveType
+        )
     }
 
     /** Borra la partida del slot. */
     fun clear(slot: Int) { try { val f = file(slot); if (f.exists()) f.delete() } catch (_: Exception) {} }
 
     companion object {
-        const val SLOT_COUNT = 5
+        // 7 slots en total: 2 de AUTO-GUARDADO (1,2 — reservados, no editables a mano) +
+        // 5 de guardado MANUAL (3..7).
+        const val SLOT_COUNT = 7
+        val AUTO_SLOTS = listOf(1, 2)
+        val MANUAL_SLOTS = (3..7).toList()
     }
 }

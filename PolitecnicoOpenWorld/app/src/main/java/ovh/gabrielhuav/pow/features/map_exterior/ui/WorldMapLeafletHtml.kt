@@ -69,6 +69,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var policeWpLines = {};     // líneas punteadas jugador → patrulla
         var zombieWpMarkers = {};   // 🧟 de zombis fuera del fog (modo apocalipsis, paridad con OSM nativo)
         var zombieWpLines = {};     // líneas ROJAS punteadas jugador → zombi
+        var talkBubbleMarkers = {}; // 💬 burbujas de "platica/reacciona" (remate Misión 2: policías)
         var prankedyMarker = null;  // 🎭 compañero Prankedy (sprite propio en web, paridad con OSM nativo)
         var prankedyProjMarker = null;  // 📦 tanque de gas que lanza Prankedy (p_objeto)
 
@@ -530,7 +531,8 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 if (policeWpMarkers[p.id]) {
                     policeWpMarkers[p.id].setLatLng([p.lat, p.lng]);
                 } else {
-                    var icon = L.divIcon({ html: '<div style="font-size:26px; transform:translate(-50%,-50%);">🚓</div>', className: '', iconSize: [0,0] });
+                    var emoji = p.emoji || '🚓';
+                    var icon = L.divIcon({ html: '<div style="font-size:26px; transform:translate(-50%,-50%);">' + emoji + '</div>', className: '', iconSize: [0,0] });
                     policeWpMarkers[p.id] = L.marker([p.lat, p.lng], { icon: icon, interactive: false, zIndexOffset: 800 }).addTo(map);
                 }
                 var pts = [[playerLat, playerLng], [p.lat, p.lng]];
@@ -540,6 +542,41 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                     policeWpLines[p.id] = L.polyline(pts, { color: '#005AFF', weight: 3, opacity: 0.47, dashArray: '18, 14', interactive: false }).addTo(map);
                 }
             });
+        }
+        // ─── BURBUJAS DE PLÁTICA (💬) ───────────────────────────────────────────────
+        // Remate de la Misión 2: cuando Prankedy se les escapa a la ESCOM, los policías se
+        // juntan en la puerta y "platican". Cada uno muestra una burbuja 💬 flotando encima.
+        function updateTalkBubbles(data) {
+            var ids = new Set(data.map(function(b){ return b.id; }));
+            for (var id in talkBubbleMarkers) if (!ids.has(id)) { map.removeLayer(talkBubbleMarkers[id]); delete talkBubbleMarkers[id]; }
+            data.forEach(function(b) {
+                if (talkBubbleMarkers[b.id]) {
+                    talkBubbleMarkers[b.id].setLatLng([b.lat, b.lng]);
+                } else {
+                    var icon = L.divIcon({ html: '<div style="font-size:22px; transform:translate(-50%,-150%); filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));">💬</div>', className: '', iconSize: [0,0] });
+                    talkBubbleMarkers[b.id] = L.marker([b.lat, b.lng], { icon: icon, interactive: false, zIndexOffset: 1200 }).addTo(map);
+                }
+            });
+        }
+        // ─── WAYPOINT DEL OBJETIVO (Modo Historia) ──────────────────────────────────
+        // Marca el destino del objetivo de campaña con un 🎯 (además del camino rojo).
+        function updateObjectiveWp(playerLat, playerLng, lat, lng) {
+            if (lat === null || lat === undefined) {
+                if (window.__objWp) { map.removeLayer(window.__objWp); window.__objWp = null; }
+                if (window.__objLine) { map.removeLayer(window.__objLine); window.__objLine = null; }
+                return;
+            }
+            if (window.__objWp) { window.__objWp.setLatLng([lat, lng]); }
+            else {
+                var icon = L.divIcon({ html: '<div style="font-size:28px; transform:translate(-50%,-50%);">🎯</div>', className: '', iconSize: [0,0] });
+                window.__objWp = L.marker([lat, lng], { icon: icon, interactive: false, zIndexOffset: 850 }).addTo(map);
+            }
+            // Línea jugador→objetivo: te indica a DÓNDE IR aunque el destino esté fuera de pantalla.
+            var pts = [[playerLat, playerLng], [lat, lng]];
+            if (window.__objLine) { window.__objLine.setLatLngs(pts); }
+            else {
+                window.__objLine = L.polyline(pts, { color: '#FFC107', weight: 4, opacity: 0.65, dashArray: '22, 16', interactive: false }).addTo(map);
+            }
         }
         // ─── WAYPOINTS DE ZOMBIS (fuera del fog, modo apocalipsis) ──────────────────
         // Paridad con OSM nativo: cada zombi FUERA de tu campo de visión se marca con un
@@ -699,9 +736,10 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
             }
         }
-        // ─── LÍNEA GPS DE CAMPAÑA (roja, Modo Historia: ENCB → ESCOM) ───
-        // Línea ROJA sólida en el overlayPane (paths), que en Leaflet queda DEBAJO de los
-        // marcadores (personajes) y del HUD de Compose. interactive:false = no roba toques.
+        // ─── LÍNEA GPS DE CAMPAÑA (VERDE VIVO, Modo Historia: ENCB → ESCOM) ───
+        // Línea VERDE VIVO sólida y gruesa en el overlayPane (paths), DEBAJO de los marcadores
+        // (personajes) y del HUD de Compose. Verde para destacar sobre la ruta de destino (azul)
+        // y las líneas del debug (rojo/naranja). interactive:false = no roba toques.
         var campaignRoute = null;
         function updateCampaignRoute(routePoints) {
             if (campaignRoute) { map.removeLayer(campaignRoute); campaignRoute = null; }
@@ -713,7 +751,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
                 if (pts.length > 1) {
                     campaignRoute = L.polyline(pts, {
-                        color: '#E00000', weight: 6, opacity: 0.95,
+                        color: '#00E676', weight: 9, opacity: 0.97,
                         lineCap: 'round', lineJoin: 'round', interactive: false
                     }).addTo(map);
                 }

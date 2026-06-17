@@ -8,7 +8,7 @@
     <string name="exit_dialog_dismiss">Exit</string>
 
     <!-- ─── Main menu ─── -->
-    <string name="menu_version">v%1$s - ESCOM Edition</string>
+    <string name="menu_version">ALPHA - v%1$s</string>
     <string name="menu_start_game">FREE ROAM</string>
     <string name="menu_load_game">STORY MODE</string>
     <string name="menu_multiplayer">MULTIPLAYER</string>
@@ -27,12 +27,16 @@
     <string name="menu_warmup_text">The multiplayer server is asleep.\nWaking it up... %1$ds</string>
     <string name="menu_warmup_hint">It may take up to 60 seconds.</string>
     <string name="menu_return">RETURN TO MENU</string>
+    <string name="menu_signed_in_as">Signed in: %1$s</string>
+    <string name="menu_local_mode">Local mode (no account)</string>
+    <!-- Generic back button (collectibles, settings) -->
+    <string name="menu_back">BACK</string>
 
     <!-- ─── Story Mode / Campaign (features/main_menu) ─── -->
     <string name="story_title">STORY MODE</string>
     <string name="story_subtitle">The Politécnico outbreak</string>
     <string name="story_prologue_heading">PROLOGUE</string>
-    <string name="story_prologue">One day, at the ENCB, Prankedy showed up pulling his usual pranks and, because of one of them, accidentally ended up in the middle of a thesis-project experiment: the creation of a corrosive substance, able to poison and seep through latex. The mistake goes unnoticed… and time goes by.</string>
+    <string name="story_prologue">One day, at the ENCB, Prankedy showed up pulling his usual pranks and, because of one of them, accidentally ended up in the middle of an experiment that triggered the creation of an unknown, infectious compound, able to seep through latex. The mistake goes unnoticed… and time goes by.</string>
     <string name="story_choose_school">Choose your school</string>
     <string name="story_school_unavailable">In development</string>
     <string name="story_school_escom_desc">Zacatenco, Mexico City · Available</string>
@@ -40,7 +44,7 @@
     <string name="story_load_game">LOAD GAME</string>
     <string name="story_no_saves">No saved games</string>
     <string name="story_saved_at">Saved game · %1$s</string>
-    <string name="story_start">START</string>
+    <string name="story_start">NEW GAME</string>
     <string name="story_back">BACK</string>
     <!-- Campaign intro ("Ready to Start") -->
     <string name="story_intro_ready">Ready to Start</string>
@@ -85,6 +89,27 @@
     <string name="settings_zoom_widget_desc">Shows the current zoom level live</string>
     <string name="settings_speedometer">Speedometer</string>
     <string name="settings_speedometer_desc">Shows your speed (km/h) while driving</string>
+    <string name="settings_coords_widget">Coordinates (X/Y/Z)</string>
+    <string name="settings_coords_widget_desc">Shows your X/Y/Z position in the world and indoors</string>
+    <string name="settings_developer_mode">Developer Mode</string>
+    <string name="settings_developer_mode_desc">Shows test options and buttons reserved for development</string>
+    <!-- ─── Account / Authentication (Google Sign-In) ─── -->
+    <string name="settings_cat_account">Account</string>
+    <string name="settings_account_desc">Sign in with Google to play online. Local play and Story Mode don\'t require an account.</string>
+    <string name="settings_account_signed_in_as">Signed in as:\n%1$s</string>
+    <string name="settings_account_not_signed_in">You are not signed in.</string>
+    <string name="settings_account_sign_in">Sign in with Google</string>
+    <string name="settings_account_sign_out">Sign out</string>
+    <string name="settings_account_delete">Delete my account and data</string>
+    <string name="settings_account_delete_confirm_title">Delete your account?</string>
+    <string name="settings_account_delete_confirm_text">Your game account and the data saved on this device (campaign saves) will be deleted. This cannot be undone.</string>
+    <string name="settings_account_delete_done">Account and data deleted.</string>
+    <string name="settings_account_relogin_needed">For security, please sign in again before deleting your account.</string>
+    <string name="settings_account_sign_in_error">Sign-in failed.</string>
+    <string name="settings_account_privacy">View privacy policy</string>
+    <string name="settings_cat_audio">Audio</string>
+    <string name="settings_music_volume">Music volume</string>
+    <string name="settings_sfx_volume">Sound effects volume</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_system">System (default)</string>
     <string name="settings_controls_saved">Controls settings saved</string>

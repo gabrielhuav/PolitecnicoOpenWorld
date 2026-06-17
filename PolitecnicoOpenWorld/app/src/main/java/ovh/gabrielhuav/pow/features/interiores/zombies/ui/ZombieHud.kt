@@ -46,6 +46,7 @@ import ovh.gabrielhuav.pow.domain.models.zombie.ZombieType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin          // ← NUEVO
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
@@ -122,6 +123,15 @@ fun ZombieHud(
                         )
                     }
                 }
+            }
+            // Widget de coordenadas (Ajustes → Interfaz): X/Y = posición en la sala,
+            // Z = "dónde" estás (nombre de la sala / interior actual).
+            if (state.showCoordsWidget) {
+                CoordsWidget(
+                    x = state.playerX.toInt().toString(),
+                    y = state.playerY.toInt().toString(),
+                    z = roomName.uppercase()
+                )
             }
         }
 

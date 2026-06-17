@@ -7,6 +7,19 @@ low-end performance) or doc drift.
 
 ---
 
+## 0. Archivos GRANDES (>1000 líneas) — plan de separación pendiente
+
+**ES:** Archivos candidatos a dividir (al 2026-06-17): `WorldMapViewModel.kt` (~2883),
+`WorldMapScreen.kt` (~2320), `NativeOsmMap.kt` (~1571), `NpcAiManager.kt` (~1466),
+`ZombieGameViewModel.kt` (~1177). **Aún NO se han separado**: hacerlo es riesgoso porque (1) mover un
+método a un archivo de **extensión** rompe el acceso a miembros `private` del VM (las extensiones solo
+ven `internal`/`public`) y (2) el patrón ya existente es "VM núcleo (estado/campos) + parciales de
+comportamiento en `WorldMap*.kt`". Plan SEGURO cuando se aborde: extraer SOLO bloques cohesivos cuyas
+funciones toquen exclusivamente miembros `internal`/`public`, a nuevos `WorldMap*.kt` /
+`ZombieGame*.kt`, verificando que NO existan gemelos miembro (gana el miembro) y conservando CRLF. Para
+`WorldMapScreen`/`NativeOsmMap` (Compose), extraer composables a archivos UI por sección. Hacerlo en
+pasos pequeños y verificables, uno por archivo.
+
 ## 1. Convenciones MVVM / MVVM conventions
 
 - Estado **siempre** como copia inmutable: `_state.update { it.copy(...) }`. Nunca mutar estado Compose
@@ -412,6 +425,170 @@ matrices por defecto son **border-only** hasta reemplazarse.
     rutas de assets, tipos de mensaje de red (`"PLAYER_UPDATE"`…), tags de log ni URLs: NO son texto de UI.
   - **Claves:** `snake_case`, prefijadas por feature (`menu_*`, `settings_*`). Toda clave nueva va en
     `values/` **y** `values-en/` (una contradicción/ausencia = bug; mantén la paridad).
+- **🆕 Control por defecto = `JOYSTICK`:** lo fija `SettingsRepository.getControlType()` (default JOYSTICK,
+  antes DPAD). Como TODOS los VMs leen el tipo de ahí al iniciar (`WorldMapViewModel`, `ZombieGameViewModel`,
+  `InteriorViewModel`, `MetroInteriorViewModel`, `ShineCTOViewModel`), basta ese cambio; los defaults de los
+  `*State` (`WorldMapState`, `SettingsState.controlType`/`tempControlType`) se pusieron en JOYSTICK por
+  coherencia del primer frame. DPAD sigue eligible en Ajustes → Controles (no se persiste hasta GUARDAR).
+- **🆕 Controles a la MISMA ALTURA (global = interiores):** la fila de controles del mapa global
+  (`WorldMapScreen`) se igualó a la de interiores (`ZombieHud`): `sidePadding 8/32`, `bottomPadding 32/20`,
+  `maxScale 0.95/1.3` (portrait/landscape) **+ `.systemBarsPadding()`** en el `Row`. Si retocas una, ajusta
+  la otra para que no se desincronicen.
+- **🆕 Orientación = SOLO por RUTA (las pantallas NO la fijan):** la orientación la decide ÚNICAMENTE
+  `MainActivity` por destino de navegación (in-game = `SENSOR_LANDSCAPE`; menús de ruta `main_menu`/
+  `story_mode`/`settings`/`collectibles` = `UNSPECIFIED`). **El menú de Opciones in-game NO cambia la
+  orientación.** (Se probó un `LaunchedEffect(optionsExpanded)` que rotaba al abrir Opciones, pero al usuario
+  le resultó molesto y se REVIRTIÓ: rotar = solo en una RUTA de menú, p. ej. Ajustes.) No re-añadir overrides
+  de orientación a nivel de pantalla. Ver 05.
+  - **🆕 Excepción `fromGame` en Ajustes:** Ajustes se abre desde el menú (vertical OK) y desde el JUEGO
+    (debe seguir horizontal). Se resuelve SIN tocar las pantallas: la ruta es `settings?fromGame={fromGame}`
+    (BoolType, default false). El menú principal navega a `settings` (fromGame=false → `UNSPECIFIED`); el juego
+    navega a `settings?fromGame=true` (→ `SENSOR_LANDSCAPE`). El `OnDestinationChangedListener` lee
+    `arguments?.getBoolean("fromGame")` del Bundle del destino y, si es true, NO trata Ajustes como menú
+    vertical. Sigue siendo "orientación por RUTA" (el arg es parte de la ruta). ⚠️ Por el `?fromGame=...`, los
+    chequeos de ruta exacta deben usar `route?.startsWith("settings")` (ya ajustado en `onNavigateBack`).
+- **🆕 NPCs de IA = `remoteEntities` es la FUENTE DE VERDAD (no `serverNpcs`):** en el game loop, cada
+  ~3 ticks `setServerNpcs(remoteEntities.filter{displayName vacío})` **CLEAR+refill** la lista del motor
+  desde `remoteEntities`; tras simular, el host vuelca `getServerNpcs()` de vuelta a `remoteEntities` y
+  `updateNpcsState()` los pinta. Por eso, para INYECTAR NPCs persistentes hay que meterlos en
+  `remoteEntities` (con `displayName` vacío); meterlos solo en `serverNpcs` se borra al siguiente re-sync.
+  `NpcAiManager.addServerNpcs(list)` existe para sembrarlos sin esperar un tick, pero la persistencia vive
+  en `remoteEntities`. Single-player: `isServerDelegatedHost=true` (default) → la simulación corre.
+- **🆕 60 NPCs que CAMINAN por la ruta roja de campaña (`WorldMapCampaignRouteNpcs.kt`):** desde
+  `campaignRouteWaypoints` se arma un `MapWay` virtual (ids negativos para no chocar con OSM,
+  `isForPeople=true`) y 60 `Npc` con `currentWay`=esa ruta. `moveNpc` los lleva nodo a nodo; al no haber
+  vías conectadas en los extremos (ids negativos no están en `nodeToWays`), **invierten la dirección** →
+  van y vienen. Llevan id con prefijo `NpcAiManager.ROUTE_NPC_PREFIX` (`"CAMPAIGN_ROUTE_"`) que los deja
+  **EXENTOS del despawn por distancia y del cull por `maxTotalNpcs`** (si no, se borraban lejos del
+  jugador); fuera del `simRadius` se ponen `isMoving=false` (no “caminan en el sitio”) y si `moveNpc`
+  devuelve null NO se despawnean (se quedan quietos). Disparo: automático en `maybeSpawnPrankedyCompanion`
+  (escolta) y manual con el botón del panel Debug Interiores (`toggleCampaignRouteNpcsDebug`). Se limpian
+  en `maybeHideCampaignRouteNearEscom` y en `clearCampaignPolice`.
+- **🆕 REMATE Misión 2: la policía se reúne donde Prankedy SE METIÓ:** al entrar Prankedy a la ESCOM se
+  guarda su posición exacta en `mission2PrankedyExitPoint`; `runMission2Tick` pasa ESE punto a
+  `startResolution` (antes pasaba la puerta del objetivo, unos metros más allá). Se resetea en
+  `startMission2`/`clearCampaignPolice`.
+- **🆕 Panel Debug Interiores movible + Salir (`InteriorDebugEditorPanel`):** el editor de líneas de
+  colisión del mapa global ahora es movible/redimensionable/scroll (mismo patrón que el panel del
+  diseñador de matrices: asa con `detectDragGestures`, `graphicsLayer` scale −/+, `heightIn(max=90%)` +
+  `verticalScroll`) y tiene botón **"Salir"** (`onExit` → `setDebugEditTool(NONE)` +
+  `toggleInteriorDebugOverlay(false)`). Aloja además el botón de debug de los NPCs de ruta.
+- **🆕 AUTENTICACIÓN (Firebase Auth + Google Sign-In):** el **multijugador** (y, a futuro, los logros)
+  exige iniciar sesión; el **juego local y el Modo Historia NO**. Piezas:
+  `data/auth/AuthManager.kt` (login Google→Firebase, token, signOut, **deleteAccount**) y
+  `data/auth/AuthSession.kt` (singleton con `uid`/`idToken`; lo lee `WebSocketManager` para mandar la
+  cabecera `Authorization: Bearer <token>` en el handshake → ambos servidores la verifican). El **gate**
+  vive en `MainMenuScreen` (botón MULTIJUGADOR: si no hay sesión, abre el selector de Google y al volver
+  continúa el flujo) y en **Ajustes → Cuenta** (`SettingsCategory.Account` + `AccountSettings`):
+  iniciar/cerrar sesión y **"Eliminar mi cuenta y datos"** (borra la cuenta en Firebase + datos locales
+  vía `onAccountDeleted` en `MainActivity`: limpia slots de `SaveGameRepository` + `CampaignRepository`).
+  `AuthManager` es **DEFENSIVO**: sin `google-services.json` no crashea (devuelve null/false), pero el
+  build de Gradle SÍ requiere el json (plugin `com.google.gms.google-services` aplicado). El UID de
+  Firebase reemplaza al UUID de dispositivo como id de jugador (`myPlayerUUID`). **Gotcha:** el web client
+  id se lee DINÁMICO (`getIdentifier("default_web_client_id")`) para que el código compile aunque el
+  recurso aún no exista. Ver 08 (verificación en servidores).
+  - **Extras de UX/robustez:** `MainActivity` llama `authManager.refreshToken{}` ANTES de
+    `connectToMultiplayer` (el ID token caduca ~1 h). El menú muestra un **chip de sesión**
+    ("Conectado: …" / "Modo local"). El **nombre de jugador** se recuerda en
+    `SettingsRepository.get/savePlayerName` (se prellena; si hay sesión y está vacío, usa el nombre de
+    Google). **`PowApplication`** (registrada en el Manifest) inicializa Firebase temprano y a prueba de
+    fallos. Cancelar el selector de Google (códigos 12501/16) NO muestra error. El enlace a la política de
+    privacidad (`R.string.settings_privacy_url`) vive en Ajustes → Cuenta. Plantillas de entorno de los
+    servidores en `Multiplayer/.env.example` y `MultiplayerInteriores/.env.example`.
+  - **⚠️ Secretos / no commitear:** `app/google-services.json`, `*.jks` (llave de firma), el JSON del
+    service account de firebase-admin y `secrets.properties` están en `.gitignore` (verificado). El service
+    account NO va al repo: vive como variable `FIREBASE_SERVICE_ACCOUNT` en Render. Ningún secreto debe
+    entrar en código fuente ni en estos docs.
+- **🆕 Modo Desarrollador (`developerMode`, Ajustes → Interfaz, default oculto):** switch persistente con el
+  mismo patrón que los widgets (`SettingsRepository.get/saveDeveloperMode`, `SettingsState.developerMode`,
+  `SettingsViewModel.toggleDeveloperMode`, wired en `MainActivity.onDeveloperModeToggled`). Sirve para revelar
+  botones de prueba que se ocultarán en la versión final: las pantallas con esos botones deben observar
+  `developerMode` para mostrarlos/ocultarlos (cableado caso por caso, pendiente). Strings
+  `settings_developer_mode`/`_desc` (es+en).
+- **🆕 Widget de coordenadas X/Y/Z (`showCoordsWidget`, Ajustes → Interfaz, default oculto):** composable
+  reusable `CoordsWidget(x,y,z)` en `GameControllers.kt`. Z = "dónde": **GLOBAL** en el mundo abierto
+  (`WorldMapScreen`, X=lon, Y=lat), o el **nombre de la sala/interior** en interiores (`ZombieHud` con
+  `roomName`, `InteriorScreenBase` con `title`; X/Y = posición del jugador). Toggle con el mismo patrón que
+  zoom/velocímetro: `SettingsRepository.get/saveShowCoordsWidget`, campo en `SettingsState`/`WorldMapState`/
+  `ZombieGameState`/`InteriorState`, push en vivo al mapa desde `MainActivity`. Métro/Métrobus/ShineCTO aún
+  no lo muestran (mismo patrón si se desea: añadir `showCoordsWidget` a su `*State` + `CoordsWidget` al HUD).
+  **`CoordsWidget` es un CHIP DE UNA SOLA LÍNEA** con el MISMO estilo/tamaño que `CacheChip` (fondo
+  `Black α0.72`, `RoundedCornerShape(20.dp)`, `padding(h10,v5)`, punto 8.dp, texto 11sp Medium): así TODOS
+  los widgets de Interfaz quedan uniformes en altura (antes era un bloque de 3 líneas y se veía más alto).
+- **🆕 Volumen separado música/efectos (Ajustes → Audio):** persistido en `SettingsRepository`
+  (`get/saveMusicVolume`/`SfxVolume`, default 1.0), `SettingsState.musicVolume`/`sfxVolume`,
+  `SettingsViewModel.changeMusicVolume`/`changeSfxVolume`. **`SoundManager` es la autoridad de audio:**
+  `setMusicVolume` (→ `MediaPlayer.setVolume` en las 4 pistas) y `setSfxVolume` (multiplica cada `play()`
+  del `SoundPool` por `sfxVolume` y reajusta los streams en loop con `setVolume`). `SoundManager.init` LEE
+  el volumen del repo y lo aplica al arrancar; `MainActivity` lo empuja en vivo al cambiar el slider. Si
+  añades un nuevo `play()`, multiplica su volumen por `sfxVolume` (si no, ese efecto ignora el slider).
+- **🆕 TP entre salas = puerta↔puerta (`ZombieGameViewModel.goToRoom`):** al cambiar de sala se spawnea
+  JUNTO a la puerta del cuarto DESTINO cuyo `targetRoomId == fromRoom.id` (no en el centro). Cubre la cadena
+  ENCB (Continuar↔Regresar) y los vecinos de edificios. **⚠️ El spawn se DESPLAZA ~30% hacia el centro
+  (`k=0.30f`), NO sobre el hitbox de la puerta:** `onInteract` dispara la puerta cuyo hitbox CONTIENE al
+  jugador, así que spawnear encima hacía que la siguiente X re-disparara esa puerta y te REGRESARA (rebote
+  lobby↔salón → "Continuar" no avanzaba). No quitar el desplazamiento. EXCEPCIÓN: "lobby → edificio" mantiene
+  spawn central + siembra de zombis; "edificio → lobby" sigue con `spawnAtLobbyDoorFor`. Ver 06.
+- **🆕 Menús de pantalla completa vs barra del sistema:** las pantallas de menú (p. ej. `CollectiblesScreen`)
+  deben usar `systemBarsPadding()` para que sus botones (p. ej. "VOLVER AL MENÚ") no queden tapados por la
+  barra de gestos/navegación del teléfono. (Las de campaña ya usaban `windowInsetsPadding`.)
+- **🆕 Nombres de escuela de campaña = institución:** `SchoolCatalog` muestra `IPN` (`id="escom"`) y `UNAM`
+  (`id="fes_aragon"`); los `id` NO cambian (alimentan spawn/guardado). Botón `story_start = "NUEVA PARTIDA"`.
+- **🆕 Morir en una MISIÓN de campaña = MISIÓN FALLIDA (edita el MIEMBRO, no la extensión):**
+  `triggerWastedSequence` existe como **miembro privado** en `WorldMapViewModel.kt` (ACTIVO) **y** como
+  extensión en `WorldMapMisc.kt` (sombreada/muerta). La lógica "si `inCampaign` && objetivo
+  `ESCOLTAR_PRANKEDY`/`INGRESAR_ESCOM` → WASTED breve y `showMissionFailed=true` (REINTENTAR recarga el
+  checkpoint)" vivía SOLO en la extensión → no corría: morir respawneaba normal frente a ESCOM y el jugador
+  podía dejarse matar para saltarse la escolta. Fix: la rama de misión fallida está ahora en el **miembro**.
+  Clásico gotcap miembro vs extensión (ver arriba): **edita el miembro**.
+- **🆕 Ruta GPS de campaña = VERDE VIVO (no roja):** la línea ENCB→ESCOM (`campaignRouteWaypoints`) se pintaba
+  ROJA y se confundía con la ruta de destino (azul) y las líneas del debug (rojo/naranja). Ahora es **verde
+  vivo `#00E676`, gruesa** (`NativeOsmMap` `strokeWidth=16f`; Leaflet `weight 9`). Es "la ruta a seguir".
+- **🆕 Resize de la MATRIZ del diseñador (interiores) = ANCLADO:** en `DesignerToolbar` (`ZombieGameScreen`)
+  el bloque de tamaño (texto + `COL ±`/`FIL ±`) se sacó del scroll del medio y va **anclado abajo** (solo en
+  modo MATRIZ): en pantallas bajas quedaba al final del scroll y se recortaba → "desapareció el resize".
+- **🆕 Coords FIJAS de la campaña (constantes en `MissionCatalog`):** el Modo Historia usa puntos fijos en vez
+  de relativos al jugador (X=lon, Y=lat). `MISSION1_SPAWN` (19.50102, -99.14421) = entrada al mapa global tras
+  el outro = CHECKPOINT de la escolta (MainActivity lo usa en `setStorySpawn`). `ESCOM_FORCEWALK` (19.50500,
+  -99.14596, radio 50 m). Los policías de la Misión 2 salen de `MISSION2_POLICE_SPAWN` (19.50488, -99.14569,
+  en `WorldMapCampaignPolice`) y la multitud civil de `CROWD_SPAWN` (19.50512, -99.14625). Para reubicar algo,
+  cambia la constante (no hardcodees en otra parte).
+- **🆕 Reintento de misión = CHECKPOINT, no la posición guardada:** `retryCampaignMission` para la escolta
+  (`ESCOLTAR_PRANKEDY`) hace `setStorySpawn(MISSION1_SPAWN)` (no `loadGame`, que restauraba el START en ESCOM y
+  por eso "te teleportaba a ESCOM"). Captura el objetivo ANTES de cualquier `loadGame`.
+- **🆕 Coche obligado a pie cerca de ESCOM (Misión):** en la física del coche (game loop MIEMBRO), a <=50 m de
+  `ESCOM_FORCEWALK` y con objetivo escolta/ingreso, `forceWalkNearEscom` BLOQUEA el avance (gas) y anula la
+  velocidad positiva → SOLO reversa, para forzar bajarse y entrar a pie. No quitar el gate del objetivo (si no,
+  bloquearía el coche en mundo libre).
+- **🆕 Prankedy se SUBE al coche contigo (`prankedyBoarding`):** al abordar un coche con Prankedy ACOMPAÑANTE
+  (HIRED), `onInteractButtonPressed` pone `prankedyBoarding=true`; la física del coche NO avanza (speed=0) y
+  `runPrankedyTick` pasa `isDriving=false` al `tick` (Prankedy corre a pie hasta ti). Al llegar a <=5 m
+  (`PRANKEDY_BOARD_DIST_M`) o si murió, se limpia el flag (se "sube" → se oculta) y el coche ya avanza. El flag
+  se limpia también al bajarte. `runPrankedyTick` corre cada tick AUNQUE conduzcas (no gateado por isDriving),
+  por eso el abordaje se completa.
+- **🆕 Joystick en MODO MANEJO:** `VehicleJoystickController` (dirige izq/der por el eje X, press/release). En
+  `WorldMapScreen` la rama de conducción usa joystick si `controlType==JOYSTICK`, si no las flechitas
+  (`VehicleDPadController`). Gas/freno siguen en el diamante PS4.
+- **🆕 Multitud civil de ESCOM (Misión 2) = 50+ desde punto fijo:** `updateEscomCrowd` ahora spawnea desde
+  `CROWD_SPAWN` (no la puerta), `CROWD_MAX=55`, intervalo 150 ms; se alejan, se despawnean al salir del fog y se
+  reemplazan por nuevos. (Ojo gama baja: son NPCs PERSON; si pesa, baja `CROWD_MAX`.) **🆕 La multitud camina
+  HACIA `MISSION2_POLICE_SPAWN`** (~80%, por `id.hashCode()%5`) → multitud y policías van en direcciones OPUESTAS.
+- **🆕 Misión 2 (INGRESAR_ESCOM) se cumple con el PROMPT de la puerta:** `checkObjectiveProgress` marca el
+  objetivo cumplido EN CUANTO `nearbyCollectible` es un `escom_door_*` (prompt "Presiona X para entrar a la
+  ESCOM", ~20 m), sin tener que pegarse ni pulsar X. El X sigue ENTRANDO al interior.
+- **🆕 Prankedy entra a la ESCOM LENTO y visible (Misión 2):** `runMission2PrankedyEscape` ahora camina
+  (`playerRunning=false`), SIN snap a calles (beeline a la puerta, que está fuera de la vía → ya no "nunca
+  llega"), umbral de entrada `MISSION2_PRANKEDY_ENTER_DEG=0.00006` (~6.6 m, casi pegado) y pausa 2.4 s.
+- **🆕 Movimiento LIBRE del jugador sobre assets/landmarks (`isOnLandmark`):** `moveCharacter`/
+  `moveCharacterByAngle` suspenden el snap a calles si el jugador está SOBRE el footprint de un landmark
+  (caja `baseW/H × escala`). **Es SOLO para el jugador**: `isOnLandmark` NO se mete en `isFreeMovementZone`, así
+  las calles SIGUEN dibujándose y los NPCs SIGUEN atados a la malla vial. (En zonas ESCOM/ENCB ya era libre.)
+- **🆕 NavGraph sin `isForCars`/`isForPeople` → `normalizeNavGraph`:** Gson NO aplica los defaults de Kotlin a
+  campos AUSENTES del JSON. `escom_navgraph.json` no trae `isForCars`/`isForPeople` en las `ways` → llegaban
+  `false` y los autos del estacionamiento NO casaban con ningún carril (`matchType` en `NpcAiManager`) →
+  "no surten efecto". `normalizeNavGraph` (se aplica al cargar en `loadLandmarks` y `spawnDynamicCarInEscom`)
+  re-clasifica por convención de id (id<200=autos, id>=200=peatonal) las ways sin clasificar. Mismo gotcha que
+  el coalesce de `scaleX/scaleY` en `loadLandmarks`. (Los nodos de slot usan `isParkingSlot`.)
 
 ---
 

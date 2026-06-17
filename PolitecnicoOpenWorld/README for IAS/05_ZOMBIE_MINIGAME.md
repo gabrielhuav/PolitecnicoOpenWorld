@@ -206,3 +206,25 @@ data class ZombieServerMessage(type, sessionId, id, displayName, roomId, zone, x
 - FX de daño: screen shake, viñeta roja que **escala con HP perdido** (`damagePulseTrigger`), pulso de
   vida baja, knockback a zombis, recoil del jugador. Iluminación dinámica en interiores oscuros.
 - Pantallas WASTED / Victory. SkillEffects dibujados como iconos Canvas puros.
+- **🆕 Botonera arriba-derecha:** Ajustes (siempre) + el menú de **Opciones**. **"Elegir personaje"**
+  (selector de skin, `wm_choose_character` → `toggleSkinSelector`) **ya NO es un botón suelto**: es el
+  **primer ítem del menú de Opciones**. El banner de OBJETIVO de la cadena ENCB sigue arriba-centro
+  (`ENCB_STORY_ROOM_IDS`).
+- **🆕 Orientación SIEMPRE landscape in-game (solo por RUTA):** el juego (mapa global, interiores y cómics) se
+  fuerza a horizontal; solo los **menús de ruta** (`main_menu`, `story_mode`, `settings`, `collectibles`)
+  permiten vertical. ÚNICA fuente de verdad: **`MainActivity`** por destino de navegación
+  (`NavController.OnDestinationChangedListener`, `requestedOrientation = SCREEN_ORIENTATION_SENSOR_LANDSCAPE`
+  in-game; `UNSPECIFIED` en menús). **El menú de Opciones in-game NO cambia la orientación** (es un overlay
+  dentro de la ruta de juego, no una ruta): se probó rotar al abrirlo pero resultó molesto, así que las
+  pantallas **NO** fijan orientación. Para rotar (incl. Ajustes) se usa su propia RUTA. Ver 09.
+- **🆕 Panel del Diseñador movible/redimensionable:** `DesignerToolbar` lleva un **asa "⠿ Mover"** (arrástrala;
+  toca = recentrar) y botones **−/+** que escalan el panel (`graphicsLayer`, 0.5–1×) para que no tape la sala.
+- **🆕 Diseñador — acciones SIEMPRE accesibles:** el **botón de SALIR** del modo diseñador está SIEMPRE
+  visible (IconButton rojo arriba-derecha, junto a Ajustes), porque la toolbar inferior se recortaba en
+  MATRIZ. Además, en `DesignerToolbar` las **acciones (Guardar/Reset · Exportar/Importar/Salir) van ANCLADAS
+  abajo, FUERA del scroll**; solo el bloque del medio (MATRIZ/WAYPOINTS, pincel, tamaño) es desplazable
+  (`Column(weight(1f, fill=false).verticalScroll)`), así Guardar/Exportar nunca se ocultan.
+- **🆕 Animación de ATAQUE acotada (RANGED):** al **disparar moviéndote**, la animación de ataque se quedaba
+  pegada (move() reescribía `SPECIAL` en bucle y su reset era condicional). Ahora `SPECIAL` de RANGED dura una
+  **ventana de tiempo** (`attackAnimUntilMs`, ~200 ms); `move()` solo mantiene `SPECIAL` en MELEE mientras
+  sostienes el botón, o en RANGED dentro de la ventana. Al detenerte vuelve a IDLE salvo MELEE sostenido.

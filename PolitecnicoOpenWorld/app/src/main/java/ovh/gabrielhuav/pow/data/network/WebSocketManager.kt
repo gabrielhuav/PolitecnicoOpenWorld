@@ -34,9 +34,17 @@ class WebSocketManager(private val serverUrl: String) {
 
         Log.d("WebSocket", "Intentando conectar a: $serverUrl")
 
-        val request = Request.Builder()
-            .url(serverUrl)
-            .build()
+        // Adjunta el ID token de Firebase en el handshake (si hay sesión). El servidor lo
+        // verifica con firebase-admin ANTES de aceptar la conexión (verifyClient). Sin sesión
+        // se conecta sin cabecera (modo anónimo): el servidor en modo "suave" lo permite.
+        val requestBuilder = Request.Builder().url(serverUrl)
+        ovh.gabrielhuav.pow.data.auth.AuthSession.idToken?.let { token ->
+            requestBuilder.addHeader("Authorization", "Bearer $token")
+        }
+        ovh.gabrielhuav.pow.data.auth.AuthSession.uid?.let { uid ->
+            requestBuilder.addHeader("X-Player-Uid", uid)
+        }
+        val request = requestBuilder.build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {

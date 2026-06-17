@@ -22,14 +22,39 @@ data class ComicPanel(
 object StoryComicCatalog {
 
     private val escom = listOf(
-        ComicPanel("STORY/INTRO/IntroPOW1.webp", "Texto del panel 1..."),
-        ComicPanel("STORY/INTRO/IntroPOW2.webp", "Texto del panel 2..."),
-        ComicPanel("STORY/INTRO/IntroPOW3.webp", "Texto del panel 3..."),
-        ComicPanel("STORY/INTRO/IntroPOW4.webp", "Texto del panel 4..."),
-        ComicPanel("STORY/INTRO/IntroPOW5.webp", "Texto del panel 5..."),
-        ComicPanel("STORY/INTRO/IntroPOW6.webp", "Texto del panel 6..."),
-        ComicPanel("STORY/INTRO/IntroPOW7.webp", "Texto del panel 7..."),
-        ComicPanel("STORY/INTRO/IntroPOW8.webp", "Texto del panel 8...")
+        ComicPanel(
+            "STORY/INTRO/IntroPOW1.webp",
+            "Este es un buen lugar.\nAgarremos a este wey para la broma",
+            boxTopFrac = 0.772f, boxHeightFrac = 0.200f, fontSp = 15f, boxWidthFrac = 0.940f
+        ),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW2.webp",
+            "¡Chin! Ya valió",
+            boxTopFrac = 0.830f, boxHeightFrac = 0.180f, fontSp = 15f, boxWidthFrac = 0.720f),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW3.webp",
+            "A ver perro, contestame.\n¿Qué te pasa?",
+            boxTopFrac = 0.782f, boxHeightFrac = 0.200f, fontSp = 15f, boxWidthFrac = 0.940f),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW4.webp",
+            "Córrele gordo.\nNo te irás a ninguna parte.",
+            boxTopFrac = 0.835f, boxHeightFrac = 0.140f, fontSp = 15f, boxWidthFrac = 0.900f),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW5.webp",
+            "Inche viejo. Por aquí puedo perderlo",
+            boxTopFrac = 0.840f, boxHeightFrac = 0.140f, fontSp = 15f, boxWidthFrac = 0.940f),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW6.webp",
+            "",
+            boxTopFrac = 0.700f, boxHeightFrac = 0.240f, fontSp = 15f, boxWidthFrac = 0.900f),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW7.webp",
+            "¿No esta vacío? No importa, me tengo que esconder",
+            boxTopFrac = 0.779f, boxHeightFrac = 0.190f, fontSp = 15f, boxWidthFrac = 0.920f),
+        ComicPanel(
+            "STORY/INTRO/IntroPOW8.webp",
+            "¡Llévense al perro! A ver si muy salsa.",
+            boxTopFrac = 0.786f, boxHeightFrac = 0.180f, fontSp = 15f, boxWidthFrac = 0.920f)
     )
 
     // Paneles para la escuela elegida (por ahora todas usan el prologo de ESCOM).
@@ -44,15 +69,34 @@ object StoryComicCatalog {
     const val ENCB_OUTRO_ID = "encb_outro"
 
     private val encbOutro = listOf(
-        ComicPanel("STORY/INTRO/IntroPOW9.webp", "Texto del panel 9..."),
-        ComicPanel("STORY/INTRO/IntroPOW10.webp", "Texto del panel 10..."),
-        ComicPanel("STORY/INTRO/IntroPOW11.webp", "Texto del panel 11...")
+        ComicPanel("STORY/INTRO/IntroPOW9.webp", "¿Quién es?...",
+            boxTopFrac = 0.860f, boxHeightFrac = 0.110f, fontSp = 15f, boxWidthFrac = 0.820f),
+        ComicPanel("STORY/INTRO/IntroPOW10.webp", "Relax, relax.\n",
+            boxTopFrac = 0.856f, boxHeightFrac = 0.110f, fontSp = 16f, boxWidthFrac = 0.720f),
+        ComicPanel("STORY/INTRO/IntroPOW11.webp", "Me metí en un pedo y necesito tu ayuda\nNo sé salir de aquí, ayúdame.",
+            boxTopFrac = 0.853f, boxHeightFrac = 0.120f, fontSp = 15f, boxWidthFrac = 0.720f)
+    )
+
+    // ─── MISIÓN 2: llegada a la ESCOM (Modo Historia) ────────────────────────
+    // Se reproduce al cumplir la Misión 1 (llegar a la ESCOM con Prankedy). Son 4 paneles
+    // HORIZONTALES en assets/STORY/INTRO/IntroPOW12..15.webp (IntroPOW15 cambia según la skin). EDITA el `text`.
+    // Tras esta secuencia se retoma la jugabilidad con la persecución (6 policías) y el
+    // objetivo "Ingresa a la ESCOM".
+    const val MISSION2_INTRO_ID = "mission2_intro"
+
+    private val mission2Intro = listOf(
+        ComicPanel("STORY/INTRO/IntroPOW12.webp", ""),
+        ComicPanel("STORY/INTRO/IntroPOW13.webp", ""),
+        ComicPanel("STORY/INTRO/IntroPOW14.webp", ""),
+        ComicPanel("STORY/INTRO/IntroPOW15.webp", "")   // 4º panel (cambia según skin)
     )
 
     // Devuelve una secuencia narrativa por id (para StoryIntroScreen). ENCB_OUTRO_ID =
-    // segunda parte de la intro; cualquier otro id cae al prologo de ESCOM.
+    // segunda parte de la intro; MISSION2_INTRO_ID = llegada a la ESCOM; cualquier otro id
+    // cae al prologo de ESCOM.
     fun sequence(sequenceId: String): List<ComicPanel> = when (sequenceId) {
         ENCB_OUTRO_ID -> encbOutro
+        MISSION2_INTRO_ID -> mission2Intro
         else -> escom
     }
 }

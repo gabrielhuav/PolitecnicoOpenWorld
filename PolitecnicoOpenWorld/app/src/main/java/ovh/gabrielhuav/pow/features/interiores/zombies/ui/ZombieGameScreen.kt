@@ -77,6 +77,14 @@ import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
 import kotlin.math.max
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import ovh.gabrielhuav.pow.features.map_exterior.ui.SkinSelectorDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 
@@ -102,7 +110,10 @@ fun ZombieGameScreen(
     // MODO HISTORIA: abre el selector de slots para guardar la partida (también en interiores).
     onRequestSaveGame: () -> Unit = {},
     // MODO HISTORIA: el waypoint final de ENCB_LAB2 pide reanudar la narrativa (cómic ENCB_OUTRO).
-    onPlayStoryOutro: () -> Unit = {}
+    onPlayStoryOutro: () -> Unit = {},
+    // MODO HISTORIA: notifica la sala actual (id de ZombieRoomCatalog) al entrar y en cada
+    // cambio de sala, para que el guardado sepa en qué interior estaba el jugador.
+    onRoomChanged: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
@@ -136,7 +147,16 @@ fun ZombieGameScreen(
         if (state.isExitingToStoryOutro) { viewModel.consumeExit(); onPlayStoryOutro() }
     }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.soundManager.stopWalk()
+            viewModel.soundManager.stopRun()
+        }
+    }
+
     val room = ZombieRoomCatalog.rooms[state.currentRoomIndex]
+    // Avisa la sala actual (entrada + cada transición interna) para el guardado de partida.
+    LaunchedEffect(state.currentRoomIndex) { onRoomChanged(room.id) }
     val effectiveBgAsset = when {
         room.id == ZombieRoomCatalog.LOBBY_ID && state.zombieModeActivated ->
             "ZOMBIES_MOD/BUILDINGS_Z/building_escom_zombie.webp"
@@ -410,8 +430,9 @@ fun ZombieGameScreen(
                     }
                 }
 
-                // Jugador local
-                val pSize = PLAYER_SPRITE_BASE * cam.scale
+                // Jugador local. `room.playerScaleMul` agranda el sprite solo en salas que
+                // lo necesitan (p. ej. ENCB_salon1, donde el fondo lo hacía ver diminuto).
+                val pSize = PLAYER_SPRITE_BASE * cam.scale * room.playerScaleMul
                 // MUERTE: al morir, el jugador queda como "fantasmita" (semitransparente),
                 // igual que la animación de muerte de un NPC.
                 val ghostAlpha = if (state.showWastedScreen) 0.3f else 1f
@@ -553,7 +574,8 @@ fun ZombieGameScreen(
                         fontSize = 15.sp,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
-                            .background(Color(0xCC000000), RoundedCornerShape(10.dp))
+                            .alpha(0.85f)   // difuminado para no chocar con los widgets
+                            .background(Color(0x99000000), RoundedCornerShape(10.dp))
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
@@ -655,13 +677,20 @@ fun ZombieGameScreen(
             ) {
                 Icon(Icons.Default.Settings, stringResource(R.string.zgame_cd_settings), tint = Color.Black)
             }
-            if (!state.designerMode) {
+            // En MODO DISEÑADOR, botón de SALIR SIEMPRE visible: la toolbar inferior puede quedar
+            // recortada en pantallas bajas (sobre todo en MATRIZ, que tiene más filas), así que sin
+            // esto el usuario se quedaba "atrapado" en el modo diseñador.
+            if (state.designerMode) {
                 IconButton(
-                    onClick = { viewModel.toggleSkinSelector(true) },
-                    modifier = Modifier.background(Color(0xFFD91B5B).copy(alpha = 0.9f), CircleShape)
+                    onClick = { viewModel.toggleDesignerMode() },
+                    modifier = Modifier.background(Color(0xFFD32F2F).copy(alpha = 0.92f), CircleShape)
                 ) {
-                    Icon(Icons.Default.Person, stringResource(R.string.zgame_cd_skin), tint = Color.White)
+                    Icon(Icons.Default.ExitToApp, stringResource(R.string.ig_exit), tint = Color.White)
                 }
+            }
+            if (!state.designerMode) {
+                // "Elegir personaje" (selector de skin) vive en el menú de Opciones; el juego va
+                // SIEMPRE en horizontal (este menú NO cambia la orientación).
                 var optionsExpanded by remember { mutableStateOf(false) }
                 OptionsMenu(
                     expanded = optionsExpanded,
@@ -669,6 +698,8 @@ fun ZombieGameScreen(
                     openGroupId = null,
                     onOpenGroupChange = {},
                     entries = listOf(
+                        // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto.
+                        OptionMenuItem(stringResource(R.string.wm_choose_character), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) },
                         OptionMenuItem(stringResource(R.string.zgame_opt_designer), Icons.Default.Architecture) { viewModel.toggleDesignerMode() },
                         // MODO HISTORIA: guardar partida también desde interiores (selector de slots).
                         OptionMenuItem("Guardar partida", Icons.Default.Save) { onRequestSaveGame() },
@@ -720,7 +751,9 @@ fun ZombieGameScreen(
                     else importLauncher.launch(arrayOf("application/json", "*/*"))
                 },
                 onExit = viewModel::toggleDesignerMode,
-                modifier = Modifier.align(Alignment.BottomCenter)
+                // Esquina inferior-IZQUIERDA por defecto (no centrado): así NO tapa el centro del
+                // mapa al pintar la matriz. Es arrástrable (asa ⠿) y escalable (−/+).
+                modifier = Modifier.align(Alignment.BottomStart)
             )
         }
     }
@@ -751,16 +784,65 @@ private fun DesignerToolbar(
     modifier: Modifier = Modifier
 ) {
     val isWaypoints = target == DesignerTarget.WAYPOINTS
+    // El panel del diseñador es intrusivo: se puede MOVER (asa, arrástrala) y CAMBIAR DE TAMAÑO
+    // (botones −/+, escala 0.5–1) para que no tape la sala mientras editas.
+    var offX by remember { mutableFloatStateOf(0f) }
+    var offY by remember { mutableFloatStateOf(0f) }
+    var scale by remember { mutableFloatStateOf(1f) }
+    // En pantallas BAJAS (landscape) el panel no cabía y se recortaban "Guardar"/"Exportar":
+    // limitamos su alto y lo hacemos DESPLAZABLE (scroll) para que SIEMPRE se alcancen todos.
+    val toolbarScroll = rememberScrollState()
+    val maxToolbarH = (LocalConfiguration.current.screenHeightDp * 0.9f).dp
     Column(
         modifier = modifier
+            .offset { IntOffset(offX.roundToInt(), offY.roundToInt()) }
             .systemBarsPadding()
+            .graphicsLayer {
+                scaleX = scale; scaleY = scale
+                transformOrigin = TransformOrigin(0.5f, 1f)   // encoge desde abajo-centro
+            }
             .padding(12.dp)
-            .fillMaxWidth(0.96f)
+            .heightIn(max = maxToolbarH)
+            // Más ANGOSTO (antes 0.96 = casi toda la pantalla, tapaba el mapa de lado a lado).
+            // Ocupa ~55% del ancho → deja libre la mayor parte del mapa para pintar la matriz.
+            .fillMaxWidth(0.55f)
             .background(Color(0xFF1E1E24).copy(alpha = 0.95f), RoundedCornerShape(12.dp))
             .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // ─── ASA: arrastra para MOVER · toca para recentrar · −/+ cambia el TAMAÑO ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "⠿ Mover (toca = recentrar)",
+                color = Color(0xFFFFD54F), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center, maxLines = 1,
+                modifier = Modifier
+                    .weight(1f)
+                    .background(Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+                    .pointerInput(Unit) {
+                        detectDragGestures { _, drag ->
+                            offX += drag.x * scale
+                            offY += drag.y * scale
+                        }
+                    }
+                    .clickable { offX = 0f; offY = 0f }
+                    .padding(vertical = 6.dp)
+            )
+            ToolButton("−", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale - 0.1f).coerceIn(0.5f, 1f) }
+            ToolButton("+", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale + 0.1f).coerceIn(0.5f, 1f) }
+        }
+        // CONTENIDO DESPLAZABLE = TODA la herramienta (selector, pincel PARED/BORRAR, tamaño,
+        // Guardar/Exportar/Salir). Scrollea junta; solo el asa "⠿ Mover" de arriba queda fija.
+        // El panel está acotado a maxToolbarH y es angosto/movible, así que cabe o se scrollea.
+        Column(
+            modifier = Modifier.weight(1f, fill = false).verticalScroll(toolbarScroll),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
         Text(
             androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer_room, roomName.uppercase()),
             color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 12.sp
@@ -777,12 +859,14 @@ private fun DesignerToolbar(
             else "Toca o arrastra sobre la rejilla. Rojo = pared.",
             color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp
         )
+        // ─── PINCEL + TAMAÑO DE LA MATRIZ (TODO dentro del MISMO scroll) ──────────────
+        // PARED (inaccesible) / BORRAR (caminable) y el resize (COL/FIL). Toda la herramienta
+        // scrollea JUNTA; solo el asa "⠿ Mover" de arriba queda fija para poder arrastrar siempre.
         if (!isWaypoints) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 ToolButton("PARED", brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
                 ToolButton("BORRAR", !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
             }
-            // ─── TAMAÑO DE LA MATRIZ ───────────────────────────────
             Text(
                 androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_size_grid, gridCols, gridRows),
                 color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
@@ -794,6 +878,7 @@ private fun DesignerToolbar(
                 ToolButton("FIL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
             }
         }
+        // ─── ACCIONES (Guardar/Reset · Exportar/Importar/Salir), dentro del mismo scroll ──
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = onSave,
@@ -825,6 +910,7 @@ private fun DesignerToolbar(
                 Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_exit), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
+        } // cierra el Column SCROLLABLE: toda la herramienta scrollea junta (salvo el asa de mover)
     }
 }
 

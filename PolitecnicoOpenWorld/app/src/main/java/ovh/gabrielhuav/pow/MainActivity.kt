@@ -20,6 +20,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.content.pm.ActivityInfo
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -64,7 +67,10 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
 // en WorldMapSaveGame.kt y requieren import explícito desde fuera del paquete viewmodel.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.retryCampaignMission
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission2Intro
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission2
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
@@ -100,6 +106,10 @@ class MainActivity : ComponentActivity() {
     private val collectiblesViewModel: CollectiblesViewModel by viewModels {
         CollectiblesViewModel.Factory(this)
     }
+
+    // Autenticación Google + Firebase. Gestiona login, token (para el handshake WS) y borrado de cuenta.
+    private val authManager by lazy { ovh.gabrielhuav.pow.data.auth.AuthManager(this) }
+
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     // Persistencia de la partida del MODO HISTORIA (campaña). Es el punto de DI:
@@ -134,11 +144,33 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Al pasar la app a segundo plano (botón home, multitarea, pantalla apagada, etc.):
+    //  1. AUTO-GUARDADO del Modo Historia: si estamos en campaña, persistimos el estado
+    //     completo en el slot activo para no perder el progreso (antes solo se guardaba
+    //     al salir explícitamente al menú → si cerrabas la app empezabas de 0).
+    //  2. Detenemos TODO el audio (incl. la música del Modo Historia, que seguía sonando
+    //     en segundo plano). Se reanuda en onResume.
+    override fun onPause() {
+        super.onPause()
+        if (worldMapViewModel.inCampaign) {
+            worldMapViewModel.saveGame(this, worldMapViewModel.campaignSlot, auto = true)
+        }
+        ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this).pauseAllForBackground()
+    }
+
+    // Al volver al primer plano: reanuda las pistas que estaban sonando antes de salir.
+    override fun onResume() {
+        super.onResume()
+        ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this).resumeAllFromBackground()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         configureOsmdroid()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         checkPermissionsAndFetchLocation()
+        // Si ya había sesión de Google/Firebase (app reabierta), repuebla AuthSession + refresca token.
+        authManager.restoreSession()
 
         setContent {
             PolitecnicoOpenWorldTheme {
@@ -150,7 +182,7 @@ class MainActivity : ComponentActivity() {
                     // Esto evita recomposiciones destructivas al navegar.
                     val settingsState by settingsViewModel.state.collectAsState()
                     var providerInitialized by remember { mutableStateOf(false) }
-                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.showZoomWidget, settingsState.showSpeedometer, settingsState.showRoadNetwork) {
+                    LaunchedEffect(settingsState.mapProvider, settingsState.showCacheWidget, settingsState.showFpsWidget, settingsState.showZoomWidget, settingsState.showSpeedometer, settingsState.showCoordsWidget, settingsState.showRoadNetwork) {
                         if (!providerInitialized) {
                             // Arranque: aplica el proveedor guardado de inmediato (sin aviso).
                             worldMapViewModel.setMapProvider(settingsState.mapProvider)
@@ -163,10 +195,52 @@ class MainActivity : ComponentActivity() {
                         worldMapViewModel.toggleFpsWidget(settingsState.showFpsWidget)
                         worldMapViewModel.toggleZoomWidget(settingsState.showZoomWidget)
                         worldMapViewModel.toggleSpeedometer(settingsState.showSpeedometer)
+                        worldMapViewModel.toggleCoordsWidget(settingsState.showCoordsWidget)
                         worldMapViewModel.setShowRoadNetwork(settingsState.showRoadNetwork)
                     }
 
+                    // CONTROLES (D-pad/joystick, escala, swap): se aplican EN VIVO al GUARDARLOS en
+                    // Ajustes — `settingsState` ya trae los valores COMMITTEADOS por saveControlsSettings,
+                    // así que no hay que salir al menú y volver a entrar para que el cambio surta efecto.
+                    LaunchedEffect(settingsState.controlType, settingsState.controlsScale, settingsState.swapControls) {
+                        worldMapViewModel.updateControlSettings(
+                            settingsState.controlType,
+                            settingsState.controlsScale,
+                            settingsState.swapControls
+                        )
+                    }
+
                     val navController = rememberNavController()
+
+                    // ORIENTACIÓN: el JUEGO (mapa global, interiores y cómics) va SIEMPRE en
+                    // horizontal; solo los menús (main_menu, story_mode, settings, collectibles)
+                    // permiten vertical. ÚNICA fuente de verdad: por DESTINO de navegación (evita
+                    // carreras de dispose entre pantallas).
+                    DisposableEffect(navController) {
+                        val portraitRoutes = setOf("main_menu", "story_mode", "settings", "collectibles")
+                        val listener = NavController.OnDestinationChangedListener { _, destination, arguments ->
+                            val route = destination.route
+                            // AJUSTES abierto DESDE EL JUEGO (fromGame=true) debe permanecer
+                            // horizontal como el resto del juego; abierto desde el menú sí
+                            // permite vertical. El arg llega en el Bundle del destino.
+                            val fromGame = arguments?.getBoolean("fromGame") == true
+                            val isMenu = route != null && !fromGame && portraitRoutes.any {
+                                route == it || route.startsWith("$it/") || route.startsWith("$it?")
+                            }
+                            this@MainActivity.requestedOrientation =
+                                if (isMenu) ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                                else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            if (isMenu) {
+                                // Al volver a un menú, corta TODA la música de fondo del juego/cómic
+                                // (MediaPlayers en loop), que se quedaba sonando al salir.
+                                val sm = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity)
+                                sm.stopInvestigarMusic(); sm.stopLugarSeguroMusic(); sm.stopMainMusic()
+                                sm.stopPrankedyRemixMusic(); sm.stopAllStorySounds()
+                            }
+                        }
+                        navController.addOnDestinationChangedListener(listener)
+                        onDispose { navController.removeOnDestinationChangedListener(listener) }
+                    }
 
                     // Diálogo de GUARDAR (selector de slots) a nivel de Activity: lo disparan
                     // tanto el mapa global como los interiores (callback onRequestSaveGame),
@@ -175,13 +249,14 @@ class MainActivity : ComponentActivity() {
                     if (showSaveDialog) {
                         ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
                             title = "Guardar partida",
-                            summaries = SaveGameRepository(this@MainActivity).summaries(),
+                            summariesProvider = { SaveGameRepository(this@MainActivity).summaries() },
                             mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.SAVE,
                             onPick = { slot ->
                                 showSaveDialog = false
                                 worldMapViewModel.saveGame(this@MainActivity, slot)
                                 android.widget.Toast.makeText(this@MainActivity, "Partida guardada (slot $slot)", android.widget.Toast.LENGTH_SHORT).show()
                             },
+                            onDelete = { slot -> SaveGameRepository(this@MainActivity).clear(slot) },
                             onDismiss = { showSaveDialog = false }
                         )
                     }
@@ -200,9 +275,21 @@ class MainActivity : ComponentActivity() {
                                     // MUNDO LIBRE (sin campaña): no es una sesión de Modo Historia,
                                     // así que NO se auto-guarda al salir.
                                     worldMapViewModel.inCampaign = false
+                                    worldMapViewModel.currentInteriorRoomId = null
+                                    // MUNDO LIBRE no tiene objetivo de campaña: lo limpiamos para que
+                                    // el cuadro de OBJETIVO no quede colgado del Modo Historia.
+                                    worldMapViewModel.setCampaignObjective(null)
+                                    // La música es exclusiva de la misión: en MUNDO LIBRE no debe sonar.
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).apply {
+                                        stopInvestigarMusic(); stopLugarSeguroMusic(); stopMainMusic()
+                                    }
                                     if (isMultiplayer && !playerName.isNullOrBlank()) {
-                                        // Usando la variable de entorno de Gradle (BuildConfig)
-                                        worldMapViewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL, playerName)
+                                        // Refresca el ID token (caduca ~1 h) ANTES del handshake y luego
+                                        // conecta. Sin sesión, refreshToken responde null al instante y
+                                        // se conecta en modo anónimo igualmente.
+                                        authManager.refreshToken {
+                                            worldMapViewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL, playerName)
+                                        }
                                     } else {
                                         worldMapViewModel.disconnectFromMultiplayer()
                                     }
@@ -219,7 +306,8 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToStory = {
                                     navController.navigate("story_mode")
-                                }
+                                },
+                                authManager = authManager
                             )
                         }
 
@@ -232,24 +320,50 @@ class MainActivity : ComponentActivity() {
                             // partida, restaura el estado completo (posición/vida/buscado/vehículo/
                             // skin/NPCs/objetivo) y entra al mundo.
                             var showLoadDialog by remember { mutableStateOf(false) }
+                            // COMENZAR: antes de la intro se elige el SLOT MANUAL donde quedará la
+                            // partida nueva (los 2 slots de auto-guardado salen deshabilitados).
+                            var newGameSchool by remember { mutableStateOf<ovh.gabrielhuav.pow.domain.models.CampaignSchool?>(null) }
                             StoryModeScreen(
-                                onStartCampaign = { school ->
-                                    navController.navigate("story_intro/${school.id}")
-                                },
+                                onStartCampaign = { school -> newGameSchool = school },
                                 onLoadCampaign = { showLoadDialog = true },
                                 onBack = { navController.popBackStack() }
                             )
+                            newGameSchool?.let { school ->
+                                ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
+                                    title = "Nueva partida · elige slot",
+                                    summariesProvider = { SaveGameRepository(this@MainActivity).summaries() },
+                                    mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.SAVE,
+                                    onDelete = { slot -> SaveGameRepository(this@MainActivity).clear(slot) },
+                                    onPick = { slot ->
+                                        newGameSchool = null
+                                        navController.navigate("story_intro/${school.id}?slot=$slot")
+                                    },
+                                    onDismiss = { newGameSchool = null }
+                                )
+                            }
                             if (showLoadDialog) {
                                 ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
                                     title = "Cargar partida",
-                                    summaries = SaveGameRepository(this@MainActivity).summaries(),
+                                    summariesProvider = { SaveGameRepository(this@MainActivity).summaries() },
                                     mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.LOAD,
+                                    onDelete = { slot -> SaveGameRepository(this@MainActivity).clear(slot) },
                                     onPick = { slot ->
                                         showLoadDialog = false
                                         worldMapViewModel.disconnectFromMultiplayer()
                                         if (worldMapViewModel.loadGame(this@MainActivity, slot)) {
+                                            // El mundo siempre queda configurado (loadGame fijó spawn/estado).
                                             navController.navigate("world_map") {
                                                 popUpTo("main_menu") { inclusive = true }
+                                            }
+                                            // Si la partida se guardó DENTRO de un interior, reentramos a esa
+                                            // sala (sobre world_map, que queda en el backstack para "Salir al mapa").
+                                            val roomId = worldMapViewModel.currentInteriorRoomId
+                                            if (roomId != null) {
+                                                // FIX: al CARGAR en un interior (p. ej. ENCB) la música no
+                                                // sonaba (la entrada normal sí la arranca). Arrancamos el
+                                                // tema "investigar" (interiores) antes de navegar a la sala.
+                                                ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).playInvestigarMusic()
+                                                navController.navigate("interiores_zombies?startRoom=$roomId")
                                             }
                                         }
                                     },
@@ -262,32 +376,49 @@ class MainActivity : ComponentActivity() {
                         // Placeholder narrativo. Al INICIAR, GUARDA la partida (para que
                         // "CARGAR PARTIDA" funcione luego) y arranca el mundo en la escuela.
                         composable(
-                            route = "story_intro/{schoolId}",
+                            route = "story_intro/{schoolId}?slot={slot}",
                             arguments = listOf(
                                 androidx.navigation.navArgument("schoolId") {
                                     type = androidx.navigation.NavType.StringType
+                                },
+                                androidx.navigation.navArgument("slot") {
+                                    type = androidx.navigation.NavType.IntType
+                                    defaultValue = -1   // -1 = no se eligió slot manual
                                 }
                             )
                         ) { backStackEntry ->
                             val schoolId = backStackEntry.arguments?.getString("schoolId")
                             val school = SchoolCatalog.schools.firstOrNull { it.id == schoolId }
                                 ?: SchoolCatalog.default
+                            // Slot MANUAL elegido al COMENZAR (donde quedará esta partida nueva).
+                            val chosenSlot = backStackEntry.arguments?.getInt("slot") ?: -1
                             StoryIntroScreen(
                                 school = school,
                                 onBegin = {
-                                    // COMENZAR partida NUEVA: ocupa el primer slot VACÍO (para no
-                                    // pisar otras partidas) y fija el objetivo de la Misión 1.
-                                    // El estado se guardará al salir o con "Guardar partida".
+                                    // COMENZAR partida NUEVA: el AUTO-GUARDADO usa los 2 slots reservados
+                                    // (rotando). Limpiamos esos 2 para empezar fresco. Además, si el jugador
+                                    // eligió un SLOT MANUAL, guardamos ahí la partida inicial. Fija la Misión 1.
                                     campaignRepository.saveCampaign(school.id)
-                                    val slot = SaveGameRepository(this@MainActivity).firstEmptySlot()
-                                    SaveGameRepository(this@MainActivity).clear(slot)
+                                    SaveGameRepository(this@MainActivity).clearAutoSlots()
                                     worldMapViewModel.campaignSchoolId = school.id
-                                    worldMapViewModel.campaignSlot = slot
+                                    worldMapViewModel.campaignSlot = SaveGameRepository.AUTO_SLOTS.first()
+                                    // La campaña ARRANCA en el interior del Lobby de la ENCB, así que
+                                    // el guardado inicial debe apuntar AHÍ (no al mapa global); si no,
+                                    // al cargar esa partida te mandaba al mundo en vez del interior.
+                                    worldMapViewModel.currentInteriorRoomId =
+                                        ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
                                     worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.first)
+                                    // Guardado MANUAL inicial en el slot elegido (para que "CARGAR PARTIDA"
+                                    // lo muestre desde ya). Los autoguardados posteriores van a los slots auto.
+                                    if (chosenSlot in SaveGameRepository.MANUAL_SLOTS) {
+                                        worldMapViewModel.saveGame(this@MainActivity, chosenSlot)
+                                    }
                                     // Tras el último panel de la intro (IntroPOW8), la transición
                                     // entra al PRIMER interior de la campaña: el Lobby de la ENCB.
+                                    // Inicia la música de investigar.
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).playInvestigarMusic()
                                     // popUpTo main_menu inclusive DESTRUYE la pantalla de la intro
                                     // (story_intro) y libera los bitmaps IntroPOW1..8 de memoria.
                                     navController.navigate("encb_lobby") {
@@ -310,20 +441,26 @@ class MainActivity : ComponentActivity() {
                             val wmState by worldMapViewModel.uiState.collectAsState()
                             ZombieGameScreen(
                                 onExitToWorld = {
+                                    worldMapViewModel.currentInteriorRoomId = null
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).stopInvestigarMusic()
                                     navController.navigate("world_map") {
                                         popUpTo("encb_lobby") { inclusive = true }
                                     }
                                 },
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
-                                onNavigateToSettings = { navController.navigate("settings") },
+                                onNavigateToSettings = { navController.navigate("settings?fromGame=true") },
                                 debugHitboxes = false,
                                 startRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID,
                                 onRequestSaveGame = { showSaveDialog = true },
+                                // Recuerda en qué sala de interiores está el jugador (para el guardado).
+                                onRoomChanged = { roomId -> worldMapViewModel.currentInteriorRoomId = roomId },
                                 // Waypoint final de ENCB_LAB2 → reanuda la narrativa (cómic
                                 // ENCB_OUTRO). popUpTo encb_lobby inclusive libera el motor de
                                 // interiores (la cadena de salas) antes de mostrar el cómic.
                                 onPlayStoryOutro = {
+                                    worldMapViewModel.currentInteriorRoomId = null
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).stopInvestigarMusic()
                                     navController.navigate("story_outro") {
                                         popUpTo("encb_lobby") { inclusive = true }
                                     }
@@ -342,17 +479,23 @@ class MainActivity : ComponentActivity() {
                                 school = SchoolCatalog.default,
                                 sequenceId = ovh.gabrielhuav.pow.domain.models.StoryComicCatalog.ENCB_OUTRO_ID,
                                 onBegin = {
-                                    // SPAWN ENCB EXCLUSIVO DEL MODO HISTORIA: solo aquí, al
-                                    // terminar el outro (IntroPOW11), el jugador aparece en la
-                                    // ENCB. setStorySpawn fija la posición y activa inCampaign=true.
-                                    worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
+                                    // SPAWN EXCLUSIVO DEL MODO HISTORIA: al terminar el outro
+                                    // (IntroPOW11), el jugador entra al mapa global en el punto de
+                                    // arranque de la Misión 1 (checkpoint de la escolta).
+                                    // setStorySpawn fija la posición y activa inCampaign=true.
+                                    worldMapViewModel.setStorySpawn(ovh.gabrielhuav.pow.domain.models.MissionCatalog.MISSION1_SPAWN_LAT, ovh.gabrielhuav.pow.domain.models.MissionCatalog.MISSION1_SPAWN_LON)
+                                    worldMapViewModel.currentInteriorRoomId = null
+                                    // Inicia la música de dirigirse al lugar seguro
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).playLugarSeguroMusic()
                                     navController.navigate("world_map") {
                                         popUpTo("story_outro") { inclusive = true }
                                     }
                                 },
                                 onBack = {
-                                    // Misma transición narrativa (saltar/volver el outro): ENCB.
-                                    worldMapViewModel.setStorySpawn(19.5001588, -99.1450298)
+                                    // Misma transición narrativa (saltar/volver el outro): mismo checkpoint.
+                                    worldMapViewModel.setStorySpawn(ovh.gabrielhuav.pow.domain.models.MissionCatalog.MISSION1_SPAWN_LAT, ovh.gabrielhuav.pow.domain.models.MissionCatalog.MISSION1_SPAWN_LON)
+                                    worldMapViewModel.currentInteriorRoomId = null
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).playLugarSeguroMusic()
                                     navController.navigate("world_map") {
                                         popUpTo("story_outro") { inclusive = true }
                                     }
@@ -360,9 +503,37 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        // ─── MODO HISTORIA · Misión 2 (llegada a la ESCOM: IntroPOW12..14) ──
+                        // Cómic que se reproduce al cumplir la Misión 1. Al terminar, arranca la
+                        // Misión 2 (objetivo "Ingresa a la ESCOM" + persecución de 6 policías +
+                        // multitud saliendo de la ESCOM) y vuelve al mundo (popBackStack a world_map,
+                        // que sigue debajo en el backstack).
+                        composable(route = "story_mission2") {
+                            StoryIntroScreen(
+                                school = SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.StoryComicCatalog.MISSION2_INTRO_ID,
+                                onBegin = {
+                                    worldMapViewModel.startMission2()
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
+                                onBack = {
+                                    worldMapViewModel.startMission2()
+                                    navController.popBackStack("world_map", inclusive = false)
+                                }
+                            )
+                        }
+
 
                         // Registramos la ruta de Ajustes
-                        composable(route = "settings") {
+                        composable(
+                            route = "settings?fromGame={fromGame}",
+                            arguments = listOf(
+                                androidx.navigation.navArgument("fromGame") {
+                                    type = androidx.navigation.NavType.BoolType
+                                    defaultValue = false
+                                }
+                            )
+                        ) {
                             val settingsState by settingsViewModel.state.collectAsState()
 
                             SettingsScreen(
@@ -378,6 +549,20 @@ class MainActivity : ComponentActivity() {
                                 onSpeedometerToggled = {
                                     settingsViewModel.toggleSpeedometer(it)
                                     worldMapViewModel.toggleSpeedometer(it)
+                                },
+                                onCoordsWidgetToggled = {
+                                    settingsViewModel.toggleCoordsWidget(it)
+                                    worldMapViewModel.toggleCoordsWidget(it)
+                                },
+                                onDeveloperModeToggled = { settingsViewModel.toggleDeveloperMode(it) },
+                                // Audio: persisten en Ajustes Y se aplican en vivo al SoundManager.
+                                onMusicVolumeChanged = {
+                                    settingsViewModel.changeMusicVolume(it)
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).setMusicVolume(it)
+                                },
+                                onSfxVolumeChanged = {
+                                    settingsViewModel.changeSfxVolume(it)
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).setSfxVolume(it)
                                 },
                                 onRoadNetworkToggled = { settingsViewModel.toggleRoadNetwork(it) },
                                 onControlTypeChanged = { settingsViewModel.changeControlType(it) },
@@ -399,7 +584,7 @@ class MainActivity : ComponentActivity() {
                                 onNavigateBack = {
                                     // Descartar cambios de controles no guardados al salir.
                                     settingsViewModel.discardControlsChanges()
-                                    if (navController.currentDestination?.route == "settings") {
+                                    if (navController.currentDestination?.route?.startsWith("settings") == true) {
                                         navController.popBackStack()
                                     }
                                 },
@@ -427,6 +612,21 @@ class MainActivity : ComponentActivity() {
                                         launchSingleTop = true
                                     }
                                 },
+                                authManager = authManager,
+                                // ELIMINAR CUENTA: AuthManager ya borró la identidad en Firebase; aquí
+                                // se borran los DATOS LOCALES del jugador (partidas de campaña) y se vuelve al menú.
+                                onAccountDeleted = {
+                                    worldMapViewModel.disconnectFromMultiplayer()
+                                    try {
+                                        val sg = SaveGameRepository(this@MainActivity)
+                                        for (slot in 1..SaveGameRepository.SLOT_COUNT) sg.clear(slot)
+                                        campaignRepository.clearCampaign()
+                                    } catch (_: Exception) {}
+                                    navController.navigate("main_menu") {
+                                        popUpTo("main_menu") { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                },
                                 // i18n: idioma actual + cambio (persiste; SettingsScreen recrea la Activity).
                                 currentLanguage = settingsState.language,
                                 onLanguageChanged = { tag -> settingsViewModel.changeLanguage(tag) }
@@ -447,8 +647,16 @@ class MainActivity : ComponentActivity() {
                                 {
                                     // AUTO-GUARDADO: si estamos en Modo Historia, persistimos el
                                     // estado completo en el slot activo antes de volver al menú.
-                                    if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity, worldMapViewModel.campaignSlot)
+                                    if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity, worldMapViewModel.campaignSlot, auto = true)
                                     worldMapViewModel.disconnectFromMultiplayer()
+
+                                    // Detener audios del modo historia al salir al menu
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).apply {
+                                        stopInvestigarMusic()
+                                        stopLugarSeguroMusic()
+                                        stopMainMusic()
+                                    }
+                                    
                                     navController.navigate("main_menu") {
                                         popUpTo("world_map") { inclusive = true }
                                         launchSingleTop = true
@@ -476,7 +684,7 @@ class MainActivity : ComponentActivity() {
                                         TextButton(onClick = {
                                             showExitDialog = false
                                             // AUTO-GUARDADO también al cerrar la app desde el diálogo.
-                                            if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity, worldMapViewModel.campaignSlot)
+                                            if (worldMapViewModel.inCampaign) worldMapViewModel.saveGame(this@MainActivity, worldMapViewModel.campaignSlot, auto = true)
                                             worldMapViewModel.disconnectFromMultiplayer()
                                             this@MainActivity.finish()
                                         }) {
@@ -496,7 +704,8 @@ class MainActivity : ComponentActivity() {
                                 viewModel = worldMapViewModel,
                                 onNavigateToMainMenu = navigateBackToMainMenu,
                                 onNavigateToSettings = {
-                                    navController.navigate("settings")
+                                    // Desde el JUEGO: mantener horizontal en Ajustes.
+                                    navController.navigate("settings?fromGame=true")
                                 },
                                 // Callback que se dispara cuando el video de ZombiHand
                                 // termina y hay un edificio destino pendiente.
@@ -504,7 +713,10 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(routeName)
                                 },
                                 // "Guardar partida" → abre el selector de slots (a nivel Activity).
-                                onRequestSaveGame = { showSaveDialog = true }
+                                onRequestSaveGame = { showSaveDialog = true },
+                                // MISIÓN FALLIDA → "Reintentar": recarga el slot activo (reinicia la
+                                // misión) sin pasar por el menú principal.
+                                onRetryMission = { worldMapViewModel.retryCampaignMission(this@MainActivity) }
                             )
                             // ─── ShineCTO: navegar al interior cuando el VM lo indique ───
                             val uiState by worldMapViewModel.uiState.collectAsState()
@@ -515,6 +727,24 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("shinecto_interior")
                                 }
                             }
+
+                            // MODO HISTORIA · Misión 1 cumplida (llegaste a la ESCOM) → cómic
+                            // IntroPOW12..14; al volver arranca la persecución de la Misión 2.
+                            LaunchedEffect(uiState.pendingMission2Intro) {
+                                if (uiState.pendingMission2Intro) {
+                                    // OJO: NO consumir el flag ANTES del delay; al cambiar el flag
+                                    // se cancela este LaunchedEffect y el cómic nunca se lanzaba.
+                                    // Deja sonar el jingle de "misión cumplida" un momento y LUEGO
+                                    // navega al cómic (consumir + navigate van seguidos, sin suspensión).
+                                    kotlinx.coroutines.delay(2200)
+                                    worldMapViewModel.consumePendingMission2Intro()
+                                    navController.navigate("story_mission2")
+                                }
+                            }
+
+                            // MODO HISTORIA · MISIÓN FALLIDA (la policía mató a Prankedy): la pantalla
+                            // se queda con botones "REINTENTAR MISIÓN" (recarga el slot) y "Salir al
+                            // menú"; ya NO vuelve sola al menú. (Ver WorldMapScreen / retryCampaignMission.)
 
                             // NUEVO BLOQUE: Navegar al minijuego tras el fade de la puerta
                             LaunchedEffect(uiState.escomDoorFadeComplete) {
@@ -681,16 +911,30 @@ class MainActivity : ComponentActivity() {
                                 ?: ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
                             ZombieGameScreen(
                                 onExitToWorld = {
+                                    worldMapViewModel.currentInteriorRoomId = null
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).stopInvestigarMusic()
                                     navController.popBackStack("world_map", inclusive = false)
                                 },
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
-                                onNavigateToSettings = { navController.navigate("settings") },
+                                onNavigateToSettings = { navController.navigate("settings?fromGame=true") },
                                 debugHitboxes = false,
                                 startRoomId = startRoom,
                                 // "Guardar partida" disponible también en interiores (mismo selector
                                 // de slots; el estado del mundo se conserva en el worldMapViewModel).
-                                onRequestSaveGame = { showSaveDialog = true }
+                                onRequestSaveGame = { showSaveDialog = true },
+                                // Recuerda la sala actual (para el guardado / reentrada al CARGAR).
+                                onRoomChanged = { roomId -> worldMapViewModel.currentInteriorRoomId = roomId },
+                                // Si se CARGA una partida directamente en la cadena ENCB y se llega al
+                                // waypoint final de ENCB_LAB2, reanuda la narrativa (cómic ENCB_OUTRO).
+                                onPlayStoryOutro = {
+                                    worldMapViewModel.currentInteriorRoomId = null
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).stopInvestigarMusic()
+                                    navController.navigate("story_outro") {
+                                        // Limpia el interior y el world_map base (el outro reentra al mundo).
+                                        popUpTo("world_map") { inclusive = true }
+                                    }
+                                }
                             )
                         }
 

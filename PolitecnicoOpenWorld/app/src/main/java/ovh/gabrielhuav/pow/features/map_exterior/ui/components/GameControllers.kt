@@ -119,6 +119,65 @@ fun JoystickController(
     }
 }
 // ==========================================
+// JOYSTICK DE CONDUCCIÓN (solo dirige IZQ/DER)
+// ==========================================
+// Variante del joystick para el MODO MANEJO: el eje X dirige (izquierda/derecha) llamando a
+// steerLeft/steerRight (press/release). Arriba/abajo no se usan (gas/freno viven en el diamante
+// PS4). Así el modo conducción también respeta la preferencia de JOYSTICK (antes solo D-pad).
+@Composable
+fun VehicleJoystickController(
+    modifier: Modifier = Modifier,
+    backgroundAlpha: Float = 0.4f,
+    onSteerLeft: (Boolean) -> Unit,
+    onSteerRight: (Boolean) -> Unit
+) {
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    // Estado de dirección actual, para emitir press/release solo en los cambios.
+    var steering by remember { mutableStateOf(0) } // -1 izq, 0 centro, +1 der
+
+    fun setSteer(dir: Int) {
+        if (dir == steering) return
+        // Suelta la dirección anterior y presiona la nueva.
+        if (steering < 0) onSteerLeft(false)
+        if (steering > 0) onSteerRight(false)
+        if (dir < 0) onSteerLeft(true)
+        if (dir > 0) onSteerRight(true)
+        steering = dir
+    }
+
+    Box(
+        modifier = modifier
+            .size(ControllerBaseSize)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f)))
+            .pointerInput(Unit) {
+                val deadzone = 18.dp.toPx()
+                detectDragGestures(
+                    onDragEnd = { offset = Offset.Zero; setSteer(0) },
+                    onDragCancel = { offset = Offset.Zero; setSteer(0) },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        val newOffset = offset + dragAmount
+                        val maxRadius = (size.width / 2f) - 24.dp.toPx()
+                        val distance = sqrt(newOffset.x * newOffset.x + newOffset.y * newOffset.y)
+                        offset = if (distance > maxRadius) newOffset * (maxRadius / distance) else newOffset
+                        setSteer(if (offset.x < -deadzone) -1 else if (offset.x > deadzone) 1 else 0)
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.DarkGray.copy(alpha = 0.8f))
+        )
+    }
+}
+
+// ==========================================
 // CONTROL DIRECCIONAL (D-PAD)
 // ==========================================
 @Composable
@@ -398,6 +457,46 @@ fun Modifier.repeatingClickable(
     }
 }
 
+// ==========================================
+// WIDGET DE COORDENADAS (X / Y / Z)
+// ==========================================
+// Muestra la posición actual del jugador. Reusable por el mundo global y los interiores.
+//   X / Y = coordenadas (lon/lat en global, píxeles/normalizado en interiores).
+//   Z     = "dónde está": GLOBAL en el mundo abierto, o el nombre de la sala en interiores.
+// Se activa/desactiva en Ajustes → Interfaz.
+// IMPORTANTE: se dibuja como un CHIP DE UNA SOLA LÍNEA con el MISMO estilo/tamaño que los demás
+// widgets de Interfaz (CacheChip): mismo fondo, forma, padding, punto y tipografía, para que todos
+// los widgets queden uniformes (antes era un bloque de 3 líneas, más alto que el resto).
+@Composable
+fun CoordsWidget(
+    x: String,
+    y: String,
+    z: String,
+    modifier: Modifier = Modifier
+) {
+    // Compacto para acercar su ANCHO al de los demás chips de Interfaz (tiene 3 valores → siempre algo
+    // más ancho, pero con fuente 10sp + padding/espaciado reducidos queda mucho más angosto).
+    Row(
+        modifier = modifier
+            .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF7FD1FF)))
+        // UNA SOLA LÍNEA (sin wrap): así no se parte en 2 líneas desiguales como antes; igual que
+        // los demás chips de Interfaz, que tampoco se envuelven.
+        Text(
+            text = "X $x Y $y Z $z",
+            color = Color.White,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false
+        )
+    }
+}
+
 /**
  * Modificador personalizado que detecta el inicio y fin de una pulsación física.
  */
@@ -407,8 +506,15 @@ fun Modifier.detectHoldEvent(onHoldEvent: (isPressed: Boolean) -> Unit): Modifie
         awaitFirstDown(requireUnconsumed = false)
         onHoldEvent(true)
 
-        // 2. Esperamos a que levante el dedo o deslice fuera del área
-        waitForUpOrCancellation()
-        onHoldEvent(false)
+        // 2. Esperamos a que levante el dedo o deslice fuera del área.
+        //    IMPORTANTE: el `finally` GARANTIZA que se notifique el "soltar" (false) AUNQUE la
+        //    corrutina del gesto se cancele (recomposición, el botón sale de pantalla, otro
+        //    pointerInput toma el evento…). Sin esto, el "release" se perdía y `playerAction`
+        //    se quedaba en SPECIAL → el jugador "golpeaba todo el tiempo".
+        try {
+            waitForUpOrCancellation()
+        } finally {
+            onHoldEvent(false)
+        }
     }
 }

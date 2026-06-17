@@ -69,6 +69,8 @@ class WorldMapViewModel(
     internal val collectibleRepository: CollectibleRepository
 ) : androidx.lifecycle.AndroidViewModel(application) {
 
+    internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(application)
+
     var playerHealth by mutableStateOf(100f)
         internal set
     val maxPlayerHealth = 100f
@@ -157,7 +159,8 @@ class WorldMapViewModel(
             npcEmojiLod   = settingsRepository.getNpcEmojiLod(),  // optimizar dibujado de NPCs (LOD)
             npcFullEmoji  = settingsRepository.getNpcFullEmoji(), // optimizar para gama baja (emoji total)
             showZoomWidget = settingsRepository.getShowZoomWidget(),
-            showSpeedometer = settingsRepository.getShowSpeedometer()
+            showSpeedometer = settingsRepository.getShowSpeedometer(),
+            showCoordsWidget = settingsRepository.getShowCoordsWidget()
         )
     )
     // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
@@ -254,6 +257,24 @@ class WorldMapViewModel(
     internal val policeManager = ovh.gabrielhuav.pow.domain.models.ai.PoliceManager()
     internal val MAX_WANTED_LEVEL = 5
 
+    // ─── POLICÍA DE LA CAMPAÑA (Modo Historia · Misión 1) ────────────────────
+    // SEPARADA del sistema de búsqueda del mundo libre para que no choquen los comportamientos.
+    // Son 2 policías a pie que siguen al jugador a distancia (ver WorldMapCampaignPolice.kt).
+    internal val campaignEscortPolice = ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice()
+    // Spawn diferido (una vez por activación); setStorySpawn la re-arma en cada entrada de campaña.
+    internal var campaignPoliceActivated = false
+    // MISIÓN 2: persecución de 6 policías + multitud saliendo de la ESCOM (ver WorldMapCampaignPolice.kt).
+    internal var mission2ChaseActivated = false
+    // MISIÓN 2: true una vez que Prankedy ENTRA a la ESCOM (huyendo); deja de animarse a partir de ahí.
+    internal var mission2PrankedyEntered = false
+    // MISIÓN 2: posición EXACTA donde Prankedy desespawneó al meterse a la ESCOM. La policía del REMATE
+    // se reúne AQUÍ a "platicar" (no en la puerta del objetivo, que queda unos metros más allá).
+    internal var mission2PrankedyExitPoint: org.osmdroid.util.GeoPoint? = null
+    // Multitud de NPCs que SALEN de la puerta de la ESCOM (hora de salida) y se despawnean al
+    // salir de tu fog of war. Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs.
+    internal val mission2Crowd = ConcurrentHashMap<String, Npc>()
+    internal var mission2CrowdLastSpawn = 0L
+
     // ─── PRANKEDY (NPC compañero) ─────────────────────────────────────────────
     internal val prankedyManager = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager()
     // Policía REMOTA (de otros jugadores): solo se renderiza, no se simula. id -> (npc, lastSeenMs).
@@ -324,6 +345,9 @@ class WorldMapViewModel(
 
     fun connectToMultiplayer(serverUrl: String, playerName: String) {
         myPlayerDisplayName = playerName
+        // Identidad del jugador = UID de Firebase si hay sesión (reemplaza al UUID de dispositivo).
+        // El servidor, al verificar el token, también usa ese UID como sessionId.
+        ovh.gabrielhuav.pow.data.auth.AuthSession.uid?.let { myPlayerUUID = it }
         _uiState.update { it.copy(isMultiplayer = true, playerName = playerName) }
         if (webSocketManager == null) {
             Log.d("WorldMapVM", "Iniciando conexión multijugador a $serverUrl")
@@ -357,6 +381,11 @@ class WorldMapViewModel(
     // volcado de la IA y el NPC_BATCH_UPDATE deben IGNORAR unos segundos (si no, el
     // snapshot viejo re-insertaba el coche que acabas de abordar y se duplicaba).
     internal var lastVehicleToggleMs = 0L
+    // H: instante en que Prankedy empezó a "subir" al coche (escolta). Sirve de timeout de
+    // seguridad: si no llega en PRANKEDY_BOARD_TIMEOUT_MS, se le teletransporta contigo y se sube
+    // (evita que el coche quede bloqueado para siempre si no puede pathear hasta ti).
+    internal var prankedyBoardingStartMs = 0L
+    internal var lastObjDbgMs = 0L   // throttle del log de diagnóstico de objetivos/misión (POW_DBG)
 
     // Contador de ciclos de IA tras (re)cargar el mundo, para el warm-up de NPCs del
     // gate de carga (npcsWarmedUp). Se reinicia en cada teleport.
@@ -464,6 +493,20 @@ class WorldMapViewModel(
                             var currentSpeed = _uiState.value.vehicleSpeed
                             var currentRotation = _uiState.value.vehicleRotation
 
+                            // H: si Prankedy está SUBIENDO al coche, el coche NO avanza hasta que se suba.
+                            val prankedyBoarding = _uiState.value.prankedyBoarding
+                            if (prankedyBoarding) currentSpeed = 0.0
+                            // I: a <= 50 m de la ESCOM (durante la escolta/ingreso) el coche SOLO da reversa
+                            //    → te obliga a BAJARTE y entrar a pie por la puerta.
+                            val driveObjId = _uiState.value.currentObjective?.id
+                            val forceWalkNearEscom = inCampaign &&
+                                (driveObjId == ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
+                                 driveObjId == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id) &&
+                                location.distanceToAsDouble(GeoPoint(
+                                    ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_FORCEWALK_LAT,
+                                    ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_FORCEWALK_LON)
+                                ) <= ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_FORCEWALK_RADIUS_M
+
                             if (isSteeringLeftPressed && currentSpeed != 0.0) {
                                 currentRotation -= if (currentSpeed > 0) 2f else 3f
                             }
@@ -471,17 +514,19 @@ class WorldMapViewModel(
                                 currentRotation += if (currentSpeed > 0) 2f else 3f
                             }
 
-                            if (isGasPressed) {
+                            if (isGasPressed && !prankedyBoarding && !forceWalkNearEscom) {
                                 val speedRatio = (currentSpeed / MAX_SPEED).coerceIn(0.0, 1.0)
                                 val dynamicAcc = ACCELERATION * (1.0 - speedRatio * 0.75) // Cuesta más llegar al 100%
                                 currentSpeed = (currentSpeed + dynamicAcc).coerceAtMost(MAX_SPEED)
-                            } else if (isBrakePressed) {
+                            } else if (isBrakePressed && !prankedyBoarding) {
                                 currentSpeed -= BRAKING_FRICTION
                                 if (currentSpeed < -MAX_SPEED / 2) currentSpeed = -MAX_SPEED / 2
                             } else {
                                 if (currentSpeed > 0) currentSpeed = (currentSpeed - (ACCELERATION / 2)).coerceAtLeast(0.0)
                                 if (currentSpeed < 0) currentSpeed = (currentSpeed + (ACCELERATION / 2)).coerceAtMost(0.0)
                             }
+                            // I: refuerza "solo reversa" cerca de la ESCOM (anula cualquier avance hacia adelante).
+                            if (forceWalkNearEscom && currentSpeed > 0.0) currentSpeed = 0.0
 
                             val angleRad = Math.toRadians(currentRotation.toDouble())
                             val dx = kotlin.math.sin(angleRad) * currentSpeed
@@ -618,7 +663,17 @@ class WorldMapViewModel(
                         // idempotente (solo spawnea si location==null && phase!=DEAD) y garantiza el
                         // spawn aunque updateInitialLocation no se haya disparado.
                         checkPrankedySpawn(location)
-                        runPrankedyTick(location, System.currentTimeMillis())
+                        // MISIÓN 2: Prankedy ya NO te sigue; CORRE hacia la puerta de la ESCOM y se
+                        // mete (huyendo de la policía, que lo persigue por detrás). Tras entrar, no
+                        // se le anima más. Fuera de eso, corre su seguimiento normal.
+                        val nowMs = System.currentTimeMillis()
+                        val m2 = isMission2ChaseActive()
+                        when {
+                            m2 && mission2PrankedyEntered -> { /* ya entró: no animar a Prankedy */ }
+                            m2 && prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED ->
+                                runMission2PrankedyEscape(location, nowMs)
+                            else -> runPrankedyTick(location, nowMs)
+                        }
 
                         // BALAS de la POLICÍA DEL APOCALIPSIS (caza-zombis): el Host las acumula en
                         // movePoliceHunter; aquí las volcamos a policeShots para DIBUJARLAS (runPoliceTick
@@ -633,10 +688,34 @@ class WorldMapViewModel(
                             }
                         }
 
-                        // POLICÍA: nivel de búsqueda (spawn de patrullas, persecución,
-                        // golpes/disparos) y decaimiento. La simula el dueño del nivel.
-                        if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
-                            runPoliceTick(location)
+                        // POLICÍA. Durante la MISIÓN 1 (escolta) corre la policía de la CAMPAÑA
+                        // (clase aparte: 2 a pie, siguen a distancia, 1★) y NO el sistema de
+                        // búsqueda del mundo libre, para que no choquen. Fuera de la escolta corre
+                        // la policía normal del mundo libre. Al terminar la escolta (o salir de la
+                        // campaña) se limpia la policía de campaña.
+                        // El objetivo de la ESCOM apunta a la PUERTA real (landmark) más cercana.
+                        if (isCampaignEscortActive() || isMission2ChaseActive()) syncObjectiveToEscomDoor(location)
+                        when {
+                            // MISIÓN 1: escolta (2 a pie, te siguen a distancia).
+                            isCampaignEscortActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runCampaignEscortTick(location)
+                                }
+                            }
+                            // MISIÓN 2: persecución (6 policías) + multitud saliendo de la ESCOM.
+                            isMission2ChaseActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runMission2Tick(location)
+                                }
+                            }
+                            // Fuera de la campaña / misión cumplida: limpia la policía de campaña y
+                            // corre la policía normal del mundo libre.
+                            else -> {
+                                if (campaignPoliceActivated || mission2ChaseActivated) clearCampaignPolice()
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runPoliceTick(location)
+                                }
+                            }
                         }
 
                         maybeRefetchRoadNetwork(location)
@@ -1189,7 +1268,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacter(direction: Direction) {
-        if (_uiState.value.showWastedScreen) return // muerto: sin movimiento (WASTED)
+        if (_uiState.value.showWastedScreen || _uiState.value.showMissionFailed) return // muerto/misión fallida: sin movimiento
         // Si el mapa está descentrado (exploración), el primer toque de los controles
         // de movimiento (izquierda) recentra en el jugador (SIN cambiar el zoom) en vez
         // de moverlo a ciegas fuera de cuadro.
@@ -1217,8 +1296,10 @@ class WorldMapViewModel(
             return // CHOCÓ: Rompemos la función y el jugador no avanza
         }
 
-        // ZONA LIBRE (ESCOM / ENCB): se suspende la malla vial → movimiento (x,y) 100% libre.
-        if (isFreeMovementZone(temp.latitude, temp.longitude)) {
+        // ZONA LIBRE (ESCOM / ENCB) o SOBRE UN ASSET/LANDMARK: se suspende la malla vial → el
+        // JUGADOR se mueve libre en (x,y). (isOnLandmark es solo para ti; las calles siguen
+        // visibles y los NPCs siguen atados a la malla.)
+        if (isFreeMovementZone(temp.latitude, temp.longitude) || isOnLandmark(temp.latitude, temp.longitude)) {
             _uiState.update { it.copy(currentLocation = temp) }
             return
         }
@@ -1244,7 +1325,7 @@ class WorldMapViewModel(
     }
 
     fun moveCharacterByAngle(angleRad: Double) {
-        if (_uiState.value.showWastedScreen) return // muerto: sin movimiento (WASTED)
+        if (_uiState.value.showWastedScreen || _uiState.value.showMissionFailed) return // muerto/misión fallida
         // Igual que moveCharacter: con el mapa descentrado, recentrar en el jugador (sin zoom).
         if (_uiState.value.isUserPanningMap) { centerOnPlayer(); return }
         val loc = _uiState.value.currentLocation ?: return
@@ -1266,8 +1347,9 @@ class WorldMapViewModel(
             return // CHOCÓ: Rompemos la función
         }
 
-        // ZONA LIBRE (ESCOM / ENCB): se suspende la malla vial → movimiento (x,y) 100% libre.
-        if (isFreeMovementZone(temp.latitude, temp.longitude)) {
+        // ZONA LIBRE (ESCOM / ENCB) o SOBRE UN ASSET/LANDMARK: se suspende la malla vial → el
+        // JUGADOR se mueve libre en (x,y) (solo tú; las calles siguen visibles y los NPCs atados).
+        if (isFreeMovementZone(temp.latitude, temp.longitude) || isOnLandmark(temp.latitude, temp.longitude)) {
             _uiState.update { it.copy(currentLocation = temp) }
             return
         }
@@ -1401,6 +1483,10 @@ class WorldMapViewModel(
         // re-descarga (gateMapDownloadAfterTeleport NO está gateado por mapPrepStarted).
         inCampaign = true            // sesión de campaña → habilita el auto-guardado al salir
         prankedyCompanionActivated = false  // re-arma el encendido del acompañante en la ENCB
+        campaignPoliceActivated = false     // re-arma la policía de escolta de la Misión 1
+        mission2ChaseActivated = false      // re-arma la persecución de la Misión 2
+        campaignEscortPolice.clear()
+        mission2Crowd.clear()
         npcWarmupCycles = 0          // re-arma el warm-up de NPCs del gate de carga
         lastNetworkFetchLocation = null  // fuerza el re-fetch de calles alrededor de la escuela
         lastFetchAttemptMs = 0L
@@ -1411,7 +1497,8 @@ class WorldMapViewModel(
                 isMapReady = false,        // ← re-activa la compuerta de carga del mapa
                 isRoadNetworkReady = false, // ← y la de la red de calles
                 npcsWarmedUp = false,       // ← y el warm-up de NPCs (orden: tiles → calles → NPCs)
-                isUserPanningMap = false    // ← recentra el mapa y reactiva la neblina
+                isUserPanningMap = false,   // ← recentra el mapa y reactiva la neblina
+                showMissionFailed = false   // ← limpia un posible "MISIÓN FALLIDA" anterior
             )
         }
         // Descarga el mapa de la escuela ANTES de soltar al jugador (en paralelo a la
@@ -1468,6 +1555,10 @@ class WorldMapViewModel(
     // Slot de guardado activo (1..SaveGameRepository.SLOT_COUNT). Lo fija MainActivity al
     // COMENZAR/CARGAR; el auto-guardado al salir escribe en este slot.
     internal var campaignSlot: Int = 1
+    // Sala de interiores actual (id de ZombieRoomCatalog) o null si el jugador está en el
+    // MAPA GLOBAL. Lo mantiene MainActivity (onRoomChanged al entrar/cambiar de sala, null al
+    // salir al mapa). El guardado lo persiste para que CARGAR reabra el interior correcto.
+    internal var currentInteriorRoomId: String? = null
 
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
@@ -1475,6 +1566,7 @@ class WorldMapViewModel(
     fun toggleZoomWidget(show: Boolean) { _uiState.update { it.copy(showZoomWidget = show) } }
 
     fun toggleSpeedometer(show: Boolean) { _uiState.update { it.copy(showSpeedometer = show) } }
+    fun toggleCoordsWidget(show: Boolean) { _uiState.update { it.copy(showCoordsWidget = show) } }
     fun updateShowCacheWidget(show: Boolean) = _uiState.update { it.copy(showCacheWidget = show) }
     fun updateShowFpsWidget(show: Boolean) = _uiState.update { it.copy(showFpsWidget = show) }
 
@@ -1612,6 +1704,13 @@ class WorldMapViewModel(
                 // Si el coche traía skin de patrulla (una patrulla que abandonaste), al
                 // re-subirte vuelves a conducirla con el skin de policía.
                 _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false, isDrivingPoliceCar = carNpc.isPoliceSkin) }
+                // H (Modo Historia): si Prankedy es tu ACOMPAÑANTE (escolta), debe SUBIR contigo: corre
+                // hasta tu posición y el coche NO avanza hasta que se sube (lo completa runPrankedyTick).
+                if (prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED &&
+                    _uiState.value.prankedyEnabled && prankedyManager.location != null) {
+                    prankedyBoardingStartMs = nowMs
+                    _uiState.update { it.copy(prankedyBoarding = true) }
+                }
                 prankedyManager.onVehicleInteraction()
                 updateNpcsState()
                 return
@@ -1667,7 +1766,7 @@ class WorldMapViewModel(
                 navState = if (isInsideEscom(loc.latitude, loc.longitude)) ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED else ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
             )
             remoteEntities[abandonedCar.id] = abandonedCar
-            _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }
+            _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false, prankedyBoarding = false) }
             prankedyManager.onVehicleInteraction()
             updateNpcsState()
         }
@@ -1813,6 +1912,8 @@ class WorldMapViewModel(
                 carjackWarning = null
             )
         }
+        // El acompañante (Prankedy, campaña) se TELETRANSPORTA contigo (si no, quedaba atrás).
+        warpPrankedyCompanionTo(newLocation)
         lastNetworkFetchLocation = null
         lastFetchAttemptMs = 0L
         // Descarga el mapa de la nueva zona ANTES de soltar al jugador (en paralelo a
@@ -2060,6 +2161,25 @@ class WorldMapViewModel(
                     vehicleSpeed = 0.0
                 )
             }
+            // MODO HISTORIA: morir DURANTE una misión de campaña = MISIÓN FALLIDA (reinicia desde el
+            // último checkpoint con "REINTENTAR MISIÓN"), NO el respawn normal — si no, el jugador podría
+            // dejarse matar para SALTARSE todo el trayecto de la escolta de Prankedy. Este es el MIEMBRO
+            // (gana sobre la extensión homónima de WorldMapMisc.kt, que está sombreada — ver 09).
+            val missionObj = _uiState.value.currentObjective
+            val inMission = inCampaign && (
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id)
+            if (inMission) {
+                delay(2500L)
+                relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
+                clearCampaignPolice()
+                carjackStartTime = 0L
+                playerHealth = maxPlayerHealth
+                damagePulseTrigger = 0
+                impactEffectTrigger = 0
+                _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null, isDrivingPoliceCar = false, showWastedScreen = false, showMissionFailed = true) }
+                return@launch
+            }
             delay(4000L)
             // Limpiar el estado de combate (rachas / NPCs implacables / cooldowns) para
             // no revivir siendo perseguido al instante.
@@ -2091,16 +2211,22 @@ class WorldMapViewModel(
         val now = System.currentTimeMillis()
         if (now - lastAttackTime < ATTACK_COOLDOWN_MS) return
         lastAttackTime = now
+        soundManager.playPunch()
         viewModelScope.launch(Dispatchers.Default) {
             delay(300L)
             val playerLoc = _uiState.value.currentLocation ?: return@launch
             // PRANKEDY hostil: el jugador puede defenderse golpeándolo. Si lo mata, desaparece
             // y reaparece tras un tiempo (lo gestiona PrankedyManager; el render lo oculta al
             // quedar su location en null).
-            prankedyManager.location?.let { pkLoc ->
-                if (distance(playerLoc, pkLoc) <= ATTACK_RADIUS) {
-                    prankedyManager.takeDamage(PLAYER_PUNCH_DAMAGE)
-                    viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() }
+            // En el MODO HISTORIA (escolta, fase HIRED) Prankedy es tu acompañante: TÚ NO le
+            // puedes pegar (solo la policía puede dañarlo). Fuera de la escolta (Prankedy hostil)
+            // sí puedes golpearlo para defenderte.
+            if (prankedyManager.phase != ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED) {
+                prankedyManager.location?.let { pkLoc ->
+                    if (distance(playerLoc, pkLoc) <= ATTACK_RADIUS) {
+                        prankedyManager.takeDamage(PLAYER_PUNCH_DAMAGE)
+                        viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() }
+                    }
                 }
             }
             // MIEDO AL COMBATE (SP y host MP): cada golpe asusta a los civiles cercanos,
@@ -2626,6 +2752,13 @@ class WorldMapViewModel(
                     // Puertas ESCOM (Norte/Sur, etc.) → lobby de ESCOM (sin arg = default).
                     else -> "interiores_zombies"
                 }
+                // MODO HISTORIA · Misión 2 "Ingresa a la ESCOM": se cumple al ENTRAR por la puerta
+                // (este es el momento de "ingresar"). Marca el objetivo cumplido + jingle.
+                if (_uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id
+                    && !_uiState.value.objectiveDone) {
+                    _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.title ?: ""}") }
+                    soundManager.playMisionCumplida()
+                }
                 _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }
             }
 
@@ -2710,6 +2843,50 @@ class WorldMapViewModel(
         return isInsideEscom(lat, lon) || isInsideEncb(lat, lon)
     }
 
+    // ¿El punto cae SOBRE el footprint de algún landmark/asset del mapa? Se usa SOLO para el
+    // movimiento del JUGADOR: estando sobre un asset (p. ej. el estacionamiento) se suspende el
+    // snap a la red de calles y te mueves libre en (x,y). OJO: NO se mete en isFreeMovementZone
+    // a propósito → así las calles SIGUEN dibujándose y los NPCs SIGUEN atados a la malla vial.
+    // Footprint = caja del asset en metros (baseW/H × escala), alineada a ejes (ignora rotación).
+    internal fun isOnLandmark(lat: Double, lon: Double): Boolean {
+        val lms = _uiState.value.landmarks
+        if (lms.isEmpty()) return false
+        val cosLat = kotlin.math.cos(Math.toRadians(lat))
+        var bestEdgeM = Double.MAX_VALUE   // diagnóstico: qué tan "dentro/fuera" del landmark más cercano
+        var on = false
+        for (lm in lms) {
+            val halfW = (lm.baseWidthMeters * lm.scaleX) / 2.0
+            val halfH = (lm.baseHeightMeters * lm.scaleY) / 2.0
+            val dLatM = (lat - lm.location.latitude) * 111_320.0
+            val dLonM = (lon - lm.location.longitude) * 111_320.0 * cosLat
+            val edge = kotlin.math.max(kotlin.math.abs(dLatM) - halfH, kotlin.math.abs(dLonM) - halfW)
+            if (edge < bestEdgeM) bestEdgeM = edge
+            if (kotlin.math.abs(dLatM) <= halfH && kotlin.math.abs(dLonM) <= halfW) { on = true }
+        }
+        // DIAGNÓSTICO (POW_DBG, throttle ~1.5 s): nº de landmarks y "borde" del más cercano (m). Si
+        // bestEdge>0 NUNCA estás sobre un asset (footprints chicos o estás siempre en la calle).
+        val nowDbg = System.currentTimeMillis()
+        if (nowDbg - lastLandmarkDbgMs > 1500L) {
+            lastLandmarkDbgMs = nowDbg
+            android.util.Log.d("POW_DBG", "isOnLandmark: lms=${lms.size} on=$on bordeMasCercano=${"%.1f".format(bestEdgeM)}m")
+        }
+        return on
+    }
+    private var lastLandmarkDbgMs = 0L
+
+    // Normaliza un navgraph recién deserializado. Gson NO aplica los defaults de Kotlin a los campos
+    // AUSENTES del JSON: si los `ways` de escom_navgraph.json no traen isForCars/isForPeople, llegan
+    // como `false` → los autos NO casan con NINGÚN carril (matchType en NpcAiManager) y los carros del
+    // estacionamiento "no surten efecto". Restauramos la intención por la convención de id que ya usa la
+    // IA (id < 200 = autos, id >= 200 = peatonal). Solo toca ways que vienen sin clasificar (ambos false).
+    internal fun normalizeNavGraph(ng: LandmarkNavGraph?): LandmarkNavGraph? {
+        if (ng == null) return null
+        val fixedWays = ng.ways.map { w ->
+            if (!w.isForCars && !w.isForPeople) w.copy(isForCars = w.id < 200, isForPeople = w.id >= 200) else w
+        }
+        return ng.copy(ways = fixedWays)
+    }
+
 
     fun checkDestinationArrival() {
         val destination = _uiState.value.destinationMarker ?: return
@@ -2724,7 +2901,7 @@ class WorldMapViewModel(
             try {
                 val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
                 val reader = java.io.InputStreamReader(inputStream)
-                escomNavGraph = Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java)
+                escomNavGraph = normalizeNavGraph(Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java))
                 reader.close()
             } catch (e: Exception) {
                 android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_error_escom_navgraph), android.widget.Toast.LENGTH_SHORT).show()

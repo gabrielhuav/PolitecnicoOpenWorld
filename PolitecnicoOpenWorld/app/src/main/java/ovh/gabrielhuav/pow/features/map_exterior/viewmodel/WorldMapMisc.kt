@@ -84,6 +84,13 @@ internal fun WorldMapViewModel.startHealthBarTimer(delayMillis: Long) {
     }
 
 internal fun WorldMapViewModel.triggerWastedSequence() {
+        // En una MISIÓN de campaña, morir = MISIÓN FALLIDA: se reinicia desde el ÚLTIMO CHECKPOINT
+        // (botón "REINTENTAR MISIÓN" → recarga el slot), en vez del respawn normal cerca del lugar
+        // de muerte (que dejaba al jugador "al lado de la ESCOM" sin repetir la misión).
+        val obj = _uiState.value.currentObjective
+        val inMission = inCampaign && (
+            obj?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
+            obj?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id)
         viewModelScope.launch(Dispatchers.Main) {
             // Al morir te bajas del coche (no se respawnea conduciendo).
             _uiState.update {
@@ -95,6 +102,17 @@ internal fun WorldMapViewModel.triggerWastedSequence() {
                     vehicleSpeed = 0.0,
                     isDrivingPoliceCar = false
                 )
+            }
+            if (inMission) {
+                // WASTED breve y luego MISIÓN FALLIDA (REINTENTAR recarga el checkpoint).
+                delay(2500L)
+                relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
+                clearCampaignPolice()
+                playerHealth = maxPlayerHealth
+                damagePulseTrigger = 0
+                impactEffectTrigger = 0
+                _uiState.update { it.copy(showWastedScreen = false, showMissionFailed = true) }
+                return@launch
             }
             delay(4000L)
             // Limpiar estado de combate para no revivir siendo perseguido.

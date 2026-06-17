@@ -1,6 +1,9 @@
 package ovh.gabrielhuav.pow.features.main_menu.ui
 
 import android.content.res.Configuration
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,6 +19,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,10 +40,45 @@ fun MainMenuScreen(
     onNavigateToMap: (isMultiplayer: Boolean, playerName: String?) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToCollectibles: () -> Unit,
-    onNavigateToStory: () -> Unit
+    onNavigateToStory: () -> Unit,
+    authManager: ovh.gabrielhuav.pow.data.auth.AuthManager? = null
 ) {
     val viewModel: MainMenuViewModel = viewModel()
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+
+    // Nombre de jugador recordado entre sesiones (SharedPreferences). Se prellena al abrir.
+    val settingsRepo = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context) }
+    LaunchedEffect(Unit) {
+        if (state.playerName.isBlank()) {
+            val saved = settingsRepo.getPlayerName()
+            if (saved.isNotBlank()) viewModel.updatePlayerName(saved)
+        }
+    }
+
+    // GATE de Google Sign-In: el MULTIJUGADOR (y, a futuro, los LOGROS) exigen sesión.
+    // El juego local / Modo Historia NO requieren login. Al volver del selector de Google,
+    // si el login fue OK se continúa con el flujo normal de multijugador (warmup + nombre).
+    val signInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        authManager?.handleSignInResult(result.data) { ok, err ->
+            if (ok) {
+                if (state.playerName.isBlank()) {
+                    authManager.currentDisplayName()?.let { viewModel.updatePlayerName(it) }
+                }
+                viewModel.onMultiplayerPressed()
+            } else if (!err.isNullOrBlank()) {
+                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    // Acción del botón MULTIJUGADOR (y reintento): si no hay sesión, abre Google Sign-In;
+    // si ya hay sesión (o Auth no está configurado), sigue el flujo normal.
+    val onMultiplayer: () -> Unit = {
+        if (authManager == null || authManager.isSignedIn()) viewModel.onMultiplayerPressed()
+        else signInLauncher.launch(authManager.signInIntent())
+    }
 
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -68,7 +107,8 @@ fun MainMenuScreen(
                         onNavigateToMap = onNavigateToMap,
                         onNavigateToSettings = onNavigateToSettings,
                         onNavigateToCollectibles = onNavigateToCollectibles,
-                        onNavigateToStory = onNavigateToStory
+                        onNavigateToStory = onNavigateToStory,
+                        onMultiplayerClick = onMultiplayer
                     )
                 }
             }
@@ -86,7 +126,8 @@ fun MainMenuScreen(
                     onNavigateToMap = onNavigateToMap,
                     onNavigateToSettings = onNavigateToSettings,
                     onNavigateToCollectibles = onNavigateToCollectibles,
-                    onNavigateToStory = onNavigateToStory
+                    onNavigateToStory = onNavigateToStory,
+                    onMultiplayerClick = onMultiplayer
                 )
             }
         }
@@ -95,6 +136,16 @@ fun MainMenuScreen(
             text = stringResource(R.string.menu_version, BuildConfig.VERSION_NAME), color = Color.White.copy(alpha = 0.3f),
             fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+        )
+
+        // Chip de estado de sesión (abajo-izquierda): "Conectado: …" o "Modo local".
+        val accountLabel = authManager?.currentEmail() ?: authManager?.currentDisplayName()
+        Text(
+            text = if (accountLabel != null) stringResource(R.string.menu_signed_in_as, accountLabel)
+                   else stringResource(R.string.menu_local_mode),
+            color = if (accountLabel != null) Color(0xFFD4AF37).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.3f),
+            fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
         )
 
         // ─── Diálogo de nombre del jugador (solo aparece tras warmup OK) ──
@@ -116,6 +167,7 @@ fun MainMenuScreen(
                             viewModel.updateShowMultiplayerDialog(false)
                             // "Jugador_" es un id generado de respaldo (no es texto de UI traducible).
                             val finalName = state.playerName.ifBlank { "Jugador_${(1000..9999).random()}" }
+                            settingsRepo.savePlayerName(finalName)   // recuérdalo para la próxima vez
                             onNavigateToMap(true, finalName)
                         }
                     ) { Text(stringResource(R.string.menu_mp_connect)) }
@@ -145,7 +197,7 @@ fun MainMenuScreen(
                 confirmButton = {
                     TextButton(onClick = {
                         viewModel.dismissWarmupError()
-                        viewModel.onMultiplayerPressed() // reintenta
+                        onMultiplayer() // reintenta (re-aplica el gate de sesión)
                     }) { Text(stringResource(R.string.menu_retry)) }
                 },
                 dismissButton = {
@@ -216,7 +268,8 @@ fun MenuButtonsList(
     onNavigateToMap: (isMultiplayer: Boolean, playerName: String?) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToCollectibles: () -> Unit,
-    onNavigateToStory: () -> Unit
+    onNavigateToStory: () -> Unit,
+    onMultiplayerClick: () -> Unit = { viewModel.onMultiplayerPressed() }
 ) {
     // MUNDO LIBRE: el open world sin campaña (antes "Iniciar Juego"). Spawn por defecto.
     MenuButton(
@@ -242,7 +295,7 @@ fun MenuButtonsList(
     // que el usuario lance dos pings en paralelo.
     MenuButton(
         text = stringResource(R.string.menu_multiplayer),
-        onClick = { viewModel.onMultiplayerPressed() },
+        onClick = onMultiplayerClick,
         enabled = !state.isWarmingUp
     )
     Spacer(Modifier.height(16.dp))

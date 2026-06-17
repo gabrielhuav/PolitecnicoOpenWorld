@@ -16,10 +16,11 @@ data class CampaignSchool(
 // poner `available = true` (sus coordenadas ya alimentan el spawn del Modo Historia).
 object SchoolCatalog {
     val schools = listOf(
-        // ESCOM: única jugable por ahora (= TeleportCatalog.zones[0]).
-        CampaignSchool("escom", "ESCOM", 19.504603, -99.145985, available = true),
+        // IPN (ESCOM, Zacatenco): única jugable por ahora (= TeleportCatalog.zones[0]).
+        // El `id` se mantiene ("escom") porque alimenta el spawn y el guardado; solo cambia el nombre visible.
+        CampaignSchool("escom", "IPN", 19.504603, -99.145985, available = true),
         // En desarrollo: coordenadas listas, pendientes de contenido propio.
-        CampaignSchool("fes_aragon", "FES Aragón", 19.475167, -99.047444, available = false),
+        CampaignSchool("fes_aragon", "UNAM", 19.475167, -99.047444, available = false),
         CampaignSchool("uam", "UAM", 19.360139, -99.073389, available = false)
     )
 

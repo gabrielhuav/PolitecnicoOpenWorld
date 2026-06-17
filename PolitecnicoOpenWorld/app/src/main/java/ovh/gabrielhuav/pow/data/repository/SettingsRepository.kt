@@ -24,7 +24,12 @@ class SettingsRepository(context: Context) {
         private const val KEY_NPC_FULL_EMOJI = "NPC_FULL_EMOJI"  // TODOS los NPCs como emoji (gama baja)
         private const val KEY_SHOW_ZOOM_WIDGET = "SHOW_ZOOM_WIDGET" // widget de nivel de zoom (Interfaz)
         private const val KEY_SHOW_SPEEDOMETER = "SHOW_SPEEDOMETER"  // widget velocímetro al conducir (Interfaz)
+        private const val KEY_SHOW_COORDS_WIDGET = "SHOW_COORDS_WIDGET" // widget de coordenadas X/Y/Z (Interfaz)
+        private const val KEY_DEVELOPER_MODE = "DEVELOPER_MODE" // Modo Desarrollador (Interfaz): muestra botones/opciones de prueba
+        private const val KEY_MUSIC_VOLUME = "MUSIC_VOLUME" // volumen música 0f..1f (Audio)
+        private const val KEY_SFX_VOLUME = "SFX_VOLUME"     // volumen efectos 0f..1f (Audio)
         private const val KEY_LANGUAGE = "APP_LANGUAGE"             // idioma de la UI (BCP-47; "" = sistema)
+        private const val KEY_PLAYER_NAME = "PLAYER_NAME"           // nombre de jugador para multijugador
         const val NPC_DENSITY_MIN = 0.4f
         const val NPC_DENSITY_MAX = 1.6f
     }
@@ -49,7 +54,7 @@ class SettingsRepository(context: Context) {
     }
 
     fun getControlType(): ControlType {
-        val defaultType = ControlType.DPAD
+        val defaultType = ControlType.JOYSTICK
         val saved = prefs.getString(KEY_CONTROL_TYPE, defaultType.name) ?: defaultType.name
         return runCatching { ControlType.valueOf(saved) }.getOrElse {
             prefs.edit().putString(KEY_CONTROL_TYPE, defaultType.name).apply()
@@ -117,6 +122,34 @@ class SettingsRepository(context: Context) {
         prefs.edit().putBoolean(KEY_SHOW_SPEEDOMETER, show).apply()
     }
 
+    // ─── Interfaz: widget de coordenadas (X/Y/Z, global e interiores). Default = oculto. ──
+
+    fun getShowCoordsWidget(): Boolean = prefs.getBoolean(KEY_SHOW_COORDS_WIDGET, false)
+    fun saveShowCoordsWidget(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_COORDS_WIDGET, show).apply()
+    }
+
+    // ─── Interfaz: Modo Desarrollador. Default = desactivado. ──
+    // Cuando está activo, la UI revela botones/opciones de prueba que se ocultarán
+    // en la versión final del juego.
+
+    fun getDeveloperMode(): Boolean = prefs.getBoolean(KEY_DEVELOPER_MODE, false)
+    fun saveDeveloperMode(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DEVELOPER_MODE, enabled).apply()
+    }
+
+    // ─── Audio: volumen de música y efectos (0f..1f). Default = 1.0 (máximo). ──
+
+    fun getMusicVolume(): Float = prefs.getFloat(KEY_MUSIC_VOLUME, 1.0f).coerceIn(0f, 1f)
+    fun saveMusicVolume(v: Float) {
+        prefs.edit().putFloat(KEY_MUSIC_VOLUME, v.coerceIn(0f, 1f)).apply()
+    }
+
+    fun getSfxVolume(): Float = prefs.getFloat(KEY_SFX_VOLUME, 1.0f).coerceIn(0f, 1f)
+    fun saveSfxVolume(v: Float) {
+        prefs.edit().putFloat(KEY_SFX_VOLUME, v.coerceIn(0f, 1f)).apply()
+    }
+
     // ─── Idioma / i18n ───────────────────────────────────────────────────────
     // Etiqueta BCP-47 del idioma de la UI ("es", "en", …). "" = seguir el idioma
     // del sistema. Se aplica envolviendo el Context en MainActivity.attachBaseContext
@@ -125,5 +158,14 @@ class SettingsRepository(context: Context) {
     fun getLanguage(): String = prefs.getString(KEY_LANGUAGE, "") ?: ""
     fun saveLanguage(tag: String) {
         prefs.edit().putString(KEY_LANGUAGE, tag).apply()
+    }
+
+    // ─── Nombre de jugador (multijugador) ────────────────────────────────────
+    // Se recuerda entre sesiones para no reescribirlo cada vez. Al iniciar sesión con
+    // Google, si está vacío se prellena con el nombre de la cuenta.
+
+    fun getPlayerName(): String = prefs.getString(KEY_PLAYER_NAME, "") ?: ""
+    fun savePlayerName(name: String) {
+        prefs.edit().putString(KEY_PLAYER_NAME, name).apply()
     }
 }

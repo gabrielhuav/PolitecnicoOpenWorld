@@ -11,6 +11,10 @@ composeBom = "2024.09.00"
 # Room 2.7.0 es la primera versión compatible con KSP2 y Kotlin 2.x
 roomVersion = "2.7.0"
 preferenceKtx = "1.2.1"
+# Firebase Authentication (Google Sign-In) + plugin google-services
+firebaseBom = "33.5.1"
+playServicesAuth = "21.2.0"
+googleServices = "4.4.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -34,9 +38,14 @@ androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preferenceKtx" }
 compose-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+# Firebase Authentication (Google Sign-In)
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version = "2.3.2" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

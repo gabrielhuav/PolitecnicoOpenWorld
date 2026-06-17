@@ -34,6 +34,7 @@ import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorState
 import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
@@ -138,6 +139,17 @@ fun InteriorScreenBase(
                 modifier = Modifier
                     .background(Color.Black.copy(alpha = 0.6f))
                     .padding(horizontal = 12.dp, vertical = 6.dp)
+            )
+        }
+
+        // Widget de coordenadas (Ajustes → Interfaz): X/Y = posición normalizada en la
+        // sala, Z = "dónde" estás (nombre del interior).
+        if (state.showCoordsWidget) {
+            CoordsWidget(
+                x = "%.3f".format(state.playerX),
+                y = "%.3f".format(state.playerY),
+                z = title.uppercase(),
+                modifier = Modifier.align(Alignment.TopStart).systemBarsPadding().padding(top = 64.dp, start = 12.dp)
             )
         }
 

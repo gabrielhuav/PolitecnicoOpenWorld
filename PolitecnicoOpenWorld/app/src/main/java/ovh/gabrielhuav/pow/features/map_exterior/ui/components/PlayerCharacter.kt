@@ -201,6 +201,28 @@ fun PlayerCharacter(
 
                 // Cache de bitmaps por ruta de asset
                 val bitmapCache = remember { mutableMapOf<String, ImageBitmap?>() }
+                // Cache de la FRACCIÓN VERTICAL opaca (alto del personaje / alto del lienzo)
+                // por asset. Sirve para normalizar el tamaño en pantalla entre animaciones:
+                // CORRER suele venir en un lienzo más alto, así que al ajustarse al cuadro el
+                // personaje se veía MÁS PEQUEÑO que CAMINAR. Compensamos con esta fracción.
+                val fracCache = remember { mutableMapOf<String, Float>() }
+                // Fracción de referencia = la de CAMINAR (frame 1) de la skin actual. Todas las
+                // animaciones se escalan para que el personaje mida lo mismo que al caminar.
+                var walkRefFrac by remember(skin) { mutableStateOf<Float?>(null) }
+
+                // Referencia de tamaño: medimos el frame 1 de CAMINAR de la skin.
+                LaunchedEffect(skin) {
+                    val wp = skin.walkPath(1)
+                    fracCache[wp]?.let { walkRefFrac = it; return@LaunchedEffect }
+                    val f = withContext(Dispatchers.IO) {
+                        try {
+                            context.assets.open(wp).use { st ->
+                                BitmapFactory.decodeStream(st)?.let { opaqueVerticalFraction(it) }
+                            }
+                        } catch (e: Exception) { null }
+                    }
+                    if (f != null) { fracCache[wp] = f; walkRefFrac = f }
+                }
 
                 // Relanzar cuando cambia la acción O la skin
                 LaunchedEffect(action, skin) {
@@ -210,16 +232,17 @@ fun PlayerCharacter(
                         val assetPath = skin.assetPath(action, currentFrame)
 
                         if (!bitmapCache.containsKey(assetPath)) {
-                            val bitmap = withContext(Dispatchers.IO) {
+                            val decoded = withContext(Dispatchers.IO) {
                                 try {
                                     context.assets.open(assetPath).use { stream ->
-                                        BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                                        BitmapFactory.decodeStream(stream)
                                     }
                                 } catch (e: Exception) {
                                     null
                                 }
                             }
-                            bitmapCache[assetPath] = bitmap
+                            bitmapCache[assetPath] = decoded?.asImageBitmap()
+                            if (decoded != null) fracCache[assetPath] = opaqueVerticalFraction(decoded)
                         }
 
                         currentImage = bitmapCache[assetPath]
@@ -230,21 +253,22 @@ fun PlayerCharacter(
                 }
 
                 currentImage?.let { img ->
-                    val visualCompensation = when (action) {
-                        PlayerAction.IDLE    -> 1.0f
-                        PlayerAction.WALK    -> 1.0f
-                        PlayerAction.RUN     -> 1.3f
-                        PlayerAction.SPECIAL -> 1.15f
-                    }
+                    // Normalización de tamaño: hacemos que la ALTURA DEL PERSONAJE (contenido
+                    // opaco) sea SIEMPRE la misma (la de CAMINAR), sin importar cuánto padding
+                    // traiga el lienzo de cada animación. Así CORRER deja de verse más pequeño.
+                    val assetPath = skin.assetPath(action, currentFrame)
+                    val frac = (fracCache[assetPath] ?: 0.6f).coerceIn(0.05f, 1f)
+                    val ref = (walkRefFrac ?: frac).coerceIn(0.05f, 1f)
+                    val boxHeightDp = exactPersonDp * (ref / frac)
+                    val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
+                    val boxWidthDp = boxHeightDp * aspect
                     Image(
                         bitmap = img,
                         contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_main_character),
                         modifier = modifier
-                            .requiredSize(exactPersonDp)
+                            .requiredSize(boxWidthDp, boxHeightDp)
                             .graphicsLayer {
-                                scaleX = if (isFacingRight) visualCompensation
-                                else -visualCompensation
-                                scaleY = visualCompensation
+                                scaleX = if (isFacingRight) 1f else -1f
                             }
                     )
                 }
@@ -263,6 +287,41 @@ private fun PlayerSkin.assetPath(action: PlayerAction, frame: Int): String = whe
     PlayerAction.WALK    -> walkPath(frame)
     PlayerAction.RUN     -> runPath(frame)
     PlayerAction.SPECIAL -> specialPath(frame)
+}
+
+/**
+ * Fracción vertical [0..1] que ocupa el contenido OPACO del bitmap dentro de su lienzo
+ * (alto del personaje / alto del lienzo). Se usa para normalizar el tamaño en pantalla
+ * del jugador entre animaciones cuyos lienzos tienen distinto padding (p. ej. CORRER
+ * suele venir en un lienzo más alto, por eso al ajustarse al cuadro se veía más pequeño
+ * que CAMINAR). Muestrea filas/columnas (no escanea cada píxel) para ser barato; el
+ * resultado se cachea por asset, así que solo se calcula una vez por imagen.
+ */
+private fun opaqueVerticalFraction(bmp: android.graphics.Bitmap): Float {
+    val w = bmp.width
+    val h = bmp.height
+    if (w <= 0 || h <= 0) return 1f
+    val stepX = (w / 48).coerceAtLeast(1)
+    val stepY = (h / 200).coerceAtLeast(1)
+    var top = -1
+    var bottom = -1
+    var y = 0
+    while (y < h) {
+        var rowHasContent = false
+        var x = 0
+        while (x < w) {
+            // alpha > ~6% → píxel "visible"
+            if ((bmp.getPixel(x, y) ushr 24) > 16) { rowHasContent = true; break }
+            x += stepX
+        }
+        if (rowHasContent) {
+            if (top < 0) top = y
+            bottom = y
+        }
+        y += stepY
+    }
+    if (top < 0 || bottom < 0) return 1f
+    return ((bottom - top + 1).toFloat() / h).coerceIn(0.05f, 1f)
 }
 
 /** Parámetros de animación (frames totales, delay en ms) según acción y skin. */

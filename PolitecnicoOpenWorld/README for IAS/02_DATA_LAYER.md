@@ -82,6 +82,18 @@ persists. (osmdroid's built-in downloader uses UA = packageName and was throttle
 - OkHttp WebSocket. **Compartido por ambos servidores** (open world y zombi), instanciado con la URL.
 - `connect()`, `disconnect()`, `isConnected()`, `sendMessage(message: String)`.
 - `messagesFlow: SharedFlow<String>` — emite cada mensaje crudo entrante. Sin timeouts; ping 25 s.
+- 🆕 **Auth en el handshake:** en `connect()` adjunta `Authorization: Bearer <idToken>` y `X-Player-Uid`
+  leyéndolos de `AuthSession` (si hay sesión). Los servidores lo verifican en `verifyClient` (ver 08).
+
+## Autenticación / Auth — `data/auth/`
+
+- 🆕 **`AuthManager.kt`** — login Google→Firebase (`GoogleSignInClient` + `FirebaseAuth`). API:
+  `signInIntent()`, `handleSignInResult(data, cb)`, `refreshToken(cb)`, `restoreSession()`, `signOut(cb)`,
+  `deleteAccount(cb)`, `isSignedIn()/currentEmail()/currentDisplayName()/currentUid()`. **Defensivo:** sin
+  `google-services.json` no crashea (devuelve null/false). Web client id leído dinámicamente
+  (`default_web_client_id`).
+- 🆕 **`AuthSession.kt`** — `object` singleton con `uid`/`idToken`/`email`/`displayName`. Lo publica
+  `AuthManager` tras el login y lo lee `WebSocketManager`. El multijugador exige sesión; el juego local no.
 
 ---
 

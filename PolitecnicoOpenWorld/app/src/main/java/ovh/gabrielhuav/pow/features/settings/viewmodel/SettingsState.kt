@@ -11,8 +11,14 @@ data class SettingsState(
     val showFpsWidget: Boolean = false,
     val showZoomWidget: Boolean = false, // widget de nivel de zoom (Interfaz)
     val showSpeedometer: Boolean = true, // widget velocímetro al conducir (Interfaz)
+    val showCoordsWidget: Boolean = false, // widget de coordenadas X/Y/Z (Interfaz)
+    val developerMode: Boolean = false, // Modo Desarrollador: revela botones/opciones de prueba que se ocultarán en la versión final
+
+    // ─── Audio: volumen de música y efectos (0f..1f) ─────────────────────────
+    val musicVolume: Float = 1.0f,
+    val sfxVolume: Float = 1.0f,
     // ─── Valores COMMITEADOS (los que el juego usa de verdad) ────────────────
-    val controlType: ControlType = ControlType.DPAD,
+    val controlType: ControlType = ControlType.JOYSTICK, // Default: JOYSTICK
     val controlsScale: Float = 1.0f, // Rango recomendado: 0.6f a 1.4f
     val swapControls: Boolean = false, // false = Izq: Movimiento, Der: Acción
     val showRoadNetwork: Boolean = true,
@@ -28,7 +34,7 @@ data class SettingsState(
     // ─── Valores TEMPORALES de controles ─────────────────────────────────────
     // La UI de controles edita estos; NO afectan al juego hasta presionar GUARDAR,
     // momento en el que se copian a los committeados de arriba y se persisten.
-    val tempControlType: ControlType = ControlType.DPAD,
+    val tempControlType: ControlType = ControlType.JOYSTICK,
     val tempControlsScale: Float = 1.0f,
     val tempSwapControls: Boolean = false
 ) {

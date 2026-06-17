@@ -23,10 +23,16 @@ private const val ENCB_LON = -99.1450298
 // prematuramente si el game loop del mundo corre con location=ESCOM antes del outro.
 private const val ENCB_NEIGHBORHOOD_DEG = 0.002
 
-// Destino "lugar seguro" de la misión = ESCOM. La línea GPS roja va de la ENCB a aquí.
-private const val ESCOM_LAT = 19.504603
-private const val ESCOM_LON = -99.145985
+// Destino de la misión = PUERTA de la ESCOM (puerta norte). La línea GPS roja va de la ENCB
+// a la puerta (mismo punto que el objetivo ESCOLTAR_PRANKEDY).
+private const val ESCOM_LAT = ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_DOOR_LAT
+private const val ESCOM_LON = ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_DOOR_LON
 private const val ESCOM_ARRIVE_DEG = 0.0009   // ~100 m: al entrar, la línea GPS desaparece
+// H: Prankedy "se sube" al coche cuando llega a <= esta distancia de ti (metros).
+private const val PRANKEDY_BOARD_DIST_M = 5.0
+// H: timeout de seguridad: si no llega en este tiempo, se teletransporta y se sube igual
+// (evita que el coche quede bloqueado para siempre si no puede pathear hasta ti).
+private const val PRANKEDY_BOARD_TIMEOUT_MS = 8000L
 
 /**
  * Enciende a Prankedy en modo ACOMPAÑANTE (fase HIRED) UNA sola vez, y SOLO si:
@@ -64,6 +70,8 @@ internal fun WorldMapViewModel.maybeSpawnPrankedyCompanion(
             campaignRouteWaypoints = gpsRoute
         )
     }
+    // 60 NPCs que CAMINAN por la línea roja (ENCB→ESCOM) durante la misión de escolta.
+    spawnCampaignRouteNpcs(gpsRoute)
 }
 
 /**
@@ -76,6 +84,13 @@ internal fun WorldMapViewModel.maybeHideCampaignRouteNearEscom(playerLoc: GeoPoi
     val dLon = playerLoc.longitude - ESCOM_LON
     if (kotlin.math.sqrt(dLat * dLat + dLon * dLon) <= ESCOM_ARRIVE_DEG) {
         _uiState.update { it.copy(campaignRouteWaypoints = emptyList()) }
+        // Al desaparecer la línea roja, también se retiran los NPCs sembrados sobre ella.
+        clearCampaignRouteNpcs()
+        // Llegaste al "lugar seguro": la misión de escolta termina. La música es EXCLUSIVA de
+        // la misión, así que aquí deja de sonar (no debe seguir en el mundo libre tras cumplirla).
+        soundManager.stopLugarSeguroMusic()
+        soundManager.stopInvestigarMusic()
+        soundManager.stopMainMusic()
     }
 }
 
@@ -116,6 +131,9 @@ internal fun WorldMapViewModel.checkPrankedySpawn(playerLoc: GeoPoint, now: Long
 internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
     if (!_uiState.value.prankedyEnabled) return
     val pm = prankedyManager
+    // H: ¿Prankedy está SUBIENDO al coche? Mientras tanto sigue a PIE hacia ti (isDriving=false
+    // en su tick) aunque tú ya estés en el coche, para que corra hasta tu posición y "se suba".
+    val boarding = _uiState.value.prankedyBoarding
 
     // ZONA LIBRE: ¿el jugador está dentro del campus de la ENCB (o ESCOM)? Si sí, Prankedy
     // deja de calcular ruta por nodos de calle y persigue en línea recta (steer-to-target).
@@ -126,7 +144,7 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
     val result = pm.tick(
         playerLoc  = playerLoc,
         npcs       = allNpcs,
-        isDriving  = _uiState.value.isDriving,
+        isDriving  = _uiState.value.isDriving && !boarding,
         now        = now,
         roadNetwork = roadNetwork,
         // ZONA LIBRE (ESCOM / ENCB): si el jugador está en el campus, se APAGA el snap a calles
@@ -165,6 +183,19 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
         }
     }
 
+    // H: ABORDAJE — mientras sube, cuando Prankedy llega a tu posición (o si murió / dejó de ser
+    // acompañante) se "sube" y termina el bloqueo del coche (deja de bloquearte el avance).
+    if (boarding) {
+        val pl = pm.location
+        val arrived = pl != null && pl.distanceToAsDouble(playerLoc) <= PRANKEDY_BOARD_DIST_M
+        val timedOut = now - prankedyBoardingStartMs > PRANKEDY_BOARD_TIMEOUT_MS
+        if (pm.phase != PrankedyPhase.HIRED || pl == null || arrived || timedOut) {
+            if (timedOut) pm.warpTo(playerLoc)   // no llegó a tiempo: se "sube" igual
+            _uiState.update { it.copy(prankedyBoarding = false) }
+        }
+    }
+    val stillBoarding = _uiState.value.prankedyBoarding
+
     // Sincronizar WorldMapState con el estado de PrankedyManager
     val prankedyLoc = pm.location
     val proj = pm.projectileActive
@@ -173,7 +204,8 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
             prankedyLocation         = prankedyLoc,
             prankedyAnimState        = pm.animState,
             prankedyFacingRight      = pm.facingRight,
-            prankedyVisible          = prankedyLoc != null && !_uiState.value.isDriving,
+            // ABORDANDO → visible aunque estés en el coche (corre hacia ti); ya subido → oculto al conducir.
+            prankedyVisible          = prankedyLoc != null && (stillBoarding || !_uiState.value.isDriving),
             prankedyHealth           = pm.health,
             prankedyProjectileActive = proj,
             prankedyProjectileStart  = if (proj) pm.projectileStart else null,
@@ -221,6 +253,39 @@ fun WorldMapViewModel.onHirePrankedy() {
 /** Cierra el modal de contratación sin contratar. */
 fun WorldMapViewModel.dismissPrankedyDialog() {
     _uiState.update { it.copy(showPrankedyHireDialog = false) }
+}
+
+/**
+ * Coloca al ACOMPAÑANTE (Prankedy, fase HIRED) en `loc` de inmediato — p. ej. al TELETRANSPORTARTE,
+ * para que "se teletransporte contigo" en vez de quedarse caminando media ciudad. No hace nada si
+ * Prankedy no es acompañante. tickFollow lo ajusta a la calle en el siguiente tick.
+ */
+internal fun WorldMapViewModel.warpPrankedyCompanionTo(loc: GeoPoint) {
+    if (prankedyManager.phase != PrankedyPhase.HIRED) return
+    prankedyManager.warpTo(loc)
+    _uiState.update { it.copy(prankedyLocation = loc, prankedyVisible = !it.isDriving) }
+}
+
+/**
+ * Reintento de misión: re-enciende al ACOMPAÑANTE en la posición actual del jugador para que SIEMPRE
+ * esté contigo (el respawn del game loop está gateado al vecindario de la ENCB, y la misión pudo
+ * fallar lejos de ahí). Resetea su salud.
+ */
+internal fun WorldMapViewModel.respawnPrankedyCompanionHere() {
+    val loc = _uiState.value.currentLocation ?: return
+    prankedyCompanionActivated = true
+    prankedyManager.spawnCompanion(loc, roadNetwork)
+    prankedyManager.warpTo(loc)
+    setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY)
+    _uiState.update {
+        it.copy(
+            prankedyEnabled = true,
+            prankedyLocation = prankedyManager.location,
+            prankedyVisible = prankedyManager.location != null && !it.isDriving,
+            prankedyHealth = prankedyManager.health,
+            prankedyPhase = prankedyManager.phase
+        )
+    }
 }
 
 /** Activa o desactiva a Prankedy (NPC hostil) desde el menú de Opciones. */

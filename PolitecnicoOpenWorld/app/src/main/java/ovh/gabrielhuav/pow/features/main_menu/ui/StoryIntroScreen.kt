@@ -1,8 +1,6 @@
 package ovh.gabrielhuav.pow.features.main_menu.ui
 
-import android.app.Activity
 import android.content.Context
-import android.content.pm.ActivityInfo
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -20,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
@@ -35,6 +34,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -108,14 +109,28 @@ fun StoryIntroScreen(
         }
     }
 
+    val soundManager = remember { ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(context) }
+
+    // ¿Es la secuencia de INTRO (prólogo IntroPOW1..8) y no el OUTRO (IntroPOW9..11)?
+    // La música de fondo del cómic solo suena en la intro.
+    val isIntroSequence = sequenceId != StoryComicCatalog.ENCB_OUTRO_ID
+
     // Las imágenes del cómic son HORIZONTALES: forzamos orientación landscape mientras se
     // ve la intro y restauramos la orientación previa al salir (entrar al mundo / volver).
     DisposableEffect(Unit) {
-        val activity = context.findActivityOrNull()
-        val previous = activity?.requestedOrientation
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        soundManager.stopWalk()
+        soundManager.stopRun()
+        // Corta cualquier SFX previo (p. ej. el jingle de "misión cumplida") al ABRIR el cómic,
+        // para que no siga sonando durante toda la secuencia.
+        soundManager.stopAllStorySounds()
+        // Música de fondo del cómic de la intro (IntroPOW1..8): suena en bucle TODA la secuencia
+        // (los SFX por panel usan SoundPool y no la cortan). Se detiene al salir de la pantalla.
+        if (isIntroSequence) soundManager.playPrankedyRemixMusic()
+        // La orientación (SIEMPRE landscape en cómics/juego) la gestiona MainActivity por destino
+        // de navegación; aquí solo manejamos el audio.
         onDispose {
-            activity?.requestedOrientation = previous ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            soundManager.stopAllStorySounds()
+            soundManager.stopPrankedyRemixMusic()
         }
     }
 
@@ -125,6 +140,65 @@ fun StoryIntroScreen(
     var editing by remember { mutableStateOf(false) }
 
     val panel = panels[index]
+
+    LaunchedEffect(panel.assetPath) {
+        val assetName = panel.assetPath.substringAfterLast("/")
+        when (assetName) {
+            "IntroPOW1.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playFlash()
+            }
+            "IntroPOW2.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playStoryRunning(loop = true)
+                soundManager.playCrystal()
+                soundManager.playQueTeTraes()
+            }
+            "IntroPOW3.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playHitWall()
+                soundManager.playContestame()
+            }
+            "IntroPOW4.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playStoryRunning(loop = true)
+                soundManager.playParale()
+            }
+            "IntroPOW5.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playStoryRunning(loop = true)
+                soundManager.playPuerquito()
+            }
+            "IntroPOW6.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playStoryRunning(loop = true)
+                soundManager.playPolice1()
+                delay(3000)
+                soundManager.playPolice2(loop = true)
+            }
+            "IntroPOW7.webp" -> {
+                soundManager.stopStoryRunning()
+                soundManager.playPolice2(loop = true)
+                soundManager.playBottleFalling()
+            }
+            "IntroPOW8.webp" -> {
+                soundManager.playPolice2(loop = true)
+                soundManager.playCrystal()
+                soundManager.playZombiesAreComing()
+            }
+            "IntroPOW9.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playDoorOpen()
+            }
+            "IntroPOW10.webp" -> {
+                soundManager.stopAllStorySounds()
+                soundManager.playScare()
+            }
+            "IntroPOW11.webp" -> {
+                soundManager.stopAllStorySounds()
+            }
+        }
+    }
     val isLast = index >= panels.size - 1
 
     // Layout del cuadro de texto del panel actual (guardado o default del catalogo).
@@ -140,17 +214,35 @@ fun StoryIntroScreen(
     var panelOffX by remember { mutableFloatStateOf(0f) }
     var panelOffY by remember { mutableFloatStateOf(0f) }
 
-    val image = remember(panel.assetPath) {
-        try {
-            context.assets.open(panel.assetPath).use {
-                android.graphics.BitmapFactory.decodeStream(it)?.asImageBitmap()
-            }
-        } catch (_: Exception) { null }
+    // SKIN: ciertos paneles del cómic (IntroPOW9/10/11/15) cambian según la skin elegida en
+    // "Cambiar Skin": por defecto IntroPOW9.webp (Lázaro/hombre); con la mujer IntroPOW9Girl.webp;
+    // con el robot IntroPOW9Robot.webp. El resto de paneles NO cambian. Si la variante no existe,
+    // cae al panel por defecto.
+    val comicSuffix = remember {
+        ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getPlayerSkin().comicSuffix
+    }
+    val image = remember(panel.assetPath, comicSuffix) {
+        loadComicPanel(context, panel.assetPath, comicSuffix)
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D11))) {
         val maxH = maxHeight
-        val hPx = with(LocalDensity.current) { maxH.toPx() }
+        val density = LocalDensity.current
+        val hPx = with(density) { maxH.toPx() }
+        val wPx = with(density) { maxWidth.toPx() }
+        // RECTÁNGULO REAL donde ContentScale.Fit dibuja la imagen (dentro del marco de 20.dp).
+        // Anclamos el cuadro de texto a ESTE rectángulo —no a la pantalla completa— para que quede
+        // SIEMPRE dentro del recuadro blanco del cómic en cualquier tamaño/relación de pantalla (el
+        // "letterbox" cambia según el dispositivo). Sin imagen, se usa la pantalla completa.
+        val padPx = with(density) { 20.dp.toPx() }
+        val availW = (wPx - 2f * padPx).coerceAtLeast(1f)
+        val availH = (hPx - 2f * padPx).coerceAtLeast(1f)
+        val imgW = (image?.width ?: 0).toFloat().coerceAtLeast(1f)
+        val imgH = (image?.height ?: 0).toFloat().coerceAtLeast(1f)
+        val fitScale = if (image != null) minOf(availW / imgW, availH / imgH) else 1f
+        val dispW = if (image != null) imgW * fitScale else wPx
+        val dispH = if (image != null) imgH * fitScale else hPx
+        val imgTopPx = (hPx - dispH) / 2f   // imagen centrada vertical (padding simétrico)
 
         // Imagen del panel.
         if (image != null) {
@@ -189,22 +281,24 @@ fun StoryIntroScreen(
             }
         }
 
-        // Cuadro de texto (posicionable).
-        val topDp = maxH * topFrac.coerceIn(0f, 0.95f)
-        val boxDp = maxH * heightFrac.coerceIn(0.06f, 0.7f)
+        // Cuadro de texto (posicionable) ANCLADO al rectángulo real de la imagen (no a la pantalla),
+        // para que no se salga del recuadro blanco al cambiar el tamaño/relación de pantalla.
+        val topDp = with(density) { (imgTopPx + dispH * topFrac.coerceIn(0f, 0.95f)).toDp() }
+        val boxDp = with(density) { (dispH * heightFrac.coerceIn(0.06f, 0.7f)).toDp() }
+        val boxWDp = with(density) { (dispW * widthFrac.coerceIn(0.2f, 1f)).toDp() }
         val noImageBg = image == null
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .fillMaxWidth(widthFrac.coerceIn(0.2f, 1f))
                 .offset(y = topDp)
+                .width(boxWDp)
                 .height(boxDp)
                 .then(
                     if (editing) Modifier
                         .background(Color(0x553F51B5), RoundedCornerShape(8.dp))
                         .pointerInput(index) {
                             detectDragGestures { _, drag ->
-                                topFrac = (topFrac + drag.y / hPx).coerceIn(0f, 0.95f)
+                                topFrac = (topFrac + drag.y / dispH).coerceIn(0f, 0.95f)
                             }
                         }
                     else if (noImageBg) Modifier
@@ -342,14 +436,35 @@ private fun PillButton(
     )
 }
 
-// Desenvuelve el Context (puede venir envuelto por LocaleHelper.wrap) hasta la Activity,
-// para poder fijar la orientación de pantalla durante la intro.
-private fun Context.findActivityOrNull(): Activity? {
-    var ctx: Context? = this
-    while (ctx is android.content.ContextWrapper) {
-        if (ctx is Activity) return ctx
-        ctx = ctx.baseContext
+// Paneles del cómic que CAMBIAN según la skin (Cambiar Skin). Para estos, si la skin tiene
+// `comicSuffix` (p. ej. "Girl"/"Robot"), se intenta primero IntroPOW9Girl.webp / IntroPOW9Robot.webp;
+// si no existe, se usa el panel por defecto (IntroPOW9.webp = Lázaro/hombre).
+private val SKIN_VARIANT_PANELS = setOf(
+    "STORY/INTRO/IntroPOW9.webp",
+    "STORY/INTRO/IntroPOW10.webp",
+    "STORY/INTRO/IntroPOW11.webp",
+    "STORY/INTRO/IntroPOW15.webp"
+)
+
+// Carga el bitmap del panel, eligiendo la variante de skin cuando aplica (con fallback al default).
+private fun loadComicPanel(
+    context: Context,
+    assetPath: String,
+    comicSuffix: String
+): androidx.compose.ui.graphics.ImageBitmap? {
+    val candidates = buildList {
+        if (comicSuffix.isNotEmpty() && assetPath in SKIN_VARIANT_PANELS) {
+            add(assetPath.removeSuffix(".webp") + comicSuffix + ".webp")   // variante de skin
+        }
+        add(assetPath)   // panel por defecto / fallback
+    }
+    for (path in candidates) {
+        val bmp = try {
+            context.assets.open(path).use { android.graphics.BitmapFactory.decodeStream(it)?.asImageBitmap() }
+        } catch (_: Exception) { null }
+        if (bmp != null) return bmp
     }
     return null
 }
+
 
