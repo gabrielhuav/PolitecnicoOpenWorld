@@ -289,7 +289,7 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
   `updatePrankedyProjectile` en `WorldMapLeafletHtml`, base64 por frame empujado desde `WorldMapScreen`).
   Google nativo = pendiente. IA/comportamiento → ver 03.
 - **🆕 Línea GPS de campaña (Modo Historia):** ruta A* `findRoadRoute(ENCB, ESCOM)` (en `WorldMapRouting.kt`,
-  sobre la red vial) → `WorldMapState.campaignRouteWaypoints`, dibujada como **`Polyline` ROJA** en OSM nativo
+  sobre la red vial) → `WorldMapState.campaignRouteWaypoints`, dibujada como **`Polyline` VERDE VIVO (`#00E676`, gruesa)** en OSM nativo
   (`NativeOsmMap`, tag `route_overlay_tag+900`, `overlays.add(0,…)` → sobre teselas, bajo personajes/HUD) y en
   web (JS `updateCampaignRoute` en `WorldMapLeafletHtml`). La activa `maybeSpawnPrankedyCompanion` y la oculta
   `maybeHideCampaignRouteNearEscom` (~100 m de ESCOM) en `WorldMapPrankedy.kt`. Google nativo = pendiente. Ver 07.

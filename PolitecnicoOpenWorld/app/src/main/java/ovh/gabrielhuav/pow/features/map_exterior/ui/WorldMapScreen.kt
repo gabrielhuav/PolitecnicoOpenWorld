@@ -391,16 +391,9 @@ fun WorldMapScreen(
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
     var optionsExpanded by remember { mutableStateOf(false) }
     var optionsOpenGroup by remember { mutableStateOf<String?>(null) }
-
-    // ORIENTACIÓN: el juego (mapa global) va SIEMPRE en horizontal, PERO al abrir el
-    // menú de Opciones (= pausa) se permite ROTAR (incl. vertical). Al cerrarlo vuelve a
-    // horizontal. La ruta sigue siendo la base (ver MainActivity); aquí solo se anula en
-    // pausa. Ver 09 (gotcha de orientación).
-    LaunchedEffect(optionsExpanded) {
-        (context as? android.app.Activity)?.requestedOrientation =
-            if (optionsExpanded) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-    }
+    // NOTA: el menú de Opciones in-game NO cambia la orientación (el juego va SIEMPRE en
+    // horizontal). Solo los menús de RUTA (Ajustes, etc.) permiten rotar — lo gestiona
+    // MainActivity por destino de navegación. Ver 09.
 
     LaunchedEffect(uiState.isUserPanningMap) {
         if (!uiState.isUserPanningMap) {

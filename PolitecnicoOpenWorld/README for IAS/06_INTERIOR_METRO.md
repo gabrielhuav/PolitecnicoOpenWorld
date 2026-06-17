@@ -112,7 +112,8 @@ data class MetroInteriorState( ... )
   Ajustes → Interfaz. Metro/Metrobús/ShineCTO aún no lo muestran. Ver 04/07/09.
 - **🆕 TP puerta↔puerta entre salas (cadena ENCB y vecinos):** `ZombieGameViewModel.goToRoom` ya no
   spawnea en el centro del cuarto destino: busca en el cuarto DESTINO la puerta cuyo `targetRoomId` es el
-  cuarto de ORIGEN y spawnea ahí (`hitboxFrac.centerXFrac/YFrac × world`). Así, "Continuar →" en el cuarto
-  N te deja en la puerta "← Regresar" del cuarto N+1 (y viceversa). Se EXCLUYE "lobby → edificio" (esa
+  cuarto de ORIGEN y spawnea **junto a ella, DESPLAZADO ~30% hacia el centro** (no sobre el hitbox: si
+  spawneas encima, la siguiente X dispara esa puerta y te REGRESA → rebote, "Continuar" no avanzaba). Así,
+  "Continuar →" en el cuarto N te deja junto a la "← Regresar" del N+1 (y viceversa). Se EXCLUYE "lobby → edificio" (esa
   entrada conserva su spawn central + siembra de zombis). El caso "edificio → lobby" sigue usando
   `spawnAtLobbyDoorFor`. Ver 09.

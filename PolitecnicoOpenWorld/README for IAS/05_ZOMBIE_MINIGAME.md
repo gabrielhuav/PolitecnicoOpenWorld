@@ -210,14 +210,13 @@ data class ZombieServerMessage(type, sessionId, id, displayName, roomId, zone, x
   (selector de skin, `wm_choose_character` → `toggleSkinSelector`) **ya NO es un botón suelto**: es el
   **primer ítem del menú de Opciones**. El banner de OBJETIVO de la cadena ENCB sigue arriba-centro
   (`ENCB_STORY_ROOM_IDS`).
-- **🆕 Orientación landscape in-game + ROTAR EN PAUSA:** el juego (mapa global, interiores y cómics) se
-  fuerza a horizontal; los menús (`main_menu`, `story_mode`, `settings`, `collectibles`) permiten vertical.
-  Base por ruta en **`MainActivity`** (`NavController.OnDestinationChangedListener`,
-  `requestedOrientation = SCREEN_ORIENTATION_SENSOR_LANDSCAPE`). **🆕 EXCEPCIÓN (pausa):** al abrir el
-  **menú de Opciones** in-game (`WorldMapScreen` y `ZombieGameScreen`) se permite **rotar** (incl. vertical):
-  un `LaunchedEffect(optionsExpanded)` pone `SCREEN_ORIENTATION_UNSPECIFIED` mientras el menú está abierto y
-  vuelve a `SENSOR_LANDSCAPE` al cerrarlo. En `ZombieGameScreen` el `optionsExpanded` se **hoistea** al tope
-  del composable (lo usa `OptionsMenu`). Así: in-game = horizontal; pausa (Opciones) o Ajustes = rotable.
+- **🆕 Orientación SIEMPRE landscape in-game (solo por RUTA):** el juego (mapa global, interiores y cómics) se
+  fuerza a horizontal; solo los **menús de ruta** (`main_menu`, `story_mode`, `settings`, `collectibles`)
+  permiten vertical. ÚNICA fuente de verdad: **`MainActivity`** por destino de navegación
+  (`NavController.OnDestinationChangedListener`, `requestedOrientation = SCREEN_ORIENTATION_SENSOR_LANDSCAPE`
+  in-game; `UNSPECIFIED` en menús). **El menú de Opciones in-game NO cambia la orientación** (es un overlay
+  dentro de la ruta de juego, no una ruta): se probó rotar al abrirlo pero resultó molesto, así que las
+  pantallas **NO** fijan orientación. Para rotar (incl. Ajustes) se usa su propia RUTA. Ver 09.
 - **🆕 Panel del Diseñador movible/redimensionable:** `DesignerToolbar` lleva un **asa "⠿ Mover"** (arrástrala;
   toca = recentrar) y botones **−/+** que escalan el panel (`graphicsLayer`, 0.5–1×) para que no tape la sala.
 - **🆕 Diseñador — acciones SIEMPRE accesibles:** el **botón de SALIR** del modo diseñador está SIEMPRE

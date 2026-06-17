@@ -520,13 +520,20 @@ class ZombieGameViewModel(
                 _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
             }
         } else if (!(fromRoom.type == ZoneType.LOBBY && targetRoom.type == ZoneType.BUILDING)) {
-            // TP puerta↔puerta: aparece junto a la puerta del cuarto DESTINO que regresa al
-            // cuarto de ORIGEN. Así, al pulsar "Continuar →" en el cuarto N, spawneas justo en la
-            // puerta "← Regresar" del cuarto N+1 (y viceversa), en vez de en el centro del mapa.
-            // (Se excluye "lobby → edificio": esa entrada conserva su spawn central + siembra de zombis.)
+            // TP puerta↔puerta: aparece JUNTO a la puerta del cuarto DESTINO que regresa al cuarto de
+            // ORIGEN (al pulsar "Continuar →" en el cuarto N, spawneas junto a la "← Regresar" del N+1,
+            // y viceversa), en vez de en el centro. (Se excluye "lobby → edificio": esa entrada conserva
+            // su spawn central + siembra de zombis.)
+            // ⚠️ CLAVE: el spawn se DESPLAZA hacia el centro del cuarto (factor `k`) para NO quedar DENTRO
+            // del hitbox de esa puerta. `onInteract` dispara la puerta cuyo hitbox contiene al jugador, así
+            // que si spawneabas justo encima, la siguiente X te regresaba al cuarto anterior (rebote) y
+            // "Continuar" no avanzaba. Desplazado, debes caminar a una puerta para usarla.
             targetRoom.doors.firstOrNull { it.targetRoomId == fromRoom.id }?.let { backDoor ->
-                val sx = backDoor.hitboxFrac.centerXFrac() * targetRoom.worldWidth
-                val sy = backDoor.hitboxFrac.centerYFrac() * targetRoom.worldHeight
+                val k = 0.30f // fracción del camino hacia el centro (0.5,0.5); suficiente para salir del hitbox
+                val fx = backDoor.hitboxFrac.centerXFrac()
+                val fy = backDoor.hitboxFrac.centerYFrac()
+                val sx = (fx + (0.5f - fx) * k) * targetRoom.worldWidth
+                val sy = (fy + (0.5f - fy) * k) * targetRoom.worldHeight
                 _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
             }
         }

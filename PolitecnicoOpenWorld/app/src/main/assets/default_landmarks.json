@@ -165,14 +165,14 @@
     "scaleY": 1.3911047
   },
   {
-    "assetPath": "BUILDINGS/IPN/ENCB_lobby.webp",
+    "assetPath":"BUILDINGS/IPN/ENCB_lobby.webp",
     "id": 32,
-    "latitude": 19.500109866709817,
-    "longitude": -99.14498296945283,
-    "name": "Lobby ENCB",
-    "rotationAngle": 0.0,
-    "scaleFactor": 0.15,
-    "scaleX": 0.15,
-    "scaleY": 0.15
+    "latitude": 19.500129866709816,
+    "longitude": -99.1449129694528,
+    "name":"Lobby ENCB",
+    "rotationAngle": 27.584373,
+    "scaleFactor": 2.4214725,
+    "scaleX": 2.4214725,
+    "scaleY": 0.05
   }
 ]

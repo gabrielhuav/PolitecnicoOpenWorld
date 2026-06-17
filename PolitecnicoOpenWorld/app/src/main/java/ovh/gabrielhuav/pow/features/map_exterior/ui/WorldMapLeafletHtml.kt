@@ -720,9 +720,10 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
             }
         }
-        // ─── LÍNEA GPS DE CAMPAÑA (roja, Modo Historia: ENCB → ESCOM) ───
-        // Línea ROJA sólida en el overlayPane (paths), que en Leaflet queda DEBAJO de los
-        // marcadores (personajes) y del HUD de Compose. interactive:false = no roba toques.
+        // ─── LÍNEA GPS DE CAMPAÑA (VERDE VIVO, Modo Historia: ENCB → ESCOM) ───
+        // Línea VERDE VIVO sólida y gruesa en el overlayPane (paths), DEBAJO de los marcadores
+        // (personajes) y del HUD de Compose. Verde para destacar sobre la ruta de destino (azul)
+        // y las líneas del debug (rojo/naranja). interactive:false = no roba toques.
         var campaignRoute = null;
         function updateCampaignRoute(routePoints) {
             if (campaignRoute) { map.removeLayer(campaignRoute); campaignRoute = null; }
@@ -734,7 +735,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
                 if (pts.length > 1) {
                     campaignRoute = L.polyline(pts, {
-                        color: '#E00000', weight: 6, opacity: 0.95,
+                        color: '#00E676', weight: 9, opacity: 0.97,
                         lineCap: 'round', lineJoin: 'round', interactive: false
                     }).addTo(map);
                 }

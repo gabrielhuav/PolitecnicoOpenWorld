@@ -577,13 +577,15 @@ internal fun NativeOsmMap(
                 routeOverlay.isEnabled = false
             }
 
-            // ─── LÍNEA GPS DE CAMPAÑA (roja, Modo Historia: ENCB → ESCOM) ───
+            // ─── LÍNEA GPS DE CAMPAÑA (VERDE VIVO, Modo Historia: ENCB → ESCOM) ───
             // Polyline propia (tag +900) añadida al fondo de overlays (índice 0): se dibuja
             // sobre las teselas pero por DEBAJO de marcadores/sprites de personajes y del HUD.
+            // Color VERDE VIVO + gruesa para NO confundirse con la ruta de destino (azul) ni con
+            // las líneas del debug (rojo/naranja): es la ruta a seguir hacia el lugar seguro.
             val campaignRouteOverlay = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 900 }) as? Polyline)
                 ?: Polyline().apply {
-                    outlinePaint.color = android.graphics.Color.RED
-                    outlinePaint.strokeWidth = 9f
+                    outlinePaint.color = android.graphics.Color.rgb(0, 230, 118)
+                    outlinePaint.strokeWidth = 16f
                     view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 900 }, this)
                     view.overlays.add(0, this)
                 }

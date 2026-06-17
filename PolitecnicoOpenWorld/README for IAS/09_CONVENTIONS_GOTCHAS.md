@@ -421,12 +421,12 @@ matrices por defecto son **border-only** hasta reemplazarse.
   (`WorldMapScreen`) se igualó a la de interiores (`ZombieHud`): `sidePadding 8/32`, `bottomPadding 32/20`,
   `maxScale 0.95/1.3` (portrait/landscape) **+ `.systemBarsPadding()`** en el `Row`. Si retocas una, ajusta
   la otra para que no se desincronicen.
-- **🆕 Orientación: rotar SOLO en pausa (menú de Opciones):** además de la base por ruta de `MainActivity`
-  (in-game = `SENSOR_LANDSCAPE`; menús = vertical), `WorldMapScreen` y `ZombieGameScreen` añaden un
-  `LaunchedEffect(optionsExpanded)` que pone `SCREEN_ORIENTATION_UNSPECIFIED` mientras el menú de Opciones
-  está abierto y restaura `SENSOR_LANDSCAPE` al cerrarlo. En `ZombieGameScreen` `optionsExpanded` se hoisteó
-  al tope del composable. Es una EXCEPCIÓN deliberada a "las pantallas no fijan orientación": solo en pausa.
-  Ver 05.
+- **🆕 Orientación = SOLO por RUTA (las pantallas NO la fijan):** la orientación la decide ÚNICAMENTE
+  `MainActivity` por destino de navegación (in-game = `SENSOR_LANDSCAPE`; menús de ruta `main_menu`/
+  `story_mode`/`settings`/`collectibles` = `UNSPECIFIED`). **El menú de Opciones in-game NO cambia la
+  orientación.** (Se probó un `LaunchedEffect(optionsExpanded)` que rotaba al abrir Opciones, pero al usuario
+  le resultó molesto y se REVIRTIÓ: rotar = solo en una RUTA de menú, p. ej. Ajustes.) No re-añadir overrides
+  de orientación a nivel de pantalla. Ver 05.
 - **🆕 Widget de coordenadas X/Y/Z (`showCoordsWidget`, Ajustes → Interfaz, default oculto):** composable
   reusable `CoordsWidget(x,y,z)` en `GameControllers.kt`. Z = "dónde": **GLOBAL** en el mundo abierto
   (`WorldMapScreen`, X=lon, Y=lat), o el **nombre de la sala/interior** en interiores (`ZombieHud` con
@@ -444,16 +444,31 @@ matrices por defecto son **border-only** hasta reemplazarse.
   del `SoundPool` por `sfxVolume` y reajusta los streams en loop con `setVolume`). `SoundManager.init` LEE
   el volumen del repo y lo aplica al arrancar; `MainActivity` lo empuja en vivo al cambiar el slider. Si
   añades un nuevo `play()`, multiplica su volumen por `sfxVolume` (si no, ese efecto ignora el slider).
-- **🆕 TP entre salas = puerta↔puerta (`ZombieGameViewModel.goToRoom`):** al cambiar de sala se spawnea en
-  la puerta del cuarto DESTINO cuyo `targetRoomId == fromRoom.id` (no en el centro). Cubre la cadena ENCB
-  (Continuar↔Regresar) y los vecinos de edificios. EXCEPCIÓN: "lobby → edificio" mantiene spawn central +
-  siembra de zombis; "edificio → lobby" sigue con `spawnAtLobbyDoorFor`. No quitar la exclusión (entrar a
-  un edificio debe seguir centrando al jugador para la siembra). Ver 06.
+- **🆕 TP entre salas = puerta↔puerta (`ZombieGameViewModel.goToRoom`):** al cambiar de sala se spawnea
+  JUNTO a la puerta del cuarto DESTINO cuyo `targetRoomId == fromRoom.id` (no en el centro). Cubre la cadena
+  ENCB (Continuar↔Regresar) y los vecinos de edificios. **⚠️ El spawn se DESPLAZA ~30% hacia el centro
+  (`k=0.30f`), NO sobre el hitbox de la puerta:** `onInteract` dispara la puerta cuyo hitbox CONTIENE al
+  jugador, así que spawnear encima hacía que la siguiente X re-disparara esa puerta y te REGRESARA (rebote
+  lobby↔salón → "Continuar" no avanzaba). No quitar el desplazamiento. EXCEPCIÓN: "lobby → edificio" mantiene
+  spawn central + siembra de zombis; "edificio → lobby" sigue con `spawnAtLobbyDoorFor`. Ver 06.
 - **🆕 Menús de pantalla completa vs barra del sistema:** las pantallas de menú (p. ej. `CollectiblesScreen`)
   deben usar `systemBarsPadding()` para que sus botones (p. ej. "VOLVER AL MENÚ") no queden tapados por la
   barra de gestos/navegación del teléfono. (Las de campaña ya usaban `windowInsetsPadding`.)
 - **🆕 Nombres de escuela de campaña = institución:** `SchoolCatalog` muestra `IPN` (`id="escom"`) y `UNAM`
   (`id="fes_aragon"`); los `id` NO cambian (alimentan spawn/guardado). Botón `story_start = "NUEVA PARTIDA"`.
+- **🆕 Morir en una MISIÓN de campaña = MISIÓN FALLIDA (edita el MIEMBRO, no la extensión):**
+  `triggerWastedSequence` existe como **miembro privado** en `WorldMapViewModel.kt` (ACTIVO) **y** como
+  extensión en `WorldMapMisc.kt` (sombreada/muerta). La lógica "si `inCampaign` && objetivo
+  `ESCOLTAR_PRANKEDY`/`INGRESAR_ESCOM` → WASTED breve y `showMissionFailed=true` (REINTENTAR recarga el
+  checkpoint)" vivía SOLO en la extensión → no corría: morir respawneaba normal frente a ESCOM y el jugador
+  podía dejarse matar para saltarse la escolta. Fix: la rama de misión fallida está ahora en el **miembro**.
+  Clásico gotcap miembro vs extensión (ver arriba): **edita el miembro**.
+- **🆕 Ruta GPS de campaña = VERDE VIVO (no roja):** la línea ENCB→ESCOM (`campaignRouteWaypoints`) se pintaba
+  ROJA y se confundía con la ruta de destino (azul) y las líneas del debug (rojo/naranja). Ahora es **verde
+  vivo `#00E676`, gruesa** (`NativeOsmMap` `strokeWidth=16f`; Leaflet `weight 9`). Es "la ruta a seguir".
+- **🆕 Resize de la MATRIZ del diseñador (interiores) = ANCLADO:** en `DesignerToolbar` (`ZombieGameScreen`)
+  el bloque de tamaño (texto + `COL ±`/`FIL ±`) se sacó del scroll del medio y va **anclado abajo** (solo en
+  modo MATRIZ): en pantallas bajas quedaba al final del scroll y se recortaba → "desapareció el resize".
 
 ---
 

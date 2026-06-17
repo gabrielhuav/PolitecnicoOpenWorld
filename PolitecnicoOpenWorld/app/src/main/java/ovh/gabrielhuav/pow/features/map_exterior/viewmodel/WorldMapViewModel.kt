@@ -2124,6 +2124,25 @@ class WorldMapViewModel(
                     vehicleSpeed = 0.0
                 )
             }
+            // MODO HISTORIA: morir DURANTE una misión de campaña = MISIÓN FALLIDA (reinicia desde el
+            // último checkpoint con "REINTENTAR MISIÓN"), NO el respawn normal — si no, el jugador podría
+            // dejarse matar para SALTARSE todo el trayecto de la escolta de Prankedy. Este es el MIEMBRO
+            // (gana sobre la extensión homónima de WorldMapMisc.kt, que está sombreada — ver 09).
+            val missionObj = _uiState.value.currentObjective
+            val inMission = inCampaign && (
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id)
+            if (inMission) {
+                delay(2500L)
+                relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
+                clearCampaignPolice()
+                carjackStartTime = 0L
+                playerHealth = maxPlayerHealth
+                damagePulseTrigger = 0
+                impactEffectTrigger = 0
+                _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null, isDrivingPoliceCar = false, showWastedScreen = false, showMissionFailed = true) }
+                return@launch
+            }
             delay(4000L)
             // Limpiar el estado de combate (rachas / NPCs implacables / cooldowns) para
             // no revivir siendo perseguido al instante.

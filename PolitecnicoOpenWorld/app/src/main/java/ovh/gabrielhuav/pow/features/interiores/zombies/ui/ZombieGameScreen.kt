@@ -123,17 +123,6 @@ fun ZombieGameScreen(
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current
 
-    // ORIENTACIÓN: el motor de Interiores va SIEMPRE en horizontal, PERO al abrir el menú
-    // de Opciones (= pausa) se permite ROTAR (incl. vertical); al cerrarlo vuelve a
-    // horizontal. `optionsExpanded` está hoisteado aquí (lo usa OptionsMenu abajo) para
-    // poder anular la orientación solo durante la pausa. Ver 09 (gotcha de orientación).
-    var optionsExpanded by remember { mutableStateOf(false) }
-    LaunchedEffect(optionsExpanded) {
-        (context as? android.app.Activity)?.requestedOrientation =
-            if (optionsExpanded) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-    }
-
     // Export/Import del JSON de matrices (igual que el mapa principal con landmarks).
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -700,9 +689,9 @@ fun ZombieGameScreen(
                 }
             }
             if (!state.designerMode) {
-                // "Elegir personaje" (selector de skin) vive en el menú de Opciones. El juego va
-                // en horizontal salvo EN PAUSA (este menú abierto), donde se permite rotar.
-                // `optionsExpanded` está hoisteado arriba (controla la orientación).
+                // "Elegir personaje" (selector de skin) vive en el menú de Opciones; el juego va
+                // SIEMPRE en horizontal (este menú NO cambia la orientación).
+                var optionsExpanded by remember { mutableStateOf(false) }
                 OptionsMenu(
                     expanded = optionsExpanded,
                     onExpandedChange = { optionsExpanded = it },
@@ -870,7 +859,13 @@ private fun DesignerToolbar(
                 ToolButton("PARED", brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
                 ToolButton("BORRAR", !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
             }
-            // ─── TAMAÑO DE LA MATRIZ ───────────────────────────────
+        }
+        }
+        // ─── TAMAÑO DE LA MATRIZ (ANCLADO, FUERA del scroll) ──────────────────────
+        // Antes vivía al final del scroll del medio y, en MATRIZ (más filas) y pantallas
+        // bajas, quedaba recortado → parecía "desaparecido". Ahora va anclado para que el
+        // resize de la matriz SIEMPRE sea visible en modo MATRIZ. (En WAYPOINTS no aplica.)
+        if (!isWaypoints) {
             Text(
                 androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_size_grid, gridCols, gridRows),
                 color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
@@ -881,7 +876,6 @@ private fun DesignerToolbar(
                 ToolButton("FIL −", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, -1) }
                 ToolButton("FIL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
             }
-        }
         }
         // ─── ACCIONES ANCLADAS (siempre visibles, fuera del scroll) ──
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
