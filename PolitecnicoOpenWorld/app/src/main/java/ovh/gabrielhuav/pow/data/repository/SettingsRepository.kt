@@ -29,6 +29,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_MUSIC_VOLUME = "MUSIC_VOLUME" // volumen música 0f..1f (Audio)
         private const val KEY_SFX_VOLUME = "SFX_VOLUME"     // volumen efectos 0f..1f (Audio)
         private const val KEY_LANGUAGE = "APP_LANGUAGE"             // idioma de la UI (BCP-47; "" = sistema)
+        private const val KEY_PLAYER_NAME = "PLAYER_NAME"           // nombre de jugador para multijugador
         const val NPC_DENSITY_MIN = 0.4f
         const val NPC_DENSITY_MAX = 1.6f
     }
@@ -157,5 +158,14 @@ class SettingsRepository(context: Context) {
     fun getLanguage(): String = prefs.getString(KEY_LANGUAGE, "") ?: ""
     fun saveLanguage(tag: String) {
         prefs.edit().putString(KEY_LANGUAGE, tag).apply()
+    }
+
+    // ─── Nombre de jugador (multijugador) ────────────────────────────────────
+    // Se recuerda entre sesiones para no reescribirlo cada vez. Al iniciar sesión con
+    // Google, si está vacío se prellena con el nombre de la cuenta.
+
+    fun getPlayerName(): String = prefs.getString(KEY_PLAYER_NAME, "") ?: ""
+    fun savePlayerName(name: String) {
+        prefs.edit().putString(KEY_PLAYER_NAME, name).apply()
     }
 }

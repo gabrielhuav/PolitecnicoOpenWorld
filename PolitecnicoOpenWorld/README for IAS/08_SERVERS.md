@@ -13,6 +13,20 @@ cd MultiplayerInteriores && docker compose up -d   # host :8081 → contenedor :
 ```
 URLs inyectadas / injected: `BuildConfig.MULTIPLAYER_SERVER_URL`, `BuildConfig.INTERIORS_SERVER_URL`.
 
+> **🆕 AUTENTICACIÓN (Firebase) en AMBOS servidores (`auth.js`):** cada servidor tiene un módulo
+> **`auth.js`** (`initFirebaseAuth`, `verifyClient`) que verifica el **ID token de Firebase** que el
+> cliente manda en el **handshake** del WebSocket (cabecera `Authorization: Bearer <token>`, o `?token=`
+> de respaldo). Se pasa como opción `verifyClient` a `new WebSocket.Server({ server, verifyClient })`, así
+> se valida **ANTES de aceptar** la conexión. **Modo SUAVE por defecto:** si no hay token (cliente
+> anónimo) o no hay credenciales `firebase-admin`, se PERMITE la conexión; con
+> `AUTH_REQUIRED=true` (env) y credenciales configuradas, se **rechaza** (401) toda conexión sin token
+> válido. Credenciales por env: `FIREBASE_SERVICE_ACCOUNT` (JSON string) o `GOOGLE_APPLICATION_CREDENTIALS`
+> (ruta). Al verificar, el `uid` decodificado se adjunta a `info.req.firebaseUid` y el handler
+> `wss.on('connection', (ws, req) =>` lo usa como **`ws.sessionId = ws.firebaseUid || uuidv4()`** (el UID
+> de Firebase reemplaza al device id como identidad del jugador). Dependencia nueva: `firebase-admin` en
+> ambos `package.json`. **El cliente** adjunta el token vía `WebSocketManager` leyéndolo de
+> `AuthSession.idToken` (lo publica `AuthManager` tras el login con Google).
+
 > **🆕 Detección de modo (3 modos) / mode detection:** el servidor debe distinguir **mapa global**,
 > **interiores** y **modo zombies**. Señales del cliente: el **mundo abierto** manda `JOIN_INSTANCE`
 > con `instance` `"normal"` (mapa global) o `"apocalipsis"` (zombies global). El **servidor de interiores**

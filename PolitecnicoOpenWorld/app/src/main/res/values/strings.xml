@@ -27,6 +27,8 @@
     <string name="menu_warmup_text">El servidor multijugador está en reposo.\nDespertándolo... %1$ds</string>
     <string name="menu_warmup_hint">Puede tardar hasta 60 segundos.</string>
     <string name="menu_return">VOLVER AL MENÚ</string>
+    <string name="menu_signed_in_as">Conectado: %1$s</string>
+    <string name="menu_local_mode">Modo local (sin sesión)</string>
     <!-- Botón genérico de retroceso (coleccionables, ajustes) -->
     <string name="menu_back">VOLVER</string>
 
@@ -91,6 +93,22 @@
     <string name="settings_coords_widget_desc">Muestra tu posición X/Y/Z en el mundo y en interiores</string>
     <string name="settings_developer_mode">Modo Desarrollador</string>
     <string name="settings_developer_mode_desc">Muestra opciones y botones de prueba reservados para desarrollo</string>
+    <!-- ─── Cuenta / Autenticación (Google Sign-In) ─── -->
+    <string name="settings_cat_account">Cuenta</string>
+    <string name="settings_account_desc">Inicia sesión con Google para jugar en línea. El juego local y el Modo Historia no requieren cuenta.</string>
+    <string name="settings_account_signed_in_as">Sesión iniciada como:\n%1$s</string>
+    <string name="settings_account_not_signed_in">No has iniciado sesión.</string>
+    <string name="settings_account_sign_in">Iniciar sesión con Google</string>
+    <string name="settings_account_sign_out">Cerrar sesión</string>
+    <string name="settings_account_delete">Eliminar mi cuenta y datos</string>
+    <string name="settings_account_delete_confirm_title">¿Eliminar tu cuenta?</string>
+    <string name="settings_account_delete_confirm_text">Se eliminará tu cuenta del juego y tus datos guardados en este dispositivo (partidas de campaña). Esta acción no se puede deshacer.</string>
+    <string name="settings_account_delete_done">Cuenta y datos eliminados.</string>
+    <string name="settings_account_relogin_needed">Por seguridad, vuelve a iniciar sesión antes de eliminar la cuenta.</string>
+    <string name="settings_account_sign_in_error">No se pudo iniciar sesión.</string>
+    <string name="settings_account_privacy">Ver política de privacidad</string>
+    <!-- URL pública de la política de privacidad (compartida por todos los idiomas) -->
+    <string name="settings_privacy_url" translatable="false">https://gabrielhuav.github.io/PolitecnicoOpenWorld/policy_en_es.html</string>
     <string name="settings_cat_audio">Audio</string>
     <string name="settings_music_volume">Volumen de música</string>
     <string name="settings_sfx_volume">Volumen de efectos</string>

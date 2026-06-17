@@ -7,6 +7,19 @@ low-end performance) or doc drift.
 
 ---
 
+## 0. Archivos GRANDES (>1000 líneas) — plan de separación pendiente
+
+**ES:** Archivos candidatos a dividir (al 2026-06-17): `WorldMapViewModel.kt` (~2883),
+`WorldMapScreen.kt` (~2320), `NativeOsmMap.kt` (~1571), `NpcAiManager.kt` (~1466),
+`ZombieGameViewModel.kt` (~1177). **Aún NO se han separado**: hacerlo es riesgoso porque (1) mover un
+método a un archivo de **extensión** rompe el acceso a miembros `private` del VM (las extensiones solo
+ven `internal`/`public`) y (2) el patrón ya existente es "VM núcleo (estado/campos) + parciales de
+comportamiento en `WorldMap*.kt`". Plan SEGURO cuando se aborde: extraer SOLO bloques cohesivos cuyas
+funciones toquen exclusivamente miembros `internal`/`public`, a nuevos `WorldMap*.kt` /
+`ZombieGame*.kt`, verificando que NO existan gemelos miembro (gana el miembro) y conservando CRLF. Para
+`WorldMapScreen`/`NativeOsmMap` (Compose), extraer composables a archivos UI por sección. Hacerlo en
+pasos pequeños y verificables, uno por archivo.
+
 ## 1. Convenciones MVVM / MVVM conventions
 
 - Estado **siempre** como copia inmutable: `_state.update { it.copy(...) }`. Nunca mutar estado Compose
@@ -460,6 +473,32 @@ matrices por defecto son **border-only** hasta reemplazarse.
   diseñador de matrices: asa con `detectDragGestures`, `graphicsLayer` scale −/+, `heightIn(max=90%)` +
   `verticalScroll`) y tiene botón **"Salir"** (`onExit` → `setDebugEditTool(NONE)` +
   `toggleInteriorDebugOverlay(false)`). Aloja además el botón de debug de los NPCs de ruta.
+- **🆕 AUTENTICACIÓN (Firebase Auth + Google Sign-In):** el **multijugador** (y, a futuro, los logros)
+  exige iniciar sesión; el **juego local y el Modo Historia NO**. Piezas:
+  `data/auth/AuthManager.kt` (login Google→Firebase, token, signOut, **deleteAccount**) y
+  `data/auth/AuthSession.kt` (singleton con `uid`/`idToken`; lo lee `WebSocketManager` para mandar la
+  cabecera `Authorization: Bearer <token>` en el handshake → ambos servidores la verifican). El **gate**
+  vive en `MainMenuScreen` (botón MULTIJUGADOR: si no hay sesión, abre el selector de Google y al volver
+  continúa el flujo) y en **Ajustes → Cuenta** (`SettingsCategory.Account` + `AccountSettings`):
+  iniciar/cerrar sesión y **"Eliminar mi cuenta y datos"** (borra la cuenta en Firebase + datos locales
+  vía `onAccountDeleted` en `MainActivity`: limpia slots de `SaveGameRepository` + `CampaignRepository`).
+  `AuthManager` es **DEFENSIVO**: sin `google-services.json` no crashea (devuelve null/false), pero el
+  build de Gradle SÍ requiere el json (plugin `com.google.gms.google-services` aplicado). El UID de
+  Firebase reemplaza al UUID de dispositivo como id de jugador (`myPlayerUUID`). **Gotcha:** el web client
+  id se lee DINÁMICO (`getIdentifier("default_web_client_id")`) para que el código compile aunque el
+  recurso aún no exista. Ver 08 (verificación en servidores).
+  - **Extras de UX/robustez:** `MainActivity` llama `authManager.refreshToken{}` ANTES de
+    `connectToMultiplayer` (el ID token caduca ~1 h). El menú muestra un **chip de sesión**
+    ("Conectado: …" / "Modo local"). El **nombre de jugador** se recuerda en
+    `SettingsRepository.get/savePlayerName` (se prellena; si hay sesión y está vacío, usa el nombre de
+    Google). **`PowApplication`** (registrada en el Manifest) inicializa Firebase temprano y a prueba de
+    fallos. Cancelar el selector de Google (códigos 12501/16) NO muestra error. El enlace a la política de
+    privacidad (`R.string.settings_privacy_url`) vive en Ajustes → Cuenta. Plantillas de entorno de los
+    servidores en `Multiplayer/.env.example` y `MultiplayerInteriores/.env.example`.
+  - **⚠️ Secretos / no commitear:** `app/google-services.json`, `*.jks` (llave de firma), el JSON del
+    service account de firebase-admin y `secrets.properties` están en `.gitignore` (verificado). El service
+    account NO va al repo: vive como variable `FIREBASE_SERVICE_ACCOUNT` en Render. Ningún secreto debe
+    entrar en código fuente ni en estos docs.
 - **🆕 Modo Desarrollador (`developerMode`, Ajustes → Interfaz, default oculto):** switch persistente con el
   mismo patrón que los widgets (`SettingsRepository.get/saveDeveloperMode`, `SettingsState.developerMode`,
   `SettingsViewModel.toggleDeveloperMode`, wired en `MainActivity.onDeveloperModeToggled`). Sirve para revelar

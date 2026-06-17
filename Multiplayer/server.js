@@ -67,6 +67,9 @@ const http = require('http');
 const WebSocket = require('ws');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
+// Autenticacion: verificacion de ID tokens de Firebase (modo suave por defecto).
+const { initFirebaseAuth, verifyClient } = require('./auth');
+initFirebaseAuth();
 
 const app = express();
 app.use(cors());
@@ -117,7 +120,8 @@ app.get('/status', (req, res) => {
     });
 });
 
-const wss = new WebSocket.Server({ server });
+// verifyClient verifica el token ANTES de aceptar la conexion (rechaza en modo estricto).
+const wss = new WebSocket.Server({ server, verifyClient });
 
 function instOf(ws) { return ws.instance || "normal"; }
 
@@ -270,8 +274,11 @@ function rateLimited(ws, now) {
     return ws.rlCount > MAX_MSGS_PER_SEC;
 }
 
-wss.on('connection', (ws) => {
-    ws.sessionId = uuidv4();
+wss.on('connection', (ws, req) => {
+    // Identidad: si el token se verifico, usamos el UID de Firebase como sessionId
+    // (reemplaza al device id). Si no (modo suave / anonimo), un UUID aleatorio.
+    ws.firebaseUid = (req && req.firebaseUid) ? req.firebaseUid : null;
+    ws.sessionId = ws.firebaseUid || uuidv4();
     ws.isAlive = true;
     ws.missedPings = 0;
     ws.isHost = true;

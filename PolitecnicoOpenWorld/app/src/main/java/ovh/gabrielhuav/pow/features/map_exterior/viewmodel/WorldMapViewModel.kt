@@ -345,6 +345,9 @@ class WorldMapViewModel(
 
     fun connectToMultiplayer(serverUrl: String, playerName: String) {
         myPlayerDisplayName = playerName
+        // Identidad del jugador = UID de Firebase si hay sesión (reemplaza al UUID de dispositivo).
+        // El servidor, al verificar el token, también usa ese UID como sessionId.
+        ovh.gabrielhuav.pow.data.auth.AuthSession.uid?.let { myPlayerUUID = it }
         _uiState.update { it.copy(isMultiplayer = true, playerName = playerName) }
         if (webSocketManager == null) {
             Log.d("WorldMapVM", "Iniciando conexión multijugador a $serverUrl")

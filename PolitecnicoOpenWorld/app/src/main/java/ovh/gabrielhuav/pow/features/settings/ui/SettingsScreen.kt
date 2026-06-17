@@ -1,6 +1,9 @@
 package ovh.gabrielhuav.pow.features.settings.ui
 
 import android.content.res.Configuration
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.BorderStroke
@@ -59,6 +62,8 @@ fun SettingsScreen(
     onNpcFullEmojiToggled: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     onExitToMainMenu: () -> Unit,
+    authManager: ovh.gabrielhuav.pow.data.auth.AuthManager? = null,
+    onAccountDeleted: () -> Unit = {},
     currentLanguage: String = "",
     onLanguageChanged: (String) -> Unit = {}
 ) {
@@ -101,7 +106,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface, SettingsCategory.Audio)
+                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface, SettingsCategory.Audio, SettingsCategory.Account)
                         categories.forEach { category ->
                             CategoryItemHorizontal(
                                 category = category,
@@ -126,7 +131,7 @@ fun SettingsScreen(
                     ) {
                         Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, authManager, onAccountDeleted, currentLanguage, onLanguageChanged)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -153,7 +158,7 @@ fun SettingsScreen(
                 // DISEÑO HORIZONTAL (LANDSCAPE)
                 Row(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Column(modifier = Modifier.weight(0.3f).fillMaxHeight().verticalScroll(sidebarScrollState)) {
-                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface, SettingsCategory.Audio)
+                        val categories = listOf(SettingsCategory.Map, SettingsCategory.Controls, SettingsCategory.Gameplay, SettingsCategory.Interface, SettingsCategory.Audio, SettingsCategory.Account)
                         categories.forEach { category ->
                             CategoryItem(category = category, isSelected = state.selectedCategory == category, onClick = { onCategorySelected(category) })
                         }
@@ -177,7 +182,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(24.dp).verticalScroll(contentScrollState)) {
                         Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, currentLanguage, onLanguageChanged)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, authManager, onAccountDeleted, currentLanguage, onLanguageChanged)
                     }
                 }
             }
@@ -245,6 +250,8 @@ private fun SettingsContent(
     onNpcDensityChanged: (Float) -> Unit,
     onNpcEmojiLodToggled: (Boolean) -> Unit,
     onNpcFullEmojiToggled: (Boolean) -> Unit,
+    authManager: ovh.gabrielhuav.pow.data.auth.AuthManager?,
+    onAccountDeleted: () -> Unit,
     currentLanguage: String,
     onLanguageChanged: (String) -> Unit
 ) {
@@ -257,6 +264,7 @@ private fun SettingsContent(
         is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled, state.npcFullEmoji, onNpcFullEmojiToggled)
         is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, state.showCoordsWidget, state.developerMode, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, currentLanguage, onLanguageChanged)
         is SettingsCategory.Audio -> AudioSettings(state.musicVolume, state.sfxVolume, onMusicVolumeChanged, onSfxVolumeChanged)
+        is SettingsCategory.Account -> AccountSettings(authManager, onAccountDeleted)
         else -> Text(stringResource(R.string.settings_none_available), color = Color.Gray)
     }
 }
@@ -620,6 +628,107 @@ private fun AudioSettings(
             onValueChange = onSfxVolumeChanged,
             valueRange = 0f..1f,
             colors = SliderDefaults.colors(thumbColor = Color(0xFFD4AF37), activeTrackColor = Color(0xFF6B1C3A))
+        )
+    }
+}
+
+// ─── CUENTA / AUTENTICACIÓN (Google Sign-In) ──────────────────────────────────
+// Inicio/cierre de sesión y ELIMINACIÓN de cuenta (obligatorio en Play Store).
+// El juego local y el Modo Historia NO requieren sesión; solo el multijugador la exige.
+@Composable
+private fun AccountSettings(
+    authManager: ovh.gabrielhuav.pow.data.auth.AuthManager?,
+    onAccountDeleted: () -> Unit
+) {
+    val context = LocalContext.current
+    var signedIn by remember { mutableStateOf(authManager?.isSignedIn() == true) }
+    var accountLabel by remember { mutableStateOf(authManager?.currentEmail() ?: authManager?.currentDisplayName()) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    val signInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        authManager?.handleSignInResult(result.data) { ok, err ->
+            if (ok) {
+                signedIn = true
+                accountLabel = authManager.currentEmail() ?: authManager.currentDisplayName()
+            } else if (!err.isNullOrBlank()) {
+                // err == null = el usuario canceló el selector → sin aviso.
+                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(stringResource(R.string.settings_account_desc), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, textAlign = TextAlign.Justify)
+
+        if (signedIn) {
+            Text(
+                stringResource(R.string.settings_account_signed_in_as, accountLabel ?: ""),
+                color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold
+            )
+            OutlinedButton(
+                onClick = { authManager?.signOut { signedIn = false; accountLabel = null } },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFF6B1C3A))
+            ) { Text(stringResource(R.string.settings_account_sign_out)) }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Botón DESTRUCTIVO: elimina la cuenta de Firebase y los datos locales.
+            Button(
+                onClick = { showDeleteConfirm = true },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C))
+            ) { Text(stringResource(R.string.settings_account_delete), color = Color.White, fontWeight = FontWeight.Bold) }
+        } else {
+            Text(stringResource(R.string.settings_account_not_signed_in), color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+            Button(
+                onClick = { authManager?.let { signInLauncher.launch(it.signInIntent()) } },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0))
+            ) { Text(stringResource(R.string.settings_account_sign_in), color = Color.White, fontWeight = FontWeight.Bold) }
+        }
+
+        // Enlace a la política de privacidad pública (siempre visible; requisito de Play Store).
+        val privacyUrl = stringResource(R.string.settings_privacy_url)
+        TextButton(
+            onClick = {
+                try {
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(privacyUrl)))
+                } catch (_: Exception) {}
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(stringResource(R.string.settings_account_privacy), color = Color(0xFFD4AF37)) }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text(stringResource(R.string.settings_account_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_account_delete_confirm_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    authManager?.deleteAccount { ok, err ->
+                        if (ok) {
+                            signedIn = false
+                            accountLabel = null
+                            Toast.makeText(context, R.string.settings_account_delete_done, Toast.LENGTH_LONG).show()
+                            onAccountDeleted()
+                        } else {
+                            Toast.makeText(context, err ?: context.getString(R.string.settings_account_relogin_needed), Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }) { Text(stringResource(R.string.settings_account_delete), color = Color(0xFFD32F2F)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.menu_cancel)) }
+            }
         )
     }
 }

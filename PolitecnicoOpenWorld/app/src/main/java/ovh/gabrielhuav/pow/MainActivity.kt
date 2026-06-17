@@ -106,6 +106,10 @@ class MainActivity : ComponentActivity() {
     private val collectiblesViewModel: CollectiblesViewModel by viewModels {
         CollectiblesViewModel.Factory(this)
     }
+
+    // Autenticación Google + Firebase. Gestiona login, token (para el handshake WS) y borrado de cuenta.
+    private val authManager by lazy { ovh.gabrielhuav.pow.data.auth.AuthManager(this) }
+
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     // Persistencia de la partida del MODO HISTORIA (campaña). Es el punto de DI:
@@ -165,6 +169,8 @@ class MainActivity : ComponentActivity() {
         configureOsmdroid()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         checkPermissionsAndFetchLocation()
+        // Si ya había sesión de Google/Firebase (app reabierta), repuebla AuthSession + refresca token.
+        authManager.restoreSession()
 
         setContent {
             PolitecnicoOpenWorldTheme {
@@ -278,8 +284,12 @@ class MainActivity : ComponentActivity() {
                                         stopInvestigarMusic(); stopLugarSeguroMusic(); stopMainMusic()
                                     }
                                     if (isMultiplayer && !playerName.isNullOrBlank()) {
-                                        // Usando la variable de entorno de Gradle (BuildConfig)
-                                        worldMapViewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL, playerName)
+                                        // Refresca el ID token (caduca ~1 h) ANTES del handshake y luego
+                                        // conecta. Sin sesión, refreshToken responde null al instante y
+                                        // se conecta en modo anónimo igualmente.
+                                        authManager.refreshToken {
+                                            worldMapViewModel.connectToMultiplayer(BuildConfig.MULTIPLAYER_SERVER_URL, playerName)
+                                        }
                                     } else {
                                         worldMapViewModel.disconnectFromMultiplayer()
                                     }
@@ -296,7 +306,8 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToStory = {
                                     navController.navigate("story_mode")
-                                }
+                                },
+                                authManager = authManager
                             )
                         }
 
@@ -596,6 +607,21 @@ class MainActivity : ComponentActivity() {
                                     // Descartar cambios de controles no guardados al salir.
                                     settingsViewModel.discardControlsChanges()
                                     worldMapViewModel.disconnectFromMultiplayer()
+                                    navController.navigate("main_menu") {
+                                        popUpTo("main_menu") { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                },
+                                authManager = authManager,
+                                // ELIMINAR CUENTA: AuthManager ya borró la identidad en Firebase; aquí
+                                // se borran los DATOS LOCALES del jugador (partidas de campaña) y se vuelve al menú.
+                                onAccountDeleted = {
+                                    worldMapViewModel.disconnectFromMultiplayer()
+                                    try {
+                                        val sg = SaveGameRepository(this@MainActivity)
+                                        for (slot in 1..SaveGameRepository.SLOT_COUNT) sg.clear(slot)
+                                        campaignRepository.clearCampaign()
+                                    } catch (_: Exception) {}
                                     navController.navigate("main_menu") {
                                         popUpTo("main_menu") { inclusive = true }
                                         launchSingleTop = true

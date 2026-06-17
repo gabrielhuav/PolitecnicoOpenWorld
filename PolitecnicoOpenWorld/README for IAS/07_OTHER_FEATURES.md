@@ -239,6 +239,12 @@ fields and **only apply on SAVE**; leaving discards.
   - Todos persisten en `SettingsRepository` (`getNpcDensity`/`getNpcEmojiLod`/`getNpcFullEmoji`) y se
     aplican **en vivo** al mapa desde `MainActivity` (llaman a `settingsViewModel` + `worldMapViewModel`).
 
+> **🆕 Pestaña "Cuenta" (`SettingsCategory.Account`):** `AccountSettings` en `SettingsScreen` — inicio de
+> sesión con Google (Firebase Auth), mostrar la sesión actual, cerrar sesión y **"Eliminar mi cuenta y
+> datos"** (con diálogo de confirmación). Recibe `authManager` + `onAccountDeleted` desde `MainActivity`.
+> El borrado elimina la cuenta en Firebase (`AuthManager.deleteAccount`) y los datos locales (slots de
+> `SaveGameRepository` + `CampaignRepository`). El multijugador exige sesión; el juego local no. Ver 09.
+
 ### `ui/SettingsScreen.kt`
 Pestañas + sliders. Escala adaptativa 60%–140% (cap 100% en portrait), swap de zurdos, botones A/B/X/Y.
 `GameplaySettings` (Jugabilidad): slider de cantidad de NPCs + switches "Optimizar dibujado de NPCs"

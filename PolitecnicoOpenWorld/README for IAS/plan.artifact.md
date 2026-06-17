@@ -288,6 +288,11 @@ via co-located `ViewModelProvider.Factory` instances.
 - The **"BACK" button** (`menu_back` = VOLVER/BACK) is shared by Collectibles and Settings with the
   same filled red `CutCornerShape` style. Interface widget descriptions use `TextAlign.Justify` inside
   a `Column.weight(1f)` so 2+ line texts spread evenly (reuse for any new multi-line widget).
+- **Auth (Firebase + Google Sign-In)** lives in `data/auth/` (`AuthManager`, `AuthSession`). Multiplayer
+  requires sign-in (gate in `MainMenuScreen`); local play/Story Mode don't. The Firebase UID replaces the
+  device id. `WebSocketManager` sends `Authorization: Bearer <idToken>` from `AuthSession`; both Node
+  servers verify it in `auth.js`/`verifyClient` (soft mode unless `AUTH_REQUIRED=true`). Account screen in
+  Settings → Account, with account deletion (Play Store requirement). Needs `google-services.json` (you add it).
 - **AI NPCs live in `remoteEntities`** (the per-tick `setServerNpcs` clears+refills `NpcAiManager`'s list
   from it, then the host writes the simulated NPCs back). To inject persistent NPCs, put them in
   `remoteEntities` (empty `displayName`); `addServerNpcs` only seeds the current tick. The **60 campaign

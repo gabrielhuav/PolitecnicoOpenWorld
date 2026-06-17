@@ -105,6 +105,7 @@ permissions + Fused Location, and frees sprite caches on `onTrimMemory` (see 09)
 | Geolocalización / Geolocation | Google Play Services — Fused Location Provider |
 | Concurrencia / Concurrency | Coroutines + Flow / SharedFlow / StateFlow |
 | Serialización / Serialization | Gson |
+| Auth / Autenticación | Firebase Auth (Google Sign-In) + play-services-auth; plugin `google-services` (requiere `google-services.json`). Servidores: `firebase-admin`. |
 | Servidores / Servers | Node.js 18, Express, ws, Docker |
 | Hosting | Render (auto-deploy desde Dockerfile / from Dockerfile) |
 

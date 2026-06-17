@@ -58,6 +58,10 @@
 - **Room DB:** versión 8 (`MIGRATION_7_8` + destructive fallback)
 - **~110 archivos Kotlin / Kotlin files**, ~30k líneas / lines
 - **Default map provider:** `CARTO_VOYAGER` (web, tiles reales hasta z20 / real tiles up to z20; no persistido / not persisted)
+- **Auth / Autenticación:** Firebase Auth (Google Sign-In) en `data/auth/` (`AuthManager`, `AuthSession`).
+  Obligatoria para multijugador; local/Modo Historia sin login. Ambos servidores verifican el ID token
+  (`auth.js`, modo suave por `AUTH_REQUIRED`). Política de privacidad: `policy_en_es.html` (raíz del repo;
+  publicada en GitHub Pages, enlazada desde Ajustes → Cuenta).
 - **Comentarios del código en español / Code comments in Spanish** (mantener / keep that style)
 
 ---

@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
+    // Firebase Authentication: requiere app/google-services.json (lo agregas tú).
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -85,6 +87,11 @@ dependencies {
     // Dependencias para Multijugador
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
+
+    // Firebase Authentication (Google Sign-In) — la BOM fija versiones compatibles.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.play.services.auth)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
