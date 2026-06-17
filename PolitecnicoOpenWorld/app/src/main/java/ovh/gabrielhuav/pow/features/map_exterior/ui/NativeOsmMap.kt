@@ -168,6 +168,8 @@ internal fun NativeOsmMap(
     val phoneCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
     // 📢 sobre zombis SCOUT que están gritando (alarma de horda).
     val screamCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
+    // 💬 sobre NPCs que "platican" (remate Misión 2: policías que se les escapó Prankedy).
+    val talkCache = remember { mutableMapOf<String, org.osmdroid.views.overlay.Marker>() }
     // OPT FPS gama baja: firma (transformación + asset) por landmark. Los GroundOverlay
     // ESTÁTICOS se re-posicionaban y RE-SUBÍAN su textura (setImage) en CADA frame; con esto
     // solo lo hacen cuando su firma cambia (las puertas, animadas, siguen refrescando imagen).
@@ -531,6 +533,27 @@ internal fun NativeOsmMap(
                     }
                     m.icon = nativeDrawableCache.getOrPut("NPC_PHONE_$phonePx") {
                         emojiToDrawable(context, "📞", phonePx)
+                    }
+                    m.position = GeoPoint(npc.location.latitude + 0.000016, npc.location.longitude)
+                    m.isEnabled = true
+                }
+
+                // ─── 💬 NPCs platicando (remate Misión 2: policías) ──────────────
+                val talkPx = ((0.9 / mppB) * screenDensity).toInt().coerceIn(12, 64)
+                val talkingNpcs = uiState.npcs.filter { it.talkingUntil > nowB }
+                val talkIds = talkingNpcs.map { it.id }.toSet()
+                val talkIt = talkCache.iterator()
+                while (talkIt.hasNext()) {
+                    val e = talkIt.next()
+                    if (!talkIds.contains(e.key)) { view.overlays.remove(e.value); talkIt.remove() }
+                }
+                talkingNpcs.forEach { npc ->
+                    val m = talkCache[npc.id] ?: Marker(view).apply {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM); setInfoWindow(null)
+                        talkCache[npc.id] = this; view.overlays.add(this)
+                    }
+                    m.icon = nativeDrawableCache.getOrPut("NPC_TALK_$talkPx") {
+                        emojiToDrawable(context, "💬", talkPx)
                     }
                     m.position = GeoPoint(npc.location.latitude + 0.000016, npc.location.longitude)
                     m.isEnabled = true

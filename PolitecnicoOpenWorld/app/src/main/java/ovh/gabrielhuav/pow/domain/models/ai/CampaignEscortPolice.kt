@@ -26,7 +26,9 @@ class CampaignEscortPolice {
 
     // ESCORT = Misión 1 (2 policías que te SIGUEN a distancia, despacio).
     // CHASE  = Misión 2 (varios policías que te PERSIGUEN para obligarte a entrar a la ESCOM).
-    enum class Mode { ESCORT, CHASE }
+    // RESOLUTION = REMATE de la Misión 2: Prankedy se les escapó a la ESCOM → se detienen, "platican"
+    //   (burbuja) y se reparten: la MITAD entra a la ESCOM (como Prankedy) y la MITAD se regresa.
+    enum class Mode { ESCORT, CHASE, RESOLUTION }
 
     companion object {
         const val COP_COUNT = 2
@@ -53,6 +55,13 @@ class CampaignEscortPolice {
         const val CHASE_SPAWN_RING = 0.0013 // ~145 m: aparecen ALGO LEJOS, rodeándote
         const val CHASE_CONTACT = 0.00004   // ~4.5 m: a esta distancia ya te "alcanzaron" (se detienen encima)
 
+        // ─── REMATE (RESOLUTION): Prankedy se les escapó a la ESCOM ──────────
+        const val RESOLUTION_GATHER_RADIUS = 0.00016  // ~18 m: "ya llegaron a la puerta" (se juntan ahí)
+        const val RESOLUTION_GATHER_SPEED = 0.0000110 // llegan CORRIENDO a la escena (más rápido que el chase)
+        const val RESOLUTION_GATHER_TIMEOUT_MS = 12000L // tope: si alguno no llega, se platica igual
+        const val RESOLUTION_TALK_MS = 3000L          // se detienen y "platican"/reaccionan ~3 s
+        const val RESOLUTION_REACH = 0.00006          // ~6.6 m: el policía llega a su destino y desaparece
+
         // Pathfinding / anti-atasco (mismos umbrales que PoliceManager).
         const val ROUTE_TTL_MS = 1500L      // recalcular la ruta hacia el objetivo cada ~1.5 s
         const val WAYPOINT_REACH = 0.00012  // ~13 m: distancia para pasar al siguiente nodo
@@ -73,11 +82,41 @@ class CampaignEscortPolice {
     private val stuckSince = ConcurrentHashMap<String, Long>()
     private val attackCooldown = ConcurrentHashMap<String, Long>()
 
+    // ─── REMATE (RESOLUTION) ──────────────────────────────────────────────
+    @Volatile private var resolutionStartMs = 0L               // inicio de la PLÁTICA (tras reunirse)
+    @Volatile private var resolutionBeginMs = 0L               // inicio del remate (para el tope de reunión)
+    @Volatile private var resolutionGathered = false           // ¿ya se juntaron todos en la puerta?
+    private val copRole = ConcurrentHashMap<String, Int>()    // 1 = ENTRA a la ESCOM · 2 = SE REGRESA
+    @Volatile private var doorPoint: GeoPoint? = null          // dónde se metió Prankedy (se juntan aquí)
+    @Volatile private var retreatPoint: GeoPoint? = null       // destino de los que SE REGRESAN
+
     fun activeUnits(): List<Npc> = units.values.toList()
     fun isActive(): Boolean = units.isNotEmpty()
+    fun isResolving(): Boolean = mode == Mode.RESOLUTION
     fun clear() {
         units.clear(); route.clear(); routeIdx.clear(); routeTime.clear()
         stuckPos.clear(); stuckSince.clear(); attackCooldown.clear()
+        copRole.clear(); doorPoint = null; retreatPoint = null; resolutionStartMs = 0L
+        resolutionBeginMs = 0L; resolutionGathered = false
+    }
+
+    /**
+     * MISIÓN 2 — REMATE: Prankedy se metió a la ESCOM (se les ESCAPÓ). Los policías se DETIENEN y
+     * "platican"/reaccionan un momento (burbuja 📞 en el render nativo), y luego la MITAD ENTRA a la
+     * ESCOM (como Prankedy) y la otra MITAD SE REGRESA por donde llegó.
+     *  - `doorLat/doorLon`    = entrada de la ESCOM (destino de los que entran).
+     *  - `retreatLat/retreatLon` = de dónde llegaron los policías (destino de los que se regresan).
+     */
+    fun startResolution(doorLat: Double, doorLon: Double, retreatLat: Double, retreatLon: Double, now: Long) {
+        if (mode == Mode.RESOLUTION) return
+        mode = Mode.RESOLUTION
+        resolutionStartMs = 0L            // la plática arranca cuando se REÚNAN en la puerta
+        resolutionBeginMs = now
+        resolutionGathered = false
+        doorPoint = GeoPoint(doorLat, doorLon)
+        retreatPoint = GeoPoint(retreatLat, retreatLon)
+        // Reparte roles ALTERNANDO (de 6 → 3 entran a la ESCOM, 3 se regresan).
+        units.keys.toList().forEachIndexed { i, id -> copRole[id] = if (i % 2 == 0) 1 else 2; forgetRoute(id) }
     }
 
     /** MISIÓN 1: crea los 2 policías DETRÁS del jugador (en abanico) que lo SIGUEN a distancia. */
@@ -162,6 +201,7 @@ class CampaignEscortPolice {
         snap: ((GeoPoint) -> GeoPoint)? = null,
         pathfind: ((GeoPoint, GeoPoint) -> List<GeoPoint>)? = null
     ): Float {
+        if (mode == Mode.RESOLUTION) return tickResolution(now, snap, pathfind)
         // ESCORT: la distancia que mantienen ENCOGE con el tiempo (te alcanzan pero tardan).
         val stopDist = if (mode == Mode.CHASE) CHASE_CONTACT else {
             val t = ((now - spawnTimeMs).toDouble() / CLOSE_IN_MS).coerceIn(0.0, 1.0)
@@ -196,6 +236,56 @@ class CampaignEscortPolice {
             units[u.id] = u.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
         }
         return prankedyDamage
+    }
+
+    /**
+     * REMATE en 3 fases:
+     *  1) REUNIRSE: todos caminan a la PUERTA (donde se metió Prankedy) a buscarlo.
+     *  2) PLATICAR: una vez juntos, se DETIENEN [RESOLUTION_TALK_MS] ms mostrando la burbuja ❓/💬.
+     *  3) REPARTIRSE: 3 ENTRAN a la ESCOM (rol 1, desaparecen en la puerta) y 3 SE REGRESAN (rol 2).
+     */
+    private fun tickResolution(
+        now: Long, snap: ((GeoPoint) -> GeoPoint)?, pathfind: ((GeoPoint, GeoPoint) -> List<GeoPoint>)?
+    ): Float {
+        val door = doorPoint ?: return 0f
+        val retreat = retreatPoint ?: return 0f
+
+        // FASE 1 — REUNIRSE en la puerta (buscan a Prankedy donde se metió).
+        if (!resolutionGathered) {
+            var allClose = true
+            for (u in units.values.toList()) {
+                val d = dist(u.location.latitude, u.location.longitude, door.latitude, door.longitude)
+                if (d > RESOLUTION_GATHER_RADIUS) {
+                    allClose = false
+                    val (loc, rot, facing) = advanceAlong(u, door.latitude, door.longitude, RESOLUTION_GATHER_SPEED, now, snap, pathfind)
+                    units[u.id] = u.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
+                } else if (u.isMoving) {
+                    units[u.id] = u.copy(isMoving = false)
+                }
+            }
+            if (allClose || now - resolutionBeginMs > RESOLUTION_GATHER_TIMEOUT_MS) {
+                resolutionGathered = true
+                resolutionStartMs = now
+                // Activa la burbuja ❓/💬 en todos mientras "platican".
+                units.values.toList().forEach { u ->
+                    units[u.id] = u.copy(talkingUntil = now + RESOLUTION_TALK_MS, isMoving = false)
+                }
+            }
+            return 0f
+        }
+
+        // FASE 2 — PLATICAR: quietos hasta que pase RESOLUTION_TALK_MS (la burbuja ya está puesta).
+        if (now - resolutionStartMs < RESOLUTION_TALK_MS) return 0f
+
+        // FASE 3 — REPARTIRSE: cada quien a su destino; desaparece al llegar.
+        for (u in units.values.toList()) {
+            val tgt = if ((copRole[u.id] ?: 2) == 1) door else retreat
+            val d = dist(u.location.latitude, u.location.longitude, tgt.latitude, tgt.longitude)
+            if (d <= RESOLUTION_REACH) { units.remove(u.id); forgetRoute(u.id); continue }  // llegó → desaparece
+            val (loc, rot, facing) = advanceAlong(u, tgt.latitude, tgt.longitude, CHASE_SPEED, now, snap, pathfind)
+            units[u.id] = u.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
+        }
+        return 0f
     }
 
     // Reubica al policía cerca del jugador (detrás), sobre la calle si hay snap. Conserva el

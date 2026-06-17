@@ -69,6 +69,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var policeWpLines = {};     // líneas punteadas jugador → patrulla
         var zombieWpMarkers = {};   // 🧟 de zombis fuera del fog (modo apocalipsis, paridad con OSM nativo)
         var zombieWpLines = {};     // líneas ROJAS punteadas jugador → zombi
+        var talkBubbleMarkers = {}; // 💬 burbujas de "platica/reacciona" (remate Misión 2: policías)
         var prankedyMarker = null;  // 🎭 compañero Prankedy (sprite propio en web, paridad con OSM nativo)
         var prankedyProjMarker = null;  // 📦 tanque de gas que lanza Prankedy (p_objeto)
 
@@ -539,6 +540,21 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                     policeWpLines[p.id].setLatLngs(pts);
                 } else {
                     policeWpLines[p.id] = L.polyline(pts, { color: '#005AFF', weight: 3, opacity: 0.47, dashArray: '18, 14', interactive: false }).addTo(map);
+                }
+            });
+        }
+        // ─── BURBUJAS DE PLÁTICA (💬) ───────────────────────────────────────────────
+        // Remate de la Misión 2: cuando Prankedy se les escapa a la ESCOM, los policías se
+        // juntan en la puerta y "platican". Cada uno muestra una burbuja 💬 flotando encima.
+        function updateTalkBubbles(data) {
+            var ids = new Set(data.map(function(b){ return b.id; }));
+            for (var id in talkBubbleMarkers) if (!ids.has(id)) { map.removeLayer(talkBubbleMarkers[id]); delete talkBubbleMarkers[id]; }
+            data.forEach(function(b) {
+                if (talkBubbleMarkers[b.id]) {
+                    talkBubbleMarkers[b.id].setLatLng([b.lat, b.lng]);
+                } else {
+                    var icon = L.divIcon({ html: '<div style="font-size:22px; transform:translate(-50%,-150%); filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));">💬</div>', className: '', iconSize: [0,0] });
+                    talkBubbleMarkers[b.id] = L.marker([b.lat, b.lng], { icon: icon, interactive: false, zIndexOffset: 1200 }).addTo(map);
                 }
             });
         }

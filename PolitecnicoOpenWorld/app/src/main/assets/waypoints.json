@@ -1,353 +1,353 @@
 {
-  "rooms":{
-    "lobby_campus":[
+  "rooms": {
+    "encb_lab1": [
       {
-        "bottom":0.23,
-        "kind":"TO_BUILDING",
-        "label":"Auditorio",
-        "left":0.34,
-        "right":0.5,
-        "targetRoomId":"za_auditorio",
-        "top":0.13
+        "bottom": 1.0,
+        "kind": "EXIT_NEXT",
+        "label": "Continuar →",
+        "left": 0.5148437,
+        "right": 0.6648438,
+        "targetRoomId": "encb_lab2",
+        "top": 0.79999995
       },
       {
-        "bottom":0.35,
-        "kind":"TO_BUILDING",
-        "label":"Biblioteca",
-        "left":0.34,
-        "right":0.5,
-        "targetRoomId":"za_biblioteca",
-        "top":0.25
-      },
-      {
-        "bottom":0.74,
-        "kind":"TO_BUILDING",
-        "label":"Cafetería",
-        "left":0.22,
-        "right":0.34,
-        "targetRoomId":"za_cafeteria",
-        "top":0.62
-      },
-      {
-        "bottom":0.68,
-        "kind":"TO_BUILDING",
-        "label":"Edificio Principal",
-        "left":0.38,
-        "right":0.54,
-        "targetRoomId":"za_edificio",
-        "top":0.55
-      },
-      {
-        "bottom":0.22,
-        "kind":"TO_BUILDING",
-        "label":"Estacionamiento",
-        "left":0.57,
-        "right":0.67,
-        "targetRoomId":"za_estacionamiento",
-        "top":0.14
-      },
-      {
-        "bottom":0.22,
-        "kind":"TO_BUILDING",
-        "label":"Palapas",
-        "left":0.18,
-        "right":0.28,
-        "targetRoomId":"za_palapas",
-        "top":0.14
-      },
-      {
-        "bottom":0.5,
-        "kind":"TO_BUILDING",
-        "label":"Canchas de Futbol",
-        "left":0.64,
-        "right":0.76,
-        "targetRoomId":"za_canchas_futbol",
-        "top":0.38
-      },
-      {
-        "bottom":0.32,
-        "kind":"TO_WORLD",
-        "label":"Salir al mapa",
-        "left":0.55,
-        "right":0.69,
-        "targetRoomId":"__WORLD__",
-        "top":0.24
+        "bottom": 1.0,
+        "kind": "EXIT_PREV",
+        "label": "← Regresar",
+        "left": 0.32490227,
+        "right": 0.47490242,
+        "targetRoomId": "encb_salon1",
+        "top": 0.79999995
       }
     ],
-    "za_auditorio":[
+    "encb_lab2": [
       {
-        "bottom":0.99,
-        "kind":"GENERIC",
-        "label":"Volver al Lobby",
-        "left":0.4,
-        "right":0.6,
-        "targetRoomId":"lobby_campus",
-        "top":0.86
+        "bottom": 0.8715949,
+        "kind": "EXIT_NEXT",
+        "label": "Continuar →",
+        "left": 0.7975,
+        "right": 0.9475,
+        "targetRoomId": "__STORY_OUTRO__",
+        "top": 0.67159474
       },
       {
-        "bottom":0.56,
-        "kind":"EXIT_NEXT",
-        "label":"EXIT →",
-        "left":0.9,
-        "right":0.99,
-        "targetRoomId":"za_biblioteca",
-        "top":0.38
-      },
-      {
-        "bottom":0.56,
-        "kind":"EXIT_PREV",
-        "label":"← EXIT",
-        "left":0.01,
-        "right":0.1,
-        "targetRoomId":"za_canchas_futbol",
-        "top":0.38
+        "bottom": 0.269957,
+        "kind": "EXIT_PREV",
+        "label": "← Regresar",
+        "left": 0.7011459,
+        "right": 0.85114574,
+        "targetRoomId": "encb_lab1",
+        "top": 0.06995723
       }
     ],
-    "za_biblioteca":[
+    "encb_lobby": [
       {
-        "bottom":0.99,
-        "kind":"GENERIC",
-        "label":"Volver al Lobby",
-        "left":0.4,
-        "right":0.6,
-        "targetRoomId":"lobby_campus",
-        "top":0.86
-      },
-      {
-        "bottom":0.56,
-        "kind":"EXIT_NEXT",
-        "label":"EXIT →",
-        "left":0.9,
-        "right":0.99,
-        "targetRoomId":"za_cafeteria",
-        "top":0.38
-      },
-      {
-        "bottom":0.56,
-        "kind":"EXIT_PREV",
-        "label":"← EXIT",
-        "left":0.01,
-        "right":0.1,
-        "targetRoomId":"za_auditorio",
-        "top":0.38
+        "bottom": 0.2818529,
+        "kind": "EXIT_NEXT",
+        "label": "Continuar →",
+        "left": 0.31635737,
+        "right": 0.46635747,
+        "targetRoomId": "encb_salon1",
+        "top": 0.081853285
       }
     ],
-    "za_cafeteria":[
+    "encb_salon1": [
       {
-        "bottom":0.99,
-        "kind":"GENERIC",
-        "label":"Volver al Lobby",
-        "left":0.4,
-        "right":0.6,
-        "targetRoomId":"lobby_campus",
-        "top":0.86
+        "bottom": 0.23697184,
+        "kind": "EXIT_NEXT",
+        "label": "Continuar →",
+        "left": 0.066357344,
+        "right": 0.2163575,
+        "targetRoomId": "encb_lab1",
+        "top": 0.036971822
       },
       {
-        "bottom":0.56,
-        "kind":"EXIT_NEXT",
-        "label":"EXIT →",
-        "left":0.9,
-        "right":0.99,
-        "targetRoomId":"za_edificio",
-        "top":0.38
-      },
-      {
-        "bottom":0.56,
-        "kind":"EXIT_PREV",
-        "label":"← EXIT",
-        "left":0.01,
-        "right":0.1,
-        "targetRoomId":"za_biblioteca",
-        "top":0.38
+        "bottom": 0.89225733,
+        "kind": "EXIT_PREV",
+        "label": "← Regresar",
+        "left": 0.0,
+        "right": 0.15000004,
+        "targetRoomId": "encb_lobby",
+        "top": 0.69225717
       }
     ],
-    "za_edificio":[
+    "lobby_campus": [
       {
-        "bottom":0.99,
-        "kind":"GENERIC",
-        "label":"Volver al Lobby",
-        "left":0.4,
-        "right":0.6,
-        "targetRoomId":"lobby_campus",
-        "top":0.86
+        "bottom": 0.23,
+        "kind": "TO_BUILDING",
+        "label": "Auditorio",
+        "left": 0.34,
+        "right": 0.5,
+        "targetRoomId": "za_auditorio",
+        "top": 0.13
       },
       {
-        "bottom":0.56,
-        "kind":"EXIT_NEXT",
-        "label":"EXIT →",
-        "left":0.9,
-        "right":0.99,
-        "targetRoomId":"za_estacionamiento",
-        "top":0.38
+        "bottom": 0.35,
+        "kind": "TO_BUILDING",
+        "label": "Biblioteca",
+        "left": 0.34,
+        "right": 0.5,
+        "targetRoomId": "za_biblioteca",
+        "top": 0.25
       },
       {
-        "bottom":0.56,
-        "kind":"EXIT_PREV",
-        "label":"← EXIT",
-        "left":0.01,
-        "right":0.1,
-        "targetRoomId":"za_cafeteria",
-        "top":0.38
+        "bottom": 0.74,
+        "kind": "TO_BUILDING",
+        "label": "Cafetería",
+        "left": 0.22,
+        "right": 0.34,
+        "targetRoomId": "za_cafeteria",
+        "top": 0.62
+      },
+      {
+        "bottom": 0.68,
+        "kind": "TO_BUILDING",
+        "label": "Edificio Principal",
+        "left": 0.38,
+        "right": 0.54,
+        "targetRoomId": "za_edificio",
+        "top": 0.55
+      },
+      {
+        "bottom": 0.22,
+        "kind": "TO_BUILDING",
+        "label": "Estacionamiento",
+        "left": 0.57,
+        "right": 0.67,
+        "targetRoomId": "za_estacionamiento",
+        "top": 0.14
+      },
+      {
+        "bottom": 0.22,
+        "kind": "TO_BUILDING",
+        "label": "Palapas",
+        "left": 0.18,
+        "right": 0.28,
+        "targetRoomId": "za_palapas",
+        "top": 0.14
+      },
+      {
+        "bottom": 0.5,
+        "kind": "TO_BUILDING",
+        "label": "Canchas de Futbol",
+        "left": 0.64,
+        "right": 0.76,
+        "targetRoomId": "za_canchas_futbol",
+        "top": 0.38
+      },
+      {
+        "bottom": 0.32,
+        "kind": "TO_WORLD",
+        "label": "Salir al mapa",
+        "left": 0.55,
+        "right": 0.69,
+        "targetRoomId": "__WORLD__",
+        "top": 0.24
       }
     ],
-    "za_estacionamiento":[
+    "za_auditorio": [
       {
-        "bottom":0.99,
-        "kind":"GENERIC",
-        "label":"Volver al Lobby",
-        "left":0.4,
-        "right":0.6,
-        "targetRoomId":"lobby_campus",
-        "top":0.86
+        "bottom": 0.99,
+        "kind": "GENERIC",
+        "label": "Volver al Lobby",
+        "left": 0.4,
+        "right": 0.6,
+        "targetRoomId": "lobby_campus",
+        "top": 0.86
       },
       {
-        "bottom":0.56,
-        "kind":"EXIT_NEXT",
-        "label":"EXIT →",
-        "left":0.9,
-        "right":0.99,
-        "targetRoomId":"za_palapas",
-        "top":0.38
+        "bottom": 0.56,
+        "kind": "EXIT_NEXT",
+        "label": "EXIT →",
+        "left": 0.9,
+        "right": 0.99,
+        "targetRoomId": "za_biblioteca",
+        "top": 0.38
       },
       {
-        "bottom":0.56,
-        "kind":"EXIT_PREV",
-        "label":"← EXIT",
-        "left":0.01,
-        "right":0.1,
-        "targetRoomId":"za_edificio",
-        "top":0.38
+        "bottom": 0.56,
+        "kind": "EXIT_PREV",
+        "label": "← EXIT",
+        "left": 0.01,
+        "right": 0.1,
+        "targetRoomId": "za_canchas_futbol",
+        "top": 0.38
       }
     ],
-    "za_palapas":[
+    "za_biblioteca": [
       {
-        "bottom":0.99,
-        "kind":"GENERIC",
-        "label":"Volver al Lobby",
-        "left":0.4,
-        "right":0.6,
-        "targetRoomId":"lobby_campus",
-        "top":0.86
+        "bottom": 0.99,
+        "kind": "GENERIC",
+        "label": "Volver al Lobby",
+        "left": 0.4,
+        "right": 0.6,
+        "targetRoomId": "lobby_campus",
+        "top": 0.86
       },
       {
-        "bottom":0.56,
-        "kind":"EXIT_NEXT",
-        "label":"EXIT →",
-        "left":0.9,
-        "right":0.99,
-        "targetRoomId":"za_canchas_futbol",
-        "top":0.38
+        "bottom": 0.56,
+        "kind": "EXIT_NEXT",
+        "label": "EXIT →",
+        "left": 0.9,
+        "right": 0.99,
+        "targetRoomId": "za_cafeteria",
+        "top": 0.38
       },
       {
-        "bottom":0.56,
-        "kind":"EXIT_PREV",
-        "label":"← EXIT",
-        "left":0.01,
-        "right":0.1,
-        "targetRoomId":"za_estacionamiento",
-        "top":0.38
+        "bottom": 0.56,
+        "kind": "EXIT_PREV",
+        "label": "← EXIT",
+        "left": 0.01,
+        "right": 0.1,
+        "targetRoomId": "za_auditorio",
+        "top": 0.38
       }
     ],
-    "za_canchas_futbol":[
+    "za_cafeteria": [
       {
-        "bottom":0.99,
-        "kind":"GENERIC",
-        "label":"Volver al Lobby",
-        "left":0.4,
-        "right":0.6,
-        "targetRoomId":"lobby_campus",
-        "top":0.86
+        "bottom": 0.99,
+        "kind": "GENERIC",
+        "label": "Volver al Lobby",
+        "left": 0.4,
+        "right": 0.6,
+        "targetRoomId": "lobby_campus",
+        "top": 0.86
       },
       {
-        "bottom":0.56,
-        "kind":"EXIT_NEXT",
-        "label":"EXIT →",
-        "left":0.9,
-        "right":0.99,
-        "targetRoomId":"za_auditorio",
-        "top":0.38
+        "bottom": 0.56,
+        "kind": "EXIT_NEXT",
+        "label": "EXIT →",
+        "left": 0.9,
+        "right": 0.99,
+        "targetRoomId": "za_edificio",
+        "top": 0.38
       },
       {
-        "bottom":0.56,
-        "kind":"EXIT_PREV",
-        "label":"← EXIT",
-        "left":0.01,
-        "right":0.1,
-        "targetRoomId":"za_palapas",
-        "top":0.38
+        "bottom": 0.56,
+        "kind": "EXIT_PREV",
+        "label": "← EXIT",
+        "left": 0.01,
+        "right": 0.1,
+        "targetRoomId": "za_biblioteca",
+        "top": 0.38
       }
     ],
-    "encb_lab2":[
+    "za_canchas_futbol": [
       {
-        "bottom":0.8715949,
-        "kind":"EXIT_NEXT",
-        "label":"Continuar →",
-        "left":0.7975,
-        "right":0.9475,
-        "targetRoomId":"__STORY_OUTRO__",
-        "top":0.67159474
+        "bottom": 0.99,
+        "kind": "GENERIC",
+        "label": "Volver al Lobby",
+        "left": 0.4,
+        "right": 0.6,
+        "targetRoomId": "lobby_campus",
+        "top": 0.86
       },
       {
-        "bottom":0.269957,
-        "kind":"EXIT_PREV",
-        "label":"← Regresar",
-        "left":0.7011459,
-        "right":0.85114574,
-        "targetRoomId":"encb_lab1",
-        "top":0.06995723
-      }
-    ],
-    "encb_lab1":[
-      {
-        "bottom":1.0,
-        "kind":"EXIT_NEXT",
-        "label":"Continuar →",
-        "left":0.5786458,
-        "right":0.7286459,
-        "targetRoomId":"encb_lab2",
-        "top":0.79999995
+        "bottom": 0.56,
+        "kind": "EXIT_NEXT",
+        "label": "EXIT →",
+        "left": 0.9,
+        "right": 0.99,
+        "targetRoomId": "za_auditorio",
+        "top": 0.38
       },
       {
-        "bottom":1.0,
-        "kind":"EXIT_PREV",
-        "label":"← Regresar",
-        "left":0.26656243,
-        "right":0.4165626,
-        "targetRoomId":"encb_salon1",
-        "top":0.79999995
+        "bottom": 0.56,
+        "kind": "EXIT_PREV",
+        "label": "← EXIT",
+        "left": 0.01,
+        "right": 0.1,
+        "targetRoomId": "za_palapas",
+        "top": 0.38
       }
     ],
-    "encb_salon1":[
+    "za_edificio": [
       {
-        "bottom":1.0,
-        "kind":"EXIT_NEXT",
-        "label":"Continuar →",
-        "left":0.067083225,
-        "right":0.21708344,
-        "targetRoomId":"encb_lab1",
-        "top":0.79999995
+        "bottom": 0.99,
+        "kind": "GENERIC",
+        "label": "Volver al Lobby",
+        "left": 0.4,
+        "right": 0.6,
+        "targetRoomId": "lobby_campus",
+        "top": 0.86
       },
       {
-        "bottom":0.20000005,
-        "kind":"EXIT_PREV",
-        "label":"← Regresar",
-        "left":0.09614578,
-        "right":0.24614587,
-        "targetRoomId":"encb_lobby",
-        "top":0.0
+        "bottom": 0.56,
+        "kind": "EXIT_NEXT",
+        "label": "EXIT →",
+        "left": 0.9,
+        "right": 0.99,
+        "targetRoomId": "za_estacionamiento",
+        "top": 0.38
+      },
+      {
+        "bottom": 0.56,
+        "kind": "EXIT_PREV",
+        "label": "← EXIT",
+        "left": 0.01,
+        "right": 0.1,
+        "targetRoomId": "za_cafeteria",
+        "top": 0.38
       }
     ],
-    "encb_lobby":[
+    "za_estacionamiento": [
       {
-        "bottom":0.6,
-        "kind":"EXIT_NEXT",
-        "label":"Continuar →",
-        "left":0.82,
-        "right":0.97,
-        "targetRoomId":"encb_salon1",
-        "top":0.4
+        "bottom": 0.99,
+        "kind": "GENERIC",
+        "label": "Volver al Lobby",
+        "left": 0.4,
+        "right": 0.6,
+        "targetRoomId": "lobby_campus",
+        "top": 0.86
+      },
+      {
+        "bottom": 0.56,
+        "kind": "EXIT_NEXT",
+        "label": "EXIT →",
+        "left": 0.9,
+        "right": 0.99,
+        "targetRoomId": "za_palapas",
+        "top": 0.38
+      },
+      {
+        "bottom": 0.56,
+        "kind": "EXIT_PREV",
+        "label": "← EXIT",
+        "left": 0.01,
+        "right": 0.1,
+        "targetRoomId": "za_edificio",
+        "top": 0.38
+      }
+    ],
+    "za_palapas": [
+      {
+        "bottom": 0.99,
+        "kind": "GENERIC",
+        "label": "Volver al Lobby",
+        "left": 0.4,
+        "right": 0.6,
+        "targetRoomId": "lobby_campus",
+        "top": 0.86
+      },
+      {
+        "bottom": 0.56,
+        "kind": "EXIT_NEXT",
+        "label": "EXIT →",
+        "left": 0.9,
+        "right": 0.99,
+        "targetRoomId": "za_canchas_futbol",
+        "top": 0.38
+      },
+      {
+        "bottom": 0.56,
+        "kind": "EXIT_PREV",
+        "label": "← EXIT",
+        "left": 0.01,
+        "right": 0.1,
+        "targetRoomId": "za_estacionamiento",
+        "top": 0.38
       }
     ]
   },
-  "version":1
+  "version": 1
 }

@@ -162,6 +162,19 @@ internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
         now = System.currentTimeMillis(), snap = snap,
         pathfind = { from, to -> findRoadRoute(from, to) }
     )
+    // REMATE: en cuanto Prankedy se les ESCAPÓ a la ESCOM, los 6 policías se DIRIGEN a la PUERTA
+    // (donde se metió Prankedy / donde estás tú), se reúnen ahí, "platican"/reaccionan y se reparten:
+    // 3 ENTRAN a la ESCOM (como Prankedy) y 3 SE REGRESAN por donde llegaron. Se dispara UNA vez.
+    // (Sin esperar a que estén cerca: la fase de REUNIÓN los trae a la puerta desde donde sea, así
+    // SIEMPRE los ves llegar a la entrada, aunque hayan quedado lejos.)
+    if (mission2PrankedyEntered && campaignEscortPolice.isActive() && !campaignEscortPolice.isResolving()) {
+        campaignEscortPolice.startResolution(
+            door.latitude, door.longitude,
+            MISSION2_POLICE_SPAWN_LAT, MISSION2_POLICE_SPAWN_LON,
+            System.currentTimeMillis()
+        )
+        android.util.Log.d("POW_DBG", "Misión 2 REMATE: Prankedy entró → 6 policías van a la puerta, platican y se reparten")
+    }
     updateEscomCrowd(playerLoc, door)
     if (_uiState.value.wantedLevel != 1) _uiState.update { it.copy(wantedLevel = 1) }
     updateNpcsState()

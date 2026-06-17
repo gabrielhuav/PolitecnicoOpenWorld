@@ -720,6 +720,18 @@ fun WorldMapScreen(
                         val currentZoom = uiState.zoomLevel
                         val renderZoom = round(currentZoom * 2) / 2.0
 
+                        // Burbuja 💬 (remate Misión 2: policías que "platican"). Icono cacheado una vez.
+                        val talkBubbleIcon = remember {
+                            val px = (22 * screenDensity).toInt()
+                            val d = emojiToDrawable(context, "💬", px)
+                            val bm = android.graphics.Bitmap.createBitmap(
+                                d.intrinsicWidth.coerceAtLeast(1), d.intrinsicHeight.coerceAtLeast(1),
+                                android.graphics.Bitmap.Config.ARGB_8888
+                            )
+                            val c = android.graphics.Canvas(bm); d.setBounds(0, 0, bm.width, bm.height); d.draw(c)
+                            BitmapDescriptorFactory.fromBitmap(bm)
+                        }
+
                         // Culling por neblina: solo se dibujan los NPC dentro del radio de visión (fijo en metros).
                         val centerCull = uiState.currentLocation
                         val cullRadiusM = centerCull?.let { npcVisionRadiusMeters() }
@@ -874,6 +886,19 @@ fun WorldMapScreen(
                                     flat = true,
                                     alpha = if (npc.isDying) 0.5f else 1.0f
                                 )
+                                // Burbuja 💬 flotando encima mientras el NPC "platica" (remate Misión 2).
+                                // `remember` SIEMPRE se llama (no condicional); solo el Marker es condicional.
+                                val bubbleState = remember { MarkerState(position = position) }
+                                bubbleState.position = position
+                                if (npc.talkingUntil > timeMs) {
+                                    com.google.maps.android.compose.Marker(
+                                        state = bubbleState,
+                                        icon = talkBubbleIcon,
+                                        anchor = androidx.compose.ui.geometry.Offset(0.5f, 1.9f),
+                                        flat = true,
+                                        zIndex = 50f
+                                    )
+                                }
                             }
                         }
                     }
@@ -1237,6 +1262,15 @@ fun WorldMapScreen(
 
                         wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs(${gson.toJson(npcPayloads)});", null)
                         } // fin guard web: lista de NPCs sin cambios → no se reenvía al WebView
+
+                        // BURBUJAS 💬 de "platica" (remate Misión 2): se envían CADA frame (fuera del
+                        // guard) para seguir la posición de cada policía mientras dura `talkingUntil`.
+                        val nowBubble = System.currentTimeMillis()
+                        val talkPayload = uiState.npcs
+                            .filter { it.talkingUntil > nowBubble }
+                            .map { mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude) }
+                        wv.evaluateJavascript("if(typeof updateTalkBubbles==='function')updateTalkBubbles(${gson.toJson(talkPayload)});", null)
+
                         wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
 
                         // OPT FPS web: serializar y reenviar landmarks SOLO cuando cambian

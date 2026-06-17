@@ -190,7 +190,21 @@ class NpcAiManager {
     // >0.02° (~2.2 km), así que al volver quedaba SIN IA. Ahora, si el campus está
     // marcado como poblado pero ya no tiene NPCs vivos, se repuebla (con cooldown).
     private val landmarkRepopulateAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
-    private val LANDMARK_REPOPULATE_COOLDOWN_MS = 30_000L
+    private val LANDMARK_REPOPULATE_COOLDOWN_MS = 8_000L
+    // ── ESTACIONAMIENTO como ESCENOGRAFÍA ──────────────────────────────────
+    // Los carros estacionados son escenario fijo del campus, NO NPCs efímeros. Antes:
+    //  (1) despertaban y se iban en 15-60 s (PARKED→MICRO_LANDMARK), y
+    //  (2) `needsRepopulate` comprobaba CUALQUIER NPC del landmark (los peatones SIEMPRE existen),
+    //      así que tras irse los carros el lote quedaba VACÍO para siempre.
+    // Ahora: se mantiene un OBJETIVO de carros PARKED, se rellena cuando bajan del mínimo y
+    // tardan MUCHO más en despertar (escenografía estable, con bajas ocasionales que se reponen).
+    // El lote se mantiene LLENO: objetivo = 100% de su capacidad (slots reales del navGraph); si
+    // baja del 90% se rellena. Así el estacionamiento SIEMPRE se ve >85% ocupado (hasta 100%).
+    private val PARKING_FILL_RATIO = 1.00f    // llenar al 100% de los slots
+    private val PARKING_REFILL_RATIO = 0.90f  // si baja del 90%, rellenar (nunca baja del 85%)
+    private val PARKING_MIN_CARS = 4          // piso absoluto (lotes con pocos slots)
+    private val PARKING_WAKE_MIN_MS = 90_000L
+    private val PARKING_WAKE_MAX_MS = 240_000L
     private val landmarkEntranceCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     private val carSpeed    = CAR_SPEED
@@ -313,6 +327,10 @@ class NpcAiManager {
         withContext(Dispatchers.Default) {
             val toRemove = serverNpcs.filter {
                 it.displayName.isNullOrEmpty() &&
+                        // Los carros ESTACIONADOS son escenario fijo del campus: NO se despawnean por
+                        // distancia (si no, al poblarlos de LEJOS se borraban al instante → "no aparecen").
+                        // Se limpian cuando el jugador SALE del campus (dist>=0.02, más abajo).
+                        it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED &&
                         calculateDistance(it.location.latitude, it.location.longitude, playerLocation.latitude, playerLocation.longitude) > despawnDistance
             }
             serverNpcs.removeAll(toRemove)
@@ -330,7 +348,7 @@ class NpcAiManager {
 
             if (totalCount > maxTotalNpcs) {
                 val excess = totalCount - maxTotalNpcs
-                val farthest = serverNpcs.filter { it.displayName.isNullOrEmpty() }
+                val farthest = serverNpcs.filter { it.displayName.isNullOrEmpty() && it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED }
                     .sortedByDescending { calculateDistance(it.location.latitude, it.location.longitude, pLat0, pLon0) }
                     .take(excess)
                 serverNpcs.removeAll(farthest)
@@ -353,37 +371,45 @@ class NpcAiManager {
             for (landmark in activeLandmarks) {
                 val dist = calculateDistance(pLat0, pLon0, landmark.location.latitude, landmark.location.longitude)
                 val lmKey = landmark.id.toString()
-                // ¿El campus está marcado como poblado pero ya no tiene IA viva? (sus NPCs
-                // se despawnearon al alejarse el jugador) → permitir re-poblar con cooldown.
+                // Cuántos CARROS ESTACIONADOS siguen vivos aquí. Solo cuenta PARKED: si contáramos
+                // cualquier NPC, los peatones del campus (siempre presentes) bloquearían el relleno
+                // y el lote quedaría vacío para siempre tras irse los carros.
+                val parkedAlive = serverNpcs.count {
+                    it.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED && it.currentLandmark?.id == landmark.id
+                }
+                // Capacidad real del lote = nº de slots de estacionamiento del navGraph. Objetivo 90%,
+                // se rellena si baja del 80% (siempre lleno).
+                val totalSlots = landmark.navGraph?.ways?.sumOf { w -> w.nodes.count { it.isParkingSlot } } ?: 0
+                val targetCars = (totalSlots * PARKING_FILL_RATIO).toInt().coerceAtLeast(PARKING_MIN_CARS)
+                val minCars = (totalSlots * PARKING_REFILL_RATIO).toInt().coerceAtLeast(PARKING_MIN_CARS)
+                // Repuebla si el campus ya estaba poblado pero los carros bajaron del 80% (con cooldown).
                 val needsRepopulate = dist < 0.01 && populatedLandmarks.contains(lmKey) &&
-                    serverNpcs.none { it.displayName.isNullOrEmpty() && it.currentLandmark?.id == landmark.id } &&
+                    parkedAlive < minCars &&
                     System.currentTimeMillis() >= (landmarkRepopulateAt[lmKey] ?: 0L)
                 if (dist < 0.01 && (!populatedLandmarks.contains(lmKey) || needsRepopulate)) {
                   try {
-                    android.util.Log.d("POW_DBG", "parking ENTRA al bloque lm=$lmKey dist=$dist (slots a buscar...)")
+                    val firstPopulate = !populatedLandmarks.contains(lmKey)   // true solo la 1ª vez (no en rellenos)
+                    android.util.Log.d("POW_DBG", "parking ENTRA al bloque lm=$lmKey dist=$dist parkedAlive=$parkedAlive primera=$firstPopulate (slots a buscar...)")
                     populatedLandmarks.add(lmKey)
                     landmarkRepopulateAt[lmKey] = System.currentTimeMillis() + LANDMARK_REPOPULATE_COOLDOWN_MS
 
                     val availableSlots = getAvailableParkingSlots(landmark, serverNpcs)
+                    // Rellena SOLO hasta el objetivo (no por porcentaje). Los carros estacionados NO se
+                    // topan por maxTotalNpcs: son escenografía exenta de culls y acotada por el objetivo.
+                    val numToSpawn = (targetCars - parkedAlive).coerceIn(0, availableSlots.size)
                     var dbgSpawned = 0
-                    if (availableSlots.isNotEmpty()) {
-                        val fillPercentage = kotlin.random.Random.nextFloat() * 0.8f + 0.1f // Aleatorio entre 10% y 90%
-                        val numToSpawn = (availableSlots.size * fillPercentage).toInt().coerceAtLeast(1)
-                        val slotsToUse = availableSlots.shuffled().take(numToSpawn)
-                        var timerOffset = Random.nextLong(15000L, 25000L)
-                        slotsToUse.forEach { slot ->
-                            if (serverNpcs.size < maxTotalNpcs) {
-                                val newCar = spawnParkedCar(landmark, slot.first, slot.second, timerOffset)
-                                serverNpcs.add(newCar)
-                                dbgSpawned++
-                                timerOffset += Random.nextLong(15000L, 30000L)
-                            }
+                    if (numToSpawn > 0) {
+                        var timerOffset = Random.nextLong(PARKING_WAKE_MIN_MS, PARKING_WAKE_MAX_MS)
+                        availableSlots.shuffled().take(numToSpawn).forEach { slot ->
+                            serverNpcs.add(spawnParkedCar(landmark, slot.first, slot.second, timerOffset))
+                            dbgSpawned++
+                            timerOffset += Random.nextLong(20000L, 40000L)
                         }
                     }
-                    android.util.Log.d("POW_DBG", "parking POBLANDO lm=${landmark.id} dist=$dist slotsLibres=${availableSlots.size} spawneados=$dbgSpawned (npcs=${serverNpcs.size}/$maxTotalNpcs)")
+                    android.util.Log.d("POW_DBG", "parking POBLANDO lm=${landmark.id} dist=$dist totalSlots=$totalSlots objetivo=$targetCars slotsLibres=${availableSlots.size} spawneados=$dbgSpawned (npcs=${serverNpcs.size}/$maxTotalNpcs)")
 
                     val navGraph = landmark.navGraph
-                    if (navGraph != null && !globalZombieMode) {
+                    if (firstPopulate && navGraph != null && !globalZombieMode) {
                         val pedestrianWays = navGraph.ways.filter { it.id >= 200 }
                         if (pedestrianWays.isNotEmpty()) {
                             val numStudents = Random.nextInt(15, 30)
@@ -401,6 +427,15 @@ class NpcAiManager {
                   }
                 } else if (dist >= 0.02) {
                     populatedLandmarks.remove(landmark.id.toString())
+                    // Al SALIR del campus sí limpia los carros estacionados de este landmark (evita
+                    // acumularlos). Se vuelven a poblar al regresar.
+                    val parkedHere = serverNpcs.filter {
+                        it.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED && it.currentLandmark?.id == landmark.id
+                    }
+                    if (parkedHere.isNotEmpty()) {
+                        serverNpcs.removeAll(parkedHere)
+                        parkedHere.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
+                    }
                 }
             }
 
@@ -1136,7 +1171,7 @@ class NpcAiManager {
             val wakeUpTime = parkedTimers[npc.id]
 
             if (wakeUpTime == null) {
-                parkedTimers[npc.id] = System.currentTimeMillis() + Random.nextLong(15000, 60000)
+                parkedTimers[npc.id] = System.currentTimeMillis() + Random.nextLong(PARKING_WAKE_MIN_MS, PARKING_WAKE_MAX_MS)
                 return npc
             } else if (System.currentTimeMillis() > wakeUpTime) {
                 parkedTimers.remove(npc.id)

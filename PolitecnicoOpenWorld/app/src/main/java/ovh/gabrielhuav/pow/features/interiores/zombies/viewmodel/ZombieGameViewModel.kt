@@ -524,17 +524,30 @@ class ZombieGameViewModel(
             // ORIGEN (al pulsar "Continuar →" en el cuarto N, spawneas junto a la "← Regresar" del N+1,
             // y viceversa), en vez de en el centro. (Se excluye "lobby → edificio": esa entrada conserva
             // su spawn central + siembra de zombis.)
-            // ⚠️ CLAVE: el spawn se DESPLAZA hacia el centro del cuarto (factor `k`) para NO quedar DENTRO
-            // del hitbox de esa puerta. `onInteract` dispara la puerta cuyo hitbox contiene al jugador, así
-            // que si spawneabas justo encima, la siguiente X te regresaba al cuarto anterior (rebote) y
-            // "Continuar" no avanzaba. Desplazado, debes caminar a una puerta para usarla.
+            // ⚠️ CLAVE: el spawn debe quedar JUSTO FUERA del hitbox de esa puerta. `onInteract` dispara la
+            // puerta cuyo hitbox contiene al jugador, así que si spawneas DENTRO, la siguiente X te regresa
+            // al cuarto anterior (rebote = "TP mal"). Antes se desplazaba un 30% fijo hacia el centro, lo
+            // que NO bastaba si la puerta era grande o estaba cerca del centro (caso encb_lobby). Ahora se
+            // empuja por la ORILLA de la puerta que da al interior (el eje donde está más pegada a un muro),
+            // quedando fuera del rectángulo + margen, SEA CUAL SEA su tamaño o posición.
             targetRoom.doors.firstOrNull { it.targetRoomId == fromRoom.id }?.let { backDoor ->
-                val k = 0.30f // fracción del camino hacia el centro (0.5,0.5); suficiente para salir del hitbox
-                val fx = backDoor.hitboxFrac.centerXFrac()
-                val fy = backDoor.hitboxFrac.centerYFrac()
-                val sx = (fx + (0.5f - fx) * k) * targetRoom.worldWidth
-                val sy = (fy + (0.5f - fy) * k) * targetRoom.worldHeight
-                _state.update { it.copy(pendingSpawnX = sx, pendingSpawnY = sy) }
+                val r = backDoor.hitboxFrac
+                val fx = (r.left + r.right) * 0.5f
+                val fy = (r.top + r.bottom) * 0.5f
+                val halfW = (r.right - r.left) * 0.5f
+                val halfH = (r.bottom - r.top) * 0.5f
+                val margin = 0.04f // ~4% del cuarto: te deja parado pegado a la puerta, pero fuera del hitbox
+                var sxFrac = fx
+                var syFrac = fy
+                // Sale por el eje donde la puerta está MÁS descentrada (su lado contra el muro), hacia el centro.
+                if (kotlin.math.abs(0.5f - fx) >= kotlin.math.abs(0.5f - fy)) {
+                    sxFrac = fx + (if (0.5f - fx >= 0f) 1f else -1f) * (halfW + margin)
+                } else {
+                    syFrac = fy + (if (0.5f - fy >= 0f) 1f else -1f) * (halfH + margin)
+                }
+                sxFrac = sxFrac.coerceIn(0.04f, 0.96f)
+                syFrac = syFrac.coerceIn(0.04f, 0.96f)
+                _state.update { it.copy(pendingSpawnX = sxFrac * targetRoom.worldWidth, pendingSpawnY = syFrac * targetRoom.worldHeight) }
             }
         }
 
