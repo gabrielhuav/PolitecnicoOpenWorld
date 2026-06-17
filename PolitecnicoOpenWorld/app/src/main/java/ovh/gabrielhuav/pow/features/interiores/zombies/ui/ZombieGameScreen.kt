@@ -836,8 +836,9 @@ private fun DesignerToolbar(
             ToolButton("−", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale - 0.1f).coerceIn(0.5f, 1f) }
             ToolButton("+", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale + 0.1f).coerceIn(0.5f, 1f) }
         }
-        // CONTENIDO DESPLAZABLE (lo del medio). Las ACCIONES (Guardar/Exportar/Salir) van FUERA,
-        // ancladas abajo, para que NUNCA se recorten (en MATRIZ hay más filas y antes se cortaban).
+        // CONTENIDO DESPLAZABLE = TODA la herramienta (selector, pincel PARED/BORRAR, tamaño,
+        // Guardar/Exportar/Salir). Scrollea junta; solo el asa "⠿ Mover" de arriba queda fija.
+        // El panel está acotado a maxToolbarH y es angosto/movible, así que cabe o se scrollea.
         Column(
             modifier = Modifier.weight(1f, fill = false).verticalScroll(toolbarScroll),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -858,18 +859,14 @@ private fun DesignerToolbar(
             else "Toca o arrastra sobre la rejilla. Rojo = pared.",
             color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp
         )
+        // ─── PINCEL + TAMAÑO DE LA MATRIZ (TODO dentro del MISMO scroll) ──────────────
+        // PARED (inaccesible) / BORRAR (caminable) y el resize (COL/FIL). Toda la herramienta
+        // scrollea JUNTA; solo el asa "⠿ Mover" de arriba queda fija para poder arrastrar siempre.
         if (!isWaypoints) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 ToolButton("PARED", brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
                 ToolButton("BORRAR", !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
             }
-        }
-        }
-        // ─── TAMAÑO DE LA MATRIZ (ANCLADO, FUERA del scroll) ──────────────────────
-        // Antes vivía al final del scroll del medio y, en MATRIZ (más filas) y pantallas
-        // bajas, quedaba recortado → parecía "desaparecido". Ahora va anclado para que el
-        // resize de la matriz SIEMPRE sea visible en modo MATRIZ. (En WAYPOINTS no aplica.)
-        if (!isWaypoints) {
             Text(
                 androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_size_grid, gridCols, gridRows),
                 color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
@@ -881,7 +878,7 @@ private fun DesignerToolbar(
                 ToolButton("FIL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
             }
         }
-        // ─── ACCIONES ANCLADAS (siempre visibles, fuera del scroll) ──
+        // ─── ACCIONES (Guardar/Reset · Exportar/Importar/Salir), dentro del mismo scroll ──
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = onSave,
@@ -913,6 +910,7 @@ private fun DesignerToolbar(
                 Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_exit), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
+        } // cierra el Column SCROLLABLE: toda la herramienta scrollea junta (salvo el asa de mover)
     }
 }
 
