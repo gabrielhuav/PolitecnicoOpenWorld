@@ -123,6 +123,19 @@ fun WorldMapViewModel.loadGame(context: Context, slot: Int): Boolean {
     return true
 }
 
+// "REINTENTAR MISIÓN": reinicia la misión actual SIN volver al menú (en vez de reabrir y cargar
+// la partida a mano). Equivale a recargar el slot ACTIVO: `setStorySpawn` (dentro de loadGame)
+// re-arma el acompañante (Prankedy) y la policía de campaña, y restaura posición/objetivo del
+// inicio de la misión. Limpia la pantalla de "MISIÓN FALLIDA". Si no hay slot guardado, al menos
+// re-arma la escolta de la Misión 1.
+fun WorldMapViewModel.retryCampaignMission(context: Context) {
+    clearCampaignPolice()
+    if (!loadGame(context, campaignSlot)) {
+        setCampaignObjective(MissionCatalog.ESCOLTAR_PRANKEDY)
+    }
+    _uiState.update { it.copy(showMissionFailed = false) }
+}
+
 // ─── OBJETIVOS DE CAMPAÑA ─────────────────────────────────────────────────────
 // Fija el objetivo activo (lo llama MainActivity al COMENZAR una campaña nueva).
 fun WorldMapViewModel.setCampaignObjective(objective: ovh.gabrielhuav.pow.domain.models.CampaignObjective?) {

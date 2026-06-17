@@ -206,3 +206,13 @@ data class ZombieServerMessage(type, sessionId, id, displayName, roomId, zone, x
 - FX de daño: screen shake, viñeta roja que **escala con HP perdido** (`damagePulseTrigger`), pulso de
   vida baja, knockback a zombis, recoil del jugador. Iluminación dinámica en interiores oscuros.
 - Pantallas WASTED / Victory. SkillEffects dibujados como iconos Canvas puros.
+- **🆕 Botonera arriba-derecha:** Ajustes (siempre) + el menú de **Opciones**. **"Elegir personaje"**
+  (selector de skin, `wm_choose_character` → `toggleSkinSelector`) **ya NO es un botón suelto**: es el
+  **primer ítem del menú de Opciones**. El banner de OBJETIVO de la cadena ENCB sigue arriba-centro
+  (`ENCB_STORY_ROOM_IDS`).
+- **🆕 Orientación SIEMPRE landscape:** el juego (mapa global, interiores y cómics) se fuerza a horizontal;
+  solo los menús (`main_menu`, `story_mode`, `settings`, `collectibles`) permiten vertical. Se gestiona en
+  **`MainActivity`** con un `NavController.OnDestinationChangedListener` (ÚNICA fuente de verdad por ruta;
+  `requestedOrientation = SCREEN_ORIENTATION_SENSOR_LANDSCAPE`). Las pantallas ya **no** fijan orientación.
+- **🆕 Panel del Diseñador movible/redimensionable:** `DesignerToolbar` lleva un **asa "⠿ Mover"** (arrástrala;
+  toca = recentrar) y botones **−/+** que escalan el panel (`graphicsLayer`, 0.5–1×) para que no tape la sala.

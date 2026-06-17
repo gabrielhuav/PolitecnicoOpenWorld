@@ -224,7 +224,9 @@ fun WorldMapScreen(
     onNavigateToMainMenu: () -> Unit = {},
     onNavigateToSettings: () -> Unit,
     onNavigateToInterior: (String) -> Unit = {},
-    onRequestSaveGame: () -> Unit = {}
+    onRequestSaveGame: () -> Unit = {},
+    // MODO HISTORIA: reintentar la misión fallida sin volver al menú (recarga el slot activo).
+    onRetryMission: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val roadNetwork by viewModel.roadNetworkFlow.collectAsState()
@@ -1653,15 +1655,33 @@ fun WorldMapScreen(
                 modifier = Modifier.fillMaxSize().background(Color(0xDD000000)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "MISIÓN\nFALLIDA",
-                    color = Color(0xFFD32F2F),
-                    fontSize = 54.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 5.sp,
-                    lineHeight = 60.sp,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "MISIÓN\nFALLIDA",
+                        color = Color(0xFFD32F2F),
+                        fontSize = 54.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 5.sp,
+                        lineHeight = 60.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(28.dp))
+                    // REINTENTAR: reinicia la misión en sitio (sin volver a la pantalla de inicio).
+                    Button(
+                        onClick = { onRetryMission() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth(0.6f).height(50.dp)
+                    ) {
+                        Text("REINTENTAR MISIÓN", color = Color.White, fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp, letterSpacing = 1.sp)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = { onNavigateToMainMenu() }) {
+                        Text("Salir al menú", color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
 
@@ -2115,18 +2135,8 @@ fun WorldMapScreen(
             )
         }
 
-        // ─── WIDGET DE OBJETIVOS (Modo Historia) — siempre visible si hay objetivo ──
-        uiState.currentObjective?.let { obj ->
-            ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
-                objective = obj,
-                done = uiState.objectiveDone,
-                playerLocation = uiState.currentLocation,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .systemBarsPadding()
-                    .padding(start = 12.dp, top = 12.dp)
-            )
-        }
+        // (El widget de OBJETIVO se dibuja UNA sola vez, arriba-centro — ver más arriba.
+        // Antes había aquí un segundo widget arriba-izquierda que duplicaba el objetivo.)
 
         val configuration = LocalConfiguration.current
         val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT

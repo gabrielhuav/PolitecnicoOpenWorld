@@ -1,8 +1,6 @@
 package ovh.gabrielhuav.pow.features.main_menu.ui
 
-import android.app.Activity
 import android.content.Context
-import android.content.pm.ActivityInfo
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -20,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
@@ -127,13 +126,11 @@ fun StoryIntroScreen(
         // Música de fondo del cómic de la intro (IntroPOW1..8): suena en bucle TODA la secuencia
         // (los SFX por panel usan SoundPool y no la cortan). Se detiene al salir de la pantalla.
         if (isIntroSequence) soundManager.playPrankedyRemixMusic()
-        val activity = context.findActivityOrNull()
-        val previous = activity?.requestedOrientation
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        // La orientación (SIEMPRE landscape en cómics/juego) la gestiona MainActivity por destino
+        // de navegación; aquí solo manejamos el audio.
         onDispose {
             soundManager.stopAllStorySounds()
             soundManager.stopPrankedyRemixMusic()
-            activity?.requestedOrientation = previous ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
 
@@ -229,7 +226,22 @@ fun StoryIntroScreen(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D11))) {
         val maxH = maxHeight
-        val hPx = with(LocalDensity.current) { maxH.toPx() }
+        val density = LocalDensity.current
+        val hPx = with(density) { maxH.toPx() }
+        val wPx = with(density) { maxWidth.toPx() }
+        // RECTÁNGULO REAL donde ContentScale.Fit dibuja la imagen (dentro del marco de 20.dp).
+        // Anclamos el cuadro de texto a ESTE rectángulo —no a la pantalla completa— para que quede
+        // SIEMPRE dentro del recuadro blanco del cómic en cualquier tamaño/relación de pantalla (el
+        // "letterbox" cambia según el dispositivo). Sin imagen, se usa la pantalla completa.
+        val padPx = with(density) { 20.dp.toPx() }
+        val availW = (wPx - 2f * padPx).coerceAtLeast(1f)
+        val availH = (hPx - 2f * padPx).coerceAtLeast(1f)
+        val imgW = (image?.width ?: 0).toFloat().coerceAtLeast(1f)
+        val imgH = (image?.height ?: 0).toFloat().coerceAtLeast(1f)
+        val fitScale = if (image != null) minOf(availW / imgW, availH / imgH) else 1f
+        val dispW = if (image != null) imgW * fitScale else wPx
+        val dispH = if (image != null) imgH * fitScale else hPx
+        val imgTopPx = (hPx - dispH) / 2f   // imagen centrada vertical (padding simétrico)
 
         // Imagen del panel.
         if (image != null) {
@@ -268,22 +280,24 @@ fun StoryIntroScreen(
             }
         }
 
-        // Cuadro de texto (posicionable).
-        val topDp = maxH * topFrac.coerceIn(0f, 0.95f)
-        val boxDp = maxH * heightFrac.coerceIn(0.06f, 0.7f)
+        // Cuadro de texto (posicionable) ANCLADO al rectángulo real de la imagen (no a la pantalla),
+        // para que no se salga del recuadro blanco al cambiar el tamaño/relación de pantalla.
+        val topDp = with(density) { (imgTopPx + dispH * topFrac.coerceIn(0f, 0.95f)).toDp() }
+        val boxDp = with(density) { (dispH * heightFrac.coerceIn(0.06f, 0.7f)).toDp() }
+        val boxWDp = with(density) { (dispW * widthFrac.coerceIn(0.2f, 1f)).toDp() }
         val noImageBg = image == null
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .fillMaxWidth(widthFrac.coerceIn(0.2f, 1f))
                 .offset(y = topDp)
+                .width(boxWDp)
                 .height(boxDp)
                 .then(
                     if (editing) Modifier
                         .background(Color(0x553F51B5), RoundedCornerShape(8.dp))
                         .pointerInput(index) {
                             detectDragGestures { _, drag ->
-                                topFrac = (topFrac + drag.y / hPx).coerceIn(0f, 0.95f)
+                                topFrac = (topFrac + drag.y / dispH).coerceIn(0f, 0.95f)
                             }
                         }
                     else if (noImageBg) Modifier
@@ -452,14 +466,4 @@ private fun loadComicPanel(
     return null
 }
 
-// Desenvuelve el Context (puede venir envuelto por LocaleHelper.wrap) hasta la Activity,
-// para poder fijar la orientación de pantalla durante la intro.
-private fun Context.findActivityOrNull(): Activity? {
-    var ctx: Context? = this
-    while (ctx is android.content.ContextWrapper) {
-        if (ctx is Activity) return ctx
-        ctx = ctx.baseContext
-    }
-    return null
-}
 

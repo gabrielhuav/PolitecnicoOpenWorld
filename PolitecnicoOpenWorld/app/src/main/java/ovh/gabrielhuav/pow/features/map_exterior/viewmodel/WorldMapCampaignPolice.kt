@@ -24,6 +24,11 @@ import kotlin.math.sqrt
 // Puerta NORTE de la ESCOM (de WorldMapEscom.spawnEscomDoors): de aquí sale la multitud.
 private const val ESCOM_DOOR_LAT = 19.50490
 private const val ESCOM_DOOR_LON = -99.14674
+// Radio (~165 m) alrededor de la puerta canónica para considerar que un landmark de puerta está
+// REALMENTE en la ESCOM. El asset DOORS/ESCOM_DOOR.webp se reusa en otros campus (FES Aragón,
+// campos deportivos del Deportivo Miguel Alemán); sin este filtro, esas puertas "secuestraban" el
+// objetivo de la ESCOM hacia fuera del campus.
+private const val ESCOM_DOOR_NEAR_RADIUS = 0.0015
 
 // Multitud de salida de la ESCOM.
 private const val CROWD_MAX = 14
@@ -36,21 +41,36 @@ private const val CROWD_SPAWN_OFFSET = 0.00006        // ~6 m de la puerta al ap
 // llegada) a la PUERTA de la ESCOM REAL: el landmark `DOORS/ESCOM_DOOR.webp` más cercano colocado
 // con el Diseñador (donde el jugador interactúa para entrar). Si no hay puerta colocada, conserva
 // el destino configurado. Solo aplica a los objetivos de la ESCOM (escolta / ingresar).
+// ¿El punto está cerca de la puerta canónica de la ESCOM? (descarta puertas de otros campus).
+private fun isNearEscomDoor(p: GeoPoint): Boolean {
+    val dLat = p.latitude - ESCOM_DOOR_LAT
+    val dLon = p.longitude - ESCOM_DOOR_LON
+    return dLat * dLat + dLon * dLon <= ESCOM_DOOR_NEAR_RADIUS * ESCOM_DOOR_NEAR_RADIUS
+}
+
 internal fun WorldMapViewModel.syncObjectiveToEscomDoor(playerLoc: GeoPoint) {
     val obj = _uiState.value.currentObjective ?: return
     if (obj.id != MissionCatalog.ESCOLTAR_PRANKEDY.id && obj.id != MissionCatalog.INGRESAR_ESCOM.id) return
-    // Puertas de la ESCOM donde el jugador interactúa para entrar. Preferimos las colocadas con
-    // el Diseñador (landmarks DOORS/ESCOM_DOOR.webp); si no hay, las placeholder (escom_door_*).
+    // Puertas de la ESCOM donde el jugador interactúa para entrar. Preferimos las colocadas con el
+    // Diseñador (landmarks DOORS/ESCOM_DOOR.webp), pero SOLO las que están REALMENTE en la ESCOM
+    // (cerca de la puerta canónica): el mismo asset se reusa en FES Aragón y en los campos
+    // deportivos, y esas puertas sacaban el objetivo fuera del campus. Si no hay ninguna puerta de
+    // ESCOM colocada, caemos a las placeholder (escom_door_*), que SÍ están en la ESCOM.
     val landmarkDoors = _uiState.value.landmarks
-        .filter { it.assetPath == ESCOM_DOOR_ASSET }.map { it.location }
+        .filter { it.assetPath == ESCOM_DOOR_ASSET }
+        .map { it.location }
+        .filter { isNearEscomDoor(it) }
     val placeholderDoors = _escomItems.value
         .filter { it.id.startsWith("escom_door_") }.map { GeoPoint(it.latitude, it.longitude) }
     val doors = if (landmarkDoors.isNotEmpty()) landmarkDoors else placeholderDoors
     if (doors.isEmpty()) return
-    // ELECCIÓN DETERMINISTA (ordenada), NO "la más cercana": con dos puertas, elegir la más
-    // cercana hacía que el objetivo SALTARA entre ambas cada frame (parpadeo / "repetido"). Así
-    // se fija SIEMPRE la misma puerta y el marcador no parpadea.
-    val chosen = doors.sortedWith(compareBy({ it.latitude }, { it.longitude })).first()
+    // ELECCIÓN DETERMINISTA: la puerta (ya solo de ESCOM) más cercana a la PUERTA CANÓNICA. Como
+    // las coords canónicas son fijas, no parpadea entre puertas.
+    val chosen = doors.minByOrNull { d ->
+        val dLat = d.latitude - ESCOM_DOOR_LAT
+        val dLon = d.longitude - ESCOM_DOOR_LON
+        dLat * dLat + dLon * dLon
+    } ?: return
     if (kotlin.math.abs(obj.targetLat - chosen.latitude) > 1e-6 ||
         kotlin.math.abs(obj.targetLon - chosen.longitude) > 1e-6) {
         _uiState.update { it.copy(currentObjective = obj.copy(targetLat = chosen.latitude, targetLon = chosen.longitude)) }
@@ -102,9 +122,16 @@ internal fun WorldMapViewModel.runCampaignEscortTick(playerLoc: GeoPoint) {
 // ── MISIÓN 2: persecución (6 policías) + multitud saliendo de la ESCOM ──
 internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
     val snap = roadSnap(playerLoc)
+    // ENTRADA de la ESCOM marcada con 🎯 (objetivo sincronizado al landmark real de la puerta).
+    val door = mission2DoorTarget()
     if (!mission2ChaseActivated) {
         mission2ChaseActivated = true
-        campaignEscortPolice.spawnChase(6, playerLoc.latitude, playerLoc.longitude, snap)
+        // Policías en el LADO CONTRARIO a la entrada 🎯 (detrás del jugador respecto a la puerta),
+        // para empujarlo hacia ella; la multitud sale de la propia entrada.
+        campaignEscortPolice.spawnChase(
+            6, playerLoc.latitude, playerLoc.longitude, snap,
+            awayFromLat = door.latitude, awayFromLon = door.longitude
+        )
         mission2CrowdLastSpawn = 0L
     }
     // MISIÓN 2: persiguen al JUGADOR (no hay Prankedy que atacar).
@@ -114,21 +141,24 @@ internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
         now = System.currentTimeMillis(), snap = snap,
         pathfind = { from, to -> findRoadRoute(from, to) }
     )
-    updateEscomCrowd(playerLoc)
+    updateEscomCrowd(playerLoc, door)
     if (_uiState.value.wantedLevel != 1) _uiState.update { it.copy(wantedLevel = 1) }
     updateNpcsState()
 }
 
-// MULTITUD: spawnea NPCs en la puerta de la ESCOM y los aleja; los despawnea al salir del fog.
-private fun WorldMapViewModel.updateEscomCrowd(playerLoc: GeoPoint) {
+// MULTITUD: spawnea NPCs en la ENTRADA marcada con 🎯 (la puerta del objetivo) y los aleja; los
+// despawnea al salir del fog. `door` es la entrada real (objetivo sincronizado), no una constante.
+private fun WorldMapViewModel.updateEscomCrowd(playerLoc: GeoPoint, door: GeoPoint) {
+    val doorLat = door.latitude
+    val doorLon = door.longitude
     val now = System.currentTimeMillis()
-    // Spawn por goteo desde la puerta (en una dirección aleatoria, ya separados unos metros).
+    // Spawn por goteo desde la entrada (en una dirección aleatoria, ya separados unos metros).
     if (mission2Crowd.size < CROWD_MAX && now - mission2CrowdLastSpawn > CROWD_SPAWN_INTERVAL_MS) {
         mission2CrowdLastSpawn = now
         val ang = Math.random() * 2.0 * Math.PI
         val loc = GeoPoint(
-            ESCOM_DOOR_LAT + sin(ang) * CROWD_SPAWN_OFFSET,
-            ESCOM_DOOR_LON + cos(ang) * CROWD_SPAWN_OFFSET
+            doorLat + sin(ang) * CROWD_SPAWN_OFFSET,
+            doorLon + cos(ang) * CROWD_SPAWN_OFFSET
         )
         val id = "ESCOM_FLOOD_${now}_${(0..9999).random()}"
         mission2Crowd[id] = Npc(
@@ -141,10 +171,10 @@ private fun WorldMapViewModel.updateEscomCrowd(playerLoc: GeoPoint) {
             visualConfig = randomCrowdVisual()
         )
     }
-    // Mueve cada NPC ALEJÁNDOLO de la puerta y lo despawnea si sale del fog del jugador.
+    // Mueve cada NPC ALEJÁNDOLO de la entrada y lo despawnea si sale del fog del jugador.
     for (npc in mission2Crowd.values.toList()) {
-        val dDoorLat = npc.location.latitude - ESCOM_DOOR_LAT
-        val dDoorLon = npc.location.longitude - ESCOM_DOOR_LON
+        val dDoorLat = npc.location.latitude - doorLat
+        val dDoorLon = npc.location.longitude - doorLon
         val a = if (dDoorLat * dDoorLat + dDoorLon * dDoorLon > 1e-12)
             atan2(dDoorLat, dDoorLon) else Math.random() * 2.0 * Math.PI
         val moved = GeoPoint(
@@ -203,6 +233,15 @@ internal fun WorldMapViewModel.startMission2() {
 }
 
 // Limpia TODA la policía de campaña (escolta + persecución + multitud). Idempotente.
+// ENTRADA de la ESCOM marcada por el objetivo 🎯 (sincronizada en runtime al landmark real de la
+// puerta vía syncObjectiveToEscomDoor). De aquí SALE la multitud y hacia aquí se empuja al jugador.
+// Si aún no hay objetivo activo, cae a la puerta canónica.
+private fun WorldMapViewModel.mission2DoorTarget(): GeoPoint {
+    val obj = _uiState.value.currentObjective
+    return if (obj != null) GeoPoint(obj.targetLat, obj.targetLon)
+           else GeoPoint(ESCOM_DOOR_LAT, ESCOM_DOOR_LON)
+}
+
 internal fun WorldMapViewModel.clearCampaignPolice() {
     val had = campaignEscortPolice.isActive() || mission2Crowd.isNotEmpty()
     campaignPoliceActivated = false

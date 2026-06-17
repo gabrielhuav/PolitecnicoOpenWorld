@@ -116,7 +116,8 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
 - **Objetivos:** `domain/models/CampaignMission.kt` (`CampaignObjective`, `MissionCatalog.first = ir_encb`,
   "Ve a la ENCB"). Al COMENZAR se fija el objetivo; el **game loop** (`checkObjectiveProgress`, solo si
   `inCampaign`) lo marca cumplido al entrar en `arriveRadiusMeters` del destino. **Widget de Objetivos
-  SIEMPRE visible** (`ui/components/ObjectivesWidget.kt`, HUD arriba-izquierda con título + distancia). El
+  SIEMPRE visible** (`ui/components/ObjectivesWidget.kt`, HUD **arriba-centro** con título + distancia; se
+  dibuja UNA sola vez — antes había un duplicado arriba-izquierda, ya eliminado). El
   objetivo se guarda/restaura en `GameSaveData`. ⚠️ Las coords de la ENCB en `MissionCatalog` son aproximadas.
 
 ### `ui/StoryModeScreen.kt` + `ui/StoryIntroScreen.kt`
