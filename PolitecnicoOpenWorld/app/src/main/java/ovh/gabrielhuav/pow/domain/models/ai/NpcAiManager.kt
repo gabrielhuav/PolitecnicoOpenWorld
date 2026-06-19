@@ -404,9 +404,13 @@ class NpcAiManager {
                 val targetCars = (totalSlots * PARKING_FILL_RATIO).toInt().coerceAtLeast(PARKING_MIN_CARS)
                 val minCars = (totalSlots * PARKING_REFILL_RATIO).toInt().coerceAtLeast(PARKING_MIN_CARS)
                 // Repuebla si el campus ya estaba poblado pero los carros bajaron del 80% (con cooldown).
+                // Si el lote ya estaba POBLADO pero quedo VACIO (0 carros) — caso tipico al
+                // VOLVER del interior de la ESCOM, donde se limpian las entidades sin pasar por
+                // dist>=0.02 — repoblamos YA, sin esperar el cooldown (los carros deben seguir ahi).
+                val lotEmptyButPopulated = parkedAlive == 0 && populatedLandmarks.contains(lmKey)
                 val needsRepopulate = dist < 0.01 && populatedLandmarks.contains(lmKey) &&
                     parkedAlive < minCars &&
-                    System.currentTimeMillis() >= (landmarkRepopulateAt[lmKey] ?: 0L)
+                    (lotEmptyButPopulated || System.currentTimeMillis() >= (landmarkRepopulateAt[lmKey] ?: 0L))
                 if (dist < 0.01 && (!populatedLandmarks.contains(lmKey) || needsRepopulate)) {
                   try {
                     val firstPopulate = !populatedLandmarks.contains(lmKey)   // true solo la 1ª vez (no en rellenos)

@@ -909,6 +909,15 @@ class MainActivity : ComponentActivity() {
                             val wmState by worldMapViewModel.uiState.collectAsState()
                             val startRoom = backStackEntry.arguments?.getString("startRoom")
                                 ?: ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
+                            // MODO HISTORIA: tras la Misión 1 (INGRESAR_ESCOM cumplida), al entrar al
+                            // interior de la ESCOM (lobby) se muestra el objetivo "Busca pistas en la ESCOM".
+                            // El objetivo exterior NO cambia (allá sigue "Ingresa a la ESCOM, Cumplido").
+                            val interiorObjective = if (
+                                worldMapViewModel.inCampaign &&
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID &&
+                                wmState.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id &&
+                                wmState.objectiveDone
+                            ) ovh.gabrielhuav.pow.domain.models.MissionCatalog.BUSCAR_PISTAS_ESCOM else null
                             ZombieGameScreen(
                                 onExitToWorld = {
                                     worldMapViewModel.currentInteriorRoomId = null
@@ -934,7 +943,8 @@ class MainActivity : ComponentActivity() {
                                         // Limpia el interior y el world_map base (el outro reentra al mundo).
                                         popUpTo("world_map") { inclusive = true }
                                     }
-                                }
+                                },
+                                interiorObjective = interiorObjective
                             )
                         }
 

@@ -113,7 +113,11 @@ fun ZombieGameScreen(
     onPlayStoryOutro: () -> Unit = {},
     // MODO HISTORIA: notifica la sala actual (id de ZombieRoomCatalog) al entrar y en cada
     // cambio de sala, para que el guardado sepa en qué interior estaba el jugador.
-    onRoomChanged: (String) -> Unit = {}
+    onRoomChanged: (String) -> Unit = {},
+    // MODO HISTORIA: objetivo a mostrar DENTRO del interior (p. ej. "Busca pistas en la ESCOM"
+    // tras la Misión 1). null = no mostrar widget de objetivo. El objetivo del mapa exterior NO
+    // se altera (allá sigue "Ingresa a la ESCOM, Cumplido").
+    interiorObjective: ovh.gabrielhuav.pow.domain.models.CampaignObjective? = null
 ) {
     val context = LocalContext.current
     // Modo Desarrollador: si está APAGADO se ocultan botones de prueba (Diseñador, y "Salir al mapa"
@@ -452,7 +456,8 @@ fun ZombieGameScreen(
                 )
             }
             // ─── Mano zombi fija en el lobby (desaparece tras activar el modo zombie) ──
-            if (room.id == ZombieRoomCatalog.LOBBY_ID && !state.zombieModeActivated) {
+            // Solo visible en Modo Desarrollador (Interfaz): es la que activa el modo zombi.
+            if (developerMode && room.id == ZombieRoomCatalog.LOBBY_ID && !state.zombieModeActivated) {
                 val handNx = 0.50f
                 val handNy = 0.45f
                 val handSizePx = 64f * cam.scale
@@ -580,6 +585,22 @@ fun ZombieGameScreen(
                             .alpha(0.85f)   // difuminado para no chocar con los widgets
                             .background(Color(0x99000000), RoundedCornerShape(10.dp))
                             .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            // ─── OBJETIVO DE CAMPAÑA EN INTERIORES (p. ej. ESCOM tras Misión 1) ──
+            // Mismo widget que el mapa exterior, anclado arriba-centro. Sin distancia
+            // (playerLocation=null) → muestra la descripción del objetivo.
+            interiorObjective?.let { obj ->
+                Box(
+                    Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
+                    Alignment.TopCenter
+                ) {
+                    ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
+                        objective = obj,
+                        done = false,
+                        playerLocation = null
                     )
                 }
             }

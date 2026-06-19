@@ -106,7 +106,7 @@ load roads (Room cache → else Overpass with exponential backoff 1s→30s). The
 1. ESCOM sync: dentro de ESCOM + red lista → `spawnEscomItems` (ya **NO** spawnea la mano; solo marca el flag); fuera → limpia.
 2. cada 30 ticks → trySpawningCollectible; siempre → checkCollectibleProximity, checkDestinationArrival.
 3. cada 30 ticks (si hay marker) → updateDestinationRoute.
-4. si playerAction==SPECIAL → performPlayerAttack (golpe a NPCs Y jugadores remotos, ATTACK_RADIUS=0.00022 ~24 m).
+4. si playerAction==SPECIAL → performPlayerAttack (golpe a NPCs Y jugadores remotos, ATTACK_RADIUS=0.00008 ~9 m, cuerpo a cuerpo).
    Si golpea a un jugador remoto, envía `PLAYER_ATTACK_HIT { targetId, damage }` al servidor.
 5. si isDriving && !WASTED → física del coche:
      girar ±2°/tick (solo con velocidad), gas→+ACCELERATION (cap MAX_SPEED), freno→-BRAKING_FRICTION
@@ -123,7 +123,7 @@ load roads (Room cache → else Overpass with exponential backoff 1s→30s). The
      → enviar PLAYER_UPDATE; si Host: NPC_DESTROY de despawns + NPC_BATCH_UPDATE de NPCs activos (dist<=0.0012)
 ```
 Constantes del VM / VM constants: `MAX_SPEED=0.000017`, `ACCELERATION=0.0000003`,
-`BRAKING_FRICTION=0.000001`, `ATTACK_RADIUS=0.00022`, `RUN_OVER_RADIUS=0.00003`,
+`BRAKING_FRICTION=0.000001`, `ATTACK_RADIUS=0.00008`, `RUN_OVER_RADIUS=0.00003`,
 `NPC_CONTACT_COOLDOWN_MS=900`, `RELENTLESS_HIT_STREAK=6`, `CELL=0.0025` (grid de snap-to-road). El loop está envuelto en
 try/catch (relanza `CancellationException`, traga el resto para no crashear). / Loop wrapped in
 try/catch (rethrows cancellation, swallows the rest).

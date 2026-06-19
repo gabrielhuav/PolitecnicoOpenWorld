@@ -30,7 +30,13 @@ enum class PlayerSkin(
      * (IntroPOW9/10/11/15). "" = panel por defecto (Lázaro/hombre). Ej.: con "Girl" se usa
      * `IntroPOW9Girl.webp`; con "Robot" se usa `IntroPOW9Robot.webp`. Ver StoryIntroScreen.
      */
-    val comicSuffix: String = ""
+    val comicSuffix: String = "",
+    /**
+     * Factor de escala visual del sprite a pie (mapa exterior). Compensa skins cuyo
+     * personaje ocupa poca fraccion del lienzo (mucho margen transparente) y por eso
+     * se veian MAS PEQUENAS que el resto. 1f = sin cambio.
+     */
+    val renderScale: Float = 1f
 ) {
     LAZARO(
         displayName = "Lázaro",
@@ -57,6 +63,17 @@ enum class PlayerSkin(
         skinFolder  = "robot",
         skinPrefix  = "robot_",
         comicSuffix = "Robot"
+    ),
+    escomboy(
+        displayName = "Estudiante",
+        skinFolder  = "escomboy",
+        skinPrefix  = "escomboy_",
+        idleFrames   = 16,  // tienes 16
+        walkFrames   = 25,  // tienes 25
+        runFrames    = 16,  // tienes 16
+        specialFrames = 16, // tienes 16
+        comicSuffix = "Boy", // sin assets IntroPOW*Boy → cae al panel por defecto (hombre)
+        renderScale = 1.8f   // personaje ~41% del lienzo 256² → se agranda para igualar al resto
     ),
     // ── Agrega aquí nuevas skins ──────────────────────────────────────────
     // Ejemplo con una skin "Ana":

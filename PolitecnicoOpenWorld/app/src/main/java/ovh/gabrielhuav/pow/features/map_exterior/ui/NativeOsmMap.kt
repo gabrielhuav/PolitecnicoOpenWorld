@@ -644,13 +644,19 @@ internal fun NativeOsmMap(
                 if (uiState.npcs !== lastNpcRenderHolder[0]) {
                   lastNpcRenderHolder[0] = uiState.npcs
                 val centerCull = uiState.currentLocation
+                // A zoom bajo los autos ESTACIONADOS (escenografía) se ven raros/apretados:
+                // los ocultamos por debajo de este umbral (solo se ven en juego normal z≥18.5).
+                val hideParkedCars = uiState.zoomLevel < 18.5
                 val visibleNpcs = if (centerCull != null) {
                     val radiusM = npcVisionRadiusMeters()
                     uiState.npcs.filter {
+                        (!hideParkedCars || it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) &&
                         npcWithinRadius(it.location.latitude, it.location.longitude,
                             centerCull.latitude, centerCull.longitude, radiusM)
                     }
-                } else uiState.npcs
+                } else uiState.npcs.filter {
+                    !hideParkedCars || it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED
+                }
 
                 val currentNpcIds = visibleNpcs.map { it.id }.toSet()
                 val iterator = markerCache.iterator()

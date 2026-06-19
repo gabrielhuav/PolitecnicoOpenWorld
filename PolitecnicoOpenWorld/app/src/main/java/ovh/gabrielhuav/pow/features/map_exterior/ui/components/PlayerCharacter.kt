@@ -259,7 +259,9 @@ fun PlayerCharacter(
                     val assetPath = skin.assetPath(action, currentFrame)
                     val frac = (fracCache[assetPath] ?: 0.6f).coerceIn(0.05f, 1f)
                     val ref = (walkRefFrac ?: frac).coerceIn(0.05f, 1f)
-                    val boxHeightDp = exactPersonDp * (ref / frac)
+                    // renderScale compensa skins cuyo personaje ocupa poca fracción del lienzo
+                    // (p. ej. escomboy en 256² con mucho margen) → así no se ven más pequeñas.
+                    val boxHeightDp = exactPersonDp * (ref / frac) * skin.renderScale
                     val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
                     val boxWidthDp = boxHeightDp * aspect
                     Image(
