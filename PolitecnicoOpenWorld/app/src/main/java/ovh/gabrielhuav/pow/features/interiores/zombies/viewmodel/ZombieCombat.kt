@@ -10,6 +10,7 @@ import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
 import ovh.gabrielhuav.pow.domain.models.zombie.SkillItem
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieEntity
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
+import ovh.gabrielhuav.pow.domain.models.zombie.ZombieType
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import kotlin.math.hypot
@@ -18,11 +19,12 @@ import kotlin.random.Random
 /**
  * CAPA DE ZOMBIS — combate del interior de supervivencia (extraído de ZombieInteriorViewModel
  * para separar la lógica de ZOMBIS de la de INTERIOR; mismo paquete `viewmodel`). Melee, disparo,
- * muerte de zombi (drop + victoria) y aplicación de efectos/skills. Son EXTENSIONES del VM: solo
- * tocan miembros `internal`/`public` (`_state`, `soundManager`, `idleJob`, `lastPlayerAttackMs`,
- * `lastRangedShotMs`, `attackAnimUntilMs`, `currentRoom()`, `isWalkable()`, `knockbackZombie()`,
- * `sendZombieDamage()`, `playerDamageFactor()`). La base de INTERIOR (salas, movimiento, puertas,
- * puzzle de llave, red) se queda en ZombieInteriorViewModel; la simulación de zombis en ZombieGameTick.kt.
+ * muerte de zombi (drop + victoria), efectos/skills, victoria y sincronía de zombis con el servidor.
+ * Son EXTENSIONES del VM: solo tocan miembros `internal`/`public` (`_state`, `soundManager`,
+ * `idleJob`, `lastPlayerAttackMs`, `lastRangedShotMs`, `attackAnimUntilMs`, `wsManager`, `gson`,
+ * `currentRoom()`, `isWalkable()`, `knockbackZombie()`). La base de INTERIOR (salas, movimiento,
+ * puertas, puzzle de llave, red de jugadores) se queda en ZombieInteriorViewModel; la simulación
+ * de zombis en ZombieGameTick.kt.
  */
 
 // ─── COMBATE CUERPO A CUERPO ───────────────────────────
@@ -147,5 +149,73 @@ internal fun ZombieInteriorViewModel.applyEffect(effect: SkillEffect) {
     viewModelScope.launch {
         delay(2000L)
         _state.update { it.copy(effectToast = null) }
+    }
+}
+
+// ─── EFECTOS: getters ──────────────────────────────────
+internal fun ZombieInteriorViewModel.hasEffect(e: SkillEffect): Boolean =
+    _state.value.activeEffects.any { it.effect == e }
+
+internal fun ZombieInteriorViewModel.playerDamageFactor(): Float =
+    if (hasEffect(SkillEffect.FUERZA_BRUTA)) PLAYER_DMG_BRUTE_FACTOR else 1f
+
+internal fun ZombieInteriorViewModel.effectFromName(name: String?): SkillEffect =
+    runCatching { SkillEffect.valueOf(name ?: "") }.getOrDefault(SkillEffect.CURA_TOTAL)
+
+internal fun ZombieInteriorViewModel.applyEffectByName(name: String) = applyEffect(effectFromName(name))
+
+// ─── VICTORIA (offline) ────────────────────────────────
+internal fun ZombieInteriorViewModel.showVictory() {
+    if (currentRoom().type != ZoneType.BUILDING) return
+    if (_state.value.showVictoryScreen) return
+    _state.update { it.copy(showVictoryScreen = true) }
+    viewModelScope.launch {
+        delay(3000L)
+        _state.update { it.copy(showVictoryScreen = false) }
+    }
+}
+
+// ─── RED: daño a zombi + estado autoritativo del servidor ──────────────────
+internal fun ZombieInteriorViewModel.sendZombieDamage(zombieId: String, damage: Float) {
+    if (!isMultiplayer) return
+    wsManager?.sendMessage(
+        gson.toJson(mapOf("type" to "ZOMBIE_DAMAGE", "zombieId" to zombieId, "damage" to damage))
+    )
+}
+
+// Reemplaza zombis e items locales con el estado autoritativo del servidor.
+// Convierte fracción [0,1] → píxeles con las dimensiones de la sala actual.
+internal fun ZombieInteriorViewModel.applyServerZombieState(msg: ZombieServerMessage) {
+    val room = currentRoom()
+    val w = room.worldWidth; val h = room.worldHeight
+    val zs = msg.zombies?.map { nz ->
+        ZombieEntity(
+            id = nz.id, x = nz.x * w, y = nz.y * h,
+            health = nz.health, maxHealth = nz.maxHealth,
+            facingRight = nz.facingRight, frameIndex = nz.frameIndex,
+            isDying = nz.isDying, isLootCarrier = nz.isLootCarrier,
+            type = ZombieType.NORMAL
+        )
+    } ?: emptyList()
+    val its = msg.items?.map { ni ->
+        SkillItem(id = ni.id, x = ni.x * w, y = ni.y * h, effect = effectFromName(ni.effect))
+    } ?: emptyList()
+    // NPCs civiles (autoritativos): se renderizan como figuras humanas (RemotePlayerView).
+    val civs = msg.npcs?.map { nn ->
+        RemoteZombiePlayer(
+            id = nn.id, displayName = "",
+            x = nn.x * w, y = nn.y * h,
+            action = PlayerAction.WALK,
+            facingRight = nn.facingRight, health = 100f
+        )
+    } ?: emptyList()
+    _state.update {
+        it.copy(
+            zombies = zs,
+            items = its,
+            interiorNpcs = civs,
+            totalZombies = msg.totalZombies ?: it.totalZombies,
+            zombiesRemaining = zs.count { z -> !z.isDying }
+        )
     }
 }

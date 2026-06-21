@@ -268,69 +268,13 @@ class ZombieInteriorViewModel(
         )
     }
 
-    internal fun sendZombieDamage(zombieId: String, damage: Float) {
-        if (!isMultiplayer) return
-        wsManager?.sendMessage(
-            gson.toJson(mapOf("type" to "ZOMBIE_DAMAGE", "zombieId" to zombieId, "damage" to damage))
-        )
-    }
-
     internal fun sendItemPickup(itemId: String) {
         if (!isMultiplayer) return
         wsManager?.sendMessage(gson.toJson(mapOf("type" to "ITEM_PICKUP", "itemId" to itemId)))
     }
 
-    // Reemplaza zombis e items locales con el estado autoritativo del servidor.
-    // Convierte fracción [0,1] → píxeles con las dimensiones de la sala actual.
-    internal fun applyServerZombieState(msg: ZombieServerMessage) {
-        val room = currentRoom()
-        val w = room.worldWidth; val h = room.worldHeight
-        val zs = msg.zombies?.map { nz ->
-            ZombieEntity(
-                id = nz.id, x = nz.x * w, y = nz.y * h,
-                health = nz.health, maxHealth = nz.maxHealth,
-                facingRight = nz.facingRight, frameIndex = nz.frameIndex,
-                isDying = nz.isDying, isLootCarrier = nz.isLootCarrier,
-                type = ZombieType.NORMAL
-            )
-        } ?: emptyList()
-        val its = msg.items?.map { ni ->
-            SkillItem(id = ni.id, x = ni.x * w, y = ni.y * h, effect = effectFromName(ni.effect))
-        } ?: emptyList()
-        // NPCs civiles (autoritativos): se renderizan como figuras humanas (RemotePlayerView).
-        val civs = msg.npcs?.map { nn ->
-            ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.RemoteZombiePlayer(
-                id = nn.id, displayName = "",
-                x = nn.x * w, y = nn.y * h,
-                action = ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction.WALK,
-                facingRight = nn.facingRight, health = 100f
-            )
-        } ?: emptyList()
-        _state.update {
-            it.copy(
-                zombies = zs,
-                items = its,
-                interiorNpcs = civs,
-                totalZombies = msg.totalZombies ?: it.totalZombies,
-                zombiesRemaining = zs.count { z -> !z.isDying }
-            )
-        }
-    }
-
-    internal fun effectFromName(name: String?): SkillEffect =
-        runCatching { SkillEffect.valueOf(name ?: "") }.getOrDefault(SkillEffect.CURA_TOTAL)
-
-    internal fun applyEffectByName(name: String) = applyEffect(effectFromName(name))
-
-    internal fun showVictory() {
-        if (currentRoom().type != ZoneType.BUILDING) return
-        if (_state.value.showVictoryScreen) return
-        _state.update { it.copy(showVictoryScreen = true) }
-        viewModelScope.launch {
-            delay(3000L)
-            _state.update { it.copy(showVictoryScreen = false) }
-        }
-    }
+    // CAPA ZOMBI: sendZombieDamage / applyServerZombieState / effectFromName / applyEffectByName /
+    // showVictory / hasEffect / playerDamageFactor → movidos a ZombieCombat.kt (extensiones).
 
     // ─── ACCESO ────────────────────────────────────────────
     internal fun currentRoom(): ZombieRoom = ZombieRoomCatalog.rooms[_state.value.currentRoomIndex]
@@ -373,13 +317,6 @@ class ZombieInteriorViewModel(
         val sy = (cy + dirY * RETURN_SPAWN_OFFSET).coerceIn(RETURN_SPAWN_OFFSET, lobby.worldHeight - RETURN_SPAWN_OFFSET)
         return sx to sy
     }
-
-    // ─── EFECTOS ACTIVOS: getters ──────────────────────────
-    internal fun hasEffect(e: SkillEffect): Boolean =
-        _state.value.activeEffects.any { it.effect == e }
-
-    internal fun playerDamageFactor(): Float =
-        if (hasEffect(SkillEffect.FUERZA_BRUTA)) PLAYER_DMG_BRUTE_FACTOR else 1f
 
     // Garantiza que el spawn caiga en una celda CAMINABLE (fuera de la matriz de
     // colisión). Si el punto pedido está bloqueado (p. ej. la puerta de retorno al

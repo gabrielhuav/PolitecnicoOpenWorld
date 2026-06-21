@@ -84,13 +84,13 @@ class SoundManager private constructor(context: Context) {
             crystalSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/Cristal.mp3"), 1) ?: -1
             hitSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/golpe.mp3"), 1) ?: -1
             police1SoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/policia1.mp3"), 1) ?: -1
-            police2SoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/polocia2.mp3"), 1) ?: -1
-            bottleSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/botella cayendo.mp3"), 1) ?: -1
+            police2SoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/policia2.mp3"), 1) ?: -1
+            bottleSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/botella_cayendo.mp3"), 1) ?: -1
             doorOpenSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/puertaabriendose.mp3"), 1) ?: -1
             scareSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/susto.mp3"), 1) ?: -1
             
             // Mission 1 Sounds
-            queTeTraesSoundId = soundPool?.load(assetManager.openFd("AUDIO/que te traes.m4a"), 1) ?: -1
+            queTeTraesSoundId = soundPool?.load(assetManager.openFd("AUDIO/que_te_traes.m4a"), 1) ?: -1
             contestameSoundId = soundPool?.load(assetManager.openFd("AUDIO/contestame.m4a"), 1) ?: -1
             paraleSoundId = soundPool?.load(assetManager.openFd("AUDIO/parale.m4a"), 1) ?: -1
             // SFX del cómic (IntroPOW5) y jingle de misión cumplida.
