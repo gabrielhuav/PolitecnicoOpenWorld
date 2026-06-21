@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.features.main_menu.viewmodel
+package ovh.gabrielhuav.pow.features.campaign.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -9,8 +9,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
-import ovh.gabrielhuav.pow.domain.models.CampaignSchool
-import ovh.gabrielhuav.pow.domain.models.SchoolCatalog
+import ovh.gabrielhuav.pow.domain.models.campaign.CampaignSchool
+import ovh.gabrielhuav.pow.domain.models.campaign.SchoolCatalog
 
 // ViewModel del Modo Historia. Alcance: NavBackStackEntry (se reinicia al salir de
 // la pantalla, así que re-lee la partida guardada cada vez que se entra). Orquesta la

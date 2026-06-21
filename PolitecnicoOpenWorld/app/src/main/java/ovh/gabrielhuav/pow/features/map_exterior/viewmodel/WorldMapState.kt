@@ -184,7 +184,7 @@ data class WorldMapState(
     // ─── MODO HISTORIA: objetivo de campaña + widget de Objetivos ────────────
     // Objetivo activo (Misión 1 = ir a la ENCB). El widget de Objetivos lo muestra
     // (título + distancia) siempre que haya uno. `objectiveDone` se marca al llegar.
-    val currentObjective: ovh.gabrielhuav.pow.domain.models.CampaignObjective? = null,
+    val currentObjective: ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective? = null,
     val objectiveDone: Boolean = false,
     // MODO HISTORIA · Misión 2: al cumplir la Misión 1 (llegar a la ESCOM) se pone a true para
     // que MainActivity reproduzca el cómic IntroPOW12..14 y luego arranque la persecución.

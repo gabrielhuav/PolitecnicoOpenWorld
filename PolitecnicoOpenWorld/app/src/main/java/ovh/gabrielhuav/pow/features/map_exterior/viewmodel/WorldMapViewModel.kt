@@ -498,12 +498,12 @@ class WorldMapViewModel(
                             //    → te obliga a BAJARTE y entrar a pie por la puerta.
                             val driveObjId = _uiState.value.currentObjective?.id
                             val forceWalkNearEscom = inCampaign &&
-                                (driveObjId == ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
-                                 driveObjId == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id) &&
+                                (driveObjId == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
+                                 driveObjId == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id) &&
                                 location.distanceToAsDouble(GeoPoint(
-                                    ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_FORCEWALK_LAT,
-                                    ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_FORCEWALK_LON)
-                                ) <= ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_FORCEWALK_RADIUS_M
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOM_FORCEWALK_LAT,
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOM_FORCEWALK_LON)
+                                ) <= ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOM_FORCEWALK_RADIUS_M
 
                             if (isSteeringLeftPressed && currentSpeed != 0.0) {
                                 currentRotation -= if (currentSpeed > 0) 2f else 3f
@@ -863,7 +863,7 @@ class WorldMapViewModel(
     internal fun loadExteriorCollisions(context: Context) { // llamado desde WorldMapDesigner.kt
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val jsonString = context.assets.open("exterior_collisions.json").bufferedReader().use { it.readText() }
+                val jsonString = context.assets.open("CONFIG/exterior_collisions.json").bufferedReader().use { it.readText() }
                 exteriorCollisions = Gson().fromJson(jsonString, ExteriorCollisionsConfig::class.java)
 
                 npcAiManager.setExteriorCollisions(exteriorCollisions)
@@ -2051,8 +2051,8 @@ class WorldMapViewModel(
             // (gana sobre la extensión homónima de WorldMapMisc.kt, que está sombreada — ver 09).
             val missionObj = _uiState.value.currentObjective
             val inMission = inCampaign && (
-                missionObj?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
-                missionObj?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id)
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id)
             if (inMission) {
                 delay(2500L)
                 relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
@@ -2307,7 +2307,7 @@ class WorldMapViewModel(
                 val targetRoute = ovh.gabrielhuav.pow.domain.models.InteriorEntryCatalog.routeForDoorName(nearby.name)
                 // MODO HISTORIA · Misión 2 "Ingresa a la ESCOM": se cumple al ENTRAR por la puerta
                 // (este es el momento de "ingresar"). Marca el objetivo cumplido + jingle.
-                if (_uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id
+                if (_uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id
                     && !_uiState.value.objectiveDone) {
                     _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.title ?: ""}") }
                     soundManager.playMisionCumplida()
@@ -2466,7 +2466,7 @@ class WorldMapViewModel(
         // 1. Cargar el JSON del navgraph de ESCOM si no está en memoria
         if (escomNavGraph == null) {
             try {
-                val inputStream = context.assets.open("navgraphs/escom_navgraph.json")
+                val inputStream = context.assets.open("CONFIG/navgraphs/escom_navgraph.json")
                 val reader = java.io.InputStreamReader(inputStream)
                 escomNavGraph = normalizeNavGraph(Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java))
                 reader.close()

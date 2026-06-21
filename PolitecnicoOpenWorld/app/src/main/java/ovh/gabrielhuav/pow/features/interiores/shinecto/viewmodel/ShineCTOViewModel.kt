@@ -322,7 +322,7 @@ class ShineCTOViewModel(
                     description = "Dato curioso: El refresco de Shine CTO tiene fama de ser " +
                             "adictivo. Se dice que quien llega a la décima copa descubre el sabor " +
                             "secreto… aunque el precio lo paga el estómago.",
-                    assetPath = "collectibles/colec_shine.webp",
+                    assetPath = "SPRITES/COLLECTIBLES/colec_shine.webp",
                     latitude = 0.0,
                     longitude = 0.0
                 )

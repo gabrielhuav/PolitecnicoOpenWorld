@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.data.repository.SaveSlotSummary
-import ovh.gabrielhuav.pow.domain.models.SchoolCatalog
+import ovh.gabrielhuav.pow.domain.models.campaign.SchoolCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import java.text.SimpleDateFormat
 import java.util.Date

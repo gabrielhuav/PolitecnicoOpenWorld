@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.features.main_menu.ui
+package ovh.gabrielhuav.pow.features.campaign.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -21,9 +21,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ovh.gabrielhuav.pow.R
-import ovh.gabrielhuav.pow.domain.models.CampaignSchool
-import ovh.gabrielhuav.pow.domain.models.SchoolCatalog
-import ovh.gabrielhuav.pow.features.main_menu.viewmodel.StoryModeViewModel
+import ovh.gabrielhuav.pow.domain.models.campaign.CampaignSchool
+import ovh.gabrielhuav.pow.domain.models.campaign.SchoolCatalog
+import ovh.gabrielhuav.pow.features.campaign.viewmodel.StoryModeViewModel
+// MenuButton sigue viviendo en main_menu (UI compartida del menú) → import explícito tras mover.
+import ovh.gabrielhuav.pow.features.main_menu.ui.MenuButton
 
 /**
  * Pantalla del MODO HISTORIA / Campaña. Muestra el prólogo (brote del Politécnico),

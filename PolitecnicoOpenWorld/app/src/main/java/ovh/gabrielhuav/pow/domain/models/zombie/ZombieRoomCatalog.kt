@@ -119,7 +119,7 @@ object ZombieRoomCatalog {
                 ZombieRoom(
                     id = id,
                     type = ZoneType.BUILDING,
-                    backgroundAsset = "ZOMBIES_MOD/interiors/$id.webp",
+                    backgroundAsset = "INTERIORS/ESCOM_APOCALYPSE/$id.webp",
                     displayName = buildingDisplayName(id),
                     worldWidth = 1920f,
                     worldHeight = 1080f,
@@ -146,7 +146,7 @@ object ZombieRoomCatalog {
                     BuildingSpec(
                         id = "fes_edificio",
                         displayName = "Edificio Principal",
-                        backgroundAsset = "ZOMBIES_MOD/interiors/za_edificio.webp",
+                        backgroundAsset = "INTERIORS/ESCOM_APOCALYPSE/za_edificio.webp",
                         zombieCount = 4
                     )
                 )

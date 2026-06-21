@@ -8,7 +8,7 @@ import ovh.gabrielhuav.pow.data.repository.GameSaveData
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.data.repository.SavedNpc
 import ovh.gabrielhuav.pow.domain.models.CarModel
-import ovh.gabrielhuav.pow.domain.models.MissionCatalog
+import ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog
 import ovh.gabrielhuav.pow.domain.models.Npc
 import ovh.gabrielhuav.pow.domain.models.NpcType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
@@ -156,7 +156,7 @@ fun WorldMapViewModel.retryCampaignMission(context: Context) {
 
 // ─── OBJETIVOS DE CAMPAÑA ─────────────────────────────────────────────────────
 // Fija el objetivo activo (lo llama MainActivity al COMENZAR una campaña nueva).
-fun WorldMapViewModel.setCampaignObjective(objective: ovh.gabrielhuav.pow.domain.models.CampaignObjective?) {
+fun WorldMapViewModel.setCampaignObjective(objective: ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective?) {
     // Al cambiar de objetivo (nueva misión, MUNDO LIBRE, etc.) se limpia un posible "MISIÓN FALLIDA".
     _uiState.update { it.copy(currentObjective = objective, objectiveDone = false, showMissionFailed = false) }
 }

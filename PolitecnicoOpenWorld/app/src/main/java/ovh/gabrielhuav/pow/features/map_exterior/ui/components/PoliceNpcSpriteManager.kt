@@ -12,7 +12,7 @@ import android.util.LruCache
  */
 object PoliceNpcSpriteManager {
 
-    private const val RUN_FOLDER = "Police/police_run"
+    private const val RUN_FOLDER = "SPRITES/POLICE"
     private const val RUN_PREFIX = "police_run_"
     private const val RUN_FRAMES = 6
 

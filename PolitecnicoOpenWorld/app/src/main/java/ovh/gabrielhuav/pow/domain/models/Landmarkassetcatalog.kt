@@ -31,7 +31,7 @@ object LandmarkCatalogManager {
 
         try {
             // Abrimos y leemos el archivo que creaste en la carpeta assets/
-            val jsonString = context.assets.open("buildings_catalog.json").bufferedReader().use { it.readText() }
+            val jsonString = context.assets.open("CONFIG/buildings_catalog.json").bufferedReader().use { it.readText() }
 
             // Usamos Gson para convertir el texto JSON a una lista de objetos LandmarkAssetTemplate
             val listType = object : TypeToken<List<LandmarkAssetTemplate>>() {}.type

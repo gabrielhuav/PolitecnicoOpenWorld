@@ -71,7 +71,7 @@ class MetroInteriorViewModel(
         
         if (initialRows.isNullOrEmpty()) {
             try {
-                context.assets.open("metro_cdmx/matrix.json").use { inp ->
+                context.assets.open("TRANSIT/METRO/matrix.json").use { inp ->
                     val json = InputStreamReader(inp).readText()
                     initialRows = gson.fromJson<List<String>>(json, object : TypeToken<List<String>>() {}.type)
                 }
@@ -95,7 +95,7 @@ class MetroInteriorViewModel(
         
         if (initialDoors.isNullOrEmpty()) {
             try {
-                context.assets.open("metro_cdmx/waypoints.json").use { inp ->
+                context.assets.open("TRANSIT/METRO/waypoints.json").use { inp ->
                     val json = InputStreamReader(inp).readText()
                     initialDoors = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
                 }
@@ -121,7 +121,7 @@ class MetroInteriorViewModel(
         
         if (initialGlobalWaypoints.isNullOrEmpty()) {
             try {
-                context.assets.open("metro_cdmx/global_waypoints.json").use { inp ->
+                context.assets.open("TRANSIT/METRO/global_waypoints.json").use { inp ->
                     val json = InputStreamReader(inp).readText()
                     initialGlobalWaypoints = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
                 }

@@ -424,7 +424,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             data.forEach(function(s) {
                 if (metroMarkers[s.name]) { metroMarkers[s.name].setLatLng([s.lat, s.lng]); return; }
                 var sz = 26;
-                var html = '<img src="file:///android_asset/metro_cdmx/icon.webp" ' +
+                var html = '<img src="file:///android_asset/TRANSIT/METRO/icon.webp" ' +
                            'style="width:' + sz + 'px; height:' + sz + 'px; transform:translate(-50%,-50%); display:block;">';
                 var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                 metroMarkers[s.name] = L.marker([s.lat, s.lng], { icon: icon, interactive: false, zIndexOffset: 400 }).addTo(map);
@@ -512,7 +512,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                             html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px; display:flex; align-items:center; justify-content:center; font-size:'+Math.round(finalH*0.85)+'px; line-height:1;">' + nameTagHtml + hbHtml + em + '</div>';
                         }
                     } else {
-                        var pUrl = 'file:///android_asset/' + npc.drawable + '.svg';
+                        var pUrl = 'file:///android_asset/SPRITES/ICONS/' + npc.drawable + '.svg';
                         html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate(0deg); width:24px; height:24px;">' + nameTagHtml + hbHtml + '<img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
                     }
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0, 0] });

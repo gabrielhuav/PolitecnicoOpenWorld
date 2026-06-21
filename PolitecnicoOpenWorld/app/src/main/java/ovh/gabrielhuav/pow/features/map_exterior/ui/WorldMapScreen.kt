@@ -390,7 +390,7 @@ fun WorldMapScreen(
     val lastWebPoliceHolder = remember { booleanArrayOf(false) }
     val lastWebZombieHolder = remember { booleanArrayOf(false) }
     // 🚇 Estaciones de metro (estáticas): se reenvían al WebView solo al cambiar la lista
-    // (+ heartbeat), como los landmarks. El icono se carga del asset metro_cdmx/icon.webp.
+    // (+ heartbeat), como los landmarks. El icono se carga del asset TRANSIT/METRO/icon.webp.
     val lastWebMetroHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.MetroStation>>(1) }
     val webMetroTick = remember { intArrayOf(0) }
     // Debug Interiores (web): solo reenviamos el navGraph al WebView cuando cambia el
@@ -726,7 +726,7 @@ fun WorldMapScreen(
                     // OSM nativo / web). Marcador estático de tamaño fijo (~24 dp).
                     val metroIconG = remember {
                         try {
-                            val raw = context.assets.open("metro_cdmx/icon.webp").use { android.graphics.BitmapFactory.decodeStream(it) }
+                            val raw = context.assets.open("TRANSIT/METRO/icon.webp").use { android.graphics.BitmapFactory.decodeStream(it) }
                             val px = (24 * context.resources.displayMetrics.density).toInt().coerceAtLeast(16)
                             val scaled = android.graphics.Bitmap.createScaledBitmap(raw, px, px, true)
                             BitmapDescriptorFactory.fromBitmap(scaled)

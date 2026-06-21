@@ -11,7 +11,7 @@ import kotlin.math.roundToInt
 // vehículos (VehicleSpriteManager), PERO sin repintado: el asset de policía ya tiene
 // su diseño especial, así que solo lo escalamos según el zoom.
 object PoliceSpriteManager {
-    private const val DIR_NAME = "VEHICLES/POLICE_TOPDOWN"
+    private const val DIR_NAME = "SPRITES/VEHICLES/POLICE_TOPDOWN"
     private const val PREFIX = "POLICE_CLEAN_ALLD"
     private const val FRAME_COUNT = 48
 

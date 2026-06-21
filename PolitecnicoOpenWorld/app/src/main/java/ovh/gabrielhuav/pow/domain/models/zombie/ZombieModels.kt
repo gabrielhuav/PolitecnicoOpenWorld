@@ -29,7 +29,7 @@ enum class SkillEffect(
     val isTrap: Boolean,
     val durationMs: Long,
     // Nombre usado para construir la ruta del asset:
-    // assets/ZOMBIES_MOD/interactuables/int_{assetKey}.webp
+    // assets/INTERIORS/ESCOM_APOCALYPSE/interactuables/int_{assetKey}.webp
     val assetKey: String
 ) {
     CURA_TOTAL("Cura Total", isTrap = false, durationMs = 0L, assetKey = "cura_total"),

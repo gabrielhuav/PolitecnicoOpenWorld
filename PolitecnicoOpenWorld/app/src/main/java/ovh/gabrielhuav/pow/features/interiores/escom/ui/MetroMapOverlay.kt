@@ -75,7 +75,7 @@ fun MetroMapOverlay(
     LaunchedEffect(Unit) {
         mapBitmap = withContext(Dispatchers.IO) {
             try {
-                context.assets.open("metro_cdmx/map.png").use {
+                context.assets.open("TRANSIT/METRO/map.png").use {
                     BitmapFactory.decodeStream(it)?.asImageBitmap()
                 }
             } catch (e: Exception) {
@@ -91,7 +91,7 @@ fun MetroMapOverlay(
     ) {
         // Reproductor de video inmersivo de fondo
         LoopingVideoPlayer(
-            assetFileName = "metro_cdmx/video.mp4",
+            assetFileName = "TRANSIT/METRO/video.mp4",
             modifier = Modifier.fillMaxSize()
         )
 

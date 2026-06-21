@@ -12,7 +12,7 @@ import ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState
  * Gestor de sprites para el NPC compañero Prankedy.
  *
  * Patrón: idéntico a [MapZombieSpriteManager].
- * - Carga frames .webp desde assets/assetsNPC/Prankedy/<carpeta>/<prefijo>#.webp
+ * - Carga frames .webp desde assets/SPRITES/NPC/Prankedy/<carpeta>/<prefijo>#.webp
  * - Indexación sin ceros: p_idle_1.webp, p_idle_2.webp, … p_idle_10.webp
  * - Caché LRU de BitmapDrawable para evitar recargas innecesarias.
  * - Fallback: si un asset falta → null (el caller usa el indicador de emergencia).
@@ -63,7 +63,7 @@ object PrankedySpriteManager {
     private val drawableCache = LruCache<String, BitmapDrawable?>(48)
 
     // ── Caché del proyectil ───────────────────────────────────────────────────
-    // Frames en assets/assetsNPC/Prankedy/p_objeto/p_ob_#.webp
+    // Frames en assets/SPRITES/NPC/Prankedy/p_objeto/p_ob_#.webp
     private val PROJ_FOLDER = "p_objeto"
     private val PROJ_PREFIX = "p_obj_"
     private val PROJ_FRAMES = 3
@@ -145,7 +145,7 @@ object PrankedySpriteManager {
         // bitmapCache.get devuelve null tanto si no existe como si el value es null,
         // pero queremos distinguirlos → si ya intentamos y fue null, la clave no estará.
         return try {
-            val path = "assetsNPC/Prankedy/$folder/$prefix$index.webp"
+            val path = "SPRITES/NPC/Prankedy/$folder/$prefix$index.webp"
             val bmp = context.assets.open(path).use { BitmapFactory.decodeStream(it) }
             bitmapCache.put(key, bmp)  // null si decode falló, igual lo guardamos para no reintentar
             bmp

@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.features.main_menu.ui
+package ovh.gabrielhuav.pow.features.campaign.ui
 
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -53,8 +53,8 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 import ovh.gabrielhuav.pow.data.repository.StoryBoxLayout
 import ovh.gabrielhuav.pow.data.repository.StoryLayoutRepository
-import ovh.gabrielhuav.pow.domain.models.CampaignSchool
-import ovh.gabrielhuav.pow.domain.models.StoryComicCatalog
+import ovh.gabrielhuav.pow.domain.models.campaign.CampaignSchool
+import ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog
 
 /**
  * Intro del Modo Historia como COMIC (assets/STORY/INTRO/IntroPOW1..8.webp, imagenes

@@ -57,7 +57,7 @@ import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 
 private val MB_RED = Color(0xFFC21D24)
-private val BACKGROUND_MB_ASSET = "metrobusCDMX/inside.png"
+private val BACKGROUND_MB_ASSET = "TRANSIT/METROBUS/inside.png"
 
 @Composable
 fun MetrobusStationInteriorScreen(
@@ -83,8 +83,8 @@ fun MetrobusStationInteriorScreen(
     LaunchedEffect(BACKGROUND_MB_ASSET) {
         withContext(Dispatchers.IO) {
             try { context.assets.open(BACKGROUND_MB_ASSET).use { background = BitmapFactory.decodeStream(it)?.asImageBitmap() } } catch (_: Exception) {}
-            try { context.assets.open("metrobusCDMX/bus1.png").use { bus1Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap() } } catch (_: Exception) {}
-            try { context.assets.open("metrobusCDMX/bus2.png").use { bus2Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap() } } catch (_: Exception) {}
+            try { context.assets.open("TRANSIT/METROBUS/bus1.png").use { bus1Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap() } } catch (_: Exception) {}
+            try { context.assets.open("TRANSIT/METROBUS/bus2.png").use { bus2Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap() } } catch (_: Exception) {}
         }
     }
 

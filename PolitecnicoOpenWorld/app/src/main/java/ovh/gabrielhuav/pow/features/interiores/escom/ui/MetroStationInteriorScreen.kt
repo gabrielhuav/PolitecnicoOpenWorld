@@ -62,7 +62,7 @@ import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 import kotlin.math.max
 
-private val BACKGROUND_ASSET_PATH = "metro_cdmx/inside.png"
+private val BACKGROUND_ASSET_PATH = "TRANSIT/METRO/inside.png"
 
 @Composable
 fun MetroStationInteriorScreen(
@@ -94,12 +94,12 @@ fun MetroStationInteriorScreen(
                 }
             } catch (e: Exception) { }
             try {
-                context.assets.open("metro_cdmx/metro1.webp").use {
+                context.assets.open("TRANSIT/METRO/metro1.webp").use {
                     metro1Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap()
                 }
             } catch (e: Exception) { }
             try {
-                context.assets.open("metro_cdmx/metro2.webp").use {
+                context.assets.open("TRANSIT/METRO/metro2.webp").use {
                     metro2Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap()
                 }
             } catch (e: Exception) { }
@@ -631,10 +631,10 @@ private fun MetroPlayerSprite(state: MetroInteriorState) {
                 PlayerAction.RUN -> 6
             }
             val assetPath = when (action) {
-                PlayerAction.IDLE    -> "MAIN/lazaroIdle/lazaro_i_$currentFrame.webp"
-                PlayerAction.WALK    -> "MAIN/lazaroWalk/lazaro_w_$currentFrame.webp"
-                PlayerAction.SPECIAL -> "MAIN/lazaroSpecial/lazaro_s_$currentFrame.webp"
-                PlayerAction.RUN     -> "MAIN/lazaroRun/lazaro_r_$currentFrame.webp"
+                PlayerAction.IDLE    -> "SPRITES/PLAYER/lazaroIdle/lazaro_i_$currentFrame.webp"
+                PlayerAction.WALK    -> "SPRITES/PLAYER/lazaroWalk/lazaro_w_$currentFrame.webp"
+                PlayerAction.SPECIAL -> "SPRITES/PLAYER/lazaroSpecial/lazaro_s_$currentFrame.webp"
+                PlayerAction.RUN     -> "SPRITES/PLAYER/lazaroRun/lazaro_r_$currentFrame.webp"
             }
             if (!bitmapCache.containsKey(assetPath)) {
                 val bmp = withContext(Dispatchers.IO) {

@@ -205,10 +205,10 @@ private fun InteriorPlayerSprite(state: InteriorState) {
                 PlayerAction.RUN -> 6
             }
             val assetPath = when (action) {
-                PlayerAction.IDLE    -> "MAIN/lazaroIdle/lazaro_i_$currentFrame.webp"
-                PlayerAction.WALK    -> "MAIN/lazaroWalk/lazaro_w_$currentFrame.webp"
-                PlayerAction.SPECIAL -> "MAIN/lazaroSpecial/lazaro_s_$currentFrame.webp"
-                PlayerAction.RUN     -> "MAIN/lazaroRun/lazaro_r_$currentFrame.webp"
+                PlayerAction.IDLE    -> "SPRITES/PLAYER/lazaroIdle/lazaro_i_$currentFrame.webp"
+                PlayerAction.WALK    -> "SPRITES/PLAYER/lazaroWalk/lazaro_w_$currentFrame.webp"
+                PlayerAction.SPECIAL -> "SPRITES/PLAYER/lazaroSpecial/lazaro_s_$currentFrame.webp"
+                PlayerAction.RUN     -> "SPRITES/PLAYER/lazaroRun/lazaro_r_$currentFrame.webp"
             }
             if (!bitmapCache.containsKey(assetPath)) {
                 val bmp = withContext(Dispatchers.IO) {

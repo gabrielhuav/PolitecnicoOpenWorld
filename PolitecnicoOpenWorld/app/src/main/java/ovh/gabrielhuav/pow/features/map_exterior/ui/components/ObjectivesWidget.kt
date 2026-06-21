@@ -16,7 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.CampaignObjective
+import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
 
 // ─── WIDGET DE OBJETIVOS (Modo Historia) ──────────────────────────────────────
 // HUD pequeño SIEMPRE visible mientras haya un objetivo de campaña activo. Muestra el

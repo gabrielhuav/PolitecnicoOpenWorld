@@ -838,7 +838,7 @@ internal fun NativeOsmMap(
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f
                             } else if (npc.type == NpcType.ZOMBIE) {
-                                // 🧟 ZOMBIE: usa los assets de ZOMBIES_MOD/z_walk.
+                                // 🧟 ZOMBIE: usa los assets de SPRITES/ZOMBIE.
                                 // Tamaño similar al de los peatones (1.3 m).
                                 // Tamaño por rol: TANK más grande, RUNNER algo más pequeño.
                                 val roleSizeMul = when (npc.zombieRole) {
@@ -1192,7 +1192,7 @@ internal fun NativeOsmMap(
                         val cacheKey = "OSM_METRO_ICON"
                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                             try {
-                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("metro_cdmx/icon.webp"))
+                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("TRANSIT/METRO/icon.webp"))
                                 if (bitmap != null) {
                                     val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
                                     ExactSizeDrawable(spriteDrawable, exactPixels, exactPixels)
@@ -1240,7 +1240,7 @@ internal fun NativeOsmMap(
                         val cacheKey = "OSM_METROBUS_ICON"
                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                             try {
-                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("metrobusCDMX/icon.png"))
+                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("TRANSIT/METROBUS/icon.png"))
                                 if (bitmap != null) {
                                     val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
                                     ExactSizeDrawable(spriteDrawable, exactPixels, exactPixels)

@@ -134,7 +134,7 @@ fun ZombieGameScreen(
     // MODO HISTORIA: objetivo a mostrar DENTRO del interior (p. ej. "Busca pistas en la ESCOM"
     // tras la Misión 1). null = no mostrar widget de objetivo. El objetivo del mapa exterior NO
     // se altera (allá sigue "Ingresa a la ESCOM, Cumplido").
-    interiorObjective: ovh.gabrielhuav.pow.domain.models.CampaignObjective? = null,
+    interiorObjective: ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective? = null,
     // INVENTARIO: estado restaurado al CARGAR partida dentro del interior (assetPaths de llaves +
     // progreso de ENCB_lab1) y callback para PERSISTIRLO (lo escribe MainActivity en el VM del mundo).
     initialInventoryKeys: List<String> = emptyList(),
@@ -194,7 +194,7 @@ fun ZombieGameScreen(
     LaunchedEffect(state.currentRoomIndex) { onRoomChanged(room.id) }
     val effectiveBgAsset = when {
         room.id == ZombieRoomCatalog.LOBBY_ID && state.zombieModeActivated ->
-            "ZOMBIES_MOD/BUILDINGS_Z/building_escom_zombie.webp"
+            "BUILDINGS/building_escom_zombie.webp"
         room.type == ZoneType.BUILDING && !state.zombieModeActivated ->
             "INTERIORS/ESCOM/z_${room.id.removePrefix("za_")}.webp"
         else -> room.backgroundAsset
@@ -510,7 +510,7 @@ fun ZombieGameScreen(
                 LaunchedEffect(Unit) {
                     handBitmap = withContext(Dispatchers.IO) {
                         try {
-                            context.assets.open("ZOMBIES_MOD/zombie_hand.webp")
+                            context.assets.open("SPRITES/ZOMBIE/zombie_hand.webp")
                                 .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
                         } catch (e: Exception) { null }
                     }

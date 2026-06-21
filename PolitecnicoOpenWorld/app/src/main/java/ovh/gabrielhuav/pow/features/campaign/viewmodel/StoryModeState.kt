@@ -1,6 +1,6 @@
-package ovh.gabrielhuav.pow.features.main_menu.viewmodel
+package ovh.gabrielhuav.pow.features.campaign.viewmodel
 
-import ovh.gabrielhuav.pow.domain.models.SchoolCatalog
+import ovh.gabrielhuav.pow.domain.models.campaign.SchoolCatalog
 
 // Estado del Modo Historia / Campaña. Guarda la escuela elegida y si existe una
 // partida guardada (para habilitar "CARGAR PARTIDA"). Inmutable: se actualiza con

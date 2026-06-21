@@ -89,8 +89,8 @@ internal fun WorldMapViewModel.triggerWastedSequence() {
         // de muerte (que dejaba al jugador "al lado de la ESCOM" sin repetir la misión).
         val obj = _uiState.value.currentObjective
         val inMission = inCampaign && (
-            obj?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
-            obj?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id)
+            obj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
+            obj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id)
         viewModelScope.launch(Dispatchers.Main) {
             // Al morir te bajas del coche (no se respawnea conduciendo).
             _uiState.update {

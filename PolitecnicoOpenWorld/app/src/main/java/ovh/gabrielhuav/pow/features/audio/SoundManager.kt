@@ -70,53 +70,53 @@ class SoundManager private constructor(context: Context) {
 
         try {
             val assetManager = context.assets
-            walkSoundId = soundPool?.load(assetManager.openFd("sonidos/caminar.mpeg"), 1) ?: -1
-            runSoundId = soundPool?.load(assetManager.openFd("sonidos/correr.mpeg"), 1) ?: -1
-            carSoundId = soundPool?.load(assetManager.openFd("sonidos/carro.mpeg"), 1) ?: -1
-            shootSoundId = soundPool?.load(assetManager.openFd("sonidos/disparo.mp3"), 1) ?: -1
-            punchSoundId = soundPool?.load(assetManager.openFd("sonidos/golpemano.mp3"), 1) ?: -1
-            itemSoundId = soundPool?.load(assetManager.openFd("sonidos/items.mpeg"), 1) ?: -1
-            zombieSoundId = soundPool?.load(assetManager.openFd("sonidos/zombie.mpeg"), 1) ?: -1
+            walkSoundId = soundPool?.load(assetManager.openFd("AUDIO/caminar.mpeg"), 1) ?: -1
+            runSoundId = soundPool?.load(assetManager.openFd("AUDIO/correr.mpeg"), 1) ?: -1
+            carSoundId = soundPool?.load(assetManager.openFd("AUDIO/carro.mpeg"), 1) ?: -1
+            shootSoundId = soundPool?.load(assetManager.openFd("AUDIO/disparo.mp3"), 1) ?: -1
+            punchSoundId = soundPool?.load(assetManager.openFd("AUDIO/golpemano.mp3"), 1) ?: -1
+            itemSoundId = soundPool?.load(assetManager.openFd("AUDIO/items.mpeg"), 1) ?: -1
+            zombieSoundId = soundPool?.load(assetManager.openFd("AUDIO/zombie.mpeg"), 1) ?: -1
 
             // Load Story Sounds
-            flashSoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/CamaraFlash.mp3"), 1) ?: -1
-            runningSoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/running.mp3"), 1) ?: -1
-            crystalSoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/Cristal.mp3"), 1) ?: -1
-            hitSoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/golpe.mp3"), 1) ?: -1
-            police1SoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/policia1.mp3"), 1) ?: -1
-            police2SoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/polocia2.mp3"), 1) ?: -1
-            bottleSoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/botella cayendo.mp3"), 1) ?: -1
-            doorOpenSoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/puertaabriendose.mp3"), 1) ?: -1
-            scareSoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/susto.mp3"), 1) ?: -1
+            flashSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/CamaraFlash.mp3"), 1) ?: -1
+            runningSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/running.mp3"), 1) ?: -1
+            crystalSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/Cristal.mp3"), 1) ?: -1
+            hitSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/golpe.mp3"), 1) ?: -1
+            police1SoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/policia1.mp3"), 1) ?: -1
+            police2SoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/polocia2.mp3"), 1) ?: -1
+            bottleSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/botella cayendo.mp3"), 1) ?: -1
+            doorOpenSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/puertaabriendose.mp3"), 1) ?: -1
+            scareSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/susto.mp3"), 1) ?: -1
             
             // Mission 1 Sounds
-            queTeTraesSoundId = soundPool?.load(assetManager.openFd("sonidos/que te traes.m4a"), 1) ?: -1
-            contestameSoundId = soundPool?.load(assetManager.openFd("sonidos/contestame.m4a"), 1) ?: -1
-            paraleSoundId = soundPool?.load(assetManager.openFd("sonidos/parale.m4a"), 1) ?: -1
+            queTeTraesSoundId = soundPool?.load(assetManager.openFd("AUDIO/que te traes.m4a"), 1) ?: -1
+            contestameSoundId = soundPool?.load(assetManager.openFd("AUDIO/contestame.m4a"), 1) ?: -1
+            paraleSoundId = soundPool?.load(assetManager.openFd("AUDIO/parale.m4a"), 1) ?: -1
             // SFX del cómic (IntroPOW5) y jingle de misión cumplida.
-            puerquitoSoundId = soundPool?.load(assetManager.openFd("sonidos/AudiosViñetas/Puerquito.mp3"), 1) ?: -1
-            misionCumplidaSoundId = soundPool?.load(assetManager.openFd("sonidos/MisionCumplida.mp3"), 1) ?: -1
-            zombiesAreComingSoundId = soundPool?.load(assetManager.openFd("sonidos/zombiesAreComing.mp3"), 1) ?: -1
+            puerquitoSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/Puerquito.mp3"), 1) ?: -1
+            misionCumplidaSoundId = soundPool?.load(assetManager.openFd("AUDIO/MisionCumplida.mp3"), 1) ?: -1
+            zombiesAreComingSoundId = soundPool?.load(assetManager.openFd("AUDIO/zombiesAreComing.mp3"), 1) ?: -1
         } catch (e: Exception) {
             Log.e("SoundManager", "Error loading sounds", e)
         }
 
         try {
-            context.assets.openFd("sonidos/instrumentalfondo/investigar.wav").use { afd ->
+            context.assets.openFd("AUDIO/BGM/investigar.wav").use { afd ->
                 investigarMediaPlayer = MediaPlayer().apply {
                     setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                     prepare()
                     isLooping = true
                 }
             }
-            context.assets.openFd("sonidos/instrumentalfondo/lugarseguro.wav").use { afd ->
+            context.assets.openFd("AUDIO/BGM/lugarseguro.wav").use { afd ->
                 lugarSeguroMediaPlayer = MediaPlayer().apply {
                     setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                     prepare()
                     isLooping = true
                 }
             }
-            context.assets.openFd("sonidos/instrumentalfondo/mainsound.wav").use { afd ->
+            context.assets.openFd("AUDIO/BGM/mainsound.wav").use { afd ->
                 mainSoundMediaPlayer = MediaPlayer().apply {
                     setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                     prepare()
@@ -129,9 +129,9 @@ class SoundManager private constructor(context: Context) {
 
         // Música del cómic de la intro (en su propio try: si el archivo aún no existe, el
         // resto del audio sigue funcionando). Colócalo en:
-        //   app/src/main/assets/sonidos/instrumentalfondo/musicaPrankedyRemix.mp3
+        //   app/src/main/assets/AUDIO/BGM/musicaPrankedyRemix.mp3
         try {
-            context.assets.openFd("sonidos/instrumentalfondo/musicaPrankedyRemix.mp3").use { afd ->
+            context.assets.openFd("AUDIO/BGM/musicaPrankedyRemix.mp3").use { afd ->
                 prankedyRemixMediaPlayer = MediaPlayer().apply {
                     setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                     prepare()
@@ -139,7 +139,7 @@ class SoundManager private constructor(context: Context) {
                 }
             }
         } catch (e: Exception) {
-            Log.e("SoundManager", "Error loading musicaPrankedyRemix.mp3 (¿falta el archivo en assets/sonidos/instrumentalfondo/?)", e)
+            Log.e("SoundManager", "Error loading musicaPrankedyRemix.mp3 (¿falta el archivo en assets/AUDIO/BGM/?)", e)
         }
 
         // Carga el volumen guardado (Ajustes → Audio) y lo aplica a la música ya cargada.

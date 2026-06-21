@@ -99,7 +99,7 @@ fun ZombiVideoPlayer(context: Context, onDismiss: () -> Unit) {
         AndroidView(
             factory = { ctx ->
                 android.widget.VideoView(ctx).apply {
-                    val file = getAssetFile(ctx, "ZOMBIES_MOD/load_zombie_mod.mp4", "temp_zombi_carga.mp4")
+                    val file = getAssetFile(ctx, "VIDEO/load_zombie_mod.mp4", "temp_zombi_carga.mp4")
                     setVideoPath(file.absolutePath)
                     requestFocus()
                     setOnCompletionListener { onDismiss() }

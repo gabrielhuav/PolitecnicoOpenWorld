@@ -225,7 +225,7 @@ private fun InteractableDots(
 
     val shineBitmap = remember {
         try {
-            context.assets.open("collectibles/colec_shine.webp")
+            context.assets.open("SPRITES/COLLECTIBLES/colec_shine.webp")
                 .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
         } catch (e: Exception) { null }
     }

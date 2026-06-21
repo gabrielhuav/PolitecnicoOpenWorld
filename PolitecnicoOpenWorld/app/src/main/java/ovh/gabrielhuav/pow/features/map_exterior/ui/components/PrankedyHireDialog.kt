@@ -67,7 +67,7 @@ fun PrankedyHireDialog(
     LaunchedEffect(Unit) {
         prankedyBitmap = withContext(Dispatchers.IO) {
             try {
-                context.assets.open("assetsNPC/Prankedy/p_idle/p_idle_1.webp").use { s ->
+                context.assets.open("SPRITES/NPC/Prankedy/p_idle/p_idle_1.webp").use { s ->
                     BitmapFactory.decodeStream(s)?.asImageBitmap()
                 }
             } catch (e: Exception) { null }

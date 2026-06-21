@@ -34,7 +34,7 @@ object CharacterSpriteManager {
         val frames = mutableListOf<ImageBitmap>()
         for (i in 1..frameCount) {
             try {
-                val inputStream: InputStream = context.assets.open("assetsNPC/$folder/${prefix}${i}.webp")
+                val inputStream: InputStream = context.assets.open("SPRITES/NPC/$folder/${prefix}${i}.webp")
                 frames.add(BitmapFactory.decodeStream(inputStream).asImageBitmap())
                 inputStream.close()
             } catch (e: Exception) { break }
@@ -47,7 +47,7 @@ object CharacterSpriteManager {
     fun getHairSprite(context: Context, hairId: Int): ImageBitmap? {
         hairCache.get(hairId)?.let { return it }
         return try {
-            val inputStream: InputStream = context.assets.open("assetsNPC/hair/hair_$hairId.webp")
+            val inputStream: InputStream = context.assets.open("SPRITES/NPC/hair/hair_$hairId.webp")
             val bmp = BitmapFactory.decodeStream(inputStream).asImageBitmap()
             hairCache.put(hairId, bmp)
             inputStream.close()

@@ -62,7 +62,7 @@ fun MetrobusMapOverlay(
     LaunchedEffect(Unit) {
         mapBitmap = withContext(Dispatchers.IO) {
             try {
-                context.assets.open("metrobusCDMX/mapa.png").use {
+                context.assets.open("TRANSIT/METROBUS/mapa.png").use {
                     BitmapFactory.decodeStream(it)?.asImageBitmap()
                 }
             } catch (e: Exception) { null }

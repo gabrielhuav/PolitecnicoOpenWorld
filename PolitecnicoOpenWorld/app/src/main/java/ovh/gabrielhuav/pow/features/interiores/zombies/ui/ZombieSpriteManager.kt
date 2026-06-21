@@ -28,17 +28,17 @@ object ZombieSpriteManager {
         val assetPath = when (type) {
             ZombieType.NORMAL -> {
                 val i = (frameIndexZeroBased % NORMAL_FRAME_COUNT) + 1
-                "ZOMBIES_MOD/z_walk/z_walk_$i.webp"
+                "SPRITES/ZOMBIE/z_walk_$i.webp"
             }
             ZombieType.STALKER -> {
                 if (isAttacking) {
                     val suffix = when (frameIndexZeroBased % STALKER_ATTACK_COUNT) {
                         0 -> "A"; 1 -> "B"; 2 -> "C"; else -> "D"
                     }
-                    "ZOMBIES_MOD/z_walk/Z5$suffix.png"
+                    "SPRITES/ZOMBIE/Z5$suffix.png"
                 } else {
                     val i = (frameIndexZeroBased % STALKER_WALK_COUNT) + 1
-                    "ZOMBIES_MOD/z_walk/Z$i.png"
+                    "SPRITES/ZOMBIE/Z$i.png"
                 }
             }
         }

@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.domain.models
+package ovh.gabrielhuav.pow.domain.models.campaign
 
 // Panel del cómic de la intro (prólogo de la campaña). `assetPath` apunta a una imagen en
 // la carpeta assets/. `text` es el texto que el código dibuja sobre el RECUADRO BLANCO de la

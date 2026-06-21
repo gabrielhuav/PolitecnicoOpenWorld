@@ -25,8 +25,8 @@ private const val ENCB_NEIGHBORHOOD_DEG = 0.002
 
 // Destino de la misión = PUERTA de la ESCOM (puerta norte). La línea GPS roja va de la ENCB
 // a la puerta (mismo punto que el objetivo ESCOLTAR_PRANKEDY).
-private const val ESCOM_LAT = ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_DOOR_LAT
-private const val ESCOM_LON = ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOM_DOOR_LON
+private const val ESCOM_LAT = ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOM_DOOR_LAT
+private const val ESCOM_LON = ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOM_DOOR_LON
 private const val ESCOM_ARRIVE_DEG = 0.0009   // ~100 m: al entrar, la línea GPS desaparece
 // H: Prankedy "se sube" al coche cuando llega a <= esta distancia de ti (metros).
 private const val PRANKEDY_BOARD_DIST_M = 5.0
@@ -54,7 +54,7 @@ internal fun WorldMapViewModel.maybeSpawnPrankedyCompanion(
 
     prankedyCompanionActivated = true
     prankedyManager.spawnCompanion(playerLoc, roadNetwork, now)
-    setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY)
+    setCampaignObjective(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY)
 
     // LÍNEA GPS de campaña: ruta A* (sobre la red vial) desde la ENCB hasta la ESCOM (lugar
     // seguro). findRoadRoute garantiza una ruta CONECTADA POR CALLES; si no hay grafo, cae a
@@ -276,7 +276,7 @@ internal fun WorldMapViewModel.respawnPrankedyCompanionHere() {
     prankedyCompanionActivated = true
     prankedyManager.spawnCompanion(loc, roadNetwork)
     prankedyManager.warpTo(loc)
-    setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.ESCOLTAR_PRANKEDY)
+    setCampaignObjective(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY)
     _uiState.update {
         it.copy(
             prankedyEnabled = true,

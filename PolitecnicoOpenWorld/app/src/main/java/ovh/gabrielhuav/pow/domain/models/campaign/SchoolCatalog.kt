@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.domain.models
+package ovh.gabrielhuav.pow.domain.models.campaign
 
 // Escuela seleccionable en el Modo Historia / Campaña.
 // El punto de aparición de la campaña usa estas coordenadas. `available`
