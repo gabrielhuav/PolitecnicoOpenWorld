@@ -890,39 +890,8 @@ class WorldMapViewModel(
         return false
     }
 
-    private suspend fun applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
-        roadNetwork = network
-        rebuildRoadNodeGrid(network)
-        buildRoadGraph(network)   // grafo para el A* de la policía
-        npcAiManager.updateRoadNetwork(network)
-
-        if (isInsideEscom(playerLocation.latitude, playerLocation.longitude)) {
-            spawnEscomItems(network)
-        } else {
-            _escomItems.value = emptyList()
-            _uiState.update { it.copy(isZombieHandSpawned = false) }
-        }
-
-        val snapped = withContext(Dispatchers.Default) { getNearestPointOnNetwork(playerLocation) }
-        withContext(Dispatchers.Main) {
-            _uiState.update { it.copy(currentLocation = snapped, isRoadNetworkReady = true) }
-        }
-        // Pinta las calles (líneas amarillas) de inmediato al quedar lista la red, sin
-        // esperar al throttle del game loop (antes "tardaban en colocarse" tras entrar).
-        updateVisibleRoads(snapped, force = true)
-        // Zoom de juego A PIE = 22 para TODOS los proveedores (los web sobre-escalan
-        // desde su maxNativeZoom; CARTO llega a z20 real).
-        val targetZoom = ZOOM_ON_FOOT
-
-        if (_uiState.value.zoomLevel <= ZOOM_LOADING) {
-            var z = ZOOM_LOADING + 1.0
-            while (z <= targetZoom) {
-                delay(120)
-                withContext(Dispatchers.Main) { _uiState.update { it.copy(zoomLevel = z) } }
-                z += 1.0
-            }
-        }
-    }
+    // DE-DUP: `applyRoadNetwork` ahora vive SOLO como extensión en WorldMapRoadNetwork.kt
+    // (sincronizada al cuerpo de este miembro antes de borrarlo). Ver 09 §12.
 
     private fun maybeRefetchRoadNetwork(currentLoc: org.osmdroid.util.GeoPoint) {
         val moved = if (lastNetworkFetchLocation != null)
@@ -1959,13 +1928,8 @@ class WorldMapViewModel(
         }
     }
 
-    private fun startHealthBarTimer(delayMillis: Long) {
-        healthBarJob?.cancel()
-        healthBarJob = viewModelScope.launch {
-            delay(delayMillis)
-            showHealthBar = false
-        }
-    }
+    // DE-DUP: `startHealthBarTimer` ahora vive SOLO como extensión en WorldMapMisc.kt
+    // (cuerpos idénticos; el miembro privado sombreaba a la extensión). Ver 09 §12.
 
     private fun triggerWastedSequence() {
         viewModelScope.launch(Dispatchers.Main) {

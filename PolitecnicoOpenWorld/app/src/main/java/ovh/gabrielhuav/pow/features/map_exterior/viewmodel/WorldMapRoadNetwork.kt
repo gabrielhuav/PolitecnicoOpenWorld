@@ -96,15 +96,17 @@ internal fun WorldMapViewModel.updateVisibleRoads(location: GeoPoint, force: Boo
         }
     }
 
+// DE-DUP (2026-06-21): sincronizado al MIEMBRO canónico de WorldMapViewModel.kt antes de
+// eliminarlo. El miembro construía ADEMÁS el grafo A* de la policía (`buildRoadGraph`) y pintaba
+// las calles con la ubicación YA snapeada (`updateVisibleRoads(snapped, ...)`); la vieja extensión
+// muerta omitía `buildRoadGraph` y usaba `playerLocation` sin snapear + un `prefetchCurrentZoneTiles`
+// que el miembro no hacía. Ahora la extensión REPRODUCE exactamente el miembro. Ver 09 §12.
 internal suspend fun WorldMapViewModel.applyRoadNetwork(network: List<MapWay>, playerLocation: GeoPoint) {
         roadNetwork = network
-
-        updateVisibleRoads(playerLocation, force = true)
         rebuildRoadNodeGrid(network)
+        buildRoadGraph(network)   // grafo para el A* de la policía
         npcAiManager.updateRoadNetwork(network)
 
-        // Solo intentamos spawnear la mano si estamos en ESCOM.
-        // (spawnEscomItems igual se autoprotege, esto solo evita la llamada inútil.)
         if (isInsideEscom(playerLocation.latitude, playerLocation.longitude)) {
             spawnEscomItems(network)
         } else {
@@ -116,8 +118,11 @@ internal suspend fun WorldMapViewModel.applyRoadNetwork(network: List<MapWay>, p
         withContext(Dispatchers.Main) {
             _uiState.update { it.copy(currentLocation = snapped, isRoadNetworkReady = true) }
         }
-        prefetchCurrentZoneTiles(snapped)
-        // Zoom de juego A PIE = 22 para todos los proveedores (paridad con el miembro).
+        // Pinta las calles (líneas amarillas) de inmediato al quedar lista la red, sin
+        // esperar al throttle del game loop (antes "tardaban en colocarse" tras entrar).
+        updateVisibleRoads(snapped, force = true)
+        // Zoom de juego A PIE = 22 para TODOS los proveedores (los web sobre-escalan
+        // desde su maxNativeZoom; CARTO llega a z20 real).
         val targetZoom = ZOOM_ON_FOOT
 
         if (_uiState.value.zoomLevel <= ZOOM_LOADING) {

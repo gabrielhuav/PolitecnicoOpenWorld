@@ -261,10 +261,19 @@ matrices por defecto son **border-only** hasta reemplazarse.
   `updateNpcsState` (gemelo idéntico en `WorldMapMultiplayer.kt`) y de `ensureIndex`/`candidates`/
   `getNearestPointOnNetwork`/`project` (el gemelo de `WorldMapRouting.kt` se sincronizó ANTES con el
   check de landmarks que solo tenía el miembro) — esas extensiones son ahora la única implementación.
-  Pendiente (con compilador a la mano): sincronizar y de-duplicar los pares grandes
-  (`startGameLoop`, `handleMultiplayerMessage`/`addRemoteEntity`, `updateVisibleRoads`,
-  `applyRoadNetwork`, `maybeRefetchRoadNetwork`, `spawnOustedDriver`, `triggerWastedSequence`,
-  `startHealthBarTimer`), donde el MIEMBRO sigue siendo el canónico.
+  **🆕 De-dup en curso (2026-06-21, compilador en mano, un par por ciclo):** HECHO →
+  `startHealthBarTimer` (cuerpos idénticos → se borró el miembro) y `applyRoadNetwork` (DIVERGÍAN: el
+  miembro construía el grafo A* `buildRoadGraph` y pintaba calles con la ubicación snapeada; la
+  extensión muerta lo omitía y prefetcheaba — se SINCRONIZÓ la extensión al miembro y se borró el
+  miembro). **Proceso por par (obligatorio):** (1) leer miembro + extensión, (2) DIFERENCIAR firma y
+  cuerpo, (3) si divergen, reescribir la extensión para REPRODUCIR el miembro EXACTO antes de borrarlo
+  (el miembro es lo que corre hoy), (4) borrar el miembro, (5) COMPILAR + PROBAR EN LA APP. No agrupar
+  varios pares sin compilar (no se podría bisecar una regresión). Pendiente (un par por ciclo):
+  `updateVisibleRoads` (OJO: firma divergida, miembro `playerLoc` vs ext `location` → revisar
+  call-sites con args nombrados), `updateDestinationRoute`, `triggerWastedSequence`, `spawnOustedDriver`,
+  `maybeRefetchRoadNetwork`, `addRemoteEntity`, y los GIGANTES `handleMultiplayerMessage` (~165) y
+  `startGameLoop` (~440, máxima divergencia esperada — fue el bug del daño del game loop). El MIEMBRO
+  sigue siendo el canónico en los pendientes.
 - **Gotcha de parciales (¡importante!):** funciones duplicadas como **miembro privado** en
   `WorldMapViewModel.kt` + **extensión** del mismo nombre en `WorldMap*.kt`. Cuando se llaman desde
   DENTRO de la clase (caso de `startGameLoop()`, invocado en `WorldMapViewModel.kt:399`), **gana el
