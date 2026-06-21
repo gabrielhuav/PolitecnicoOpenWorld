@@ -603,7 +603,7 @@ fun ZombieGameScreen(
             // Aviso de llave (cuando el jugador está sobre una). keyMessage (resultado de probar /
             // puerta cerrada) tiene prioridad y es transitorio.
             val keyPrompt = if (state.nearbyKeyId != null)
-                "🔑 Hay una llave — pulsa ACCIÓN para inspeccionarla" else null
+                stringResource(R.string.zgame_key_prompt) else null
             (state.keyMessage ?: state.nearbyDoorLabel ?: keyPrompt ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
                 Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
                     Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
@@ -621,7 +621,7 @@ fun ZombieGameScreen(
                     Alignment.TopCenter
                 ) {
                     Text(
-                        "Objetivo: Investiga qué pasó",
+                        stringResource(R.string.zgame_objective_investigate),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
@@ -772,13 +772,14 @@ fun ZombieGameScreen(
                         val sChar = stringResource(R.string.wm_choose_character)
                         val sDesigner = stringResource(R.string.zgame_opt_designer)
                         val sExitMap = stringResource(R.string.zgame_opt_exit_map)
+                        val sSaveGame = stringResource(R.string.wm_opt_save_game)
                         buildList {
                             // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto.
                             add(OptionMenuItem(sChar, Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
                             // "Diseñador": solo en Modo Desarrollador.
                             if (developerMode) add(OptionMenuItem(sDesigner, Icons.Default.Architecture) { viewModel.toggleDesignerMode() })
                             // MODO HISTORIA: guardar partida también desde interiores (selector de slots).
-                            add(OptionMenuItem("Guardar partida", Icons.Default.Save) { onRequestSaveGame() })
+                            add(OptionMenuItem(sSaveGame, Icons.Default.Save) { onRequestSaveGame() })
                             // "Salir al mapa": en Misión 1 se oculta salvo en Modo Desarrollador.
                             if (developerMode || !inMission1) add(OptionMenuItem(sExitMap, Icons.Default.ExitToApp) { viewModel.exitToWorld() })
                         }

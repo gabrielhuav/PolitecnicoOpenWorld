@@ -47,6 +47,15 @@
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
+### Docs de trabajo / Working docs (no son 00–09; tareas en curso)
+
+| Archivo / File | Contenido / Contents |
+|---|---|
+| `PROMPT_nueva_conversacion.md` | Prompt maestro de reuso (plan + reglas del entorno). El bueno (el viejo `PROMPT_nueva_sesion.md` de la raíz ya NO existe). |
+| `DEDUP_VM_pendiente.md` | **(2026-06-21)** De-dup de los 8 gemelos miembro-vs-extensión de `WorldMapViewModel.kt`: diffs, cuerpos sincronizados listos para pegar, líneas a borrar. Aplicar 1 par/compilación. |
+| `ANALISIS_codigo.md` | **(2026-06-21)** Informe: clases grandes, duplicación (metro⇄metrobús), MVVM, i18n migrado vs pendiente, perf, mejoras priorizadas por valor/esfuerzo. |
+| `REVISION_repo.md` | **(2026-06-21)** Revisión de TODO el repo: raíz, servidores Node (solo revisión), seguridad (keystore NO comprometido), `.gitignore`, hardening de deploy. |
+
 ---
 
 ## Datos rápidos / Quick facts

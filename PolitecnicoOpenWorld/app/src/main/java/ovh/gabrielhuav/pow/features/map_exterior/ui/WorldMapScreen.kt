@@ -506,10 +506,11 @@ fun WorldMapScreen(
             val tipDesigner = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_designer)
             val tipWanted = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_wanted)
             val tipShine = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_shine)
-            
+            val tipCarjack = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_carjack)
+
             val tips = listOf(
                 tipTeleport,
-                "Presiona Y cerca de un auto para robarlo.",
+                tipCarjack,
                 tipDesigner,
                 tipWanted,
                 tipShine
@@ -813,7 +814,7 @@ fun WorldMapScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "MISIÓN\nFALLIDA",
+                        text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_mission_failed),
                         color = Color(0xFFD32F2F),
                         fontSize = 54.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -829,12 +830,12 @@ fun WorldMapScreen(
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth(0.6f).height(50.dp)
                     ) {
-                        Text("REINTENTAR MISIÓN", color = Color.White, fontWeight = FontWeight.Bold,
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_retry_mission), color = Color.White, fontWeight = FontWeight.Bold,
                             fontSize = 15.sp, letterSpacing = 1.sp)
                     }
                     Spacer(Modifier.height(12.dp))
                     TextButton(onClick = { onNavigateToMainMenu() }) {
-                        Text("Salir al menú", color = Color.White.copy(alpha = 0.85f),
+                        Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_to_menu), color = Color.White.copy(alpha = 0.85f),
                             fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -1027,7 +1028,7 @@ fun WorldMapScreen(
                             items = buildList {
                                 add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_change_skin), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
                                 // MODO HISTORIA: guardado manual → abre el selector de slots.
-                                add(OptionMenuItem("Guardar partida", Icons.Default.School, Color(0xFF4CAF50)) {
+                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_save_game), Icons.Default.School, Color(0xFF4CAF50)) {
                                     onRequestSaveGame()
                                 })
                                 // Teletransportarse: solo en Modo Desarrollador.

@@ -132,7 +132,7 @@ fun StoryModeScreen(
                 enabled = state.hasSave
             )
             Text(
-                text = if (state.hasSave) "Elige un slot para cargar tu partida."
+                text = if (state.hasSave) stringResource(R.string.story_choose_slot)
                 else stringResource(R.string.story_no_saves),
                 color = Color.White.copy(alpha = 0.55f),
                 fontSize = 12.sp,

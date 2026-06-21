@@ -585,9 +585,30 @@ matrices por defecto son **border-only** hasta reemplazarse.
   - **Cambio de idioma sin AppCompat:** `i18n/LocaleHelper.wrap(ctx, tag)` envuelve el Context en
     `MainActivity.attachBaseContext`; la elección se persiste en `SettingsRepository.get/saveLanguage`
     ("" = sistema) y el selector (`SettingsScreen` → Interfaz) **recrea la Activity** al cambiar.
-  - **Migración por feature (fases):** ya migrados `main_menu` y `settings` (patrón). Pendiente: el resto
-    de features (los grandes `map_exterior`/`interiores.zombies` concentran la mayoría de strings). NO migrar
-    rutas de assets, tipos de mensaje de red (`"PLAYER_UPDATE"`…), tags de log ni URLs: NO son texto de UI.
+  - **Migración por feature (fases) — actualizado 2026-06-21:**
+    - **YA migrados:** `main_menu`, `settings`; **`map_exterior` (player-facing):** misión fallida
+      (`wm_mission_failed/_retry_mission/_exit_to_menu`), tip carjack, guardar partida (`wm_opt_save_game`),
+      widget de objetivo (`wm_objective_label/_done`, `wm_dist_km/_m`), descripción completa de Prankedy
+      (`wm_prankedy_desc_full`); **paneles Modo Desarrollador** Debug Interiores (`dbg_*`) y diseñador de
+      landmarks (ANCHO/ALTO → `wm_designer_width/_height`); **`campaign`** (`StoryModeScreen` slot
+      `story_choose_slot`; `StoryIntroScreen`: `story_intro_back/_skip/_start`, hints `story_tap_*`, editor
+      de cómic `story_ed_*`); **`interiores` (player-facing):** ZombieHud (`zhud_inv_empty/_has_key`,
+      `cd_key`), ZombieGameScreen (`zgame_key_prompt`, `zgame_objective_investigate`, guardar reusa
+      `wm_opt_save_game`), InteriorScreenBase (`cd_exit`), InteriorPlayerViews (`cd_player`,
+      `cd_player_remote`); **`MainActivity`** diálogos guardar/cargar (`save_dialog_load/_new_slot`,
+      `save_toast_saved`). Paridad ES+EN verificada (Read, no `grep` de bash que TRUNCA `strings.xml`).
+    - **PENDIENTE (cola, mecánico, sin riesgo de compilar):** transit player-facing (`MetrobusMapOverlay`
+      selección de destino; headers `METROBÚS · $stationName`; `MetroStationInteriorScreen` "Salir"→`cd_exit`;
+      `PRESIONA X PARA …`→`int_press_x_door`) y **diseñadores de matrices** (metro/metrobús/zombi: ANCHO/ALTO/
+      COL/FIL, hints) — **reutiliza las claves `int_*` que YA EXISTEN** (`int_lock_map`, `int_edit_map`,
+      `int_designer_mode`, `int_move_map`, `int_drag_door`, `int_designer_room`, `int_station_name`,
+      `int_save_unsaved`, `int_press_x_door`, `int_size_grid`, `int_waypoint_size`, `int_touch_door`).
+      Detalle por archivo en `ANALISIS_codigo.md §4`.
+    - **NO migrar:** rutas de assets, tipos de mensaje de red (`"PLAYER_UPDATE"`…), tags de log, URLs,
+      claves de caché de sprites, unidades (`km/h`, `HP`), comparaciones por dato (`"Objeto Misterioso ESCOM"`),
+      ni `displayName` propios (skins `Lázaro`/`Robot Estudiantx`, `Shine CTO`, `PRANKEDY`). `CampaignObjective.
+      title/description` siguen como `String` en el modelo (i18n completo = pasarlos a `@StringRes`, cambio de
+      medio esfuerzo que requiere compilar).
   - **Claves:** `snake_case`, prefijadas por feature (`menu_*`, `settings_*`). Toda clave nueva va en
     `values/` **y** `values-en/` (una contradicción/ausencia = bug; mantén la paridad).
 - **🆕 Control por defecto = `JOYSTICK`:** lo fija `SettingsRepository.getControlType()` (default JOYSTICK,

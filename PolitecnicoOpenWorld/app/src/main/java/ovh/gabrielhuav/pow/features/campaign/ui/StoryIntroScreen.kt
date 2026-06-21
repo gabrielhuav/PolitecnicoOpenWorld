@@ -45,12 +45,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.data.repository.StoryBoxLayout
 import ovh.gabrielhuav.pow.data.repository.StoryLayoutRepository
 import ovh.gabrielhuav.pow.domain.models.campaign.CampaignSchool
@@ -332,7 +334,7 @@ fun StoryIntroScreen(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            PillButton("< Volver") { onBack() }
+            PillButton(stringResource(R.string.story_intro_back)) { onBack() }
             Text(
                 "${index + 1}/${panels.size}",
                 color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
@@ -341,12 +343,12 @@ fun StoryIntroScreen(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             )
             if (developerMode) {
-                PillButton(if (editing) "Listo" else "Editar", if (editing) Color(0xAA2E7D32) else Color(0xAA37474F)) {
+                PillButton(if (editing) stringResource(R.string.story_ed_done) else stringResource(R.string.story_ed_edit), if (editing) Color(0xAA2E7D32) else Color(0xAA37474F)) {
                     editing = !editing
                 }
             }
             Box(modifier = Modifier.weight(1f))
-            PillButton(if (isLast) "Iniciar" else "Saltar", Color(0xAA8C2A2A)) { onBegin() }
+            PillButton(if (isLast) stringResource(R.string.story_intro_start) else stringResource(R.string.story_intro_skip), Color(0xAA8C2A2A)) { onBegin() }
         }
 
         // Panel del EDITOR (solo en modo edicion). Es ARRASTRABLE (asa superior) para que no
@@ -364,7 +366,7 @@ fun StoryIntroScreen(
             ) {
                 // Asa para MOVER el panel (arrástrala). Doble toque la regresa abajo.
                 Text(
-                    "⠿  Mover panel  (arrástrame)",
+                    stringResource(R.string.story_ed_move),
                     color = Color(0xFFFFD54F), fontSize = 12.sp, fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
@@ -380,30 +382,30 @@ fun StoryIntroScreen(
                         .clickable { panelOffX = 0f; panelOffY = 0f }
                 )
                 Text(
-                    "Cuadro - top=%.2f alto=%.2f ancho=%.2f letra=%.0f".format(topFrac, heightFrac, widthFrac, fontSp),
+                    stringResource(R.string.story_ed_box, topFrac, heightFrac, widthFrac, fontSp),
                     color = Color(0xFFCFD8DC), fontSize = 11.sp, textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PillButton("Subir", Color(0xAA37474F), Modifier.weight(1f)) { topFrac = (topFrac - 0.01f).coerceIn(0f, 0.95f) }
-                    PillButton("Bajar", Color(0xAA37474F), Modifier.weight(1f)) { topFrac = (topFrac + 0.01f).coerceIn(0f, 0.95f) }
-                    PillButton("Alto -", Color(0xAA37474F), Modifier.weight(1f)) { heightFrac = (heightFrac - 0.01f).coerceIn(0.06f, 0.7f) }
-                    PillButton("Alto +", Color(0xAA37474F), Modifier.weight(1f)) { heightFrac = (heightFrac + 0.01f).coerceIn(0.06f, 0.7f) }
+                    PillButton(stringResource(R.string.story_ed_up), Color(0xAA37474F), Modifier.weight(1f)) { topFrac = (topFrac - 0.01f).coerceIn(0f, 0.95f) }
+                    PillButton(stringResource(R.string.story_ed_down), Color(0xAA37474F), Modifier.weight(1f)) { topFrac = (topFrac + 0.01f).coerceIn(0f, 0.95f) }
+                    PillButton(stringResource(R.string.story_ed_h_minus), Color(0xAA37474F), Modifier.weight(1f)) { heightFrac = (heightFrac - 0.01f).coerceIn(0.06f, 0.7f) }
+                    PillButton(stringResource(R.string.story_ed_h_plus), Color(0xAA37474F), Modifier.weight(1f)) { heightFrac = (heightFrac + 0.01f).coerceIn(0.06f, 0.7f) }
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PillButton("Ancho -", Color(0xAA37474F), Modifier.weight(1f)) { widthFrac = (widthFrac - 0.02f).coerceIn(0.2f, 1f) }
-                    PillButton("Ancho +", Color(0xAA37474F), Modifier.weight(1f)) { widthFrac = (widthFrac + 0.02f).coerceIn(0.2f, 1f) }
-                    PillButton("Letra -", Color(0xAA37474F), Modifier.weight(1f)) { fontSp = (fontSp - 1f).coerceIn(8f, 40f) }
-                    PillButton("Letra +", Color(0xAA37474F), Modifier.weight(1f)) { fontSp = (fontSp + 1f).coerceIn(8f, 40f) }
+                    PillButton(stringResource(R.string.story_ed_w_minus), Color(0xAA37474F), Modifier.weight(1f)) { widthFrac = (widthFrac - 0.02f).coerceIn(0.2f, 1f) }
+                    PillButton(stringResource(R.string.story_ed_w_plus), Color(0xAA37474F), Modifier.weight(1f)) { widthFrac = (widthFrac + 0.02f).coerceIn(0.2f, 1f) }
+                    PillButton(stringResource(R.string.story_ed_f_minus), Color(0xAA37474F), Modifier.weight(1f)) { fontSp = (fontSp - 1f).coerceIn(8f, 40f) }
+                    PillButton(stringResource(R.string.story_ed_f_plus), Color(0xAA37474F), Modifier.weight(1f)) { fontSp = (fontSp + 1f).coerceIn(8f, 40f) }
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PillButton("Guardar", Color(0xAA2E7D32), Modifier.weight(1f)) {
+                    PillButton(stringResource(R.string.common_save), Color(0xAA2E7D32), Modifier.weight(1f)) {
                         repo.save(index, StoryBoxLayout(topFrac, heightFrac, fontSp, widthFrac))
                     }
-                    PillButton("Todas", Color(0xAA00695C), Modifier.weight(1f)) {
+                    PillButton(stringResource(R.string.story_ed_all), Color(0xAA00695C), Modifier.weight(1f)) {
                         repo.saveAll(panels.size, StoryBoxLayout(topFrac, heightFrac, fontSp, widthFrac))
                     }
-                    PillButton("Exportar", Color(0xAA1565C0), Modifier.weight(1f)) {
+                    PillButton(stringResource(R.string.story_ed_export), Color(0xAA1565C0), Modifier.weight(1f)) {
                         // Guarda el panel actual y exporta TODO a JSON (+ Logcat con los defaults).
                         repo.save(index, StoryBoxLayout(topFrac, heightFrac, fontSp, widthFrac))
                         exportLauncher.launch("story_layout.json")
@@ -412,7 +414,7 @@ fun StoryIntroScreen(
             }
         } else {
             Text(
-                text = if (isLast) "Toca la pantalla para INICIAR" else "Toca a la derecha para continuar",
+                text = if (isLast) stringResource(R.string.story_tap_start) else stringResource(R.string.story_tap_continue),
                 color = Color(0xCCFFFFFF), fontSize = 11.sp, textAlign = TextAlign.Center,
                 modifier = Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(bottom = 4.dp)
             )

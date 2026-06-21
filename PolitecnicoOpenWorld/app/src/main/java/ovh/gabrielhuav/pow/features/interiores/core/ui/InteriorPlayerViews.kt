@@ -120,7 +120,7 @@ fun PlayerView(
 
     Box(modifier = modifier.size(sizeDp).graphicsLayer { translationX = shake }, contentAlignment = Alignment.Center) {
         if (image != null) {
-            Image(image!!, "Jugador", modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
+            Image(image!!, androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_player), modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
         } else {
             Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFFD91B5B)).border(2.dp, Color.White, CircleShape))
         }
@@ -169,7 +169,7 @@ fun RemotePlayerView(
                     .padding(horizontal = 5.dp, vertical = 1.dp))
         }
         if (image != null) {
-            Image(image!!, "Jugador remoto",
+            Image(image!!, androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_player_remote),
                 modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
         } else {
             Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFF2196F3)).border(2.dp, Color.White, CircleShape))

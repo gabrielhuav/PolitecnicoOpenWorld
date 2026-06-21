@@ -226,8 +226,8 @@ fun ZombieHud(
                         }
                     }
                     Text(
-                        if (state.inventoryKeys.isEmpty()) "Vacío. Busca y recoge una llave."
-                        else "Llave guardada. Pruébala en la puerta de avance (→).",
+                        if (state.inventoryKeys.isEmpty()) stringResource(R.string.zhud_inv_empty)
+                        else stringResource(R.string.zhud_inv_has_key),
                         color = Color(0xFFB0BEC5), fontSize = 12.sp
                     )
                     TextButton(onClick = onDismissInventory) { Text(stringResource(R.string.zhud_close), color = Color.White) }
@@ -283,7 +283,7 @@ private fun InventoryKeyIcon(assetPath: String, modifier: Modifier = Modifier) {
     }
     val img = bmp
     if (img != null) {
-        Image(img, contentDescription = "Llave", modifier = modifier)
+        Image(img, contentDescription = stringResource(R.string.cd_key), modifier = modifier)
     } else {
         Text("🔑", fontSize = 24.sp)
     }

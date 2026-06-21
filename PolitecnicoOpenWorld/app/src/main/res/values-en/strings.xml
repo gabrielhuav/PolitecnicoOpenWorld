@@ -317,4 +317,70 @@
     <string name="settings_dpad">D-Pad</string>
     <string name="settings_joystick">Virtual Joystick</string>
 
+    <!-- ─── Story Mode: mission failed ─── -->
+    <string name="wm_mission_failed">MISSION\nFAILED</string>
+    <string name="wm_retry_mission">RETRY MISSION</string>
+    <string name="wm_exit_to_menu">Exit to menu</string>
+    <string name="wm_tip_carjack">Press Y near a car to steal it.</string>
+    <string name="wm_opt_save_game">Save game</string>
+    <!-- ─── Objective widget (campaign) ─── -->
+    <string name="wm_objective_label">🎯 OBJECTIVE</string>
+    <string name="wm_objective_done">✅ Complete</string>
+    <string name="wm_dist_km">%1$s km away</string>
+    <string name="wm_dist_m">%1$d m away</string>
+    <!-- ─── Prankedy: full hire-dialog description ─── -->
+    <string name="wm_prankedy_desc_full">A mysterious character that appeared in the halls of the Polytechnic. An expert in pranks and throwing objects from afar. With him on your side, enemies have little chance.\n\n⚔️ Attacks hostile NPCs automatically\n🏃 Follows you wherever you go\n🎭 Always has something to say</string>
+    <!-- ─── Interior Debug Editor (Developer Mode) ─── -->
+    <string name="dbg_move_recenter">Move (tap = recenter)</string>
+    <string name="dbg_exit">Exit</string>
+    <string name="dbg_shape_rect">a rectangle</string>
+    <string name="dbg_shape_line">a line</string>
+    <string name="dbg_hint_idle">Line editor: pick a tool and draw with your finger on the map</string>
+    <string name="dbg_hint_draw">Draw with your finger: drag to make %1$s</string>
+    <string name="dbg_tool_wall">Wall</string>
+    <string name="dbg_tool_zone">Zone</string>
+    <string name="dbg_tool_ped">Pedestrian</string>
+    <string name="dbg_tool_car">Cars</string>
+    <string name="dbg_undo">Undo</string>
+    <string name="dbg_clear">Clear</string>
+    <string name="dbg_export">Export</string>
+    <string name="dbg_import">Import</string>
+    <string name="dbg_route_remove">Remove route NPCs</string>
+    <string name="dbg_route_seed">Seed 60 route NPCs</string>
+    <string name="dbg_counts">walls %1$d - zones %2$d - pedestrian %3$d - cars %4$d</string>
+    <!-- ─── Story Mode: comic intro + slot picker ─── -->
+    <string name="story_choose_slot">Choose a slot to load your game.</string>
+    <string name="story_tap_start">Tap the screen to START</string>
+    <string name="story_tap_continue">Tap on the right to continue</string>
+    <string name="story_intro_back">&lt; Back</string>
+    <string name="story_intro_skip">Skip</string>
+    <string name="story_intro_start">Start</string>
+    <!-- ─── Intro comic editor (Developer Mode) ─── -->
+    <string name="story_ed_done">Done</string>
+    <string name="story_ed_edit">Edit</string>
+    <string name="story_ed_move">⠿  Move panel  (drag me)</string>
+    <string name="story_ed_box">Box - top=%1$.2f height=%2$.2f width=%3$.2f font=%4$.0f</string>
+    <string name="story_ed_up">Up</string>
+    <string name="story_ed_down">Down</string>
+    <string name="story_ed_h_minus">Height -</string>
+    <string name="story_ed_h_plus">Height +</string>
+    <string name="story_ed_w_minus">Width -</string>
+    <string name="story_ed_w_plus">Width +</string>
+    <string name="story_ed_f_minus">Font -</string>
+    <string name="story_ed_f_plus">Font +</string>
+    <string name="story_ed_all">All</string>
+    <string name="story_ed_export">Export</string>
+    <!-- ─── Interiors / zombies (player-facing) ─── -->
+    <string name="cd_exit">Exit</string>
+    <string name="cd_key">Key</string>
+    <string name="cd_player_remote">Remote player</string>
+    <string name="zhud_inv_empty">Empty. Find and pick up a key.</string>
+    <string name="zhud_inv_has_key">Key stored. Try it on the forward door (→).</string>
+    <string name="zgame_key_prompt">🔑 There\'s a key — press ACTION to inspect it</string>
+    <string name="zgame_objective_investigate">Objective: Investigate what happened</string>
+    <!-- ─── Save/load dialogs (MainActivity) ─── -->
+    <string name="save_dialog_load">Load game</string>
+    <string name="save_dialog_new_slot">New game · choose slot</string>
+    <string name="save_toast_saved">Game saved (slot %1$s)</string>
+
 </resources>

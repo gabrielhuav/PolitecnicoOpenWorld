@@ -128,7 +128,7 @@ fun InteriorScreenBase(
                 onClick = onExit,
                 modifier = Modifier.background(Color.Black.copy(alpha = 0.6f), CircleShape)
             ) {
-                Icon(Icons.Default.ArrowBack, "Salir", tint = Color.White)
+                Icon(Icons.Default.ArrowBack, androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_exit), tint = Color.White)
             }
             Spacer(Modifier.width(8.dp))
             Text(

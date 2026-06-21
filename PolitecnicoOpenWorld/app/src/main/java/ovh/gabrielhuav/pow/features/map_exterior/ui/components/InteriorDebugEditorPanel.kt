@@ -31,11 +31,13 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DebugEditTool
 import kotlin.math.roundToInt
 
@@ -94,7 +96,7 @@ fun InteriorDebugEditorPanel(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Mover (toca = recentrar)",
+                stringResource(R.string.dbg_move_recenter),
                 color = Color(0xFFFFD54F),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -117,18 +119,18 @@ fun InteriorDebugEditorPanel(
             )
             BarButton("-", Color(0xFF37474F), false, Modifier.width(44.dp)) { scale = (scale - 0.1f).coerceIn(0.5f, 1f) }
             BarButton("+", Color(0xFF37474F), false, Modifier.width(44.dp)) { scale = (scale + 0.1f).coerceIn(0.5f, 1f) }
-            BarButton("Salir", Color(0xFF6B1C3A), false, Modifier.width(64.dp)) { onExit() }
+            BarButton(stringResource(R.string.dbg_exit), Color(0xFF6B1C3A), false, Modifier.width(64.dp)) { onExit() }
         }
 
         Column(
             modifier = Modifier.weight(1f, fill = false).verticalScroll(contentScroll),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            val drawingShape = if (tool == DebugEditTool.BLOCK) "un rectangulo" else "una linea"
+            val drawingShape = if (tool == DebugEditTool.BLOCK) stringResource(R.string.dbg_shape_rect) else stringResource(R.string.dbg_shape_line)
             val hint = if (tool == DebugEditTool.NONE)
-                "Editor de lineas: elige una herramienta y dibuja con el dedo en el mapa"
+                stringResource(R.string.dbg_hint_idle)
             else
-                "Dibuja con el dedo: arrastra para $drawingShape"
+                stringResource(R.string.dbg_hint_draw, drawingShape)
             Text(
                 hint,
                 color = Color(0xFFCFD8DC),
@@ -138,24 +140,24 @@ fun InteriorDebugEditorPanel(
             )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                BarButton("Barda", Color(0xFFD32F2F), tool == DebugEditTool.WALL, Modifier.weight(1f)) { onSelectTool(DebugEditTool.WALL) }
-                BarButton("Zona", Color(0xFFB71C1C), tool == DebugEditTool.BLOCK, Modifier.weight(1f)) { onSelectTool(DebugEditTool.BLOCK) }
-                BarButton("Peatonal", Color(0xFF4CAF50), tool == DebugEditTool.NAV_PED, Modifier.weight(1f)) { onSelectTool(DebugEditTool.NAV_PED) }
-                BarButton("Autos", Color(0xFFFF8F00), tool == DebugEditTool.NAV_CAR, Modifier.weight(1f)) { onSelectTool(DebugEditTool.NAV_CAR) }
+                BarButton(stringResource(R.string.dbg_tool_wall), Color(0xFFD32F2F), tool == DebugEditTool.WALL, Modifier.weight(1f)) { onSelectTool(DebugEditTool.WALL) }
+                BarButton(stringResource(R.string.dbg_tool_zone), Color(0xFFB71C1C), tool == DebugEditTool.BLOCK, Modifier.weight(1f)) { onSelectTool(DebugEditTool.BLOCK) }
+                BarButton(stringResource(R.string.dbg_tool_ped), Color(0xFF4CAF50), tool == DebugEditTool.NAV_PED, Modifier.weight(1f)) { onSelectTool(DebugEditTool.NAV_PED) }
+                BarButton(stringResource(R.string.dbg_tool_car), Color(0xFFFF8F00), tool == DebugEditTool.NAV_CAR, Modifier.weight(1f)) { onSelectTool(DebugEditTool.NAV_CAR) }
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                BarButton("Deshacer", Color(0xFF455A64), false, Modifier.weight(1f)) { onUndo() }
-                BarButton("Limpiar", Color(0xFF8D6E63), false, Modifier.weight(1f)) { onClear() }
-                BarButton("Exportar", Color(0xFF2E7D32), false, Modifier.weight(1f)) { onExport() }
-                BarButton("Importar", Color(0xFF00695C), false, Modifier.weight(1f)) { onImport() }
+                BarButton(stringResource(R.string.dbg_undo), Color(0xFF455A64), false, Modifier.weight(1f)) { onUndo() }
+                BarButton(stringResource(R.string.dbg_clear), Color(0xFF8D6E63), false, Modifier.weight(1f)) { onClear() }
+                BarButton(stringResource(R.string.dbg_export), Color(0xFF2E7D32), false, Modifier.weight(1f)) { onExport() }
+                BarButton(stringResource(R.string.dbg_import), Color(0xFF00695C), false, Modifier.weight(1f)) { onImport() }
             }
 
-            val routeLabel = if (routeNpcsActive) "Quitar NPCs de ruta" else "Sembrar 60 NPCs en ruta"
+            val routeLabel = if (routeNpcsActive) stringResource(R.string.dbg_route_remove) else stringResource(R.string.dbg_route_seed)
             val routeColor = if (routeNpcsActive) Color(0xFFB71C1C) else Color(0xFF1565C0)
             BarButton(routeLabel, routeColor, routeNpcsActive, Modifier.fillMaxWidth()) { onToggleRouteNpcs() }
 
-            val counts = "bardas $wallsCount - zonas $blocksCount - peatonal $navPedCount - autos $navCarCount"
+            val counts = stringResource(R.string.dbg_counts, wallsCount, blocksCount, navPedCount, navCarCount)
             Text(
                 counts,
                 color = Color(0xFF90A4AE),

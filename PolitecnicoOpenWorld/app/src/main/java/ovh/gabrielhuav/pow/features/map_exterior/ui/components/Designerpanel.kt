@@ -188,7 +188,7 @@ fun DesignerPanel(
                 ) {
                     // ANCHO
                     Text(
-                        "ANCHO: ${String.format("%.2f", landmark.scaleX)}x",
+                        androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_width, "${String.format("%.2f", landmark.scaleX)}x"),
                         color = Color.White,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.SemiBold
@@ -225,7 +225,7 @@ fun DesignerPanel(
 
                     // ALTO
                     Text(
-                        "ALTO: ${String.format("%.2f", landmark.scaleY)}x",
+                        androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_designer_height, "${String.format("%.2f", landmark.scaleY)}x"),
                         color = Color.White,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.SemiBold

@@ -266,13 +266,13 @@ class MainActivity : ComponentActivity() {
                     var showSaveDialog by remember { mutableStateOf(false) }
                     if (showSaveDialog) {
                         ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
-                            title = "Guardar partida",
+                            title = stringResource(R.string.wm_opt_save_game),
                             summariesProvider = { SaveGameRepository(this@MainActivity).summaries() },
                             mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.SAVE,
                             onPick = { slot ->
                                 showSaveDialog = false
                                 worldMapViewModel.saveGame(this@MainActivity, slot)
-                                android.widget.Toast.makeText(this@MainActivity, "Partida guardada (slot $slot)", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(this@MainActivity, this@MainActivity.getString(R.string.save_toast_saved, slot), android.widget.Toast.LENGTH_SHORT).show()
                             },
                             onDelete = { slot -> SaveGameRepository(this@MainActivity).clear(slot) },
                             onDismiss = { showSaveDialog = false }
@@ -367,7 +367,7 @@ class MainActivity : ComponentActivity() {
                             }
                             newGameSchool?.let { school ->
                                 ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
-                                    title = "Nueva partida · elige slot",
+                                    title = stringResource(R.string.save_dialog_new_slot),
                                     summariesProvider = { SaveGameRepository(this@MainActivity).summaries() },
                                     mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.SAVE,
                                     onDelete = { slot -> SaveGameRepository(this@MainActivity).clear(slot) },
@@ -383,7 +383,7 @@ class MainActivity : ComponentActivity() {
                             }
                             if (showLoadDialog) {
                                 ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
-                                    title = "Cargar partida",
+                                    title = stringResource(R.string.save_dialog_load),
                                     summariesProvider = { SaveGameRepository(this@MainActivity).summaries() },
                                     mode = ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsMode.LOAD,
                                     onDelete = { slot -> SaveGameRepository(this@MainActivity).clear(slot) },

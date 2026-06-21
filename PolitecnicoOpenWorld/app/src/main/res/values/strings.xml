@@ -319,4 +319,70 @@
     <string name="settings_dpad">Cruz de Botones</string>
     <string name="settings_joystick">Joystick Virtual</string>
 
+    <!-- ─── Modo Historia: misión fallida ─── -->
+    <string name="wm_mission_failed">MISIÓN\nFALLIDA</string>
+    <string name="wm_retry_mission">REINTENTAR MISIÓN</string>
+    <string name="wm_exit_to_menu">Salir al menú</string>
+    <string name="wm_tip_carjack">Presiona Y cerca de un auto para robarlo.</string>
+    <string name="wm_opt_save_game">Guardar partida</string>
+    <!-- ─── Widget de objetivo (campaña) ─── -->
+    <string name="wm_objective_label">🎯 OBJETIVO</string>
+    <string name="wm_objective_done">✅ Cumplido</string>
+    <string name="wm_dist_km">A %1$s km</string>
+    <string name="wm_dist_m">A %1$d m</string>
+    <!-- ─── Prankedy: descripción completa del diálogo de contratación ─── -->
+    <string name="wm_prankedy_desc_full">Un personaje misterioso que apareció en los pasillos del Politécnico. Experto en travesuras y en lanzar objetos a distancia. Con él de tu lado, los enemigos tienen poco que hacer.\n\n⚔️ Ataca NPCs hostiles automáticamente\n🏃 Te sigue a donde vayas\n🎭 Siempre tiene algo que decir</string>
+    <!-- ─── Editor Debug Interiores (Modo Desarrollador) ─── -->
+    <string name="dbg_move_recenter">Mover (toca = recentrar)</string>
+    <string name="dbg_exit">Salir</string>
+    <string name="dbg_shape_rect">un rectángulo</string>
+    <string name="dbg_shape_line">una línea</string>
+    <string name="dbg_hint_idle">Editor de líneas: elige una herramienta y dibuja con el dedo en el mapa</string>
+    <string name="dbg_hint_draw">Dibuja con el dedo: arrastra para %1$s</string>
+    <string name="dbg_tool_wall">Barda</string>
+    <string name="dbg_tool_zone">Zona</string>
+    <string name="dbg_tool_ped">Peatonal</string>
+    <string name="dbg_tool_car">Autos</string>
+    <string name="dbg_undo">Deshacer</string>
+    <string name="dbg_clear">Limpiar</string>
+    <string name="dbg_export">Exportar</string>
+    <string name="dbg_import">Importar</string>
+    <string name="dbg_route_remove">Quitar NPCs de ruta</string>
+    <string name="dbg_route_seed">Sembrar 60 NPCs en ruta</string>
+    <string name="dbg_counts">bardas %1$d - zonas %2$d - peatonal %3$d - autos %4$d</string>
+    <!-- ─── Modo Historia: intro cómic + selector de slots ─── -->
+    <string name="story_choose_slot">Elige un slot para cargar tu partida.</string>
+    <string name="story_tap_start">Toca la pantalla para INICIAR</string>
+    <string name="story_tap_continue">Toca a la derecha para continuar</string>
+    <string name="story_intro_back">&lt; Volver</string>
+    <string name="story_intro_skip">Saltar</string>
+    <string name="story_intro_start">Iniciar</string>
+    <!-- ─── Editor del cómic de intro (Modo Desarrollador) ─── -->
+    <string name="story_ed_done">Listo</string>
+    <string name="story_ed_edit">Editar</string>
+    <string name="story_ed_move">⠿  Mover panel  (arrástrame)</string>
+    <string name="story_ed_box">Cuadro - top=%1$.2f alto=%2$.2f ancho=%3$.2f letra=%4$.0f</string>
+    <string name="story_ed_up">Subir</string>
+    <string name="story_ed_down">Bajar</string>
+    <string name="story_ed_h_minus">Alto -</string>
+    <string name="story_ed_h_plus">Alto +</string>
+    <string name="story_ed_w_minus">Ancho -</string>
+    <string name="story_ed_w_plus">Ancho +</string>
+    <string name="story_ed_f_minus">Letra -</string>
+    <string name="story_ed_f_plus">Letra +</string>
+    <string name="story_ed_all">Todas</string>
+    <string name="story_ed_export">Exportar</string>
+    <!-- ─── Interiores / zombis (player-facing) ─── -->
+    <string name="cd_exit">Salir</string>
+    <string name="cd_key">Llave</string>
+    <string name="cd_player_remote">Jugador remoto</string>
+    <string name="zhud_inv_empty">Vacío. Busca y recoge una llave.</string>
+    <string name="zhud_inv_has_key">Llave guardada. Pruébala en la puerta de avance (→).</string>
+    <string name="zgame_key_prompt">🔑 Hay una llave — pulsa ACCIÓN para inspeccionarla</string>
+    <string name="zgame_objective_investigate">Objetivo: Investiga qué pasó</string>
+    <!-- ─── Diálogos de guardar/cargar (MainActivity) ─── -->
+    <string name="save_dialog_load">Cargar partida</string>
+    <string name="save_dialog_new_slot">Nueva partida · elige slot</string>
+    <string name="save_toast_saved">Partida guardada (slot %1$s)</string>
+
 </resources>
