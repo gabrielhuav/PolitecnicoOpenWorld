@@ -43,10 +43,19 @@ object CollisionMatrixRepository {
     }
 
     private fun readStore(context: Context): Store = try {
+        val asset = readAssetStore(context)
         val f = file(context)
-        // Sin archivo local (instalación nueva) → usar las matrices de fábrica del asset.
-        if (!f.exists()) readAssetStore(context)
-        else gson.fromJson(f.readText(), Store::class.java) ?: readAssetStore(context)
+        if (!f.exists()) {
+            asset
+        } else {
+            val local = gson.fromJson(f.readText(), Store::class.java) ?: Store()
+            // MERGE: base = matrices de FÁBRICA (asset); el LOCAL (ediciones del Diseñador) SOBREESCRIBE
+            // por sala. Así las salas NUEVAS del asset (p. ej. encb_lab1) SIEMPRE se cargan aunque exista
+            // un collision_matrices.json local viejo que no las tenga. (Antes el local tapaba al asset.)
+            val merged = HashMap<String, List<String>>(asset.rooms)
+            merged.putAll(local.rooms)
+            Store(version = local.version, rooms = merged)
+        }
     } catch (e: Exception) {
         readAssetStore(context)
     }

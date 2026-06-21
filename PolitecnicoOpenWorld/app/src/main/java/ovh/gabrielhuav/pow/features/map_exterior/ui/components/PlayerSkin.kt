@@ -30,7 +30,21 @@ enum class PlayerSkin(
      * (IntroPOW9/10/11/15). "" = panel por defecto (Lázaro/hombre). Ej.: con "Girl" se usa
      * `IntroPOW9Girl.webp`; con "Robot" se usa `IntroPOW9Robot.webp`. Ver StoryIntroScreen.
      */
-    val comicSuffix: String = ""
+    val comicSuffix: String = "",
+    /**
+     * Factor de escala visual del sprite a pie (mapa exterior). Compensa skins cuyo
+     * personaje ocupa poca fraccion del lienzo (mucho margen transparente) y por eso
+     * se veian MAS PEQUENAS que el resto. 1f = sin cambio.
+     */
+    val renderScale: Float = 1f,
+    /**
+     * Fracción vertical opaca (alto del personaje / alto del lienzo) del frame 1 de CAMINAR,
+     * PRECALCULADA. Es la referencia de tamaño que usa PlayerCharacter para que TODOS los frames
+     * midan lo mismo. Es estática a propósito: medirla en runtime (async) hacía que los frames
+     * cambiaran de tamaño durante la 1ª vuelta de la animación. Si cambias el arte de caminar,
+     * vuelve a medirla.
+     */
+    val walkBodyFraction: Float = 0.6f
 ) {
     LAZARO(
         displayName = "Lázaro",
@@ -39,7 +53,8 @@ enum class PlayerSkin(
         idleFrames   = 6,   // tienes 6
         walkFrames   = 6,   // tienes 6
         specialFrames = 8,  // tienes 8
-        comicSuffix = ""    // panel por defecto (hombre)
+        comicSuffix = "",   // panel por defecto (hombre)
+        walkBodyFraction = 0.61f
     ),
 
     escomgirl(
@@ -50,13 +65,27 @@ enum class PlayerSkin(
         walkFrames   = 5,   // tienes 5
         runFrames    = 4,   // tienes 4
         specialFrames = 6,  // tienes 6
-        comicSuffix = "Girl"
+        comicSuffix = "Girl",
+        walkBodyFraction = 0.94f
     ),
     robot(
         displayName = "Robot Estudiantx",
         skinFolder  = "robot",
         skinPrefix  = "robot_",
-        comicSuffix = "Robot"
+        comicSuffix = "Robot",
+        walkBodyFraction = 0.62f
+    ),
+    escomboy(
+        displayName = "Estudiante",
+        skinFolder  = "escomboy",
+        skinPrefix  = "escomboy_",
+        idleFrames   = 16,  // tienes 16
+        walkFrames   = 25,  // tienes 25
+        runFrames    = 16,  // tienes 16
+        specialFrames = 16, // tienes 16
+        comicSuffix = "Boy", // sin assets IntroPOW*Boy → cae al panel por defecto (hombre)
+        renderScale = 1.8f,  // personaje ~41% del lienzo 256² → se agranda para igualar al resto
+        walkBodyFraction = 0.41f
     ),
     // ── Agrega aquí nuevas skins ──────────────────────────────────────────
     // Ejemplo con una skin "Ana":

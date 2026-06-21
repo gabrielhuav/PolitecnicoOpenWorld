@@ -113,7 +113,16 @@ fun ZombieGameScreen(
     onPlayStoryOutro: () -> Unit = {},
     // MODO HISTORIA: notifica la sala actual (id de ZombieRoomCatalog) al entrar y en cada
     // cambio de sala, para que el guardado sepa en qué interior estaba el jugador.
-    onRoomChanged: (String) -> Unit = {}
+    onRoomChanged: (String) -> Unit = {},
+    // MODO HISTORIA: objetivo a mostrar DENTRO del interior (p. ej. "Busca pistas en la ESCOM"
+    // tras la Misión 1). null = no mostrar widget de objetivo. El objetivo del mapa exterior NO
+    // se altera (allá sigue "Ingresa a la ESCOM, Cumplido").
+    interiorObjective: ovh.gabrielhuav.pow.domain.models.CampaignObjective? = null,
+    // INVENTARIO: estado restaurado al CARGAR partida dentro del interior (assetPaths de llaves +
+    // progreso de ENCB_lab1) y callback para PERSISTIRLO (lo escribe MainActivity en el VM del mundo).
+    initialInventoryKeys: List<String> = emptyList(),
+    initialLab1KeyFound: Boolean = false,
+    onInteriorProgress: (List<String>, Boolean) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     // Modo Desarrollador: si está APAGADO se ocultan botones de prueba (Diseñador, y "Salir al mapa"
@@ -121,10 +130,16 @@ fun ZombieGameScreen(
     val developerMode = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getDeveloperMode() }
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
     val viewModel: ZombieGameViewModel = viewModel(
-        factory = ZombieGameViewModel.Factory(context, serverUrl, playerName, startRoomId)
+        factory = ZombieGameViewModel.Factory(context, serverUrl, playerName, startRoomId, initialInventoryKeys, initialLab1KeyFound)
     )
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current
+
+    // Puente de PERSISTENCIA: cada cambio de inventario/progreso del puzzle se empuja al VM del
+    // mundo (vía MainActivity) para que el guardado lo capture.
+    LaunchedEffect(state.inventoryKeys, state.lab1KeyFound) {
+        onInteriorProgress(state.inventoryKeys, state.lab1KeyFound)
+    }
 
     // Export/Import del JSON de matrices (igual que el mapa principal con landmarks).
     val exportLauncher = rememberLauncherForActivityResult(
@@ -341,6 +356,19 @@ fun ZombieGameScreen(
                     )
                 }
 
+                // Llaves del puzzle (Modo Historia · ENCB_lab1) en el suelo.
+                state.keys.forEach { key ->
+                    if (!onScreen(key.x, key.y)) return@forEach
+                    KeyGroundItem(
+                        assetPath = key.assetPath,
+                        highlighted = state.nearbyKeyId == key.id,
+                        modifier = Modifier.absoluteOffset(
+                            x = with(density) { toScreenX(key.x).toDp() } - 22.dp,
+                            y = with(density) { toScreenY(key.y).toDp() } - 22.dp
+                        )
+                    )
+                }
+
                 // Proyectiles
                 val bulletSize = 10f * cam.scale
                 state.projectiles.forEach { p ->
@@ -452,7 +480,8 @@ fun ZombieGameScreen(
                 )
             }
             // ─── Mano zombi fija en el lobby (desaparece tras activar el modo zombie) ──
-            if (room.id == ZombieRoomCatalog.LOBBY_ID && !state.zombieModeActivated) {
+            // Solo visible en Modo Desarrollador (Interfaz): es la que activa el modo zombi.
+            if (developerMode && room.id == ZombieRoomCatalog.LOBBY_ID && !state.zombieModeActivated) {
                 val handNx = 0.50f
                 val handNy = 0.45f
                 val handSizePx = 64f * cam.scale
@@ -551,10 +580,14 @@ fun ZombieGameScreen(
                 onSecondaryPressed = viewModel::onSecondaryPressed,
                 onSecondaryReleased = viewModel::onSecondaryReleased,
                 onSelectMode = viewModel::selectCombatMode,
-                onDismissWeaponMenu = viewModel::dismissWeaponMenu
+                onDismissInventory = viewModel::dismissInventory
             )
 
-            (state.nearbyDoorLabel ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
+            // Aviso de llave (cuando el jugador está sobre una). keyMessage (resultado de probar /
+            // puerta cerrada) tiene prioridad y es transitorio.
+            val keyPrompt = if (state.nearbyKeyId != null)
+                "🔑 Hay una llave — pulsa ACCIÓN para inspeccionarla" else null
+            (state.keyMessage ?: state.nearbyDoorLabel ?: keyPrompt ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
                 Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
                     Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
                         modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
@@ -580,6 +613,22 @@ fun ZombieGameScreen(
                             .alpha(0.85f)   // difuminado para no chocar con los widgets
                             .background(Color(0x99000000), RoundedCornerShape(10.dp))
                             .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            // ─── OBJETIVO DE CAMPAÑA EN INTERIORES (p. ej. ESCOM tras Misión 1) ──
+            // Mismo widget que el mapa exterior, anclado arriba-centro. Sin distancia
+            // (playerLocation=null) → muestra la descripción del objetivo.
+            interiorObjective?.let { obj ->
+                Box(
+                    Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
+                    Alignment.TopCenter
+                ) {
+                    ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
+                        objective = obj,
+                        done = false,
+                        playerLocation = null
                     )
                 }
             }
@@ -935,6 +984,39 @@ private fun ToolButton(label: String, selected: Boolean, color: Color, modifier:
         shape = RoundedCornerShape(8.dp)
     ) {
         Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// Llave del puzzle (ENCB_lab1) dibujada en el suelo. Carga el PNG del asset (submuestreado para
+// no gastar memoria en gama baja) y, si el jugador está sobre ella, la resalta con un aro dorado.
+@Composable
+private fun KeyGroundItem(assetPath: String, highlighted: Boolean, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var bmp by remember(assetPath) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(assetPath) {
+        bmp = withContext(Dispatchers.IO) {
+            try {
+                context.assets.open(assetPath).use {
+                    val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = 4 }
+                    android.graphics.BitmapFactory.decodeStream(it, null, o)?.asImageBitmap()
+                }
+            } catch (e: Exception) { null }
+        }
+    }
+    Box(modifier = modifier.size(44.dp), contentAlignment = Alignment.Center) {
+        if (highlighted) {
+            Box(
+                Modifier.size(44.dp).clip(CircleShape)
+                    .background(Color(0x66FFD54F))
+                    .border(2.dp, Color(0xFFFFD54F), CircleShape)
+            )
+        }
+        val img = bmp
+        if (img != null) {
+            Image(img, contentDescription = "Llave", modifier = Modifier.size(if (highlighted) 40.dp else 34.dp))
+        } else {
+            Text("🔑", fontSize = 26.sp)
+        }
     }
 }
 

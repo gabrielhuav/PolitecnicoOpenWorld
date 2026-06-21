@@ -22,6 +22,12 @@ internal const val ZOMBIE_DAMAGE_COOLDOWN_MS = 3000L
         // se cura gradualmente por tick hasta tope de 100.
 internal const val LOBBY_REGEN_PER_TICK = 0.35f
 
+// ─── INVENTARIO ───────────────────────────────────────────────────────────────
+// Slots DESBLOQUEADOS (usables) vs TOTAL mostrados. Por ahora 1 usable; el resto salen
+// bloqueados (rojo) y se desbloquearán en misiones futuras.
+internal const val INVENTORY_UNLOCKED_SLOTS = 1
+internal const val INVENTORY_TOTAL_SLOTS = 4
+
 internal const val PLAYER_PUNCH_DAMAGE = 34f
 internal const val PLAYER_ATTACK_RADIUS = 120f
 internal const val PLAYER_ATTACK_COOLDOWN_MS = 600L
@@ -56,4 +62,4 @@ internal const val ZOMBIE_DMG_FURY_FACTOR = 2.0f
 internal const val ZOMBIE_DMG_WEAK_FACTOR = 0.4f
 internal const val PLAYER_DMG_BRUTE_FACTOR = 2.2f
 
-internal const val NET_SEND_INTERVAL_MS = 100L
+internal const val NET_SEND_INTERVAL_MS = 100L

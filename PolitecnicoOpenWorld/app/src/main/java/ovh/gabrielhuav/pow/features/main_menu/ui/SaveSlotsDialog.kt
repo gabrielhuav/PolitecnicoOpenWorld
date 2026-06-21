@@ -48,7 +48,10 @@ fun SaveSlotsDialog(
     mode: SaveSlotsMode,
     onPick: (Int) -> Unit,
     onDelete: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    // Si true, OCULTA los slots de AUTO-GUARDADO (reservados). Útil en "Nueva partida": como no
+    // son seleccionables, mejor no mostrarlos para que el usuario no intente picarlos.
+    hideAutoSlots: Boolean = false
 ) {
     val fmt = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
     var summaries by remember { mutableStateOf(summariesProvider()) }
@@ -62,7 +65,10 @@ fun SaveSlotsDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())
             ) {
-                summaries.forEach { s ->
+                val visibleSummaries = if (hideAutoSlots)
+                    summaries.filter { !SaveGameRepository.AUTO_SLOTS.contains(it.slot) }
+                else summaries
+                visibleSummaries.forEach { s ->
                     val isAuto = SaveGameRepository.AUTO_SLOTS.contains(s.slot)
                     val schoolName = s.schoolId?.let { id ->
                         SchoolCatalog.schools.firstOrNull { it.id == id }?.displayName ?: id

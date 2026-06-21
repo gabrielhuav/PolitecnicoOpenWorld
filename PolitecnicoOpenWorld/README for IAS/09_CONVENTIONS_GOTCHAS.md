@@ -302,7 +302,10 @@ matrices por defecto son **border-only** hasta reemplazarse.
   `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del
   usuario se respeta entre transiciones. **NO cambies `zoomLevel` directamente en transiciones;**
   el game loop interpola `zoomLevel` hacia `targetZoomLevel` (~1 nivel por tick) para evitar el
-  "shock" visual brusco al robar/salir de un auto. No volver a clavar el zoom web a 19 (`setMapProvider`
+  "shock" visual brusco al robar/salir de un auto. **GOTCHA:** cualquier acción que fije `zoomLevel`
+  a mano (`zoomIn/zoomOut/onMapZoomChanged/zoomToPlayer`) DEBE fijar TAMBIÉN `targetZoomLevel`, o el
+  `updateAutoZoom()` del siguiente tick arrastra el zoom de vuelta y "rebota" (era el bug de "Hacer
+  zoom en el jugador" tras un zoom out). No volver a clavar el zoom web a 19 (`setMapProvider`
   ahora capea a 22; `ZOOM_GAMEPLAY_WEB=19` es solo el nivel de pre-descarga de tiles).
 - **Fixes de estabilidad (TP/skin/ESCOM):** (a) el snap-to-road de `moveCharacter`/`moveCharacterByAngle`
   **ignora el movimiento** si la calle más cercana está a > `MAX_SNAP_DISTANCE_DEG` (0.0003 ≈ 33 m) — antes

@@ -59,6 +59,21 @@ data class ZombieGameState(
     val nearbyItemId: String? = null,
     val pickupToast: String? = null,
 
+    // ─── PUZZLE DE LLAVES (Modo Historia · ENCB_lab1) ──────────────────────
+    // Llaves dispersas en la sala; el jugador inspecciona/prueba hasta hallar la correcta, que
+    // abre la puerta de avance. `lab1KeyFound` persiste mientras se siga en la cadena ENCB.
+    val keys: List<ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop> = emptyList(),
+    val nearbyKeyId: String? = null,
+    val lab1KeyFound: Boolean = false,
+    val keyMessage: String? = null,
+
+    // ─── INVENTARIO ───────────────────────────────────────────────────────
+    // Por ahora 1 slot DESBLOQUEADO (guarda 1 llave); el resto se muestran bloqueados (rojo) y
+    // se desbloquearán en misiones futuras. `inventoryKeys` = assetPaths de llaves recogidas.
+    // Se GUARDA en las partidas (junto con lab1KeyFound). Se abre manteniendo Y.
+    val showInventory: Boolean = false,
+    val inventoryKeys: List<String> = emptyList(),
+
     val controlType: ControlType = ControlType.JOYSTICK,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,

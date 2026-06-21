@@ -72,7 +72,19 @@ object MissionCatalog {
         arriveRadiusMeters = 0.0
     )
 
-    private val all = listOf(IR_ENCB, ESCOLTAR_PRANKEDY, INGRESAR_ESCOM)
+    // Objetivo de INTERIORES tras la Misión 1: una vez DENTRO de la ESCOM. NO se muestra en
+    // el mapa exterior (ahí queda "Ingresa a la ESCOM, Cumplido"); solo en el interior de la ESCOM.
+    // Sin destino real (radio 0): es un objetivo de exploración, no de llegada.
+    val BUSCAR_PISTAS_ESCOM = CampaignObjective(
+        id = "buscar_pistas_escom",
+        title = "Busca pistas en la ESCOM",
+        description = "Explora la ESCOM en busca de pistas.",
+        targetLat = ESCOM_DOOR_LAT,
+        targetLon = ESCOM_DOOR_LON,
+        arriveRadiusMeters = 0.0
+    )
+
+    private val all = listOf(IR_ENCB, ESCOLTAR_PRANKEDY, INGRESAR_ESCOM, BUSCAR_PISTAS_ESCOM)
 
     // Objetivo con el que arranca una campaña nueva.
     val first: CampaignObjective = IR_ENCB

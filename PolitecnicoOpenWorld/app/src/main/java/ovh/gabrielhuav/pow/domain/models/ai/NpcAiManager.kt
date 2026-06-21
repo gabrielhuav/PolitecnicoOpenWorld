@@ -361,10 +361,19 @@ class NpcAiManager {
             var totalCount = 0
             for (n in serverNpcs) {
                 // Los NPCs de la ruta de campaña NO cuentan para el cupo (son escenografía exenta).
-                if (n.displayName.isNullOrEmpty() && !n.id.startsWith(ROUTE_NPC_PREFIX)) {
+                // Los AUTOS ESTACIONADOS (PARKED) tampoco: son escenografía del campus. Si contaran,
+                // 81 cajones (> maxTotalNpcs) saturaban el cupo y BLOQUEABAN peatones y tráfico
+                // ("no aparecen NPCs"). Por eso se excluyen del cupo aquí y en los gates de spawn.
+                if (n.displayName.isNullOrEmpty() && !n.id.startsWith(ROUTE_NPC_PREFIX) &&
+                    n.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) {
                     totalCount++
                     if (calculateDistance(n.location.latitude, n.location.longitude, pLat0, pLon0) <= simRadius) activeCount++
                 }
+            }
+            // Cupo de NPCs vivos NO estacionados (los PARKED son escenografía exenta, como la ruta).
+            fun nonParkedAlive() = serverNpcs.count {
+                it.displayName.isNullOrEmpty() && !it.id.startsWith(ROUTE_NPC_PREFIX) &&
+                    it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED
             }
 
             if (totalCount > maxTotalNpcs) {
@@ -404,9 +413,13 @@ class NpcAiManager {
                 val targetCars = (totalSlots * PARKING_FILL_RATIO).toInt().coerceAtLeast(PARKING_MIN_CARS)
                 val minCars = (totalSlots * PARKING_REFILL_RATIO).toInt().coerceAtLeast(PARKING_MIN_CARS)
                 // Repuebla si el campus ya estaba poblado pero los carros bajaron del 80% (con cooldown).
+                // Si el lote ya estaba POBLADO pero quedo VACIO (0 carros) — caso tipico al
+                // VOLVER del interior de la ESCOM, donde se limpian las entidades sin pasar por
+                // dist>=0.02 — repoblamos YA, sin esperar el cooldown (los carros deben seguir ahi).
+                val lotEmptyButPopulated = parkedAlive == 0 && populatedLandmarks.contains(lmKey)
                 val needsRepopulate = dist < 0.01 && populatedLandmarks.contains(lmKey) &&
                     parkedAlive < minCars &&
-                    System.currentTimeMillis() >= (landmarkRepopulateAt[lmKey] ?: 0L)
+                    (lotEmptyButPopulated || System.currentTimeMillis() >= (landmarkRepopulateAt[lmKey] ?: 0L))
                 if (dist < 0.01 && (!populatedLandmarks.contains(lmKey) || needsRepopulate)) {
                   try {
                     val firstPopulate = !populatedLandmarks.contains(lmKey)   // true solo la 1ª vez (no en rellenos)
@@ -435,7 +448,7 @@ class NpcAiManager {
                         if (pedestrianWays.isNotEmpty()) {
                             val numStudents = Random.nextInt(15, 30)
                             for (i in 0 until numStudents) {
-                                if (serverNpcs.size < maxTotalNpcs) {
+                                if (nonParkedAlive() < maxTotalNpcs) {
                                     val pWay = pedestrianWays.random()
                                     val pNode = pWay.nodes.random()
                                     serverNpcs.add(spawnCampusPedestrian(landmark, pWay, pNode))
@@ -483,7 +496,9 @@ class NpcAiManager {
                     // de calle se FUERZAN a persona.
                     var activeCarCount = 0
                     for (n in serverNpcs) {
+                        // Excluye estacionados: son escenografía, no "tráfico" para la cuota de coches.
                         if (n.displayName.isNullOrEmpty() && n.type == NpcType.CAR &&
+                            n.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED &&
                             calculateDistance(n.location.latitude, n.location.longitude, pLat, pLon) <= simRadius
                         ) activeCarCount++
                     }
@@ -502,7 +517,7 @@ class NpcAiManager {
                                 val pNode = pWay.nodes.random()
                                 val groupSize = Random.nextInt(1, 4)
                                 for (g in 0 until groupSize) {
-                                    if (serverNpcs.size < maxTotalNpcs) {
+                                    if (nonParkedAlive() < maxTotalNpcs) {
                                         serverNpcs.add(spawnCampusPedestrian(targetLandmark, pWay, pNode))
                                     }
                                 }
@@ -554,7 +569,7 @@ class NpcAiManager {
             if (globalZombieMode) {
                 val zombies = serverNpcs.filter { it.type == NpcType.ZOMBIE && it.health > 0 }
 
-                if (zombies.size < INITIAL_ZOMBIE_SEED && serverNpcs.size < maxTotalNpcs) {
+                if (zombies.size < INITIAL_ZOMBIE_SEED && nonParkedAlive() < maxTotalNpcs) {
                     val closeWays = cachedWayBoxes.get().map { it.way }
                     if (closeWays.isNotEmpty()) {
                         spawnNpcOnRoad(playerLocation, closeWays, activeLandmarks)?.let {
@@ -577,7 +592,7 @@ class NpcAiManager {
                         val hordeWays = cachedWayBoxes.get().map { it.way }
                         if (hordeWays.isNotEmpty()) {
                             var k = 0
-                            while (k < HORDE_SIZE && serverNpcs.size < maxTotalNpcs) {
+                            while (k < HORDE_SIZE && nonParkedAlive() < maxTotalNpcs) {
                                 spawnNpcOnRoad(playerLocation, hordeWays, activeLandmarks)?.let {
                                     val role = rollZombieRole()
                                     val hp = maxHealthForRole(role)
@@ -592,7 +607,7 @@ class NpcAiManager {
                 if (now - lastPoliceSpawnMs >= POLICE_SPAWN_INTERVAL_MS) {
                     lastPoliceSpawnMs = now
                     val cops = serverNpcs.count { it.type == NpcType.POLICE_COP && it.health > 0f }
-                    if (cops < POLICE_HUNTER_MAX && Random.nextFloat() < POLICE_SPAWN_CHANCE && serverNpcs.size < maxTotalNpcs) {
+                    if (cops < POLICE_HUNTER_MAX && Random.nextFloat() < POLICE_SPAWN_CHANCE && nonParkedAlive() < maxTotalNpcs) {
                         val pWays = cachedWayBoxes.get().map { it.way }
                         if (pWays.isNotEmpty()) {
                             spawnNpcOnRoad(playerLocation, pWays, activeLandmarks)?.let {

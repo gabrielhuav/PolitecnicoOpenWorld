@@ -190,8 +190,12 @@ fun PlayerCharacter(
             } else {
                 // ── Modo a pie ───────────────────────────────────────────
 
-                // 🧍 Jugador a pie: 1.3 m, en paridad con los peatones NPC (antes 0.9 m).
-                val exactPersonDp = (1.3 / metersPerPixel).dp.coerceAtLeast(12.dp)
+                // 🧍 Jugador a pie: TAMAÑO FIJO en pantalla, DESACOPLADO del zoom. El avatar del
+                // jugador NO debe encogerse al alejar la cámara; solo cambia su POSICIÓN en el mundo.
+                // (Los NPCs/peatones/coches SÍ siguen el tamaño real-meter dependiente del zoom; el
+                // tamaño fijo es solo para el jugador, a petición.) ~38dp ≈ el tamaño que tenía a pie
+                // en el zoom por defecto (z22), así no "salta" al ajustar el comportamiento.
+                val exactPersonDp = 38.dp
 
                 val action       = uiState.playerAction
                 val isFacingRight = uiState.isPlayerFacingRight
@@ -206,23 +210,10 @@ fun PlayerCharacter(
                 // CORRER suele venir en un lienzo más alto, así que al ajustarse al cuadro el
                 // personaje se veía MÁS PEQUEÑO que CAMINAR. Compensamos con esta fracción.
                 val fracCache = remember { mutableMapOf<String, Float>() }
-                // Fracción de referencia = la de CAMINAR (frame 1) de la skin actual. Todas las
-                // animaciones se escalan para que el personaje mida lo mismo que al caminar.
-                var walkRefFrac by remember(skin) { mutableStateOf<Float?>(null) }
-
-                // Referencia de tamaño: medimos el frame 1 de CAMINAR de la skin.
-                LaunchedEffect(skin) {
-                    val wp = skin.walkPath(1)
-                    fracCache[wp]?.let { walkRefFrac = it; return@LaunchedEffect }
-                    val f = withContext(Dispatchers.IO) {
-                        try {
-                            context.assets.open(wp).use { st ->
-                                BitmapFactory.decodeStream(st)?.let { opaqueVerticalFraction(it) }
-                            }
-                        } catch (e: Exception) { null }
-                    }
-                    if (f != null) { fracCache[wp] = f; walkRefFrac = f }
-                }
+                // Referencia de tamaño = fracción opaca de CAMINAR, PRECALCULADA y ESTÁTICA en
+                // `PlayerSkin.walkBodyFraction`. Antes se medía en runtime (async) y arrancaba en
+                // null: durante la 1ª vuelta de la animación la normalización se desactivaba y los
+                // frames cambiaban de tamaño. Con la constante está lista desde el primer frame.
 
                 // Relanzar cuando cambia la acción O la skin
                 LaunchedEffect(action, skin) {
@@ -258,8 +249,10 @@ fun PlayerCharacter(
                     // traiga el lienzo de cada animación. Así CORRER deja de verse más pequeño.
                     val assetPath = skin.assetPath(action, currentFrame)
                     val frac = (fracCache[assetPath] ?: 0.6f).coerceIn(0.05f, 1f)
-                    val ref = (walkRefFrac ?: frac).coerceIn(0.05f, 1f)
-                    val boxHeightDp = exactPersonDp * (ref / frac)
+                    val ref = skin.walkBodyFraction.coerceIn(0.05f, 1f)
+                    // renderScale compensa skins cuyo personaje ocupa poca fracción del lienzo
+                    // (p. ej. escomboy en 256² con mucho margen) → así no se ven más pequeñas.
+                    val boxHeightDp = exactPersonDp * (ref / frac) * skin.renderScale
                     val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
                     val boxWidthDp = boxHeightDp * aspect
                     Image(

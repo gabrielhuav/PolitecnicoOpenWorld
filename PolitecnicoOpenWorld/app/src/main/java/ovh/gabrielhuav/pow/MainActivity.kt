@@ -323,11 +323,30 @@ class MainActivity : ComponentActivity() {
                             // COMENZAR: antes de la intro se elige el SLOT MANUAL donde quedará la
                             // partida nueva (los 2 slots de auto-guardado salen deshabilitados).
                             var newGameSchool by remember { mutableStateOf<ovh.gabrielhuav.pow.domain.models.CampaignSchool?>(null) }
+                            // PARTIDA NUEVA: PRIMERO se elige el PERSONAJE; al elegir se fija la skin
+                            // y se continúa al selector de slot (newGameSchool).
+                            var charPickSchool by remember { mutableStateOf<ovh.gabrielhuav.pow.domain.models.CampaignSchool?>(null) }
                             StoryModeScreen(
-                                onStartCampaign = { school -> newGameSchool = school },
+                                onStartCampaign = { school -> charPickSchool = school },
                                 onLoadCampaign = { showLoadDialog = true },
                                 onBack = { navController.popBackStack() }
                             )
+                            // Selector de personaje (Hombre/Mujer/No binario; LÁZARO solo en Modo Dev).
+                            charPickSchool?.let { school ->
+                                val devModeChar = remember {
+                                    ovh.gabrielhuav.pow.data.repository.SettingsRepository(this@MainActivity).getDeveloperMode()
+                                }
+                                ovh.gabrielhuav.pow.features.main_menu.ui.NewGameCharacterDialog(
+                                    context = this@MainActivity,
+                                    includeLazaro = devModeChar,
+                                    onPick = { skin ->
+                                        worldMapViewModel.selectSkin(skin)
+                                        charPickSchool = null
+                                        newGameSchool = school   // continúa al selector de slot
+                                    },
+                                    onDismiss = { charPickSchool = null }
+                                )
+                            }
                             newGameSchool?.let { school ->
                                 ovh.gabrielhuav.pow.features.main_menu.ui.SaveSlotsDialog(
                                     title = "Nueva partida · elige slot",
@@ -338,7 +357,10 @@ class MainActivity : ComponentActivity() {
                                         newGameSchool = null
                                         navController.navigate("story_intro/${school.id}?slot=$slot")
                                     },
-                                    onDismiss = { newGameSchool = null }
+                                    onDismiss = { newGameSchool = null },
+                                    // Nueva partida: oculta los 2 slots de autoguardado (no son
+                                    // seleccionables) para que el usuario no intente picarlos.
+                                    hideAutoSlots = true
                                 )
                             }
                             if (showLoadDialog) {
@@ -410,6 +432,9 @@ class MainActivity : ComponentActivity() {
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     worldMapViewModel.setStorySpawn(school.latitude, school.longitude)
                                     worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.MissionCatalog.first)
+                                    // Partida NUEVA: inventario fresco (el VM es Activity-scoped y persiste).
+                                    worldMapViewModel.currentInteriorInventory = emptyList()
+                                    worldMapViewModel.currentInteriorLab1KeyFound = false
                                     // Guardado MANUAL inicial en el slot elegido (para que "CARGAR PARTIDA"
                                     // lo muestre desde ya). Los autoguardados posteriores van a los slots auto.
                                     if (chosenSlot in SaveGameRepository.MANUAL_SLOTS) {
@@ -464,6 +489,13 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("story_outro") {
                                         popUpTo("encb_lobby") { inclusive = true }
                                     }
+                                },
+                                // INVENTARIO: restaura el progreso guardado y persiste cada cambio en el VM del mundo.
+                                initialInventoryKeys = worldMapViewModel.currentInteriorInventory,
+                                initialLab1KeyFound = worldMapViewModel.currentInteriorLab1KeyFound,
+                                onInteriorProgress = { keys, found ->
+                                    worldMapViewModel.currentInteriorInventory = keys
+                                    worldMapViewModel.currentInteriorLab1KeyFound = found
                                 }
                             )
                         }
@@ -909,6 +941,15 @@ class MainActivity : ComponentActivity() {
                             val wmState by worldMapViewModel.uiState.collectAsState()
                             val startRoom = backStackEntry.arguments?.getString("startRoom")
                                 ?: ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
+                            // MODO HISTORIA: tras la Misión 1 (INGRESAR_ESCOM cumplida), al entrar al
+                            // interior de la ESCOM (lobby) se muestra el objetivo "Busca pistas en la ESCOM".
+                            // El objetivo exterior NO cambia (allá sigue "Ingresa a la ESCOM, Cumplido").
+                            val interiorObjective = if (
+                                worldMapViewModel.inCampaign &&
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID &&
+                                wmState.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.MissionCatalog.INGRESAR_ESCOM.id &&
+                                wmState.objectiveDone
+                            ) ovh.gabrielhuav.pow.domain.models.MissionCatalog.BUSCAR_PISTAS_ESCOM else null
                             ZombieGameScreen(
                                 onExitToWorld = {
                                     worldMapViewModel.currentInteriorRoomId = null
@@ -934,6 +975,14 @@ class MainActivity : ComponentActivity() {
                                         // Limpia el interior y el world_map base (el outro reentra al mundo).
                                         popUpTo("world_map") { inclusive = true }
                                     }
+                                },
+                                interiorObjective = interiorObjective,
+                                // INVENTARIO: restaura el progreso guardado y persiste cada cambio en el VM del mundo.
+                                initialInventoryKeys = worldMapViewModel.currentInteriorInventory,
+                                initialLab1KeyFound = worldMapViewModel.currentInteriorLab1KeyFound,
+                                onInteriorProgress = { keys, found ->
+                                    worldMapViewModel.currentInteriorInventory = keys
+                                    worldMapViewModel.currentInteriorLab1KeyFound = found
                                 }
                             )
                         }

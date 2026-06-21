@@ -222,7 +222,7 @@ class WorldMapViewModel(
     internal val PLAYER_PUNCH_DAMAGE = 15f
     internal var lastAttackTime = 0L
     internal val ATTACK_COOLDOWN_MS = 1200L
-    internal val ATTACK_RADIUS = 0.00022
+    internal val ATTACK_RADIUS = 0.00008      // ~9 m: golpe CUERPO A CUERPO (antes 0.00022 ≈ ~24 m, pegaba de lejos)
 
     // ─── ATROPELLO + REACCIONES DE NPC (host) ────────────────────────────────
     internal val RUN_OVER_RADIUS = 0.00003        // ~3 m alrededor del vehículo
@@ -1560,6 +1560,12 @@ class WorldMapViewModel(
     // salir al mapa). El guardado lo persiste para que CARGAR reabra el interior correcto.
     internal var currentInteriorRoomId: String? = null
 
+    // INVENTARIO de interiores (llaves recogidas) y progreso del puzzle de ENCB_lab1. Los mantiene
+    // MainActivity (puente con ZombieGameViewModel) para que el GUARDADO los persista y CARGAR los
+    // restaure al reabrir el interior.
+    internal var currentInteriorInventory: List<String> = emptyList()
+    internal var currentInteriorLab1KeyFound: Boolean = false
+
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
 
@@ -1629,7 +1635,12 @@ class WorldMapViewModel(
     fun centerOnPlayer() { _uiState.update { it.copy(isUserPanningMap = false) } }
 
     /** Centra en el jugador Y acerca al máximo nivel de zoom permitido. */
-    fun zoomToPlayer() { _uiState.update { it.copy(isUserPanningMap = false, zoomLevel = 22.0) } }
+    fun zoomToPlayer() {
+        // Fijamos TAMBIEN el objetivo de interpolacion: si no, updateAutoZoom() arrastraba
+        // el zoom de vuelta al valor anterior (p. ej. tras un zoom out) y "rebotaba".
+        targetZoomLevel = 22.0
+        _uiState.update { it.copy(isUserPanningMap = false, zoomLevel = 22.0) }
+    }
 
     fun onMapPanStart() { _uiState.update { it.copy(isUserPanningMap = true) } }
     fun onMapPanEnd() { }
@@ -2758,6 +2769,20 @@ class WorldMapViewModel(
                     && !_uiState.value.objectiveDone) {
                     _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.title ?: ""}") }
                     soundManager.playMisionCumplida()
+                }
+                // Al ENTRAR a la ESCOM, Prankedy ya quedó a salvo dentro: deja de acompañarte para
+                // que NO siga contigo al volver al mapa (Misión 1 terminada). Solo afecta al
+                // acompañante de campaña (fase HIRED); el Prankedy hostil del menú no se toca aquí.
+                if (prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED) {
+                    prankedyManager.deactivate()
+                    prankedyCompanionActivated = true   // no re-encenderlo en este tramo
+                    _uiState.update { it.copy(
+                        prankedyEnabled = false,
+                        prankedyVisible = false,
+                        prankedyLocation = null,
+                        prankedyProjectileActive = false,
+                        prankedyDialogue = null
+                    ) }
                 }
                 _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }
             }
