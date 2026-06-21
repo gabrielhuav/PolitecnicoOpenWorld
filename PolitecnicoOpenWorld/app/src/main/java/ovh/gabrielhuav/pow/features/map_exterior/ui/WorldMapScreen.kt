@@ -270,7 +270,8 @@ fun WorldMapScreen(
     }
     val gson = remember { Gson() }
     val coroutineScope = rememberCoroutineScope()
-    var yButtonHoldJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    // REFACTOR: `yButtonHoldJob` se movió a WorldMapControls.kt (la pulsación larga de Y/△
+    // vive ahora junto a los controles).
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { viewModel.exportLandmarksToUri(context, it) }
@@ -2238,233 +2239,18 @@ fun WorldMapScreen(
         // (El widget de OBJETIVO se dibuja UNA sola vez, arriba-centro — ver más arriba.
         // Antes había aquí un segundo widget arriba-izquierda que duplicaba el objetivo.)
 
-        val configuration = LocalConfiguration.current
-        val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
-        // Misma altura/escala que los controles de INTERIORES (ZombieHud): se igualaron
-        // estos valores + systemBarsPadding para que los controles queden a la misma altura
-        // en el mundo global y en los interiores.
-        val maxScale = if (isPortrait) 0.95f else 1.3f
-        val effectiveScale = uiState.controlsScale.coerceAtMost(maxScale)
-        val sidePadding = if (isPortrait) 8.dp else 32.dp
-        val bottomPadding = if (isPortrait) 32.dp else 20.dp
-
-        // En HORIZONTAL, al abrir el menú de Opciones, este (arriba a la derecha) se
-        // extiende hacia abajo y choca con el control de la derecha (D-pad/diamante).
-        // Desplazamos ese control hacia la izquierda mientras el menú está abierto para
-        // que el usuario pueda usar el menú (con su scroll) sin que tape los botones.
-        val isMenuOpenLandscape = optionsExpanded && !isPortrait
-        val rightCtrlShift by animateDpAsState(
-            targetValue = if (isMenuOpenLandscape) (-150).dp else 0.dp,
-            label = "rightCtrlShift"
-        )
-        val rightShiftMod = Modifier.offset(x = rightCtrlShift)
-
-        if (uiState.globalZombieMode) {
-            androidx.compose.material3.Button(
-                onClick = { viewModel.exitGlobalZombieMode() },
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color.Red),
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 110.dp)
-            ) {
-                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_apocalypse), color = androidx.compose.ui.graphics.Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-            }
-        }
-
-        if (!uiState.isDesignerMode && !uiState.showInteriorDebugOverlay) { // Oculta joystick y botones en modo diseñador y al editar el Debug Interiores
-            Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = bottomPadding, start = sidePadding, end = sidePadding).systemBarsPadding(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                if (uiState.isDriving) {
-                // D-pad de conducción: SOLO gira (IZQ/DER). Arriba/abajo quedan inertes
-                // a propósito — gas y freno viven únicamente en el diamante PS4.
-                val drivingDpad = @Composable { m: Modifier ->
-                    // Respeta la preferencia de control: JOYSTICK = joystick de dirección (izq/der);
-                    // D-pad = flechitas. Gas/freno siempre en el diamante PS4 (drivingActions).
-                    if (uiState.controlType == ControlType.JOYSTICK)
-                        VehicleJoystickController(
-                            modifier = m.scale(effectiveScale),
-                            onSteerLeft = { viewModel.steerLeft(it) },
-                            onSteerRight = { viewModel.steerRight(it) }
-                        )
-                    else
-                        VehicleDPadController(
-                            modifier = m.scale(effectiveScale),
-                            onUp = { /* sin uso en conducción */ },
-                            onDown = { /* sin uso en conducción */ },
-                            onLeft = { viewModel.steerLeft(it) },
-                            onRight = { viewModel.steerRight(it) }
-                        )
-                }
-                // Diamante estilo PS4: △ SALIR · ✕ gas · ○ freno · □ freno de mano.
-                val drivingActions = @Composable { m: Modifier ->
-                    Ps4ActionButtonsController(
-                        modifier = m.scale(effectiveScale),
-                        onAccelerate = { viewModel.accelerate(it) },
-                        onBrake = { viewModel.brake(it) },
-                        onHandbrake = { viewModel.brake(it) },
-                        onExit = { isPressed ->
-                            if (isPressed) {
-                                viewModel.onInteractButtonPressed()
-                                yButtonHoldJob?.cancel()
-                                yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
-                            } else { yButtonHoldJob?.cancel() }
-                        }
-                    )
-                }
-                // El control de la DERECHA (segundo) recibe el desplazamiento.
-                if (uiState.swapControls) { drivingActions(Modifier); drivingDpad(rightShiftMod) } else { drivingDpad(Modifier); drivingActions(rightShiftMod) }
-            } else {
-                    val movementComponent = @Composable { m: Modifier ->
-                        if (uiState.controlType == ControlType.DPAD) DPadController(modifier = m.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
-                        else JoystickController(modifier = m.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
-                    }
-                    val actionComponent = @Composable { m: Modifier ->
-                        ActionButtonsController(
-                            modifier = m.scale(effectiveScale),
-                            onActionChanged = { action, isPressed ->
-                                if (action == GameAction.X && isPressed) {
-                                    viewModel.handleInteraction()
-                                }
-                                if (action == GameAction.Y) {
-                                    if (isPressed) {
-                                        viewModel.onInteractButtonPressed()
-                                        yButtonHoldJob?.cancel()
-                                        yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
-                                    } else {
-                                        yButtonHoldJob?.cancel()
-                                    }
-                                }
-                                viewModel.updateActionState(action, isPressed)
-                            },
-                            onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() }
-                        )
-                    }
-                    // El control de la DERECHA (segundo) recibe el desplazamiento.
-                    if (uiState.swapControls) { actionComponent(Modifier); movementComponent(rightShiftMod) } else { movementComponent(Modifier); actionComponent(rightShiftMod) }
-                }
-            }
-        }
+        // REFACTOR: controles (vals de layout + botón salir apocalipsis + fila D-pad/
+        // joystick/acciones) extraídos a WorldMapScreenControls.kt (mismo paquete).
+        // Es una extensión de BoxScope → se invoca dentro de este Box.
+        WorldMapControls(uiState = uiState, viewModel = viewModel, optionsExpanded = optionsExpanded)
         //}
     }
 
-    if (uiState.showWastedScreen) {
-        Box(modifier = Modifier.fillMaxSize().background(Color(0x99000000)).clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = {})) {
-            var scale by remember { mutableStateOf(0.5f) }
-            LaunchedEffect(Unit) {
-                androidx.compose.animation.core.animate(initialValue = 0.5f, targetValue = 1.3f, animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)) { value, _ -> scale = value }
-            }
-            Text(text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_wasted), color = Color(0xFFD32F2F), fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale))
-        }
-    }
-    if (uiState.showZombiVideo) {
-        ZombiVideoPlayer(
-            context = context,
-            onDismiss = { viewModel.dismissVideo() }
-        )
-    }
-
-    uiState.interactionPrompt?.let { promptText ->
-        Box(modifier = Modifier.fillMaxSize().padding(top = 70.dp), contentAlignment = Alignment.TopCenter) {
-            Text(text = promptText, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp, modifier = Modifier.background(color = Color(0xFF3B0D1B).copy(alpha = 0.85f), shape = RoundedCornerShape(8.dp)).padding(horizontal = 24.dp, vertical = 12.dp))
-        }
-    }
-
-    uiState.prankedyDialogue?.let { dialogueText ->
-        Box(modifier = Modifier.fillMaxSize().padding(top = 130.dp), contentAlignment = Alignment.TopCenter) {
-            Text(
-                text = dialogueText,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .background(color = Color(0xFF222222).copy(alpha = 0.9f), shape = RoundedCornerShape(12.dp))
-                    .border(2.dp, Color(0xFFFFCC00), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
-            )
-        }
-    }
-
-    if (uiState.showPrankedyHireDialog) {
-        PrankedyHireDialog(
-            context = context,
-            isHireable = uiState.prankedyIsHireable,
-            hireableInSeconds = uiState.prankedyHireableInSeconds,
-            onHire = { viewModel.onHirePrankedy() },
-            onDismiss = { viewModel.dismissPrankedyDialog() }
-        )
-    }
-
-    uiState.showClaimedPopupFor?.let { collectible ->
-        CollectibleClaimDialog(collectible = collectible, onDismiss = { viewModel.dismissClaimedPopup() })
-    }
-
-    // ─── ESCOM Door Fade Overlay ─────────────────────────────────────────────
-    val escomFadeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(uiState.showEscomDoorFade) {
-        if (uiState.showEscomDoorFade) {
-            escomFadeAlpha.animateTo(1f, animationSpec = androidx.compose.animation.core.tween(600))
-            viewModel.onEscomDoorFadeComplete()
-            kotlinx.coroutines.delay(200)
-            escomFadeAlpha.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(400))
-        }
-    }
-
-    if (escomFadeAlpha.value > 0f) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = escomFadeAlpha.value))
-        )
-    }
-
-    // ─── Metro Door Fade Overlay ─────────────────────────────────────────────
-    val metroFadeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(uiState.showMetroFade) {
-        if (uiState.showMetroFade) {
-            metroFadeAlpha.animateTo(1f, animationSpec = androidx.compose.animation.core.tween(600))
-            viewModel.onMetroFadeComplete()
-            kotlinx.coroutines.delay(200)
-            metroFadeAlpha.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(400))
-        }
-    }
-    if (metroFadeAlpha.value > 0f) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = metroFadeAlpha.value))
-        )
-    }
-
-    LaunchedEffect(uiState.metroFadeCompleteStation) {
-        val station = uiState.metroFadeCompleteStation
-        if (station != null) {
-            viewModel.consumeMetroFadeComplete()
-            onNavigateToInterior("metro_station_interior/${station.name}")
-        }
-    }
-
-    // ─── Metrobús Fade Overlay ───────────────────────────────────────────────
-    val metrobusFadeAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(uiState.showMetrobusFade) {
-        if (uiState.showMetrobusFade) {
-            metrobusFadeAlpha.animateTo(1f, animationSpec = androidx.compose.animation.core.tween(600))
-            viewModel.onMetrobusFadeComplete()
-            kotlinx.coroutines.delay(200)
-            metrobusFadeAlpha.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(400))
-        }
-    }
-    if (metrobusFadeAlpha.value > 0f) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFC21D24).copy(alpha = metrobusFadeAlpha.value))
-        )
-    }
-
-    LaunchedEffect(uiState.metrobusFadeCompleteStation) {
-        val station = uiState.metrobusFadeCompleteStation
-        if (station != null) {
-            viewModel.consumeMetrobusFadeComplete()
-            onNavigateToInterior("metrobus_station_interior/${station.name}")
-        }
-    }
+    // REFACTOR: overlays/diálogos extraídos a WorldMapScreenOverlays.kt (mismo paquete)
+    // para reducir el tamaño de este archivo. MVVM intacto (solo observa uiState + intenciones).
+    WorldMapOverlays(
+        uiState = uiState,
+        viewModel = viewModel,
+        onNavigateToInterior = onNavigateToInterior
+    )
 }

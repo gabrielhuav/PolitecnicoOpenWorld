@@ -18,9 +18,32 @@ parciales nuevos cohesivos (sin gemelo miembro, solo tocan `internal`/`public`):
 fade de puerta ESCOM). Imports explícitos añadidos en `MainActivity.kt` (6) y `WorldMapScreen.kt` (3).
 El combate no tenía call-sites externos (solo el game loop miembro lo llama → resuelve a la extensión).
 
+**🆕 Progreso (2026-06-20, 2ª pasada Compose):** `WorldMapScreen.kt` bajó de ~2470 a **~2354** líneas
+extrayendo los overlays/diálogos superpuestos (pantalla WASTED, vídeo zombi, prompts, diálogo Prankedy,
+popup de coleccionable, fades de puerta ESCOM/metro/metrobús) al composable `WorldMapOverlays` en
+`ui/WorldMapScreenOverlays.kt` (mismo paquete `ui`, ~174 líneas). `WorldMapScreen` solo lo invoca:
+`WorldMapOverlays(uiState, viewModel, onNavigateToInterior)`. Sin gotcha miembro/extensión (son
+composables top-level); las extensiones del VM usadas se importan en el archivo nuevo
+(`onHirePrankedy`/`dismissPrankedyDialog`/`onEscomDoorFadeComplete`). MVVM intacto.
+
+**🆕 Progreso (2026-06-20, 3ª pasada):** dos extracciones más:
+- `WorldMapScreen.kt` bajó de ~2354 a **~2255** líneas extrayendo el bloque de controles (vals de
+  layout escala/padding según orientación + botón "Salir del apocalipsis" + fila inferior de D-pad/
+  joystick/acciones, incl. la pulsación larga de Y/△ → `yButtonHoldJob`) al composable
+  `BoxScope.WorldMapControls` en `ui/WorldMapScreenControls.kt`. Se invoca dentro del `Box` principal:
+  `WorldMapControls(uiState, viewModel, optionsExpanded)`. `yButtonHoldJob` se movió al nuevo archivo.
+  Sin gotcha miembro/extensión (composable top-level); importa la extensión `toggleTeleportMenu`.
+- `ZombieGameViewModel.kt` bajó de ~1370 a **~1120** líneas extrayendo TODO el Modo Diseñador (matriz
+  de colisión + waypoints: ~16 funciones) a `viewmodel/ZombieGameDesigner.kt` como **extensiones** del
+  VM (solo tocan `internal`/`public`: `_state`, `currentRoom()`, `applicationContext`, `viewModelScope`;
+  las consts de rejilla del companion se referencian cualificadas `ZombieGameViewModel.MIN_GRID`…).
+  Se ELIMINARON los miembros (no queda gemelo). `ui/ZombieGameScreen.kt` importa las 15 extensiones
+  usadas — incl. referencias acotadas `viewModel::paintCellAtWorld` (Kotlin permite `::` a extensiones).
+
 **ES:** Archivos AÚN candidatos a dividir (al 2026-06-20): `WorldMapViewModel.kt` (~2600, ya
-parcialmente separado), `WorldMapScreen.kt` (~2470), `NativeOsmMap.kt` (~1614), `NpcAiManager.kt`
-(~1618), `ZombieGameViewModel.kt` (~1370). **Estos 4 últimos NO se han separado**: hacerlo es riesgoso porque (1) mover un
+parcialmente separado), `WorldMapScreen.kt` (~2255, parcialmente separado), `NativeOsmMap.kt` (~1614),
+`NpcAiManager.kt` (~1618), `ZombieGameViewModel.kt` (~1120, ya parcialmente separado). **`NativeOsmMap`/
+`NpcAiManager` NO se han separado**: hacerlo es riesgoso porque (1) mover un
 método a un archivo de **extensión** rompe el acceso a miembros `private` del VM (las extensiones solo
 ven `internal`/`public`) y (2) el patrón ya existente es "VM núcleo (estado/campos) + parciales de
 comportamiento en `WorldMap*.kt`". Plan SEGURO cuando se aborde: extraer SOLO bloques cohesivos cuyas

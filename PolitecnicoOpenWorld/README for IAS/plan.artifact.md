@@ -68,7 +68,9 @@ via co-located `ViewModelProvider.Factory` instances.
 | Open-world game loop, multiplayer, NPCs, ESCOM logic | `features/map_exterior/viewmodel/WorldMapViewModel.kt` (+ `WorldMap*.kt` partials: GameLoop, Multiplayer, RoadNetwork, Routing, Escom, Collectibles, Misc) |
 | Open-world UI state | `features/map_exterior/viewmodel/WorldMapState.kt` |
 | Nested options menu (menu of menus, recursive) | `features/map_exterior/ui/components/OptionsMenu.kt` (`OptionMenuGroup.items: List<OptionEntry>`) |
-| Map rendering (OSM/Google/Leaflet WebView) | `features/map_exterior/ui/WorldMapScreen.kt` (Leaflet HTML built in `WorldMapLeafletHtml.kt`) |
+| Map rendering (OSM/Google/Leaflet WebView) | `features/map_exterior/ui/WorldMapScreen.kt` (Leaflet HTML built in `WorldMapLeafletHtml.kt`; stacked overlays/dialogs extracted to `WorldMapScreenOverlays.kt`) |
+| Overlays/dialogs (WASTED, zombie video, prompts, Prankedy dialogue, collectible popup, ESCOM/metro/metrobús door fades) | `features/map_exterior/ui/WorldMapScreenOverlays.kt` (`WorldMapOverlays`, refactor) |
+| On-screen controls (D-pad/joystick/actions, driving, exit-apocalypse, Y/△ long-press) | `features/map_exterior/ui/WorldMapScreenControls.kt` (`BoxScope.WorldMapControls`, refactor) |
 | Native osmdroid rendering (NPCs, landmarks, **player-anchored fog overlay**, over-zoom) | `features/map_exterior/ui/NativeOsmMap.kt` |
 | Sprite/health-bar drawing helpers (NPC health bar size lives here) | `features/map_exterior/ui/WorldMapDrawingUtils.kt` |
 | Player sprite / driven-vehicle rendering + sizing | `features/map_exterior/ui/components/PlayerCharacter.kt` |
@@ -78,7 +80,7 @@ via co-located `ViewModelProvider.Factory` instances.
 | Prankedy special hostile NPC (AI / VM glue / sprites) | `domain/models/ai/PrankedyManager.kt` (driven by `WorldMapViewModel.runPrankedyTick`), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
 | Patrol sprite (no-repaint `POLICE_TOPDOWN`) | `features/map_exterior/ui/components/PoliceSpriteManager.kt`; cop = 👮 emoji via `emojiToDrawable` in `WorldMapDrawingUtils.kt` |
 | Interiors umbrella shared types | `features/interiores/core/viewmodel/InteriorDesignerModels.kt` (`DesignerTarget`, `CameraTransform`), `features/interiores/core/ui/InteriorPlayerViews.kt` (`PlayerView`, `PlayerHealthBarFixed`, `RemotePlayerView`) |
-| Zombie layer logic (was `zombie_minigame`) | `features/interiores/zombies/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`) |
+| Zombie layer logic (was `zombie_minigame`) | `features/interiores/zombies/viewmodel/ZombieGameViewModel.kt` (+ `ZombieGameTick.kt`, `ZombieGameConstants.kt`, `ZombieGameDesigner.kt` = Designer Mode extensions) |
 | Zombie layer state | `features/interiores/zombies/viewmodel/ZombieGameState.kt` |
 | Zombie net models (client) | `features/interiores/zombies/viewmodel/Zombienetmodels.kt` |
 | Zombie rendering + camera + damage FX | `features/interiores/zombies/ui/ZombieGameScreen.kt` |

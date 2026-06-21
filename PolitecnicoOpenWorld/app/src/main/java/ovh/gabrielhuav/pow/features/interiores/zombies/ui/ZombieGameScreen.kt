@@ -73,6 +73,23 @@ import ovh.gabrielhuav.pow.features.interiores.core.ui.RemotePlayerView    // vi
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieGameViewModel
+// REFACTOR: funciones del Modo Diseñador extraídas a ZombieGameDesigner.kt (parcial del VM)
+// → ahora son extensiones y requieren import explícito desde el paquete ui. Ver 09 §0.
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.toggleDesignerMode
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerTarget
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerBrushWall
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.selectDoorAtWorld
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.moveSelectedDoorToWorld
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.saveDesignerWaypoints
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resetDesignerWaypoints
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.paintCellAtWorld
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resizeDesignerMatrixBy
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.saveDesignerMatrix
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resetDesignerMatrix
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.exportMatricesToUri
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importMatricesFromUri
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.exportWaypointsToUri
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importWaypointsFromUri
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
 import kotlin.math.max

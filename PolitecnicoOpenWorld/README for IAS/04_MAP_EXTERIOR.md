@@ -44,6 +44,8 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Coleccionables (lógica) | `viewmodel/WorldMapCollectiblesLogic.kt` |
 | Misc (movimiento, WASTED, HUD vida) | `viewmodel/WorldMapMisc.kt` |
 | Render principal (OSM/Google/Leaflet) | `ui/WorldMapScreen.kt` |
+| 🆕 Overlays/diálogos superpuestos (WASTED, vídeo zombi, prompts, diálogo Prankedy, popup coleccionable, fades puerta ESCOM/metro/metrobús) | `ui/WorldMapScreenOverlays.kt` (NUEVO, refactor) |
+| 🆕 Controles en pantalla (D-pad/joystick/acciones, conducción, salir apocalipsis, pulsación larga Y/△) | `ui/WorldMapScreenControls.kt` (NUEVO, refactor — `BoxScope.WorldMapControls`) |
 | Render nativo osmdroid (fog, over-zoom, NPCs, landmarks) | `ui/NativeOsmMap.kt` |
 | HTML de Leaflet (WebView) | `ui/WorldMapLeafletHtml.kt` |
 | Intercepción de tiles Leaflet | `ui/CachingWebViewClient.kt` |
@@ -245,6 +247,12 @@ Elige render según `mapProvider`: **OSM nativo** (`NativeOsmMap`), **Google nat
 o **Web** (WebView + Leaflet con HTML de `WorldMapLeafletHtml`). El **fog Compose (`Canvas`) solo se
 usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Canvas` fog is used
 **only** for the Google native renderer.
+
+> **🆕 Refactor (2026-06-20):** los overlays/diálogos superpuestos (pantalla WASTED, vídeo zombi,
+> prompts de interacción, diálogo de Prankedy, popup de coleccionable y los fades de puerta ESCOM/
+> metro/metrobús) se extrajeron al composable `WorldMapOverlays` en `ui/WorldMapScreenOverlays.kt`
+> (mismo paquete). `WorldMapScreen` ahora solo los invoca (`WorldMapOverlays(uiState, viewModel,
+> onNavigateToInterior)`). MVVM intacto. Ver 09 §0.
 
 > **Culling de NPCs = borde del fog:** `NPC_CULL_MARGIN_M=0` (antes 15) → los 3 renderers (que usan
 > `npcVisionRadiusMeters() = NPC_FOG_VISION_METERS + margen`) dibujan civiles SOLO dentro de los 70 m del
