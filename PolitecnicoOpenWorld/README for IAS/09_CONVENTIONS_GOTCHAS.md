@@ -117,6 +117,20 @@ mano sus refs a `.map` **respetando** las de `ai.`/`campaign.` (que NO se movier
 package-move en AS: **cierra/guarda todos los archivos antes**, y tras compilar arregla cualquier
 `Unresolved reference` restante (mismo patrón: añadir `.map`).
 
+**⚠️⚠️ GOTCHA CRÍTICO — NO arregles los stragglers de un package-move con un Find&Replace "a secas":**
+intentar `domain.models.` → `domain.models.map.` en todo el proyecto es un DESASTRE: (1) **dobla** los que
+ya estaban bien (`domain.models.map.X` → `domain.models.map.map.X`), (2) **prefija los subpaquetes**
+(`domain.models.ai/campaign/zombie` → `…map.ai`…) y hasta los `package`. Y si encima el Replace corre en
+**case-INSENSITIVE** (default peligroso), un correctivo como `domain\.models\.map\.map` → `domain.models.map`
+**se come el `.Map`/`.Zombie` de los tipos** y los muta: `MapWay`→`mapWay`, `MapNode`→`mapNode`,
+`ZombieRole`→`zombieRole` (pasó de verdad; horas perdidas). **Reglas para package-moves:** (a) hazlos con
+**Refactor → Move** de AS (no a mano); (b) si AS deja stragglers, arréglalos **uno por uno a mano** o con un
+Find&Replace de **TEXTO PLANO** sobre el string EXACTO roto (p. ej. `domain.models.mapWay` →
+`domain.models.map.MapWay`), nunca con un prefijo genérico; (c) si usas regex, **CASE-SENSITIVE + grupo de
+captura**: `domain\.models\.([A-Z]\w*)` → `domain.models.map.$1` (ese solo toca tipos en Mayúscula y nunca
+los subpaquetes en minúscula). Verifica al final con búsquedas que den 0: `domain.models.map.map`,
+`domain.models.mapWay`, `domain.models.mapNode`, `domain.models.zombieRole`.
+
 **ES:** Archivos AÚN candidatos a dividir (al 2026-06-21): `WorldMapViewModel.kt` (~2503, único >1500;
 muy separado, resto = de-dup de gemelos CON COMPILADOR), `WorldMapScreen.kt` (~1325, **<1500 ✅**; opcional:
 builder del menú Opciones),
