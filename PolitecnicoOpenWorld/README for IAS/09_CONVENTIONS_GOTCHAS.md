@@ -181,11 +181,22 @@ px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo u
     sitios re-llamaban `context.resources.displayMetrics.density` (waypoints policía/zombi/objetivo +
     marcador metrobús, este último con un `val screenDensity` que **sombreaba** el de arriba) → ahora todos
     usan el `screenDensity` cacheado. Usar SIEMPRE `screenDensity`, no re-leer `displayMetrics` dentro del loop.
-  - **Descartado (NO seguro sin compilador):** convertir el JS de `WorldMapLeafletHtml` a *template
-    literals* (`` `${x}` ``) — ese JS vive dentro de Kotlin `"""..."""` y `${...}` lo captura la
-    interpolación de Kotlin → rompe. Cachear por referencia los `npcs.filter{...}.map{it.id}.toSet()`
-    por-frame de NPCs que hablan/gritan/llaman: su predicado depende del tiempo (`nowB`), cambia cada frame,
-    así que cachear por referencia de `uiState.npcs` DEJARÍA marcadores obsoletos (regresión). Mover
+  - **🆕 (8ª pasada, 2026-06-21) `NpcAiManager` tick:** `cachedWayBoxes.get().map { it.way }` se
+    materializaba la lista COMPLETA de vías en cada chequeo de spawn (zombi/horda/policía) por tick. Ahora
+    se precomputa UNA vez al fijar la red (`cachedWaysFiltered` en `updateRoadNetwork`, derivado de los
+    mismos `boxes`) y los 3 sitios solo leen `cachedWaysFiltered.get()`. Mismo contenido (vías con nodos
+    no vacíos), cero comportamiento.
+  - **Ya bien optimizado (NO tocar a ciegas):** el render OSM nativo NO asigna `Paint`/`Path`/`Rect` por
+    frame (usa Markers/Overlays cacheados + `nativeDrawableCache` LRU); `PlayerCharacter` usa `remember` +
+    cachés de bitmaps y `Color(0x…)` es value-class (sin allocation). El grueso del perf de gama baja ya
+    estaba afinado (caps de NPC por `popFactor`, LOD de emojis, fog por renderer, guards de reenvío web).
+  - **Descartado (NO seguro sin compilador / cambiaría comportamiento):** convertir el JS de
+    `WorldMapLeafletHtml` a *template literals* (`` `${x}` ``) — ese JS vive dentro de Kotlin `"""..."""` y
+    `${...}` lo captura la interpolación de Kotlin → rompe. Cachear por referencia los
+    `npcs.filter{...}.map{it.id}.toSet()` por-frame de NPCs que hablan/gritan/llaman: su predicado depende
+    del tiempo (`nowB`), cambia cada frame, así que cachear por referencia de `uiState.npcs` DEJARÍA
+    marcadores obsoletos (regresión). Guardar `updateTalkBubbles([])`/`updateRoads('[]')` cuando van vacíos:
+    el array vacío es justo lo que LIMPIA los marcadores; saltarlo deja burbujas/calles fantasma. Mover
     `configureOsmdroid` (I/O de `mkdirs`/SharedPrefs en main thread) a background: cambia el orden de
     arranque (osmdroid debe configurarse antes del 1er render) → requiere app para verificar.
 

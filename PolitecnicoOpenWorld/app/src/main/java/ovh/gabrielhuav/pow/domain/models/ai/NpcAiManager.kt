@@ -127,6 +127,9 @@ class NpcAiManager {
         val minLon: Double, val maxLon: Double
     )
     private val cachedWayBoxes = AtomicReference<List<WayBox>>(emptyList())
+    // OPT: lista de vías ya filtradas (sin nodos vacíos) precomputada UNA vez al fijar la red, para
+    // no re-materializar cachedWaysFiltered.get() en cada chequeo de spawn por tick.
+    private val cachedWaysFiltered = AtomicReference<List<MapWay>>(emptyList())
     internal val nodeToWays = AtomicReference<Map<Long, List<MapWay>>>(emptyMap())
 
     val pendingDespawns = mutableListOf<String>()
@@ -232,7 +235,7 @@ class NpcAiManager {
 
     fun updateRoadNetwork(network: List<MapWay>) {
         cachedRoadNetwork.set(network)
-        cachedWayBoxes.set(network.mapNotNull { way ->
+        val boxes = network.mapNotNull { way ->
             if (way.nodes.isEmpty()) return@mapNotNull null
             var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
             var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
@@ -243,7 +246,9 @@ class NpcAiManager {
                 if (n.lon > maxLon) maxLon = n.lon
             }
             WayBox(way, minLat, maxLat, minLon, maxLon)
-        })
+        }
+        cachedWayBoxes.set(boxes)
+        cachedWaysFiltered.set(boxes.map { it.way })
         val index = HashMap<Long, MutableList<MapWay>>()
         for (way in network) {
             for (n in way.nodes) {
@@ -570,7 +575,7 @@ class NpcAiManager {
                 val zombies = serverNpcs.filter { it.type == NpcType.ZOMBIE && it.health > 0 }
 
                 if (zombies.size < INITIAL_ZOMBIE_SEED && nonParkedAlive() < maxTotalNpcs) {
-                    val closeWays = cachedWayBoxes.get().map { it.way }
+                    val closeWays = cachedWaysFiltered.get()
                     if (closeWays.isNotEmpty()) {
                         spawnNpcOnRoad(playerLocation, closeWays, activeLandmarks)?.let {
                             val role = rollZombieRole()
@@ -589,7 +594,7 @@ class NpcAiManager {
                     if (nearbyHumans >= HORDE_MIN_HUMANS) {
                         lastHordeMs = now
                         hordeIncomingAt = now
-                        val hordeWays = cachedWayBoxes.get().map { it.way }
+                        val hordeWays = cachedWaysFiltered.get()
                         if (hordeWays.isNotEmpty()) {
                             var k = 0
                             while (k < HORDE_SIZE && nonParkedAlive() < maxTotalNpcs) {
@@ -608,7 +613,7 @@ class NpcAiManager {
                     lastPoliceSpawnMs = now
                     val cops = serverNpcs.count { it.type == NpcType.POLICE_COP && it.health > 0f }
                     if (cops < POLICE_HUNTER_MAX && Random.nextFloat() < POLICE_SPAWN_CHANCE && nonParkedAlive() < maxTotalNpcs) {
-                        val pWays = cachedWayBoxes.get().map { it.way }
+                        val pWays = cachedWaysFiltered.get()
                         if (pWays.isNotEmpty()) {
                             spawnNpcOnRoad(playerLocation, pWays, activeLandmarks)?.let {
                                 serverNpcs.add(it.copy(
