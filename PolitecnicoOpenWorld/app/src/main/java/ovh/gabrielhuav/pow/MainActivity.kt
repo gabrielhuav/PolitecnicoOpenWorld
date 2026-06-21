@@ -71,6 +71,13 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.retryCampaignMission
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission2Intro
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission2
+// REFACTOR: extensiones del VM extraídas (campaña/teleport/shinecto) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setStorySpawn
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetroStation
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusStation
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onShineCTODiscoveryConfirmed
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeNavigateToShineCTO
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeEscomDoorNavigation
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel

@@ -1,9 +1,15 @@
 # 04 · Open World / `features/map_exterior/`
 
-**ES:** El corazón del juego. El `WorldMapViewModel` (Activity-scoped, ~2800 líneas) está **partido en
+**ES:** El corazón del juego. El `WorldMapViewModel` (Activity-scoped, ~2600 líneas) está **partido en
 extensiones** (`WorldMap*.kt`) que agrupan la lógica por tema. El estado es `WorldMapState`.
-**EN:** The game's heart. `WorldMapViewModel` (Activity-scoped, ~2800 lines) is **split into
+**EN:** The game's heart. `WorldMapViewModel` (Activity-scoped, ~2600 lines) is **split into
 extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMapState`.
+
+> **🆕 Refactor de tamaño (2026-06-20):** se extrajeron 4 parciales nuevos del VM (bajó de ~3050 a
+> ~2600 líneas): `WorldMapCombat.kt` (combate), `WorldMapCampaign.kt` (`setStorySpawn`),
+> `WorldMapTeleport.kt` (teleport + Metro/Metrobús) y `WorldMapShineCTO.kt` (easter egg + fade de
+> puerta). Todas tocan SOLO miembros `internal`/`public`; el ESTADO sigue en el VM. Los call-sites
+> fuera del paquete `viewmodel` (MainActivity, WorldMapScreen) llevan import explícito. Ver 09 §0.
 
 > **Gotcha:** algunas funciones existen como **miembro privado** en `WorldMapViewModel.kt` *y* como
 > **extensión** en un parcial con el mismo nombre (p. ej. `startGameLoop`, `updateVisibleRoads`,
@@ -23,6 +29,10 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Proveedores de mapa + descarga/compuertas de tiles | `viewmodel/WorldMapProviders.kt` (NUEVO, refactor) |
 | Modo Diseñador / landmarks (Room, edición, import/export) | `viewmodel/WorldMapDesigner.kt` (NUEVO, refactor) |
 | Nivel de búsqueda + policía propia + carjack | `viewmodel/WorldMapWanted.kt` (NUEVO, refactor) |
+| 🆕 Combate (melee jugador, atropello, daño contacto NPC/zombi, implacable) | `viewmodel/WorldMapCombat.kt` (NUEVO, refactor) |
+| 🆕 Campaña/Modo Historia: punto de entrada del spawn (`setStorySpawn`) | `viewmodel/WorldMapCampaign.kt` (NUEVO, refactor) |
+| 🆕 Teletransporte: gate de TP + estaciones Metro/Metrobús | `viewmodel/WorldMapTeleport.kt` (NUEVO, refactor) |
+| 🆕 Easter egg ShineCTO + fade de puerta ESCOM | `viewmodel/WorldMapShineCTO.kt` (NUEVO, refactor) |
 | 🆕 Guardado/carga de partida (Modo Historia, JSON) | `viewmodel/WorldMapSaveGame.kt` + `data/repository/SaveGameRepository.kt` |
 | 🆕 Editor del Debug Interiores (líneas rojas/verdes/naranjas) | `viewmodel/WorldMapDebugEditor.kt` + `ui/components/InteriorDebugEditorPanel.kt` |
 | Estado UI / UI state | `viewmodel/WorldMapState.kt` |

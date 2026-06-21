@@ -183,6 +183,10 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
+// REFACTOR: extensiones del VM extraídas (teleport/puerta ESCOM) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportTo
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleTeleportMenu
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onEscomDoorFadeComplete
 import kotlin.math.cos
 import androidx.compose.runtime.DisposableEffect
 

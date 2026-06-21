@@ -9,9 +9,18 @@ low-end performance) or doc drift.
 
 ## 0. Archivos GRANDES (>1000 líneas) — plan de separación pendiente
 
-**ES:** Archivos candidatos a dividir (al 2026-06-17): `WorldMapViewModel.kt` (~2883),
-`WorldMapScreen.kt` (~2320), `NativeOsmMap.kt` (~1571), `NpcAiManager.kt` (~1466),
-`ZombieGameViewModel.kt` (~1177). **Aún NO se han separado**: hacerlo es riesgoso porque (1) mover un
+**🆕 Progreso (2026-06-20):** `WorldMapViewModel.kt` bajó de ~3050 a **~2600** líneas extrayendo 4
+parciales nuevos cohesivos (sin gemelo miembro, solo tocan `internal`/`public`): `WorldMapCombat.kt`
+(combate: `performPlayerAttack`/`runOverNpcs`/`provokeApocalypsePolice`/`applyNpcContactDamage`/
+`startRelentlessAttacker`), `WorldMapCampaign.kt` (`setStorySpawn`), `WorldMapTeleport.kt`
+(`teleportTo`/`teleportToMetroStation`/`loadMetroStations`/`teleportToMetrobusStation`/
+`loadMetrobusStations`/`toggleTeleportMenu`) y `WorldMapShineCTO.kt` (`spawnShineCTOMarker`/ShineCTO/
+fade de puerta ESCOM). Imports explícitos añadidos en `MainActivity.kt` (6) y `WorldMapScreen.kt` (3).
+El combate no tenía call-sites externos (solo el game loop miembro lo llama → resuelve a la extensión).
+
+**ES:** Archivos AÚN candidatos a dividir (al 2026-06-20): `WorldMapViewModel.kt` (~2600, ya
+parcialmente separado), `WorldMapScreen.kt` (~2470), `NativeOsmMap.kt` (~1614), `NpcAiManager.kt`
+(~1618), `ZombieGameViewModel.kt` (~1370). **Estos 4 últimos NO se han separado**: hacerlo es riesgoso porque (1) mover un
 método a un archivo de **extensión** rompe el acceso a miembros `private` del VM (las extensiones solo
 ven `internal`/`public`) y (2) el patrón ya existente es "VM núcleo (estado/campos) + parciales de
 comportamiento en `WorldMap*.kt`". Plan SEGURO cuando se aborde: extraer SOLO bloques cohesivos cuyas
@@ -141,7 +150,9 @@ matrices por defecto son **border-only** hasta reemplazarse.
   paréntesis desbalanceados, no de muchos símbolos faltantes (ver 01).
 - **Refactor de tamaño (parciales NUEVOS):** `WorldMapViewModel.kt` bajó de ~3400 a ~2600 líneas
   extrayendo bloques SIN gemelo de extensión a `WorldMapProviders.kt` (proveedores/tiles/compuertas),
-  `WorldMapDesigner.kt` (landmarks/diseñador) y `WorldMapWanted.kt` (wanted/policía/carjack). El
+  `WorldMapDesigner.kt` (landmarks/diseñador), `WorldMapWanted.kt` (wanted/policía/carjack) y —2ª
+  tanda, 2026-06-20— `WorldMapCombat.kt` (combate), `WorldMapCampaign.kt` (`setStorySpawn`),
+  `WorldMapTeleport.kt` (teleport+metro) y `WorldMapShineCTO.kt` (easter egg+fade puerta) (ver §0). El
   ESTADO sigue en el VM (`providerPreloadJob`, `mapPrepStarted`, `escomNavGraph`, `carjackStartTime`…);
   los parciales solo tienen lógica. Los call-sites FUERA del paquete `viewmodel` (UI, MainActivity)
   necesitan **import explícito** de cada extensión. Además se ELIMINARON los duplicados miembro de
