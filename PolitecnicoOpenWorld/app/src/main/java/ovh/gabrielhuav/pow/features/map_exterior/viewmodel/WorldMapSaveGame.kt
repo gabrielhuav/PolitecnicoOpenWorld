@@ -89,7 +89,7 @@ fun WorldMapViewModel.restoreSaveData(data: GameSaveData) {
     // reentrada (un interior o el mapa global) a partir de este valor tras loadGame.
     currentInteriorRoomId = data.interiorRoomId
     // Restaura inventario y progreso del puzzle de ENCB_lab1 (MainActivity los pasa al reabrir
-    // el interior para sembrar el estado del ZombieGameViewModel).
+    // el interior para sembrar el estado del ZombieInteriorViewModel).
     currentInteriorInventory = data.inventoryKeys
     currentInteriorLab1KeyFound = data.lab1KeyFound
     _uiState.update {

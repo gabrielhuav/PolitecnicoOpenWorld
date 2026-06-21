@@ -1523,7 +1523,7 @@ class WorldMapViewModel(
     internal var currentInteriorRoomId: String? = null
 
     // INVENTARIO de interiores (llaves recogidas) y progreso del puzzle de ENCB_lab1. Los mantiene
-    // MainActivity (puente con ZombieGameViewModel) para que el GUARDADO los persista y CARGAR los
+    // MainActivity (puente con ZombieInteriorViewModel) para que el GUARDADO los persista y CARGAR los
     // restaure al reabrir el interior.
     internal var currentInteriorInventory: List<String> = emptyList()
     internal var currentInteriorLab1KeyFound: Boolean = false

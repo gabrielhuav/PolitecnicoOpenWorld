@@ -72,7 +72,7 @@ import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerView          // vi
 import ovh.gabrielhuav.pow.features.interiores.core.ui.RemotePlayerView    // vista de jugador remoto/civil (core)
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieGameViewModel
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieInteriorViewModel
 // REFACTOR: funciones del Modo Diseñador extraídas a ZombieGameDesigner.kt (parcial del VM)
 // → ahora son extensiones y requieren import explícito desde el paquete ui. Ver 09 §0.
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.toggleDesignerMode
@@ -146,8 +146,8 @@ fun ZombieGameScreen(
     // durante la Misión 1). Se lee una vez al entrar a la pantalla.
     val developerMode = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getDeveloperMode() }
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
-    val viewModel: ZombieGameViewModel = viewModel(
-        factory = ZombieGameViewModel.Factory(context, serverUrl, playerName, startRoomId, initialInventoryKeys, initialLab1KeyFound)
+    val viewModel: ZombieInteriorViewModel = viewModel(
+        factory = ZombieInteriorViewModel.Factory(context, serverUrl, playerName, startRoomId, initialInventoryKeys, initialLab1KeyFound)
     )
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current

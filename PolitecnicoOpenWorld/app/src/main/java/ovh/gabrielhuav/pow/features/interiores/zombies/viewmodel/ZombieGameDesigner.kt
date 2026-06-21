@@ -13,7 +13,7 @@ import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 import kotlin.math.roundToInt
 
 /**
- * Parcial del MODO DISEÑADOR de [ZombieGameViewModel] (extraído para reducir el tamaño del
+ * Parcial del MODO DISEÑADOR de [ZombieInteriorViewModel] (extraído para reducir el tamaño del
  * VM; mismo paquete). Edición de la MATRIZ de colisión y de los WAYPOINTS (puertas) de las
  * salas de interiores: pintar/redimensionar la rejilla, seleccionar/mover puertas, guardar/
  * descartar y exportar/importar JSON. MVVM: estado inmutable vía `_state.update { it.copy(...) }`.
@@ -21,12 +21,12 @@ import kotlin.math.roundToInt
  * Gotcha miembro/extensión: estas funciones existen SOLO aquí (se eliminaron del VM, así que
  * NO hay gemelo miembro que gane). Solo tocan miembros `internal`/`public` del VM (`_state`,
  * `currentRoom()`, `applicationContext`, `viewModelScope`). Las constantes de rejilla viven en
- * el companion del VM → se referencian cualificadas (`ZombieGameViewModel.MIN_GRID`, etc.).
+ * el companion del VM → se referencian cualificadas (`ZombieInteriorViewModel.MIN_GRID`, etc.).
  * Los call-sites en `ui/ZombieGameScreen.kt` (otro paquete) importan estas extensiones.
  */
 
 // ─── MODO DISEÑADOR DE LA MATRIZ DE COLISIÓN ───────────
-fun ZombieGameViewModel.toggleDesignerMode() {
+fun ZombieInteriorViewModel.toggleDesignerMode() {
     val s = _state.value
     if (!s.designerMode) {
         val room = currentRoom()
@@ -46,7 +46,7 @@ fun ZombieGameViewModel.toggleDesignerMode() {
 }
 
 /** Alterna entre editar la MATRIZ de colisión o los WAYPOINTS (puertas). */
-fun ZombieGameViewModel.setDesignerTarget(target: DesignerTarget) {
+fun ZombieInteriorViewModel.setDesignerTarget(target: DesignerTarget) {
     if (_state.value.designerTarget == target) return
     val room = currentRoom()
     _state.update {
@@ -62,12 +62,12 @@ fun ZombieGameViewModel.setDesignerTarget(target: DesignerTarget) {
     }
 }
 
-fun ZombieGameViewModel.setDesignerBrushWall(wall: Boolean) =
+fun ZombieInteriorViewModel.setDesignerBrushWall(wall: Boolean) =
     _state.update { it.copy(designerBrushWall = wall) }
 
 // ─── EDICIÓN DE WAYPOINTS (puertas) ────────────────────
 /** Selecciona la puerta cuyo hitbox (fraccionario) contiene (fx,fy). */
-fun ZombieGameViewModel.selectDoorAtWorld(xWorld: Float, yWorld: Float) {
+fun ZombieInteriorViewModel.selectDoorAtWorld(xWorld: Float, yWorld: Float) {
     val room = currentRoom()
     if (room.worldWidth <= 0f || room.worldHeight <= 0f) return
     val fx = xWorld / room.worldWidth
@@ -81,7 +81,7 @@ fun ZombieGameViewModel.selectDoorAtWorld(xWorld: Float, yWorld: Float) {
 }
 
 /** Mueve la puerta seleccionada para que su CENTRO quede en (xWorld,yWorld). */
-fun ZombieGameViewModel.moveSelectedDoorToWorld(xWorld: Float, yWorld: Float) {
+fun ZombieInteriorViewModel.moveSelectedDoorToWorld(xWorld: Float, yWorld: Float) {
     val s = _state.value
     val idx = s.selectedDoorIndex
     if (idx < 0 || idx >= s.designerDoors.size) return
@@ -105,7 +105,7 @@ fun ZombieGameViewModel.moveSelectedDoorToWorld(xWorld: Float, yWorld: Float) {
 }
 
 /** Guarda los waypoints en waypoints.json y los aplica a la sala en caliente. */
-fun ZombieGameViewModel.saveDesignerWaypoints() {
+fun ZombieInteriorViewModel.saveDesignerWaypoints() {
     val s = _state.value
     val room = currentRoom()
     val doors = s.designerDoors
@@ -121,13 +121,13 @@ fun ZombieGameViewModel.saveDesignerWaypoints() {
 }
 
 /** Descarta cambios de waypoints y vuelve a las puertas actuales de la sala. */
-fun ZombieGameViewModel.resetDesignerWaypoints() {
+fun ZombieInteriorViewModel.resetDesignerWaypoints() {
     val room = currentRoom()
     _state.update { it.copy(designerDoors = room.doors, designerDirty = false, selectedDoorIndex = -1) }
 }
 
 /** Pinta/borra la celda que contiene la coordenada de MUNDO (x,y). */
-fun ZombieGameViewModel.paintCellAtWorld(xWorld: Float, yWorld: Float) {
+fun ZombieInteriorViewModel.paintCellAtWorld(xWorld: Float, yWorld: Float) {
     val s = _state.value
     if (!s.designerMode || s.designerRows.isEmpty()) return
     val room = currentRoom()
@@ -152,14 +152,14 @@ fun ZombieGameViewModel.paintCellAtWorld(xWorld: Float, yWorld: Float) {
  * columnas y/o filas. Conserva lo ya pintado (anclado arriba-izquierda):
  * las celdas nuevas se crean caminables ('.') y al reducir se recorta.
  */
-fun ZombieGameViewModel.resizeDesignerMatrixBy(deltaCols: Int, deltaRows: Int) {
+fun ZombieInteriorViewModel.resizeDesignerMatrixBy(deltaCols: Int, deltaRows: Int) {
     val s = _state.value
     if (!s.designerMode || s.designerTarget != DesignerTarget.MATRIX || s.designerRows.isEmpty()) return
     val old = s.designerRows
     val oldRows = old.size
     val oldCols = old.maxOf { it.length }
-    val newCols = (oldCols + deltaCols).coerceIn(ZombieGameViewModel.MIN_GRID, ZombieGameViewModel.MAX_GRID)
-    val newRows = (oldRows + deltaRows).coerceIn(ZombieGameViewModel.MIN_GRID, ZombieGameViewModel.MAX_GRID)
+    val newCols = (oldCols + deltaCols).coerceIn(ZombieInteriorViewModel.MIN_GRID, ZombieInteriorViewModel.MAX_GRID)
+    val newRows = (oldRows + deltaRows).coerceIn(ZombieInteriorViewModel.MIN_GRID, ZombieInteriorViewModel.MAX_GRID)
     if (newCols == oldCols && newRows == oldRows) return
     val grid = (0 until newRows).map { r ->
         buildString {
@@ -173,7 +173,7 @@ fun ZombieGameViewModel.resizeDesignerMatrixBy(deltaCols: Int, deltaRows: Int) {
 }
 
 /** Guarda en el JSON local y aplica la matriz a la sala en caliente. */
-fun ZombieGameViewModel.saveDesignerMatrix() {
+fun ZombieInteriorViewModel.saveDesignerMatrix() {
     val s = _state.value
     if (s.designerRows.isEmpty()) return
     val room = currentRoom()
@@ -192,13 +192,13 @@ fun ZombieGameViewModel.saveDesignerMatrix() {
 }
 
 /** Descarta cambios y vuelve a la matriz actual de la sala. */
-fun ZombieGameViewModel.resetDesignerMatrix() {
+fun ZombieInteriorViewModel.resetDesignerMatrix() {
     val room = currentRoom()
     val rows = room.collisionMatrix?.rows ?: defaultDesignerRows(room)
     _state.update { it.copy(designerRows = rows, designerDirty = false) }
 }
 
-fun ZombieGameViewModel.exportMatricesToUri(uri: android.net.Uri) {
+fun ZombieInteriorViewModel.exportMatricesToUri(uri: android.net.Uri) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val json = CollisionMatrixRepository.exportJson(applicationContext)
@@ -209,7 +209,7 @@ fun ZombieGameViewModel.exportMatricesToUri(uri: android.net.Uri) {
     }
 }
 
-fun ZombieGameViewModel.importMatricesFromUri(uri: android.net.Uri) {
+fun ZombieInteriorViewModel.importMatricesFromUri(uri: android.net.Uri) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val json = applicationContext.contentResolver.openInputStream(uri)
@@ -232,7 +232,7 @@ fun ZombieGameViewModel.importMatricesFromUri(uri: android.net.Uri) {
     }
 }
 
-fun ZombieGameViewModel.exportWaypointsToUri(uri: android.net.Uri) {
+fun ZombieInteriorViewModel.exportWaypointsToUri(uri: android.net.Uri) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val json = WaypointRepository.exportJson(applicationContext)
@@ -243,7 +243,7 @@ fun ZombieGameViewModel.exportWaypointsToUri(uri: android.net.Uri) {
     }
 }
 
-fun ZombieGameViewModel.importWaypointsFromUri(uri: android.net.Uri) {
+fun ZombieInteriorViewModel.importWaypointsFromUri(uri: android.net.Uri) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val json = applicationContext.contentResolver.openInputStream(uri)
@@ -267,8 +267,8 @@ fun ZombieGameViewModel.importWaypointsFromUri(uri: android.net.Uri) {
 // borde como pared, interior totalmente caminable. Es un punto de partida
 // NEUTRO (no inventa obstáculos) — tú pintas las paredes reales encima del
 // dibujo del cuarto. Más columnas = trazo más fino.
-internal fun ZombieGameViewModel.defaultDesignerRows(room: ZombieRoom): List<String> {
-    val cols = (room.gridCols ?: ZombieGameViewModel.DEFAULT_GRID_COLS).coerceAtLeast(3)
+internal fun ZombieInteriorViewModel.defaultDesignerRows(room: ZombieRoom): List<String> {
+    val cols = (room.gridCols ?: ZombieInteriorViewModel.DEFAULT_GRID_COLS).coerceAtLeast(3)
     // Filas derivadas del aspect ratio del asset para que cada celda sea
     // ~cuadrada: cellW = W/cols y cellH = H/rows ⇒ con rows = cols*(H/W),
     // cellH ≈ cellW (píxeles cuadrados, no se reescala la celda).
