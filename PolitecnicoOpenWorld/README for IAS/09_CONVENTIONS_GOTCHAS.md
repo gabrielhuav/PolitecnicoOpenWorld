@@ -66,10 +66,48 @@ addRemoteEntity, updateVisibleRoads, updateDestinationRoute, triggerWastedSequen
 gemelo en parciales** (miembro canónico) y/o llaman a muchos `private` → su separación = de-duplicar los
 gemelos, que requiere COMPILADOR (ver lista de pares pendientes en §12). No tocar sin Android Studio.
 
-**ES:** Archivos AÚN candidatos a dividir (al 2026-06-20): `WorldMapViewModel.kt` (~2503, muy separado;
-resto = de-dup de gemelos con compilador), `WorldMapScreen.kt` (~2255, parcialmente separado),
-`NativeOsmMap.kt` (~1457, parcialmente separado), `NpcAiManager.kt` (~1419, parcialmente separado;
-quedan los gigantes `moveNpc`/`moveLocalNpc`/cluster de spawn/`updateNpcs`), `ZombieGameViewModel.kt`
+**🆕 Progreso (2026-06-20, 6ª pasada):** `NpcAiManager.kt` ~1419→**~882** extrayendo los dos movers
+de calles GRANDES (`moveNpc` ~382 + `moveLocalNpc` ~159) a `domain/models/ai/NpcAiManagerTraffic.kt`
+como **extensiones** `internal fun NpcAiManager.X`. Para que las extensiones vieran el estado se
+pasaron a `internal` ~15 miembros antes `private` (`cachedNavLandmarks`, `nodeToWays`,
+`exteriorCollisions`, `parkedTimers`/`parkingCooldowns`/`carExitCooldowns`/`landmarkEntranceCooldowns`,
+`carSpeed`, `PARKING_WAKE_MIN_MS`/`PARKING_WAKE_MAX_MS`, los 5 `TRAFFIC_AVOID_*`,
+`isNativeWayOverlappingCustom`); los consts del companion se cualifican (`NpcAiManager.LANE_OFFSET`,
+`NpcAiManager.FEAR_SPEED_MULT`). Se ELIMINARON los miembros (no queda gemelo: gana el miembro). Los
+call-sites son del mismo paquete `ai` (`updateNpcs` miembro + `moveZombieNpc`/`movePoliceHunter`
+extensiones en `NpcAiManagerMovement.kt`) → resuelven a la extensión sin imports nuevos. El archivo
+nuevo quedó en LF (normalizar fin de línea en Android Studio o dejar LF, compila igual).
+
+**🆕 Progreso (2026-06-21, 7ª pasada Compose):** `WorldMapScreen.kt` ~2255→**~1817** extrayendo la
+rama **Google Maps nativo** del `when (mapProvider)` (CAPA 1: MAPA) al composable top-level
+`GoogleMapLayer` en `ui/WorldMapScreenGoogle.kt` (~458 líneas movidas). Captura solo 7 símbolos →
+parámetros: `uiState`, `viewModel`, `context`, `roadNetwork`, `allCollectibles`, `landmarkBitmapCache`,
+`googleMapsIconCache` (las cachés LRU se pasan, no se recrean). Sin gotcha miembro/extensión (composable
+top-level); las extensiones del VM usadas se importan (`onMapZoomChanged`/`selectLandmark`/
+`moveSelectedLandmark`); helpers/consts del mismo paquete (`npcVisionRadiusMeters`/`npcWithinRadius`/
+`emojiToDrawable`/`drawHealthBarOnDrawable`/`ExactSizeDrawable`/`NPC_FOG_VISION_METERS`) se ven sin import.
+Archivo nuevo en LF.
+
+**🆕 Progreso (2026-06-21, 8ª pasada Compose):** `WorldMapScreen.kt` ~1817→**~1325** extrayendo la
+rama **WEB** (`else ->`, Leaflet en `AndroidView`/`WebView`, ~520 líneas) al composable top-level
+`WebMapLayer` en `ui/WorldMapScreenWeb.kt`. Captura 23 símbolos → parámetros (más que Google): además
+de `uiState`/`viewModel`/`context`/`roadNetwork`/`allCollectibles`, pasa `cachingClient`
+(`CachingWebViewClient`), `webViewRef`, `gson`, `coroutineScope`, las cachés base64/tamaños
+(`base64Cache`/`widthCache`/`heightCache`/`registeredWebImages`) y los **holders de guarda por-frame**
+(`lastWebNpcHolder`/`lastWebLandmarkHolder`/`webLmTick`/`lastWebMetroHolder`/`webMetroTick`/`lastWebIpOn`/
+`lastWebIpLm`/`lastWebIpColl`/`lastWebPoliceHolder`/`lastWebZombieHolder`) — son `Array`/`IntArray`/
+`BooleanArray` mutables, así que el estado de guarda SIGUE vivo entre frames (no se rompe el anti-reenvío).
+`buildHtml`/`MapJsBridge`/`CachingWebViewClient`/`NpcWebPayload`/`LandmarkWebPayload` son del mismo paquete
+(sin import); OJO: el archivo nuevo SÍ necesita `import kotlinx.coroutines.launch` (las coroutines de
+generación de base64). Archivo nuevo en LF. **WorldMapScreen ya <1500 ✅.** Las 3 ramas del `when` ahora
+delegan: `NativeOsmMap` / `GoogleMapLayer` / `WebMapLayer`.
+
+**ES:** Archivos AÚN candidatos a dividir (al 2026-06-21): `WorldMapViewModel.kt` (~2503, único >1500;
+muy separado, resto = de-dup de gemelos CON COMPILADOR), `WorldMapScreen.kt` (~1325, **<1500 ✅**; opcional:
+builder del menú Opciones),
+`NativeOsmMap.kt` (~1457, parcialmente separado), `NpcAiManager.kt` (~882, **<1000 ✅**; si se quiere
+seguir, queda el cluster de spawn `spawnNpcOnRoad`/`spawnParkedCar`/`spawnCampusPedestrian`/
+`getAvailableParkingSlots` y `updateNpcs` ~370), `ZombieGameViewModel.kt`
 (~1120, ya parcialmente separado). Plan SEGURO: extraer SOLO bloques cohesivos cuyas funciones toquen
 exclusivamente miembros `internal`/`public` (o pasar a `internal` los `private` que necesiten, como en
 NpcAiManager), a nuevos `WorldMap*.kt`/`ZombieGame*.kt`/`NpcAiManager*.kt`, verificando que NO existan
@@ -133,6 +171,23 @@ px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo u
 - **Lambda `update` de osmdroid corre ~30 Hz → mantenerla barata:** landmarks estáticos solo
   re-`setPosition`/`setImage` cuando cambia su firma (`landmarkSigCache`); puertas `DOORS/` sí cada frame;
   ~160 marcadores de metro culleados por viewport (`Marker.isEnabled`).
+- **🆕 Micro-opts GC (2026-06-20, 7ª pasada, SIN cambio de comportamiento):**
+  - `FogOverlay.draw` (~30 Hz): el `IntArray`/`FloatArray` del `RadialGradient` se **reutilizan** como
+    campos (`fogColors`/`fogStops`); `RadialGradient` COPIA su contenido al construirse, así que mutar
+    `fogStops[1]` cada frame es seguro. Antes asignaba 2 arrays nuevos por frame. **El propio
+    `RadialGradient` sí se recrea cada frame** (el centro = píxel del jugador cambia); no se puede cachear
+    sin reintroducir overdraw. No volver a `intArrayOf(...)`/`floatArrayOf(...)` inline en `draw`.
+  - `NativeOsmMap.update`: la densidad se lee UNA vez por frame en `screenDensity` (línea ~259). Cuatro
+    sitios re-llamaban `context.resources.displayMetrics.density` (waypoints policía/zombi/objetivo +
+    marcador metrobús, este último con un `val screenDensity` que **sombreaba** el de arriba) → ahora todos
+    usan el `screenDensity` cacheado. Usar SIEMPRE `screenDensity`, no re-leer `displayMetrics` dentro del loop.
+  - **Descartado (NO seguro sin compilador):** convertir el JS de `WorldMapLeafletHtml` a *template
+    literals* (`` `${x}` ``) — ese JS vive dentro de Kotlin `"""..."""` y `${...}` lo captura la
+    interpolación de Kotlin → rompe. Cachear por referencia los `npcs.filter{...}.map{it.id}.toSet()`
+    por-frame de NPCs que hablan/gritan/llaman: su predicado depende del tiempo (`nowB`), cambia cada frame,
+    así que cachear por referencia de `uiState.npcs` DEJARÍA marcadores obsoletos (regresión). Mover
+    `configureOsmdroid` (I/O de `mkdirs`/SharedPrefs en main thread) a background: cambia el orden de
+    arranque (osmdroid debe configurarse antes del 1er render) → requiere app para verificar.
 
 ## 7. Mapa web `#map-wrapper` / web map wrapper
 

@@ -375,7 +375,7 @@ internal fun NativeOsmMap(
                     setInfoWindow(null)
                     // EMOJI de patrulla mientras viene de lejos (fuera del fog). Al entrar
                     // al fog desaparece este waypoint y se ve el asset real de la patrulla.
-                    val px = (26 * context.resources.displayMetrics.density).toInt()
+                    val px = (26 * screenDensity).toInt()
                     // 👮 si es un policía a pie de la escolta; 🚓 si es una patrulla del mundo libre.
                     val wpEmoji = if (patrol.type == NpcType.POLICE_COP) "👮" else "🚓"
                     icon = emojiToDrawable(context, wpEmoji, px)
@@ -441,7 +441,7 @@ internal fun NativeOsmMap(
                     setInfoWindow(null)
                     // EMOJI de zombi (🧟) mientras está fuera del fog. Al entrar al fog
                     // desaparece este waypoint y se ve el asset real del zombi.
-                    val px = (26 * context.resources.displayMetrics.density).toInt()
+                    val px = (26 * screenDensity).toInt()
                     icon = emojiToDrawable(context, "🧟", px)
                     zombieWpCache[zombie.id] = this
                     view.overlays.add(this)
@@ -1239,7 +1239,6 @@ internal fun NativeOsmMap(
                 uiState.metrobusStations.forEach { station ->
                     val marker = metrobusMarkerCache[station.name] ?: Marker(view).apply {
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        val screenDensity = context.resources.displayMetrics.density
                         val exactPixels = (24 * screenDensity).toInt()
                         val cacheKey = "OSM_METROBUS_ICON"
                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
@@ -1416,7 +1415,7 @@ internal fun NativeOsmMap(
             val objMarker = (view.getTag(objWpTag) as? Marker) ?: Marker(view).apply {
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 setInfoWindow(null)
-                val px = (30 * context.resources.displayMetrics.density).toInt()
+                val px = (30 * screenDensity).toInt()
                 icon = emojiToDrawable(context, "🎯", px)
                 view.setTag(objWpTag, this)
                 view.overlays.add(this)

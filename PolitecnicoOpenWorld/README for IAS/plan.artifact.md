@@ -76,7 +76,7 @@ via co-located `ViewModelProvider.Factory` instances.
 | Sprite/health-bar drawing helpers (NPC health bar size lives here) | `features/map_exterior/ui/WorldMapDrawingUtils.kt` |
 | Player sprite / driven-vehicle rendering + sizing | `features/map_exterior/ui/components/PlayerCharacter.kt` |
 | Leaflet tile interception | `features/map_exterior/ui/CachingWebViewClient.kt` |
-| NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` (+ `NpcAiManagerMovement.kt` = zombie/police movers, aggro, car-follow, distance — extensions) |
+| NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` (~882) (+ `NpcAiManagerMovement.kt` = zombie/police movers, aggro, car-follow, distance — extensions; + `NpcAiManagerTraffic.kt` = `moveNpc`/`moveLocalNpc` street/campus movers — extensions) |
 | Campaign / Story Mode (objectives, schools, comics, screens) | `features/campaign/` (StoryMode UI/VM) + `domain/models/campaign/` (`MissionCatalog` aggregator, `mission1/Mission1.kt`, `SchoolCatalog`, `StoryComicCatalog`) |
 | Wanted level / police AI (spawn, road-snapped chase, disembark, carjack, retreat) | `domain/models/ai/PoliceManager.kt` (driven by `WorldMapViewModel.runPoliceTick`) |
 | Prankedy special hostile NPC (AI / VM glue / sprites) | `domain/models/ai/PrankedyManager.kt` (driven by `WorldMapViewModel.runPrankedyTick`), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |

@@ -16,6 +16,11 @@ internal class FogOverlay : Overlay() {
     var revealPx: Float = 300f
     var rotated: Boolean = false
     private val paint = android.graphics.Paint().apply { isAntiAlias = true }
+    // OPT FPS/GC: arrays del gradiente reutilizados entre frames (RadialGradient COPIA su
+    // contenido al construirse, así que mutar `fogStops[1]` cada frame es seguro). Antes se
+    // asignaban un IntArray y un FloatArray nuevos en CADA draw (~30 Hz) → presión de GC en gama baja.
+    private val fogColors = intArrayOf(0x00000000, 0x00000000, 0x80222A33.toInt())
+    private val fogStops = floatArrayOf(0f, 0f, 1f)
 
     override fun draw(c: android.graphics.Canvas, pProjection: org.osmdroid.views.Projection) {
         val pl = player ?: return
@@ -24,10 +29,11 @@ internal class FogOverlay : Overlay() {
         val reveal = revealPx.coerceIn(40f, if (maxReveal > 40f) maxReveal else 40f)
         val outer = reveal * 1.8f
         val stop = (reveal / outer).coerceIn(0f, 0.99f)
+        fogStops[1] = stop
         paint.shader = android.graphics.RadialGradient(
             pt.x.toFloat(), pt.y.toFloat(), outer,
-            intArrayOf(0x00000000, 0x00000000, 0x80222A33.toInt()),
-            floatArrayOf(0f, stop, 1f),
+            fogColors,
+            fogStops,
             android.graphics.Shader.TileMode.CLAMP
         )
         // OPT FPS: a pie (sin rotación) basta el rect EXACTO de pantalla. Antes se dibujaba

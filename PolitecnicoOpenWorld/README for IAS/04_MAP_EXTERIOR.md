@@ -45,7 +45,9 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Misc (movimiento, WASTED, HUD vida) | `viewmodel/WorldMapMisc.kt` |
 | 🆕 Cámara/zoom (auto/manual, pinch, pan) + toggles de widgets | `viewmodel/WorldMapCameraUi.kt` (NUEVO, refactor — extensiones) |
 | 🆕 Ajustes (densidad/LOD NPCs) + skin | `viewmodel/WorldMapSettings.kt` (NUEVO, refactor — extensiones) |
-| Render principal (OSM/Google/Leaflet) | `ui/WorldMapScreen.kt` |
+| Render principal (selector de renderer: OSM/Google/Web) | `ui/WorldMapScreen.kt` (~1325) |
+| 🆕 Rama de render Google Maps nativo (`GoogleMapLayer`) | `ui/WorldMapScreenGoogle.kt` (NUEVO, refactor — composable top-level; cachés LRU por parámetro) |
+| 🆕 Rama de render WEB / Leaflet en WebView (`WebMapLayer`) | `ui/WorldMapScreenWeb.kt` (NUEVO, refactor — composable top-level; cachés base64 + holders de guarda por-frame por parámetro) |
 | 🆕 Overlays/diálogos superpuestos (WASTED, vídeo zombi, prompts, diálogo Prankedy, popup coleccionable, fades puerta ESCOM/metro/metrobús) | `ui/WorldMapScreenOverlays.kt` (NUEVO, refactor) |
 | 🆕 Controles en pantalla (D-pad/joystick/acciones, conducción, salir apocalipsis, pulsación larga Y/△) | `ui/WorldMapScreenControls.kt` (NUEVO, refactor — `BoxScope.WorldMapControls`) |
 | Render nativo osmdroid (fog, over-zoom, NPCs, landmarks) | `ui/NativeOsmMap.kt` |
@@ -53,6 +55,7 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | 🆕 Overlay de neblina (fog of war) OSM nativo | `ui/NativeOsmMapFog.kt` (NUEVO, refactor — `class FogOverlay`) |
 | 🆕 Entrada a interiores data-driven (puerta→ruta) | `domain/models/InteriorEntryCatalog.kt` (NUEVO; lo usa `handleInteraction`) |
 | 🆕 IA de NPCs: movers zombi/policía, aggro, seguimiento, distancia | `domain/models/ai/NpcAiManagerMovement.kt` (NUEVO, refactor — extensiones de `NpcAiManager`) |
+| 🆕 IA de NPCs: movers de calles/campus (`moveNpc`/`moveLocalNpc`: tráfico, compromiso de intersección, esquive, parking, navGraph) | `domain/models/ai/NpcAiManagerTraffic.kt` (NUEVO, refactor — extensiones de `NpcAiManager`) |
 | HTML de Leaflet (WebView) | `ui/WorldMapLeafletHtml.kt` |
 | Intercepción de tiles Leaflet | `ui/CachingWebViewClient.kt` |
 | Helpers de dibujo / health bar | `ui/WorldMapDrawingUtils.kt` |
