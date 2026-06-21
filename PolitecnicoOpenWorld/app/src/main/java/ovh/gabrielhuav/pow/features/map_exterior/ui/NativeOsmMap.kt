@@ -113,6 +113,10 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+// REFACTOR: zoom/pan extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanStart
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanEnd
 // REFACTOR: extensiones del VM (WorldMapDesigner.kt) usadas por los lápices del diseñador.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveSelectedLandmark
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectLandmark

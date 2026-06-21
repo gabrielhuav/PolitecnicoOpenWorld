@@ -2,6 +2,10 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
 
 import android.webkit.JavascriptInterface
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+// REFACTOR: zoom/pan extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanStart
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanEnd
 // REFACTOR: estas funciones ahora son extensiones (WorldMapDesigner.kt) → requieren import.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveLandmarkTo
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectLandmark

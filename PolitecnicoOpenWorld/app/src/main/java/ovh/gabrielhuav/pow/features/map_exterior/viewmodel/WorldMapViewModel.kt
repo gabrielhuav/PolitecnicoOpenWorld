@@ -1528,84 +1528,19 @@ class WorldMapViewModel(
     internal var currentInteriorInventory: List<String> = emptyList()
     internal var currentInteriorLab1KeyFound: Boolean = false
 
-    fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
-    fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
-
-    fun toggleZoomWidget(show: Boolean) { _uiState.update { it.copy(showZoomWidget = show) } }
-
-    fun toggleSpeedometer(show: Boolean) { _uiState.update { it.copy(showSpeedometer = show) } }
-    fun toggleCoordsWidget(show: Boolean) { _uiState.update { it.copy(showCoordsWidget = show) } }
-    fun updateShowCacheWidget(show: Boolean) = _uiState.update { it.copy(showCacheWidget = show) }
-    fun updateShowFpsWidget(show: Boolean) = _uiState.update { it.copy(showFpsWidget = show) }
+    // REFACTOR: toggles de widgets + zoom/cámara movidos a WorldMapCameraUi.kt (extensiones del VM,
+    // mismo paquete). Los campos de interpolación (autoZoomMode/targetZoomLevel) siguen aquí (internal).
 
     // ─── ZOOM AUTOMÁTICO POR ESTADO (a pie / conduciendo / conduciendo rápido) ───
     // A pie 22; al subir a un vehículo 21; a MUY alta velocidad (≥85% de MAX_SPEED)
     // baja a 20, y vuelve a 21 por debajo del 65% (histéresis anti-parpadeo). Solo
     // actúa en TRANSICIONES de modo, así el pinch manual del usuario se respeta
     // hasta el siguiente cambio de estado.
-    private var autoZoomMode = 0 // 0 = a pie, 1 = conduciendo, 2 = conduciendo rápido
-    private var targetZoomLevel = ZOOM_ON_FOOT // Zoom objetivo para interpolación suave
+    internal var autoZoomMode = 0 // 0 = a pie, 1 = conduciendo, 2 = conduciendo rápido
+    internal var targetZoomLevel = ZOOM_ON_FOOT // Zoom objetivo para interpolación suave (usado por WorldMapCameraUi.kt)
 
-    internal fun updateAutoZoom() {
-        val st = _uiState.value
-        val absSpeed = kotlin.math.abs(st.vehicleSpeed)
-        val newMode = when {
-            !st.isDriving -> 0
-            autoZoomMode == 2 -> if (absSpeed < MAX_SPEED * 0.65) 1 else 2
-            else -> if (absSpeed >= MAX_SPEED * 0.85) 2 else 1
-        }
-        if (newMode != autoZoomMode) {
-            autoZoomMode = newMode
-            targetZoomLevel = when (newMode) {
-                0 -> ZOOM_ON_FOOT
-                1 -> ZOOM_DRIVING
-                else -> ZOOM_DRIVING_FAST
-            }
-        }
-        // Interpolar zoomLevel hacia targetZoomLevel para transición suave
-        val currentZoom = st.zoomLevel
-        if (Math.abs(currentZoom - targetZoomLevel) > 0.01) {
-            val newZoom = currentZoom + (targetZoomLevel - currentZoom) * 0.1 // 10% por tick
-            _uiState.update { it.copy(zoomLevel = newZoom) }
-        }
-    }
-
-    fun zoomIn()  { 
-        targetZoomLevel = (_uiState.value.zoomLevel + 1.0).coerceAtMost(22.0)
-        _uiState.update { if (it.zoomLevel < 22.0) it.copy(zoomLevel = targetZoomLevel) else it } 
-    }
-    fun zoomOut() { 
-        targetZoomLevel = (_uiState.value.zoomLevel - 1.0).coerceAtLeast(14.0)
-        _uiState.update { if (it.zoomLevel > 14.0) it.copy(zoomLevel = targetZoomLevel) else it } 
-    }
-
-    // Canal de retorno del zoom por GESTO (pinch de dos dedos) desde el mapa (web,
-    // OSM nativo o Google). Sin esto, el bucle de render volvía a fijar el zoom al
-    // valor del estado y el pinch "rebotaba". Acota a los límites de juego.
-    fun onMapZoomChanged(zoom: Double) {
-        if (!zoom.isFinite()) return
-        // Cuantizamos a pasos de 0.5 y solo actualizamos si el cambio es grande. Así el
-        // zoom por gesto no produce micro-cambios continuos que invaliden el estado (y con
-        // él la caché de sprites de NPC, cuya clave depende del tamaño en píxeles → zoom).
-        val z = (Math.round(zoom * 2.0) / 2.0).coerceIn(14.0, 22.0)
-        if (Math.abs(z - _uiState.value.zoomLevel) >= 0.5) {
-            targetZoomLevel = z
-            _uiState.update { it.copy(zoomLevel = z) }
-        }
-    }
-
-    fun centerOnPlayer() { _uiState.update { it.copy(isUserPanningMap = false) } }
-
-    /** Centra en el jugador Y acerca al máximo nivel de zoom permitido. */
-    fun zoomToPlayer() {
-        // Fijamos TAMBIEN el objetivo de interpolacion: si no, updateAutoZoom() arrastraba
-        // el zoom de vuelta al valor anterior (p. ej. tras un zoom out) y "rebotaba".
-        targetZoomLevel = 22.0
-        _uiState.update { it.copy(isUserPanningMap = false, zoomLevel = 22.0) }
-    }
-
-    fun onMapPanStart() { _uiState.update { it.copy(isUserPanningMap = true) } }
-    fun onMapPanEnd() { }
+    // updateAutoZoom / zoomIn / zoomOut / onMapZoomChanged / centerOnPlayer / zoomToPlayer /
+    // onMapPanStart / onMapPanEnd → movidos a WorldMapCameraUi.kt (extensiones del VM).
 
     override fun onCleared() {
         super.onCleared()
@@ -2375,12 +2310,7 @@ class WorldMapViewModel(
 
     // ─── Jugabilidad (live, desde Ajustes) ──────────────────────────────────
     /** Multiplicador de densidad de NPCs elegido por el usuario (se combina con gama/ciudad). */
-    fun setNpcDensity(v: Float) { npcAiManager.userPopulationFactor = v }
-    /** NPCs lejanos como emoji (optimización gama baja). */
-    fun setNpcEmojiLod(enabled: Boolean) { _uiState.update { it.copy(npcEmojiLod = enabled) } }
-
-    fun setNpcFullEmoji(enabled: Boolean) { _uiState.update { it.copy(npcFullEmoji = enabled) } }
-
+    // setNpcDensity / setNpcEmojiLod / setNpcFullEmoji → WorldMapSettings.kt (extensiones).
     fun setShowRoadNetwork(show: Boolean) {
         _uiState.update { it.copy(showRoadNetwork = show) }
         if (!show) {
@@ -2526,18 +2456,7 @@ class WorldMapViewModel(
 
     // ─── Selector de skin ────────────────────────────────────────────────
 
-    fun toggleSkinSelector(show: Boolean) {
-        _uiState.update { it.copy(showSkinSelector = show) }
-    }
-
-    fun selectSkin(skin: ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin) {
-        settingsRepository.savePlayerSkin(skin)
-        _uiState.update { it.copy(selectedSkin = skin, showSkinSelector = false) }
-    }
-
-    fun refreshSkin() {
-        _uiState.update { it.copy(selectedSkin = settingsRepository.getPlayerSkin()) }
-    }
+    // toggleSkinSelector / selectSkin / refreshSkin → WorldMapSettings.kt (extensiones).
 
     // ─── ShineCTO Easter Egg ────────────────────────────────────────────────
 

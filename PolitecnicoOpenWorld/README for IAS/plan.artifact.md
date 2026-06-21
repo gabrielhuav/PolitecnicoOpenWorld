@@ -71,11 +71,13 @@ via co-located `ViewModelProvider.Factory` instances.
 | Map rendering (OSM/Google/Leaflet WebView) | `features/map_exterior/ui/WorldMapScreen.kt` (Leaflet HTML built in `WorldMapLeafletHtml.kt`; stacked overlays/dialogs extracted to `WorldMapScreenOverlays.kt`) |
 | Overlays/dialogs (WASTED, zombie video, prompts, Prankedy dialogue, collectible popup, ESCOM/metro/metrobús door fades) | `features/map_exterior/ui/WorldMapScreenOverlays.kt` (`WorldMapOverlays`, refactor) |
 | On-screen controls (D-pad/joystick/actions, driving, exit-apocalypse, Y/△ long-press) | `features/map_exterior/ui/WorldMapScreenControls.kt` (`BoxScope.WorldMapControls`, refactor) |
-| Native osmdroid rendering (NPCs, landmarks, **player-anchored fog overlay**, over-zoom) | `features/map_exterior/ui/NativeOsmMap.kt` |
+| Native osmdroid rendering (NPCs, landmarks, **player-anchored fog overlay**, over-zoom) | `features/map_exterior/ui/NativeOsmMap.kt` (+ `NativeOsmMapPrankedy.kt` Prankedy render, `NativeOsmMapFog.kt` `FogOverlay`) |
+| Door→interior routing (data-driven) | `domain/models/InteriorEntryCatalog.kt` (used by `WorldMapViewModel.handleInteraction`) |
 | Sprite/health-bar drawing helpers (NPC health bar size lives here) | `features/map_exterior/ui/WorldMapDrawingUtils.kt` |
 | Player sprite / driven-vehicle rendering + sizing | `features/map_exterior/ui/components/PlayerCharacter.kt` |
 | Leaflet tile interception | `features/map_exterior/ui/CachingWebViewClient.kt` |
-| NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` |
+| NPC population / spawn / movement / adoption (client-side) | `domain/models/ai/NpcAiManager.kt` (+ `NpcAiManagerMovement.kt` = zombie/police movers, aggro, car-follow, distance — extensions) |
+| Campaign / Story Mode (objectives, schools, comics, screens) | `features/campaign/` (StoryMode UI/VM) + `domain/models/campaign/` (`MissionCatalog` aggregator, `mission1/Mission1.kt`, `SchoolCatalog`, `StoryComicCatalog`) |
 | Wanted level / police AI (spawn, road-snapped chase, disembark, carjack, retreat) | `domain/models/ai/PoliceManager.kt` (driven by `WorldMapViewModel.runPoliceTick`) |
 | Prankedy special hostile NPC (AI / VM glue / sprites) | `domain/models/ai/PrankedyManager.kt` (driven by `WorldMapViewModel.runPrankedyTick`), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
 | Patrol sprite (no-repaint `POLICE_TOPDOWN`) | `features/map_exterior/ui/components/PoliceSpriteManager.kt`; cop = 👮 emoji via `emojiToDrawable` in `WorldMapDrawingUtils.kt` |

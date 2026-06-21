@@ -169,6 +169,14 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_WEB
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+// REFACTOR: zoom/cámara extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.centerOnPlayer
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.zoomToPlayer
+// REFACTOR: skin extraído a WorldMapSettings.kt (extensiones) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleSkinSelector
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectSkin
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.refreshSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import kotlin.math.abs
 import kotlin.math.atan2

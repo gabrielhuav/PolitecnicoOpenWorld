@@ -60,6 +60,17 @@ import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+// REFACTOR: toggles de widgets extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCacheWidget
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleFpsWidget
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleZoomWidget
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleSpeedometer
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCoordsWidget
+// REFACTOR: ajustes/skin extraídos a WorldMapSettings.kt (extensiones) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setNpcDensity
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setNpcEmojiLod
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setNpcFullEmoji
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectSkin
 // REFACTOR: extensiones del VM (WorldMapProviders.kt) → requieren import explícito.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider

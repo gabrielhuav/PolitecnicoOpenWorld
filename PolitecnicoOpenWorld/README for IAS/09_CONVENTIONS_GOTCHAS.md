@@ -40,17 +40,41 @@ composables top-level); las extensiones del VM usadas se importan en el archivo 
   Se ELIMINARON los miembros (no queda gemelo). `ui/ZombieGameScreen.kt` importa las 15 extensiones
   usadas — incl. referencias acotadas `viewModel::paintCellAtWorld` (Kotlin permite `::` a extensiones).
 
-**ES:** Archivos AÚN candidatos a dividir (al 2026-06-20): `WorldMapViewModel.kt` (~2600, ya
-parcialmente separado), `WorldMapScreen.kt` (~2255, parcialmente separado), `NativeOsmMap.kt` (~1614),
-`NpcAiManager.kt` (~1618), `ZombieGameViewModel.kt` (~1120, ya parcialmente separado). **`NativeOsmMap`/
-`NpcAiManager` NO se han separado**: hacerlo es riesgoso porque (1) mover un
-método a un archivo de **extensión** rompe el acceso a miembros `private` del VM (las extensiones solo
-ven `internal`/`public`) y (2) el patrón ya existente es "VM núcleo (estado/campos) + parciales de
-comportamiento en `WorldMap*.kt`". Plan SEGURO cuando se aborde: extraer SOLO bloques cohesivos cuyas
-funciones toquen exclusivamente miembros `internal`/`public`, a nuevos `WorldMap*.kt` /
-`ZombieGame*.kt`, verificando que NO existan gemelos miembro (gana el miembro) y conservando CRLF. Para
-`WorldMapScreen`/`NativeOsmMap` (Compose), extraer composables a archivos UI por sección. Hacerlo en
-pasos pequeños y verificables, uno por archivo.
+**🆕 Progreso (2026-06-20, 4ª pasada):**
+- `NativeOsmMap.kt` ~1615→**1457**: `renderPrankedyOnMap`→`ui/NativeOsmMapPrankedy.kt` y la clase
+  `FogOverlay`→`ui/NativeOsmMapFog.kt` (ambas `internal`, mismo paquete `ui`).
+- `NpcAiManager.kt` ~1619→**1419**: cluster de movimiento/geometría (`moveZombieNpc`, `movePoliceHunter`,
+  `moveAggroNpc`, `carFollowScale`, `pointToLineDist`, `calculateDistance`) →
+  `domain/models/ai/NpcAiManagerMovement.kt` como **extensiones** `internal fun NpcAiManager.X`. Para que
+  las extensiones vieran el estado, se pasaron a `internal` 5 miembros (`serverNpcs`, `personSpeed`,
+  `aggroPlayerLat/Lon`, `moveNpc`); los miembros del companion se cualifican
+  (`NpcAiManager.speedMulForRole`/`CAR_FOLLOW_DISTANCE`/`AGGRO_STOP_DIST`/`AGGRO_SPEED_MULT`). Eran
+  todos `private` → sin call-sites externos; los internos resuelven a la extensión del mismo paquete.
+- 🆕 `domain/models/InteriorEntryCatalog.kt` (registro puerta→ruta) + `handleInteraction` ahora
+  data-driven (añadir edificio enterable = 1 entrada). 🆕 Reorg de **campaña** a `features/campaign/`
+  (StoryMode) + `domain/models/campaign/` (CampaignObjective, MissionCatalog **fachada**, SchoolCatalog,
+  StoryComicCatalog) + `domain/models/campaign/mission1/Mission1.kt`. 🆕 Reorg de **assets** (ver
+  `PROPUESTA_reorg_assets.md`): AUDIO/SPRITES/TRANSIT/CONFIG/INTERIORS/VIDEO + iconos a `SPRITES/ICONS`.
+
+**🆕 Progreso (2026-06-20, 5ª pasada):** `WorldMapViewModel.kt` ~2584→**~2503** extrayendo dos parciales
+nuevos (extensiones, sin gemelo): `WorldMapCameraUi.kt` (zoom automático/manual, pinch `onMapZoomChanged`,
+`centerOnPlayer`/`zoomToPlayer`, pan, y toggles de widgets; campos `autoZoomMode`/`targetZoomLevel`
+pasados a `internal`) y `WorldMapSettings.kt` (densidad/LOD de NPCs + skin). Call-sites externos importan
+las extensiones (MainActivity, WorldMapScreen, NativeOsmMap, MapJsBridge). **Tope práctico de extracción
+fácil alcanzado:** lo que queda grande en el VM (startGameLoop ~440, handleMultiplayerMessage,
+addRemoteEntity, updateVisibleRoads, updateDestinationRoute, triggerWastedSequence) son **pares con
+gemelo en parciales** (miembro canónico) y/o llaman a muchos `private` → su separación = de-duplicar los
+gemelos, que requiere COMPILADOR (ver lista de pares pendientes en §12). No tocar sin Android Studio.
+
+**ES:** Archivos AÚN candidatos a dividir (al 2026-06-20): `WorldMapViewModel.kt` (~2503, muy separado;
+resto = de-dup de gemelos con compilador), `WorldMapScreen.kt` (~2255, parcialmente separado),
+`NativeOsmMap.kt` (~1457, parcialmente separado), `NpcAiManager.kt` (~1419, parcialmente separado;
+quedan los gigantes `moveNpc`/`moveLocalNpc`/cluster de spawn/`updateNpcs`), `ZombieGameViewModel.kt`
+(~1120, ya parcialmente separado). Plan SEGURO: extraer SOLO bloques cohesivos cuyas funciones toquen
+exclusivamente miembros `internal`/`public` (o pasar a `internal` los `private` que necesiten, como en
+NpcAiManager), a nuevos `WorldMap*.kt`/`ZombieGame*.kt`/`NpcAiManager*.kt`, verificando que NO existan
+gemelos miembro (gana el miembro) y conservando CRLF. Para `WorldMapScreen`/`NativeOsmMap` (Compose),
+extraer composables/clases por sección. Pasos pequeños y verificables, uno por archivo.
 
 ## 1. Convenciones MVVM / MVVM conventions
 
