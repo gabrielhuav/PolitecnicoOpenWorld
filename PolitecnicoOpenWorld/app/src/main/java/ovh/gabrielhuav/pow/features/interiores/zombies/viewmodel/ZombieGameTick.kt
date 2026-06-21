@@ -134,6 +134,10 @@ internal fun ZombieGameViewModel.tickOffline(s: ZombieGameState, now: Long) {
         val nearItem = s.items.firstOrNull {
             !it.collected && hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
         }
+        // PUZZLE de llaves (ENCB_lab1): ¿el jugador está SOBRE una llave?
+        val nearKey = s.keys.firstOrNull {
+            hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
+        }
 
         _state.update {
             it.copy(
@@ -143,6 +147,7 @@ internal fun ZombieGameViewModel.tickOffline(s: ZombieGameState, now: Long) {
                 damagePulseTrigger = pulse,
                 zombiesRemaining = workingZombies.count { z -> !z.isDying },
                 nearbyItemId = nearItem?.id,
+                nearbyKeyId = nearKey?.id,
                 activeEffects = if (effectsChanged) stillActive else it.activeEffects
             )
         }

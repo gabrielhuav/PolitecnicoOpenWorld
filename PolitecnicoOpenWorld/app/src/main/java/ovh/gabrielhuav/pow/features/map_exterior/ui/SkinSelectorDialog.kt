@@ -70,13 +70,19 @@ fun SkinSelectorDialog(
     currentSkin: PlayerSkin,
     context: Context,
     onSkinSelected: (PlayerSkin) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    // LÁZARO solo se muestra en Modo Desarrollador.
+    developerMode: Boolean = false
 ) {
+    // Skins seleccionables: LÁZARO queda oculto salvo en Modo Desarrollador.
+    val selectableSkins = remember(developerMode) {
+        PlayerSkin.entries.filter { it != PlayerSkin.LAZARO || developerMode }
+    }
     // Pre-carga miniaturas (idle frame 1 de cada skin)
     val previews = remember { mutableStateMapOf<PlayerSkin, ImageBitmap?>() }
 
     LaunchedEffect(Unit) {
-        PlayerSkin.entries.forEach { skin ->
+        selectableSkins.forEach { skin ->
             val bitmap = withContext(Dispatchers.IO) {
                 try {
                     context.assets.open(skin.idlePath(1))
@@ -110,7 +116,7 @@ fun SkinSelectorDialog(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(vertical = 4.dp)
                 ) {
-                    items(PlayerSkin.entries) { skin ->
+                    items(selectableSkins) { skin ->
                         SkinCard(
                             skin       = skin,
                             preview    = previews[skin],

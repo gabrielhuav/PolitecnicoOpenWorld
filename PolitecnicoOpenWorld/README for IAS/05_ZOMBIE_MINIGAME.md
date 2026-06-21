@@ -88,7 +88,9 @@ isPlayerFacingRight, isRunning, showPlayerHealthBar, damagePulseTrigger, aimDirX
 zombies: List<ZombieEntity>, items: List<SkillItem>, projectiles: List<Projectile>, totalZombies,
 zombiesRemaining, activeEffects: List<ActiveEffect>, effectToast, combatMode(MELEE/RANGED),
 showWeaponMenu, showVictoryScreen, showWastedScreen, isExitingToWorld, showExitToLobbyDialog,
-showExitGuide, nearbyDoorLabel, nearbyItemId, pickupToast, controlType(=JOYSTICK), controlsScale,
+showExitGuide, nearbyDoorLabel, nearbyItemId, pickupToast,
+keys: List<KeyDrop>, nearbyKeyId, lab1KeyFound, keyMessage, showInventory, inventoryKeys: List<String>,
+controlType(=JOYSTICK), controlsScale,
 swapControls, isLoading, remotePlayers, zombieModeActivated, showZombieCinematic,
 designerMode, designerRows, designerBrushWall, designerDirty, designerTarget(MATRIX/WAYPOINTS),
 designerDoors, selectedDoorIndex`.
@@ -109,6 +111,7 @@ PLAYER_PUNCH_DAMAGE=34  PLAYER_ATTACK_RADIUS=120  PLAYER_ATTACK_COOLDOWN_MS=600
 MELEE_KNOCKBACK=46  PROJECTILE_KNOCKBACK=34  PLAYER_RECOIL=10
 PROJECTILE_SPEED=22  PROJECTILE_LIFETIME_MS=1500  PROJECTILE_DAMAGE=50  PROJECTILE_HIT_RADIUS=36
 RANGED_COOLDOWN_MS=350  Y_HOLD_FOR_MENU_MS=500
+INVENTORY_UNLOCKED_SLOTS=1  INVENTORY_TOTAL_SLOTS=4
 SPAWN_RADIUS_MIN=280  SPAWN_RADIUS_MAX=520  TICK_MS=33  ITEM_PICKUP_DIST=70  RETURN_SPAWN_OFFSET=40
 EXIT_GUIDE_DURATION_MS=2000  SKILL_DROP_CHANCE=0.45
 SLOW_ZOMBIE_FACTOR=0.45  FAST_ZOMBIE_FACTOR=1.9  ZOMBIE_DMG_FURY_FACTOR=2.0
@@ -176,8 +179,22 @@ Mensajes → ver **08**.
 **Combate / combat:** `performPlayerAttack()` (melee, `PLAYER_ATTACK_RADIUS` 120, daño 34),
 `fireProjectile()`, `onZombieDeath(dead)` (drop de item 45%), `applyEffect(effect)` /
 `applyEffectByName(name)` / `effectFromName(name)`, `hasEffect(e)`, `playerDamageFactor()`,
-`selectCombatMode(mode)`, `onSecondaryPressed/Released` (Y mantenido 500 ms → menú de arma),
-`setSpecial(pressed)` (B), `dismissWeaponMenu()`.
+`selectCombatMode(mode)`, `setSpecial(pressed)` (B), `dismissWeaponMenu()`.
+
+**Controles (interiores) / interior controls:** **A** = `onRun(pressed)` (MANTENER + moverse = correr,
+momentáneo; queda libre al estar quieto). **Y** mantenido 500 ms (`onSecondaryPressed/Released`) abre el
+**MENÚ COMBINADO**: arriba el MODO DE GOLPE (`selectCombatMode`, melee/ranged) y abajo el INVENTARIO;
+`dismissInventory()` cierra. (Ya NO hay menú de armas separado; `showWeaponMenu`/`onPrimary*` quedaron muertos.)
+
+**Puzzle de llave + inventario (ENCB_lab1) / key puzzle:** `spawnLab1Keys(room)` siembra 5 llaves
+ELIGIENDO celdas CAMINABLES (no `#`) directamente de `room.collisionMatrix` (la matriz `encb_lab1` de
+`assets/collision_matrices.json`; `CollisionMatrixRepository.readStore` ahora hace MERGE asset+local para
+que la matriz de fábrica SIEMPRE se cargue). `KeyDrop`, assets `CAMPAIGN/KEYS/`, correcta `LLave4.png`;
+`onInteract` RECOGE la
+llave cercana (`nearbyKeyId`) al inventario (`inventoryKeys`, 1 slot usable) y, en la puerta
+`EXIT_NEXT` de lab1, PRUEBA la del inventario (correcta → `lab1KeyFound=true` abre; incorrecta → se
+descarta). Render `KeyGroundItem` (suelo) / `InventoryKeyIcon` (slot, imagen real). Se GUARDA en
+`GameSaveData` (`inventoryKeys`/`lab1KeyFound`) vía `WorldMapViewModel.currentInteriorInventory/…Lab1KeyFound`.
 
 **Movimiento / UI:** `moveByAngle(angleRad)`, `moveDirection(direction)`, `applyMovement(...)`,
 `setRunning(running)`, `onInteract()`, `confirmExitToLobby/dismissExitToLobby`,

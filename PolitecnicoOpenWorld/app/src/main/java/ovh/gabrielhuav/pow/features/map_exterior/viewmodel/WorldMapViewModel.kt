@@ -1560,6 +1560,12 @@ class WorldMapViewModel(
     // salir al mapa). El guardado lo persiste para que CARGAR reabra el interior correcto.
     internal var currentInteriorRoomId: String? = null
 
+    // INVENTARIO de interiores (llaves recogidas) y progreso del puzzle de ENCB_lab1. Los mantiene
+    // MainActivity (puente con ZombieGameViewModel) para que el GUARDADO los persista y CARGAR los
+    // restaure al reabrir el interior.
+    internal var currentInteriorInventory: List<String> = emptyList()
+    internal var currentInteriorLab1KeyFound: Boolean = false
+
     fun toggleCacheWidget(show: Boolean) { _uiState.update { it.copy(showCacheWidget = show) } }
     fun toggleFpsWidget(show: Boolean) { _uiState.update { it.copy(showFpsWidget = show) } }
 

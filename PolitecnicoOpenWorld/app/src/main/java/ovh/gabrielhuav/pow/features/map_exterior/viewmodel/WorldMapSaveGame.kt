@@ -57,6 +57,8 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
         objectiveId = s.currentObjective?.id,
         objectiveDone = s.objectiveDone,
         interiorRoomId = currentInteriorRoomId,   // null si está en el mapa global
+        inventoryKeys = currentInteriorInventory,
+        lab1KeyFound = currentInteriorLab1KeyFound,
         saveType = saveType,
         savedAt = System.currentTimeMillis()
     )
@@ -86,6 +88,10 @@ fun WorldMapViewModel.restoreSaveData(data: GameSaveData) {
     // Recordamos el interior guardado (null = mapa global). MainActivity decide la ruta de
     // reentrada (un interior o el mapa global) a partir de este valor tras loadGame.
     currentInteriorRoomId = data.interiorRoomId
+    // Restaura inventario y progreso del puzzle de ENCB_lab1 (MainActivity los pasa al reabrir
+    // el interior para sembrar el estado del ZombieGameViewModel).
+    currentInteriorInventory = data.inventoryKeys
+    currentInteriorLab1KeyFound = data.lab1KeyFound
     _uiState.update {
         it.copy(
             wantedLevel = data.wantedLevel,

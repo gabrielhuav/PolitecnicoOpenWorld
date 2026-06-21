@@ -47,7 +47,10 @@ escuela** y **"CARGAR PARTIDA"** (habilitado solo si hay una partida guardada). 
 **ES:** `CampaignRepository` (prefs) solo dice QUÉ escuela. El **estado completo** se guarda en **JSON con
 hasta `SLOT_COUNT`=5 SLOTS** (`filesDir/pow_campaign_save_<n>.json`):
 `GameSaveData(schoolId, lat, lon, health, wantedLevel, isDriving, isDrivingPoliceCar, vehicleModel,
-vehicleColor, skin, nearbyNpcs: List<SavedNpc>, objectiveId, objectiveDone, savedAt)`. API del repo:
+vehicleColor, skin, nearbyNpcs: List<SavedNpc>, objectiveId, objectiveDone, interiorRoomId,
+inventoryKeys: List<String>, lab1KeyFound, saveType, savedAt)` — `inventoryKeys`/`lab1KeyFound`
+persisten el INVENTARIO y el progreso del puzzle de llave de ENCB_lab1 (puente
+`WorldMapViewModel.currentInteriorInventory/…Lab1KeyFound`, restaurado en `ZombieGameViewModel`). API del repo:
 `save(slot,data)`, `load(slot)`, `hasSave(slot)`, `anySave()`, `firstEmptySlot()`, `summaries(): List<SaveSlotSummary>`, `clear(slot)`.
 - **Selector de slots:** `features/main_menu/ui/SaveSlotsDialog.kt` (`SaveSlotsMode.LOAD`/`SAVE`) muestra los 5
   slots con escuela + fecha. Lo hospeda **`MainActivity`** a nivel de Activity (un diálogo de GUARDAR común a

@@ -425,33 +425,70 @@ fun WorldMapScreen(
                 viewModel.prepareMapForEntry()
             }
         }
-        // worldReady ahora TAMBIÉN espera a los NPCs (npcsWarmedUp): tras un teleport la
-        // pantalla de carga no se quita hasta que tiles + calles + IA estén listos.
-        val worldReady = !uiState.isLoadingLocation && uiState.isRoadNetworkReady &&
-            uiState.isMapReady && uiState.npcsWarmedUp
-        if (!worldReady) {
-            // PRE-DECODIFICACIÓN de assets de construcciones cercanas (≤ ~2 km) DURANTE la
-            // pantalla de carga: al soltar al jugador, los landmarks (p. ej. ESCOM) ya están
-            // en la caché de bitmaps y aparecen al instante en los renderers nativos.
-            LaunchedEffect(uiState.isMapReady, uiState.isRoadNetworkReady, uiState.landmarks) {
-                val loc = uiState.currentLocation ?: return@LaunchedEffect
-                val nearby = uiState.landmarks.filter {
-                    kotlin.math.abs(it.location.latitude - loc.latitude) < 0.02 &&
-                        kotlin.math.abs(it.location.longitude - loc.longitude) < 0.02
-                }
-                for (lm in nearby) {
-                    if (landmarkBitmapCache.containsKey(lm.assetPath)) continue
-                    val bmp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        try {
-                            context.assets.open(lm.assetPath).use { st ->
-                                val o = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 }
-                                android.graphics.BitmapFactory.decodeStream(st, null, o)
-                            }
-                        } catch (e: Exception) { null }
+        // El mundo NO se revela hasta que la ESCENA esté REALMENTE lista: tiles + calles + el/los
+        // landmark(s) cercano(s) DECODIFICADO(S) (p. ej. la ENTRADA de la ESCOM) + NPCs/coches ya
+        // sembrados. Así la pantalla de carga dura lo necesario (más en gama baja) y no se entra
+        // "en blanco" ni sin coches/NPCs.
+        var sceneReady by remember { mutableStateOf(false) }
+        // Reinicia el gate en cada (re)carga del mundo (teleport, volver de interior).
+        LaunchedEffect(uiState.isMapReady) { if (!uiState.isMapReady) sceneReady = false }
+        // SONDEO: con tiles+calles listos, decodifica los assets de landmarks cercanos y espera a
+        // que (1) exista al menos un landmark cercano y TODOS estén decodificados, y (2) ya haya
+        // NPCs/coches sembrados. Timeout de seguridad de 15 s para no atascar JAMÁS la carga.
+        LaunchedEffect(uiState.isMapReady, uiState.isRoadNetworkReady) {
+            if (!uiState.isMapReady || !uiState.isRoadNetworkReady) return@LaunchedEffect
+            val start = System.currentTimeMillis()
+            var lastLog = 0L
+            while (isActive) {
+                val loc = uiState.currentLocation
+                if (loc != null) {
+                    val nearby = uiState.landmarks.filter {
+                        kotlin.math.abs(it.location.latitude - loc.latitude) < 0.02 &&
+                            kotlin.math.abs(it.location.longitude - loc.longitude) < 0.02
                     }
-                    landmarkBitmapCache[lm.assetPath] = bmp // escrito en Main (post-withContext)
+                    // Decodifica (una vez) los assets de landmarks que falten en la caché.
+                    for (lm in nearby) {
+                        if (landmarkBitmapCache.containsKey(lm.assetPath)) continue
+                        val bmp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                context.assets.open(lm.assetPath).use { st ->
+                                    val o = android.graphics.BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 }
+                                    android.graphics.BitmapFactory.decodeStream(st, null, o)
+                                }
+                            } catch (e: Exception) { null }
+                        }
+                        landmarkBitmapCache[lm.assetPath] = bmp
+                    }
+                    // (1) Hay landmark cercano y TODOS decodificados (intentados). (2) Ya hay NPCs/coches.
+                    val landmarksOk = nearby.isNotEmpty() &&
+                        nearby.all { landmarkBitmapCache.containsKey(it.assetPath) }
+                    val npcsOk = uiState.npcs.isNotEmpty()
+                    // DIAGNÓSTICO (POW_DBG, cada ~1 s): qué está pendiente para soltar la carga.
+                    val nowLog = System.currentTimeMillis()
+                    if (nowLog - lastLog > 1000L) {
+                        lastLog = nowLog
+                        android.util.Log.d("POW_DBG",
+                            "gate: nearbyLm=${nearby.size} lmDecoded=${nearby.count { landmarkBitmapCache.containsKey(it.assetPath) }} " +
+                            "npcs=${uiState.npcs.size} mapReady=${uiState.isMapReady} roadsReady=${uiState.isRoadNetworkReady} " +
+                            "t=${(nowLog - start) / 1000}s")
+                    }
+                    if (landmarksOk && npcsOk) {
+                        android.util.Log.d("POW_DBG", "gate: LISTO (landmarks+NPCs) en ${(System.currentTimeMillis() - start) / 1000}s")
+                        sceneReady = true; break
+                    }
                 }
+                // Timeout de seguridad: nunca dejar al jugador atrapado en la carga. Generoso (30 s)
+                // para gama baja: que dé tiempo a sembrar NPCs/coches y decodificar landmarks.
+                if (System.currentTimeMillis() - start > 30000L) {
+                    android.util.Log.w("POW_DBG", "gate: TIMEOUT 30s — se entra aunque falten assets (npcs=${uiState.npcs.size})")
+                    sceneReady = true; break
+                }
+                kotlinx.coroutines.delay(200)
             }
+        }
+        val worldReady = !uiState.isLoadingLocation && uiState.isRoadNetworkReady &&
+            uiState.isMapReady && uiState.npcsWarmedUp && sceneReady
+        if (!worldReady) {
             val tipTeleport = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_teleport)
             val tipDesigner = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_designer)
             val tipWanted = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tip_wanted)
@@ -2114,7 +2151,8 @@ fun WorldMapScreen(
                 currentSkin    = uiState.selectedSkin,
                 context        = context,
                 onSkinSelected = { viewModel.selectSkin(it) },
-                onDismiss      = { viewModel.toggleSkinSelector(false) }
+                onDismiss      = { viewModel.toggleSkinSelector(false) },
+                developerMode  = developerMode
             )
         }
 

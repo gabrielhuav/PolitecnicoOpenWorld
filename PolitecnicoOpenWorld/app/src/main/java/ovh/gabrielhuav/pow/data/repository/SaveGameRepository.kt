@@ -27,6 +27,10 @@ data class GameSaveData(
     // Sala de interiores donde se guardó la partida (id del ZombieRoomCatalog) o null si
     // se guardó en el MAPA GLOBAL. Al CARGAR, si no es null se reentra a ese interior.
     val interiorRoomId: String? = null,
+    // INVENTARIO (assetPaths de llaves recogidas) y progreso del puzzle de ENCB_lab1. Default
+    // vacío/false para compatibilidad con guardados antiguos (Gson los deja así).
+    val inventoryKeys: List<String> = emptyList(),
+    val lab1KeyFound: Boolean = false,
     // Tipo de guardado: "MANUAL" (el jugador eligió slot) o "AUTO" (al salir/cerrar la app).
     // Nullable por compatibilidad con guardados antiguos (Gson los deja en null).
     val saveType: String? = null,

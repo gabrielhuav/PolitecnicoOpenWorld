@@ -644,9 +644,11 @@ internal fun NativeOsmMap(
                 if (uiState.npcs !== lastNpcRenderHolder[0]) {
                   lastNpcRenderHolder[0] = uiState.npcs
                 val centerCull = uiState.currentLocation
-                // A zoom bajo los autos ESTACIONADOS (escenografía) se ven raros/apretados:
-                // los ocultamos por debajo de este umbral (solo se ven en juego normal z≥18.5).
-                val hideParkedCars = uiState.zoomLevel < 18.5
+                // A zoom MUY bajo (alejado) los autos ESTACIONADOS (escenografía) se ven
+                // raros/apretados: solo entonces los ocultamos. OJO: el mapa ENTRA con
+                // ZOOM_LOADING=18 y el juego a pie es z22, así que el umbral debe ser BAJO
+                // (16.5, igual que isZoomedIn) o los carros desaparecían en juego normal.
+                val hideParkedCars = uiState.zoomLevel < 16.5
                 val visibleNpcs = if (centerCull != null) {
                     val radiusM = npcVisionRadiusMeters()
                     uiState.npcs.filter {

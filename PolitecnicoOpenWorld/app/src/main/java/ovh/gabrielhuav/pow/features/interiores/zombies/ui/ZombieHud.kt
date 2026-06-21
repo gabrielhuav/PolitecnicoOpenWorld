@@ -63,13 +63,15 @@ fun ZombieHud(
     isBuilding: Boolean,
     onMoveDir: (Direction) -> Unit,
     onMoveAngle: (Double) -> Unit,
+    // A: MANTENER + moverse = correr (momentáneo). Queda libre al estar quieto.
     onRun: (Boolean) -> Unit,
     onInteract: () -> Unit,
     onSpecial: (Boolean) -> Unit,
+    // Y: MANTENER abre el MENÚ COMBINADO (modo de golpe + inventario).
     onSecondaryPressed: () -> Unit,
     onSecondaryReleased: () -> Unit,
     onSelectMode: (CombatMode) -> Unit,
-    onDismissWeaponMenu: () -> Unit
+    onDismissInventory: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
@@ -173,8 +175,10 @@ fun ZombieHud(
             if (state.swapControls) { actions(); movement() } else { movement(); actions() }
         }
 
-        // ─── MENÚ DE ARMAS ─────────────────────────────────
-        if (state.showWeaponMenu) {
+        // ─── MENÚ COMBINADO: MODO DE GOLPE + INVENTARIO (mantener Y) ─────
+        // Un solo menú: arriba el MODO DE GOLPE (cuerpo a cuerpo / disparar) y abajo el INVENTARIO.
+        // Varios slots; por ahora solo el 1º DESBLOQUEADO (1 llave); el resto en ROJO bloqueados.
+        if (state.showInventory) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color(0x88000000)),
                 contentAlignment = Alignment.Center
@@ -187,10 +191,46 @@ fun ZombieHud(
                         .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(16.dp))
                         .padding(24.dp)
                 ) {
+                    // — Modo de golpe —
                     Text(stringResource(R.string.zhud_combat_mode), color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     WeaponMenuButton(stringResource(R.string.zhud_mode_melee), state.combatMode == CombatMode.MELEE) { onSelectMode(CombatMode.MELEE) }
                     WeaponMenuButton(stringResource(R.string.zhud_mode_ranged), state.combatMode == CombatMode.RANGED) { onSelectMode(CombatMode.RANGED) }
-                    TextButton(onClick = onDismissWeaponMenu) { Text(stringResource(R.string.zhud_close), color = Color.White) }
+                    // — Inventario —
+                    Text("INVENTARIO", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        val totalSlots = 4
+                        val unlockedSlots = 1
+                        for (i in 0 until totalSlots) {
+                            val unlocked = i < unlockedSlots
+                            val heldKey = state.inventoryKeys.getOrNull(i)
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .background(
+                                        if (unlocked) Color(0xFF2A2A33) else Color(0x55B71C1C),
+                                        RoundedCornerShape(10.dp)
+                                    )
+                                    .border(
+                                        2.dp,
+                                        if (unlocked) Color(0xFFD4AF37) else Color(0xFFB71C1C),
+                                        RoundedCornerShape(10.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when {
+                                    !unlocked -> Text("🔒", fontSize = 24.sp)
+                                    heldKey != null -> InventoryKeyIcon(heldKey, modifier = Modifier.size(46.dp))
+                                    else -> {}
+                                }
+                            }
+                        }
+                    }
+                    Text(
+                        if (state.inventoryKeys.isEmpty()) "Vacío. Busca y recoge una llave."
+                        else "Llave guardada. Pruébala en la puerta de avance (→).",
+                        color = Color(0xFFB0BEC5), fontSize = 12.sp
+                    )
+                    TextButton(onClick = onDismissInventory) { Text(stringResource(R.string.zhud_close), color = Color.White) }
                 }
             }
         }
@@ -222,6 +262,30 @@ private fun WeaponMenuButton(label: String, selected: Boolean, onClick: () -> Un
         modifier = Modifier.width(180.dp).height(48.dp)
     ) {
         Text(label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+    }
+}
+
+// Icono del INVENTARIO: carga la IMAGEN REAL de la llave (asset PNG, submuestreada) y la muestra
+// en el slot. Si falla la carga, cae a un 🔑.
+@Composable
+private fun InventoryKeyIcon(assetPath: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var bmp by remember(assetPath) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(assetPath) {
+        bmp = withContext(Dispatchers.IO) {
+            try {
+                context.assets.open(assetPath).use {
+                    val o = BitmapFactory.Options().apply { inSampleSize = 4 }
+                    BitmapFactory.decodeStream(it, null, o)?.asImageBitmap()
+                }
+            } catch (e: Exception) { null }
+        }
+    }
+    val img = bmp
+    if (img != null) {
+        Image(img, contentDescription = "Llave", modifier = modifier)
+    } else {
+        Text("🔑", fontSize = 24.sp)
     }
 }
 

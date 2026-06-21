@@ -50,7 +50,10 @@ class ZombieGameViewModel(
     internal val playerName: String,
     // Sala donde arranca la sesión de Interiores. Por defecto el lobby de ESCOM;
     // la puerta "Entrada FES Aragón" la fija a ZombieRoomCatalog.FES_ID.
-    internal val startRoomId: String = ZombieRoomCatalog.LOBBY_ID
+    internal val startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
+    // Estado restaurado al CARGAR partida dentro de un interior: inventario y progreso de ENCB_lab1.
+    internal val initialInventoryKeys: List<String> = emptyList(),
+    internal val initialLab1KeyFound: Boolean = false
 ) : ViewModel() {
 
     internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(applicationContext)
@@ -99,7 +102,8 @@ class ZombieGameViewModel(
     internal var pendingLobbyTarget: String? = null
 
     init {
-        _state.update { it.copy(isLoading = true) }
+        // Siembra el inventario/progreso restaurado ANTES del primer loadRoom (que los preserva).
+        _state.update { it.copy(isLoading = true, inventoryKeys = initialInventoryKeys, lab1KeyFound = initialLab1KeyFound) }
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -442,6 +446,11 @@ class ZombieGameViewModel(
 
         contactCooldown.clear()
 
+        // PUZZLE de llaves (Modo Historia): al ENTRAR a ENCB_lab1 —y solo si aún no se encontró la
+        // correcta— se siembran llaves dispersas por la sala. En las demás salas no hay llaves.
+        val newKeys = if (room.id == ZombieRoomCatalog.ENCB_LAB1_ID && !_state.value.lab1KeyFound)
+            spawnLab1Keys(room) else emptyList()
+
         _state.update {
             it.copy(
                 currentRoomIndex = index,
@@ -456,6 +465,9 @@ class ZombieGameViewModel(
                 zombiesRemaining = zombies.size,
                 nearbyDoorLabel = null,
                 nearbyItemId = null,
+                keys = newKeys,
+                nearbyKeyId = null,
+                keyMessage = null,
                 showVictoryScreen = false,
                 activeEffects = emptyList(),
                 showExitGuide = room.type == ZoneType.BUILDING,
@@ -492,6 +504,45 @@ class ZombieGameViewModel(
             if (!room.isBlockedPixel(x, y)) return x to y
         }
         return (px + SPAWN_RADIUS_MIN) to py
+    }
+
+    /**
+     * PUZZLE de llaves (ENCB_lab1): coloca las 5 llaves en posiciones aleatorias CAMINABLES
+     * (no bloqueadas por la matriz), repartidas por la sala. Una es la correcta (LLave4).
+     */
+    private fun spawnLab1Keys(room: ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoom): List<ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop> {
+        val now = System.currentTimeMillis()
+        val assets = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.LAB1_KEY_ASSETS
+        // Construye la lista de celdas CAMINABLES (no '#') de la matriz de colisión de la sala como
+        // centros en píxeles de mundo. Así las llaves caen SIEMPRE donde el jugador SÍ puede pisar
+        // (antes el muestreo aleatorio podía caer en una matriz por defecto y quedaban irrecuperables).
+        val rows = room.collisionMatrix?.rows
+        val walkable = ArrayList<Pair<Float, Float>>()
+        if (rows != null && rows.isNotEmpty()) {
+            val nRows = rows.size
+            val nCols = rows[0].length
+            for (r in 1 until (nRows - 1).coerceAtLeast(1)) {   // evita el borde (suele estar bloqueado)
+                val row = rows[r]
+                for (c in 1 until (row.length - 1).coerceAtLeast(1)) {
+                    if (row[c] != '#') {
+                        val fx = (c + 0.5f) / nCols
+                        val fy = (r + 0.5f) / nRows
+                        walkable.add(fx * room.worldWidth to fy * room.worldHeight)
+                    }
+                }
+            }
+        }
+        val picks = if (walkable.size >= assets.size) walkable.shuffled().take(assets.size) else null
+        return assets.mapIndexed { i, asset ->
+            val pos = picks?.get(i)
+                ?: nearestWalkableSpawn((0.18f + 0.16f * i) * room.worldWidth, 0.50f * room.worldHeight, room)
+            ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop(
+                id = "key_${i}_$now",
+                assetPath = asset,
+                x = pos.first, y = pos.second,
+                isCorrect = asset == ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.LAB1_CORRECT_KEY
+            )
+        }
     }
 
     /** Salir del minijuego al mapa abierto (equivale a cruzar la puerta TO_WORLD). */
@@ -741,6 +792,25 @@ class ZombieGameViewModel(
             applyEffect(item.effect)
             return
         }
+        // 1b. PUZZLE ENCB_lab1: RECOGER la llave cercana al INVENTARIO (1 slot). No se sabe si es la
+        // correcta hasta PROBARLA en la puerta de avance.
+        val keyId = s.nearbyKeyId
+        if (keyId != null) {
+            val key = s.keys.firstOrNull { it.id == keyId } ?: return
+            if (s.inventoryKeys.size >= INVENTORY_UNLOCKED_SLOTS) {
+                showKeyMessage("🎒 Inventario lleno (1 slot). Prueba la llave en la puerta de avance.")
+                return
+            }
+            soundManager.playItem()
+            _state.update { cur -> cur.copy(
+                keys = cur.keys.filter { it.id != keyId },
+                nearbyKeyId = null,
+                inventoryKeys = cur.inventoryKeys + key.assetPath,
+                keyMessage = "🔑 Llave recogida. Pruébala en la puerta de avance (→)."
+            ) }
+            clearKeyMessageSoon()
+            return
+        }
         // 2b. Mano zombi en lobby
         if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID) {
             val handNx = 0.50f
@@ -761,6 +831,31 @@ class ZombieGameViewModel(
             it.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight)
                 .contains(s.playerX, s.playerY)
         } ?: return
+
+        // PUZZLE ENCB_lab1: la puerta de AVANCE (→) está CERRADA. Al pulsar acción aquí se PRUEBA la
+        // llave del inventario: la correcta (LLave4) la abre; una incorrecta se DESCARTA (libera el
+        // slot) para que el jugador busque otra. Tras abrir, vuelve a pulsar para cruzar.
+        if (room.id == ZombieRoomCatalog.ENCB_LAB1_ID &&
+            door.kind == ovh.gabrielhuav.pow.domain.models.zombie.DoorKind.EXIT_NEXT &&
+            !s.lab1KeyFound) {
+            val correct = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.LAB1_CORRECT_KEY
+            when {
+                s.inventoryKeys.isEmpty() ->
+                    showKeyMessage("🔒 Necesitas una llave. Búscala en la sala y recógela.")
+                s.inventoryKeys.any { it == correct } -> {
+                    _state.update { cur -> cur.copy(
+                        lab1KeyFound = true,
+                        inventoryKeys = cur.inventoryKeys.filter { it != correct }
+                    ) }
+                    showKeyMessage("🔑 ¡Era la correcta! La puerta se abrió. Pulsa otra vez para avanzar.")
+                }
+                else -> {
+                    _state.update { cur -> cur.copy(inventoryKeys = emptyList()) }
+                    showKeyMessage("🔒 No es la correcta. Busca otra llave en la sala.")
+                }
+            }
+            return
+        }
 
         // Puerta de un EDIFICIO hacia el lobby de SU campus (ESCOM o FES): pide confirmación.
         // Generalizado: el destino es cualquier sala LOBBY (antes sólo el lobby de ESCOM).
@@ -904,21 +999,57 @@ class ZombieGameViewModel(
         }
     }
 
+    // ─── CONTROLES (interiores) ────────────────────────────
+    // Y: MANTENER abre el INVENTARIO. A: TOCAR alterna correr; MANTENER abre el menú de ARMAS.
+    private var aPressStartMs = 0L
+
     fun onSecondaryPressed() { yPressStartMs = System.currentTimeMillis() }
 
     fun onSecondaryReleased() {
         val held = System.currentTimeMillis() - yPressStartMs
         if (held >= Y_HOLD_FOR_MENU_MS) {
-            _state.update { it.copy(showWeaponMenu = !it.showWeaponMenu) }
+            _state.update { it.copy(showInventory = !it.showInventory, showWeaponMenu = false) }
+        }
+    }
+
+    fun onPrimaryPressed() { aPressStartMs = System.currentTimeMillis() }
+
+    fun onPrimaryReleased() {
+        val held = System.currentTimeMillis() - aPressStartMs
+        if (held >= Y_HOLD_FOR_MENU_MS) {
+            // MANTENER A → menú de ARMAS.
+            _state.update { it.copy(showWeaponMenu = !it.showWeaponMenu, showInventory = false) }
+        } else {
+            // TOCAR A → alterna CORRER (interruptor).
+            setRunning(!_state.value.isRunning)
         }
     }
 
     fun selectCombatMode(mode: CombatMode) {
-        _state.update { it.copy(combatMode = mode, showWeaponMenu = false) }
+        // El modo de golpe vive en el MENÚ COMBINADO (con el inventario, se abre con Y): elegir
+        // un modo NO cierra el menú (el jugador puede ver/usar el inventario en el mismo panel).
+        _state.update { it.copy(combatMode = mode) }
     }
 
     fun dismissWeaponMenu() {
         _state.update { it.copy(showWeaponMenu = false) }
+    }
+
+    fun dismissInventory() {
+        _state.update { it.copy(showInventory = false) }
+    }
+
+    // Mensajes transitorios del puzzle de llaves (se limpian solos a los ~2.8 s).
+    private fun clearKeyMessageSoon() {
+        val msg = _state.value.keyMessage
+        viewModelScope.launch {
+            delay(2800)
+            _state.update { if (it.keyMessage == msg) it.copy(keyMessage = null) else it }
+        }
+    }
+    private fun showKeyMessage(msg: String) {
+        _state.update { it.copy(keyMessage = msg) }
+        clearKeyMessageSoon()
     }
 
     fun consumeExit() { gameLoopJob?.cancel() }
@@ -1219,7 +1350,9 @@ class ZombieGameViewModel(
         private val context: Context,
         private val serverUrl: String?,
         private val playerName: String,
-        private val startRoomId: String = ZombieRoomCatalog.LOBBY_ID
+        private val startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
+        private val initialInventoryKeys: List<String> = emptyList(),
+        private val initialLab1KeyFound: Boolean = false
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -1228,7 +1361,9 @@ class ZombieGameViewModel(
                 SettingsRepository(context.applicationContext),
                 serverUrl,
                 playerName,
-                startRoomId
+                startRoomId,
+                initialInventoryKeys,
+                initialLab1KeyFound
             ) as T
         }
     }
