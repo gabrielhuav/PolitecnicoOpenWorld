@@ -67,7 +67,8 @@ internal data class ServerMessage(
     val targetId: String? = null,
     val damage: Float? = null,
     // ─── Modo Zombi Global (apocalipsis en el mapa) ───────────────────────────
-    // Toggle global del apocalipsis: lo difunde cualquier cliente vía ZOMBIE_MODE_SET
-    // y el servidor lo relaya a todos (global). Gson lo deja null si no viene.
+    // OBSOLETO: el apocalipsis YA NO es un flag global difundido (ZOMBIE_MODE_SET fue
+    // eliminado). Ahora es la INSTANCIA del mundo (JOIN_INSTANCE / SYNC_ALL_NPCS); ver
+    // WorldMapViewModel.setZombieInstance y 09 §0. Este campo quedó sin lectores (vestigial).
     val active: Boolean? = null,
 )
