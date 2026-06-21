@@ -631,6 +631,15 @@ class MainActivity : ComponentActivity() {
                                     settingsViewModel.toggleNpcFullEmoji(it)
                                     worldMapViewModel.setNpcFullEmoji(it)
                                 },
+                                // Preset "Optimizar para mi dispositivo": aplica de un toque los 3 ajustes
+                                // de gama baja (persisten en Ajustes Y se aplican en vivo al mapa).
+                                onOptimizeForDevice = {
+                                    val minD = ovh.gabrielhuav.pow.data.repository.SettingsRepository.NPC_DENSITY_MIN
+                                    settingsViewModel.changeNpcDensity(minD); worldMapViewModel.setNpcDensity(minD)
+                                    settingsViewModel.toggleNpcEmojiLod(true); worldMapViewModel.setNpcEmojiLod(true)
+                                    settingsViewModel.toggleNpcFullEmoji(true); worldMapViewModel.setNpcFullEmoji(true)
+                                    android.widget.Toast.makeText(this@MainActivity, getString(R.string.settings_optimize_applied), android.widget.Toast.LENGTH_SHORT).show()
+                                },
                                 onNavigateBack = {
                                     // Descartar cambios de controles no guardados al salir.
                                     settingsViewModel.discardControlsChanges()

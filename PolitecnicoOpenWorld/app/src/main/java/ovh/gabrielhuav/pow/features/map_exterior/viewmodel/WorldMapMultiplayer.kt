@@ -26,18 +26,18 @@ import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.domain.models.CarModel
-import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.MapWay
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.CarModel
+import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
-import ovh.gabrielhuav.pow.domain.models.Landmark
-import ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager
-import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
+import ovh.gabrielhuav.pow.domain.models.map.Landmark
+import ovh.gabrielhuav.pow.domain.models.map.LandmarkCatalogManager
+import ovh.gabrielhuav.pow.domain.models.map.LandmarkAssetTemplate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -51,10 +51,10 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.abs
 import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
+import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
 
 internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
         try {
@@ -195,7 +195,7 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
                         val isRemoteMoving = msg.action == "WALK" || msg.action == "RUN"
                         val isRemoteDriving = msg.isDriving == true
 
-                        val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+                        val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig(
                             bodyFolder = "other_player",
                             bodyPrefix = "p_mult_",
                             hairId = 1,
@@ -205,10 +205,10 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
                         )
 
                         val remoteCarModel = try {
-                            msg.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) }
-                                ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
+                            msg.carModel?.let { ovh.gabrielhuav.pow.domain.models.map.CarModel.valueOf(it) }
+                                ?: ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN
                         } catch(e: Exception) {
-                            ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
+                            ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN
                         }
 
                         val otherPlayer = Npc(
@@ -244,13 +244,13 @@ internal fun WorldMapViewModel.addRemoteEntity(remote: MultiplayerNpc) {
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
 
         val cModel = try {
-            remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) }
-                ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
-        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN }
+            remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.map.CarModel.valueOf(it) }
+                ?: ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN
+        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN }
         val cColor = remote.carColor ?: 0xFFFFFFFF.toInt()
 
         val visualConfig = if (npcType == NpcType.PERSON) {
-            ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+            ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig(
                 bodyFolder = "npc_walk_1",
                 bodyPrefix = "npc_walk_1_",
                 hairId = remote.hairId ?: 1,

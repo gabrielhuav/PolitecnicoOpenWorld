@@ -12,13 +12,13 @@ import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
-import ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig
-import ovh.gabrielhuav.pow.domain.models.Landmark
-import ovh.gabrielhuav.pow.domain.models.MapWay
-import ovh.gabrielhuav.pow.domain.models.MetroStation
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
+import ovh.gabrielhuav.pow.domain.models.map.Landmark
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.MetroStation
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
@@ -237,7 +237,7 @@ internal fun WebMapLayer(
                                     registeredWebImages.add(cacheKey)
                                 }
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, "CAR", cacheKey, null, null, npc.displayName, widthCache[cacheKey], heightCache[cacheKey], health = npc.health, isDying = npc.isDying)
-                            } else if (npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
+                            } else if (npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
                                 val config = npc.visualConfig!!
                                 val frameIndex = CharacterSpriteManager.getFrameIndex(context, config, currentlyMoving, timeMs) ?: 0
@@ -259,7 +259,7 @@ internal fun WebMapLayer(
                                     registeredWebImages.add(cacheKey)
                                 }
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, if (npc.facingRight) 1 else -1, npc.displayName, health = npc.health, isDying = npc.isDying)
-                            } else if (npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
+                            } else if (npc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE) {
                                 // FIX web: el frame DEBE acotarse a los 9 del walk (% 9), igual que
                                 // getZombieDrawable. Antes era (timeMs/220).toInt() (entero creciente),
                                 // así que cada frame creaba un cacheKey nuevo cuya imagen base64 (async)

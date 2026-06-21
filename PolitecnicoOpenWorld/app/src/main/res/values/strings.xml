@@ -69,6 +69,9 @@
     <string name="settings_npc_lod_desc">Dibuja como emoji 🧍🚗🧟 los NPCs lejanos y reserva el sprite completo solo para los muy cercanos. Reduce el costo de render (ideal en multijugador con muchos NPCs).</string>
     <string name="settings_npc_full_title">Optimizar para gama baja</string>
     <string name="settings_npc_full_desc">Reemplaza TODOS los assets de los NPCs por emojis 🧍🚗🧟👮, sin importar la distancia. No se generan sprites ni bitmaps: el modo más ligero posible, para equipos muy débiles.</string>
+    <string name="settings_optimize_device">Optimizar para mi dispositivo</string>
+    <string name="settings_optimize_device_desc">Aplica de un toque los ajustes más ligeros para gama baja: baja la cantidad de NPCs al mínimo y dibuja a todos como emoji.</string>
+    <string name="settings_optimize_applied">Ajustes optimizados para gama baja</string>
     <string name="settings_map_provider">Proveedor de Mapa</string>
     <string name="settings_map_change">Cambiar Mapa</string>
     <string name="settings_map_restore">Restaurar Mapa</string>

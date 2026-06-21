@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.domain.models
+package ovh.gabrielhuav.pow.domain.models.map
 
 data class ExteriorCollisionsConfig(
     val polygons: List<CollisionPolygon> = emptyList(),

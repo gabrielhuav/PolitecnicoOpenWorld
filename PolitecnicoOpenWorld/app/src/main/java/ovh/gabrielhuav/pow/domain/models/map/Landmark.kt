@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.domain.models
+package ovh.gabrielhuav.pow.domain.models.map
 
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph

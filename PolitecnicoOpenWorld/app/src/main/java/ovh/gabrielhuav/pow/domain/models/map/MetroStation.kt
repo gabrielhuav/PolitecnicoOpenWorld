@@ -1,8 +1,8 @@
-package ovh.gabrielhuav.pow.domain.models
+package ovh.gabrielhuav.pow.domain.models.map
 
 import org.osmdroid.util.GeoPoint
 
-data class MetrobusStation(
+data class MetroStation(
     val name: String,
     val routes: List<String>,
     val location: GeoPoint

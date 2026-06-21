@@ -26,18 +26,18 @@ import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.domain.models.CarModel
-import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.MapWay
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.CarModel
+import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
-import ovh.gabrielhuav.pow.domain.models.Landmark
-import ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager
-import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
+import ovh.gabrielhuav.pow.domain.models.map.Landmark
+import ovh.gabrielhuav.pow.domain.models.map.LandmarkCatalogManager
+import ovh.gabrielhuav.pow.domain.models.map.LandmarkAssetTemplate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -51,13 +51,13 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.abs
 import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import java.io.InputStreamReader
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
-import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
-import ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig
+import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
+import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
 
 class WorldMapViewModel(
     application: android.app.Application,
@@ -549,7 +549,7 @@ class WorldMapViewModel(
                             var dodgeOffsetY = 0.0
 
                             for ((id, npc) in remoteEntities.entries.toList()) {
-                                if (npc.type == NpcType.CAR || npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_CAR) {
+                                if (npc.type == NpcType.CAR || npc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.POLICE_CAR) {
                                     val vLat = npc.location.latitude - tempLoc.latitude
                                     val vLon = npc.location.longitude - tempLoc.longitude
                                     val dist = kotlin.math.sqrt(vLat * vLat + vLon * vLon)
@@ -1118,7 +1118,7 @@ class WorldMapViewModel(
                         val isRemoteMoving = msg.action == "WALK" || msg.action == "RUN"
                         val isRemoteDriving = msg.isDriving == true
 
-                        val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+                        val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig(
                             bodyFolder = "other_player",
                             bodyPrefix = "p_mult_",
                             hairId = 1,
@@ -1128,10 +1128,10 @@ class WorldMapViewModel(
                         )
 
                         val remoteCarModel = try {
-                            msg.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) }
-                                ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
+                            msg.carModel?.let { ovh.gabrielhuav.pow.domain.models.map.CarModel.valueOf(it) }
+                                ?: ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN
                         } catch(e: Exception) {
-                            ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
+                            ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN
                         }
 
                         // FIX: Asegurar que displayName nunca sea blank para poder identificar jugadores remotos
@@ -1171,19 +1171,19 @@ class WorldMapViewModel(
 
         // Rol de zombi replicado: el maxHealth se DERIVA del rol (no viaja por el cable).
         val zRole = try {
-            remote.zombieRole?.let { ovh.gabrielhuav.pow.domain.models.ZombieRole.valueOf(it) }
-                ?: ovh.gabrielhuav.pow.domain.models.ZombieRole.NORMAL
-        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.ZombieRole.NORMAL }
+            remote.zombieRole?.let { ovh.gabrielhuav.pow.domain.models.map.ZombieRole.valueOf(it) }
+                ?: ovh.gabrielhuav.pow.domain.models.map.ZombieRole.NORMAL
+        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.map.ZombieRole.NORMAL }
         val zMaxHealth = if (npcType == NpcType.ZOMBIE) NpcAiManager.maxHealthForRole(zRole) else 100f
 
         val cModel = try {
-            remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.CarModel.valueOf(it) }
-                ?: ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN
-        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.CarModel.SEDAN }
+            remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.map.CarModel.valueOf(it) }
+                ?: ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN
+        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN }
         val cColor = remote.carColor ?: 0xFFFFFFFF.toInt()
 
         val visualConfig = if (npcType == NpcType.PERSON) {
-            ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+            ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig(
                 bodyFolder = "npc_walk_1",
                 bodyPrefix = "npc_walk_1_",
                 hairId = remote.hairId ?: 1,
@@ -1640,7 +1640,7 @@ class WorldMapViewModel(
                 // Si te bajas de una PATRULLA robada, el coche que queda conserva el skin de
                 // patrulla (sigue siendo tipo CAR para que la IA lo conduzca como tráfico).
                 isPoliceSkin = _uiState.value.isDrivingPoliceCar,
-                navState = if (isInsideEscom(loc.latitude, loc.longitude)) ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED else ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
+                navState = if (isInsideEscom(loc.latitude, loc.longitude)) ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED else ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MACRO_OSM
             )
             remoteEntities[abandonedCar.id] = abandonedCar
             _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false, prankedyBoarding = false) }
@@ -1673,7 +1673,7 @@ class WorldMapViewModel(
             androidx.compose.ui.graphics.Color.Blue,
             androidx.compose.ui.graphics.Color.Green
         ).random()
-        val visualConfig = ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+        val visualConfig = ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig(
             bodyFolder = "npc_walk_1",
             bodyPrefix = "npc_walk_1_",
             hairId = randomHairId,
@@ -1693,10 +1693,10 @@ class WorldMapViewModel(
             isMoving = true,
             visualConfig = visualConfig,
             trait = trait,
-            fearUntil = if (trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.COWARD) now + NpcAiManager.FEAR_DURATION_MS else 0L,
+            fearUntil = if (trait == ovh.gabrielhuav.pow.domain.models.map.NpcTrait.COWARD) now + NpcAiManager.FEAR_DURATION_MS else 0L,
             fearFromLat = carLocation.latitude,
             fearFromLon = carLocation.longitude,
-            aggroUntil = if (trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE) now + NpcAiManager.AGGRO_DURATION_MS else 0L,
+            aggroUntil = if (trait == ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE) now + NpcAiManager.AGGRO_DURATION_MS else 0L,
             // Llama a la policía unos segundos (muestra 📞 sobre su cabeza).
             callingUntil = now + 4000L
         )
@@ -2203,7 +2203,7 @@ class WorldMapViewModel(
                 // aquí). Usa `contains` (no match exacto) para tolerar variantes/acentos al
                 // colocar la puerta en el Diseñador; si nada casa, cae a DEFAULT_ROUTE (lobby
                 // ESCOM). Para añadir un edificio enterable, edita InteriorEntryCatalog. Ver 04/06.
-                val targetRoute = ovh.gabrielhuav.pow.domain.models.InteriorEntryCatalog.routeForDoorName(nearby.name)
+                val targetRoute = ovh.gabrielhuav.pow.domain.models.map.InteriorEntryCatalog.routeForDoorName(nearby.name)
                 // MODO HISTORIA · Misión 2 "Ingresa a la ESCOM": se cumple al ENTRAR por la puerta
                 // (este es el momento de "ingresar"). Marca el objetivo cumplido + jingle.
                 if (_uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id
@@ -2392,17 +2392,17 @@ class WorldMapViewModel(
 
         // 5. Crear el NPC con los estados exactos que exige el motor de IA
         val newCarId = "DYN_CAR_${System.currentTimeMillis()}"
-        val newCar = ovh.gabrielhuav.pow.domain.models.Npc(
+        val newCar = ovh.gabrielhuav.pow.domain.models.map.Npc(
             id = newCarId,
-            type = ovh.gabrielhuav.pow.domain.models.NpcType.CAR,
+            type = ovh.gabrielhuav.pow.domain.models.map.NpcType.CAR,
             location = spawnGeoPoint,
             carColor = android.graphics.Color.WHITE,
-            carModel = ovh.gabrielhuav.pow.domain.models.CarModel.SPORT,
+            carModel = ovh.gabrielhuav.pow.domain.models.map.CarModel.SPORT,
             rotationAngle = 0f,
             speed = ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager.CAR_SPEED,
 
             // 👇 PROPIEDADES QUE EVITAN QUE LA IA LO ELIMINE
-            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
+            navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MICRO_LANDMARK,
             currentLandmark = escomLandmark, // Pasamos el objeto con el navGraph
             currentLocalWay = entryWay,      // Pasamos el objeto de la calle
             targetNodeIndex = 1,             // Le decimos que avance al nodo 1

@@ -69,6 +69,9 @@
     <string name="settings_npc_lod_desc">Draws far NPCs as emojis 🧍🚗🧟 and keeps the full sprite only for very close ones. Cuts render cost (ideal in multiplayer with many NPCs).</string>
     <string name="settings_npc_full_title">Optimize for low-end</string>
     <string name="settings_npc_full_desc">Replaces ALL NPC assets with emojis 🧍🚗🧟👮 regardless of distance. No sprites or bitmaps are generated: the lightest possible mode, for very weak devices.</string>
+    <string name="settings_optimize_device">Optimize for my device</string>
+    <string name="settings_optimize_device_desc">One tap applies the lightest low-end settings: drops NPC count to the minimum and draws them all as emoji.</string>
+    <string name="settings_optimize_applied">Settings optimized for low-end</string>
     <string name="settings_map_provider">Map Provider</string>
     <string name="settings_map_change">Change Map</string>
     <string name="settings_map_restore">Reset Map</string>

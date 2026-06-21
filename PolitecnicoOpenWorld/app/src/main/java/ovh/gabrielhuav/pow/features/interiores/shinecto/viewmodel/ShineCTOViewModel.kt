@@ -15,8 +15,8 @@ import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
-import ovh.gabrielhuav.pow.domain.models.ShineCTOFloor
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.ShineCTOFloor
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import kotlin.math.abs

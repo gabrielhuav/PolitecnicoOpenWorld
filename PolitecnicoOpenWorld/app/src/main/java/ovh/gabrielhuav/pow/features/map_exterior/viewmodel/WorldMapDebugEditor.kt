@@ -8,9 +8,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.CollisionPolygon
-import ovh.gabrielhuav.pow.domain.models.CollisionWall
-import ovh.gabrielhuav.pow.domain.models.GeoNode
+import ovh.gabrielhuav.pow.domain.models.map.CollisionPolygon
+import ovh.gabrielhuav.pow.domain.models.map.CollisionWall
+import ovh.gabrielhuav.pow.domain.models.map.GeoNode
 
 // ─── EDITOR DEL DEBUG INTERIORES ──────────────────────────────────────────────
 // Extensiones del WorldMapViewModel (sin gemelo miembro: funciones nuevas). Permiten

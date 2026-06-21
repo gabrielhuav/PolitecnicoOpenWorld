@@ -5,6 +5,14 @@ como tipo de coordenada) **ni UI**. Aquí vive la lógica de IA pura (`NpcAiMana
 **EN:** Pure Kotlin. **No Android imports** (except `org.osmdroid.util.GeoPoint` used as a coordinate
 type) **and no UI**. Pure AI logic lives here (`NpcAiManager`, `PoliceManager`).
 
+> **🆕 Reorg (2026-06-21):** los modelos de mundo/mapa que antes estaban PLANOS en `domain/models/`
+> (`Npc`/`NpcType`/`CarModel`, `MapWay`/`MapNode`, `Landmark`, `MetroStation`/`MetrobusStation`,
+> `ActiveCollectible`, `ExteriorCollisionsConfig`/`CollisionWall`/`CollisionPolygon`, `EscomBuildings`/
+> `InteriorBuilding`, `CharacterVisualConfig`, `TeleportCatalog`, `ShineCTOLocation`, `InteriorEntryCatalog`,
+> `Landmarkassetcatalog`) ahora viven en **`domain.models.map`** (carpeta `domain/models/map/`). Los
+> subpaquetes `domain.models.ai`, `domain.models.campaign` y `domain.models.zombie` **no** cambiaron. Las
+> rutas/`package` de abajo que digan `domain/models/X` se entienden ahora como `domain/models/map/X`.
+
 ---
 
 ## Modelos OSM / OSM primitives

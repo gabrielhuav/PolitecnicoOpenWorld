@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
-import ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig
+import ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig
 
 fun DrawScope.drawDynamicCharacter(
     context: Context, screenX: Float, screenY: Float,

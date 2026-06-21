@@ -16,8 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import kotlin.math.cos
 import kotlin.math.sin
@@ -70,7 +70,7 @@ fun WorldMapViewModel.performPlayerAttack() {
             val nowP = System.currentTimeMillis()
             var hitCop = false
             remoteEntities.entries.toList().forEach { (id, n) ->
-                if (n.type == ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_COP &&
+                if (n.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.POLICE_COP &&
                     distance(playerLoc, n.location) <= ATTACK_RADIUS) {
                     val nh = (n.health - PLAYER_PUNCH_DAMAGE).coerceAtLeast(0f)
                     if (nh <= 0f) {
@@ -90,7 +90,7 @@ fun WorldMapViewModel.performPlayerAttack() {
         val targetNpcEntry = remoteEntities.entries
             .filter {
                 !it.value.isDying &&
-                        (it.value.type == NpcType.PERSON || it.value.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) &&
+                        (it.value.type == NpcType.PERSON || it.value.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE) &&
                         distance(playerLoc, it.value.location) <= ATTACK_RADIUS
             }
             .minByOrNull { distance(playerLoc, it.value.location) }
@@ -138,11 +138,11 @@ fun WorldMapViewModel.performPlayerAttack() {
                     // CONTRAATAQUE: si el NPC golpeado sobrevive y es AGGRESSIVE, entra
                     // en estado de embestida hacia el jugador (lo persigue, visual) Y
                     // te DEVUELVE el golpe de forma garantizada poco después.
-                    val retaliate = currentNpc.trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
+                    val retaliate = currentNpc.trait == ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE
                     // KNOCKBACK: al golpear un ZOMBI que sobrevive, lo empujamos hacia atrás
                     // (alejándolo del jugador) para que se note el golpe, como en el minijuego.
                     // El Host lo retoma desde remoteEntities en el siguiente tick (recoil visible).
-                    val knockedLoc = if (currentNpc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE) {
+                    val knockedLoc = if (currentNpc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE) {
                         val dLat = currentNpc.location.latitude - playerLoc.latitude
                         val dLon = currentNpc.location.longitude - playerLoc.longitude
                         val d = kotlin.math.sqrt(dLat * dLat + dLon * dLon)
@@ -252,12 +252,12 @@ internal fun WorldMapViewModel.runOverNpcs(playerLoc: GeoPoint, speed: Double, i
                     changed = true
                 }
             }
-            ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
+            ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
                 if (d > RUN_OVER_RADIUS) continue
                 // Los zombis NO esquivan (shamblean): atropellables a cualquier velocidad.
                 killOrHurt(id, npc); changed = true; impactWorthy = true
             }
-            NpcType.CAR, ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_CAR -> {
+            NpcType.CAR, ovh.gabrielhuav.pow.domain.models.map.NpcType.POLICE_CAR -> {
                 // Si estamos haciendo un rebase profesional suave, desactivamos la colisión
                 // para permitir pasar rozando.
                 if (isAutoDodging) continue
@@ -287,7 +287,7 @@ internal fun WorldMapViewModel.provokeApocalypsePolice(playerLoc: GeoPoint) {
     val fogDeg = 0.0003 // ~33 m: el poli debe ver el crimen LITERALMENTE enfrente para reaccionar
     var changed = false
     remoteEntities.entries.toList().forEach { (id, n) ->
-        if (n.type == ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_COP &&
+        if (n.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.POLICE_COP &&
             distance(playerLoc, n.location) <= fogDeg) {
             remoteEntities[id] = n.copy(aggroUntil = until)
             changed = true
@@ -305,10 +305,10 @@ internal fun WorldMapViewModel.applyNpcContactDamage(playerLoc: GeoPoint) {
     for ((id, npc) in remoteEntities) {
         val isAggroPerson = npc.type == NpcType.PERSON && npc.aggroUntil > now
         // Policía del apocalipsis PROVOCADA (la golpeaste o agrediste a un civil frente a ella).
-        val isAggroCop = npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.POLICE_COP && npc.aggroUntil > now
+        val isAggroCop = npc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.POLICE_COP && npc.aggroUntil > now
         // El SCOUT ("Explorador") NO ataca al jugador (solo grita y huye).
-        val isZombie = npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE && npc.health > 0f &&
-                npc.zombieRole != ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT
+        val isZombie = npc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE && npc.health > 0f &&
+                npc.zombieRole != ovh.gabrielhuav.pow.domain.models.map.ZombieRole.SCOUT
         if (!isAggroPerson && !isAggroCop && !isZombie) continue
         if (distance(playerLoc, npc.location) > NPC_CONTACT_RADIUS) continue
         if (_uiState.value.isDriving) continue // en coche no te golpean (te bajan, no te pegan)

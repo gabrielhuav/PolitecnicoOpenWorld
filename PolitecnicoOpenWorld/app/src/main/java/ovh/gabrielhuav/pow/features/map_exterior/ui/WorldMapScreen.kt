@@ -113,10 +113,10 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteMa
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polyline
-import ovh.gabrielhuav.pow.domain.models.EscomBoundingBox
-import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.NpcType
-import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
+import ovh.gabrielhuav.pow.domain.models.map.EscomBoundingBox
+import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.TeleportCatalog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
@@ -301,7 +301,7 @@ fun WorldMapScreen(
     // Nuevos estados para las interacciones del Diseñador
     var showDesignerHint by remember { mutableStateOf(false) }
     var showExitDesignerConfirm by remember { mutableStateOf(false) }
-    var originalLandmarkState by remember { mutableStateOf<ovh.gabrielhuav.pow.domain.models.Landmark?>(null) }
+    var originalLandmarkState by remember { mutableStateOf<ovh.gabrielhuav.pow.domain.models.map.Landmark?>(null) }
 
     // Efecto para controlar la leyenda efímera de 3 segundos
     LaunchedEffect(uiState.isDesignerMode) {
@@ -385,11 +385,11 @@ fun WorldMapScreen(
     val webViewRef = remember { mutableStateOf<WebView?>(null) }
     // OPT gama baja: última lista de NPCs enviada al WebView. Solo reenviamos al JS
     // cuando la lista cambia (~10 Hz), no en cada recomposición por moverse el jugador.
-    val lastWebNpcHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Npc>>(1) }
+    val lastWebNpcHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.Npc>>(1) }
     // OPT FPS web (ahora proveedor por defecto): la lista de landmarks solo cambia al
     // editarlos/cargarlos, pero su JSON se serializaba y enviaba al WebView en CADA frame.
     // Guardamos la última referencia para reenviar updateLandmarks solo cuando cambie.
-    val lastWebLandmarkHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Landmark>>(1) }
+    val lastWebLandmarkHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.Landmark>>(1) }
     // Heartbeat: re-enviar landmarks al WebView cada ~45 frames por si el primer envío
     // (al cambiar la lista) llegó antes de que el HTML definiera updateLandmarks.
     val webLmTick = remember { intArrayOf(0) }
@@ -399,13 +399,13 @@ fun WorldMapScreen(
     val lastWebZombieHolder = remember { booleanArrayOf(false) }
     // 🚇 Estaciones de metro (estáticas): se reenvían al WebView solo al cambiar la lista
     // (+ heartbeat), como los landmarks. El icono se carga del asset TRANSIT/METRO/icon.webp.
-    val lastWebMetroHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.MetroStation>>(1) }
+    val lastWebMetroHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.MetroStation>>(1) }
     val webMetroTick = remember { intArrayOf(0) }
     // Debug Interiores (web): solo reenviamos el navGraph al WebView cuando cambia el
     // estado del overlay o la lista de landmarks (no por frame).
     val lastWebIpOn = remember { booleanArrayOf(false) }
-    val lastWebIpLm = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Landmark>>(1) }
-    val lastWebIpColl = remember { arrayOfNulls<ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig>(1) }
+    val lastWebIpLm = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.Landmark>>(1) }
+    val lastWebIpColl = remember { arrayOfNulls<ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig>(1) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────

@@ -7,10 +7,10 @@ import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.data.repository.GameSaveData
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.data.repository.SavedNpc
-import ovh.gabrielhuav.pow.domain.models.CarModel
+import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 
 // ─── GUARDADO / CARGA DE LA PARTIDA (MODO HISTORIA, CON SLOTS) ────────────────

@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.domain.models
+package ovh.gabrielhuav.pow.domain.models.map
 
 enum class NpcType(val drawableName: String) {
     PERSON("ic_npc_person"),

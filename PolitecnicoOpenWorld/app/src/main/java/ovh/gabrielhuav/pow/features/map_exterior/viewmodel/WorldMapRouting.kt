@@ -26,18 +26,18 @@ import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.domain.models.CarModel
-import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.MapWay
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.CarModel
+import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
-import ovh.gabrielhuav.pow.domain.models.Landmark
-import ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager
-import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
+import ovh.gabrielhuav.pow.domain.models.map.Landmark
+import ovh.gabrielhuav.pow.domain.models.map.LandmarkCatalogManager
+import ovh.gabrielhuav.pow.domain.models.map.LandmarkAssetTemplate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -51,10 +51,10 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.abs
 import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
+import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
 
 private typealias Seg = WorldMapViewModel.Seg
 

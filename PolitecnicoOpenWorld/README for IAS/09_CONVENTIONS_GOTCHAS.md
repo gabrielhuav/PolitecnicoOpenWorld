@@ -102,6 +102,21 @@ de `uiState`/`viewModel`/`context`/`roadNetwork`/`allCollectibles`, pasa `cachin
 generación de base64). Archivo nuevo en LF. **WorldMapScreen ya <1500 ✅.** Las 3 ramas del `when` ahora
 delegan: `NativeOsmMap` / `GoogleMapLayer` / `WebMapLayer`.
 
+**🆕 Progreso (2026-06-21, reorg domain/models — package-move con Android Studio):** los **15 archivos
+planos** que colgaban directo de `domain/models/` se movieron al subpaquete **`domain.models.map`**
+(carpeta `domain/models/map/`): `ActiveCollectible`, `CharacterVisualConfig`, `EscomBuildings`
+(incl. `InteriorBuilding`/`EscomBoundingBox`), `ExteriorCollisionsConfig` (incl. `CollisionWall`/
+`CollisionPolygon`), `InteriorEntryCatalog`, `Landmark`, `Landmarkassetcatalog`, `MapNode`, `MapWay`,
+`MetroStation`, `MetrobusStation`, `Npc` (incl. `CarModel`/`NpcType`/`NpcTrait`/`ZombieRole`/`NpcNavState`),
+`ShineCTOLocation`, `TeleportCatalog`. Los subpaquetes `ai/ campaign/ zombie/` se quedan igual. Se hizo
+con **Refactor → Move** de Android Studio (actualiza las ~308 referencias atómicamente; NO es viable a
+mano sin compilador, ver §0 abajo). **⚠️ GOTCHA NUEVO:** el Move de AS **SE SALTA los archivos que están
+ABIERTOS/sin guardar** en el editor → `WorldMapState.kt` quedó con sus imports/FQN viejos
+(`domain.models.MetroStation`…) y rompió `MainActivity` (`station.name` sin resolver). Fix: actualizar a
+mano sus refs a `.map` **respetando** las de `ai.`/`campaign.` (que NO se movieron). Al hacer un
+package-move en AS: **cierra/guarda todos los archivos antes**, y tras compilar arregla cualquier
+`Unresolved reference` restante (mismo patrón: añadir `.map`).
+
 **ES:** Archivos AÚN candidatos a dividir (al 2026-06-21): `WorldMapViewModel.kt` (~2503, único >1500;
 muy separado, resto = de-dup de gemelos CON COMPILADOR), `WorldMapScreen.kt` (~1325, **<1500 ✅**; opcional:
 builder del menú Opciones),

@@ -18,9 +18,9 @@ import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
-import ovh.gabrielhuav.pow.domain.models.Landmark
-import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
-import ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager
+import ovh.gabrielhuav.pow.domain.models.map.Landmark
+import ovh.gabrielhuav.pow.domain.models.map.LandmarkAssetTemplate
+import ovh.gabrielhuav.pow.domain.models.map.LandmarkCatalogManager
 
 fun WorldMapViewModel.loadLandmarks(context: Context) {
     loadExteriorCollisions(context) // ESTO CARGA EL JSON DE MUROS

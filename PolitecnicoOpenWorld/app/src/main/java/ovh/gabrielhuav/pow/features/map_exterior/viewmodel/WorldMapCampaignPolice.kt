@@ -4,10 +4,10 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig
+import ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig
 import ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin

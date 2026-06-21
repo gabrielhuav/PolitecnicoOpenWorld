@@ -29,7 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ovh.gabrielhuav.pow.data.local.room.entity.CollectibleEntity
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible // Asegura que esta ruta sea correcta
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible // Asegura que esta ruta sea correcta
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog // Importar el Dialog
 

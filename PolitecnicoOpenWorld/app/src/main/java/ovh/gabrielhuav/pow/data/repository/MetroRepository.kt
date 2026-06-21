@@ -4,7 +4,7 @@ import android.content.Context
 import org.json.JSONObject
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.R
-import ovh.gabrielhuav.pow.domain.models.MetroStation
+import ovh.gabrielhuav.pow.domain.models.map.MetroStation
 
 object MetroRepository {
     fun loadStations(context: Context): List<MetroStation> {

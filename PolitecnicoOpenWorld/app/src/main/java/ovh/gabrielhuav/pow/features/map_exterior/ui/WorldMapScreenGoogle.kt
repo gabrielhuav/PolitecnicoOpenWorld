@@ -26,9 +26,9 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.delay
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
-import ovh.gabrielhuav.pow.domain.models.MapWay
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
@@ -272,13 +272,13 @@ internal fun GoogleMapLayer(
                                 // "Optimizar para gama baja": TODOS los NPCs como emoji (sin sprites).
                                 val fullEmoji = if (uiState.npcFullEmoji) when (npc.type) {
                                     NpcType.CAR, NpcType.POLICE_CAR -> "🚗"
-                                    ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> "🧟"
+                                    ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> "🧟"
                                     NpcType.POLICE_COP -> "👮"
                                     else -> "🧍"
                                 } else null
                                 val cacheKey = when {
                                     fullEmoji != null -> "GM_FULL_EMOJI_$fullEmoji"
-                                    npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
+                                    npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
                                         val currentlyMoving = npc.speed > 0 || npc.isMoving
                                         val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                         val exactPixels = (personSzDp * screenDensity).toInt()
@@ -305,12 +305,12 @@ internal fun GoogleMapLayer(
                                         val animFrame = if (isAttacking) 0 else ((timeMs / 150L) % 6).toInt()
                                         "GM_COP_SPRITE_${isAttacking}_${animFrame}_${npc.facingRight}_H${qHealth}_D${npc.isDying}"
                                     }
-                                    npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
+                                    npc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
                                         val timeMs = System.currentTimeMillis()
                                         val frameIndex = ((timeMs / 220L) % 9L).toInt()
                                         val roleSizeMul = when (npc.zombieRole) {
-                                            ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK -> 1.45f
-                                            ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 0.9f
+                                            ovh.gabrielhuav.pow.domain.models.map.ZombieRole.TANK -> 1.45f
+                                            ovh.gabrielhuav.pow.domain.models.map.ZombieRole.RUNNER -> 0.9f
                                             else -> 1f
                                         }
                                         val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
@@ -326,7 +326,7 @@ internal fun GoogleMapLayer(
                                             val px = (18 * screenDensity).toInt()
                                             emojiToDrawable(context, fullEmoji, px)
                                         }
-                                        npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
+                                        npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
                                             val currentlyMoving = npc.speed > 0 || npc.isMoving
                                             val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                             val exactPixels = (personSzDp * screenDensity).toInt()
@@ -366,7 +366,7 @@ internal fun GoogleMapLayer(
                                             d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
                                             d
                                         }
-                                        npc.type == ovh.gabrielhuav.pow.domain.models.NpcType.ZOMBIE -> {
+                                        npc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
                                             val timeMs = System.currentTimeMillis()
                                             var d: android.graphics.drawable.Drawable? = ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.getZombieDrawable(
                                                 context = context,
@@ -376,8 +376,8 @@ internal fun GoogleMapLayer(
                                             )
                                             d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying, npc.maxHealth)
                                             val roleSizeMul = when (npc.zombieRole) {
-                                                ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK -> 1.45f
-                                                ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 0.9f
+                                                ovh.gabrielhuav.pow.domain.models.map.ZombieRole.TANK -> 1.45f
+                                                ovh.gabrielhuav.pow.domain.models.map.ZombieRole.RUNNER -> 0.9f
                                                 else -> 1f
                                             }
                                             val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)

@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
+import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
 import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.CollisionGrid
 import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorViewModel
 

@@ -50,5 +50,5 @@ data class MetrobusInteriorState(
     val mapDesignerMode: Boolean = false,
     val mapDesignerMoveMode: Boolean = false,
     val mapSearchQuery: String = "",
-    val allMetrobusStations: List<ovh.gabrielhuav.pow.domain.models.MetrobusStation> = emptyList()
+    val allMetrobusStations: List<ovh.gabrielhuav.pow.domain.models.map.MetrobusStation> = emptyList()
 )

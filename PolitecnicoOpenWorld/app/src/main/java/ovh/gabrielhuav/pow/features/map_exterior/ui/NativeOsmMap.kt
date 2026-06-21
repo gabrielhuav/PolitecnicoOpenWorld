@@ -92,10 +92,10 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polyline
-import ovh.gabrielhuav.pow.domain.models.EscomBoundingBox
-import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.NpcType
-import ovh.gabrielhuav.pow.domain.models.TeleportCatalog
+import ovh.gabrielhuav.pow.domain.models.map.EscomBoundingBox
+import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.TeleportCatalog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager
@@ -130,8 +130,8 @@ import kotlin.math.sqrt
 import android.util.Log
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import androidx.compose.runtime.MutableState
-import ovh.gabrielhuav.pow.domain.models.MapWay
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 
 @Composable
@@ -154,7 +154,7 @@ internal fun NativeOsmMap(
     // `update` corre en CADA recomposición (~30 Hz por el jugador) pero los NPCs cambian
     // a ~10 Hz; reconstruir sus marcadores solo cuando la lista cambia evita ~2/3 del
     // trabajo de sprites (lo más caro en gama baja).
-    val lastNpcRenderHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.Npc>>(1) }
+    val lastNpcRenderHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.Npc>>(1) }
 
     // Cachés de los waypoints/rutas de policía. Se guardan en variables RECORDADAS (no en
     // view tags) para no chocar con el frágil hack de claves derivadas (id + 100 / + 400)
@@ -567,7 +567,7 @@ internal fun NativeOsmMap(
                 val screamPx = ((1.0 / mppB) * screenDensity).toInt().coerceIn(14, 72)
                 val screamingNpcs = uiState.npcs.filter {
                     it.type == NpcType.ZOMBIE &&
-                        it.zombieRole == ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT &&
+                        it.zombieRole == ovh.gabrielhuav.pow.domain.models.map.ZombieRole.SCOUT &&
                         it.screamUntil > nowB
                 }
                 val screamIds = screamingNpcs.map { it.id }.toSet()
@@ -656,12 +656,12 @@ internal fun NativeOsmMap(
                 val visibleNpcs = if (centerCull != null) {
                     val radiusM = npcVisionRadiusMeters()
                     uiState.npcs.filter {
-                        (!hideParkedCars || it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) &&
+                        (!hideParkedCars || it.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED) &&
                         npcWithinRadius(it.location.latitude, it.location.longitude,
                             centerCull.latitude, centerCull.longitude, radiusM)
                     }
                 } else uiState.npcs.filter {
-                    !hideParkedCars || it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED
+                    !hideParkedCars || it.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED
                 }
 
                 val currentNpcIds = visibleNpcs.map { it.id }.toSet()
@@ -846,8 +846,8 @@ internal fun NativeOsmMap(
                                 // Tamaño similar al de los peatones (1.3 m).
                                 // Tamaño por rol: TANK más grande, RUNNER algo más pequeño.
                                 val roleSizeMul = when (npc.zombieRole) {
-                                    ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK -> 1.45f
-                                    ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 0.9f
+                                    ovh.gabrielhuav.pow.domain.models.map.ZombieRole.TANK -> 1.45f
+                                    ovh.gabrielhuav.pow.domain.models.map.ZombieRole.RUNNER -> 0.9f
                                     else -> 1f
                                 }
                                 val exactPixels = ((1.3 / metersPerPixel) * screenDensity * roleSizeMul).toInt().coerceAtLeast(12)

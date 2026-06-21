@@ -1,9 +1,9 @@
 package ovh.gabrielhuav.pow.domain.models.ai
 
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.MapWay
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -33,7 +33,7 @@ internal fun NpcAiManager.moveZombieNpc(
         return npc
     }
 
-    if (npc.zombieRole == ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT) {
+    if (npc.zombieRole == ovh.gabrielhuav.pow.domain.models.map.ZombieRole.SCOUT) {
         val nearestH = serverNpcs
             .filter { it.type == NpcType.PERSON && it.health > 0f && it.displayName.isNullOrEmpty() }
             .minByOrNull { calculateDistance(it.location.latitude, it.location.longitude, npc.location.latitude, npc.location.longitude) }
@@ -47,14 +47,14 @@ internal fun NpcAiManager.moveZombieNpc(
         val dLatT = if (fleeing) (npc.location.latitude - nearestH.location.latitude) else (nearestH.location.latitude - npc.location.latitude)
         val dLonT = if (fleeing) (npc.location.longitude - nearestH.location.longitude) else (nearestH.location.longitude - npc.location.longitude)
         val a = atan2(dLatT, dLonT)
-        val sp = personSpeed * ZOMBIE_SPEED_MULT * NpcAiManager.speedMulForRole(ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT)
+        val sp = personSpeed * ZOMBIE_SPEED_MULT * NpcAiManager.speedMulForRole(ovh.gabrielhuav.pow.domain.models.map.ZombieRole.SCOUT)
         return npc.copy(
             location = GeoPoint(npc.location.latitude + sin(a) * sp, npc.location.longitude + cos(a) * sp),
             rotationAngle = (-Math.toDegrees(a).toFloat()),
             isMoving = true,
             facingRight = cos(a) >= 0,
             screamUntil = newScream,
-            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
+            navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MACRO_OSM
         )
     }
 
@@ -115,7 +115,7 @@ internal fun NpcAiManager.moveZombieNpc(
         rotationAngle = -Math.toDegrees(dir).toFloat(),
         isMoving = true,
         facingRight = facingRight,
-        navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
+        navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MACRO_OSM
     )
 }
 
@@ -157,7 +157,7 @@ internal fun NpcAiManager.movePoliceHunter(npc: Npc, network: List<MapWay>, now:
         rotationAngle = (-Math.toDegrees(dir).toFloat() + 360) % 360,
         isMoving = true,
         facingRight = cos(dir) >= 0,
-        navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM
+        navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MACRO_OSM
     )
 }
 

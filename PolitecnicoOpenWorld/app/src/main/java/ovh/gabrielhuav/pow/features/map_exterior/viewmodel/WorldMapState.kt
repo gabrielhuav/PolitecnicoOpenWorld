@@ -1,11 +1,11 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
-import ovh.gabrielhuav.pow.domain.models.CarModel
-import ovh.gabrielhuav.pow.domain.models.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.Landmark
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.CarModel
+import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.Landmark
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
@@ -163,7 +163,7 @@ data class WorldMapState(
     val showInteriorDebugOverlay: Boolean = false,
     // Colisiones del exterior (polígonos = zonas NO caminables, p. ej. el edificio ESCOM;
     // walls = bardas). Se exponen para dibujarlas en el overlay de Debug Interiores.
-    val exteriorCollisions: ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig? = null,
+    val exteriorCollisions: ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig? = null,
 
     // NUEVAS VARIABLES PARA EL CREADOR DE RUTAS
     val routeDebugWaypoints: List<GeoPoint> = emptyList(), // Las "migas de pan"
@@ -176,8 +176,8 @@ data class WorldMapState(
     // del color/tipo. Se dibujan en vivo (NativeOsmMap) y se exportan/importan a JSON
     // (formato exterior_collisions + navPaths).
     val debugEditTool: DebugEditTool = DebugEditTool.NONE,
-    val debugEditWalls: List<ovh.gabrielhuav.pow.domain.models.CollisionWall> = emptyList(),     // bardas ROJAS editadas
-    val debugEditBlocks: List<ovh.gabrielhuav.pow.domain.models.CollisionPolygon> = emptyList(), // zonas ROJAS editadas
+    val debugEditWalls: List<ovh.gabrielhuav.pow.domain.models.map.CollisionWall> = emptyList(),     // bardas ROJAS editadas
+    val debugEditBlocks: List<ovh.gabrielhuav.pow.domain.models.map.CollisionPolygon> = emptyList(), // zonas ROJAS editadas
     val debugEditNavPed: List<List<GeoPoint>> = emptyList(),                               // caminos VERDES (peatonal)
     val debugEditNavCar: List<List<GeoPoint>> = emptyList(),                               // caminos NARANJAS (autos)
 
@@ -214,17 +214,17 @@ data class WorldMapState(
     val pendingDoorDestination: String? = null,
 
     // ─── Metro Stations ───────────────────────────────────────────────────────
-    val metroStations: List<ovh.gabrielhuav.pow.domain.models.MetroStation> = emptyList(),
-    val nearbyMetroStation: ovh.gabrielhuav.pow.domain.models.MetroStation? = null,
+    val metroStations: List<ovh.gabrielhuav.pow.domain.models.map.MetroStation> = emptyList(),
+    val nearbyMetroStation: ovh.gabrielhuav.pow.domain.models.map.MetroStation? = null,
     val showMetroFade: Boolean = false,
-    val metroFadeCompleteStation: ovh.gabrielhuav.pow.domain.models.MetroStation? = null,
+    val metroFadeCompleteStation: ovh.gabrielhuav.pow.domain.models.map.MetroStation? = null,
 
     
     // ─── Metrobús Stations ────────────────────────────────────────────────────
-    val metrobusStations: List<ovh.gabrielhuav.pow.domain.models.MetrobusStation> = emptyList(),
-    val nearbyMetrobusStation: ovh.gabrielhuav.pow.domain.models.MetrobusStation? = null,
+    val metrobusStations: List<ovh.gabrielhuav.pow.domain.models.map.MetrobusStation> = emptyList(),
+    val nearbyMetrobusStation: ovh.gabrielhuav.pow.domain.models.map.MetrobusStation? = null,
     val showMetrobusFade: Boolean = false,
-    val metrobusFadeCompleteStation: ovh.gabrielhuav.pow.domain.models.MetrobusStation? = null,
+    val metrobusFadeCompleteStation: ovh.gabrielhuav.pow.domain.models.map.MetrobusStation? = null,
 
     // ─── Pre-descarga de tiles de la zona actual (offline) ───────────────────
     // Solo aplica al proveedor nativo OSM (caché Room unificada). Permite seguir

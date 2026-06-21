@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
-import ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig
+import ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig
 import java.io.InputStream
 
 object CharacterSpriteManager {

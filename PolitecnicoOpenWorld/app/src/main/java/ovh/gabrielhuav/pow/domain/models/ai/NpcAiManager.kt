@@ -6,17 +6,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.CarModel
-import ovh.gabrielhuav.pow.domain.models.Landmark
-import ovh.gabrielhuav.pow.domain.models.MapWay
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.CarModel
+import ovh.gabrielhuav.pow.domain.models.map.Landmark
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.atan2
 import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
 import kotlin.random.Random
 
 class NpcAiManager {
@@ -48,37 +46,37 @@ class NpcAiManager {
         const val AGGRO_STOP_DIST = 0.000018
         const val AGGRO_VISION_RADIUS = 0.0005
 
-        fun rollTrait(): ovh.gabrielhuav.pow.domain.models.NpcTrait =
+        fun rollTrait(): ovh.gabrielhuav.pow.domain.models.map.NpcTrait =
             if (Random.nextFloat() < aggressiveRatio)
-                ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE
+                ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE
             else
-                ovh.gabrielhuav.pow.domain.models.NpcTrait.COWARD
+                ovh.gabrielhuav.pow.domain.models.map.NpcTrait.COWARD
 
-        fun rollZombieRole(): ovh.gabrielhuav.pow.domain.models.ZombieRole {
+        fun rollZombieRole(): ovh.gabrielhuav.pow.domain.models.map.ZombieRole {
             val r = Random.nextFloat()
             return when {
-                r < 0.22f -> ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER
-                r < 0.34f -> ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK
-                r < 0.42f -> ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT
-                else      -> ovh.gabrielhuav.pow.domain.models.ZombieRole.NORMAL
+                r < 0.22f -> ovh.gabrielhuav.pow.domain.models.map.ZombieRole.RUNNER
+                r < 0.34f -> ovh.gabrielhuav.pow.domain.models.map.ZombieRole.TANK
+                r < 0.42f -> ovh.gabrielhuav.pow.domain.models.map.ZombieRole.SCOUT
+                else      -> ovh.gabrielhuav.pow.domain.models.map.ZombieRole.NORMAL
             }
         }
-        fun maxHealthForRole(role: ovh.gabrielhuav.pow.domain.models.ZombieRole): Float = when (role) {
-            ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 15f
-            ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK   -> 60f
-            ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT  -> 15f
+        fun maxHealthForRole(role: ovh.gabrielhuav.pow.domain.models.map.ZombieRole): Float = when (role) {
+            ovh.gabrielhuav.pow.domain.models.map.ZombieRole.RUNNER -> 15f
+            ovh.gabrielhuav.pow.domain.models.map.ZombieRole.TANK   -> 60f
+            ovh.gabrielhuav.pow.domain.models.map.ZombieRole.SCOUT  -> 15f
             else -> 30f
         }
-        fun speedMulForRole(role: ovh.gabrielhuav.pow.domain.models.ZombieRole): Float = when (role) {
-            ovh.gabrielhuav.pow.domain.models.ZombieRole.RUNNER -> 1.6f
-            ovh.gabrielhuav.pow.domain.models.ZombieRole.TANK   -> 0.55f
-            ovh.gabrielhuav.pow.domain.models.ZombieRole.SCOUT  -> 1.5f
+        fun speedMulForRole(role: ovh.gabrielhuav.pow.domain.models.map.ZombieRole): Float = when (role) {
+            ovh.gabrielhuav.pow.domain.models.map.ZombieRole.RUNNER -> 1.6f
+            ovh.gabrielhuav.pow.domain.models.map.ZombieRole.TANK   -> 0.55f
+            ovh.gabrielhuav.pow.domain.models.map.ZombieRole.SCOUT  -> 1.5f
             else -> 1f
         }
 
-        val NPC_OUTFITS: List<ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig> by lazy {
+        val NPC_OUTFITS: List<ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig> by lazy {
             fun outfit(hairId: Int, shirt: Long, hair: Long, pants: Long) =
-                ovh.gabrielhuav.pow.domain.models.CharacterVisualConfig(
+                ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig(
                     bodyFolder = "npc_walk_1", bodyPrefix = "npc_walk_1_",
                     hairId = hairId,
                     shirtColor = androidx.compose.ui.graphics.Color(shirt),
@@ -141,9 +139,9 @@ class NpcAiManager {
     @Volatile var userPopulationFactor: Float = 1.0f
     private val popFactor get() = deviceTierFactor * urbanFactor * userPopulationFactor
 
-    internal var exteriorCollisions: ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig? = null
+    internal var exteriorCollisions: ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig? = null
 
-    fun setExteriorCollisions(config: ovh.gabrielhuav.pow.domain.models.ExteriorCollisionsConfig?) {
+    fun setExteriorCollisions(config: ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig?) {
         this.exteriorCollisions = config
     }
 
@@ -317,7 +315,7 @@ class NpcAiManager {
         for (i in serverNpcs.indices) {
             val npc = serverNpcs[i]
             if (!npc.displayName.isNullOrEmpty()) continue
-            if (npc.trait == ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE) continue
+            if (npc.trait == ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE) continue
             var best: FearEvent? = null
             for (ev in events) {
                 if (calculateDistance(npc.location.latitude, npc.location.longitude, ev.lat, ev.lon) <= FEAR_RADIUS) {
@@ -352,7 +350,7 @@ class NpcAiManager {
                         // Los carros ESTACIONADOS son escenario fijo del campus: NO se despawnean por
                         // distancia (si no, al poblarlos de LEJOS se borraban al instante → "no aparecen").
                         // Se limpian cuando el jugador SALE del campus (dist>=0.02, más abajo).
-                        it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED &&
+                        it.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED &&
                         // Los NPCs de la RUTA roja de campaña están repartidos por TODA la ruta:
                         // exentos del despawn por distancia (se limpian aparte al acabar la misión).
                         !it.id.startsWith(ROUTE_NPC_PREFIX) &&
@@ -370,7 +368,7 @@ class NpcAiManager {
                 // 81 cajones (> maxTotalNpcs) saturaban el cupo y BLOQUEABAN peatones y tráfico
                 // ("no aparecen NPCs"). Por eso se excluyen del cupo aquí y en los gates de spawn.
                 if (n.displayName.isNullOrEmpty() && !n.id.startsWith(ROUTE_NPC_PREFIX) &&
-                    n.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) {
+                    n.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED) {
                     totalCount++
                     if (calculateDistance(n.location.latitude, n.location.longitude, pLat0, pLon0) <= simRadius) activeCount++
                 }
@@ -378,12 +376,12 @@ class NpcAiManager {
             // Cupo de NPCs vivos NO estacionados (los PARKED son escenografía exenta, como la ruta).
             fun nonParkedAlive() = serverNpcs.count {
                 it.displayName.isNullOrEmpty() && !it.id.startsWith(ROUTE_NPC_PREFIX) &&
-                    it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED
+                    it.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED
             }
 
             if (totalCount > maxTotalNpcs) {
                 val excess = totalCount - maxTotalNpcs
-                val farthest = serverNpcs.filter { it.displayName.isNullOrEmpty() && it.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED && !it.id.startsWith(ROUTE_NPC_PREFIX) }
+                val farthest = serverNpcs.filter { it.displayName.isNullOrEmpty() && it.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED && !it.id.startsWith(ROUTE_NPC_PREFIX) }
                     .sortedByDescending { calculateDistance(it.location.latitude, it.location.longitude, pLat0, pLon0) }
                     .take(excess)
                 serverNpcs.removeAll(farthest)
@@ -410,7 +408,7 @@ class NpcAiManager {
                 // cualquier NPC, los peatones del campus (siempre presentes) bloquearían el relleno
                 // y el lote quedaría vacío para siempre tras irse los carros.
                 val parkedAlive = serverNpcs.count {
-                    it.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED && it.currentLandmark?.id == landmark.id
+                    it.navState == ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED && it.currentLandmark?.id == landmark.id
                 }
                 // Capacidad real del lote = nº de slots de estacionamiento del navGraph. Objetivo 90%,
                 // se rellena si baja del 80% (siempre lleno).
@@ -469,7 +467,7 @@ class NpcAiManager {
                     // Al SALIR del campus sí limpia los carros estacionados de este landmark (evita
                     // acumularlos). Se vuelven a poblar al regresar.
                     val parkedHere = serverNpcs.filter {
-                        it.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED && it.currentLandmark?.id == landmark.id
+                        it.navState == ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED && it.currentLandmark?.id == landmark.id
                     }
                     if (parkedHere.isNotEmpty()) {
                         serverNpcs.removeAll(parkedHere)
@@ -503,7 +501,7 @@ class NpcAiManager {
                     for (n in serverNpcs) {
                         // Excluye estacionados: son escenografía, no "tráfico" para la cuota de coches.
                         if (n.displayName.isNullOrEmpty() && n.type == NpcType.CAR &&
-                            n.navState != ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED &&
+                            n.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED &&
                             calculateDistance(n.location.latitude, n.location.longitude, pLat, pLon) <= simRadius
                         ) activeCarCount++
                     }
@@ -580,7 +578,7 @@ class NpcAiManager {
                         spawnNpcOnRoad(playerLocation, closeWays, activeLandmarks)?.let {
                             val role = rollZombieRole()
                             val hp = maxHealthForRole(role)
-                            serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(role), trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role, health = hp, maxHealth = hp))
+                            serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(role), trait = ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role, health = hp, maxHealth = hp))
                         }
                     }
                 }
@@ -601,7 +599,7 @@ class NpcAiManager {
                                 spawnNpcOnRoad(playerLocation, hordeWays, activeLandmarks)?.let {
                                     val role = rollZombieRole()
                                     val hp = maxHealthForRole(role)
-                                    serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(role), trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role, health = hp, maxHealth = hp))
+                                    serverNpcs.add(it.copy(type = NpcType.ZOMBIE, speed = personSpeed * ZOMBIE_SPEED_MULT * speedMulForRole(role), trait = ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role, health = hp, maxHealth = hp))
                                 }
                                 k++
                             }
@@ -654,7 +652,7 @@ class NpcAiManager {
                             if (zombies.size < MAX_ZOMBIES) {
                                 val role = rollZombieRole()
                                 val hp = maxHealthForRole(role)
-                                serverNpcs[i] = h.copy(type = NpcType.ZOMBIE, health = hp, maxHealth = hp, isDying = false, chatUntil = 0L, fearUntil = 0L, trait = ovh.gabrielhuav.pow.domain.models.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role)
+                                serverNpcs[i] = h.copy(type = NpcType.ZOMBIE, health = hp, maxHealth = hp, isDying = false, chatUntil = 0L, fearUntil = 0L, trait = ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role)
                             } else {
                                 synchronized(pendingDespawns) { pendingDespawns.add(h.id) }
                             }
@@ -723,8 +721,8 @@ class NpcAiManager {
         return allSlots.filter { slot ->
             val wayId = slot.first.id
             val isOccupied = currentNpcs.any { npc ->
-                (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED ||
-                        npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK) &&
+                (npc.navState == ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED ||
+                        npc.navState == ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MICRO_LANDMARK) &&
                         npc.currentLocalWay?.id == wayId
             }
             !isOccupied
@@ -753,7 +751,7 @@ class NpcAiManager {
             speed = 0.0,
             carModel = CarModel.entries.random(),
             carColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)),
-            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED,
+            navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED,
             currentLandmark = landmark,
             currentLocalWay = way,
             targetNodeIndex = nodeIndex,
@@ -778,7 +776,7 @@ class NpcAiManager {
             rotationAngle = Random.nextFloat() * 360f,
             speed = randomSpeed,
             visualConfig = visualConfig,
-            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
+            navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MICRO_LANDMARK,
             currentLandmark = landmark,
             currentLocalWay = way,
             targetNodeIndex = nodeIndex,

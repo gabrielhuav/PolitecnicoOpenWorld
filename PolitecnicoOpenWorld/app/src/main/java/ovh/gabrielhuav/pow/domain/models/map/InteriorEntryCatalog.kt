@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.domain.models
+package ovh.gabrielhuav.pow.domain.models.map
 
 /**
  * Catálogo DATA-DRIVEN de entradas a interiores: mapea una puerta (landmark `escom_door_*`)

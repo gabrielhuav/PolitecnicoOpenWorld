@@ -4,8 +4,8 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import ovh.gabrielhuav.pow.domain.models.MapNode
-import ovh.gabrielhuav.pow.domain.models.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.MapNode
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder

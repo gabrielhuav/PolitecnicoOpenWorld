@@ -26,8 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.domain.models.LandmarkAssetTemplate
-import ovh.gabrielhuav.pow.domain.models.LandmarkCatalogManager
+import ovh.gabrielhuav.pow.domain.models.map.LandmarkAssetTemplate
+import ovh.gabrielhuav.pow.domain.models.map.LandmarkCatalogManager
 
 @Composable
 fun AssetPickerDialog(

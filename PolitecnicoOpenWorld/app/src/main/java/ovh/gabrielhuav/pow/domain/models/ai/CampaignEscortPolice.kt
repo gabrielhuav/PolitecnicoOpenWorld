@@ -1,8 +1,8 @@
 package ovh.gabrielhuav.pow.domain.models.ai
 
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.atan2
 import kotlin.math.cos

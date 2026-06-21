@@ -60,6 +60,7 @@ fun SettingsScreen(
     onNpcDensityChanged: (Float) -> Unit,
     onNpcEmojiLodToggled: (Boolean) -> Unit,
     onNpcFullEmojiToggled: (Boolean) -> Unit,
+    onOptimizeForDevice: () -> Unit = {},
     onNavigateBack: () -> Unit,
     onExitToMainMenu: () -> Unit,
     authManager: ovh.gabrielhuav.pow.data.auth.AuthManager? = null,
@@ -135,7 +136,7 @@ fun SettingsScreen(
                     ) {
                         Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, authManager, onAccountDeleted, currentLanguage, onLanguageChanged)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, onOptimizeForDevice, authManager, onAccountDeleted, currentLanguage, onLanguageChanged)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -186,7 +187,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = if (compactLand) 12.dp else 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(if (compactLand) 12.dp else 24.dp).verticalScroll(contentScrollState)) {
                         Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = if (compactLand) 15.sp else 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(if (compactLand) 10.dp else 24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, authManager, onAccountDeleted, currentLanguage, onLanguageChanged)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, onOptimizeForDevice, authManager, onAccountDeleted, currentLanguage, onLanguageChanged)
                     }
                 }
             }
@@ -254,6 +255,7 @@ private fun SettingsContent(
     onNpcDensityChanged: (Float) -> Unit,
     onNpcEmojiLodToggled: (Boolean) -> Unit,
     onNpcFullEmojiToggled: (Boolean) -> Unit,
+    onOptimizeForDevice: () -> Unit,
     authManager: ovh.gabrielhuav.pow.data.auth.AuthManager?,
     onAccountDeleted: () -> Unit,
     currentLanguage: String,
@@ -265,7 +267,7 @@ private fun SettingsContent(
             state.showRoadNetwork, onRoadNetworkToggled
         )
         is SettingsCategory.Controls -> ControlsSettingsConfig(state.tempControlType, state.tempControlsScale, state.tempSwapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
-        is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled, state.npcFullEmoji, onNpcFullEmojiToggled)
+        is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled, state.npcFullEmoji, onNpcFullEmojiToggled, onOptimizeForDevice)
         is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, state.showCoordsWidget, state.developerMode, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, currentLanguage, onLanguageChanged)
         is SettingsCategory.Audio -> AudioSettings(state.musicVolume, state.sfxVolume, onMusicVolumeChanged, onSfxVolumeChanged)
         is SettingsCategory.Account -> AccountSettings(authManager, onAccountDeleted)
@@ -280,9 +282,24 @@ private fun GameplaySettings(
     npcEmojiLod: Boolean,
     onNpcEmojiLodToggled: (Boolean) -> Unit,
     npcFullEmoji: Boolean,
-    onNpcFullEmojiToggled: (Boolean) -> Unit
+    onNpcFullEmojiToggled: (Boolean) -> Unit,
+    onOptimizeForDevice: () -> Unit
 ) {
     Column {
+        // ─── Preset de UN TOQUE: optimizar para gama baja ────────────────────
+        // Aplica de golpe los 3 ajustes ligeros (densidad mínima + ambos emoji).
+        Button(
+            onClick = onOptimizeForDevice,
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A), contentColor = Color.White),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.settings_optimize_device), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(stringResource(R.string.settings_optimize_device_desc), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+        Spacer(Modifier.height(20.dp))
+
         // ─── Densidad de NPCs ────────────────────────────────────────────────
         Text(stringResource(R.string.settings_npc_count), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))

@@ -1,9 +1,9 @@
 package ovh.gabrielhuav.pow.features.interiores.shinecto.viewmodel
 
-import ovh.gabrielhuav.pow.domain.models.ShineCTOFloor
+import ovh.gabrielhuav.pow.domain.models.map.ShineCTOFloor
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 
 data class ShineCTOState(
     val floor: ShineCTOFloor = ShineCTOFloor.GROUND,

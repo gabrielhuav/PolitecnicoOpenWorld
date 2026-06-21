@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.domain.models.CarModel
+import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 
 @Composable

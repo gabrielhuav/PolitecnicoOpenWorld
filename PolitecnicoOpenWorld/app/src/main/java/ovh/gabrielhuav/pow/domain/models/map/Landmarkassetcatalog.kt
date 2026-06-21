@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.domain.models
+package ovh.gabrielhuav.pow.domain.models.map
 
 import android.content.Context
 import android.util.Log
@@ -34,7 +34,7 @@ object LandmarkCatalogManager {
             val jsonString = context.assets.open("CONFIG/buildings_catalog.json").bufferedReader().use { it.readText() }
 
             // Usamos Gson para convertir el texto JSON a una lista de objetos LandmarkAssetTemplate
-            val listType = object : TypeToken<List<LandmarkAssetTemplate>>() {}.type
+            val listType = object : com.google.gson.reflect.TypeToken<List<LandmarkAssetTemplate>>() {}.type
             availableAssets = Gson().fromJson<List<LandmarkAssetTemplate>>(jsonString, listType) ?: emptyList()
 
             Log.d("CatalogManager", "Catálogo cargado exitosamente con ${availableAssets.size} edificios.")

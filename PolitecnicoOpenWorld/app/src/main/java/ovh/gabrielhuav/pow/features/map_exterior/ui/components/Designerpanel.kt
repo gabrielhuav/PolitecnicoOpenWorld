@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ovh.gabrielhuav.pow.domain.models.Landmark
+import ovh.gabrielhuav.pow.domain.models.map.Landmark
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Checkbox

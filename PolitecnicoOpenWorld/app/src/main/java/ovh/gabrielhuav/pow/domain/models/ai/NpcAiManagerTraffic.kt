@@ -1,9 +1,9 @@
 package ovh.gabrielhuav.pow.domain.models.ai
 
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.MapWay
-import ovh.gabrielhuav.pow.domain.models.Npc
-import ovh.gabrielhuav.pow.domain.models.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -35,7 +35,7 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
         val reachedNode = if (nodeIndex < 0) way.nodes.first() else way.nodes.last()
 
         if (reachedNode.isParkingSlot) {
-            return npc.copy(navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED, speed = 0.0)
+            return npc.copy(navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED, speed = 0.0)
         }
 
         if (navGraph.entryWays.contains(way.id) && nodeIndex < 0) {
@@ -43,7 +43,7 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
 
             carExitCooldowns[npc.id] = System.currentTimeMillis() + 60000L
             return npc.copy(
-                navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MACRO_OSM,
+                navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MACRO_OSM,
                 currentLocalWay = null,
                 currentLandmark = null,
                 currentWay = null
@@ -183,7 +183,7 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
 }
 
 internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, speedScale: Float): Npc? {
-    if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.PARKED) {
+    if (npc.navState == ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED) {
         if (npc.currentLocalWay == null) return npc
         val wakeUpTime = parkedTimers[npc.id]
 
@@ -199,7 +199,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
             val newIndex = if (npc.targetNodeIndex < 0) 1 else way.nodes.size - 2
 
             return npc.copy(
-                navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
+                navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MICRO_LANDMARK,
                 speed = carSpeed,
                 moveDirection = newDir,
                 targetNodeIndex = newIndex
@@ -208,7 +208,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
         return npc
     }
 
-    if (npc.navState == ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK) {
+    if (npc.navState == ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MICRO_LANDMARK) {
         return moveLocalNpc(npc)
     }
 
@@ -298,7 +298,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
                         if (now > exitCooldown && now - lastEntryTime > 5000L && Random.nextFloat() < 0.85f) {
                             landmarkEntranceCooldowns[landmark.id.toString()] = now
                             return npc.copy(
-                                navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
+                                navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MICRO_LANDMARK,
                                 currentLandmark = landmark,
                                 currentLocalWay = entryWay,
                                 targetNodeIndex = 0,
@@ -504,7 +504,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
                     if (now > exitCooldown && now - lastEntryTime > 5000L && Random.nextFloat() < 0.85f) {
                         landmarkEntranceCooldowns[landmark.id.toString()] = now
                         return npc.copy(
-                            navState = ovh.gabrielhuav.pow.domain.models.NpcNavState.MICRO_LANDMARK,
+                            navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MICRO_LANDMARK,
                             currentLandmark = landmark,
                             currentLocalWay = entryWay,
                             targetNodeIndex = 0,

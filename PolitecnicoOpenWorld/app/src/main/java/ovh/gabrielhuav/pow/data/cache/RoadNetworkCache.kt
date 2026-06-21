@@ -7,8 +7,8 @@ import ovh.gabrielhuav.pow.data.local.room.dao.RoadNetworkDao
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadNodeEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadWayEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadZoneEntity
-import ovh.gabrielhuav.pow.domain.models.MapNode
-import ovh.gabrielhuav.pow.domain.models.MapWay
+import ovh.gabrielhuav.pow.domain.models.map.MapNode
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import kotlin.math.floor
 
 class RoadNetworkCache(private val dao: RoadNetworkDao) {

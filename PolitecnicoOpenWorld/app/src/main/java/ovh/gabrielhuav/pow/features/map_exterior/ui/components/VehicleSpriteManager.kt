@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.util.LruCache
-import ovh.gabrielhuav.pow.domain.models.CarModel
+import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import kotlin.math.roundToInt
 
 object VehicleSpriteManager {

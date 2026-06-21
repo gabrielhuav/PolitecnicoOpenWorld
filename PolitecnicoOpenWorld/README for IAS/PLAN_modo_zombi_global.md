@@ -204,8 +204,8 @@ nuevo valor.
 
 | Archivo | Cambio |
 |---|---|
-| `domain/models/NpcType.kt` | + `ZOMBIE("ic_npc_person"|asset zombi)` |
-| `domain/models/Npc.kt` | (opcional) campos `zombieSince`/`isConverting` si hacen falta para anim |
+| `domain/models/map/NpcType.kt` | + `ZOMBIE("ic_npc_person"|asset zombi)` |
+| `domain/models/map/Npc.kt` | (opcional) campos `zombieSince`/`isConverting` si hacen falta para anim |
 | `domain/models/ai/NpcAiManager.kt` | `globalZombieMode`, constantes §4, `moveZombieNpc`, mordida, contagio, huida de zombi, seed inicial, `carPopulationRatio=0` |
 | `features/map_exterior/viewmodel/WorldMapState.kt` | + `globalZombieMode: Boolean = false` |
 | `.../viewmodel/WorldMapViewModel.kt` | `toggleGlobalZombieMode()`, `exitGlobalZombieMode()`, set `npcAiManager.globalZombieMode` en game loop, extender `applyNpcContactDamage`/`performPlayerAttack`/`runOverNpcs` para ZOMBIE, broadcast `ZOMBIE_MODE_SET` |

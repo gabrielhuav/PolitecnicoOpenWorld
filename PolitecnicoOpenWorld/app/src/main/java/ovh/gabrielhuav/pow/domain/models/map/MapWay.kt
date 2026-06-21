@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.domain.models
+package ovh.gabrielhuav.pow.domain.models.map
 data class MapWay(
     val id: Long,
     val nodes: List<MapNode>,

@@ -7,8 +7,8 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 // ───────────────────────────────────────────────────────────────────────────────────
 
 import kotlinx.coroutines.flow.update
-import ovh.gabrielhuav.pow.domain.models.ActiveCollectible
-import ovh.gabrielhuav.pow.domain.models.ShineCTOLocation
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
 
 fun WorldMapViewModel.spawnShineCTOMarker() {
     if (_uiState.value.activeCollectibles.none { it.id == ShineCTOLocation.MARKER_ID }) {
