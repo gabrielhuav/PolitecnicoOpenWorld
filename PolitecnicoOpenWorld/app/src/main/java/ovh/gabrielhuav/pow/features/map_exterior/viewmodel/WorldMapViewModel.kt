@@ -545,8 +545,16 @@ class WorldMapViewModel(
                             var currentRotation = _uiState.value.vehicleRotation
 
                             // H: si Prankedy está SUBIENDO al coche, el coche NO avanza hasta que se suba.
+                            // Timeout de seguridad: si Prankedy no logra abordar en 10 s, se cancela
+                            // el bloqueo para que el jugador no quede atrapado.
                             val prankedyBoarding = _uiState.value.prankedyBoarding
-                            if (prankedyBoarding) currentSpeed = 0.0
+                            if (prankedyBoarding) {
+                                if (System.currentTimeMillis() - prankedyBoardingStartMs > 10_000L) {
+                                    _uiState.update { it.copy(prankedyBoarding = false) }
+                                } else {
+                                    currentSpeed = 0.0
+                                }
+                            }
                             // I: a <= 50 m de la ESCOM (durante la escolta/ingreso) el coche SOLO da reversa
                             //    → te obliga a BAJARTE y entrar a pie por la puerta.
                             val driveObjId = _uiState.value.currentObjective?.id
@@ -558,11 +566,10 @@ class WorldMapViewModel(
                                     ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOM_FORCEWALK_LON)
                                 ) <= ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOM_FORCEWALK_RADIUS_M
 
-                            if (isSteeringLeftPressed && currentSpeed != 0.0) {
-                                currentRotation -= if (currentSpeed > 0) 2f else 3f
-                            }
-                            if (isSteeringRightPressed && currentSpeed != 0.0) {
-                                currentRotation += if (currentSpeed > 0) 2f else 3f
+                            if (isSteeringLeftPressed || isSteeringRightPressed) {
+                                val dir = if (currentSpeed >= 0) 1f else -1f
+                                if (isSteeringLeftPressed) currentRotation -= 2f * dir
+                                if (isSteeringRightPressed) currentRotation += 2f * dir
                             }
 
                             if (isGasPressed && !prankedyBoarding && !forceWalkNearEscom) {
@@ -642,7 +649,7 @@ class WorldMapViewModel(
                             }
                             tempLoc = GeoPoint(tempLoc.latitude + dodgeOffsetY, tempLoc.longitude + dodgeOffsetX)
 
-                            var nearestRoadPoint = getNearestPointOnNetwork(tempLoc)
+                            var nearestRoadPoint = getNearestCarRoadPoint(tempLoc)
 
                             // Auto-centrado suave al carril: si acabamos de rebasar o vamos recto sin girar,
                             // regresamos al centro del camino de forma elegante para no mantenernos fuera de carril.
@@ -654,15 +661,21 @@ class WorldMapViewModel(
                                 val pullLat = nearestRoadPoint.latitude - tempLoc.latitude
                                 val pullLon = nearestRoadPoint.longitude - tempLoc.longitude
                                 tempLoc = GeoPoint(tempLoc.latitude + pullLat * 0.15, tempLoc.longitude + pullLon * 0.15)
-                                nearestRoadPoint = getNearestPointOnNetwork(tempLoc) // recalcular porque nos movimos
+                                nearestRoadPoint = getNearestCarRoadPoint(tempLoc) // recalcular porque nos movimos
                                 isAutoCentering = true
                             }
 
                             // 👇 ADUANA DE CHOQUE PARA EL COCHE 👇
                             if (isCollisionDetected(location.latitude, location.longitude, tempLoc.latitude, tempLoc.longitude)) {
-                                // Frena en seco (Speed = 0) y anula el choque
+                                // Retrocede un paso para no quedar pegado a la pared (knockback
+                                // suave). Así el jugador puede girar (el steering ya no requiere
+                                // speed != 0) y marcharse sin quedar atorado.
+                                val knockbackDist = 0.000003
+                                val bkLat = location.latitude - kotlin.math.sin(angleRad) * knockbackDist
+                                val bkLon = location.longitude - kotlin.math.cos(angleRad) * knockbackDist
                                 _uiState.update {
                                     it.copy(
+                                        currentLocation = GeoPoint(bkLat, bkLon),
                                         vehicleSpeed = 0.0,
                                         vehicleRotation = (currentRotation + 360) % 360f
                                     )
@@ -676,8 +689,19 @@ class WorldMapViewModel(
 
                                 val finalLoc = if (distToRoad <= maxRoadRadius) {
                                     tempLoc
+                                } else if (absSpeed < MAX_SPEED * 0.15) {
+                                    // Apenas arrancando: en lugar de frenar en seco (que impedía
+                                    // mover el coche si abordabas en una calle sin marca "car"),
+                                    // deslízate suavemente hacia la calzada más cercana.
+                                    val pull = (maxRoadRadius / distToRoad).coerceAtMost(0.3)
+                                    currentSpeed *= 0.95
+                                    GeoPoint(
+                                        tempLoc.latitude  + (nearestRoadPoint.latitude  - tempLoc.latitude)  * pull,
+                                        tempLoc.longitude + (nearestRoadPoint.longitude - tempLoc.longitude) * pull
+                                    )
                                 } else {
-                                    // Te saliste de la calle: literalmente no avanzas, te frenas en seco.
+                                    // Te saliste de la calle yendo a cierta velocidad:
+                                    // frena en seco y quédate donde estás.
                                     currentSpeed = 0.0
                                     location
                                 }
@@ -1096,6 +1120,13 @@ class WorldMapViewModel(
     internal var indexedRef: List<MapWay>?    = null
     internal var segs: List<Seg>              = emptyList()
     internal var grid: Map<Long, List<Seg>>   = emptyMap()
+
+    // Índice espacial para vías aptas para automóviles (isForCars == true).
+    // Se usa en getNearestCarRoadPoint() para que el coche solo pueda circular
+    // sobre calles reales, ignorando banquetas, ciclovías y caminos peatonales.
+    internal var indexedRefForCars: List<MapWay>? = null
+    internal var segsForCars: List<Seg>           = emptyList()
+    internal var gridForCars: Map<Long, List<Seg>> = emptyMap()
 
     // ── DISEÑADOR DE RUTAS / ESTACIONAMIENTOS ───────────────────────────────────────────────────
     // La captura, validación, serialización y export a archivo viven ahora en `DesignerViewModel`
