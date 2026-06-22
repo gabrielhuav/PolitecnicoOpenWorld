@@ -30,6 +30,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_SFX_VOLUME = "SFX_VOLUME"     // volumen efectos 0f..1f (Audio)
         private const val KEY_LANGUAGE = "APP_LANGUAGE"             // idioma de la UI (BCP-47; "" = sistema)
         private const val KEY_PLAYER_NAME = "PLAYER_NAME"           // nombre de jugador para multijugador
+        private const val KEY_RACE_REWARD_GIVEN = "RACE_REWARD_GIVEN" // trofeo de la carrera ya otorgado
         const val NPC_DENSITY_MIN = 0.4f
         const val NPC_DENSITY_MAX = 1.6f
     }
@@ -167,5 +168,12 @@ class SettingsRepository(context: Context) {
     fun getPlayerName(): String = prefs.getString(KEY_PLAYER_NAME, "") ?: ""
     fun savePlayerName(name: String) {
         prefs.edit().putString(KEY_PLAYER_NAME, name).apply()
+    }
+
+    // ─── Misión secundaria: Carrera del Politécnico ───────────────────────────
+    // Guarda si el jugador ya ganó (para no dar el trofeo dos veces).
+    fun getRaceRewardGiven(): Boolean = prefs.getBoolean(KEY_RACE_REWARD_GIVEN, false)
+    fun setRaceRewardGiven(given: Boolean) {
+        prefs.edit().putBoolean(KEY_RACE_REWARD_GIVEN, given).apply()
     }
 }

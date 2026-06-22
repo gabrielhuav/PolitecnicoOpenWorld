@@ -3,6 +3,7 @@ package ovh.gabrielhuav.pow.data.repository
 import kotlinx.coroutines.flow.Flow
 import ovh.gabrielhuav.pow.data.local.room.dao.CollectibleDao
 import ovh.gabrielhuav.pow.data.local.room.entity.CollectibleEntity
+import ovh.gabrielhuav.pow.domain.models.EntrenadorLocation
 
 class CollectibleRepository(
     private val collectibleDao: CollectibleDao
@@ -69,5 +70,24 @@ class CollectibleRepository(
             )
             collectibleDao.insertInitialCollectibles(defaultList)
         }
+    }
+
+    /**
+     * Asegura que el coleccionable trofeo de la Carrera del Politécnico esté en la BD.
+     * Usa OnConflictStrategy.IGNORE para ser idempotente (no falla si ya existe).
+     */
+    suspend fun ensureRaceCollectible() {
+        collectibleDao.insertCollectible(
+            CollectibleEntity(
+                id          = EntrenadorLocation.REWARD_COLLECTIBLE_ID,
+                name        = "Trofeo de la Carrera del Politécnico",
+                description = "Premio al corredor más veloz del IPN. " +
+                    "Completaste la Carrera del Politécnico cruzando el campus de ESCOM " +
+                    "de extremo a extremo en menos de 60 segundos. " +
+                    "¡Ni el metro llega tan rápido!",
+                assetPath   = "collectibles/colec_race.webp",
+                isCollected = false
+            )
+        )
     }
 }

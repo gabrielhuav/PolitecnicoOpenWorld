@@ -84,7 +84,23 @@ object MissionCatalog {
         arriveRadiusMeters = 0.0
     )
 
-    private val all = listOf(IR_ENCB, ESCOLTAR_PRANKEDY, INGRESAR_ESCOM, BUSCAR_PISTAS_ESCOM)
+    // ─── MISIÓN 3: "La Señal del Dr. Ramírez" ────────────────────────────────
+    // Al salir del interior de la ESCOM, el jugador captó una señal de radio.
+    // El Dr. Ramírez se esconde en el campus IPN (al norte de la ESCOM) con la cura.
+    // El jugador debe llegar a sus coordenadas antes de que se agote la señal.
+    val LOCALIZAR_RAMIREZ = CampaignObjective(
+        id = "localizar_ramirez",
+        title = "Llega con el Dr. Ramírez",
+        description = "El doctor transmite desde el norte del campus. ¡Date prisa!",
+        targetLat = 19.50820,
+        targetLon = -99.14500,
+        arriveRadiusMeters = 80.0
+    )
+
+    private val all = listOf(
+        IR_ENCB, ESCOLTAR_PRANKEDY, INGRESAR_ESCOM,
+        BUSCAR_PISTAS_ESCOM, LOCALIZAR_RAMIREZ
+    )
 
     // Objetivo con el que arranca una campaña nueva.
     val first: CampaignObjective = IR_ENCB

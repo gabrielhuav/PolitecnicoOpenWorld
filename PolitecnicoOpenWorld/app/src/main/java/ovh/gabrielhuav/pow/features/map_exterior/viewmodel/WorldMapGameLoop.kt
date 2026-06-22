@@ -174,6 +174,9 @@ internal fun WorldMapViewModel.startGameLoop() {
                         }
                         checkCollectibleProximity(location.latitude, location.longitude)
 
+                        // CARRERA: detectar llegada a la meta cada tick
+                        if (_uiState.value.isRaceActive) checkRaceFinishLine(location)
+
                         checkDestinationArrival()
 
                         if (tickCount % 30 == 0L && _uiState.value.destinationMarker != null) {

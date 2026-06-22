@@ -183,6 +183,11 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeNavigateToRaceMission
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startRace
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.retryRace
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissRaceResult
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissChapter1End
 import kotlin.math.cos
 import androidx.compose.runtime.DisposableEffect
 
@@ -2461,6 +2466,247 @@ fun WorldMapScreen(
         if (station != null) {
             viewModel.consumeMetrobusFadeComplete()
             onNavigateToInterior("metrobus_station_interior/${station.name}")
+        }
+    }
+
+    // ─── MODO HISTORIA · Misión 3: Fin del Capítulo 1 ───────────────────────
+    if (uiState.showChapter1End) {
+        Chapter1EndOverlay(onDismiss = { viewModel.dismissChapter1End() })
+    }
+
+    // ─── MISIÓN SECUNDARIA: Carrera del Politécnico ───────────────────────────
+    // Navegar a la pantalla de briefing cuando el jugador interactúa con el Entrenador.
+    LaunchedEffect(uiState.navigateToRaceMission) {
+        if (uiState.navigateToRaceMission) {
+            viewModel.consumeNavigateToRaceMission()
+            onNavigateToInterior("race_mission")
+        }
+    }
+
+    // HUD del timer de la carrera (visible mientras isRaceActive)
+    if (uiState.isRaceActive) {
+        RaceTimerHud(
+            timeLeftSec      = uiState.raceTimeLeftSec,
+            penaltyTotalSec  = uiState.racePenaltyTotalSec
+        )
+    }
+
+    // Pantalla de VICTORIA
+    if (uiState.showRaceVictory) {
+        RaceVictoryOverlay(
+            timeSec      = uiState.raceFinishedTimeSec,
+            isFirstTime  = uiState.raceFirstTimeWin,
+            onDismiss    = { viewModel.dismissRaceResult() }
+        )
+    }
+
+    // Pantalla de TIEMPO AGOTADO
+    if (uiState.showRaceTimeout) {
+        RaceTimeoutOverlay(
+            onRetry   = { viewModel.retryRace() },
+            onDismiss = { viewModel.dismissRaceResult() }
+        )
+    }
+}
+
+// ─── Composables auxiliares de la Carrera del Politécnico ────────────────────
+
+@Composable
+private fun Chapter1EndOverlay(onDismiss: () -> Unit) {
+    Box(
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxSize()
+            .background(Color(0xF0000000))
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null, onClick = {}
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = androidx.compose.ui.Modifier
+                .fillMaxWidth(0.88f)
+                .background(Color(0xFF0A1628), RoundedCornerShape(16.dp))
+                .padding(28.dp)
+        ) {
+            Text(
+                text = "— FIN DEL CAPÍTULO 1 —",
+                color = Color(0xFFFFD700),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 3.sp
+            )
+            Text(
+                text = "Encontraste al Dr. Ramírez",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = "El doctor tiene en sus manos la única muestra de la cura.\n" +
+                       "Pero el brote ya se extendió más allá del Politécnico...\n" +
+                       "La batalla apenas comienza.",
+                color = Color(0xFFBBCCDD),
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp,
+                modifier = androidx.compose.ui.Modifier
+                    .background(Color(0xFF0D1F3C), RoundedCornerShape(8.dp))
+                    .padding(14.dp)
+            )
+            Text(
+                text = "CONTINUARÁ...",
+                color = Color(0xFF666666),
+                fontSize = 13.sp,
+                letterSpacing = 4.sp
+            )
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFFFD700),
+                    contentColor   = Color(0xFF0A1628)
+                )
+            ) {
+                Text("Volver al mapa", fontWeight = FontWeight.Black, fontSize = 15.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RaceTimerHud(timeLeftSec: Int, penaltyTotalSec: Int) {
+    val color = when {
+        timeLeftSec <= 10 -> Color(0xFFD32F2F)
+        timeLeftSec <= 20 -> Color(0xFFFFB300)
+        else              -> Color(0xFF4CAF50)
+    }
+    Box(
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxSize()
+            .padding(top = 12.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text       = String.format("%d:%02d", timeLeftSec / 60, timeLeftSec % 60),
+                color      = color,
+                fontSize   = 42.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
+                modifier   = androidx.compose.ui.Modifier
+                    .background(Color(0xCC000000), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 18.dp, vertical = 6.dp)
+            )
+            if (penaltyTotalSec > 0) {
+                Text(
+                    text     = "⚠ +${penaltyTotalSec}s de penalización",
+                    color    = Color(0xFFFFCC00),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = androidx.compose.ui.Modifier
+                        .padding(top = 4.dp)
+                        .background(Color(0xBB000000), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+            Text(
+                text     = "🏁 Llega a la META",
+                color    = Color.White,
+                fontSize = 13.sp,
+                modifier = androidx.compose.ui.Modifier
+                    .padding(top = 2.dp)
+                    .background(Color(0x99000000), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 3.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun RaceVictoryOverlay(timeSec: Int, isFirstTime: Boolean, onDismiss: () -> Unit) {
+    Box(
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxSize()
+            .background(Color(0xDD000000))
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication        = null,
+                onClick           = {}
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = androidx.compose.ui.Modifier
+                .background(Color(0xFF0D1F3C), RoundedCornerShape(16.dp))
+                .padding(32.dp)
+        ) {
+            Text("🏆 ¡LLEGASTE!", color = Color(0xFFFFD700), fontSize = 36.sp,
+                fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            Text(
+                text = "Tiempo sobrante: ${timeSec}s",
+                color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold
+            )
+            if (isFirstTime) {
+                Text(
+                    text = "🎖 ¡Coleccionable desbloqueado!\nTrofeo de la Carrera del Politécnico",
+                    color = Color(0xFF80DEEA), fontSize = 14.sp, textAlign = TextAlign.Center,
+                    modifier = androidx.compose.ui.Modifier
+                        .background(Color(0xFF1E3A5F), RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                )
+            }
+            Button(
+                onClick = onDismiss,
+                colors  = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700))
+            ) {
+                Text("¡GENIAL!", color = Color(0xFF0A1628), fontWeight = FontWeight.Black,
+                    fontSize = 16.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RaceTimeoutOverlay(onRetry: () -> Unit, onDismiss: () -> Unit) {
+    Box(
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxSize()
+            .background(Color(0xDD000000))
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication        = null,
+                onClick           = {}
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = androidx.compose.ui.Modifier
+                .background(Color(0xFF1A0000), RoundedCornerShape(16.dp))
+                .padding(32.dp)
+        ) {
+            Text("⏱ TIEMPO AGOTADO", color = Color(0xFFD32F2F), fontSize = 30.sp,
+                fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            Text("¡No llegaste a tiempo!\n¿Vuelves a intentarlo?",
+                color = Color(0xFFBBBBBB), fontSize = 15.sp, textAlign = TextAlign.Center)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                TextButton(onClick = onDismiss) {
+                    Text("Salir", color = Color(0xFF888888), fontSize = 14.sp)
+                }
+                Button(
+                    onClick = onRetry,
+                    colors  = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                ) {
+                    Text("REINTENTAR", color = Color.White, fontWeight = FontWeight.Black,
+                        fontSize = 15.sp)
+                }
+            }
         }
     }
 }

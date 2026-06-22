@@ -79,6 +79,13 @@ import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
 import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.EasterEggDiscoveryDialog
 import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.ShineCTOScreen
+import ovh.gabrielhuav.pow.features.side_mission_race.ui.RaceMissionScreen
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startRace
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.cancelRace
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.retryRace
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onExitEscomInteriorCampaign
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission3Intro
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission3
 
 // Spawn fijo: coordenadas del punto de teletransporte "ESCOM" (ver TeleportCatalog).
 // El juego SIEMPRE arranca en ESCOM, sin depender del GPS real del dispositivo.
@@ -774,6 +781,14 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
+                            // MODO HISTORIA · Misión 3: cómic de transición al salir del interior de ESCOM.
+                            LaunchedEffect(uiState.pendingMission3Intro) {
+                                if (uiState.pendingMission3Intro) {
+                                    worldMapViewModel.consumePendingMission3Intro()
+                                    navController.navigate("story_mission3")
+                                }
+                            }
+
                             // MODO HISTORIA · MISIÓN FALLIDA (la policía mató a Prankedy): la pantalla
                             // se queda con botones "REINTENTAR MISIÓN" (recarga el slot) y "Salir al
                             // menú"; ya NO vuelve sola al menú. (Ver WorldMapScreen / retryCampaignMission.)
@@ -952,6 +967,9 @@ class MainActivity : ComponentActivity() {
                             ) ovh.gabrielhuav.pow.domain.models.MissionCatalog.BUSCAR_PISTAS_ESCOM else null
                             ZombieGameScreen(
                                 onExitToWorld = {
+                                    // MISIÓN 3: si estamos en campaña con BUSCAR_PISTAS_ESCOM,
+                                    // salir al mapa dispara el cómic de transición de la Misión 3.
+                                    worldMapViewModel.onExitEscomInteriorCampaign()
                                     worldMapViewModel.currentInteriorRoomId = null
                                     ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).stopInvestigarMusic()
                                     navController.popBackStack("world_map", inclusive = false)
@@ -990,6 +1008,41 @@ class MainActivity : ComponentActivity() {
                         composable(route = "shinecto_interior") {
                             ShineCTOScreen(
                                 onExitToWorld = {
+                                    navController.popBackStack("world_map", inclusive = false)
+                                }
+                            )
+                        }
+
+                        // ─── MODO HISTORIA · Misión 3: cómic "La Señal del Dr. Ramírez" ─────
+                        // Se muestra al salir del interior de ESCOM durante la campaña.
+                        // Reutiliza StoryIntroScreen con la secuencia MISSION3_INTRO_ID.
+                        // Al pulsar "Comenzar" (onBegin/onBack) arranca la Misión 3 en el mapa.
+                        composable(route = "story_mission3") {
+                            ovh.gabrielhuav.pow.features.main_menu.ui.StoryIntroScreen(
+                                school = ovh.gabrielhuav.pow.domain.models.SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.StoryComicCatalog.MISSION3_INTRO_ID,
+                                onBegin = {
+                                    worldMapViewModel.startMission3()
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
+                                onBack = {
+                                    worldMapViewModel.startMission3()
+                                    navController.popBackStack("world_map", inclusive = false)
+                                }
+                            )
+                        }
+
+                        // ─── MISIÓN SECUNDARIA: Carrera del Politécnico ────────────────────────
+                        // Pantalla de briefing + cuenta regresiva. Al aceptar y terminar el
+                        // countdown, inicia la carrera en el WorldMapViewModel y vuelve al mapa.
+                        // Si el jugador rechaza, simplemente regresa al mapa sin iniciar nada.
+                        composable(route = "race_mission") {
+                            RaceMissionScreen(
+                                onAccept = { race ->
+                                    worldMapViewModel.startRace(race)
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
+                                onDecline = {
                                     navController.popBackStack("world_map", inclusive = false)
                                 }
                             )

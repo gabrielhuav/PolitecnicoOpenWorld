@@ -28,4 +28,8 @@ interface CollectibleDao {
     // Para verificar si ya se pobló la base de datos
     @Query("SELECT COUNT(id) FROM collectibles")
     suspend fun getCollectiblesCount(): Int
+
+    // Inserta un coleccionable individual; IGNORE evita errores si ya existe (misma PK).
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCollectible(collectible: CollectibleEntity)
 }

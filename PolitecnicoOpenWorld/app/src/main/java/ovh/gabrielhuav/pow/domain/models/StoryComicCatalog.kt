@@ -91,12 +91,40 @@ object StoryComicCatalog {
         ComicPanel("STORY/INTRO/IntroPOW15.webp", "")   // 4º panel (cambia según skin)
     )
 
+    // ─── MISIÓN 3: señal del Dr. Ramírez ────────────────────────────────────
+    // Se reproduce al SALIR del interior de la ESCOM durante la campaña.
+    // Reutiliza assets existentes con nueva narrativa: el jugador encuentra
+    // una radio que capta una señal de auxilio del Dr. Ramírez.
+    const val MISSION3_INTRO_ID = "mission3_intro"
+
+    private val mission3Intro = listOf(
+        // Panel 1: IntroPOW6 (panel oscuro/atmosférico, texto libre)
+        ComicPanel(
+            "STORY/INTRO/IntroPOW6.webp",
+            "Entre el caos de la ESCOM encuentras una radio abandonada.\nUna señal débil atraviesa la estática.",
+            boxTopFrac = 0.72f, boxHeightFrac = 0.22f, fontSp = 14f, boxWidthFrac = 0.92f
+        ),
+        // Panel 2: IntroPOW9 (sobreviviente asustado)
+        ComicPanel(
+            "STORY/INTRO/IntroPOW9.webp",
+            "«...¿Hay alguien ahí? Soy el Dr. Ramírez,\nde la ENCB. Tengo la cura del brote...»",
+            boxTopFrac = 0.85f, boxHeightFrac = 0.13f, fontSp = 14f, boxWidthFrac = 0.85f
+        ),
+        // Panel 3: IntroPOW10 (conversación urgente)
+        ComicPanel(
+            "STORY/INTRO/IntroPOW10.webp",
+            "«Escapé antes del colapso. Estoy al norte del campus.\n¡Necesito que alguien llegue aquí!»",
+            boxTopFrac = 0.85f, boxHeightFrac = 0.13f, fontSp = 14f, boxWidthFrac = 0.85f
+        )
+    )
+
     // Devuelve una secuencia narrativa por id (para StoryIntroScreen). ENCB_OUTRO_ID =
     // segunda parte de la intro; MISSION2_INTRO_ID = llegada a la ESCOM; cualquier otro id
     // cae al prologo de ESCOM.
     fun sequence(sequenceId: String): List<ComicPanel> = when (sequenceId) {
-        ENCB_OUTRO_ID -> encbOutro
+        ENCB_OUTRO_ID   -> encbOutro
         MISSION2_INTRO_ID -> mission2Intro
+        MISSION3_INTRO_ID -> mission3Intro
         else -> escom
     }
 }

@@ -323,13 +323,24 @@ class WorldMapViewModel(
     internal val _escomItems = MutableStateFlow<List<ActiveCollectible>>(emptyList())
     val escomItems: StateFlow<List<ActiveCollectible>> = _escomItems.asStateFlow()
 
+    // ─── MISIÓN SECUNDARIA: Carrera del Politécnico ───────────────────────────
+    internal var raceTimerJob: Job? = null
+    // Carrera actualmente activa (se establece en startRace y se usa en checkRaceFinishLine).
+    internal var activeRace: ovh.gabrielhuav.pow.domain.models.Race? = null
+    // Persiste si el jugador ya ganó una vez (solo se otorga el trofeo la primera vez).
+    // Se guarda en SharedPreferences vía SettingsRepository.
+    internal var raceRewardAlreadyGiven: Boolean = false
+        get() = settingsRepository.getRaceRewardGiven()
+        set(value) { settingsRepository.setRaceRewardGiven(value); field = value }
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             collectibleRepository.initializeDefaultCollectiblesIfNeeded()
         }
         spawnShineCTOMarker() // AUTO-SPAWN: Coloca la entrada interactuable de Shine CTO al iniciar
+        spawnEntrenadorMarker() // AUTO-SPAWN: NPC Entrenador Politécnico (misión secundaria carrera)
         startGameLoop()
-        
+
         // Si ya tenemos una ubicación (p. ej. tras una restauración de estado), intentar spawn
         _uiState.value.currentLocation?.let { checkPrankedySpawn(it) }
     }
@@ -474,6 +485,7 @@ class WorldMapViewModel(
                             checkObjectiveProgress(location)
                             maybeSpawnPrankedyCompanion(location)
                             maybeHideCampaignRouteNearEscom(location)
+                            checkMission3Completion()
                         }
 
                         checkDestinationArrival()
@@ -2057,7 +2069,11 @@ class WorldMapViewModel(
         val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
 
         // 4. Radio de detección especial para las puertas (20 metros) o estándar para objetos (15 metros)
-        val radius = if (activeItem.id.startsWith("escom_door_")) ESCOM_DOOR_INTERACT_RADIUS * 100000 else 15.0
+        val radius = when {
+            activeItem.id.startsWith("escom_door_") -> ESCOM_DOOR_INTERACT_RADIUS * 100000
+            activeItem.id == ovh.gabrielhuav.pow.domain.models.EntrenadorLocation.MARKER_ID -> 20.0
+            else -> 15.0
+        }
 
         if (distanceInMeters <= radius) {
             if (_uiState.value.nearbyCollectible?.id != activeItem.id) {
@@ -2068,7 +2084,11 @@ class WorldMapViewModel(
                         activeItem.id == "global_zombie_hand" -> if (_uiState.value.globalZombieMode) getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_deactivate_zombie) else getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_activate_zombie)
                         activeItem.name == "Objeto Misterioso ESCOM" -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_interact)
                         activeItem.id == ShineCTOLocation.MARKER_ID  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter)
-                        activeItem.id.startsWith("escom_door_")      -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter) // <--- Aquí aparece el texto de la puerta
+                        activeItem.id.startsWith("escom_door_")      -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter)
+                        activeItem.id == ovh.gabrielhuav.pow.domain.models.EntrenadorLocation.MARKER_ID ->
+                            if (_uiState.value.isRaceActive) "¡Carrera en curso!" else "PRESIONA X PARA HABLAR CON EL ENTRENADOR"
+                        activeItem.id == ovh.gabrielhuav.pow.domain.models.EntrenadorLocation.FINISH_MARKER_ID ->
+                            "¡LLEGA AQUÍ PARA GANAR!"
                         else -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_pickup)
                     }
 
@@ -2092,7 +2112,9 @@ class WorldMapViewModel(
 
         if (itemToClaim.name == "Objeto Misterioso ESCOM" ||
             itemToClaim.id == ShineCTOLocation.MARKER_ID ||
-            itemToClaim.id.startsWith("escom_door_")) {
+            itemToClaim.id.startsWith("escom_door_") ||
+            itemToClaim.id == ovh.gabrielhuav.pow.domain.models.EntrenadorLocation.MARKER_ID ||
+            itemToClaim.id == ovh.gabrielhuav.pow.domain.models.EntrenadorLocation.FINISH_MARKER_ID) {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -2311,6 +2333,8 @@ class WorldMapViewModel(
                 } else {
                     // DELITO: golpear a un civil sube el nivel de búsqueda (como en GTA).
                     if (currentNpc.type == NpcType.PERSON) raiseWantedLevel(1)
+                    // CARRERA: golpear un NPC durante la misión suma +5 s de penalización.
+                    if (currentNpc.type == NpcType.PERSON && _uiState.value.isRaceActive) addRacePenalty()
                     // APOCALIPSIS: agredir a un CIVIL provoca a la policía que esté en tu fog (te ven).
                     if (_uiState.value.globalZombieMode && currentNpc.type == NpcType.PERSON) {
                         provokeApocalypsePolice(playerLoc)
@@ -2789,6 +2813,12 @@ class WorldMapViewModel(
 
             nearby.id == ShineCTOLocation.MARKER_ID -> {
                 _uiState.update { it.copy(showShineCTODiscovery = true) }
+            }
+            nearby.id == ovh.gabrielhuav.pow.domain.models.EntrenadorLocation.MARKER_ID -> {
+                onInteractEntrenador()
+            }
+            nearby.id == ovh.gabrielhuav.pow.domain.models.EntrenadorLocation.FINISH_MARKER_ID -> {
+                // La meta solo se "recoge" cuando la carrera está activa (la detecta el game loop)
             }
             else -> onClaimCollectiblePressed()
         }

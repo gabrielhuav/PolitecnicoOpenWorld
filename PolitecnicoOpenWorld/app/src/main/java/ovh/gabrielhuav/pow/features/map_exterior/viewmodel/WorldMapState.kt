@@ -191,6 +191,22 @@ data class WorldMapState(
     // MainActivity lo consume (lo vuelve a false) al navegar al cómic.
     val pendingMission2Intro: Boolean = false,
 
+    // ─── MODO HISTORIA · Misión 3: La Señal del Dr. Ramírez ─────────────────────
+    // pendingMission3Intro: el jugador salió del interior de ESCOM → navegar al cómic de M3
+    val pendingMission3Intro: Boolean = false,
+    // showChapter1End: el jugador llegó con el Dr. Ramírez → mostrar "Fin del Capítulo 1"
+    val showChapter1End: Boolean = false,
+
+    // ─── MISIÓN SECUNDARIA: Carrera del Politécnico ──────────────────────────────
+    val navigateToRaceMission: Boolean = false,
+    val isRaceActive: Boolean = false,
+    val raceTimeLeftSec: Int = 60,
+    val racePenaltyTotalSec: Int = 0,
+    val showRaceVictory: Boolean = false,
+    val showRaceTimeout: Boolean = false,
+    val raceFinishedTimeSec: Int = 0,
+    val raceFirstTimeWin: Boolean = false,
+
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,
 
