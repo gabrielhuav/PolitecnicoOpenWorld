@@ -104,6 +104,52 @@ internal fun WorldMapViewModel.getNearestPointOnNetwork(t: GeoPoint): GeoPoint {
         return pt
     }
 
+// ─── ÍNDICE PARA VÍAS DE AUTOMÓVIL ─────────────────────────────────────────────
+// Duplicado del índice espacial genérico, pero filtrando SOLO las vías donde
+// isForCars == true. Así el coche no puede circular por banquetas, ciclovías ni
+// andadores peatonales.
+
+internal fun WorldMapViewModel.ensureIndexForCars() {
+    if (indexedRefForCars === roadNetwork) return
+    val carRoads = roadNetwork.filter { it.isForCars }
+    val newSegs = ArrayList<Seg>(carRoads.sumOf { it.nodes.size }.toInt())
+    val newGrid = HashMap<Long, MutableList<Seg>>()
+    for (way in carRoads) {
+        for (i in 0 until way.nodes.size - 1) {
+            val a = way.nodes[i]; val b = way.nodes[i + 1]
+            val seg = Seg(GeoPoint(a.lat, a.lon), GeoPoint(b.lat, b.lon),
+                min(a.lat, b.lat), max(a.lat, b.lat), min(a.lon, b.lon), max(a.lon, b.lon))
+            newSegs.add(seg)
+            for (r in cell(seg.minLat)..cell(seg.maxLat))
+                for (c in cell(seg.minLon)..cell(seg.maxLon))
+                    newGrid.getOrPut(pack(r, c)) { mutableListOf() }.add(seg)
+        }
+    }
+    indexedRefForCars = roadNetwork; segsForCars = newSegs; gridForCars = newGrid
+}
+
+internal fun WorldMapViewModel.candidatesForCars(loc: GeoPoint): List<Seg> {
+    val r = cell(loc.latitude); val c = cell(loc.longitude)
+    val res = LinkedHashSet<Seg>()
+    for (dr in -1..1) for (dc in -1..1) gridForCars[pack(r + dr, c + dc)]?.let { res.addAll(it) }
+    return if (res.isNotEmpty()) res.toList() else segsForCars
+}
+
+// Versión para automóviles de getNearestPointOnNetwork.
+// A diferencia de la versión peatonal, NO otorga paso libre sobre landmarks
+// (el coche no debe atravesar edificios) y solo considera vías con isForCars == true.
+internal fun WorldMapViewModel.getNearestCarRoadPoint(t: GeoPoint): GeoPoint {
+    ensureIndexForCars()
+    val cands = candidatesForCars(t)
+    if (cands.isEmpty()) return t
+    var best = Double.MAX_VALUE; var pt = t
+    for (seg in cands) {
+        val p = project(t, seg.s, seg.e); val d = distance(t, p)
+        if (d < best) { best = d; pt = p }
+    }
+    return pt
+}
+
 internal fun WorldMapViewModel.project(p: GeoPoint, v: GeoPoint, w: GeoPoint): GeoPoint {
         val l2 = (w.latitude - v.latitude).pow(2) + (w.longitude - v.longitude).pow(2)
         if (l2 == 0.0) return v
