@@ -317,6 +317,17 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
+- **🆕 Atasco tras TP — snap en `maybeRefetchRoadNetwork` (2026-06-22):** el reload de calles tras un
+  teletransporte (`maybeRefetchRoadNetwork`, en `WorldMapRoadNetwork.kt`) **NO snapeaba al jugador** a la calle
+  (a diferencia de `applyRoadNetwork` del arranque) → al TP a una estación SOBRE un edificio quedabas en coords
+  crudas fuera de la red = atorado. Fix: ambas ramas (caché y fetch) ahora hacen `getNearestPointOnNetwork(cur)`
+  y fijan `currentLocation` (respetando zona libre ESCOM/ENCB). Además, si el fetch vuelve **vacío** estando en
+  compuerta de carga (tras TP), NO se marca `isRoadNetworkReady=true` (mantiene la pantalla de carga + reintenta
+  ~3 s) para no soltar al jugador sobre una red inservible ("volar"/atorarse). El rescate de movimiento
+  (`rescueIfStuckOffNetwork`) tiene tope `RESCUE_MAX_DIST_DEG` (~130 m) por la misma razón.
+- **🆕 Sprite del jugador en METROBÚS (2026-06-22):** `MetrobusStationInteriorScreen.MetrobusPlayerSprite`
+  cargaba de `PRINCIPAL/` que está **VACÍO** → jugador invisible (parecía que el bus lo tapaba). Corregido a
+  `SPRITES/PLAYER/lazaro*` (igual que el metro). `TransitSystems.METROBUS.spriteBaseDir` también corregido.
 - **🆕 TRANSPORTE UNIFICADO (2026-06-22):** el interior de Metro y Metrobús ya NO son VMs/States gemelos.
   Un solo **`TransitInteriorViewModel`** + **`TransitInteriorState`** (nombres neutros + getters de compat para
   los viejos: `isMetro1Animating`→`isVehicle1Animating`, `showMetroMap`→`showTransitMap`, `allMetroStations`→
@@ -325,7 +336,11 @@ matrices por defecto son **border-only** hasta reemplazarse.
   `TransitInteriorViewModel.Factory(context, config, stationName, spawnX, spawnY)` y siguen separadas (render
   distinto). Los 4 archivos `Metro/MetrobusInterior{ViewModel,State}.kt` son **tombstones**. Para añadir
   Suburbano/Mexibús: nueva entrada en `TransitSystems` + assets + ruta. Ver 06 y ANALISIS §2.2/§8.
-- **🆕 Zona de interacción (`METRO_INTERACT_RADIUS_METERS=30.0` metro / `METROBUS_INTERACT_RADIUS_METERS=18.0` metrobús, más chico):** constantes de nivel de
+- **🆕 Salir de estación: `teleportTo` LIMPIA el estado de fade/cercanía de transporte (2026-06-22):** al salir
+  de una estación se llama a `teleportTo`; un `metro/metrobusFadeCompleteStation` pendiente (sin consumir) podía
+  disparar la navegación al volver al mapa → "salir del metro me mandaba al metrobús". Ahora `teleportTo` resetea
+  `show*Fade`/`*FadeCompleteStation`/`nearby*Station` (pizarra limpia en cada TP).
+- **🆕 Zona de interacción (`METRO_INTERACT_RADIUS_METERS=30.0` metro / `METROBUS_INTERACT_RADIUS_METERS=30.0` metrobús; 18 era demasiado chico para entrar):** constantes de nivel de
   archivo en `WorldMapState.kt`. La detección de proximidad vive en `checkCollectibleProximity`, que es un
   **gemelo miembro (WorldMapViewModel.kt, GANA) + extensión muerta (WorldMapCollectiblesLogic.kt)** → al
   cambiar el radio se editaron **AMBOS** por convención. El valor se DIBUJA como círculo: web hardcodea

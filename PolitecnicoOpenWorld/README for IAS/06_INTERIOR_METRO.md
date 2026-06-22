@@ -116,6 +116,12 @@ object TransitSystems { val METRO; val METROBUS }
   `export/importGlobalWaypointsToUri/FromUri`.
 - `updateCollisionGrid(rows)`, `Factory(...)`.
 
+**🆕 Skin del jugador (2026-06-22):** el sprite del interior respeta la SKIN ELEGIDA (hombre/mujer/robot…), no
+Lázaro fijo. `TransitInteriorState.selectedSkin` se lee de `SettingsRepository.getPlayerSkin()` al crear el VM, y
+`Metro/MetrobusPlayerSprite` usan `skin.idlePath/walkPath/runPath/specialPath(frame)` + sus frame counts. *(Nota:
+estas pantallas dibujan con `fillMaxSize`, sin la normalización por `walkBodyFraction` que SÍ tiene el motor de
+salas — si las skins se ven de distinto tamaño aquí, replicar ese ajuste; ver 09 §5.)*
+
 **Datos / data:** las estaciones se cargan con `config.loadStations(context)` (apunta a
 `MetroRepository`/`MetrobusRepository`, `res/raw/metro|metrobus`, ver 02). `MetroStation`/`MetrobusStation`
 implementan `TransitStation(name, routes, location)`.

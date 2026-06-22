@@ -541,6 +541,7 @@ private fun MetrobusPlayerSprite(state: TransitInteriorState) {
     val context = LocalContext.current
     val action = state.playerAction
     val isFacingRight = state.isFacingRight
+    val skin = state.selectedSkin
 
     // AUDIO de pasos en la estación de metrobús (su VM no toca SoundManager). El game loop del mapa global
     // está gateado (worldMapForeground=false en interiores) → no interfiere. onDispose para al salir.
@@ -560,20 +561,22 @@ private fun MetrobusPlayerSprite(state: TransitInteriorState) {
     var currentImage by remember { mutableStateOf<ImageBitmap?>(null) }
     val bitmapCache = remember { mutableMapOf<String, ImageBitmap?>() }
 
-    LaunchedEffect(action) {
+    LaunchedEffect(action, skin) {
         currentFrame = 1
         while (true) {
             val maxFrames = when (action) {
-                PlayerAction.IDLE -> 6
-                PlayerAction.WALK -> 6
-                PlayerAction.SPECIAL -> 8
-                PlayerAction.RUN -> 6
+                PlayerAction.IDLE -> skin.idleFrames
+                PlayerAction.WALK -> skin.walkFrames
+                PlayerAction.SPECIAL -> skin.specialFrames
+                PlayerAction.RUN -> skin.runFrames
             }
+            // Respeta la skin elegida (hombre/mujer/robot…) en lugar de Lázaro fijo. Las rutas de la skin
+            // apuntan a "SPRITES/PLAYER/<skin>..." (la antigua "PRINCIPAL/" estaba vacía → jugador invisible).
             val assetPath = when (action) {
-                PlayerAction.IDLE    -> "PRINCIPAL/lazaroIdle/lazaro_i_$currentFrame.webp"
-                PlayerAction.WALK    -> "PRINCIPAL/lazaroWalk/lazaro_w_$currentFrame.webp"
-                PlayerAction.SPECIAL -> "PRINCIPAL/lazaroSpecial/lazaro_s_$currentFrame.webp"
-                PlayerAction.RUN     -> "PRINCIPAL/lazaroRun/lazaro_r_$currentFrame.webp"
+                PlayerAction.IDLE    -> skin.idlePath(currentFrame)
+                PlayerAction.WALK    -> skin.walkPath(currentFrame)
+                PlayerAction.SPECIAL -> skin.specialPath(currentFrame)
+                PlayerAction.RUN     -> skin.runPath(currentFrame)
             }
             if (!bitmapCache.containsKey(assetPath)) {
                 val bmp = withContext(Dispatchers.IO) {

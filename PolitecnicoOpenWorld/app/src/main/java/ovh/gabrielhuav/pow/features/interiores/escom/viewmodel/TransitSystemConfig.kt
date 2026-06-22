@@ -141,7 +141,7 @@ object TransitSystems {
         mapImage = "TRANSIT/METROBUS/mapa.png",
         vehicle1Asset = "TRANSIT/METROBUS/bus1.png",
         vehicle2Asset = "TRANSIT/METROBUS/bus2.png",
-        spriteBaseDir = "PRINCIPAL/",
+        spriteBaseDir = "SPRITES/PLAYER/",   // "PRINCIPAL/" estaba VACÍO → jugador invisible; usar los sprites reales
         overlayVideoAsset = null,
         prefsPrefix = "metrobus_",
         loadStations = { ctx -> MetrobusRepository.loadStations(ctx) },

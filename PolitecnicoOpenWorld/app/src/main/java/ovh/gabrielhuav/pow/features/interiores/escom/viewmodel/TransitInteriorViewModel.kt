@@ -50,7 +50,8 @@ class TransitInteriorViewModel(
         TransitInteriorState(
             controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
-            swapControls = settingsRepository.getSwapControls()
+            swapControls = settingsRepository.getSwapControls(),
+            selectedSkin = settingsRepository.getPlayerSkin()   // respeta la skin elegida (no siempre Lázaro)
         )
     )
     val state: StateFlow<TransitInteriorState> = _state.asStateFlow()

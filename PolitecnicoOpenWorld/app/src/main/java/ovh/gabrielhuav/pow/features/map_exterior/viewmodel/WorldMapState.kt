@@ -29,9 +29,10 @@ const val ZOOM_DRIVING_FAST = 20.0  // conduciendo MUY rápido (≥85% de MAX_SP
 // se DIBUJA en el mapa (círculo) en web (Leaflet) y OSM nativo para que sea visible.
 // Si cambias el valor, sincroniza el círculo del web (WorldMapLeafletHtml.updateMetro).
 const val METRO_INTERACT_RADIUS_METERS = 30.0
-// Metrobús: radio MÁS PEQUEÑO que el metro (sus estaciones/andenes son más chicos y a veces están más
-// juntos, así que 30 m se sentía enorme). Se sincroniza con su círculo web (WorldMapLeafletHtml.updateMetrobus).
-const val METROBUS_INTERACT_RADIUS_METERS = 18.0
+// Metrobús: 18 m quedó DEMASIADO chico (no se alcanzaban estaciones sobre edificios → "no puedo entrar").
+// 30 m: enterable como el metro, pero más chico que el 45 original que se sentía enorme. Se sincroniza con
+// su círculo web (WorldMapLeafletHtml.updateMetrobus). Si vuelve a sentirse grande, bajar con cuidado.
+const val METROBUS_INTERACT_RADIUS_METERS = 30.0
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),

@@ -3,6 +3,7 @@ package ovh.gabrielhuav.pow.features.interiores.escom.viewmodel
 import ovh.gabrielhuav.pow.domain.models.map.TransitStation
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 
@@ -40,6 +41,9 @@ data class TransitInteriorState(
     val controlType: ControlType = ControlType.JOYSTICK,
     val controlsScale: Float = 1.0f,
     val swapControls: Boolean = false,
+    // Skin elegida por el jugador (hombre/mujer/robot…). Se lee de SettingsRepository al crear el VM,
+    // para que el sprite del interior NO sea siempre Lázaro. La usan Metro/MetrobusPlayerSprite.
+    val selectedSkin: PlayerSkin = PlayerSkin.LAZARO,
 
     val activeDoor: ZoneDoor? = null,
     val messageToast: String? = null,

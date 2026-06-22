@@ -617,6 +617,7 @@ private fun MetroPlayerSprite(state: TransitInteriorState) {
     val context = LocalContext.current
     val action = state.playerAction
     val isFacingRight = state.isFacingRight
+    val skin = state.selectedSkin
 
     // AUDIO de pasos en la estación de metro (su VM no toca SoundManager). El game loop del mapa global
     // está gateado (worldMapForeground=false en interiores) → no interfiere. onDispose para al salir.
@@ -636,20 +637,21 @@ private fun MetroPlayerSprite(state: TransitInteriorState) {
     var currentImage by remember { mutableStateOf<ImageBitmap?>(null) }
     val bitmapCache = remember { mutableMapOf<String, ImageBitmap?>() }
 
-    LaunchedEffect(action) {
+    LaunchedEffect(action, skin) {
         currentFrame = 1
         while (true) {
             val maxFrames = when (action) {
-                PlayerAction.IDLE -> 6
-                PlayerAction.WALK -> 6
-                PlayerAction.SPECIAL -> 8
-                PlayerAction.RUN -> 6
+                PlayerAction.IDLE -> skin.idleFrames
+                PlayerAction.WALK -> skin.walkFrames
+                PlayerAction.SPECIAL -> skin.specialFrames
+                PlayerAction.RUN -> skin.runFrames
             }
+            // Respeta la skin elegida (hombre/mujer/robot…) en lugar de Lázaro fijo.
             val assetPath = when (action) {
-                PlayerAction.IDLE    -> "SPRITES/PLAYER/lazaroIdle/lazaro_i_$currentFrame.webp"
-                PlayerAction.WALK    -> "SPRITES/PLAYER/lazaroWalk/lazaro_w_$currentFrame.webp"
-                PlayerAction.SPECIAL -> "SPRITES/PLAYER/lazaroSpecial/lazaro_s_$currentFrame.webp"
-                PlayerAction.RUN     -> "SPRITES/PLAYER/lazaroRun/lazaro_r_$currentFrame.webp"
+                PlayerAction.IDLE    -> skin.idlePath(currentFrame)
+                PlayerAction.WALK    -> skin.walkPath(currentFrame)
+                PlayerAction.SPECIAL -> skin.specialPath(currentFrame)
+                PlayerAction.RUN     -> skin.runPath(currentFrame)
             }
             if (!bitmapCache.containsKey(assetPath)) {
                 val bmp = withContext(Dispatchers.IO) {
