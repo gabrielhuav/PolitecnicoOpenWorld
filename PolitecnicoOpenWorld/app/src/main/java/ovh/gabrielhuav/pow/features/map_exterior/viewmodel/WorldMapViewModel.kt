@@ -263,6 +263,8 @@ class WorldMapViewModel(
     internal var campaignPoliceActivated = false
     // MISIÓN 2: persecución de 6 policías + multitud saliendo de la ESCOM (ver WorldMapCampaignPolice.kt).
     internal var mission2ChaseActivated = false
+    // MISIÓN 3: persecución de 4 policías tras investigar la ESCOM (ver WorldMapCampaignPolice.kt).
+    internal var mission3ChaseActivated = false
     // MISIÓN 2: true una vez que Prankedy ENTRA a la ESCOM (huyendo); deja de animarse a partir de ahí.
     internal var mission2PrankedyEntered = false
     // MISIÓN 2: posición EXACTA donde Prankedy desespawneó al meterse a la ESCOM. La policía del REMATE
@@ -783,10 +785,16 @@ class WorldMapViewModel(
                                     runMission2Tick(location)
                                 }
                             }
+                            // MISIÓN 3: persecución (4 policías) tras investigar la ESCOM.
+                            isMission3ChaseActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runMission3Tick(location)
+                                }
+                            }
                             // Fuera de la campaña / misión cumplida: limpia la policía de campaña y
                             // corre la policía normal del mundo libre.
                             else -> {
-                                if (campaignPoliceActivated || mission2ChaseActivated) clearCampaignPolice()
+                                if (campaignPoliceActivated || mission2ChaseActivated || mission3ChaseActivated) clearCampaignPolice()
                                 if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
                                     runPoliceTick(location)
                                 }
@@ -1889,6 +1897,7 @@ class WorldMapViewModel(
                     && !_uiState.value.objectiveDone) {
                     _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.title ?: ""}") }
                     soundManager.playMisionCumplida()
+                    setCampaignObjective(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.BUSCAR_PISTAS_ESCOM)
                 }
                 // Al ENTRAR a la ESCOM, Prankedy ya quedó a salvo dentro: deja de acompañarte para
                 // que NO siga contigo al volver al mapa (Misión 1 terminada). Solo afecta al
