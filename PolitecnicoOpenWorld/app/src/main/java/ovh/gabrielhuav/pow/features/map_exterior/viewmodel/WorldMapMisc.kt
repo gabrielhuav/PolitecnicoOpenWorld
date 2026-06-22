@@ -84,51 +84,53 @@ internal fun WorldMapViewModel.startHealthBarTimer(delayMillis: Long) {
     }
 
 internal fun WorldMapViewModel.triggerWastedSequence() {
-        // En una MISIÓN de campaña, morir = MISIÓN FALLIDA: se reinicia desde el ÚLTIMO CHECKPOINT
-        // (botón "REINTENTAR MISIÓN" → recarga el slot), en vez del respawn normal cerca del lugar
-        // de muerte (que dejaba al jugador "al lado de la ESCOM" sin repetir la misión).
-        val obj = _uiState.value.currentObjective
-        val inMission = inCampaign && (
-            obj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
-            obj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id)
+        // DE-DUP (2026-06-21, par 3): sincronizado al MIEMBRO canónico de WorldMapViewModel.kt antes
+        // de borrarlo. El miembro DIVERGÍA de esta extensión vieja: (a) respawn normal = TELETRANSPORTE
+        // a la ESCOM (coords fijas), NO ~80 m del lugar de muerte; (b) resetea wantedLevel + carjackStartTime
+        // (modo retirada de la policía). Cascada verificada SEGURA: el único call externo, clearCampaignPolice(),
+        // tiene UNA sola definición (ext WorldMapCampaignPolice.kt) — sin gemelo divergente.
         viewModelScope.launch(Dispatchers.Main) {
-            // Al morir te bajas del coche (no se respawnea conduciendo).
+            // Al morir te bajas del coche (no se respawnea conduciendo) y se quita el pánico de la zona.
             _uiState.update {
                 it.copy(
                     showWastedScreen = true,
                     isDriving = false,
                     currentVehicleModel = null,
                     currentVehicleColor = null,
-                    vehicleSpeed = 0.0,
-                    isDrivingPoliceCar = false
+                    vehicleSpeed = 0.0
                 )
             }
+            // MODO HISTORIA: morir DURANTE una misión de campaña = MISIÓN FALLIDA (reinicia desde el
+            // último checkpoint con "REINTENTAR MISIÓN"), NO el respawn normal — si no, el jugador podría
+            // dejarse matar para SALTARSE todo el trayecto de la escolta de Prankedy.
+            val missionObj = _uiState.value.currentObjective
+            val inMission = inCampaign && (
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id)
             if (inMission) {
-                // WASTED breve y luego MISIÓN FALLIDA (REINTENTAR recarga el checkpoint).
                 delay(2500L)
                 relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
                 clearCampaignPolice()
+                carjackStartTime = 0L
                 playerHealth = maxPlayerHealth
                 damagePulseTrigger = 0
                 impactEffectTrigger = 0
-                _uiState.update { it.copy(showWastedScreen = false, showMissionFailed = true) }
+                _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null, isDrivingPoliceCar = false, showWastedScreen = false, showMissionFailed = true) }
                 return@launch
             }
             delay(4000L)
-            // Limpiar estado de combate para no revivir siendo perseguido.
+            // Limpiar el estado de combate (rachas / NPCs implacables / cooldowns) para no revivir perseguido.
             relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
-            // RESPAWN EN LA MISMA ZONA YA DESCARGADA (ahorra recursos): ~80 m del lugar de
-            // muerte, pegado a la red de calles cacheada; sin teletransporte a ESCOM.
-            val deathLoc = _uiState.value.currentLocation ?: GeoPoint(19.504505, -99.146911)
-            val ang = Math.random() * 2.0 * Math.PI
-            val r = 0.0007 // ~77 m
-            val candidate = GeoPoint(deathLoc.latitude + Math.sin(ang) * r, deathLoc.longitude + Math.cos(ang) * r)
-            val respawn = if (roadNetwork.isNotEmpty()) getNearestPointOnNetwork(candidate) else deathLoc
+            // Al morir se pierde el nivel de búsqueda, pero la policía NO desaparece de golpe: con
+            // wantedLevel = 0 entra en modo retirada (se aleja hasta despawnear).
+            carjackStartTime = 0L
+            _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null) }
+            // RESPAWN EN ESCOM: Al morir, el jugador es llevado de vuelta a la ESCOM.
+            val respawn = GeoPoint(19.504603, -99.145985)
             _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
             playerHealth = maxPlayerHealth
-            // Reiniciar contadores de animación y activar inmunidad temporal (2 s) para que
-            // ningún policía/NPC con aggro residual dispare la animación de daño justo al
-            // reaaparecer. La inmunidad también cubre el teletransporte inmediato post-respawn.
+            // Reiniciar contadores de animación y activar inmunidad temporal (2 s) para que ningún
+            // policía/NPC con aggro residual dispare la animación de daño justo al reaaparecer.
             damagePulseTrigger = 0
             impactEffectTrigger = 0
             respawnImmunityUntilMs = System.currentTimeMillis() + 2000L

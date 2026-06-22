@@ -1887,59 +1887,9 @@ class WorldMapViewModel(
     // DE-DUP: `startHealthBarTimer` ahora vive SOLO como extensión en WorldMapMisc.kt
     // (cuerpos idénticos; el miembro privado sombreaba a la extensión). Ver 09 §12.
 
-    private fun triggerWastedSequence() {
-        viewModelScope.launch(Dispatchers.Main) {
-            // Al morir te bajas del coche (no se respawnea conduciendo) y se quita el pánico
-            // de la zona. Tras la pantalla WASTED, respawn en el hospital más cercano.
-            _uiState.update {
-                it.copy(
-                    showWastedScreen = true,
-                    isDriving = false,
-                    currentVehicleModel = null,
-                    currentVehicleColor = null,
-                    vehicleSpeed = 0.0
-                )
-            }
-            // MODO HISTORIA: morir DURANTE una misión de campaña = MISIÓN FALLIDA (reinicia desde el
-            // último checkpoint con "REINTENTAR MISIÓN"), NO el respawn normal — si no, el jugador podría
-            // dejarse matar para SALTARSE todo el trayecto de la escolta de Prankedy. Este es el MIEMBRO
-            // (gana sobre la extensión homónima de WorldMapMisc.kt, que está sombreada — ver 09).
-            val missionObj = _uiState.value.currentObjective
-            val inMission = inCampaign && (
-                missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
-                missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id)
-            if (inMission) {
-                delay(2500L)
-                relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
-                clearCampaignPolice()
-                carjackStartTime = 0L
-                playerHealth = maxPlayerHealth
-                damagePulseTrigger = 0
-                impactEffectTrigger = 0
-                _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null, isDrivingPoliceCar = false, showWastedScreen = false, showMissionFailed = true) }
-                return@launch
-            }
-            delay(4000L)
-            // Limpiar el estado de combate (rachas / NPCs implacables / cooldowns) para
-            // no revivir siendo perseguido al instante.
-            relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
-            // Al morir se pierde el nivel de búsqueda, pero la policía NO desaparece de
-            // golpe: con wantedLevel = 0 entra en modo retirada (se aleja hasta despawnear,
-            // salvo que cometas un nuevo delito en tu nueva vida).
-            carjackStartTime = 0L
-            _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null) }
-            // RESPAWN EN ESCOM: Al morir, el jugador es llevado de vuelta a la ESCOM.
-            val respawn = GeoPoint(19.504603, -99.145985)
-            _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
-            playerHealth = maxPlayerHealth
-            // Reiniciar contadores de animación y activar inmunidad temporal (2 s) para que
-            // ningún policía/NPC con aggro residual dispare la animación de daño justo al
-            // reaaparecer. La inmunidad también cubre el teletransporte inmediato post-respawn.
-            damagePulseTrigger = 0
-            impactEffectTrigger = 0
-            respawnImmunityUntilMs = System.currentTimeMillis() + 2000L
-        }
-    }
+    // triggerWastedSequence() vive en WorldMapMisc.kt (de-dup 2026-06-21, par 3: el miembro canónico
+    // se movió a la extensión homónima, que estaba muerta/divergida y ya fue sincronizada al miembro).
+    // Cascada verificada: su único call externo, clearCampaignPolice(), tiene una sola definición.
 
     fun showInitialHealthBar() {
         showHealthBar = true
