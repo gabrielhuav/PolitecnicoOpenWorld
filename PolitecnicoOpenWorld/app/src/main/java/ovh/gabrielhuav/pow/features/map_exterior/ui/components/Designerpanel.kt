@@ -62,6 +62,7 @@ fun DesignerPanel(
     onToggleParkingMode: (Boolean) -> Unit = {},
     onNewWay: () -> Unit = {},
     onDebugPoint: () -> Unit = {},
+    onExportRoute: () -> Unit = {}, // Exporta los nodos capturados (ruta/estacionamiento) a .json vía SAF
     onSpawnTestCar: () -> Unit = {},
     onRevert: () -> Unit = {}, // Nuevo parámetro inyectado
     modifier: Modifier = Modifier
@@ -344,6 +345,21 @@ fun DesignerPanel(
                     ) {
                         Text(
                             "CAPTURAR",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    // Exporta los nodos capturados (ruta/estacionamiento) a un .json vía SAF.
+                    Button(
+                        onClick = onExportRoute,
+                        modifier = Modifier.weight(1f).height(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF455A64)),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            "EXP. RUTA",
                             color = Color.White,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold

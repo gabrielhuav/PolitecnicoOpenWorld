@@ -1097,66 +1097,21 @@ class WorldMapViewModel(
     internal var segs: List<Seg>              = emptyList()
     internal var grid: Map<Long, List<Seg>>   = emptyMap()
 
-    private var debugNodeIdCounter = 1
-
-    // 1. Función para cambiar el Checkbox
-    fun toggleParkingMode(enabled: Boolean) {
-        _uiState.update { it.copy(isParkingSlotMode = enabled) }
+    // ── DISEÑADOR DE RUTAS / ESTACIONAMIENTOS ───────────────────────────────────────────────────
+    // La captura, validación, serialización y export a archivo viven ahora en `DesignerViewModel`
+    // (+ el caso de uso PURO `CalculateLocalCoordinatesUseCase` + el launcher SAF de `WorldMapScreen`).
+    // Aquí SOLO quedan las "migas de pan" VISUALES del mapa (las dibuja `NativeOsmMap` desde
+    // `routeDebugWaypoints`). El flujo viejo por Logcat (`debugPlayerLocalCoordinates` /
+    // `toggleParkingMode` / `startNewWay` + `currentWayId`/`debugNodeIdCounter`/`isParkingSlotMode`)
+    // se eliminó (de-acoplamiento, 2026-06-22). ──────────────────────────────────────────────────
+    /** Añade una miga visual (la ubicación recién capturada) al mapa del diseñador. */
+    fun addRouteBreadcrumb(loc: GeoPoint) {
+        _uiState.update { it.copy(routeDebugWaypoints = it.routeDebugWaypoints + loc) }
     }
 
-    // 2. Función para empezar un nuevo carril
-    fun startNewWay() {
-        debugNodeIdCounter = 1
-        _uiState.update {
-            it.copy(
-                currentWayId = it.currentWayId + 1,
-                routeDebugWaypoints = emptyList() // Limpiamos las migas visuales (opcional)
-            )
-        }
-        Log.d("CREADOR_RUTAS", "\n--- INICIANDO NUEVO CARRIL (Way ID: ${_uiState.value.currentWayId}) ---\n\"nodes\": [")
-    }
-
-    // 3. Tu función actualizada para capturar
-    // 3. Tu función actualizada para capturar (Con margen de tolerancia)
-    fun debugPlayerLocalCoordinates(context: Context) {
-        val state = _uiState.value
-        val loc = state.currentLocation ?: return
-        val landmarkId = state.selectedLandmarkId ?: return
-        val landmark = state.landmarks.find { it.id == landmarkId } ?: return
-
-        val (localX, localY) = landmark.toLocalCoordinates(loc)
-
-        // Esto compensa la distorsión curva del mapa y te deja puntear las orillas
-        if (localX in -0.15f..1.15f && localY in -0.15f..1.15f) {
-            val formX = String.format(java.util.Locale.US, "%.4f", localX)
-            val formY = String.format(java.util.Locale.US, "%.4f", localY)
-
-            // Usamos el flag del estado
-            val isParking = state.isParkingSlotMode
-            val desc = if (isParking) getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_parking_spot) else getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_waypoint_lane, state.currentWayId)
-
-            val jsonNode = """
-        {
-          "id": $debugNodeIdCounter,
-          "localX": $formX,
-          "localY": $formY,
-          "isParkingSlot": $isParking,
-          "description": "$desc"
-        },
-        """.trimIndent()
-
-            Log.d("CREADOR_RUTAS", "\n$jsonNode")
-
-            // Agregamos la "miga de pan" a la lista para dibujarla
-            _uiState.update {
-                it.copy(routeDebugWaypoints = it.routeDebugWaypoints + loc)
-            }
-
-            android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_node_captured, debugNodeIdCounter), android.widget.Toast.LENGTH_SHORT).show()
-            debugNodeIdCounter++
-        } else {
-            android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_outside_building), android.widget.Toast.LENGTH_SHORT).show()
-        }
+    /** Limpia las migas visuales (al empezar un carril nuevo o tras exportar la ruta). */
+    fun clearRouteBreadcrumbs() {
+        _uiState.update { it.copy(routeDebugWaypoints = emptyList()) }
     }
     // REFACTOR: ensureIndex/candidates/getNearestPointOnNetwork/project viven SOLO en
     // WorldMapRouting.kt (la extensión, ya sincronizada con el check de landmarks que

@@ -165,10 +165,10 @@ data class WorldMapState(
     // walls = bardas). Se exponen para dibujarlas en el overlay de Debug Interiores.
     val exteriorCollisions: ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig? = null,
 
-    // NUEVAS VARIABLES PARA EL CREADOR DE RUTAS
-    val routeDebugWaypoints: List<GeoPoint> = emptyList(), // Las "migas de pan"
-    val isParkingSlotMode: Boolean = false,                // Flag del Checkbox
-    val currentWayId: Int = 100,                           // ID del carril actual
+    // CREADOR DE RUTAS: solo las "migas de pan" VISUALES (las dibuja NativeOsmMap). El estado de la
+    // sesión de diseño (modo parking, id de carril, nodos capturados) vive en DesignerViewModel; el
+    // viejo isParkingSlotMode/currentWayId del Logcat se eliminó (de-acoplamiento 2026-06-22).
+    val routeDebugWaypoints: List<GeoPoint> = emptyList(),
 
     // ─── EDITOR DEL DEBUG INTERIORES ─────────────────────────────────────────
     // Permite EDITAR las líneas del overlay DIBUJANDO con el dedo en el mapa (estilo Paint):

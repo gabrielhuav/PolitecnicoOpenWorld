@@ -295,6 +295,27 @@ fun WorldMapScreen(
         uri?.let { viewModel.importDebugEditsFromUri(context, it) }
     }
 
+    // ── Diseñador de RUTAS/ESTACIONAMIENTOS: estado reactivo + export a archivo .json (SAF) ──
+    // Reemplaza el viejo flujo por Logcat (`WorldMapViewModel.debugPlayerLocalCoordinates`). El cálculo
+    // GPS→local lo hace el caso de uso PURO `CalculateLocalCoordinatesUseCase`. Mismo patrón de launcher
+    // que el export de landmarks (arriba). `remember` lo mantiene a través de recomposiciones.
+    val designerViewModel = remember { ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DesignerViewModel() }
+    val designerState by designerViewModel.state.collectAsState()
+    val routeExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let { u ->
+            try {
+                context.contentResolver.openOutputStream(u)?.use { os ->
+                    os.write(designerViewModel.serializeNodesToJson().toByteArray())
+                }
+                android.widget.Toast.makeText(context, "Ruta exportada", android.widget.Toast.LENGTH_SHORT).show()
+                designerViewModel.startNewLane()   // listo para el siguiente carril
+                viewModel.clearRouteBreadcrumbs()  // limpia las migas visuales del mapa
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Error al exportar la ruta", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap?>() }
     var hasTriggeredNativePan by remember { mutableStateOf(false) }
 
@@ -1260,10 +1281,29 @@ fun WorldMapScreen(
                 onExport = { exportLauncher.launch("landmarks_config.json") },
                 onImport = { importLauncher.launch(arrayOf("application/json", "*/*")) },
                 onDeselect = { viewModel.selectLandmark(null) },
-                isParkingMode = uiState.isParkingSlotMode,
-                onToggleParkingMode = { isChecked -> viewModel.toggleParkingMode(isChecked) },
-                onNewWay = { viewModel.startNewWay() },
-                onDebugPoint = { viewModel.debugPlayerLocalCoordinates(context) },
+                isParkingMode = designerState.isParkingMode,
+                onToggleParkingMode = { isChecked -> designerViewModel.toggleParkingMode(isChecked) },
+                onNewWay = {
+                    designerViewModel.startNewLane()
+                    viewModel.clearRouteBreadcrumbs() // limpia las migas visuales del carril anterior
+                },
+                onDebugPoint = {
+                    // CAPTURAR: usa el caso de uso PURO vía DesignerViewModel; conserva la miga visual y
+                    // los Toasts del flujo anterior. selectedLandmark es no-nulo aquí (ver if de arriba).
+                    val loc = uiState.currentLocation
+                    if (loc != null) {
+                        if (designerViewModel.onCaptureClicked(selectedLandmark, loc)) {
+                            viewModel.addRouteBreadcrumb(loc)
+                            android.widget.Toast.makeText(context, context.getString(ovh.gabrielhuav.pow.R.string.toast_node_captured, designerViewModel.state.value.capturedNodes.size), android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            android.widget.Toast.makeText(context, context.getString(ovh.gabrielhuav.pow.R.string.toast_outside_building), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                onExportRoute = {
+                    if (designerViewModel.hasNodes()) routeExportLauncher.launch("carril_${designerState.currentLaneId}.json")
+                    else android.widget.Toast.makeText(context, "No hay nodos capturados para exportar", android.widget.Toast.LENGTH_SHORT).show()
+                },
                 onSpawnTestCar = { viewModel.spawnDynamicCarInEscom(context) },
                 onRevert = {
                     val currentLandmark = uiState.landmarks.find { it.id == uiState.selectedLandmarkId }
