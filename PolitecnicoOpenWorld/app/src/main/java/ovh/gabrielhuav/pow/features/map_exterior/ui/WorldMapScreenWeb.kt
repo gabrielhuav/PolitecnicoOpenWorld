@@ -59,6 +59,8 @@ internal fun WebMapLayer(
     webLmTick: IntArray,
     lastWebMetroHolder: Array<List<MetroStation>?>,
     webMetroTick: IntArray,
+    lastWebMetrobusHolder: Array<List<ovh.gabrielhuav.pow.domain.models.map.MetrobusStation>?>,
+    webMetrobusTick: IntArray,
     lastWebIpOn: BooleanArray,
     lastWebIpLm: Array<List<Landmark>?>,
     lastWebIpColl: Array<ExteriorCollisionsConfig?>,
@@ -377,6 +379,15 @@ internal fun WebMapLayer(
                                 mapOf("name" to it.name, "lat" to it.location.latitude, "lng" to it.location.longitude)
                             }
                             wv.evaluateJavascript("if(typeof updateMetro==='function')updateMetro(${JSONObject.quote(gson.toJson(metroPayload))});", null)
+                        }
+                        // 🚌 ESTACIONES DE METROBÚS: igual que el metro (antes el web no las marcaba).
+                        webMetrobusTick[0]++
+                        if (uiState.metrobusStations !== lastWebMetrobusHolder[0] || webMetrobusTick[0] % 45 == 0) {
+                            lastWebMetrobusHolder[0] = uiState.metrobusStations
+                            val metrobusPayload = uiState.metrobusStations.map {
+                                mapOf("name" to it.name, "lat" to it.location.latitude, "lng" to it.location.longitude)
+                            }
+                            wv.evaluateJavascript("if(typeof updateMetrobus==='function')updateMetrobus(${JSONObject.quote(gson.toJson(metrobusPayload))});", null)
                         }
                         if (uiState.showRoadNetwork) {
                             val roadsPayload = roadNetwork.map { way ->

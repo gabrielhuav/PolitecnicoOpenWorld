@@ -151,6 +151,8 @@
     <string name="wm_tp_metro_header">🚇 Estaciones de Metro</string>
     <string name="wm_tp_metro_search">Buscar estación de metro…</string>
     <string name="wm_tp_metro_empty">No hay estaciones cargadas todavía.</string>
+    <string name="wm_tp_metrobus_header">🚌 Estaciones de Metrobús</string>
+    <string name="wm_tp_metrobus_search">Buscar estación de metrobús…</string>
     <string name="wm_exit_apocalypse">SALIR DEL APOCALIPSIS</string>
     <string name="wm_chip_streets">Calles</string>
     <string name="wm_chip_loading">Cargando...</string>

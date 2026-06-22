@@ -317,7 +317,15 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
-- **🆕 Zona de interacción del metro/metrobús (`METRO_INTERACT_RADIUS_METERS=60.0`):** constante de nivel de
+- **🆕 TRANSPORTE UNIFICADO (2026-06-22):** el interior de Metro y Metrobús ya NO son VMs/States gemelos.
+  Un solo **`TransitInteriorViewModel`** + **`TransitInteriorState`** (nombres neutros + getters de compat para
+  los viejos: `isMetro1Animating`→`isVehicle1Animating`, `showMetroMap`→`showTransitMap`, `allMetroStations`→
+  `allStations`…) dirigidos por **`TransitSystemConfig`** (catálogo `TransitSystems.METRO`/`.METROBUS`). Los
+  modelos implementan **`domain/models/map/TransitStation`**. Las pantallas crean el VM con
+  `TransitInteriorViewModel.Factory(context, config, stationName, spawnX, spawnY)` y siguen separadas (render
+  distinto). Los 4 archivos `Metro/MetrobusInterior{ViewModel,State}.kt` son **tombstones**. Para añadir
+  Suburbano/Mexibús: nueva entrada en `TransitSystems` + assets + ruta. Ver 06 y ANALISIS §2.2/§8.
+- **🆕 Zona de interacción (`METRO_INTERACT_RADIUS_METERS=30.0` metro / `METROBUS_INTERACT_RADIUS_METERS=18.0` metrobús, más chico):** constantes de nivel de
   archivo en `WorldMapState.kt`. La detección de proximidad vive en `checkCollectibleProximity`, que es un
   **gemelo miembro (WorldMapViewModel.kt, GANA) + extensión muerta (WorldMapCollectiblesLogic.kt)** → al
   cambiar el radio se editaron **AMBOS** por convención. El valor se DIBUJA como círculo: web hardcodea

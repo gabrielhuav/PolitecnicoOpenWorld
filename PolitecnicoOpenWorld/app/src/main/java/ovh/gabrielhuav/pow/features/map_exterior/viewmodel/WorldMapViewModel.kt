@@ -1047,6 +1047,11 @@ class WorldMapViewModel(
             // recargada aún no cubre esta zona, o candidates() cayó al fallback de
             // TODOS los segmentos), NO teletransportamos al jugador hacia ella.
             // Mejor no moverse este tick que aparecer en una calle al azar.
+            // EXCEPCIÓN — RESCATE ANTI-ATASCO: si la posición ACTUAL del jugador TAMBIÉN está lejos de
+            // toda calle, no es un glitch de recarga: está ATRAPADO fuera de la red (p. ej. TP a una
+            // estación de metro que cae sobre un edificio). En vez de dejarlo inmóvil tras una "pared
+            // invisible", al moverse lo ARRASTRAMOS hacia la calle más cercana hasta engancharlo.
+            rescueIfStuckOffNetwork(loc, step)
             return
         } else {
             val angle = atan2(temp.latitude - nearest.latitude, temp.longitude - nearest.longitude)
@@ -1056,6 +1061,32 @@ class WorldMapViewModel(
             ))}
         }
     }
+
+    // RESCATE ANTI-ATASCO: si la posición ACTUAL está claramente fuera de la red vial (> MAX_SNAP),
+    // mueve al jugador un paso (ampliado) HACIA la calle más cercana, o lo engancha si ya está a un
+    // paso. Si NO está atorado (estaba sobre la calle, el guard saltó por un glitch), no hace nada.
+    // Llamado desde moveCharacter*/sólo en la rama del guard anti-TP. Miembro único (sin gemelo).
+    //
+    // FIX "VOLAR" tras TP: justo tras teletransportarse, la red de la nueva zona aún se está descargando
+    // y puede estar INCOMPLETA aunque `isRoadNetworkReady` ya sea true; entonces la "calle más cercana"
+    // puede quedar a cientos de metros y el jugador PLANEABA hacia ella (volar). Por eso el rescate solo
+    // actúa si esa calle está dentro de un radio RAZONABLE (`RESCUE_MAX_DIST_DEG` ~130 m): una estación
+    // sobre un edificio SIEMPRE tiene calle cerca. Si está más lejos, NO movemos (esperamos a que cargue
+    // la red); así nunca se vuela sobre una red a medio cargar.
+    private fun rescueIfStuckOffNetwork(loc: GeoPoint, step: Double) {
+        val curNearest = getNearestPointOnNetwork(loc)
+        val d = distance(loc, curNearest)
+        if (d <= MAX_SNAP_DISTANCE_DEG) return          // no está atorado: glitch → no mover
+        if (d > RESCUE_MAX_DIST_DEG) return              // calle "cercana" demasiado lejos = red a medio cargar → esperar (no volar)
+        val rescueStep = step * 4
+        val landed = if (d <= rescueStep) curNearest else {
+            val ang = atan2(curNearest.latitude - loc.latitude, curNearest.longitude - loc.longitude)
+            GeoPoint(loc.latitude + sin(ang) * rescueStep, loc.longitude + cos(ang) * rescueStep)
+        }
+        _uiState.update { it.copy(currentLocation = landed) }
+    }
+    // Tope de rescate (~130 m): por encima, asumimos red incompleta (recién TP) y NO movemos para no volar.
+    private val RESCUE_MAX_DIST_DEG = 0.0012
 
     fun moveCharacterByAngle(angleRad: Double) {
         if (_uiState.value.showWastedScreen || _uiState.value.showMissionFailed) return // muerto/misión fallida
@@ -1095,6 +1126,9 @@ class WorldMapViewModel(
             _uiState.update { it.copy(currentLocation = temp) }
         } else if (dist > MAX_SNAP_DISTANCE_DEG) {
             // FIX TP aleatorio (ver moveCharacter): no saltar a una calle lejana.
+            // RESCATE ANTI-ATASCO (ver moveCharacter): si está ATRAPADO fuera de la red (TP de metro
+            // sobre un edificio), al moverse lo arrastramos hacia la calle más cercana.
+            rescueIfStuckOffNetwork(loc, step)
             return
         } else {
             val angle = atan2(temp.latitude - nearest.latitude, temp.longitude - nearest.longitude)
@@ -1476,8 +1510,8 @@ class WorldMapViewModel(
         val metrobusStations = _uiState.value.metrobusStations
         val nearbyMetrobus = metrobusStations.minByOrNull { playerGeo.distanceToAsDouble(it.location) }
 
-        // Metrobús: misma zona ampliada que el metro (mismo problema de logo inaccesible).
-        if (nearbyMetrobus != null && playerGeo.distanceToAsDouble(nearbyMetrobus.location) <= METRO_INTERACT_RADIUS_METERS) {
+        // Metrobús: zona propia MÁS PEQUEÑA que el metro (METROBUS_INTERACT_RADIUS_METERS).
+        if (nearbyMetrobus != null && playerGeo.distanceToAsDouble(nearbyMetrobus.location) <= METROBUS_INTERACT_RADIUS_METERS) {
             if (_uiState.value.nearbyMetrobusStation?.name != nearbyMetrobus.name) {
                 _uiState.update { it.copy(nearbyMetrobusStation = nearbyMetrobus, nearbyCollectible = null) }
                 promptJob?.cancel()

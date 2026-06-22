@@ -113,7 +113,8 @@ data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
 - **Zombi/interiores:** `showZombiVideo, isZombieHandSpawned, pendingInteriorDestination`.
 - **Transiciones:** `showEscomDoorFade, escomDoorFadeComplete, pendingDoorDestination, showShineCTODiscovery`.
 - **Metro:** `metroStations, nearbyMetroStation, showMetroFade, metroFadeCompleteStation`. **🆕 Zona de
-  interacción ampliada:** la proximidad usa `METRO_INTERACT_RADIUS_METERS=60.0` (constante de nivel de archivo
+  interacción:** la proximidad del metro usa `METRO_INTERACT_RADIUS_METERS=30.0` y la del **metrobús**
+  `METROBUS_INTERACT_RADIUS_METERS=18.0` (más chico). Constantes de nivel de archivo
   en `WorldMapState.kt`; 4× los 15 m de coleccionables/puertas) para metro **y metrobús**, porque el logo de
   Overpass a veces cae sobre un edificio inaccesible por calle y con snap-to-road no se podía pisar. Esa zona
   se **DIBUJA** (círculo naranja translúcido) en **web** (`updateMetro`, `L.circle`) y **OSM nativo**
@@ -188,6 +189,13 @@ O(candidatos cercanos).
   `nearestGraphNode`, `findRoadRoute` (BFS/greedy sobre grafo de nodos únicos), `rebuildRoadNodeGrid`,
   `nearbyRoadNodes`. **Claves `Pair<Double,Double>`** (sin allocs de String por paso).
 - `updateDestinationRoute()` dibuja polilínea azul punteada; el marker se auto-borra a `destinationArrivalThreshold` (20 m).
+- **🆕 Rescate anti-atasco (TP a metro sobre edificio):** `moveCharacter`/`moveCharacterByAngle` (MIEMBROS) tienen
+  un guard que NO mueve si la calle más cercana al destino está a `> MAX_SNAP_DISTANCE_DEG` (~33 m) — evita "TP a
+  calle al azar" durante recargas de red. **Pero** si el TP deja al jugador ATRAPADO lejos de toda calle (estación
+  de metro encima de un edificio), ese guard lo dejaba inmóvil tras una "pared invisible". Fix: `rescueIfStuckOffNetwork(loc, step)`
+  (miembro privado) — si la posición ACTUAL también está a `> MAX_SNAP` de la red (atasco real, no glitch), al moverse
+  arrastra al jugador `step*4` hacia la calle más cercana hasta engancharlo. En juego normal (jugador sobre la calle)
+  no se dispara. Ver 09.
 
 > **Pendiente:** el router open-world sigue siendo **greedy** (no A*). El servidor zombi sí usa
 > Dijkstra (ver 08). / Open-world router is still greedy (no A*); the zombie server uses Dijkstra.
@@ -242,9 +250,11 @@ data class MultiplayerNpc(id, x, y, rotation, npcType, ownerId, carModel, carCol
 (`zoomIn/zoomOut/onMapZoomChanged/zoomToPlayer`), cámara (`centerOnPlayer/onMapPanStart/onMapPanEnd`),
 landmarks (`addLandmarkAtPlayer/move/rotate/scaleX/scaleY/deleteSelectedLandmark/save +
 export/importLandmarksToUri/FromUri`), `toggleDesignerMode/showAssetPicker/selectLandmark`,
-teleport (`teleportTo(lat,lon)`, `teleportToMetroStation(name)`, `toggleTeleportMenu`; 🆕 el diálogo de
-**Puntos de Teletransporte** —en `WorldMapScreen`, solo Modo Desarrollador— lista TODAS las estaciones de
-`metroStations` con un buscador → `teleportToMetroStation`, porque llegar a pie es complicado),
+teleport (`teleportTo(lat,lon)`, `teleportToMetroStation(name)`, `teleportToMetrobusStation(name)`,
+`toggleTeleportMenu`; 🆕 el diálogo de **Puntos de Teletransporte** —en `WorldMapScreen`, solo Modo
+Desarrollador— tiene secciones **COLAPSABLES** "🚇 Metro" y "🚌 Metrobús" (▶/▼): por defecto cerradas,
+al pulsarlas despliegan su buscador + estaciones (`metroStations`/`metrobusStations`) → `teleportTo*Station`,
+para que la lista de TP no crezca de más),
 `takeDamage(amount)`, `heal(amount)`, `onClaimCollectiblePressed`, widgets (`toggleCacheWidget/FpsWidget`).
 
 > **`onInteractButtonPressed` (botón Y, MIEMBRO):** sube/baja del coche. Si no hay coche civil (CAR) en
@@ -299,6 +309,9 @@ usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Can
   OSM nativo (`metroZoneCache`/`Polygon.pointsAsCircle`, tag `+600`) dibujan un **círculo naranja translúcido**
   del tamaño de `METRO_INTERACT_RADIUS_METERS` bajo el logo, para que se vea desde dónde se puede entrar aunque
   la estación caiga sobre un edificio inaccesible por calles. Google nativo = pendiente.
+  **🆕 METROBÚS en el mapa global:** el OSM nativo ya dibujaba sus estaciones; ahora el **web** también
+  (`updateMetrobus` en `WorldMapLeafletHtml` + push en `WorldMapScreenWeb`, icono `TRANSIT/METROBUS/icon.png` en
+  ROJO + su círculo de zona). Antes el web NO marcaba el metrobús → no se sabía dónde entrar. Google nativo = pendiente (solo metro).
 - Patrulla 🚓 fuera de la fog: marcador + línea de ruta (cachés recordadas, **NO** view tags — añadir
   `R.id`s rompía un hack `id+100`/`id+400` y causaba `ClassCastException`).
 

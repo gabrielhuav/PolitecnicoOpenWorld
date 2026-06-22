@@ -28,7 +28,10 @@ const val ZOOM_DRIVING_FAST = 20.0  // conduciendo MUY rápido (≥85% de MAX_SP
 // entrar desde cualquier calle CERCANA aunque el logo sea inaccesible. Esta zona
 // se DIBUJA en el mapa (círculo) en web (Leaflet) y OSM nativo para que sea visible.
 // Si cambias el valor, sincroniza el círculo del web (WorldMapLeafletHtml.updateMetro).
-const val METRO_INTERACT_RADIUS_METERS = 60.0
+const val METRO_INTERACT_RADIUS_METERS = 30.0
+// Metrobús: radio MÁS PEQUEÑO que el metro (sus estaciones/andenes son más chicos y a veces están más
+// juntos, así que 30 m se sentía enorme). Se sincroniza con su círculo web (WorldMapLeafletHtml.updateMetrobus).
+const val METROBUS_INTERACT_RADIUS_METERS = 18.0
 
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),

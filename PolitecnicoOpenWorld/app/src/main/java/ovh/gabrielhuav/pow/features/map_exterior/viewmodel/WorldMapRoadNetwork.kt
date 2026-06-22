@@ -190,15 +190,26 @@ internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.
                             _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
                         }
                     } else {
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            _uiState.update { it.copy(isRoadNetworkReady = true) }
+                        // FETCH VACÍO (Overpass falló/timeout/sin datos). NO marcar la red como lista con la
+                        // red VIEJA: tras un TP eso dejaba al jugador en la estación nueva SIN calles cerca →
+                        // atorado tras una pared invisible. Distinguimos:
+                        //  - Compuerta de carga (no estaba listo aún, p. ej. tras TP): mantener la PANTALLA DE
+                        //    CARGA (isRoadNetworkReady=false) y REINTENTAR pronto (~3 s), hasta que llegue una
+                        //    red real → applyRoadNetwork/snap al soltar. Así nunca se suelta sobre red inservible.
+                        //  - Juego normal (ya estaba listo): conservar la red anterior, NO interrumpir con carga.
+                        val wasReady = _uiState.value.isRoadNetworkReady
+                        if (!wasReady) {
+                            lastFetchAttemptMs = 0L                 // permite reintentar sin el cooldown largo
+                            kotlinx.coroutines.delay(3000)          // backoff corto (no martillar Overpass)
                         }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("WorldMapViewModel", "Error refetching road network", e)
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    _uiState.update { it.copy(isRoadNetworkReady = true) }
+                val wasReady = _uiState.value.isRoadNetworkReady
+                if (!wasReady) {
+                    lastFetchAttemptMs = 0L
+                    kotlinx.coroutines.delay(3000)
                 }
             } finally {
                 isFetchingNetwork.set(false)

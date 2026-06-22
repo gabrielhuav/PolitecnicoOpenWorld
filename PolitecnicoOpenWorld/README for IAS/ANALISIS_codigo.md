@@ -9,7 +9,8 @@
 > - **✅ i18n player-facing: COMPLETA** (incl. transit + diseñadores de matrices). Solo queda
 >   `CampaignObjective.title/description` → `@StringRes` (prioridad 4, opcional).
 > - **✅ Audio del game loop activado** (caminar/correr/coche/zombi) + fix de la carga async de SoundPool.
-> - Sigue **pendiente/opcional** (sin tocar): base común Metro⇄Metrobús (la mayor duplicación restante),
+> - **✅ Base común Metro⇄Metrobús — VM + State + config HECHO (2026-06-22):** ver §2.2 y "Re-análisis".
+>   Sigue **pendiente/opcional**: parametrizar UNA pantalla/overlay por config (hoy siguen 2 archivos),
 >   extraer NavHost de MainActivity, y micro-opts perf (no hay candidatas seguras nuevas).
 > - Tamaños actuales: solo 5 archivos >1000 (VM 2114, NativeOsmMap 1460, WorldMapScreen 1326,
 >   MainActivity 1064, ZombieGameScreen 1035). El detalle de abajo conserva el análisis original.
@@ -44,13 +45,21 @@ Es la mayor fuente de líneas muertas del VM. Análisis byte-a-byte y cuerpos si
 **`09 §12`**. Aplicar 1 par/compilación. (No es "código muerto inofensivo": varias
 extensiones traen lógica VIEJA con bugs ya corregidos en el miembro.)
 
-### 2.2 Metro ⇄ Metrobús (duplicación estructural, NO accidental)
-`MetroInteriorViewModel` (700) y `MetrobusInteriorViewModel` (655) comparten ~mucha mecánica
-(rejilla, waypoints, diseñador de matrices, navegación). Igual `MetroStationInteriorScreen` (669) ⇄
-`MetrobusStationInteriorScreen` (589), y `MetroMapOverlay` (459) ⇄ `MetrobusMapOverlay`. **Oportunidad
-de medio/alto esfuerzo:** extraer una base común (`TransitInteriorViewModel` / `TransitStationScreen`
-parametrizada por sistema). **Riesgo alto** (toca dos features de transporte, requiere compilar y
-probar ambos sistemas). Solo si vas a tocar transporte a fondo; hoy NO es urgente.
+### 2.2 Metro ⇄ Metrobús — **VM/State/config UNIFICADOS (2026-06-22)** ✅ (pantallas pendientes)
+**HECHO:** `MetroInteriorViewModel`(700) y `MetrobusInteriorViewModel`(655), antes gemelos, se fusionaron en
+**`TransitInteriorViewModel`** (lógica una sola vez), con **`TransitInteriorState`** (estado neutro + alias de
+compat) y **`TransitSystemConfig`** (`TransitSystems.METRO`/`.METROBUS`: assets, prefs, repo, spawn, offset de
+torniquete, strings, branding). Los modelos implementan la interfaz **`TransitStation`**. Los 4 archivos viejos
+(2 VM + 2 State) son tombstones. **Añadir transporte = nueva config + assets + ruta** (no se duplica lógica).
+Cambio dirigido por config, comportamiento idéntico. *(Hecho a ciegas sin compilador con commit de seguridad;
+verificar en el primer Rebuild — riesgo concentrado en imports/EOL de los 4 archivos nuevos.)*
+
+**PENDIENTE (opcional, medio esfuerzo):** las PANTALLAS y OVERLAYS siguen separadas
+(`MetroStationInteriorScreen`(669) ⇄ `MetrobusStationInteriorScreen`(589); `MetroMapOverlay`(459) ⇄
+`MetrobusMapOverlay`) porque su RENDER difiere (metro=vídeo+animación vertical; metrobús=gradiente+horizontal).
+La `TransitSystemConfig` YA lleva esos parámetros (color, eje, overlayType, vídeo/gradiente, sprites, vehicleAsset)
+→ se podría colapsar a UNA `TransitStationScreen(config)` + UN `TransitMapOverlay(config)`. Riesgo medio (Compose +
+animación). No urgente.
 
 ### 2.3 Otros
 * **TODO/FIXME/HACK: 0** en todo el módulo. Limpio.
@@ -145,8 +154,43 @@ Riesgos NO resueltos detectados, **ninguno crítico**:
 | **2** | Terminar i18n de transit player-facing (metro/metrobús headers + selección) | Medio-alto | Bajo | Bajo |
 | **3** | Terminar i18n de diseñadores (reusando claves `int_*` existentes) | Bajo | Bajo-medio | Bajo |
 | 4 | `CampaignObjective` → `@StringRes` (i18n del objetivo de campaña) | Medio | Medio | Medio (toca modelo) |
-| 5 | (Opcional) Base común Metro⇄Metrobús (`TransitInteriorViewModel`) | Medio | Alto | Alto |
+| ~~5~~ | ✅ **HECHO (2026-06-22)** Base común Metro⇄Metrobús: VM+State+config unificados (§2.2). Falta (opcional) colapsar las 2 pantallas/overlays en una por config. | Medio | Alto | Alto |
 | 6 | (Opcional) Extraer `NavHost` de `MainActivity` a `AppNavGraph.kt` | Bajo | Medio | Medio |
 | — | Micro-opts perf adicionales | — | — | **Sin candidatas seguras nuevas** |
 
 Lo de prioridad 4–6 es OPCIONAL y requiere compilador → no se hizo de madrugada.
+
+---
+
+## 8. RE-ANÁLISIS (2026-06-22, tras la unificación de transporte)
+
+**Tamaños reales hoy:** 190 archivos `.kt`, ~36 000 líneas. Top: `WorldMapViewModel` (2129),
+`NativeOsmMap` (1444), `WorldMapScreen` (1320), `MainActivity` (1058), `ZombieGameScreen` (1038),
+`ZombieInteriorViewModel` (915), `NpcAiManager` (884), `SettingsScreen` (859), `WorldMapLeafletHtml` (838),
+`TransitInteriorViewModel` (677, NUEVO unificado). **Único > 1500: `WorldMapViewModel`.**
+
+**Qué se acaba de resolver:** la mayor duplicación estructural restante (Metro⇄Metrobús, VM+State) →
+unificada en `TransitInteriorViewModel`/`TransitInteriorState`/`TransitSystemConfig` (§2.2). Verificado: las
+4 pantallas/overlays compilan contra el VM/State unificados (todos los `state.*`/`viewModel.*`/`::` usados
+existen como miembro neutro o alias), MainActivity sin cambios (firmas intactas), sin referencias colgantes a
+los tipos viejos.
+
+**Lo que QUEDA por separar/optimizar (prioridad valor/esfuerzo/riesgo):**
+
+| # | Acción | Valor | Esfuerzo | Riesgo | Nota |
+|---|--------|-------|----------|--------|------|
+| A | Colapsar las 2 **pantallas** de transporte (`Metro/MetrobusStationInteriorScreen`, 638+544) en UNA `TransitStationScreen(config)` y los 2 **overlays** en uno. La config YA trae color/eje/overlayType/vídeo/gradiente/sprites/vehicleAsset. | Medio | Alto | Medio-alto | Es la 2ª mitad del refactor de transporte. Compose + animación vertical/horizontal: probar ambos. |
+| B | Retirar los **alias de compat** de `TransitInteriorState`/VM y los 4 archivos **tombstone** una vez que A use nombres neutros. | Bajo (limpieza) | Bajo | Bajo | Hacer DESPUÉS de A, con compilador. |
+| C | `WorldMapViewModel` (2129) — único > 1500. Extraer más parciales SIN gemelo (p. ej. `checkCollectibleProximity`/`trySpawningCollectible`, `moveCharacter*`). | Medio | Medio | Medio | Cuidado con el gotcha miembro-vs-extensión (09 §12). |
+| D | Extraer `NavHost` de `MainActivity` (1058) a `AppNavGraph.kt`. | Bajo | Medio | Medio | Acoplado a `worldMapViewModel` Activity-scoped. |
+| E | `SettingsScreen` (859): partir cada sección `*Settings` a su archivo si crece. | Bajo | Bajo | Bajo | Hoy aceptable. |
+| F | i18n pendiente: strings in-VM de transporte (ahora centralizados en `TransitSystemConfig`, fáciles de migrar a `@StringRes`) + `CampaignObjective.title/description`. | Medio | Bajo-medio | Bajo | La unificación facilitó esto: los textos viven en un solo sitio. |
+| — | Micro-opts perf | — | — | — | Sin candidatas seguras nuevas (09 §6). |
+
+**Recomendación:** tras validar este Rebuild, el siguiente paso de mayor valor es **A** (colapsar las
+pantallas/overlays por config) para cerrar del todo el transporte unificado; luego **B** (limpieza de alias).
+`C/D/E/F` son mejoras independientes de bajo riesgo cuando toque. **No partir nada por estética.**
+
+> ⚠️ Recordatorio del entorno: los 4 archivos nuevos (`TransitStation`, `TransitSystemConfig`,
+> `TransitInteriorState`, `TransitInteriorViewModel`) se escribieron con fin de línea LF (los editados
+> conservan CRLF). Kotlin compila ambos; si quieres uniformar a CRLF, normalízalos en Android Studio.

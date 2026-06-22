@@ -65,24 +65,47 @@ Cada `InteriorBuilding` (incl. `FES_INTERIOR`) define su `routeName`, `location`
 
 ---
 
-## Metro
+## Metro / Metrobús (TRANSPORTE UNIFICADO)
 
 Sistema más rico que los interiores genéricos: mapa de la red, hotspots y modo diseñador con waypoints
 globales. / Richer than generic interiors: network map, hotspots, designer mode with global waypoints.
 
-- **`ui/MetroStationInteriorScreen.kt`** — interior de una estación (entrada por ruta parametrizada
-  `metro_station_interior/{stationName}?spawnX=&spawnY=`).
-- **`ui/MetroMapOverlay.kt`** — overlay del mapa de la red de metro (búsqueda, navegación entre estaciones).
-- **`viewmodel/MetroInteriorViewModel.kt`** (~600 líneas) + `MetroInteriorState.kt`:
+> **🆕 ORIENTACIÓN del Metrobús (2026-06-22):** los assets del interior del Metrobús son **VERTICALES**
+> (`inside.png`/`bus1`/`bus2` = 1168×1347, `mapa.png` 2551×3402), a diferencia del metro (vehículos 2816×1536,
+> horizontal). Por eso la ruta `metrobus_station_interior` corre en **PORTRAIT** (`SCREEN_ORIENTATION_SENSOR_PORTRAIT`
+> en el listener de `MainActivity`); en horizontal el fondo se recortaba a una franja ("todo vertical"). El metro
+> sigue en landscape. Si algún día se rehace el arte del metrobús en horizontal, quitar esa excepción.
+>
+> **🆕 UNIFICACIÓN Metro⇄Metrobús (2026-06-22):** la lógica/estado del interior, que antes estaba
+> **DUPLICADA** en `MetroInteriorViewModel`(700)+`MetrobusInteriorViewModel`(655) y sus dos States, se
+> fusionó en **`viewmodel/TransitInteriorViewModel.kt`** (un solo VM, toda la lógica una vez) +
+> **`viewmodel/TransitInteriorState.kt`** (un solo State, nombres neutros: `isVehicle1Animating`,
+> `showTransitMap`, `allStations`…, con getters de compat para los nombres viejos), **dirigidos por
+> `viewmodel/TransitSystemConfig.kt`** (catálogo `TransitSystems.METRO`/`.METROBUS`: assets, prefs, repo,
+> spawn, offset de torniquete `turnstileBoardDeltaY`, strings, branding/eje de animación). Los modelos
+> `MetroStation`/`MetrobusStation` implementan la interfaz común **`domain/models/map/TransitStation`**.
+> **Añadir Suburbano/Mexibús = nueva entrada en `TransitSystems` + assets + ruta** (no se duplica lógica).
+> Los VMs/States viejos quedaron como **tombstones**. Las dos pantallas/overlays SIGUEN separadas (su
+> render difiere: metro=vídeo+animación vertical, metrobús=gradiente+horizontal) pero usan el VM/State/config
+> unificados; parametrizar una sola pantalla por config es el siguiente paso opcional (ver ANALISIS §2.2).
+
+- **`ui/MetroStationInteriorScreen.kt`** / **`ui/MetrobusStationInteriorScreen.kt`** — interior de una estación
+  (ruta `{key}_station_interior/{stationName}?spawnX=&spawnY=`). Crean el VM con
+  `TransitInteriorViewModel.Factory(context, TransitSystems.METRO|METROBUS, stationName, spawnX, spawnY)`.
+- **`ui/MetroMapOverlay.kt`** / **`ui/MetrobusMapOverlay.kt`** — overlay del mapa de la red (búsqueda, navegación).
+- **`viewmodel/TransitInteriorViewModel.kt`** + `TransitInteriorState.kt` + `TransitSystemConfig.kt`:
 
 ```kotlin
-enum class MetroHotspot { ... }     // puntos interactivos dentro de la estación
-data class MetroInteriorState( ... )
+enum class TransitHotspot { TAQUILLA, TORNIQUETES, ANDEN, SALIR_TORNIQUETES, SALIDA }
+data class TransitInteriorState( /* neutros + alias de compat */ )
+data class TransitSystemConfig( /* assets, prefs, repo, spawn, deltas, strings, branding */ )
+object TransitSystems { val METRO; val METROBUS }
 ```
 
 **API destacada / notable API:**
 - Movimiento: `moveByAngle`, `moveDirection`, `applyMovement`, `updatePlayer`, `setRunning`.
-- Hotspots: `checkHotspots(x, y)`, `interactWithHotspot()`, `closeMetroMap()`, `consumeExitStation()`.
+- Hotspots: `checkHotspots(x, y)`, `interactWithHotspot()`, `closeTransitMap()` (alias `closeMetroMap`/
+  `closeMetrobusMap`), `onVehicle1AnimationFinished()` (alias `onMetro1`/`onBus1AnimationFinished`), `consumeExitStation()`.
 - **Diseñador de matriz** (igual patrón que zombi): `toggleDesignerMode`, `setDesignerTarget`,
   `setDesignerBrushWall`, `paintCellAtWorld`, `saveDesignerMatrix/resetDesignerMatrix`,
   `resizeDesignerMatrixBy`, import/export Uri.
@@ -93,8 +116,9 @@ data class MetroInteriorState( ... )
   `export/importGlobalWaypointsToUri/FromUri`.
 - `updateCollisionGrid(rows)`, `Factory(...)`.
 
-**Datos / data:** las estaciones se cargan con `MetroRepository.loadStations(context)` desde
-`res/raw/metro` (ver 02). `MetroStation(name, routes, location)`.
+**Datos / data:** las estaciones se cargan con `config.loadStations(context)` (apunta a
+`MetroRepository`/`MetrobusRepository`, `res/raw/metro|metrobus`, ver 02). `MetroStation`/`MetrobusStation`
+implementan `TransitStation(name, routes, location)`.
 
 ---
 

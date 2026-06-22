@@ -149,6 +149,8 @@
     <string name="wm_tp_metro_header">🚇 Metro Stations</string>
     <string name="wm_tp_metro_search">Search metro station…</string>
     <string name="wm_tp_metro_empty">No stations loaded yet.</string>
+    <string name="wm_tp_metrobus_header">🚌 Metrobús Stations</string>
+    <string name="wm_tp_metrobus_search">Search metrobús station…</string>
     <string name="wm_exit_apocalypse">EXIT APOCALYPSE</string>
     <string name="wm_chip_streets">Streets</string>
     <string name="wm_chip_loading">Loading...</string>

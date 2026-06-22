@@ -195,6 +195,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
 // REFACTOR: extensiones del VM extraídas (teleport/puerta ESCOM) → import explícito.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportTo
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetroStation
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusStation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleTeleportMenu
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onEscomDoorFadeComplete
 import kotlin.math.cos
@@ -438,6 +439,8 @@ fun WorldMapScreen(
     // (+ heartbeat), como los landmarks. El icono se carga del asset TRANSIT/METRO/icon.webp.
     val lastWebMetroHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.MetroStation>>(1) }
     val webMetroTick = remember { intArrayOf(0) }
+    val lastWebMetrobusHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.MetrobusStation>>(1) }
+    val webMetrobusTick = remember { intArrayOf(0) }
     // Debug Interiores (web): solo reenviamos el navGraph al WebView cuando cambia el
     // estado del overlay o la lista de landmarks (no por frame).
     val lastWebIpOn = remember { booleanArrayOf(false) }
@@ -663,6 +666,8 @@ fun WorldMapScreen(
                     webLmTick = webLmTick,
                     lastWebMetroHolder = lastWebMetroHolder,
                     webMetroTick = webMetroTick,
+                    lastWebMetrobusHolder = lastWebMetrobusHolder,
+                    webMetrobusTick = webMetrobusTick,
                     lastWebIpOn = lastWebIpOn,
                     lastWebIpLm = lastWebIpLm,
                     lastWebIpColl = lastWebIpColl,
@@ -1213,12 +1218,21 @@ fun WorldMapScreen(
                 onDismissRequest = { viewModel.toggleTeleportMenu(false) },
                 title = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_title), fontWeight = FontWeight.Bold) },
                 text = {
-                    // Filtro de búsqueda para las ~160 estaciones de metro (recorrer la lista a
-                    // mano es inviable). El TP al metro existe porque llegar a pie es complicado.
+                    // Listas de estaciones (metro ~160 / metrobús ~80) COLAPSADAS por defecto: solo se
+                    // despliegan (con su buscador) al pulsar el botón Metro/Metrobús, para que la lista de
+                    // TP no crezca de más. El TP a transporte existe porque llegar a pie es complicado.
+                    var metroExpanded by remember { mutableStateOf(false) }
+                    var metrobusExpanded by remember { mutableStateOf(false) }
                     var metroQuery by remember { mutableStateOf("") }
+                    var metrobusQuery by remember { mutableStateOf("") }
                     val filteredMetro = remember(metroQuery, uiState.metroStations) {
                         val q = metroQuery.trim()
                         val sorted = uiState.metroStations.sortedBy { it.name }
+                        if (q.isEmpty()) sorted else sorted.filter { it.name.contains(q, ignoreCase = true) }
+                    }
+                    val filteredMetrobus = remember(metrobusQuery, uiState.metrobusStations) {
+                        val q = metrobusQuery.trim()
+                        val sorted = uiState.metrobusStations.sortedBy { it.name }
                         if (q.isEmpty()) sorted else sorted.filter { it.name.contains(q, ignoreCase = true) }
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1255,40 +1269,63 @@ fun WorldMapScreen(
                             items(TeleportCatalog.zones) { zone ->
                                 Button(onClick = { viewModel.teleportTo(zone.latitude, zone.longitude) }, modifier = Modifier.fillMaxWidth()) { Text(zone.name) }
                             }
-                            // 🚇 Sección METRO: buscador + estaciones filtradas. Llegar al metro a
-                            // pie es complicado, así que aquí se teletransporta directo a la estación.
+                            // 🚇 Sección METRO (colapsable): el botón despliega/oculta buscador + estaciones.
                             item {
-                                Text(
-                                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_header),
-                                    fontWeight = FontWeight.Bold, fontSize = 14.sp,
-                                    modifier = Modifier.padding(top = 8.dp)
-                                )
-                            }
-                            item {
-                                OutlinedTextField(
-                                    value = metroQuery,
-                                    onValueChange = { metroQuery = it },
-                                    singleLine = true,
-                                    label = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_search)) },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                            if (uiState.metroStations.isEmpty()) {
-                                item {
-                                    Text(
-                                        androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_empty),
-                                        fontSize = 13.sp
-                                    )
+                                Button(onClick = { metroExpanded = !metroExpanded }, modifier = Modifier.fillMaxWidth()) {
+                                    Text((if (metroExpanded) "▼ " else "▶ ") + androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_header))
                                 }
                             }
-                            items(filteredMetro) { station ->
-                                Button(
-                                    onClick = {
-                                        viewModel.teleportToMetroStation(station.name)
-                                        viewModel.toggleTeleportMenu(false)
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) { Text("🚇 ${station.name}") }
+                            if (metroExpanded) {
+                                item {
+                                    OutlinedTextField(
+                                        value = metroQuery,
+                                        onValueChange = { metroQuery = it },
+                                        singleLine = true,
+                                        label = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_search)) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                if (uiState.metroStations.isEmpty()) {
+                                    item { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_empty), fontSize = 13.sp) }
+                                }
+                                items(filteredMetro) { station ->
+                                    Button(
+                                        onClick = {
+                                            viewModel.teleportToMetroStation(station.name)
+                                            viewModel.toggleTeleportMenu(false)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text("🚇 ${station.name}") }
+                                }
+                            }
+                            // 🚌 Sección METROBÚS (colapsable).
+                            item {
+                                Button(onClick = { metrobusExpanded = !metrobusExpanded }, modifier = Modifier.fillMaxWidth()) {
+                                    Text((if (metrobusExpanded) "▼ " else "▶ ") + androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metrobus_header))
+                                }
+                            }
+                            if (metrobusExpanded) {
+                                item {
+                                    OutlinedTextField(
+                                        value = metrobusQuery,
+                                        onValueChange = { metrobusQuery = it },
+                                        singleLine = true,
+                                        label = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metrobus_search)) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                if (uiState.metrobusStations.isEmpty()) {
+                                    item { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_empty), fontSize = 13.sp) }
+                                }
+                                items(filteredMetrobus) { station ->
+                                    Button(
+                                        onClick = {
+                                            viewModel.teleportToMetrobusStation(station.name)
+                                            viewModel.toggleTeleportMenu(false)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text("🚌 ${station.name}") }
+                                }
                             }
                         }
                     }

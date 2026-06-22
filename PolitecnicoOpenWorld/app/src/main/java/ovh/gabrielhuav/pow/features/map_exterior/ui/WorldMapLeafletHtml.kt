@@ -61,8 +61,11 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var collectibleMarkers = {};
         var landmarkMarkers = {};
         var metroMarkers = {};         // 🚇 icono del Metro CDMX en cada estación (estático)
-        var metroZones = {};           // 🟧 círculo de la ZONA de interacción (60 m) por estación
-        var METRO_INTERACT_RADIUS_M = 60;  // sync con METRO_INTERACT_RADIUS_METERS (WorldMapState.kt)
+        var metroZones = {};           // 🟧 círculo de la ZONA de interacción (45 m) por estación
+        var metrobusMarkers = {};      // 🚌 icono del Metrobús en cada estación (estático)
+        var metrobusZones = {};        // 🟥 círculo de la ZONA de interacción del metrobús
+        var METRO_INTERACT_RADIUS_M = 30;     // sync con METRO_INTERACT_RADIUS_METERS (WorldMapState.kt)
+        var METROBUS_INTERACT_RADIUS_M = 18;  // sync con METROBUS_INTERACT_RADIUS_METERS (más chico)
         var designerMarkers = {};      // ✏️ lápices de edición del Modo Diseñador (uno por landmark)
         var isDesignerMode = false;
         var selectedLandmarkId = null;
@@ -448,6 +451,38 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                            'style="width:' + sz + 'px; height:' + sz + 'px; transform:translate(-50%,-50%); display:block;">';
                 var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                 metroMarkers[s.name] = L.marker([s.lat, s.lng], { icon: icon, interactive: false, zIndexOffset: 400 }).addTo(map);
+            });
+        }
+
+        // 🚌 ESTACIONES DE METROBÚS: mismo patrón que el metro (icono fijo + círculo de zona), con
+        // el icono del metrobús en ROJO. Sin esto, en el render WEB el metrobús no se marcaba en el
+        // mapa global (solo el OSM nativo lo dibujaba) → el jugador no sabía dónde entrar.
+        function updateMetrobus(jsonStr) {
+            var data = JSON.parse(jsonStr);
+            var currentIds = new Set(data.map(function(s){ return String(s.name); }));
+            for (var id in metrobusMarkers) {
+                if (!currentIds.has(id)) { map.removeLayer(metrobusMarkers[id]); delete metrobusMarkers[id]; }
+            }
+            for (var zid in metrobusZones) {
+                if (!currentIds.has(zid)) { map.removeLayer(metrobusZones[zid]); delete metrobusZones[zid]; }
+            }
+            data.forEach(function(s) {
+                if (!metrobusZones[s.name]) {
+                    metrobusZones[s.name] = L.circle([s.lat, s.lng], {
+                        radius: METROBUS_INTERACT_RADIUS_M,
+                        interactive: false,
+                        color: '#C21D24', weight: 2, opacity: 0.85,
+                        fillColor: '#E53935', fillOpacity: 0.15
+                    }).addTo(map);
+                } else {
+                    metrobusZones[s.name].setLatLng([s.lat, s.lng]);
+                }
+                if (metrobusMarkers[s.name]) { metrobusMarkers[s.name].setLatLng([s.lat, s.lng]); return; }
+                var sz = 26;
+                var html = '<img src="file:///android_asset/TRANSIT/METROBUS/icon.png" ' +
+                           'style="width:' + sz + 'px; height:' + sz + 'px; transform:translate(-50%,-50%); display:block;">';
+                var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
+                metrobusMarkers[s.name] = L.marker([s.lat, s.lng], { icon: icon, interactive: false, zIndexOffset: 400 }).addTo(map);
             });
         }
 

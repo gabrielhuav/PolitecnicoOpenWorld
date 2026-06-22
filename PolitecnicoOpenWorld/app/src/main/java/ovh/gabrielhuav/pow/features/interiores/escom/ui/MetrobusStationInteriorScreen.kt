@@ -43,8 +43,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.MetrobusInteriorState
-import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.MetrobusInteriorViewModel
+import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitInteriorState
+import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitInteriorViewModel
+import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitSystems
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
@@ -68,8 +69,8 @@ fun MetrobusStationInteriorScreen(
     onTeleportToStation: (String, Float, Float) -> Unit
 ) {
     val context = LocalContext.current
-    val viewModel: MetrobusInteriorViewModel = viewModel(
-        factory = MetrobusInteriorViewModel.Factory(context, stationName, spawnX, spawnY)
+    val viewModel: TransitInteriorViewModel = viewModel(
+        factory = TransitInteriorViewModel.Factory(context, TransitSystems.METROBUS, stationName, spawnX, spawnY)
     )
     val state by viewModel.state.collectAsState()
     val configuration = LocalConfiguration.current
@@ -536,7 +537,7 @@ private fun computeMetrobusCam(
 }
 
 @Composable
-private fun MetrobusPlayerSprite(state: MetrobusInteriorState) {
+private fun MetrobusPlayerSprite(state: TransitInteriorState) {
     val context = LocalContext.current
     val action = state.playerAction
     val isFacingRight = state.isFacingRight

@@ -251,9 +251,16 @@ class MainActivity : ComponentActivity() {
                             val isMenu = route != null && !fromGame && portraitRoutes.any {
                                 route == it || route.startsWith("$it/") || route.startsWith("$it?")
                             }
-                            this@MainActivity.requestedOrientation =
-                                if (isMenu) ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                                else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            // EXCEPCIÓN: el interior de Metrobús se DIBUJÓ en VERTICAL (assets portrait:
+                            // inside/bus1/bus2 = 1168×1347, mapa 2551×3402). En horizontal se recortaba a
+                            // una franja ("todo vertical"). Esa ruta corre en PORTRAIT para que el arte
+                            // encaje. (El metro sí es horizontal: sus vehículos son 2816×1536.)
+                            val isMetrobusStation = route?.startsWith("metrobus_station_interior") == true
+                            this@MainActivity.requestedOrientation = when {
+                                isMetrobusStation -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                                isMenu -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                                else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            }
                             if (isMenu) {
                                 // Al volver a un menú, corta TODA la música de fondo del juego/cómic
                                 // (MediaPlayers en loop), que se quedaba sonando al salir.
