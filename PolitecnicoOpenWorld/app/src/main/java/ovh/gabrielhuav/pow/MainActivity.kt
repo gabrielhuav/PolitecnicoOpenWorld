@@ -782,8 +782,10 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // MODO HISTORIA · Misión 3: cómic de transición al salir del interior de ESCOM.
+                            // El delay da tiempo al world_map para estar activo antes de navegar.
                             LaunchedEffect(uiState.pendingMission3Intro) {
                                 if (uiState.pendingMission3Intro) {
+                                    kotlinx.coroutines.delay(800)
                                     worldMapViewModel.consumePendingMission3Intro()
                                     navController.navigate("story_mission3")
                                 }

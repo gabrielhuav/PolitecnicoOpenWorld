@@ -15,11 +15,21 @@ import ovh.gabrielhuav.pow.domain.models.MissionCatalog
 //   5. WorldMapScreen muestra overlay "Fin del Capítulo 1 · Continuará..."
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Llamado al salir del interior de ESCOM durante campaña. Dispara el cómic de M3. */
+/**
+ * Llamado al salir del interior de ESCOM durante campaña. Dispara el cómic de M3.
+ *
+ * BUSCAR_PISTAS_ESCOM es solo un objetivo de DISPLAY pasado a ZombieGameScreen;
+ * el estado real del ViewModel sigue siendo INGRESAR_ESCOM con objectiveDone=true.
+ * También aceptamos BUSCAR_PISTAS_ESCOM por si en el futuro se establece en el VM.
+ */
 fun WorldMapViewModel.onExitEscomInteriorCampaign() {
     if (!inCampaign) return
-    val obj = _uiState.value.currentObjective ?: return
-    if (obj.id != MissionCatalog.BUSCAR_PISTAS_ESCOM.id) return
+    val s = _uiState.value
+    if (s.pendingMission3Intro || s.showChapter1End) return  // ya en curso
+    val obj = s.currentObjective ?: return
+    val isEscomDone = (obj.id == MissionCatalog.INGRESAR_ESCOM.id && s.objectiveDone) ||
+                      obj.id == MissionCatalog.BUSCAR_PISTAS_ESCOM.id
+    if (!isEscomDone) return
     _uiState.update { it.copy(pendingMission3Intro = true) }
 }
 
