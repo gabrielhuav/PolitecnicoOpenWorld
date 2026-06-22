@@ -224,6 +224,13 @@ fields and **only apply on SAVE**; leaving discards.
   **`SoundManager`** (`setMusicVolume`/`setSfxVolume`); además `SoundManager` los lee del repo en su `init`
   (se aplican al arrancar). Música = `MediaPlayer.setVolume`; efectos = se multiplican en cada `play()` del
   `SoundPool` y se ajustan en vivo los streams en loop. Nueva categoría `SettingsCategory.Audio`.
+- **🆕 Fix "siempre se escuchan pasos" (2026-06-22):** `SoundPool.load()` es ASÍNCRONO; reproducir un loop antes
+  de que el sample cargue devolvía 0 y en algunos equipos dejaba un **loop HUÉRFANO** (sin `streamId` capturado)
+  que `stopWalk()` no podía parar. Además `SoundManager` es **singleton** compartido por el mapa exterior (game
+  loop, `Dispatchers.Default`) y los interiores (drivers en coroutines), así que `play`/`stop` se entrelazaban.
+  Fix: (a) `setOnLoadCompleteListener` → set `loadedSounds`; `playWalk/Run/Car` SOLO reproducen si su sample ya
+  cargó (se acabó el reintento que generaba huérfanos); (b) `@Synchronized` en `playWalk/stopWalk/playRun/stopRun/
+  playCar/stopCar`. Ver 09.
 - Staged: `changeControlType(type)`, `changeControlsScale(scale)`, `toggleSwapControls(swap)` → escriben
   `tempControlType/tempControlsScale/tempSwapControls`.
 - `saveControlsSettings()` (commit + persiste vía `SettingsRepository` + empuja al mapa),

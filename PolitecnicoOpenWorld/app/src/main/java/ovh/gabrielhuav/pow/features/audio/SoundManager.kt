@@ -51,7 +51,12 @@ class SoundManager private constructor(context: Context) {
     private var walkStreamId = -1
     private var runStreamId = -1
     private var carStreamId = -1
-    
+
+    // Samples YA cargados. SoundPool.load() es ASÍNCRONO; reproducir antes de que termine devuelve 0
+    // y en algunos equipos deja un loop HUÉRFANO (sin streamId capturado) → "siempre se escuchan pasos".
+    // Solo lanzamos un loop cuando su sample ya cargó (ver OnLoadCompleteListener). (2026-06-22)
+    private val loadedSounds = java.util.Collections.synchronizedSet(mutableSetOf<Int>())
+
     // Story Streams
     private var storyStreamIds = mutableListOf<Int>()
     private var storyRunningStreamId = -1
@@ -67,6 +72,12 @@ class SoundManager private constructor(context: Context) {
             .setMaxStreams(10)
             .setAudioAttributes(audioAttributes)
             .build()
+
+        // Marca cada sample como LISTO al terminar su carga asíncrona (status 0 = éxito). Las funciones
+        // de loop (caminar/correr/carro) no reproducen hasta que su sample esté aquí.
+        soundPool?.setOnLoadCompleteListener { _, sampleId, status ->
+            if (status == 0) loadedSounds.add(sampleId)
+        }
 
         try {
             val assetManager = context.assets
@@ -177,18 +188,20 @@ class SoundManager private constructor(context: Context) {
         if (police2StreamId != -1) soundPool?.setVolume(police2StreamId, 0.7f * sfxVolume, 0.7f * sfxVolume)
     }
 
+    // @Synchronized: SoundManager es singleton compartido por el mapa exterior (game loop, hilo
+    // Dispatchers.Default) Y los interiores (drivers en coroutines). Sin sincronizar, play/stop podían
+    // entrelazarse y dejar un loop sin parar ("siempre pasos"). Además solo se reproduce si el sample YA
+    // cargó (loadedSounds): elimina el reintento de play()=0 que generaba loops huérfanos. (2026-06-22)
+    @Synchronized
     fun playWalk() {
-        // FIX (2026-06-21): SoundPool.play() devuelve 0 si el sample AÚN NO terminó de cargar (la carga
-        // es ASÍNCRONA y no hay listener de "ready"). El guard viejo (== -1) latcheaba ese 0 y nunca
-        // reintentaba → al caminar al spawn (antes de que caminar.mpeg cargara) el sonido quedaba MUDO
-        // para siempre (el coche se salvaba porque conduces segundos después, ya cargado). Ahora solo
-        // guardamos un streamId VÁLIDO (>0) y reintentamos mientras play() devuelva 0.
+        if (walkSoundId <= 0 || walkSoundId !in loadedSounds) return
         if (walkStreamId <= 0) {
             val sid = soundPool?.play(walkSoundId, sfxVolume, sfxVolume, 1, -1, 1f) ?: 0
             if (sid > 0) walkStreamId = sid
         }
     }
 
+    @Synchronized
     fun stopWalk() {
         if (walkStreamId != -1) {
             soundPool?.stop(walkStreamId)
@@ -196,14 +209,16 @@ class SoundManager private constructor(context: Context) {
         }
     }
 
+    @Synchronized
     fun playRun() {
-        // Mismo fix que playWalk: solo latchea un streamId válido (>0); reintenta mientras play()=0.
+        if (runSoundId <= 0 || runSoundId !in loadedSounds) return
         if (runStreamId <= 0) {
             val sid = soundPool?.play(runSoundId, sfxVolume, sfxVolume, 1, -1, 1f) ?: 0
             if (sid > 0) runStreamId = sid
         }
     }
 
+    @Synchronized
     fun stopRun() {
         if (runStreamId != -1) {
             soundPool?.stop(runStreamId)
@@ -211,14 +226,16 @@ class SoundManager private constructor(context: Context) {
         }
     }
 
+    @Synchronized
     fun playCar() {
-        // Mismo fix que playWalk (robusto ante la carga async; el coche ya sonaba pero por coherencia).
+        if (carSoundId <= 0 || carSoundId !in loadedSounds) return
         if (carStreamId <= 0) {
             val sid = soundPool?.play(carSoundId, 0.5f * sfxVolume, 0.5f * sfxVolume, 1, -1, 1f) ?: 0
             if (sid > 0) carStreamId = sid
         }
     }
 
+    @Synchronized
     fun stopCar() {
         if (carStreamId != -1) {
             soundPool?.stop(carStreamId)

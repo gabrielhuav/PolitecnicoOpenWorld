@@ -218,6 +218,10 @@ data class MultiplayerNpc(id, x, y, rotation, npcType, ownerId, carModel, carCol
 
 - `WorldMapEscom.kt`: `spawnEscomDoors()`, `isInsideEscom(lat, lon)`, `spawnOustedDriver(carLocation)`
   (conductor desalojado al robar coche ocupado, aparece ~2 m).
+- **🆕 Estacionamiento compartido exterior↔lobby:** los nodos `isParkingSlot` de `escom_navgraph.json` (coords
+  locales 0-1) son la FUENTE ÚNICA: el exterior spawnea autos NPC ahí, y el **lobby interior** dibuja los mismos
+  autos como escenografía (`ParkedCarsLayer`, ver 05) vía `domain/models/map/CampusParkingCatalog`. Un solo JSON
+  para ambas vistas; expandible a otras universidades con una línea en el catálogo.
 - `WorldMapMisc.kt`: `startMovementAction(isMovingRight?)`, `startHealthBarTimer(delayMillis)`,
   `triggerWastedSequence()` (congela movimiento, fantasma alpha 0.3, respawn ~80 m del lugar de
   muerte **dentro de la zona ya cacheada**, snapeado a calle — sin teleport a ESCOM ni descarga).
@@ -304,7 +308,12 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
 
 ### Sprites (managers singleton, con `clearCaches()` — liberados en `onTrimMemory`)
 - `CharacterSpriteManager` — peatones ensamblados con tintado por píxel.
-- `VehicleSpriteManager` — 6 modelos × 48 frames de rotación.
+- `VehicleSpriteManager` — modelos de `CarModel`, base blanca tintada por píxel. 🆕 **Extensible:** cada
+  `CarModel` (en `domain/models/map/Npc.kt`) lleva `dirName/prefix/frameCount(=48)/tintable(=true)`. **Añadir un
+  vehículo = 1 línea en el enum + su carpeta de frames en `assets/SPRITES/VEHICLES/<dirName>/`** (`<prefix>000..0NN.webp`).
+  `tintable=false` = asset ya coloreado (se dibuja sin palette swap; ignora `carColor`). El NOMBRE del enum es el id
+  que viaja por red (`CarModel.valueOf`) y guardado: AÑADE libremente, NO renombres/elimines entradas. Los nuevos
+  modelos aparecen solos donde se itere `CarModel.entries` (tráfico `…random()`, estacionamiento del lobby).
 - `PoliceSpriteManager` — asset `VEHICLES/POLICE_TOPDOWN` sin repintar (48 frames). Cop = emoji 👮 vía
   `emojiToDrawable` en `WorldMapDrawingUtils.kt`.
 - **`nativeDrawableCache`** (declarado en `WorldMapScreen`, usado por `NativeOsmMap`) es un **LRU por

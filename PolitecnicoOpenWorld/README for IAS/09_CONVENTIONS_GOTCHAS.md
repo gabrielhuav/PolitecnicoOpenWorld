@@ -747,6 +747,13 @@ matrices por defecto son **border-only** hasta reemplazarse.
   del `SoundPool` por `sfxVolume` y reajusta los streams en loop con `setVolume`). `SoundManager.init` LEE
   el volumen del repo y lo aplica al arrancar; `MainActivity` lo empuja en vivo al cambiar el slider. Si
   añades un nuevo `play()`, multiplica su volumen por `sfxVolume` (si no, ese efecto ignora el slider).
+- **🆕 GOTCHA SoundPool — loops huérfanos ("siempre se escuchan pasos"):** `SoundPool.load()` es ASÍNCRONO.
+  Llamar `play()` con loop (`-1`) ANTES de que el sample cargue devuelve 0 y en algunos equipos deja un stream
+  en loop HUÉRFANO sin `streamId` capturado → `stopWalk()` no lo para nunca. Regla: lanza un loop SOLO cuando su
+  sample ya cargó (`setOnLoadCompleteListener` → `loadedSounds`; `playWalk/Run/Car` chequean `id in loadedSounds`).
+  Además `SoundManager` es SINGLETON compartido por el mapa exterior (game loop, `Dispatchers.Default`) y los
+  interiores (coroutines): `play`/`stop` de loops van **`@Synchronized`** para no entrelazarse. NO reintroduzcas
+  el "reintenta `play()` mientras devuelva 0" (eso causaba los huérfanos). Ver 07.
 - **🆕 TP entre salas = puerta↔puerta (`ZombieGameViewModel.goToRoom`):** al cambiar de sala se spawnea
   JUNTO a la puerta del cuarto DESTINO cuyo `targetRoomId == fromRoom.id` (no en el centro). Cubre la cadena
   ENCB (Continuar↔Regresar) y los vecinos de edificios. **⚠️ El spawn se DESPLAZA ~30% hacia el centro

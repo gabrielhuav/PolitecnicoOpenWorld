@@ -9,8 +9,10 @@ import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import kotlin.math.roundToInt
 
 object VehicleSpriteManager {
-    // Mapa para almacenar los frames base de cada modelo de vehículo
-    private val carFrames = CarModel.entries.associateWith { arrayOfNulls<Bitmap>(48) }
+    // Mapa para almacenar los frames base de cada modelo de vehículo.
+    // El tamaño del buffer es POR MODELO (carModel.frameCount), así un asset con otro
+    // número de frames de rotación funciona sin tocar este manager.
+    private val carFrames = CarModel.entries.associateWith { model -> arrayOfNulls<Bitmap>(model.frameCount) }
 
     // Cache key actualizada para incluir el CarModel
     private data class CacheKey(val frameIndex: Int, val colorInt: Int, val discretizedZoomStep: Int, val carModel: CarModel)
@@ -22,7 +24,9 @@ object VehicleSpriteManager {
     fun getTintedCarNpc(context: Context, headingAngle: Float, colorInt: Int, zoomScale: Float, carModel: CarModel): Drawable? {
         var angle = headingAngle % 360f
         if (angle < 0) angle += 360f
-        val frameIndex = (angle / 7.5f).roundToInt() % 48
+        // Frame de rotación según el nº de frames del MODELO (no fijo a 48): paso = 360/frameCount.
+        val frameCount = carModel.frameCount
+        val frameIndex = (angle / (360f / frameCount)).roundToInt() % frameCount
 
         val discretizedZoomStep = (zoomScale / 0.05f).roundToInt()
         val key = CacheKey(frameIndex, colorInt, discretizedZoomStep, carModel)
@@ -53,7 +57,14 @@ object VehicleSpriteManager {
         val finalHeight = (baseBitmap.height * zoomScale).roundToInt().coerceAtLeast(1)
         val scaledBitmap = Bitmap.createScaledBitmap(baseBitmap, finalWidth, finalHeight, false)
 
-        // --- MAGIA A NIVEL DE PÍXEL ---
+        // Assets PRE-COLOREADOS (tintable=false): se dibujan tal cual, sin palette swap (ignora colorInt).
+        if (!carModel.tintable) {
+            val result = BitmapDrawable(context.resources, scaledBitmap)
+            drawableCache.put(key, result)
+            return result
+        }
+
+        // --- MAGIA A NIVEL DE PÍXEL (solo modelos de base BLANCA repintable) ---
         val resultBitmap = Bitmap.createBitmap(finalWidth, finalHeight, Bitmap.Config.ARGB_8888)
         val pixels = IntArray(finalWidth * finalHeight)
         scaledBitmap.getPixels(pixels, 0, finalWidth, 0, 0, finalWidth, finalHeight)
