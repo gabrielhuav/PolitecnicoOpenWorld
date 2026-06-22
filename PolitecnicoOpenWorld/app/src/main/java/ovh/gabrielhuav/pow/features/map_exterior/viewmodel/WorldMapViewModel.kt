@@ -898,47 +898,10 @@ class WorldMapViewModel(
     // Cascada verificada: rebuildRoadNodeGrid gemelo IDÉNTICO; buildRoadGraph/isInsideEscom/spawnEscomItems
     // def única. NO toca la cadena de routing. (≠ par 2: aquí ningún gemelo de la cascada diverge.)
 
-    private fun updateVisibleRoads(playerLoc: GeoPoint, force: Boolean = false) {
-        // 🆕 ZONA LIBRE (ESCOM/ENCB): dentro de cualquiera de los dos campus NO se pintan las
-        // líneas de calles. Vaciamos el Flow de inmediato y SALTAMOS el filtro en Default (sin
-        // parpadeo/recarga). Al SALIR del perímetro, la condición falla y se repinta normal.
-        // ⚠️ Esta es la versión MIEMBRO (gana sobre la extensión homónima de WorldMapRoadNetwork.kt,
-        // gotcha del archivo 09): es la que realmente se ejecuta, por eso el check va AQUÍ.
-        if (isFreeMovementZone(playerLoc.latitude, playerLoc.longitude)) {
-            wasInFreeMovementZone = true
-            if (_roadNetworkFlow.value.isNotEmpty()) _roadNetworkFlow.value = emptyList()
-            return
-        }
-        // SALIDA de zona libre: en el primer tick fuera del campus FORZAMOS el repintado, porque
-        // el flow quedó vacío al entrar y el throttle por distancia lo suprimiría (el campus es
-        // pequeño → el jugador no se ha alejado del último punto pintado). Así las calles
-        // reaparecen al instante al pisar el mundo abierto.
-        val leftFreeZone = wasInFreeMovementZone
-        wasInFreeMovementZone = false
-        val effectiveForce = force || leftFreeZone
-
-        val lastUpdate = lastVisibleRoadUpdateLocation
-        if (!effectiveForce && lastUpdate != null) {
-            val dist = distance(playerLoc, lastUpdate)
-            if (dist < VISIBLE_ROAD_UPDATE_THRESHOLD) return
-        }
-        lastVisibleRoadUpdateLocation = GeoPoint(playerLoc.latitude, playerLoc.longitude)
-
-        viewModelScope.launch(Dispatchers.Default) {
-            val visible = roadNetwork.filter { way ->
-                way.nodes.any { node ->
-                    distance(playerLoc, GeoPoint(node.lat, node.lon)) <= VISIBLE_ROAD_RADIUS
-                }
-            }
-            // Anti-carrera: si para cuando termina el filtro el jugador YA está en zona libre,
-            // no repintamos (evita que una corutina lanzada en el borde reponga las líneas).
-            if (!isFreeMovementZone(playerLoc.latitude, playerLoc.longitude)) {
-                _roadNetworkFlow.value = visible
-            } else if (_roadNetworkFlow.value.isNotEmpty()) {
-                _roadNetworkFlow.value = emptyList()
-            }
-        }
-    }
+    // updateVisibleRoads(location, force) vive en WorldMapRoadNetwork.kt (de-dup 2026-06-21, par 6:
+    // miembro canónico movido a la extensión homónima, sincronizado: filtro circular + anti-carrera).
+    // Cascada verificada: distance/isFreeMovementZone son miembros internal únicos (sin gemelo); todos
+    // los call-sites son posicionales (el param se llama `location` en la extensión). (≠ par 2.)
 
     private fun handleMultiplayerMessage(messageJson: String) {
         try {

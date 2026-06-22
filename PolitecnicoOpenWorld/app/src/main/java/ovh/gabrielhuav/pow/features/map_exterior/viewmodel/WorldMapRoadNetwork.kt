@@ -57,41 +57,44 @@ import androidx.compose.runtime.setValue
 import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
 
 internal fun WorldMapViewModel.updateVisibleRoads(location: GeoPoint, force: Boolean = false) {
-        // 🆕 ZONA LIBRE (ESCOM o ENCB, regla visual simétrica al movimiento libre): dentro de
-        // cualquiera de los dos campus NO se pintan las líneas de calles transitables. Vaciamos
-        // el Flow de inmediato y SALTAMOS el filtro en Dispatchers.Default (evita parpadeo/recarga
-        // de las líneas amarillas de Overpass sobre el campus). Al SALIR del perímetro, la
-        // condición deja de cumplirse y la función recupera su comportamiento estándar.
+        // DE-DUP (2026-06-21, par 6): sincronizado al MIEMBRO canónico de WorldMapViewModel.kt antes de
+        // borrarlo. El miembro usaba filtro CIRCULAR (distance <= RADIO) + ANTI-CARRERA (re-chequea zona
+        // libre tras el filtro); esta extensión vieja usaba caja CUADRADA (abs<RADIO) sin anti-carrera y
+        // un guard extra (!showRoadNetwork || roadNetwork.isEmpty()) que el miembro NO tiene (con red vacía
+        // el filtro ya devuelve lista vacía). Param renombrado playerLoc→location (todos los call-sites son
+        // posicionales). Cascada SEGURA: distance/isFreeMovementZone son miembros internal únicos (sin gemelo).
+        // 🆕 ZONA LIBRE (ESCOM/ENCB): dentro del campus NO se pintan calles; vacía el Flow y SALTA el filtro.
         if (isFreeMovementZone(location.latitude, location.longitude)) {
             wasInFreeMovementZone = true
             if (_roadNetworkFlow.value.isNotEmpty()) _roadNetworkFlow.value = emptyList()
             return
         }
-        if (!_uiState.value.showRoadNetwork || roadNetwork.isEmpty()) {
-            wasInFreeMovementZone = false
-            if (_roadNetworkFlow.value.isNotEmpty()) _roadNetworkFlow.value = emptyList()
-            return
-        }
-        // SALIDA de zona libre: forzamos el repintado en el primer tick fuera del campus (el flow
-        // quedó vacío al entrar y el throttle por distancia lo suprimiría). Ver versión MIEMBRO.
+        // SALIDA de zona libre: en el primer tick fuera del campus FORZAMOS el repintado, porque el flow
+        // quedó vacío al entrar y el throttle por distancia lo suprimiría (campus pequeño). Así las calles
+        // reaparecen al instante al pisar el mundo abierto.
         val leftFreeZone = wasInFreeMovementZone
         wasInFreeMovementZone = false
         val effectiveForce = force || leftFreeZone
-        val lastLoc = lastVisibleRoadUpdateLocation
-        // Solo recalculamos si forzamos la actualización o si el jugador se movió lo suficiente (~200m)
-        if (effectiveForce || lastLoc == null || distance(lastLoc, location) > VISIBLE_ROAD_UPDATE_THRESHOLD) {
-            lastVisibleRoadUpdateLocation = location
-            // Ejecutamos el filtro en un hilo secundario para no trabar el Game Loop
-            viewModelScope.launch(Dispatchers.Default) {
-                val visibleWays = roadNetwork.filter { way ->
-                    // Una calle es visible si al menos uno de sus nodos está dentro del radio del jugador
-                    way.nodes.any { node ->
-                        abs(node.lat - location.latitude) < VISIBLE_ROAD_RADIUS &&
-                                abs(node.lon - location.longitude) < VISIBLE_ROAD_RADIUS
-                    }
+
+        val lastUpdate = lastVisibleRoadUpdateLocation
+        if (!effectiveForce && lastUpdate != null) {
+            val dist = distance(location, lastUpdate)
+            if (dist < VISIBLE_ROAD_UPDATE_THRESHOLD) return
+        }
+        lastVisibleRoadUpdateLocation = GeoPoint(location.latitude, location.longitude)
+
+        viewModelScope.launch(Dispatchers.Default) {
+            val visible = roadNetwork.filter { way ->
+                way.nodes.any { node ->
+                    distance(location, GeoPoint(node.lat, node.lon)) <= VISIBLE_ROAD_RADIUS
                 }
-                // Actualizamos el Flow que lee la UI (pasará de ~5,000 calles a solo ~100)
-                _roadNetworkFlow.value = visibleWays
+            }
+            // Anti-carrera: si al terminar el filtro el jugador YA está en zona libre, no repintamos
+            // (evita que una corutina lanzada en el borde reponga las líneas).
+            if (!isFreeMovementZone(location.latitude, location.longitude)) {
+                _roadNetworkFlow.value = visible
+            } else if (_roadNetworkFlow.value.isNotEmpty()) {
+                _roadNetworkFlow.value = emptyList()
             }
         }
     }
