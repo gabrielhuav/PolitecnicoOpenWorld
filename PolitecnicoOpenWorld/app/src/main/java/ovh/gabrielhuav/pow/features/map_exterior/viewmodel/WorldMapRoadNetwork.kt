@@ -136,6 +136,12 @@ internal suspend fun WorldMapViewModel.applyRoadNetwork(network: List<MapWay>, p
     }
 
 internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.util.GeoPoint) {
+        // DE-DUP (2026-06-21, par 5): sincronizado al MIEMBRO canónico de WorldMapViewModel.kt antes de
+        // borrarlo. El miembro DIVERGÍA: reconstruye TODOS los índices (rebuildRoadNodeGrid + buildRoadGraph
+        // = grid de routing + grafo A*) en vez de llamar updateVisibleRoads/spawnShineCTOMarker/
+        // prefetchCurrentZoneTiles (que hacía esta extensión vieja). Cascada verificada SEGURA:
+        // rebuildRoadNodeGrid es gemelo pero IDÉNTICO (miembro==ext); buildRoadGraph/isInsideEscom/
+        // spawnEscomItems son def única. NO toca la cadena de routing (no llama calculateRouteOnNetwork).
         val moved = if (lastNetworkFetchLocation != null)
             distance(lastNetworkFetchLocation!!, currentLoc) else Double.MAX_VALUE
         if (moved < REFETCH_DISTANCE_DEG) return
@@ -151,7 +157,10 @@ internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.
                 if (cached != null) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         roadNetwork = cached
-                        updateVisibleRoads(currentLoc, force = true)
+                        // Mantener TODOS los índices en sync con la red nueva (antes solo se
+                        // actualizaba la IA; el grid de routing y el grafo A* quedaban viejos).
+                        rebuildRoadNodeGrid(cached)
+                        buildRoadGraph(cached)
                         npcAiManager.updateRoadNetwork(cached)
                         lastNetworkFetchLocation = currentLoc
                         val inside = isInsideEscom(currentLoc.latitude, currentLoc.longitude)
@@ -160,8 +169,6 @@ internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.
                             spawnEscomItems(roadNetwork)
                         }
                         _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
-                        spawnShineCTOMarker()
-                        prefetchCurrentZoneTiles(currentLoc)
                     }
                 } else {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -173,12 +180,11 @@ internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.
                         roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             roadNetwork = network
-                            updateVisibleRoads(currentLoc, force = true)
+                            rebuildRoadNodeGrid(network)
+                            buildRoadGraph(network)
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
                             _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
-                            spawnShineCTOMarker()
-                            prefetchCurrentZoneTiles(currentLoc)
                         }
                     } else {
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {

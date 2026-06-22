@@ -238,10 +238,21 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
     }
 
 internal fun WorldMapViewModel.addRemoteEntity(remote: MultiplayerNpc) {
-        // Anti-duplicación: coche recién abordado por MÍ → ignorar reinserciones remotas
-        // (paridad con el miembro privado de WorldMapViewModel, que es el activo).
+        // DE-DUP (2026-06-21, par 4): sincronizado al MIEMBRO canónico de WorldMapViewModel.kt antes de
+        // borrarlo. El miembro REPLICA además rol de zombi + vida/estado de muerte (health/isDying/
+        // aggroUntil/zombieRole/maxHealth/screamUntil); esta extensión vieja NO lo hacía (los demás
+        // clientes no veían la barra de vida ni el rol de zombi remoto). Cascada segura: único call
+        // externo isCarTombstoned() es un miembro internal único (sin gemelo).
+        // Coche recién abordado por MÍ: ignorar reinserciones que lleguen del host remoto unos segundos.
         if (isCarTombstoned(remote.id)) return
         val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
+
+        // Rol de zombi replicado: el maxHealth se DERIVA del rol (no viaja por el cable).
+        val zRole = try {
+            remote.zombieRole?.let { ovh.gabrielhuav.pow.domain.models.map.ZombieRole.valueOf(it) }
+                ?: ovh.gabrielhuav.pow.domain.models.map.ZombieRole.NORMAL
+        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.map.ZombieRole.NORMAL }
+        val zMaxHealth = if (npcType == NpcType.ZOMBIE) NpcAiManager.maxHealthForRole(zRole) else 100f
 
         val cModel = try {
             remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.map.CarModel.valueOf(it) }
@@ -278,7 +289,15 @@ internal fun WorldMapViewModel.addRemoteEntity(remote: MultiplayerNpc) {
             carModel = cModel,
             carColor = cColor,
             visualConfig = visualConfig,
-            displayName = null
+            displayName = null,
+            // Vida replicada del host: así los demás clientes ven la barra de vida y el estado de
+            // muerte del NPC (atropellos/golpes) igual que el host.
+            health = remote.health ?: 100f,
+            isDying = remote.isDying ?: false,
+            aggroUntil = remote.aggroUntil ?: 0L,
+            zombieRole = zRole,
+            maxHealth = zMaxHealth,
+            screamUntil = remote.screamUntil ?: 0L
         )
     }
 

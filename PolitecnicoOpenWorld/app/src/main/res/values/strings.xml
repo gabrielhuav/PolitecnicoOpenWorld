@@ -323,7 +323,7 @@
     <string name="wm_mission_failed">MISIÓN\nFALLIDA</string>
     <string name="wm_retry_mission">REINTENTAR MISIÓN</string>
     <string name="wm_exit_to_menu">Salir al menú</string>
-    <string name="wm_tip_carjack">Presiona Y cerca de un auto para robarlo.</string>
+    <string name="wm_tip_carjack">Presiona Y cerca de un auto para subirte a el.</string>
     <string name="wm_opt_save_game">Guardar partida</string>
     <!-- ─── Widget de objetivo (campaña) ─── -->
     <string name="wm_objective_label">🎯 OBJETIVO</string>

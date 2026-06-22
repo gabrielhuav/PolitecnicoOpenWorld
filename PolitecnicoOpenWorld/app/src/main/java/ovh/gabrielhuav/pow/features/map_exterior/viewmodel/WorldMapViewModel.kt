@@ -893,67 +893,10 @@ class WorldMapViewModel(
     // DE-DUP: `applyRoadNetwork` ahora vive SOLO como extensión en WorldMapRoadNetwork.kt
     // (sincronizada al cuerpo de este miembro antes de borrarlo). Ver 09 §12.
 
-    private fun maybeRefetchRoadNetwork(currentLoc: org.osmdroid.util.GeoPoint) {
-        val moved = if (lastNetworkFetchLocation != null)
-            distance(lastNetworkFetchLocation!!, currentLoc) else Double.MAX_VALUE
-        if (moved < REFETCH_DISTANCE_DEG) return
-
-        val now = System.currentTimeMillis()
-        if (now - lastFetchAttemptMs < REFETCH_COOLDOWN_MS) return
-        if (!isFetchingNetwork.compareAndSet(false, true)) return
-        lastFetchAttemptMs = now
-
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val cached = roadNetworkCache.get(currentLoc.latitude, currentLoc.longitude)
-                if (cached != null) {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        roadNetwork = cached
-                        // Mantener TODOS los índices en sync con la red nueva (antes solo se
-                        // actualizaba la IA; el grid de routing y el grafo A* quedaban viejos).
-                        rebuildRoadNodeGrid(cached)
-                        buildRoadGraph(cached)
-                        npcAiManager.updateRoadNetwork(cached)
-                        lastNetworkFetchLocation = currentLoc
-                        val inside = isInsideEscom(currentLoc.latitude, currentLoc.longitude)
-                        if (inside && !_uiState.value.isZombieHandSpawned) {
-                            Log.d("DEBUG_ESCOM", "Red cargada tras teleport, spawneando...")
-                            spawnEscomItems(roadNetwork)
-                        }
-                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
-                    }
-                } else {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.NETWORK) }
-                    }
-                    val network = overpassRepository.fetchRoadNetwork(
-                        currentLoc.latitude, currentLoc.longitude)
-                    if (network.isNotEmpty()) {
-                        roadNetworkCache.put(currentLoc.latitude, currentLoc.longitude, network)
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            roadNetwork = network
-                            rebuildRoadNodeGrid(network)
-                            buildRoadGraph(network)
-                            npcAiManager.updateRoadNetwork(network)
-                            lastNetworkFetchLocation = currentLoc
-                            _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
-                        }
-                    } else {
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            _uiState.update { it.copy(isRoadNetworkReady = true) }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("WorldMapViewModel", "Error refetching road network", e)
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    _uiState.update { it.copy(isRoadNetworkReady = true) }
-                }
-            } finally {
-                isFetchingNetwork.set(false)
-            }
-        }
-    }
+    // maybeRefetchRoadNetwork(currentLoc) vive en WorldMapRoadNetwork.kt (de-dup 2026-06-21, par 5:
+    // miembro canónico movido a la extensión homónima, sincronizado: reconstruye grid+grafo A*).
+    // Cascada verificada: rebuildRoadNodeGrid gemelo IDÉNTICO; buildRoadGraph/isInsideEscom/spawnEscomItems
+    // def única. NO toca la cadena de routing. (≠ par 2: aquí ningún gemelo de la cascada diverge.)
 
     private fun updateVisibleRoads(playerLoc: GeoPoint, force: Boolean = false) {
         // 🆕 ZONA LIBRE (ESCOM/ENCB): dentro de cualquiera de los dos campus NO se pintan las
@@ -1163,65 +1106,9 @@ class WorldMapViewModel(
         }
     }
 
-    private fun addRemoteEntity(remote: MultiplayerNpc) {
-        // Coche recién abordado por MÍ: ignorar reinserciones que lleguen del host
-        // remoto durante unos segundos (anti-duplicación, ver boardedCarTombstones).
-        if (isCarTombstoned(remote.id)) return
-        val npcType = try { NpcType.valueOf(remote.npcType) } catch(e: Exception) { NpcType.PERSON }
-
-        // Rol de zombi replicado: el maxHealth se DERIVA del rol (no viaja por el cable).
-        val zRole = try {
-            remote.zombieRole?.let { ovh.gabrielhuav.pow.domain.models.map.ZombieRole.valueOf(it) }
-                ?: ovh.gabrielhuav.pow.domain.models.map.ZombieRole.NORMAL
-        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.map.ZombieRole.NORMAL }
-        val zMaxHealth = if (npcType == NpcType.ZOMBIE) NpcAiManager.maxHealthForRole(zRole) else 100f
-
-        val cModel = try {
-            remote.carModel?.let { ovh.gabrielhuav.pow.domain.models.map.CarModel.valueOf(it) }
-                ?: ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN
-        } catch (e: Exception) { ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN }
-        val cColor = remote.carColor ?: 0xFFFFFFFF.toInt()
-
-        val visualConfig = if (npcType == NpcType.PERSON) {
-            ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig(
-                bodyFolder = "npc_walk_1",
-                bodyPrefix = "npc_walk_1_",
-                hairId = remote.hairId ?: 1,
-                hairColor  = remote.hairColor?.let  { androidx.compose.ui.graphics.Color(it) } ?: androidx.compose.ui.graphics.Color.White,
-                shirtColor = remote.shirtColor?.let { androidx.compose.ui.graphics.Color(it) } ?: androidx.compose.ui.graphics.Color.LightGray,
-                pantsColor = remote.pantsColor?.let { androidx.compose.ui.graphics.Color(it) } ?: androidx.compose.ui.graphics.Color.DarkGray
-            )
-        } else null
-
-        val isMoving = npcType == NpcType.PERSON
-        val facingRight = cos(Math.toRadians(remote.rotation.toDouble())) >= 0
-
-        val restoredSpeed = if (npcType == NpcType.CAR) NpcAiManager.CAR_SPEED else NpcAiManager.PERSON_SPEED
-
-        remoteEntities[remote.id] = Npc(
-            id = remote.id,
-            type = npcType,
-            location = GeoPoint(remote.y, remote.x),
-            rotationAngle = remote.rotation,
-            speed = restoredSpeed,
-            isRemote = true,
-            isMoving = isMoving,
-            facingRight = facingRight,
-            ownerId = remote.ownerId,
-            carModel = cModel,
-            carColor = cColor,
-            visualConfig = visualConfig,
-            displayName = null,
-            // Vida replicada del host: así los demás clientes ven la barra de vida y el
-            // estado de muerte del NPC (atropellos/golpes) igual que el host.
-            health = remote.health ?: 100f,
-            isDying = remote.isDying ?: false,
-            aggroUntil = remote.aggroUntil ?: 0L,
-            zombieRole = zRole,
-            maxHealth = zMaxHealth,
-            screamUntil = remote.screamUntil ?: 0L
-        )
-    }
+    // addRemoteEntity(remote) vive en WorldMapMultiplayer.kt (de-dup 2026-06-21, par 4: miembro
+    // canónico movido a la extensión homónima, sincronizada con la replicación de zombi/vida).
+    // Cascada verificada: su único call externo, isCarTombstoned(), es un miembro internal único.
 
     // REFACTOR: updateNpcsState vive SOLO en WorldMapMultiplayer.kt (la extensión era
     // idéntica a la copia miembro que había aquí).

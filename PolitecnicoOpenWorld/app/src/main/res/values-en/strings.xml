@@ -321,7 +321,7 @@
     <string name="wm_mission_failed">MISSION\nFAILED</string>
     <string name="wm_retry_mission">RETRY MISSION</string>
     <string name="wm_exit_to_menu">Exit to menu</string>
-    <string name="wm_tip_carjack">Press Y near a car to steal it.</string>
+    <string name="wm_tip_carjack">Press Y near a car to enter.</string>
     <string name="wm_opt_save_game">Save game</string>
     <!-- ─── Objective widget (campaign) ─── -->
     <string name="wm_objective_label">🎯 OBJECTIVE</string>
