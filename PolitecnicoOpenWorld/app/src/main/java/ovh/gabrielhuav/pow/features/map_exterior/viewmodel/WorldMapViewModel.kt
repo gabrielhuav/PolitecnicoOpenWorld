@@ -1449,7 +1449,11 @@ class WorldMapViewModel(
             playerGeo.distanceToAsDouble(it.location)
         }
 
-        if (nearbyMetro != null && playerGeo.distanceToAsDouble(nearbyMetro.location) <= INTERACT_RADIUS_METERS) {
+        // Las estaciones usan una zona MÁS GRANDE (METRO_INTERACT_RADIUS_METERS, 60 m) que
+        // los coleccionables/puertas (15 m): el logo del metro a veces cae sobre un edificio
+        // inaccesible por calles (Overpass) y con snap-to-road no se podría pisar; con la zona
+        // amplia basta estar cerca en cualquier calle. Esta zona se dibuja en web y OSM nativo.
+        if (nearbyMetro != null && playerGeo.distanceToAsDouble(nearbyMetro.location) <= METRO_INTERACT_RADIUS_METERS) {
             if (_uiState.value.nearbyMetroStation?.name != nearbyMetro.name) {
                 _uiState.update { it.copy(nearbyMetroStation = nearbyMetro, nearbyCollectible = null) }
                 promptJob?.cancel()
@@ -1472,7 +1476,8 @@ class WorldMapViewModel(
         val metrobusStations = _uiState.value.metrobusStations
         val nearbyMetrobus = metrobusStations.minByOrNull { playerGeo.distanceToAsDouble(it.location) }
 
-        if (nearbyMetrobus != null && playerGeo.distanceToAsDouble(nearbyMetrobus.location) <= INTERACT_RADIUS_METERS) {
+        // Metrobús: misma zona ampliada que el metro (mismo problema de logo inaccesible).
+        if (nearbyMetrobus != null && playerGeo.distanceToAsDouble(nearbyMetrobus.location) <= METRO_INTERACT_RADIUS_METERS) {
             if (_uiState.value.nearbyMetrobusStation?.name != nearbyMetrobus.name) {
                 _uiState.update { it.copy(nearbyMetrobusStation = nearbyMetrobus, nearbyCollectible = null) }
                 promptJob?.cancel()

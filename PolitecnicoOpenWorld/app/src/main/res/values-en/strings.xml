@@ -146,6 +146,9 @@
     <string name="wm_tp_title">Teleportation Points</string>
     <string name="wm_tp_subtitle">Select your statue or destination:</string>
     <string name="wm_tp_gps">📍 Go to your Location (GPS)</string>
+    <string name="wm_tp_metro_header">🚇 Metro Stations</string>
+    <string name="wm_tp_metro_search">Search metro station…</string>
+    <string name="wm_tp_metro_empty">No stations loaded yet.</string>
     <string name="wm_exit_apocalypse">EXIT APOCALYPSE</string>
     <string name="wm_chip_streets">Streets</string>
     <string name="wm_chip_loading">Loading...</string>
@@ -375,7 +378,9 @@
     <string name="cd_key">Key</string>
     <string name="cd_player_remote">Remote player</string>
     <string name="zhud_inv_empty">Empty. Find and pick up a key.</string>
-    <string name="zhud_inv_has_key">Key stored. Try it on the forward door (→).</string>
+    <string name="zhud_inv_has_key">Key stored. Test it in Lab 2; long-press the key to discard it.</string>
+    <string name="zhud_inv_test">Test</string>
+    <string name="zhud_inv_discard">Discard</string>
     <string name="zgame_key_prompt">🔑 There\'s a key — press ACTION to inspect it</string>
     <string name="zgame_objective_investigate">Objective: Investigate what happened</string>
     <!-- ─── Save/load dialogs (MainActivity) ─── -->

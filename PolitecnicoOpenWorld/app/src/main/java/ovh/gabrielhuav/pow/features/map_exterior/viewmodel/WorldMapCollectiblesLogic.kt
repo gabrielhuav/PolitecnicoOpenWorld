@@ -102,7 +102,10 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
             playerGeo.distanceToAsDouble(it.location)
         }
         
-        if (nearbyMetro != null && playerGeo.distanceToAsDouble(nearbyMetro.location) <= INTERACT_RADIUS_METERS) {
+        // Estaciones = zona ampliada (60 m); ver METRO_INTERACT_RADIUS_METERS. NOTA: este
+        // archivo es la EXTENSIÓN gemela MUERTA (gana el miembro de WorldMapViewModel.kt);
+        // se mantiene en sync por la convención del proyecto (09 §12).
+        if (nearbyMetro != null && playerGeo.distanceToAsDouble(nearbyMetro.location) <= METRO_INTERACT_RADIUS_METERS) {
             if (_uiState.value.nearbyMetroStation?.name != nearbyMetro.name) {
                 _uiState.update { it.copy(nearbyMetroStation = nearbyMetro, nearbyCollectible = null) }
                 promptJob?.cancel()

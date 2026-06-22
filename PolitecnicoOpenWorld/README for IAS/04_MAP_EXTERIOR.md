@@ -112,7 +112,12 @@ data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
   destinationArrivalThreshold=20.0`.
 - **Zombi/interiores:** `showZombiVideo, isZombieHandSpawned, pendingInteriorDestination`.
 - **Transiciones:** `showEscomDoorFade, escomDoorFadeComplete, pendingDoorDestination, showShineCTODiscovery`.
-- **Metro:** `metroStations, nearbyMetroStation, showMetroFade, metroFadeCompleteStation`.
+- **Metro:** `metroStations, nearbyMetroStation, showMetroFade, metroFadeCompleteStation`. **🆕 Zona de
+  interacción ampliada:** la proximidad usa `METRO_INTERACT_RADIUS_METERS=60.0` (constante de nivel de archivo
+  en `WorldMapState.kt`; 4× los 15 m de coleccionables/puertas) para metro **y metrobús**, porque el logo de
+  Overpass a veces cae sobre un edificio inaccesible por calle y con snap-to-road no se podía pisar. Esa zona
+  se **DIBUJA** (círculo naranja translúcido) en **web** (`updateMetro`, `L.circle`) y **OSM nativo**
+  (`Polygon.pointsAsCircle`, tag `route_overlay_tag+600`, culleada por viewport, bajo el icono). Google nativo = pendiente.
 - **Prefetch offline (solo OSM nativo):** `zonePrefetchActive, zonePrefetchProgress, zoneOfflineReady, zoneOfflineWarning`.
 - **Creador de rutas:** `routeDebugWaypoints, isParkingSlotMode, currentWayId(=100)`.
 
@@ -237,7 +242,9 @@ data class MultiplayerNpc(id, x, y, rotation, npcType, ownerId, carModel, carCol
 (`zoomIn/zoomOut/onMapZoomChanged/zoomToPlayer`), cámara (`centerOnPlayer/onMapPanStart/onMapPanEnd`),
 landmarks (`addLandmarkAtPlayer/move/rotate/scaleX/scaleY/deleteSelectedLandmark/save +
 export/importLandmarksToUri/FromUri`), `toggleDesignerMode/showAssetPicker/selectLandmark`,
-teleport (`teleportTo(lat,lon)`, `teleportToMetroStation(name)`, `toggleTeleportMenu`),
+teleport (`teleportTo(lat,lon)`, `teleportToMetroStation(name)`, `toggleTeleportMenu`; 🆕 el diálogo de
+**Puntos de Teletransporte** —en `WorldMapScreen`, solo Modo Desarrollador— lista TODAS las estaciones de
+`metroStations` con un buscador → `teleportToMetroStation`, porque llegar a pie es complicado),
 `takeDamage(amount)`, `heal(amount)`, `onClaimCollectiblePressed`, widgets (`toggleCacheWidget/FpsWidget`).
 
 > **`onInteractButtonPressed` (botón Y, MIEMBRO):** sube/baja del coche. Si no hay coche civil (CAR) en
@@ -288,6 +295,10 @@ usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Can
   en `WorldMapLeafletHtml` (img fija ~26 px vía `file:///android_asset/`, push con guarda desde
   `WorldMapScreen`, `lastWebMetroHolder` + heartbeat); **Google nativo** = `Marker` 24 dp con
   `BitmapDescriptor` cacheado. Tamaño FIJO en pantalla (no metros), como los demás POIs de metro.
+  **🆕 Zona de interacción visible (60 m):** además del icono, web (`metroZones`/`L.circle` en `updateMetro`) y
+  OSM nativo (`metroZoneCache`/`Polygon.pointsAsCircle`, tag `+600`) dibujan un **círculo naranja translúcido**
+  del tamaño de `METRO_INTERACT_RADIUS_METERS` bajo el logo, para que se vea desde dónde se puede entrar aunque
+  la estación caiga sobre un edificio inaccesible por calles. Google nativo = pendiente.
 - Patrulla 🚓 fuera de la fog: marcador + línea de ruta (cachés recordadas, **NO** view tags — añadir
   `R.id`s rompía un hack `id+100`/`id+400` y causaba `ClassCastException`).
 

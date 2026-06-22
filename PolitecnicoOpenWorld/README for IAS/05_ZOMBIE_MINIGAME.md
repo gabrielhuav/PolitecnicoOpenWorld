@@ -201,15 +201,25 @@ momentáneo; queda libre al estar quieto). **Y** mantenido 500 ms (`onSecondaryP
 **MENÚ COMBINADO**: arriba el MODO DE GOLPE (`selectCombatMode`, melee/ranged) y abajo el INVENTARIO;
 `dismissInventory()` cierra. (Ya NO hay menú de armas separado; `showWeaponMenu`/`onPrimary*` quedaron muertos.)
 
-**Puzzle de llave + inventario (ENCB_lab1) / key puzzle:** `spawnLab1Keys(room)` siembra 5 llaves
-ELIGIENDO celdas CAMINABLES (no `#`) directamente de `room.collisionMatrix` (la matriz `encb_lab1` de
-`assets/collision_matrices.json`; `CollisionMatrixRepository.readStore` ahora hace MERGE asset+local para
-que la matriz de fábrica SIEMPRE se cargue). `KeyDrop`, assets `CAMPAIGN/KEYS/`, correcta `LLave4.png`;
-`onInteract` RECOGE la
-llave cercana (`nearbyKeyId`) al inventario (`inventoryKeys`, 1 slot usable) y, en la puerta
-`EXIT_NEXT` de lab1, PRUEBA la del inventario (correcta → `lab1KeyFound=true` abre; incorrecta → se
-descarta). Render `KeyGroundItem` (suelo) / `InventoryKeyIcon` (slot, imagen real). Se GUARDA en
-`GameSaveData` (`inventoryKeys`/`lab1KeyFound`) vía `WorldMapViewModel.currentInteriorInventory/…Lab1KeyFound`.
+**Puzzle de llave + inventario (Misión 1, ENCB_lab1 → lab2) / key puzzle:** `spawnLab1Keys(room)` siembra 5
+llaves en **ENCB_lab1** ELIGIENDO celdas CAMINABLES (no `#`) de `room.collisionMatrix` (matriz `encb_lab1` de
+`assets/collision_matrices.json`; `CollisionMatrixRepository.readStore` hace MERGE asset+local). `KeyDrop`
+(assets `CAMPAIGN/KEYS/`, correcta `LLave4.png`, **campo `missionId`=`KeyDrop.MISSION_1`="mission1"**). **🆕 FLUJO
+(2026-06-22):** `onInteract` RECOGE la llave cercana (`nearbyKeyId`) al inventario (`inventoryKeys`, 1 slot). La
+puerta `EXIT_NEXT` de **lab1 es AVANCE LIBRE** (ya no prueba ahí). La PRUEBA es en **ENCB_lab2** desde el INVENTARIO
+(mantén Y): botón **Probar** → `testInventoryKey(entry)` solo "abre" en lab2 → correcta marca `lab1KeyFound=true`
+(se conserva la llave); incorrecta avisa. La puerta del fondo de lab2 (`EXIT_NEXT` → `EXIT_TO_STORY_OUTRO`, dispara
+la 2ª secuencia de cómic) está **GATEADA** (`onInteract` bloquea con aviso si `!lab1KeyFound`).
+**🆕 Inventario identificable por MISIÓN + reglas de UI (2026-06-22 PM):** cada entrada de `inventoryKeys` se
+guarda como **`"missionId|assetPath"`** (`KeyDrop.inventoryEntry/entryAsset/entryMission`; compat: sin `|` ⇒
+MISSION_1) → la llave es identificable por misión y eso **se persiste** en la partida (reuso de assets a futuro).
+**DESECHAR = MANTENER PULSADA la llave** en su slot (`detectTapGestures(onLongPress)` → `onDiscardKey(entry)`); ya
+NO hay botón Desechar. Regla (en `discardInventoryKey`): una llave **incorrecta** se desecha SIEMPRE; la
+**correcta** solo **DESPUÉS de usarla** para abrir la puerta (`lab1KeyFound`), antes NO. El botón **Probar**
+solo se muestra mientras `!lab1KeyFound`. El inventario se cierra con un **✕ en la esquina superior derecha**.
+Render `KeyGroundItem` (suelo) / `InventoryKeyIcon(entryAsset(...))` (slot). Se GUARDA en `GameSaveData`
+(`inventoryKeys`/`lab1KeyFound`) vía `WorldMapViewModel.currentInteriorInventory/…Lab1KeyFound` (`LaunchedEffect`
+en `ZombieGameScreen` → `onInteriorProgress` persiste CADA cambio).
 
 **Movimiento / UI:** `moveByAngle(angleRad)`, `moveDirection(direction)`, `applyMovement(...)`,
 `setRunning(running)`, `onInteract()`, `confirmExitToLobby/dismissExitToLobby`,

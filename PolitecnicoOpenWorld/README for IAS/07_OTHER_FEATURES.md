@@ -71,8 +71,9 @@ persisten el INVENTARIO y el progreso del puzzle de llave de ENCB_lab1 (puente
 (`assets/STORY/INTRO/IntroPOW1..8.webp`, imágenes **HORIZONTALES** → la pantalla **fuerza orientación
 landscape** mientras dura la intro vía `requestedOrientation` y la restaura al salir; `MainActivity` declara
 `configChanges` para que el giro no recree la Activity). Tienen un **recuadro blanco** donde el código dibuja
-el `text` de cada panel. Navegas tocando la mitad derecha (siguiente) / izquierda (anterior); **"Saltar"** salta toda la intro;
-en el último panel (IntroPOW8), tocar → **INICIAR**: guarda la partida, fija spawn ESCOM + objetivo, y
+el `text` de cada panel. Navegas tocando la mitad derecha (siguiente) / izquierda (anterior). **🆕 (2026-06-22) NO
+hay botón "Saltar"** (`story_intro_skip` quedó sin uso): el pill superior-derecha **solo aparece en el ÚLTIMO panel**
+como **INICIAR** (no se puede saltar el cómic; para avanzar se toca rápido). En el último panel (IntroPOW8), tocar → **INICIAR**: guarda la partida, fija spawn ESCOM + objetivo, y
 **transiciona al primer interior JUGABLE de la campaña: el Lobby de la ENCB** (ruta `encb_lobby`), en vez
 de ir directo al mundo. El lobby **reusa el motor de salas** (`ZombieGameScreen` con
 `startRoom=ZombieRoomCatalog.ENCB_LOBBY_ID`, ver 05): mismos controles/cámara/colisiones/aura que el lobby

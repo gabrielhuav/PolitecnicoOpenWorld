@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -71,6 +72,12 @@ internal fun PlayerHealthBarFixed(health: Float) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Fracción opaca de REFERENCIA para igualar el tamaño VISIBLE del personaje entre skins en los
+// interiores (cuerpo de "hombre"/"robot", walkBodyFraction ~0.61/0.62). Cada skin se reescala con
+// (REF / skin.walkBodyFraction) para que el cuerpo mida lo mismo: antes el interior dibujaba con
+// fillMaxSize y la chica (0.94) salía mucho más grande que hombre/robot. Ver PlayerSkin.walkBodyFraction.
+private const val INTERIOR_PLAYER_BODY_REF_FRACTION = 0.62f
+
 // PlayerView — recibe skin: PlayerSkin y usa sus paths y frame counts.
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
@@ -135,8 +142,21 @@ fun PlayerView(
     }
 
     Box(modifier = modifier.size(sizeDp).graphicsLayer { translationX = shake }, contentAlignment = Alignment.Center) {
-        if (image != null) {
-            Image(image!!, androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_player), modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (facingRight) 1f else -1f })
+        val img = image
+        if (img != null) {
+            // NORMALIZA EL TAMAÑO ENTRE SKINS: el cuerpo (contenido opaco) mide ~igual para todas.
+            // Antes se usaba fillMaxSize; como cada skin llena distinta fracción del lienzo
+            // (escomgirl 0.94 vs lázaro/robot ~0.61), la chica se veía MUCHO más grande. Reescalamos
+            // por la fracción opaca estática walkBodyFraction respecto a la de referencia (hombre/robot).
+            val ref = skin.walkBodyFraction.coerceIn(0.05f, 1f)
+            val hDp = sizeDp * (INTERIOR_PLAYER_BODY_REF_FRACTION / ref).coerceIn(0.5f, 3f)
+            val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
+            val wDp = hDp * aspect
+            Image(
+                img,
+                androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_player),
+                modifier = Modifier.requiredSize(wDp, hDp).graphicsLayer { scaleX = if (facingRight) 1f else -1f }
+            )
         } else {
             Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFFD91B5B)).border(2.dp, Color.White, CircleShape))
         }

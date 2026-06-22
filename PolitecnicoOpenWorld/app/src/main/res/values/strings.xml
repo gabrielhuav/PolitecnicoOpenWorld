@@ -148,6 +148,9 @@
     <string name="wm_tp_title">Puntos de Teletransporte</string>
     <string name="wm_tp_subtitle">Selecciona tu estatua o destino:</string>
     <string name="wm_tp_gps">📍 Ir a tu Ubicación (GPS)</string>
+    <string name="wm_tp_metro_header">🚇 Estaciones de Metro</string>
+    <string name="wm_tp_metro_search">Buscar estación de metro…</string>
+    <string name="wm_tp_metro_empty">No hay estaciones cargadas todavía.</string>
     <string name="wm_exit_apocalypse">SALIR DEL APOCALIPSIS</string>
     <string name="wm_chip_streets">Calles</string>
     <string name="wm_chip_loading">Cargando...</string>
@@ -377,7 +380,9 @@
     <string name="cd_key">Llave</string>
     <string name="cd_player_remote">Jugador remoto</string>
     <string name="zhud_inv_empty">Vacío. Busca y recoge una llave.</string>
-    <string name="zhud_inv_has_key">Llave guardada. Pruébala en la puerta de avance (→).</string>
+    <string name="zhud_inv_has_key">Llave guardada. Pruébala en el Lab 2; mantén pulsada la llave para desecharla.</string>
+    <string name="zhud_inv_test">Probar</string>
+    <string name="zhud_inv_discard">Desechar</string>
     <string name="zgame_key_prompt">🔑 Hay una llave — pulsa ACCIÓN para inspeccionarla</string>
     <string name="zgame_objective_investigate">Objetivo: Investiga qué pasó</string>
     <!-- ─── Diálogos de guardar/cargar (MainActivity) ─── -->

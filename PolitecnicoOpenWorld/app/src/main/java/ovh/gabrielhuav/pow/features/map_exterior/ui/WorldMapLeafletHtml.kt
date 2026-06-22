@@ -61,6 +61,8 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
         var collectibleMarkers = {};
         var landmarkMarkers = {};
         var metroMarkers = {};         // 🚇 icono del Metro CDMX en cada estación (estático)
+        var metroZones = {};           // 🟧 círculo de la ZONA de interacción (60 m) por estación
+        var METRO_INTERACT_RADIUS_M = 60;  // sync con METRO_INTERACT_RADIUS_METERS (WorldMapState.kt)
         var designerMarkers = {};      // ✏️ lápices de edición del Modo Diseñador (uno por landmark)
         var isDesignerMode = false;
         var selectedLandmarkId = null;
@@ -421,7 +423,25 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             for (var id in metroMarkers) {
                 if (!currentIds.has(id)) { map.removeLayer(metroMarkers[id]); delete metroMarkers[id]; }
             }
+            // Limpia también los círculos de zona de estaciones que ya no están en la lista.
+            for (var zid in metroZones) {
+                if (!currentIds.has(zid)) { map.removeLayer(metroZones[zid]); delete metroZones[zid]; }
+            }
             data.forEach(function(s) {
+                // 🟧 ZONA de interacción: círculo de 60 m alrededor del logo. Hace VISIBLE el
+                // área donde el jugador puede entrar aunque la estación caiga sobre un edificio
+                // inaccesible por calles. No interactivo (no roba clics al mapa). Va DEBAJO del
+                // icono (se añade primero, zIndex menor).
+                if (!metroZones[s.name]) {
+                    metroZones[s.name] = L.circle([s.lat, s.lng], {
+                        radius: METRO_INTERACT_RADIUS_M,
+                        interactive: false,
+                        color: '#FF6F00', weight: 2, opacity: 0.85,
+                        fillColor: '#FF9800', fillOpacity: 0.15
+                    }).addTo(map);
+                } else {
+                    metroZones[s.name].setLatLng([s.lat, s.lng]);
+                }
                 if (metroMarkers[s.name]) { metroMarkers[s.name].setLatLng([s.lat, s.lng]); return; }
                 var sz = 26;
                 var html = '<img src="file:///android_asset/TRANSIT/METRO/icon.webp" ' +

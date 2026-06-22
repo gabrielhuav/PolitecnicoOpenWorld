@@ -21,6 +21,15 @@ const val ZOOM_ON_FOOT      = 22.0  // a pie (default)
 const val ZOOM_DRIVING      = 21.0  // conduciendo
 const val ZOOM_DRIVING_FAST = 20.0  // conduciendo MUY rápido (≥85% de MAX_SPEED, histéresis al 65%)
 
+// ─── Zona de interacción de estaciones de transporte (metro/metrobús) ─────────
+// 60 m (4× los 15 m base de coleccionables/puertas). Las estaciones de metro.json
+// salen de Overpass y A VECES caen sobre un edificio que no es accesible por calle:
+// con snap-to-road el jugador nunca puede pisar el logo. Una zona amplia permite
+// entrar desde cualquier calle CERCANA aunque el logo sea inaccesible. Esta zona
+// se DIBUJA en el mapa (círculo) en web (Leaflet) y OSM nativo para que sea visible.
+// Si cambias el valor, sincroniza el círculo del web (WorldMapLeafletHtml.updateMetro).
+const val METRO_INTERACT_RADIUS_METERS = 60.0
+
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
     GOOGLE_MAPS_NATIVE("Google Maps (Nativo)"),

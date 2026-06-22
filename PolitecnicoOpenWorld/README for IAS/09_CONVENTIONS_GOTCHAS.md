@@ -213,6 +213,14 @@ mantener en sync al re-tunear: `NativeOsmMap` (nativo), `WorldMapLeafletHtml.upd
 px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo usa `uiState.zoomLevel`
 (NO `view.zoomLevelDouble`) para coincidir con el jugador. / Three sizing sources to keep in sync.
 
+> **🆕 Jugador en INTERIORES también normaliza por skin (2026-06-22):** `PlayerView`
+> (`interiores/core/ui/InteriorPlayerViews.kt`) dibujaba con `fillMaxSize()`, así que cada skin se veía de
+> distinto tamaño según cuánto llenara su lienzo (`escomgirl` 0.94 salía MUCHO más grande que
+> `lazaro`/`robot` ~0.61). Ahora reescala con `(INTERIOR_PLAYER_BODY_REF_FRACTION=0.62 / skin.walkBodyFraction)`
+> sobre `requiredSize` → el CUERPO mide igual para todas (referencia = hombre/robot). Si cambias
+> `PlayerSkin.walkBodyFraction`, esto se ajusta solo. La usan los 3 sitios de jugador local en interiores
+> (salas zombi, ESCOM simple, ShineCTO); `RemotePlayerView` ya fija `LAZARO`.
+
 ## 6. Rendimiento gama baja (≤2 GB / Android 7–9) — NO regresar / low-end perf — do NOT regress
 
 - **`nativeDrawableCache`** (en `WorldMapScreen`, usado por `NativeOsmMap`) es **LRU por orden de acceso**
@@ -309,6 +317,13 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
+- **🆕 Zona de interacción del metro/metrobús (`METRO_INTERACT_RADIUS_METERS=60.0`):** constante de nivel de
+  archivo en `WorldMapState.kt`. La detección de proximidad vive en `checkCollectibleProximity`, que es un
+  **gemelo miembro (WorldMapViewModel.kt, GANA) + extensión muerta (WorldMapCollectiblesLogic.kt)** → al
+  cambiar el radio se editaron **AMBOS** por convención. El valor se DIBUJA como círculo: web hardcodea
+  `METRO_INTERACT_RADIUS_M=60` en `WorldMapLeafletHtml.updateMetro` (mantener en sync con la constante Kotlin),
+  OSM nativo lee la constante (`Polygon.pointsAsCircle`, tag `route_overlay_tag+600`). Antes todo usaba
+  `INTERACT_RADIUS_METERS=15` (sigue para coleccionables/puertas).
 - Room **v8** con `MIGRATION_7_8` + destructive fallback. Cambio de esquema → nueva migración + bump.
 - Prefs vía `SettingsRepository` (SharedPreferences), no Room.
 - Menú de opciones anidado (`OptionsMenu`): grupos *o* items a cualquier profundidad; height-capped

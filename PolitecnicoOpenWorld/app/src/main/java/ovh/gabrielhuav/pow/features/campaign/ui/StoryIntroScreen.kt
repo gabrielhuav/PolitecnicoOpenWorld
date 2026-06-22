@@ -348,7 +348,11 @@ fun StoryIntroScreen(
                 }
             }
             Box(modifier = Modifier.weight(1f))
-            PillButton(if (isLast) stringResource(R.string.story_intro_start) else stringResource(R.string.story_intro_skip), Color(0xAA8C2A2A)) { onBegin() }
+            // YA NO hay botón "Saltar": para avanzar, toca el lado derecho (cambia de viñeta).
+            // Solo el ÚLTIMO panel muestra "INICIAR" para entrar al juego (no se puede saltar el cómic).
+            if (isLast) {
+                PillButton(stringResource(R.string.story_intro_start), Color(0xAA8C2A2A)) { onBegin() }
+            }
         }
 
         // Panel del EDITOR (solo en modo edicion). Es ARRASTRABLE (asa superior) para que no

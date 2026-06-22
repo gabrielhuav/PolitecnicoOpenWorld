@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.tween
@@ -184,6 +185,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // EDGE-TO-EDGE (Play Console / Android 15+): con targetSdk 35+ el sistema fuerza el dibujo
+        // de borde a borde. Llamarlo aquí lo activa de forma CONSISTENTE en TODAS las versiones de
+        // Android (no solo 15+) y resuelve el aviso "la pantalla de borde a borde puede no mostrarse
+        // para todos los usuarios". Las pantallas Compose ya respetan las barras con systemBarsPadding().
+        enableEdgeToEdge()
         configureOsmdroid()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         checkPermissionsAndFetchLocation()
