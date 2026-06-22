@@ -105,6 +105,14 @@ internal fun WorldMapViewModel.isMission2ChaseActive(): Boolean {
     return obj.id == MissionCatalog.INGRESAR_ESCOM.id && !_uiState.value.objectiveDone
 }
 
+internal fun WorldMapViewModel.isMission3ChaseActive(): Boolean {
+    if (!inCampaign) return false
+    val obj = _uiState.value.currentObjective ?: return false
+    return (obj.id == MissionCatalog.SALIR_ESCOM.id ||
+            obj.id == MissionCatalog.IR_PLAZA_TORRES.id ||
+            obj.id == MissionCatalog.BUSCAR_AYUDA_POLICIA.id) && !_uiState.value.objectiveDone
+}
+
 // ── MISIÓN 1: escolta (2 policías que te siguen a distancia, despacio) ──
 internal fun WorldMapViewModel.runCampaignEscortTick(playerLoc: GeoPoint) {
     val snap = roadSnap(playerLoc)
@@ -132,6 +140,28 @@ internal fun WorldMapViewModel.runCampaignEscortTick(playerLoc: GeoPoint) {
         }
     }
     if (_uiState.value.wantedLevel != 1) _uiState.update { it.copy(wantedLevel = 1) }
+    updateNpcsState()
+}
+
+// ── MISIÓN 3: persecución (4 policías) tras investigar la ESCOM ──
+internal fun WorldMapViewModel.runMission3Tick(playerLoc: GeoPoint) {
+    val snap = roadSnap(playerLoc)
+    if (!mission3ChaseActivated) {
+        mission3ChaseActivated = true
+        // Spawnea 4 policías en círculo alrededor de la última ubicación del jugador
+        campaignEscortPolice.spawnChase(
+            4, playerLoc.latitude, playerLoc.longitude, snap
+        )
+        android.util.Log.d("POW_DBG", "Misión 3: spawnChase de 4 policías desde (${playerLoc.latitude},${playerLoc.longitude})")
+    }
+    // Persiguen al jugador
+    campaignEscortPolice.tick(
+        playerLat = playerLoc.latitude, playerLon = playerLoc.longitude,
+        targetLat = playerLoc.latitude, targetLon = playerLoc.longitude,
+        now = System.currentTimeMillis(), snap = snap,
+        pathfind = { from, to -> findRoadRoute(from, to) }
+    )
+    if (_uiState.value.wantedLevel != 2) _uiState.update { it.copy(wantedLevel = 2) }
     updateNpcsState()
 }
 
@@ -350,6 +380,7 @@ internal fun WorldMapViewModel.clearCampaignPolice() {
     val had = campaignEscortPolice.isActive() || mission2Crowd.isNotEmpty()
     campaignPoliceActivated = false
     mission2ChaseActivated = false
+    mission3ChaseActivated = false
     mission2PrankedyEntered = false
     mission2PrankedyExitPoint = null
     campaignEscortPolice.clear()

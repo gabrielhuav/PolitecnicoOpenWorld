@@ -15,6 +15,9 @@ object MissionCatalog {
     val ESCOLTAR_PRANKEDY = Mission1.ESCOLTAR_PRANKEDY
     val INGRESAR_ESCOM = Mission1.INGRESAR_ESCOM
     val BUSCAR_PISTAS_ESCOM = Mission1.BUSCAR_PISTAS_ESCOM
+    val SALIR_ESCOM = Mission1.SALIR_ESCOM
+    val IR_PLAZA_TORRES = Mission1.IR_PLAZA_TORRES
+    val BUSCAR_AYUDA_POLICIA = Mission1.BUSCAR_AYUDA_POLICIA
 
     // ── Re-exposición de constantes (deben seguir siendo const: hay call-sites que las usan
     //    para inicializar otros `const val`, p. ej. WorldMapPrankedy.ESCOM_LAT) ──

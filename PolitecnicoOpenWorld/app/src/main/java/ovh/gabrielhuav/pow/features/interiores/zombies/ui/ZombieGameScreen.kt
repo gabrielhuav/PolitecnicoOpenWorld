@@ -139,7 +139,8 @@ fun ZombieGameScreen(
     // progreso de ENCB_lab1) y callback para PERSISTIRLO (lo escribe MainActivity en el VM del mundo).
     initialInventoryKeys: List<String> = emptyList(),
     initialLab1KeyFound: Boolean = false,
-    onInteriorProgress: (List<String>, Boolean) -> Unit = { _, _ -> }
+    onInteriorProgress: (List<String>, Boolean) -> Unit = { _, _ -> },
+    onInvestigateComplete: () -> Unit = {}
 ) {
     val context = LocalContext.current
     // Modo Desarrollador: si está APAGADO se ocultan botones de prueba (Diseñador, y "Salir al mapa"
@@ -147,7 +148,15 @@ fun ZombieGameScreen(
     val developerMode = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getDeveloperMode() }
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
     val viewModel: ZombieInteriorViewModel = viewModel(
-        factory = ZombieInteriorViewModel.Factory(context, serverUrl, playerName, startRoomId, initialInventoryKeys, initialLab1KeyFound)
+        factory = ZombieInteriorViewModel.Factory(
+            context,
+            serverUrl,
+            playerName,
+            startRoomId,
+            initialInventoryKeys,
+            initialLab1KeyFound,
+            interiorObjective?.id
+        )
     )
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current
@@ -156,6 +165,12 @@ fun ZombieGameScreen(
     // mundo (vía MainActivity) para que el guardado lo capture.
     LaunchedEffect(state.inventoryKeys, state.lab1KeyFound) {
         onInteriorProgress(state.inventoryKeys, state.lab1KeyFound)
+    }
+
+    LaunchedEffect(state.isInvestigationComplete) {
+        if (state.isInvestigationComplete) {
+            onInvestigateComplete()
+        }
     }
 
     // Export/Import del JSON de matrices (igual que el mapa principal con landmarks).
@@ -638,13 +653,18 @@ fun ZombieGameScreen(
             // Mismo widget que el mapa exterior, anclado arriba-centro. Sin distancia
             // (playerLocation=null) → muestra la descripción del objetivo.
             interiorObjective?.let { obj ->
+                val displayObj = if (obj.id == "buscar_pistas_escom") {
+                    obj.copy(description = "${obj.description}\nPasos: ${state.investigationSteps.toInt()}/250")
+                } else {
+                    obj
+                }
                 Box(
                     Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
                     Alignment.TopCenter
                 ) {
                     ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
-                        objective = obj,
-                        done = false,
+                        objective = displayObj,
+                        done = state.isInvestigationComplete && obj.id == "buscar_pistas_escom",
                         playerLocation = null
                     )
                 }

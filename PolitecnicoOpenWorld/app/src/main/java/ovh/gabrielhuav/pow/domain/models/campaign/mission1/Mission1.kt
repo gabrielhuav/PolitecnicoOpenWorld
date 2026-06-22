@@ -79,6 +79,45 @@ object Mission1 {
         arriveRadiusMeters = 0.0
     )
 
+    // Objetivo: Sal de la ESCOM (huyendo tras investigar)
+    val SALIR_ESCOM = CampaignObjective(
+        id = "salir_escom",
+        title = "Sal de la ESCOM",
+        description = "¡La policía se acerca! Sal del edificio de inmediato.",
+        targetLat = ESCOM_DOOR_LAT,
+        targetLon = ESCOM_DOOR_LON,
+        arriveRadiusMeters = 0.0
+    )
+
+    // Objetivo: Ir a la Plaza Torres (huir a un punto cercano)
+    val IR_PLAZA_TORRES = CampaignObjective(
+        id = "ir_plaza_torres",
+        title = "Ve a la Plaza Torres",
+        description = "Huye de la policía y dirígete a Plaza Torres.",
+        targetLat = 19.506750,
+        targetLon = -99.144139,
+        arriveRadiusMeters = 20.0
+    )
+
+    // Objetivo: Buscar ayuda para despistar a la policía (final del tramo)
+    val BUSCAR_AYUDA_POLICIA = CampaignObjective(
+        id = "buscar_ayuda_policia",
+        title = "Busca a alguien que te ayude a que la policía ya no te busque",
+        description = "Encuentra un contacto o refugio para despistar a la ley.",
+        targetLat = 19.506750,
+        targetLon = -99.144139,
+        arriveRadiusMeters = 0.0
+    )
+
     // Objetivos de la Misión 1 en orden.
-    val objectives: List<CampaignObjective> = listOf(IR_ENCB, ESCOLTAR_PRANKEDY, INGRESAR_ESCOM, BUSCAR_PISTAS_ESCOM)
+    val objectives: List<CampaignObjective> = listOf(
+        IR_ENCB,
+        ESCOLTAR_PRANKEDY,
+        INGRESAR_ESCOM,
+        BUSCAR_PISTAS_ESCOM,
+        SALIR_ESCOM,
+        IR_PLAZA_TORRES,
+        BUSCAR_AYUDA_POLICIA
+    )
 }
+

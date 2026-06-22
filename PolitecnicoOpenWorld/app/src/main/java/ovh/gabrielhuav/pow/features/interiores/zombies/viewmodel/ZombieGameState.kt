@@ -93,7 +93,11 @@ data class ZombieGameState(
     // ─── MODO DISEÑADOR DE WAYPOINTS (puertas) ─────────────
     val designerTarget: DesignerTarget = DesignerTarget.MATRIX,
     val designerDoors: List<ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor> = emptyList(),
-    val selectedDoorIndex: Int = -1
+    val selectedDoorIndex: Int = -1,
+
+    // ─── MODO HISTORIA: Investigar ESCOM ─────────────────
+    val investigationSteps: Float = 0f,
+    val isInvestigationComplete: Boolean = false
 )
 
 // DesignerTarget y CameraTransform se movieron a

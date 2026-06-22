@@ -89,6 +89,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusSta
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onShineCTODiscoveryConfirmed
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeNavigateToShineCTO
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeEscomDoorNavigation
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.getNearestPointOnNetwork
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
@@ -973,15 +974,25 @@ class MainActivity : ComponentActivity() {
                             // El objetivo exterior NO cambia (allá sigue "Ingresa a la ESCOM, Cumplido").
                             val interiorObjective = if (
                                 worldMapViewModel.inCampaign &&
-                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID &&
-                                wmState.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id &&
-                                wmState.objectiveDone
-                            ) ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.BUSCAR_PISTAS_ESCOM else null
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
+                            ) {
+                                val obj = wmState.currentObjective
+                                if (obj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.BUSCAR_PISTAS_ESCOM.id ||
+                                    obj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.SALIR_ESCOM.id) {
+                                    obj
+                                } else if (obj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id && wmState.objectiveDone) {
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.BUSCAR_PISTAS_ESCOM
+                                } else null
+                            } else null
                             ZombieGameScreen(
                                 onExitToWorld = {
                                     worldMapViewModel.currentInteriorRoomId = null
                                     ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(this@MainActivity).stopInvestigarMusic()
                                     navController.popBackStack("world_map", inclusive = false)
+                                    if (worldMapViewModel.inCampaign &&
+                                        worldMapViewModel.uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.SALIR_ESCOM.id) {
+                                        worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.IR_PLAZA_TORRES)
+                                    }
                                 },
                                 isMultiplayer = wmState.isMultiplayer,
                                 playerName = wmState.playerName,
@@ -1010,6 +1021,18 @@ class MainActivity : ComponentActivity() {
                                 onInteriorProgress = { keys, found ->
                                     worldMapViewModel.currentInteriorInventory = keys
                                     worldMapViewModel.currentInteriorLab1KeyFound = found
+                                },
+                                onInvestigateComplete = {
+                                    worldMapViewModel.setCampaignObjective(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.SALIR_ESCOM)
+                                    val doorLoc = org.osmdroid.util.GeoPoint(
+                                        ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOM_DOOR_LAT,
+                                        ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOM_DOOR_LON
+                                    )
+                                    worldMapViewModel.campaignEscortPolice.spawnChase(
+                                        4, doorLoc.latitude, doorLoc.longitude,
+                                        snap = { p -> if (worldMapViewModel.uiState.value.isRoadNetworkReady) worldMapViewModel.getNearestPointOnNetwork(p) else p }
+                                    )
+                                    worldMapViewModel.mission3ChaseActivated = true
                                 }
                             )
                         }

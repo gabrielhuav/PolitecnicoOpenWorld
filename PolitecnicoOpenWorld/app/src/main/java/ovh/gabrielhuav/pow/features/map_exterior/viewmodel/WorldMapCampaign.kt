@@ -31,6 +31,7 @@ fun WorldMapViewModel.setStorySpawn(lat: Double, lon: Double) {
     prankedyCompanionActivated = false  // re-arma el encendido del acompañante en la ENCB
     campaignPoliceActivated = false     // re-arma la policía de escolta de la Misión 1
     mission2ChaseActivated = false      // re-arma la persecución de la Misión 2
+    mission3ChaseActivated = false      // re-arma la persecución de la Misión 3
     campaignEscortPolice.clear()
     mission2Crowd.clear()
     npcWarmupCycles = 0          // re-arma el warm-up de NPCs del gate de carga

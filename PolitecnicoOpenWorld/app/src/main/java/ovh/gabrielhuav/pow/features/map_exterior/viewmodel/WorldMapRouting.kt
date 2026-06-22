@@ -83,7 +83,7 @@ internal fun WorldMapViewModel.candidates(loc: GeoPoint): List<Seg> {
         return if (res.isNotEmpty()) res.toList() else segs
     }
 
-internal fun WorldMapViewModel.getNearestPointOnNetwork(t: GeoPoint): GeoPoint {
+fun WorldMapViewModel.getNearestPointOnNetwork(t: GeoPoint): GeoPoint {
         // SINCRONIZADO con la versión que vivía como miembro en WorldMapViewModel (que era
         // la canónica): dentro de un landmark (rectángulo rotado) el movimiento es LIBRE.
         // Esta extensión es ahora la ÚNICA implementación (el miembro duplicado se eliminó).

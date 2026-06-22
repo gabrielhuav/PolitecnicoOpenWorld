@@ -53,11 +53,13 @@ class ZombieInteriorViewModel(
     internal val startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
     // Estado restaurado al CARGAR partida dentro de un interior: inventario y progreso de ENCB_lab1.
     internal val initialInventoryKeys: List<String> = emptyList(),
-    internal val initialLab1KeyFound: Boolean = false
+    internal val initialLab1KeyFound: Boolean = false,
+    internal val initialObjectiveId: String? = null
 ) : ViewModel() {
 
     internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(applicationContext)
     internal var lastZombieSoundMs = 0L
+    private var accumulatedMovementPixels = 0f
 
     internal val _state = MutableStateFlow(
         ZombieGameState(
@@ -752,7 +754,18 @@ class ZombieInteriorViewModel(
         else (_state.value.aimDirX to _state.value.aimDirY)
 
         idleJob?.cancel()
-        _state.update { it.copy(playerX = fx, playerY = fy, playerAction = action, isPlayerFacingRight = facing, aimDirX = adx, aimDirY = ady) }
+        if (initialObjectiveId == "buscar_pistas_escom" && !_state.value.isInvestigationComplete) {
+            accumulatedMovementPixels += mdist
+            val progressSteps = (accumulatedMovementPixels / 10f).coerceAtMost(250f)
+            if (accumulatedMovementPixels >= 2500f) {
+                _state.update { it.copy(playerX = fx, playerY = fy, playerAction = action, isPlayerFacingRight = facing, aimDirX = adx, aimDirY = ady, investigationSteps = 250f, isInvestigationComplete = true) }
+                soundManager.playMisionCumplida()
+            } else {
+                _state.update { it.copy(playerX = fx, playerY = fy, playerAction = action, isPlayerFacingRight = facing, aimDirX = adx, aimDirY = ady, investigationSteps = progressSteps) }
+            }
+        } else {
+            _state.update { it.copy(playerX = fx, playerY = fy, playerAction = action, isPlayerFacingRight = facing, aimDirX = adx, aimDirY = ady) }
+        }
         idleJob = viewModelScope.launch {
             delay(150)
             // Al DETENERte, vuelve a IDLE salvo que estés SOSTENIENDO el cuerpo a cuerpo (MELEE).
@@ -915,7 +928,8 @@ class ZombieInteriorViewModel(
         private val playerName: String,
         private val startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
         private val initialInventoryKeys: List<String> = emptyList(),
-        private val initialLab1KeyFound: Boolean = false
+        private val initialLab1KeyFound: Boolean = false,
+        private val initialObjectiveId: String? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -926,7 +940,8 @@ class ZombieInteriorViewModel(
                 playerName,
                 startRoomId,
                 initialInventoryKeys,
-                initialLab1KeyFound
+                initialLab1KeyFound,
+                initialObjectiveId
             ) as T
         }
     }

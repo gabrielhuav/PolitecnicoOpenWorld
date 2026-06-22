@@ -1,7 +1,10 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import android.content.Context
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.data.repository.GameSaveData
@@ -215,6 +218,13 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
         if (obj.id == MissionCatalog.ESCOLTAR_PRANKEDY.id) {
             android.util.Log.d("POW_DBG", "MISIÓN 1 (ESCOLTAR) CUMPLIDA → pendingMission2Intro=true (debe arrancar cómic + Misión 2)")
             _uiState.update { it.copy(pendingMission2Intro = true) }
+        }
+        if (obj.id == MissionCatalog.IR_PLAZA_TORRES.id) {
+            android.util.Log.d("POW_DBG", "Llegó a Plaza Torres! Cambiando objetivo a BUSCAR_AYUDA_POLICIA")
+            this.viewModelScope.launch {
+                delay(1000)
+                setCampaignObjective(MissionCatalog.BUSCAR_AYUDA_POLICIA)
+            }
         }
     }
 }
