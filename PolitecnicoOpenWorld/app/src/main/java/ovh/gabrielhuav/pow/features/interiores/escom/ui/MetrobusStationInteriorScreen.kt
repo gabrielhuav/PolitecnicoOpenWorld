@@ -307,7 +307,7 @@ fun MetrobusStationInteriorScreen(
             state.activeDoor?.let { door ->
                 Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
                     Text(
-                        text = "PRESIONA X PARA ${door.label.uppercase()}",
+                        text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_press_x_door, door.label.uppercase()),
                         color = Color.White,
                         fontWeight = FontWeight.Black,
                         fontSize = 15.sp,
@@ -345,11 +345,11 @@ fun MetrobusStationInteriorScreen(
                 onClick = { onExit(stationName) },
                 modifier = Modifier.background(Color.Black.copy(alpha = 0.6f), CircleShape)
             ) {
-                Icon(Icons.Default.ArrowBack, "Salir", tint = Color.White)
+                Icon(Icons.Default.ArrowBack, androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_exit), tint = Color.White)
             }
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "METROBÚS · $stationName".uppercase(),
+                text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_metrobus_header, stationName).uppercase(),
                 color = MB_RED,
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
@@ -368,7 +368,7 @@ fun MetrobusStationInteriorScreen(
                 .padding(12.dp)
                 .background(Color.White.copy(alpha = 0.85f), CircleShape)
         ) {
-            Icon(Icons.Default.Architecture, "Diseñador", tint = Color.Black)
+            Icon(Icons.Default.Architecture, androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer), tint = Color.Black)
         }
 
         // Toolbar Diseñador
@@ -450,59 +450,59 @@ private fun MetrobusDesignerToolbar(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            "DISEÑADOR METROBÚS · ${roomName.uppercase()}",
+            androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer_metrobus, roomName.uppercase()),
             color = MB_RED, fontWeight = FontWeight.Bold, fontSize = 12.sp
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            MbToolButton("MATRIZ", !isWaypoints, Color(0xFF3A86FF), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.MATRIX) }
-            MbToolButton("WAYPOINTS", isWaypoints, MB_RED, Modifier.weight(1f)) { onSelectTarget(DesignerTarget.WAYPOINTS) }
+            MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_matrix), !isWaypoints, Color(0xFF3A86FF), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.MATRIX) }
+            MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_waypoints), isWaypoints, MB_RED, Modifier.weight(1f)) { onSelectTarget(DesignerTarget.WAYPOINTS) }
         }
         Text(
             if (isWaypoints)
-                if (hasSelectedDoor) "Arrastra para mover la puerta seleccionada."
-                else "Toca una puerta para seleccionarla y arrástrala."
-            else "Toca o arrastra sobre la rejilla. Rojo = pared.",
+                if (hasSelectedDoor) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_drag_door)
+                else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_touch_door)
+            else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_grid_paint),
             color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp
         )
         if (isWaypoints && hasSelectedDoor) {
-            Text("TAMAÑO DEL WAYPOINT", color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_waypoint_size), color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                MbToolButton("ANCHO −", false, MB_RED, Modifier.weight(1f)) { onResizeWaypoint(-0.02f, 0f) }
-                MbToolButton("ANCHO +", false, MB_RED, Modifier.weight(1f)) { onResizeWaypoint(0.02f, 0f) }
-                MbToolButton("ALTO −", false, MB_RED, Modifier.weight(1f)) { onResizeWaypoint(0f, -0.02f) }
-                MbToolButton("ALTO +", false, MB_RED, Modifier.weight(1f)) { onResizeWaypoint(0f, 0.02f) }
+                MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_w_minus), false, MB_RED, Modifier.weight(1f)) { onResizeWaypoint(-0.02f, 0f) }
+                MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_w_plus), false, MB_RED, Modifier.weight(1f)) { onResizeWaypoint(0.02f, 0f) }
+                MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_h_minus), false, MB_RED, Modifier.weight(1f)) { onResizeWaypoint(0f, -0.02f) }
+                MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_h_plus), false, MB_RED, Modifier.weight(1f)) { onResizeWaypoint(0f, 0.02f) }
             }
         }
         if (!isWaypoints) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                MbToolButton("PARED", brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
-                MbToolButton("BORRAR", !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
+                MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_wall), brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
+                MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_erase), !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
             }
-            Text("TAMAÑO  $gridCols × $gridRows (col × fil)", color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_size_grid, gridCols, gridRows), color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                MbToolButton("COL −", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(-1, 0) }
-                MbToolButton("COL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(1, 0) }
-                MbToolButton("FIL −", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, -1) }
-                MbToolButton("FIL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
+                MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_col_minus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(-1, 0) }
+                MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_col_plus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(1, 0) }
+                MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_row_minus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, -1) }
+                MbToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_row_plus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(onClick = onSave, modifier = Modifier.weight(1f).height(40.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)), shape = RoundedCornerShape(8.dp)) {
-                Text(if (dirty) "GUARDAR*" else "GUARDAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(if (dirty) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save_unsaved) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             Button(onClick = onReset, modifier = Modifier.weight(1f).height(40.dp), colors = ButtonDefaults.buttonColors(containerColor = MB_RED), shape = RoundedCornerShape(8.dp)) {
-                Text("RESET", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_reset), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(onClick = onExport, modifier = Modifier.weight(1f).height(40.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)), shape = RoundedCornerShape(8.dp)) {
-                Text("EXPORTAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_export), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             Button(onClick = onImport, modifier = Modifier.weight(1f).height(40.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)), shape = RoundedCornerShape(8.dp)) {
-                Text("IMPORTAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_import), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             TextButton(onClick = onExit, modifier = Modifier.height(40.dp)) {
-                Text("SALIR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_exit), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -583,7 +583,7 @@ private fun MetrobusPlayerSprite(state: MetrobusInteriorState) {
     if (img != null) {
         Image(
             bitmap = img,
-            contentDescription = "Jugador Metrobús",
+            contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_metrobus_player),
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { scaleX = if (isFacingRight) 1f else -1f }

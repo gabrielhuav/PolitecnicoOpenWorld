@@ -90,7 +90,11 @@ internal fun WorldMapViewModel.isInsideEscom(lat: Double, lon: Double): Boolean 
 
 
 internal fun WorldMapViewModel.spawnOustedDriver(carLocation: GeoPoint) {
-        val offsetLoc = GeoPoint(carLocation.latitude + 0.00005, carLocation.longitude + 0.00005)
+        // DE-DUP (2026-06-21): sincronizado al MIEMBRO canónico de WorldMapViewModel.kt antes de
+        // eliminarlo. El miembro divergía: el conductor aparece más cerca (+0.00002 vs +0.00005) y
+        // REACCIONA según personalidad (trait/fear/aggro/llamar a la policía); la extensión vieja no.
+        // El conductor desalojado aparece JUNTO al coche (~2 m), como si se bajara por la puerta.
+        val offsetLoc = GeoPoint(carLocation.latitude + 0.00002, carLocation.longitude + 0.00002)
         val randomHairId = (1..5).random()
         val randomHairColor = listOf(
             androidx.compose.ui.graphics.Color.Black,
@@ -112,13 +116,24 @@ internal fun WorldMapViewModel.spawnOustedDriver(carLocation: GeoPoint) {
             shirtColor = randomShirtColor,
             pantsColor = androidx.compose.ui.graphics.Color.DarkGray
         )
+        // REACCIÓN AL ROBO según personalidad: el cobarde huye (estado de miedo), el
+        // agresivo te embiste (estado aggro) y el pasivo simplemente se aleja andando.
+        val trait = NpcAiManager.rollTrait()
+        val now = System.currentTimeMillis()
         val driver = Npc(
             id = UUID.randomUUID().toString(),
             type = NpcType.PERSON,
             location = offsetLoc,
             speed = NpcAiManager.PERSON_SPEED,
             isMoving = true,
-            visualConfig = visualConfig
+            visualConfig = visualConfig,
+            trait = trait,
+            fearUntil = if (trait == ovh.gabrielhuav.pow.domain.models.map.NpcTrait.COWARD) now + NpcAiManager.FEAR_DURATION_MS else 0L,
+            fearFromLat = carLocation.latitude,
+            fearFromLon = carLocation.longitude,
+            aggroUntil = if (trait == ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE) now + NpcAiManager.AGGRO_DURATION_MS else 0L,
+            // Llama a la policía unos segundos (muestra 📞 sobre su cabeza).
+            callingUntil = now + 4000L
         )
         remoteEntities[driver.id] = driver
     }

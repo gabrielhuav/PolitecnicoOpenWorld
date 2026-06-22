@@ -384,5 +384,32 @@
     <string name="save_dialog_load">Cargar partida</string>
     <string name="save_dialog_new_slot">Nueva partida · elige slot</string>
     <string name="save_toast_saved">Partida guardada (slot %1$s)</string>
+    <!-- ─── Transit metrobús (player-facing) ─── -->
+    <string name="cd_metrobus_map">Mapa del Metrobús</string>
+    <string name="int_metrobus_select_dest">SISTEMA METROBÚS · SELECCIONA TU DESTINO</string>
+    <string name="int_save_waypoints">Guardar Waypoints</string>
+    <string name="int_metrobus_select_station">Seleccionar Estación de Metrobús</string>
+    <string name="int_metrobus_header">METROBÚS · %1$s</string>
+    <string name="int_designer_metrobus">DISEÑADOR METROBÚS · %1$s</string>
+    <string name="cd_metrobus_player">Jugador Metrobús</string>
+    <!-- ─── Diseñador de matrices/waypoints (compartido metro/metrobús/zombi, Modo Desarrollador) ─── -->
+    <string name="int_designer">Diseñador</string>
+    <string name="int_grid_paint">Toca o arrastra sobre la rejilla. Rojo = pared.</string>
+    <string name="int_matrix">MATRIZ</string>
+    <string name="int_waypoints">WAYPOINTS</string>
+    <string name="int_wall">PARED</string>
+    <string name="int_erase">BORRAR</string>
+    <string name="int_save">GUARDAR</string>
+    <string name="int_w_minus">ANCHO −</string>
+    <string name="int_w_plus">ANCHO +</string>
+    <string name="int_h_minus">ALTO −</string>
+    <string name="int_h_plus">ALTO +</string>
+    <string name="int_col_minus">COL −</string>
+    <string name="int_col_plus">COL +</string>
+    <string name="int_row_minus">FIL −</string>
+    <string name="int_row_plus">FIL +</string>
+    <string name="int_move_handle">⠿ Mover (toca = recentrar)</string>
+    <string name="cd_zombie">Zombi</string>
+    <string name="zhud_inventory">INVENTARIO</string>
 
 </resources>

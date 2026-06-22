@@ -196,7 +196,7 @@ fun ZombieHud(
                     WeaponMenuButton(stringResource(R.string.zhud_mode_melee), state.combatMode == CombatMode.MELEE) { onSelectMode(CombatMode.MELEE) }
                     WeaponMenuButton(stringResource(R.string.zhud_mode_ranged), state.combatMode == CombatMode.RANGED) { onSelectMode(CombatMode.RANGED) }
                     // — Inventario —
-                    Text("INVENTARIO", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(stringResource(R.string.zhud_inventory), color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         val totalSlots = 4
                         val unlockedSlots = 1
@@ -373,7 +373,7 @@ fun ZombieView(
             }
         }
         if (frame != null) {
-            Image(frame, "Zombi", modifier = Modifier.fillMaxSize().graphicsLayer {
+            Image(frame, stringResource(R.string.cd_zombie), modifier = Modifier.fillMaxSize().graphicsLayer {
                 scaleX = if (facingRight) 1f else -1f
                 alpha = if (isDying) 0.35f else 1f
             })

@@ -1656,52 +1656,8 @@ class WorldMapViewModel(
     // exportLandmarksToUri / importLandmarksFromUri / saveSelectedLandmark viven en
     // WorldMapDesigner.kt (el estado escomNavGraph sigue aquí).
 
-    private fun spawnOustedDriver(carLocation: GeoPoint) {
-        // El conductor desalojado aparece JUNTO al coche (~2 m), como si se bajara por
-        // la puerta, en vez de a ~7 m de distancia (que se veía poco realista).
-        val offsetLoc = GeoPoint(carLocation.latitude + 0.00002, carLocation.longitude + 0.00002)
-        val randomHairId = (1..5).random()
-        val randomHairColor = listOf(
-            androidx.compose.ui.graphics.Color.Black,
-            androidx.compose.ui.graphics.Color.DarkGray,
-            androidx.compose.ui.graphics.Color(0xFF8B4513),
-            androidx.compose.ui.graphics.Color(0xFFDAA520)
-        ).random()
-        val randomShirtColor = listOf(
-            androidx.compose.ui.graphics.Color.White,
-            androidx.compose.ui.graphics.Color.Red,
-            androidx.compose.ui.graphics.Color.Blue,
-            androidx.compose.ui.graphics.Color.Green
-        ).random()
-        val visualConfig = ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig(
-            bodyFolder = "npc_walk_1",
-            bodyPrefix = "npc_walk_1_",
-            hairId = randomHairId,
-            hairColor = randomHairColor,
-            shirtColor = randomShirtColor,
-            pantsColor = androidx.compose.ui.graphics.Color.DarkGray
-        )
-        // REACCIÓN AL ROBO según personalidad: el cobarde huye (estado de miedo), el
-        // agresivo te embiste (estado aggro) y el pasivo simplemente se aleja andando.
-        val trait = NpcAiManager.rollTrait()
-        val now = System.currentTimeMillis()
-        val driver = Npc(
-            id = UUID.randomUUID().toString(),
-            type = NpcType.PERSON,
-            location = offsetLoc,
-            speed = NpcAiManager.PERSON_SPEED,
-            isMoving = true,
-            visualConfig = visualConfig,
-            trait = trait,
-            fearUntil = if (trait == ovh.gabrielhuav.pow.domain.models.map.NpcTrait.COWARD) now + NpcAiManager.FEAR_DURATION_MS else 0L,
-            fearFromLat = carLocation.latitude,
-            fearFromLon = carLocation.longitude,
-            aggroUntil = if (trait == ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE) now + NpcAiManager.AGGRO_DURATION_MS else 0L,
-            // Llama a la policía unos segundos (muestra 📞 sobre su cabeza).
-            callingUntil = now + 4000L
-        )
-        remoteEntities[driver.id] = driver
-    }
+    // spawnOustedDriver(carLocation) vive en WorldMapEscom.kt (de-dup 2026-06-21: el miembro
+    // canónico se movió a la extensión homónima, que estaba muerta/divergida y ya fue sincronizada).
 
 
     // ─── TELETRANSPORTE (gate TP + Metro/Metrobús) → WorldMapTeleport.kt ─────

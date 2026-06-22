@@ -390,7 +390,7 @@ fun MetroStationInteriorScreen(
                 onClick = { onExit(stationName) },
                 modifier = Modifier.background(Color.Black.copy(alpha = 0.6f), CircleShape)
             ) {
-                Icon(Icons.Default.ArrowBack, "Salir", tint = Color.White)
+                Icon(Icons.Default.ArrowBack, androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_exit), tint = Color.White)
             }
             Spacer(Modifier.width(8.dp))
             Text(
@@ -413,7 +413,7 @@ fun MetroStationInteriorScreen(
                 .padding(12.dp)
                 .background(Color.White.copy(alpha = 0.85f), CircleShape)
         ) {
-            Icon(Icons.Default.Architecture, "Diseñador", tint = Color.Black)
+            Icon(Icons.Default.Architecture, androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer), tint = Color.Black)
         }
 
         // --- TOOLBAR DISEÑADOR ---
@@ -506,14 +506,14 @@ private fun DesignerToolbar(
         )
         // Selector de objetivo: MATRIZ de colisión o WAYPOINTS (puertas).
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            ToolButton("MATRIZ", !isWaypoints, Color(0xFF3A86FF), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.MATRIX) }
-            ToolButton("WAYPOINTS", isWaypoints, Color(0xFFD4AF37), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.WAYPOINTS) }
+            ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_matrix), !isWaypoints, Color(0xFF3A86FF), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.MATRIX) }
+            ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_waypoints), isWaypoints, Color(0xFFD4AF37), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.WAYPOINTS) }
         }
         Text(
             if (isWaypoints)
                 (if (hasSelectedDoor) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_drag_door)
                  else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_touch_door))
-            else "Toca o arrastra sobre la rejilla. Rojo = pared.",
+            else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_grid_paint),
             color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp
         )
             if (isWaypoints && hasSelectedDoor) {
@@ -522,16 +522,16 @@ private fun DesignerToolbar(
                     color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    ToolButton("ANCHO −", false, Color(0xFFD4AF37), Modifier.weight(1f)) { onResizeWaypoint(-0.02f, 0f) }
-                    ToolButton("ANCHO +", false, Color(0xFFD4AF37), Modifier.weight(1f)) { onResizeWaypoint(0.02f, 0f) }
-                    ToolButton("ALTO −", false, Color(0xFFD4AF37), Modifier.weight(1f)) { onResizeWaypoint(0f, -0.02f) }
-                    ToolButton("ALTO +", false, Color(0xFFD4AF37), Modifier.weight(1f)) { onResizeWaypoint(0f, 0.02f) }
+                    ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_w_minus), false, Color(0xFFD4AF37), Modifier.weight(1f)) { onResizeWaypoint(-0.02f, 0f) }
+                    ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_w_plus), false, Color(0xFFD4AF37), Modifier.weight(1f)) { onResizeWaypoint(0.02f, 0f) }
+                    ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_h_minus), false, Color(0xFFD4AF37), Modifier.weight(1f)) { onResizeWaypoint(0f, -0.02f) }
+                    ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_h_plus), false, Color(0xFFD4AF37), Modifier.weight(1f)) { onResizeWaypoint(0f, 0.02f) }
                 }
             }
         if (!isWaypoints) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                ToolButton("PARED", brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
-                ToolButton("BORRAR", !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_wall), brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_erase), !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
             }
             // ─── TAMAÑO DE LA MATRIZ ───────────────────────────────
             Text(
@@ -539,10 +539,10 @@ private fun DesignerToolbar(
                 color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                ToolButton("COL −", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(-1, 0) }
-                ToolButton("COL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(1, 0) }
-                ToolButton("FIL −", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, -1) }
-                ToolButton("FIL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_col_minus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(-1, 0) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_col_plus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(1, 0) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_row_minus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, -1) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_row_plus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -551,7 +551,7 @@ private fun DesignerToolbar(
                 modifier = Modifier.weight(1f).height(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 shape = RoundedCornerShape(8.dp)
-            ) { Text(if (dirty) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save_unsaved) else "GUARDAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ) { Text(if (dirty) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save_unsaved) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             Button(
                 onClick = onReset,
                 modifier = Modifier.weight(1f).height(40.dp),

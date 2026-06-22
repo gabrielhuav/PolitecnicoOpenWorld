@@ -382,5 +382,32 @@
     <string name="save_dialog_load">Load game</string>
     <string name="save_dialog_new_slot">New game · choose slot</string>
     <string name="save_toast_saved">Game saved (slot %1$s)</string>
+    <!-- ─── Metrobus transit (player-facing) ─── -->
+    <string name="cd_metrobus_map">Metrobus map</string>
+    <string name="int_metrobus_select_dest">METROBUS SYSTEM · SELECT YOUR DESTINATION</string>
+    <string name="int_save_waypoints">Save Waypoints</string>
+    <string name="int_metrobus_select_station">Select Metrobus Station</string>
+    <string name="int_metrobus_header">METROBUS · %1$s</string>
+    <string name="int_designer_metrobus">METROBUS DESIGNER · %1$s</string>
+    <string name="cd_metrobus_player">Metrobus player</string>
+    <!-- ─── Matrix/waypoint designer (shared metro/metrobus/zombie, Developer Mode) ─── -->
+    <string name="int_designer">Designer</string>
+    <string name="int_grid_paint">Tap or drag on the grid. Red = wall.</string>
+    <string name="int_matrix">MATRIX</string>
+    <string name="int_waypoints">WAYPOINTS</string>
+    <string name="int_wall">WALL</string>
+    <string name="int_erase">ERASE</string>
+    <string name="int_save">SAVE</string>
+    <string name="int_w_minus">WIDTH −</string>
+    <string name="int_w_plus">WIDTH +</string>
+    <string name="int_h_minus">HEIGHT −</string>
+    <string name="int_h_plus">HEIGHT +</string>
+    <string name="int_col_minus">COL −</string>
+    <string name="int_col_plus">COL +</string>
+    <string name="int_row_minus">ROW −</string>
+    <string name="int_row_plus">ROW +</string>
+    <string name="int_move_handle">⠿ Move (tap = recenter)</string>
+    <string name="cd_zombie">Zombie</string>
+    <string name="zhud_inventory">INVENTORY</string>
 
 </resources>

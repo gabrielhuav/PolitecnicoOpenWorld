@@ -128,7 +128,7 @@ fun MetrobusMapOverlay(
                     ) {
                         Image(
                             bitmap = mapBitmap!!,
-                            contentDescription = "Mapa del Metrobús",
+                            contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_metrobus_map),
                             modifier = Modifier.fillMaxSize(),
                             contentScale = androidx.compose.ui.layout.ContentScale.FillBounds
                         )
@@ -224,7 +224,7 @@ fun MetrobusMapOverlay(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        text = "SISTEMA METROBÚS · SELECCIONA TU DESTINO",
+                        text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_metrobus_select_dest),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
@@ -247,14 +247,14 @@ fun MetrobusMapOverlay(
                     containerColor = if (state.mapDesignerMode) MB_RED else Color.DarkGray
                 )
             ) {
-                Text(if (state.mapDesignerMode) "Modo Diseñador" else "Editar Mapa", color = Color.White)
+                Text(if (state.mapDesignerMode) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer_mode) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_edit_map), color = Color.White)
             }
 
             IconButton(
                 onClick = { viewModel.closeMetrobusMap() },
                 modifier = Modifier.background(MB_RED_DARK, RoundedCornerShape(8.dp))
             ) {
-                Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = Color.White)
+                Icon(Icons.Default.Close, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_close), tint = Color.White)
             }
         }
 
@@ -284,21 +284,21 @@ fun MetrobusMapOverlay(
                     ) {
                         Icon(
                             imageVector = if (state.mapDesignerMoveMode) Icons.Default.PanTool else Icons.Default.TouchApp,
-                            contentDescription = if (state.mapDesignerMoveMode) "Bloquear Mapa" else "Mover Mapa",
+                            contentDescription = if (state.mapDesignerMoveMode) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_lock_map) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_move_map),
                             tint = Color.White
                         )
                     }
                     IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Añadir Estación", tint = Color.Green)
+                        Icon(Icons.Default.Add, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_add_station), tint = Color.Green)
                     }
                     IconButton(onClick = { viewModel.deleteSelectedGlobalWaypoint() }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red)
+                        Icon(Icons.Default.Delete, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_delete), tint = Color.Red)
                     }
                     IconButton(onClick = onImportGlobal) {
-                        Icon(Icons.Default.Upload, contentDescription = "Importar", tint = Color.Cyan)
+                        Icon(Icons.Default.Upload, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_import), tint = Color.Cyan)
                     }
                     IconButton(onClick = onExportGlobal) {
-                        Icon(Icons.Default.Download, contentDescription = "Exportar", tint = Color.Cyan)
+                        Icon(Icons.Default.Download, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_export), tint = Color.Cyan)
                     }
                 }
                 Button(
@@ -306,7 +306,7 @@ fun MetrobusMapOverlay(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = MB_RED)
                 ) {
-                    Text("Guardar Waypoints")
+                    Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save_waypoints))
                 }
             }
 
@@ -342,7 +342,7 @@ private fun AddMetrobusStationDialog(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    "Seleccionar Estación de Metrobús",
+                    androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_metrobus_select_station),
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -352,7 +352,7 @@ private fun AddMetrobusStationDialog(
                 OutlinedTextField(
                     value = state.mapSearchQuery,
                     onValueChange = onSearch,
-                    label = { Text("Buscar estación", color = Color.Gray) },
+                    label = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_search), color = Color.Gray) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -388,7 +388,7 @@ private fun AddMetrobusStationDialog(
                     modifier = Modifier.align(Alignment.End),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC21D24))
                 ) {
-                    Text("Cancelar")
+                    Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.menu_cancel))
                 }
             }
         }

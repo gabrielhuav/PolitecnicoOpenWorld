@@ -897,7 +897,7 @@ private fun DesignerToolbar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "⠿ Mover (toca = recentrar)",
+                androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_move_handle),
                 color = Color(0xFFFFD54F), fontSize = 10.sp, fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center, maxLines = 1,
                 modifier = Modifier
@@ -928,14 +928,14 @@ private fun DesignerToolbar(
         )
         // Selector de objetivo: MATRIZ de colisión o WAYPOINTS (puertas).
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            ToolButton("MATRIZ", !isWaypoints, Color(0xFF3A86FF), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.MATRIX) }
-            ToolButton("WAYPOINTS", isWaypoints, Color(0xFFD4AF37), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.WAYPOINTS) }
+            ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_matrix), !isWaypoints, Color(0xFF3A86FF), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.MATRIX) }
+            ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_waypoints), isWaypoints, Color(0xFFD4AF37), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.WAYPOINTS) }
         }
         Text(
             if (isWaypoints)
                 (if (hasSelectedDoor) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_drag_door)
                  else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_touch_door))
-            else "Toca o arrastra sobre la rejilla. Rojo = pared.",
+            else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_grid_paint),
             color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp
         )
         // ─── PINCEL + TAMAÑO DE LA MATRIZ (TODO dentro del MISMO scroll) ──────────────
@@ -943,18 +943,18 @@ private fun DesignerToolbar(
         // scrollea JUNTA; solo el asa "⠿ Mover" de arriba queda fija para poder arrastrar siempre.
         if (!isWaypoints) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                ToolButton("PARED", brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
-                ToolButton("BORRAR", !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_wall), brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_erase), !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
             }
             Text(
                 androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_size_grid, gridCols, gridRows),
                 color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                ToolButton("COL −", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(-1, 0) }
-                ToolButton("COL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(1, 0) }
-                ToolButton("FIL −", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, -1) }
-                ToolButton("FIL +", false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_col_minus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(-1, 0) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_col_plus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(1, 0) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_row_minus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, -1) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_row_plus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
             }
         }
         // ─── ACCIONES (Guardar/Reset · Exportar/Importar/Salir), dentro del mismo scroll ──
@@ -964,7 +964,7 @@ private fun DesignerToolbar(
                 modifier = Modifier.weight(1f).height(40.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 shape = RoundedCornerShape(8.dp)
-            ) { Text(if (dirty) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save_unsaved) else "GUARDAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ) { Text(if (dirty) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save_unsaved) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
             Button(
                 onClick = onReset,
                 modifier = Modifier.weight(1f).height(40.dp),
@@ -1031,7 +1031,7 @@ private fun KeyGroundItem(assetPath: String, highlighted: Boolean, modifier: Mod
         }
         val img = bmp
         if (img != null) {
-            Image(img, contentDescription = "Llave", modifier = Modifier.size(if (highlighted) 40.dp else 34.dp))
+            Image(img, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_key), modifier = Modifier.size(if (highlighted) 40.dp else 34.dp))
         } else {
             Text("🔑", fontSize = 26.sp)
         }
