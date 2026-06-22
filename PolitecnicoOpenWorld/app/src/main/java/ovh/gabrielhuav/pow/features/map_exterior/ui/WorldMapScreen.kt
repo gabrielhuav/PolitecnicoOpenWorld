@@ -339,6 +339,20 @@ fun WorldMapScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // El game loop del mapa global es Activity-scoped y NO se detiene al entrar a un interior; por eso
+    // su bloque de audio (stopWalk cada tick con el jugador exterior quieto) PISABA el sonido de pasos de
+    // los interiores. Marcamos cuándo el mapa global está en primer plano (gatea ese audio en el VM) y
+    // PARAMOS sus sonidos al salir del mapa, para que el interior gestione el suyo sin interferencia.
+    DisposableEffect(Unit) {
+        viewModel.worldMapForeground = true
+        onDispose {
+            viewModel.worldMapForeground = false
+            viewModel.soundManager.stopWalk()
+            viewModel.soundManager.stopRun()
+            viewModel.soundManager.stopCar()
+        }
+    }
+
     // Cuando el video de carga termina y hay un destino pendiente, navegar.
     // Si la interacción fue con la mano (pendingZombieMinigame), vamos al minijuego
     // de zombis (que arranca en el lobby/croquis). Si no, al interior normal.

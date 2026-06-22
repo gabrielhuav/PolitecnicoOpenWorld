@@ -7,7 +7,34 @@ low-end performance) or doc drift.
 
 ---
 
-## 0. Archivos GRANDES (>1000 líneas) — plan de separación pendiente
+## 0. Archivos GRANDES (>1000 líneas) — plan de separación
+
+> ### ✅ ESTADO ACTUAL (2026-06-21) — esto MANDA sobre el historial de abajo
+>
+> **Solo 5 archivos pasan de 1000 líneas; solo 1 pasa de 1500:**
+>
+> | Archivo | Líneas | ¿Separar? |
+> |---|---:|---|
+> | `WorldMapViewModel.kt` | **2114** | Único >1500. Lo que queda grande dentro (`startGameLoop` ~490, `handleInteraction`, `trySpawningCollectible`/`checkCollectibleProximity`, `moveCharacter*`) puede extraerse a parciales NUEVOS sin gemelo, pero NO urge. |
+> | `NativeOsmMap.kt` | 1460 | No (renderer Canvas cohesivo). |
+> | `WorldMapScreen.kt` | 1326 | No (raíz Compose ya partida en Overlays/Controls/Google/Web). |
+> | `MainActivity.kt` | 1064 | Opcional (NavHost). Subió un poco por la i18n verbosa. |
+> | `ZombieGameScreen.kt` | 1035 | No. Subió por la i18n. |
+>
+> **✅ DE-DUP DE GEMELOS miembro-vs-extensión: COMPLETA (2026-06-21).** Los 8 pares quedaron resueltos
+> (detalle en `§12 (registro de de-dup, consolidado aquí)`): **de-dup limpio** = `startHealthBarTimer`, `applyRoadNetwork`,
+> `spawnOustedDriver`, `triggerWastedSequence`, `addRemoteEntity`, `maybeRefetchRoadNetwork`,
+> `updateVisibleRoads`. **Fusionados** (se activó lógica buena que estaba muerta) = `handleMultiplayerMessage`
+> (3 bugfixes: isRemote sync, daño en hilo Main, miedo al combate) y `startGameLoop` (audio del game loop:
+> caminar/correr/coche/zombi). **NO TOCAR** (revertido, cadena de routing interdependiente) =
+> `updateDestinationRoute`+`calculateRouteOnNetwork`. `WorldMapGameLoop.kt` quedó como **tombstone**
+> (startGameLoop volvió a ser solo miembro, con el audio fusionado). Ya NO hay gemelos divergentes vivos.
+>
+> **✅ i18n player-facing COMPLETA** (main_menu, settings, map_exterior, campaign, interiores incl. transit
+> y diseñadores, MainActivity). Pendiente menor: `CampaignObjective.title/description` → `@StringRes`. Ver §i18n.
+>
+> *(El historial cronológico de las pasadas de separación queda abajo como registro; los tamaños y el estado
+> de de-dup de ARRIBA son los vigentes.)*
 
 **🆕 Progreso (2026-06-20):** `WorldMapViewModel.kt` bajó de ~3050 a **~2600** líneas extrayendo 4
 parciales nuevos cohesivos (sin gemelo miembro, solo tocan `internal`/`public`): `WorldMapCombat.kt`
@@ -301,19 +328,19 @@ matrices por defecto son **border-only** hasta reemplazarse.
   `updateNpcsState` (gemelo idéntico en `WorldMapMultiplayer.kt`) y de `ensureIndex`/`candidates`/
   `getNearestPointOnNetwork`/`project` (el gemelo de `WorldMapRouting.kt` se sincronizó ANTES con el
   check de landmarks que solo tenía el miembro) — esas extensiones son ahora la única implementación.
-  **🆕 De-dup en curso (2026-06-21, compilador en mano, un par por ciclo):** HECHO →
-  `startHealthBarTimer` (cuerpos idénticos → se borró el miembro) y `applyRoadNetwork` (DIVERGÍAN: el
-  miembro construía el grafo A* `buildRoadGraph` y pintaba calles con la ubicación snapeada; la
-  extensión muerta lo omitía y prefetcheaba — se SINCRONIZÓ la extensión al miembro y se borró el
-  miembro). **Proceso por par (obligatorio):** (1) leer miembro + extensión, (2) DIFERENCIAR firma y
-  cuerpo, (3) si divergen, reescribir la extensión para REPRODUCIR el miembro EXACTO antes de borrarlo
-  (el miembro es lo que corre hoy), (4) borrar el miembro, (5) COMPILAR + PROBAR EN LA APP. No agrupar
-  varios pares sin compilar (no se podría bisecar una regresión). Pendiente (un par por ciclo):
-  `updateVisibleRoads` (OJO: firma divergida, miembro `playerLoc` vs ext `location` → revisar
-  call-sites con args nombrados), `updateDestinationRoute`, `triggerWastedSequence`, `spawnOustedDriver`,
-  `maybeRefetchRoadNetwork`, `addRemoteEntity`, y los GIGANTES `handleMultiplayerMessage` (~165) y
-  `startGameLoop` (~440, máxima divergencia esperada — fue el bug del daño del game loop). El MIEMBRO
-  sigue siendo el canónico en los pendientes.
+  **✅ De-dup de gemelos COMPLETA (2026-06-21).** Los 8 pares quedaron resueltos (registro completo en
+  `§12 (registro de de-dup, consolidado aquí)`). Resumen: **de-dup limpio** (sincronizar extensión al miembro y borrar el
+  miembro) = `startHealthBarTimer`, `applyRoadNetwork`, `spawnOustedDriver`, `triggerWastedSequence`,
+  `addRemoteEntity`, `maybeRefetchRoadNetwork`, `updateVisibleRoads`. **Fusionados** (se activó lógica
+  buena que estaba muerta, con OK del dueño) = `handleMultiplayerMessage` (isRemote sync + daño en hilo
+  Main + miedo al combate) y `startGameLoop` (audio del game loop). **NO TOCAR / revertido** =
+  `updateDestinationRoute`+`calculateRouteOnNetwork` (cadena de routing interdependiente: de-duplicar la
+  cabeza re-enlazaba toda la cadena y rompía la navegación → se dejó con miembro canónico + extensión
+  muerta inofensiva). `WorldMapGameLoop.kt` es ahora un tombstone (startGameLoop = solo miembro con audio).
+  **Proceso usado (por si hay que de-dup futuros gemelos):** (1) leer miembro + extensión, (2) DIFERENCIAR,
+  (3) revisar TODA la cascada (qué llama y si esos callees son gemelos divergentes — fue lo que rompió
+  el par de routing), (4) sincronizar/fusionar la extensión y borrar el miembro, (5) COMPILAR + PROBAR.
+  Un par por ciclo; no agrupar sin compilar (no se bisecaría una regresión).
 - **Gotcha de parciales (¡importante!):** funciones duplicadas como **miembro privado** en
   `WorldMapViewModel.kt` + **extensión** del mismo nombre en `WorldMap*.kt`. Cuando se llaman desde
   DENTRO de la clase (caso de `startGameLoop()`, invocado en `WorldMapViewModel.kt:399`), **gana el
@@ -597,13 +624,18 @@ matrices por defecto son **border-only** hasta reemplazarse.
       `wm_opt_save_game`), InteriorScreenBase (`cd_exit`), InteriorPlayerViews (`cd_player`,
       `cd_player_remote`); **`MainActivity`** diálogos guardar/cargar (`save_dialog_load/_new_slot`,
       `save_toast_saved`). Paridad ES+EN verificada (Read, no `grep` de bash que TRUNCA `strings.xml`).
-    - **PENDIENTE (cola, mecánico, sin riesgo de compilar):** transit player-facing (`MetrobusMapOverlay`
-      selección de destino; headers `METROBÚS · $stationName`; `MetroStationInteriorScreen` "Salir"→`cd_exit`;
-      `PRESIONA X PARA …`→`int_press_x_door`) y **diseñadores de matrices** (metro/metrobús/zombi: ANCHO/ALTO/
-      COL/FIL, hints) — **reutiliza las claves `int_*` que YA EXISTEN** (`int_lock_map`, `int_edit_map`,
-      `int_designer_mode`, `int_move_map`, `int_drag_door`, `int_designer_room`, `int_station_name`,
-      `int_save_unsaved`, `int_press_x_door`, `int_size_grid`, `int_waypoint_size`, `int_touch_door`).
-      Detalle por archivo en `ANALISIS_codigo.md §4`.
+    - **✅ TAMBIÉN YA migrados (2026-06-21):** transit player-facing (`MetrobusMapOverlay` selección de
+      destino — reusa claves del Metro ya migrado + nuevas `cd_metrobus_map`/`int_metrobus_select_dest`/
+      `int_save_waypoints`/`int_metrobus_select_station`; `MetrobusStationInteriorScreen` header
+      `int_metrobus_header`, `int_press_x_door`, `cd_exit`) y los **diseñadores de matrices**
+      (metro/metrobús/zombi): MATRIZ/WAYPOINTS/PARED/BORRAR/GUARDAR + ANCHO/ALTO/COL/FIL + hints →
+      claves compartidas `int_matrix`/`int_waypoints`/`int_wall`/`int_erase`/`int_save`/`int_w_minus`/
+      `int_w_plus`/`int_h_minus`/`int_h_plus`/`int_col_minus`/`int_col_plus`/`int_row_minus`/`int_row_plus`/
+      `int_grid_paint`/`int_designer`/`int_move_handle` (+ reuso de `int_drag_door`/`int_touch_door`/
+      `int_size_grid`/`int_waypoint_size`/`int_save_unsaved`/`ig_reset`/`ig_export`/`ig_import`/`ig_exit`).
+      ZombieHud (`zhud_inventory`, `cd_zombie`). **i18n player-facing = COMPLETA.**
+    - **PENDIENTE menor:** `CampaignObjective.title/description` siguen como `String` en el modelo
+      (i18n total = pasarlos a `@StringRes` + resolver en la View; esfuerzo medio, requiere compilar).
     - **NO migrar:** rutas de assets, tipos de mensaje de red (`"PLAYER_UPDATE"`…), tags de log, URLs,
       claves de caché de sprites, unidades (`km/h`, `HP`), comparaciones por dato (`"Objeto Misterioso ESCOM"`),
       ni `displayName` propios (skins `Lázaro`/`Robot Estudiantx`, `Shine CTO`, `PRANKEDY`). `CampaignObjective.
@@ -787,13 +819,13 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 13. PROTOCOLO DE ACTUALIZACIÓN DE DOCS / DOC UPDATE PROTOCOL (obligatorio / mandatory)
 
-**ES:** `README.md` + `plan.artifact.md` + **esta carpeta** son la **única fuente de verdad** que se le
-pasa a un asistente en vez de todo el código. Solo sirven si se actualizan **en el mismo cambio** que
-toca el código. Trátalos como parte del entregable.
+**ES:** Esta carpeta (`00`–`09` + docs de trabajo) es la **única fuente de verdad** que se le pasa a un
+asistente en vez de todo el código (el README **público** de la raíz es la visión general para humanos).
+Solo sirve si se actualiza **en el mismo cambio** que toca el código. Trátala como parte del entregable.
 
-**EN:** `README.md` + `plan.artifact.md` + **this folder** are the **single source of truth** handed to an
-assistant instead of the whole codebase. They only work if updated **in the same change** that touches the
-code. Treat them as part of the deliverable.
+**EN:** This folder (`00`–`09` + working docs) is the **single source of truth** handed to an assistant
+instead of the whole codebase (the **public** root README is the human-facing overview). It only works if
+updated **in the same change** that touches the code. Treat it as part of the deliverable.
 
 ### Checklist (en CADA cambio que altere comportamiento / on EVERY behavior change)
 

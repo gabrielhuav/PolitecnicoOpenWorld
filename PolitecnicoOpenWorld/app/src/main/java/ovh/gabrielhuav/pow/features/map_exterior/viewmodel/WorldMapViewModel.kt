@@ -295,6 +295,11 @@ class WorldMapViewModel(
     internal val CARJACK_MS = 2500L                 // tiempo quieto antes de que te bajen
     internal val CARJACK_ADJ_RADIUS = 0.00009       // ~10 m: NPC agresivo pegado al coche
     @Volatile internal var carjackStartTime = 0L
+    // ¿El mapa global está en primer plano? El game loop es Activity-scoped y SIGUE corriendo cuando
+    // entras a un interior (solo se detiene en onCleared). Sin esto, el audio del loop (stopWalk cada
+    // tick con el jugador exterior quieto) PISABA el sonido de pasos de los interiores. WorldMapScreen
+    // pone este flag a true/false con un DisposableEffect; el bloque de audio del loop se gatea con él.
+    @Volatile internal var worldMapForeground = false
 
     internal val hospitalRespawnPoints = listOf(
         GeoPoint(19.5034, -99.1469),
@@ -460,6 +465,54 @@ class WorldMapViewModel(
                                 spawnEscomItems(roadNetwork)
                             }
                         }
+
+                        // ─── AUDIO (de-dup par 8 + GATE 2026-06-21): bloque FUSIONADO desde la extensión muerta
+                        // WorldMapGameLoop.kt. soundManager es internal. **GATEADO por worldMapForeground**: el
+                        // game loop sigue corriendo en interiores (es Activity-scoped, solo para en onCleared), y
+                        // sin este gate su `stopWalk()` por tick PISABA el sonido de pasos de los interiores. En
+                        // un interior NO tocamos audio aquí; cada interior gestiona el suyo. ────────────────────
+                        if (worldMapForeground) {
+                        if (!_uiState.value.isDriving) {
+                            when (_uiState.value.playerAction) {
+                                PlayerAction.WALK -> {
+                                    soundManager.playWalk()
+                                    soundManager.stopRun()
+                                }
+                                PlayerAction.RUN -> {
+                                    soundManager.playRun()
+                                    soundManager.stopWalk()
+                                }
+                                else -> {
+                                    soundManager.stopWalk()
+                                    soundManager.stopRun()
+                                }
+                            }
+                        } else {
+                            soundManager.stopWalk()
+                            soundManager.stopRun()
+                        }
+
+                        // FIX (par 8, 2026-06-21): el sonido de coche suena SOLO cuando TÚ conduces y te
+                        // mueves. La lógica original (de la extensión muerta, nunca probada) también lo
+                        // activaba con CUALQUIER coche-NPC en movimiento a <0.001° (~111 m); como siempre
+                        // hay tráfico, sonaba a coche aunque fueras a pie. Se quitó el tráfico ambiental.
+                        val playerDrivingMoving = _uiState.value.isDriving &&
+                            kotlin.math.abs(_uiState.value.vehicleSpeed) > 0.0
+                        if (playerDrivingMoving) soundManager.playCar() else soundManager.stopCar()
+
+                        if (tickCount % 150 == 0L) {
+                            var zombieNear = false
+                            for (npc in remoteEntities.values) {
+                                if (npc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE) {
+                                    if (distance(location, npc.location) < 0.0005) {
+                                        zombieNear = true
+                                        break
+                                    }
+                                }
+                            }
+                            if (zombieNear) soundManager.playZombieNear()
+                        }
+                        } // ── fin GATE worldMapForeground (audio del mapa global) ──
 
                         if (tickCount % 30 == 0L) {
                             trySpawningCollectible(location.latitude, location.longitude)
@@ -903,171 +956,10 @@ class WorldMapViewModel(
     // Cascada verificada: distance/isFreeMovementZone son miembros internal únicos (sin gemelo); todos
     // los call-sites son posicionales (el param se llama `location` en la extensión). (≠ par 2.)
 
-    private fun handleMultiplayerMessage(messageJson: String) {
-        try {
-            val msg = gson.fromJson(messageJson, ServerMessage::class.java)
-
-            when (msg.type) {
-                // (ZOMBIE_MODE_SET eliminado: el apocalipsis ya no es un flag global difundido a
-                //  todos, sino la INSTANCIA en la que estás. El toggle envía JOIN_INSTANCE y el
-                //  servidor responde con SYNC_ALL_NPCS de la nueva instancia. Ver setZombieInstance.)
-                "SESSION_INIT" -> {
-                    msg.sessionId?.let { myPlayerUUID = it }
-                }
-
-                "SYNC_ALL_NPCS" -> {
-                    msg.npcs?.forEach { remoteNpc ->
-                        if (remoteNpc.ownerId != myPlayerUUID) {
-                            addRemoteEntity(remoteNpc)
-                        }
-                    }
-                    updateNpcsState()
-                }
-
-                "ROLE_UPDATE" -> {
-                    msg.isZoneHost?.let {
-                        isServerDelegatedHost = it
-                        Log.d("Multiplayer", "Mi rol en esta zona ahora es Host: $it")
-                    }
-                }
-
-                "NPC_SPAWN", "NPC_UPDATE" -> {
-                    msg.npc?.let {
-                        if (it.ownerId != myPlayerUUID) {
-                            addRemoteEntity(it)
-                            updateNpcsState()
-                        }
-                    }
-                }
-
-                "NPC_BATCH_UPDATE" -> {
-                    msg.npcs?.forEach { remoteNpc ->
-                        if (remoteNpc.ownerId != myPlayerUUID) {
-                            addRemoteEntity(remoteNpc)
-                        }
-                    }
-                    updateNpcsState()
-                }
-
-                "NPC_DESTROY" -> {
-                    msg.npcId?.let {
-                        remoteEntities.remove(it)
-                        updateNpcsState()
-                    }
-                }
-
-                // ─── POLICÍA REMOTA (de otro jugador): solo render ───────────────
-                "POLICE_BATCH_UPDATE" -> {
-                    val now = System.currentTimeMillis()
-                    msg.npcs?.forEach { p ->
-                        if (p.ownerId != myPlayerUUID) {
-                            val type = try { NpcType.valueOf(p.npcType) } catch (e: Exception) { NpcType.POLICE_COP }
-                            remotePolice[p.id] = Npc(
-                                id = p.id,
-                                type = type,
-                                location = GeoPoint(p.y, p.x),
-                                rotationAngle = p.rotation,
-                                speed = 0.0,
-                                isRemote = true,
-                                isMoving = true,
-                                facingRight = cos(Math.toRadians(p.rotation.toDouble())) >= 0,
-                                ownerId = p.ownerId,
-                                policeDisembarked = type == NpcType.POLICE_COP
-                            )
-                            remotePoliceSeen[p.id] = now
-                        }
-                    }
-                    updateNpcsState()
-                }
-
-                "POLICE_DESTROY" -> {
-                    msg.npcId?.let {
-                        remotePolice.remove(it)
-                        remotePoliceSeen.remove(it)
-                        updateNpcsState()
-                    }
-                }
-
-                "DISCONNECT" -> {
-                    msg.id?.let { remoteEntities.remove(it) }
-                    msg.orphanedNpcs?.forEach { remoteEntities.remove(it) }
-                    updateNpcsState()
-                }
-
-                "MASTER_SYNC_CHECK" -> {
-                    msg.activeNpcIds?.let { officialIds ->
-                        val officialSet = officialIds.toSet()
-                        var stateChanged = false
-                        val iterator = remoteEntities.iterator()
-                        while (iterator.hasNext()) {
-                            val entry = iterator.next()
-                            if (entry.value.displayName.isNullOrEmpty()) {
-                                if (!officialSet.contains(entry.key)) {
-                                    iterator.remove()
-                                    stateChanged = true
-                                }
-                            }
-                        }
-                        if (stateChanged) updateNpcsState()
-                    }
-                }
-
-                "PLAYER_DAMAGE" -> {
-                    if (msg.targetId == myPlayerUUID && msg.damage != null) {
-                        takeDamage(msg.damage)
-                    }
-                }
-
-                else -> {
-                    if (msg.id != null && msg.id != myPlayerUUID && msg.x != null && msg.y != null) {
-
-                        val isRemoteMoving = msg.action == "WALK" || msg.action == "RUN"
-                        val isRemoteDriving = msg.isDriving == true
-
-                        val multiplayerConfig = ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig(
-                            bodyFolder = "other_player",
-                            bodyPrefix = "p_mult_",
-                            hairId = 1,
-                            hairColor = androidx.compose.ui.graphics.Color.White,
-                            shirtColor = androidx.compose.ui.graphics.Color.Cyan,
-                            pantsColor = androidx.compose.ui.graphics.Color.DarkGray
-                        )
-
-                        val remoteCarModel = try {
-                            msg.carModel?.let { ovh.gabrielhuav.pow.domain.models.map.CarModel.valueOf(it) }
-                                ?: ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN
-                        } catch(e: Exception) {
-                            ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN
-                        }
-
-                        // FIX: Asegurar que displayName nunca sea blank para poder identificar jugadores remotos
-                        val safeDisplayName = msg.displayName?.takeIf { it.isNotBlank() } ?: "Player_${msg.id.take(4)}"
-
-                        val otherPlayer = Npc(
-                            id = msg.id,
-                            type = if (isRemoteDriving) NpcType.CAR else NpcType.PERSON,
-                            location = GeoPoint(msg.y, msg.x),
-                            rotationAngle = if (isRemoteDriving) ((msg.vehicleRotation ?: 0f) + 270f) % 360f else 0f,
-                            speed = 0.0,
-                            isRemote = true,
-                            isMoving = isRemoteMoving || isRemoteDriving,
-                            facingRight = msg.facingRight == true,
-                            carModel = remoteCarModel,
-                            carColor = msg.carColor ?: 0xFFFFFFFF.toInt(),
-                            visualConfig = if (!isRemoteDriving) multiplayerConfig else null,
-                            displayName = safeDisplayName,
-                            health = msg.health ?: 100f,
-                            isDying = (msg.health ?: 100f) <= 0f
-                        )
-                        remoteEntities[msg.id] = otherPlayer
-                        updateNpcsState()
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("WorldMapVM", "Error procesando JSON: ${e.message}")
-        }
-    }
+    // handleMultiplayerMessage(messageJson) vive en WorldMapMultiplayer.kt (de-dup 2026-06-21, par 7).
+    // Era un gemelo DIVERGENTE en ambos sentidos; se FUSIONÓ en la extensión (safeDisplayName del miembro
+    // + los 3 arreglos que la extensión ya tenía pero estaban muertos: MASTER_SYNC_CHECK isRemote,
+    // PLAYER_DAMAGE en hilo Main, miedo al combate). Miembro borrado. Ver DEDUP_VM_pendiente.md par 7.
 
     // addRemoteEntity(remote) vive en WorldMapMultiplayer.kt (de-dup 2026-06-21, par 4: miembro
     // canónico movido a la extensión homónima, sincronizada con la replicación de zombi/vida).

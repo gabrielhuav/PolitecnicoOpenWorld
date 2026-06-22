@@ -2,6 +2,14 @@
 
 > 🇬🇧 **English version below** · 🇪🇸 [Saltar a la versión en español](#-versión-en-español)
 
+> 📚 **Documentación técnica detallada / Detailed technical docs:** la documentación profunda por área
+> (arquitectura, capa de datos, modelos, mapa exterior, minijuego zombi, interiores/metro, servidores,
+> convenciones y *gotchas*) vive en la carpeta **[`PolitecnicoOpenWorld/README for IAS/`](PolitecnicoOpenWorld/README%20for%20IAS/)**
+> (archivos `00_INDEX` → `09`). Está pensada para pasársela a un asistente de IA en vez de subir todo el
+> código. Este README es la visión general; para firmas de funciones, estado, pseudocódigo y reglas del
+> proyecto, ve a esa carpeta. / Deep per-area docs (architecture, data, models, open-world map, zombie
+> minigame, interiors/metro, servers, conventions & gotchas) live in **`README for IAS/`** (`00_INDEX`–`09`).
+
 ---
 
 ## 🇬🇧 English Version

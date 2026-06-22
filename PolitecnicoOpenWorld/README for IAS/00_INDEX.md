@@ -21,14 +21,14 @@
 2. Pídele la tarea y dile que **siga el MVVM y las convenciones del archivo 09**.
 3. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
    y pásale solo ese.
-4. **Tras cualquier cambio, actualiza `README.md` + `plan.artifact.md` y estos docs** (ver 09).
+4. **Tras cualquier cambio, actualiza estos docs (00–09)** y, si es user-facing, el README **público** de la raíz del repo (ver 09).
 
 **EN:**
 1. Upload/paste this whole folder (or just the relevant files) to the assistant.
 2. Give it the task and tell it to **follow MVVM and the conventions in file 09**.
 3. If it needs a specific source file, find it in the "Key files" table (file 04/05) and pass
    only that one.
-4. **After any change, update `README.md` + `plan.artifact.md` and these docs** (see 09).
+4. **After any change, update these docs (00–09)** and, if user-facing, the **public** root README (see 09).
 
 ---
 
@@ -51,8 +51,7 @@
 
 | Archivo / File | Contenido / Contents |
 |---|---|
-| `PROMPT_nueva_conversacion.md` | Prompt maestro de reuso (plan + reglas del entorno). El bueno (el viejo `PROMPT_nueva_sesion.md` de la raíz ya NO existe). |
-| `DEDUP_VM_pendiente.md` | **(2026-06-21)** De-dup de los 8 gemelos miembro-vs-extensión de `WorldMapViewModel.kt`: diffs, cuerpos sincronizados listos para pegar, líneas a borrar. Aplicar 1 par/compilación. |
+| `PROMPT_nueva_optimizacion.md` | Prompt maestro de reuso: contexto + estado actual + reglas del entorno. Cópialo al iniciar una sesión con una IA y adjunta esta carpeta. |
 | `ANALISIS_codigo.md` | **(2026-06-21)** Informe: clases grandes, duplicación (metro⇄metrobús), MVVM, i18n migrado vs pendiente, perf, mejoras priorizadas por valor/esfuerzo. |
 | `REVISION_repo.md` | **(2026-06-21)** Revisión de TODO el repo: raíz, servidores Node (solo revisión), seguridad (keystore NO comprometido), `.gitignore`, hardening de deploy. |
 
@@ -65,7 +64,8 @@
 - **Arquitectura / Architecture:** MVVM estricto por *feature* / strict MVVM by feature
 - **Servidores / Servers:** 2× Node.js + `ws` (open world `Multiplayer/`, zombi `MultiplayerInteriores/`), dockerizados en Render
 - **Room DB:** versión 8 (`MIGRATION_7_8` + destructive fallback)
-- **~110 archivos Kotlin / Kotlin files**, ~30k líneas / lines
+- **~120 archivos Kotlin / Kotlin files**, ~36k líneas / lines (2026-06-21). Solo 5 archivos >1000:
+  `WorldMapViewModel`(2114), `NativeOsmMap`(1460), `WorldMapScreen`(1326), `MainActivity`(1064), `ZombieGameScreen`(1035)
 - **Default map provider:** `CARTO_VOYAGER` (web, tiles reales hasta z20 / real tiles up to z20; no persistido / not persisted)
 - **Auth / Autenticación:** Firebase Auth (Google Sign-In) en `data/auth/` (`AuthManager`, `AuthSession`).
   Obligatoria para multijugador; local/Modo Historia sin login. Ambos servidores verifican el ID token
@@ -80,24 +80,27 @@
 > **ES:** "Lee la carpeta `README for IAS` (ese es todo el contexto del proyecto POW).
 > Implementa <tarea> siguiendo el patrón MVVM y las convenciones del archivo 09. No me pidas
 > más código a menos que un archivo citado en las tablas 'Key files' (04/05) falte. Al
-> terminar, dime qué líneas de `README.md`, `plan.artifact.md` y de estos docs hay que
-> actualizar."
+> terminar, dime qué líneas de estos docs (00–09) hay que actualizar (y del README público de la
+> raíz si el cambio es user-facing)."
 >
 > **EN:** "Read the `README for IAS` folder (that is the full context of the POW project).
 > Implement <task> following the MVVM pattern and the conventions in file 09. Don't ask me for
 > more code unless a file referenced in the 'Key files' tables (04/05) is missing. When done,
-> tell me which lines of `README.md`, `plan.artifact.md` and these docs to update."
+> tell me which lines of these docs (00–09) to update (and the public root README if user-facing)."
 
 ---
 
 ## Relación con los otros docs / Relationship to the other docs
 
-**ES:** El repo ya tiene `README.md` (bilingüe, orientado a humanos) y `plan.artifact.md`
-(orientado a IA). Esta carpeta es **más granular y por archivo**: incluye firmas de funciones,
-campos de estado y pseudocódigo que esos dos no listan. Si hay contradicción, **el código manda**;
-luego avisa para sincronizar los tres.
+**ES:** La RAÍZ del repo tiene un `README.md` **público** (bilingüe, orientado a humanos) que es la
+visión general. Esta carpeta (`00`–`09`) es la versión **granular y por archivo** para alimentar a un
+asistente de IA: incluye firmas de funciones, campos de estado, pseudocódigo y *gotchas* que el README
+público no lista. *(Antes había aquí copias `README.md` (136 KB) y `plan.artifact.md` redundantes con
+`00`–`09`; se eliminaron el 2026-06-22 para no mantener triplicado.)* Si hay contradicción, **el código
+manda**; luego sincroniza estos docs y, si es user-facing, el README público de la raíz.
 
-**EN:** The repo already has `README.md` (bilingual, human-oriented) and `plan.artifact.md`
-(AI-oriented). This folder is **more granular and per-file**: it includes function signatures,
-state fields and pseudocode the other two don't list. On any contradiction, **the code wins**;
-then flag all three to be synced.
+**EN:** The repo ROOT has a **public** `README.md` (bilingual, human-oriented) = the overview. This folder
+(`00`–`09`) is the **granular, per-file** version meant to be fed to an AI assistant: it includes function
+signatures, state fields, pseudocode and gotchas the public README doesn't. *(Redundant `README.md` (136 KB)
+and `plan.artifact.md` copies were removed from here on 2026-06-22.)* On contradiction, **the code wins**;
+then sync these docs and, if user-facing, the public root README.

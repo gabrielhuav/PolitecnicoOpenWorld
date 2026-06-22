@@ -56,6 +56,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
 
+// DE-DUP (2026-06-21, par 7): versión CANÓNICA FUSIONADA (antes el miembro de WorldMapViewModel.kt
+// la sombreaba). Esta extensión ya traía 3 arreglos que estaban MUERTOS: (1) MASTER_SYNC_CHECK solo
+// limpia NPCs con isRemote=true (evita parpadeo de los NPCs que este cliente spawnea como host);
+// (2) PLAYER_DAMAGE enruta takeDamage a Dispatchers.Main (handleMultiplayerMessage corre en IO y
+// takeDamage muta estado Compose → carrera); (3) PLAYER_DAMAGE dispara miedo al combate
+// (npcAiManager.triggerFear). Se fusionó además el safeDisplayName que solo tenía el miembro. El
+// miembro fue borrado. Cascada: addRemoteEntity/updateNpcsState = ext únicas; takeDamage = miembro
+// público único; triggerFear vive en npcAiManager. (Activa bugfixes que antes no corrían → probar MP.)
 internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
         try {
             val msg = gson.fromJson(messageJson, ServerMessage::class.java)
@@ -211,6 +219,9 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
                             ovh.gabrielhuav.pow.domain.models.map.CarModel.SEDAN
                         }
 
+                        // FIX (de-dup par 7, fusionado del miembro): displayName nunca blank, para
+                        // poder identificar jugadores remotos (antes el nombre vacío los hacía anónimos).
+                        val safeDisplayName = msg.displayName?.takeIf { it.isNotBlank() } ?: "Player_${msg.id.take(4)}"
                         val otherPlayer = Npc(
                             id = msg.id,
                             type = if (isRemoteDriving) NpcType.CAR else NpcType.PERSON,
@@ -223,7 +234,7 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
                             carModel = remoteCarModel,
                             carColor = msg.carColor ?: 0xFFFFFFFF.toInt(),
                             visualConfig = if (!isRemoteDriving) multiplayerConfig else null,
-                            displayName = msg.displayName,
+                            displayName = safeDisplayName,
                             health = msg.health ?: 100f,
                             isDying = (msg.health ?: 100f) <= 0f
                         )

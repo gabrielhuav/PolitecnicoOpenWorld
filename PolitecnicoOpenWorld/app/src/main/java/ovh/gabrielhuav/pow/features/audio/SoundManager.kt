@@ -178,8 +178,14 @@ class SoundManager private constructor(context: Context) {
     }
 
     fun playWalk() {
-        if (walkStreamId == -1) {
-            walkStreamId = soundPool?.play(walkSoundId, sfxVolume, sfxVolume, 1, -1, 1f) ?: -1
+        // FIX (2026-06-21): SoundPool.play() devuelve 0 si el sample AÚN NO terminó de cargar (la carga
+        // es ASÍNCRONA y no hay listener de "ready"). El guard viejo (== -1) latcheaba ese 0 y nunca
+        // reintentaba → al caminar al spawn (antes de que caminar.mpeg cargara) el sonido quedaba MUDO
+        // para siempre (el coche se salvaba porque conduces segundos después, ya cargado). Ahora solo
+        // guardamos un streamId VÁLIDO (>0) y reintentamos mientras play() devuelva 0.
+        if (walkStreamId <= 0) {
+            val sid = soundPool?.play(walkSoundId, sfxVolume, sfxVolume, 1, -1, 1f) ?: 0
+            if (sid > 0) walkStreamId = sid
         }
     }
 
@@ -191,8 +197,10 @@ class SoundManager private constructor(context: Context) {
     }
 
     fun playRun() {
-        if (runStreamId == -1) {
-            runStreamId = soundPool?.play(runSoundId, sfxVolume, sfxVolume, 1, -1, 1f) ?: -1
+        // Mismo fix que playWalk: solo latchea un streamId válido (>0); reintenta mientras play()=0.
+        if (runStreamId <= 0) {
+            val sid = soundPool?.play(runSoundId, sfxVolume, sfxVolume, 1, -1, 1f) ?: 0
+            if (sid > 0) runStreamId = sid
         }
     }
 
@@ -204,8 +212,10 @@ class SoundManager private constructor(context: Context) {
     }
 
     fun playCar() {
-        if (carStreamId == -1) {
-            carStreamId = soundPool?.play(carSoundId, 0.5f * sfxVolume, 0.5f * sfxVolume, 1, -1, 1f) ?: -1
+        // Mismo fix que playWalk (robusto ante la carga async; el coche ya sonaba pero por coherencia).
+        if (carStreamId <= 0) {
+            val sid = soundPool?.play(carSoundId, 0.5f * sfxVolume, 0.5f * sfxVolume, 1, -1, 1f) ?: 0
+            if (sid > 0) carStreamId = sid
         }
     }
 

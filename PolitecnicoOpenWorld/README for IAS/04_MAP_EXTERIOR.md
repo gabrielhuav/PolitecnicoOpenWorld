@@ -11,13 +11,15 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 > puerta). Todas tocan SOLO miembros `internal`/`public`; el ESTADO sigue en el VM. Los call-sites
 > fuera del paquete `viewmodel` (MainActivity, WorldMapScreen) llevan import explícito. Ver 09 §0.
 
-> **Gotcha:** algunas funciones existen como **miembro privado** en `WorldMapViewModel.kt` *y* como
-> **extensión** en un parcial con el mismo nombre (p. ej. `startGameLoop`, `updateVisibleRoads`,
-> `handleMultiplayerMessage`). En Kotlin el **miembro gana** sobre la extensión. La implementación
-> canónica/activa es la de `WorldMapViewModel.kt`; los parciales agrupan lógica y helpers `internal`.
-> Verifica ambos al editar. / Some functions exist both as a private member in `WorldMapViewModel.kt`
-> and as a same-named extension in a partial. Kotlin's **member wins**; the canonical impl is in
-> `WorldMapViewModel.kt`. Check both when editing.
+> **Gotcha (patrón histórico — los gemelos concretos YA se de-duplicaron el 2026-06-21):** en Kotlin,
+> si una función existe como **miembro privado** en `WorldMapViewModel.kt` Y como **extensión** del mismo
+> nombre en un parcial, el **miembro GANA** y la extensión queda muerta. Los 8 gemelos que había
+> (`startGameLoop`, `updateVisibleRoads`, `handleMultiplayerMessage`, `addRemoteEntity`,
+> `maybeRefetchRoadNetwork`, `triggerWastedSequence`, `spawnOustedDriver`, `updateDestinationRoute`) ya
+> se resolvieron (ver `09 §12` y 09 §0/§12): cada función tiene UNA sola implementación
+> viva. **El patrón sigue existiendo** (los parciales son extensiones), así que si creas una función
+> nueva NO la dupliques como miembro+extensión. / The member-vs-extension twin pattern: member wins,
+> extension dies. The 8 twins that existed were all de-duplicated on 2026-06-21 (see `09 §12`).
 
 ---
 
@@ -36,7 +38,7 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | 🆕 Guardado/carga de partida (Modo Historia, JSON) | `viewmodel/WorldMapSaveGame.kt` + `data/repository/SaveGameRepository.kt` |
 | 🆕 Editor del Debug Interiores (líneas rojas/verdes/naranjas) | `viewmodel/WorldMapDebugEditor.kt` + `ui/components/InteriorDebugEditorPanel.kt` |
 | Estado UI / UI state | `viewmodel/WorldMapState.kt` |
-| Game loop (parcial) | `viewmodel/WorldMapGameLoop.kt` |
+| Game loop | `WorldMapViewModel.startGameLoop()` (MIEMBRO; `viewmodel/WorldMapGameLoop.kt` = tombstone tras de-dup 2026-06-21) |
 | Multiplayer relay/parse | `viewmodel/WorldMapMultiplayer.kt` (+ `WorldMapMultiplayerModels.kt`) |
 | Red de calles / road network | `viewmodel/WorldMapRoadNetwork.kt` |
 | Routing / waypoints | `viewmodel/WorldMapRouting.kt` |
@@ -340,7 +342,7 @@ in multiplayer. Zombie models + AI → see **03**.
 - **🆕 EDITOR del Debug Interiores (`WorldMapDebugEditor.kt` + `InteriorDebugEditorPanel.kt`):** con el overlay activo aparece una **barra horizontal abajo** (los controles de movimiento se **ocultan** al editar) para **EDITAR** las líneas **DIBUJANDO con el dedo** (estilo Paint): eliges herramienta `DebugEditTool` (WALL=barda roja, BLOCK=zona roja, NAV_PED=verde peatonal, NAV_CAR=naranja autos) y **arrastras** sobre el mapa → línea (WALL/NAV_*) o rectángulo (BLOCK); con herramienta activa el mapa NO panea (touch consumido), con `NONE` vuelve a panear. **Deshacer** (último trazo) / **Limpiar** / **Exportar/Importar JSON** (formato `exterior_collisions.json` + sección `navPaths`). El dibujo es una **capa Compose sobre el mapa** (`InteriorDebugDrawSurface`, en `WorldMapScreen`) que funciona con **cualquier renderer** (web/OSM/Google) — clave porque el proveedor por defecto es WEB (Leaflet): captura el gesto desde el `ACTION_DOWN` (`awaitEachGesture`+`consume()`) para que el mapa NO panee, convierte pantalla↔geo con Web Mercator (`256·densidad·2^zoom`, centro = jugador) y commitea con `commitDebugStroke`. En modo debug el mapa **se mantiene centrado en el jugador** (la capa asume ese centro). Estado nuevo en `WorldMapState`: `debugEditTool`, `debugEditWalls`, `debugEditBlocks`, `debugEditNavPed`, `debugEditNavCar`.
 - **🆕 Guardado de partida (Modo Historia):** API del VM en `WorldMapSaveGame.kt` (`saveGame`/`loadGame`/`buildSaveData`/`restoreSaveData`) + `SaveGameRepository` (JSON). Campos del VM `campaignSchoolId`/`inCampaign`. Ver 07/09. **Fix de `setStorySpawn`:** ahora se comporta como un teletransporte (`gateMapDownloadAfterTeleport()` + reset de `lastNetworkFetchLocation`/`lastFetchAttemptMs`/`npcWarmupCycles`) para que "COMENZAR/CARGAR" SÍ carguen y suelten al jugador (antes `prepareMapForEntry`, idempotente por `mapPrepStarted`, dejaba la 2ª entrada cargando para siempre). Ver 09.
 - **VM API:** `toggleGlobalZombieMode()` (flip + broadcast `ZOMBIE_MODE_SET`), `exitGlobalZombieMode()`.
-- **Daño al jugador (¡crítico!):** los zombis muerden vía `applyNpcContactDamage(location)` y el atropello vía `runOverNpcs(finalLoc, speed)`. **Estas dos llamadas viven en el game loop MIEMBRO de `WorldMapViewModel.kt`** (el activo). La extensión `WorldMapGameLoop.kt` también las tiene pero está **sombreada/muerta** — editar solo el miembro (ver 09).
+- **Daño al jugador (¡crítico!):** los zombis muerden vía `applyNpcContactDamage(location)` y el atropello vía `runOverNpcs(finalLoc, speed)`. **Viven en el game loop, que es el MIEMBRO `startGameLoop()` de `WorldMapViewModel.kt`.** (2026-06-21: el gemelo de `WorldMapGameLoop.kt` se de-duplicó — ese archivo es ahora un **tombstone**; `startGameLoop` es solo miembro, e incluye además el **audio** fusionado: caminar/correr/coche/zombi.) Editar el game loop = editar el miembro en `WorldMapViewModel.kt`.
 - **Multijugador:** el Host simula los zombis y los replica por `NPC_BATCH_UPDATE` (conserva `npcType=ZOMBIE` + health/isDying). El toggle viaja en `ZOMBIE_MODE_SET` (global) — relayado por `Multiplayer/server.js` (NO por `MultiplayerInteriores/`). `addRemoteEntity` reconstruye el zombi remoto con `visualConfig=null` y `speed=PERSON_SPEED` (animan). Ver **08**.
 
 ### Render del zombi / zombie rendering (3 renderers)

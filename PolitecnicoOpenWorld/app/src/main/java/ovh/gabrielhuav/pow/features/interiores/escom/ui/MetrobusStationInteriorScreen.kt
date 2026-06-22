@@ -541,6 +541,20 @@ private fun MetrobusPlayerSprite(state: MetrobusInteriorState) {
     val action = state.playerAction
     val isFacingRight = state.isFacingRight
 
+    // AUDIO de pasos en la estación de metrobús (su VM no toca SoundManager). El game loop del mapa global
+    // está gateado (worldMapForeground=false en interiores) → no interfiere. onDispose para al salir.
+    val soundManager = remember { ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(context) }
+    LaunchedEffect(action) {
+        when (action) {
+            PlayerAction.WALK -> { soundManager.playWalk(); soundManager.stopRun() }
+            PlayerAction.RUN  -> { soundManager.playRun(); soundManager.stopWalk() }
+            else -> { soundManager.stopWalk(); soundManager.stopRun() }
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { soundManager.stopWalk(); soundManager.stopRun() }
+    }
+
     var currentFrame by remember { mutableIntStateOf(1) }
     var currentImage by remember { mutableStateOf<ImageBitmap?>(null) }
     val bitmapCache = remember { mutableMapOf<String, ImageBitmap?>() }
