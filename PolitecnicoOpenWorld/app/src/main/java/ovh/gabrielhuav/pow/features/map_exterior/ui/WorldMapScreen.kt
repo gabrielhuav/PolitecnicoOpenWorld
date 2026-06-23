@@ -488,8 +488,13 @@ fun WorldMapScreen(
         // landmark(s) cercano(s) DECODIFICADO(S) (p. ej. la ENTRADA de la ESCOM) + NPCs/coches ya
         // sembrados. Así la pantalla de carga dura lo necesario (más en gama baja) y no se entra
         // "en blanco" ni sin coches/NPCs.
-        var sceneReady by remember { mutableStateOf(false) }
-        // Reinicia el gate en cada (re)carga del mundo (teleport, volver de interior).
+        // Si el mundo YA estaba cargado (volver de Ajustes/menú SIN teleport), el gate arranca en
+        // true: el WorldMapViewModel es Activity-scoped y conserva isMapReady/npcsWarmedUp (el game
+        // loop nunca se detuvo), así que NO hay que re-mostrar la pantalla de carga → regreso INSTANTÁNEO.
+        // Arranca en false solo en la PRIMERA carga o tras un teleport (que pone isMapReady=false, abajo).
+        var sceneReady by remember { mutableStateOf(uiState.isMapReady && uiState.npcsWarmedUp) }
+        // Reinicia el gate en cada (re)carga REAL del mundo (teleport, salir de una estación): cuando
+        // isMapReady vuelve a false. Volver de Ajustes NO toca isMapReady → no reinicia el gate.
         LaunchedEffect(uiState.isMapReady) { if (!uiState.isMapReady) sceneReady = false }
         // SONDEO: con tiles+calles listos, decodifica los assets de landmarks cercanos y espera a
         // que (1) exista al menos un landmark cercano y TODOS estén decodificados, y (2) ya haya

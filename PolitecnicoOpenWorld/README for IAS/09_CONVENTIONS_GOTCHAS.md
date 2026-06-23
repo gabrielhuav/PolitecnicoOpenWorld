@@ -327,6 +327,15 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
+- **⚠️ Recarga del mapa al volver de Ajustes/menú — gate LOCAL vs estado del VM (2026-06-22, FIX):** el
+  `WorldMapViewModel` es Activity-scoped y conserva `isMapReady`/`npcsWarmedUp` (el game loop NO se detiene al
+  navegar a Ajustes), pero el gate "mundo listo" `sceneReady` en `WorldMapScreen.kt` era estado **LOCAL**
+  (`remember { mutableStateOf(false) }`) → al volver de Ajustes el `NavHost` recreaba el composable, `sceneReady`
+  volvía a `false` y se re-mostraba la pantalla de carga (parecía "re-descargar el mapa"). **Fix:** sembrarlo
+  desde el VM → `remember { mutableStateOf(uiState.isMapReady && uiState.npcsWarmedUp) }`. El `LaunchedEffect(isMapReady)`
+  ya lo reinicia a false en teleport/salir de estación (isMapReady=false), así que esos casos siguen mostrando carga.
+  **Regla:** todo gate de UI que deba SOBREVIVIR a la navegación se SIEMBRA desde el estado persistido del VM, nunca en false.
+
 - **⚠️ GOTCHA DEL SANDBOX — truncación de archivos grandes (2026-06-22):** el shell/sandbox puede servir una COPIA
   TRUNCADA de un .kt grande (umbral ~120 KB). `WorldMapViewModel.kt` (~125 KB) se leía a **2110** líneas cuando el real
   tenía **~2140** → al refactorizar con Python EN el sandbox y reescribir, se PERDIÓ la cola (las 4 funciones
