@@ -135,7 +135,7 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 _uiState.update { it.copy(nearbyMetrobusStation = nearbyMetrobus, nearbyCollectible = null) }
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
-                    val promptText = "PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS ${nearbyMetrobus.name.uppercase()}"
+                    val promptText = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_prompt_metrobus, nearbyMetrobus.name.uppercase())
                     _uiState.update { it.copy(interactionPrompt = promptText) }
                     kotlinx.coroutines.delay(3000)
                     _uiState.update { it.copy(interactionPrompt = null) }

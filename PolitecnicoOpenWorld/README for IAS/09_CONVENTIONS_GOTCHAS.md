@@ -18,7 +18,7 @@ low-end performance) or doc drift.
 > | `WorldMapViewModel.kt` | **1426** | **Ya NO >1500** (era ~2114). 2026-06-22: de-dup de los 4 gemelos restantes + 4 parciales nuevos (`WorldMapInteractions/Health/EscomItems/Movement.kt`). Lo grande que queda (`startGameLoop` ~490) llama a la cadena de routing (NO TOCAR) → no se extrae. |
 > | `NativeOsmMap.kt` | 1460 | No (renderer Canvas cohesivo). |
 > | `WorldMapScreen.kt` | 1326 | No (raíz Compose ya partida en Overlays/Controls/Google/Web). |
-> | `MainActivity.kt` | 1064 | Opcional (NavHost). Subió un poco por la i18n verbosa. |
+> | `MainActivity.kt` | **252** | NavHost+orquestación → `AppNavGraph.kt` (944) el 2026-06-23 (D). Ya <1000. |
 > | `ZombieGameScreen.kt` | 1035 | No. Subió por la i18n. |
 >
 > **✅ DE-DUP DE GEMELOS miembro-vs-extensión: COMPLETA (2026-06-21).** Los 8 pares quedaron resueltos
@@ -41,7 +41,7 @@ low-end performance) or doc drift.
 > Call-sites externos con import explícito (WorldMapScreen/Controls/Overlays). **VM 2114 → 1426.**
 >
 > **✅ i18n player-facing COMPLETA** (main_menu, settings, map_exterior, campaign, interiores incl. transit
-> y diseñadores, MainActivity). Pendiente menor: `CampaignObjective.title/description` → `@StringRes`. Ver §i18n.
+> y diseñadores, MainActivity). `CampaignObjective.title/description` → `@StringRes` **HECHO 2026-06-23 (F)**. Ver §i18n.
 >
 > *(El historial cronológico de las pasadas de separación queda abajo como registro; los tamaños y el estado
 > de de-dup de ARRIBA son los vigentes.)*
@@ -327,6 +327,19 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
+- **⚠️ Z-ORDER de overlays sobre un MODAL a pantalla completa (2026-06-23, FIX):** en `ZombieGameScreen`, el panel
+  de **inventario** (`ZombieHud`, `if (state.showInventory)`) es un `Box(Modifier.fillMaxSize())` con scrim → modal por
+  ENCIMA de todo. Pero los avisos de proximidad (`nearbyDoorLabel` "Continuar →", prompt de llave) se componían DESPUÉS
+  del HUD en el `Box` raíz → se dibujaban POR ENCIMA del inventario (se traslapaban). En Compose el orden de
+  composición manda y `zIndex` solo reordena HERMANOS del MISMO padre (no cruza padres). Fix: suprimir los avisos de
+  PROXIMIDAD cuando `state.showInventory` (se mantienen `keyMessage`/toasts, que SÍ deben verse sobre el modal).
+- **⚠️ Extraer un bloque de una Activity a una función TOP-LEVEL (no extensión) — 2026-06-23 (D):** al mover el
+  NavHost de `MainActivity` a `AppNavGraph.kt` (un `@Composable` top-level), las llamadas **BARE** a métodos heredados
+  de la Activity (`getString(...)`, `getColor`, `getSystemService`…) DEJAN de resolver: una función top-level NO tiene el
+  `this` implícito de la Activity. NO basta con cambiar los `this@MainActivity.x`; hay que prefijar TAMBIÉN las llamadas
+  SIN punto con `activity.` (`activity.getString(...)`). (Una EXTENSIÓN `fun X.metodo()` sí conserva el `this` del receptor
+  → ahí las bare siguen OK; el problema es solo con funciones top-level.) Verifica con grep de get sin punto. (Pasó:
+  `AppNavGraph.kt:560` Unresolved `getString`.)
 - **⚠️ Recarga del mapa al volver de Ajustes/menú — gate LOCAL vs estado del VM (2026-06-22, FIX):** el
   `WorldMapViewModel` es Activity-scoped y conserva `isMapReady`/`npcsWarmedUp` (el game loop NO se detiene al
   navegar a Ajustes), pero el gate "mundo listo" `sceneReady` en `WorldMapScreen.kt` era estado **LOCAL**
@@ -364,6 +377,10 @@ matrices por defecto son **border-only** hasta reemplazarse.
   `TransitInteriorViewModel.Factory(context, config, stationName, spawnX, spawnY)` y siguen separadas (render
   distinto). Los 4 archivos `Metro/MetrobusInterior{ViewModel,State}.kt` son **tombstones**. Para añadir
   Suburbano/Mexibús: nueva entrada en `TransitSystems` + assets + ruta. Ver 06 y ANALISIS §2.2/§8.
+  **ACTUALIZACIÓN 2026-06-23 (B):** los alias de compat (`isMetro1Animating`/`showMetroMap`/`allMetroStations`/
+  `closeMetroMap`/`onMetro1AnimationFinished`…) se RETIRARON y los 4 tombstones se BORRARON; las 4 pantallas/overlays
+  usan los nombres neutros. Los 10 `msg*` (toasts) de `TransitSystemConfig` pasaron a `@StringRes` (F), resueltos con
+  un `getLocalizedString` locale-aware nuevo en `TransitInteriorViewModel` (el context del VM es applicationContext).
 - **🆕 Salir de estación: `teleportTo` LIMPIA el estado de fade/cercanía de transporte (2026-06-22):** al salir
   de una estación se llama a `teleportTo`; un `metro/metrobusFadeCompleteStation` pendiente (sin consumir) podía
   disparar la navegación al volver al mapa → "salir del metro me mandaba al metrobús". Ahora `teleportTo` resetea
@@ -700,18 +717,16 @@ matrices por defecto son **border-only** hasta reemplazarse.
       `int_grid_paint`/`int_designer`/`int_move_handle` (+ reuso de `int_drag_door`/`int_touch_door`/
       `int_size_grid`/`int_waypoint_size`/`int_save_unsaved`/`ig_reset`/`ig_export`/`ig_import`/`ig_exit`).
       ZombieHud (`zhud_inventory`, `cd_zombie`). **i18n player-facing = COMPLETA.**
-    - **PENDIENTE menor:** `CampaignObjective.title/description` siguen como `String` en el modelo
-      (i18n total = pasarlos a `@StringRes` + resolver en la View; esfuerzo medio, requiere compilar).
+    - **✅ HECHO (2026-06-23, F):** `CampaignObjective.title/description` → **`@StringRes`** (`titleRes`/`descriptionRes`),
+      resueltos en ObjectivesWidget (stringResource) y en el VM (getLocalizedString). Además los 10 `msg*` de `TransitSystemConfig` → `@StringRes`.
     - **NO migrar:** rutas de assets, tipos de mensaje de red (`"PLAYER_UPDATE"`…), tags de log, URLs,
       claves de caché de sprites, unidades (`km/h`, `HP`), comparaciones por dato (`"Objeto Misterioso ESCOM"`),
-      ni `displayName` propios (skins `Lázaro`/`Robot Estudiantx`, `Shine CTO`, `PRANKEDY`). `CampaignObjective.
-      title/description` siguen como `String` en el modelo (i18n completo = pasarlos a `@StringRes`, cambio de
-      medio esfuerzo que requiere compilar).
+      ni `displayName` propios (skins `Lázaro`/`Robot Estudiantx`, `Shine CTO`, `PRANKEDY`). (`CampaignObjective.title/description` YA están en `@StringRes` desde 2026-06-23, F.)
   - **Claves:** `snake_case`, prefijadas por feature (`menu_*`, `settings_*`). Toda clave nueva va en
     `values/` **y** `values-en/` (una contradicción/ausencia = bug; mantén la paridad).
 - **🆕 Control por defecto = `JOYSTICK`:** lo fija `SettingsRepository.getControlType()` (default JOYSTICK,
   antes DPAD). Como TODOS los VMs leen el tipo de ahí al iniciar (`WorldMapViewModel`, `ZombieGameViewModel`,
-  `InteriorViewModel`, `MetroInteriorViewModel`, `ShineCTOViewModel`), basta ese cambio; los defaults de los
+  `InteriorViewModel`, `TransitInteriorViewModel`, `ShineCTOViewModel`), basta ese cambio; los defaults de los
   `*State` (`WorldMapState`, `SettingsState.controlType`/`tempControlType`) se pusieron en JOYSTICK por
   coherencia del primer frame. DPAD sigue eligible en Ajustes → Controles (no se persiste hasta GUARDAR).
 - **🆕 Controles a la MISMA ALTURA (global = interiores):** la fila de controles del mapa global

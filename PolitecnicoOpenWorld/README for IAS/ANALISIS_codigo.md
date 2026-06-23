@@ -179,18 +179,18 @@ los tipos viejos.
 
 | # | Acción | Valor | Esfuerzo | Riesgo | Nota |
 |---|--------|-------|----------|--------|------|
-| A | Colapsar las 2 **pantallas** de transporte (`Metro/MetrobusStationInteriorScreen`, 638+544) en UNA `TransitStationScreen(config)` y los 2 **overlays** en uno. La config YA trae color/eje/overlayType/vídeo/gradiente/sprites/vehicleAsset. | Medio | Alto | Medio-alto | Es la 2ª mitad del refactor de transporte. Compose + animación vertical/horizontal: probar ambos. |
-| B | Retirar los **alias de compat** de `TransitInteriorState`/VM y los 4 archivos **tombstone** una vez que A use nombres neutros. | Bajo (limpieza) | Bajo | Bajo | Hacer DESPUÉS de A, con compilador. |
+| A 🔮 | **TRABAJO FUTURO (pospuesto 2026-06-23, decisión del dueño).** Colapsar las 2 **pantallas** de transporte (`Metro/MetrobusStationInteriorScreen`, 691+610) en UNA `TransitStationScreen(config)` + los 2 **overlays** en uno. | Medio | Alto | Medio-alto | **NO hacer aún:** se agregarán más sistemas (Suburbano/Mexibús…) y el **Metrobús todavía no funciona bien**; colapsar DESPUÉS de estabilizarlo y tener más sistemas (si no, se unifica alrededor de una implementación con bugs). |
+| ~~B~~ | ✅ **HECHO (2026-06-23)** Retirados los 14 **alias de compat** de `TransitInteriorState`/VM; usos en las 4 pantallas/overlays renombrados a neutros (`isVehicle1Animating`/`showTransitMap`/`allStations`/`closeTransitMap`/`onVehicle1AnimationFinished`); **borrados los 4 tombstones**. | Bajo | Bajo | Bajo | Hecho SIN A (pantallas siguen separadas, solo nombres neutros). |
 | ~~C~~ | ✅ **HECHO (2026-06-22)** `WorldMapViewModel` **2129 → 1426** (<1500): de-dup de los 4 gemelos restantes (`checkCollectibleProximity`/`trySpawningCollectible`/`isInsideEscom`/`startMovementAction`) + 4 parciales nuevos (`WorldMapInteractions`/`Health`/`EscomItems`/`Movement.kt`). | Medio | Medio | Medio | Lo grande que queda (`startGameLoop` ~490) llama a la cadena de routing NO-TOCAR → no se extrajo. |
-| D | Extraer `NavHost` de `MainActivity` (1058) a `AppNavGraph.kt`. | Bajo | Medio | Medio | Acoplado a `worldMapViewModel` Activity-scoped. |
-| E | `SettingsScreen` (859): partir cada sección `*Settings` a su archivo si crece. | Bajo | Bajo | Bajo | Hoy aceptable. |
-| F | i18n pendiente: strings in-VM de transporte (ahora centralizados en `TransitSystemConfig`, fáciles de migrar a `@StringRes`) + `CampaignObjective.title/description`. | Medio | Bajo-medio | Bajo | La unificación facilitó esto: los textos viven en un solo sitio. |
+| ~~D~~ | ✅ **HECHO (2026-06-23)** `NavHost` + orquestación → **`AppNavGraph.kt`** (944 líneas). `MainActivity` **1077→252**. Recibe `activity`+ViewModels/authManager/campaignRepository como params; `this@MainActivity`→`activity`. | Bajo | Medio | Medio | — |
+| ~~E~~ | ✅ **HECHO (2026-06-23)** Las 7 secciones → **`SettingsSections.kt`** (`internal`, 628 líneas). `SettingsScreen` **859→276**. | Bajo | Bajo | Bajo | — |
+| ~~F~~ | ✅ **HECHO (2026-06-23)** `CampaignObjective.title/description`→`@StringRes` (8 claves ES+EN). Transporte: prompt metrobús + 10 `msg*` de `TransitSystemConfig`→`@StringRes` (10 claves) con `getLocalizedString` locale-aware nuevo en `TransitInteriorViewModel`. | Medio | Bajo-medio | Bajo | — |
 | — | Micro-opts perf | — | — | — | Sin candidatas seguras nuevas (09 §6). |
 
-**Recomendación (actualizada 2026-06-22):** **C ya está HECHO** (VM <1500). El siguiente paso de mayor valor es **A**
-(colapsar las pantallas/overlays de transporte por config) y luego **B** (retirar alias de compat + borrar los 4 tombstone).
-`D/E/F` son mejoras independientes de bajo riesgo. **No partir nada por estética.** ⚠️ Ver el GOTCHA del sandbox (09 §12)
-antes de tocar archivos grandes desde el shell.
+**Recomendación (actualizada 2026-06-23):** **B, C, D, E, F HECHOS.** **A queda como 🔮 TRABAJO FUTURO** (decisión del
+dueño): colapsar las 2 pantallas/overlays de transporte en una por config se hará MÁS ADELANTE, cuando el **Metrobús
+funcione bien** y se hayan agregado más sistemas de transporte (Suburbano/Mexibús…) — no conviene unificar ahora alrededor
+de una implementación con bugs. **No partir nada por estética.** ⚠️ Ver el GOTCHA del sandbox (09 §12) al tocar archivos grandes.
 
 > ⚠️ Recordatorio del entorno: los 4 archivos nuevos (`TransitStation`, `TransitSystemConfig`,
 > `TransitInteriorState`, `TransitInteriorViewModel`) se escribieron con fin de línea LF (los editados

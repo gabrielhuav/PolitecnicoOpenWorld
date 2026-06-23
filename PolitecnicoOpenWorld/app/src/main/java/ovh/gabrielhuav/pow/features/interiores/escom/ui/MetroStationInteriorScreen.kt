@@ -152,19 +152,19 @@ fun MetroStationInteriorScreen(
             val metro1YOffset = remember { Animatable(-worldH) }
             val metro2YOffset = remember { Animatable(worldH) }
 
-            LaunchedEffect(state.isMetro1Animating, state.spawnWithAnimation) {
-                if (state.isMetro1Animating || state.spawnWithAnimation) {
+            LaunchedEffect(state.isVehicle1Animating, state.spawnWithAnimation) {
+                if (state.isVehicle1Animating || state.spawnWithAnimation) {
                     metro1YOffset.snapTo(-worldH)
                     metro1YOffset.animateTo(
                         targetValue = 0f,
                         animationSpec = tween(durationMillis = 1500, easing = EaseOutQuart)
                     )
-                    viewModel.onMetro1AnimationFinished()
+                    viewModel.onVehicle1AnimationFinished()
                 }
             }
 
-            LaunchedEffect(state.isMetro1Departing) {
-                if (state.isMetro1Departing) {
+            LaunchedEffect(state.isVehicle1Departing) {
+                if (state.isVehicle1Departing) {
                     metro1YOffset.snapTo(0f)
                     metro1YOffset.animateTo(
                         targetValue = worldH,
@@ -281,7 +281,7 @@ fun MetroStationInteriorScreen(
             }
 
             // --- CANVAS 2: METRO 1 (SOBRE EL JUGADOR) ---
-            val isMetro1Visible = state.isMetro1Animating || state.spawnWithAnimation || state.showMetroMap || state.isMetro1Departing || state.isBoardingWalkActive || state.isDisembarkingWalkActive
+            val isMetro1Visible = state.isVehicle1Animating || state.spawnWithAnimation || state.showTransitMap || state.isVehicle1Departing || state.isBoardingWalkActive || state.isDisembarkingWalkActive
             if (isMetro1Visible && metro1Bitmap != null) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     translate(cam.offsetX, cam.offsetY) {
@@ -455,7 +455,7 @@ fun MetroStationInteriorScreen(
             )
         }
 
-        if (state.showMetroMap) {
+        if (state.showTransitMap) {
             MetroMapOverlay(
                 state = state,
                 viewModel = viewModel,

@@ -7,6 +7,8 @@ import ovh.gabrielhuav.pow.domain.models.map.TransitStation
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.NormRect
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor
+import androidx.annotation.StringRes
+import ovh.gabrielhuav.pow.R
 
 /** Eje por el que entra/sale el vehículo en la animación de la pantalla. */
 enum class TransitAnimationAxis { VERTICAL, HORIZONTAL }
@@ -76,11 +78,11 @@ data class TransitSystemConfig(
     val overlayGradientBottomArgb: Long = 0xFF000000,
 
     // ── Strings (in-VM, español; i18n pendiente, ver ANALISIS_codigo §4) ──────────────────────
-    val msgTicketReloaded: String,
-    val msgNoBalance: String,
-    val msgWaitVehicle: String,
-    val msgExitTurnstile: String,
-    val msgGlobalWaypointsSaved: String
+    @StringRes val msgTicketReloadedRes: Int,
+    @StringRes val msgNoBalanceRes: Int,
+    @StringRes val msgWaitVehicleRes: Int,
+    @StringRes val msgExitTurnstileRes: Int,
+    @StringRes val msgGlobalWaypointsSavedRes: Int
 ) {
     /** Ruta de navegación de la pantalla de estación (sin args). */
     val stationRoutePrefix: String get() = "${key}_station_interior"
@@ -126,11 +128,11 @@ object TransitSystems {
         designerToolbarBgArgb = 0xFF1E1E24,
         designerToolbarBorderArgb = 0xFFD4AF37,
         overlayType = TransitOverlayType.VIDEO,
-        msgTicketReloaded = "Has recargado tu tarjeta del metro",
-        msgNoBalance = "No tienes saldo disponible",
-        msgWaitVehicle = "Debes esperar a que llegue otro tren",
-        msgExitTurnstile = "Has salido de los torniquetes. Ve a la taquilla para recargar tu tarjeta.",
-        msgGlobalWaypointsSaved = "Waypoints globales guardados"
+        msgTicketReloadedRes = R.string.transit_metro_msg_ticket,
+        msgNoBalanceRes = R.string.transit_metro_msg_no_balance,
+        msgWaitVehicleRes = R.string.transit_metro_msg_wait,
+        msgExitTurnstileRes = R.string.transit_msg_exit_turnstile,
+        msgGlobalWaypointsSavedRes = R.string.transit_metro_msg_wp_saved
     )
 
     val METROBUS = TransitSystemConfig(
@@ -165,10 +167,10 @@ object TransitSystems {
         overlayType = TransitOverlayType.GRADIENT,
         overlayGradientTopArgb = 0xFF2D0808,
         overlayGradientBottomArgb = 0xFF0D0202,
-        msgTicketReloaded = "Has recargado tu tarjeta del Metrobús",
-        msgNoBalance = "No tienes saldo disponible en tu tarjeta",
-        msgWaitVehicle = "Debes esperar a que llegue otro autobús",
-        msgExitTurnstile = "Has salido de los torniquetes. Ve a la taquilla para recargar tu tarjeta.",
-        msgGlobalWaypointsSaved = "Waypoints del Metrobús guardados"
+        msgTicketReloadedRes = R.string.transit_metrobus_msg_ticket,
+        msgNoBalanceRes = R.string.transit_metrobus_msg_no_balance,
+        msgWaitVehicleRes = R.string.transit_metrobus_msg_wait,
+        msgExitTurnstileRes = R.string.transit_msg_exit_turnstile,
+        msgGlobalWaypointsSavedRes = R.string.transit_metrobus_msg_wp_saved
     )
 }

@@ -80,14 +80,16 @@ globales. / Richer than generic interiors: network map, hotspots, designer mode 
 > **DUPLICADA** en `MetroInteriorViewModel`(700)+`MetrobusInteriorViewModel`(655) y sus dos States, se
 > fusionó en **`viewmodel/TransitInteriorViewModel.kt`** (un solo VM, toda la lógica una vez) +
 > **`viewmodel/TransitInteriorState.kt`** (un solo State, nombres neutros: `isVehicle1Animating`,
-> `showTransitMap`, `allStations`…, con getters de compat para los nombres viejos), **dirigidos por
+> `showTransitMap`, `allStations`…; los alias de compat se RETIRARON 2026-06-23 — ver B), **dirigidos por
 > `viewmodel/TransitSystemConfig.kt`** (catálogo `TransitSystems.METRO`/`.METROBUS`: assets, prefs, repo,
 > spawn, offset de torniquete `turnstileBoardDeltaY`, strings, branding/eje de animación). Los modelos
 > `MetroStation`/`MetrobusStation` implementan la interfaz común **`domain/models/map/TransitStation`**.
 > **Añadir Suburbano/Mexibús = nueva entrada en `TransitSystems` + assets + ruta** (no se duplica lógica).
-> Los VMs/States viejos quedaron como **tombstones**. Las dos pantallas/overlays SIGUEN separadas (su
+> Los 4 VMs/States viejos (tombstones) se BORRARON 2026-06-23 (B). Las dos pantallas/overlays SIGUEN separadas (su
 > render difiere: metro=vídeo+animación vertical, metrobús=gradiente+horizontal) pero usan el VM/State/config
-> unificados; parametrizar una sola pantalla por config es el siguiente paso opcional (ver ANALISIS §2.2).
+> unificados; parametrizar una sola pantalla/overlay por config es **🔮 TRABAJO FUTURO** (pospuesto 2026-06-23): se hará
+> cuando el **Metrobús funcione bien** y se agreguen más sistemas (Suburbano/Mexibús…); hoy NO conviene colapsar alrededor
+> de una implementación con bugs. Ver ANALISIS §2.2/§8 (item A).
 
 - **`ui/MetroStationInteriorScreen.kt`** / **`ui/MetrobusStationInteriorScreen.kt`** — interior de una estación
   (ruta `{key}_station_interior/{stationName}?spawnX=&spawnY=`). Crean el VM con
@@ -97,15 +99,14 @@ globales. / Richer than generic interiors: network map, hotspots, designer mode 
 
 ```kotlin
 enum class TransitHotspot { TAQUILLA, TORNIQUETES, ANDEN, SALIR_TORNIQUETES, SALIDA }
-data class TransitInteriorState( /* neutros + alias de compat */ )
+data class TransitInteriorState( /* solo nombres neutros (alias de compat retirados) */ )
 data class TransitSystemConfig( /* assets, prefs, repo, spawn, deltas, strings, branding */ )
 object TransitSystems { val METRO; val METROBUS }
 ```
 
 **API destacada / notable API:**
 - Movimiento: `moveByAngle`, `moveDirection`, `applyMovement`, `updatePlayer`, `setRunning`.
-- Hotspots: `checkHotspots(x, y)`, `interactWithHotspot()`, `closeTransitMap()` (alias `closeMetroMap`/
-  `closeMetrobusMap`), `onVehicle1AnimationFinished()` (alias `onMetro1`/`onBus1AnimationFinished`), `consumeExitStation()`.
+- Hotspots: `checkHotspots(x, y)`, `interactWithHotspot()`, `closeTransitMap()`, `onVehicle1AnimationFinished()`, `consumeExitStation()`. (Los alias `closeMetroMap`/`onMetro1AnimationFinished`… se retiraron, B.)
 - **Diseñador de matriz** (igual patrón que zombi): `toggleDesignerMode`, `setDesignerTarget`,
   `setDesignerBrushWall`, `paintCellAtWorld`, `saveDesignerMatrix/resetDesignerMatrix`,
   `resizeDesignerMatrixBy`, import/export Uri.

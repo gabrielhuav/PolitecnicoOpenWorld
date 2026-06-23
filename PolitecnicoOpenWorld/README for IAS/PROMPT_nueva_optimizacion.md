@@ -29,7 +29,7 @@ Docs de trabajo (además de 00–09):
 - **✅ i18n player-facing COMPLETA.** Todo el texto de UI visible al jugador está en
   `res/values/strings.xml` (ES) + `res/values-en/strings.xml` (EN), paridad 1:1. Migrados: main_menu,
   settings, map_exterior (HUD/misión/objetivo/Prankedy), campaña, interiores (zombi + ESCOM + transit +
-  diseñadores), MainActivity. **Pendiente menor:** `CampaignObjective.title/description` → `@StringRes`.
+  diseñadores), MainActivity. `CampaignObjective.title/description` → `@StringRes` **HECHO 2026-06-23 (F)**.
 - **✅ De-dup de los 8 gemelos miembro-vs-extensión del VM COMPLETA.** Ya no hay copias divergentes vivas.
   `WorldMapGameLoop.kt` es un tombstone (el game loop es solo el miembro `startGameLoop`, con audio).
   La cadena de routing (`updateDestinationRoute`+`calculateRouteOnNetwork`) se dejó SIN de-dup a propósito
@@ -40,11 +40,12 @@ Docs de trabajo (además de 00–09):
   solo en el VM; bajarlo más requiere extracción estructural extra (NO urgente).
 
 ### Pendiente / opcional (el dueño decide)
-1. `CampaignObjective.title/description` → `@StringRes` (i18n total del objetivo de campaña).
-2. Base común **Metro ⇄ Metrobús** (`TransitInteriorViewModel`/`TransitStationScreen`): la mayor
-   duplicación estructural restante. Esfuerzo medio/alto.
-3. Extraer el `NavHost` de `MainActivity` a `AppNavGraph.kt` (opcional, bajo valor).
-4. Más extracción del VM a parciales nuevos (sin crear gemelos), si se quiere bajar de 1500.
+**Actualización 2026-06-23:** implementados **B, C, D, E, F** (VM <1500; alias compat + 4 tombstones eliminados;
+NavHost→`AppNavGraph.kt`; `SettingsScreen`→`SettingsSections.kt`; `CampaignObjective`+`msg*` transit → `@StringRes`).
+Ver ANALISIS §8. Único pendiente:
+1. **🔮 TRABAJO FUTURO (pospuesto 2026-06-23):** colapsar las 2 **pantallas/overlays** de transporte en UNA por
+   `TransitSystemConfig` (item **A**). Se hará cuando el **Metrobús funcione bien** y se agreguen más sistemas de
+   transporte (Suburbano/Mexibús…); hoy NO conviene unificar alrededor de una implementación con bugs. Esfuerzo alto, riesgo medio-alto.
 
 ---
 

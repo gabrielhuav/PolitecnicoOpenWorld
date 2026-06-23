@@ -417,4 +417,24 @@
     <string name="cd_zombie">Zombie</string>
     <string name="zhud_inventory">INVENTORY</string>
 
+    <!-- Campaign objectives (Mission 1) -->
+    <string name="obj_ir_encb_title">Go to the ENCB</string>
+    <string name="obj_ir_encb_desc">Head to the ENCB to investigate the origin of the outbreak.</string>
+    <string name="obj_escoltar_prankedy_title">Take Prankedy to the ESCOM gate</string>
+    <string name="obj_escoltar_prankedy_desc">Protect Prankedy and escort him to the ESCOM GATE.</string>
+    <string name="obj_ingresar_escom_title">Enter the ESCOM</string>
+    <string name="obj_ingresar_escom_desc">You\'re being chased! Enter through the ESCOM gate to get to safety.</string>
+    <string name="obj_buscar_pistas_escom_title">Search for clues in the ESCOM</string>
+    <string name="obj_buscar_pistas_escom_desc">Explore the ESCOM looking for clues.</string>
+    <!-- Transit: prompt + messages (were hardcoded in TransitSystemConfig) -->
+    <string name="wm_prompt_metrobus">PRESS X TO ENTER METROBÚS STATION %1$s</string>
+    <string name="transit_metro_msg_ticket">You reloaded your metro card</string>
+    <string name="transit_metro_msg_no_balance">You have no balance available</string>
+    <string name="transit_metro_msg_wait">You must wait for the next train</string>
+    <string name="transit_metro_msg_wp_saved">Global waypoints saved</string>
+    <string name="transit_metrobus_msg_ticket">You reloaded your Metrobús card</string>
+    <string name="transit_metrobus_msg_no_balance">You have no balance available on your card</string>
+    <string name="transit_metrobus_msg_wait">You must wait for the next bus</string>
+    <string name="transit_metrobus_msg_wp_saved">Metrobús waypoints saved</string>
+    <string name="transit_msg_exit_turnstile">You left the turnstiles. Go to the ticket booth to reload your card.</string>
 </resources>

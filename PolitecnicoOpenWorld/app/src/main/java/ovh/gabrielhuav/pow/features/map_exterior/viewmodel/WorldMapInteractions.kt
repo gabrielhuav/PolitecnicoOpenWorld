@@ -212,7 +212,7 @@ internal fun WorldMapViewModel.handleInteraction() {
                 // (este es el momento de "ingresar"). Marca el objetivo cumplido + jingle.
                 if (_uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id
                     && !_uiState.value.objectiveDone) {
-                    _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.title ?: ""}") }
+                    _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.let { getLocalizedString(it.titleRes) } ?: ""}") }
                     soundManager.playMisionCumplida()
                 }
                 // Al ENTRAR a la ESCOM, Prankedy ya quedó a salvo dentro: deja de acompañarte para

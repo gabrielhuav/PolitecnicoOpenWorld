@@ -207,7 +207,7 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
             val pmLon = (pk.longitude - obj.targetLon) * 111_320.0 * kotlin.math.cos(Math.toRadians(obj.targetLat))
             if (kotlin.math.sqrt(pmLat * pmLat + pmLon * pmLon) > 45.0) return
         }
-        _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${obj.title}") }
+        _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${getLocalizedString(obj.titleRes)}") }
         // Jingle de "misión cumplida".
         soundManager.playMisionCumplida()
         // MISIÓN 1 cumplida (llegaste a la PUERTA de la ESCOM con Prankedy) → dispara el cómic

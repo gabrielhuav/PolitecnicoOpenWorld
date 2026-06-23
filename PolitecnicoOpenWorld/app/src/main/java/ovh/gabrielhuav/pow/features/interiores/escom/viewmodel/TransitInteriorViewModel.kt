@@ -34,8 +34,7 @@ import kotlin.math.sin
  *
  * Reemplaza a `MetroInteriorViewModel` y `MetrobusInteriorViewModel` (eliminados): antes la misma
  * lógica estaba DUPLICADA en dos archivos. Las pantallas crean este VM con la config adecuada vía
- * `Factory(context, config, stationName, spawnX, spawnY)`. Métodos/estado con nombres neutros, más
- * alias de compatibilidad (closeMetroMap/onMetro1AnimationFinished…) para las pantallas existentes.
+ * `Factory(context, config, stationName, spawnX, spawnY)`. Métodos y estado con nombres neutros (sistema-agnósticos).
  */
 class TransitInteriorViewModel(
     private val context: Context,
@@ -236,7 +235,7 @@ class TransitInteriorViewModel(
         val door = _state.value.activeDoor ?: return
         when (door.targetRoomId) {
             "taquilla" -> {
-                _state.update { it.copy(hasRechargedTicket = true, messageToast = config.msgTicketReloaded) }
+                _state.update { it.copy(hasRechargedTicket = true, messageToast = getLocalizedString(config.msgTicketReloadedRes)) }
                 viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
             }
             "torniquetes" -> {
@@ -255,7 +254,7 @@ class TransitInteriorViewModel(
                         _state.update { it.copy(areControlsEnabled = true, playerAction = PlayerAction.IDLE) }
                     }
                 } else {
-                    _state.update { it.copy(messageToast = config.msgNoBalance) }
+                    _state.update { it.copy(messageToast = getLocalizedString(config.msgNoBalanceRes)) }
                     viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
                 }
             }
@@ -263,7 +262,7 @@ class TransitInteriorViewModel(
                 if (!_state.value.isVehicle1Departing) {
                     _state.update { it.copy(isVehicle1Animating = true, areControlsEnabled = false, isBoardingWalkActive = true) }
                 } else {
-                    _state.update { it.copy(messageToast = config.msgWaitVehicle) }
+                    _state.update { it.copy(messageToast = getLocalizedString(config.msgWaitVehicleRes)) }
                     viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
                 }
             }
@@ -285,7 +284,7 @@ class TransitInteriorViewModel(
                             areControlsEnabled = true,
                             playerAction = PlayerAction.IDLE,
                             hasRechargedTicket = false,
-                            messageToast = config.msgExitTurnstile
+                            messageToast = getLocalizedString(config.msgExitTurnstileRes)
                         )
                     }
                     delay(3000); _state.update { it.copy(messageToast = null) }
@@ -299,6 +298,19 @@ class TransitInteriorViewModel(
                 viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
             }
         }
+    }
+
+    /** Resuelve un string localizado al idioma elegido por el jugador (Ajustes). El context del VM es
+     *  applicationContext (sin el wrap de idioma de la Activity), así que aplicamos el locale aquí. */
+    fun getLocalizedString(resId: Int, vararg args: Any): String {
+        val lang = settingsRepository.getLanguage()
+        val ctx = if (lang.isNotEmpty()) {
+            val locale = java.util.Locale(lang)
+            val cfg = android.content.res.Configuration(context.resources.configuration)
+            cfg.setLocale(locale)
+            context.createConfigurationContext(cfg)
+        } else context
+        return ctx.getString(resId, *args)
     }
 
     /** Cierra el mapa de la red y reproduce el desembarco. (Antes closeMetroMap/closeMetrobusMap.) */
@@ -403,11 +415,6 @@ class TransitInteriorViewModel(
         }
     }
 
-    // ── Alias de compatibilidad para las pantallas existentes (delegan en los neutros) ──────────
-    fun closeMetroMap() = closeTransitMap()
-    fun closeMetrobusMap() = closeTransitMap()
-    fun onMetro1AnimationFinished() = onVehicle1AnimationFinished()
-    fun onBus1AnimationFinished() = onVehicle1AnimationFinished()
 
     fun consumeExitStation() {
         _state.update { it.copy(exitStationRequested = false) }
@@ -638,7 +645,7 @@ class TransitInteriorViewModel(
     fun saveGlobalWaypoints() {
         val globalPrefs = context.getSharedPreferences(config.mapGlobalPrefsName, Context.MODE_PRIVATE)
         globalPrefs.edit().putString("global_waypoints", gson.toJson(_state.value.globalWaypoints)).apply()
-        _state.update { it.copy(messageToast = config.msgGlobalWaypointsSaved) }
+        _state.update { it.copy(messageToast = getLocalizedString(config.msgGlobalWaypointsSavedRes)) }
         viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
     }
 

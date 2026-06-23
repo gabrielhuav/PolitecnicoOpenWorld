@@ -125,19 +125,19 @@ fun MetrobusStationInteriorScreen(
             val bus1XOffset = remember { Animatable(-worldW) }
             val bus2XOffset = remember { Animatable(worldW) }
 
-            LaunchedEffect(state.isBus1Animating, state.spawnWithAnimation) {
-                if (state.isBus1Animating || state.spawnWithAnimation) {
+            LaunchedEffect(state.isVehicle1Animating, state.spawnWithAnimation) {
+                if (state.isVehicle1Animating || state.spawnWithAnimation) {
                     bus1XOffset.snapTo(-worldW)
                     bus1XOffset.animateTo(
                         targetValue = 0f,
                         animationSpec = tween(durationMillis = 1800, easing = EaseOutQuart)
                     )
-                    viewModel.onBus1AnimationFinished()
+                    viewModel.onVehicle1AnimationFinished()
                 }
             }
 
-            LaunchedEffect(state.isBus1Departing) {
-                if (state.isBus1Departing) {
+            LaunchedEffect(state.isVehicle1Departing) {
+                if (state.isVehicle1Departing) {
                     bus1XOffset.snapTo(0f)
                     bus1XOffset.animateTo(
                         targetValue = worldW,
@@ -237,8 +237,8 @@ fun MetrobusStationInteriorScreen(
             }
 
             // Bus 1 (frente – llega desde izquierda, pasa delante del jugador)
-            val isBus1Visible = state.isBus1Animating || state.spawnWithAnimation ||
-                    state.showMetrobusMap || state.isBus1Departing ||
+            val isBus1Visible = state.isVehicle1Animating || state.spawnWithAnimation ||
+                    state.showTransitMap || state.isVehicle1Departing ||
                     state.isBoardingWalkActive || state.isDisembarkingWalkActive
             if (isBus1Visible && bus1Bitmap != null) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
@@ -407,7 +407,7 @@ fun MetrobusStationInteriorScreen(
             )
         }
 
-        if (state.showMetrobusMap) {
+        if (state.showTransitMap) {
             MetrobusMapOverlay(
                 state = state,
                 viewModel = viewModel,

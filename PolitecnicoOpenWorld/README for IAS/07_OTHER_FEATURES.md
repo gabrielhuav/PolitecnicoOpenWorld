@@ -142,8 +142,8 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
   (SharedPreferences), no en el repo: por eso hay un botón **"Exportar"** que vuelca TODOS los paneles a un
   **JSON** (vía selector de archivo) y además escribe en **Logcat** (tag `STORY_LAYOUT`) las líneas
   `ComicPanel(...)` listas para PEGAR como defaults en `StoryComicCatalog.kt` (así la config queda en el código).
-- **Objetivos:** `domain/models/CampaignMission.kt` (`CampaignObjective`, `MissionCatalog.first = ir_encb`,
-  "Ve a la ENCB"). Al COMENZAR se fija el objetivo; el **game loop** (`checkObjectiveProgress`, solo si
+- **Objetivos:** `domain/models/campaign/CampaignObjective.kt` (+ `mission1/Mission1.kt`; `MissionCatalog.first = ir_encb`).
+  `title`/`description` son **`@StringRes`** (`titleRes`/`descriptionRes`, F 2026-06-23; resueltos en ObjectivesWidget/VM). Al COMENZAR se fija el objetivo; el **game loop** (`checkObjectiveProgress`, solo si
   `inCampaign`) lo marca cumplido al entrar en `arriveRadiusMeters` del destino. **Widget de Objetivos
   SIEMPRE visible** (`ui/components/ObjectivesWidget.kt`, HUD **arriba-centro** con título + distancia; se
   dibuja UNA sola vez — antes había un duplicado arriba-izquierda, ya eliminado). El
@@ -256,8 +256,10 @@ fields and **only apply on SAVE**; leaving discards.
 > El borrado elimina la cuenta en Firebase (`AuthManager.deleteAccount`) y los datos locales (slots de
 > `SaveGameRepository` + `CampaignRepository`). El multijugador exige sesión; el juego local no. Ver 09.
 
-### `ui/SettingsScreen.kt`
-Pestañas + sliders. Escala adaptativa 60%–140% (cap 100% en portrait), swap de zurdos, botones A/B/X/Y.
+### `ui/SettingsScreen.kt` (+ `ui/SettingsSections.kt`)
+**2026-06-23 (E):** las 7 secciones (`GameplaySettings`/`MapProviderSetting`/`ControlsSettingsConfig`/`LanguageSetting`/
+`AudioSettings`/`AccountSettings`/`DiagnosticWidgetsSetting`) se extrajeron a `SettingsSections.kt` (`internal`, mismo paquete);
+`SettingsScreen` quedó con la raíz + `CategoryItem*` + `SettingsContent`. Pestañas + sliders. Escala adaptativa 60%–140% (cap 100% en portrait), swap de zurdos, botones A/B/X/Y.
 `GameplaySettings` (Jugabilidad): slider de cantidad de NPCs + switches "Optimizar dibujado de NPCs"
 (LOD) y "Optimizar para gama baja" (emoji total). `DiagnosticWidgetsSetting` (Interfaz): widgets de
 caché, FPS, **zoom** (nivel de zoom actual en vivo) y **velocímetro** (km/h al conducir).

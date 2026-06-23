@@ -654,7 +654,12 @@ fun ZombieGameScreen(
             // puerta cerrada) tiene prioridad y es transitorio.
             val keyPrompt = if (state.nearbyKeyId != null)
                 stringResource(R.string.zgame_key_prompt) else null
-            (state.keyMessage ?: state.nearbyDoorLabel ?: keyPrompt ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
+            // Z-ORDER: el panel de INVENTARIO es un modal a pantalla completa (va por ENCIMA de todo).
+            // Con el inventario ABIERTO suprimimos los avisos de PROXIMIDAD (puerta "Continuar →" / llave),
+            // que se dibujan después del HUD y se traslapaban por encima del inventario. Sí mantenemos
+            // keyMessage (resultado de PROBAR la llave) y los toasts: son la retroalimentación de usarlo.
+            val proximityPrompt = if (state.showInventory) null else (state.nearbyDoorLabel ?: keyPrompt)
+            (state.keyMessage ?: proximityPrompt ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
                 Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
                     Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
                         modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.85f), RoundedCornerShape(8.dp))

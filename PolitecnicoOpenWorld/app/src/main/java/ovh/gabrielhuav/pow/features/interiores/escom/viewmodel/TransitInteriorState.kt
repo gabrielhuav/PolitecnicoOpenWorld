@@ -15,11 +15,6 @@ enum class TransitHotspot {
 /**
  * Estado UNIFICADO del interior de una estación de transporte. Campos con nombres NEUTROS
  * (`isVehicle1Animating`, `showTransitMap`, `allStations`…) para servir a cualquier sistema.
- *
- * Trae GETTERS DE COMPATIBILIDAD con los nombres antiguos (isMetro1Animating, isBus1Animating,
- * showMetroMap, showMetrobusMap, allMetroStations, allMetrobusStations) para que las pantallas
- * existentes sigan leyendo sin renombrar cada referencia. Son solo de LECTURA (no entran en
- * copy()/equals). Se pueden retirar cuando las pantallas usen los nombres neutros.
  */
 data class TransitInteriorState(
     val playerX: Float = 0.5f,
@@ -67,16 +62,4 @@ data class TransitInteriorState(
     val mapDesignerMoveMode: Boolean = false,
     val mapSearchQuery: String = "",
     val allStations: List<TransitStation> = emptyList()
-) {
-    // ── Alias de compatibilidad (solo lectura) ──────────────────────────────────
-    val showMetroMap: Boolean get() = showTransitMap
-    val showMetrobusMap: Boolean get() = showTransitMap
-    val isMetro1Animating: Boolean get() = isVehicle1Animating
-    val isBus1Animating: Boolean get() = isVehicle1Animating
-    val isMetro1Departing: Boolean get() = isVehicle1Departing
-    val isBus1Departing: Boolean get() = isVehicle1Departing
-    val isMetro2Animating: Boolean get() = isVehicle2Animating
-    val isBus2Animating: Boolean get() = isVehicle2Animating
-    val allMetroStations: List<TransitStation> get() = allStations
-    val allMetrobusStations: List<TransitStation> get() = allStations
-}
+)

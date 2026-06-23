@@ -234,7 +234,7 @@ fun MetroMapOverlay(
             }
             
             IconButton(
-                onClick = { viewModel.closeMetroMap() },
+                onClick = { viewModel.closeTransitMap() },
                 modifier = Modifier.background(Color.Red, RoundedCornerShape(8.dp))
             ) {
                 Icon(Icons.Default.Close, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_close), tint = Color.White)
@@ -341,7 +341,7 @@ fun AddStationDialog(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                val filtered = state.allMetroStations.filter { 
+                val filtered = state.allStations.filter { 
                     it.name.contains(state.mapSearchQuery, ignoreCase = true) 
                 }
                 
