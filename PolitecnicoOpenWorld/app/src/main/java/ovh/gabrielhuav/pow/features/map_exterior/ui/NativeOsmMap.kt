@@ -133,6 +133,7 @@ import androidx.compose.runtime.MutableState
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.METRO_INTERACT_RADIUS_METERS
 
 @Composable
 internal fun NativeOsmMap(
@@ -1223,6 +1224,43 @@ internal fun NativeOsmMap(
                 }
             } else {
                 metroMarkerCache.values.forEach { it.isEnabled = false; it.setAlpha(0f) }
+            }
+
+            // ─── METRO: ZONA DE INTERACCIÓN (círculo de 60 m) ──────────────────────────────
+            // Dibuja la zona donde el jugador PUEDE ENTRAR a la estación. Es visible aunque el
+            // logo caiga sobre un edificio inaccesible por calles (Overpass). Mismo culling por
+            // viewport que el icono; se inserta al FONDO (overlays.add(0,…)) para quedar BAJO el
+            // icono del metro. Radio = METRO_INTERACT_RADIUS_METERS (sync con la proximidad del VM).
+            @Suppress("UNCHECKED_CAST")
+            val metroZoneCache = (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 600 }) as? MutableMap<String, org.osmdroid.views.overlay.Polygon>)
+                ?: mutableMapOf<String, org.osmdroid.views.overlay.Polygon>().also {
+                    view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 600 }, it)
+                }
+
+            if (uiState.zoomLevel >= 14.0) {
+                val zoneBox = try { view.boundingBox } catch (_: Exception) { null }
+                val zLatM = if (zoneBox != null) (zoneBox.latNorth - zoneBox.latSouth) * 0.4 else 0.0
+                val zLonM = if (zoneBox != null) (zoneBox.lonEast - zoneBox.lonWest) * 0.4 else 0.0
+                uiState.metroStations.forEach { station ->
+                    val zone = metroZoneCache[station.name] ?: org.osmdroid.views.overlay.Polygon().apply {
+                        fillPaint.color = android.graphics.Color.argb(38, 255, 152, 0)    // naranja translúcido
+                        outlinePaint.color = android.graphics.Color.argb(217, 255, 111, 0)
+                        outlinePaint.strokeWidth = 3f
+                        outlinePaint.isAntiAlias = true
+                        infoWindow = null   // no abre ventana ni roba toques al mapa
+                        metroZoneCache[station.name] = this
+                        view.overlays.add(0, this)   // al fondo: BAJO el icono del metro
+                    }
+                    zone.points = org.osmdroid.views.overlay.Polygon.pointsAsCircle(station.location, METRO_INTERACT_RADIUS_METERS)
+                    val inView = zoneBox == null || (
+                        station.location.latitude <= zoneBox.latNorth + zLatM &&
+                        station.location.latitude >= zoneBox.latSouth - zLatM &&
+                        station.location.longitude <= zoneBox.lonEast + zLonM &&
+                        station.location.longitude >= zoneBox.lonWest - zLonM)
+                    zone.isEnabled = inView
+                }
+            } else {
+                metroZoneCache.values.forEach { it.isEnabled = false }
             }
 
             // ─── METROBÚS STATIONS OVERLAY ────────────────────────────────────────────────

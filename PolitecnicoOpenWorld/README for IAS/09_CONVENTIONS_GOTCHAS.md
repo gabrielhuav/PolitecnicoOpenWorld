@@ -11,14 +11,14 @@ low-end performance) or doc drift.
 
 > ### ✅ ESTADO ACTUAL (2026-06-21) — esto MANDA sobre el historial de abajo
 >
-> **Solo 5 archivos pasan de 1000 líneas; solo 1 pasa de 1500:**
+> **5 archivos pasan de 1000 líneas; NINGUNO pasa de 1500 (2026-06-22):**
 >
 > | Archivo | Líneas | ¿Separar? |
 > |---|---:|---|
-> | `WorldMapViewModel.kt` | **2114** | Único >1500. Lo que queda grande dentro (`startGameLoop` ~490, `handleInteraction`, `trySpawningCollectible`/`checkCollectibleProximity`, `moveCharacter*`) puede extraerse a parciales NUEVOS sin gemelo, pero NO urge. |
+> | `WorldMapViewModel.kt` | **1426** | **Ya NO >1500** (era ~2114). 2026-06-22: de-dup de los 4 gemelos restantes + 4 parciales nuevos (`WorldMapInteractions/Health/EscomItems/Movement.kt`). Lo grande que queda (`startGameLoop` ~490) llama a la cadena de routing (NO TOCAR) → no se extrae. |
 > | `NativeOsmMap.kt` | 1460 | No (renderer Canvas cohesivo). |
 > | `WorldMapScreen.kt` | 1326 | No (raíz Compose ya partida en Overlays/Controls/Google/Web). |
-> | `MainActivity.kt` | 1064 | Opcional (NavHost). Subió un poco por la i18n verbosa. |
+> | `MainActivity.kt` | **252** | NavHost+orquestación → `AppNavGraph.kt` (944) el 2026-06-23 (D). Ya <1000. |
 > | `ZombieGameScreen.kt` | 1035 | No. Subió por la i18n. |
 >
 > **✅ DE-DUP DE GEMELOS miembro-vs-extensión: COMPLETA (2026-06-21).** Los 8 pares quedaron resueltos
@@ -30,8 +30,18 @@ low-end performance) or doc drift.
 > `updateDestinationRoute`+`calculateRouteOnNetwork`. `WorldMapGameLoop.kt` quedó como **tombstone**
 > (startGameLoop volvió a ser solo miembro, con el audio fusionado). Ya NO hay gemelos divergentes vivos.
 >
+> **✅ DE-DUP 2ª TANDA + EXTRACCIÓN DE PARCIALES (2026-06-22):** se de-duplicaron los **4 gemelos restantes**
+> (miembro privado vivo + extensión muerta): `checkCollectibleProximity` (la extensión muerta NO tenía Metrobús ni la
+> mano zombi → se sincronizó al MIEMBRO canónico antes de borrarlo), `trySpawningCollectible`, `isInsideEscom`,
+> `startMovementAction` (estos 3 ya byte-idénticos). Gana la única extensión; sin gemelos vivos. Y se extrajeron
+> **4 parciales NUEVOS sin gemelo** (solo tocan internal/public): `WorldMapInteractions.kt` (interacción: vehículo,
+> puerta/metro, reclamar, teleport directo, toggle apocalipsis), `WorldMapHealth.kt` (takeDamage/heal/barra de vida),
+> `WorldMapEscomItems.kt` (items ESCOM + coche dinámico), `WorldMapMovement.kt` (moveCharacter/moveCharacterByAngle/
+> rescueIfStuckOffNetwork/isCollisionDetected; se pasaron a `internal` `exteriorCollisions` y `RESCUE_MAX_DIST_DEG`).
+> Call-sites externos con import explícito (WorldMapScreen/Controls/Overlays). **VM 2114 → 1426.**
+>
 > **✅ i18n player-facing COMPLETA** (main_menu, settings, map_exterior, campaign, interiores incl. transit
-> y diseñadores, MainActivity). Pendiente menor: `CampaignObjective.title/description` → `@StringRes`. Ver §i18n.
+> y diseñadores, MainActivity). `CampaignObjective.title/description` → `@StringRes` **HECHO 2026-06-23 (F)**. Ver §i18n.
 >
 > *(El historial cronológico de las pasadas de separación queda abajo como registro; los tamaños y el estado
 > de de-dup de ARRIBA son los vigentes.)*
@@ -213,6 +223,14 @@ mantener en sync al re-tunear: `NativeOsmMap` (nativo), `WorldMapLeafletHtml.upd
 px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo usa `uiState.zoomLevel`
 (NO `view.zoomLevelDouble`) para coincidir con el jugador. / Three sizing sources to keep in sync.
 
+> **🆕 Jugador en INTERIORES también normaliza por skin (2026-06-22):** `PlayerView`
+> (`interiores/core/ui/InteriorPlayerViews.kt`) dibujaba con `fillMaxSize()`, así que cada skin se veía de
+> distinto tamaño según cuánto llenara su lienzo (`escomgirl` 0.94 salía MUCHO más grande que
+> `lazaro`/`robot` ~0.61). Ahora reescala con `(INTERIOR_PLAYER_BODY_REF_FRACTION=0.62 / skin.walkBodyFraction)`
+> sobre `requiredSize` → el CUERPO mide igual para todas (referencia = hombre/robot). Si cambias
+> `PlayerSkin.walkBodyFraction`, esto se ajusta solo. La usan los 3 sitios de jugador local en interiores
+> (salas zombi, ESCOM simple, ShineCTO); `RemotePlayerView` ya fija `LAZARO`.
+
 ## 6. Rendimiento gama baja (≤2 GB / Android 7–9) — NO regresar / low-end perf — do NOT regress
 
 - **`nativeDrawableCache`** (en `WorldMapScreen`, usado por `NativeOsmMap`) es **LRU por orden de acceso**
@@ -309,6 +327,71 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
+- **⚠️ Z-ORDER de overlays sobre un MODAL a pantalla completa (2026-06-23, FIX):** en `ZombieGameScreen`, el panel
+  de **inventario** (`ZombieHud`, `if (state.showInventory)`) es un `Box(Modifier.fillMaxSize())` con scrim → modal por
+  ENCIMA de todo. Pero los avisos de proximidad (`nearbyDoorLabel` "Continuar →", prompt de llave) se componían DESPUÉS
+  del HUD en el `Box` raíz → se dibujaban POR ENCIMA del inventario (se traslapaban). En Compose el orden de
+  composición manda y `zIndex` solo reordena HERMANOS del MISMO padre (no cruza padres). Fix: suprimir los avisos de
+  PROXIMIDAD cuando `state.showInventory` (se mantienen `keyMessage`/toasts, que SÍ deben verse sobre el modal).
+- **⚠️ Extraer un bloque de una Activity a una función TOP-LEVEL (no extensión) — 2026-06-23 (D):** al mover el
+  NavHost de `MainActivity` a `AppNavGraph.kt` (un `@Composable` top-level), las llamadas **BARE** a métodos heredados
+  de la Activity (`getString(...)`, `getColor`, `getSystemService`…) DEJAN de resolver: una función top-level NO tiene el
+  `this` implícito de la Activity. NO basta con cambiar los `this@MainActivity.x`; hay que prefijar TAMBIÉN las llamadas
+  SIN punto con `activity.` (`activity.getString(...)`). (Una EXTENSIÓN `fun X.metodo()` sí conserva el `this` del receptor
+  → ahí las bare siguen OK; el problema es solo con funciones top-level.) Verifica con grep de get sin punto. (Pasó:
+  `AppNavGraph.kt:560` Unresolved `getString`.)
+- **⚠️ Recarga del mapa al volver de Ajustes/menú — gate LOCAL vs estado del VM (2026-06-22, FIX):** el
+  `WorldMapViewModel` es Activity-scoped y conserva `isMapReady`/`npcsWarmedUp` (el game loop NO se detiene al
+  navegar a Ajustes), pero el gate "mundo listo" `sceneReady` en `WorldMapScreen.kt` era estado **LOCAL**
+  (`remember { mutableStateOf(false) }`) → al volver de Ajustes el `NavHost` recreaba el composable, `sceneReady`
+  volvía a `false` y se re-mostraba la pantalla de carga (parecía "re-descargar el mapa"). **Fix:** sembrarlo
+  desde el VM → `remember { mutableStateOf(uiState.isMapReady && uiState.npcsWarmedUp) }`. El `LaunchedEffect(isMapReady)`
+  ya lo reinicia a false en teleport/salir de estación (isMapReady=false), así que esos casos siguen mostrando carga.
+  **Regla:** todo gate de UI que deba SOBREVIVIR a la navegación se SIEMBRA desde el estado persistido del VM, nunca en false.
+
+- **⚠️ GOTCHA DEL SANDBOX — truncación de archivos grandes (2026-06-22):** el shell/sandbox puede servir una COPIA
+  TRUNCADA de un .kt grande (umbral ~120 KB). `WorldMapViewModel.kt` (~125 KB) se leía a **2110** líneas cuando el real
+  tenía **~2140** → al refactorizar con Python EN el sandbox y reescribir, se PERDIÓ la cola (las 4 funciones
+  `on/consume Metro/Metrobus FadeComplete` + la `}` de cierre de la clase). **Reglas:** (a) NO refactorices un .kt grande
+  leyéndolo por el sandbox sin verificar `wc -c`/cola primero; (b) tras CADA escritura, verifica con la herramienta
+  **Read** (otra ruta de acceso, ve el archivo REAL) que la COLA y el cierre de clase siguen ahí; (c) valida el balance con
+  un chequeo **Kotlin-aware** (ignora strings/comentarios/plantillas): el conteo naíf de `{}`/`()` da falsos ± por llaves
+  en strings/`${}`/comentarios. El daño de esta sesión se recuperó empalmando la cola desde `git show HEAD:` (prefijo
+  idéntico verificado). Mantén el VM < ~120 KB para no recaer.
+- **🆕 Atasco tras TP — snap en `maybeRefetchRoadNetwork` (2026-06-22):** el reload de calles tras un
+  teletransporte (`maybeRefetchRoadNetwork`, en `WorldMapRoadNetwork.kt`) **NO snapeaba al jugador** a la calle
+  (a diferencia de `applyRoadNetwork` del arranque) → al TP a una estación SOBRE un edificio quedabas en coords
+  crudas fuera de la red = atorado. Fix: ambas ramas (caché y fetch) ahora hacen `getNearestPointOnNetwork(cur)`
+  y fijan `currentLocation` (respetando zona libre ESCOM/ENCB). Además, si el fetch vuelve **vacío** estando en
+  compuerta de carga (tras TP), NO se marca `isRoadNetworkReady=true` (mantiene la pantalla de carga + reintenta
+  ~3 s) para no soltar al jugador sobre una red inservible ("volar"/atorarse). El rescate de movimiento
+  (`rescueIfStuckOffNetwork`) tiene tope `RESCUE_MAX_DIST_DEG` (~130 m) por la misma razón.
+- **🆕 Sprite del jugador en METROBÚS (2026-06-22):** `MetrobusStationInteriorScreen.MetrobusPlayerSprite`
+  cargaba de `PRINCIPAL/` que está **VACÍO** → jugador invisible (parecía que el bus lo tapaba). Corregido a
+  `SPRITES/PLAYER/lazaro*` (igual que el metro). `TransitSystems.METROBUS.spriteBaseDir` también corregido.
+- **🆕 TRANSPORTE UNIFICADO (2026-06-22):** el interior de Metro y Metrobús ya NO son VMs/States gemelos.
+  Un solo **`TransitInteriorViewModel`** + **`TransitInteriorState`** (nombres neutros + getters de compat para
+  los viejos: `isMetro1Animating`→`isVehicle1Animating`, `showMetroMap`→`showTransitMap`, `allMetroStations`→
+  `allStations`…) dirigidos por **`TransitSystemConfig`** (catálogo `TransitSystems.METRO`/`.METROBUS`). Los
+  modelos implementan **`domain/models/map/TransitStation`**. Las pantallas crean el VM con
+  `TransitInteriorViewModel.Factory(context, config, stationName, spawnX, spawnY)` y siguen separadas (render
+  distinto). Los 4 archivos `Metro/MetrobusInterior{ViewModel,State}.kt` son **tombstones**. Para añadir
+  Suburbano/Mexibús: nueva entrada en `TransitSystems` + assets + ruta. Ver 06 y ANALISIS §2.2/§8.
+  **ACTUALIZACIÓN 2026-06-23 (B):** los alias de compat (`isMetro1Animating`/`showMetroMap`/`allMetroStations`/
+  `closeMetroMap`/`onMetro1AnimationFinished`…) se RETIRARON y los 4 tombstones se BORRARON; las 4 pantallas/overlays
+  usan los nombres neutros. Los 10 `msg*` (toasts) de `TransitSystemConfig` pasaron a `@StringRes` (F), resueltos con
+  un `getLocalizedString` locale-aware nuevo en `TransitInteriorViewModel` (el context del VM es applicationContext).
+- **🆕 Salir de estación: `teleportTo` LIMPIA el estado de fade/cercanía de transporte (2026-06-22):** al salir
+  de una estación se llama a `teleportTo`; un `metro/metrobusFadeCompleteStation` pendiente (sin consumir) podía
+  disparar la navegación al volver al mapa → "salir del metro me mandaba al metrobús". Ahora `teleportTo` resetea
+  `show*Fade`/`*FadeCompleteStation`/`nearby*Station` (pizarra limpia en cada TP).
+- **🆕 Zona de interacción (`METRO_INTERACT_RADIUS_METERS=30.0` metro / `METROBUS_INTERACT_RADIUS_METERS=30.0` metrobús; 18 era demasiado chico para entrar):** constantes de nivel de
+  archivo en `WorldMapState.kt`. La detección de proximidad vive en `checkCollectibleProximity`, que es un
+  **gemelo miembro (WorldMapViewModel.kt, GANA) + extensión muerta (WorldMapCollectiblesLogic.kt)** → al
+  cambiar el radio se editaron **AMBOS** por convención. El valor se DIBUJA como círculo: web hardcodea
+  `METRO_INTERACT_RADIUS_M=60` en `WorldMapLeafletHtml.updateMetro` (mantener en sync con la constante Kotlin),
+  OSM nativo lee la constante (`Polygon.pointsAsCircle`, tag `route_overlay_tag+600`). Antes todo usaba
+  `INTERACT_RADIUS_METERS=15` (sigue para coleccionables/puertas).
 - Room **v8** con `MIGRATION_7_8` + destructive fallback. Cambio de esquema → nueva migración + bump.
 - Prefs vía `SettingsRepository` (SharedPreferences), no Room.
 - Menú de opciones anidado (`OptionsMenu`): grupos *o* items a cualquier profundidad; height-capped
@@ -634,18 +717,16 @@ matrices por defecto son **border-only** hasta reemplazarse.
       `int_grid_paint`/`int_designer`/`int_move_handle` (+ reuso de `int_drag_door`/`int_touch_door`/
       `int_size_grid`/`int_waypoint_size`/`int_save_unsaved`/`ig_reset`/`ig_export`/`ig_import`/`ig_exit`).
       ZombieHud (`zhud_inventory`, `cd_zombie`). **i18n player-facing = COMPLETA.**
-    - **PENDIENTE menor:** `CampaignObjective.title/description` siguen como `String` en el modelo
-      (i18n total = pasarlos a `@StringRes` + resolver en la View; esfuerzo medio, requiere compilar).
+    - **✅ HECHO (2026-06-23, F):** `CampaignObjective.title/description` → **`@StringRes`** (`titleRes`/`descriptionRes`),
+      resueltos en ObjectivesWidget (stringResource) y en el VM (getLocalizedString). Además los 10 `msg*` de `TransitSystemConfig` → `@StringRes`.
     - **NO migrar:** rutas de assets, tipos de mensaje de red (`"PLAYER_UPDATE"`…), tags de log, URLs,
       claves de caché de sprites, unidades (`km/h`, `HP`), comparaciones por dato (`"Objeto Misterioso ESCOM"`),
-      ni `displayName` propios (skins `Lázaro`/`Robot Estudiantx`, `Shine CTO`, `PRANKEDY`). `CampaignObjective.
-      title/description` siguen como `String` en el modelo (i18n completo = pasarlos a `@StringRes`, cambio de
-      medio esfuerzo que requiere compilar).
+      ni `displayName` propios (skins `Lázaro`/`Robot Estudiantx`, `Shine CTO`, `PRANKEDY`). (`CampaignObjective.title/description` YA están en `@StringRes` desde 2026-06-23, F.)
   - **Claves:** `snake_case`, prefijadas por feature (`menu_*`, `settings_*`). Toda clave nueva va en
     `values/` **y** `values-en/` (una contradicción/ausencia = bug; mantén la paridad).
 - **🆕 Control por defecto = `JOYSTICK`:** lo fija `SettingsRepository.getControlType()` (default JOYSTICK,
   antes DPAD). Como TODOS los VMs leen el tipo de ahí al iniciar (`WorldMapViewModel`, `ZombieGameViewModel`,
-  `InteriorViewModel`, `MetroInteriorViewModel`, `ShineCTOViewModel`), basta ese cambio; los defaults de los
+  `InteriorViewModel`, `TransitInteriorViewModel`, `ShineCTOViewModel`), basta ese cambio; los defaults de los
   `*State` (`WorldMapState`, `SettingsState.controlType`/`tempControlType`) se pusieron en JOYSTICK por
   coherencia del primer frame. DPAD sigue eligible en Ajustes → Controles (no se persiste hasta GUARDAR).
 - **🆕 Controles a la MISMA ALTURA (global = interiores):** la fila de controles del mapa global
@@ -747,6 +828,13 @@ matrices por defecto son **border-only** hasta reemplazarse.
   del `SoundPool` por `sfxVolume` y reajusta los streams en loop con `setVolume`). `SoundManager.init` LEE
   el volumen del repo y lo aplica al arrancar; `MainActivity` lo empuja en vivo al cambiar el slider. Si
   añades un nuevo `play()`, multiplica su volumen por `sfxVolume` (si no, ese efecto ignora el slider).
+- **🆕 GOTCHA SoundPool — loops huérfanos ("siempre se escuchan pasos"):** `SoundPool.load()` es ASÍNCRONO.
+  Llamar `play()` con loop (`-1`) ANTES de que el sample cargue devuelve 0 y en algunos equipos deja un stream
+  en loop HUÉRFANO sin `streamId` capturado → `stopWalk()` no lo para nunca. Regla: lanza un loop SOLO cuando su
+  sample ya cargó (`setOnLoadCompleteListener` → `loadedSounds`; `playWalk/Run/Car` chequean `id in loadedSounds`).
+  Además `SoundManager` es SINGLETON compartido por el mapa exterior (game loop, `Dispatchers.Default`) y los
+  interiores (coroutines): `play`/`stop` de loops van **`@Synchronized`** para no entrelazarse. NO reintroduzcas
+  el "reintenta `play()` mientras devuelva 0" (eso causaba los huérfanos). Ver 07.
 - **🆕 TP entre salas = puerta↔puerta (`ZombieGameViewModel.goToRoom`):** al cambiar de sala se spawnea
   JUNTO a la puerta del cuarto DESTINO cuyo `targetRoomId == fromRoom.id` (no en el centro). Cubre la cadena
   ENCB (Continuar↔Regresar) y los vecinos de edificios. **⚠️ El spawn se DESPLAZA ~30% hacia el centro

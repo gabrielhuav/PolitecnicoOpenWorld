@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.features.interiores.escom.viewmodel
 
-import android.app.Application
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -16,7 +15,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import ovh.gabrielhuav.pow.data.repository.MetrobusRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.NormRect
@@ -28,22 +26,34 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-class MetrobusInteriorViewModel(
+/**
+ * ViewModel UNIFICADO del interior de una estación de transporte (Metro, Metrobús y futuros). Toda
+ * la lógica (movimiento, hotspots/torniquetes, animación de abordaje, diseñador de matriz/puertas,
+ * waypoints globales, persistencia) vive AQUÍ, una sola vez. Lo específico de cada sistema entra por
+ * `config: TransitSystemConfig` (assets, prefs, repo, spawn, offset de torniquete, strings, branding).
+ *
+ * Reemplaza a `MetroInteriorViewModel` y `MetrobusInteriorViewModel` (eliminados): antes la misma
+ * lógica estaba DUPLICADA en dos archivos. Las pantallas crean este VM con la config adecuada vía
+ * `Factory(context, config, stationName, spawnX, spawnY)`. Métodos y estado con nombres neutros (sistema-agnósticos).
+ */
+class TransitInteriorViewModel(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
+    val config: TransitSystemConfig,
     private val stationName: String,
     private val spawnX: Float = -1f,
     private val spawnY: Float = -1f
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
-        MetrobusInteriorState(
+        TransitInteriorState(
             controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
-            swapControls = settingsRepository.getSwapControls()
+            swapControls = settingsRepository.getSwapControls(),
+            selectedSkin = settingsRepository.getPlayerSkin()   // respeta la skin elegida (no siempre Lázaro)
         )
     )
-    val state: StateFlow<MetrobusInteriorState> = _state.asStateFlow()
+    val state: StateFlow<TransitInteriorState> = _state.asStateFlow()
 
     private var idleJob: Job? = null
     private var collisionGrid: CollisionGrid = CollisionGrid.emptyWithBorder()
@@ -54,7 +64,7 @@ class MetrobusInteriorViewModel(
     private val WALK_STEP = 0.004f
     private val RUN_STEP = 0.008f
 
-    private val prefs = context.getSharedPreferences("metrobus_station_$stationName", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(config.stationPrefsName(stationName), Context.MODE_PRIVATE)
     private val gson = Gson()
 
     init {
@@ -68,7 +78,7 @@ class MetrobusInteriorViewModel(
 
         if (initialRows.isNullOrEmpty()) {
             try {
-                context.assets.open("TRANSIT/METROBUS/matrix.json").use { inp ->
+                context.assets.open(config.matrixAsset).use { inp ->
                     val json = InputStreamReader(inp).readText()
                     initialRows = gson.fromJson<List<String>>(json, object : TypeToken<List<String>>() {}.type)
                 }
@@ -90,20 +100,16 @@ class MetrobusInteriorViewModel(
 
         if (initialDoors.isNullOrEmpty()) {
             try {
-                context.assets.open("TRANSIT/METROBUS/waypoints.json").use { inp ->
+                context.assets.open(config.waypointsAsset).use { inp ->
                     val json = InputStreamReader(inp).readText()
                     initialDoors = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
                 }
             } catch (e: Exception) { }
         }
 
-        val defaultDoors = initialDoors ?: listOf(
-            ZoneDoor(NormRect(0.15f, 0.35f, 0.35f, 0.50f), "taquilla", "Taquilla", DoorKind.GENERIC),
-            ZoneDoor(NormRect(0.42f, 0.52f, 0.62f, 0.64f), "torniquetes", "Torniquetes", DoorKind.GENERIC),
-            ZoneDoor(NormRect(0.08f, 0.08f, 0.92f, 0.28f), "anden", "Andén", DoorKind.GENERIC)
-        )
+        val defaultDoors = initialDoors ?: config.defaultDoors
 
-        val globalPrefs = context.getSharedPreferences("metrobus_map_global", Context.MODE_PRIVATE)
+        val globalPrefs = context.getSharedPreferences(config.mapGlobalPrefsName, Context.MODE_PRIVATE)
         val savedGlobalWaypoints = globalPrefs.getString("global_waypoints", null)
 
         var initialGlobalWaypoints: List<ZoneDoor>? = null
@@ -115,17 +121,17 @@ class MetrobusInteriorViewModel(
 
         if (initialGlobalWaypoints.isNullOrEmpty()) {
             try {
-                context.assets.open("TRANSIT/METROBUS/global_waypoints.json").use { inp ->
+                context.assets.open(config.globalWaypointsAsset).use { inp ->
                     val json = InputStreamReader(inp).readText()
                     initialGlobalWaypoints = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
                 }
             } catch (e: Exception) { }
         }
 
-        val allStations = MetrobusRepository.loadStations(context)
+        val allStations = config.loadStations(context)
 
-        var startX = 0.5f
-        var startY = 0.75f
+        var startX = config.defaultSpawnX
+        var startY = config.defaultSpawnY
         var recharged = false
 
         if (spawnX != -1f && spawnY != -1f) {
@@ -139,7 +145,7 @@ class MetrobusInteriorViewModel(
                 designerRows = defaultRows,
                 doors = defaultDoors,
                 globalWaypoints = initialGlobalWaypoints ?: emptyList(),
-                allMetrobusStations = allStations,
+                allStations = allStations,
                 playerX = startX,
                 playerY = startY,
                 hasRechargedTicket = recharged,
@@ -212,6 +218,7 @@ class MetrobusInteriorViewModel(
         _state.update { it.copy(isRunning = running) }
     }
 
+    // --- HOTSPOTS (DOORS) ---
     private fun checkHotspots(x: Float, y: Float) {
         val doors = _state.value.doors
         val detected = doors.firstOrNull { door ->
@@ -228,7 +235,7 @@ class MetrobusInteriorViewModel(
         val door = _state.value.activeDoor ?: return
         when (door.targetRoomId) {
             "taquilla" -> {
-                _state.update { it.copy(hasRechargedTicket = true, messageToast = "Has recargado tu tarjeta del Metrobús") }
+                _state.update { it.copy(hasRechargedTicket = true, messageToast = getLocalizedString(config.msgTicketReloadedRes)) }
                 viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
             }
             "torniquetes" -> {
@@ -241,21 +248,21 @@ class MetrobusInteriorViewModel(
                         val stepDelay = 1200L / steps
                         for (i in 1..steps) {
                             val fraction = i.toFloat() / steps
-                            _state.update { it.copy(playerY = startY - fraction * 0.50f, playerAction = PlayerAction.WALK) }
+                            _state.update { it.copy(playerY = startY + fraction * config.turnstileBoardDeltaY, playerAction = PlayerAction.WALK) }
                             delay(stepDelay)
                         }
                         _state.update { it.copy(areControlsEnabled = true, playerAction = PlayerAction.IDLE) }
                     }
                 } else {
-                    _state.update { it.copy(messageToast = "No tienes saldo disponible en tu tarjeta") }
+                    _state.update { it.copy(messageToast = getLocalizedString(config.msgNoBalanceRes)) }
                     viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
                 }
             }
             "anden" -> {
-                if (!_state.value.isBus1Departing) {
-                    _state.update { it.copy(isBus1Animating = true, areControlsEnabled = false, isBoardingWalkActive = true) }
+                if (!_state.value.isVehicle1Departing) {
+                    _state.update { it.copy(isVehicle1Animating = true, areControlsEnabled = false, isBoardingWalkActive = true) }
                 } else {
-                    _state.update { it.copy(messageToast = "Debes esperar a que llegue otro autobús") }
+                    _state.update { it.copy(messageToast = getLocalizedString(config.msgWaitVehicleRes)) }
                     viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
                 }
             }
@@ -268,7 +275,8 @@ class MetrobusInteriorViewModel(
                     val stepDelay = 1200L / steps
                     for (i in 1..steps) {
                         val fraction = i.toFloat() / steps
-                        _state.update { it.copy(playerY = (startY + fraction * 0.50f).coerceAtMost(1f), playerAction = PlayerAction.WALK) }
+                        // Salir = inverso del abordaje; coerceIn cubre ambos sentidos (metro sube, metrobús baja).
+                        _state.update { it.copy(playerY = (startY - fraction * config.turnstileBoardDeltaY).coerceIn(0f, 1f), playerAction = PlayerAction.WALK) }
                         delay(stepDelay)
                     }
                     _state.update {
@@ -276,7 +284,7 @@ class MetrobusInteriorViewModel(
                             areControlsEnabled = true,
                             playerAction = PlayerAction.IDLE,
                             hasRechargedTicket = false,
-                            messageToast = "Has salido de los torniquetes. Ve a la taquilla para recargar tu tarjeta."
+                            messageToast = getLocalizedString(config.msgExitTurnstileRes)
                         )
                     }
                     delay(3000); _state.update { it.copy(messageToast = null) }
@@ -292,8 +300,22 @@ class MetrobusInteriorViewModel(
         }
     }
 
-    fun closeMetrobusMap() {
-        _state.update { it.copy(showMetrobusMap = false) }
+    /** Resuelve un string localizado al idioma elegido por el jugador (Ajustes). El context del VM es
+     *  applicationContext (sin el wrap de idioma de la Activity), así que aplicamos el locale aquí. */
+    fun getLocalizedString(resId: Int, vararg args: Any): String {
+        val lang = settingsRepository.getLanguage()
+        val ctx = if (lang.isNotEmpty()) {
+            val locale = java.util.Locale(lang)
+            val cfg = android.content.res.Configuration(context.resources.configuration)
+            cfg.setLocale(locale)
+            context.createConfigurationContext(cfg)
+        } else context
+        return ctx.getString(resId, *args)
+    }
+
+    /** Cierra el mapa de la red y reproduce el desembarco. (Antes closeMetroMap/closeMetrobusMap.) */
+    fun closeTransitMap() {
+        _state.update { it.copy(showTransitMap = false) }
         viewModelScope.launch {
             idleJob?.cancel()
             _state.update {
@@ -318,17 +340,18 @@ class MetrobusInteriorViewModel(
                 it.copy(
                     playerAction = PlayerAction.IDLE,
                     areControlsEnabled = true,
-                    isBus1Departing = true,
+                    isVehicle1Departing = true,
                     isDisembarkingWalkActive = false
                 )
             }
             delay(5000)
-            _state.update { it.copy(isBus1Departing = false) }
+            _state.update { it.copy(isVehicle1Departing = false) }
         }
     }
 
-    fun onBus1AnimationFinished() {
-        if (_state.value.isBus1Animating) {
+    /** Fin de la animación del vehículo 1. (Antes onMetro1AnimationFinished/onBus1AnimationFinished.) */
+    fun onVehicle1AnimationFinished() {
+        if (_state.value.isVehicle1Animating) {
             if (_state.value.isBoardingWalkActive) {
                 viewModelScope.launch {
                     idleJob?.cancel()
@@ -347,13 +370,13 @@ class MetrobusInteriorViewModel(
                             isPlayerVisible = false,
                             playerAction = PlayerAction.IDLE,
                             isBoardingWalkActive = false,
-                            isBus1Animating = false,
-                            showMetrobusMap = true
+                            isVehicle1Animating = false,
+                            showTransitMap = true
                         )
                     }
                 }
             } else {
-                _state.update { it.copy(isBus1Animating = false, showMetrobusMap = true) }
+                _state.update { it.copy(isVehicle1Animating = false, showTransitMap = true) }
             }
         } else if (_state.value.spawnWithAnimation) {
             viewModelScope.launch {
@@ -382,22 +405,22 @@ class MetrobusInteriorViewModel(
                     it.copy(
                         playerAction = PlayerAction.IDLE,
                         areControlsEnabled = true,
-                        isBus1Departing = true,
+                        isVehicle1Departing = true,
                         isDisembarkingWalkActive = false
                     )
                 }
                 delay(5000)
-                _state.update { it.copy(isBus1Departing = false) }
+                _state.update { it.copy(isVehicle1Departing = false) }
             }
         }
     }
+
 
     fun consumeExitStation() {
         _state.update { it.copy(exitStationRequested = false) }
     }
 
-    // ─── MODO DISEÑADOR ───────────────────────────────────────────────────────
-
+    // --- DISEÑADOR ---
     fun toggleDesignerMode() {
         _state.update { it.copy(designerMode = !it.designerMode) }
     }
@@ -437,6 +460,7 @@ class MetrobusInteriorViewModel(
         _state.update { it.copy(designerDirty = false) }
     }
 
+    // --- IMPORTACIÓN / EXPORTACIÓN SAF ---
     fun exportMatricesToUri(uri: Uri) {
         try {
             context.contentResolver.openOutputStream(uri)?.use { out ->
@@ -526,6 +550,7 @@ class MetrobusInteriorViewModel(
         updateCollisionGrid(newRowsList)
     }
 
+    // --- EDICIÓN DE WAYPOINTS ---
     fun selectDoor(x: Float, y: Float) {
         val s = _state.value
         val clickedIndex = s.doors.indexOfLast { door ->
@@ -618,9 +643,9 @@ class MetrobusInteriorViewModel(
     }
 
     fun saveGlobalWaypoints() {
-        val globalPrefs = context.getSharedPreferences("metrobus_map_global", Context.MODE_PRIVATE)
+        val globalPrefs = context.getSharedPreferences(config.mapGlobalPrefsName, Context.MODE_PRIVATE)
         globalPrefs.edit().putString("global_waypoints", gson.toJson(_state.value.globalWaypoints)).apply()
-        _state.update { it.copy(messageToast = "Waypoints del Metrobús guardados") }
+        _state.update { it.copy(messageToast = getLocalizedString(config.msgGlobalWaypointsSavedRes)) }
         viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
     }
 
@@ -640,15 +665,17 @@ class MetrobusInteriorViewModel(
 
     class Factory(
         private val context: Context,
+        private val config: TransitSystemConfig,
         private val stationName: String,
         private val spawnX: Float,
         private val spawnY: Float
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return MetrobusInteriorViewModel(
+            return TransitInteriorViewModel(
                 context = context.applicationContext,
                 settingsRepository = SettingsRepository(context.applicationContext),
+                config = config,
                 stationName = stationName,
                 spawnX = spawnX,
                 spawnY = spawnY

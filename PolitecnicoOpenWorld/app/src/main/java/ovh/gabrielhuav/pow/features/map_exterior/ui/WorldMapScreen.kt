@@ -59,6 +59,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -141,6 +142,12 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_OSM
 // REFACTOR: funciones del VM extraídas a parciales (WorldMapProviders/Designer) →
 // ahora son extensiones y requieren import explícito desde el paquete ui.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.addLandmarkAtPlayer
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.showInitialHealthBar
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.spawnDynamicCarInEscom
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearPendingInteriorDestination
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearPendingZombieMinigame
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleInteriorDebugOverlay
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleGlobalZombieMode
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.cancelPendingProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.deleteSelectedLandmark
@@ -193,6 +200,8 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
 // REFACTOR: extensiones del VM extraídas (teleport/puerta ESCOM) → import explícito.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportTo
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetroStation
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusStation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleTeleportMenu
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onEscomDoorFadeComplete
 import kotlin.math.cos
@@ -293,6 +302,27 @@ fun WorldMapScreen(
     }
     val collisionsImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.importDebugEditsFromUri(context, it) }
+    }
+
+    // ── Diseñador de RUTAS/ESTACIONAMIENTOS: estado reactivo + export a archivo .json (SAF) ──
+    // Reemplaza el viejo flujo por Logcat (`WorldMapViewModel.debugPlayerLocalCoordinates`). El cálculo
+    // GPS→local lo hace el caso de uso PURO `CalculateLocalCoordinatesUseCase`. Mismo patrón de launcher
+    // que el export de landmarks (arriba). `remember` lo mantiene a través de recomposiciones.
+    val designerViewModel = remember { ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DesignerViewModel() }
+    val designerState by designerViewModel.state.collectAsState()
+    val routeExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let { u ->
+            try {
+                context.contentResolver.openOutputStream(u)?.use { os ->
+                    os.write(designerViewModel.serializeNodesToJson().toByteArray())
+                }
+                android.widget.Toast.makeText(context, "Ruta exportada", android.widget.Toast.LENGTH_SHORT).show()
+                designerViewModel.startNewLane()   // listo para el siguiente carril
+                viewModel.clearRouteBreadcrumbs()  // limpia las migas visuales del mapa
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Error al exportar la ruta", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap?>() }
@@ -415,6 +445,8 @@ fun WorldMapScreen(
     // (+ heartbeat), como los landmarks. El icono se carga del asset TRANSIT/METRO/icon.webp.
     val lastWebMetroHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.MetroStation>>(1) }
     val webMetroTick = remember { intArrayOf(0) }
+    val lastWebMetrobusHolder = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.MetrobusStation>>(1) }
+    val webMetrobusTick = remember { intArrayOf(0) }
     // Debug Interiores (web): solo reenviamos el navGraph al WebView cuando cambia el
     // estado del overlay o la lista de landmarks (no por frame).
     val lastWebIpOn = remember { booleanArrayOf(false) }
@@ -456,8 +488,13 @@ fun WorldMapScreen(
         // landmark(s) cercano(s) DECODIFICADO(S) (p. ej. la ENTRADA de la ESCOM) + NPCs/coches ya
         // sembrados. Así la pantalla de carga dura lo necesario (más en gama baja) y no se entra
         // "en blanco" ni sin coches/NPCs.
-        var sceneReady by remember { mutableStateOf(false) }
-        // Reinicia el gate en cada (re)carga del mundo (teleport, volver de interior).
+        // Si el mundo YA estaba cargado (volver de Ajustes/menú SIN teleport), el gate arranca en
+        // true: el WorldMapViewModel es Activity-scoped y conserva isMapReady/npcsWarmedUp (el game
+        // loop nunca se detuvo), así que NO hay que re-mostrar la pantalla de carga → regreso INSTANTÁNEO.
+        // Arranca en false solo en la PRIMERA carga o tras un teleport (que pone isMapReady=false, abajo).
+        var sceneReady by remember { mutableStateOf(uiState.isMapReady && uiState.npcsWarmedUp) }
+        // Reinicia el gate en cada (re)carga REAL del mundo (teleport, salir de una estación): cuando
+        // isMapReady vuelve a false. Volver de Ajustes NO toca isMapReady → no reinicia el gate.
         LaunchedEffect(uiState.isMapReady) { if (!uiState.isMapReady) sceneReady = false }
         // SONDEO: con tiles+calles listos, decodifica los assets de landmarks cercanos y espera a
         // que (1) exista al menos un landmark cercano y TODOS estén decodificados, y (2) ya haya
@@ -640,6 +677,8 @@ fun WorldMapScreen(
                     webLmTick = webLmTick,
                     lastWebMetroHolder = lastWebMetroHolder,
                     webMetroTick = webMetroTick,
+                    lastWebMetrobusHolder = lastWebMetrobusHolder,
+                    webMetrobusTick = webMetrobusTick,
                     lastWebIpOn = lastWebIpOn,
                     lastWebIpLm = lastWebIpLm,
                     lastWebIpColl = lastWebIpColl,
@@ -1190,6 +1229,23 @@ fun WorldMapScreen(
                 onDismissRequest = { viewModel.toggleTeleportMenu(false) },
                 title = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_title), fontWeight = FontWeight.Bold) },
                 text = {
+                    // Listas de estaciones (metro ~160 / metrobús ~80) COLAPSADAS por defecto: solo se
+                    // despliegan (con su buscador) al pulsar el botón Metro/Metrobús, para que la lista de
+                    // TP no crezca de más. El TP a transporte existe porque llegar a pie es complicado.
+                    var metroExpanded by remember { mutableStateOf(false) }
+                    var metrobusExpanded by remember { mutableStateOf(false) }
+                    var metroQuery by remember { mutableStateOf("") }
+                    var metrobusQuery by remember { mutableStateOf("") }
+                    val filteredMetro = remember(metroQuery, uiState.metroStations) {
+                        val q = metroQuery.trim()
+                        val sorted = uiState.metroStations.sortedBy { it.name }
+                        if (q.isEmpty()) sorted else sorted.filter { it.name.contains(q, ignoreCase = true) }
+                    }
+                    val filteredMetrobus = remember(metrobusQuery, uiState.metrobusStations) {
+                        val q = metrobusQuery.trim()
+                        val sorted = uiState.metrobusStations.sortedBy { it.name }
+                        if (q.isEmpty()) sorted else sorted.filter { it.name.contains(q, ignoreCase = true) }
+                    }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_subtitle), fontSize = 14.sp)
                         LazyColumn(modifier = Modifier.fillMaxHeight(0.5f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1223,6 +1279,64 @@ fun WorldMapScreen(
                             }
                             items(TeleportCatalog.zones) { zone ->
                                 Button(onClick = { viewModel.teleportTo(zone.latitude, zone.longitude) }, modifier = Modifier.fillMaxWidth()) { Text(zone.name) }
+                            }
+                            // 🚇 Sección METRO (colapsable): el botón despliega/oculta buscador + estaciones.
+                            item {
+                                Button(onClick = { metroExpanded = !metroExpanded }, modifier = Modifier.fillMaxWidth()) {
+                                    Text((if (metroExpanded) "▼ " else "▶ ") + androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_header))
+                                }
+                            }
+                            if (metroExpanded) {
+                                item {
+                                    OutlinedTextField(
+                                        value = metroQuery,
+                                        onValueChange = { metroQuery = it },
+                                        singleLine = true,
+                                        label = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_search)) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                if (uiState.metroStations.isEmpty()) {
+                                    item { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_empty), fontSize = 13.sp) }
+                                }
+                                items(filteredMetro) { station ->
+                                    Button(
+                                        onClick = {
+                                            viewModel.teleportToMetroStation(station.name)
+                                            viewModel.toggleTeleportMenu(false)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text("🚇 ${station.name}") }
+                                }
+                            }
+                            // 🚌 Sección METROBÚS (colapsable).
+                            item {
+                                Button(onClick = { metrobusExpanded = !metrobusExpanded }, modifier = Modifier.fillMaxWidth()) {
+                                    Text((if (metrobusExpanded) "▼ " else "▶ ") + androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metrobus_header))
+                                }
+                            }
+                            if (metrobusExpanded) {
+                                item {
+                                    OutlinedTextField(
+                                        value = metrobusQuery,
+                                        onValueChange = { metrobusQuery = it },
+                                        singleLine = true,
+                                        label = { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metrobus_search)) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                if (uiState.metrobusStations.isEmpty()) {
+                                    item { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_metro_empty), fontSize = 13.sp) }
+                                }
+                                items(filteredMetrobus) { station ->
+                                    Button(
+                                        onClick = {
+                                            viewModel.teleportToMetrobusStation(station.name)
+                                            viewModel.toggleTeleportMenu(false)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text("🚌 ${station.name}") }
+                                }
                             }
                         }
                     }
@@ -1260,10 +1374,29 @@ fun WorldMapScreen(
                 onExport = { exportLauncher.launch("landmarks_config.json") },
                 onImport = { importLauncher.launch(arrayOf("application/json", "*/*")) },
                 onDeselect = { viewModel.selectLandmark(null) },
-                isParkingMode = uiState.isParkingSlotMode,
-                onToggleParkingMode = { isChecked -> viewModel.toggleParkingMode(isChecked) },
-                onNewWay = { viewModel.startNewWay() },
-                onDebugPoint = { viewModel.debugPlayerLocalCoordinates(context) },
+                isParkingMode = designerState.isParkingMode,
+                onToggleParkingMode = { isChecked -> designerViewModel.toggleParkingMode(isChecked) },
+                onNewWay = {
+                    designerViewModel.startNewLane()
+                    viewModel.clearRouteBreadcrumbs() // limpia las migas visuales del carril anterior
+                },
+                onDebugPoint = {
+                    // CAPTURAR: usa el caso de uso PURO vía DesignerViewModel; conserva la miga visual y
+                    // los Toasts del flujo anterior. selectedLandmark es no-nulo aquí (ver if de arriba).
+                    val loc = uiState.currentLocation
+                    if (loc != null) {
+                        if (designerViewModel.onCaptureClicked(selectedLandmark, loc)) {
+                            viewModel.addRouteBreadcrumb(loc)
+                            android.widget.Toast.makeText(context, context.getString(ovh.gabrielhuav.pow.R.string.toast_node_captured, designerViewModel.state.value.capturedNodes.size), android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            android.widget.Toast.makeText(context, context.getString(ovh.gabrielhuav.pow.R.string.toast_outside_building), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                onExportRoute = {
+                    if (designerViewModel.hasNodes()) routeExportLauncher.launch("carril_${designerState.currentLaneId}.json")
+                    else android.widget.Toast.makeText(context, "No hay nodos capturados para exportar", android.widget.Toast.LENGTH_SHORT).show()
+                },
                 onSpawnTestCar = { viewModel.spawnDynamicCarInEscom(context) },
                 onRevert = {
                     val currentLandmark = uiState.landmarks.find { it.id == uiState.selectedLandmarkId }

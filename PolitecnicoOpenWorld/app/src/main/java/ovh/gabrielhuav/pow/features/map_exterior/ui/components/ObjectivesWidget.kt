@@ -49,13 +49,13 @@ fun ObjectivesWidget(
     ) {
         Text(stringResource(R.string.wm_objective_label), color = Color(0xFFFFCC80), fontSize = 10.sp,
             fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-        Text(objective.title, color = Color.White, fontSize = 13.sp,
+        Text(stringResource(objective.titleRes), color = Color.White, fontSize = 13.sp,
             fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         if (done) {
             Text(stringResource(R.string.wm_objective_done), color = Color(0xFF7CE38B), fontSize = 11.sp, textAlign = TextAlign.Center)
         } else {
             val distText = when {
-                distM == null -> objective.description
+                distM == null -> stringResource(objective.descriptionRes)
                 distM >= 1000 -> stringResource(R.string.wm_dist_km, String.format("%.1f", distM / 1000.0))
                 else -> stringResource(R.string.wm_dist_m, distM)
             }

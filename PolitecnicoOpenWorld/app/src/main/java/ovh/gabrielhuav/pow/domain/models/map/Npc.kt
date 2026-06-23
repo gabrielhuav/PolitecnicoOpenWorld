@@ -3,13 +3,41 @@ package ovh.gabrielhuav.pow.domain.models.map
 import org.osmdroid.util.GeoPoint
 import java.util.UUID
 
-enum class CarModel(val dirName: String, val prefix: String) {
+/**
+ * Catálogo de modelos de vehículo. Cada entrada = UN set de assets de sprites top-down.
+ *
+ * CÓMO AÑADIR UN VEHÍCULO NUEVO (forma sencilla, sin tocar nada más):
+ *  1) Pon sus frames de rotación en `assets/SPRITES/VEHICLES/<dirName>/` nombrados
+ *     `<prefix>000.webp` .. `<prefix>0NN.webp` (NN = frameCount-1, índice a 3 dígitos).
+ *  2) Añade UNA línea aquí con su `dirName`/`prefix` (y `frameCount`/`tintable` si difieren
+ *     de los valores por defecto).
+ *  Listo: el modelo aparece AUTOMÁTICAMENTE en el tráfico (`CarModel.entries.random()`),
+ *  en el estacionamiento del lobby (`ParkedCarsLayer`) y donde se itere el enum.
+ *
+ *  ⚠️ El NOMBRE del enum es el id que viaja por la red (`CarModel.valueOf`) y en el guardado:
+ *  puedes AÑADIR entradas libremente, pero NO renombres/elimines las existentes (rompería
+ *  partidas guardadas y la compatibilidad multijugador con clientes viejos).
+ *
+ *  - [dirName]/[prefix]: carpeta y prefijo de archivo del asset.
+ *  - [frameCount]: nº de frames de rotación (default 48 = uno cada 7.5°).
+ *  - [tintable]: true = base BLANCA repintable por color (palette swap en `VehicleSpriteManager`);
+ *    false = el asset YA trae su color y se dibuja tal cual (ignora `carColor`).
+ */
+enum class CarModel(
+    val dirName: String,
+    val prefix: String,
+    val frameCount: Int = 48,
+    val tintable: Boolean = true
+) {
     SEDAN("WHITE_SEDAN", "White_SEDAN_CLEAN_All_"),
     SPORT("WHITE_SPORT", "White_SPORT_CLEAN_All_"),
     SUPERCAR("WHITE_SUPERCAR", "White_SUPERCAR_CLEAN_All_"),
     SUV("WHITE_SUV", "White_SUV_CLEAN_All_"),
     VAN("WHITE_VAN", "White_VAN_CLEAN_All_"),
     WAGON("WHITE_WAGON", "White_WAGON_CLEAN_All_")
+    // Ejemplos para sumar a futuro (descomenta cuando subas el asset):
+    // , PICKUP("WHITE_PICKUP", "White_PICKUP_CLEAN_All_")          // tintable, 48 frames
+    // , TAXI("TAXI_CDMX", "taxi_", frameCount = 36, tintable = false) // pre-coloreado, 36 frames
 }
 
 enum class NpcNavState {

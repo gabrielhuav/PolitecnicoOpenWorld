@@ -1,6 +1,7 @@
-name: Android Debug Release
+name: Android CI/CD
 
 on:
+  # Al MERGEAR un PR a main: APK debug + GitHub Release (flujo existente).
   pull_request:
     branches:
       - main
@@ -8,64 +9,112 @@ on:
       - closed
     paths:
       - 'PolitecnicoOpenWorld/**'
+  # Al APROBAR un PR (review "approved"): build firmado + subida a PRUEBA CERRADA de Play Store.
+  pull_request_review:
+    types:
+      - submitted
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
 
 jobs:
+  # ── 1) MERGE de PR → APK debug + GitHub Release ───────────────────────────
   release:
-    if: github.event.pull_request.merged == true
-
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: "21"
           distribution: "temurin"
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.4.1"
-
       - name: Create secrets.properties file
         run: |
           echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
-
       - name: Build APK
         working-directory: ./PolitecnicoOpenWorld
         run: gradle :app:assembleDebug
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-
         with:
           tag_name: debug-latest
           name: "Latest Debug APK"
-
           body: |
             APK Debug generado automáticamente desde main.
 
             PR: #${{ github.event.pull_request.number }}
             Autor: @${{ env.PR_AUTHOR }}
             Commit: ${{ github.sha }}
-
           make_latest: true
           draft: false
           prerelease: false
-
           files: |
             PolitecnicoOpenWorld/app/build/outputs/apk/debug/app-debug.apk
+
+  # ── 2) PR APROBADO → AAB firmado → Play Store PRUEBA CERRADA (track "alpha") ──
+  playstore-closed-testing:
+    if: github.event_name == 'pull_request_review' && github.event.review.state == 'approved'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del HEAD del PR aprobado
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.4.1"
+      - name: Create secrets.properties (Maps API key)
+        run: |
+          echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
+      - name: google-services.json (opcional; habilita Firebase/multijugador si el secret existe)
+        env:
+          GS: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GS" ]; then
+            echo "$GS" | base64 -d > PolitecnicoOpenWorld/app/google-services.json
+            echo "google-services.json escrito (Firebase habilitado)."
+          else
+            echo "Sin GOOGLE_SERVICES_JSON: build sin Firebase (multijugador deshabilitado)."
+          fi
+      - name: Decodificar keystore (.jks) desde el secret base64
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > "$GITHUB_WORKSPACE/PolitecnicoOpenWorld/app/release-keystore.jks"
+      - name: Build AAB firmado (bundleRelease)
+        working-directory: ./PolitecnicoOpenWorld
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ github.workspace }}/PolitecnicoOpenWorld/app/release-keystore.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: gradle :app:bundleRelease
+      - name: Subir a Play Store (prueba cerrada)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ovh.gabrielhuav.pow
+          releaseFiles: PolitecnicoOpenWorld/app/build/outputs/bundle/release/app-release.aab
+          # "alpha" = pista de PRUEBA CERRADA clásica. Si creaste una pista cerrada con nombre
+          # propio en Play Console, pon aquí ese nombre exacto.
+          track: alpha
+          status: completed
+      - name: Borrar keystore del runner
+        if: always()
+        run: rm -f "$GITHUB_WORKSPACE/PolitecnicoOpenWorld/app/release-keystore.jks"

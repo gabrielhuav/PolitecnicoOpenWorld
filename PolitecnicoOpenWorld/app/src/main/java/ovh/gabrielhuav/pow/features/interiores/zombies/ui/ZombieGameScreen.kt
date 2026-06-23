@@ -216,6 +216,42 @@ fun ZombieGameScreen(
     var shakeY by remember { mutableStateOf(0f) }
     // Flash rojo breve al recibir daño.
     var flashAlpha by remember { mutableStateOf(0f) }
+    // Calibración EN VIVO de los autos del estacionamiento del lobby (solo modo desarrollador):
+    // rotación uniforme + offset de grupo. Se ajusta con ParkingTuneTool; defaults en ParkedCarsLayer.
+    var parkAngle by remember { mutableStateOf(0f) }   // ajuste de grupo (0 = igual que el global)
+    var parkOffX by remember { mutableStateOf(0f) }
+    var parkOffY by remember { mutableStateOf(0f) }
+    var parkScale by remember { mutableStateOf(1f) }
+    var parkSelfAngle by remember { mutableStateOf(0f) }   // giro de cada auto sobre su propio eje
+    var parkFlipped by remember { mutableStateOf(setOf<Int>()) }   // autos volteados 180° (identificador ↑↓)
+    // Diseñador de estacionamiento (se abre desde el selector del botón "Diseñador").
+    var parkingDesignerActive by remember { mutableStateOf(false) }
+    var designerChooserOpen by remember { mutableStateOf(false) }
+    // Exporta la calibración (ángulo + offset del grupo) a un .json vía SAF.
+    val parkingExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { u ->
+            try {
+                val match = ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog
+                    .forAsset(room.backgroundAsset)?.assetMatch ?: ""
+                val json = "{\n" +
+                    "  \"campus\": \"$match\",\n" +
+                    "  \"backgroundAsset\": \"${room.backgroundAsset}\",\n" +
+                    "  \"headingDeg\": $parkAngle,\n" +
+                    "  \"offsetXFrac\": $parkOffX,\n" +
+                    "  \"offsetYFrac\": $parkOffY,\n" +
+                    "  \"scale\": $parkScale,\n" +
+                    "  \"selfRotationDeg\": $parkSelfAngle,\n" +
+                    "  \"flipped\": [${parkFlipped.sorted().joinToString(",")}]\n" +
+                    "}"
+                context.contentResolver.openOutputStream(u)?.use { os -> os.write(json.toByteArray()) }
+                android.widget.Toast.makeText(context, "Calibración exportada", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Error al exportar", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     LaunchedEffect(state.damagePulseTrigger) {
         if (state.damagePulseTrigger > 0) {
             flashAlpha = 0.5f
@@ -298,6 +334,18 @@ fun ZombieGameScreen(
                     }
                 }
             }
+
+            // ─── AUTOS ESTACIONADOS (lobby) ─────────────────────
+            // Misma fuente que el exterior: nodos isParkingSlot del navGraph del campus (ver
+            // CampusParkingCatalog). Escenografía sin colisión; solo aparece donde el fondo es un
+            // asset de campus con estacionamiento (p. ej. el lobby de ESCOM = building_escom.webp).
+            ParkedCarsLayer(
+                room = room, cam = cam, onScreen = { wx, wy -> onScreen(wx, wy) },
+                headingDeg = parkAngle, offsetXFrac = parkOffX, offsetYFrac = parkOffY, scale = parkScale,
+                selfRotationDeg = parkSelfAngle, designing = parkingDesignerActive,
+                flipped = parkFlipped,
+                onToggleFlip = { i -> parkFlipped = if (i in parkFlipped) parkFlipped - i else parkFlipped + i }
+            )
 
             // ─── CAPA DE ILUMINACIÓN DINÁMICA (auras) ───────────
             if (room.type == ZoneType.BUILDING && !state.designerMode) {
@@ -597,14 +645,21 @@ fun ZombieGameScreen(
                 onSecondaryPressed = viewModel::onSecondaryPressed,
                 onSecondaryReleased = viewModel::onSecondaryReleased,
                 onSelectMode = viewModel::selectCombatMode,
-                onDismissInventory = viewModel::dismissInventory
+                onDismissInventory = viewModel::dismissInventory,
+                onTestKey = viewModel::testInventoryKey,
+                onDiscardKey = viewModel::discardInventoryKey
             )
 
             // Aviso de llave (cuando el jugador está sobre una). keyMessage (resultado de probar /
             // puerta cerrada) tiene prioridad y es transitorio.
             val keyPrompt = if (state.nearbyKeyId != null)
                 stringResource(R.string.zgame_key_prompt) else null
-            (state.keyMessage ?: state.nearbyDoorLabel ?: keyPrompt ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
+            // Z-ORDER: el panel de INVENTARIO es un modal a pantalla completa (va por ENCIMA de todo).
+            // Con el inventario ABIERTO suprimimos los avisos de PROXIMIDAD (puerta "Continuar →" / llave),
+            // que se dibujan después del HUD y se traslapaban por encima del inventario. Sí mantenemos
+            // keyMessage (resultado de PROBAR la llave) y los toasts: son la retroalimentación de usarlo.
+            val proximityPrompt = if (state.showInventory) null else (state.nearbyDoorLabel ?: keyPrompt)
+            (state.keyMessage ?: proximityPrompt ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
                 Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
                     Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
                         modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
@@ -647,6 +702,54 @@ fun ZombieGameScreen(
                         done = false,
                         playerLocation = null
                     )
+                }
+            }
+
+            // ─── CALIBRADOR DE AUTOS DEL ESTACIONAMIENTO (solo dev, lobby de campus) ──
+            // Rota en grupo (orientación uniforme) y mueve ↑↓←→ los autos del lobby en vivo, para
+            // encontrar los valores; luego se fijan como defaults en ParkedCarsLayer.
+            ParkingTuneTool(
+                room = room, active = parkingDesignerActive,
+                angle = parkAngle, onAngle = { parkAngle = it },
+                offX = parkOffX, onOffX = { parkOffX = it },
+                offY = parkOffY, onOffY = { parkOffY = it },
+                scale = parkScale, onScale = { parkScale = it },
+                selfAngle = parkSelfAngle, onSelfAngle = { parkSelfAngle = it },
+                flippedCount = parkFlipped.size, onClearFlips = { parkFlipped = emptySet() },
+                onExport = { parkingExportLauncher.launch("parking_calibracion.json") },
+                onClose = { parkingDesignerActive = false }
+            )
+
+            // ─── SELECTOR DEL BOTÓN "DISEÑADOR" (Colisiones/Waypoints | Estacionamiento) ──
+            if (designerChooserOpen) {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color(0xAA000000)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth(0.72f)
+                            .background(Color(0xFF1E1E24), RoundedCornerShape(16.dp))
+                            .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(16.dp))
+                            .padding(20.dp)
+                    ) {
+                        Text("DISEÑADOR", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Button(
+                            onClick = { designerChooserOpen = false; viewModel.toggleDesignerMode() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF37474F))
+                        ) { Text("Colisiones / Waypoints", color = Color.White) }
+                        Button(
+                            onClick = { designerChooserOpen = false; parkingDesignerActive = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                        ) { Text("Estacionamiento", color = Color.White) }
+                        TextButton(onClick = { designerChooserOpen = false }) {
+                            Text("Cancelar", color = Color.White)
+                        }
+                    }
                 }
             }
 
@@ -776,8 +879,9 @@ fun ZombieGameScreen(
                         buildList {
                             // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto.
                             add(OptionMenuItem(sChar, Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
-                            // "Diseñador": solo en Modo Desarrollador.
-                            if (developerMode) add(OptionMenuItem(sDesigner, Icons.Default.Architecture) { viewModel.toggleDesignerMode() })
+                            // "Diseñador": solo en Modo Desarrollador. Abre un selector
+                            // (Colisiones/Waypoints | Estacionamiento) en vez de ir directo.
+                            if (developerMode) add(OptionMenuItem(sDesigner, Icons.Default.Architecture) { designerChooserOpen = true })
                             // MODO HISTORIA: guardar partida también desde interiores (selector de slots).
                             add(OptionMenuItem(sSaveGame, Icons.Default.Save) { onRequestSaveGame() })
                             // "Salir al mapa": en Misión 1 se oculta salvo en Modo Desarrollador.

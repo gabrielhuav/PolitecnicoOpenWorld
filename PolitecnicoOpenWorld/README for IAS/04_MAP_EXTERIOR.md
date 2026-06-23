@@ -1,8 +1,8 @@
 # 04 · Open World / `features/map_exterior/`
 
-**ES:** El corazón del juego. El `WorldMapViewModel` (Activity-scoped, ~2600 líneas) está **partido en
+**ES:** El corazón del juego. El `WorldMapViewModel` (Activity-scoped, ~1426 líneas tras el refactor 2026-06-22) está **partido en
 extensiones** (`WorldMap*.kt`) que agrupan la lógica por tema. El estado es `WorldMapState`.
-**EN:** The game's heart. `WorldMapViewModel` (Activity-scoped, ~2600 lines) is **split into
+**EN:** The game's heart. `WorldMapViewModel` (Activity-scoped, ~1426 lines after the 2026-06-22 refactor) is **split into
 extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMapState`.
 
 > **🆕 Refactor de tamaño (2026-06-20):** se extrajeron 4 parciales nuevos del VM (bajó de ~3050 a
@@ -44,9 +44,13 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Routing / waypoints | `viewmodel/WorldMapRouting.kt` |
 | ESCOM (puertas, ousted driver) | `viewmodel/WorldMapEscom.kt` |
 | Coleccionables (lógica) | `viewmodel/WorldMapCollectiblesLogic.kt` |
-| Misc (movimiento, WASTED, HUD vida) | `viewmodel/WorldMapMisc.kt` |
+| Misc (startMovementAction, secuencia WASTED, timer barra de vida) | `viewmodel/WorldMapMisc.kt` |
 | 🆕 Cámara/zoom (auto/manual, pinch, pan) + toggles de widgets | `viewmodel/WorldMapCameraUi.kt` (NUEVO, refactor — extensiones) |
 | 🆕 Ajustes (densidad/LOD NPCs) + skin | `viewmodel/WorldMapSettings.kt` (NUEVO, refactor — extensiones) |
+| 🆕 Interacción del jugador (abordar/bajar vehículo, puerta/metro/coleccionable, reclamar objeto, teleport directo, toggle apocalipsis zombi) | `viewmodel/WorldMapInteractions.kt` (NUEVO 2026-06-22 — extensiones) |
+| 🆕 Salud del jugador (daño/curación/barra de vida) | `viewmodel/WorldMapHealth.kt` (NUEVO 2026-06-22 — extensiones) |
+| 🆕 Items de ESCOM + inyección de coche dinámico (Diseñador) | `viewmodel/WorldMapEscomItems.kt` (NUEVO 2026-06-22 — extensiones) |
+| 🆕 Movimiento del jugador a pie/joystick + aduana de colisión + snap-to-road + rescate anti-atasco | `viewmodel/WorldMapMovement.kt` (NUEVO 2026-06-22 — extensiones) |
 | Render principal (selector de renderer: OSM/Google/Web) | `ui/WorldMapScreen.kt` (~1325) |
 | 🆕 Rama de render Google Maps nativo (`GoogleMapLayer`) | `ui/WorldMapScreenGoogle.kt` (NUEVO, refactor — composable top-level; cachés LRU por parámetro) |
 | 🆕 Rama de render WEB / Leaflet en WebView (`WebMapLayer`) | `ui/WorldMapScreenWeb.kt` (NUEVO, refactor — composable top-level; cachés base64 + holders de guarda por-frame por parámetro) |
@@ -112,7 +116,13 @@ data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
   destinationArrivalThreshold=20.0`.
 - **Zombi/interiores:** `showZombiVideo, isZombieHandSpawned, pendingInteriorDestination`.
 - **Transiciones:** `showEscomDoorFade, escomDoorFadeComplete, pendingDoorDestination, showShineCTODiscovery`.
-- **Metro:** `metroStations, nearbyMetroStation, showMetroFade, metroFadeCompleteStation`.
+- **Metro:** `metroStations, nearbyMetroStation, showMetroFade, metroFadeCompleteStation`. **🆕 Zona de
+  interacción:** la proximidad del metro usa `METRO_INTERACT_RADIUS_METERS=30.0` y la del **metrobús**
+  `METROBUS_INTERACT_RADIUS_METERS=18.0` (más chico). Constantes de nivel de archivo
+  en `WorldMapState.kt`; 4× los 15 m de coleccionables/puertas) para metro **y metrobús**, porque el logo de
+  Overpass a veces cae sobre un edificio inaccesible por calle y con snap-to-road no se podía pisar. Esa zona
+  se **DIBUJA** (círculo naranja translúcido) en **web** (`updateMetro`, `L.circle`) y **OSM nativo**
+  (`Polygon.pointsAsCircle`, tag `route_overlay_tag+600`, culleada por viewport, bajo el icono). Google nativo = pendiente.
 - **Prefetch offline (solo OSM nativo):** `zonePrefetchActive, zonePrefetchProgress, zoneOfflineReady, zoneOfflineWarning`.
 - **Creador de rutas:** `routeDebugWaypoints, isParkingSlotMode, currentWayId(=100)`.
 
@@ -183,6 +193,13 @@ O(candidatos cercanos).
   `nearestGraphNode`, `findRoadRoute` (BFS/greedy sobre grafo de nodos únicos), `rebuildRoadNodeGrid`,
   `nearbyRoadNodes`. **Claves `Pair<Double,Double>`** (sin allocs de String por paso).
 - `updateDestinationRoute()` dibuja polilínea azul punteada; el marker se auto-borra a `destinationArrivalThreshold` (20 m).
+- **🆕 Rescate anti-atasco (TP a metro sobre edificio):** `moveCharacter`/`moveCharacterByAngle` (MIEMBROS) tienen
+  un guard que NO mueve si la calle más cercana al destino está a `> MAX_SNAP_DISTANCE_DEG` (~33 m) — evita "TP a
+  calle al azar" durante recargas de red. **Pero** si el TP deja al jugador ATRAPADO lejos de toda calle (estación
+  de metro encima de un edificio), ese guard lo dejaba inmóvil tras una "pared invisible". Fix: `rescueIfStuckOffNetwork(loc, step)`
+  (miembro privado) — si la posición ACTUAL también está a `> MAX_SNAP` de la red (atasco real, no glitch), al moverse
+  arrastra al jugador `step*4` hacia la calle más cercana hasta engancharlo. En juego normal (jugador sobre la calle)
+  no se dispara. Ver 09.
 
 > **Pendiente:** el router open-world sigue siendo **greedy** (no A*). El servidor zombi sí usa
 > Dijkstra (ver 08). / Open-world router is still greedy (no A*); the zombie server uses Dijkstra.
@@ -218,6 +235,10 @@ data class MultiplayerNpc(id, x, y, rotation, npcType, ownerId, carModel, carCol
 
 - `WorldMapEscom.kt`: `spawnEscomDoors()`, `isInsideEscom(lat, lon)`, `spawnOustedDriver(carLocation)`
   (conductor desalojado al robar coche ocupado, aparece ~2 m).
+- **🆕 Estacionamiento compartido exterior↔lobby:** los nodos `isParkingSlot` de `escom_navgraph.json` (coords
+  locales 0-1) son la FUENTE ÚNICA: el exterior spawnea autos NPC ahí, y el **lobby interior** dibuja los mismos
+  autos como escenografía (`ParkedCarsLayer`, ver 05) vía `domain/models/map/CampusParkingCatalog`. Un solo JSON
+  para ambas vistas; expandible a otras universidades con una línea en el catálogo.
 - `WorldMapMisc.kt`: `startMovementAction(isMovingRight?)`, `startHealthBarTimer(delayMillis)`,
   `triggerWastedSequence()` (congela movimiento, fantasma alpha 0.3, respawn ~80 m del lugar de
   muerte **dentro de la zona ya cacheada**, snapeado a calle — sin teleport a ESCOM ni descarga).
@@ -233,7 +254,11 @@ data class MultiplayerNpc(id, x, y, rotation, npcType, ownerId, carModel, carCol
 (`zoomIn/zoomOut/onMapZoomChanged/zoomToPlayer`), cámara (`centerOnPlayer/onMapPanStart/onMapPanEnd`),
 landmarks (`addLandmarkAtPlayer/move/rotate/scaleX/scaleY/deleteSelectedLandmark/save +
 export/importLandmarksToUri/FromUri`), `toggleDesignerMode/showAssetPicker/selectLandmark`,
-teleport (`teleportTo(lat,lon)`, `teleportToMetroStation(name)`, `toggleTeleportMenu`),
+teleport (`teleportTo(lat,lon)`, `teleportToMetroStation(name)`, `teleportToMetrobusStation(name)`,
+`toggleTeleportMenu`; 🆕 el diálogo de **Puntos de Teletransporte** —en `WorldMapScreen`, solo Modo
+Desarrollador— tiene secciones **COLAPSABLES** "🚇 Metro" y "🚌 Metrobús" (▶/▼): por defecto cerradas,
+al pulsarlas despliegan su buscador + estaciones (`metroStations`/`metrobusStations`) → `teleportTo*Station`,
+para que la lista de TP no crezca de más),
 `takeDamage(amount)`, `heal(amount)`, `onClaimCollectiblePressed`, widgets (`toggleCacheWidget/FpsWidget`).
 
 > **`onInteractButtonPressed` (botón Y, MIEMBRO):** sube/baja del coche. Si no hay coche civil (CAR) en
@@ -284,6 +309,13 @@ usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Can
   en `WorldMapLeafletHtml` (img fija ~26 px vía `file:///android_asset/`, push con guarda desde
   `WorldMapScreen`, `lastWebMetroHolder` + heartbeat); **Google nativo** = `Marker` 24 dp con
   `BitmapDescriptor` cacheado. Tamaño FIJO en pantalla (no metros), como los demás POIs de metro.
+  **🆕 Zona de interacción visible (60 m):** además del icono, web (`metroZones`/`L.circle` en `updateMetro`) y
+  OSM nativo (`metroZoneCache`/`Polygon.pointsAsCircle`, tag `+600`) dibujan un **círculo naranja translúcido**
+  del tamaño de `METRO_INTERACT_RADIUS_METERS` bajo el logo, para que se vea desde dónde se puede entrar aunque
+  la estación caiga sobre un edificio inaccesible por calles. Google nativo = pendiente.
+  **🆕 METROBÚS en el mapa global:** el OSM nativo ya dibujaba sus estaciones; ahora el **web** también
+  (`updateMetrobus` en `WorldMapLeafletHtml` + push en `WorldMapScreenWeb`, icono `TRANSIT/METROBUS/icon.png` en
+  ROJO + su círculo de zona). Antes el web NO marcaba el metrobús → no se sabía dónde entrar. Google nativo = pendiente (solo metro).
 - Patrulla 🚓 fuera de la fog: marcador + línea de ruta (cachés recordadas, **NO** view tags — añadir
   `R.id`s rompía un hack `id+100`/`id+400` y causaba `ClassCastException`).
 
@@ -304,7 +336,12 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
 
 ### Sprites (managers singleton, con `clearCaches()` — liberados en `onTrimMemory`)
 - `CharacterSpriteManager` — peatones ensamblados con tintado por píxel.
-- `VehicleSpriteManager` — 6 modelos × 48 frames de rotación.
+- `VehicleSpriteManager` — modelos de `CarModel`, base blanca tintada por píxel. 🆕 **Extensible:** cada
+  `CarModel` (en `domain/models/map/Npc.kt`) lleva `dirName/prefix/frameCount(=48)/tintable(=true)`. **Añadir un
+  vehículo = 1 línea en el enum + su carpeta de frames en `assets/SPRITES/VEHICLES/<dirName>/`** (`<prefix>000..0NN.webp`).
+  `tintable=false` = asset ya coloreado (se dibuja sin palette swap; ignora `carColor`). El NOMBRE del enum es el id
+  que viaja por red (`CarModel.valueOf`) y guardado: AÑADE libremente, NO renombres/elimines entradas. Los nuevos
+  modelos aparecen solos donde se itere `CarModel.entries` (tráfico `…random()`, estacionamiento del lobby).
 - `PoliceSpriteManager` — asset `VEHICLES/POLICE_TOPDOWN` sin repintar (48 frames). Cop = emoji 👮 vía
   `emojiToDrawable` en `WorldMapDrawingUtils.kt`.
 - **`nativeDrawableCache`** (declarado en `WorldMapScreen`, usado por `NativeOsmMap`) es un **LRU por

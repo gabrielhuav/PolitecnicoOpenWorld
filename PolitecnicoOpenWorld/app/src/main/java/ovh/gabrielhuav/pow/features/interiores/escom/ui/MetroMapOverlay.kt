@@ -53,15 +53,15 @@ import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor
-import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.MetroInteriorState
-import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.MetroInteriorViewModel
+import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitInteriorState
+import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitInteriorViewModel
 import kotlin.math.min
 import kotlin.math.roundToInt
 
 @Composable
 fun MetroMapOverlay(
-    state: MetroInteriorState,
-    viewModel: MetroInteriorViewModel,
+    state: TransitInteriorState,
+    viewModel: TransitInteriorViewModel,
     onTeleportToStation: (String, Float, Float) -> Unit,
     onExportGlobal: () -> Unit,
     onImportGlobal: () -> Unit
@@ -234,7 +234,7 @@ fun MetroMapOverlay(
             }
             
             IconButton(
-                onClick = { viewModel.closeMetroMap() },
+                onClick = { viewModel.closeTransitMap() },
                 modifier = Modifier.background(Color.Red, RoundedCornerShape(8.dp))
             ) {
                 Icon(Icons.Default.Close, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_close), tint = Color.White)
@@ -309,7 +309,7 @@ fun MetroMapOverlay(
 
 @Composable
 fun AddStationDialog(
-    state: MetroInteriorState,
+    state: TransitInteriorState,
     onDismiss: () -> Unit,
     onStationSelected: (String) -> Unit,
     onSearch: (String) -> Unit
@@ -341,7 +341,7 @@ fun AddStationDialog(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                val filtered = state.allMetroStations.filter { 
+                val filtered = state.allStations.filter { 
                     it.name.contains(state.mapSearchQuery, ignoreCase = true) 
                 }
                 

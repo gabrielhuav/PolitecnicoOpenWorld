@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,8 +40,11 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import ovh.gabrielhuav.pow.domain.models.zombie.CombatMode
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
+import ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop
 import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
@@ -71,7 +75,10 @@ fun ZombieHud(
     onSecondaryPressed: () -> Unit,
     onSecondaryReleased: () -> Unit,
     onSelectMode: (CombatMode) -> Unit,
-    onDismissInventory: () -> Unit
+    onDismissInventory: () -> Unit,
+    // PUZZLE Misión 1: probar / desechar la llave del inventario (assetPath).
+    onTestKey: (String) -> Unit = {},
+    onDiscardKey: (String) -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
@@ -183,6 +190,8 @@ fun ZombieHud(
                 modifier = Modifier.fillMaxSize().background(Color(0x88000000)),
                 contentAlignment = Alignment.Center
             ) {
+              // Wrapper que envuelve el panel para anclar el ✕ de cerrar a SU esquina.
+              Box {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -214,12 +223,19 @@ fun ZombieHud(
                                         2.dp,
                                         if (unlocked) Color(0xFFD4AF37) else Color(0xFFB71C1C),
                                         RoundedCornerShape(10.dp)
+                                    )
+                                    // MANTENER PULSADA la llave = DESECHARLA (el VM decide si se permite:
+                                    // incorrecta siempre; la correcta solo tras usarla para abrir la puerta).
+                                    .then(
+                                        if (heldKey != null) Modifier.pointerInput(heldKey) {
+                                            detectTapGestures(onLongPress = { onDiscardKey(heldKey) })
+                                        } else Modifier
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 when {
                                     !unlocked -> Text("🔒", fontSize = 24.sp)
-                                    heldKey != null -> InventoryKeyIcon(heldKey, modifier = Modifier.size(46.dp))
+                                    heldKey != null -> InventoryKeyIcon(KeyDrop.entryAsset(heldKey), modifier = Modifier.size(46.dp))
                                     else -> {}
                                 }
                             }
@@ -230,8 +246,30 @@ fun ZombieHud(
                         else stringResource(R.string.zhud_inv_has_key),
                         color = Color(0xFFB0BEC5), fontSize = 12.sp
                     )
-                    TextButton(onClick = onDismissInventory) { Text(stringResource(R.string.zhud_close), color = Color.White) }
+                    // PUZZLE Misión 1: con una llave guardada SIN confirmar aún, el botón PROBAR la
+                    // prueba (solo abre en Lab 2). DESECHAR ya NO es un botón: se MANTIENE PULSADA la
+                    // llave en su slot (arriba). Al CONFIRMAR la correcta (lab1KeyFound) PROBAR desaparece.
+                    state.inventoryKeys.firstOrNull()?.let { heldKey ->
+                        if (!state.lab1KeyFound) {
+                            Button(
+                                onClick = { onTestKey(heldKey) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text(stringResource(R.string.zhud_inv_test), color = Color.White, fontWeight = FontWeight.Bold) }
+                        }
+                    }
                 }
+                // ✕ CERRAR — esquina superior derecha del panel (sustituye al botón "Cerrar" de abajo).
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(32.dp)
+                        .background(Color(0x66000000), CircleShape)
+                        .clickable { onDismissInventory() },
+                    contentAlignment = Alignment.Center
+                ) { Text("✕", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+              }
             }
         }
     }

@@ -42,7 +42,7 @@ Cada *feature* se divide en 3 capas / Every feature splits into 3 layers:
 | ViewModel | Scope | Nota |
 |---|---|---|
 | `WorldMapViewModel`, `SettingsViewModel`, `CollectiblesViewModel` | **Activity** | Sobreviven a la navegación / survive navigation |
-| `InteriorViewModel`, `MetroInteriorViewModel`, `ZombieGameViewModel`, `ShineCTOViewModel` | **NavBackStackEntry** | Se reinician al salir / reset on leave |
+| `InteriorViewModel`, `TransitInteriorViewModel`, `ZombieInteriorViewModel`, `ShineCTOViewModel` | **NavBackStackEntry** | Se reinician al salir / reset on leave |
 
 **DI / Inyección:** manual, vía `ViewModelProvider.Factory` co-localizada con cada ViewModel
 (p. ej. `WorldMapViewModel.Factory(context)`). / Manual DI via co-located factories.

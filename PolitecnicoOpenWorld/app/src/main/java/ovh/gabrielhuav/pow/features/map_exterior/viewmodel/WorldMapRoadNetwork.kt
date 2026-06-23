@@ -171,7 +171,14 @@ internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.
                             Log.d("DEBUG_ESCOM", "Red cargada tras teleport, spawneando...")
                             spawnEscomItems(roadNetwork)
                         }
-                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
+                        // SNAP tras TP: coloca al jugador en la calle más cercana (como applyRoadNetwork en el
+                        // arranque). Sin esto, al teletransportarse a una estación SOBRE un edificio quedaba en
+                        // coords crudas fuera de la red → no se podía mover. En juego normal es ~no-op (ya estás
+                        // sobre la calle). Solo en zona libre (ESCOM/ENCB) se respeta la posición libre.
+                        val snappedC = _uiState.value.currentLocation?.let { cur ->
+                            if (isFreeMovementZone(cur.latitude, cur.longitude)) cur else getNearestPointOnNetwork(cur)
+                        }
+                        _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true, currentLocation = snappedC ?: it.currentLocation) }
                     }
                 } else {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -187,18 +194,33 @@ internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.
                             buildRoadGraph(network)
                             npcAiManager.updateRoadNetwork(network)
                             lastNetworkFetchLocation = currentLoc
-                            _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true) }
+                            // SNAP tras TP (ver rama de caché): coloca al jugador en la calle más cercana.
+                            val snappedF = _uiState.value.currentLocation?.let { cur ->
+                                if (isFreeMovementZone(cur.latitude, cur.longitude)) cur else getNearestPointOnNetwork(cur)
+                            }
+                            _uiState.update { it.copy(roadSource = ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource.LOCAL_DB, isRoadNetworkReady = true, currentLocation = snappedF ?: it.currentLocation) }
                         }
                     } else {
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            _uiState.update { it.copy(isRoadNetworkReady = true) }
+                        // FETCH VACÍO (Overpass falló/timeout/sin datos). NO marcar la red como lista con la
+                        // red VIEJA: tras un TP eso dejaba al jugador en la estación nueva SIN calles cerca →
+                        // atorado tras una pared invisible. Distinguimos:
+                        //  - Compuerta de carga (no estaba listo aún, p. ej. tras TP): mantener la PANTALLA DE
+                        //    CARGA (isRoadNetworkReady=false) y REINTENTAR pronto (~3 s), hasta que llegue una
+                        //    red real → applyRoadNetwork/snap al soltar. Así nunca se suelta sobre red inservible.
+                        //  - Juego normal (ya estaba listo): conservar la red anterior, NO interrumpir con carga.
+                        val wasReady = _uiState.value.isRoadNetworkReady
+                        if (!wasReady) {
+                            lastFetchAttemptMs = 0L                 // permite reintentar sin el cooldown largo
+                            kotlinx.coroutines.delay(3000)          // backoff corto (no martillar Overpass)
                         }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("WorldMapViewModel", "Error refetching road network", e)
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    _uiState.update { it.copy(isRoadNetworkReady = true) }
+                val wasReady = _uiState.value.isRoadNetworkReady
+                if (!wasReady) {
+                    lastFetchAttemptMs = 0L
+                    kotlinx.coroutines.delay(3000)
                 }
             } finally {
                 isFetchingNetwork.set(false)

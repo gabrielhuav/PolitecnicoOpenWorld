@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.domain.models.campaign.mission1
 
 import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
+import ovh.gabrielhuav.pow.R
 
 /**
  * MISIÓN 1 de la campaña: de la ESCOM a la ENCB, escolta de Prankedy de vuelta a la ESCOM
@@ -30,8 +31,8 @@ object Mission1 {
     // ⚠️ Coordenadas APROXIMADAS de la ENCB — ajústalas al punto exacto que quieras.
     val IR_ENCB = CampaignObjective(
         id = "ir_encb",
-        title = "Ve a la ENCB",
-        description = "Dirígete a la ENCB para investigar el origen del brote.",
+        titleRes = R.string.obj_ir_encb_title,
+        descriptionRes = R.string.obj_ir_encb_desc,
         targetLat = 19.498600,
         targetLon = -99.148900
     )
@@ -45,8 +46,8 @@ object Mission1 {
     // pequeño: basta con llegar y quedar AL LADO de la puerta (no hay que interactuar).
     val ESCOLTAR_PRANKEDY = CampaignObjective(
         id = "escoltar_prankedy",
-        title = "Lleva a Prankedy a la puerta de la ESCOM",
-        description = "Protege a Prankedy y escóltalo hasta la PUERTA de la ESCOM.",
+        titleRes = R.string.obj_escoltar_prankedy_title,
+        descriptionRes = R.string.obj_escoltar_prankedy_desc,
         targetLat = ESCOM_DOOR_LAT,
         targetLon = ESCOM_DOOR_LON,
         arriveRadiusMeters = 12.0
@@ -60,8 +61,8 @@ object Mission1 {
     // de la ESCOM (lo marca WorldMapViewModel al disparar el fade de la puerta). Ver checkObjectiveProgress.
     val INGRESAR_ESCOM = CampaignObjective(
         id = "ingresar_escom",
-        title = "Ingresa a la ESCOM",
-        description = "¡Te persiguen! Entra por la puerta de la ESCOM para ponerte a salvo.",
+        titleRes = R.string.obj_ingresar_escom_title,
+        descriptionRes = R.string.obj_ingresar_escom_desc,
         targetLat = ESCOM_DOOR_LAT,
         targetLon = ESCOM_DOOR_LON,
         arriveRadiusMeters = 0.0
@@ -72,8 +73,8 @@ object Mission1 {
     // Sin destino real (radio 0): es un objetivo de exploración, no de llegada.
     val BUSCAR_PISTAS_ESCOM = CampaignObjective(
         id = "buscar_pistas_escom",
-        title = "Busca pistas en la ESCOM",
-        description = "Explora la ESCOM en busca de pistas.",
+        titleRes = R.string.obj_buscar_pistas_escom_title,
+        descriptionRes = R.string.obj_buscar_pistas_escom_desc,
         targetLat = ESCOM_DOOR_LAT,
         targetLon = ESCOM_DOOR_LON,
         arriveRadiusMeters = 0.0

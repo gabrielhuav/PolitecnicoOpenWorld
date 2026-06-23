@@ -21,6 +21,19 @@ const val ZOOM_ON_FOOT      = 22.0  // a pie (default)
 const val ZOOM_DRIVING      = 21.0  // conduciendo
 const val ZOOM_DRIVING_FAST = 20.0  // conduciendo MUY rápido (≥85% de MAX_SPEED, histéresis al 65%)
 
+// ─── Zona de interacción de estaciones de transporte (metro/metrobús) ─────────
+// 60 m (4× los 15 m base de coleccionables/puertas). Las estaciones de metro.json
+// salen de Overpass y A VECES caen sobre un edificio que no es accesible por calle:
+// con snap-to-road el jugador nunca puede pisar el logo. Una zona amplia permite
+// entrar desde cualquier calle CERCANA aunque el logo sea inaccesible. Esta zona
+// se DIBUJA en el mapa (círculo) en web (Leaflet) y OSM nativo para que sea visible.
+// Si cambias el valor, sincroniza el círculo del web (WorldMapLeafletHtml.updateMetro).
+const val METRO_INTERACT_RADIUS_METERS = 30.0
+// Metrobús: 18 m quedó DEMASIADO chico (no se alcanzaban estaciones sobre edificios → "no puedo entrar").
+// 30 m: enterable como el metro, pero más chico que el 45 original que se sentía enorme. Se sincroniza con
+// su círculo web (WorldMapLeafletHtml.updateMetrobus). Si vuelve a sentirse grande, bajar con cuidado.
+const val METROBUS_INTERACT_RADIUS_METERS = 30.0
+
 enum class MapProvider(val displayName: String) {
     OSM("OSMDroid (Nativo)"),
     GOOGLE_MAPS_NATIVE("Google Maps (Nativo)"),
@@ -165,10 +178,10 @@ data class WorldMapState(
     // walls = bardas). Se exponen para dibujarlas en el overlay de Debug Interiores.
     val exteriorCollisions: ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig? = null,
 
-    // NUEVAS VARIABLES PARA EL CREADOR DE RUTAS
-    val routeDebugWaypoints: List<GeoPoint> = emptyList(), // Las "migas de pan"
-    val isParkingSlotMode: Boolean = false,                // Flag del Checkbox
-    val currentWayId: Int = 100,                           // ID del carril actual
+    // CREADOR DE RUTAS: solo las "migas de pan" VISUALES (las dibuja NativeOsmMap). El estado de la
+    // sesión de diseño (modo parking, id de carril, nodos capturados) vive en DesignerViewModel; el
+    // viejo isParkingSlotMode/currentWayId del Logcat se eliminó (de-acoplamiento 2026-06-22).
+    val routeDebugWaypoints: List<GeoPoint> = emptyList(),
 
     // ─── EDITOR DEL DEBUG INTERIORES ─────────────────────────────────────────
     // Permite EDITAR las líneas del overlay DIBUJANDO con el dedo en el mapa (estilo Paint):

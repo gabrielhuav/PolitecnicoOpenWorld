@@ -101,7 +101,16 @@ fun WorldMapViewModel.teleportTo(lat: Double, lon: Double) {
             npcsWarmedUp = false,      // ← y tampoco hasta que la IA siembre los NPCs
             isUserPanningMap = false,  // ← recentra el mapa y reactiva la neblina
             wantedLevel = 0,
-            carjackWarning = null
+            carjackWarning = null,
+            // LIMPIA TODO estado de fade/cercanía de transporte: al salir de una estación se llama a
+            // teleportTo, y un *FadeCompleteStation pendiente (sin consumir) podía disparar la navegación
+            // al volver al mapa → "salir del metro me mandaba al metrobús". Pizarra limpia en cada TP.
+            showMetroFade = false,
+            metroFadeCompleteStation = null,
+            nearbyMetroStation = null,
+            showMetrobusFade = false,
+            metrobusFadeCompleteStation = null,
+            nearbyMetrobusStation = null
         )
     }
     // El acompañante (Prankedy, campaña) se TELETRANSPORTA contigo (si no, quedaba atrás).

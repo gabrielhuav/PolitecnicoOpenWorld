@@ -148,6 +148,11 @@
     <string name="wm_tp_title">Puntos de Teletransporte</string>
     <string name="wm_tp_subtitle">Selecciona tu estatua o destino:</string>
     <string name="wm_tp_gps">📍 Ir a tu Ubicación (GPS)</string>
+    <string name="wm_tp_metro_header">🚇 Estaciones de Metro</string>
+    <string name="wm_tp_metro_search">Buscar estación de metro…</string>
+    <string name="wm_tp_metro_empty">No hay estaciones cargadas todavía.</string>
+    <string name="wm_tp_metrobus_header">🚌 Estaciones de Metrobús</string>
+    <string name="wm_tp_metrobus_search">Buscar estación de metrobús…</string>
     <string name="wm_exit_apocalypse">SALIR DEL APOCALIPSIS</string>
     <string name="wm_chip_streets">Calles</string>
     <string name="wm_chip_loading">Cargando...</string>
@@ -377,7 +382,9 @@
     <string name="cd_key">Llave</string>
     <string name="cd_player_remote">Jugador remoto</string>
     <string name="zhud_inv_empty">Vacío. Busca y recoge una llave.</string>
-    <string name="zhud_inv_has_key">Llave guardada. Pruébala en la puerta de avance (→).</string>
+    <string name="zhud_inv_has_key">Llave guardada. Pruébala en el Lab 2; mantén pulsada la llave para desecharla.</string>
+    <string name="zhud_inv_test">Probar</string>
+    <string name="zhud_inv_discard">Desechar</string>
     <string name="zgame_key_prompt">🔑 Hay una llave — pulsa ACCIÓN para inspeccionarla</string>
     <string name="zgame_objective_investigate">Objetivo: Investiga qué pasó</string>
     <!-- ─── Diálogos de guardar/cargar (MainActivity) ─── -->
@@ -412,4 +419,24 @@
     <string name="cd_zombie">Zombi</string>
     <string name="zhud_inventory">INVENTARIO</string>
 
+    <!-- Objetivos de campaña (Misión 1) -->
+    <string name="obj_ir_encb_title">Ve a la ENCB</string>
+    <string name="obj_ir_encb_desc">Dirígete a la ENCB para investigar el origen del brote.</string>
+    <string name="obj_escoltar_prankedy_title">Lleva a Prankedy a la puerta de la ESCOM</string>
+    <string name="obj_escoltar_prankedy_desc">Protege a Prankedy y escóltalo hasta la PUERTA de la ESCOM.</string>
+    <string name="obj_ingresar_escom_title">Ingresa a la ESCOM</string>
+    <string name="obj_ingresar_escom_desc">¡Te persiguen! Entra por la puerta de la ESCOM para ponerte a salvo.</string>
+    <string name="obj_buscar_pistas_escom_title">Busca pistas en la ESCOM</string>
+    <string name="obj_buscar_pistas_escom_desc">Explora la ESCOM en busca de pistas.</string>
+    <!-- Transporte: prompt + mensajes (antes hardcodeados en TransitSystemConfig) -->
+    <string name="wm_prompt_metrobus">PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS %1$s</string>
+    <string name="transit_metro_msg_ticket">Has recargado tu tarjeta del metro</string>
+    <string name="transit_metro_msg_no_balance">No tienes saldo disponible</string>
+    <string name="transit_metro_msg_wait">Debes esperar a que llegue otro tren</string>
+    <string name="transit_metro_msg_wp_saved">Waypoints globales guardados</string>
+    <string name="transit_metrobus_msg_ticket">Has recargado tu tarjeta del Metrobús</string>
+    <string name="transit_metrobus_msg_no_balance">No tienes saldo disponible en tu tarjeta</string>
+    <string name="transit_metrobus_msg_wait">Debes esperar a que llegue otro autobús</string>
+    <string name="transit_metrobus_msg_wp_saved">Waypoints del Metrobús guardados</string>
+    <string name="transit_msg_exit_turnstile">Has salido de los torniquetes. Ve a la taquilla para recargar tu tarjeta.</string>
 </resources>

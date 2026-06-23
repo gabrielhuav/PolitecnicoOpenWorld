@@ -43,8 +43,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.MetrobusInteriorState
-import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.MetrobusInteriorViewModel
+import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitInteriorState
+import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitInteriorViewModel
+import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitSystems
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
@@ -68,8 +69,8 @@ fun MetrobusStationInteriorScreen(
     onTeleportToStation: (String, Float, Float) -> Unit
 ) {
     val context = LocalContext.current
-    val viewModel: MetrobusInteriorViewModel = viewModel(
-        factory = MetrobusInteriorViewModel.Factory(context, stationName, spawnX, spawnY)
+    val viewModel: TransitInteriorViewModel = viewModel(
+        factory = TransitInteriorViewModel.Factory(context, TransitSystems.METROBUS, stationName, spawnX, spawnY)
     )
     val state by viewModel.state.collectAsState()
     val configuration = LocalConfiguration.current
@@ -124,19 +125,19 @@ fun MetrobusStationInteriorScreen(
             val bus1XOffset = remember { Animatable(-worldW) }
             val bus2XOffset = remember { Animatable(worldW) }
 
-            LaunchedEffect(state.isBus1Animating, state.spawnWithAnimation) {
-                if (state.isBus1Animating || state.spawnWithAnimation) {
+            LaunchedEffect(state.isVehicle1Animating, state.spawnWithAnimation) {
+                if (state.isVehicle1Animating || state.spawnWithAnimation) {
                     bus1XOffset.snapTo(-worldW)
                     bus1XOffset.animateTo(
                         targetValue = 0f,
                         animationSpec = tween(durationMillis = 1800, easing = EaseOutQuart)
                     )
-                    viewModel.onBus1AnimationFinished()
+                    viewModel.onVehicle1AnimationFinished()
                 }
             }
 
-            LaunchedEffect(state.isBus1Departing) {
-                if (state.isBus1Departing) {
+            LaunchedEffect(state.isVehicle1Departing) {
+                if (state.isVehicle1Departing) {
                     bus1XOffset.snapTo(0f)
                     bus1XOffset.animateTo(
                         targetValue = worldW,
@@ -236,8 +237,8 @@ fun MetrobusStationInteriorScreen(
             }
 
             // Bus 1 (frente – llega desde izquierda, pasa delante del jugador)
-            val isBus1Visible = state.isBus1Animating || state.spawnWithAnimation ||
-                    state.showMetrobusMap || state.isBus1Departing ||
+            val isBus1Visible = state.isVehicle1Animating || state.spawnWithAnimation ||
+                    state.showTransitMap || state.isVehicle1Departing ||
                     state.isBoardingWalkActive || state.isDisembarkingWalkActive
             if (isBus1Visible && bus1Bitmap != null) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
@@ -406,7 +407,7 @@ fun MetrobusStationInteriorScreen(
             )
         }
 
-        if (state.showMetrobusMap) {
+        if (state.showTransitMap) {
             MetrobusMapOverlay(
                 state = state,
                 viewModel = viewModel,
@@ -536,10 +537,11 @@ private fun computeMetrobusCam(
 }
 
 @Composable
-private fun MetrobusPlayerSprite(state: MetrobusInteriorState) {
+private fun MetrobusPlayerSprite(state: TransitInteriorState) {
     val context = LocalContext.current
     val action = state.playerAction
     val isFacingRight = state.isFacingRight
+    val skin = state.selectedSkin
 
     // AUDIO de pasos en la estación de metrobús (su VM no toca SoundManager). El game loop del mapa global
     // está gateado (worldMapForeground=false en interiores) → no interfiere. onDispose para al salir.
@@ -559,20 +561,22 @@ private fun MetrobusPlayerSprite(state: MetrobusInteriorState) {
     var currentImage by remember { mutableStateOf<ImageBitmap?>(null) }
     val bitmapCache = remember { mutableMapOf<String, ImageBitmap?>() }
 
-    LaunchedEffect(action) {
+    LaunchedEffect(action, skin) {
         currentFrame = 1
         while (true) {
             val maxFrames = when (action) {
-                PlayerAction.IDLE -> 6
-                PlayerAction.WALK -> 6
-                PlayerAction.SPECIAL -> 8
-                PlayerAction.RUN -> 6
+                PlayerAction.IDLE -> skin.idleFrames
+                PlayerAction.WALK -> skin.walkFrames
+                PlayerAction.SPECIAL -> skin.specialFrames
+                PlayerAction.RUN -> skin.runFrames
             }
+            // Respeta la skin elegida (hombre/mujer/robot…) en lugar de Lázaro fijo. Las rutas de la skin
+            // apuntan a "SPRITES/PLAYER/<skin>..." (la antigua "PRINCIPAL/" estaba vacía → jugador invisible).
             val assetPath = when (action) {
-                PlayerAction.IDLE    -> "PRINCIPAL/lazaroIdle/lazaro_i_$currentFrame.webp"
-                PlayerAction.WALK    -> "PRINCIPAL/lazaroWalk/lazaro_w_$currentFrame.webp"
-                PlayerAction.SPECIAL -> "PRINCIPAL/lazaroSpecial/lazaro_s_$currentFrame.webp"
-                PlayerAction.RUN     -> "PRINCIPAL/lazaroRun/lazaro_r_$currentFrame.webp"
+                PlayerAction.IDLE    -> skin.idlePath(currentFrame)
+                PlayerAction.WALK    -> skin.walkPath(currentFrame)
+                PlayerAction.SPECIAL -> skin.specialPath(currentFrame)
+                PlayerAction.RUN     -> skin.runPath(currentFrame)
             }
             if (!bitmapCache.containsKey(assetPath)) {
                 val bmp = withContext(Dispatchers.IO) {

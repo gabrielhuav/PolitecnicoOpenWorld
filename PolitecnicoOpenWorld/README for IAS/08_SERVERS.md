@@ -203,3 +203,38 @@ el cable **no cambia**. / AI state lives in non-serialized fields; the `ZOMBIE_S
 > Coordenadas de jugador y zombi/item son **fraccionarias [0,1]** en este servidor. El cliente las
 > convierte a píxeles de la `ZombieRoom` actual. / Player and zombie/item coords are fractional here;
 > client co
+
+---
+
+## 3) CI/CD Android → Play Store (GitHub Actions) — `.github/workflows/android-release.yml`
+
+Dos disparadores:
+- **PR mergeado a `main`** → build **APK debug** + GitHub Release (`debug-latest`). [flujo original]
+- **PR APROBADO** (review "approved") → build **AAB firmado** (`:app:bundleRelease`) → subida a **PRUEBA CERRADA** de
+  Play Store (track `alpha`) con la action `r0adkll/upload-google-play`.
+
+La firma de release vive en `app/build.gradle.kts` (`signingConfigs.release`) y lee keystore + credenciales de
+**variables de entorno** (en CI = GitHub Secrets). Si las env NO están (build local), el release queda sin firmar y
+todo lo demás compila igual. El `versionCode` se controla A MANO en `build.gradle.kts` (hoy = 10); súbelo en CADA PR de release (10 → 11 → …). Debe ser SIEMPRE mayor que el último subido a Play.
+
+### GitHub Secrets requeridos
+Repo en el navegador → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
+
+| Secret | Qué es | Cómo obtenerlo |
+|---|---|---|
+| `MAPS_API_KEY` | (ya existe) API key de Google Maps | Google Cloud Console |
+| `RELEASE_KEYSTORE_BASE64` | `llave_pow.jks` en **base64** (la .jks NUNCA se commitea) | PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("llave_pow.jks")) > ks.b64.txt` → pega TODO el contenido del .txt |
+| `RELEASE_STORE_PASSWORD` | Password del keystore | el que pusiste al crear la .jks |
+| `RELEASE_KEY_ALIAS` | Alias de la clave | el alias de la .jks |
+| `RELEASE_KEY_PASSWORD` | Password de la clave (alias) | el de la .jks |
+| `PLAY_SERVICE_ACCOUNT_JSON` | JSON (texto plano) de la **cuenta de servicio** de Play | Play Console → Setup → API access → service account en Google Cloud → descargar JSON; permiso "Release to testing tracks" |
+| `GOOGLE_SERVICES_JSON` (opcional) | `google-services.json` en **base64** (habilita Firebase/multijugador en el build) | base64 del archivo |
+
+### Caveats (Play Store)
+- El **primer** release de un track se crea **a mano** una vez en Play Console (ya hecho: la app está en producción/prueba cerrada). La API ya puede subir a la pista existente.
+- La service account necesita permiso **"Release apps to testing tracks"**.
+- `versionCode` SIEMPRE mayor que el último subido a Play (va a mano en `build.gradle.kts`); súbelo en cada PR de release.
+- Si tu pista cerrada tiene **nombre propio** (no "alpha"), cámbialo en `track:` del workflow.
+- ⚠️ **El trigger `pull_request_review` debe estar EN `main`.** GitHub ejecuta los workflows de `pull_request_review` desde la
+  rama por defecto (seguridad). Por eso estos cambios del workflow deben MERGEARSE a `main` primero; recién entonces, al
+  APROBAR un PR posterior, se dispara el deploy. El AAB se compila del HEAD del PR aprobado (su `versionCode` de `build.gradle`).

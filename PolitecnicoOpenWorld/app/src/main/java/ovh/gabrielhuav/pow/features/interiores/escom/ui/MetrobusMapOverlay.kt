@@ -39,8 +39,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.MetrobusInteriorState
-import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.MetrobusInteriorViewModel
+import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitInteriorState
+import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitInteriorViewModel
 import kotlin.math.min
 
 private val MB_RED = Color(0xFFC21D24)
@@ -48,8 +48,8 @@ private val MB_RED_DARK = Color(0xFF8A0A0E)
 
 @Composable
 fun MetrobusMapOverlay(
-    state: MetrobusInteriorState,
-    viewModel: MetrobusInteriorViewModel,
+    state: TransitInteriorState,
+    viewModel: TransitInteriorViewModel,
     onTeleportToStation: (String, Float, Float) -> Unit,
     onExportGlobal: () -> Unit,
     onImportGlobal: () -> Unit
@@ -251,7 +251,7 @@ fun MetrobusMapOverlay(
             }
 
             IconButton(
-                onClick = { viewModel.closeMetrobusMap() },
+                onClick = { viewModel.closeTransitMap() },
                 modifier = Modifier.background(MB_RED_DARK, RoundedCornerShape(8.dp))
             ) {
                 Icon(Icons.Default.Close, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.common_close), tint = Color.White)
@@ -327,7 +327,7 @@ fun MetrobusMapOverlay(
 
 @Composable
 private fun AddMetrobusStationDialog(
-    state: MetrobusInteriorState,
+    state: TransitInteriorState,
     onDismiss: () -> Unit,
     onStationSelected: (String) -> Unit,
     onSearch: (String) -> Unit
@@ -364,7 +364,7 @@ private fun AddMetrobusStationDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                val filtered = state.allMetrobusStations.filter {
+                val filtered = state.allStations.filter {
                     it.name.contains(state.mapSearchQuery, ignoreCase = true)
                 }
 

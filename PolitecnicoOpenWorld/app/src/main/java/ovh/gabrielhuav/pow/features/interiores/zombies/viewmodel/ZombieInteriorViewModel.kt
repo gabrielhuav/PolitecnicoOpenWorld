@@ -477,7 +477,8 @@ class ZombieInteriorViewModel(
                 id = "key_${i}_$now",
                 assetPath = asset,
                 x = pos.first, y = pos.second,
-                isCorrect = asset == ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.LAB1_CORRECT_KEY
+                isCorrect = asset == ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.LAB1_CORRECT_KEY,
+                missionId = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.MISSION_1
             )
         }
     }
@@ -613,15 +614,16 @@ class ZombieInteriorViewModel(
         if (keyId != null) {
             val key = s.keys.firstOrNull { it.id == keyId } ?: return
             if (s.inventoryKeys.size >= INVENTORY_UNLOCKED_SLOTS) {
-                showKeyMessage("🎒 Inventario lleno (1 slot). Prueba la llave en la puerta de avance.")
+                showKeyMessage("🎒 Inventario lleno (1 slot). Llévala al Laboratorio 2 y pruébala (mantén Y).")
                 return
             }
             soundManager.playItem()
             _state.update { cur -> cur.copy(
                 keys = cur.keys.filter { it.id != keyId },
                 nearbyKeyId = null,
-                inventoryKeys = cur.inventoryKeys + key.assetPath,
-                keyMessage = "🔑 Llave recogida. Pruébala en la puerta de avance (→)."
+                // Guarda "missionId|assetPath" (identificable por misión + persistido en la partida).
+                inventoryKeys = cur.inventoryKeys + ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.inventoryEntry(key.missionId, key.assetPath),
+                keyMessage = "🔑 Llave recogida. Llévala al Laboratorio 2 y pruébala en tu inventario (mantén Y)."
             ) }
             clearKeyMessageSoon()
             return
@@ -647,28 +649,21 @@ class ZombieInteriorViewModel(
                 .contains(s.playerX, s.playerY)
         } ?: return
 
-        // PUZZLE ENCB_lab1: la puerta de AVANCE (→) está CERRADA. Al pulsar acción aquí se PRUEBA la
-        // llave del inventario: la correcta (LLave4) la abre; una incorrecta se DESCARTA (libera el
-        // slot) para que el jugador busque otra. Tras abrir, vuelve a pulsar para cruzar.
-        if (room.id == ZombieRoomCatalog.ENCB_LAB1_ID &&
+        // PUZZLE Misión 1 (NUEVO FLUJO): la prueba de la llave YA NO es en lab1. En lab1 recoges una
+        // llave y la puerta de AVANCE (→) es LIBRE: cruzas a lab2 cargando la llave. La prueba se hace
+        // en el INVENTARIO estando en lab2 (testInventoryKey). Aquí no hay test en lab1.
+        //
+        // GATING en ENCB_lab2: la puerta del fondo (EXIT_NEXT → EXIT_TO_STORY_OUTRO, dispara la 2ª
+        // secuencia de cómic) permanece CERRADA hasta haber PROBADO la llave CORRECTA en el inventario
+        // (lab1KeyFound). Si aún no, avisa y NO avanza.
+        if (room.id == ZombieRoomCatalog.ENCB_LAB2_ID &&
             door.kind == ovh.gabrielhuav.pow.domain.models.zombie.DoorKind.EXIT_NEXT &&
+            door.targetRoomId == ZombieRoomCatalog.EXIT_TO_STORY_OUTRO &&
             !s.lab1KeyFound) {
-            val correct = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.LAB1_CORRECT_KEY
-            when {
-                s.inventoryKeys.isEmpty() ->
-                    showKeyMessage("🔒 Necesitas una llave. Búscala en la sala y recógela.")
-                s.inventoryKeys.any { it == correct } -> {
-                    _state.update { cur -> cur.copy(
-                        lab1KeyFound = true,
-                        inventoryKeys = cur.inventoryKeys.filter { it != correct }
-                    ) }
-                    showKeyMessage("🔑 ¡Era la correcta! La puerta se abrió. Pulsa otra vez para avanzar.")
-                }
-                else -> {
-                    _state.update { cur -> cur.copy(inventoryKeys = emptyList()) }
-                    showKeyMessage("🔒 No es la correcta. Busca otra llave en la sala.")
-                }
-            }
+            showKeyMessage(
+                if (s.inventoryKeys.isEmpty()) "🔒 Necesitas la llave correcta. Vuelve al Laboratorio 1 (←) y recoge una."
+                else "🔒 Prueba la llave en tu inventario (mantén Y). Si no es, deséchala y busca otra."
+            )
             return
         }
 
@@ -852,6 +847,46 @@ class ZombieInteriorViewModel(
 
     fun dismissInventory() {
         _state.update { it.copy(showInventory = false) }
+    }
+
+    /**
+     * PUZZLE Misión 1: PRUEBA una llave del inventario. Solo "abre" estando en ENCB_lab2 (es ahí donde
+     * se prueba, justo antes de la puerta del cómic). La CORRECTA (LLave4) marca `lab1KeyFound=true`
+     * (desbloquea la puerta del fondo) y se conserva; una incorrecta avisa para que la DESECHES.
+     */
+    fun testInventoryKey(entry: String) {
+        val s = _state.value
+        if (entry !in s.inventoryKeys) return
+        val asset = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.entryAsset(entry)
+        val correct = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.LAB1_CORRECT_KEY
+        when {
+            currentRoom().id != ZombieRoomCatalog.ENCB_LAB2_ID ->
+                showKeyMessage("🔬 Solo puedes probar la llave en el Laboratorio 2.")
+            asset == correct -> {
+                _state.update { it.copy(lab1KeyFound = true) }
+                soundManager.playItem()
+                showKeyMessage("🔑 ¡Es la correcta! La puerta del fondo se abrió. Crúzala (X).")
+            }
+            else ->
+                showKeyMessage("🔒 No es la correcta. Mantén pulsada la llave para desecharla y busca otra (←).")
+        }
+    }
+
+    /**
+     * PUZZLE Misión 1: DESECHA (tira) una llave del inventario para liberar el slot. Se invoca con
+     * MANTENER PULSADA la llave en el inventario. Reglas: una llave INCORRECTA se puede desechar
+     * SIEMPRE; la CORRECTA solo DESPUÉS de haberla USADO para abrir la puerta (`lab1KeyFound`), antes no.
+     */
+    fun discardInventoryKey(entry: String) {
+        val s = _state.value
+        if (entry !in s.inventoryKeys) return
+        val asset = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.entryAsset(entry)
+        if (asset == ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.LAB1_CORRECT_KEY && !s.lab1KeyFound) {
+            showKeyMessage("🔒 No puedes desechar esta llave todavía. Pruébala primero en la puerta (Lab 2).")
+            return
+        }
+        _state.update { it.copy(inventoryKeys = it.inventoryKeys.filter { k -> k != entry }) }
+        showKeyMessage("🗑️ Llave desechada. Busca otra en el Laboratorio 1 (←).")
     }
 
     // Mensajes transitorios del puzzle de llaves (se limpian solos a los ~2.8 s).
