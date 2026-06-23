@@ -142,6 +142,12 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_OSM
 // REFACTOR: funciones del VM extraídas a parciales (WorldMapProviders/Designer) →
 // ahora son extensiones y requieren import explícito desde el paquete ui.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.addLandmarkAtPlayer
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.showInitialHealthBar
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.spawnDynamicCarInEscom
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearPendingInteriorDestination
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearPendingZombieMinigame
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleInteriorDebugOverlay
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleGlobalZombieMode
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.cancelPendingProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.deleteSelectedLandmark

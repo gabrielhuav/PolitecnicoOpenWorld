@@ -11,11 +11,11 @@ low-end performance) or doc drift.
 
 > ### ✅ ESTADO ACTUAL (2026-06-21) — esto MANDA sobre el historial de abajo
 >
-> **Solo 5 archivos pasan de 1000 líneas; solo 1 pasa de 1500:**
+> **5 archivos pasan de 1000 líneas; NINGUNO pasa de 1500 (2026-06-22):**
 >
 > | Archivo | Líneas | ¿Separar? |
 > |---|---:|---|
-> | `WorldMapViewModel.kt` | **2114** | Único >1500. Lo que queda grande dentro (`startGameLoop` ~490, `handleInteraction`, `trySpawningCollectible`/`checkCollectibleProximity`, `moveCharacter*`) puede extraerse a parciales NUEVOS sin gemelo, pero NO urge. |
+> | `WorldMapViewModel.kt` | **1426** | **Ya NO >1500** (era ~2114). 2026-06-22: de-dup de los 4 gemelos restantes + 4 parciales nuevos (`WorldMapInteractions/Health/EscomItems/Movement.kt`). Lo grande que queda (`startGameLoop` ~490) llama a la cadena de routing (NO TOCAR) → no se extrae. |
 > | `NativeOsmMap.kt` | 1460 | No (renderer Canvas cohesivo). |
 > | `WorldMapScreen.kt` | 1326 | No (raíz Compose ya partida en Overlays/Controls/Google/Web). |
 > | `MainActivity.kt` | 1064 | Opcional (NavHost). Subió un poco por la i18n verbosa. |
@@ -29,6 +29,16 @@ low-end performance) or doc drift.
 > caminar/correr/coche/zombi). **NO TOCAR** (revertido, cadena de routing interdependiente) =
 > `updateDestinationRoute`+`calculateRouteOnNetwork`. `WorldMapGameLoop.kt` quedó como **tombstone**
 > (startGameLoop volvió a ser solo miembro, con el audio fusionado). Ya NO hay gemelos divergentes vivos.
+>
+> **✅ DE-DUP 2ª TANDA + EXTRACCIÓN DE PARCIALES (2026-06-22):** se de-duplicaron los **4 gemelos restantes**
+> (miembro privado vivo + extensión muerta): `checkCollectibleProximity` (la extensión muerta NO tenía Metrobús ni la
+> mano zombi → se sincronizó al MIEMBRO canónico antes de borrarlo), `trySpawningCollectible`, `isInsideEscom`,
+> `startMovementAction` (estos 3 ya byte-idénticos). Gana la única extensión; sin gemelos vivos. Y se extrajeron
+> **4 parciales NUEVOS sin gemelo** (solo tocan internal/public): `WorldMapInteractions.kt` (interacción: vehículo,
+> puerta/metro, reclamar, teleport directo, toggle apocalipsis), `WorldMapHealth.kt` (takeDamage/heal/barra de vida),
+> `WorldMapEscomItems.kt` (items ESCOM + coche dinámico), `WorldMapMovement.kt` (moveCharacter/moveCharacterByAngle/
+> rescueIfStuckOffNetwork/isCollisionDetected; se pasaron a `internal` `exteriorCollisions` y `RESCUE_MAX_DIST_DEG`).
+> Call-sites externos con import explícito (WorldMapScreen/Controls/Overlays). **VM 2114 → 1426.**
 >
 > **✅ i18n player-facing COMPLETA** (main_menu, settings, map_exterior, campaign, interiores incl. transit
 > y diseñadores, MainActivity). Pendiente menor: `CampaignObjective.title/description` → `@StringRes`. Ver §i18n.
@@ -317,6 +327,15 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
+- **⚠️ GOTCHA DEL SANDBOX — truncación de archivos grandes (2026-06-22):** el shell/sandbox puede servir una COPIA
+  TRUNCADA de un .kt grande (umbral ~120 KB). `WorldMapViewModel.kt` (~125 KB) se leía a **2110** líneas cuando el real
+  tenía **~2140** → al refactorizar con Python EN el sandbox y reescribir, se PERDIÓ la cola (las 4 funciones
+  `on/consume Metro/Metrobus FadeComplete` + la `}` de cierre de la clase). **Reglas:** (a) NO refactorices un .kt grande
+  leyéndolo por el sandbox sin verificar `wc -c`/cola primero; (b) tras CADA escritura, verifica con la herramienta
+  **Read** (otra ruta de acceso, ve el archivo REAL) que la COLA y el cierre de clase siguen ahí; (c) valida el balance con
+  un chequeo **Kotlin-aware** (ignora strings/comentarios/plantillas): el conteo naíf de `{}`/`()` da falsos ± por llaves
+  en strings/`${}`/comentarios. El daño de esta sesión se recuperó empalmando la cola desde `git show HEAD:` (prefijo
+  idéntico verificado). Mantén el VM < ~120 KB para no recaer.
 - **🆕 Atasco tras TP — snap en `maybeRefetchRoadNetwork` (2026-06-22):** el reload de calles tras un
   teletransporte (`maybeRefetchRoadNetwork`, en `WorldMapRoadNetwork.kt`) **NO snapeaba al jugador** a la calle
   (a diferencia de `applyRoadNetwork` del arranque) → al TP a una estación SOBRE un edificio quedabas en coords

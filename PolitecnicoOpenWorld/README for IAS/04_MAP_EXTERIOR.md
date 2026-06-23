@@ -1,8 +1,8 @@
 # 04 · Open World / `features/map_exterior/`
 
-**ES:** El corazón del juego. El `WorldMapViewModel` (Activity-scoped, ~2600 líneas) está **partido en
+**ES:** El corazón del juego. El `WorldMapViewModel` (Activity-scoped, ~1426 líneas tras el refactor 2026-06-22) está **partido en
 extensiones** (`WorldMap*.kt`) que agrupan la lógica por tema. El estado es `WorldMapState`.
-**EN:** The game's heart. `WorldMapViewModel` (Activity-scoped, ~2600 lines) is **split into
+**EN:** The game's heart. `WorldMapViewModel` (Activity-scoped, ~1426 lines after the 2026-06-22 refactor) is **split into
 extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMapState`.
 
 > **🆕 Refactor de tamaño (2026-06-20):** se extrajeron 4 parciales nuevos del VM (bajó de ~3050 a
@@ -44,9 +44,13 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Routing / waypoints | `viewmodel/WorldMapRouting.kt` |
 | ESCOM (puertas, ousted driver) | `viewmodel/WorldMapEscom.kt` |
 | Coleccionables (lógica) | `viewmodel/WorldMapCollectiblesLogic.kt` |
-| Misc (movimiento, WASTED, HUD vida) | `viewmodel/WorldMapMisc.kt` |
+| Misc (startMovementAction, secuencia WASTED, timer barra de vida) | `viewmodel/WorldMapMisc.kt` |
 | 🆕 Cámara/zoom (auto/manual, pinch, pan) + toggles de widgets | `viewmodel/WorldMapCameraUi.kt` (NUEVO, refactor — extensiones) |
 | 🆕 Ajustes (densidad/LOD NPCs) + skin | `viewmodel/WorldMapSettings.kt` (NUEVO, refactor — extensiones) |
+| 🆕 Interacción del jugador (abordar/bajar vehículo, puerta/metro/coleccionable, reclamar objeto, teleport directo, toggle apocalipsis zombi) | `viewmodel/WorldMapInteractions.kt` (NUEVO 2026-06-22 — extensiones) |
+| 🆕 Salud del jugador (daño/curación/barra de vida) | `viewmodel/WorldMapHealth.kt` (NUEVO 2026-06-22 — extensiones) |
+| 🆕 Items de ESCOM + inyección de coche dinámico (Diseñador) | `viewmodel/WorldMapEscomItems.kt` (NUEVO 2026-06-22 — extensiones) |
+| 🆕 Movimiento del jugador a pie/joystick + aduana de colisión + snap-to-road + rescate anti-atasco | `viewmodel/WorldMapMovement.kt` (NUEVO 2026-06-22 — extensiones) |
 | Render principal (selector de renderer: OSM/Google/Web) | `ui/WorldMapScreen.kt` (~1325) |
 | 🆕 Rama de render Google Maps nativo (`GoogleMapLayer`) | `ui/WorldMapScreenGoogle.kt` (NUEVO, refactor — composable top-level; cachés LRU por parámetro) |
 | 🆕 Rama de render WEB / Leaflet en WebView (`WebMapLayer`) | `ui/WorldMapScreenWeb.kt` (NUEVO, refactor — composable top-level; cachés base64 + holders de guarda por-frame por parámetro) |

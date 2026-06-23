@@ -101,10 +101,11 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         val nearbyMetro = metroStations.minByOrNull {
             playerGeo.distanceToAsDouble(it.location)
         }
-        
-        // Estaciones = zona ampliada (60 m); ver METRO_INTERACT_RADIUS_METERS. NOTA: este
-        // archivo es la EXTENSIÓN gemela MUERTA (gana el miembro de WorldMapViewModel.kt);
-        // se mantiene en sync por la convención del proyecto (09 §12).
+
+        // Las estaciones usan una zona MÁS GRANDE (METRO_INTERACT_RADIUS_METERS, 60 m) que
+        // los coleccionables/puertas (15 m): el logo del metro a veces cae sobre un edificio
+        // inaccesible por calles (Overpass) y con snap-to-road no se podría pisar; con la zona
+        // amplia basta estar cerca en cualquier calle. Esta zona se dibuja en web y OSM nativo.
         if (nearbyMetro != null && playerGeo.distanceToAsDouble(nearbyMetro.location) <= METRO_INTERACT_RADIUS_METERS) {
             if (_uiState.value.nearbyMetroStation?.name != nearbyMetro.name) {
                 _uiState.update { it.copy(nearbyMetroStation = nearbyMetro, nearbyCollectible = null) }
@@ -124,20 +125,48 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
             _uiState.update { it.copy(nearbyMetroStation = null, interactionPrompt = null) }
         }
 
-        // 2. Verificar cercanía a otros objetos (collectibles, puertas)
-        val doorLandmarkItems = _uiState.value.landmarks
-            .filter { it.assetPath == ESCOM_DOOR_ASSET }
-            .map { lm ->
+        // 1b. Verificar cercanía a estaciones del Metrobús
+        val metrobusStations = _uiState.value.metrobusStations
+        val nearbyMetrobus = metrobusStations.minByOrNull { playerGeo.distanceToAsDouble(it.location) }
+
+        // Metrobús: zona propia MÁS PEQUEÑA que el metro (METROBUS_INTERACT_RADIUS_METERS).
+        if (nearbyMetrobus != null && playerGeo.distanceToAsDouble(nearbyMetrobus.location) <= METROBUS_INTERACT_RADIUS_METERS) {
+            if (_uiState.value.nearbyMetrobusStation?.name != nearbyMetrobus.name) {
+                _uiState.update { it.copy(nearbyMetrobusStation = nearbyMetrobus, nearbyCollectible = null) }
+                promptJob?.cancel()
+                promptJob = viewModelScope.launch {
+                    val promptText = "PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS ${nearbyMetrobus.name.uppercase()}"
+                    _uiState.update { it.copy(interactionPrompt = promptText) }
+                    kotlinx.coroutines.delay(3000)
+                    _uiState.update { it.copy(interactionPrompt = null) }
+                }
+            }
+            return
+        }
+
+        if (_uiState.value.nearbyMetrobusStation != null) {
+            _uiState.update { it.copy(nearbyMetrobusStation = null, interactionPrompt = null) }
+        }
+
+        // 2. Recopilamos los collectibles normales y de ESCOM (nuestro código)
+        val baseItems = _uiState.value.activeCollectibles + _escomItems.value
+
+        // Convertimos los Landmarks de tipo "Puerta" en collectibles virtuales interactuables
+        val doorItems = _uiState.value.landmarks
+            .filter { it.assetPath.contains("DOORS/") }
+            .map { doorLandmark ->
                 ActiveCollectible(
-                    id          = "escom_door_lm_${lm.id}",
-                    name        = "Puerta ESCOM",
-                    description = "door",
-                    assetPath   = ESCOM_DOOR_ASSET,
-                    latitude    = lm.location.latitude,
-                    longitude   = lm.location.longitude
+                    id = "escom_door_${doorLandmark.id}",
+                    name = doorLandmark.name,
+                    description = "Puerta interactiva",
+                    assetPath = doorLandmark.assetPath,
+                    latitude = doorLandmark.location.latitude,
+                    longitude = doorLandmark.location.longitude
                 )
             }
-        val allPossibleItems = _uiState.value.activeCollectibles + _escomItems.value + doorLandmarkItems
+
+        // 3. Juntamos todo en un solo radar global
+        val allPossibleItems = baseItems + doorItems
 
         val activeItem = allPossibleItems.minByOrNull {
             playerGeo.distanceToAsDouble(org.osmdroid.util.GeoPoint(it.latitude, it.longitude))
@@ -146,16 +175,20 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         val itemGeo = org.osmdroid.util.GeoPoint(activeItem.latitude, activeItem.longitude)
         val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
 
-        if (distanceInMeters <= INTERACT_RADIUS_METERS) {
+        // 4. Radio de detección especial para las puertas (20 metros) o estándar para objetos (15 metros)
+        val radius = if (activeItem.id.startsWith("escom_door_")) ESCOM_DOOR_INTERACT_RADIUS * 100000 else 15.0
+
+        if (distanceInMeters <= radius) {
             if (_uiState.value.nearbyCollectible?.id != activeItem.id) {
                 _uiState.update { it.copy(nearbyCollectible = activeItem) }
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
                     val promptText = when {
-                        activeItem.name == "Objeto Misterioso ESCOM"  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_interact)
-                        activeItem.id  == ShineCTOLocation.MARKER_ID  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_discover)
-                        activeItem.id.startsWith("escom_door_")       -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter)
-                        else                                           -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_pickup)
+                        activeItem.id == "global_zombie_hand" -> if (_uiState.value.globalZombieMode) getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_deactivate_zombie) else getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_activate_zombie)
+                        activeItem.name == "Objeto Misterioso ESCOM" -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_interact)
+                        activeItem.id == ShineCTOLocation.MARKER_ID  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter)
+                        activeItem.id.startsWith("escom_door_")      -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter) // <--- Aquí aparece el texto de la puerta
+                        else -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_pickup)
                     }
 
                     _uiState.update { it.copy(interactionPrompt = promptText) }

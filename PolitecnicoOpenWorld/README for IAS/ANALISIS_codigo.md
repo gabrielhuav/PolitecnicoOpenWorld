@@ -164,10 +164,10 @@ Lo de prioridad 4–6 es OPCIONAL y requiere compilador → no se hizo de madrug
 
 ## 8. RE-ANÁLISIS (2026-06-22, tras la unificación de transporte)
 
-**Tamaños reales hoy:** 190 archivos `.kt`, ~36 000 líneas. Top: `WorldMapViewModel` (2129),
+**Tamaños reales hoy (tras refactor 2026-06-22):** 190 archivos `.kt`. Top: `WorldMapViewModel` (**1426**, era ~2129),
 `NativeOsmMap` (1444), `WorldMapScreen` (1320), `MainActivity` (1058), `ZombieGameScreen` (1038),
 `ZombieInteriorViewModel` (915), `NpcAiManager` (884), `SettingsScreen` (859), `WorldMapLeafletHtml` (838),
-`TransitInteriorViewModel` (677, NUEVO unificado). **Único > 1500: `WorldMapViewModel`.**
+`TransitInteriorViewModel` (677). **Ya NINGÚN archivo > 1500** (el VM bajó de ~2129 a **1426**; ver abajo y 09 §0/§12).
 
 **Qué se acaba de resolver:** la mayor duplicación estructural restante (Metro⇄Metrobús, VM+State) →
 unificada en `TransitInteriorViewModel`/`TransitInteriorState`/`TransitSystemConfig` (§2.2). Verificado: las
@@ -181,15 +181,16 @@ los tipos viejos.
 |---|--------|-------|----------|--------|------|
 | A | Colapsar las 2 **pantallas** de transporte (`Metro/MetrobusStationInteriorScreen`, 638+544) en UNA `TransitStationScreen(config)` y los 2 **overlays** en uno. La config YA trae color/eje/overlayType/vídeo/gradiente/sprites/vehicleAsset. | Medio | Alto | Medio-alto | Es la 2ª mitad del refactor de transporte. Compose + animación vertical/horizontal: probar ambos. |
 | B | Retirar los **alias de compat** de `TransitInteriorState`/VM y los 4 archivos **tombstone** una vez que A use nombres neutros. | Bajo (limpieza) | Bajo | Bajo | Hacer DESPUÉS de A, con compilador. |
-| C | `WorldMapViewModel` (2129) — único > 1500. Extraer más parciales SIN gemelo (p. ej. `checkCollectibleProximity`/`trySpawningCollectible`, `moveCharacter*`). | Medio | Medio | Medio | Cuidado con el gotcha miembro-vs-extensión (09 §12). |
+| ~~C~~ | ✅ **HECHO (2026-06-22)** `WorldMapViewModel` **2129 → 1426** (<1500): de-dup de los 4 gemelos restantes (`checkCollectibleProximity`/`trySpawningCollectible`/`isInsideEscom`/`startMovementAction`) + 4 parciales nuevos (`WorldMapInteractions`/`Health`/`EscomItems`/`Movement.kt`). | Medio | Medio | Medio | Lo grande que queda (`startGameLoop` ~490) llama a la cadena de routing NO-TOCAR → no se extrajo. |
 | D | Extraer `NavHost` de `MainActivity` (1058) a `AppNavGraph.kt`. | Bajo | Medio | Medio | Acoplado a `worldMapViewModel` Activity-scoped. |
 | E | `SettingsScreen` (859): partir cada sección `*Settings` a su archivo si crece. | Bajo | Bajo | Bajo | Hoy aceptable. |
 | F | i18n pendiente: strings in-VM de transporte (ahora centralizados en `TransitSystemConfig`, fáciles de migrar a `@StringRes`) + `CampaignObjective.title/description`. | Medio | Bajo-medio | Bajo | La unificación facilitó esto: los textos viven en un solo sitio. |
 | — | Micro-opts perf | — | — | — | Sin candidatas seguras nuevas (09 §6). |
 
-**Recomendación:** tras validar este Rebuild, el siguiente paso de mayor valor es **A** (colapsar las
-pantallas/overlays por config) para cerrar del todo el transporte unificado; luego **B** (limpieza de alias).
-`C/D/E/F` son mejoras independientes de bajo riesgo cuando toque. **No partir nada por estética.**
+**Recomendación (actualizada 2026-06-22):** **C ya está HECHO** (VM <1500). El siguiente paso de mayor valor es **A**
+(colapsar las pantallas/overlays de transporte por config) y luego **B** (retirar alias de compat + borrar los 4 tombstone).
+`D/E/F` son mejoras independientes de bajo riesgo. **No partir nada por estética.** ⚠️ Ver el GOTCHA del sandbox (09 §12)
+antes de tocar archivos grandes desde el shell.
 
 > ⚠️ Recordatorio del entorno: los 4 archivos nuevos (`TransitStation`, `TransitSystemConfig`,
 > `TransitInteriorState`, `TransitInteriorViewModel`) se escribieron con fin de línea LF (los editados
