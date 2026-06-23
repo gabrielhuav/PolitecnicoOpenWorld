@@ -17,9 +17,25 @@ android {
         applicationId = "ovh.gabrielhuav.pow"
         minSdk = 24
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.0.0.9"
+        versionCode = System.getenv("APP_VERSION_CODE")?.toIntOrNull() ?: 10
+        versionName = "1.0.0.10"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Firma de RELEASE para Play Store. Lee keystore + credenciales de VARIABLES DE ENTORNO
+    // (en CI = GitHub Secrets); la .jks y las contraseñas NUNCA se commitean. Si las env NO
+    // están (build local de un contribuidor), la keystore no se asigna y el release queda SIN
+    // firmar (debug y el resto del proyecto compilan igual).
+    signingConfigs {
+        create("release") {
+            val ksPath = System.getenv("RELEASE_KEYSTORE_PATH")
+            if (!ksPath.isNullOrEmpty() && file(ksPath).exists()) {
+                storeFile = file(ksPath)
+                storePassword = System.getenv("RELEASE_STORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -31,6 +47,10 @@ android {
         }
         release {
             isMinifyEnabled = false
+            // Solo firma si CI proporcionó la keystore (env); local sin env → release sin firmar.
+            if (!System.getenv("RELEASE_KEYSTORE_PATH").isNullOrEmpty()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

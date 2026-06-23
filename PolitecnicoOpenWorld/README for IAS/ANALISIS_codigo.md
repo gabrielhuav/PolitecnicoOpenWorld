@@ -195,3 +195,32 @@ de una implementación con bugs. **No partir nada por estética.** ⚠️ Ver el
 > ⚠️ Recordatorio del entorno: los 4 archivos nuevos (`TransitStation`, `TransitSystemConfig`,
 > `TransitInteriorState`, `TransitInteriorViewModel`) se escribieron con fin de línea LF (los editados
 > conservan CRLF). Kotlin compila ambos; si quieres uniformar a CRLF, normalízalos en Android Studio.
+
+---
+
+## 9. 🔮 ROADMAP a nivel "producción mantenida por seniors" (TRABAJO FUTURO)
+
+> Decisión del dueño (2026-06-23): se harán TODAS estas mejoras para llevar el código a nivel de producción
+> senior, como **trabajo futuro** (no bloquean nada hoy). Orden sugerido por valor/riesgo:
+
+1. **Suite de tests automatizados** (la brecha más grande). Empezar por LÓGICA PURA con JUnit: routing/snap-to-road
+   (distancias, nearestPointOnNetwork), save/load (SaveGameRepository round-trip), combate (daño/cooldowns),
+   MissionCatalog/checkObjectiveProgress, colisiones. Luego UI con Compose UI Test (flujos de Modo Historia).
+   **Gate de merge:** los tests deben pasar en cada PR.
+2. **Descomponer el god-object `WorldMapViewModel`** (1426 líneas, un solo `_state` gigante + ~25 parciales que son
+   EXTENSIONES de la MISMA clase → bajó el TAMAÑO pero NO el acoplamiento). Migrar a managers/use-cases con sub-estado
+   propio (CombatManager, RoutingUseCase, CollectiblesManager, CampaignManager…; NpcAiManager/PoliceManager ya lo son),
+   inyectados; el VM solo orquesta y compone sub-estados.
+3. **Retirar el patrón miembro-vs-extensión gemela** como técnica de separación (es un code smell que causó bugs reales).
+   No crear más gemelos; de-duplicar la cadena de routing "NO-TOCAR" (updateDestinationRoute/calculateRouteOnNetwork/
+   nearbyRoadNodes/rebuildRoadNodeGrid) **con tests de respaldo** (hoy es frágil por falta de red de seguridad).
+4. **Inyección de dependencias** (Hilt o Koin) en vez de `ViewModelProvider.Factory` manuales en todos lados.
+5. **CI/CD completo** — ⏳ PARCIAL: ya se hace deploy a **Play Store prueba cerrada al APROBAR un PR** (workflow
+   `android-release.yml`, ver 08 §3). Falta: correr **tests + lint (ktlint/detekt) en cada PR** como gate de merge + cobertura.
+6. **Separación REAL (no parches) de los archivos grandes restantes**: `NativeOsmMap` (1498) y `WorldMapScreen` (1459)
+   por responsabilidad / sub-composables con su propio estado, no por "extensiones de la misma clase".
+7. **Item A** (colapsar pantallas/overlays de transporte por config) — ya marcado future work (§8); encaja aquí.
+8. **Higiene**: normalizar EOL a CRLF consistente (hoy hay archivos LF), sacar magic numbers a constantes/config, y subir KDoc.
+
+**Definición de "listo":** tests verdes en CI como gate de merge, VM sin god-object, sin gemelos, DI, y deploy
+automatizado con calidad (lint+tests). Ahí el codebase pasa de "proyecto fuerte de un dev hábil" a "producción senior".
