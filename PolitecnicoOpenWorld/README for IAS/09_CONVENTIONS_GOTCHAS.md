@@ -346,6 +346,15 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
+- **GOTCHA DEL SANDBOX (2) - bash sirve copias TRUNCADAS de archivos EXISTENTES editados con las
+  herramientas (Edit/Write) (2026-06-24):** tras editar con Edit/Write un `.kt`/`.md` que YA existia, el
+  `bash` (otro path de montaje) sirve una copia RECORTADA a ~su tamano PREVIO (la cola nueva se pierde en
+  la VISTA de bash; el archivo REAL esta bien). La herramienta **Read ve el archivo real**. REGLAS: (a)
+  verifica los edits SIEMPRE con Read, nunca con `wc`/`tail`/balance por bash; (b) NUNCA hagas bash-read +
+  bash-write de un archivo recien editado por herramienta (persistirias la copia truncada - asi se trunco
+  el `CHANGELOG_NOCHE.md` a mitad y se recupero reescribiendolo entero por `cat <<'EOF'`); (c) para CREAR/
+  SOBREESCRIBIR docs grandes usa `cat <<'EOF'` por bash (bash si sirve completos los que el mismo escribe).
+  Complementa al gotcha de truncacion por TAMANO (>~120 KB) ya listado abajo.
 - **⚠️ Z-ORDER de overlays sobre un MODAL a pantalla completa (2026-06-23, FIX):** en `ZombieGameScreen`, el panel
   de **inventario** (`ZombieHud`, `if (state.showInventory)`) es un `Box(Modifier.fillMaxSize())` con scrim → modal por
   ENCIMA de todo. Pero los avisos de proximidad (`nearbyDoorLabel` "Continuar →", prompt de llave) se componían DESPUÉS
@@ -955,4 +964,4 @@ updated **in the same change** that touches the code. Treat it as part of the de
 ### Definición de "hecho" / Definition of done
 El cambio está completo solo cuando: **el código compila/valida** (Android Studio Rebuild; servidores
 `node --check server.js`) **y** los tres conjuntos de docs describen la nueva realidad y concuerdan. Si no
-puedes actualizar los docs, **la tarea no está terminada — dilo explícitamente.**
+puedes actualizar los docs, **la tarea no está terminada — dilo explícitamente.** 

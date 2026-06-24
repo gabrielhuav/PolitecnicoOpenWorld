@@ -15,10 +15,15 @@ data class LocalCoordinate(
      * @param margin tolerancia (0.15f = 15%) para puntear orillas un poco fuera del polígono
      *               estricto, compensando la distorsión curva del mapa (paridad con el legacy ±0.15).
      */
-    fun isValid(margin: Float = 0.15f): Boolean {
+    fun isValid(margin: Float = DEFAULT_VALID_MARGIN): Boolean {
         val min = -margin
         val max = 1.0f + margin
         return x in min..max && y in min..max
+    }
+
+    companion object {
+        /** Tolerancia por defecto de [isValid] (15%): compensa la distorsión curva del mapa (legacy ±0.15). */
+        const val DEFAULT_VALID_MARGIN = 0.15f
     }
 }
 

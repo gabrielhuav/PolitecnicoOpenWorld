@@ -1,0 +1,106 @@
+name: PR Quality Gate
+
+# Gate de CALIDAD que corre en cada PR ABIERTO/actualizado hacia main (ANTES del merge):
+#   1) tests unitarios (testDebugUnitTest)
+#   2) análisis estático con detekt
+# NO toca ni depende del workflow de deploy (`android-release.yml`), que corre al CERRAR/MERGEAR el PR.
+# Por eso este usa types: [opened, synchronize, reopened] (PR vivo) y aquel usa types: [closed].
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - 'PolitecnicoOpenWorld/**'
+
+# Cancela ejecuciones viejas del mismo PR cuando se hace push de nuevos commits.
+concurrency:
+  group: pr-quality-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── 1) Tests unitarios de lógica pura ──────────────────────────────────────
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.4.1"
+      - name: Create secrets.properties (Maps API key; vacío es válido para tests)
+        run: |
+          echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
+      # NOTA: no se escribe google-services.json a propósito → el plugin google-services NO se aplica
+      # (ver app/build.gradle.kts) y el proyecto compila/testea sin Firebase. Es lo que queremos en el gate.
+      - name: Run unit tests
+        working-directory: ./PolitecnicoOpenWorld
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: PolitecnicoOpenWorld/app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: ignore
+
+  # ── 2) Análisis estático con detekt (vía CLI; NO modifica el build de Gradle) ──
+  # Se usa la CLI de detekt (no el plugin Gradle) a propósito: así el gate NO toca ningún archivo
+  # de build de la app y es IMPOSIBLE que rompa `assembleDebug`/`bundleRelease`. La integración como
+  # plugin Gradle (id `dev.detekt`, línea 2.0.0-alpha para Gradle 9.x) queda documentada en
+  # `README for IAS/PLAN_DI_hilt.md` / CHANGELOG_NOCHE para aplicarla cuando se pueda hacer un sync.
+  detekt:
+    runs-on: ubuntu-latest
+    env:
+      DETEKT_VERSION: "1.23.8"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+      - name: Download detekt CLI
+        run: |
+          curl -sSL -o detekt-cli.zip \
+            "https://github.com/detekt/detekt/releases/download/v${DETEKT_VERSION}/detekt-cli-${DETEKT_VERSION}.zip"
+          unzip -q detekt-cli.zip
+      - name: Run detekt
+        run: |
+          BASELINE_ARG=""
+          if [ -f PolitecnicoOpenWorld/config/detekt/baseline.xml ]; then
+            BASELINE_ARG="--baseline PolitecnicoOpenWorld/config/detekt/baseline.xml"
+          fi
+          # PRIMERA ADOPCIÓN: si esto sale rojo por issues preexistentes, genera el baseline una vez:
+          #   ./detekt-cli-${DETEKT_VERSION}/bin/detekt-cli --create-baseline \
+          #     --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml \
+          #     --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
+          #     --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java
+          # y commitéalo. A partir de ahí solo fallan los issues NUEVOS.
+          "./detekt-cli-${DETEKT_VERSION}/bin/detekt-cli" \
+            --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
+            --build-upon-default-config \
+            --input PolitecnicoOpenWorld/app/src/main/java \
+            $BASELINE_ARG \
+            --report sarif:detekt-results.sarif
+      - name: Upload detekt SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detekt-sarif
+          path: detekt-results.sarif
+          if-no-files-found: ignore

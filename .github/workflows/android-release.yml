@@ -1,7 +1,7 @@
 name: Android CI/CD
 
 on:
-  # Al MERGEAR un PR a main: APK debug + GitHub Release (flujo existente).
+  # Al MERGEAR un PR a main: APK debug + GitHub Release + AAB firmado → Play (prueba cerrada).
   pull_request:
     branches:
       - main
@@ -9,10 +9,6 @@ on:
       - closed
     paths:
       - 'PolitecnicoOpenWorld/**'
-  # Al APROBAR un PR (review "approved"): build firmado + subida a PRUEBA CERRADA de Play Store.
-  pull_request_review:
-    types:
-      - submitted
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -63,15 +59,13 @@ jobs:
           files: |
             PolitecnicoOpenWorld/app/build/outputs/apk/debug/app-debug.apk
 
-  # ── 2) PR APROBADO → AAB firmado → Play Store PRUEBA CERRADA (track "alpha") ──
+  # ── 2) PR MERGEADO a main → AAB firmado → Play Store PRUEBA CERRADA (track "alpha") ──
   playstore-closed-testing:
-    if: github.event_name == 'pull_request_review' && github.event.review.state == 'approved'
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout del HEAD del PR aprobado
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:

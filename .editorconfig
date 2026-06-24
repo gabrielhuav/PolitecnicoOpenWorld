@@ -1,0 +1,44 @@
+# EditorConfig — Politécnico Open World (POW)
+# Fija el fin de línea y el estilo base del repo. TODAS las fuentes están en CRLF;
+# este archivo evita que Android Studio / git vuelvan a mezclar EOL al guardar.
+# Docs: https://editorconfig.org
+root = true
+
+# Por defecto para TODO el repo: CRLF + UTF-8.
+[*]
+end_of_line = crlf
+charset = utf-8
+# No tocar el contenido al guardar (evita reformateos ruidosos / diffs gigantes):
+trim_trailing_whitespace = false
+insert_final_newline = false
+
+# Fuentes Kotlin / Gradle Kotlin DSL
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# Recursos / manifiesto Android
+[*.xml]
+indent_style = space
+indent_size = 4
+
+# Catálogo de versiones y otros TOML
+[*.toml]
+indent_style = space
+indent_size = 4
+
+# JSON / YAML (workflows de CI, configs)
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Markdown (docs README for IAS, changelog)
+[*.md]
+indent_style = space
+indent_size = 2
+
+# Scripts de servidores Node (Multiplayer/, MultiplayerInteriores/)
+[*.js]
+indent_style = space
+indent_size = 2
