@@ -68,6 +68,8 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
     val vm: ShineCTOViewModel = viewModel(factory = ShineCTOViewModel.Factory(context))
     val state by vm.state.collectAsState()
     val density = LocalDensity.current
+    // Respeta la skin elegida (antes ShineCTO siempre dibujaba a Lázaro porque no pasaba skin).
+    val playerSkin = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getPlayerSkin() }
 
     // Back button exits to world
     BackHandler { onExitToWorld() }
@@ -152,6 +154,7 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
                 facingRight = state.isFacingRight,
                 damagePulse = 0,
                 sizePx = pSizePx,
+                skin = playerSkin,
                 modifier = Modifier.absoluteOffset(
                     x = with(density) { (pScreenX - pSizePx / 2f).toDp() },
                     y = with(density) { (pScreenY - pSizePx / 2f).toDp() }

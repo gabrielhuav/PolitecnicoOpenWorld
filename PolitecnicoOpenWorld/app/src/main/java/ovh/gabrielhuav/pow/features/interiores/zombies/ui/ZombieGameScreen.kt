@@ -934,7 +934,8 @@ fun ZombieGameScreen(
                 currentSkin    = state.selectedSkin,
                 context        = context,
                 onSkinSelected = { viewModel.selectSkin(it) },
-                onDismiss      = { viewModel.toggleSkinSelector(false) }
+                onDismiss      = { viewModel.toggleSkinSelector(false) },
+                developerMode  = developerMode   // las skins de prueba (Lázaro + NPC) solo en Modo Dev
             )
         }
         // ─── TOOLBAR DEL DISEÑADOR ──────────────────────────────
