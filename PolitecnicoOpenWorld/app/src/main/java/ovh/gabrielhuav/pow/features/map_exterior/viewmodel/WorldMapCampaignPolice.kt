@@ -128,7 +128,17 @@ internal fun WorldMapViewModel.runCampaignEscortTick(playerLoc: GeoPoint) {
         _uiState.update { it.copy(prankedyHealth = prankedyManager.health) }
         if (died) {
             clearCampaignPolice()
-            _uiState.update { it.copy(showMissionFailed = true, prankedyLocation = null, prankedyVisible = false) }
+            // Pizarra limpia para el REINTENTO: desactiva a Prankedy (evita que reviva HOSTIL a los
+            // ~60 s vía su respawn) y re-arma el flag del acompañante; respawnPrankedyCompanionHere()
+            // lo trae de vuelta contigo al reintentar (antes quedaba DEAD y "ya no aparecía" — R3/R10).
+            prankedyManager.deactivate()
+            prankedyCompanionActivated = false
+            _uiState.update { it.copy(
+                showMissionFailed = true,
+                prankedyEnabled = false,
+                prankedyLocation = null,
+                prankedyVisible = false
+            ) }
         }
     }
     if (_uiState.value.wantedLevel != 1) _uiState.update { it.copy(wantedLevel = 1) }

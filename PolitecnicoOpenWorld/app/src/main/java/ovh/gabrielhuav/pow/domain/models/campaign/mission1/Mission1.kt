@@ -50,7 +50,10 @@ object Mission1 {
         descriptionRes = R.string.obj_escoltar_prankedy_desc,
         targetLat = ESCOM_DOOR_LAT,
         targetLon = ESCOM_DOOR_LON,
-        arriveRadiusMeters = 12.0
+        // 12 m era demasiado estricto: combinado con "Prankedy a <45 m de la puerta", la ventana en
+        // que AMBOS se cumplían era diminuta y la misión casi nunca se marcaba cumplida (R9). 25 m da
+        // holgura para que coincidan al llegar a pie a la puerta.
+        arriveRadiusMeters = 25.0
     )
 
     // Misión 2: tras llegar a la ESCOM, te persiguen y debes INGRESAR a la ESCOM (entrar al

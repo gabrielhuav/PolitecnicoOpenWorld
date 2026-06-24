@@ -231,6 +231,25 @@ px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo u
 > `PlayerSkin.walkBodyFraction`, esto se ajusta solo. La usan los 3 sitios de jugador local en interiores
 > (salas zombi, ESCOM simple, ShineCTO); `RemotePlayerView` ya fija `LAZARO`.
 
+> **🆕 EXTERIOR — estándar ÚNICO de tamaño del jugador (2026-06-24):** `PlayerCharacter.kt` (mapa
+> exterior, a pie) antes medía la fracción opaca de CADA frame **en runtime** (async) con fallback `0.6`
+> y un **desfase de un frame** → Lázaro/Robot (que varían MUCHO entre idle/caminar/correr: idle≈0.58/0.71,
+> walk≈0.62, run≈0.47/0.68) se **encogían al correr/caminar**; escomgirl/escomboy (varían poco, ≈0.94 y
+> ≈0.41) casi no se notaban. AHORA es **determinista**: `PlayerSkin` lleva fracciones opacas PRECALCULADAS
+> por acción (`idle/walk/run/specialBodyFraction`) y `PlayerCharacter` calcula
+> `boxHeight = PlayerSkin.PLAYER_BODY_STANDARD_DP / bodyFraction(action)` → el **CUERPO mide lo mismo en
+> pantalla para TODAS las skins y TODAS las animaciones** (referencia hombre/robot = `23.5dp`, coincide con
+> el interior). Se eliminó la medición runtime (`opaqueVerticalFraction`/`fracCache`) y `renderScale` ya no
+> interviene en el cuerpo exterior. Sube/baja **un solo valor** (`PLAYER_BODY_STANDARD_DP`) para reescalar a
+> todas por igual.
+>
+> ⚠️ **ASSETS DEL JUGADOR INCONSISTENTES — PENDIENTE de corregir:** los sprites NO comparten lienzo ni
+> resolución (Lázaro idle 338×422, walk 329×412, **run 256×256**; Robot 256² todo; escomgirl 362×640 /
+> 392×664 / **run 542×681**; escomboy 256²). Por eso hay que medir la fracción por animación a mano (las
+> constantes `*BodyFraction` de `PlayerSkin`). **Lo correcto a futuro:** re-exportar TODOS los frames de
+> TODAS las skins con un **lienzo común** y el personaje ocupando la **misma fracción**; entonces las
+> `*BodyFraction` se vuelven todas iguales y el sistema se simplifica. (Si tocas el arte, vuelve a medir.)
+
 ## 6. Rendimiento gama baja (≤2 GB / Android 7–9) — NO regresar / low-end perf — do NOT regress
 
 - **`nativeDrawableCache`** (en `WorldMapScreen`, usado por `NativeOsmMap`) es **LRU por orden de acceso**

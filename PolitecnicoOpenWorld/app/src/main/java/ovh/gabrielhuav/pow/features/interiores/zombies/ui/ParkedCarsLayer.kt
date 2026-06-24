@@ -158,7 +158,10 @@ private fun buildParkedCars(context: Context, campus: CampusParking): List<Parke
         val baseFacing = Math.toDegrees(
             atan2((slot.dirY * campus.baseHeightMeters).toDouble(), (slot.dirX * campus.baseWidthMeters).toDouble())
         ).toFloat()
-        val drawable = VehicleSpriteManager.getTintedCarNpc(context, 0f, color, 1.0f, model)
+        // Tintado (palette-swap píxel a píxel) a MENOR resolución (0.5×): son escenografía pequeña en
+        // el lobby, no necesitan resolución completa. Reduce ~4× el trabajo por plaza (estaba en 1.0×,
+        // serializado por @Synchronized → tardaba en "verse bien" la imagen 2D al entrar/zoom — R4).
+        val drawable = VehicleSpriteManager.getTintedCarNpc(context, 0f, color, 0.5f, model)
         val bitmap = (drawable as? BitmapDrawable)?.bitmap?.asImageBitmap() ?: return@mapIndexedNotNull null
         ParkedCar(slot.localX, slot.localY, baseFacing, bitmap)
     }

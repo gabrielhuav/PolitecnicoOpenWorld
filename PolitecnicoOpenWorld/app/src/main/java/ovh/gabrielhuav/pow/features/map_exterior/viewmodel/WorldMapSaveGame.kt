@@ -161,6 +161,30 @@ fun WorldMapViewModel.setCampaignObjective(objective: ovh.gabrielhuav.pow.domain
     _uiState.update { it.copy(currentObjective = objective, objectiveDone = false, showMissionFailed = false) }
 }
 
+// ─── R7: CONTINUAR / DIFERIR LA HISTORIA tras la Misión 1 ──────────────────────────────────────
+// El diálogo "Misión cumplida" deja ELEGIR entre seguir la historia ya o quedarse en mundo libre.
+
+/** Continuar la historia AHORA: dispara el cómic IntroPOW12..14 + la Misión 2 (flujo existente). */
+fun WorldMapViewModel.continueStoryNow() {
+    _uiState.update { it.copy(showMissionContinueDialog = false, pendingResumeMissionId = null, pendingMission2Intro = true) }
+}
+
+/** Seguir en MUNDO LIBRE: sin objetivo activo; deja la Misión 2 PENDIENTE (habilita "Retomar misión"). */
+fun WorldMapViewModel.deferStoryToFreeRoam() {
+    _uiState.update { it.copy(
+        showMissionContinueDialog = false,
+        currentObjective = null,
+        objectiveDone = false,
+        pendingResumeMissionId = MissionCatalog.INGRESAR_ESCOM.id
+    ) }
+}
+
+/** "Retomar misión" (Opciones): retoma la historia pendiente (cómic + Misión 2). */
+fun WorldMapViewModel.resumeStoryMission() {
+    if (_uiState.value.pendingResumeMissionId == null) return
+    _uiState.update { it.copy(pendingResumeMissionId = null, pendingMission2Intro = true) }
+}
+
 // Comprueba si el jugador llegó al objetivo (lo llama el game loop). Al entrar en el radio
 // de llegada, marca el objetivo como cumplido y avisa por el HUD.
 fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
@@ -202,10 +226,15 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
         // verdad). Llegar tú SOLO a la puerta (al salir de un interior, tras un respawn o en coche)
         // NO debe completar la misión — ese era el bug de "te sales de la ESCOM y se completa sola".
         if (obj.id == MissionCatalog.ESCOLTAR_PRANKEDY.id) {
-            val pk = prankedyManager.location ?: return
-            val pmLat = (pk.latitude - obj.targetLat) * 111_320.0
-            val pmLon = (pk.longitude - obj.targetLon) * 111_320.0 * kotlin.math.cos(Math.toRadians(obj.targetLat))
-            if (kotlin.math.sqrt(pmLat * pmLat + pmLon * pmLon) > 45.0) return
+            // Si Prankedy SIGUE contigo, exige que también esté cerca de la puerta (lo escoltaste de
+            // verdad). Pero si ya NO existe (entró/desapareció), NO bloquees el cumplimiento: antes el
+            // `?: return` lo hacía IMPOSIBLE de cumplir si Prankedy era null (R9). Radio 45→60 m (holgado).
+            val pk = prankedyManager.location
+            if (pk != null) {
+                val pmLat = (pk.latitude - obj.targetLat) * 111_320.0
+                val pmLon = (pk.longitude - obj.targetLon) * 111_320.0 * kotlin.math.cos(Math.toRadians(obj.targetLat))
+                if (kotlin.math.sqrt(pmLat * pmLat + pmLon * pmLon) > 60.0) return
+            }
         }
         _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${getLocalizedString(obj.titleRes)}") }
         // Jingle de "misión cumplida".
@@ -213,8 +242,10 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
         // MISIÓN 1 cumplida (llegaste a la PUERTA de la ESCOM con Prankedy) → dispara el cómic
         // IntroPOW12..14 (MainActivity) y, al volver, arranca la persecución de la Misión 2.
         if (obj.id == MissionCatalog.ESCOLTAR_PRANKEDY.id) {
-            android.util.Log.d("POW_DBG", "MISIÓN 1 (ESCOLTAR) CUMPLIDA → pendingMission2Intro=true (debe arrancar cómic + Misión 2)")
-            _uiState.update { it.copy(pendingMission2Intro = true) }
+            android.util.Log.d("POW_DBG", "MISIÓN 1 (ESCOLTAR) CUMPLIDA → diálogo Continuar/Mundo libre (R7)")
+            // R7: antes arrancaba directo el cómic + Misión 2 (pendingMission2Intro=true). Ahora
+            // ofrecemos ELEGIR: continuar la historia ya, o seguir en mundo libre y retomar después.
+            _uiState.update { it.copy(showMissionContinueDialog = true) }
         }
     }
 }

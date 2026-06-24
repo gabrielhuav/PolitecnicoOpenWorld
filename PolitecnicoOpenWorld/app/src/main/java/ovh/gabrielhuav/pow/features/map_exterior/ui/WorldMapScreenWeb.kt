@@ -239,7 +239,11 @@ internal fun WebMapLayer(
                                     registeredWebImages.add(cacheKey)
                                 }
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, npc.rotationAngle, "CAR", cacheKey, null, null, npc.displayName, widthCache[cacheKey], heightCache[cacheKey], health = npc.health, isDying = npc.isDying)
-                            } else if (npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE) {
+                            } else if (npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE
+                                       && npc.type != NpcType.POLICE_COP && !npc.isPoliceSkin) {
+                                // ⚠️ POLICE_COP / isPoliceSkin NO deben caer en la rama "civil": si un cop
+                                // trae visualConfig se dibujaría como peatón (policía "sin apariencia"). El
+                                // nativo ya comprueba POLICE_COP antes; aquí igualamos esa precedencia (R10).
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
                                 val config = npc.visualConfig!!
                                 val frameIndex = CharacterSpriteManager.getFrameIndex(context, config, currentlyMoving, timeMs) ?: 0

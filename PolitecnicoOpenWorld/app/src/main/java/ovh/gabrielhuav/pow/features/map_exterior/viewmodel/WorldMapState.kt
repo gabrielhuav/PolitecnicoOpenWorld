@@ -203,6 +203,12 @@ data class WorldMapState(
     // que MainActivity reproduzca el cómic IntroPOW12..14 y luego arranque la persecución.
     // MainActivity lo consume (lo vuelve a false) al navegar al cómic.
     val pendingMission2Intro: Boolean = false,
+    // R7 — MUNDO LIBRE / diferir misiones: al cumplir la Misión 1 se muestra un diálogo para ELEGIR
+    // entre continuar la historia ya, o seguir en MUNDO LIBRE y retomar la misión después.
+    val showMissionContinueDialog: Boolean = false,
+    // Si != null, hay una misión pendiente de RETOMAR (id de la siguiente). Habilita "Retomar misión"
+    // en el menú de Opciones. Mundo libre = currentObjective == null && pendingResumeMissionId != null.
+    val pendingResumeMissionId: String? = null,
 
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,

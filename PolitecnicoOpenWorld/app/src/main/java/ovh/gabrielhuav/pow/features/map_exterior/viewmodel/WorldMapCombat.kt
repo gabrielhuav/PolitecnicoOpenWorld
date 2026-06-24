@@ -63,6 +63,15 @@ fun WorldMapViewModel.performPlayerAttack() {
                 }
             }
         }
+        // MODO HISTORIA: los policías de la CAMPAÑA (escolta de Misión 1 / persecución de Misión 2)
+        // viven en `campaignEscortPolice`, NO en policeManager ni en remoteEntities, así que antes
+        // no se les podía golpear (R6/R8). Aquí sí los dañamos (mueren si llegan a 0).
+        val deadCampaignCops = campaignEscortPolice.playerHitCops(
+            playerLoc.latitude, playerLoc.longitude, ATTACK_RADIUS, PLAYER_PUNCH_DAMAGE
+        )
+        if (deadCampaignCops.isNotEmpty()) {
+            viewModelScope.launch(Dispatchers.Main) { fireImpactEffect(); updateNpcsState() }
+        }
         // APOCALIPSIS: golpear a un policía CAZADOR (en remoteEntities, POLICE_COP) lo daña y lo
         // PROVOCA — a él y a los cercanos → te persiguen. (La policía del sistema de delitos está
         // en policeManager y no corre en apocalipsis.)
@@ -324,6 +333,17 @@ internal fun WorldMapViewModel.applyNpcContactDamage(playerLoc: GeoPoint) {
         if (now - last < NPC_CONTACT_COOLDOWN_MS) continue
         npcContactCooldowns[id] = now
         viewModelScope.launch(Dispatchers.Main) { takeDamage(NPC_CONTACT_DAMAGE) } // takeDamage ya dispara el 💥
+    }
+    // Policía de CAMPAÑA (no vive en remoteEntities): si te alcanza A PIE, te pega con cooldown
+    // global. Antes no hacían daño al jugador (R8). Solo en escolta/persecución y fuera del coche.
+    if (!_uiState.value.isDriving &&
+        (isCampaignEscortActive() || isMission2ChaseActive()) &&
+        campaignEscortPolice.copTouching(playerLoc.latitude, playerLoc.longitude, NPC_CONTACT_RADIUS)) {
+        val lastCampaign = npcContactCooldowns["CAMPAIGN_COP"] ?: 0L
+        if (now - lastCampaign >= NPC_CONTACT_COOLDOWN_MS) {
+            npcContactCooldowns["CAMPAIGN_COP"] = now
+            viewModelScope.launch(Dispatchers.Main) { takeDamage(NPC_CONTACT_DAMAGE) }
+        }
     }
 }
 

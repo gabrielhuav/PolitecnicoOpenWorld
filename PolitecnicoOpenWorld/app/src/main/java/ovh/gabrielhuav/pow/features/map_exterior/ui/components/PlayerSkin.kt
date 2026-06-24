@@ -39,12 +39,24 @@ enum class PlayerSkin(
     val renderScale: Float = 1f,
     /**
      * Fracción vertical opaca (alto del personaje / alto del lienzo) del frame 1 de CAMINAR,
-     * PRECALCULADA. Es la referencia de tamaño que usa PlayerCharacter para que TODOS los frames
-     * midan lo mismo. Es estática a propósito: medirla en runtime (async) hacía que los frames
-     * cambiaran de tamaño durante la 1ª vuelta de la animación. Si cambias el arte de caminar,
-     * vuelve a medirla.
+     * PRECALCULADA. La usan el INTERIOR (InteriorPlayerViews) y el selector de personaje
+     * (NewGameCharacterDialog) como referencia de tamaño. En el mapa EXTERIOR ahora se usan las
+     * fracciones POR ACCIÓN de abajo. Si cambias el arte de caminar, vuelve a medirla.
      */
-    val walkBodyFraction: Float = 0.6f
+    val walkBodyFraction: Float = 0.6f,
+    /**
+     * Fracciones opacas PRECALCULADAS por animación (alto del personaje / alto del lienzo, promedio
+     * de la animación). Con ellas el CUERPO mide SIEMPRE lo mismo en pantalla (PLAYER_BODY_STANDARD_DP)
+     * sin importar la skin ni la animación. Antes el exterior medía la fracción en runtime (async, con
+     * fallback 0.6 y desfase de un frame): Lázaro/Robot —que varían MUCHO entre idle/caminar/correr—
+     * se "encogían" al correr. Estas son estáticas y deterministas.
+     * ⚠️ Los assets NO son uniformes (lienzos 256² / 338×422 / 362×640 / 542×681…): por eso hay que
+     * medir cada animación por separado. Lo ideal sería re-exportar TODOS con un lienzo y una fracción
+     * de cuerpo comunes (ver 09 §5). <=0f ⇒ usa walkBodyFraction como respaldo.
+     */
+    val idleBodyFraction: Float = -1f,
+    val runBodyFraction: Float = -1f,
+    val specialBodyFraction: Float = -1f
 ) {
     LAZARO(
         displayName = "Lázaro",
@@ -54,7 +66,8 @@ enum class PlayerSkin(
         walkFrames   = 6,   // tienes 6
         specialFrames = 8,  // tienes 8
         comicSuffix = "",   // panel por defecto (hombre)
-        walkBodyFraction = 0.61f
+        walkBodyFraction = 0.61f,
+        idleBodyFraction = 0.583f, runBodyFraction = 0.473f, specialBodyFraction = 0.544f
     ),
 
     escomgirl(
@@ -66,14 +79,16 @@ enum class PlayerSkin(
         runFrames    = 4,   // tienes 4
         specialFrames = 6,  // tienes 6
         comicSuffix = "Girl",
-        walkBodyFraction = 0.94f
+        walkBodyFraction = 0.94f,
+        idleBodyFraction = 0.953f, runBodyFraction = 0.932f, specialBodyFraction = 0.909f
     ),
     robot(
         displayName = "Robot Estudiantx",
         skinFolder  = "robot",
         skinPrefix  = "robot_",
         comicSuffix = "Robot",
-        walkBodyFraction = 0.62f
+        walkBodyFraction = 0.62f,
+        idleBodyFraction = 0.710f, runBodyFraction = 0.679f, specialBodyFraction = 0.650f
     ),
     escomboy(
         displayName = "Estudiante",
@@ -84,8 +99,9 @@ enum class PlayerSkin(
         runFrames    = 16,  // tienes 16
         specialFrames = 16, // tienes 16
         comicSuffix = "Boy", // sin assets IntroPOW*Boy → cae al panel por defecto (hombre)
-        renderScale = 1.8f,  // personaje ~41% del lienzo 256² → se agranda para igualar al resto
-        walkBodyFraction = 0.41f
+        renderScale = 1.8f,  // (legado) ya NO se usa para el cuerpo en exterior; ahora normaliza el estándar
+        walkBodyFraction = 0.41f,
+        idleBodyFraction = 0.406f, runBodyFraction = 0.407f, specialBodyFraction = 0.412f
     ),
     // ── Agrega aquí nuevas skins ──────────────────────────────────────────
     // Ejemplo con una skin "Ana":
@@ -102,4 +118,22 @@ enum class PlayerSkin(
     fun walkPath(frame: Int)   = "SPRITES/PLAYER/${skinFolder}Walk/${skinPrefix}w_$frame.webp"
     fun runPath(frame: Int)    = "SPRITES/PLAYER/${skinFolder}Run/${skinPrefix}r_$frame.webp"
     fun specialPath(frame: Int)= "SPRITES/PLAYER/${skinFolder}Special/${skinPrefix}s_$frame.webp"
+
+    /** Fracción opaca PRECALCULADA de esta acción (respaldo: walkBodyFraction si es <=0f). */
+    fun bodyFraction(action: PlayerAction): Float = when (action) {
+        PlayerAction.IDLE    -> idleBodyFraction
+        PlayerAction.WALK    -> walkBodyFraction
+        PlayerAction.RUN     -> runBodyFraction
+        PlayerAction.SPECIAL -> specialBodyFraction
+    }.let { if (it > 0f) it else walkBodyFraction }
+
+    companion object {
+        /**
+         * Estándar ÚNICO de tamaño del jugador a pie (mapa exterior): alto en pantalla, en dp, que
+         * debe ocupar el CUERPO (parte opaca) del personaje, IGUAL para TODAS las skins y TODAS las
+         * animaciones. Referencia = hombre/robot (coincide con la normalización del interior, ver 09 §5).
+         * Sube/baja este único valor para agrandar/encoger a TODOS por igual.
+         */
+        const val PLAYER_BODY_STANDARD_DP = 23.5f
+    }
 }
