@@ -93,6 +93,29 @@ class CampaignEscortPolice {
     fun activeUnits(): List<Npc> = units.values.toList()
     fun isActive(): Boolean = units.isNotEmpty()
     fun isResolving(): Boolean = mode == Mode.RESOLUTION
+
+    /**
+     * El JUGADOR golpea: daña a los policías de campaña a PIE dentro del radio. Devuelve los ids de
+     * los que cayeron (para olvidar su ruta y redibujar). Espejo de [PoliceManager.playerHitPolice]:
+     * antes NO existía gancho del jugador hacia esta clase, por eso no se les podía pegar (R6/R8).
+     */
+    fun playerHitCops(lat: Double, lon: Double, radius: Double, damage: Float): List<String> {
+        val destroyed = ArrayList<String>()
+        for (u in units.values.toList()) {
+            if (u.type != NpcType.POLICE_COP) continue
+            if (dist(u.location.latitude, u.location.longitude, lat, lon) > radius) continue
+            val nh = (u.health - damage).coerceAtLeast(0f)
+            if (nh <= 0f) { units.remove(u.id); forgetRoute(u.id); destroyed.add(u.id) }
+            else units[u.id] = u.copy(health = nh)
+        }
+        return destroyed
+    }
+
+    /** ¿Hay un policía de campaña a PIE tocando al jugador (dentro del radio)? Para daño por contacto. */
+    fun copTouching(lat: Double, lon: Double, radius: Double): Boolean =
+        units.values.any { it.type == NpcType.POLICE_COP &&
+            dist(it.location.latitude, it.location.longitude, lat, lon) <= radius }
+
     fun clear() {
         units.clear(); route.clear(); routeIdx.clear(); routeTime.clear()
         stuckPos.clear(); stuckSince.clear(); attackCooldown.clear()

@@ -210,8 +210,9 @@ el cable **no cambia**. / AI state lives in non-serialized fields; the `ZOMBIE_S
 
 Dos disparadores:
 - **PR mergeado a `main`** → build **APK debug** + GitHub Release (`debug-latest`). [flujo original]
-- **PR APROBADO** (review "approved") → build **AAB firmado** (`:app:bundleRelease`) → subida a **PRUEBA CERRADA** de
-  Play Store (track `alpha`) con la action `r0adkll/upload-google-play`.
+- **PR MERGEADO a `main`** → build **AAB firmado** (`:app:bundleRelease`) → subida a **PRUEBA CERRADA** de Play
+  Store (track `alpha`) con la action `r0adkll/upload-google-play`. (Antes era "al aprobar"; se cambió a "al mergear":
+  así solo llega a testers el código que SÍ entró a `main`, no un PR aprobado pero sin mergear.)
 
 La firma de release vive en `app/build.gradle.kts` (`signingConfigs.release`) y lee keystore + credenciales de
 **variables de entorno** (en CI = GitHub Secrets). Si las env NO están (build local), el release queda sin firmar y
@@ -235,6 +236,6 @@ Repo en el navegador → **Settings** → **Secrets and variables** → **Action
 - La service account necesita permiso **"Release apps to testing tracks"**.
 - `versionCode` SIEMPRE mayor que el último subido a Play (va a mano en `build.gradle.kts`); súbelo en cada PR de release.
 - Si tu pista cerrada tiene **nombre propio** (no "alpha"), cámbialo en `track:` del workflow.
-- ⚠️ **El trigger `pull_request_review` debe estar EN `main`.** GitHub ejecuta los workflows de `pull_request_review` desde la
-  rama por defecto (seguridad). Por eso estos cambios del workflow deben MERGEARSE a `main` primero; recién entonces, al
-  APROBAR un PR posterior, se dispara el deploy. El AAB se compila del HEAD del PR aprobado (su `versionCode` de `build.gradle`).
+- ⚠️ **El workflow nuevo debe estar EN `main`** para que dispare en merges futuros (como cualquier cambio de workflow):
+  mergéalo una vez y a partir de ahí cada PR mergeado a `main` sube su AAB. **Recuerda subir el `versionCode` en cada PR**
+  que quieras publicar; si mergeas sin subirlo, el job de Play falla por versionCode duplicado (el APK debug sí se genera).

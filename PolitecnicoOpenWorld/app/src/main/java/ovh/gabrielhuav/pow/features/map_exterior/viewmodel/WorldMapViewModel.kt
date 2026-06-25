@@ -450,6 +450,15 @@ class WorldMapViewModel(
             while (isActive) {
                 try {
                     _uiState.value.currentLocation?.let { location ->
+                        // MISIÓN FALLIDA: congela TODA la simulación de campaña/combate/IA mientras está
+                        // arriba el overlay de "Misión fallida" (el movimiento ya está bloqueado). Antes el
+                        // loop seguía: re-spawneaba a los policías de escolta, dejaba caminar a los 60 NPCs de
+                        // ruta detrás del overlay y Prankedy revivía HOSTIL a los ~60 s → de ahí "la misión
+                        // sigue y los policías aparecen sin apariencia" (R3/R10). Se reanuda al REINTENTAR.
+                        if (_uiState.value.showMissionFailed) {
+                            if (worldMapForeground) { soundManager.stopWalk(); soundManager.stopRun(); soundManager.stopCar() }
+                            return@let
+                        }
                         val inside = isInsideEscom(location.latitude, location.longitude)
 
                         // Sincroniza la mano con la zona ESCOM:
@@ -700,10 +709,17 @@ class WorldMapViewModel(
                                         tempLoc.longitude + (nearestRoadPoint.longitude - tempLoc.longitude) * pull
                                     )
                                 } else {
-                                    // Te saliste de la calle yendo a cierta velocidad:
-                                    // frena en seco y quédate donde estás.
-                                    currentSpeed = 0.0
-                                    location
+                                    // Te saliste de la calle yendo a cierta velocidad: ANTES te CLAVABA en
+                                    // 'location' (estado absorbente) — como seguías acelerando nunca bajabas
+                                    // del umbral y el coche quedaba atascado; solo se arreglaba BAJÁNDOTE y
+                                    // re-subiendo (R9/R11). Ahora frena FUERTE y DESLÍZATE hacia la calzada
+                                    // más cercana para poder reincorporarte sin quedar atrapado.
+                                    currentSpeed *= 0.6
+                                    val pull = (maxRoadRadius / distToRoad).coerceAtMost(0.3)
+                                    GeoPoint(
+                                        tempLoc.latitude  + (nearestRoadPoint.latitude  - tempLoc.latitude)  * pull,
+                                        tempLoc.longitude + (nearestRoadPoint.longitude - tempLoc.longitude) * pull
+                                    )
                                 }
 
                                 _uiState.update {

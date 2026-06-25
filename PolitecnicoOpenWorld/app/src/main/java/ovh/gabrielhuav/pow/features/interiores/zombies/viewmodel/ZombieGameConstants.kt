@@ -52,7 +52,9 @@ internal const val TICK_MS = 33L
 internal const val ITEM_PICKUP_DIST = 70f
 internal const val RETURN_SPAWN_OFFSET = 40f
 
-internal const val EXIT_GUIDE_DURATION_MS = 2000L
+// 8 s (antes 2 s): la guía/flecha a la salida dura más para que un jugador que no sabe a dónde ir
+// alcance a verla al entrar a una sala (R5).
+internal const val EXIT_GUIDE_DURATION_MS = 8000L
 
 internal const val SKILL_DROP_CHANCE = 0.45f
 

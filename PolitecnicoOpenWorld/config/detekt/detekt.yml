@@ -1,0 +1,99 @@
+# Configuración base de detekt para POW.
+# Filosofía CONSERVADORA: en un código grande y ya en producción, activar el set por defecto
+# completo inundaría de avisos de ESTILO y volvería el gate rojo para siempre. Aquí priorizamos
+# reglas de CORRECCIÓN (bugs potenciales, bloques vacíos, corrutinas) y relajamos estilo/nombres.
+# Para adoptar más reglas con el tiempo: sube umbrales o genera un baseline
+#   detekt --create-baseline --baseline config/detekt/baseline.xml --config config/detekt/detekt.yml --input app/src/main/java
+# y los avisos existentes quedan "perdonados"; solo fallan los NUEVOS.
+
+build:
+  # 0 = cualquier issue NO perdonado por el baseline hace fallar el gate.
+  maxIssues: 0
+  excludeCorrectable: false
+
+config:
+  # validation:false a propósito → tolerante a versión: si una clave de regla se movió/renombró entre
+  # versiones de detekt, NO se cae el análisis (la clave desconocida se ignora). Súbelo a true cuando
+  # fijes una versión concreta de detekt y confirmes que el .yml valida.
+  validation: false
+  warningsAsErrors: false
+
+processors:
+  active: true
+
+console-reports:
+  active: true
+
+output-reports:
+  active: true
+
+comments:
+  active: false   # documentación: lo cubrimos a mano (TANDA 4 KDoc), no como gate.
+
+complexity:
+  active: true
+  LongMethod:
+    active: false  # el VM/loops del juego tienen métodos largos por diseño (game loop, render).
+  LongParameterList:
+    active: false  # composables/Factory toman muchos parámetros (extracción ya hecha).
+  CyclomaticComplexMethod:
+    active: false
+  NestedBlockDepth:
+    active: false
+  TooManyFunctions:
+    active: false
+  LargeClass:
+    active: false
+  ComplexCondition:
+    active: true
+    threshold: 6
+
+coroutines:
+  active: true
+
+empty-blocks:
+  active: true
+  EmptyFunctionBlock:
+    active: false  # hay stubs/no-ops intencionales (callbacks de Compose/WebView).
+
+exceptions:
+  active: true
+  TooGenericExceptionCaught:
+    active: false  # try/catch genérico es deliberado alrededor de I/O de assets/red.
+  SwallowedException:
+    active: false
+  TooGenericExceptionThrown:
+    active: true
+  PrintStackTrace:
+    active: true
+
+naming:
+  active: false   # nombres existentes (es-ES, dominio del juego) no se renombran por lint.
+
+performance:
+  active: true
+  SpreadOperator:
+    active: false
+
+potential-bugs:
+  active: true
+  # Reglas de alto valor por defecto activas (Equals, NullableToStringCall, UnnecessaryNotNullOperator, etc.)
+
+style:
+  active: true
+  MagicNumber:
+    active: false  # se aborda manualmente en TANDA 4 donde aporta; como gate sería ruido.
+  MaxLineLength:
+    active: false
+  WildcardImport:
+    active: false
+  ReturnCount:
+    active: false
+  ForbiddenComment:
+    active: false  # el repo no usa TODO/FIXME (ANALISIS §2.3), pero no lo forzamos como gate.
+  UnusedPrivateMember:
+    active: true   # útil: detecta el "gemelo muerto" miembro-vs-extensión (ver 09 §12).
+  UnusedPrivateProperty:
+    active: true
+  NewLineAtEndOfFile:
+    active: false  # EOL/última línea lo gobierna .editorconfig, no 

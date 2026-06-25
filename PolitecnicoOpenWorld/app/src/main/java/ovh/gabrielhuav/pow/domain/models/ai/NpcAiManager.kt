@@ -17,6 +17,24 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.random.Random
 
+/**
+ * Cerebro de IA de los NPCs del mundo abierto: peatones, autos/tráfico, zombis y la caza de policía
+ * (vía [PoliceManager]). Vive en la capa de dominio; lo orquesta `WorldMapViewModel`. Lo SIMULA el
+ * cliente que es Host de la instancia y replica el resultado por red ([setServerNpcs]/[addServerNpcs]).
+ *
+ * Expone el estado como flujo inmutable [npcs] (`StateFlow`); las Views/VM solo observan (MVVM).
+ *
+ * API pública principal:
+ *  - [setLandmarks] / [setExteriorCollisions] / [updateRoadNetwork]: alimentan el mundo (edificios,
+ *    colisiones, calles). [updateRoadNetwork] recalcula además el `urbanFactor` (densidad de ciudad).
+ *  - [setRemoteNpcs] / [setServerNpcs] / [addServerNpcs] / [getServerNpcs]: sincronización multijugador.
+ *  - [triggerFear]: dispara el "miedo" (huida) de los NPCs alrededor de un punto.
+ *  - [updateNpcs]: un tick de simulación (mover/spawnear/despawnear). Es `suspend` (corre fuera del main).
+ *
+ * Población dinámica: los topes (`maxActiveNpcs`/`maxTotalNpcs`/`carPopulationRatio`) escalan por
+ * `popFactor = deviceTierFactor × urbanFactor × userPopulationFactor` (gama del dispositivo, densidad
+ * OSM y slider de Ajustes). NO re-hardcodear los topes: ajústalos por esos factores (ver 09 §12).
+ */
 class NpcAiManager {
 
     companion object {

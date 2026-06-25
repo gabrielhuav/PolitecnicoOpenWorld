@@ -222,5 +222,26 @@ de una implementación con bugs. **No partir nada por estética.** ⚠️ Ver el
 7. **Item A** (colapsar pantallas/overlays de transporte por config) — ya marcado future work (§8); encaja aquí.
 8. **Higiene**: normalizar EOL a CRLF consistente (hoy hay archivos LF), sacar magic numbers a constantes/config, y subir KDoc.
 
+### AVANCE NOCHE 2026-06-24 (sesion autonoma; ver `CHANGELOG_NOCHE.md` en la raiz del repo)
+
+> Que del roadmap de arriba quedo HECHO (seguro) vs en PLAN (riesgoso, requiere compilador):
+> - **#1 Tests automatizados - INICIADO (seguro):** 3 suites JUnit de LOGICA PURA
+>   (`CalculateLocalCoordinatesUseCaseTest`, `MissionCatalogTest`, `TransitSystemsTest`; 22 tests). NO
+>   ejecutadas aqui (sin Android SDK); confirmar con `testDebugUnitTest`. Falta el grueso
+>   (routing/save/combate/Compose UI Test).
+> - **#2 Descomponer god-object - EN PLAN:** `PLAN_descomponer_WorldMapViewModel.md`.
+> - **#3 Retirar gemelo + de-dup routing - EN PLAN:** `PLAN_dedup_routing.md` (tests de respaldo primero).
+> - **#4 DI (Hilt) - EN PLAN:** `PLAN_DI_hilt.md`.
+> - **#5 CI lint+tests como gate - HECHO (aditivo):** `detekt` (`config/detekt/detekt.yml`) + workflow
+>   `.github/workflows/pr-quality-gate.yml` (testDebugUnitTest + detekt CLI en cada PR ABIERTO). NO toca
+>   `android-release.yml`. detekt corre **ADVISORY** (no bloquea) por deuda preexistente (~76 issues); ver
+>   `PENDIENTE_calidad.md` (lista por categoria + como volverlo BLOQUEANTE con baseline). Pendiente tambien:
+>   wiring del plugin Gradle (staged).
+> - **#6 Separar archivos grandes restantes - sin cambios** (requiere compilador).
+> - **#7 Item A (colapsar pantallas/overlays de transporte) - sigue FUTURO** (ver §2.2/§8).
+> - **#8 Higiene - HECHO en su mayoria:** EOL CRLF normalizado (6 .kt LF->CRLF; 194/194 CRLF puros) +
+>   `.editorconfig` en la raiz. KDoc de clase a `NpcAiManager` + 1 magic-number a const
+>   (`DEFAULT_VALID_MARGIN`); resto de KDoc/const = checklist en el changelog (hacer en AS).
+
 **Definición de "listo":** tests verdes en CI como gate de merge, VM sin god-object, sin gemelos, DI, y deploy
 automatizado con calidad (lint+tests). Ahí el codebase pasa de "proyecto fuerte de un dev hábil" a "producción senior".

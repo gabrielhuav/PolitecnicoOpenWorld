@@ -74,9 +74,15 @@ fun SkinSelectorDialog(
     // LÁZARO solo se muestra en Modo Desarrollador.
     developerMode: Boolean = false
 ) {
-    // Skins seleccionables: LÁZARO queda oculto salvo en Modo Desarrollador.
+    // Skins SOLO de desarrollador (test): Lázaro + los personajes nuevos (NPC). Ocultas salvo en Modo Dev.
+    val devOnlySkins = setOf(
+        PlayerSkin.LAZARO, PlayerSkin.SENOR_TIENDA, PlayerSkin.REY_BROMAS,
+        PlayerSkin.PEPE_REY, PlayerSkin.PRANKEDY,
+        PlayerSkin.PAPARAZZI_N1, PlayerSkin.PAPARAZZI_N5, PlayerSkin.POLICIA_CDMX,
+        PlayerSkin.GRANADERO, PlayerSkin.PARAMEDICO
+    )
     val selectableSkins = remember(developerMode) {
-        PlayerSkin.entries.filter { it != PlayerSkin.LAZARO || developerMode }
+        PlayerSkin.entries.filter { it !in devOnlySkins || developerMode }
     }
     // Pre-carga miniaturas (idle frame 1 de cada skin)
     val previews = remember { mutableStateMapOf<PlayerSkin, ImageBitmap?>() }
@@ -85,8 +91,11 @@ fun SkinSelectorDialog(
         selectableSkins.forEach { skin ->
             val bitmap = withContext(Dispatchers.IO) {
                 try {
-                    context.assets.open(skin.idlePath(1))
-                        .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+                    context.assets.open(skin.idlePath(1)).use {
+                        // Recorta al contenido OPACO para que la miniatura LLENE el recuadro por igual:
+                        // antes las skins con mucho margen transparente (Lázaro/escomboy) se veían chiquitas.
+                        BitmapFactory.decodeStream(it)?.let { bmp -> trimToOpaque(bmp).asImageBitmap() }
+                    }
                 } catch (e: Exception) {
                     null
                 }
@@ -196,4 +205,38 @@ private fun SkinCard(
             )
         }
     }
+}
+
+/**
+ * Recorta el bitmap a su CONTENIDO OPACO (bbox alpha) para que TODAS las miniaturas del selector
+ * llenen el recuadro por igual. Antes, las skins con mucho margen transparente (Lázaro/escomboy) se
+ * veían chiquitas dentro del cuadro. Lee los píxeles una vez (getPixels) y recorta con un margen mínimo.
+ */
+private fun trimToOpaque(src: android.graphics.Bitmap): android.graphics.Bitmap {
+    val w = src.width; val h = src.height
+    if (w <= 0 || h <= 0) return src
+    val px = IntArray(w * h)
+    src.getPixels(px, 0, w, 0, 0, w, h)
+    var top = h; var bottom = -1; var left = w; var right = -1
+    var i = 0
+    for (y in 0 until h) {
+        for (x in 0 until w) {
+            if ((px[i] ushr 24) and 0xFF > 16) {
+                if (y < top) top = y
+                if (y > bottom) bottom = y
+                if (x < left) left = x
+                if (x > right) right = x
+            }
+            i++
+        }
+    }
+    if (right < left || bottom < top) return src
+    val pad = ((bottom - top) * 0.04f).toInt()
+    val l = (left - pad).coerceAtLeast(0)
+    val t = (top - pad).coerceAtLeast(0)
+    val r = (right + pad).coerceAtMost(w - 1)
+    val b = (bottom + pad).coerceAtMost(h - 1)
+    return try {
+        android.graphics.Bitmap.createBitmap(src, l, t, (r - l + 1), (b - t + 1))
+    } catch (e: Exception) { src }
 }

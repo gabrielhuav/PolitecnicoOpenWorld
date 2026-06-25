@@ -139,7 +139,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             if (isExplorationMode && !pointerDown) { isExplorationMode = false; }
             // Watchdog: un zoomstart sin su zoomend (animación interrumpida en WebViews
             // viejas) dejaba isZooming=true para siempre → mapa/NPCs congelados.
-            if (isZooming && zoomStartAt && (Date.now() - zoomStartAt) > 1500) { isZooming = false; }
+            if (isZooming && zoomStartAt && (Date.now() - zoomStartAt) > 700) { isZooming = false; }
             if (isZooming || isExplorationMode) return;
             if (map.getZoom() !== z) { map.setView([lat, lng], z, { animate: false }); return; }
             var target = map.latLngToContainerPoint([lat, lng]);

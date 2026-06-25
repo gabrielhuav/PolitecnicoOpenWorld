@@ -93,6 +93,7 @@ import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importWaypoints
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
 import kotlin.math.max
+import kotlin.math.hypot
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -227,6 +228,23 @@ fun ZombieGameScreen(
     // Diseñador de estacionamiento (se abre desde el selector del botón "Diseñador").
     var parkingDesignerActive by remember { mutableStateOf(false) }
     var designerChooserOpen by remember { mutableStateOf(false) }
+    // 🔁 ORIENTACIÓN DEL DISEÑADOR: el juego va SIEMPRE horizontal (orientación por RUTA en
+    // AppNavGraph/MainActivity), pero el panel del diseñador es alto y en horizontal estorba. SOLO
+    // mientras el diseñador está activo ofrecemos un botón para girar a VERTICAL; al salir se
+    // restaura horizontal. Excepción local y acotada (análoga a la del Metrobús). Ver 05/09.
+    var designerPortrait by remember { mutableStateOf(false) }
+    LaunchedEffect(state.designerMode, designerPortrait) {
+        val activity = context.findActivity()
+        if (!state.designerMode) {
+            if (designerPortrait) designerPortrait = false
+            activity?.requestedOrientation =
+                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            activity?.requestedOrientation =
+                if (designerPortrait) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+    }
     // Exporta la calibración (ángulo + offset del grupo) a un .json vía SAF.
     val parkingExportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -390,6 +408,18 @@ fun ZombieGameScreen(
                                 else -> Color(0xFFD4AF37)
                             }
                             drawLine(color, Offset(px, py), Offset(ex, ey), strokeWidth = 6f, pathEffect = dash, cap = StrokeCap.Round)
+                            // 🧭 PUNTA DE FLECHA en la puerta: convierte la línea en una FLECHA clara de
+                            // "ve por aquí" (R5: jugadores no sabían a dónde ir). "V" hecha con 2 líneas.
+                            val ddx = ex - px; val ddy = ey - py
+                            val len = hypot(ddx.toDouble(), ddy.toDouble()).toFloat()
+                            if (len > 1f) {
+                                val ux = ddx / len; val uy = ddy / len          // unidad jugador→puerta
+                                val headLen = 26f; val headW = 15f
+                                val bx = ex - ux * headLen; val by = ey - uy * headLen
+                                val pxp = -uy; val pyp = ux                      // perpendicular
+                                drawLine(color, Offset(ex, ey), Offset(bx + pxp * headW, by + pyp * headW), strokeWidth = 7f, cap = StrokeCap.Round)
+                                drawLine(color, Offset(ex, ey), Offset(bx - pxp * headW, by - pyp * headW), strokeWidth = 7f, cap = StrokeCap.Round)
+                            }
                         }
                     }
                 }
@@ -904,7 +934,8 @@ fun ZombieGameScreen(
                 currentSkin    = state.selectedSkin,
                 context        = context,
                 onSkinSelected = { viewModel.selectSkin(it) },
-                onDismiss      = { viewModel.toggleSkinSelector(false) }
+                onDismiss      = { viewModel.toggleSkinSelector(false) },
+                developerMode  = developerMode   // las skins de prueba (Lázaro + NPC) solo en Modo Dev
             )
         }
         // ─── TOOLBAR DEL DISEÑADOR ──────────────────────────────
@@ -934,6 +965,8 @@ fun ZombieGameScreen(
                     else importLauncher.launch(arrayOf("application/json", "*/*"))
                 },
                 onExit = viewModel::toggleDesignerMode,
+                portrait = designerPortrait,
+                onToggleOrientation = { designerPortrait = !designerPortrait },
                 // Esquina inferior-IZQUIERDA por defecto (no centrado): así NO tapa el centro del
                 // mapa al pintar la matriz. Es arrástrable (asa ⠿) y escalable (−/+).
                 modifier = Modifier.align(Alignment.BottomStart)
@@ -964,6 +997,8 @@ private fun DesignerToolbar(
     onExport: () -> Unit,
     onImport: () -> Unit,
     onExit: () -> Unit,
+    portrait: Boolean,
+    onToggleOrientation: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isWaypoints = target == DesignerTarget.WAYPOINTS
@@ -1016,6 +1051,9 @@ private fun DesignerToolbar(
                     .clickable { offX = 0f; offY = 0f }
                     .padding(vertical = 6.dp)
             )
+            // 🔁 Girar VERTICAL/HORIZONTAL (solo en diseñador). "↕" = pasar a vertical; "↔" = volver a
+            // horizontal. El juego es horizontal por ruta; esta es una excepción local del diseñador.
+            ToolButton(if (portrait) "↔" else "↕", false, Color(0xFF5C6BC0), Modifier.width(48.dp)) { onToggleOrientation() }
             ToolButton("−", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale - 0.1f).coerceIn(0.5f, 1f) }
             ToolButton("+", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale + 0.1f).coerceIn(0.5f, 1f) }
         }
@@ -1061,7 +1099,10 @@ private fun DesignerToolbar(
                 ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_row_plus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
             }
         }
-        // ─── ACCIONES (Guardar/Reset · Exportar/Importar/Salir), dentro del mismo scroll ──
+        } // ← cierra el Column SCROLLABLE: SOLO el bloque medio (selector/pincel/tamaño) scrollea
+        // ─── ACCIONES ANCLADAS abajo, SIEMPRE visibles (FUERA del scroll): Guardar/Reset y
+        // Exportar/Importar/Salir. Antes iban DENTRO del scroll y en horizontal (pantalla baja) se
+        // ocultaban → el usuario no podía exportar. Ahora quedan fijas pase lo que pase.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = onSave,
@@ -1093,8 +1134,17 @@ private fun DesignerToolbar(
                 Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_exit), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
-        } // cierra el Column SCROLLABLE: toda la herramienta scrollea junta (salvo el asa de mover)
     }
+}
+
+/** Sube por la cadena de ContextWrapper hasta la Activity (para fijar la orientación del diseñador). */
+private fun android.content.Context.findActivity(): android.app.Activity? {
+    var c: android.content.Context? = this
+    while (c is android.content.ContextWrapper) {
+        if (c is android.app.Activity) return c
+        c = c.baseContext
+    }
+    return null
 }
 
 @Composable

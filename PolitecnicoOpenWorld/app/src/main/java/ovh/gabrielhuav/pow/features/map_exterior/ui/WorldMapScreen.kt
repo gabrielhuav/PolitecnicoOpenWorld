@@ -180,6 +180,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.centerOnPlayer
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.zoomToPlayer
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.continueStoryNow
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.deferStoryToFreeRoam
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.resumeStoryMission
 // REFACTOR: skin extraído a WorldMapSettings.kt (extensiones) → import explícito.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleSkinSelector
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectSkin
@@ -895,6 +898,46 @@ fun WorldMapScreen(
             }
         }
 
+        // ─── R7: ¿CONTINUAR LA HISTORIA O MUNDO LIBRE? (al cumplir la Misión 1) ───
+        // TODO i18n: strings en español por ahora (migrar a values/ + values-en/).
+        if (uiState.showMissionContinueDialog) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color(0xCC000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth(0.82f)
+                ) {
+                    Text(
+                        text = "¡Misión cumplida!",
+                        color = Color(0xFF4CAF50), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = "¿Continuar la historia ahora o seguir explorando en mundo libre? Podrás retomar la misión cuando quieras desde Opciones.",
+                        color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(22.dp))
+                    Button(
+                        onClick = { viewModel.continueStoryNow() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth(0.7f).height(48.dp)
+                    ) { Text("Continuar la historia", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = { viewModel.deferStoryToFreeRoam() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3A86FF)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth(0.7f).height(48.dp)
+                    ) { Text("Seguir en mundo libre", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+                }
+            }
+        }
+
         // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────
         uiState.carjackWarning?.let { warn ->
             Box(
@@ -1080,6 +1123,9 @@ fun WorldMapScreen(
                             id = "opciones", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_options), icon = Icons.Default.Tune,
                             items = buildList {
                                 add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_change_skin), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                                // R7 — "Retomar misión": aparece solo si dejaste la historia en pausa
+                                // (mundo libre). TODO i18n. Retoma el cómic + Misión 2.
+                                if (uiState.pendingResumeMissionId != null) add(OptionMenuItem("Retomar misión", Icons.Default.LocationOn, Color(0xFFFFC107)) { viewModel.resumeStoryMission() })
                                 // MODO HISTORIA: guardado manual → abre el selector de slots.
                                 add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_save_game), Icons.Default.School, Color(0xFF4CAF50)) {
                                     onRequestSaveGame()
