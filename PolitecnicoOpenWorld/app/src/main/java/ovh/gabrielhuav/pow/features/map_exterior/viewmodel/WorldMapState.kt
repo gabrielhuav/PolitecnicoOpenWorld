@@ -142,6 +142,7 @@ data class WorldMapState(
     val showClaimedPopupFor: ActiveCollectible? = null,
     val interactionPrompt: String? = null,
     val showWastedScreen: Boolean = false,
+    val showVendorMenu: Boolean = false,
     // MODO HISTORIA: pantalla "MISIÓN FALLIDA" (cuando la policía mata a Prankedy en la escolta).
     val showMissionFailed: Boolean = false,
 

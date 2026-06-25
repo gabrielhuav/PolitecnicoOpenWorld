@@ -236,12 +236,8 @@ internal fun WorldMapViewModel.handleInteraction() {
                 _uiState.update { it.copy(showShineCTODiscovery = true) }
             }
             nearby.id.startsWith("VENDOR_") -> {
-                // Fase 1: Solo mostrar un mensaje del Vendedor temporal
-                _uiState.update { it.copy(interactionPrompt = "¡Hola! Pronto venderé cosas útiles aquí.") }
-                viewModelScope.launch {
-                    kotlinx.coroutines.delay(2500)
-                    _uiState.update { if (it.interactionPrompt == "¡Hola! Pronto venderé cosas útiles aquí.") it.copy(interactionPrompt = null) else it }
-                }
+                // Fase 2: Abrir el menú de la tienda en Compose
+                _uiState.update { it.copy(showVendorMenu = true) }
             }
             else -> onClaimCollectiblePressed()
         }

@@ -1439,4 +1439,33 @@ class WorldMapViewModel(
     fun consumeMetrobusFadeComplete() {
         _uiState.update { it.copy(metrobusFadeCompleteStation = null) }
     }
+
+    // ─── TIENDA (VENDEDORES) ─────────────────────────────────────────────────
+    fun closeVendorMenu() {
+        _uiState.update { it.copy(showVendorMenu = false) }
+    }
+
+    fun buyItemFromVendor(itemName: String) {
+        // Reproducir sonido de compra/consumir
+        soundManager.playItem()
+        
+        // Curar al jugador y mostrar mensaje
+        playerHealth = 100f
+        showHealthBar = true
+        damagePulseTrigger++ // Forzar recomposición visual si es necesario
+        
+        _uiState.update {
+            it.copy(
+                showVendorMenu = false, // Cerrar menú
+                interactionPrompt = "¡Compraste y consumiste $itemName! Salud al máximo."
+            )
+        }
+        
+        // Ocultar mensaje después de unos segundos
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(3000)
+            _uiState.update { if (it.interactionPrompt?.startsWith("¡Compraste") == true) it.copy(interactionPrompt = null) else it }
+        }
+    }
 }
+
