@@ -165,8 +165,22 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 )
             }
 
+        // Convertimos los NPCs Vendedores en collectibles virtuales para interactuar con ellos
+        val vendorItems = _uiState.value.npcs
+            .filter { it.id.startsWith("VENDOR_") }
+            .map { vendor ->
+                ActiveCollectible(
+                    id = vendor.id,
+                    name = vendor.displayName ?: "Vendedor",
+                    description = "Comprar objetos",
+                    assetPath = "",
+                    latitude = vendor.location.latitude,
+                    longitude = vendor.location.longitude
+                )
+            }
+
         // 3. Juntamos todo en un solo radar global
-        val allPossibleItems = baseItems + doorItems
+        val allPossibleItems = baseItems + doorItems + vendorItems
 
         val activeItem = allPossibleItems.minByOrNull {
             playerGeo.distanceToAsDouble(org.osmdroid.util.GeoPoint(it.latitude, it.longitude))
@@ -188,6 +202,7 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                         activeItem.name == "Objeto Misterioso ESCOM" -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_interact)
                         activeItem.id == ShineCTOLocation.MARKER_ID  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter)
                         activeItem.id.startsWith("escom_door_")      -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter) // <--- Aquí aparece el texto de la puerta
+                        activeItem.id.startsWith("VENDOR_")          -> "[X] Comprar en tienda"
                         else -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_pickup)
                     }
 

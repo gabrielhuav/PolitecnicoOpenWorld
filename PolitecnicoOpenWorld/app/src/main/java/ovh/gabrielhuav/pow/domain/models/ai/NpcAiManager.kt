@@ -467,6 +467,12 @@ class NpcAiManager {
 
                     val navGraph = landmark.navGraph
                     if (firstPopulate && navGraph != null && !globalZombieMode) {
+                        // Genera 3 Vendedores fijos en algunas palapas (isStopPoint) distribuidos aleatoriamente
+                        val vendorNodes = navGraph.ways.flatMap { it.nodes.filter { node -> node.isStopPoint } }.shuffled().take(3)
+                        vendorNodes.forEach { vNode ->
+                            serverNpcs.add(spawnCampusVendor(landmark, vNode))
+                        }
+
                         val pedestrianWays = navGraph.ways.filter { it.id >= 200 }
                         if (pedestrianWays.isNotEmpty()) {
                             val numStudents = Random.nextInt(30, 50)
@@ -804,6 +810,29 @@ class NpcAiManager {
             isMoving = true,
             isRemote = false,
             trait = rollTrait()
+        )
+    }
+
+    private fun spawnCampusVendor(landmark: Landmark, node: ovh.gabrielhuav.pow.domain.models.ai.LocalNode): Npc {
+        val globalPos = landmark.toGlobalGeoPoint(node.localX, node.localY)
+        val newId = "VENDOR_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+        
+        // Usamos una skin específica del catálogo (ej. la de playera amarilla para que resalte)
+        val visualConfig = NPC_OUTFITS.getOrNull(3) ?: NPC_OUTFITS.first()
+
+        return Npc(
+            id = newId,
+            type = NpcType.PERSON,
+            location = globalPos,
+            rotationAngle = 180f,
+            speed = 0.0,
+            visualConfig = visualConfig,
+            navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED, // Se queda quieto
+            currentLandmark = landmark,
+            displayName = "Vendedor",
+            isMoving = false,
+            isRemote = false,
+            chatUntil = Long.MAX_VALUE // Nunca camina
         )
     }
 
