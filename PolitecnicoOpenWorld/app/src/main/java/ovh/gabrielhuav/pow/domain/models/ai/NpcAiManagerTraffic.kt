@@ -155,10 +155,14 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
     }
 
     return if (dist < actualSpeed) {
-        val pauseTime = if (npc.type == NpcType.PERSON && Random.nextFloat() < 0.08f) {
-            System.currentTimeMillis() + Random.nextLong(800, 1800)
-        } else {
-            npc.chatUntil
+        val pauseTime = when {
+            // Punto de interés (banca, cafetería, palapas...): espera larga de 10-25 s
+            npc.type == NpcType.PERSON && targetLocalNode.isStopPoint ->
+                System.currentTimeMillis() + Random.nextLong(10_000L, 25_000L)
+            // Pausa corta aleatoria (comportamiento original, 8% de probabilidad)
+            npc.type == NpcType.PERSON && Random.nextFloat() < 0.08f ->
+                System.currentTimeMillis() + Random.nextLong(800, 1800)
+            else -> npc.chatUntil
         }
 
         npc.copy(
