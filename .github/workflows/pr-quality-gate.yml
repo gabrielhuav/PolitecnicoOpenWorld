@@ -1,8 +1,8 @@
 name: PR Quality Gate
 
 # Gate de CALIDAD que corre en cada PR ABIERTO/actualizado hacia main (ANTES del merge):
-#   1) tests unitarios (testDebugUnitTest)
-#   2) análisis estático con detekt
+#   1) tests unitarios (testDebugUnitTest)  -> GATE DURO (bloquea)
+#   2) analisis estatico con detekt          -> ADVISORY por ahora (reporta, no bloquea)
 # NO toca ni depende del workflow de deploy (`android-release.yml`), que corre al CERRAR/MERGEAR el PR.
 # Por eso este usa types: [opened, synchronize, reopened] (PR vivo) y aquel usa types: [closed].
 
@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 jobs:
-  # ── 1) Tests unitarios de lógica pura ──────────────────────────────────────
+  # ── 1) Tests unitarios de logica pura (GATE DURO: si fallan, el PR no debe mergear) ──────────
   unit-tests:
     runs-on: ubuntu-latest
     steps:
@@ -41,10 +41,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.4.1"
-      - name: Create secrets.properties (Maps API key; vacío es válido para tests)
+      - name: Create secrets.properties (Maps API key; vacio es valido para tests)
         run: |
           echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
-      # NOTA: no se escribe google-services.json a propósito → el plugin google-services NO se aplica
+      # NOTA: no se escribe google-services.json a proposito -> el plugin google-services NO se aplica
       # (ver app/build.gradle.kts) y el proyecto compila/testea sin Firebase. Es lo que queremos en el gate.
       - name: Run unit tests
         working-directory: ./PolitecnicoOpenWorld
@@ -57,13 +57,21 @@ jobs:
           path: PolitecnicoOpenWorld/app/build/reports/tests/testDebugUnitTest
           if-no-files-found: ignore
 
-  # ── 2) Análisis estático con detekt (vía CLI; NO modifica el build de Gradle) ──
-  # Se usa la CLI de detekt (no el plugin Gradle) a propósito: así el gate NO toca ningún archivo
-  # de build de la app y es IMPOSIBLE que rompa `assembleDebug`/`bundleRelease`. La integración como
-  # plugin Gradle (id `dev.detekt`, línea 2.0.0-alpha para Gradle 9.x) queda documentada en
-  # `README for IAS/PLAN_DI_hilt.md` / CHANGELOG_NOCHE para aplicarla cuando se pueda hacer un sync.
+  # ── 2) Analisis estatico con detekt (ADVISORY) ───────────────────────────────────────────────
+  # continue-on-error: true => el job REPORTA issues pero NO bloquea el merge. Es la fase de
+  # ADOPCION: el codigo existente arrastra deuda de estilo (ver README for IAS / ANALISIS §9 y el
+  # CHANGELOG_NOCHE). Para volverlo BLOQUEANTE cuando se quiera:
+  #   1) genera un baseline UNA vez (perdona los issues actuales, exige el estandar SOLO al codigo nuevo):
+  #        ./detekt-cli-1.23.8/bin/detekt-cli --create-baseline \
+  #          --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml \
+  #          --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
+  #          --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java
+  #      commitea baseline.xml (el step de abajo ya lo usa si existe), y
+  #   2) quita `continue-on-error: true` de este job.
+  # Se usa la CLI (no el plugin Gradle) para NO tocar el build de la app (imposible romper assemble/bundle).
   detekt:
     runs-on: ubuntu-latest
+    continue-on-error: true
     env:
       DETEKT_VERSION: "1.23.8"
     steps:
@@ -79,18 +87,12 @@ jobs:
           curl -sSL -o detekt-cli.zip \
             "https://github.com/detekt/detekt/releases/download/v${DETEKT_VERSION}/detekt-cli-${DETEKT_VERSION}.zip"
           unzip -q detekt-cli.zip
-      - name: Run detekt
+      - name: Run detekt (advisory)
         run: |
           BASELINE_ARG=""
           if [ -f PolitecnicoOpenWorld/config/detekt/baseline.xml ]; then
             BASELINE_ARG="--baseline PolitecnicoOpenWorld/config/detekt/baseline.xml"
           fi
-          # PRIMERA ADOPCIÓN: si esto sale rojo por issues preexistentes, genera el baseline una vez:
-          #   ./detekt-cli-${DETEKT_VERSION}/bin/detekt-cli --create-baseline \
-          #     --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml \
-          #     --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
-          #     --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java
-          # y commitéalo. A partir de ahí solo fallan los issues NUEVOS.
           "./detekt-cli-${DETEKT_VERSION}/bin/detekt-cli" \
             --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
             --build-upon-default-config \

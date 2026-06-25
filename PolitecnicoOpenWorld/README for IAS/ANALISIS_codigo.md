@@ -234,7 +234,9 @@ de una implementación con bugs. **No partir nada por estética.** ⚠️ Ver el
 > - **#4 DI (Hilt) - EN PLAN:** `PLAN_DI_hilt.md`.
 > - **#5 CI lint+tests como gate - HECHO (aditivo):** `detekt` (`config/detekt/detekt.yml`) + workflow
 >   `.github/workflows/pr-quality-gate.yml` (testDebugUnitTest + detekt CLI en cada PR ABIERTO). NO toca
->   `android-release.yml`. Pendiente: baseline de detekt y (opcional) wiring del plugin Gradle (staged).
+>   `android-release.yml`. detekt corre **ADVISORY** (no bloquea) por deuda preexistente (~76 issues); ver
+>   `PENDIENTE_calidad.md` (lista por categoria + como volverlo BLOQUEANTE con baseline). Pendiente tambien:
+>   wiring del plugin Gradle (staged).
 > - **#6 Separar archivos grandes restantes - sin cambios** (requiere compilador).
 > - **#7 Item A (colapsar pantallas/overlays de transporte) - sigue FUTURO** (ver §2.2/§8).
 > - **#8 Higiene - HECHO en su mayoria:** EOL CRLF normalizado (6 .kt LF->CRLF; 194/194 CRLF puros) +
