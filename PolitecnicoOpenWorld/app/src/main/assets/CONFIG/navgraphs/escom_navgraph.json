@@ -2306,6 +2306,561 @@
           "isParkingSlot": false
         }
       ]
+    },
+    {
+      "id": 200,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.7242,
+          "localY": 0.1116,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.6725,
+          "localY": 0.0641,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 214,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.6899,
+          "localY": 0.1382,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.6767,
+          "localY": 0.1073,
+          "isParkingSlot": false
+        }
+      ]
+    },
+    {
+      "id": 215,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.6767,
+          "localY": 0.1073,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.6253,
+          "localY": 0.0929,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 223,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.6200,
+          "localY": 0.1882,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.6028,
+          "localY": 0.1471,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 224,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.6639,
+          "localY": 0.1567,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.5594,
+          "localY": 0.1416,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 225,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.6851,
+          "localY": 0.1378,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.6246,
+          "localY": 0.0912,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 244,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.6052,
+          "localY": 0.1237,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.6709,
+          "localY": 0.0807,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 245,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.2425,
+          "localY": 0.7634,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.2231,
+          "localY": 0.7959,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 246,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.2376,
+          "localY": 0.7214,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.2001,
+          "localY": 0.7840,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 247,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.1519,
+          "localY": 0.7279,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.1498,
+          "localY": 0.7901,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 248,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.0823,
+          "localY": 0.8109,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.1052,
+          "localY": 0.8199,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 249,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.0536,
+          "localY": 0.8226,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.0847,
+          "localY": 0.8347,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 250,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.0722,
+          "localY": 0.8556,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.1449,
+          "localY": 0.8569,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 251,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.1011,
+          "localY": 0.8798,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.1549,
+          "localY": 0.8178,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 252,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.2116,
+          "localY": 0.8401,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.2042,
+          "localY": 0.7856,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 254,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.1719,
+          "localY": 0.8145,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.1920,
+          "localY": 0.7808,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 255,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        {
+          "id": 1,
+          "localX": 0.2637,
+          "localY": 0.7502,
+          "isParkingSlot": false
+        },
+        {
+          "id": 2,
+          "localX": 0.1758,
+          "localY": 0.8246,
+          "isParkingSlot": false,
+          "isStopPoint": true
+        }
+      ]
+    },
+    {
+      "id": 253,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": -0.1254, "localY": 0.5594, "isParkingSlot": false },
+        { "id": 2, "localX": -0.0697, "localY": 0.5724, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 256,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": -0.0697, "localY": 0.5724, "isParkingSlot": false },
+        { "id": 2, "localX": -0.1309, "localY": 0.5515, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 257,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": -0.1309, "localY": 0.5515, "isParkingSlot": false },
+        { "id": 2, "localX": -0.0847, "localY": 0.5222, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 258,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": -0.0847, "localY": 0.5222, "isParkingSlot": false },
+        { "id": 2, "localX": -0.0213, "localY": 0.4917, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 259,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": -0.0213, "localY": 0.4917, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0066, "localY": 0.5075, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 260,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0066, "localY": 0.5075, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0677, "localY": 0.5377, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 261,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0677, "localY": 0.5377, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0386, "localY": 0.5864, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 262,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0386, "localY": 0.5864, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0032, "localY": 0.5779, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 263,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0428, "localY": 0.5117, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0728, "localY": 0.4476, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 264,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0095, "localY": 0.4615, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0434, "localY": 0.3958, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 265,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0434, "localY": 0.3958, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0745, "localY": 0.4079, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 266,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0745, "localY": 0.4079, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1037, "localY": 0.3592, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 267,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1037, "localY": 0.3592, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0536, "localY": 0.3396, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 268,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0536, "localY": 0.3396, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0356, "localY": 0.3698, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 269,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0356, "localY": 0.3698, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0765, "localY": 0.3013, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 270,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0765, "localY": 0.3013, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1293, "localY": 0.3220, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 271,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1293, "localY": 0.3220, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1071, "localY": 0.3591, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 272,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1071, "localY": 0.3591, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0313, "localY": 0.3295, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 273,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0313, "localY": 0.3295, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0015, "localY": 0.3794, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 274,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0015, "localY": 0.3794, "isParkingSlot": false },
+        { "id": 2, "localX": -0.0549, "localY": 0.4409, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 275,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": -0.0549, "localY": 0.4409, "isParkingSlot": false },
+        { "id": 2, "localX": -0.0694, "localY": 0.4093, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 276,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1147, "localY": 0.7903, "isParkingSlot": false },
+        { "id": 2, "localX": 0.1029, "localY": 0.8601, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 277,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.1029, "localY": 0.8601, "isParkingSlot": false },
+        { "id": 2, "localX": 0.0181, "localY": 0.7983, "isParkingSlot": false }
+      ]
+    },
+    {
+      "id": 278,
+      "isForCars": false,
+      "isForPeople": true,
+      "nodes": [
+        { "id": 1, "localX": 0.0181, "localY": 0.7983, "isParkingSlot": false },
+        { "id": 2, "localX": -0.0543, "localY": 0.7241, "isParkingSlot": false }
+      ]
     }
   ]
 }

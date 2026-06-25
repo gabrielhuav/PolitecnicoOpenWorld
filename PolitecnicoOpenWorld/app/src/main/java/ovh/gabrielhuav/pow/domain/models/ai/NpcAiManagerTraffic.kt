@@ -159,8 +159,8 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
             // Punto de interés (banca, cafetería, palapas...): espera larga de 10-25 s
             npc.type == NpcType.PERSON && targetLocalNode.isStopPoint ->
                 System.currentTimeMillis() + Random.nextLong(10_000L, 25_000L)
-            // Pausa corta aleatoria (comportamiento original, 8% de probabilidad)
-            npc.type == NpcType.PERSON && Random.nextFloat() < 0.08f ->
+            // Pausa corta aleatoria (comportamiento original, 8% de probabilidad reducido a 1.5%)
+            npc.type == NpcType.PERSON && Random.nextFloat() < 0.015f ->
                 System.currentTimeMillis() + Random.nextLong(800, 1800)
             else -> npc.chatUntil
         }
@@ -213,6 +213,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
     }
 
     if (npc.navState == ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MICRO_LANDMARK) {
+        if (npc.chatUntil > now) return npc.copy(isMoving = false)
         return moveLocalNpc(npc)
     }
 

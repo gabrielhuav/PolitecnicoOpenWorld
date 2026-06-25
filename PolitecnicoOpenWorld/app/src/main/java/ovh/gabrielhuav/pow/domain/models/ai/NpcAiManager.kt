@@ -53,7 +53,7 @@ class NpcAiManager {
 
         const val CHAT_DISTANCE = 0.00035
         const val CHAT_DURATION_MS = 10000L
-        const val CHAT_CHANCE = 0.038f
+        const val CHAT_CHANCE = 0.01f
 
         const val CAR_FOLLOW_DISTANCE = 0.00025 // ~27m: distancia de seguimiento realista
         const val LANE_OFFSET = 0.000024
@@ -386,6 +386,7 @@ class NpcAiManager {
                 // 81 cajones (> maxTotalNpcs) saturaban el cupo y BLOQUEABAN peatones y tráfico
                 // ("no aparecen NPCs"). Por eso se excluyen del cupo aquí y en los gates de spawn.
                 if (n.displayName.isNullOrEmpty() && !n.id.startsWith(ROUTE_NPC_PREFIX) &&
+                    !n.id.startsWith("CAMPUS_PED_") &&
                     n.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED) {
                     totalCount++
                     if (calculateDistance(n.location.latitude, n.location.longitude, pLat0, pLon0) <= simRadius) activeCount++
@@ -394,12 +395,13 @@ class NpcAiManager {
             // Cupo de NPCs vivos NO estacionados (los PARKED son escenografía exenta, como la ruta).
             fun nonParkedAlive() = serverNpcs.count {
                 it.displayName.isNullOrEmpty() && !it.id.startsWith(ROUTE_NPC_PREFIX) &&
+                    !it.id.startsWith("CAMPUS_PED_") &&
                     it.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED
             }
 
             if (totalCount > maxTotalNpcs) {
                 val excess = totalCount - maxTotalNpcs
-                val farthest = serverNpcs.filter { it.displayName.isNullOrEmpty() && it.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED && !it.id.startsWith(ROUTE_NPC_PREFIX) }
+                val farthest = serverNpcs.filter { it.displayName.isNullOrEmpty() && it.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED && !it.id.startsWith(ROUTE_NPC_PREFIX) && !it.id.startsWith("CAMPUS_PED_") }
                     .sortedByDescending { calculateDistance(it.location.latitude, it.location.longitude, pLat0, pLon0) }
                     .take(excess)
                 serverNpcs.removeAll(farthest)
@@ -467,7 +469,7 @@ class NpcAiManager {
                     if (firstPopulate && navGraph != null && !globalZombieMode) {
                         val pedestrianWays = navGraph.ways.filter { it.id >= 200 }
                         if (pedestrianWays.isNotEmpty()) {
-                            val numStudents = Random.nextInt(15, 30)
+                            val numStudents = Random.nextInt(30, 50)
                             for (i in 0 until numStudents) {
                                 if (nonParkedAlive() < maxTotalNpcs) {
                                     val pWay = pedestrianWays.random()
@@ -482,10 +484,10 @@ class NpcAiManager {
                   }
                 } else if (dist >= 0.02) {
                     populatedLandmarks.remove(landmark.id.toString())
-                    // Al SALIR del campus sí limpia los carros estacionados de este landmark (evita
+                    // Al SALIR del campus sí limpia los carros estacionados y peatones de este landmark (evita
                     // acumularlos). Se vuelven a poblar al regresar.
                     val parkedHere = serverNpcs.filter {
-                        it.navState == ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED && it.currentLandmark?.id == landmark.id
+                        (it.navState == ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED || it.id.startsWith("CAMPUS_PED_")) && it.currentLandmark?.id == landmark.id
                     }
                     if (parkedHere.isNotEmpty()) {
                         serverNpcs.removeAll(parkedHere)
