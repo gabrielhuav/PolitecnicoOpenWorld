@@ -77,7 +77,9 @@ fun SkinSelectorDialog(
     // Skins SOLO de desarrollador (test): Lázaro + los personajes nuevos (NPC). Ocultas salvo en Modo Dev.
     val devOnlySkins = setOf(
         PlayerSkin.LAZARO, PlayerSkin.SENOR_TIENDA, PlayerSkin.REY_BROMAS,
-        PlayerSkin.PEPE_REY, PlayerSkin.PRANKEDY
+        PlayerSkin.PEPE_REY, PlayerSkin.PRANKEDY,
+        PlayerSkin.PAPARAZZI_N1, PlayerSkin.PAPARAZZI_N5, PlayerSkin.POLICIA_CDMX,
+        PlayerSkin.GRANADERO, PlayerSkin.PARAMEDICO
     )
     val selectableSkins = remember(developerMode) {
         PlayerSkin.entries.filter { it !in devOnlySkins || developerMode }

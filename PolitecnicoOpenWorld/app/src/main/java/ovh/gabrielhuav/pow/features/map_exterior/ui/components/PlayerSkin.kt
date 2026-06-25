@@ -151,6 +151,50 @@ enum class PlayerSkin(
         walkBodyFraction = 0.740f,
         idleBodyFraction = 0.717f, runBodyFraction = 0.736f, specialBodyFraction = 0.711f
     ),
+
+    // ── 🆕 5 PERSONAJES (paparazzis, policías, paramédico) — recortados con tools/_slice5.py.
+    //     Recorte uniforme (figura ~0.865 del lienzo) → walkBodyFraction=0.865. Sin cómic. Solo dev.
+    //     special: foto / disparo / golpe con escudo / comunicar por radio. ───────────────────────
+    PAPARAZZI_N1(
+        displayName = "Paparazzi #1",
+        skinFolder  = "PaparazziN1/",
+        skinPrefix  = "pn1_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 3, walkFrames = 6, runFrames = 10, specialFrames = 4,  // special = TOMAR FOTO
+        walkBodyFraction = 0.865f
+    ),
+    PAPARAZZI_N5(
+        displayName = "Paparazzi #5",
+        skinFolder  = "PaparazziN5/",
+        skinPrefix  = "pn5_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 3, walkFrames = 7, runFrames = 10, specialFrames = 4,  // special = TOMAR FOTO
+        walkBodyFraction = 0.865f
+    ),
+    POLICIA_CDMX(
+        displayName = "Policía CDMX",
+        skinFolder  = "PoliciaCDMX/",
+        skinPrefix  = "pcd_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 4, walkFrames = 7, runFrames = 11, specialFrames = 3,  // special = DISPARAR (3 frames)
+        walkBodyFraction = 0.865f
+    ),
+    GRANADERO(
+        displayName = "Granadero",
+        skinFolder  = "Granaderos/",
+        skinPrefix  = "gra_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 3, walkFrames = 8, runFrames = 11, specialFrames = 4,  // special = GOLPE CON ESCUDO (sheet real de granaderos antimotines)
+        walkBodyFraction = 0.865f
+    ),
+    PARAMEDICO(
+        displayName = "Paramédico",
+        skinFolder  = "Paramedico/",
+        skinPrefix  = "pmd_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 4, walkFrames = 6, runFrames = 8, specialFrames = 3,  // special = COMUNICAR POR RADIO
+        walkBodyFraction = 0.865f
+    ),
     // ── Agrega aquí nuevas skins ──────────────────────────────────────────
     // Ejemplo con una skin "Ana":
     //
