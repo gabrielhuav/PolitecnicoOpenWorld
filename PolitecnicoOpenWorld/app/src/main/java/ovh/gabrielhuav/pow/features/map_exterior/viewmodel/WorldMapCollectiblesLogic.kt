@@ -165,22 +165,23 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 )
             }
 
-        // Convertimos los NPCs Vendedores en collectibles virtuales para interactuar con ellos
-        val vendorItems = _uiState.value.npcs
-            .filter { it.id.startsWith("VENDOR_") }
-            .map { vendor ->
+        // Convertimos los NPCs Vendedores y Gatos en collectibles virtuales para interactuar con ellos
+        val npcItems = _uiState.value.npcs
+            .filter { it.id.startsWith("VENDOR_") || it.id.startsWith("CAT_") }
+            .map { npc ->
+                val isCat = npc.id.startsWith("CAT_")
                 ActiveCollectible(
-                    id = vendor.id,
-                    name = vendor.displayName ?: "Vendedor",
-                    description = "Comprar objetos",
+                    id = npc.id,
+                    name = npc.displayName ?: if (isCat) "Gato" else "Vendedor",
+                    description = if (isCat) "Acariciar" else "Comprar objetos",
                     assetPath = "",
-                    latitude = vendor.location.latitude,
-                    longitude = vendor.location.longitude
+                    latitude = npc.location.latitude,
+                    longitude = npc.location.longitude
                 )
             }
 
         // 3. Juntamos todo en un solo radar global
-        val allPossibleItems = baseItems + doorItems + vendorItems
+        val allPossibleItems = baseItems + doorItems + npcItems
 
         val activeItem = allPossibleItems.minByOrNull {
             playerGeo.distanceToAsDouble(org.osmdroid.util.GeoPoint(it.latitude, it.longitude))
@@ -203,6 +204,7 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                         activeItem.id == ShineCTOLocation.MARKER_ID  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter)
                         activeItem.id.startsWith("escom_door_")      -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter) // <--- Aquí aparece el texto de la puerta
                         activeItem.id.startsWith("VENDOR_")          -> "[X] Comprar en tienda"
+                        activeItem.id.startsWith("CAT_")             -> "[X] Acariciar al gato"
                         else -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_pickup)
                     }
 

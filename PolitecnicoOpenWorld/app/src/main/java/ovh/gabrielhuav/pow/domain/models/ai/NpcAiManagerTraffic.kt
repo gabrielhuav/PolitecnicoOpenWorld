@@ -52,7 +52,7 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
 
         val connectedWays = navGraph.ways.filter { w ->
             w.id != way.id && w.nodes.size >= 2 && !w.nodes.any { it.isParkingSlot } &&
-                    ((npc.type == NpcType.CAR && w.id < 200) || (npc.type == NpcType.PERSON && w.id >= 200)) &&
+                    ((npc.type == NpcType.CAR && w.id < 200) || ((npc.type == NpcType.PERSON || npc.type == NpcType.CAT) && w.id >= 200)) &&
                     run {
                         var isNear = false
                         for (i in 0 until w.nodes.size - 1) {
@@ -159,9 +159,6 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
             // Punto de interés (banca, cafetería, palapas...): espera larga de 10-25 s
             npc.type == NpcType.PERSON && targetLocalNode.isStopPoint ->
                 System.currentTimeMillis() + Random.nextLong(10_000L, 25_000L)
-            // Pausa corta aleatoria (comportamiento original, 8% de probabilidad reducido a 1.5%)
-            npc.type == NpcType.PERSON && Random.nextFloat() < 0.015f ->
-                System.currentTimeMillis() + Random.nextLong(800, 1800)
             else -> npc.chatUntil
         }
 

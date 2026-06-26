@@ -278,8 +278,15 @@ internal fun GoogleMapLayer(
                                 } else null
                                 val cacheKey = when {
                                     fullEmoji != null -> "GM_FULL_EMOJI_$fullEmoji"
+                                    npc.type == NpcType.CAT -> {
+                                        val currentlyMoving = npc.isMoving
+                                        val frameIndex = if (currentlyMoving) ((timeMs / 200L) % 4).toInt() else 1
+                                        val catSzDp = (16.0 + ((renderZoom - 18.0) * 6.0)).toFloat().coerceIn(12.0f, 32.0f)
+                                        val exactPixels = (catSzDp * screenDensity).toInt()
+                                        "GM_CAT_${currentlyMoving}_${frameIndex}_${exactPixels}_${npc.facingRight}"
+                                    }
                                     npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
-                                        val currentlyMoving = npc.speed > 0 || npc.isMoving
+                                        val currentlyMoving = npc.isMoving
                                         val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                         val exactPixels = (personSzDp * screenDensity).toInt()
                                         val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
@@ -327,7 +334,7 @@ internal fun GoogleMapLayer(
                                             emojiToDrawable(context, fullEmoji, px)
                                         }
                                         npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
-                                            val currentlyMoving = npc.speed > 0 || npc.isMoving
+                                            val currentlyMoving = npc.isMoving
                                             val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                             val exactPixels = (personSzDp * screenDensity).toInt()
                                             var d = CharacterSpriteManager.getModularNpcDrawable(context, npc.visualConfig!!, currentlyMoving, npc.facingRight, timeMs, screenDensity, npc.displayName)
@@ -365,6 +372,27 @@ internal fun GoogleMapLayer(
                                             }
                                             d = drawHealthBarOnDrawable(context, d, npc.health, npc.isDying)
                                             d
+                                        }
+                                        npc.type == NpcType.CAT -> {
+                                            val currentlyMoving = npc.isMoving
+                                            val catSzDp = (16.0 + ((renderZoom - 18.0) * 6.0)).toFloat().coerceIn(12.0f, 32.0f)
+                                            val targetPx = (catSzDp * screenDensity).toInt().coerceIn(16, 120)
+                                            val d = try {
+                                                ovh.gabrielhuav.pow.features.map_exterior.ui.components.CatSpriteManager
+                                                    .getDrawableForMarker(context, currentlyMoving, timeMs, npc.facingRight, targetPx)
+                                            } catch (e: Exception) { null }
+                                            if (d != null) {
+                                                d
+                                            } else {
+                                                // FALLBACK: círculo naranja
+                                                val px = targetPx.coerceAtLeast(24)
+                                                val bmp = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888)
+                                                val cv = android.graphics.Canvas(bmp)
+                                                val pt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                                                pt.color = android.graphics.Color.rgb(255, 140, 0)
+                                                cv.drawCircle(px / 2f, px / 2f, px / 2f, pt)
+                                                android.graphics.drawable.BitmapDrawable(context.resources, bmp)
+                                            }
                                         }
                                         npc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
                                             val timeMs = System.currentTimeMillis()

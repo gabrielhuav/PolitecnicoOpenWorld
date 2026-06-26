@@ -713,15 +713,22 @@ internal fun NativeOsmMap(
                                 !npcWithinRadius(npc.location.latitude, npc.location.longitude,
                                     centerCull.latitude, centerCull.longitude, 40.0))
                             if (useEmojiLod) {
-                                val emoji = when (npc.type) {
-                                    NpcType.CAR, NpcType.POLICE_CAR -> "🚗"
-                                    NpcType.ZOMBIE -> "🧟"
-                                    NpcType.POLICE_COP -> "👮"
-                                    else -> "🧍"
-                                }
                                 val px = ((1.0 / metersPerPixel) * screenDensity).toInt().coerceIn(12, 56)
-                                marker.icon = nativeDrawableCache.getOrPut("EMOJI_LOD_${npc.type.name}_$px") {
-                                    emojiToDrawable(context, emoji, px)
+                                if (npc.type == NpcType.CAT) {
+                                    // Los emojis de animales pueden no existir en Androids viejos (cuadrito con cruz)
+                                    marker.icon = nativeDrawableCache.getOrPut("LOD_DOT_CAT_$px") {
+                                        dotDrawable(context, android.graphics.Color.rgb(255, 140, 0), px)
+                                    }
+                                } else {
+                                    val emoji = when (npc.type) {
+                                        NpcType.CAR, NpcType.POLICE_CAR -> "🚗"
+                                        NpcType.ZOMBIE -> "🧟"
+                                        NpcType.POLICE_COP -> "👮"
+                                        else -> "🧍"
+                                    }
+                                    marker.icon = nativeDrawableCache.getOrPut("EMOJI_LOD_${npc.type.name}_$px") {
+                                        emojiToDrawable(context, emoji, px)
+                                    }
                                 }
                                 marker.rotation = 0f
                             } else if (npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin) {
@@ -762,6 +769,32 @@ internal fun NativeOsmMap(
                                             val emoji = emojiToDrawable(context, "👮", exactPixels)
                                             drawHealthBarOnDrawable(context, emoji, npc.health, npc.isDying) ?: emoji
                                         }
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
+                            } else if (npc.type == NpcType.CAT) {
+                                // GATO DEL CAMPUS
+                                val targetPx = ((1.0 / metersPerPixel) * screenDensity).toInt().coerceIn(32, 80)
+                                val currentlyMoving = npc.isMoving
+                                val frameIndex = if (currentlyMoving) ((timeMs / 150L) % 6).toInt() else ((timeMs / 400L) % 5).toInt()
+                                val cacheKey = "CAT_SPRITE_${currentlyMoving}_${frameIndex}_${targetPx}_${npc.facingRight}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    val catDrawable = try {
+                                        ovh.gabrielhuav.pow.features.map_exterior.ui.components.CatSpriteManager
+                                            .getDrawableForMarker(context, currentlyMoving, timeMs, npc.facingRight, targetPx)
+                                    } catch (e: Exception) { null }
+
+                                    if (catDrawable != null) {
+                                        ExactSizeDrawable(catDrawable, targetPx, targetPx)
+                                    } else {
+                                        val bmp = android.graphics.Bitmap.createBitmap(targetPx, targetPx, android.graphics.Bitmap.Config.ARGB_8888)
+                                        val cv = android.graphics.Canvas(bmp)
+                                        val pt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                                        pt.color = android.graphics.Color.rgb(255, 140, 0)
+                                        cv.drawCircle(targetPx / 2f, targetPx / 2f, targetPx / 2f - 2f, pt)
+                                        val fallback = android.graphics.drawable.BitmapDrawable(context.resources, bmp)
+                                        ExactSizeDrawable(fallback, targetPx, targetPx)
+                                    }
                                 }
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f

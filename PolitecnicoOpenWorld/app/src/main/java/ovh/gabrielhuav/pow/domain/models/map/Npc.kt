@@ -112,6 +112,7 @@ data class Npc(
     val fearFromLon: Double = 0.0,
     // CHARLAS: mientras now < chatUntil el peatón se detiene mirando a su pareja.
     val chatUntil: Long = 0L,
+    val chatCooldownUntil: Long = 0L,
     val chatPartnerId: String? = null,
 
     // PERSONALIDAD + EMBESTIDA (transitorio, solo en el host; NO se serializa):

@@ -254,13 +254,9 @@ fun ActionButtonsController(
                     text = "X",
                     color = Color(0xFF3498DB),
                     onHoldEvent = { isPressed ->
-                        // Mantiene el comportamiento original de tu juego
+                        // El ViewModel ya centraliza TODA la lógica de interacción (coches, gatos,
+                        // vendedores y coleccionables) al recibir GameAction.X.
                         onActionChanged(GameAction.X, isPressed)
-
-                        // Intenta recoger el coleccionable solo al bajar el dedo
-                        if (isPressed) {
-                            onClaimCollectiblePressed()
-                        }
                     }
                 )
 

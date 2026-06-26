@@ -820,7 +820,11 @@ class WorldMapViewModel(
                         if (_uiState.value.isRoadNetworkReady && _uiState.value.isMapReady) {
                             tickCount++
                             if (tickCount % 3 == 0L) {
-                                val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
+                                // Los gatos (CAT_) tienen displayName="Gato" pero NO son jugadores remotos.
+                                // Los excluimos del feed de la IA junto con los displayName vacíos.
+                                val npcOnlyList = remoteEntities.values.filter {
+                                    it.displayName.isNullOrEmpty() || it.id.startsWith("CAT_")
+                                }
                                 npcAiManager.setServerNpcs(npcOnlyList)
 
                                 // Pasamos los landmarks (edificios) con sus navGraphs al motor
@@ -837,6 +841,12 @@ class WorldMapViewModel(
                                         kotlinx.coroutines.delay(3500)
                                         _uiState.update { if (it.interactionPrompt == "🧟 ¡UNA HORDA SE ACERCA!") it.copy(interactionPrompt = null) else it }
                                     }
+                                }
+
+                                // Siempre publicamos los gatos en remoteEntities para que lleguen al renderer,
+                                // independientemente de si somos host o no.
+                                processedNpcs.filter { it.id.startsWith("CAT_") }.forEach {
+                                    remoteEntities[it.id] = it
                                 }
 
                                 if (isServerDelegatedHost) {

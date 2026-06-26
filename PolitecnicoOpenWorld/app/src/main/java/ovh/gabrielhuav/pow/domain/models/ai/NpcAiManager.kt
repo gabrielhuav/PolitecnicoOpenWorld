@@ -473,6 +473,16 @@ class NpcAiManager {
                             serverNpcs.add(spawnCampusVendor(landmark, vNode))
                         }
 
+                        // Genera Gatos del Campus en nodos aleatorios del paso peatonal
+                        val pedestrianNodes = navGraph.ways.filter { it.id >= 200 }.flatMap { it.nodes }
+                        if (pedestrianNodes.isNotEmpty()) {
+                            val catNodes = pedestrianNodes.shuffled().take(4) // 4 gatitos
+                            catNodes.forEach { cNode ->
+                                val catWay = navGraph.ways.first { w -> w.nodes.contains(cNode) }
+                                serverNpcs.add(spawnCampusCat(landmark, catWay, cNode))
+                            }
+                        }
+
                         val pedestrianWays = navGraph.ways.filter { it.id >= 200 }
                         if (pedestrianWays.isNotEmpty()) {
                             val numStudents = Random.nextInt(30, 50)
@@ -688,7 +698,15 @@ class NpcAiManager {
             }
 
             val updated = serverNpcs.mapNotNull { npc ->
-                if (!npc.displayName.isNullOrEmpty()) {
+                // El gato siempre navega dentro del campus (moveLocalNpc).
+                // DEBE ir ANTES del check de displayName porque tiene displayName="Gato".
+                if (npc.type == NpcType.CAT) {
+                    val moved = moveLocalNpc(npc)
+                    if (moved == null) {
+                        synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                    }
+                    moved
+                } else if (!npc.displayName.isNullOrEmpty()) {
                     npc
                 } else if (calculateDistance(npc.location.latitude, npc.location.longitude, pLat0, pLon0) > simRadius) {
                     // Fuera del radio de simulación no se mueven (LOD). Los NPCs de ruta deben quedar
@@ -710,6 +728,10 @@ class NpcAiManager {
                         moved
                     } else if (globalZombieMode && npc.type == NpcType.POLICE_COP) {
                         movePoliceHunter(npc, currentNetwork, now, pLat0, pLon0)
+                    } else if (npc.type == NpcType.CAT) {
+                        // Esta rama ya no debería alcanzarse (el CAT se maneja arriba),
+                        // pero la dejamos como seguro por si acaso.
+                        moveLocalNpc(npc)
                     } else {
                         val speedScale = if (npc.type == NpcType.CAR) carFollowScale(npc, cars) else 1f
                         val moved = moveNpc(npc, currentNetwork, now, speedScale)
@@ -836,11 +858,37 @@ class NpcAiManager {
         )
     }
 
+    private fun spawnCampusCat(landmark: Landmark, way: ovh.gabrielhuav.pow.domain.models.ai.LocalWay, node: ovh.gabrielhuav.pow.domain.models.ai.LocalNode): Npc {
+        val globalPos = landmark.toGlobalGeoPoint(node.localX, node.localY)
+        val newId = "CAT_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+        val nodeIndex = way.nodes.indexOf(node)
+        
+        // Velocidad baja para el gatito
+        val catSpeed = PERSON_SPEED * (0.35f + Random.nextFloat() * 0.2f)
+
+        return Npc(
+            id = newId,
+            type = NpcType.CAT,
+            location = globalPos,
+            rotationAngle = Random.nextFloat() * 360f,
+            speed = catSpeed,
+            visualConfig = null, // NULL para que el renderizador use el bloque NpcType.CAT
+            navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MICRO_LANDMARK,
+            currentLandmark = landmark,
+            currentLocalWay = way,
+            targetNodeIndex = nodeIndex,
+            moveDirection = if (Random.nextBoolean()) 1 else -1,
+            displayName = "Gato",
+            isMoving = true,
+            isRemote = false
+        )
+    }
+
     private fun maybeStartChats(now: Long, pLat: Double, pLon: Double) {
         val free = serverNpcs.withIndex().filter { (_, n) ->
             n.displayName.isNullOrEmpty() && n.type == NpcType.PERSON &&
                     calculateDistance(n.location.latitude, n.location.longitude, pLat, pLon) <= simRadius &&
-                    n.fearUntil <= now && n.chatUntil <= now
+                    n.fearUntil <= now && n.chatUntil <= now && n.chatCooldownUntil <= now
         }
         if (free.size < 2) return
         val used = HashSet<Int>()
@@ -857,12 +905,13 @@ class NpcAiManager {
                         nb.location.longitude - na.location.longitude)
                     val angB = angA + Math.PI
                     val until = now + CHAT_DURATION_MS
+                    val cooldown = until + 30_000L // 30 segundos de inmunidad después de terminar
                     serverNpcs[serverNpcs.indexOfFirst { it.id == na.id }.takeIf { it >= 0 } ?: continue] =
-                        na.copy(chatUntil = until, chatPartnerId = nb.id, isMoving = false,
+                        na.copy(chatUntil = until, chatCooldownUntil = cooldown, chatPartnerId = nb.id, isMoving = false,
                             rotationAngle = (-Math.toDegrees(angA).toFloat() + 360) % 360,
                             facingRight = cos(angA) >= 0)
                     serverNpcs[serverNpcs.indexOfFirst { it.id == nb.id }.takeIf { it >= 0 } ?: continue] =
-                        nb.copy(chatUntil = until, chatPartnerId = na.id, isMoving = false,
+                        nb.copy(chatUntil = until, chatCooldownUntil = cooldown, chatPartnerId = na.id, isMoving = false,
                             rotationAngle = (-Math.toDegrees(angB).toFloat() + 360) % 360,
                             facingRight = cos(angB) >= 0)
                     used.add(ia); used.add(ib)
