@@ -286,7 +286,7 @@ internal fun GoogleMapLayer(
                                         "GM_CAT_${currentlyMoving}_${frameIndex}_${exactPixels}_${npc.facingRight}"
                                     }
                                     npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
-                                        val currentlyMoving = npc.isMoving
+                                        val currentlyMoving = npc.speed > 0 || npc.isMoving
                                         val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                         val exactPixels = (personSzDp * screenDensity).toInt()
                                         val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
@@ -334,7 +334,7 @@ internal fun GoogleMapLayer(
                                             emojiToDrawable(context, fullEmoji, px)
                                         }
                                         npc.visualConfig != null && npc.type != ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
-                                            val currentlyMoving = npc.isMoving
+                                            val currentlyMoving = npc.speed > 0 || npc.isMoving
                                             val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                             val exactPixels = (personSzDp * screenDensity).toInt()
                                             var d = CharacterSpriteManager.getModularNpcDrawable(context, npc.visualConfig!!, currentlyMoving, npc.facingRight, timeMs, screenDensity, npc.displayName)

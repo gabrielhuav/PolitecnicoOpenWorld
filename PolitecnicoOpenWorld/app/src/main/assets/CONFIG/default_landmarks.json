@@ -1,16 +1,5 @@
 [
   {
-    "id": 0,
-    "name": "Shine CTO",
-    "latitude": 19.45908368468466,
-    "longitude": -99.163338,
-    "assetPath": "BUILDINGS/BAR/Shine.webp",
-    "scaleFactor": 0.15,
-    "rotationAngle": 0.0,
-    "scaleX": 0.15,
-    "scaleY": 0.15
-  },
-  {
     "assetPath": "BUILDINGS/IPN/building_escom.webp",
     "id": 1,
     "latitude": 19.504694288807826,
@@ -77,13 +66,13 @@
     "scaleY": 1.1525397
   },
   {
+    "assetPath": "PLACES/deportivo_miguel_aleman/deportivo_miguelaleman.webp",
     "id": 16,
-    "name": "Deportivo Miguel Alemán",
     "latitude": 19.493527319568926,
     "longitude": -99.1285163718726,
+    "name": "Deportivo Miguel Alemán",
     "rotationAngle": 360.0,
     "scaleFactor": 2.3671417,
-    "assetPath": "PLACES/deportivo_miguel_aleman/deportivo_miguelaleman.webp",
     "scaleX": 2.3671417,
     "scaleY": 2.3671417
   },
@@ -156,8 +145,8 @@
   {
     "assetPath": "DOORS/ESCOM_DOOR.webp",
     "id": 30,
-    "latitude": 19.475661999653365,
-    "longitude": -99.04685319953819,
+    "latitude": 19.475167,
+    "longitude": -99.04753,
     "name": "Entrada FES Aragón",
     "rotationAngle": 108.4186,
     "scaleFactor": 1.408552,
@@ -165,14 +154,47 @@
     "scaleY": 1.3911047
   },
   {
-    "assetPath":"BUILDINGS/IPN/ENCB_lobby.webp",
+    "assetPath": "BUILDINGS/IPN/ENCB_lobby.webp",
     "id": 32,
     "latitude": 19.500129866709816,
     "longitude": -99.1449129694528,
-    "name":"Lobby ENCB",
+    "name": "Lobby ENCB",
     "rotationAngle": 27.584373,
     "scaleFactor": 2.4214725,
     "scaleX": 2.4214725,
     "scaleY": 0.05
+  },
+  {
+    "assetPath": "BUILDINGS/NEZA/palacio_neza.webp",
+    "id": 33,
+    "latitude": 19.408331999999994,
+    "longitude": -99.01846099999999,
+    "name": "Palacio Municipal de Neza",
+    "rotationAngle": 27.066435,
+    "scaleFactor": 1.0999999,
+    "scaleX": 1.0999999,
+    "scaleY": 1.0
+  },
+  {
+    "assetPath": "DOORS/ESCOM_DOOR.webp",
+    "id": 34,
+    "latitude": 19.40857751881821,
+    "longitude": -99.01832314916,
+    "name": "Entrada Palacio Neza",
+    "rotationAngle": 25.75529,
+    "scaleFactor": 0.40913022,
+    "scaleX": 0.40913022,
+    "scaleY": 1.0591303
+  },
+  {
+    "assetPath": "BUILDINGS/BAR/Shine.webp",
+    "id": 35,
+    "latitude": 19.459038634489882,
+    "longitude": -99.1633282698258,
+    "name": "Shine CTO",
+    "rotationAngle": 285.0,
+    "scaleFactor": 0.5,
+    "scaleX": 0.5,
+    "scaleY": 0.5
   }
 ]

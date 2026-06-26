@@ -190,8 +190,12 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         val itemGeo = org.osmdroid.util.GeoPoint(activeItem.latitude, activeItem.longitude)
         val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
 
-        // 4. Radio de detección especial para las puertas (20 metros) o estándar para objetos (15 metros)
-        val radius = if (activeItem.id.startsWith("escom_door_")) ESCOM_DOOR_INTERACT_RADIUS * 100000 else 15.0
+        // 4. Radio de detección especial para las puertas (20 metros), gatos (4 metros) o estándar para objetos (15 metros)
+        val radius = when {
+            activeItem.id.startsWith("escom_door_") -> ESCOM_DOOR_INTERACT_RADIUS * 100000
+            activeItem.id.startsWith("CAT_") -> 4.0
+            else -> 15.0
+        }
 
         if (distanceInMeters <= radius) {
             if (_uiState.value.nearbyCollectible?.id != activeItem.id) {
