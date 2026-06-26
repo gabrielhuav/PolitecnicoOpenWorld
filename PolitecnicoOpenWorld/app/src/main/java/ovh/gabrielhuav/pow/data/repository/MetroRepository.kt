@@ -37,7 +37,7 @@ object MetroRepository {
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("DetektFix", "Error atrapado", e)
         }
         return stations
     }

@@ -145,7 +145,7 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
 
             // ── Player sprite ────────────────────────────────────────────────
             val pSizePx = 56f * camScale
-            val pSizeDp = with(density) { pSizePx.toDp() }
+            // val pSizeDp = with(density) { pSizePx.toDp() }
             val pScreenX = offsetX + state.playerX * worldW * camScale
             val pScreenY = offsetY + state.playerY * worldH * camScale
 
@@ -317,7 +317,7 @@ private fun ShineCTOHud(
     onSpecial: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
-    val shape = CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp)
+    // val shape = CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp)
 
     Box(modifier = Modifier.fillMaxSize()) {
 

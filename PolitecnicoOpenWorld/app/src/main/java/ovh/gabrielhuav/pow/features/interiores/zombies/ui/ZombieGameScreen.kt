@@ -113,8 +113,8 @@ private const val PLAYER_SPRITE_BASE = 56f
 // en cada drawCircle de cada frame (presión de GC en gama baja).
 private val PLAYER_LIGHT_COLORS = listOf(Color(0x80FFF59D), Color(0x33FFEB3B), Color.Transparent)
 private val ZOMBIE_LIGHT_COLORS = listOf(Color(0x6676FF03), Color(0x2664DD17), Color.Transparent)
-private val PLAYER_LIGHT_RADIUS = PLAYER_SPRITE_BASE * 2.5f
-private val ZOMBIE_LIGHT_RADIUS = ZOMBIE_SPRITE_BASE * 2f
+private const val PLAYER_LIGHT_RADIUS = PLAYER_SPRITE_BASE * 2.5f
+private const val ZOMBIE_LIGHT_RADIUS = ZOMBIE_SPRITE_BASE * 2f
 
 @Composable
 fun ZombieGameScreen(

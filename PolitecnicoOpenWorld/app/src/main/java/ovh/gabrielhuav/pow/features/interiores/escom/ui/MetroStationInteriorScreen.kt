@@ -63,7 +63,7 @@ import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 import kotlin.math.max
 
-private val BACKGROUND_ASSET_PATH = "TRANSIT/METRO/inside.png"
+private const val BACKGROUND_ASSET_PATH = "TRANSIT/METRO/inside.png"
 
 @Composable
 fun MetroStationInteriorScreen(
@@ -93,17 +93,17 @@ fun MetroStationInteriorScreen(
                 context.assets.open(BACKGROUND_ASSET_PATH).use {
                     background = BitmapFactory.decodeStream(it)?.asImageBitmap()
                 }
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
             try {
                 context.assets.open("TRANSIT/METRO/metro1.webp").use {
                     metro1Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap()
                 }
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
             try {
                 context.assets.open("TRANSIT/METRO/metro2.webp").use {
                     metro2Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap()
                 }
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
         }
     }
 
@@ -659,7 +659,7 @@ private fun MetroPlayerSprite(state: TransitInteriorState) {
                         context.assets.open(assetPath).use {
                             BitmapFactory.decodeStream(it)?.asImageBitmap()
                         }
-                    } catch (e: Exception) { null }
+                    } catch (ignored: Exception) { null }
                 }
                 bitmapCache[assetPath] = bmp
             }

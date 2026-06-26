@@ -56,7 +56,7 @@ fun ObjectivesWidget(
         } else {
             val distText = when {
                 distM == null -> stringResource(objective.descriptionRes)
-                distM >= 1000 -> stringResource(R.string.wm_dist_km, String.format("%.1f", distM / 1000.0))
+                distM >= 1000 -> stringResource(R.string.wm_dist_km, String.format(java.util.Locale.US, "%.1f", distM / 1000.0))
                 else -> stringResource(R.string.wm_dist_m, distM)
             }
             Text(distText, color = Color(0xFFB0BEC5), fontSize = 11.sp, textAlign = TextAlign.Center)

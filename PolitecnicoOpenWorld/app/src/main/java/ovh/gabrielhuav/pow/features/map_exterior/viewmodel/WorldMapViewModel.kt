@@ -114,9 +114,7 @@ class WorldMapViewModel(
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (!modelClass.isAssignableFrom(WorldMapViewModel::class.java)) {
-                throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-            }
+            require(modelClass.isAssignableFrom(WorldMapViewModel::class.java)) { "Unknown ViewModel class: ${modelClass.name}" }
             val appCtx = context.applicationContext
             val database = PowDatabase.getInstance(appCtx)
             val vm = WorldMapViewModel(
