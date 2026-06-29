@@ -70,6 +70,7 @@ import ovh.gabrielhuav.pow.features.interiores.core.ui.CollisionMatrixDesignerLa
 import ovh.gabrielhuav.pow.features.interiores.core.ui.WaypointDesignerLayer
 import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerView          // vista de jugador compartida (core)
 import ovh.gabrielhuav.pow.features.interiores.core.ui.RemotePlayerView    // vista de jugador remoto/civil (core)
+import ovh.gabrielhuav.pow.features.interiores.core.ui.InteriorNpcView    // NPC ambiental de interiores (core)
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieInteriorViewModel
@@ -521,6 +522,24 @@ fun ZombieGameScreen(
                     key("civ_${npc.id}") {
                         RemotePlayerView(
                             name = "",
+                            action = npc.action,
+                            facingRight = npc.facingRight,
+                            sizePx = rpSize,
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(npc.x).toDp() } - with(density) { (rpSize / 2).toDp() },
+                                y = with(density) { toScreenY(npc.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                            )
+                        )
+                    }
+                }
+
+                // NPCs AMBIENTALES (Modo Historia, offline): estudiantes/docentes que deambulan
+                // por la ESCOM. Render con su SKIN propia (sprite completo), sin nombre ni audio.
+                state.ambientNpcs.forEach { npc ->
+                    if (!onScreen(npc.x, npc.y)) return@forEach
+                    key("anpc_${npc.id}") {
+                        InteriorNpcView(
+                            skin = npc.skin,
                             action = npc.action,
                             facingRight = npc.facingRight,
                             sizePx = rpSize,

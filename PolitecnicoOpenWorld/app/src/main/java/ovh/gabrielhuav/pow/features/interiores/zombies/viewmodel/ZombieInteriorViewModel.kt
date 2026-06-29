@@ -396,6 +396,7 @@ class ZombieInteriorViewModel(
                 pendingSpawnX = null,
                 pendingSpawnY = null,
                 zombies = zombies,
+                ambientNpcs = spawnAmbientNpcs(room),
                 items = emptyList(),
                 projectiles = emptyList(),
                 totalZombies = zombies.size,

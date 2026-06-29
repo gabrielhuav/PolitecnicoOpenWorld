@@ -222,3 +222,65 @@ private fun PlayerSkin.playerViewPath(action: PlayerAction, frame: Int): String 
     PlayerAction.RUN     -> runPath(frame)
     PlayerAction.SPECIAL -> specialPath(frame)
 }
+
+// Vista de NPC AMBIENTAL de interiores: como RemotePlayerView pero con SKIN propia (sprite
+// completo) y SIN audio de pasos. Usa los paths/frame counts de la skin y normaliza el tamano
+// del cuerpo igual que PlayerView (walkBodyFraction). La usan los NPCs locales de la ESCOM.
+@Composable
+fun InteriorNpcView(
+    skin: PlayerSkin,
+    action: PlayerAction,
+    facingRight: Boolean,
+    sizePx: Float,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val sizeDp = with(density) { sizePx.toDp() }
+    var frame by remember { mutableIntStateOf(1) }
+    var image by remember { mutableStateOf<ImageBitmap?>(null) }
+    val cache = remember { mutableMapOf<String, ImageBitmap?>() }
+
+    LaunchedEffect(action, skin) {
+        frame = 1
+        while (true) {
+            // Caminado ambiental: si la skin tiene mas frames de CORRER que de CAMINAR (hojas de
+            // NPC con walk corto, p.ej. 2), usa los de correr para que no se vea congelado.
+            val animAct = if (action == PlayerAction.WALK && skin.runFrames > skin.walkFrames)
+                PlayerAction.RUN else action
+            val maxFrames = when (animAct) {
+                PlayerAction.IDLE    -> skin.idleFrames
+                PlayerAction.WALK    -> skin.walkFrames
+                PlayerAction.RUN     -> skin.runFrames
+                PlayerAction.SPECIAL -> skin.specialFrames
+            }.coerceAtLeast(1)
+            val path = skin.playerViewPath(animAct, frame)
+            if (!cache.containsKey(path)) {
+                cache[path] = withContext(Dispatchers.IO) {
+                    try { context.assets.open(path).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
+                    catch (e: Exception) { null }
+                }
+            }
+            image = cache[path]
+            delay(if (animAct == PlayerAction.IDLE) 1000L else (760L / maxFrames).coerceIn(40L, 140L))
+            frame = (frame % maxFrames) + 1
+        }
+    }
+
+    Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.Center) {
+        val img = image
+        if (img != null) {
+            val ref = skin.walkBodyFraction.coerceIn(0.05f, 1f)
+            val hDp = sizeDp * (INTERIOR_PLAYER_BODY_REF_FRACTION / ref).coerceIn(0.5f, 3f)
+            val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
+            val wDp = hDp * aspect
+            Image(
+                img,
+                androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_player_remote),
+                modifier = Modifier.requiredSize(wDp, hDp).graphicsLayer { scaleX = if (facingRight) 1f else -1f }
+            )
+        } else {
+            Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFF8D6E63)).border(2.dp, Color.White, CircleShape))
+        }
+    }
+}
