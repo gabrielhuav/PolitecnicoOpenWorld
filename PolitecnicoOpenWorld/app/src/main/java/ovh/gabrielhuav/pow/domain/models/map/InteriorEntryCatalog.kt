@@ -24,6 +24,7 @@ object InteriorEntryCatalog {
         Entry(listOf("Fútbol", "Futbol"), "interior_deportivo_futbol"),
         // FES Aragón usa el MOTOR DE INTERIORES pero arranca en su propia sala del catálogo.
         Entry(listOf("FES"), "interiores_zombies?startRoom=fes_interior"),
+        Entry(listOf("Palacio Neza"), "interiores_zombies?startRoom=neza_interior")
     )
 
     // Puertas ESCOM (Norte/Sur, etc.) → lobby de ESCOM (sin arg = default).

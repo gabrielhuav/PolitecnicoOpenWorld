@@ -227,8 +227,8 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
  */
 internal fun WorldMapViewModel.onPrankedyInteract(now: Long = System.currentTimeMillis()) {
     val pm = prankedyManager
-    val isHireable = pm.isHireable(now)
-    val secs = pm.hireableInSeconds(now)
+    val isHireable = pm.isHireable
+    val secs = pm.hireableInSeconds
     _uiState.update {
         it.copy(
             showPrankedyHireDialog  = true,

@@ -69,6 +69,7 @@ import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
      * Sincroniza los items de ESCOM. La "Mano del Apocalipsis" se ELIMINÓ: ya no se
      * spawnea ninguna mano (el apocalipsis se activa desde el menú de Opciones).
      */
+@Suppress("UnusedParameter")
 internal fun WorldMapViewModel.spawnEscomItems(roadNetwork: List<MapWay>, cantidad: Int = 1) {
         // La "Mano del Apocalipsis" se ELIMINÓ de ESCOM (a petición). El modo zombi global
         // se activa/desactiva desde Opciones → "Activar/Desactivar Apocalipsis" (o el botón

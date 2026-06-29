@@ -235,6 +235,22 @@ internal fun WorldMapViewModel.handleInteraction() {
             nearby.id == ShineCTOLocation.MARKER_ID -> {
                 _uiState.update { it.copy(showShineCTODiscovery = true) }
             }
+            nearby.id.startsWith("VENDOR_") -> {
+                // Fase 2: Abrir el menú de la tienda en Compose
+                _uiState.update { it.copy(showVendorMenu = true) }
+            }
+            nearby.id.startsWith("CAT_") -> {
+                // Acariciar al gato: +10% de vida
+                soundManager.playItem()
+                playerHealth = (playerHealth + 10f).coerceAtMost(100f)
+                showHealthBar = true
+                
+                _uiState.update { it.copy(interactionPrompt = "¡Miau! ❤️ (+10% Salud)") }
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(2000)
+                    _uiState.update { if (it.interactionPrompt == "¡Miau! ❤️ (+10% Salud)") it.copy(interactionPrompt = null) else it }
+                }
+            }
             else -> onClaimCollectiblePressed()
         }
     }

@@ -1,5 +1,13 @@
 [
   {
+    "id": "palacio_neza",
+    "displayName": "Palacio Municipal de Neza",
+    "assetPath": "BUILDINGS/NEZA/palacio_neza.webp",
+    "defaultScale": 1.0,
+    "baseWidthMeters": 170.0,
+    "baseHeightMeters": 120.0
+  },
+  {
     "id": "escom_main",
     "displayName": "Edificio ESCOM",
     "assetPath": "BUILDINGS/IPN/building_escom.webp",

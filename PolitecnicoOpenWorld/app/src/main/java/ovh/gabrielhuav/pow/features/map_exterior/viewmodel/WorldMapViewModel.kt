@@ -114,9 +114,7 @@ class WorldMapViewModel(
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (!modelClass.isAssignableFrom(WorldMapViewModel::class.java)) {
-                throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-            }
+            require(modelClass.isAssignableFrom(WorldMapViewModel::class.java)) { "Unknown ViewModel class: ${modelClass.name}" }
             val appCtx = context.applicationContext
             val database = PowDatabase.getInstance(appCtx)
             val vm = WorldMapViewModel(
@@ -820,7 +818,11 @@ class WorldMapViewModel(
                         if (_uiState.value.isRoadNetworkReady && _uiState.value.isMapReady) {
                             tickCount++
                             if (tickCount % 3 == 0L) {
-                                val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
+                                // Los gatos (CAT_) tienen displayName="Gato" pero NO son jugadores remotos.
+                                // Los excluimos del feed de la IA junto con los displayName vacíos.
+                                val npcOnlyList = remoteEntities.values.filter {
+                                    it.displayName.isNullOrEmpty() || it.id.startsWith("CAT_")
+                                }
                                 npcAiManager.setServerNpcs(npcOnlyList)
 
                                 // Pasamos los landmarks (edificios) con sus navGraphs al motor
@@ -837,6 +839,12 @@ class WorldMapViewModel(
                                         kotlinx.coroutines.delay(3500)
                                         _uiState.update { if (it.interactionPrompt == "🧟 ¡UNA HORDA SE ACERCA!") it.copy(interactionPrompt = null) else it }
                                     }
+                                }
+
+                                // Siempre publicamos los gatos en remoteEntities para que lleguen al renderer,
+                                // independientemente de si somos host o no.
+                                processedNpcs.filter { it.id.startsWith("CAT_") }.forEach {
+                                    remoteEntities[it.id] = it
                                 }
 
                                 if (isServerDelegatedHost) {
@@ -1439,4 +1447,33 @@ class WorldMapViewModel(
     fun consumeMetrobusFadeComplete() {
         _uiState.update { it.copy(metrobusFadeCompleteStation = null) }
     }
+
+    // ─── TIENDA (VENDEDORES) ─────────────────────────────────────────────────
+    fun closeVendorMenu() {
+        _uiState.update { it.copy(showVendorMenu = false) }
+    }
+
+    fun buyItemFromVendor(itemName: String) {
+        // Reproducir sonido de compra/consumir
+        soundManager.playItem()
+        
+        // Curar al jugador y mostrar mensaje
+        playerHealth = 100f
+        showHealthBar = true
+        damagePulseTrigger++ // Forzar recomposición visual si es necesario
+        
+        _uiState.update {
+            it.copy(
+                showVendorMenu = false, // Cerrar menú
+                interactionPrompt = "¡Compraste y consumiste $itemName! Salud al máximo."
+            )
+        }
+        
+        // Ocultar mensaje después de unos segundos
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(3000)
+            _uiState.update { if (it.interactionPrompt?.startsWith("¡Compraste") == true) it.copy(interactionPrompt = null) else it }
+        }
+    }
 }
+

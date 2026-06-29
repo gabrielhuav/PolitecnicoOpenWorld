@@ -73,7 +73,7 @@ class TransitInteriorViewModel(
 
         var initialRows = if (savedRows != null) {
             try { gson.fromJson<List<String>>(savedRows, object : TypeToken<List<String>>() {}.type) }
-            catch (e: Exception) { null }
+            catch (ignored: Exception) { null }
         } else null
 
         if (initialRows.isNullOrEmpty()) {
@@ -82,7 +82,7 @@ class TransitInteriorViewModel(
                     val json = InputStreamReader(inp).readText()
                     initialRows = gson.fromJson<List<String>>(json, object : TypeToken<List<String>>() {}.type)
                 }
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
         }
 
         val defaultRows = initialRows ?: List(gridRows) { r ->
@@ -95,7 +95,7 @@ class TransitInteriorViewModel(
 
         var initialDoors = if (savedDoors != null) {
             try { gson.fromJson<List<ZoneDoor>>(savedDoors, object : TypeToken<List<ZoneDoor>>() {}.type) }
-            catch (e: Exception) { null }
+            catch (ignored: Exception) { null }
         } else null
 
         if (initialDoors.isNullOrEmpty()) {
@@ -104,7 +104,7 @@ class TransitInteriorViewModel(
                     val json = InputStreamReader(inp).readText()
                     initialDoors = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
                 }
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
         }
 
         val defaultDoors = initialDoors ?: config.defaultDoors
@@ -116,7 +116,7 @@ class TransitInteriorViewModel(
         if (savedGlobalWaypoints != null) {
             try {
                 initialGlobalWaypoints = gson.fromJson<List<ZoneDoor>>(savedGlobalWaypoints, object : TypeToken<List<ZoneDoor>>() {}.type)
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
         }
 
         if (initialGlobalWaypoints.isNullOrEmpty()) {
@@ -125,7 +125,7 @@ class TransitInteriorViewModel(
                     val json = InputStreamReader(inp).readText()
                     initialGlobalWaypoints = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
                 }
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
         }
 
         val allStations = config.loadStations(context)
@@ -466,7 +466,7 @@ class TransitInteriorViewModel(
             context.contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(gson.toJson(_state.value.designerRows).toByteArray())
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun importMatricesFromUri(uri: Uri) {
@@ -480,7 +480,7 @@ class TransitInteriorViewModel(
                     updateCollisionGrid(rows)
                 }
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun exportWaypointsToUri(uri: Uri) {
@@ -488,7 +488,7 @@ class TransitInteriorViewModel(
             context.contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(gson.toJson(_state.value.doors).toByteArray())
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun importWaypointsFromUri(uri: Uri) {
@@ -497,7 +497,7 @@ class TransitInteriorViewModel(
                 val ds = gson.fromJson<List<ZoneDoor>>(InputStreamReader(inp).readText(), object : TypeToken<List<ZoneDoor>>() {}.type)
                 if (ds != null) _state.update { it.copy(doors = ds, designerDirty = true) }
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun exportGlobalWaypointsToUri(uri: Uri) {
@@ -505,7 +505,7 @@ class TransitInteriorViewModel(
             context.contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(gson.toJson(_state.value.globalWaypoints).toByteArray())
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun importGlobalWaypointsFromUri(uri: Uri) {
@@ -517,7 +517,7 @@ class TransitInteriorViewModel(
                     saveGlobalWaypoints()
                 }
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun resetDesignerMatrix() {

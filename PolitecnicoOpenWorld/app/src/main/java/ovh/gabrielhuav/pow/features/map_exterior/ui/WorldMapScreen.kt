@@ -861,6 +861,14 @@ fun WorldMapScreen(
             )
         }
 
+        // ─── MENÚ DE LA TIENDA (Fase 2) ──────────────────────────────────────────
+        if (uiState.showVendorMenu) {
+            VendorMenuDialog(
+                onBuyItem = { itemName -> viewModel.buyItemFromVendor(itemName) },
+                onDismiss = { viewModel.closeVendorMenu() }
+            )
+        }
+
         // ─── MISIÓN FALLIDA (Modo Historia: la policía mató a Prankedy) ──────────
         // Pantalla a pantalla completa, estilo "WASTED", con el texto EN 2 LÍNEAS.
         if (uiState.showMissionFailed) {

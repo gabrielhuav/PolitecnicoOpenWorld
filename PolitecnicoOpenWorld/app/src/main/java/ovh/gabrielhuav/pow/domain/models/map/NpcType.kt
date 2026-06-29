@@ -3,6 +3,7 @@ package ovh.gabrielhuav.pow.domain.models.map
 enum class NpcType(val drawableName: String) {
     PERSON("ic_npc_person"),
     CAR("ic_npc_car"),
+    CAT("cat"), // Nuevo tipo para gatos del campus
 
     // ─── POLICIA (sistema de nivel de busqueda estilo GTA) ───────────────────
     POLICE_CAR("ic_npc_car"),

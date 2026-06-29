@@ -300,6 +300,33 @@ internal fun WebMapLayer(
                                 // así la barra del web es proporcional al maxHealth del rol.
                                 val webHp = if (npc.maxHealth > 0f) (npc.health / npc.maxHealth * 100f) else npc.health
                                 NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, null, health = webHp, isDying = npc.isDying)
+                            } else if (npc.type == NpcType.CAT) {
+                                val currentlyMoving = npc.isMoving
+                                val animFrame = if (currentlyMoving) ((timeMs / 150L) % 6).toInt() else ((timeMs / 400L) % 5).toInt()
+                                val cacheKey = "cat_sprite_${currentlyMoving}_${animFrame}_${npc.facingRight}_${density}"
+                                val base64Image = base64Cache[cacheKey]
+                                if (base64Image == null) {
+                                    base64Cache[cacheKey] = ""
+                                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val px = (96 * density).toInt().coerceAtLeast(48)
+                                        val bitmap = ovh.gabrielhuav.pow.features.map_exterior.ui.components.CatSpriteManager.getFrameBitmap(
+                                            context, currentlyMoving, timeMs, npc.facingRight, px
+                                        )
+                                        if (bitmap != null) {
+                                            val out = java.io.ByteArrayOutputStream()
+                                            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                                            val b64 = "data:image/png;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                base64Cache[cacheKey] = b64
+                                            }
+                                        }
+                                    }
+                                }
+                                if (!base64Image.isNullOrEmpty() && !registeredWebImages.contains(cacheKey)) {
+                                    wv.evaluateJavascript("if(!window.imgCache) window.imgCache={}; window.imgCache['$cacheKey'] = '$base64Image';", null)
+                                    registeredWebImages.add(cacheKey)
+                                }
+                                NpcWebPayload(npc.id, npc.location.latitude, npc.location.longitude, 0f, "MODULAR", cacheKey, null, 1, null, health = npc.health, isDying = npc.isDying)
                             } else if (npc.type == NpcType.POLICE_COP) {
                                 val isAttacking = npc.policeCanShoot && !npc.isMoving
                                 val animFrame = if (isAttacking) 0 else ((timeMs / 150L) % 6).toInt()

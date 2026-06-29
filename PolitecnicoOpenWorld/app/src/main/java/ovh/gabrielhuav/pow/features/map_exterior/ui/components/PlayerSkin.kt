@@ -124,6 +124,10 @@ enum class PlayerSkin(
         idleFrames = 3, walkFrames = 4, runFrames = 8, specialFrames = 3,  // special = ESCOBAZO (golpe)
         walkBodyFraction = 0.865f
     ),
+    // 🚫 DESACTIVADOS del selector y de la historia (decisión de diseño). Assets CONSERVADOS en
+    //    SPRITES/NPC/ReyBromas|PepeRey por si se reusan. Para reactivar: descomenta este bloque
+    //    y sus entradas en SkinSelectorDialog.
+    /*
     REY_BROMAS(
         displayName = "El Rey de las Bromas",
         skinFolder  = "ReyBromas/",
@@ -140,6 +144,7 @@ enum class PlayerSkin(
         idleFrames = 3, walkFrames = 4, runFrames = 8, specialFrames = 3,  // special = BROMA CON TANQUE (golpe)
         walkBodyFraction = 0.865f
     ),
+    */
     // PRANKEDY jugable: reutiliza sus sprites (copiados de SPRITES/NPC/Prankedy/ a la convención de
     // skin en SPRITES/NPC/PrankedyPlayable/). Lienzos 512² uniformes → fracciones por acción medidas.
     PRANKEDY(
@@ -194,6 +199,90 @@ enum class PlayerSkin(
         basePath    = "SPRITES/NPC/",
         idleFrames = 4, walkFrames = 6, runFrames = 8, specialFrames = 3,  // special = COMUNICAR POR RADIO
         walkBodyFraction = 0.865f
+    ),
+    // ── 🆕 NPCs de INTERIOR (Modo Historia): estudiantes IPN + docentes, recortados a
+    //    SPRITES/NPC/NPCS/. Solo se usan como NPCs ambientales (InteriorNpcView/AMBIENT_SKINS);
+    //    NO seleccionables (van en devOnlySkins). Recorte uniforme → walkBodyFraction 0.86.
+    IPN_1(
+        displayName = "Estudiante IPN 1",
+        skinFolder  = "Ipn1/",
+        skinPrefix  = "ipn1_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 25, runFrames = 25, specialFrames = 25,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    IPN_2(
+        displayName = "Estudiante IPN 2",
+        skinFolder  = "Ipn2/",
+        skinPrefix  = "ipn2_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 20, runFrames = 20, specialFrames = 15,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    IPN_3(
+        displayName = "Estudiante IPN 3",
+        skinFolder  = "Ipn3/",
+        skinPrefix  = "ipn3_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 16, runFrames = 16, specialFrames = 20,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    IPN_4(
+        displayName = "Estudiante IPN 4",
+        skinFolder  = "Ipn4/",
+        skinPrefix  = "ipn4_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 20, runFrames = 20, specialFrames = 20,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    IPN_5(
+        displayName = "Estudiante IPN 5",
+        skinFolder  = "Ipn5/",
+        skinPrefix  = "ipn5_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 20, runFrames = 20, specialFrames = 20,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    IPN_6(
+        displayName = "Estudiante IPN 6",
+        skinFolder  = "Ipn6/",
+        skinPrefix  = "ipn6_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 20, runFrames = 20, specialFrames = 20,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    // NPC generico aleatorio (interior + exterior), recortado al estandar como los IPN.
+    RND_1(
+        displayName = "NPC Random 1",
+        skinFolder  = "Random1/",
+        skinPrefix  = "rnd1_",
+        basePath    = "SPRITES/NPC/NPCS/",
+        idleFrames = 1, walkFrames = 16, runFrames = 16, specialFrames = 16,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    DOC_1(
+        displayName = "Docente 1",
+        skinFolder  = "Doc1/",
+        skinPrefix  = "doc1_",
+        basePath    = "SPRITES/NPC/NPCS/",
+        idleFrames = 1, walkFrames = 16, runFrames = 16, specialFrames = 19,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    EST_H1(
+        displayName = "EST_H1",
+        skinFolder  = "EstH1/",
+        skinPrefix  = "esth1_",
+        basePath    = "SPRITES/NPC/NPCS/",
+        idleFrames = 1, walkFrames = 16, runFrames = 16, specialFrames = 16,  // estudiante (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    EST_M1(
+        displayName = "EST_M1",
+        skinFolder  = "EstM1/",
+        skinPrefix  = "estm1_",
+        basePath    = "SPRITES/NPC/NPCS/",
+        idleFrames = 1, walkFrames = 16, runFrames = 16, specialFrames = 16,  // estudiante (estandar)
+        walkBodyFraction = 0.803f
     ),
     // ── Agrega aquí nuevas skins ──────────────────────────────────────────
     // Ejemplo con una skin "Ana":

@@ -15,6 +15,7 @@ object ZombieRoomCatalog {
     // interiores_zombies?startRoom=fes_interior). Tipo LOBBY = zona segura sin zombis
     // (el servidor sólo siembra zombis en salas BUILDING) y con puerta de salida al mapa.
     const val FES_ID = "fes_interior"
+    const val NEZA_ID = "neza_interior"
 
     // MODO HISTORIA: cadena LINEAL de salas de la ENCB (tras la intro IntroPOW8).
     // Todas son salas INDEPENDIENTES del anillo de ESCOM, tipo LOBBY = zona segura SIN
@@ -150,6 +151,15 @@ object ZombieRoomCatalog {
                         zombieCount = 4
                     )
                 )
+            )
+        )
+        // Palacio Municipal de Neza (Lobby sin edificios extra)
+        addAll(
+            campusRooms(
+                lobbyId = NEZA_ID,
+                lobbyDisplayName = "Palacio Municipal de Neza",
+                lobbyBackground = "INTERIORS/NEZA/interior_palacio.webp",
+                buildings = emptyList()
             )
         )
         // ─── CADENA LINEAL DEL MODO HISTORIA (ENCB) ──────────────────────────

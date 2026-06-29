@@ -40,7 +40,7 @@ object PoliceSpriteManager {
                     if (drawable is BitmapDrawable) frames[frameIndex] = drawable.bitmap
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("DetektFix", "Error atrapado", e)
                 return null
             }
         }

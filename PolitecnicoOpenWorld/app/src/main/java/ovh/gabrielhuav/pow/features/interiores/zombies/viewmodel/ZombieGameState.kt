@@ -81,6 +81,7 @@ data class ZombieGameState(
     val isLoading: Boolean = true,
     val remotePlayers: List<RemoteZombiePlayer> = emptyList(),
     val interiorNpcs: List<RemoteZombiePlayer> = emptyList(),
+    val ambientNpcs: List<AmbientNpc> = emptyList(),
     val zombieModeActivated: Boolean = false,
     val showZombieCinematic: Boolean = false,
 

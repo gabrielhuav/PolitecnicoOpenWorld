@@ -67,9 +67,9 @@ class ShineCTOViewModel(
 
     // ─── Spawn seguro de bebidas ─────────────────────────────────────────────
     // Margen para no spawnear en los bordes ni encima de las puertas/escaleras.
-    private val drinkSafeZones: List<NormZone> = listOf(
-        NormZone(0.08f, 0.08f, 0.70f, 0.70f)   // área interior libre
-    )
+    // private val drinkSafeZones: List<NormZone> = listOf(
+    //    NormZone(0.08f, 0.08f, 0.70f, 0.70f)   // área interior libre
+    // )
 
     private fun randomDrinkPosition(currentDrinks: List<ActiveDrink>): Pair<Float, Float> {
         repeat(30) {

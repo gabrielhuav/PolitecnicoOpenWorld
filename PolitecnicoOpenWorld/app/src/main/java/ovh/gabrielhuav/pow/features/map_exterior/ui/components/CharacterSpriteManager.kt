@@ -160,7 +160,7 @@ object CharacterSpriteManager {
                     val finalBmp = if (!displayName.isNullOrBlank()) {
                         val textPaint = android.graphics.Paint().apply {
                             color = android.graphics.Color.BLACK
-                            textSize = 50f * roundedScale.coerceAtLeast(0.4f)
+                            textSize = 30f * roundedScale.coerceAtLeast(0.4f)
                             isAntiAlias = true
                             textAlign = android.graphics.Paint.Align.CENTER
                             typeface = android.graphics.Typeface.DEFAULT_BOLD

@@ -58,7 +58,7 @@ import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 
 private val MB_RED = Color(0xFFC21D24)
-private val BACKGROUND_MB_ASSET = "TRANSIT/METROBUS/inside.png"
+private const val BACKGROUND_MB_ASSET = "TRANSIT/METROBUS/inside.png"
 
 @Composable
 fun MetrobusStationInteriorScreen(

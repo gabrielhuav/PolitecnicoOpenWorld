@@ -148,7 +148,8 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
                 zombiesRemaining = workingZombies.count { z -> !z.isDying },
                 nearbyItemId = nearItem?.id,
                 nearbyKeyId = nearKey?.id,
-                activeEffects = if (effectsChanged) stillActive else it.activeEffects
+                activeEffects = if (effectsChanged) stillActive else it.activeEffects,
+                ambientNpcs = stepAmbientNpcs(s.ambientNpcs, room, now)
             )
         }
 

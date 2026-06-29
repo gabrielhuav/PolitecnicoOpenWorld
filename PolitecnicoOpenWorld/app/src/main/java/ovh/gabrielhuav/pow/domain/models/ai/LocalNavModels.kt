@@ -8,7 +8,10 @@ data class LocalNode(
     @SerializedName("localX") val localX: Float,
     @SerializedName("localY") val localY: Float,
     @SerializedName("isParkingSlot") val isParkingSlot: Boolean = false,
-    @SerializedName("description") val description: String? = null
+    @SerializedName("description") val description: String? = null,
+    // Si es true, los NPCs peatonales se detienen aquí un tiempo (bancas, cafetería, palapas…)
+    // antes de continuar su ruta. El tiempo es aleatorio entre STOP_MIN_MS y STOP_MAX_MS.
+    @SerializedName("isStopPoint") val isStopPoint: Boolean = false
 )
 
 data class LocalWay(

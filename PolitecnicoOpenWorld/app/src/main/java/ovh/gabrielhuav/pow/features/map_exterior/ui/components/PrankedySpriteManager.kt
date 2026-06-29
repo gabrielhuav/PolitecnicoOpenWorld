@@ -64,9 +64,9 @@ object PrankedySpriteManager {
 
     // ── Caché del proyectil ───────────────────────────────────────────────────
     // Frames en assets/SPRITES/NPC/Prankedy/p_objeto/p_ob_#.webp
-    private val PROJ_FOLDER = "p_objeto"
-    private val PROJ_PREFIX = "p_obj_"
-    private val PROJ_FRAMES = 3
+    private const val PROJ_FOLDER = "p_objeto"
+    private const val PROJ_PREFIX = "p_obj_"
+    private const val PROJ_FRAMES = 3
     private val projDrawableCache = LruCache<String, BitmapDrawable?>(8)
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -165,8 +165,23 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 )
             }
 
+        // Convertimos los NPCs Vendedores y Gatos en collectibles virtuales para interactuar con ellos
+        val npcItems = _uiState.value.npcs
+            .filter { it.id.startsWith("VENDOR_") || it.id.startsWith("CAT_") }
+            .map { npc ->
+                val isCat = npc.id.startsWith("CAT_")
+                ActiveCollectible(
+                    id = npc.id,
+                    name = npc.displayName ?: if (isCat) "Gato" else "Vendedor",
+                    description = if (isCat) "Acariciar" else "Comprar objetos",
+                    assetPath = "",
+                    latitude = npc.location.latitude,
+                    longitude = npc.location.longitude
+                )
+            }
+
         // 3. Juntamos todo en un solo radar global
-        val allPossibleItems = baseItems + doorItems
+        val allPossibleItems = baseItems + doorItems + npcItems
 
         val activeItem = allPossibleItems.minByOrNull {
             playerGeo.distanceToAsDouble(org.osmdroid.util.GeoPoint(it.latitude, it.longitude))
@@ -175,8 +190,12 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         val itemGeo = org.osmdroid.util.GeoPoint(activeItem.latitude, activeItem.longitude)
         val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
 
-        // 4. Radio de detección especial para las puertas (20 metros) o estándar para objetos (15 metros)
-        val radius = if (activeItem.id.startsWith("escom_door_")) ESCOM_DOOR_INTERACT_RADIUS * 100000 else 15.0
+        // 4. Radio de detección especial para las puertas (20 metros), gatos (4 metros) o estándar para objetos (15 metros)
+        val radius = when {
+            activeItem.id.startsWith("escom_door_") -> ESCOM_DOOR_INTERACT_RADIUS * 100000
+            activeItem.id.startsWith("CAT_") -> 4.0
+            else -> 15.0
+        }
 
         if (distanceInMeters <= radius) {
             if (_uiState.value.nearbyCollectible?.id != activeItem.id) {
@@ -188,6 +207,8 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                         activeItem.name == "Objeto Misterioso ESCOM" -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_interact)
                         activeItem.id == ShineCTOLocation.MARKER_ID  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter)
                         activeItem.id.startsWith("escom_door_")      -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter) // <--- Aquí aparece el texto de la puerta
+                        activeItem.id.startsWith("VENDOR_")          -> "[X] Comprar en tienda"
+                        activeItem.id.startsWith("CAT_")             -> "[X] Acariciar al gato"
                         else -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_pickup)
                     }
 
