@@ -55,7 +55,7 @@
 | `ANALISIS_codigo.md` | **(2026-06-21)** Informe: clases grandes, duplicación (metro⇄metrobús), MVVM, i18n migrado vs pendiente, perf, mejoras priorizadas por valor/esfuerzo. |
 | `REVISION_repo.md` | **(2026-06-21)** Revisión de TODO el repo: raíz, servidores Node (solo revisión), seguridad (keystore NO comprometido), `.gitignore`, hardening de deploy. |
 | `NPC_SPRITES_PIPELINE.md` | **🆕 Cómo recortar sprite sheets de NPCs al ESTÁNDAR (193×249, body 200, fracción 0.803) + cableado (`PlayerSkin`/`AMBIENT_SKINS`/`devOnlySkins`) + gotchas. Script: `tools/slice_npc_standard.py`. Léelo para agregar más docentes/estudiantes/genéricos en otra PC.** |
-| `CAMPAIGN/` (carpeta) | **🆕 Guion de la campaña (Modo Historia): `00_OVERVIEW.md` (fantasía = simulación de infección zombi + GTA) y `01_MISSION_1.md` (historia de la Misión 1). Futuras misiones = `0N_MISSION_N.md`.** |
+| `CAMPAIGN/` (carpeta) | **🆕 Guion de la campaña (Modo Historia): `00_OVERVIEW.md` (fantasía = simulación de infección zombi + GTA), `01_MISSION_1.md` (Misión 1) y `02_MISSION_2.md` (Misión 2 "El rumor", ✅ implementada 2026-07-03). Futuras misiones = `0N_MISSION_N.md`.** |
 
 ---
 

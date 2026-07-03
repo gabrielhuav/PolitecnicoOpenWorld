@@ -48,6 +48,18 @@ autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación 
 > `interiores_zombies?startRoom=encb_lobby` (en `MainActivity`, ruta `encb_lobby`); las transiciones internas
 > ocurren dentro del mismo `ZombieGameScreen` (mismo VM). El banner **"Objetivo: Investiga qué pasó"** se pinta
 > cuando `room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS`. Ver 06/07.
+> **🆕 SALÓN DE LA MISIÓN 2 (`ESCOM_SALON_M2_ID="escom_salon_m2"`, 2026-07-03):** sala STANDALONE tipo
+> `LOBBY` (fondo reusa `INTERIORS/ENCB/ENCB_salon1.webp`, `playerScaleMul=3f`, ÚNICA puerta = `TO_WORLD`).
+> Se entra por la puerta de la ESCOM SOLO en la fase MOCHILA de la Misión 2 (`WorldMapInteractions`
+> redirige a `interiores_zombies?startRoom=escom_salon_m2` cuando `mission2Phase==PHASE_BACKPACK`). Está
+> **EN CLASES**: `AMBIENT_ROOM_IDS` incluye la sala → `spawnAmbientNpcs` puebla estudiantes IPN/docente.
+> **X** = lanzar la **LATA APESTOSA** (`ZombieGameState.mission2StinkThrown`) → el tick usa
+> `evacuateAmbientNpcs` (corren a la puerta y desaparecen) en vez de `stepAmbientNpcs`; con el salón VACÍO
+> aparece la **mochila 🎒** (emoji en `mission2BackpackX/Y`, sin asset dedicado); **X** cerca la recoge
+> (`mission2BackpackTaken`) → `ZombieGameScreen` dispara `onMission2BackpackRecovered` →
+> `completeMission2Backpack()` en el VM del mundo (cableado en AppNavGraph). `loadRoom` re-arma la escena
+> al reentrar (si saliste sin la mochila, vuelve a haber clase). El objetivo del salón lo muestra
+> `interiorObjective = M2_RECUPERAR_MOCHILA` (ObjectivesWidget). Ver `CAMPAIGN/02_MISSION_2.md`.
 
 **EN:** Ring of rooms: a **lobby** with doors to each ESCOM building (7 buildings). Inside a building,
 EXIT doors connect neighbors and a central door returns to the lobby. **Online: zombies and items are

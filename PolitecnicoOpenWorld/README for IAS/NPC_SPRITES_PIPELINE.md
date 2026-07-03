@@ -170,5 +170,6 @@ para que **NO sea seleccionable** por el jugador (es NPC, no skin del jugador).
   (`Idle=3`, `Walk=8`, `Run=8`, `Special=6`; fracciones aprox. `0.866/0.873/0.868/0.865`).
 - `PEPE_REY` y `REY_BROMAS` están **comentados** en `PlayerSkin.kt` (no seleccionables); assets
   conservados.
-- **Pendiente:** más docentes/estudiantes/genéricos (mismo flujo de este doc), **Fase exterior**
-  (NPCs premade en el mapa global) y la **reescritura de la Misión 2**.
+- **Pendiente:** más docentes/estudiantes/genéricos (mismo flujo de este doc) y la **Fase exterior**
+  (NPCs premade en el mapa global). *(La Misión 2 ya se implementó — 2026-07-03, ver
+  `CAMPAIGN/02_MISSION_2.md`; su salón `escom_salon_m2` usa este pool ambiental como "clase".)*

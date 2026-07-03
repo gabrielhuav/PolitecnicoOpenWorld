@@ -5,6 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
 import ovh.gabrielhuav.pow.domain.models.campaign.mission1.Mission1
+import ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
 
 /**
  * Tests de lógica PURA (sin Android) para el catálogo de misiones de la campaña.
@@ -59,6 +60,30 @@ class MissionCatalogTest {
     fun ir_encb_uses_default_arrive_radius() {
         // IR_ENCB no fija radio → usa el default del modelo (60 m).
         assertEquals(60.0, MissionCatalog.IR_ENCB.arriveRadiusMeters, 0.0)
+    }
+
+    @Test
+    fun mission2_has_five_objectives_in_order_with_m2_prefix() {
+        val ids = Mission2.objectives.map { it.id }
+        assertEquals(
+            listOf(
+                "m2_esconderse_policia", "m2_pista_rumor", "m2_pista_brote",
+                "m2_hablar_prankedy", "m2_recuperar_mochila"
+            ),
+            ids
+        )
+        // El prefijo m2_ lo usan los checks genéricos (misión fallida al morir, retry).
+        ids.forEach { id -> assertEquals(true, id.startsWith(Mission2.OBJECTIVE_ID_PREFIX)) }
+    }
+
+    @Test
+    fun mission2_objectives_are_narrative_zero_radius_and_reachable_by_id() {
+        // TODOS los objetivos de la Misión 2 se cumplen por NARRATIVA (tick de
+        // WorldMapMission2.kt), nunca por llegada: radio 0 (mismo patrón que INGRESAR_ESCOM).
+        Mission2.objectives.forEach { obj ->
+            assertEquals(0.0, obj.arriveRadiusMeters, 0.0)
+            assertSame(obj, MissionCatalog.byId(obj.id))
+        }
     }
 
     @Test

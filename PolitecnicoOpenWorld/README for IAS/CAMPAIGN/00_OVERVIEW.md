@@ -83,13 +83,14 @@ Desde el menú principal hay dos entradas (ver `07_OTHER_FEATURES.md`):
 | # | Archivo | Título | Estado |
 |---|---|---|---|
 | 1 | `01_MISSION_1.md` | De la ESCOM a la ENCB · escolta de Prankedy · ingreso a la ESCOM | ✅ Implementada |
-| 2 | `02_MISSION_2.md` *(pendiente)* | Esconderse en la ESCOM, rumor zombi, primer brote público, la mochila de Prankedy | 🟡 En diseño |
+| 2 | `02_MISSION_2.md` | "El rumor": esconderse de la policía, rumor zombie, primer brote público, Rey Grupero y la mochila de Prankedy | ✅ Implementada (2026-07-03) |
 
-> **⚠️ Nota de nomenclatura:** en el CÓDIGO, los 4 objetivos de la Misión 1 viven todos en
-> `Mission1.objectives`, pero la fase de persecución/ingreso aparece comentada como "Misión 2"
-> (`MISSION2_POLICE_SPAWN`, cómic `mission2Intro` = `IntroPOW12..15`). Esa "Misión 2 interna" es
-> mecánica, no una misión nueva. La **Misión 2 de campaña** (la del rumor y la mochila) sería la
-> siguiente; decidir si se numera 2 o 3 antes de tocar `MissionCatalog`.
+> **⚠️ Nota de nomenclatura (RESUELTA 2026-07-03):** la fase de persecución/ingreso que en el
+> código se llamaba "Misión 2" era mecánica de la Misión 1; al implementar la Misión 2 REAL se
+> renombró TODO ese código a **`mission1Chase*`** (`startMission1Chase`, `runMission1ChaseTick`,
+> `MISSION1_CHASE_POLICE_SPAWN_*`, cómic `MISSION1_CHASE_INTRO_ID` = `IntroPOW12..15`, estado
+> `pendingMission1ChaseIntro`, ruta nav `story_mission1_chase`). La Misión 2 de campaña se numera
+> **2** (`mission2/Mission2.kt`, ids de objetivo con prefijo `m2_`).
 
 ---
 

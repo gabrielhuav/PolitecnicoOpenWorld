@@ -71,6 +71,7 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Panel del modo diseñador | `ui/components/Designerpanel.kt` |
 | Sprites NPC | `ui/components/CharacterSpriteManager.kt`, `VehicleSpriteManager.kt`, `PoliceSpriteManager.kt` |
 | NPC especial Prankedy (IA/VM/render) | `domain/models/ai/PrankedyManager.kt` (ver 03), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
+| 🆕 MISIÓN 2 "El rumor" (máquina de fases: esconderse/rumor/brote/plática/mochila) | `viewmodel/WorldMapMission2.kt` (NUEVO; guion/constantes en `domain/models/campaign/mission2/Mission2.kt`; ver `CAMPAIGN/02_MISSION_2.md`) |
 
 ---
 

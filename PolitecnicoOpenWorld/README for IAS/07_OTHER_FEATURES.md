@@ -103,15 +103,26 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
   estado) y **"Salir al menú"**. Al reintentar, **Prankedy vuelve contigo** (`respawnPrankedyCompanionHere`,
   no depende del gate de vecindario ENCB del game loop). Callback `onRetryMission` (WorldMapScreen→MainActivity).
 - **🆕 MORIR en una misión = MISIÓN FALLIDA (checkpoint):** si te matan estando en una misión de campaña
-  (`inCampaign` && objetivo `ESCOLTAR_PRANKEDY`/`INGRESAR_ESCOM`), `triggerWastedSequence` NO hace el respawn
-  normal cerca del lugar de muerte: tras un WASTED breve pone `showMissionFailed = true` → reintentas desde el
-  **último checkpoint** (mismo botón REINTENTAR). Fuera de misión, respawn normal a ~77 m.
-- **🆕 Misión 2 = HUIDA de Prankedy:** al arrancar la Misión 2, Prankedy ya **no te sigue**: `runMission2Prankedy
-  Escape` (en vez de `runPrankedyTick`) lo hace **CORRER hacia la puerta de la ESCOM** (reusa `tickFollow` con la
-  puerta como objetivo); la **policía lo persigue** (en `runMission2Tick`, `target` = Prankedy mientras está
-  vivo; aparecen por el **lado contrario a la puerta**) y la **multitud sale** de la puerta. Al llegar (~20 m,
-  `MISSION2_PRANKEDY_ENTER_DEG`) **ENTRA** (desaparece) con el diálogo **"Ahí nos vemos"** y `mission2Prankedy
-  Entered=true` (deja de animarse; la policía pasa a perseguir al jugador).
+  (`inCampaign` && objetivo `ESCOLTAR_PRANKEDY`/`INGRESAR_ESCOM`/cualquier `m2_*`), `triggerWastedSequence`
+  NO hace el respawn normal cerca del lugar de muerte: tras un WASTED breve pone `showMissionFailed = true`
+  → reintentas desde el **último checkpoint** (mismo botón REINTENTAR). Fuera de misión, respawn normal a ~77 m.
+- **🆕 Persecución final de la Misión 1 = HUIDA de Prankedy (⚠️ RENOMBRADA `mission2*`→`mission1Chase*`,
+  2026-07-03):** al arrancar la persecución, Prankedy ya **no te sigue**: `runMission1ChasePrankedyEscape`
+  (en vez de `runPrankedyTick`) lo hace **CORRER hacia la puerta de la ESCOM** (reusa `tickFollow` con la
+  puerta como objetivo); la **policía lo persigue** (en `runMission1ChaseTick`, `target` = Prankedy mientras
+  está vivo; aparecen por el **lado contrario a la puerta**) y la **multitud sale** de la puerta. Al llegar
+  (~6.6 m, `MISSION1_CHASE_PRANKEDY_ENTER_DEG`) **ENTRA** (desaparece) con el diálogo **"Ahí nos vemos"** y
+  `mission1ChasePrankedyEntered=true` (deja de animarse; la policía pasa a perseguir al jugador). Renombres:
+  `startMission1Chase`, `isMission1ChaseActive`, `consumePendingMission1ChaseIntro`, estado
+  `pendingMission1ChaseIntro`, crowd `mission1ChaseCrowd`, cómic `MISSION1_CHASE_INTRO_ID`, ruta nav
+  `story_mission1_chase`.
+- **🆕 MISIÓN 2 · "El rumor" (2026-07-03):** campaña REAL post-Misión 1, 5 fases sobre el campus ESCOM:
+  esconderse de la policía de búsqueda → rumor zombie (2 estudiantes, conversación con subtítulos que se
+  PAUSA si te alejas) → primer brote público (conversión + sometimiento + radio "refuerzos en la ENCB") →
+  plática con Prankedy (REY GRUPERO + mochila) → salón `escom_salon_m2` con LATA APESTOSA y mochila 🎒.
+  Fase persistida en `GameSaveData.mission2Phase` (JSON). Guion/constantes: `mission2/Mission2.kt`; tick:
+  `WorldMapMission2.kt`; subtítulos: `WorldMapState.storyConvoSpeaker/Text` (overlay en
+  `WorldMapScreenOverlays`). Detalle completo: `CAMPAIGN/02_MISSION_2.md`.
 - **🆕 Controles EN VIVO:** al **Guardar** D-pad/joystick (escala/swap) en Ajustes, un `LaunchedEffect` de
   `MainActivity` (key = settings COMMITTEADOS) llama `updateControlSettings`, así el cambio se aplica sin salir
   al menú y volver a entrar.

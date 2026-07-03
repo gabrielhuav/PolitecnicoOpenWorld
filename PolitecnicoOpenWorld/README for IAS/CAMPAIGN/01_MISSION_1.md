@@ -100,7 +100,7 @@ marca cumplido al entrar en `arriveRadiusMeters`.
 - **Morir en misión = MISIÓN FALLIDA:** si te matan con objetivo `ESCOLTAR_PRANKEDY`/`INGRESAR_ESCOM`, no
   hay respawn normal: WASTED breve → **"MISIÓN FALLIDA"** → **REINTENTAR** recarga el último checkpoint
   (Prankedy vuelve contigo).
-- **Llegada a la ESCOM = cómic + persecución (`mission2Intro`, `IntroPOW12..15`):** al llegar con Prankedy
+- **Llegada a la ESCOM = cómic + persecución (`mission1ChaseIntro`, `IntroPOW12..15`):** al llegar con Prankedy
   a la puerta se dispara el cómic; Prankedy se despide (**"Ahí nos vemos"**) y **entra/huye**, la
   **policía lo persigue** y luego va por **ti** (salen del lado contrario a la puerta). Debes **ingresar a
   la ESCOM** para ponerte a salvo.
@@ -125,15 +125,16 @@ rumor zombi (Misión 2).
 - `MISSION1_SPAWN` = (19.50102, -99.14421) — entrada al mapa global tras el outro = **checkpoint**.
 - `ESCOM_FORCEWALK` = (19.50500, -99.14596), radio **50 m** — zona "solo reversa".
 - `IR_ENCB` target = (19.498600, -99.148900) *(coords ENCB aproximadas, ajustables)*.
-- `MISSION2_POLICE_SPAWN` = (19.50488, -99.14569) y `CROWD_SPAWN` = (19.50512, -99.14625) — policía/multitud
-  de la fase de persecución (en `WorldMapCampaignPolice`).
+- `MISSION1_CHASE_POLICE_SPAWN` = (19.50484, -99.14561) y `CROWD_SPAWN` = (19.50512, -99.14625) —
+  policía/multitud de la fase de persecución (en `WorldMapCampaignPolice`; antes `MISSION2_*`,
+  renombrado al crear la Misión 2 real).
 
 **Salas (`ZombieRoomCatalog`):** `ENCB_LOBBY_ID="encb_lobby"`, `encb_salon1`, `encb_lab1`, `encb_lab2`
 (`ENCB_STORY_ROOM_IDS`). Fondos `INTERIORS/ENCB/ENCB_{lobby,salon1,lab1,lab2}.webp`. Matriz de colisión de
 `encb_lab1` en `assets/collision_matrices.json` → `rooms.encb_lab1` (69 filas × 70 cols).
 
 **Cómics (`StoryComicCatalog`):** intro `IntroPOW1..8`; outro `ENCB_OUTRO_ID` = `IntroPOW9..11`; llegada
-`MISSION2_INTRO_ID` = `IntroPOW12..15` (panel 15 cambia según skin vía `comicSuffix`).
+`MISSION1_CHASE_INTRO_ID` = `IntroPOW12..15` (panel 15 cambia según skin vía `comicSuffix`).
 
 **Strings (objetivos):** `obj_ir_encb_*`, `obj_escoltar_prankedy_*`, `obj_ingresar_escom_*`,
 `obj_buscar_pistas_escom_*` (ES+EN en `res/values*/strings.xml`).
@@ -143,6 +144,7 @@ rumor zombi (Misión 2).
 ## 6. Gancho a la Misión 2 / Hook to Mission 2
 
 La Misión 1 deja al jugador **dentro de la ESCOM** con el objetivo activo **"Busca pistas en la ESCOM"**
-y la **policía persiguiéndolo**. La Misión 2 arranca justo ahí: esconderse de la policía, escuchar el
-**rumor zombi** de la ENCB/Zacatenco, presenciar el **primer brote público**, y recuperar la **mochila de
-Prankedy**. Ver `02_MISSION_2.md` (en diseño).
+y la **policía persiguiéndolo**. La Misión 2 arranca justo ahí (al VOLVER al campus): esconderse de la
+policía, escuchar el **rumor zombie** de la ENCB/Zacatenco, presenciar el **primer brote público**, la
+confesión de Prankedy (REY GRUPERO) y recuperar la **mochila** con la lata apestosa. Ver
+`02_MISSION_2.md` (✅ implementada).

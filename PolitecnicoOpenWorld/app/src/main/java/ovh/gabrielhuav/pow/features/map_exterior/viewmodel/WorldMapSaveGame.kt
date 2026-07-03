@@ -31,6 +31,12 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
             kotlin.math.abs(it.location.latitude - loc.latitude) < SAVE_NPC_RADIUS_DEG &&
                 kotlin.math.abs(it.location.longitude - loc.longitude) < SAVE_NPC_RADIUS_DEG
         }
+        // NO congelar NPCs DE MISIÓN (M2_* de la Misión 2, CAMPAIGN_COP_* de la escolta/chase,
+        // ESCOM_FLOOD_* de la multitud): al cargar se re-inyectarían como civiles "adoptados" por
+        // la IA Y ADEMÁS el tick de misión re-spawnea los suyos → duplicados/zombies huérfanos.
+        .filterNot {
+            it.id.startsWith("M2_") || it.id.startsWith("CAMPAIGN_COP_") || it.id.startsWith("ESCOM_FLOOD_")
+        }
         .take(40)
         .map {
             SavedNpc(

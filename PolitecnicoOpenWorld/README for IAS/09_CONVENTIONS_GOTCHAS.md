@@ -791,10 +791,42 @@ matrices por defecto son **border-only** hasta reemplazarse.
   devuelve null NO se despawnean (se quedan quietos). Disparo: automático en `maybeSpawnPrankedyCompanion`
   (escolta) y manual con el botón del panel Debug Interiores (`toggleCampaignRouteNpcsDebug`). Se limpian
   en `maybeHideCampaignRouteNearEscom` y en `clearCampaignPolice`.
-- **🆕 REMATE Misión 2: la policía se reúne donde Prankedy SE METIÓ:** al entrar Prankedy a la ESCOM se
-  guarda su posición exacta en `mission2PrankedyExitPoint`; `runMission2Tick` pasa ESE punto a
-  `startResolution` (antes pasaba la puerta del objetivo, unos metros más allá). Se resetea en
-  `startMission2`/`clearCampaignPolice`.
+- **🆕 REMATE de la persecución (Misión 1 · chase): la policía se reúne donde Prankedy SE METIÓ:** al
+  entrar Prankedy a la ESCOM se guarda su posición exacta en `mission1ChasePrankedyExitPoint`;
+  `runMission1ChaseTick` pasa ESE punto a `startResolution` (antes pasaba la puerta del objetivo, unos
+  metros más allá). Se resetea en `startMission1Chase`/`clearCampaignPolice`.
+- **⚠️ RENOMBRE GLOBAL `mission2*` → `mission1Chase*` (2026-07-03):** la persecución final de la Misión 1
+  se llamaba "Misión 2" en el código; al implementar la **Misión 2 REAL** ("El rumor") se renombró TODO:
+  `startMission1Chase`, `runMission1ChaseTick`, `isMission1ChaseActive`, `runMission1ChasePrankedyEscape`,
+  `consumePendingMission1ChaseIntro`, campos `mission1ChaseActivated/PrankedyEntered/PrankedyExitPoint/
+  Crowd/CrowdLastSpawn`, estado `pendingMission1ChaseIntro`, consts `MISSION1_CHASE_*`, cómic
+  `StoryComicCatalog.MISSION1_CHASE_INTRO_ID` y ruta nav `story_mission1_chase`. NO reintroducir los
+  nombres viejos (grep de `mission2Chase|pendingMission2Intro|MISSION2_` debe dar 0 en código).
+- **🆕 MISIÓN 2 · "El rumor" (2026-07-03) — reglas/gotchas:** lógica en `WorldMapMission2.kt`
+  (extensiones SIN gemelo miembro; guion/constantes en `domain/models/campaign/mission2/Mission2.kt`;
+  detalle en `CAMPAIGN/02_MISSION_2.md`). Claves:
+  - La fase vive en `WorldMapViewModel.mission2Phase` y se PERSISTE en **`GameSaveData.mission2Phase`**
+    (Int primitivo → guardados viejos cargan 0 = no iniciada). Los ACTORES (`mission2Npcs`, fusionados en
+    `uiState.npcs` por `updateNpcsState`) NO se guardan: cada tick de fase es **idempotente** y
+    re-spawnea los suyos si el mapa está vacío (cubre CARGAR partida y reintentos).
+  - `buildSaveData` **EXCLUYE** los NPCs de misión (`M2_*`/`CAMPAIGN_COP_*`/`ESCOM_FLOOD_*`) del snapshot
+    `nearbyNpcs` — si no, al CARGAR se re-inyectaban como civiles adoptados por la IA (duplicados/zombie
+    huérfano vagando).
+  - El zombie del brote se crea con **`visualConfig = null`** al convertirse (gotcha de render: un ZOMBIE
+    con visualConfig se dibuja como humano en los 3 renderers).
+  - En la fase PLÁTICA (`PHASE_TALK`) el game loop **NO corre `runPrankedyTick`** (branch dedicado en el
+    `when` de Prankedy del loop MIEMBRO): Prankedy debe quedarse ESTÁTICO; sin el gate te seguiría.
+  - Los SUBTÍTULOS de conversación van en `WorldMapState.storyConvoSpeaker/Text` (overlay nuevo en
+    `WorldMapScreenOverlays`); el rumor se PAUSA si el jugador sale del radio (cursores
+    `mission2ConvoIndex/NextMs` en el VM). Los DIÁLOGOS están hardcodeados en español (convención de
+    textos de historia); los TÍTULOS de objetivos sí son `@StringRes` (`obj_m2_*`, ES+EN).
+  - `retryCampaignMission` (ids con prefijo `m2_`) reinicia la misión COMPLETA desde la fase 1: respawn
+    en `Mission2.RETRY_SPAWN_*` + objetivo INGRESAR_ESCOM marcado done → `maybeStartMission2Story`
+    re-arma. ⚠️ `respawnPrankedyCompanionHere()` NO debe llamarse en el retry de m2 (re-fijaría el
+    objetivo ESCOLTAR_PRANKEDY y rompería el reinicio).
+  - La puerta de la ESCOM REDIRIGE al salón `escom_salon_m2` SOLO con `mission2Phase==PHASE_BACKPACK` y
+    SOLO para la ruta default de ESCOM (`WorldMapInteractions`); las puertas de FES/Neza no se tocan. El
+    salón (lata apestosa, evacuación, mochila 🎒): ver 05.
 - **🆕 Panel Debug Interiores movible + Salir (`InteriorDebugEditorPanel`):** el editor de líneas de
   colisión del mapa global ahora es movible/redimensionable/scroll (mismo patrón que el panel del
   diseñador de matrices: asa con `detectDragGestures`, `graphicsLayer` scale −/+, `heightIn(max=90%)` +
