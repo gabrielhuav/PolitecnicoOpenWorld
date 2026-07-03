@@ -27,7 +27,8 @@ import kotlin.math.sin
  * paso contra la matriz.
  */
 open class InteriorViewModel(
-    private val collisionGrid: CollisionGrid,
+    // Publico (solo lectura) para que la capa de OCLUSION de InteriorScreenBase lea las celdas '2'.
+    val collisionGrid: CollisionGrid,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 

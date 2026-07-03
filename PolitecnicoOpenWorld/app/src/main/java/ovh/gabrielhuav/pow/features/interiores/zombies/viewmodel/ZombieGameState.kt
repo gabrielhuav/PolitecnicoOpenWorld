@@ -88,7 +88,8 @@ data class ZombieGameState(
     // ─── MODO DISEÑADOR DE LA MATRIZ DE COLISIÓN ───────────
     val designerMode: Boolean = false,
     val designerRows: List<String> = emptyList(),
-    val designerBrushWall: Boolean = true,
+    // Pincel activo: PARED, OBJETO_QUE_TAPA o BORRAR. Antes era Boolean; ahora enum para la oclusion.
+    val designerBrush: DesignerBrush = DesignerBrush.WALL,
     val designerDirty: Boolean = false,
 
     // ─── MODO DISEÑADOR DE WAYPOINTS (puertas) ─────────────
@@ -96,5 +97,8 @@ data class ZombieGameState(
     val designerDoors: List<ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor> = emptyList(),
     val selectedDoorIndex: Int = -1
 )
+
+/** Pincel del Modo Disenador de la MATRIZ: WALL='#', OCCLUDER='^' (tapa+y-sort), ERASE='.'. */
+enum class DesignerBrush { WALL, OCCLUDER, ERASE }
 
 // DesignerTarget y CameraTransform se movieron a

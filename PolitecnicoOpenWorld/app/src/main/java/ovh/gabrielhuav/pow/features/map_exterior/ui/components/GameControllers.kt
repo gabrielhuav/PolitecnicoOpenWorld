@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -65,6 +66,7 @@ fun JoystickController(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var isDragging by remember { mutableStateOf(false) }
     val latestOffset by rememberUpdatedState(offset)
+    val feedback = rememberInputFeedback()
 
     // Bucle continuo de movimiento a ~30 fps cuando se mantiene arrastrado.
     // La clave es sólo 'isDragging' para que el efecto NO se reinicie con cada cambio de offset;
@@ -89,7 +91,7 @@ fun JoystickController(
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f)))
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { isDragging = true },
+                    onDragStart = { isDragging = true; feedback.tap() },
                     onDragEnd = { isDragging = false; offset = Offset.Zero },
                     onDragCancel = { isDragging = false; offset = Offset.Zero },
                     onDrag = { change, dragAmount ->
@@ -108,13 +110,16 @@ fun JoystickController(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Círculo interior (El "pulgar" del joystick)
+        // Círculo interior (El "pulgar" del joystick). Se ACLARA mientras se arrastra (resalte visual).
         Box(
             modifier = Modifier
                 .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(Color.DarkGray.copy(alpha = 0.8f))
+                .background(
+                    if (isDragging) Color.LightGray.copy(alpha = 0.95f)
+                    else Color.DarkGray.copy(alpha = 0.8f)
+                )
         )
     }
 }
@@ -134,6 +139,7 @@ fun VehicleJoystickController(
     var offset by remember { mutableStateOf(Offset.Zero) }
     // Estado de dirección actual, para emitir press/release solo en los cambios.
     var steering by remember { mutableStateOf(0) } // -1 izq, 0 centro, +1 der
+    val feedback = rememberInputFeedback()
 
     fun setSteer(dir: Int) {
         if (dir == steering) return
@@ -142,6 +148,7 @@ fun VehicleJoystickController(
         if (steering > 0) onSteerRight(false)
         if (dir < 0) onSteerLeft(true)
         if (dir > 0) onSteerRight(true)
+        if (dir != 0) feedback.tap()
         steering = dir
     }
 
@@ -209,12 +216,18 @@ fun DPadController(
 
 @Composable
 private fun DPadButton(icon: ImageVector, onClick: () -> Unit) {
+    val feedback = rememberInputFeedback()
+    var pressed by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .size(48.dp)
+            .scale(if (pressed) 0.88f else 1f)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.DarkGray.copy(alpha = 0.8f))
-            .repeatingClickable(onClick = onClick), // Usamos nuestro modificador especial
+            .background(Color.DarkGray.copy(alpha = if (pressed) 1f else 0.8f))
+            .repeatingClickable(
+                onPress = { p -> pressed = p; if (p) feedback.tap() },
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
@@ -289,14 +302,21 @@ fun ActionButton(
     color: Color,
     onHoldEvent: (Boolean) -> Unit
 ) {
+    val feedback = rememberInputFeedback()
+    var pressed by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .padding(4.dp)
             .size(48.dp)
+            .scale(if (pressed) 0.88f else 1f)
             .clip(CircleShape)
-            .background(color)
+            .background(if (pressed) color.copy(alpha = 0.7f) else color)
             //  INYECTAMOS LA DETECCIÓN DE MANTENER PRESIONADO
-            .detectHoldEvent { isPressed -> onHoldEvent(isPressed) },
+            .detectHoldEvent { isPressed ->
+                pressed = isPressed
+                if (isPressed) feedback.tap()
+                onHoldEvent(isPressed)
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -355,12 +375,19 @@ fun VehicleDPadController(
 
 @Composable
 private fun VehicleDpadButton(icon: ImageVector, onHold: (Boolean) -> Unit) {
+    val feedback = rememberInputFeedback()
+    var pressed by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .size(48.dp)
+            .scale(if (pressed) 0.88f else 1f)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.DarkGray.copy(alpha = 0.8f))
-            .detectHoldEvent(onHold), // press/release (no repetición discreta)
+            .background(Color.DarkGray.copy(alpha = if (pressed) 1f else 0.8f))
+            .detectHoldEvent { isPressed -> // press/release (no repetición discreta)
+                pressed = isPressed
+                if (isPressed) feedback.tap()
+                onHold(isPressed)
+            },
         contentAlignment = Alignment.Center
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
@@ -405,13 +432,20 @@ fun Ps4ActionButtonsController(
 
 @Composable
 private fun Ps4Button(symbol: String, color: Color, onHoldEvent: (Boolean) -> Unit) {
+    val feedback = rememberInputFeedback()
+    var pressed by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .padding(4.dp)
             .size(48.dp)
+            .scale(if (pressed) 0.88f else 1f)
             .clip(CircleShape)
-            .background(color)
-            .detectHoldEvent(onHoldEvent),
+            .background(if (pressed) color.copy(alpha = 0.7f) else color)
+            .detectHoldEvent { isPressed ->
+                pressed = isPressed
+                if (isPressed) feedback.tap()
+                onHoldEvent(isPressed)
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -430,15 +464,18 @@ private fun Ps4Button(symbol: String, color: Color, onHoldEvent: (Boolean) -> Un
 fun Modifier.repeatingClickable(
     initialDelay: Long = 10,
     delayBetweenClicks: Long = 40, // 40ms = ~25 fps de actualización de movimiento
+    onPress: (Boolean) -> Unit = {},
     onClick: () -> Unit
 ): Modifier = composed {
     val currentClickListener by rememberUpdatedState(onClick)
+    val currentPressListener by rememberUpdatedState(onPress)
     val coroutineScope = rememberCoroutineScope()
     var job: Job? by remember { mutableStateOf(null) }
 
     pointerInput(Unit) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false)
+            currentPressListener(true)
             job = coroutineScope.launch {
                 currentClickListener() // Disparo inicial
                 delay(initialDelay)
@@ -447,8 +484,12 @@ fun Modifier.repeatingClickable(
                     delay(delayBetweenClicks)
                 }
             }
-            waitForUpOrCancellation()
-            job?.cancel() // Se detiene cuando sueltas el dedo
+            try {
+                waitForUpOrCancellation()
+            } finally {
+                job?.cancel() // Se detiene cuando sueltas el dedo (o se cancela el gesto)
+                currentPressListener(false)
+            }
         }
     }
 }

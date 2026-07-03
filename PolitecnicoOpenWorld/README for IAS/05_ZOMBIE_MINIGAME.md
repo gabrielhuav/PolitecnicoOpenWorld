@@ -107,8 +107,13 @@ showExitGuide, nearbyDoorLabel, nearbyItemId, pickupToast,
 keys: List<KeyDrop>, nearbyKeyId, lab1KeyFound, keyMessage, showInventory, inventoryKeys: List<String>,
 controlType(=JOYSTICK), controlsScale,
 swapControls, isLoading, remotePlayers, zombieModeActivated, showZombieCinematic,
-designerMode, designerRows, designerBrushWall, designerDirty, designerTarget(MATRIX/WAYPOINTS),
+designerMode, designerRows, designerBrush(WALL/OCCLUDER/ERASE), designerDirty, designerTarget(MATRIX/WAYPOINTS),
 designerDoors, selectedDoorIndex`.
+
+> **🆕 Pincel del diseñador de matriz = enum `DesignerBrush { WALL, OCCLUDER, ERASE }`** (antes era
+> `designerBrushWall: Boolean`). `setDesignerBrush(brush)` (extensión en `ZombieGameDesigner.kt`) y
+> `paintCellAtWorld` pintan `'#'` / `'^'` / `'.'`. La toolbar tiene 3 botones: **PARED** (rojo), **OBJETO**
+> (azul, `'^'`) y **BORRAR** (verde). `CollisionMatrixDesignerLayer` dibuja `'#'` en rojo y `'^'` en azul.
 
 ```kotlin
 enum class DesignerTarget { MATRIX, WAYPOINTS }
@@ -247,6 +252,12 @@ data class ZombieServerMessage(type, sessionId, id, displayName, roomId, zone, x
 
 ## Render — `ZombieGameScreen.kt` / `ZombieHud.kt`
 - `CameraTransform` consciente del zoom, clamp a límites, `max(viewW/worldW, viewH/worldH)`.
+- **🆕 CAPA DE OCLUSIÓN (profundidad):** tras dibujar al jugador (y dentro de `!designerMode`), una `Canvas`
+  redibuja el trozo del fondo de las celdas `'^'` de `room.collisionMatrix` ENCIMA del jugador cuando el
+  OBJETO está DELANTE (su base al sur de `state.playerY`). Las celdas `'^'` contiguas se agrupan en objetos
+  (4-conexo, `computeOccluders`, memoizado por matriz) para compartir la **Y-base** (borde inferior) → y-sort
+  por objeto, no por celda. Coste ~0 en salas sin `'^'` (no compone la capa). Ocluye al **jugador local**
+  (no a zombis/remotos; ampliable). Los `HUD`/controles se dibujan después → nunca los tapa.
 - FX de daño: screen shake, viñeta roja que **escala con HP perdido** (`damagePulseTrigger`), pulso de
   vida baja, knockback a zombis, recoil del jugador. Iluminación dinámica en interiores oscuros.
 - Pantallas WASTED / Victory. SkillEffects dibujados como iconos Canvas puros.

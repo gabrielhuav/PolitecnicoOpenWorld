@@ -66,15 +66,21 @@ fun CollisionMatrixDesignerLayer(
         val cellW = worldWidth / numCols
         val cellH = worldHeight / numRows
 
-        // Celdas-pared (rojo semitransparente).
+        // Celdas pintadas: PARED '#' (rojo) y OBJETO QUE TAPA '^' (azul). El resto ('.') se deja libre.
         for (r in 0 until numRows) {
             val rowStr = rows[r]
             for (c in 0 until numCols) {
-                if (c >= rowStr.length || rowStr[c] != '#') continue
+                if (c >= rowStr.length) continue
+                val ch = rowStr[c]
+                val color = when (ch) {
+                    '#' -> Color(0x66FF3B30)
+                    '^' -> Color(0x664FC3F7)
+                    else -> continue
+                }
                 val tlX = toScreenX(c * cellW); val tlY = toScreenY(r * cellH)
                 val brX = toScreenX((c + 1) * cellW); val brY = toScreenY((r + 1) * cellH)
                 drawRect(
-                    color = Color(0x66FF3B30),
+                    color = color,
                     topLeft = Offset(minOf(tlX, brX), minOf(tlY, brY)),
                     size = Size(abs(brX - tlX), abs(brY - tlY))
                 )

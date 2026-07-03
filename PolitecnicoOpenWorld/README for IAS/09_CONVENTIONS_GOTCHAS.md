@@ -964,4 +964,36 @@ updated **in the same change** that touches the code. Treat it as part of the de
 ### Definición de "hecho" / Definition of done
 El cambio está completo solo cuando: **el código compila/valida** (Android Studio Rebuild; servidores
 `node --check server.js`) **y** los tres conjuntos de docs describen la nueva realidad y concuerdan. Si no
-puedes actualizar los docs, **la tarea no está terminada — dilo explícitamente.** 
+puedes actualizar los docs, **la tarea no está terminada — dilo explícitamente.**
+
+---
+
+## 🆕 Capa de oclusión (profundidad) + Retroalimentación de botones
+
+### Oclusión / depth y-sort (interiores)
+- **Motor de salas (05):** la matriz admite la celda **`'^'` = OBJETO QUE TAPA** (`CollisionMatrix.OCCLUDER`).
+  BLOQUEA igual que `'#'` **y** el render dibuja al jugador **detrás** cuando está al norte de la celda y
+  **delante** cuando está al sur (y-sort). Se pinta en el Diseñador (pincel **OBJETO**, azul) y se persiste en
+  `collision_matrices.json` (formato sin cambios; `'^'` es un carácter más). Render en `ZombieGameScreen`:
+  `computeOccluders` agrupa `'^'` contiguas (4-conexo) → Y-base por objeto; una `Canvas` redibuja el trozo del
+  fondo sobre el jugador. Solo ocluye al **jugador local**.
+- **Interiores simples (06):** `CollisionGrid` usa **valor `2`** (`CollisionGrid.OCCLUDER`) con la misma
+  semántica; `InteriorScreenBase` tiene la misma capa (`computeGridOccluders`). `InteriorViewModel.collisionGrid`
+  es **público** (solo lectura) para que la vista lea los `2`. Sin diseñador aquí → se autora la grid a mano.
+- **⚠️ GOTCHA servidor (online):** `server.js` (interiores) hoy solo bloquea `'#'`. Los `'^'` **NO** bloquean
+  a los zombis autoritativos online. Si se quiere paridad, añadir `'^'` al check del server (ver 08) y anotarlo.
+  El CLIENTE sí bloquea `'^'`/`2`. En salas ENCB/lobby (offline/seguras) no afecta.
+- **⚠️ GOTCHA render:** la capa de oclusión va **DESPUÉS del jugador y DENTRO de `!designerMode`**, antes del
+  HUD (que se dibuja luego y nunca se tapa). En Modo Diseñador NO se ocluye (ves la matriz cruda).
+
+### Retroalimentación de botones (feedback) — `map_exterior/ui/components/InputFeedback.kt`
+- **Compartida por interiores y exterior** (los controles viven en `GameControllers.kt`). Tres canales:
+  **VISUAL** (el botón se hunde `scale 0.88` + se aclara al pulsar; el pulgar del joystick se aclara al
+  arrastrar), **HÁPTICO** (`View.performHapticFeedback(VIRTUAL_KEY)`, respeta ajustes del sistema, **sin
+  permiso VIBRATE**) y **SONIDO** (`AudioManager.playSoundEffect(FX_KEY_CLICK)` a volumen = **SFX de
+  Ajustes→Audio**; 0 = mudo; respeta además "sonidos táctiles" del SO, sin assets).
+- `rememberInputFeedback()` se crea 1 vez por pantalla; lee el volumen SFX al entrar (como otros ajustes).
+  `feedback.tap()` se llama en el **flanco de bajada** de cada botón (`ActionButton`, `DPadButton`, `Ps4Button`,
+  `VehicleDpadButton`, joystick). `repeatingClickable` ganó `onPress:(Boolean)` para el resalte/feedback 1×/toque.
+- **No** añade un toggle de Ajustes propio: el sonido se controla con el slider **Efectos** (Audio) y la
+  vibración con los ajustes hápticos del sistema. (Si se quisiera un toggle dedicado, iría en Ajustes→Interfaz.) 

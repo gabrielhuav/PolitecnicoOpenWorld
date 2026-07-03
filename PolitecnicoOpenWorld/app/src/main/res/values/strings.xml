@@ -401,10 +401,11 @@
     <string name="cd_metrobus_player">Jugador Metrobús</string>
     <!-- ─── Diseñador de matrices/waypoints (compartido metro/metrobús/zombi, Modo Desarrollador) ─── -->
     <string name="int_designer">Diseñador</string>
-    <string name="int_grid_paint">Toca o arrastra sobre la rejilla. Rojo = pared.</string>
+    <string name="int_grid_paint">Toca o arrastra. Rojo = pared · Azul = objeto que tapa.</string>
     <string name="int_matrix">MATRIZ</string>
     <string name="int_waypoints">WAYPOINTS</string>
     <string name="int_wall">PARED</string>
+    <string name="int_occluder">OBJETO</string>
     <string name="int_erase">BORRAR</string>
     <string name="int_save">GUARDAR</string>
     <string name="int_w_minus">ANCHO −</string>

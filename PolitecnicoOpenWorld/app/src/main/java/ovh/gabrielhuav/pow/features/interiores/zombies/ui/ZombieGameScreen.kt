@@ -78,7 +78,8 @@ import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieInteriorV
 // → ahora son extensiones y requieren import explícito desde el paquete ui. Ver 09 §0.
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.toggleDesignerMode
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerTarget
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerBrushWall
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerBrush
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.DesignerBrush
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.selectDoorAtWorld
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.moveSelectedDoorToWorld
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.saveDesignerWaypoints
@@ -592,6 +593,51 @@ fun ZombieGameScreen(
                         )
                         .alpha(ghostAlpha)
                 )
+
+                // ─── CAPA DE OCLUSION (profundidad) ──────────────────────────────
+                // Los objetos '^' de la matriz "tapan" al jugador: se REDIBUJA el trozo del fondo de
+                // esas celdas ENCIMA del jugador cuando el objeto esta DELANTE (su base al sur de los
+                // pies del jugador). Asi el jugador pasa POR DETRAS al norte y POR DELANTE al sur.
+                // Decision por OBJETO (celdas '^' contiguas comparten la Y-base), memoizada por matriz.
+                val occRows = room.collisionMatrix?.rows
+                val occBg = background
+                if (occRows != null && occBg != null) {
+                    val occluders = remember(occRows, room.worldWidth, room.worldHeight) {
+                        computeOccluders(occRows, room.worldWidth, room.worldHeight)
+                    }
+                    if (occluders.isNotEmpty()) {
+                        val occCols = occRows.maxOf { it.length }.coerceAtLeast(1)
+                        val occRowsN = occRows.size
+                        val occCellW = room.worldWidth / occCols
+                        val occCellH = room.worldHeight / occRowsN
+                        val feetY = state.playerY
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            translate(cam.offsetX, cam.offsetY) {
+                                scale(cam.scale, cam.scale, pivot = Offset.Zero) {
+                                    occluders.forEach { oc ->
+                                        if (oc.anchorBottomY <= feetY) return@forEach
+                                        val wx0 = oc.col * occCellW
+                                        val wy0 = oc.row * occCellH
+                                        if (!onScreen(wx0 + occCellW / 2f, wy0 + occCellH / 2f)) return@forEach
+                                        val sx = (wx0 / room.worldWidth * occBg.width).toInt().coerceIn(0, occBg.width - 1)
+                                        val sy = (wy0 / room.worldHeight * occBg.height).toInt().coerceIn(0, occBg.height - 1)
+                                        val sw = (occCellW / room.worldWidth * occBg.width).toInt()
+                                            .coerceIn(1, occBg.width - sx)
+                                        val sh = (occCellH / room.worldHeight * occBg.height).toInt()
+                                            .coerceIn(1, occBg.height - sy)
+                                        drawImage(
+                                            image = occBg,
+                                            srcOffset = IntOffset(sx, sy),
+                                            srcSize = IntSize(sw, sh),
+                                            dstOffset = IntOffset(wx0.toInt(), wy0.toInt()),
+                                            dstSize = IntSize(occCellW.toInt() + 1, occCellH.toInt() + 1)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             // ─── Mano zombi fija en el lobby (desaparece tras activar el modo zombie) ──
             // Solo visible en Modo Desarrollador (Interfaz): es la que activa el modo zombi.
@@ -964,7 +1010,7 @@ fun ZombieGameScreen(
             val gridCols = state.designerRows.maxOfOrNull { it.length } ?: 0
             DesignerToolbar(
                 target = state.designerTarget,
-                brushWall = state.designerBrushWall,
+                brush = state.designerBrush,
                 dirty = state.designerDirty,
                 roomName = room.displayName,
                 hasSelectedDoor = state.selectedDoorIndex >= 0,
@@ -972,7 +1018,7 @@ fun ZombieGameScreen(
                 gridRows = gridRows,
                 onResize = viewModel::resizeDesignerMatrixBy,
                 onSelectTarget = viewModel::setDesignerTarget,
-                onBrush = viewModel::setDesignerBrushWall,
+                onBrush = viewModel::setDesignerBrush,
                 onSave = { if (isWaypoints) viewModel.saveDesignerWaypoints() else viewModel.saveDesignerMatrix() },
                 onReset = { if (isWaypoints) viewModel.resetDesignerWaypoints() else viewModel.resetDesignerMatrix() },
                 onExport = {
@@ -1002,7 +1048,7 @@ fun ZombieGameScreen(
 @Composable
 private fun DesignerToolbar(
     target: DesignerTarget,
-    brushWall: Boolean,
+    brush: DesignerBrush,
     dirty: Boolean,
     roomName: String,
     hasSelectedDoor: Boolean,
@@ -1010,7 +1056,7 @@ private fun DesignerToolbar(
     gridRows: Int,
     onResize: (Int, Int) -> Unit,
     onSelectTarget: (DesignerTarget) -> Unit,
-    onBrush: (Boolean) -> Unit,
+    onBrush: (DesignerBrush) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
     onExport: () -> Unit,
@@ -1104,8 +1150,9 @@ private fun DesignerToolbar(
         // scrollea JUNTA; solo el asa "⠿ Mover" de arriba queda fija para poder arrastrar siempre.
         if (!isWaypoints) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_wall), brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_erase), !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_wall), brush == DesignerBrush.WALL, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(DesignerBrush.WALL) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_occluder), brush == DesignerBrush.OCCLUDER, Color(0xFF4FC3F7), Modifier.weight(1f)) { onBrush(DesignerBrush.OCCLUDER) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_erase), brush == DesignerBrush.ERASE, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(DesignerBrush.ERASE) }
             }
             Text(
                 androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_size_grid, gridCols, gridRows),
@@ -1209,6 +1256,57 @@ private fun KeyGroundItem(assetPath: String, highlighted: Boolean, modifier: Mod
             Text("🔑", fontSize = 26.sp)
         }
     }
+}
+
+/** Celda '^' lista para redibujar: col/fila + la Y-base (inferior, mundo) del OBJETO al que pertenece. */
+private class OccluderCell(val col: Int, val row: Int, val anchorBottomY: Float)
+
+/** Agrupa las celdas '^' contiguas (4-conexo) en objetos y devuelve cada celda con la Y-base de su
+ *  objeto. Asi un mueble alto ocluye como un todo segun su base. Se llama 1 vez por matriz (remember). */
+private fun computeOccluders(rows: List<String>, worldW: Float, worldH: Float): List<OccluderCell> {
+    if (rows.isEmpty() || worldW <= 0f || worldH <= 0f) return emptyList()
+    val numRows = rows.size
+    val numCols = rows.maxOf { it.length }.coerceAtLeast(1)
+    fun isOcc(r: Int, c: Int) = c < rows[r].length && rows[r][c] == '^'
+    val comp = Array(numRows) { IntArray(numCols) { -1 } }
+    val compMaxRow = ArrayList<Int>()
+    var nextComp = 0
+    for (r in 0 until numRows) {
+        for (c in 0 until numCols) {
+            if (!isOcc(r, c) || comp[r][c] != -1) continue
+            val id = nextComp++
+            var maxRow = r
+            val stack = ArrayDeque<Int>()
+            comp[r][c] = id
+            stack.addLast(r * numCols + c)
+            while (stack.isNotEmpty()) {
+                val cell = stack.removeLast()
+                val cr = cell / numCols; val cc = cell % numCols
+                if (cr > maxRow) maxRow = cr
+                val neigh = intArrayOf(cr - 1, cc, cr + 1, cc, cr, cc - 1, cr, cc + 1)
+                var i = 0
+                while (i < neigh.size) {
+                    val nr = neigh[i]; val nc = neigh[i + 1]; i += 2
+                    if (nr in 0 until numRows && nc in 0 until numCols && isOcc(nr, nc) && comp[nr][nc] == -1) {
+                        comp[nr][nc] = id
+                        stack.addLast(nr * numCols + nc)
+                    }
+                }
+            }
+            compMaxRow.add(maxRow)
+        }
+    }
+    if (nextComp == 0) return emptyList()
+    val cellH = worldH / numRows
+    val out = ArrayList<OccluderCell>()
+    for (r in 0 until numRows) {
+        for (c in 0 until numCols) {
+            val id = comp[r][c]
+            if (id < 0) continue
+            out.add(OccluderCell(c, r, (compMaxRow[id] + 1) * cellH))
+        }
+    }
+    return out
 }
 
 private fun computeCamera(

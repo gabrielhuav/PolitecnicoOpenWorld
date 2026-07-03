@@ -6,7 +6,8 @@ package ovh.gabrielhuav.pow.features.interiores.escom.viewmodel
  *
  *  - 0 = no caminable (pared, mueble, vacío)
  *  - 1 = caminable
- *  - 2+ = reservados para futuro (spawn, trigger, salida, etc.)
+ *  - 2 = OBJETO QUE TAPA (bloquea + y-sort; la capa de oclusion de InteriorScreenBase lo dibuja encima)
+ *  - 3+ = reservados para futuro (spawn, trigger, salida, etc.; siguen caminables)
  *
  * Convención de orientación:
  *  - grid[fila][columna]
@@ -26,7 +27,16 @@ class CollisionGrid(val grid: Array<IntArray>) {
         if (rows == 0 || cols == 0) return true
         val col = (normalizedX * cols).toInt().coerceIn(0, cols - 1)
         val row = (normalizedY * rows).toInt().coerceIn(0, rows - 1)
-        return grid[row][col] != 0
+        val v = grid[row][col]
+        return v != 0 && v != OCCLUDER
+    }
+
+    /** La celda normalizada es un OBJETO QUE TAPA (valor 2)? La usa la capa de oclusion. */
+    fun isOccluder(normalizedX: Float, normalizedY: Float): Boolean {
+        if (rows == 0 || cols == 0) return false
+        val col = (normalizedX * cols).toInt().coerceIn(0, cols - 1)
+        val row = (normalizedY * rows).toInt().coerceIn(0, rows - 1)
+        return grid[row][col] == OCCLUDER
     }
 
     /**
@@ -43,6 +53,8 @@ class CollisionGrid(val grid: Array<IntArray>) {
     companion object {
         const val ROWS = 30
         const val COLS = 20
+        /** Valor de celda "objeto que tapa" (bloquea + y-sort). */
+        const val OCCLUDER = 2
 
         /**
          * Matriz vacía con borde de paredes. Útil como punto de partida para
