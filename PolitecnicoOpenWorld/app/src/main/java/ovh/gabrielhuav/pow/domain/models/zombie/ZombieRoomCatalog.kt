@@ -28,6 +28,13 @@ object ZombieRoomCatalog {
     const val ENCB_LAB1_ID = "encb_lab1"
     const val ENCB_LAB2_ID = "encb_lab2"
 
+    // MODO HISTORIA · MISIÓN 2 (fase MOCHILA): salón de la ESCOM donde Prankedy escondió su
+    // mochila. Sala STANDALONE tipo LOBBY (sin zombis) EN CLASES: los NPCs ambientales
+    // (estudiantes IPN/docente) están dentro y SOLO salen al lanzar la LATA APESTOSA; entonces
+    // aparece la mochila 🎒. Se entra por la puerta de la ESCOM SOLO durante esa fase
+    // (WorldMapInteractions redirige la ruta) y su única puerta regresa al mapa.
+    const val ESCOM_SALON_M2_ID = "escom_salon_m2"
+
     // Salas del Modo Historia de la ENCB. ZombieGameScreen pinta el banner de objetivo
     // ("Objetivo: Investiga qué pasó") cuando la sala actual pertenece a este conjunto.
     val ENCB_STORY_ROOM_IDS = setOf(ENCB_LOBBY_ID, ENCB_SALON1_ID, ENCB_LAB1_ID, ENCB_LAB2_ID)
@@ -177,6 +184,29 @@ object ZombieRoomCatalog {
         add(encbStoryRoom(ENCB_SALON1_ID, "Salón ENCB",  "INTERIORS/ENCB/ENCB_salon1.webp", nextTargetId = ENCB_LAB1_ID, prevTargetId = ENCB_LOBBY_ID, playerScaleMul = 3f))
         add(encbStoryRoom(ENCB_LAB1_ID,   "Lab. ENCB 1", "INTERIORS/ENCB/ENCB_lab1.webp",   nextTargetId = ENCB_LAB2_ID, prevTargetId = ENCB_SALON1_ID, playerScaleMul = 3f))
         add(encbStoryRoom(ENCB_LAB2_ID,   "Lab. ENCB 2", "INTERIORS/ENCB/ENCB_lab2.webp",   nextTargetId = EXIT_TO_STORY_OUTRO, prevTargetId = ENCB_LAB1_ID, playerScaleMul = 3f))
+        // ─── MISIÓN 2 · SALÓN DE LA MOCHILA (ESCOM) ──────────────────────────
+        // Reusa el fondo de salón de la ENCB (mismo estilo de aula; sin asset propio todavía).
+        // Única puerta = salida al mapa (abajo). Los estudiantes "en clase" son NPCs ambientales
+        // (ZombieAmbientNpcs); la lata apestosa y la mochila viven en el VM de interiores.
+        add(
+            ZombieRoom(
+                id = ESCOM_SALON_M2_ID,
+                type = ZoneType.LOBBY,
+                backgroundAsset = "INTERIORS/ENCB/ENCB_salon1.webp",
+                displayName = "Salón ESCOM",
+                worldWidth = 1920f,
+                worldHeight = 1080f,
+                zoom = 1.0f,
+                playerSpawnFrac = NormPoint(0.50f, 0.85f),
+                doors = listOf(
+                    ZoneDoor(NormRect(0.42f, 0.86f, 0.58f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
+                ),
+                zombieCount = 0,
+                gridCols = 30,
+                playerScaleMul = 3f,
+                collisionMatrix = LOBBY_MATRIX
+            )
+        )
     }
 
     // ─── MODO HISTORIA ENCB: fábrica de una sala de la cadena lineal ──────────

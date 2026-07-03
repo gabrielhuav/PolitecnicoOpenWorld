@@ -142,7 +142,10 @@ fun ZombieGameScreen(
     // progreso de ENCB_lab1) y callback para PERSISTIRLO (lo escribe MainActivity en el VM del mundo).
     initialInventoryKeys: List<String> = emptyList(),
     initialLab1KeyFound: Boolean = false,
-    onInteriorProgress: (List<String>, Boolean) -> Unit = { _, _ -> }
+    onInteriorProgress: (List<String>, Boolean) -> Unit = { _, _ -> },
+    // MISIÓN 2 · salón de la mochila: se dispara al RECOGER la mochila de Prankedy (el VM del
+    // mundo completa la Misión 2 vía completeMission2Backpack; lo cablea AppNavGraph).
+    onMission2BackpackRecovered: () -> Unit = {}
 ) {
     val context = LocalContext.current
     // Modo Desarrollador: si está APAGADO se ocultan botones de prueba (Diseñador, y "Salir al mapa"
@@ -183,6 +186,10 @@ fun ZombieGameScreen(
     // MODO HISTORIA: salida del motor de interiores hacia el cómic ENCB_OUTRO.
     LaunchedEffect(state.isExitingToStoryOutro) {
         if (state.isExitingToStoryOutro) { viewModel.consumeExit(); onPlayStoryOutro() }
+    }
+    // MISIÓN 2 · salón: al recoger la mochila se avisa al mundo (completa la misión). Una vez.
+    LaunchedEffect(state.mission2BackpackTaken) {
+        if (state.mission2BackpackTaken) onMission2BackpackRecovered()
     }
 
     DisposableEffect(Unit) {
@@ -464,6 +471,25 @@ fun ZombieGameScreen(
                             y = with(density) { toScreenY(key.y).toDp() } - 22.dp
                         )
                     )
+                }
+
+                // MISIÓN 2 · salón: mochila de Prankedy en el suelo (emoji 🎒; sin asset propio).
+                run {
+                    val bpX = state.mission2BackpackX
+                    val bpY = state.mission2BackpackY
+                    if (bpX != null && bpY != null && !state.mission2BackpackTaken && onScreen(bpX, bpY)) {
+                        val bpSize = 46f * cam.scale
+                        Text(
+                            text = "🎒",
+                            fontSize = with(density) { bpSize.toSp() },
+                            modifier = Modifier
+                                .absoluteOffset(
+                                    x = with(density) { toScreenX(bpX).toDp() } - with(density) { (bpSize / 2).toDp() },
+                                    y = with(density) { toScreenY(bpY).toDp() } - with(density) { (bpSize / 2).toDp() }
+                                )
+                                .alpha(if (state.mission2BackpackNearby) 1f else 0.88f)
+                        )
+                    }
                 }
 
                 // Proyectiles
@@ -749,11 +775,21 @@ fun ZombieGameScreen(
             // puerta cerrada) tiene prioridad y es transitorio.
             val keyPrompt = if (state.nearbyKeyId != null)
                 stringResource(R.string.zgame_key_prompt) else null
+            // MISIÓN 2 · salón de la mochila: prompt de la LATA APESTOSA (con la clase adentro)
+            // o de RECOGER la mochila (cuando ya apareció y estás encima).
+            val m2Prompt = when {
+                room.id == ZombieRoomCatalog.ESCOM_SALON_M2_ID &&
+                    !state.mission2StinkThrown && state.ambientNpcs.isNotEmpty() ->
+                    stringResource(R.string.zgame_stink_prompt)
+                state.mission2BackpackNearby && !state.mission2BackpackTaken ->
+                    stringResource(R.string.zgame_backpack_prompt)
+                else -> null
+            }
             // Z-ORDER: el panel de INVENTARIO es un modal a pantalla completa (va por ENCIMA de todo).
             // Con el inventario ABIERTO suprimimos los avisos de PROXIMIDAD (puerta "Continuar →" / llave),
             // que se dibujan después del HUD y se traslapaban por encima del inventario. Sí mantenemos
             // keyMessage (resultado de PROBAR la llave) y los toasts: son la retroalimentación de usarlo.
-            val proximityPrompt = if (state.showInventory) null else (state.nearbyDoorLabel ?: keyPrompt)
+            val proximityPrompt = if (state.showInventory) null else (state.nearbyDoorLabel ?: keyPrompt ?: m2Prompt)
             (state.keyMessage ?: proximityPrompt ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
                 Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
                     Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,

@@ -259,17 +259,36 @@ class WorldMapViewModel(
     internal val campaignEscortPolice = ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice()
     // Spawn diferido (una vez por activación); setStorySpawn la re-arma en cada entrada de campaña.
     internal var campaignPoliceActivated = false
-    // MISIÓN 2: persecución de 6 policías + multitud saliendo de la ESCOM (ver WorldMapCampaignPolice.kt).
-    internal var mission2ChaseActivated = false
-    // MISIÓN 2: true una vez que Prankedy ENTRA a la ESCOM (huyendo); deja de animarse a partir de ahí.
-    internal var mission2PrankedyEntered = false
-    // MISIÓN 2: posición EXACTA donde Prankedy desespawneó al meterse a la ESCOM. La policía del REMATE
+    // MISIÓN 1 · CHASE (persecución final): 6 policías + multitud saliendo de la ESCOM
+    // (ver WorldMapCampaignPolice.kt). Antes se llamaba "mission2*" en el código; se renombró
+    // a mission1Chase* al crear la Misión 2 REAL (el rumor y la mochila, WorldMapMission2.kt).
+    internal var mission1ChaseActivated = false
+    // CHASE: true una vez que Prankedy ENTRA a la ESCOM (huyendo); deja de animarse a partir de ahí.
+    internal var mission1ChasePrankedyEntered = false
+    // CHASE: posición EXACTA donde Prankedy desespawneó al meterse a la ESCOM. La policía del REMATE
     // se reúne AQUÍ a "platicar" (no en la puerta del objetivo, que queda unos metros más allá).
-    internal var mission2PrankedyExitPoint: org.osmdroid.util.GeoPoint? = null
+    internal var mission1ChasePrankedyExitPoint: org.osmdroid.util.GeoPoint? = null
     // Multitud de NPCs que SALEN de la puerta de la ESCOM (hora de salida) y se despawnean al
     // salir de tu fog of war. Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs.
-    internal val mission2Crowd = ConcurrentHashMap<String, Npc>()
-    internal var mission2CrowdLastSpawn = 0L
+    internal val mission1ChaseCrowd = ConcurrentHashMap<String, Npc>()
+    internal var mission1ChaseCrowdLastSpawn = 0L
+
+    // ─── MISIÓN 2 · "El rumor" (Modo Historia) — lógica en WorldMapMission2.kt ────
+    // Fase de la máquina de estados (Mission2.PHASE_*): 0 = no iniciada, 1 = esconderse de la
+    // policía, 2 = rumor, 3 = brote, 4 = plática con Prankedy, 5 = mochila, 6 = completada.
+    // Se PERSISTE en la partida (GameSaveData.mission2Phase); los timers NO (el tick re-arma).
+    internal var mission2Phase = 0
+    // NPCs propios de la Misión 2 (policías de búsqueda, estudiantes del rumor, actores del
+    // brote). Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs.
+    internal val mission2Npcs = ConcurrentHashMap<String, Npc>()
+    // Timers/cursores internos del tick de la Misión 2 (ver WorldMapMission2.kt).
+    internal var mission2DetectSinceMs = 0L
+    internal var mission2SafeSinceMs = 0L
+    internal var mission2ConvoIndex = 0
+    internal var mission2ConvoNextMs = 0L
+    internal var mission2EventStage = 0
+    internal var mission2EventStageMs = 0L
+    internal var mission2PhaseTransitionMs = 0L
 
     // ─── PRANKEDY (NPC compañero) ─────────────────────────────────────────────
     internal val prankedyManager = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager()
@@ -532,6 +551,9 @@ class WorldMapViewModel(
                             checkObjectiveProgress(location)
                             maybeSpawnPrankedyCompanion(location)
                             maybeHideCampaignRouteNearEscom(location)
+                            // MISIÓN 2 · "El rumor": arranca al VOLVER al campus (mapa global)
+                            // con "Ingresa a la ESCOM" ya cumplida. Gate barato e idempotente.
+                            maybeStartMission2Story(location)
                         }
 
                         checkDestinationArrival()
@@ -756,11 +778,15 @@ class WorldMapViewModel(
                         // mete (huyendo de la policía, que lo persigue por detrás). Tras entrar, no
                         // se le anima más. Fuera de eso, corre su seguimiento normal.
                         val nowMs = System.currentTimeMillis()
-                        val m2 = isMission2ChaseActive()
+                        val m1c = isMission1ChaseActive()
                         when {
-                            m2 && mission2PrankedyEntered -> { /* ya entró: no animar a Prankedy */ }
-                            m2 && prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED ->
-                                runMission2PrankedyEscape(location, nowMs)
+                            m1c && mission1ChasePrankedyEntered -> { /* ya entró: no animar a Prankedy */ }
+                            m1c && prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED ->
+                                runMission1ChasePrankedyEscape(location, nowMs)
+                            // MISIÓN 2 · fase PLÁTICA: Prankedy está ESTÁTICO esperando que te
+                            // acerques a hablar (WorldMapMission2.kt lo spawneó y lo despide).
+                            // Sin este gate, runPrankedyTick lo haría SEGUIRTE por el campus.
+                            mission2Phase == ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_TALK -> { }
                             else -> runPrankedyTick(location, nowMs)
                         }
 
@@ -783,7 +809,7 @@ class WorldMapViewModel(
                         // la policía normal del mundo libre. Al terminar la escolta (o salir de la
                         // campaña) se limpia la policía de campaña.
                         // El objetivo de la ESCOM apunta a la PUERTA real (landmark) más cercana.
-                        if (isCampaignEscortActive() || isMission2ChaseActive()) syncObjectiveToEscomDoor(location)
+                        if (isCampaignEscortActive() || isMission1ChaseActive()) syncObjectiveToEscomDoor(location)
                         when {
                             // MISIÓN 1: escolta (2 a pie, te siguen a distancia).
                             isCampaignEscortActive() -> {
@@ -791,16 +817,24 @@ class WorldMapViewModel(
                                     runCampaignEscortTick(location)
                                 }
                             }
-                            // MISIÓN 2: persecución (6 policías) + multitud saliendo de la ESCOM.
-                            isMission2ChaseActive() -> {
+                            // MISIÓN 1 · CHASE: persecución (6 policías) + multitud saliendo de la ESCOM.
+                            isMission1ChaseActive() -> {
                                 if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
-                                    runMission2Tick(location)
+                                    runMission1ChaseTick(location)
+                                }
+                            }
+                            // MISIÓN 2 · "El rumor": máquina de fases (esconderse/rumor/brote/
+                            // plática/mochila) sobre el campus de la ESCOM. Ver WorldMapMission2.kt.
+                            isMission2StoryActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runMission2StoryTick(location)
                                 }
                             }
                             // Fuera de la campaña / misión cumplida: limpia la policía de campaña y
                             // corre la policía normal del mundo libre.
                             else -> {
-                                if (campaignPoliceActivated || mission2ChaseActivated) clearCampaignPolice()
+                                if (campaignPoliceActivated || mission1ChaseActivated) clearCampaignPolice()
+                                if (!inCampaign && mission2Npcs.isNotEmpty()) clearMission2Story()
                                 if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
                                     runPoliceTick(location)
                                 }
@@ -1073,7 +1107,7 @@ class WorldMapViewModel(
 
     // ─── CAMPAÑA / MODO HISTORIA → WorldMapCampaign.kt ──────────────────────
     // setStorySpawn(lat,lon) (punto de entrada del spawn de campaña) vive en
-    // WorldMapCampaign.kt. El ESTADO de campaña (inCampaign, campaign*/mission2*)
+    // WorldMapCampaign.kt. El ESTADO de campaña (inCampaign, campaign*/mission1Chase*/mission2*)
     // sigue aquí abajo. Lógica de misiones: WorldMapCampaignPolice/Prankedy/SaveGame.
 
     fun updateActionState(action: GameAction, isPressed: Boolean) {

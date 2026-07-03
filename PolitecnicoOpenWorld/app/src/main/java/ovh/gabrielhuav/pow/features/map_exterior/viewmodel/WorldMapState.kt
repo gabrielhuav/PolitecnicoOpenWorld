@@ -200,10 +200,16 @@ data class WorldMapState(
     // (título + distancia) siempre que haya uno. `objectiveDone` se marca al llegar.
     val currentObjective: ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective? = null,
     val objectiveDone: Boolean = false,
-    // MODO HISTORIA · Misión 2: al cumplir la Misión 1 (llegar a la ESCOM) se pone a true para
-    // que MainActivity reproduzca el cómic IntroPOW12..14 y luego arranque la persecución.
-    // MainActivity lo consume (lo vuelve a false) al navegar al cómic.
-    val pendingMission2Intro: Boolean = false,
+    // MODO HISTORIA · Misión 1 (persecución final "chase"): al cumplir la escolta (llegar a la
+    // ESCOM) se pone a true para que AppNavGraph reproduzca el cómic IntroPOW12..15 y luego
+    // arranque la persecución. Se consume (vuelve a false) al navegar al cómic.
+    // (Antes se llamaba pendingMission2Intro; se renombró al crear la Misión 2 real.)
+    val pendingMission1ChaseIntro: Boolean = false,
+    // MISIÓN 2 · "El rumor" — SUBTÍTULOS de conversación (rumor de estudiantes, radio policial,
+    // plática con Prankedy). Los fija WorldMapMission2.kt línea por línea; la View solo los
+    // dibuja (overlay estilo subtítulo en WorldMapScreenOverlays). null = sin conversación.
+    val storyConvoSpeaker: String? = null,
+    val storyConvoText: String? = null,
     // R7 — MUNDO LIBRE / diferir misiones: al cumplir la Misión 1 se muestra un diálogo para ELEGIR
     // entre continuar la historia ya, o seguir en MUNDO LIBRE y retomar la misión después.
     val showMissionContinueDialog: Boolean = false,

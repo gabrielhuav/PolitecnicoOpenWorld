@@ -56,9 +56,9 @@ object Mission1 {
         arriveRadiusMeters = 25.0
     )
 
-    // Misión 2: tras llegar a la ESCOM, te persiguen y debes INGRESAR a la ESCOM (entrar al
-    // edificio). El destino es el centro de la ESCOM con un radio pequeño (al acercarte a la
-    // entrada se cumple). Lo activa MainActivity tras el cómic IntroPOW12..14.
+    // Persecución final de la Misión 1 ("chase"; antes llamada "Misión 2" en el código): tras
+    // llegar a la ESCOM, te persiguen y debes INGRESAR a la ESCOM (entrar al edificio).
+    // Lo activa AppNavGraph tras el cómic IntroPOW12..15 (startMission1Chase).
     // arriveRadiusMeters = 0 → NO se cumple por cercanía (si fuera por cercanía se cumpliría sola,
     // porque ya estás en la puerta tras la Misión 1). Se cumple al INTERACTUAR/ENTRAR por la puerta
     // de la ESCOM (lo marca WorldMapViewModel al disparar el fade de la puerta). Ver checkObjectiveProgress.
@@ -73,7 +73,9 @@ object Mission1 {
 
     // Objetivo de INTERIORES tras la Misión 1: una vez DENTRO de la ESCOM. NO se muestra en
     // el mapa exterior (ahí queda "Ingresa a la ESCOM, Cumplido"); solo en el interior de la ESCOM.
-    // Sin destino real (radio 0): es un objetivo de exploración, no de llegada.
+    // Sin destino real (radio 0): es un objetivo de exploración, no de llegada. La BÚSQUEDA de
+    // pistas REAL (rumor, brote, mochila) es la Misión 2 (mission2/Mission2.kt), que arranca al
+    // VOLVER al campus con INGRESAR_ESCOM cumplida.
     val BUSCAR_PISTAS_ESCOM = CampaignObjective(
         id = "buscar_pistas_escom",
         titleRes = R.string.obj_buscar_pistas_escom_title,

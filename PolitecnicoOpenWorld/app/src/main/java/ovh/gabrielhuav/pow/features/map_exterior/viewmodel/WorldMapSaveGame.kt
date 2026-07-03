@@ -59,6 +59,8 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
         interiorRoomId = currentInteriorRoomId,   // null si está en el mapa global
         inventoryKeys = currentInteriorInventory,
         lab1KeyFound = currentInteriorLab1KeyFound,
+        // MISIÓN 2 · "El rumor": fase de la máquina de estados (0 = no iniciada).
+        mission2Phase = mission2Phase,
         saveType = saveType,
         savedAt = System.currentTimeMillis()
     )
@@ -92,6 +94,9 @@ fun WorldMapViewModel.restoreSaveData(data: GameSaveData) {
     // el interior para sembrar el estado del ZombieInteriorViewModel).
     currentInteriorInventory = data.inventoryKeys
     currentInteriorLab1KeyFound = data.lab1KeyFound
+    // MISIÓN 2 · "El rumor": restaura la fase; el tick (runMission2StoryTick) re-arma solo los
+    // actores de la fase (los NPCs de misión no se guardan). setStorySpawn ya limpió la pizarra.
+    mission2Phase = data.mission2Phase
     _uiState.update {
         it.copy(
             wantedLevel = data.wantedLevel,
@@ -146,11 +151,27 @@ fun WorldMapViewModel.retryCampaignMission(context: Context) {
         setStorySpawn(MissionCatalog.MISSION1_SPAWN_LAT, MissionCatalog.MISSION1_SPAWN_LON)
         setCampaignObjective(MissionCatalog.ESCOLTAR_PRANKEDY)
         playerHealth = maxPlayerHealth
+    } else if (failedObjId != null && failedObjId.startsWith(
+            ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.OBJECTIVE_ID_PREFIX)) {
+        // MISIÓN 2 · "El rumor": el checkpoint es la ENTRADA del campus (spawn ESCOM canónico).
+        // Se re-arma la misión COMPLETA desde la fase 1 (esconderse): mission2Phase=0 +
+        // INGRESAR_ESCOM cumplida hacen que maybeStartMission2Story la reinicie sola.
+        setStorySpawn(
+            ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.RETRY_SPAWN_LAT,
+            ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.RETRY_SPAWN_LON
+        )
+        setCampaignObjective(MissionCatalog.INGRESAR_ESCOM)
+        _uiState.update { it.copy(objectiveDone = true) }
+        playerHealth = maxPlayerHealth
     } else if (!loadGame(context, campaignSlot)) {
         setCampaignObjective(MissionCatalog.ESCOLTAR_PRANKEDY)
     }
-    // Prankedy DEBE estar contigo al reintentar.
-    respawnPrankedyCompanionHere()
+    // Prankedy DEBE estar contigo al reintentar (SOLO en la Misión 1: respawnPrankedyCompanionHere
+    // re-fija el objetivo ESCOLTAR_PRANKEDY — en la Misión 2 eso pisaría el objetivo del retry).
+    if (failedObjId?.startsWith(
+            ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.OBJECTIVE_ID_PREFIX) != true) {
+        respawnPrankedyCompanionHere()
+    }
     _uiState.update { it.copy(showMissionFailed = false) }
 }
 
@@ -164,12 +185,12 @@ fun WorldMapViewModel.setCampaignObjective(objective: ovh.gabrielhuav.pow.domain
 // ─── R7: CONTINUAR / DIFERIR LA HISTORIA tras la Misión 1 ──────────────────────────────────────
 // El diálogo "Misión cumplida" deja ELEGIR entre seguir la historia ya o quedarse en mundo libre.
 
-/** Continuar la historia AHORA: dispara el cómic IntroPOW12..14 + la Misión 2 (flujo existente). */
+/** Continuar la historia AHORA: dispara el cómic IntroPOW12..15 + la persecución final (chase). */
 fun WorldMapViewModel.continueStoryNow() {
-    _uiState.update { it.copy(showMissionContinueDialog = false, pendingResumeMissionId = null, pendingMission2Intro = true) }
+    _uiState.update { it.copy(showMissionContinueDialog = false, pendingResumeMissionId = null, pendingMission1ChaseIntro = true) }
 }
 
-/** Seguir en MUNDO LIBRE: sin objetivo activo; deja la Misión 2 PENDIENTE (habilita "Retomar misión"). */
+/** Seguir en MUNDO LIBRE: sin objetivo activo; deja la persecución PENDIENTE ("Retomar misión"). */
 fun WorldMapViewModel.deferStoryToFreeRoam() {
     _uiState.update { it.copy(
         showMissionContinueDialog = false,
@@ -179,10 +200,10 @@ fun WorldMapViewModel.deferStoryToFreeRoam() {
     ) }
 }
 
-/** "Retomar misión" (Opciones): retoma la historia pendiente (cómic + Misión 2). */
+/** "Retomar misión" (Opciones): retoma la historia pendiente (cómic + persecución final). */
 fun WorldMapViewModel.resumeStoryMission() {
     if (_uiState.value.pendingResumeMissionId == null) return
-    _uiState.update { it.copy(pendingResumeMissionId = null, pendingMission2Intro = true) }
+    _uiState.update { it.copy(pendingResumeMissionId = null, pendingMission1ChaseIntro = true) }
 }
 
 // Comprueba si el jugador llegó al objetivo (lo llama el game loop). Al entrar en el radio
@@ -191,9 +212,9 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
     val s = _uiState.value
     val obj = s.currentObjective ?: return
     if (s.objectiveDone) return
-    // ⚠️ NO auto-completar INGRESAR_ESCOM por cercanía: la Misión 2 ES la PERSECUCIÓN y se cierra al
+    // ⚠️ NO auto-completar INGRESAR_ESCOM por cercanía: esa fase ES la PERSECUCIÓN y se cierra al
     // ENTRAR por la puerta (X → handleInteraction). Si se completara al estar cerca, como tras la
-    // Misión 1 ya estás pegado a la puerta, se cumplía al INSTANTE → la persecución (`runMission2Tick`,
+    // escolta ya estás pegado a la puerta, se cumplía al INSTANTE → la persecución (`runMission1ChaseTick`,
     // gateada por `!objectiveDone`) NUNCA arrancaba (policías/multitud/huida de Prankedy) y además
     // sonaba el jingle 2 veces. Su radio = 0 hace que el guard de abajo la salte (cierre = narrativo/X).
     // Objetivos con radio <= 0 (p. ej. ESCOLTAR_PRANKEDY / INGRESAR_ESCOM) NO se cumplen por llegada:

@@ -89,6 +89,39 @@ fun WorldMapOverlays(
         }
     }
 
+    // ─── MISIÓN 2 · SUBTÍTULOS de conversación (rumor / radio policial / plática con Prankedy).
+    // Caja estilo subtítulo abajo-centro: NOMBRE del que habla (amarillo) + la línea. Los fija
+    // WorldMapMission2.kt en el estado (storyConvoSpeaker/Text); aquí solo se dibujan.
+    if (uiState.storyConvoText != null) {
+        Box(modifier = Modifier.fillMaxSize().padding(bottom = 96.dp), contentAlignment = Alignment.BottomCenter) {
+            androidx.compose.foundation.layout.Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .widthIn(max = 340.dp)
+                    .background(color = Color(0xE0101018), shape = RoundedCornerShape(12.dp))
+                    .border(2.dp, Color(0xFFFFCC00), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 18.dp, vertical = 10.dp)
+            ) {
+                uiState.storyConvoSpeaker?.let { speaker ->
+                    Text(
+                        text = speaker,
+                        color = Color(0xFFFFCC00),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 13.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
+                Text(
+                    text = uiState.storyConvoText ?: "",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+    }
+
     if (uiState.showPrankedyHireDialog) {
         PrankedyHireDialog(
             context = context,

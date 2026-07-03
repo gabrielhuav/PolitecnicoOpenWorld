@@ -406,6 +406,13 @@ class ZombieInteriorViewModel(
                 keys = newKeys,
                 nearbyKeyId = null,
                 keyMessage = null,
+                // MISIÓN 2 · salón: al (re)entrar a cualquier sala se re-arma la escena de la
+                // lata apestosa (si salió sin la mochila, vuelve a haber clase al reentrar).
+                mission2StinkThrown = false,
+                mission2BackpackX = null,
+                mission2BackpackY = null,
+                mission2BackpackNearby = false,
+                mission2BackpackTaken = false,
                 showVictoryScreen = false,
                 activeEffects = emptyList(),
                 showExitGuide = room.type == ZoneType.BUILDING,
@@ -629,6 +636,23 @@ class ZombieInteriorViewModel(
             clearKeyMessageSoon()
             return
         }
+        // 1c. MISIÓN 2 · SALÓN DE LA MOCHILA (escom_salon_m2): lanzar la LATA APESTOSA (vacía el
+        // salón) y, con el salón vacío, RECOGER la mochila de Prankedy. Prioridad sobre puertas.
+        if (currentRoom().id == ZombieRoomCatalog.ESCOM_SALON_M2_ID) {
+            if (!s.mission2StinkThrown && s.ambientNpcs.isNotEmpty()) {
+                soundManager.playItem()
+                _state.update { it.copy(mission2StinkThrown = true) }
+                showKeyMessage("💨 ¡Lanzaste la LATA APESTOSA! El olor es INSOPORTABLE…")
+                return
+            }
+            if (s.mission2BackpackNearby && !s.mission2BackpackTaken) {
+                soundManager.playItem()
+                _state.update { it.copy(mission2BackpackTaken = true, mission2BackpackNearby = false) }
+                showKeyMessage("🎒 Recuperaste la mochila de Prankedy.")
+                return
+            }
+        }
+
         // 2b. Mano zombi en lobby
         if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID) {
             val handNx = 0.50f
@@ -891,14 +915,16 @@ class ZombieInteriorViewModel(
     }
 
     // Mensajes transitorios del puzzle de llaves (se limpian solos a los ~2.8 s).
-    private fun clearKeyMessageSoon() {
+    // `internal` (antes private): también los usa el tick (ZombieGameTick.kt) para los avisos
+    // del salón de la Misión 2 (lata apestosa / mochila).
+    internal fun clearKeyMessageSoon() {
         val msg = _state.value.keyMessage
         viewModelScope.launch {
             delay(2800)
             _state.update { if (it.keyMessage == msg) it.copy(keyMessage = null) else it }
         }
     }
-    private fun showKeyMessage(msg: String) {
+    internal fun showKeyMessage(msg: String) {
         _state.update { it.copy(keyMessage = msg) }
         clearKeyMessageSoon()
     }

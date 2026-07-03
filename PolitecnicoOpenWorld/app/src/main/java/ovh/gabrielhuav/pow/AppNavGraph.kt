@@ -76,8 +76,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.retryCampaignMission
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission2Intro
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission2
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission1ChaseIntro
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission1Chase
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Backpack
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setStorySpawn
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetroStation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusStation
@@ -474,19 +475,19 @@ fun AppNavGraph(
 
                         // ─── MODO HISTORIA · Misión 2 (llegada a la ESCOM: IntroPOW12..14) ──
                         // Cómic que se reproduce al cumplir la Misión 1. Al terminar, arranca la
-                        // Misión 2 (objetivo "Ingresa a la ESCOM" + persecución de 6 policías +
-                        // multitud saliendo de la ESCOM) y vuelve al mundo (popBackStack a world_map,
-                        // que sigue debajo en el backstack).
-                        composable(route = "story_mission2") {
+                        // persecución final de la Misión 1 (objetivo "Ingresa a la ESCOM" + 6
+                        // policías + multitud saliendo de la ESCOM) y vuelve al mundo (popBackStack
+                        // a world_map, que sigue debajo en el backstack).
+                        composable(route = "story_mission1_chase") {
                             StoryIntroScreen(
                                 school = SchoolCatalog.default,
-                                sequenceId = ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog.MISSION2_INTRO_ID,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog.MISSION1_CHASE_INTRO_ID,
                                 onBegin = {
-                                    worldMapViewModel.startMission2()
+                                    worldMapViewModel.startMission1Chase()
                                     navController.popBackStack("world_map", inclusive = false)
                                 },
                                 onBack = {
-                                    worldMapViewModel.startMission2()
+                                    worldMapViewModel.startMission1Chase()
                                     navController.popBackStack("world_map", inclusive = false)
                                 }
                             )
@@ -707,16 +708,16 @@ fun AppNavGraph(
                             }
 
                             // MODO HISTORIA · Misión 1 cumplida (llegaste a la ESCOM) → cómic
-                            // IntroPOW12..14; al volver arranca la persecución de la Misión 2.
-                            LaunchedEffect(uiState.pendingMission2Intro) {
-                                if (uiState.pendingMission2Intro) {
+                            // IntroPOW12..15; al volver arranca la persecución final (chase).
+                            LaunchedEffect(uiState.pendingMission1ChaseIntro) {
+                                if (uiState.pendingMission1ChaseIntro) {
                                     // OJO: NO consumir el flag ANTES del delay; al cambiar el flag
                                     // se cancela este LaunchedEffect y el cómic nunca se lanzaba.
                                     // Deja sonar el jingle de "misión cumplida" un momento y LUEGO
                                     // navega al cómic (consumir + navigate van seguidos, sin suspensión).
                                     kotlinx.coroutines.delay(2200)
-                                    worldMapViewModel.consumePendingMission2Intro()
-                                    navController.navigate("story_mission2")
+                                    worldMapViewModel.consumePendingMission1ChaseIntro()
+                                    navController.navigate("story_mission1_chase")
                                 }
                             }
 
@@ -890,12 +891,17 @@ fun AppNavGraph(
                             // MODO HISTORIA: tras la Misión 1 (INGRESAR_ESCOM cumplida), al entrar al
                             // interior de la ESCOM (lobby) se muestra el objetivo "Busca pistas en la ESCOM".
                             // El objetivo exterior NO cambia (allá sigue "Ingresa a la ESCOM, Cumplido").
-                            val interiorObjective = if (
+                            val interiorObjective = when {
                                 worldMapViewModel.inCampaign &&
                                 startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID &&
                                 wmState.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id &&
-                                wmState.objectiveDone
-                            ) ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.BUSCAR_PISTAS_ESCOM else null
+                                wmState.objectiveDone ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.BUSCAR_PISTAS_ESCOM
+                                // MISIÓN 2 · fase MOCHILA: el salón muestra su propio objetivo.
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ESCOM_SALON_M2_ID ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_RECUPERAR_MOCHILA
+                                else -> null
+                            }
                             ZombieGameScreen(
                                 onExitToWorld = {
                                     worldMapViewModel.currentInteriorRoomId = null
@@ -929,6 +935,11 @@ fun AppNavGraph(
                                 onInteriorProgress = { keys, found ->
                                     worldMapViewModel.currentInteriorInventory = keys
                                     worldMapViewModel.currentInteriorLab1KeyFound = found
+                                },
+                                // MISIÓN 2 · fase MOCHILA: al recoger la mochila de Prankedy en el
+                                // salón, se completa la Misión 2 en el VM del mundo.
+                                onMission2BackpackRecovered = {
+                                    worldMapViewModel.completeMission2Backpack()
                                 }
                             )
                         }

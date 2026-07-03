@@ -139,6 +139,20 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
             hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
         }
 
+        // MISIÓN 2 · SALÓN DE LA MOCHILA: tras la lata apestosa los alumnos EVACÚAN (corren a la
+        // puerta y desaparecen); con el salón vacío APARECE la mochila junto al escritorio.
+        val inM2Salon = room.id == ZombieRoomCatalog.ESCOM_SALON_M2_ID
+        val steppedAmbient = if (inM2Salon && s.mission2StinkThrown)
+            evacuateAmbientNpcs(s.ambientNpcs, room)
+        else
+            stepAmbientNpcs(s.ambientNpcs, room, now)
+        val spawnBackpack = inM2Salon && s.mission2StinkThrown && steppedAmbient.isEmpty() &&
+            s.mission2BackpackX == null && !s.mission2BackpackTaken
+        val bpX = if (spawnBackpack) room.worldWidth * 0.50f else s.mission2BackpackX
+        val bpY = if (spawnBackpack) room.worldHeight * 0.42f else s.mission2BackpackY
+        val bpNear = bpX != null && bpY != null && !s.mission2BackpackTaken &&
+            hypot(bpX - s.playerX, bpY - s.playerY) <= ITEM_PICKUP_DIST * 1.6f
+
         _state.update {
             it.copy(
                 zombies = workingZombies,
@@ -149,8 +163,15 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
                 nearbyItemId = nearItem?.id,
                 nearbyKeyId = nearKey?.id,
                 activeEffects = if (effectsChanged) stillActive else it.activeEffects,
-                ambientNpcs = stepAmbientNpcs(s.ambientNpcs, room, now)
+                ambientNpcs = steppedAmbient,
+                mission2BackpackX = bpX,
+                mission2BackpackY = bpY,
+                mission2BackpackNearby = bpNear
             )
+        }
+        if (spawnBackpack) {
+            soundManager.playItem()
+            showKeyMessage("🎒 ¡El salón quedó vacío! Ahí está la mochila de Prankedy.")
         }
 
         deadZombieIds.forEach { id ->

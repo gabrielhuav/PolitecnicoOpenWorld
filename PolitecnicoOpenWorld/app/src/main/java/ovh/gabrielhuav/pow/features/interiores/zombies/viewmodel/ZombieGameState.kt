@@ -67,6 +67,17 @@ data class ZombieGameState(
     val lab1KeyFound: Boolean = false,
     val keyMessage: String? = null,
 
+    // ─── MISIÓN 2 · SALÓN DE LA MOCHILA (escom_salon_m2) ────────────────────
+    // Lata apestosa: al lanzarla (X), los NPCs ambientales EVACÚAN el salón; cuando queda vacío
+    // aparece la MOCHILA de Prankedy (emoji 🎒, sin asset dedicado). Recogerla (X) marca
+    // mission2BackpackTaken → ZombieGameScreen dispara onMission2BackpackRecovered (completa la
+    // Misión 2 en el VM del mundo). Estos campos solo aplican en esa sala.
+    val mission2StinkThrown: Boolean = false,
+    val mission2BackpackX: Float? = null,
+    val mission2BackpackY: Float? = null,
+    val mission2BackpackNearby: Boolean = false,
+    val mission2BackpackTaken: Boolean = false,
+
     // ─── INVENTARIO ───────────────────────────────────────────────────────
     // Por ahora 1 slot DESBLOQUEADO (guarda 1 llave); el resto se muestran bloqueados (rojo) y
     // se desbloquearán en misiones futuras. `inventoryKeys` = assetPaths de llaves recogidas.

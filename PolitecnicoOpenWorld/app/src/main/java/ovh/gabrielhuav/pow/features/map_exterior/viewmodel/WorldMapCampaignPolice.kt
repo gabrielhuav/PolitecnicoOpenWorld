@@ -14,13 +14,15 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MODO HISTORIA · POLICÍA DE LA CAMPAÑA (Misiones 1 y 2)
+// MODO HISTORIA · POLICÍA DE LA CAMPAÑA (Misión 1: escolta + persecución final "chase")
 //
 // Lógica SEPARADA del sistema de búsqueda del MUNDO LIBRE (PoliceManager / WorldMapWanted.kt).
-//  · Misión 1 (ESCOLTAR_PRANKEDY): 2 policías a pie te SIGUEN a distancia, despacio (1★).
-//  · Misión 2 (INGRESAR_ESCOM): 6 policías te PERSIGUEN desde lejos para obligarte a entrar a
-//    la ESCOM; a la vez una MULTITUD de NPCs SALE de la puerta de la ESCOM (hora de salida) y
-//    se despawnea al salir de tu fog of war.
+//  · Misión 1 · escolta (ESCOLTAR_PRANKEDY): 2 policías a pie te SIGUEN a distancia, despacio (1★).
+//  · Misión 1 · persecución final "chase" (INGRESAR_ESCOM): 6 policías te PERSIGUEN desde lejos
+//    para obligarte a entrar a la ESCOM; a la vez una MULTITUD de NPCs SALE de la puerta de la
+//    ESCOM (hora de salida) y se despawnea al salir de tu fog of war.
+//    (Antes esta fase se llamaba "Misión 2" en el código; se renombró a mission1Chase* al crear
+//    la Misión 2 REAL de campaña — el rumor y la mochila, ver WorldMapMission2.kt.)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Puerta NORTE de la ESCOM (de WorldMapEscom.spawnEscomDoors): de aquí sale la multitud.
@@ -31,11 +33,11 @@ private const val ESCOM_DOOR_LON = -99.14674
 // campos deportivos del Deportivo Miguel Alemán); sin este filtro, esas puertas "secuestraban" el
 // objetivo de la ESCOM hacia fuera del campus.
 private const val ESCOM_DOOR_NEAR_RADIUS = 0.0015
-// MISIÓN 2: a esta distancia de la puerta, Prankedy "entra" a la ESCOM (desaparece) — ~20 m.
-private const val MISSION2_PRANKEDY_ENTER_DEG = 0.00006   // ~6.6 m: camina casi hasta la puerta antes de meterse
+// MISIÓN 1 · CHASE: a esta distancia de la puerta, Prankedy "entra" a la ESCOM (desaparece).
+private const val MISSION1_CHASE_PRANKEDY_ENTER_DEG = 0.00006   // ~6.6 m: camina casi hasta la puerta antes de meterse
 // Diálogo de Prankedy al meterse a la ESCOM (huyendo). Texto de historia, en español (igual que
 // HIRED_PHRASES de PrankedyManager, que también están hardcodeadas).
-private const val MISSION2_PRANKEDY_BYE = "Ahí nos vemos"
+private const val MISSION1_CHASE_PRANKEDY_BYE = "Ahí nos vemos"
 
 // Multitud de salida de la ESCOM. Salen 50+ civiles desde un PUNTO FIJO; se alejan y se
 // despawnean al salir de tu fog of war, y se reemplazan por nuevos (flujo continuo).
@@ -48,10 +50,10 @@ private const val CROWD_SPAWN_OFFSET = 0.00006        // ~6 m del punto de salid
 private const val CROWD_SPAWN_LAT = 19.50512
 private const val CROWD_SPAWN_LON = -99.14625
 
-// Punto FIJO desde donde APARECEN los 6 policías de la persecución de la Misión 2 (tras el
-// cómic IntroPOW12..14). Antes spawneaban relativos al jugador; ahora salen siempre de aquí.
-private const val MISSION2_POLICE_SPAWN_LAT = 19.50484
-private const val MISSION2_POLICE_SPAWN_LON = -99.14561
+// Punto FIJO desde donde APARECEN los 6 policías de la persecución final de la Misión 1 (tras
+// el cómic IntroPOW12..15). Antes spawneaban relativos al jugador; ahora salen siempre de aquí.
+private const val MISSION1_CHASE_POLICE_SPAWN_LAT = 19.50484
+private const val MISSION1_CHASE_POLICE_SPAWN_LON = -99.14561
 
 // Apunta el objetivo (y por tanto el waypoint 🎯, la línea guía, la distancia del widget y la
 // llegada) a la PUERTA de la ESCOM REAL: el landmark `DOORS/ESCOM_DOOR.webp` más cercano colocado
@@ -99,7 +101,7 @@ internal fun WorldMapViewModel.isCampaignEscortActive(): Boolean {
     return obj.id == MissionCatalog.ESCOLTAR_PRANKEDY.id && !_uiState.value.objectiveDone
 }
 
-internal fun WorldMapViewModel.isMission2ChaseActive(): Boolean {
+internal fun WorldMapViewModel.isMission1ChaseActive(): Boolean {
     if (!inCampaign) return false
     val obj = _uiState.value.currentObjective ?: return false
     return obj.id == MissionCatalog.INGRESAR_ESCOM.id && !_uiState.value.objectiveDone
@@ -145,22 +147,22 @@ internal fun WorldMapViewModel.runCampaignEscortTick(playerLoc: GeoPoint) {
     updateNpcsState()
 }
 
-// ── MISIÓN 2: persecución (6 policías) + multitud saliendo de la ESCOM ──
-internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
+// ── MISIÓN 1 · CHASE: persecución (6 policías) + multitud saliendo de la ESCOM ──
+internal fun WorldMapViewModel.runMission1ChaseTick(playerLoc: GeoPoint) {
     val snap = roadSnap(playerLoc)
     // ENTRADA de la ESCOM marcada con 🎯 (objetivo sincronizado al landmark real de la puerta).
-    val door = mission2DoorTarget()
-    if (!mission2ChaseActivated) {
-        mission2ChaseActivated = true
+    val door = mission1ChaseDoorTarget()
+    if (!mission1ChaseActivated) {
+        mission1ChaseActivated = true
         // Los 6 policías aparecen desde un PUNTO FIJO (MISSION2_POLICE_SPAWN), no relativos al
         // jugador. `awayFrom = door` los coloca en el lado contrario a la entrada para empujarte
         // hacia ella; la multitud sale de la propia entrada.
         campaignEscortPolice.spawnChase(
-            6, MISSION2_POLICE_SPAWN_LAT, MISSION2_POLICE_SPAWN_LON, snap,
+            6, MISSION1_CHASE_POLICE_SPAWN_LAT, MISSION1_CHASE_POLICE_SPAWN_LON, snap,
             awayFromLat = door.latitude, awayFromLon = door.longitude
         )
-        android.util.Log.d("POW_DBG", "Misión 2: spawnChase de 6 policías desde ($MISSION2_POLICE_SPAWN_LAT,$MISSION2_POLICE_SPAWN_LON)")
-        mission2CrowdLastSpawn = 0L
+        android.util.Log.d("POW_DBG", "Misión 2: spawnChase de 6 policías desde ($MISSION1_CHASE_POLICE_SPAWN_LAT,$MISSION1_CHASE_POLICE_SPAWN_LON)")
+        mission1ChaseCrowdLastSpawn = 0L
     }
     // MISIÓN 2: PERSIGUEN A PRANKEDY mientras huye a la puerta; cuando entra (location == null)
     // pasan a perseguir al JUGADOR.
@@ -177,13 +179,13 @@ internal fun WorldMapViewModel.runMission2Tick(playerLoc: GeoPoint) {
     // 3 ENTRAN a la ESCOM (como Prankedy) y 3 SE REGRESAN por donde llegaron. Se dispara UNA vez.
     // (Sin esperar a que estén cerca: la fase de REUNIÓN los trae a la puerta desde donde sea, así
     // SIEMPRE los ves llegar a la entrada, aunque hayan quedado lejos.)
-    if (mission2PrankedyEntered && campaignEscortPolice.isActive() && !campaignEscortPolice.isResolving()) {
+    if (mission1ChasePrankedyEntered && campaignEscortPolice.isActive() && !campaignEscortPolice.isResolving()) {
         // Punto de reunión = donde EXACTAMENTE se metió Prankedy (no la puerta del objetivo, que queda
         // unos metros más allá). Si por lo que sea no se guardó, cae a la puerta.
-        val gather = mission2PrankedyExitPoint ?: door
+        val gather = mission1ChasePrankedyExitPoint ?: door
         campaignEscortPolice.startResolution(
             gather.latitude, gather.longitude,
-            MISSION2_POLICE_SPAWN_LAT, MISSION2_POLICE_SPAWN_LON,
+            MISSION1_CHASE_POLICE_SPAWN_LAT, MISSION1_CHASE_POLICE_SPAWN_LON,
             System.currentTimeMillis()
         )
         android.util.Log.d("POW_DBG", "Misión 2 REMATE: Prankedy entró en (${gather.latitude},${gather.longitude}) → 6 policías van AHÍ, platican y se reparten")
@@ -201,15 +203,15 @@ private fun WorldMapViewModel.updateEscomCrowd(playerLoc: GeoPoint, door: GeoPoi
     val doorLon = CROWD_SPAWN_LON
     val now = System.currentTimeMillis()
     // Spawn por goteo desde la entrada (en una dirección aleatoria, ya separados unos metros).
-    if (mission2Crowd.size < CROWD_MAX && now - mission2CrowdLastSpawn > CROWD_SPAWN_INTERVAL_MS) {
-        mission2CrowdLastSpawn = now
+    if (mission1ChaseCrowd.size < CROWD_MAX && now - mission1ChaseCrowdLastSpawn > CROWD_SPAWN_INTERVAL_MS) {
+        mission1ChaseCrowdLastSpawn = now
         val ang = Math.random() * 2.0 * Math.PI
         val loc = GeoPoint(
             doorLat + sin(ang) * CROWD_SPAWN_OFFSET,
             doorLon + cos(ang) * CROWD_SPAWN_OFFSET
         )
         val id = "ESCOM_FLOOD_${now}_${(0..9999).random()}"
-        mission2Crowd[id] = Npc(
+        mission1ChaseCrowd[id] = Npc(
             id = id,
             type = NpcType.PERSON,
             location = loc,
@@ -222,12 +224,12 @@ private fun WorldMapViewModel.updateEscomCrowd(playerLoc: GeoPoint, door: GeoPoi
     // Mueve cada NPC y lo despawnea si sale del fog del jugador. La GRAN MAYORÍA (~80%) camina
     // HACIA donde aparecen los policías (MISSION2_POLICE_SPAWN) → multitud y policías van en
     // direcciones OPUESTAS (se cruzan); una minoría se dispersa alejándose de la salida.
-    for (npc in mission2Crowd.values.toList()) {
+    for (npc in mission1ChaseCrowd.values.toList()) {
         val towardPolice = (npc.id.hashCode() % 5) != 0   // ~4 de cada 5
         val a = if (towardPolice) {
             atan2(
-                MISSION2_POLICE_SPAWN_LAT - npc.location.latitude,
-                MISSION2_POLICE_SPAWN_LON - npc.location.longitude
+                MISSION1_CHASE_POLICE_SPAWN_LAT - npc.location.latitude,
+                MISSION1_CHASE_POLICE_SPAWN_LON - npc.location.longitude
             )
         } else {
             val dDoorLat = npc.location.latitude - doorLat
@@ -242,9 +244,9 @@ private fun WorldMapViewModel.updateEscomCrowd(playerLoc: GeoPoint, door: GeoPoi
         val dpLat = moved.latitude - playerLoc.latitude
         val dpLon = moved.longitude - playerLoc.longitude
         if (sqrt(dpLat * dpLat + dpLon * dpLon) > CROWD_DESPAWN_DEG) {
-            mission2Crowd.remove(npc.id)   // salió de tu fog → se elimina
+            mission1ChaseCrowd.remove(npc.id)   // salió de tu fog → se elimina
         } else {
-            mission2Crowd[npc.id] = npc.copy(location = moved, facingRight = cos(a) >= 0, isMoving = true)
+            mission1ChaseCrowd[npc.id] = npc.copy(location = moved, facingRight = cos(a) >= 0, isMoving = true)
         }
     }
 }
@@ -277,39 +279,40 @@ private fun WorldMapViewModel.roadSnap(playerLoc: GeoPoint): (GeoPoint) -> GeoPo
     if (!freeZone && _uiState.value.isRoadNetworkReady) getNearestPointOnNetwork(p) else p
 }
 
-// MainActivity lo llama al navegar al cómic de la Misión 2 (evita re-disparar).
-internal fun WorldMapViewModel.consumePendingMission2Intro() {
-    _uiState.update { it.copy(pendingMission2Intro = false) }
+// AppNavGraph lo llama al navegar al cómic de la persecución final (evita re-disparar).
+internal fun WorldMapViewModel.consumePendingMission1ChaseIntro() {
+    _uiState.update { it.copy(pendingMission1ChaseIntro = false) }
 }
 
-// Arranca la Misión 2: nuevo objetivo "Ingresa a la ESCOM". La persecución (6 policías) y la
-// multitud que sale de la ESCOM arrancan SOLAS en el game loop al estar activo este objetivo.
-internal fun WorldMapViewModel.startMission2() {
-    mission2ChaseActivated = false   // re-arma el spawn de la persecución
-    mission2PrankedyEntered = false  // re-arma la huida de Prankedy a la puerta
-    mission2PrankedyExitPoint = null // re-arma el punto de reunión del REMATE
-    mission2Crowd.clear()
+// Arranca la persecución final de la Misión 1: nuevo objetivo "Ingresa a la ESCOM". La
+// persecución (6 policías) y la multitud que sale de la ESCOM arrancan SOLAS en el game loop
+// al estar activo este objetivo.
+internal fun WorldMapViewModel.startMission1Chase() {
+    mission1ChaseActivated = false   // re-arma el spawn de la persecución
+    mission1ChasePrankedyEntered = false  // re-arma la huida de Prankedy a la puerta
+    mission1ChasePrankedyExitPoint = null // re-arma el punto de reunión del REMATE
+    mission1ChaseCrowd.clear()
     setCampaignObjective(MissionCatalog.INGRESAR_ESCOM)
-    android.util.Log.d("POW_DBG", "startMission2(): objetivo=INGRESAR_ESCOM, se re-arma persecución+multitud")
+    android.util.Log.d("POW_DBG", "startMission1Chase(): objetivo=INGRESAR_ESCOM, se re-arma persecución+multitud")
 }
 
-// MISIÓN 2: Prankedy CORRE hacia la puerta de la ESCOM y se METE (desaparece) diciendo
+// MISIÓN 1 · CHASE: Prankedy CORRE hacia la puerta de la ESCOM y se METE (desaparece) diciendo
 // "Ahí nos vemos", mientras la policía lo persigue por detrás y la multitud sale de la puerta.
 // Reusa la IA de seguimiento (tickFollow) pero con la PUERTA como objetivo en vez del jugador.
 // El game loop la llama en vez de runPrankedyTick mientras dura la huida.
-internal fun WorldMapViewModel.runMission2PrankedyEscape(playerLoc: GeoPoint, now: Long) {
+internal fun WorldMapViewModel.runMission1ChasePrankedyEscape(playerLoc: GeoPoint, now: Long) {
     val pm = prankedyManager
     val pkLoc = pm.location
     if (!_uiState.value.prankedyEnabled || pkLoc == null) return
-    val door = mission2DoorTarget()
+    val door = mission1ChaseDoorTarget()
     val dLat = pkLoc.latitude - door.latitude
     val dLon = pkLoc.longitude - door.longitude
-    if (sqrt(dLat * dLat + dLon * dLon) <= MISSION2_PRANKEDY_ENTER_DEG) {
+    if (sqrt(dLat * dLat + dLon * dLon) <= MISSION1_CHASE_PRANKEDY_ENTER_DEG) {
         // Llegó a la puerta: muestra el diálogo y, tras un momento, ENTRA a la ESCOM (desaparece).
-        mission2PrankedyEntered = true
+        mission1ChasePrankedyEntered = true
         // Guarda el punto EXACTO donde se metió: aquí se reúne la policía a "platicar" (REMATE).
-        mission2PrankedyExitPoint = pkLoc
-        _uiState.update { it.copy(prankedyDialogue = MISSION2_PRANKEDY_BYE) }
+        mission1ChasePrankedyExitPoint = pkLoc
+        _uiState.update { it.copy(prankedyDialogue = MISSION1_CHASE_PRANKEDY_BYE) }
         viewModelScope.launch {
             kotlinx.coroutines.delay(2400)   // pausa más larga frente a la puerta: se nota que se mete
             prankedyManager.deactivate()
@@ -348,7 +351,7 @@ internal fun WorldMapViewModel.runMission2PrankedyEscape(playerLoc: GeoPoint, no
 // ENTRADA de la ESCOM marcada por el objetivo 🎯 (sincronizada en runtime al landmark real de la
 // puerta vía syncObjectiveToEscomDoor). De aquí SALE la multitud y hacia aquí se empuja al jugador.
 // Si aún no hay objetivo activo, cae a la puerta canónica.
-private fun WorldMapViewModel.mission2DoorTarget(): GeoPoint {
+private fun WorldMapViewModel.mission1ChaseDoorTarget(): GeoPoint {
     val obj = _uiState.value.currentObjective
     return if (obj != null) GeoPoint(obj.targetLat, obj.targetLon)
            else GeoPoint(ESCOM_DOOR_LAT, ESCOM_DOOR_LON)
@@ -357,13 +360,13 @@ private fun WorldMapViewModel.mission2DoorTarget(): GeoPoint {
 internal fun WorldMapViewModel.clearCampaignPolice() {
     // Los NPCs sembrados sobre la línea roja también se retiran al terminar/salir de la campaña.
     clearCampaignRouteNpcs()
-    val had = campaignEscortPolice.isActive() || mission2Crowd.isNotEmpty()
+    val had = campaignEscortPolice.isActive() || mission1ChaseCrowd.isNotEmpty()
     campaignPoliceActivated = false
-    mission2ChaseActivated = false
-    mission2PrankedyEntered = false
-    mission2PrankedyExitPoint = null
+    mission1ChaseActivated = false
+    mission1ChasePrankedyEntered = false
+    mission1ChasePrankedyExitPoint = null
     campaignEscortPolice.clear()
-    mission2Crowd.clear()
+    mission1ChaseCrowd.clear()
     if (had) {
         _uiState.update { it.copy(wantedLevel = 0) }
         updateNpcsState()

@@ -31,6 +31,9 @@ data class GameSaveData(
     // vacío/false para compatibilidad con guardados antiguos (Gson los deja así).
     val inventoryKeys: List<String> = emptyList(),
     val lab1KeyFound: Boolean = false,
+    // MISIÓN 2 · "El rumor": fase de la máquina de estados (Mission2.PHASE_*). 0 = no iniciada.
+    // Int primitivo → Gson deja 0 en guardados antiguos (compatibilidad automática).
+    val mission2Phase: Int = 0,
     // Tipo de guardado: "MANUAL" (el jugador eligió slot) o "AUTO" (al salir/cerrar la app).
     // Nullable por compatibilidad con guardados antiguos (Gson los deja en null).
     val saveType: String? = null,

@@ -77,14 +77,14 @@ object StoryComicCatalog {
             boxTopFrac = 0.853f, boxHeightFrac = 0.120f, fontSp = 15f, boxWidthFrac = 0.720f)
     )
 
-    // ─── MISIÓN 2: llegada a la ESCOM (Modo Historia) ────────────────────────
-    // Se reproduce al cumplir la Misión 1 (llegar a la ESCOM con Prankedy). Son 4 paneles
-    // HORIZONTALES en assets/STORY/INTRO/IntroPOW12..15.webp (IntroPOW15 cambia según la skin). EDITA el `text`.
-    // Tras esta secuencia se retoma la jugabilidad con la persecución (6 policías) y el
-    // objetivo "Ingresa a la ESCOM".
-    const val MISSION2_INTRO_ID = "mission2_intro"
+    // ─── MISIÓN 1 · CHASE: llegada a la ESCOM (Modo Historia) ────────────────
+    // Se reproduce al cumplir la escolta de la Misión 1 (llegar a la ESCOM con Prankedy). Son 4
+    // paneles HORIZONTALES en assets/STORY/INTRO/IntroPOW12..15.webp (IntroPOW15 cambia según la
+    // skin). EDITA el `text`. Tras esta secuencia se retoma la jugabilidad con la persecución
+    // final (6 policías) y el objetivo "Ingresa a la ESCOM". (Antes: MISSION2_INTRO_ID.)
+    const val MISSION1_CHASE_INTRO_ID = "mission1_chase_intro"
 
-    private val mission2Intro = listOf(
+    private val mission1ChaseIntro = listOf(
         ComicPanel("STORY/INTRO/IntroPOW12.webp", ""),
         ComicPanel("STORY/INTRO/IntroPOW13.webp", ""),
         ComicPanel("STORY/INTRO/IntroPOW14.webp", ""),
@@ -92,11 +92,11 @@ object StoryComicCatalog {
     )
 
     // Devuelve una secuencia narrativa por id (para StoryIntroScreen). ENCB_OUTRO_ID =
-    // segunda parte de la intro; MISSION2_INTRO_ID = llegada a la ESCOM; cualquier otro id
+    // segunda parte de la intro; MISSION1_CHASE_INTRO_ID = llegada a la ESCOM; cualquier otro id
     // cae al prologo de ESCOM.
     fun sequence(sequenceId: String): List<ComicPanel> = when (sequenceId) {
         ENCB_OUTRO_ID -> encbOutro
-        MISSION2_INTRO_ID -> mission2Intro
+        MISSION1_CHASE_INTRO_ID -> mission1ChaseIntro
         else -> escom
     }
 }

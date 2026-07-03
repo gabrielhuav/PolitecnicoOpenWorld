@@ -207,7 +207,17 @@ internal fun WorldMapViewModel.handleInteraction() {
                 // aquí). Usa `contains` (no match exacto) para tolerar variantes/acentos al
                 // colocar la puerta en el Diseñador; si nada casa, cae a DEFAULT_ROUTE (lobby
                 // ESCOM). Para añadir un edificio enterable, edita InteriorEntryCatalog. Ver 04/06.
-                val targetRoute = ovh.gabrielhuav.pow.domain.models.map.InteriorEntryCatalog.routeForDoorName(nearby.name)
+                val baseRoute = ovh.gabrielhuav.pow.domain.models.map.InteriorEntryCatalog.routeForDoorName(nearby.name)
+                // MISIÓN 2 · fase MOCHILA: la puerta de la ESCOM lleva DIRECTO al salón donde
+                // Prankedy escondió su mochila (sala en clases; lata apestosa). Solo aplica a la
+                // ruta default de ESCOM (las puertas de FES/Neza no se tocan).
+                val targetRoute = if (
+                    mission2Phase == ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_BACKPACK &&
+                    baseRoute == ovh.gabrielhuav.pow.domain.models.map.InteriorEntryCatalog.DEFAULT_ROUTE
+                ) {
+                    "interiores_zombies?startRoom=" +
+                        ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ESCOM_SALON_M2_ID
+                } else baseRoute
                 // MODO HISTORIA · Misión 2 "Ingresa a la ESCOM": se cumple al ENTRAR por la puerta
                 // (este es el momento de "ingresar"). Marca el objetivo cumplido + jingle.
                 if (_uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id

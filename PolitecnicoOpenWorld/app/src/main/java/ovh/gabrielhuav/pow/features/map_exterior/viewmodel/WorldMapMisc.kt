@@ -106,11 +106,15 @@ internal fun WorldMapViewModel.triggerWastedSequence() {
             val missionObj = _uiState.value.currentObjective
             val inMission = inCampaign && (
                 missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
-                missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id)
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id ||
+                // MISIÓN 2 · "El rumor": morir en cualquiera de sus fases = misión fallida.
+                missionObj?.id?.startsWith(
+                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.OBJECTIVE_ID_PREFIX) == true)
             if (inMission) {
                 delay(2500L)
                 relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
                 clearCampaignPolice()
+                clearMission2Story()
                 carjackStartTime = 0L
                 playerHealth = maxPlayerHealth
                 damagePulseTrigger = 0

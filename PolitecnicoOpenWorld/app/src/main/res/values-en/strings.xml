@@ -427,6 +427,20 @@
     <string name="obj_ingresar_escom_desc">You\'re being chased! Enter through the ESCOM gate to get to safety.</string>
     <string name="obj_buscar_pistas_escom_title">Search for clues in the ESCOM</string>
     <string name="obj_buscar_pistas_escom_desc">Explore the ESCOM looking for clues.</string>
+    <!-- Campaign objectives (Mission 2 · "The rumor") -->
+    <string name="obj_m2_esconderse_title">Lose the police</string>
+    <string name="obj_m2_esconderse_desc">The police are looking for you and Prankedy. Move away from the ESCOM entrance before they recognize you.</string>
+    <string name="obj_m2_pista_rumor_title">Search for clues in the ESCOM</string>
+    <string name="obj_m2_pista_rumor_desc">Some students are talking about something strange. Get close and listen to the WHOLE rumor.</string>
+    <string name="obj_m2_pista_brote_title">Keep looking for clues</string>
+    <string name="obj_m2_pista_brote_desc">Something is happening on the ESCOM esplanade. Go investigate.</string>
+    <string name="obj_m2_hablar_prankedy_title">Talk to Prankedy</string>
+    <string name="obj_m2_hablar_prankedy_desc">Prankedy heard everything. Get close and talk to him.</string>
+    <string name="obj_m2_recuperar_mochila_title">Recover Prankedy\'s backpack</string>
+    <string name="obj_m2_recuperar_mochila_desc">The backpack is hidden in an ESCOM classroom. Class is in session: use the STINK CAN.</string>
+    <!-- Mission 2 · backpack classroom (interiors) -->
+    <string name="zgame_stink_prompt">💨 Press ACTION to throw the STINK CAN</string>
+    <string name="zgame_backpack_prompt">🎒 Press ACTION to pick up Prankedy\'s backpack</string>
     <!-- Transit: prompt + messages (were hardcoded in TransitSystemConfig) -->
     <string name="wm_prompt_metrobus">PRESS X TO ENTER METROBÚS STATION %1$s</string>
     <string name="transit_metro_msg_ticket">You reloaded your metro card</string>

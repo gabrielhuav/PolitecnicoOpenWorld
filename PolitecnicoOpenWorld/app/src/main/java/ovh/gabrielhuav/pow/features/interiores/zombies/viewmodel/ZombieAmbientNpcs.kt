@@ -26,9 +26,10 @@ data class AmbientNpc(
     val retargetAtMs: Long = 0L
 )
 
-// Salas donde aparecen NPCs ambientales (de momento, el lobby de la ESCOM = building_escom.webp).
-// Ampliable: agrega ids de salas de INTERIORS/ESCOM.
-private val AMBIENT_ROOM_IDS: Set<String> = setOf(ZombieRoomCatalog.LOBBY_ID)
+// Salas donde aparecen NPCs ambientales: el lobby de la ESCOM y el SALÓN de la Misión 2 (los
+// estudiantes "en clase" que salen con la lata apestosa). Ampliable: agrega ids de salas.
+private val AMBIENT_ROOM_IDS: Set<String> =
+    setOf(ZombieRoomCatalog.LOBBY_ID, ZombieRoomCatalog.ESCOM_SALON_M2_ID)
 
 // Skins usadas como MODELO de NPC (FASE 1 = estudiantes existentes). Cada NPC toma una al azar.
 private val AMBIENT_SKINS: List<PlayerSkin> =
@@ -118,6 +119,48 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
             facingRight = if (abs(nx) > 0.01f) nx >= 0f else npc.facingRight,
             action = if (arrived) PlayerAction.IDLE else PlayerAction.WALK,
             retargetAtMs = if (arrived) now + AMBIENT_WAIT_MS else npc.retargetAtMs
+        )
+    }
+}
+
+/**
+ * MISIÓN 2 · LATA APESTOSA (salón de la mochila): los NPCs ambientales CORREN hacia la puerta de
+ * salida de la sala y DESAPARECEN al llegar (salieron del salón por el olor). Sustituye a
+ * stepAmbientNpcs mientras dura la evacuación; cuando la lista queda vacía, el VM hace aparecer
+ * la mochila. Respeta la matriz de colisión con deslizamiento por eje (igual que el deambular).
+ */
+internal fun ZombieInteriorViewModel.evacuateAmbientNpcs(
+    npcs: List<AmbientNpc>, room: ZombieRoom
+): List<AmbientNpc> {
+    if (npcs.isEmpty()) return npcs
+    // Punto de salida = centro de la PRIMERA puerta de la sala (el salón solo tiene una).
+    val exit = room.doors.firstOrNull()
+    val ex = exit?.let { (it.hitboxFrac.left + it.hitboxFrac.right) * 0.5f * room.worldWidth }
+        ?: (room.worldWidth * 0.5f)
+    val ey = exit?.let { (it.hitboxFrac.top + it.hitboxFrac.bottom) * 0.5f * room.worldHeight }
+        ?: (room.worldHeight * 0.92f)
+    val speed = AMBIENT_SPEED * 2.4f   // corren: el olor es insoportable
+    return npcs.mapNotNull { npc ->
+        val dx = ex - npc.x
+        val dy = ey - npc.y
+        val d = hypot(dx, dy)
+        if (d <= 46f) return@mapNotNull null   // llegó a la puerta → sale del salón
+        val nx = if (d > 0.01f) dx / d else 0f
+        val ny = if (d > 0.01f) dy / d else 0f
+        var rx = npc.x
+        var ry = npc.y
+        val tx = npc.x + nx * speed
+        val ty = npc.y + ny * speed
+        when {
+            walkable(room, tx, ty) -> { rx = tx; ry = ty }
+            walkable(room, tx, npc.y) -> rx = tx
+            walkable(room, npc.x, ty) -> ry = ty
+            else -> { /* atorado un tick: se queda (el slide lo destraba en el siguiente) */ }
+        }
+        npc.copy(
+            x = rx, y = ry,
+            facingRight = if (abs(nx) > 0.01f) nx >= 0f else npc.facingRight,
+            action = PlayerAction.RUN
         )
     }
 }

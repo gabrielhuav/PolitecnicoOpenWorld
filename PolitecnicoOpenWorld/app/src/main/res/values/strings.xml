@@ -429,6 +429,20 @@
     <string name="obj_ingresar_escom_desc">¡Te persiguen! Entra por la puerta de la ESCOM para ponerte a salvo.</string>
     <string name="obj_buscar_pistas_escom_title">Busca pistas en la ESCOM</string>
     <string name="obj_buscar_pistas_escom_desc">Explora la ESCOM en busca de pistas.</string>
+    <!-- Objetivos de campaña (Misión 2 · "El rumor") -->
+    <string name="obj_m2_esconderse_title">Piérdele a la policía</string>
+    <string name="obj_m2_esconderse_desc">La policía los busca a ti y a Prankedy. Aléjate de la entrada de la ESCOM sin que te reconozcan.</string>
+    <string name="obj_m2_pista_rumor_title">Busca pistas en la ESCOM</string>
+    <string name="obj_m2_pista_rumor_desc">Unos estudiantes platican algo raro. Acércate y escucha el rumor COMPLETO.</string>
+    <string name="obj_m2_pista_brote_title">Sigue buscando pistas</string>
+    <string name="obj_m2_pista_brote_desc">Algo está pasando en la explanada de la ESCOM. Ve a investigar.</string>
+    <string name="obj_m2_hablar_prankedy_title">Habla con Prankedy</string>
+    <string name="obj_m2_hablar_prankedy_desc">Prankedy escuchó todo. Acércate a platicar con él.</string>
+    <string name="obj_m2_recuperar_mochila_title">Recupera la mochila de Prankedy</string>
+    <string name="obj_m2_recuperar_mochila_desc">La mochila quedó escondida en un salón de la ESCOM. El salón está en clases: usa la LATA APESTOSA.</string>
+    <!-- Misión 2 · salón de la mochila (interiores) -->
+    <string name="zgame_stink_prompt">💨 Pulsa ACCIÓN para lanzar la LATA APESTOSA</string>
+    <string name="zgame_backpack_prompt">🎒 Pulsa ACCIÓN para recoger la mochila de Prankedy</string>
     <!-- Transporte: prompt + mensajes (antes hardcodeados en TransitSystemConfig) -->
     <string name="wm_prompt_metrobus">PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS %1$s</string>
     <string name="transit_metro_msg_ticket">Has recargado tu tarjeta del metro</string>
