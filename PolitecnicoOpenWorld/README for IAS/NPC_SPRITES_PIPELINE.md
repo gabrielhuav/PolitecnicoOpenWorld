@@ -165,6 +165,9 @@ para que **NO sea seleccionable** por el jugador (es NPC, no skin del jugador).
 
 - **Pool del interior (`AMBIENT_SKINS`)** = `IPN_1..6` + `RND_1` + `DOC_1` = **8 modelos**, todos
   al estándar, caminando con ciclo completo.
+- `REY_GRUPERO` esta activo como **personaje jugable**. Assets generados desde `rey_grupero_1.png`
+  con `tools/slice_new_character_sprites.py rey_grupero` hacia `SPRITES/NPC/ReyGrupero/`
+  (`Idle=3`, `Walk=8`, `Run=8`, `Special=6`; fracciones aprox. `0.866/0.873/0.868/0.865`).
 - `PEPE_REY` y `REY_BROMAS` están **comentados** en `PlayerSkin.kt` (no seleccionables); assets
   conservados.
 - **Pendiente:** más docentes/estudiantes/genéricos (mismo flujo de este doc), **Fase exterior**

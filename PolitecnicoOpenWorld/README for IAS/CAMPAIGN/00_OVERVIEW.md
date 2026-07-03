@@ -36,7 +36,7 @@ El juego **NO** es "unas misiones de zombis al principio y luego otra cosa". Los
 
 Una "simulación de infección" da una **espina de escalada** automática y creíble: a más infección, más
 respuesta de las autoridades. Esa escalada es el hilo conductor de la campaña y **mapea directamente sobre
-los 9 NPCs ya recortados** (ver `tools/PROMPT_sprites_chatgpt.md` + `slice_new_character_sprites.py`):
+los 10 sets premade ya recortados** (ver `tools/PROMPT_sprites_chatgpt.md` + `slice_new_character_sprites.py`):
 
 | Etapa de la infección | Respuesta lógica | NPC(s) disponibles |
 |---|---|---|
@@ -44,7 +44,7 @@ los 9 NPCs ya recortados** (ver `tools/PROMPT_sprites_chatgpt.md` + `slice_new_c
 | Brotes públicos / violencia | Refuerzos, contención | `PoliciaCDMX` (más), `Granaderos` (antimotines) |
 | Heridos / contagio masivo | Emergencias médicas | `Paramedico` |
 | Colapso | Fuerza mayor *(futuro)* | *(ejército — pendiente)* |
-| Historia / origen | Personajes de la trama | `PrankedyPlayable`, `ReyBromas`, `PepeRey`, `SenorTienda` |
+| Historia / origen | Personajes de la trama | `PrankedyPlayable`, `ReyBromas`, `PepeRey`, `SenorTienda`, `ReyGrupero` |
 
 **El origen:** Prankedy, haciendo una broma en la **ENCB**, provoca por accidente un **compuesto
 infeccioso capaz de penetrar el látex** (los guantes de laboratorio). Ese es el paciente cero / foco del

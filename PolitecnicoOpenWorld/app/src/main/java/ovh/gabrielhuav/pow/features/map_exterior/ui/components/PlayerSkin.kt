@@ -124,6 +124,15 @@ enum class PlayerSkin(
         idleFrames = 3, walkFrames = 4, runFrames = 8, specialFrames = 3,  // special = ESCOBAZO (golpe)
         walkBodyFraction = 0.865f
     ),
+    REY_GRUPERO(
+        displayName = "REY Grupero",
+        skinFolder  = "ReyGrupero/",
+        skinPrefix  = "rg_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 3, walkFrames = 8, runFrames = 8, specialFrames = 6,  // special = bromas/acciones
+        walkBodyFraction = 0.873f,
+        idleBodyFraction = 0.866f, runBodyFraction = 0.868f, specialBodyFraction = 0.865f
+    ),
     // 🚫 DESACTIVADOS del selector y de la historia (decisión de diseño). Assets CONSERVADOS en
     //    SPRITES/NPC/ReyBromas|PepeRey por si se reusan. Para reactivar: descomenta este bloque
     //    y sus entradas en SkinSelectorDialog.
