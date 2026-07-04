@@ -1,5 +1,18 @@
 # CHECKPOINT VIVO — Programa "calidad senior" (multi-sesión)
 
+> **✅ AUDITORÍA FINAL APROBADA (2026-07-04, sesión Fable 5, solo lectura):** verificado sobre el
+> código real (Read/Grep, no docs): (A) 6 managers + fachada combine anidada correcta; CERO writes
+> `it.copy(campo-poseído)` y CERO reads `_uiState.value.campo-poseído` residuales; buildSaveData/
+> restoreSaveData leen wantedLevel/completedMissions VÍA managers ✔ (B) Hilt completo: @HiltAndroidApp,
+> @AndroidEntryPoint en MainActivity (⚠️ anotada con FQN `@dagger.hilt.android.AndroidEntryPoint` —
+> los greps deben contemplar esa forma), 6 @HiltViewModel + 3 @AssistedInject, 0 Factory vivos,
+> WorldMapVM Activity-scoped por `by viewModels()` y pasado a AppNavGraph ✔ (C) detekt bloqueante +
+> baseline + LoopWithTooManyJumpStatements off; CI arma la app (valida grafo Hilt) ✔ (D) docs
+> 01/04/09 §1/README EN+ES sincronizados ✔ (E) 10 checkpoints de compilación verdes del dueño.
+> ÚNICO matiz (RESUELTO): los docs decían "86 tests"; el número REAL confirmado por el dueño en
+> Android Studio es **84** (84 anotaciones @Test en `app/src/test`, todos en verde). Las menciones
+> de "86" que queden más abajo son registro histórico de la sesión Opus — el número bueno es 84.
+
 > **Qué es esto:** documento de estado CONTINUO del programa de refactor hacia calidad de
 > producción senior. Se actualiza EN CADA PASO. Si una sesión se corta (tokens/energía), la
 > siguiente IA retoma AQUÍ. Regla de oro: **el repo debe quedar compilable en cada checkpoint**;

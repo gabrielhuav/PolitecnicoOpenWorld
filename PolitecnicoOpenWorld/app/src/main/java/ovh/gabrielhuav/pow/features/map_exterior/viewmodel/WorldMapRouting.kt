@@ -110,13 +110,9 @@ internal fun WorldMapViewModel.project(p: GeoPoint, v: GeoPoint, w: GeoPoint): G
             v.longitude + t * (w.longitude - v.longitude))
     }
 
-// ETAPA 2 (de-dup routing, 2026-07-04): las extensiones MUERTAS `updateDestinationRoute` y
-// `calculateRouteOnNetwork` se ELIMINARON (grep verificado: cero call-sites Kotlin fuera del VM;
-// los `updateDestinationRoute` de la UI web son la FUNCIÓN JS homónima de WorldMapLeafletHtml).
-// El par quedó así: `updateDestinationRoute` = SOLO miembro del VM (canónico) y el cálculo =
-// `RoadRouter.route` (domain/usecases, puro y fijado por RoadRouterTest). La micro-opt de la
-// extensión muerta (keys Pair en vez de String) quedó ANOTADA para aplicarse al RoadRouter con
-// los tests en verde. NO recrear estas extensiones.
+// TOMBSTONE: `updateDestinationRoute`/`calculateRouteOnNetwork` (extensiones muertas) se ELIMINARON;
+// el canónico es el miembro del VM, que delega en `RoadRouter.route` (puro + tests). NO recrearlas.
+// Detalle: CHECKPOINT_SENIOR_refactor.md (Etapa 2) y 09 §12.
 
 // ─── GRAFO DE CALLES + A* (pathfinding de la policía) ───────────────────────────
 // Construye, a partir de la red, la adyacencia por id de nodo (dos nodos consecutivos
@@ -230,6 +226,4 @@ internal fun WorldMapViewModel.rebuildRoadNodeGrid(network: List<MapWay>) {
         }
     }
 
-// ETAPA 2 (de-dup routing, 2026-07-04): la extensión `nearbyRoadNodes` se ELIMINÓ (solo la
-// llamaba la extensión muerta `calculateRouteOnNetwork`, también eliminada). La lógica canónica
-// es `RoadRouter.nearbyNodes` (pura, testeada). NO recrear.
+// TOMBSTONE: `nearbyRoadNodes` (extensión) eliminada; canónico = `RoadRouter.nearbyNodes`. NO recrear.

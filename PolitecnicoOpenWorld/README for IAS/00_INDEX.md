@@ -16,12 +16,18 @@
 
 ## Cómo usar / How to use
 
-**ES:**
-1. Sube/pega esta carpeta completa (o solo los archivos relevantes) al asistente.
-2. Pídele la tarea y dile que **siga el MVVM y las convenciones del archivo 09**.
-3. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
+**ES (ORDEN DE LECTURA para una IA nueva — sobre todo si es poco potente):**
+1. `GUIA_mantenimiento_no_senior.md` ← EMPIEZA AQUÍ (las 7 reglas + chuleta + qué NO hacer).
+2. Este índice (mapa de archivos) + `09_CONVENTIONS_GOTCHAS.md` COMPLETO.
+3. El doc del feature que vayas a tocar (03-08 / CAMPAIGN) y su tabla "Key files".
+4. Si vas a REFACTORIZAR: `CHECKPOINT_SENIOR_refactor.md` (programa 2026-07-04 TERMINADO Y
+   AUDITADO: managers+fachada, Hilt, tests, detekt — ahí está la receta y lo que NO se movió).
+   Los `PLAN_*.md` están ✅ EJECUTADOS: son referencia histórica, NO tareas pendientes.
+5. Pídele la tarea y dile que **siga el MVVM y las convenciones del archivo 09** (incluida la
+   política de comentarios y los campos "⚠️ LO POSEE XManager").
+6. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
    y pásale solo ese.
-4. **Tras cualquier cambio, actualiza estos docs (00–09)** y, si es user-facing, el README **público** de la raíz del repo (ver 09).
+7. **Tras cualquier cambio, actualiza estos docs (00–09)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los tests (84, `app/src/test`) deben seguir en verde.
 
 **EN:**
 1. Upload/paste this whole folder (or just the relevant files) to the assistant.
@@ -52,7 +58,8 @@
 | Archivo / File | Contenido / Contents |
 |---|---|
 | `GUIA_mantenimiento_no_senior.md` | **🆕 (2026-07-04) EMPEZAR AQUÍ si eres una IA/dev nuevo:** las 7 reglas que rompen el juego, flujo de trabajo estándar, chuleta de "dónde vive cada cosa", qué NO hacer sin compilador y cómo pedir compilaciones al dueño. |
-| `CHECKPOINT_SENIOR_refactor.md` | **🆕 (2026-07-04) Programa MULTI-SESIÓN "calidad senior" (documento VIVO):** etapas (tests → de-dup routing → descomponer VM → Hilt → detekt → perf), estado actual y coming-next. Si retomas el refactor, retoma AQUÍ. |
+| `CHECKPOINT_SENIOR_refactor.md` | **✅ (2026-07-04) Programa "calidad senior" TERMINADO Y AUDITADO** (tests golden-master → de-dup routing → 6 managers + fachada combine → Hilt → detekt bloqueante → perf auditada). Registro completo etapa por etapa + nota de auditoría al inicio + "siguiente nivel" opcional. Para futuros refactors: la RECETA del patrón manager vive aquí. |
+| `PLAN_dedup_routing.md` / `PLAN_descomponer_WorldMapViewModel.md` / `PLAN_DI_hilt.md` / `PENDIENTE_calidad.md` | **✅ EJECUTADOS (histórico, 2026-07-04):** diseño original de las etapas del programa senior. NO son tareas pendientes (cada uno tiene banner al inicio). Deuda que sí queda viva: baseline detekt (23 issues perdonados) + params sin uso (ver nota en PENDIENTE_calidad). |
 | `PROMPT_nueva_optimizacion.md` | Prompt maestro de reuso: contexto + estado actual + reglas del entorno. Cópialo al iniciar una sesión con una IA y adjunta esta carpeta. |
 | `ANALISIS_codigo.md` | **(2026-06-21)** Informe: clases grandes, duplicación (metro⇄metrobús), MVVM, i18n migrado vs pendiente, perf, mejoras priorizadas por valor/esfuerzo. |
 | `REVISION_repo.md` | **(2026-06-21)** Revisión de TODO el repo: raíz, servidores Node (solo revisión), seguridad (keystore NO comprometido), `.gitignore`, hardening de deploy. |

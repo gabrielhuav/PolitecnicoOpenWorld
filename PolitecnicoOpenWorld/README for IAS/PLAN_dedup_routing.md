@@ -1,6 +1,10 @@
 # PLAN — De-duplicar la cadena de ROUTING (con tests de respaldo PRIMERO)
 
-> Estado: TRABAJO FUTURO (requiere compilador). Generado en la sesión de noche 2026-06-24.
+> **✅ EJECUTADO Y CERRADO (2026-07-04, Etapa 2 de CHECKPOINT_SENIOR_refactor.md).** Este doc queda
+> como REFERENCIA HISTÓRICA del diseño. NO re-ejecutar: el algoritmo vive en
+> `domain/usecases/RoadRouter.kt` (con RoadRouterTest) y ya no hay gemelos de routing.
+>
+> Estado ORIGINAL: TRABAJO FUTURO (requiere compilador). Generado en la sesión de noche 2026-06-24.
 > Roadmap ANALISIS §9.3. NO ejecutado a ciegas: aquí está el plan paso a paso y verificable.
 
 ## 0. Por qué este refactor es PELIGROSO (contexto)

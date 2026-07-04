@@ -1,6 +1,11 @@
 # PLAN — Descomponer el god-object `WorldMapViewModel` (managers/use-cases con sub-estado)
 
-> Estado: TRABAJO FUTURO (requiere compilador). Sesión de noche 2026-06-24. Roadmap ANALISIS §9.2.
+> **✅ EJECUTADO Y CERRADO (2026-07-04, Etapa 3 de CHECKPOINT_SENIOR_refactor.md).** Referencia
+> HISTÓRICA. NO re-ejecutar: existen los 6 managers (Designer/Collectibles/Combat/Wanted/
+> TransitTeleport/Campaign) + fachada `combine`; la convención vigente está en 09 §1. El corte
+> que NO se hizo (fase de campaña en el VM) está documentado con su porqué en el CHECKPOINT.
+>
+> Estado ORIGINAL: TRABAJO FUTURO (requiere compilador). Sesión de noche 2026-06-24. Roadmap ANALISIS §9.2.
 
 ## 0. Diagnóstico
 - `WorldMapViewModel.kt` ~1.4k líneas (~86 KB) + **~29 parciales** `WorldMap*.kt` que son **EXTENSIONES de

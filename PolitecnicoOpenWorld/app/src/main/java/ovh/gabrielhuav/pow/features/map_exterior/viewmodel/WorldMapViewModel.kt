@@ -1366,18 +1366,11 @@ class WorldMapViewModel @javax.inject.Inject constructor(
         }
     }
 
-    // ETAPA 2 (de-dup routing, 2026-07-04): el miembro `calculateRouteOnNetwork` se ELIMINÓ.
-    // La implementación canónica y ÚNICA es `RoadRouter.route` (domain/usecases, pura y fijada
-    // por RoadRouterTest); `updateDestinationRoute` (arriba) delega en ella. NO recrear el miembro.
+    // TOMBSTONE: `calculateRouteOnNetwork` eliminado; canónico = `RoadRouter.route` (puro + tests).
+    // NO recrear el miembro (ver 09 §12).
 
-    // ETAPA 2 · paso 1 (de-dup routing): el gemelo miembro de `rebuildRoadNodeGrid` se ELIMINÓ.
-    // Estaba MUERTO (private → invisible para las extensiones; nada dentro de la clase lo llamaba;
-    // detekt lo confirmó). La ÚNICA implementación es la extensión de WorldMapRouting.kt, que
-    // delega en `roadRouter.buildNodeGrid` (RoadRouter puro + tests). NO recrear el miembro.
-
-    // ETAPA 2 (de-dup routing, 2026-07-04): el miembro `nearbyRoadNodes` se ELIMINÓ (solo lo
-    // usaba el miembro `calculateRouteOnNetwork`, también eliminado). La lógica vive en
-    // `RoadRouter.nearbyNodes` (pura, testeada). NO recrear el miembro.
+    // TOMBSTONE: los miembros `rebuildRoadNodeGrid` y `nearbyRoadNodes` se ELIMINARON; la única
+    // implementación vive en `RoadRouter` (delegada vía WorldMapRouting.kt). NO recrearlos (09 §12).
 
     // ─── APOCALIPSIS ZOMBI GLOBAL → WorldMapInteractions.kt ───────────────
 

@@ -26,6 +26,9 @@
    (p. ej. shove de NPCs, mano zombi de ESCOM, submenú "Ir a…", broadcast global de apocalipsis).
 7. **Perf gama baja es sagrado (09 §6):** nada de allocations por frame, caches LRU intactos, no
    subir topes de NPCs a mano (usa los factores).
+8. **Los comentarios ⚠️/TOMBSTONE son CARGA ESTRUCTURAL, no ruido:** un `⚠️ LO POSEE XManager`
+   o un "NO recrear el miembro" codifica una regresión real — borrarlo re-introduce el bug.
+   Política completa de comentarios (qué conservar / podar / borrar): 09 §1.
 
 ## 3. Flujo de trabajo estándar (cualquier cambio)
 1. **Plan chico:** un objetivo por sesión; pasos que dejen el repo COMPILABLE.

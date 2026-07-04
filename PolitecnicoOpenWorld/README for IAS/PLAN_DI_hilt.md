@@ -1,6 +1,6 @@
 # PLAN — Inyección de dependencias con Hilt (reemplazar los Factory manuales)
 
-> Estado: ✅ **IMPLEMENTADO 2026-07-04 (Etapa 4 del programa senior), pend. compilación (CHECKPOINT #10).**
+> Estado: ✅ **EJECUTADO Y CERRADO 2026-07-04 (Etapa 4; CHECKPOINT #10 VERDE + auditoría final OK). NO re-ejecutar.**
 > A petición del dueño se migraron las 9 VMs de una sola vez (no 1 por PR); el detalle exacto de lo hecho,
 > los riesgos y qué probar viven en `CHECKPOINT_SENIOR_refactor.md` (sección "ETAPA 4 · DI con Hilt"). El
 > plan de abajo queda como registro del diseño (se siguió: KSP, no kapt; assisted-inject para VMs con args

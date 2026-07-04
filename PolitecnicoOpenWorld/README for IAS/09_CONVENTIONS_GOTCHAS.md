@@ -189,10 +189,27 @@ extraer composables/clases por sección. Pasos pequeños y verificables, uno por
 - Estado **siempre** como copia inmutable: `_state.update { it.copy(...) }`. Nunca mutar estado Compose
   directamente. / Always immutable copies; never mutate Compose state directly.
 - Views: solo `collectAsState()` + emitir intenciones. **Nunca** tocan repos/DAOs. / Views never touch repos/DAOs.
-- DI manual con `Factory` co-localizada. ViewModels top-level = Activity-scoped; interior/zombi/metro/
-  shinecto = NavBackStackEntry-scoped (ver 01). / Manual DI; scoping per file 01.
+- **DI = Hilt (desde la Etapa 4 de calidad senior, 2026-07-04):** las 9 VMs son `@HiltViewModel`
+  (Interior/Transit/Zombie con `@AssistedInject`); deps en `di/AppModule.kt`. Ya NO existen los
+  `Factory` manuales (tombstones). Scoping intacto: VMs top-level = Activity-scoped (`by viewModels()`;
+  el WorldMapVM se PASA a AppNavGraph — obtenerlo con `hiltViewModel()` en una ruta lo re-crearía y
+  volvería la regresión de recarga del mapa); interior/zombi/metro/shinecto = NavBackStackEntry-scoped
+  vía `hiltViewModel()`. Ver 01 y PLAN_DI_hilt.md (histórico). / DI is Hilt now; scoping per file 01.
 - **Comentarios y strings en español** (incluidos los dos `server.js`). Mantener ese estilo salvo que se
   pida lo contrario. / Comments/strings in Spanish; keep that style.
+- **🆕 POLÍTICA DE COMENTARIOS (2026-07-04) — hay 3 clases; trata cada una distinto:**
+  1. **CARGA ESTRUCTURAL — NUNCA borrar sin OK del dueño:** los `⚠️ LO POSEE XManager` de
+     WorldMapState, los tombstones de código eliminado ("NO recrear el miembro/extensión"), los
+     gotchas que codifican regresiones REALES ("no quitar el umbral", "gana el miembro") y los
+     contratos de funciones. Son la memoria del proyecto: sin ellos, una IA re-introduce los bugs.
+  2. **CONTEXTO ÚTIL — conservar pero PODAR:** cabeceras de archivo y notas de diseño. Regla:
+     máx ~4 líneas; el DETALLE vive en los docs 00-09 (deja un puntero "ver 04/09/CHECKPOINT_X"),
+     no en el código. Si un tombstone/nota pasa de 4 líneas, redúcelo a 1-2 + puntero.
+  3. **RUIDO — borrar al verlo:** narración de lo obvio (`// suma 1 al contador`), código comentado
+     sin tombstone explicativo, e historia de refactors ya consolidada en CHECKPOINT_*/docs.
+  Al PODAR: nunca elimines el "por qué" ni el "no hagas X"; solo el "qué" redundante. Un archivo por
+  pasada, verificado con Read, y compila igual (los comentarios no cambian bytecode, pero un edit
+  descuidado sí puede comerse una llave).
 - **🆕 CAMPOS POSEÍDOS POR MANAGERS (fachada `combine`, Etapa 3 de calidad senior):** varios campos de
   `WorldMapState` ya NO se escriben en `_uiState`: los POSEE un manager (`DesignerManager`, `CollectiblesManager`,
   `WantedManager`, `TransitTeleportManager`, `CampaignManager`) con su propio `MutableStateFlow<XSubState>`, y
