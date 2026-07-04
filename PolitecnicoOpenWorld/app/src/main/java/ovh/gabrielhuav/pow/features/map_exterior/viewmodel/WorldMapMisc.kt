@@ -118,20 +118,21 @@ internal fun WorldMapViewModel.triggerWastedSequence() {
                 clearCampaignPolice()
                 clearMission2Story()
                 clearMission3Story()
-                carjackStartTime = 0L
+                // wantedLevel/carjackWarning + timer de carjack los POSEE WantedManager.
+                wantedManager.clearWanted()
                 playerHealth = maxPlayerHealth
                 damagePulseTrigger = 0
                 impactEffectTrigger = 0
-                _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null, isDrivingPoliceCar = false, showWastedScreen = false, showMissionFailed = true) }
+                _uiState.update { it.copy(isDrivingPoliceCar = false, showWastedScreen = false, showMissionFailed = true) }
                 return@launch
             }
             delay(4000L)
             // Limpiar el estado de combate (rachas / NPCs implacables / cooldowns) para no revivir perseguido.
             relentlessNpcs.clear(); npcHitStreak.clear(); npcContactCooldowns.clear()
             // Al morir se pierde el nivel de búsqueda, pero la policía NO desaparece de golpe: con
-            // wantedLevel = 0 entra en modo retirada (se aleja hasta despawnear).
-            carjackStartTime = 0L
-            _uiState.update { it.copy(wantedLevel = 0, carjackWarning = null) }
+            // wantedLevel = 0 entra en modo retirada (se aleja hasta despawnear). clearWanted resetea
+            // wantedLevel + carjackWarning + el timer de carjack (lo posee WantedManager).
+            wantedManager.clearWanted()
             // RESPAWN EN ESCOM: Al morir, el jugador es llevado de vuelta a la ESCOM.
             val respawn = GeoPoint(19.504603, -99.145985)
             _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }

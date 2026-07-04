@@ -54,8 +54,10 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
     // está ✔ COMPLETADA, su fase se persiste CLAMPADA a DONE aunque en memoria vaya a la mitad
     // (replay en curso, o el reset transitorio de setStorySpawn en un reintento). Y el objetivo
     // de un replay NO se guarda (es transitorio): la partida queda como mundo libre.
-    val m2Done = MissionCatalog.MISSION_2_ID in s.completedMissions
-    val m3Done = MissionCatalog.MISSION_3_ID in s.completedMissions
+    // completedMissions lo POSEE CampaignManager (fachada combine): leerlo del manager, NO de
+    // _uiState.value (que ya no se escribe → siempre daría lista vacía).
+    val m2Done = campaignManager.isCompleted(MissionCatalog.MISSION_2_ID)
+    val m3Done = campaignManager.isCompleted(MissionCatalog.MISSION_3_ID)
     val savedM2Phase = if (m2Done) maxOf(mission2Phase, ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_DONE) else mission2Phase
     val savedM3Phase = if (m3Done) maxOf(mission3Phase, ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.PHASE_DONE) else mission3Phase
     val replayObjective = replayingMissionId != null &&
@@ -65,7 +67,9 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
         lat = loc.latitude,
         lon = loc.longitude,
         health = playerHealth,
-        wantedLevel = s.wantedLevel,
+        // wantedLevel lo POSEE WantedManager (fachada combine): el read síncrono debe venir del
+        // manager, NO de _uiState.value (que ya no se escribe → siempre daría 0).
+        wantedLevel = wantedManager.state.value.wantedLevel,
         isDriving = s.isDriving,
         isDrivingPoliceCar = s.isDrivingPoliceCar,
         vehicleModel = s.currentVehicleModel?.name,
@@ -82,7 +86,7 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
         // MISIÓN 3 · "Regreso a la ENCB" + recompensa (arma de fuego) + registro de misiones.
         mission3Phase = savedM3Phase,
         hasFirearm = hasFirearm,
-        completedMissions = s.completedMissions,
+        completedMissions = campaignManager.state.value.completedMissions,
         saveType = saveType,
         savedAt = System.currentTimeMillis()
     )
@@ -125,17 +129,19 @@ fun WorldMapViewModel.restoreSaveData(data: GameSaveData) {
     // Kotlin sea no-nulo (Gson no aplica defaults de Kotlin). Coalesce defensivo.
     @Suppress("USELESS_ELVIS")
     val restoredCompleted: List<String> = data.completedMissions ?: emptyList()
+    // wantedLevel (WantedManager) y completedMissions (CampaignManager) los POSEEN sus managers
+    // (fachada combine): se restauran vía el manager, NO en el copy de _uiState.
+    wantedManager.setWantedLevel(data.wantedLevel)
+    campaignManager.setCompletedMissions(restoredCompleted)
     _uiState.update {
         it.copy(
-            wantedLevel = data.wantedLevel,
             isDriving = data.isDriving,
             isDrivingPoliceCar = data.isDrivingPoliceCar,
             currentVehicleModel = model,
             currentVehicleColor = data.vehicleColor,
             selectedSkin = skin,
             currentObjective = objective,
-            objectiveDone = data.objectiveDone,
-            completedMissions = restoredCompleted
+            objectiveDone = data.objectiveDone
         )
     }
     data.nearbyNpcs.forEach { sn ->

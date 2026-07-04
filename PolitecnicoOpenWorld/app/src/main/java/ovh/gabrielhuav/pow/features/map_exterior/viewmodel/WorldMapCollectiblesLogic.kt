@@ -95,8 +95,9 @@ internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerL
 internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, playerLon: Double) {
         val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
 
-        // 1. Verificar cercanía a estaciones del metro
-        val metroStations = _uiState.value.metroStations
+        // 1. Verificar cercanía a estaciones del metro (el catálogo/cercanía los POSEE
+        // transitTeleportManager, manager 5/6; el interactionPrompt temporizado se queda aquí).
+        val metroStations = transitTeleportManager.state.value.metroStations
         val nearbyMetro = metroStations.minByOrNull {
             playerGeo.distanceToAsDouble(it.location)
         }
@@ -106,8 +107,8 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         // inaccesible por calles (Overpass) y con snap-to-road no se podría pisar; con la zona
         // amplia basta estar cerca en cualquier calle. Esta zona se dibuja en web y OSM nativo.
         if (nearbyMetro != null && playerGeo.distanceToAsDouble(nearbyMetro.location) <= METRO_INTERACT_RADIUS_METERS) {
-            if (_uiState.value.nearbyMetroStation?.name != nearbyMetro.name) {
-                _uiState.update { it.copy(nearbyMetroStation = nearbyMetro) }
+            if (transitTeleportManager.state.value.nearbyMetroStation?.name != nearbyMetro.name) {
+                transitTeleportManager.setNearbyMetro(nearbyMetro)
                 collectiblesManager.clearNearby()
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
@@ -121,18 +122,19 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         }
 
         // Si no está cerca de un metro, limpia el estado de metro
-        if (_uiState.value.nearbyMetroStation != null) {
-            _uiState.update { it.copy(nearbyMetroStation = null, interactionPrompt = null) }
+        if (transitTeleportManager.state.value.nearbyMetroStation != null) {
+            transitTeleportManager.setNearbyMetro(null)
+            _uiState.update { it.copy(interactionPrompt = null) }
         }
 
         // 1b. Verificar cercanía a estaciones del Metrobús
-        val metrobusStations = _uiState.value.metrobusStations
+        val metrobusStations = transitTeleportManager.state.value.metrobusStations
         val nearbyMetrobus = metrobusStations.minByOrNull { playerGeo.distanceToAsDouble(it.location) }
 
         // Metrobús: zona propia MÁS PEQUEÑA que el metro (METROBUS_INTERACT_RADIUS_METERS).
         if (nearbyMetrobus != null && playerGeo.distanceToAsDouble(nearbyMetrobus.location) <= METROBUS_INTERACT_RADIUS_METERS) {
-            if (_uiState.value.nearbyMetrobusStation?.name != nearbyMetrobus.name) {
-                _uiState.update { it.copy(nearbyMetrobusStation = nearbyMetrobus) }
+            if (transitTeleportManager.state.value.nearbyMetrobusStation?.name != nearbyMetrobus.name) {
+                transitTeleportManager.setNearbyMetrobus(nearbyMetrobus)
                 collectiblesManager.clearNearby()
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
@@ -145,8 +147,9 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
             return
         }
 
-        if (_uiState.value.nearbyMetrobusStation != null) {
-            _uiState.update { it.copy(nearbyMetrobusStation = null, interactionPrompt = null) }
+        if (transitTeleportManager.state.value.nearbyMetrobusStation != null) {
+            transitTeleportManager.setNearbyMetrobus(null)
+            _uiState.update { it.copy(interactionPrompt = null) }
         }
 
         // 2. Recopilamos los collectibles normales y de ESCOM (nuestro código)

@@ -130,8 +130,9 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                             try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to boarded.id))) } catch (_: Exception) {}
                         }
                     }
-                    // Subirse a la patrulla pone TODAS las estrellas (5★).
-                    lastCrimeTime = nowMs
+                    // Subirse a la patrulla pone TODAS las estrellas (5★) + marca el delito (reinicia
+                    // el decaimiento). El nivel lo POSEE WantedManager (fachada combine).
+                    wantedManager.setMaxWanted(nowMs)
                     _uiState.update { it.copy(
                         isDriving = true,
                         currentVehicleModel = boarded.carModel,
@@ -139,8 +140,7 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                         vehicleRotation = (boarded.rotationAngle + 90f) % 360f,
                         vehicleSpeed = 0.0,
                         vehicleIsFirstTimeBoarded = false,
-                        isDrivingPoliceCar = true,
-                        wantedLevel = MAX_WANTED_LEVEL
+                        isDrivingPoliceCar = true
                     ) }
                     prankedyManager.onVehicleInteraction()
                     updateNpcsState()
@@ -176,15 +176,16 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
      * navegue a la ruta "interiores_zombies" (modo Interiores → capa zombis).
      */
 internal fun WorldMapViewModel.handleInteraction() {
-        val nearbyMetro = _uiState.value.nearbyMetroStation
+        // Estaciones/fades los POSEE transitTeleportManager (manager 5/6).
+        val nearbyMetro = transitTeleportManager.state.value.nearbyMetroStation
         if (nearbyMetro != null) {
-            _uiState.update { it.copy(showMetroFade = true) }
+            transitTeleportManager.beginMetroFade()
             return
         }
 
-        val nearbyMetrobus = _uiState.value.nearbyMetrobusStation
+        val nearbyMetrobus = transitTeleportManager.state.value.nearbyMetrobusStation
         if (nearbyMetrobus != null) {
-            _uiState.update { it.copy(showMetrobusFade = true) }
+            transitTeleportManager.beginMetrobusFade()
             return
         }
 
@@ -242,7 +243,7 @@ internal fun WorldMapViewModel.handleInteraction() {
                         prankedyDialogue = null
                     ) }
                 }
-                _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }
+                transitTeleportManager.beginEscomDoorFade(targetRoute)
             }
 
             nearby.id == ShineCTOLocation.MARKER_ID -> {
@@ -292,10 +293,11 @@ internal fun WorldMapViewModel.dismissClaimedPopup() { collectiblesManager.dismi
 internal fun WorldMapViewModel.teleportToLocation(newLat: Double, newLon: Double) {
         val insideEscom = isInsideEscom(newLat, newLon)
 
+        // El menú de TP lo POSEE transitTeleportManager (manager 5/6).
+        transitTeleportManager.setTeleportMenu(false)
         _uiState.update { currentState ->
             currentState.copy(
                 currentLocation = GeoPoint(newLat, newLon),
-                showTeleportMenu = false,
                 isRoadNetworkReady = false,
                 isMapReady = false,         // ← re-activa la compuerta de descarga del mapa
                 isUserPanningMap = false,   // ← igual que arriba

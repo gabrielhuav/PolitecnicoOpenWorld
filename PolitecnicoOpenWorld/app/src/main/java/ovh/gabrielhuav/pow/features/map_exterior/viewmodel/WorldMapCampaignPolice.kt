@@ -143,7 +143,7 @@ internal fun WorldMapViewModel.runCampaignEscortTick(playerLoc: GeoPoint) {
             ) }
         }
     }
-    if (_uiState.value.wantedLevel != 1) _uiState.update { it.copy(wantedLevel = 1) }
+    wantedManager.setWantedLevel(1)   // 1★ durante la escolta (idempotente; lo posee WantedManager)
     updateNpcsState()
 }
 
@@ -191,7 +191,7 @@ internal fun WorldMapViewModel.runMission1ChaseTick(playerLoc: GeoPoint) {
         android.util.Log.d("POW_DBG", "Misión 2 REMATE: Prankedy entró en (${gather.latitude},${gather.longitude}) → 6 policías van AHÍ, platican y se reparten")
     }
     updateEscomCrowd(playerLoc, door)
-    if (_uiState.value.wantedLevel != 1) _uiState.update { it.copy(wantedLevel = 1) }
+    wantedManager.setWantedLevel(1)   // 1★ durante el chase (idempotente; lo posee WantedManager)
     updateNpcsState()
 }
 
@@ -368,7 +368,7 @@ internal fun WorldMapViewModel.clearCampaignPolice() {
     campaignEscortPolice.clear()
     mission1ChaseCrowd.clear()
     if (had) {
-        _uiState.update { it.copy(wantedLevel = 0) }
+        wantedManager.setWantedLevel(0)   // fin de la policía de campaña (lo posee WantedManager)
         updateNpcsState()
     }
 }

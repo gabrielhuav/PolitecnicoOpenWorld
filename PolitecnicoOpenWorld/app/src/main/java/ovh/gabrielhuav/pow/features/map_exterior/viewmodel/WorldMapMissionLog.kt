@@ -19,8 +19,10 @@ import ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3
 /** Estado de una misión para pintar el registro. */
 enum class MissionLogStatus { LOCKED, AVAILABLE, ACTIVE, COMPLETED }
 
+// showMissionLog + completedMissions los POSEE campaignManager (manager 6/6, Parte A); estas
+// extensiones delegan. El objetivo de FASE (currentObjective) sigue en el VM (Parte B).
 fun WorldMapViewModel.toggleMissionLog(show: Boolean) {
-    _uiState.update { it.copy(showMissionLog = show) }
+    campaignManager.setShowMissionLog(show)
 }
 
 /** Estado actual de una misión del catálogo (para la UI del registro). */
@@ -30,11 +32,11 @@ fun WorldMapViewModel.missionLogStatus(missionId: String): MissionLogStatus {
     // el replay) aunque siga marcada como completada en el progreso guardado.
     if (replayingMissionId == missionId &&
         MissionCatalog.missionIdForObjective(s.currentObjective?.id) == missionId) return MissionLogStatus.ACTIVE
-    if (missionId in s.completedMissions) return MissionLogStatus.COMPLETED
+    if (campaignManager.isCompleted(missionId)) return MissionLogStatus.COMPLETED
     if (MissionCatalog.missionIdForObjective(s.currentObjective?.id) == missionId) return MissionLogStatus.ACTIVE
     val info = MissionCatalog.missions.firstOrNull { it.id == missionId } ?: return MissionLogStatus.LOCKED
     val req = info.requiresMissionId
-    return if (req == null || req in s.completedMissions) MissionLogStatus.AVAILABLE
+    return if (req == null || campaignManager.isCompleted(req)) MissionLogStatus.AVAILABLE
            else MissionLogStatus.LOCKED
 }
 
@@ -43,8 +45,7 @@ internal fun WorldMapViewModel.markMissionCompleted(missionId: String) {
     // FIN DE UN REPLAY: al volver a completar la misión rejugada se apaga el modo replay (las
     // fases ya quedaron en DONE por el propio flujo de completado; recompensas idempotentes).
     if (replayingMissionId == missionId) replayingMissionId = null
-    if (missionId in _uiState.value.completedMissions) return
-    _uiState.update { it.copy(completedMissions = it.completedMissions + missionId) }
+    campaignManager.markCompleted(missionId)   // idempotente (no des-marca ni duplica)
 }
 
 /**

@@ -185,6 +185,132 @@ Compose-directo (no-StateFlow).
 Rebuild OK + tests + vida/💥 reactivos OK. Manager 3/6 (Combat) cerrado. **Siguiente: manager 4/6
 `WantedManager`** (sesión nueva). El dueño continúa el programa en otra conversación desde aquí.
 
+### Hecho además — ETAPA 3 · manager 4/6: `WantedManager` ✅ (2026-07-04 sesión Opus 4.8, compilación PENDIENTE = ⏸️ CHECKPOINT #7)
+Cuarta aplicación de la RECETA combine (como Collectibles: los 3 campos SON de WorldMapState y los
+lee la UI). **CORTE:** el manager posee el SUB-ESTADO + los TIMERS + las CONSTANTES del subsistema;
+la ORQUESTACIÓN (red/policía/Context/IO) se queda en el VM y solo DELEGA los writes.
+- `viewmodel/WantedManager.kt` (NUEVO, LF): posee `WantedSubState` = 3 campos (`wantedLevel`,
+  `carjackWarning`, `policeShots`) con `MutableStateFlow` propio + los timers `lastCrimeTime`/
+  `lastWantedDecayTime`/`carjackStartTime` (antes @Volatile en el VM) + constantes `MAX_WANTED_LEVEL`/
+  `WANTED_DECAY_GRACE_MS`/`WANTED_DECAY_STEP_MS`/`CARJACK_MS`. Métodos PUROS con `now` inyectado por
+  parámetro (testeables en JVM): `raiseWantedLevel`, `tickWantedDecay`, `setWantedLevel`, `setMaxWanted`,
+  `clearWanted`, `armCarjack`/`clearCarjack` (máquina de carjack), `addPoliceShots`,
+  `mergeAndPrunePoliceShots`.
+- **NO migrado a propósito** (se queda en el VM, orquestación enredada con red/policía/IO/otros grupos):
+  `runPoliceTick` (PoliceManager.update, snap/pathfind, daño, broadcast WS, purga remota),
+  `anyAggressorAdjacent` (recorre remoteEntities), `handleCarjack` (lee vehicleSpeed/MAX_SPEED,
+  getLocalizedString, forceExitVehicle), `forceExitVehicle`. También `lastPoliceBroadcast`/
+  `POLICE_BROADCAST_MS`/`REMOTE_POLICE_STALE_MS`/`CARJACK_ADJ_RADIUS`. El guard del apocalipsis
+  (`globalZombieMode`) se queda en la extensión `raiseWantedLevel` del VM (necesita el estado base).
+- `WorldMapViewModel.kt`: `internal val wantedManager = WantedManager()` + el `combine` pasó a **4 flows**
+  `combine(_uiState, designerManager.state, collectiblesManager.state, wantedManager.state)` y el
+  `base.copy(...)` vuelca los 3 campos. La UI ve el MISMO `WorldMapState` (0 Views tocadas). Se
+  ELIMINARON del VM `MAX_WANTED_LEVEL`/`WANTED_DECAY_*`/`CARJACK_MS` + `lastCrimeTime`/`lastWantedDecayTime`/
+  `carjackStartTime` (tombstones). El write de `policeShots` del game loop (policía del apocalipsis)
+  → `wantedManager.addPoliceShots(...)`.
+- Writers ENTRELAZADOS rerouteados (varios combinados con OTROS grupos → se PARTIERON como en Collectibles):
+  - `WorldMapWanted.kt`: `raiseWantedLevel`/`tickWantedDecay` delegan; `runPoliceTick` lee
+    `wantedManager.state.value.wantedLevel` y usa `mergeAndPrunePoliceShots`; `handleCarjack` usa
+    `armCarjack`/`clearCarjack`. `forceExitVehicle`/`anyAggressorAdjacent` sin cambios de estado wanted.
+  - `WorldMapSaveGame.kt`: `buildSaveData` lee `wantedManager.state.value.wantedLevel` (⚠️ ANTES leía
+    `_uiState.value.wantedLevel`, que con la fachada daría SIEMPRE 0 → habría guardado 0 estrellas);
+    `restoreSaveData` → `wantedManager.setWantedLevel(data.wantedLevel)` (sacado del copy).
+  - `WorldMapMisc.kt` (WASTED): ambos branches → `wantedManager.clearWanted()` (resetea nivel+aviso+timer).
+  - `WorldMapTeleport.kt`: reset de TP → `wantedManager.clearWanted()` (sacado del copy grande).
+  - `WorldMapInteractions.kt` (abordar patrulla): → `wantedManager.setMaxWanted(nowMs)` (5★ + marca delito).
+  - `WorldMapCampaignPolice.kt`: los 3 sets (1/1/0) → `wantedManager.setWantedLevel(...)` (idempotente:
+    StateFlow no reemite si no cambia → sustituye a los `if (wantedLevel != 1)`).
+- `WorldMapState.kt`: los 3 campos anotados ⚠️ "LOS POSEE WantedManager — no escribir con `_uiState.update`".
+- `WantedManagerTest.kt` (NUEVO, LF, 10 tests): estado inicial, subida+tope, decaimiento (gracia + paso
+  que escala con el nivel), setWantedLevel coacción, setMaxWanted marca delito, clearWanted, máquina de
+  carjack (arma→dispara a CARJACK_MS), clearCarjack, addPoliceShots, merge+prune por TTL. **Total esperado: 71 tests.**
+- Verificado por grep: 0 `_uiState.value.{wantedLevel,carjackWarning,policeShots}`, 0 `it.copy(<campo>` de
+  estos 3 fuera del manager+fachada, 0 refs vivas a los miembros removidos del VM (solo tombstones/comentarios).
+  Edits verificados con Read; balance de llaves OK.
+
+### ✅ CHECKPOINT COMPILACIÓN #7 — VERDE (confirmado por el dueño, 2026-07-04)
+Rebuild OK + tests + wanted/policía/carjack/guardado-carga OK. Manager 4/6 (Wanted) cerrado.
+**Siguiente: manager 5/6 `TransitTeleportManager`** (`WorldMapTeleport.kt` + fades/nearby de metro/
+metrobús; ⚠️ `teleportTo` resetea campos de OTROS grupos — esa orquestación se queda en el VM).
+
+### Hecho además — ETAPA 3 · manager 5/6: `TransitTeleportManager` ✅ (2026-07-04 sesión Opus 4.8, compilación PENDIENTE = ⏸️ CHECKPOINT #8)
+Quinta aplicación de la RECETA combine. **CORTE:** el manager posee los **11 campos** UI de las
+TRANSICIONES DE PANTALLA (todos de WorldMapState, los lee la UI); la ORQUESTACIÓN (teleport gate,
+proximidad, repos IO, routing de puerta) se queda en el VM y delega. El `combine` pasó a **5 flows**
+(overload tipado; con más habría que anidar).
+- `viewmodel/TransitTeleportManager.kt` (NUEVO, LF): posee `TransitTeleportSubState` = 11 campos:
+  `showTeleportMenu`; Metro (`metroStations`/`nearbyMetroStation`/`showMetroFade`/`metroFadeCompleteStation`);
+  Metrobús (idem 4); Puerta ESCOM (`showEscomDoorFade`/`escomDoorFadeComplete`/`pendingDoorDestination`).
+  Métodos puros: `setTeleportMenu`, `setMetro(bus)Stations`, `setNearbyMetro(bus)`, `beginMetro(bus)Fade`,
+  `onMetro(bus)FadeComplete(): Boolean` (devuelve si disparó → el VM limpia el interactionPrompt de OTRO
+  grupo), `consumeMetro(bus)FadeComplete`, `beginEscomDoorFade`, `onEscomDoorFadeComplete`,
+  `consumeEscomDoorNavigation(): String?`, `clearTransitOnTeleport` (menú + fades/nearby; NO toca catálogos
+  ni la puerta ESCOM).
+- **NO migrado a propósito** (orquestación en el VM): `teleportTo` (gate del mundo, limpia NPCs, resetea
+  compuertas + wanted + transit vía `clearTransitOnTeleport`), `teleportToLocation`, `checkCollectibleProximity`
+  (proximidad mezclada con coleccionables + interactionPrompt temporizado), `handleInteraction`, los repos
+  `MetroRepository`/`MetrobusRepository` (IO) y el routing `InteriorEntryCatalog` de la puerta.
+- `WorldMapViewModel.kt`: `internal val transitTeleportManager = TransitTeleportManager()` + `combine` a
+  **5 flows** con los 11 campos en `base.copy`. Los 4 miembros de fade-complete (`onMetroFadeComplete`/
+  `consumeMetroFadeComplete`/`onMetrobusFadeComplete`/`consumeMetrobusFadeComplete`, llamados por la UI)
+  delegan y limpian el interactionPrompt.
+- Writers rerouteados (varios combinados con interactionPrompt/otros grupos → PARTIDOS):
+  - `WorldMapTeleport.kt`: `toggleTeleportMenu`/load/teleportTo* delegan; el reset de `teleportTo` → un
+    solo `clearTransitOnTeleport()` (se sacaron 7 campos del copy grande); reads de catálogos vía el manager.
+  - `WorldMapCollectiblesLogic.kt` (`checkCollectibleProximity`): reads de catálogo/cercanía y set/clear de
+    estación cercana → manager; el `interactionPrompt` temporizado con coroutine se queda en `_uiState`.
+  - `WorldMapInteractions.kt`: `handleInteraction` (beginMetro(bus)Fade), puerta (`beginEscomDoorFade`),
+    `teleportToLocation` (setTeleportMenu(false) fuera del copy).
+  - `WorldMapShineCTO.kt`: `onEscomDoorFadeComplete` (delega + limpia interactionPrompt + collectibles),
+    `consumeEscomDoorNavigation` → `manager.consumeEscomDoorNavigation()`.
+- `WorldMapState.kt`: los 11 campos + `showTeleportMenu` anotados ⚠️ "LOS POSEE TransitTeleportManager".
+- `TransitTeleportManagerTest.kt` (NUEVO, LF, 8 tests): estado inicial, menú, catálogos, set/clear cercanía,
+  flujo de fade metro (solo dispara con estación cercana), flujo metrobús, flujo puerta ESCOM (begin→complete→
+  consume), clearTransitOnTeleport (limpia menú/fades pero conserva catálogos y puerta). **Total esperado: 81 tests.**
+- Verificado por grep: 0 `_uiState.value.<campo>` de los 11, 0 `it.copy(<campo>` fuera del manager+fachada.
+  Edits verificados con Read; balance OK.
+
+### ✅ CHECKPOINT COMPILACIÓN #8 — VERDE (confirmado por el dueño, 2026-07-04)
+Rebuild OK + tests + metro/metrobús/teleport/puerta ESCOM OK (sin el bug de "salir del metro → metrobús").
+Manager 5/6 (TransitTeleport) cerrado. **Siguiente: manager 6/6 `CampaignManager`** (el más enredado:
+misiones 1-3, registro, replay; puede dividirse en 2 checkpoints). Con eso cierra la Etapa 3.
+
+### Hecho además — ETAPA 3 · manager 6/6 · PARTE A: `CampaignManager` (registro) ✅ (2026-07-04 sesión Opus 4.8, compilación PENDIENTE = ⏸️ CHECKPOINT #9)
+El grupo CAMPAÑA es el más enredado → se parte en 2 (como anticipaba el plan). **PARTE A = REGISTRO**,
+autocontenido; **PARTE B = FASE DE MISIÓN**, pendiente (ver abajo).
+- **Medición del blast radius (por eso se parte):** el REGISTRO (`showMissionLog`+`completedMissions`) tiene
+  **3 writers** limpios; el estado de FASE (`currentObjective`/`objectiveDone`/`storyConvo*`/
+  `pendingMission1ChaseIntro`/`mission3EnterEncb`/`campaignRouteWaypoints`/`showMissionFailed`) tiene **~26
+  writes en 8 archivos**, escritos en casi CADA tick de misión (WorldMapMission2/3.kt, WorldMapCampaignPolice.kt,
+  WorldMapSaveGame.kt…) → entrelazado con el GAME LOOP.
+- `viewmodel/CampaignManager.kt` (NUEVO, LF): posee `CampaignSubState` = 2 campos (`showMissionLog`,
+  `completedMissions`). Métodos puros: `setShowMissionLog`, `isCompleted`, `markCompleted` (IDEMPOTENTE —
+  regla dura del REJUGAR), `setCompletedMissions` (restaurar guardado).
+- `WorldMapViewModel.kt`: `internal val campaignManager = CampaignManager()`. **El `combine` llegó al límite
+  de 5 flows tipados → se ANIDÓ:** el 5º argumento combina `(transit, campaign)` en un `Pair` y el lambda lo
+  DESESTRUCTURA (`val (transit, campaign) = transitAndCampaign`). Sigue 100% tipado, sin casts. Los 2 campos
+  se vuelcan en `base.copy`.
+- Writers/reads rerouteados:
+  - `WorldMapMissionLog.kt`: `toggleMissionLog`→`setShowMissionLog`; `missionLogStatus` usa
+    `campaignManager.isCompleted(...)`; `markMissionCompleted`→`markCompleted` (el reset de `replayingMissionId`
+    se queda). La ORQUESTACIÓN (`selectCampaignMission`/`replayCampaignMission`/`unfollowActiveMission`/
+    `endMissionReplay`/`devTeleportToMissionObjective`) NO se toca — lee/escribe el objetivo de FASE (VM).
+  - `WorldMapSaveGame.kt`: `buildSaveData` lee `campaignManager.isCompleted(...)` + `.state.value.completedMissions`
+    (⚠️ ANTES leía `_uiState.value` → con la fachada daría lista vacía); `restoreSaveData` →
+    `campaignManager.setCompletedMissions(restoredCompleted)` (sacado del copy).
+- `WorldMapState.kt`: los 2 campos anotados ⚠️ "LOS POSEE CampaignManager (Parte A)".
+- `CampaignManagerTest.kt` (NUEVO, LF, 5 tests): inicial, toggle, markCompleted idempotente, isCompleted,
+  setCompletedMissions reemplaza. **Total esperado: 86 tests.**
+- Verificado por grep: 0 `_uiState.value.(showMissionLog|completedMissions)`, 0 `it.copy(<campo>` fuera del
+  manager+fachada. Edits verificados con Read; combine anidado balanceado.
+
+### ⏸️ CHECKPOINT COMPILACIÓN #9 — PENDIENTE (manager 6/6 PARTE A · registro)
+Falta Rebuild + tests + prueba manual del registro (abrir "Misiones", seguir/dejar de seguir, rejugar,
+completar; guardar/cargar conserva completadas). **PARTE B (decisión del dueño en el verde):** migrar el
+estado de FASE de misión (~26 tick-writers) en un checkpoint dedicado, O documentarlo como CORTE LIMPIO
+(dejarlo en el VM: el acoplamiento real ya es bajo — la lógica de misión es orquestación del game loop y no
+se “desengancha” moviéndola a un manager). Con la decisión de B se cierra la Etapa 3 → Etapa 4 (Hilt).
+
 ---
 
 ## 🤝 HANDOFF → SESIÓN OPUS 4.8 (el dueño delega el resto del programa)
@@ -223,11 +349,23 @@ Etapa 3 (todo VERDE). Opus 4.8 continúa desde aquí. El dueño volverá al fina
    de combate/vida y el temporizador se quedaron en el VM. Ver "Hecho además" arriba. **Lección para
    4-6:** si el estado del grupo es Compose-directo (no WorldMapState), usa delegación get/set en vez
    de la fachada combine.
-4. **WantedManager** — `WorldMapWanted.kt` (estrellas/carjack; envuelve PoliceManager).
-5. **TransitTeleportManager** — `WorldMapTeleport.kt` + fades/nearby de metro/metrobús. ⚠️
-   `teleportTo` resetea campos de OTROS grupos (ver 09): esa orquestación se queda en el VM.
-6. **CampaignManager** — el más enredado (misiones 1-3, registro, replay): AL FINAL, puede
-   dividirse en 2 checkpoints (estado de registro/replay primero, fases de misión después).
+4. ~~**WantedManager**~~ ✅ HECHO 2026-07-04 (Opus 4.8), pend. CHECKPOINT #7. Fachada combine (3 campos
+   `wantedLevel`/`carjackWarning`/`policeShots`) + timers + constantes en el manager; la orquestación
+   (`runPoliceTick`/`handleCarjack`/`anyAggressorAdjacent`/`forceExitVehicle`) se quedó en el VM y delega.
+   Ver "Hecho además" arriba. **Lección para 5-6:** cuando el grupo tiene MUCHOS writers entrelazados con
+   otros grupos (WASTED/teleport/abordar/campaña), se PARTEN los `it.copy` combinados (manager + base) —
+   como en Collectibles — y se rerutea CADA read síncrono interno (ojo `buildSaveData` leía `_uiState.value`).
+5. ~~**TransitTeleportManager**~~ ✅ HECHO 2026-07-04 (Opus 4.8), pend. CHECKPOINT #8. Fachada combine (11
+   campos: menú TP + metro + metrobús + puerta ESCOM); `combine` a 5 flows. La orquestación (`teleportTo`
+   con su reset multi-grupo vía `clearTransitOnTeleport`, proximidad, repos IO) se quedó en el VM. Ver
+   "Hecho además" arriba. **Lección para 6:** los fade-complete devuelven Boolean para que el VM limpie los
+   campos de OTROS grupos (interactionPrompt); `clearTransitOnTeleport` NO toca catálogos ni la puerta ESCOM.
+6. **CampaignManager** — el más enredado (misiones 1-3, registro, replay). Se divide en 2:
+   - ✅ **PARTE A HECHA 2026-07-04 (Opus 4.8)**, pend. CHECKPOINT #9: registro (`showMissionLog`+
+     `completedMissions`) en el manager; `combine` anidado (6º flow vía Pair). Ver "Hecho además".
+   - ⏳ **PARTE B (pendiente):** estado de FASE de misión (~26 tick-writers). Decisión en el verde de #9:
+     migrar en checkpoint dedicado O documentar corte limpio (dejarlo en el VM). **Lección:** el `combine`
+     ya está al límite anidado; si se migran más campos, van al combine interno `(transit, campaign, …)`.
 - Regla transversal: si un grupo resulta tener demasiados writers entrelazados con el game loop
   (p. ej. posición/vehículo), NO forzar su extracción — documentar por qué y seguir. El objetivo
   es acoplamiento bajo REAL, no el 100% de campos migrados.

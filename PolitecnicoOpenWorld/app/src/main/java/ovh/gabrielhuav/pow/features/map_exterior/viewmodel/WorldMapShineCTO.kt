@@ -45,17 +45,11 @@ fun WorldMapViewModel.dismissShineCTODiscovery() {
 }
 fun WorldMapViewModel.onEscomDoorFadeComplete() {
     collectiblesManager.clearNearby()
-    _uiState.update {
-        it.copy(
-            showEscomDoorFade    = false,
-            escomDoorFadeComplete = true,
-            interactionPrompt    = null
-        )
-    }
+    // El fade/flag de la puerta ESCOM lo POSEE transitTeleportManager (manager 5/6); el
+    // interactionPrompt (de OTRO grupo) se limpia aquí.
+    transitTeleportManager.onEscomDoorFadeComplete()
+    _uiState.update { it.copy(interactionPrompt = null) }
 }
 
-fun WorldMapViewModel.consumeEscomDoorNavigation(): String? {
-    val dest = _uiState.value.pendingDoorDestination
-    _uiState.update { it.copy(escomDoorFadeComplete = false, pendingDoorDestination = null) }
-    return dest
-}
+fun WorldMapViewModel.consumeEscomDoorNavigation(): String? =
+    transitTeleportManager.consumeEscomDoorNavigation()

@@ -173,13 +173,36 @@ class WorldMapViewModel(
     // de WorldMapState). El VM expone miembros delegantes (arriba); la lógica de combate/vida
     // sigue como extensiones del VM y delega los writes aquí.
     internal val combatManager = CombatManager()
+    // Manager 4/6: posee el sub-estado UI del NIVEL DE BÚSQUEDA (estrellas), el aviso de CARJACK
+    // y los DISPAROS de policía visibles + los timers/constantes del subsistema (lógica pura y
+    // testeable). La ORQUESTACIÓN (runPoliceTick/handleCarjack/anyAggressorAdjacent/forceExitVehicle)
+    // se queda en WorldMapWanted.kt y solo delega los writes. Envuelve conceptualmente a PoliceManager.
+    internal val wantedManager = WantedManager()
+    // Manager 5/6: posee el sub-estado UI de las TRANSICIONES DE PANTALLA (menú de teletransporte,
+    // estaciones de metro/metrobús + fades, fade de la puerta ESCOM). La ORQUESTACIÓN (teleportTo,
+    // proximidad, handleInteraction, repos IO) se queda en los parciales y delega los writes.
+    internal val transitTeleportManager = TransitTeleportManager()
+    // Manager 6/6 (PARTE A): posee el sub-estado UI del REGISTRO DE MISIONES (showMissionLog +
+    // completedMissions). El estado de FASE de misión (objetivo/subtítulos/ruta/…) sigue en el VM
+    // (entrelazado con el game loop — PARTE B, ver CHECKPOINT_SENIOR_refactor.md).
+    internal val campaignManager = CampaignManager()
 
     // FACHADA COMBINADA: la UI sigue viendo UN WorldMapState con la MISMA forma; los campos
     // poseídos por managers se SOBREESCRIBEN desde su sub-estado (sus copias en _uiState ya
     // no se escriben — los writers viven en el manager). Eagerly: siempre caliente, igual que
-    // el asStateFlow anterior. Al extraer el siguiente manager: añade su flow al combine.
+    // el asStateFlow anterior.
+    // combine tiene overloads tipados SOLO hasta 5 flows; ya son 6 managers → se ANIDA: el 5º
+    // argumento combina (transit, campaign) en un Pair, y el lambda lo desestructura (sigue 100%
+    // tipado, sin casts). Al extraer el siguiente manager: mete su flow en ese combine anidado.
     val uiState: StateFlow<WorldMapState> =
-        combine(_uiState, designerManager.state, collectiblesManager.state) { base, designer, coll ->
+        combine(
+            _uiState,
+            designerManager.state,
+            collectiblesManager.state,
+            wantedManager.state,
+            combine(transitTeleportManager.state, campaignManager.state) { transit, campaign -> transit to campaign }
+        ) { base, designer, coll, wanted, transitAndCampaign ->
+            val (transit, campaign) = transitAndCampaign
             base.copy(
                 showInteriorDebugOverlay = designer.showInteriorDebugOverlay,
                 debugEditTool = designer.debugEditTool,
@@ -189,7 +212,24 @@ class WorldMapViewModel(
                 debugEditNavCar = designer.debugEditNavCar,
                 activeCollectibles = coll.activeCollectibles,
                 nearbyCollectible = coll.nearbyCollectible,
-                showClaimedPopupFor = coll.showClaimedPopupFor
+                showClaimedPopupFor = coll.showClaimedPopupFor,
+                wantedLevel = wanted.wantedLevel,
+                carjackWarning = wanted.carjackWarning,
+                policeShots = wanted.policeShots,
+                showTeleportMenu = transit.showTeleportMenu,
+                metroStations = transit.metroStations,
+                nearbyMetroStation = transit.nearbyMetroStation,
+                showMetroFade = transit.showMetroFade,
+                metroFadeCompleteStation = transit.metroFadeCompleteStation,
+                metrobusStations = transit.metrobusStations,
+                nearbyMetrobusStation = transit.nearbyMetrobusStation,
+                showMetrobusFade = transit.showMetrobusFade,
+                metrobusFadeCompleteStation = transit.metrobusFadeCompleteStation,
+                showEscomDoorFade = transit.showEscomDoorFade,
+                escomDoorFadeComplete = transit.escomDoorFadeComplete,
+                pendingDoorDestination = transit.pendingDoorDestination,
+                showMissionLog = campaign.showMissionLog,
+                completedMissions = campaign.completedMissions
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, _uiState.value)
 
@@ -284,7 +324,7 @@ class WorldMapViewModel(
 
     // ─── NIVEL DE BÚSQUEDA / POLICÍA ─────────────────────────────────────────
     internal val policeManager = ovh.gabrielhuav.pow.domain.models.ai.PoliceManager()
-    internal val MAX_WANTED_LEVEL = 5
+    // MAX_WANTED_LEVEL se MOVIÓ a WantedManager.MAX_WANTED_LEVEL (manager 4/6). Úsalo vía el manager.
 
     // ─── POLICÍA DE LA CAMPAÑA (Modo Historia · Misión 1) ────────────────────
     // SEPARADA del sistema de búsqueda del mundo libre para que no choquen los comportamientos.
@@ -349,22 +389,19 @@ class WorldMapViewModel(
     internal val remotePolice = ConcurrentHashMap<String, Npc>()
     internal val remotePoliceSeen = ConcurrentHashMap<String, Long>()
     internal val REMOTE_POLICE_STALE_MS = 5000L
-    // Decaimiento: el nivel baja si no cometes delitos durante un rato.
-    @Volatile internal var lastCrimeTime = 0L
-    @Volatile internal var lastWantedDecayTime = 0L
+    // Decaimiento del nivel (lastCrimeTime/lastWantedDecayTime) y sus constantes (WANTED_DECAY_*)
+    // se MOVIERON a WantedManager (manager 4/6): la lógica de subida/decaimiento es pura y testeable.
     @Volatile internal var lastPoliceBroadcast = 0L
     @Volatile internal var lastDodgeTime = 0L
     internal val POLICE_BROADCAST_MS = 120L   // ~8 Hz por la red (la simulación sigue a 30 Hz)
-    internal val WANTED_DECAY_GRACE_MS = 25000L   // tiempo sin delito antes de empezar a bajar
-    internal val WANTED_DECAY_STEP_MS = 15000L    // cada cuánto baja una estrella
 
     // ─── NIVEL DE BÚSQUEDA / POLICÍA / CARJACK (REFACTOR) ─────────────────────
-    // raiseWantedLevel / tickWantedDecay / anyAggressorAdjacent / handleCarjack /
-    // forceExitVehicle / runPoliceTick viven en WorldMapWanted.kt. Aquí queda solo
-    // el ESTADO que esas extensiones usan:
-    internal val CARJACK_MS = 2500L                 // tiempo quieto antes de que te bajen
-    internal val CARJACK_ADJ_RADIUS = 0.00009       // ~10 m: NPC agresivo pegado al coche
-    @Volatile internal var carjackStartTime = 0L
+    // El SUB-ESTADO (wantedLevel/carjackWarning/policeShots) + los timers (lastCrimeTime/
+    // lastWantedDecayTime/carjackStartTime) + constantes (MAX_WANTED_LEVEL/WANTED_DECAY_*/CARJACK_MS)
+    // viven ahora en WantedManager (manager 4/6). La ORQUESTACIÓN (raiseWantedLevel/tickWantedDecay/
+    // anyAggressorAdjacent/handleCarjack/forceExitVehicle/runPoliceTick) sigue en WorldMapWanted.kt y
+    // delega los writes al manager. Aquí queda solo lo que esa orquestación necesita del lado del VM:
+    internal val CARJACK_ADJ_RADIUS = 0.00009       // ~10 m: NPC agresivo pegado al coche (recorre remoteEntities)
     // ¿El mapa global está en primer plano? El game loop es Activity-scoped y SIGUE corriendo cuando
     // entras a un interior (solo se detiene en onCleared). Sin esto, el audio del loop (stopWalk cada
     // tick con el jugador exterior quieto) PISABA el sonido de pasos de los interiores. WorldMapScreen
@@ -850,7 +887,7 @@ class WorldMapViewModel(
                                 val l = npcAiManager.pendingPoliceShots.toList(); npcAiManager.pendingPoliceShots.clear(); l
                             }
                             if (shots.isNotEmpty()) {
-                                _uiState.update { st -> st.copy(policeShots = st.policeShots + shots.map { PoliceShot(it.first, it.second, nowS) }) }
+                                wantedManager.addPoliceShots(shots.map { PoliceShot(it.first, it.second, nowS) })
                             }
                         }
 
@@ -1460,39 +1497,25 @@ class WorldMapViewModel(
     // viven en WorldMapShineCTO.kt.
 
     // ─── Metro Stations Fade ───────────────────────────────────────────────────
+    // El sub-estado de fade/estación lo POSEE transitTeleportManager (manager 5/6); estos
+    // miembros delegan y limpian el interactionPrompt (de OTRO grupo) cuando el fade dispara.
     fun onMetroFadeComplete() {
-        val station = _uiState.value.nearbyMetroStation
-        if (station != null) {
-            _uiState.update {
-                it.copy(
-                    showMetroFade = false,
-                    metroFadeCompleteStation = station,
-                    nearbyMetroStation = null,
-                    interactionPrompt = null
-                )
-            }
+        if (transitTeleportManager.onMetroFadeComplete()) {
+            _uiState.update { it.copy(interactionPrompt = null) }
         }
     }
 
     fun consumeMetroFadeComplete() {
-        _uiState.update { it.copy(metroFadeCompleteStation = null) }
+        transitTeleportManager.consumeMetroFadeComplete()
     }
     fun onMetrobusFadeComplete() {
-        val station = _uiState.value.nearbyMetrobusStation
-        if (station != null) {
-            _uiState.update {
-                it.copy(
-                    showMetrobusFade = false,
-                    metrobusFadeCompleteStation = station,
-                    nearbyMetrobusStation = null,
-                    interactionPrompt = null
-                )
-            }
+        if (transitTeleportManager.onMetrobusFadeComplete()) {
+            _uiState.update { it.copy(interactionPrompt = null) }
         }
     }
 
     fun consumeMetrobusFadeComplete() {
-        _uiState.update { it.copy(metrobusFadeCompleteStation = null) }
+        transitTeleportManager.consumeMetrobusFadeComplete()
     }
 
     // ─── TIENDA (VENDEDORES) ─────────────────────────────────────────────────
