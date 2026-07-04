@@ -57,6 +57,14 @@ object MissionCatalog {
         CampaignMissionInfo(MISSION_3_ID, R.string.mission3_title, R.string.mission3_desc, requiresMissionId = MISSION_2_ID)
     )
 
+    /** Primer objetivo de una misión (para el "TP al objetivo" del Modo Desarrollador). */
+    fun firstObjectiveOf(missionId: String): CampaignObjective? = when (missionId) {
+        MISSION_1_ID -> Mission1.objectives.firstOrNull()
+        MISSION_2_ID -> Mission2.objectives.firstOrNull()
+        MISSION_3_ID -> Mission3.objectives.firstOrNull()
+        else -> null
+    }
+
     /** Misión (id del selector) a la que pertenece un objetivo activo, o null. */
     fun missionIdForObjective(objectiveId: String?): String? = when {
         objectiveId == null -> null

@@ -284,8 +284,11 @@ data class ZombieServerMessage(type, sessionId, id, displayName, roomId, zone, x
 - Pantallas WASTED / Victory. SkillEffects dibujados como iconos Canvas puros.
 - **🆕 Botonera arriba-derecha:** Ajustes (siempre) + el menú de **Opciones**. **"Elegir personaje"**
   (selector de skin, `wm_choose_character` → `toggleSkinSelector`) **ya NO es un botón suelto**: es el
-  **primer ítem del menú de Opciones**. El banner de OBJETIVO de la cadena ENCB sigue arriba-centro
-  (`ENCB_STORY_ROOM_IDS`).
+  **primer ítem del menú de Opciones** (aquí SÍ visible para el jugador; el del MAPA GLOBAL pasó a ser
+  solo de Modo Desarrollador, 2026-07-04b). 🆕 2º ítem (solo campaña): **"Misiones"**
+  (`wm_opt_missions` → callback `onRequestMissionLog`, non-null solo en campaña) abre el REGISTRO DE
+  MISIONES global (`MissionLogHost` a nivel AppNavGraph; ver 09). El banner de OBJETIVO de la cadena
+  ENCB sigue arriba-centro (`ENCB_STORY_ROOM_IDS`).
 - **🆕 Orientación SIEMPRE landscape in-game (solo por RUTA):** el juego (mapa global, interiores y cómics) se
   fuerza a horizontal; solo los **menús de ruta** (`main_menu`, `story_mode`, `settings`, `collectibles`)
   permiten vertical. ÚNICA fuente de verdad: **`MainActivity`** por destino de navegación

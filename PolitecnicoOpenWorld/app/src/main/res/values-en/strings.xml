@@ -461,6 +461,8 @@
     <string name="mlog_locked">🔒 LOCKED</string>
     <string name="mlog_locked_hint">Complete the previous mission to unlock it.</string>
     <string name="mlog_free_roam_hint">No active mission: you\'re in FREE ROAM. Track a mission whenever you want.</string>
+    <string name="mlog_replay">REPLAY</string>
+    <string name="mlog_tp_objective">TP TO OBJECTIVE</string>
     <string name="mission1_title">Mission 1 · Outbreak origin</string>
     <string name="mission1_desc">Investigate the ENCB, escort Prankedy to the ESCOM and get to safety from the police.</string>
     <string name="mission2_title">Mission 2 · The rumor</string>

@@ -22,24 +22,47 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MissionLogStatus
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 // Extensiones del VM (registro de misiones) → import explícito (fuera del paquete viewmodel).
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.devTeleportToMissionObjective
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.missionLogStatus
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.replayCampaignMission
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectCampaignMission
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleMissionLog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.unfollowActiveMission
+
+/**
+ * HOST del registro de misiones a nivel Activity/AppNavGraph (mismo patrón que SaveSlotsDialog):
+ * un solo MissionLogDialog sirve al MAPA GLOBAL y a los INTERIORES (el estado vive en el
+ * worldMapViewModel, Activity-scoped). PERF: mientras el diálogo está CERRADO solo se colecta
+ * `showMissionLog` (distinctUntilChanged) para NO recomponer a 30 Hz con el uiState completo.
+ */
+@Composable
+fun MissionLogHost(viewModel: WorldMapViewModel) {
+    val show by remember(viewModel) {
+        viewModel.uiState.map { it.showMissionLog }.distinctUntilChanged()
+    }.collectAsState(initial = false)
+    if (!show) return
+    val uiState by viewModel.uiState.collectAsState()
+    MissionLogDialog(uiState, viewModel)
+}
 
 /**
  * REGISTRO / SELECTOR DE MISIONES (estilo Witcher 3): lista las misiones de campaña (y futuras
@@ -50,6 +73,11 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.unfollowActiveMission
 @Composable
 fun MissionLogDialog(uiState: WorldMapState, viewModel: WorldMapViewModel) {
     if (!uiState.showMissionLog) return
+    // Modo Desarrollador: desbloquea la selección de misiones 🔒 y el botón "TP al objetivo".
+    // Se lee al abrir el diálogo (mismo patrón que WorldMapScreen; el early-return de arriba
+    // hace que el remember se re-evalúe en cada apertura).
+    val context = LocalContext.current
+    val developerMode = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getDeveloperMode() }
     val anyActive = MissionCatalog.missions.any {
         viewModel.missionLogStatus(it.id) == MissionLogStatus.ACTIVE
     }
@@ -124,11 +152,17 @@ fun MissionLogDialog(uiState: WorldMapState, viewModel: WorldMapViewModel) {
                             color = Color(0xFFB0BEC5),
                             fontSize = 12.sp
                         )
-                        if (status == MissionLogStatus.AVAILABLE || status == MissionLogStatus.ACTIVE) {
+                        // Botones por misión: SEGUIR (disponible, o 🔒 bloqueada en Modo Dev),
+                        // DEJAR DE SEGUIR (activa), REJUGAR (✔ completada; NO toca el progreso)
+                        // y "TP al objetivo" (solo Modo Dev).
+                        val showFollow = status == MissionLogStatus.AVAILABLE ||
+                            (developerMode && status == MissionLogStatus.LOCKED)
+                        if (showFollow || status == MissionLogStatus.ACTIVE ||
+                            status == MissionLogStatus.COMPLETED || developerMode) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (status == MissionLogStatus.AVAILABLE) {
+                                if (showFollow) {
                                     Button(
-                                        onClick = { viewModel.selectCampaignMission(mission.id) },
+                                        onClick = { viewModel.selectCampaignMission(mission.id, force = developerMode) },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
@@ -137,7 +171,8 @@ fun MissionLogDialog(uiState: WorldMapState, viewModel: WorldMapViewModel) {
                                             color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp
                                         )
                                     }
-                                } else {
+                                }
+                                if (status == MissionLogStatus.ACTIVE) {
                                     Button(
                                         onClick = { viewModel.unfollowActiveMission() },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
@@ -145,6 +180,30 @@ fun MissionLogDialog(uiState: WorldMapState, viewModel: WorldMapViewModel) {
                                     ) {
                                         Text(
                                             stringResource(R.string.mlog_unfollow),
+                                            color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp
+                                        )
+                                    }
+                                }
+                                if (status == MissionLogStatus.COMPLETED) {
+                                    Button(
+                                        onClick = { viewModel.replayCampaignMission(mission.id) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.mlog_replay),
+                                            color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp
+                                        )
+                                    }
+                                }
+                                if (developerMode) {
+                                    Button(
+                                        onClick = { viewModel.devTeleportToMissionObjective(mission.id) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF455A64)),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.mlog_tp_objective),
                                             color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp
                                         )
                                     }

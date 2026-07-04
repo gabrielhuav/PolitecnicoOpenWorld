@@ -839,6 +839,39 @@ matrices por defecto son **border-only** hasta reemplazarse.
   RE-SEGUIR re-fija el objetivo de la fase (`resumeMission2/3Objective`). Completadas en
   `WorldMapState.completedMissions` (persistidas; ⚠️ lista de Gson → coalesce NULL al restaurar).
   M1 se marca completada al cumplir INGRESAR_ESCOM (WorldMapInteractions).
+  - **🆕 (2026-07-04b) El diálogo vive a nivel AppNavGraph, NO en WorldMapScreen:** `MissionLogHost`
+    (en `MissionLogDialog.kt`) se compone DESPUÉS del NavHost (mismo patrón que `SaveSlotsDialog`)
+    con el `worldMapViewModel` Activity-scoped → un solo diálogo sirve al mapa global Y a los
+    interiores (`ZombieGameScreen` ganó el ítem "Misiones" vía callback `onRequestMissionLog`,
+    non-null solo en campaña; MVVM: el VM de interiores NO toca al del mundo). PERF: cerrado, el
+    host solo colecta `showMissionLog` con `map+distinctUntilChanged` (no recompone a 30 Hz). Si
+    sigues una misión de exterior desde un interior, el 🎯 aparece al salir (el objetivo vive en el
+    VM del mundo). NO volver a hospedar el diálogo dentro de una pantalla.
+  - **🆕 (2026-07-04b) "Elegir personaje" del MAPA GLOBAL = solo Modo Desarrollador:**
+    `wm_opt_change_skin` en el menú Opciones de `WorldMapScreen` va gateado por `developerMode`.
+    El "Elegir personaje" de INTERIORES (ZombieGameScreen) sigue visible para el jugador.
+- **🆕 REJUGAR MISIONES + MODO DEV en el registro (2026-07-04b) — reglas:** las ✔ COMPLETADAS
+  ganan botón **REJUGAR** (`replayCampaignMission`); con `developerMode` además: las 🔒 son
+  seleccionables (`selectCampaignMission(id, force=true)` salta `requiresMissionId`) y cada misión
+  tiene **"TP al objetivo"** (`devTeleportToMissionObjective` → `teleportTo` con offset ~40 m N).
+  **REGLA DURA — el replay NO toca el progreso guardado.** Diseño:
+  - `WorldMapViewModel.replayingMissionId` es **TRANSITORIO** (no viaja en `GameSaveData`).
+    `setStorySpawn` lo limpia (COMENZAR/CARGAR cancelan replays); `replayCampaignMission` (M1) y
+    `retryCampaignMission` lo restauran a propósito tras su `setStorySpawn` interno.
+  - Rejugar M2/M3 = `startMission2/3Story` (fase transitoria a la mitad); rejugar M1 = respawn en
+    la escuela de campaña + `setCampaignObjective(first)` **conservando** mission2/3Phase (se
+    capturan alrededor de `setStorySpawn`, que las resetea).
+  - **`buildSaveData` CLAMPA las fases a DONE si la misión está en `completedMissions`** (cubre el
+    replay Y el reset transitorio de `setStorySpawn` en reintentos — antes un retry de la M3
+    podía persistir mission2Phase=0 y "perder" la mochila) y NO guarda el objetivo de un replay
+    (la partida queda como mundo libre). AppNavGraph gatea los slots de inventario también por
+    `completedMissions` (no solo `mission2Phase>=DONE`).
+  - Fin del replay: volver a completar la misión (`markMissionCompleted` apaga el flag; fases ya
+    en DONE; recompensas idempotentes — `completedMissions` no se des-marca, `hasFirearm` no se
+    pierde) o DEJAR DE SEGUIR (`unfollowActiveMission` → `endMissionReplay` restaura la fase a
+    DONE y limpia actores). `missionLogStatus` muestra ACTIVA la misión rejugada mientras su
+    objetivo esté activo. El snapshot de NPCs excluye ahora también `M3_*` (antes solo
+    M2_/CAMPAIGN_COP_/ESCOM_FLOOD_).
 - **🆕 MISIÓN 3 "Regreso a la ENCB" (2026-07-04):** `mission3/Mission3.kt` + `WorldMapMission3.kt`
   (viaje → cordón de granaderos con SIGILO → asalto interior). Claves: los "granaderos" usan
   `POLICE_COP` (render exterior premade pendiente); entrada/RE-entrada al interior vía
@@ -910,9 +943,13 @@ matrices por defecto son **border-only** hasta reemplazarse.
   - `StoryIntroScreen`: oculta el botón **"Editar"** (editor del cuadro de texto del cómic).
   - `ZombieGameScreen` (interiores, menú Opciones): oculta **"Diseñador"**; y **"Salir al mapa"** solo cuando
     la sala está en la cadena `ZombieRoomCatalog.ENCB_STORY_ROOM_IDS` (Misión 1) → `developerMode || !inMission1`.
-  - `WorldMapScreen` (mundo, menú Opciones): oculta **"Teletransportarse"**, el grupo **"Diseñador / Debug"**
+  - `WorldMapScreen` (mundo, menú Opciones): oculta **"Elegir personaje"** (🆕 2026-07-04b; el de
+    INTERIORES sigue visible), **"Teletransportarse"**, el grupo **"Diseñador / Debug"**
     (Modo Diseñador + Debug Interiores + Agregar asset), **"Activar/Desactivar Apocalipsis"** y el toggle de
     **Prankedy**.
+  - `MissionLogDialog` (registro de misiones): con el modo ENCENDIDO, las misiones 🔒 son
+    seleccionables (`force=true` salta `requiresMissionId`) y cada misión gana **"TP al objetivo"**
+    (🆕 2026-07-04b; se lee al ABRIR el diálogo, no al entrar a la pantalla).
   Como se lee con `remember` al entrar, el cambio aplica al re-entrar a la pantalla (no en vivo). Strings
   `settings_developer_mode`/`_desc` (es+en).
 - **🆕 Widget de coordenadas X/Y/Z (`showCoordsWidget`, Ajustes → Interfaz, default oculto):** composable

@@ -463,6 +463,8 @@
     <string name="mlog_locked">🔒 BLOQUEADA</string>
     <string name="mlog_locked_hint">Completa la misión anterior para desbloquearla.</string>
     <string name="mlog_free_roam_hint">Sin misión activa: estás en MUNDO LIBRE. Sigue una misión cuando quieras.</string>
+    <string name="mlog_replay">REJUGAR</string>
+    <string name="mlog_tp_objective">TP AL OBJETIVO</string>
     <string name="mission1_title">Misión 1 · El origen del brote</string>
     <string name="mission1_desc">Investiga la ENCB, escolta a Prankedy hasta la ESCOM y ponte a salvo de la policía.</string>
     <string name="mission2_title">Misión 2 · El rumor</string>

@@ -304,6 +304,12 @@ class WorldMapViewModel(
     // campaña). PERSISTIDA en GameSaveData.hasFirearm.
     internal var hasFirearm = false
 
+    // ─── REJUGAR MISIONES (registro de misiones) — lógica en WorldMapMissionLog.kt ────
+    // Id de la misión ✔ COMPLETADA que se está REJUGANDO, o null. TRANSITORIO: NO se persiste
+    // (no viaja en GameSaveData); buildSaveData clampa las fases a DONE mientras se rejuega y
+    // setStorySpawn lo limpia (pizarra limpia al COMENZAR/CARGAR). Ver endMissionReplay.
+    internal var replayingMissionId: String? = null
+
     // ─── PRANKEDY (NPC compañero) ─────────────────────────────────────────────
     internal val prankedyManager = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager()
     // Policía REMOTA (de otros jugadores): solo se renderiza, no se simula. id -> (npc, lastSeenMs).

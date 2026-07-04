@@ -40,6 +40,9 @@ fun WorldMapViewModel.setStorySpawn(lat: Double, lon: Double) {
     mission2Phase = 0
     clearMission3Story()
     mission3Phase = 0
+    // REPLAY: pizarra limpia también del modo rejugar (COMENZAR/CARGAR cancelan un replay).
+    // ⚠️ replayCampaignMission (M1) y retryCampaignMission lo restauran a propósito después.
+    replayingMissionId = null
     npcWarmupCycles = 0          // re-arma el warm-up de NPCs del gate de carga
     lastNetworkFetchLocation = null  // fuerza el re-fetch de calles alrededor de la escuela
     lastFetchAttemptMs = 0L

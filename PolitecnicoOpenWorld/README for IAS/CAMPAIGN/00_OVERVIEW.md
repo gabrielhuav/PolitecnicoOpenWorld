@@ -92,6 +92,15 @@ Desde el menú principal hay dos entradas (ver `07_OTHER_FEATURES.md`):
 > Estados: 🔒 bloqueada (requiere la anterior) · disponible · ▶ activa (🎯 + línea guía) · ✔
 > completada (`completedMissions`, persistida en el JSON). "Dejar de seguir" pausa la misión (la
 > fase se conserva). Preparado para misiones SECUNDARIAS (`CampaignMissionInfo.side`).
+>
+> **🆕 (2026-07-04b):** el diálogo se hospeda a nivel **AppNavGraph** (`MissionLogHost`, patrón
+> SaveSlotsDialog) → "Misiones" está en el menú de Opciones del MAPA **y de INTERIORES**
+> (`ZombieGameScreen.onRequestMissionLog`, solo en campaña). Las ✔ completadas ganan botón
+> **REJUGAR** (`replayCampaignMission` + `replayingMissionId` transitorio: NO des-marca
+> `completedMissions`, NO pierde `hasFirearm`/slots, y `buildSaveData` clampa las fases a DONE →
+> el progreso guardado queda intacto; abandonar con "Dejar de seguir" restaura la fase vía
+> `endMissionReplay`). Con **Modo Desarrollador**: las 🔒 son seleccionables (salta
+> `requiresMissionId`) y cada misión tiene **"TP al objetivo"** (~40 m de offset). Ver 09.
 
 > **⚠️ Nota de nomenclatura (RESUELTA 2026-07-03):** la fase de persecución/ingreso que en el
 > código se llamaba "Misión 2" era mecánica de la Misión 1; al implementar la Misión 2 REAL se

@@ -903,9 +903,9 @@ fun WorldMapScreen(
             }
         }
 
-        // ─── REGISTRO / SELECTOR DE MISIONES (estilo Witcher; sustituye al viejo diálogo R7:
-        // el jugador SIEMPRE está en mundo libre y elige qué misión seguir). ───
-        ovh.gabrielhuav.pow.features.map_exterior.ui.components.MissionLogDialog(uiState, viewModel)
+        // ─── REGISTRO / SELECTOR DE MISIONES: el diálogo YA NO se hospeda aquí; vive a nivel
+        // AppNavGraph (MissionLogHost, mismo patrón que SaveSlotsDialog) para que un solo
+        // MissionLogDialog sirva en el mapa global Y en interiores. ───
 
         // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────
         uiState.carjackWarning?.let { warn ->
@@ -1091,7 +1091,9 @@ fun WorldMapScreen(
                         OptionMenuGroup(
                             id = "opciones", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_options), icon = Icons.Default.Tune,
                             items = buildList {
-                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_change_skin), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                                // "Elegir personaje" del MAPA GLOBAL: solo en Modo Desarrollador (el
+                                // de INTERIORES, en ZombieGameScreen, sigue visible para el jugador).
+                                if (developerMode) add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_change_skin), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
                                 // REGISTRO DE MISIONES (estilo Witcher): elegir qué misión seguir,
                                 // ver completadas y bloqueadas. Solo en campaña (Modo Historia).
                                 if (viewModel.inCampaign) add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_missions), Icons.Default.LocationOn, Color(0xFFFFC107)) { viewModel.toggleMissionLog(true) })

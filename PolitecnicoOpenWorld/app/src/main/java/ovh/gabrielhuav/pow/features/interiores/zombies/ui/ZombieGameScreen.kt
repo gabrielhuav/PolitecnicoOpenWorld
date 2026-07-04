@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -129,6 +130,11 @@ fun ZombieGameScreen(
     startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
     // MODO HISTORIA: abre el selector de slots para guardar la partida (también en interiores).
     onRequestSaveGame: () -> Unit = {},
+    // MODO HISTORIA: abre el REGISTRO DE MISIONES (MissionLogDialog, hospedado a nivel
+    // AppNavGraph con el worldMapViewModel Activity-scoped). null = fuera de campaña (se
+    // oculta el ítem "Misiones" del menú de Opciones). MVVM: este VM de interiores NO se
+    // acopla al del mundo; solo emite la intención por callback.
+    onRequestMissionLog: (() -> Unit)? = null,
     // MODO HISTORIA: el waypoint final de ENCB_LAB2 pide reanudar la narrativa (cómic ENCB_OUTRO).
     onPlayStoryOutro: () -> Unit = {},
     // MODO HISTORIA: notifica la sala actual (id de ZombieRoomCatalog) al entrar y en cada
@@ -1094,9 +1100,15 @@ fun ZombieGameScreen(
                         val sDesigner = stringResource(R.string.zgame_opt_designer)
                         val sExitMap = stringResource(R.string.zgame_opt_exit_map)
                         val sSaveGame = stringResource(R.string.wm_opt_save_game)
+                        val sMissions = stringResource(R.string.wm_opt_missions)
                         buildList {
                             // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto.
                             add(OptionMenuItem(sChar, Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                            // MODO HISTORIA: REGISTRO DE MISIONES también en interiores (el diálogo
+                            // vive a nivel AppNavGraph). Solo en campaña (callback non-null).
+                            onRequestMissionLog?.let { openLog ->
+                                add(OptionMenuItem(sMissions, Icons.Default.LocationOn, Color(0xFFFFC107)) { openLog() })
+                            }
                             // "Diseñador": solo en Modo Desarrollador. Abre un selector
                             // (Colisiones/Waypoints | Estacionamiento) en vez de ir directo.
                             if (developerMode) add(OptionMenuItem(sDesigner, Icons.Default.Architecture) { designerChooserOpen = true })

@@ -31,11 +31,13 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
             kotlin.math.abs(it.location.latitude - loc.latitude) < SAVE_NPC_RADIUS_DEG &&
                 kotlin.math.abs(it.location.longitude - loc.longitude) < SAVE_NPC_RADIUS_DEG
         }
-        // NO congelar NPCs DE MISIÓN (M2_* de la Misión 2, CAMPAIGN_COP_* de la escolta/chase,
-        // ESCOM_FLOOD_* de la multitud): al cargar se re-inyectarían como civiles "adoptados" por
-        // la IA Y ADEMÁS el tick de misión re-spawnea los suyos → duplicados/zombies huérfanos.
+        // NO congelar NPCs DE MISIÓN (M2_* de la Misión 2, M3_* del cordón/paparazzi de la
+        // Misión 3, CAMPAIGN_COP_* de la escolta/chase, ESCOM_FLOOD_* de la multitud): al cargar
+        // se re-inyectarían como civiles "adoptados" por la IA Y ADEMÁS el tick de misión
+        // re-spawnea los suyos → duplicados/zombies huérfanos.
         .filterNot {
-            it.id.startsWith("M2_") || it.id.startsWith("CAMPAIGN_COP_") || it.id.startsWith("ESCOM_FLOOD_")
+            it.id.startsWith("M2_") || it.id.startsWith("M3_") ||
+                it.id.startsWith("CAMPAIGN_COP_") || it.id.startsWith("ESCOM_FLOOD_")
         }
         .take(40)
         .map {
@@ -48,6 +50,16 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
                 rotation = it.rotationAngle
             )
         }
+    // REJUGAR MISIONES — REGLA DURA: el guardado NUNCA regresa el progreso. Si una misión ya
+    // está ✔ COMPLETADA, su fase se persiste CLAMPADA a DONE aunque en memoria vaya a la mitad
+    // (replay en curso, o el reset transitorio de setStorySpawn en un reintento). Y el objetivo
+    // de un replay NO se guarda (es transitorio): la partida queda como mundo libre.
+    val m2Done = MissionCatalog.MISSION_2_ID in s.completedMissions
+    val m3Done = MissionCatalog.MISSION_3_ID in s.completedMissions
+    val savedM2Phase = if (m2Done) maxOf(mission2Phase, ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_DONE) else mission2Phase
+    val savedM3Phase = if (m3Done) maxOf(mission3Phase, ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.PHASE_DONE) else mission3Phase
+    val replayObjective = replayingMissionId != null &&
+        MissionCatalog.missionIdForObjective(s.currentObjective?.id) == replayingMissionId
     return GameSaveData(
         schoolId = schoolId,
         lat = loc.latitude,
@@ -60,15 +72,15 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
         vehicleColor = s.currentVehicleColor,
         skin = s.selectedSkin.name,
         nearbyNpcs = nearby,
-        objectiveId = s.currentObjective?.id,
-        objectiveDone = s.objectiveDone,
+        objectiveId = if (replayObjective) null else s.currentObjective?.id,
+        objectiveDone = if (replayObjective) false else s.objectiveDone,
         interiorRoomId = currentInteriorRoomId,   // null si está en el mapa global
         inventoryKeys = currentInteriorInventory,
         lab1KeyFound = currentInteriorLab1KeyFound,
-        // MISIÓN 2 · "El rumor": fase de la máquina de estados (0 = no iniciada).
-        mission2Phase = mission2Phase,
+        // MISIÓN 2 · "El rumor": fase de la máquina de estados (0 = no iniciada; clamp de replay).
+        mission2Phase = savedM2Phase,
         // MISIÓN 3 · "Regreso a la ENCB" + recompensa (arma de fuego) + registro de misiones.
-        mission3Phase = mission3Phase,
+        mission3Phase = savedM3Phase,
         hasFirearm = hasFirearm,
         completedMissions = s.completedMissions,
         saveType = saveType,
@@ -158,6 +170,10 @@ fun WorldMapViewModel.loadGame(context: Context, slot: Int): Boolean {
 // re-arma la escolta de la Misión 1.
 fun WorldMapViewModel.retryCampaignMission(context: Context) {
     clearCampaignPolice()
+    // REPLAY: reintentar la misión que se está REJUGANDO no apaga el modo replay (setStorySpawn
+    // lo limpia como parte de su pizarra limpia; aquí se restaura al final). EXCEPCIÓN: si el
+    // reintento cae al fallback de loadGame, el guardado es canónico y el replay se cancela.
+    var keepReplay = replayingMissionId
     // Objetivo que estabas haciendo al fallar (triggerWastedSequence NO cambia el objetivo).
     val failedObjId = _uiState.value.currentObjective?.id
     if (failedObjId == MissionCatalog.ESCOLTAR_PRANKEDY.id) {
@@ -188,8 +204,11 @@ fun WorldMapViewModel.retryCampaignMission(context: Context) {
         )
         startMission3Story()
         playerHealth = maxPlayerHealth
-    } else if (!loadGame(context, campaignSlot)) {
-        setCampaignObjective(MissionCatalog.ESCOLTAR_PRANKEDY)
+    } else {
+        // Fallback: recargar el slot activo restaura el estado GUARDADO (canónico) → un replay
+        // en curso se cancela (las fases guardadas ya van clampadas a DONE).
+        keepReplay = null
+        if (!loadGame(context, campaignSlot)) setCampaignObjective(MissionCatalog.ESCOLTAR_PRANKEDY)
     }
     // Prankedy DEBE estar contigo al reintentar (SOLO en la Misión 1: respawnPrankedyCompanionHere
     // re-fija el objetivo ESCOLTAR_PRANKEDY — en la Misión 2 eso pisaría el objetivo del retry).
@@ -197,6 +216,7 @@ fun WorldMapViewModel.retryCampaignMission(context: Context) {
             ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.OBJECTIVE_ID_PREFIX) != true) {
         respawnPrankedyCompanionHere()
     }
+    replayingMissionId = keepReplay   // el reintento continúa el replay (si lo había)
     _uiState.update { it.copy(showMissionFailed = false) }
 }
 

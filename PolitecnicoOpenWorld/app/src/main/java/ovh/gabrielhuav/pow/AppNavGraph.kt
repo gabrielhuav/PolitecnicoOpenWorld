@@ -80,6 +80,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission1Chase
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Backpack
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission3Evidence
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleMissionLog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setStorySpawn
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetroStation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusStation
@@ -417,6 +418,10 @@ fun AppNavGraph(
                                 debugHitboxes = false,
                                 startRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID,
                                 onRequestSaveGame = { showSaveDialog = true },
+                                // "Misiones" también en el lobby ENCB de campaña (diálogo global).
+                                onRequestMissionLog = if (worldMapViewModel.inCampaign) {
+                                    { worldMapViewModel.toggleMissionLog(true) }
+                                } else null,
                                 // Recuerda en qué sala de interiores está el jugador (para el guardado).
                                 onRoomChanged = { roomId -> worldMapViewModel.currentInteriorRoomId = roomId },
                                 // Waypoint final de ENCB_LAB2 → reanuda la narrativa (cómic
@@ -926,6 +931,13 @@ fun AppNavGraph(
                                 // "Guardar partida" disponible también en interiores (mismo selector
                                 // de slots; el estado del mundo se conserva en el worldMapViewModel).
                                 onRequestSaveGame = { showSaveDialog = true },
+                                // "Misiones" también en interiores (abre el MissionLogDialog global,
+                                // hospedado tras el NavHost). Solo en campaña. Si desde aquí se sigue
+                                // una misión de exterior, su 🎯 se ve al salir al mapa (el objetivo
+                                // vive en el worldMapViewModel).
+                                onRequestMissionLog = if (worldMapViewModel.inCampaign) {
+                                    { worldMapViewModel.toggleMissionLog(true) }
+                                } else null,
                                 // Recuerda la sala actual (para el guardado / reentrada al CARGAR).
                                 onRoomChanged = { roomId -> worldMapViewModel.currentInteriorRoomId = roomId },
                                 // Si se CARGA una partida directamente en la cadena ENCB y se llega al
@@ -952,10 +964,14 @@ fun AppNavGraph(
                                     worldMapViewModel.completeMission2Backpack()
                                 },
                                 // MISIÓN 2: la mochila desbloquea TODOS los slots del inventario
-                                // (persistido vía mission2Phase). MISIÓN 3: gate del arma de fuego
+                                // (persistido vía mission2Phase). REJUGAR: durante un replay la fase
+                                // va a la mitad en memoria, pero los slots NO se pierden → también
+                                // gatea por completedMissions. MISIÓN 3: gate del arma de fuego
                                 // (solo campaña) + modo asalto ENCB + callback de la evidencia.
                                 initialUnlockedSlots = if (worldMapViewModel.mission2Phase >=
-                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_DONE) 4 else 1,
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_DONE ||
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_2_ID in
+                                        wmState.completedMissions) 4 else 1,
                                 firearmUnlocked = !worldMapViewModel.inCampaign || worldMapViewModel.hasFirearm,
                                 mission3Assault = mission3Assault,
                                 onMission3EvidenceRecovered = {
@@ -972,4 +988,12 @@ fun AppNavGraph(
                             )
                         }
                     }
+
+                    // ─── REGISTRO / SELECTOR DE MISIONES a nivel Activity (mismo patrón que el
+                    // SaveSlotsDialog de arriba): un solo MissionLogDialog sirve al MAPA GLOBAL y a
+                    // los INTERIORES (estado showMissionLog en el worldMapViewModel, Activity-scoped).
+                    // Va DESPUÉS del NavHost para dibujarse ENCIMA de la pantalla actual (es un
+                    // overlay Compose, no un Dialog de ventana). MissionLogHost solo colecta
+                    // showMissionLog mientras está cerrado (no recompone a 30 Hz).
+                    ovh.gabrielhuav.pow.features.map_exterior.ui.components.MissionLogHost(worldMapViewModel)
 }

@@ -63,6 +63,12 @@ Todo está documentado en detalle en los docs actualizados; aquí el índice:
 
 ---
 
+> **✅ HECHO (2026-07-04b):** las 4 tareas del prompt de abajo YA se implementaron en la sesión
+> siguiente (skin del mapa solo-dev · "Misiones" en interiores vía `MissionLogHost` en AppNavGraph ·
+> REJUGAR con `replayingMissionId` transitorio + clamp de fases en `buildSaveData` · modo dev en el
+> registro con `force` + "TP al objetivo"). Detalle en 09 (§12), CAMPAIGN/00, 04, 05, 07 y README.
+> Pendiente: `Rebuild Project` + prueba en dispositivo.
+
 ## C. PROMPT PARA LA SIGUIENTE SESIÓN (copiar/pegar tal cual)
 
 ```

@@ -73,7 +73,7 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | NPC especial Prankedy (IA/VM/render) | `domain/models/ai/PrankedyManager.kt` (ver 03), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
 | 🆕 MISIÓN 2 "El rumor" (máquina de fases: esconderse/rumor/brote/plática/mochila) | `viewmodel/WorldMapMission2.kt` (NUEVO; guion/constantes en `domain/models/campaign/mission2/Mission2.kt`; ver `CAMPAIGN/02_MISSION_2.md`) |
 | 🆕 MISIÓN 3 "Regreso a la ENCB" (viaje/cordón-sigilo/asalto) | `viewmodel/WorldMapMission3.kt` (NUEVO; constantes en `domain/models/campaign/mission3/Mission3.kt`; ver `CAMPAIGN/03_MISSION_3.md`) |
-| 🆕 REGISTRO/SELECTOR de misiones (estilo Witcher) | `viewmodel/WorldMapMissionLog.kt` + `ui/components/MissionLogDialog.kt` (NUEVOS; catálogo `MissionCatalog.missions`) |
+| 🆕 REGISTRO/SELECTOR de misiones (estilo Witcher) | `viewmodel/WorldMapMissionLog.kt` + `ui/components/MissionLogDialog.kt` (catálogo `MissionCatalog.missions`). 🆕 2026-07-04b: el diálogo se hospeda a nivel **AppNavGraph** (`MissionLogHost`, patrón SaveSlotsDialog) → sirve al mapa Y a interiores; REJUGAR ✔ completadas sin tocar el progreso (`replayingMissionId` transitorio); Modo Dev = seguir 🔒 + "TP al objetivo". Ver 09. |
 
 ---
 

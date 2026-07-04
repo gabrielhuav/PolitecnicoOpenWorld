@@ -121,6 +121,12 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
   libre; sigue/pausa misiones desde **Opciones → "Misiones"** (`MissionLogDialog`; estados
   bloqueada/disponible/activa/completada; `completedMissions` persistida). Las misiones 2 y 3 ya
   NO arrancan solas. Ver `CAMPAIGN/00_OVERVIEW` y 09.
+  - **🆕 (2026-07-04b):** "Misiones" también en el menú de Opciones de **INTERIORES** — el diálogo
+    se hospeda a nivel `AppNavGraph` (`MissionLogHost`, patrón SaveSlotsDialog, VM del mundo
+    Activity-scoped). Las ✔ completadas ganan **REJUGAR** (sin tocar el progreso guardado:
+    `replayingMissionId` transitorio + clamp de fases en `buildSaveData`). Con Modo Desarrollador:
+    seguir misiones 🔒 y **"TP al objetivo"**. Además, "Elegir personaje" del MAPA GLOBAL ahora es
+    solo de Modo Desarrollador (el de interiores se queda). Detalle en 09.
 - **🆕 MISIÓN 3 · "Regreso a la ENCB" (2026-07-04):** cordón de granaderos con sigilo + asalto
   interior ENCB con zombis + evidencia 🧪 → recompensa **primera ARMA DE FUEGO** (`hasFirearm`,
   desbloquea RANGED en campaña). La mochila de la M2 ahora **desbloquea los 4 slots** del
