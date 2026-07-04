@@ -2,7 +2,6 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import android.content.Context
 import android.util.Log
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -55,8 +54,6 @@ import kotlin.math.sqrt
 import kotlin.math.abs
 import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import java.io.InputStreamReader
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
@@ -72,33 +69,33 @@ class WorldMapViewModel(
 
     internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(application)
 
-    var playerHealth by mutableStateOf(100f)
-        internal set
-    val maxPlayerHealth = 100f
+    // ─── VIDA / FX DE IMPACTO → los POSEE CombatManager (Etapa 3, manager 3/6) ──────────
+    // ⚠️ Estos NO son campos de WorldMapState (no van por la fachada combine): son Compose
+    // mutableStateOf que las Views leen DIRECTO (viewModel.playerHealth…). El backing store se
+    // mudó a CombatManager; el VM conserva estos miembros DELEGANTES para NO tocar las Views ni
+    // las extensiones de combate/vida (siguen escribiendo estos nombres → delegan). Ver
+    // CombatManager.kt y CHECKPOINT_SENIOR_refactor.md.
+    var playerHealth: Float
+        get() = combatManager.playerHealth
+        internal set(value) { combatManager.playerHealth = value }
+    val maxPlayerHealth get() = combatManager.maxPlayerHealth
 
-    // FX DE IMPACTO: cada incremento dispara un destello/💥 en pantalla. Lo usamos para
-    // que se NOTE una colisión (NPC que te golpea, o atropello al conducir).
-    var impactEffectTrigger by mutableStateOf(0)
-        internal set
-    // Throttle del 💥: con muchos zombis/NPCs golpeándote, applyNpcContactDamage llamaba a
-    // fireImpactEffect cada mordida (~cada 900 ms por atacante) y el 💥 central se veía "a cada
-    // rato". Limitamos a uno cada IMPACT_EFFECT_THROTTLE_MS para que siga marcando colisiones
-    // notables sin spamear.
-    private var lastImpactEffectMs = 0L
-    private val IMPACT_EFFECT_THROTTLE_MS = 900L
-    // Última horda migratoria avisada al jugador (para no repetir el aviso del HUD).
+    var impactEffectTrigger: Int
+        get() = combatManager.impactEffectTrigger
+        internal set(value) { combatManager.impactEffectTrigger = value }
+    var showHealthBar: Boolean
+        get() = combatManager.showHealthBar
+        internal set(value) { combatManager.showHealthBar = value }
+    var damagePulseTrigger: Int
+        get() = combatManager.damagePulseTrigger
+        internal set(value) { combatManager.damagePulseTrigger = value }
+
+    // 💥 con throttle: delega en el manager (que mantiene su lastImpactEffectMs).
+    internal fun fireImpactEffect() = combatManager.fireImpactEffect()
+
+    // Última horda migratoria avisada al jugador (para no repetir el aviso del HUD). NO es
+    // estado de combate/vida → se queda en el VM.
     private var lastHordeSeenMs = 0L
-    internal fun fireImpactEffect() {
-        val now = System.currentTimeMillis()
-        if (now - lastImpactEffectMs < IMPACT_EFFECT_THROTTLE_MS) return
-        lastImpactEffectMs = now
-        impactEffectTrigger++
-    }
-
-    var showHealthBar by mutableStateOf(false)
-        internal set
-    var damagePulseTrigger by mutableStateOf(0)
-        internal set
 
     // Timestamp hasta el cual el jugador es inmune al daño (post-respawn / teletransporte).
     // Mientras System.currentTimeMillis() < respawnImmunityUntilMs, takeDamage es un no-op.
@@ -172,6 +169,10 @@ class WorldMapViewModel(
     // Manager 2/6: posee el sub-estado UI de COLECCIONABLES (activos/cercano/popup). Los ítems
     // de ESCOM, isZombieHandSpawned e isSpawningCollectible se quedan en el VM (no-UI/game loop).
     internal val collectiblesManager = CollectiblesManager()
+    // Manager 3/6: posee el estado UI de VIDA + FX DE IMPACTO (Compose mutableStateOf, NO campos
+    // de WorldMapState). El VM expone miembros delegantes (arriba); la lógica de combate/vida
+    // sigue como extensiones del VM y delega los writes aquí.
+    internal val combatManager = CombatManager()
 
     // FACHADA COMBINADA: la UI sigue viendo UN WorldMapState con la MISMA forma; los campos
     // poseídos por managers se SOBREESCRIBEN desde su sub-estado (sus copias en _uiState ya

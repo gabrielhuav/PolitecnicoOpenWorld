@@ -19,7 +19,7 @@ El dueño compila y prueba SOLO cuando se le pide; intervención mínima.
 | 1. Red de tests de lógica pura (RoadRouter golden-master + guardado + catálogos) | `PLAN_dedup_routing.md` §2 | 🔨 EN CURSO (esta sesión) |
 | ⏸️ CHECKPOINT COMPILACIÓN #1: Rebuild + `testDebugUnitTest` | — | pendiente |
 | 2. De-dup cadena de routing (1 función por compilación, hoja→raíz) | `PLAN_dedup_routing.md` §3 | pendiente |
-| 3. Descomponer VM en managers con sub-estado (fachada `combine`) — empezar por `DesignerManager` | `PLAN_descomponer_WorldMapViewModel.md` | 🔨 EN CURSO (2/6: Designer ✅, Collectibles ✅ pend. CHECKPOINT #5) |
+| 3. Descomponer VM en managers con sub-estado (fachada `combine`) — empezar por `DesignerManager` | `PLAN_descomponer_WorldMapViewModel.md` | 🔨 EN CURSO (3/6: Designer ✅, Collectibles ✅, Combat ✅ pend. CHECKPOINT #6) |
 | 4. DI con Hilt (1 VM por PR; WorldMapViewModel al final) | `PLAN_DI_hilt.md` | pendiente |
 | 5. Deuda detekt ALTA/MEDIA + baseline bloqueante | `PENDIENTE_calidad.md` | pendiente |
 | 6. Perf gama baja (pasada dirigida) + higiene EOL/tamaños | 09 §6 | pendiente |
@@ -152,9 +152,39 @@ el sub-estado UI del grupo COLECCIONABLES; los ítems ESCOM / flags de spawn NO-
   en parciales, no en el VM). Sobre el objetivo blando de 1500 por 24 líneas — se reducirá al migrar
   más grupos. No es bloqueante.
 
-### ⏸️ CHECKPOINT COMPILACIÓN #5 — PENDIENTE (pedir al dueño)
-Rebuild + tests desde Android Studio + prueba manual (ver informe al final de la sesión). Esperar VERDE
-antes del manager 3/6 (CombatManager).
+### ✅ CHECKPOINT COMPILACIÓN #5 — VERDE (confirmado por el dueño, 2026-07-04)
+Rebuild OK + tests + coleccionables/metro/puerta/ShineCTO OK. Manager 2/6 (Collectibles) cerrado.
+Sin parpadeo en las transiciones metro/puerta. Se procede al manager 3/6 (CombatManager).
+
+### Hecho además — ETAPA 3 · manager 3/6: `CombatManager` ✅ (2026-07-04 sesión Opus 4.8, compilación PENDIENTE)
+**VARIANTE DEL PATRÓN (importante para los siguientes):** el estado de VIDA/FX de impacto NO son
+campos de `WorldMapState` (no van por el `combine`): son **Compose `mutableStateOf`** que las Views
+leen DIRECTO (`viewModel.playerHealth`/`.showHealthBar`/`.damagePulseTrigger`/`.impactEffectTrigger`).
+Para NO tocar ninguna View, el backing store se mudó al manager y el VM conserva **miembros
+DELEGANTES** (get/`internal set` → manager). Compose sigue recomponiendo (el getter del VM lee el
+State del manager dentro del @Composable). Es el análogo de la fachada combine para estado
+Compose-directo (no-StateFlow).
+- `viewmodel/CombatManager.kt` (NUEVO, LF): posee `playerHealth`, `maxPlayerHealth`, `showHealthBar`,
+  `damagePulseTrigger`, `impactEffectTrigger` (mutableStateOf) + el **throttle del 💥** (`fireImpactEffect`
+  con **reloj inyectable** `clockMs` → testeable en JVM; `IMPACT_THROTTLE_MS=900`).
+- `WorldMapViewModel.kt`: `internal val combatManager = CombatManager()` + los 4 estados y
+  `maxPlayerHealth` pasan a **propiedades delegantes**; `fireImpactEffect()` delega. Se BORRARON las
+  declaraciones backing + `lastImpactEffectMs`/`IMPACT_EFFECT_THROTTLE_MS` del VM y los 3 imports de
+  Compose ya sin uso (`mutableStateOf`/`getValue`/`setValue`).
+- **NO tocado (a propósito):** la LÓGICA de combate (`WorldMapCombat.kt`) y de vida (`WorldMapHealth.kt`,
+  `takeDamage`/`heal`), el temporizador `startHealthBarTimer`/`healthBarJob` (usa viewModelScope),
+  `triggerWastedSequence`, `respawnImmunityUntilMs` y los internals de combate (`lastAttackTime`,
+  `npcHitStreak`, `relentlessNpcs`, `npcContactCooldowns`, `lastZombieBiteMs`, constantes) → siguen en
+  el VM y escriben los estados vía los nombres delegados (0 cambios en esos archivos). Cero Views tocadas.
+- `CombatManagerTest.kt` (NUEVO, LF, 3 tests): estado inicial (100 HP, sin FX) + throttle del 💥
+  (throttled dentro de la ventana, vuelve a disparar al cumplirse `IMPACT_THROTTLE_MS`). **Total esperado: 61 tests.**
+- Verificado por grep: 0 backing `by mutableStateOf` de estos campos en el VM; 0 referencias al throttle
+  viejo; imports Compose sin uso retirados. Edits verificados con Read; clase cierra OK (~1525 líneas).
+
+### ⏸️ CHECKPOINT COMPILACIÓN #6 — PENDIENTE (pedir al dueño)
+Rebuild + tests desde Android Studio + prueba manual (ver informe). Esperar VERDE antes del manager
+4/6 (WantedManager). **Prueba manual CLAVE de este paso:** que la barra de vida y el 💥 sigan
+reactivos — recibir daño baja la barra y parpadea el rojo; curarse/comprar la sube; morir → WASTED.
 
 ---
 
@@ -189,8 +219,11 @@ Etapa 3 (todo VERDE). Opus 4.8 continúa desde aquí. El dueño volverá al fina
 2. ~~**CollectiblesManager**~~ ✅ HECHO 2026-07-04 (Opus 4.8), pendiente CHECKPOINT #5. Se movió SOLO
    el sub-estado UI (`activeCollectibles`/`nearbyCollectible`/`showClaimedPopupFor`); `_escomItems`,
    `isZombieHandSpawned`, `isSpawningCollectible` se quedaron en el VM (no-UI). Ver "Hecho además" arriba.
-3. **CombatManager** — `WorldMapCombat.kt` + `WorldMapHealth.kt` (vida/impactos/rachas). ⚠️ La
-   vida se lee en CADA tick y en triggerWastedSequence (miembro): migra reads con cuidado.
+3. ~~**CombatManager**~~ ✅ HECHO 2026-07-04 (Opus 4.8), pend. CHECKPOINT #6. Estado vida/💥 (Compose
+   mutableStateOf) movido al manager con **miembros delegantes** en el VM (Views intactas); la LÓGICA
+   de combate/vida y el temporizador se quedaron en el VM. Ver "Hecho además" arriba. **Lección para
+   4-6:** si el estado del grupo es Compose-directo (no WorldMapState), usa delegación get/set en vez
+   de la fachada combine.
 4. **WantedManager** — `WorldMapWanted.kt` (estrellas/carjack; envuelve PoliceManager).
 5. **TransitTeleportManager** — `WorldMapTeleport.kt` + fades/nearby de metro/metrobús. ⚠️
    `teleportTo` resetea campos de OTROS grupos (ver 09): esa orquestación se queda en el VM.
