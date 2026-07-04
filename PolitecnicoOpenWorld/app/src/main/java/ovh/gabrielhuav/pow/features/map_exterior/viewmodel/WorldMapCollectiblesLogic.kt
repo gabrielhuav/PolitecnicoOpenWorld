@@ -58,7 +58,7 @@ import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
 
 internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerLon: Double) {
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
-        if (_uiState.value.activeCollectibles.isNotEmpty() || !isSpawningCollectible.compareAndSet(false, true)) return
+        if (collectiblesManager.state.value.activeCollectibles.isNotEmpty() || !isSpawningCollectible.compareAndSet(false, true)) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val uncollected = collectibleRepository.getUncollectedCollectibles()
@@ -82,7 +82,7 @@ internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerL
                         longitude = spawnNode.longitude
                     )
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        _uiState.update { it.copy(activeCollectibles = listOf(activeItem)) }
+                        collectiblesManager.setActive(listOf(activeItem))
                     }
                 }
             } finally {
@@ -107,7 +107,8 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         // amplia basta estar cerca en cualquier calle. Esta zona se dibuja en web y OSM nativo.
         if (nearbyMetro != null && playerGeo.distanceToAsDouble(nearbyMetro.location) <= METRO_INTERACT_RADIUS_METERS) {
             if (_uiState.value.nearbyMetroStation?.name != nearbyMetro.name) {
-                _uiState.update { it.copy(nearbyMetroStation = nearbyMetro, nearbyCollectible = null) }
+                _uiState.update { it.copy(nearbyMetroStation = nearbyMetro) }
+                collectiblesManager.clearNearby()
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
                     val promptText = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_prompt_metro, nearbyMetro.name.uppercase())
@@ -131,7 +132,8 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         // Metrobús: zona propia MÁS PEQUEÑA que el metro (METROBUS_INTERACT_RADIUS_METERS).
         if (nearbyMetrobus != null && playerGeo.distanceToAsDouble(nearbyMetrobus.location) <= METROBUS_INTERACT_RADIUS_METERS) {
             if (_uiState.value.nearbyMetrobusStation?.name != nearbyMetrobus.name) {
-                _uiState.update { it.copy(nearbyMetrobusStation = nearbyMetrobus, nearbyCollectible = null) }
+                _uiState.update { it.copy(nearbyMetrobusStation = nearbyMetrobus) }
+                collectiblesManager.clearNearby()
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
                     val promptText = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_prompt_metrobus, nearbyMetrobus.name.uppercase())
@@ -148,7 +150,7 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         }
 
         // 2. Recopilamos los collectibles normales y de ESCOM (nuestro código)
-        val baseItems = _uiState.value.activeCollectibles + _escomItems.value
+        val baseItems = collectiblesManager.state.value.activeCollectibles + _escomItems.value
 
         // Convertimos los Landmarks de tipo "Puerta" en collectibles virtuales interactuables
         val doorItems = _uiState.value.landmarks
@@ -197,8 +199,8 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         }
 
         if (distanceInMeters <= radius) {
-            if (_uiState.value.nearbyCollectible?.id != activeItem.id) {
-                _uiState.update { it.copy(nearbyCollectible = activeItem) }
+            if (collectiblesManager.state.value.nearbyCollectible?.id != activeItem.id) {
+                collectiblesManager.setNearby(activeItem)
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
                     val promptText = when {
@@ -217,10 +219,11 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 }
             }
         } else {
-            if (_uiState.value.nearbyCollectible != null) {
+            if (collectiblesManager.state.value.nearbyCollectible != null) {
                 promptJob?.cancel()
                 promptJob = null
-                _uiState.update { it.copy(nearbyCollectible = null, interactionPrompt = null) }
+                collectiblesManager.clearNearby()
+                _uiState.update { it.copy(interactionPrompt = null) }
             }
         }
     }

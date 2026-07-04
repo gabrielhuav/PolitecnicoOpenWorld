@@ -169,20 +169,26 @@ class WorldMapViewModel(
     // Cada manager posee su MutableStateFlow<XSubState>; el VM los COMPONE en `uiState`
     // (fachada combine, abajo). Ver PLAN_descomponer_WorldMapViewModel.md y CHECKPOINT_SENIOR.
     internal val designerManager = DesignerManager()
+    // Manager 2/6: posee el sub-estado UI de COLECCIONABLES (activos/cercano/popup). Los ítems
+    // de ESCOM, isZombieHandSpawned e isSpawningCollectible se quedan en el VM (no-UI/game loop).
+    internal val collectiblesManager = CollectiblesManager()
 
     // FACHADA COMBINADA: la UI sigue viendo UN WorldMapState con la MISMA forma; los campos
     // poseídos por managers se SOBREESCRIBEN desde su sub-estado (sus copias en _uiState ya
     // no se escriben — los writers viven en el manager). Eagerly: siempre caliente, igual que
     // el asStateFlow anterior. Al extraer el siguiente manager: añade su flow al combine.
     val uiState: StateFlow<WorldMapState> =
-        combine(_uiState, designerManager.state) { base, designer ->
+        combine(_uiState, designerManager.state, collectiblesManager.state) { base, designer, coll ->
             base.copy(
                 showInteriorDebugOverlay = designer.showInteriorDebugOverlay,
                 debugEditTool = designer.debugEditTool,
                 debugEditWalls = designer.debugEditWalls,
                 debugEditBlocks = designer.debugEditBlocks,
                 debugEditNavPed = designer.debugEditNavPed,
-                debugEditNavCar = designer.debugEditNavCar
+                debugEditNavCar = designer.debugEditNavCar,
+                activeCollectibles = coll.activeCollectibles,
+                nearbyCollectible = coll.nearbyCollectible,
+                showClaimedPopupFor = coll.showClaimedPopupFor
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, _uiState.value)
 

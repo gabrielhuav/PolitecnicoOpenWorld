@@ -137,6 +137,9 @@ data class WorldMapState(
     val showAssetPicker: Boolean = false,
 
     // Coleccionables
+    // ⚠️ LOS POSEE CollectiblesManager (Etapa 3, manager 2/6) — NO escribirlos con
+    // _uiState.update: la fachada combine los SOBREESCRIBE desde collectiblesManager.state
+    // (un write directo aquí sería ignorado = bug sordo). Escríbelos vía el manager.
     val activeCollectibles: List<ActiveCollectible> = emptyList(),
     val nearbyCollectible: ActiveCollectible? = null,
     val showClaimedPopupFor: ActiveCollectible? = null,

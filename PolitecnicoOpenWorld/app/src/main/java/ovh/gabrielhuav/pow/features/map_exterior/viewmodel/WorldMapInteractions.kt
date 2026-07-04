@@ -188,7 +188,7 @@ internal fun WorldMapViewModel.handleInteraction() {
             return
         }
 
-        val nearby = _uiState.value.nearbyCollectible ?: return
+        val nearby = collectiblesManager.state.value.nearbyCollectible ?: return
 
         when {
             nearby.id == "global_zombie_hand" -> toggleGlobalZombieMode()
@@ -269,7 +269,7 @@ internal fun WorldMapViewModel.handleInteraction() {
     }
 
 internal fun WorldMapViewModel.onClaimCollectiblePressed() {
-        val itemToClaim = _uiState.value.nearbyCollectible ?: return
+        val itemToClaim = collectiblesManager.state.value.nearbyCollectible ?: return
 
         if (itemToClaim.name == "Objeto Misterioso ESCOM" ||
             itemToClaim.id == ShineCTOLocation.MARKER_ID ||
@@ -281,19 +281,13 @@ internal fun WorldMapViewModel.onClaimCollectiblePressed() {
             withContext(Dispatchers.Main) {
                 promptJob?.cancel()
                 promptJob = null
-                _uiState.update {
-                    it.copy(
-                        activeCollectibles = emptyList(),
-                        nearbyCollectible = null,
-                        interactionPrompt = null,
-                        showClaimedPopupFor = itemToClaim
-                    )
-                }
+                collectiblesManager.claim(itemToClaim)
+                _uiState.update { it.copy(interactionPrompt = null) }
             }
         }
     }
 
-internal fun WorldMapViewModel.dismissClaimedPopup() { _uiState.update { it.copy(showClaimedPopupFor = null) } }
+internal fun WorldMapViewModel.dismissClaimedPopup() { collectiblesManager.dismissClaimedPopup() }
 
 internal fun WorldMapViewModel.teleportToLocation(newLat: Double, newLon: Double) {
         val insideEscom = isInsideEscom(newLat, newLon)

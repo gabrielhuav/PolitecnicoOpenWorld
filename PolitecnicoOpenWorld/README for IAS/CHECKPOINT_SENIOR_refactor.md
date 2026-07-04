@@ -19,7 +19,7 @@ El dueño compila y prueba SOLO cuando se le pide; intervención mínima.
 | 1. Red de tests de lógica pura (RoadRouter golden-master + guardado + catálogos) | `PLAN_dedup_routing.md` §2 | 🔨 EN CURSO (esta sesión) |
 | ⏸️ CHECKPOINT COMPILACIÓN #1: Rebuild + `testDebugUnitTest` | — | pendiente |
 | 2. De-dup cadena de routing (1 función por compilación, hoja→raíz) | `PLAN_dedup_routing.md` §3 | pendiente |
-| 3. Descomponer VM en managers con sub-estado (fachada `combine`) — empezar por `DesignerManager` | `PLAN_descomponer_WorldMapViewModel.md` | pendiente |
+| 3. Descomponer VM en managers con sub-estado (fachada `combine`) — empezar por `DesignerManager` | `PLAN_descomponer_WorldMapViewModel.md` | 🔨 EN CURSO (2/6: Designer ✅, Collectibles ✅ pend. CHECKPOINT #5) |
 | 4. DI con Hilt (1 VM por PR; WorldMapViewModel al final) | `PLAN_DI_hilt.md` | pendiente |
 | 5. Deuda detekt ALTA/MEDIA + baseline bloqueante | `PENDIENTE_calidad.md` | pendiente |
 | 6. Perf gama baja (pasada dirigida) + higiene EOL/tamaños | 09 §6 | pendiente |
@@ -119,6 +119,43 @@ El dueño compila y prueba SOLO cuando se le pide; intervención mínima.
 Rebuild OK, 51/51 tests, editor de debug y juego normal OK. **La fachada combine está PROBADA
 en runtime.** El manager 1/6 (Designer) queda cerrado.
 
+### Hecho además — ETAPA 3 · manager 2/6: `CollectiblesManager` ✅ (2026-07-04 sesión Opus 4.8, compilación PENDIENTE)
+Segunda aplicación de la RECETA combine (idéntica a Designer). **CORTE:** el manager posee SOLO
+el sub-estado UI del grupo COLECCIONABLES; los ítems ESCOM / flags de spawn NO-UI se quedan en el VM.
+- `viewmodel/CollectiblesManager.kt` (NUEVO, LF): posee `CollectiblesUiState` = 3 campos
+  (`activeCollectibles`, `nearbyCollectible`, `showClaimedPopupFor`) con `MutableStateFlow` propio.
+  Métodos puros: `setActive`/`addActive`/`clearActive`, `setNearby`/`clearNearby`,
+  `claim(item)` (vacía activos+cercano y fija el popup **atómicamente**), `dismissClaimedPopup`.
+- **NO migrados a propósito** (siguen en el VM, no-UI / enredados con game loop y zona ESCOM):
+  `_escomItems` (flow aparte), `isZombieHandSpawned`, `isSpawningCollectible` (AtomicBoolean).
+  Documentado en el header del manager y en el aviso del CHECKPOINT — corte limpio > dogma.
+- `WorldMapViewModel.kt`: `internal val collectiblesManager = CollectiblesManager()` +
+  el `combine` pasó a **3 flows** `combine(_uiState, designerManager.state, collectiblesManager.state)`
+  y el `base.copy(...)` vuelca los 3 campos. La UI ve el MISMO `WorldMapState` (0 Views tocadas).
+- Extensiones que ORQUESTAN (mezclan Context/IO/otros grupos) se quedan en el VM y DELEGAN la
+  parte del sub-estado, conservando FIRMA:
+  - `WorldMapCollectiblesLogic.kt`: `trySpawningCollectible`/`checkCollectibleProximity` — los
+    reads VM-internos pasaron a `collectiblesManager.state.value.*`; los writes de metro/metrobús
+    se **partieron** (`_uiState.update{...}` para el campo base + `collectiblesManager.clearNearby()`).
+  - `WorldMapInteractions.kt`: `onClaimCollectiblePressed` → `collectiblesManager.claim(...)` +
+    `_uiState.update{interactionPrompt}`; `dismissClaimedPopup` delega; reads de `nearbyCollectible`
+    migrados.
+  - `WorldMapShineCTO.kt`: `spawnShineCTOMarker` → `addActive`; `onShineCTODiscoveryConfirmed`/
+    `onEscomDoorFadeComplete` → `clearNearby()` + copy base sin el campo.
+- `WorldMapState.kt`: los 3 campos anotados ⚠️ "LOS POSEE CollectiblesManager — no escribir con
+  `_uiState.update`".
+- `CollectiblesManagerTest.kt` (NUEVO, LF, 7 tests): estado inicial, setActive reemplaza, addActive
+  persiste, clearActive no toca radar, set/clear nearby, claim atómico, dismiss. **Total esperado: 58 tests.**
+- Verificado por grep: asignaciones de los 3 campos SOLO en el manager + la fachada; 0 reads por
+  `_uiState.value.<campo>`; sin gemelos miembro de las funciones tocadas. Edits verificados con Read.
+- ⚠️ Nota de tamaño: el VM quedó en ~1524 líneas (la fachada + comentarios suman; la lógica ya vivía
+  en parciales, no en el VM). Sobre el objetivo blando de 1500 por 24 líneas — se reducirá al migrar
+  más grupos. No es bloqueante.
+
+### ⏸️ CHECKPOINT COMPILACIÓN #5 — PENDIENTE (pedir al dueño)
+Rebuild + tests desde Android Studio + prueba manual (ver informe al final de la sesión). Esperar VERDE
+antes del manager 3/6 (CombatManager).
+
 ---
 
 ## 🤝 HANDOFF → SESIÓN OPUS 4.8 (el dueño delega el resto del programa)
@@ -149,11 +186,9 @@ Etapa 3 (todo VERDE). Opus 4.8 continúa desde aquí. El dueño volverá al fina
    ⏸️ CHECKPOINT (Rebuild + tests + prueba manual del feature migrado).
 
 ### Orden de managers restantes (Etapa 3, 1 por ⏸️ checkpoint)
-2. **CollectiblesManager** — parciales `WorldMapCollectiblesLogic.kt`/`WorldMapEscomItems.kt`;
-   grupo COLECCIONABLES de WorldMapState (activos, popup, nearbyCollectible…). ⚠️ el game loop
-   MIEMBRO llama `checkCollectibleProximity`/`trySpawningCollectible` y hay estado no-UI
-   (`_escomItems` flow aparte, `isSpawningCollectible`): mueve SOLO el sub-estado UI del grupo;
-   los flows/ítems ESCOM pueden quedarse si el corte se vuelve confuso — corte limpio > dogma.
+2. ~~**CollectiblesManager**~~ ✅ HECHO 2026-07-04 (Opus 4.8), pendiente CHECKPOINT #5. Se movió SOLO
+   el sub-estado UI (`activeCollectibles`/`nearbyCollectible`/`showClaimedPopupFor`); `_escomItems`,
+   `isZombieHandSpawned`, `isSpawningCollectible` se quedaron en el VM (no-UI). Ver "Hecho además" arriba.
 3. **CombatManager** — `WorldMapCombat.kt` + `WorldMapHealth.kt` (vida/impactos/rachas). ⚠️ La
    vida se lee en CADA tick y en triggerWastedSequence (miembro): migra reads con cuidado.
 4. **WantedManager** — `WorldMapWanted.kt` (estrellas/carjack; envuelve PoliceManager).
