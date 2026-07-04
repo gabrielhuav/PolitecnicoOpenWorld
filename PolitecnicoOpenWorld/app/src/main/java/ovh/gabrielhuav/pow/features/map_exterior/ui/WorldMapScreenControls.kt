@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.Ps4ActionButtonsController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleJoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
@@ -43,9 +43,9 @@ import ovh.gabrielhuav.pow.features.settings.models.ControlType
 /**
  * Controles en pantalla del mundo abierto (extraído de WorldMapScreen.kt para reducir su
  * tamaño): vals de layout (escala/padding según orientación), botón "Salir del apocalipsis"
- * y la fila inferior de controles (D-pad/joystick de movimiento o conducción + botones de
- * acción A/B/X/Y o diamante PS4). Es una extensión de [BoxScope] porque usa `align`.
- * MVVM: solo observa `uiState` y emite intenciones al VM. La pulsación larga de Y/△
+ * y la fila inferior de controles (D-pad/joystick de movimiento o conducción + el MISMO
+ * diamante Xbox A/B/X/Y a pie y conduciendo). Es una extensión de [BoxScope] porque usa `align`.
+ * MVVM: solo observa `uiState` y emite intenciones al VM. La pulsación larga de Y
  * (mantener 3 s → menú de teletransporte) se gestiona aquí con `yButtonHoldJob` local.
  *
  * @param optionsExpanded si el menú de Opciones está abierto (en horizontal desplaza el
@@ -98,7 +98,7 @@ fun BoxScope.WorldMapControls(
             // a propósito — gas y freno viven únicamente en el diamante PS4.
             val drivingDpad = @Composable { m: Modifier ->
                 // Respeta la preferencia de control: JOYSTICK = joystick de dirección (izq/der);
-                // D-pad = flechitas. Gas/freno siempre en el diamante PS4 (drivingActions).
+                // D-pad = flechitas. Gas/freno siempre en el diamante A/B/X/Y (drivingActions).
                 if (uiState.controlType == ControlType.JOYSTICK)
                     VehicleJoystickController(
                         modifier = m.scale(effectiveScale),
@@ -114,9 +114,10 @@ fun BoxScope.WorldMapControls(
                         onRight = { viewModel.steerRight(it) }
                     )
             }
-            // Diamante estilo PS4: △ SALIR · ✕ gas · ○ freno · □ freno de mano.
+            // MISMO diamante Xbox que a pie (control unificado, 2026-07-03):
+            // Y SALIR (mantener → teletransporte) · A gas · B freno · X freno de mano.
             val drivingActions = @Composable { m: Modifier ->
-                Ps4ActionButtonsController(
+                VehicleActionButtonsController(
                     modifier = m.scale(effectiveScale),
                     onAccelerate = { viewModel.accelerate(it) },
                     onBrake = { viewModel.brake(it) },

@@ -441,6 +441,18 @@
     <!-- Mission 2 · backpack classroom (interiors) -->
     <string name="zgame_stink_prompt">💨 Press ACTION to throw the STINK CAN</string>
     <string name="zgame_backpack_prompt">🎒 Press ACTION to pick up Prankedy\'s backpack</string>
+    <!-- University life: ambient NPC conversation phrases (speech bubbles, interiors) -->
+    <string name="amb_phrase_1">Did you finish the compilers lab yet?</string>
+    <string name="amb_phrase_2">The professor showed up late again…</string>
+    <string name="amb_phrase_3">Wanna grab some tacos after class?</string>
+    <string name="amb_phrase_4">I failed the math midterm…</string>
+    <string name="amb_phrase_5">Did you hear about the ENCB? Scary stuff.</string>
+    <string name="amb_phrase_6">I\'m sleep-deprived from the final project.</string>
+    <string name="amb_phrase_7">Can you share yesterday\'s notes?</string>
+    <string name="amb_phrase_8">Exam week is almost here…</string>
+    <string name="amb_phrase_9">The school wifi is down again.</string>
+    <string name="amb_phrase_10">They say weird things are happening in Zacatenco.</string>
+    <string name="amb_phrase_bye">See you around</string>
     <!-- Transit: prompt + messages (were hardcoded in TransitSystemConfig) -->
     <string name="wm_prompt_metrobus">PRESS X TO ENTER METROBÚS STATION %1$s</string>
     <string name="transit_metro_msg_ticket">You reloaded your metro card</string>

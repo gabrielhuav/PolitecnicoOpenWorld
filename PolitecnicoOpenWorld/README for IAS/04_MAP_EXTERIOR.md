@@ -55,7 +55,7 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | 🆕 Rama de render Google Maps nativo (`GoogleMapLayer`) | `ui/WorldMapScreenGoogle.kt` (NUEVO, refactor — composable top-level; cachés LRU por parámetro) |
 | 🆕 Rama de render WEB / Leaflet en WebView (`WebMapLayer`) | `ui/WorldMapScreenWeb.kt` (NUEVO, refactor — composable top-level; cachés base64 + holders de guarda por-frame por parámetro) |
 | 🆕 Overlays/diálogos superpuestos (WASTED, vídeo zombi, prompts, diálogo Prankedy, popup coleccionable, fades puerta ESCOM/metro/metrobús) | `ui/WorldMapScreenOverlays.kt` (NUEVO, refactor) |
-| 🆕 Controles en pantalla (D-pad/joystick/acciones, conducción, salir apocalipsis, pulsación larga Y/△) | `ui/WorldMapScreenControls.kt` (NUEVO, refactor — `BoxScope.WorldMapControls`) |
+| 🆕 Controles en pantalla (D-pad/joystick/acciones, conducción con el MISMO diamante Xbox, salir apocalipsis, pulsación larga Y) | `ui/WorldMapScreenControls.kt` (NUEVO, refactor — `BoxScope.WorldMapControls`) |
 | Render nativo osmdroid (fog, over-zoom, NPCs, landmarks) | `ui/NativeOsmMap.kt` |
 | 🆕 Render de Prankedy en OSM nativo (+ proyectil) | `ui/NativeOsmMapPrankedy.kt` (NUEVO, refactor — `renderPrankedyOnMap`) |
 | 🆕 Overlay de neblina (fog of war) OSM nativo | `ui/NativeOsmMapFog.kt` (NUEVO, refactor — `class FogOverlay`) |

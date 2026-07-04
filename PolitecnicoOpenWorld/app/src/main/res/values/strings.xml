@@ -443,6 +443,18 @@
     <!-- Misión 2 · salón de la mochila (interiores) -->
     <string name="zgame_stink_prompt">💨 Pulsa ACCIÓN para lanzar la LATA APESTOSA</string>
     <string name="zgame_backpack_prompt">🎒 Pulsa ACCIÓN para recoger la mochila de Prankedy</string>
+    <!-- Vida universitaria: frases de las pláticas de NPCs ambientales (burbujas, interiores) -->
+    <string name="amb_phrase_1">¿Ya hiciste la práctica de compiladores?</string>
+    <string name="amb_phrase_2">El profe volvió a llegar tarde…</string>
+    <string name="amb_phrase_3">¿Vamos por unos tacos saliendo?</string>
+    <string name="amb_phrase_4">Reprobé el parcial de mate…</string>
+    <string name="amb_phrase_5">¿Escuchaste lo de la ENCB? Qué miedo.</string>
+    <string name="amb_phrase_6">Ando desvelado por el proyecto final.</string>
+    <string name="amb_phrase_7">¿Me pasas los apuntes de ayer?</string>
+    <string name="amb_phrase_8">Ya casi es semana de exámenes…</string>
+    <string name="amb_phrase_9">El wifi de la escuela otra vez no sirve.</string>
+    <string name="amb_phrase_10">Dicen que en Zacatenco pasan cosas raras.</string>
+    <string name="amb_phrase_bye">Ahí nos vemos</string>
     <!-- Transporte: prompt + mensajes (antes hardcodeados en TransitSystemConfig) -->
     <string name="wm_prompt_metrobus">PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS %1$s</string>
     <string name="transit_metro_msg_ticket">Has recargado tu tarjeta del metro</string>

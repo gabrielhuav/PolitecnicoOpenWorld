@@ -409,6 +409,8 @@ class ZombieInteriorViewModel(
                 // MISIÓN 2 · salón: al (re)entrar a cualquier sala se re-arma la escena de la
                 // lata apestosa (si salió sin la mochila, vuelve a haber clase al reentrar).
                 mission2StinkThrown = false,
+                mission2StinkX = null,
+                mission2StinkY = null,
                 mission2BackpackX = null,
                 mission2BackpackY = null,
                 mission2BackpackNearby = false,
@@ -641,7 +643,12 @@ class ZombieInteriorViewModel(
         if (currentRoom().id == ZombieRoomCatalog.ESCOM_SALON_M2_ID) {
             if (!s.mission2StinkThrown && s.ambientNpcs.isNotEmpty()) {
                 soundManager.playItem()
-                _state.update { it.copy(mission2StinkThrown = true) }
+                // La lata "cae" un poco adelante del jugador y queda tirada en el piso (🥫).
+                _state.update { it.copy(
+                    mission2StinkThrown = true,
+                    mission2StinkX = s.playerX,
+                    mission2StinkY = s.playerY - 30f
+                ) }
                 showKeyMessage("💨 ¡Lanzaste la LATA APESTOSA! El olor es INSOPORTABLE…")
                 return
             }

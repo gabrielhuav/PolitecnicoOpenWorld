@@ -575,6 +575,55 @@ fun ZombieGameScreen(
                                 y = with(density) { toScreenY(npc.y).toDp() } - with(density) { (rpSize / 2).toDp() }
                             )
                         )
+                        // 🆕 BURBUJA de plática (vida universitaria): frase traducible sobre la
+                        // cabeza mientras el NPC "habla" (la fija/limpia stepAmbientNpcs).
+                        npc.speechRes?.let { res ->
+                            Text(
+                                text = stringResource(res),
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 13.sp,
+                                modifier = Modifier
+                                    .absoluteOffset(
+                                        x = with(density) { toScreenX(npc.x).toDp() } - 70.dp,
+                                        y = with(density) { toScreenY(npc.y).toDp() } -
+                                            with(density) { (rpSize / 2).toDp() } - 34.dp
+                                    )
+                                    .width(140.dp)
+                                    .background(Color(0xD0101018), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                // 🆕 MISIÓN 2: la LATA APESTOSA tirada en el piso (🥫) + humo 💨 mientras evacúan.
+                run {
+                    val stX = state.mission2StinkX
+                    val stY = state.mission2StinkY
+                    if (stX != null && stY != null && onScreen(stX, stY)) {
+                        val canSize = 30f * cam.scale
+                        Text(
+                            text = "🥫",
+                            fontSize = with(density) { canSize.toSp() },
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(stX).toDp() } - with(density) { (canSize / 2).toDp() },
+                                y = with(density) { toScreenY(stY).toDp() } - with(density) { (canSize / 2).toDp() }
+                            )
+                        )
+                        // El humo apestoso solo mientras los alumnos siguen saliendo.
+                        if (state.ambientNpcs.isNotEmpty()) {
+                            Text(
+                                text = "💨",
+                                fontSize = with(density) { (canSize * 1.2f).toSp() },
+                                modifier = Modifier.absoluteOffset(
+                                    x = with(density) { toScreenX(stX).toDp() } - with(density) { (canSize * 0.2f).toDp() },
+                                    y = with(density) { toScreenY(stY).toDp() } - with(density) { (canSize * 1.5f).toDp() }
+                                )
+                            )
+                        }
                     }
                 }
 

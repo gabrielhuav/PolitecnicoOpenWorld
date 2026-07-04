@@ -73,6 +73,9 @@ data class ZombieGameState(
     // mission2BackpackTaken → ZombieGameScreen dispara onMission2BackpackRecovered (completa la
     // Misión 2 en el VM del mundo). Estos campos solo aplican en esa sala.
     val mission2StinkThrown: Boolean = false,
+    // Dónde CAYÓ la lata (se dibuja 🥫 en el suelo + 💨 mientras evacúan; sin asset dedicado).
+    val mission2StinkX: Float? = null,
+    val mission2StinkY: Float? = null,
     val mission2BackpackX: Float? = null,
     val mission2BackpackY: Float? = null,
     val mission2BackpackNearby: Boolean = false,

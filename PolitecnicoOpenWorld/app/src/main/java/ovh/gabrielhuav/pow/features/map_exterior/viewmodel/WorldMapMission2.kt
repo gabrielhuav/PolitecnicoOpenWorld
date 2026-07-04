@@ -217,6 +217,15 @@ private fun WorldMapViewModel.tickM2Rumor(playerLoc: GeoPoint, now: Long) {
         )
     }
 
+    // Se les ve PLATICANDO desde lejos (burbuja 💬 alternada, sin subtítulos): así el jugador
+    // identifica la escena del rumor al acercarse al 🎯. El subtítulo solo corre DENTRO del radio.
+    run {
+        val visualTalker = if ((now / Mission2.CONVO_LINE_MS) % 2L == 0L) "M2_RUMOR_A" else "M2_RUMOR_B"
+        mission2Npcs[visualTalker]?.let {
+            if (it.talkingUntil < now + 400) mission2Npcs[visualTalker] = it.copy(talkingUntil = now + 900)
+        }
+    }
+
     val dist = m2Dist(playerLoc.latitude, playerLoc.longitude, Mission2.RUMOR_LAT, Mission2.RUMOR_LON)
     if (dist <= Mission2.LISTEN_DEG) {
         if (mission2ConvoNextMs == 0L || now >= mission2ConvoNextMs) {

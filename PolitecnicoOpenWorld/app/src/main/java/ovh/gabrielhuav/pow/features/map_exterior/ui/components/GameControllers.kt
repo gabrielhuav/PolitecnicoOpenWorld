@@ -128,7 +128,7 @@ fun JoystickController(
 // ==========================================
 // Variante del joystick para el MODO MANEJO: el eje X dirige (izquierda/derecha) llamando a
 // steerLeft/steerRight (press/release). Arriba/abajo no se usan (gas/freno viven en el diamante
-// PS4). Así el modo conducción también respeta la preferencia de JOYSTICK (antes solo D-pad).
+// A/B/X/Y). Así el modo conducción también respeta la preferencia de JOYSTICK (antes solo D-pad).
 @Composable
 fun VehicleJoystickController(
     modifier: Modifier = Modifier,
@@ -329,18 +329,18 @@ fun ActionButton(
 }
 
 // ==========================================
-// CONTROLES DE VEHÍCULO (MODO CONDUCCIÓN — ESTILO PS4)
+// CONTROLES DE VEHÍCULO (MODO CONDUCCIÓN — MISMO DIAMANTE XBOX QUE A PIE)
 // ==========================================
 //
-// Misma estructura que el modo a pie (D-pad + diamante de 4 botones), pero el
-// diamante usa los símbolos de PlayStation (△ ○ ✕ □) en vez de letras Xbox.
-// Al ser símbolos de un solo carácter quedan SIEMPRE centrados y nunca se
-// desbordan del botón (que era el problema de los antiguos botones de texto).
+// UN SOLO CONTROL para todo el juego: el diamante de conducción usa las MISMAS letras,
+// colores, tamaños y posiciones Xbox (Y arriba · X izquierda · B derecha · A abajo) que el
+// modo a pie (ActionButtonsController), reutilizando el MISMO composable ActionButton.
+// (Antes era un diamante estilo PS4 con símbolos △ ○ ✕ □; se unificó a Xbox — 2026-07-03.)
 //
 // Mapeo:
 //   D-pad → ARRIBA: gas · ABAJO: freno · IZQUIERDA/DERECHA: girar.
-//   Diamante PS4 → △ (arriba): SALIR · ✕ (abajo): gas · ○ (derecha): freno ·
-//                  □ (izquierda): freno de mano.
+//   Diamante → Y (arriba): SALIR (mantener → teletransporte) · A (abajo): gas ·
+//              B (derecha): freno · X (izquierda): freno de mano.
 //
 // Nota: gas/freno están disponibles tanto en el D-pad como en el diamante
 // (redundancia intencional para poder conducir con cualquier mano).
@@ -395,13 +395,13 @@ private fun VehicleDpadButton(icon: ImageVector, onHold: (Boolean) -> Unit) {
 }
 
 @Composable
-fun Ps4ActionButtonsController(
+fun VehicleActionButtonsController(
     modifier: Modifier = Modifier,
     backgroundAlpha: Float = 0.6f,
-    onAccelerate: (Boolean) -> Unit,  // ✕
-    onBrake: (Boolean) -> Unit,       // ○
-    onHandbrake: (Boolean) -> Unit,   // □ (freno de mano)
-    onExit: (Boolean) -> Unit         // △ (mantener → menú teletransporte)
+    onAccelerate: (Boolean) -> Unit,  // A (abajo) — gas
+    onBrake: (Boolean) -> Unit,       // B (derecha) — freno
+    onHandbrake: (Boolean) -> Unit,   // X (izquierda) — freno de mano
+    onExit: (Boolean) -> Unit         // Y (arriba) — salir (mantener → menú teletransporte)
 ) {
     Box(
         modifier = modifier
@@ -410,50 +410,25 @@ fun Ps4ActionButtonsController(
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
         contentAlignment = Alignment.Center
     ) {
+        // MISMO diamante Xbox que a pie (mismas letras/colores/posiciones, mismo ActionButton):
+        // solo cambia QUÉ HACE cada botón al conducir.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // △ arriba — SALIR (verde PS)
-            Ps4Button(symbol = "△", color = Color(0xFF2ECC71), onHoldEvent = onExit)
+            // Y arriba — SALIR (amarillo, igual que a pie)
+            ActionButton(text = "Y", color = Color(0xFFF1C40F), onHoldEvent = onExit)
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // □ izquierda — FRENO DE MANO (rosa PS)
-                Ps4Button(symbol = "□", color = Color(0xFFE91E63), onHoldEvent = onHandbrake)
+                // X izquierda — FRENO DE MANO (azul, igual que a pie)
+                ActionButton(text = "X", color = Color(0xFF3498DB), onHoldEvent = onHandbrake)
 
                 Spacer(modifier = Modifier.size(48.dp))
 
-                // ○ derecha — FRENO (rojo PS)
-                Ps4Button(symbol = "○", color = Color(0xFFE74C3C), onHoldEvent = onBrake)
+                // B derecha — FRENO (rojo, igual que a pie)
+                ActionButton(text = "B", color = Color(0xFFE74C3C), onHoldEvent = onBrake)
             }
 
-            // ✕ abajo — GAS (azul PS)
-            Ps4Button(symbol = "✕", color = Color(0xFF3498DB), onHoldEvent = onAccelerate)
+            // A abajo — GAS (verde, igual que a pie)
+            ActionButton(text = "A", color = Color(0xFF2ECC71), onHoldEvent = onAccelerate)
         }
-    }
-}
-
-@Composable
-private fun Ps4Button(symbol: String, color: Color, onHoldEvent: (Boolean) -> Unit) {
-    val feedback = rememberInputFeedback()
-    var pressed by remember { mutableStateOf(false) }
-    Box(
-        modifier = Modifier
-            .padding(4.dp)
-            .size(48.dp)
-            .scale(if (pressed) 0.88f else 1f)
-            .clip(CircleShape)
-            .background(if (pressed) color.copy(alpha = 0.7f) else color)
-            .detectHoldEvent { isPressed ->
-                pressed = isPressed
-                if (isPressed) feedback.tap()
-                onHoldEvent(isPressed)
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = symbol,
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = 22.sp
-        )
     }
 }
 

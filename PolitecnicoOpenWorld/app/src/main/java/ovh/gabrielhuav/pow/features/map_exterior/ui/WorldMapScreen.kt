@@ -135,7 +135,6 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleJoystickController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.Ps4ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_OSM
@@ -290,7 +289,7 @@ fun WorldMapScreen(
     }
     val gson = remember { Gson() }
     val coroutineScope = rememberCoroutineScope()
-    // REFACTOR: `yButtonHoldJob` se movió a WorldMapControls.kt (la pulsación larga de Y/△
+    // REFACTOR: `yButtonHoldJob` se movió a WorldMapControls.kt (la pulsación larga de Y
     // vive ahora junto a los controles).
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->

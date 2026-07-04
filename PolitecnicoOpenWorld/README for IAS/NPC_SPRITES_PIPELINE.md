@@ -125,8 +125,22 @@ para que **NO sea seleccionable** por el jugador (es NPC, no skin del jugador).
     caminado usa los de correr (para skins viejas con walk corto). Con sheets completos no aplica.
 - **Spawn / deambular** (`ZombieAmbientNpcs.kt`): `spawnAmbientNpcs(room)` en `loadRoom`,
   `stepAmbientNpcs(s, room, now)` en `tickOffline`. Caminan a un punto caminable, pausan, repiten;
-  respetan la matriz de colisión. **Gate:** `AMBIENT_ROOM_IDS` (lobby ESCOM) y **solo offline**.
-  `AmbientNpc` = estado inmutable (x,y,skin,facing,action,target). `AMBIENT_COUNT` = nº por sala.
+  respetan la matriz de colisión. **Gate:** `AMBIENT_ROOM_IDS` (lobby ESCOM + salón M2) y **solo
+  offline**. `AmbientNpc` = estado inmutable. `AMBIENT_COUNT` = nº por sala.
+- **🆕 VIDA UNIVERSITARIA (2026-07-03):** máquina de MODOS por NPC (`AmbientMode`):
+  `WANDER` (clásico) → el EMPAREJADOR (prob. por tick) hace que 2 libres QUEDEN DE VERSE
+  (`MEETING`, caminan a un punto común) → `TALK` (frente a frente, **burbujas de diálogo
+  ALTERNADAS** con frases de `strings.xml` `amb_phrase_1..10`, traducibles ES/EN) → 50%
+  `WALK_TOGETHER` (caminan juntos con offset) / 50% despedida **"Ahí nos vemos"**
+  (`amb_phrase_bye`) y separación. ⚠️ REGLA: TODAS las decisiones de pareja (duración, ¿juntos?,
+  destino común) se derivan DETERMINISTAS de `pairSeed` (mismo valor en ambos, lo fija el
+  emparejador) → cada NPC se configura A SÍ MISMO; NUNCA escribas al partner desde el otro
+  (carrera por orden de procesamiento del tick). La burbuja la dibuja `ZombieGameScreen`
+  (`npc.speechRes` + `stringResource`).
+- **🆕 ANTI-ATASCO (2026-07-03):** checkpoint `stuckX/Y/SinceMs` en cada NPC: si camina y no
+  avanza > `STUCK_EPS` (6 px) durante `STUCK_MS` (1.6 s) → **CAMBIA DE DIRECCIÓN** (nuevo objetivo
+  aleatorio; si iba emparejado, cancela la pareja — el punto era inalcanzable). El checkpoint se
+  RE-ARMA al moverse: si se vuelve a atorar, se corrige otra vez.
 
 ---
 

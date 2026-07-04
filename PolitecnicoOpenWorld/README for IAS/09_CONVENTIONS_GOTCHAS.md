@@ -66,7 +66,7 @@ composables top-level); las extensiones del VM usadas se importan en el archivo 
 **🆕 Progreso (2026-06-20, 3ª pasada):** dos extracciones más:
 - `WorldMapScreen.kt` bajó de ~2354 a **~2255** líneas extrayendo el bloque de controles (vals de
   layout escala/padding según orientación + botón "Salir del apocalipsis" + fila inferior de D-pad/
-  joystick/acciones, incl. la pulsación larga de Y/△ → `yButtonHoldJob`) al composable
+  joystick/acciones, incl. la pulsación larga de Y → `yButtonHoldJob`) al composable
   `BoxScope.WorldMapControls` en `ui/WorldMapScreenControls.kt`. Se invoca dentro del `Box` principal:
   `WorldMapControls(uiState, viewModel, optionsExpanded)`. `yButtonHoldJob` se movió al nuevo archivo.
   Sin gotcha miembro/extensión (composable top-level); importa la extensión `toggleTeleportMenu`.
@@ -826,7 +826,19 @@ matrices por defecto son **border-only** hasta reemplazarse.
     objetivo ESCOLTAR_PRANKEDY y rompería el reinicio).
   - La puerta de la ESCOM REDIRIGE al salón `escom_salon_m2` SOLO con `mission2Phase==PHASE_BACKPACK` y
     SOLO para la ruta default de ESCOM (`WorldMapInteractions`); las puertas de FES/Neza no se tocan. El
-    salón (lata apestosa, evacuación, mochila 🎒): ver 05.
+    salón (lata apestosa, evacuación, mochila 🎒): ver 05. La lata tirada se dibuja como **🥫** (+💨
+    mientras evacúan) en `ZombieGameState.mission2StinkX/Y` — SIN asset dedicado todavía.
+- **🆕 NPCs AMBIENTALES: vida universitaria + ANTI-ATASCO (2026-07-03, `ZombieAmbientNpcs.kt`):**
+  máquina de modos `AmbientMode` (WANDER/MEETING/TALK/WALK_TOGETHER): parejas que quedan de verse,
+  platican con **burbujas alternadas** (frases `@StringRes` `amb_phrase_1..10` + despedida
+  `amb_phrase_bye` "Ahí nos vemos", ES+EN — NO hardcodear frases nuevas), caminan juntas y se separan.
+  **⚠️ REGLA DE PAREJAS:** toda decisión compartida (duración de plática, ¿caminar juntos?, destino
+  común) se deriva DETERMINISTA de `pairSeed` (mismo valor en ambos): cada NPC se configura A SÍ MISMO
+  — NUNCA escribir al partner desde el tick del otro (carrera por orden de procesamiento; deadlock real
+  detectado en diseño). Pass de CONSISTENCIA al inicio del tick: pareja rota → `unpair`. **ANTI-ATASCO:**
+  checkpoint `stuckX/Y/SinceMs`; sin avance >6 px por 1.6 s → nuevo objetivo (y cancela pareja si la
+  había); el checkpoint se re-arma al moverse (re-detecta atascos futuros). Burbujas: `npc.speechRes`
+  dibujado por `ZombieGameScreen` (Text + stringResource sobre la cabeza).
 - **🆕 Panel Debug Interiores movible + Salir (`InteriorDebugEditorPanel`):** el editor de líneas de
   colisión del mapa global ahora es movible/redimensionable/scroll (mismo patrón que el panel del
   diseñador de matrices: asa con `detectDragGestures`, `graphicsLayer` scale −/+, `heightIn(max=90%)` +
@@ -941,7 +953,14 @@ matrices por defecto son **border-only** hasta reemplazarse.
   por eso el abordaje se completa.
 - **🆕 Joystick en MODO MANEJO:** `VehicleJoystickController` (dirige izq/der por el eje X, press/release). En
   `WorldMapScreen` la rama de conducción usa joystick si `controlType==JOYSTICK`, si no las flechitas
-  (`VehicleDPadController`). Gas/freno siguen en el diamante PS4.
+  (`VehicleDPadController`). Gas/freno siguen en el diamante de acciones.
+- **🆕 CONTROL UNIFICADO Xbox a pie Y conduciendo (2026-07-03):** el diamante de conducción ya NO es
+  estilo PS4 (`Ps4ActionButtonsController`/`Ps4Button` ELIMINADOS): ahora es
+  **`VehicleActionButtonsController`**, que reutiliza el MISMO `ActionButton` Xbox del modo a pie
+  (mismas letras/colores/posiciones: Y arriba amarillo · X izquierda azul · B derecha rojo · A abajo
+  verde). Mapeo al conducir: **Y = SALIR** (mantener 3 s → teletransporte, igual que a pie),
+  **A = GAS**, **B = FRENO**, **X = freno de mano**. No reintroducir símbolos PS (△○✕□): un solo
+  lenguaje de control en todo el juego.
 - **🆕 Multitud civil de ESCOM (Misión 2) = 50+ desde punto fijo:** `updateEscomCrowd` ahora spawnea desde
   `CROWD_SPAWN` (no la puerta), `CROWD_MAX=55`, intervalo 150 ms; se alejan, se despawnean al salir del fog y se
   reemplazan por nuevos. (Ojo gama baja: son NPCs PERSON; si pesa, baja `CROWD_MAX`.) **🆕 La multitud camina
@@ -1025,7 +1044,7 @@ puedes actualizar los docs, **la tarea no está terminada — dilo explícitamen
   permiso VIBRATE**) y **SONIDO** (`AudioManager.playSoundEffect(FX_KEY_CLICK)` a volumen = **SFX de
   Ajustes→Audio**; 0 = mudo; respeta además "sonidos táctiles" del SO, sin assets).
 - `rememberInputFeedback()` se crea 1 vez por pantalla; lee el volumen SFX al entrar (como otros ajustes).
-  `feedback.tap()` se llama en el **flanco de bajada** de cada botón (`ActionButton`, `DPadButton`, `Ps4Button`,
+  `feedback.tap()` se llama en el **flanco de bajada** de cada botón (`ActionButton`, `DPadButton`,
   `VehicleDpadButton`, joystick). `repeatingClickable` ganó `onPress:(Boolean)` para el resalte/feedback 1×/toque.
 - **No** añade un toggle de Ajustes propio: el sonido se controla con el slider **Efectos** (Audio) y la
   vibración con los ajustes hápticos del sistema. (Si se quisiera un toggle dedicado, iría en Ajustes→Interfaz.) 

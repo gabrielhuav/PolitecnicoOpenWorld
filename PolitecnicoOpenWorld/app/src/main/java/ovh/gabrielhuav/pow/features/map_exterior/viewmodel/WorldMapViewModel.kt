@@ -1214,8 +1214,8 @@ class WorldMapViewModel(
     // teleportToMetrobusStation / loadMetrobusStations / toggleTeleportMenu
     // viven en WorldMapTeleport.kt. El ESTADO usado sigue en el ViewModel.
 
-    // Cualquier control de conducción (girar/acelerar/frenar = X, ○, □) recentra en el
-    // jugador si el mapa estaba descentrado. El botón △ (SALIR) NO recentra: bajarse del
+    // Cualquier control de conducción (girar/acelerar/frenar = A, B, X) recentra en el
+    // jugador si el mapa estaba descentrado. El botón Y (SALIR) NO recentra: bajarse del
     // coche es otra acción (onInteractButtonPressed).
     fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed; if (pressed) recenterIfPanning() }
     fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed; if (pressed) recenterIfPanning() }
