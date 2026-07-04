@@ -16,11 +16,10 @@ El dueño compila y prueba SOLO cuando se le pide; intervención mínima.
 ## Mapa de etapas (los planes detallados YA existen — NO reinventar)
 | Etapa | Plan de referencia | Estado |
 |---|---|---|
-| 1. Red de tests de lógica pura (RoadRouter golden-master + guardado + catálogos) | `PLAN_dedup_routing.md` §2 | 🔨 EN CURSO (esta sesión) |
-| ⏸️ CHECKPOINT COMPILACIÓN #1: Rebuild + `testDebugUnitTest` | — | pendiente |
-| 2. De-dup cadena de routing (1 función por compilación, hoja→raíz) | `PLAN_dedup_routing.md` §3 | pendiente |
-| 3. Descomponer VM en managers con sub-estado (fachada `combine`) — empezar por `DesignerManager` | `PLAN_descomponer_WorldMapViewModel.md` | 🔨 EN CURSO (3/6: Designer ✅, Collectibles ✅, Combat ✅ pend. CHECKPOINT #6) |
-| 4. DI con Hilt (1 VM por PR; WorldMapViewModel al final) | `PLAN_DI_hilt.md` | pendiente |
+| 1. Red de tests de lógica pura (RoadRouter golden-master + guardado + catálogos) | `PLAN_dedup_routing.md` §2 | ✅ HECHA (CHECKPOINT #1 verde) |
+| 2. De-dup cadena de routing (1 función por compilación, hoja→raíz) | `PLAN_dedup_routing.md` §3 | ✅ HECHA (CHECKPOINT #2 verde) |
+| 3. Descomponer VM en managers con sub-estado (fachada `combine`) | `PLAN_descomponer_WorldMapViewModel.md` | ✅ HECHA (6/6: Designer/Collectibles/Combat/Wanted/TransitTeleport/Campaign·registro; fase de misión = corte limpio. CHECKPOINTS #4-#9 verdes) |
+| 4. DI con Hilt (1 VM por PR; WorldMapViewModel al final) | `PLAN_DI_hilt.md` | 🔨 SIGUIENTE |
 | 5. Deuda detekt ALTA/MEDIA + baseline bloqueante | `PENDIENTE_calidad.md` | pendiente |
 | 6. Perf gama baja (pasada dirigida) + higiene EOL/tamaños | 09 §6 | pendiente |
 | 7. Guía de mantenimiento para devs/IAs no-senior | (nuevo doc) | pendiente |
@@ -304,12 +303,26 @@ autocontenido; **PARTE B = FASE DE MISIÓN**, pendiente (ver abajo).
 - Verificado por grep: 0 `_uiState.value.(showMissionLog|completedMissions)`, 0 `it.copy(<campo>` fuera del
   manager+fachada. Edits verificados con Read; combine anidado balanceado.
 
-### ⏸️ CHECKPOINT COMPILACIÓN #9 — PENDIENTE (manager 6/6 PARTE A · registro)
-Falta Rebuild + tests + prueba manual del registro (abrir "Misiones", seguir/dejar de seguir, rejugar,
-completar; guardar/cargar conserva completadas). **PARTE B (decisión del dueño en el verde):** migrar el
-estado de FASE de misión (~26 tick-writers) en un checkpoint dedicado, O documentarlo como CORTE LIMPIO
-(dejarlo en el VM: el acoplamiento real ya es bajo — la lógica de misión es orquestación del game loop y no
-se “desengancha” moviéndola a un manager). Con la decisión de B se cierra la Etapa 3 → Etapa 4 (Hilt).
+### ✅ CHECKPOINT COMPILACIÓN #9 — VERDE (confirmado por el dueño, 2026-07-04)
+Rebuild OK + tests + registro (seguir/dejar de seguir/rejugar/completar; guardar-cargar conserva
+completadas) OK. Manager 6/6 · Parte A (CampaignManager · registro) cerrado.
+
+### ✅ ETAPA 3 · manager 6/6 · PARTE B — CORTE LIMPIO (decisión del dueño, 2026-07-04)
+El estado de FASE de misión (`currentObjective`/`objectiveDone`/`storyConvoSpeaker`/`storyConvoText`/
+`pendingMission1ChaseIntro`/`mission3EnterEncb`/`campaignRouteWaypoints`/`showMissionFailed`) **NO se migra
+a un manager**: se queda en el VM (parciales `WorldMapCampaign.kt`/`WorldMapMission2.kt`/`WorldMapMission3.kt`/
+`WorldMapCampaignPolice.kt`). **Razón (corte limpio > dogma):** son ~26 writes en 8 archivos, escritos en casi
+CADA tick de la máquina de misiones (game loop). Mover esos campos tras una fachada NO baja el acoplamiento
+real — la lógica de misión SEGUIRÍA siendo orquestación del VM (lee/escribe posición, NPCs, policía, red,
+Prankedy, save) y solo delegaría los writes, añadiendo indirección sin desenganchar nada. El objetivo del
+programa es "acoplamiento bajo REAL, no el 100% de campos migrados" (regla transversal). Documentado también
+en 09 §Managers. **La Parte A (registro) sí valía**: era estado UI autocontenido con 3 writers.
+
+### 🏁 ETAPA 3 — CERRADA (2026-07-04)
+6/6 managers con sub-estado propio detrás de la fachada `combine` (anidada): Designer ✅, Collectibles ✅,
+Combat ✅ (delegación Compose), Wanted ✅, TransitTeleport ✅, Campaign·registro ✅ (+ fase = corte limpio
+documentado). 86 tests en verde. **Siguiente: ETAPA 4 · Hilt** (`PLAN_DI_hilt.md`, 1 VM por PR,
+WorldMapViewModel AL FINAL).
 
 ---
 

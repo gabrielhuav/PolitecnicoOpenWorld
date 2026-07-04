@@ -193,6 +193,22 @@ extraer composables/clases por sección. Pasos pequeños y verificables, uno por
   shinecto = NavBackStackEntry-scoped (ver 01). / Manual DI; scoping per file 01.
 - **Comentarios y strings en español** (incluidos los dos `server.js`). Mantener ese estilo salvo que se
   pida lo contrario. / Comments/strings in Spanish; keep that style.
+- **🆕 CAMPOS POSEÍDOS POR MANAGERS (fachada `combine`, Etapa 3 de calidad senior):** varios campos de
+  `WorldMapState` ya NO se escriben en `_uiState`: los POSEE un manager (`DesignerManager`, `CollectiblesManager`,
+  `WantedManager`, `TransitTeleportManager`, `CampaignManager`) con su propio `MutableStateFlow<XSubState>`, y
+  el VM compone `uiState = combine(_uiState, …managers…) { … base.copy(campos del manager) }` (el combine está
+  ANIDADO porque ya pasa de 5 flows: el 5º arg combina `(transit, campaign)` en un `Pair` y el lambda lo
+  desestructura). **Regla:** un campo anotado con `⚠️ LO POSEE XManager` NO se escribe con
+  `_uiState.update { it.copy(campo…) }` (la fachada lo SOBREESCRIBE desde el manager → el write sería IGNORADO
+  = bug sordo); escríbelo por el método del manager (p. ej. `wantedManager.setWantedLevel(…)`,
+  `transitTeleportManager.beginMetroFade()`, `campaignManager.markCompleted(…)`). Y **NO lo leas de
+  `_uiState.value.campo`** (ahí queda el default, nunca actualizado): léelo de `xManager.state.value.campo` o de
+  `uiState.value.campo` (el combinado). Gotcha real: `buildSaveData` leía `_uiState.value.wantedLevel`/
+  `.completedMissions` → con la fachada habría guardado 0/vacío; se redirigió al manager. La LÓGICA muy enredada
+  (game loop/red/policía/IO) se queda como extensión del VM y solo DELEGA los writes (Combat usa `mutableStateOf`
+  delegado en vez de `combine`). El **estado de FASE de campaña** (objetivo/subtítulos/ruta/misión fallida) es un
+  CORTE LIMPIO documentado: se queda en el VM (~26 writers en los ticks de misión; moverlo no bajaría el
+  acoplamiento real). Detalle y receta en `CHECKPOINT_SENIOR_refactor.md`.
 
 ## 2. Controles "staged" / Staged controls
 
