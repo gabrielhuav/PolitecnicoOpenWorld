@@ -10,6 +10,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import org.osmdroid.util.GeoPoint
 import androidx.lifecycle.viewModelScope
@@ -161,7 +164,27 @@ class WorldMapViewModel(
     )
     // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
     internal var escomNavGraph: LandmarkNavGraph? = null // usado por WorldMapDesigner.kt
-    val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
+
+    // ─── ETAPA 3 · MANAGERS CON SUB-ESTADO PROPIO (descomposición del god-object) ────
+    // Cada manager posee su MutableStateFlow<XSubState>; el VM los COMPONE en `uiState`
+    // (fachada combine, abajo). Ver PLAN_descomponer_WorldMapViewModel.md y CHECKPOINT_SENIOR.
+    internal val designerManager = DesignerManager()
+
+    // FACHADA COMBINADA: la UI sigue viendo UN WorldMapState con la MISMA forma; los campos
+    // poseídos por managers se SOBREESCRIBEN desde su sub-estado (sus copias en _uiState ya
+    // no se escriben — los writers viven en el manager). Eagerly: siempre caliente, igual que
+    // el asStateFlow anterior. Al extraer el siguiente manager: añade su flow al combine.
+    val uiState: StateFlow<WorldMapState> =
+        combine(_uiState, designerManager.state) { base, designer ->
+            base.copy(
+                showInteriorDebugOverlay = designer.showInteriorDebugOverlay,
+                debugEditTool = designer.debugEditTool,
+                debugEditWalls = designer.debugEditWalls,
+                debugEditBlocks = designer.debugEditBlocks,
+                debugEditNavPed = designer.debugEditNavPed,
+                debugEditNavCar = designer.debugEditNavCar
+            )
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, _uiState.value)
 
     internal val npcAiManager      = NpcAiManager()
     internal val overpassRepository = OverpassRepository()

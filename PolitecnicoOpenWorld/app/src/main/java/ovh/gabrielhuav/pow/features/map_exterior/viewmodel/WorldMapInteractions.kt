@@ -329,7 +329,8 @@ internal fun WorldMapViewModel.clearPendingInteriorDestination() {
 internal fun WorldMapViewModel.clearPendingZombieMinigame() { pendingZombieMinigame = false }
 
 internal fun WorldMapViewModel.toggleInteriorDebugOverlay(show: Boolean) {
-        _uiState.update { it.copy(showInteriorDebugOverlay = show) }
+        // ETAPA 3: el estado del editor de debug vive en el DesignerManager (fachada combine).
+        designerManager.toggleOverlay(show)
     }
 
 internal fun WorldMapViewModel.toggleGlobalZombieMode() = setZombieInstance(!_uiState.value.globalZombieMode)

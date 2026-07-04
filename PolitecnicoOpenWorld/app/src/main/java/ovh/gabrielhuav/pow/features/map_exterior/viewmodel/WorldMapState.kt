@@ -174,6 +174,8 @@ data class WorldMapState(
     // ─── MODO DEBUG DE INTERIORES ────────────────────────────────────────
     // Cuando está activado, se pintan los 6 marcadores fijos de los edificios
     // y el bounding box de ESCOM sobre el mapa, para ajustar coordenadas.
+    // ⚠️ ETAPA 3: este campo LO POSEE `DesignerManager` — su valor en uiState viene de la
+    // fachada combine del VM. NO escribirlo con _uiState.update (sería sobreescrito/ignorado).
     val showInteriorDebugOverlay: Boolean = false,
     // Colisiones del exterior (polígonos = zonas NO caminables, p. ej. el edificio ESCOM;
     // walls = bardas). Se exponen para dibujarlas en el overlay de Debug Interiores.
@@ -189,6 +191,8 @@ data class WorldMapState(
     // arrastras para una línea (WALL/NAV_*) o un rectángulo (BLOCK) y se "commitea" a la lista
     // del color/tipo. Se dibujan en vivo (NativeOsmMap) y se exportan/importan a JSON
     // (formato exterior_collisions + navPaths).
+    // ⚠️ ETAPA 3: estos 5 campos LOS POSEE `DesignerManager` (fachada combine del VM).
+    // NO escribirlos con _uiState.update — usa las extensiones de WorldMapDebugEditor.kt.
     val debugEditTool: DebugEditTool = DebugEditTool.NONE,
     val debugEditWalls: List<ovh.gabrielhuav.pow.domain.models.map.CollisionWall> = emptyList(),     // bardas ROJAS editadas
     val debugEditBlocks: List<ovh.gabrielhuav.pow.domain.models.map.CollisionPolygon> = emptyList(), // zonas ROJAS editadas

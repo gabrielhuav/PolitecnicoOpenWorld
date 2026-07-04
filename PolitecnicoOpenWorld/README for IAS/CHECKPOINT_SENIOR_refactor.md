@@ -92,16 +92,124 @@ El dueño compila y prueba SOLO cuando se le pide; intervención mínima.
 - Lo que QUEDA de detekt: solo params-de-firma + 8 issues menores + regla de loops (detalle en
   PENDIENTE_calidad.md). Recomendado: regenerar inventario con un run real de detekt + baseline.
 
-### Coming next (orden estricto — próxima sesión)
-0. ⏸️ **CHECKPOINT COMPILACIÓN #3** — Rebuild + las 3 clases de test desde AS (44/44). Prueba
-   manual opcional: conducir 1 min por tráfico (se tocó una línea muerta del mover de campus).
-1. **Etapa 3 — descomponer el VM** según `PLAN_descomponer_WorldMapViewModel.md`: empezar por
-   `DesignerManager` (dev-only, riesgo mínimo, prueba la técnica de la fachada `combine`).
-   1 manager por ⏸️ checkpoint. Luego CollectiblesManager → CombatManager → Wanted/Transit →
-   Campaign. ES LA ETAPA MÁS GRANDE (~5-6 checkpoints).
-2. Después: Etapa 4 (Hilt, `PLAN_DI_hilt.md`, ~4-6 checkpoints chicos), resto Etapa 5 (params +
-   baseline detekt bloqueante, 1 checkpoint), Etapa 6 (perf gama baja dirigida, 1-2).
-3. Restaurar el wrapper de Gradle (falta `gradle/wrapper/gradle-wrapper.jar`) para tests por consola.
+### ✅ CHECKPOINT COMPILACIÓN #3 — VERDE (confirmado por el dueño)
+
+### Hecho además — ETAPA 3 · manager 1/6: `DesignerManager` ✅ (2026-07-04, compilación PENDIENTE)
+**La FACHADA `combine` quedó instalada — es la técnica para TODOS los managers siguientes:**
+- `viewmodel/DesignerManager.kt` (NUEVO): posee `DesignerEditState` (6 campos del editor de
+  Debug Interiores: `showInteriorDebugOverlay` + `debugEditTool/Walls/Blocks/NavPed/NavCar`)
+  con `MutableStateFlow` propio. Lógica pura, sin Android.
+- `WorldMapViewModel.kt`: `internal val designerManager = DesignerManager()` +
+  **`uiState` ya NO es `_uiState.asStateFlow()`**: es
+  `combine(_uiState, designerManager.state) { base, d -> base.copy(6 campos) }.stateIn(viewModelScope, Eagerly, _uiState.value)`.
+  La UI ve el MISMO `WorldMapState` (no se tocó ni una View). Imports añadidos:
+  `combine`/`stateIn`/`SharingStarted`.
+- `WorldMapDebugEditor.kt`: reescrito — las extensiones CONSERVAN SU FIRMA y delegan en el
+  manager; export/import se quedan aquí (mezclan `exteriorCollisions` del estado base + I/O).
+- `WorldMapInteractions.toggleInteriorDebugOverlay` → delega en el manager.
+- `WorldMapState.kt`: los 6 campos anotados con ⚠️ "LOS POSEE DesignerManager — no escribirlos
+  con `_uiState.update`" (la fachada los sobreescribiría).
+- `DesignerManagerTest.kt` (NUEVO, 7 tests): overlay/tool, commit de wall (pares consecutivos),
+  block (mínimo 3 puntos), strokes ignorados, undo por herramienta, clear conserva modo, import
+  reemplaza. **Total esperado: 51 tests.**
+- Verificado por grep: NADIE lee esos campos vía `_uiState.value` ni los escribe fuera del
+  manager; la única lectura síncrona externa de `uiState.value` es `mapProvider` (no afectada).
+
+### ✅ CHECKPOINT COMPILACIÓN #4 — VERDE (confirmado por el dueño, 2026-07-04)
+Rebuild OK, 51/51 tests, editor de debug y juego normal OK. **La fachada combine está PROBADA
+en runtime.** El manager 1/6 (Designer) queda cerrado.
+
+---
+
+## 🤝 HANDOFF → SESIÓN OPUS 4.8 (el dueño delega el resto del programa)
+
+**Contexto del relevo:** la sesión Fable 5 ejecutó Etapas 1, 2, 5-grueso y el manager 1/6 de la
+Etapa 3 (todo VERDE). Opus 4.8 continúa desde aquí. El dueño volverá al final solo a verificar.
+
+### RECETA PROBADA para extraer un manager (así se hizo DesignerManager — replicar tal cual)
+1. **Delimita el grupo**: elige los campos de `WorldMapState` del grupo (léelos en el archivo,
+   están seccionados con `─── TÍTULO ───`). Grep de CADA campo en `app/src/main/java`:
+   clasifica hits en (a) writers `_uiState.update { it.copy(campo…`, (b) reads VM-internos
+   `_uiState.value.campo`, (c) reads de UI vía `uiState.campo` (estos NO se tocan).
+2. **Crea `XManager.kt`** en `features/map_exterior/viewmodel/`: `data class XSubState(campos con
+   los MISMOS defaults que WorldMapState)` + `MutableStateFlow` privado + `StateFlow` público +
+   métodos con la lógica movida. SIN dependencias de Android/VM (lógica pura → testeable). Si una
+   función mezcla sub-estado con estado base/IO/Context, la extensión se queda en el VM y solo
+   delega la parte del sub-estado (ejemplo: export/import en WorldMapDebugEditor.kt).
+3. **VM**: `internal val xManager = XManager()` ANTES de `uiState`; añade su flow al `combine`
+   (hay overloads tipados hasta 5 flows; con más, anida: `combine(combine(a,b,c){...}, d, e)` o
+   usa el vararg con Array). El lambda hace `base.copy(campos del manager)`.
+4. **Reescribe las extensiones** del parcial correspondiente para DELEGAR conservando FIRMA
+   (las Views NO se tocan). Los reads VM-internos (b) pasan a `xManager.state.value.campo`.
+5. **Anota los campos en WorldMapState**: "⚠️ LOS POSEE XManager — no escribirlos con
+   _uiState.update" (la fachada los sobreescribe; un write directo sería ignorado = bug sordo).
+6. **Verifica por grep** (debe dar 0): `_uiState.value.<campo>` y `it.copy(<campo>` fuera del
+   manager. Verifica cada edit con Read (no bash).
+7. **Tests JVM del manager** (patrón `DesignerManagerTest`) + actualiza ESTE doc +
+   ⏸️ CHECKPOINT (Rebuild + tests + prueba manual del feature migrado).
+
+### Orden de managers restantes (Etapa 3, 1 por ⏸️ checkpoint)
+2. **CollectiblesManager** — parciales `WorldMapCollectiblesLogic.kt`/`WorldMapEscomItems.kt`;
+   grupo COLECCIONABLES de WorldMapState (activos, popup, nearbyCollectible…). ⚠️ el game loop
+   MIEMBRO llama `checkCollectibleProximity`/`trySpawningCollectible` y hay estado no-UI
+   (`_escomItems` flow aparte, `isSpawningCollectible`): mueve SOLO el sub-estado UI del grupo;
+   los flows/ítems ESCOM pueden quedarse si el corte se vuelve confuso — corte limpio > dogma.
+3. **CombatManager** — `WorldMapCombat.kt` + `WorldMapHealth.kt` (vida/impactos/rachas). ⚠️ La
+   vida se lee en CADA tick y en triggerWastedSequence (miembro): migra reads con cuidado.
+4. **WantedManager** — `WorldMapWanted.kt` (estrellas/carjack; envuelve PoliceManager).
+5. **TransitTeleportManager** — `WorldMapTeleport.kt` + fades/nearby de metro/metrobús. ⚠️
+   `teleportTo` resetea campos de OTROS grupos (ver 09): esa orquestación se queda en el VM.
+6. **CampaignManager** — el más enredado (misiones 1-3, registro, replay): AL FINAL, puede
+   dividirse en 2 checkpoints (estado de registro/replay primero, fases de misión después).
+- Regla transversal: si un grupo resulta tener demasiados writers entrelazados con el game loop
+  (p. ej. posición/vehículo), NO forzar su extracción — documentar por qué y seguir. El objetivo
+  es acoplamiento bajo REAL, no el 100% de campos migrados.
+
+### Después de la Etapa 3
+- **Etapa 4 · Hilt**: seguir `PLAN_DI_hilt.md` al pie (PR 1 infra → módulos → 1 VM simple →
+  resto → WorldMapViewModel AL FINAL con scope de Activity verificado). 1 PR por ⏸️ checkpoint.
+- **Etapa 5 · resto**: regenerar inventario detekt (el viejo estaba desactualizado, ver
+  PENDIENTE_calidad.md), quitar params sin uso (revisando call-sites), crear baseline y quitar
+  `continue-on-error` del workflow.
+- **Etapa 6 · perf gama baja**: pasada dirigida por 09 §6 (verificar que no se introdujeron
+  allocations por frame — la fachada combine añade 1 copy por emisión, ya aceptado; revisar
+  cachés LRU intactos). Cambios SOLO puntuales y documentados.
+- **Cierre**: protocolo de docs 09 §13 completo (01 arquitectura managers+fachada, 04 tabla Key
+  files con los XManager, 09 convención nueva "campos poseídos por managers", README EN+ES) +
+  informe final al dueño con TODO lo que debe probar.
+
+### PROMPT para la nueva conversación con Opus 4.8 (copiar/pegar tal cual)
+```
+Estás ayudándome con "Politécnico Open World" (POW), un juego Android 2D top-down sobre mapas
+reales (Kotlin + Jetpack Compose + MVVM estricto). La carpeta "README for IAS" es el contexto
+COMPLETO del proyecto y reemplaza al código.
+
+LEE EN ESTE ORDEN antes de tocar nada:
+1. README for IAS/GUIA_mantenimiento_no_senior.md (reglas de supervivencia)
+2. README for IAS/09_CONVENTIONS_GOTCHAS.md COMPLETO (gotchas: miembro-vs-extensión, CRLF,
+   verificar edits con Read —nunca bash—, truncación del sandbox, protocolo de docs)
+3. README for IAS/CHECKPOINT_SENIOR_refactor.md ← FUENTE DE VERDAD del programa en curso
+   (estado, receta probada del patrón manager+fachada combine, orden de managers, handoff)
+4. PLAN_descomponer_WorldMapViewModel.md, PLAN_DI_hilt.md, PENDIENTE_calidad.md
+
+TU MISIÓN: terminar el programa "calidad senior" desde donde quedó (Etapa 3 manager 2/6 =
+CollectiblesManager). Etapas: 3 (managers 2-6) → 4 (Hilt) → 5 resto (detekt baseline) → 6
+(perf gama baja) → cierre de docs. Sigue la RECETA y el ORDEN del CHECKPOINT_SENIOR_refactor.md.
+
+FLUJO DE TRABAJO (no negociable):
+- Yo NO sé programar a tu nivel: tú haces todo; yo SOLO compilo y pruebo cuando me lo pidas.
+- Trabaja en pasos que dejen el repo SIEMPRE compilable. En cada ⏸️ CHECKPOINT pídeme:
+  Rebuild Project + tests desde Android Studio (clic derecho en app/src/test → Run; el
+  gradlew.bat de consola está roto: falta gradle/wrapper/gradle-wrapper.jar) + una prueba
+  manual CONCRETA del feature tocado. Espera mi "verde" antes de seguir.
+- Actualiza CHECKPOINT_SENIOR_refactor.md al terminar CADA paso (Hecho / Coming next): si la
+  sesión se corta, la siguiente retoma ahí sin perder nada.
+- Al terminar TODO: protocolo de docs del 09 §13 (docs 00-09 + README público EN+ES) + informe
+  final con todo lo que debo probar en el dispositivo.
+- Comentarios y strings de UI en español; strings nuevos ES+EN en paridad.
+- Hay 51 tests en verde (RoadRouterTest, GameSaveDataTest, MissionCatalogTest,
+  DesignerManagerTest + previos): NUNCA deben ponerse rojos sin justificación escrita.
+```
 
 ## Reglas para la IA que retome esto
 - Lee `09_CONVENTIONS_GOTCHAS.md` COMPLETO antes de tocar código (miembro-vs-extensión, CRLF,
