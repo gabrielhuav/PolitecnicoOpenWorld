@@ -93,4 +93,40 @@ class MissionCatalogTest {
         assertEquals(MissionCatalog.ESCOM_DOOR_LAT, MissionCatalog.ESCOLTAR_PRANKEDY.targetLat, 0.0)
         assertEquals(MissionCatalog.ESCOM_DOOR_LON, MissionCatalog.ESCOLTAR_PRANKEDY.targetLon, 0.0)
     }
+
+    // ─── REGISTRO/SELECTOR DE MISIONES (2026-07-04) ─────────────────────────
+
+    @Test
+    fun mission_selector_chain_is_m1_then_m2_then_m3() {
+        val missions = MissionCatalog.missions
+        assertEquals(
+            listOf(MissionCatalog.MISSION_1_ID, MissionCatalog.MISSION_2_ID, MissionCatalog.MISSION_3_ID),
+            missions.map { it.id }
+        )
+        // Cadena de desbloqueo: M1 libre; M2 requiere M1; M3 requiere M2 (la salta el Modo Dev).
+        assertNull(missions[0].requiresMissionId)
+        assertEquals(MissionCatalog.MISSION_1_ID, missions[1].requiresMissionId)
+        assertEquals(MissionCatalog.MISSION_2_ID, missions[2].requiresMissionId)
+    }
+
+    @Test
+    fun missionIdForObjective_maps_each_missions_objectives() {
+        // Cada objetivo se atribuye a SU misión (lo usan missionLogStatus y el clamp de guardado).
+        Mission1.objectives.forEach {
+            assertEquals(MissionCatalog.MISSION_1_ID, MissionCatalog.missionIdForObjective(it.id))
+        }
+        Mission2.objectives.forEach {
+            assertEquals(MissionCatalog.MISSION_2_ID, MissionCatalog.missionIdForObjective(it.id))
+        }
+        assertNull(MissionCatalog.missionIdForObjective(null))
+        assertNull(MissionCatalog.missionIdForObjective("objetivo_desconocido"))
+    }
+
+    @Test
+    fun firstObjectiveOf_returns_the_entry_point_of_each_mission() {
+        // Lo usa el "TP al objetivo" del Modo Desarrollador cuando la misión no está activa.
+        assertSame(Mission1.objectives.first(), MissionCatalog.firstObjectiveOf(MissionCatalog.MISSION_1_ID))
+        assertSame(Mission2.objectives.first(), MissionCatalog.firstObjectiveOf(MissionCatalog.MISSION_2_ID))
+        assertNull(MissionCatalog.firstObjectiveOf("mission99"))
+    }
 }

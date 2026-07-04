@@ -51,6 +51,8 @@
 
 | Archivo / File | Contenido / Contents |
 |---|---|
+| `GUIA_mantenimiento_no_senior.md` | **🆕 (2026-07-04) EMPEZAR AQUÍ si eres una IA/dev nuevo:** las 7 reglas que rompen el juego, flujo de trabajo estándar, chuleta de "dónde vive cada cosa", qué NO hacer sin compilador y cómo pedir compilaciones al dueño. |
+| `CHECKPOINT_SENIOR_refactor.md` | **🆕 (2026-07-04) Programa MULTI-SESIÓN "calidad senior" (documento VIVO):** etapas (tests → de-dup routing → descomponer VM → Hilt → detekt → perf), estado actual y coming-next. Si retomas el refactor, retoma AQUÍ. |
 | `PROMPT_nueva_optimizacion.md` | Prompt maestro de reuso: contexto + estado actual + reglas del entorno. Cópialo al iniciar una sesión con una IA y adjunta esta carpeta. |
 | `ANALISIS_codigo.md` | **(2026-06-21)** Informe: clases grandes, duplicación (metro⇄metrobús), MVVM, i18n migrado vs pendiente, perf, mejoras priorizadas por valor/esfuerzo. |
 | `REVISION_repo.md` | **(2026-06-21)** Revisión de TODO el repo: raíz, servidores Node (solo revisión), seguridad (keystore NO comprometido), `.gitignore`, hardening de deploy. |
