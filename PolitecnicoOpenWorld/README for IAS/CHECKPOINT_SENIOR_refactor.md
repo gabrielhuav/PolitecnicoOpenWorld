@@ -181,10 +181,9 @@ Compose-directo (no-StateFlow).
 - Verificado por grep: 0 backing `by mutableStateOf` de estos campos en el VM; 0 referencias al throttle
   viejo; imports Compose sin uso retirados. Edits verificados con Read; clase cierra OK (~1525 líneas).
 
-### ⏸️ CHECKPOINT COMPILACIÓN #6 — PENDIENTE (pedir al dueño)
-Rebuild + tests desde Android Studio + prueba manual (ver informe). Esperar VERDE antes del manager
-4/6 (WantedManager). **Prueba manual CLAVE de este paso:** que la barra de vida y el 💥 sigan
-reactivos — recibir daño baja la barra y parpadea el rojo; curarse/comprar la sube; morir → WASTED.
+### ✅ CHECKPOINT COMPILACIÓN #6 — VERDE (confirmado por el dueño, 2026-07-04)
+Rebuild OK + tests + vida/💥 reactivos OK. Manager 3/6 (Combat) cerrado. **Siguiente: manager 4/6
+`WantedManager`** (sesión nueva). El dueño continúa el programa en otra conversación desde aquí.
 
 ---
 
