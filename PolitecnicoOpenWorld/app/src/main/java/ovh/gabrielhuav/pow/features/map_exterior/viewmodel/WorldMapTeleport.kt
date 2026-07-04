@@ -13,9 +13,8 @@ import android.content.Context
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
-import org.osmdroid.util.GeoPoint
+import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.data.repository.MetroRepository
 import ovh.gabrielhuav.pow.data.repository.MetrobusRepository
 

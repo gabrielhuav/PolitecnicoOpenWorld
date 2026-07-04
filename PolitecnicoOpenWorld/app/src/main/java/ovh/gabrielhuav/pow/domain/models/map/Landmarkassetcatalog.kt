@@ -3,7 +3,6 @@ package ovh.gabrielhuav.pow.domain.models.map
 import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 
 // 1. El modelo de datos actualizado con ancho y alto
 data class LandmarkAssetTemplate(

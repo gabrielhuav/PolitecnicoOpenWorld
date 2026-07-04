@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.interiores.zombies.ui
 
+// REFACTOR: funciones del Modo Diseñador extraídas a ZombieGameDesigner.kt (parcial del VM)
+// → ahora son extensiones y requieren import explícito desde el paquete ui. Ver 09 §0.
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,13 +16,33 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -30,7 +52,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -43,9 +74,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -56,58 +91,45 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
-import kotlin.random.Random
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
 import ovh.gabrielhuav.pow.features.interiores.core.ui.CollisionMatrixDesignerLayer
+import ovh.gabrielhuav.pow.features.interiores.core.ui.InteriorNpcView
+import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerView
+import ovh.gabrielhuav.pow.features.interiores.core.ui.RemotePlayerView
 import ovh.gabrielhuav.pow.features.interiores.core.ui.WaypointDesignerLayer
-import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerView          // vista de jugador compartida (core)
-import ovh.gabrielhuav.pow.features.interiores.core.ui.RemotePlayerView    // vista de jugador remoto/civil (core)
-import ovh.gabrielhuav.pow.features.interiores.core.ui.InteriorNpcView    // NPC ambiental de interiores (core)
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieInteriorViewModel
-// REFACTOR: funciones del Modo Diseñador extraídas a ZombieGameDesigner.kt (parcial del VM)
-// → ahora son extensiones y requieren import explícito desde el paquete ui. Ver 09 §0.
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.toggleDesignerMode
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerTarget
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerBrush
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.DesignerBrush
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.selectDoorAtWorld
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieInteriorViewModel
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.exportMatricesToUri
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.exportWaypointsToUri
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importMatricesFromUri
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importWaypointsFromUri
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.moveSelectedDoorToWorld
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.saveDesignerWaypoints
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resetDesignerWaypoints
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.paintCellAtWorld
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resetDesignerMatrix
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resetDesignerWaypoints
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resizeDesignerMatrixBy
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.saveDesignerMatrix
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resetDesignerMatrix
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.exportMatricesToUri
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importMatricesFromUri
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.exportWaypointsToUri
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importWaypointsFromUri
-import ovh.gabrielhuav.pow.R
-import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
-import kotlin.math.max
-import kotlin.math.hypot
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.saveDesignerWaypoints
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.selectDoorAtWorld
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerBrush
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerTarget
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.toggleDesignerMode
 import ovh.gabrielhuav.pow.features.map_exterior.ui.SkinSelectorDialog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
+import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
+import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlin.random.Random
 
 private const val ZOMBIE_SPRITE_BASE = 60f
 private const val PLAYER_SPRITE_BASE = 56f

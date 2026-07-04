@@ -1,7 +1,7 @@
 package ovh.gabrielhuav.pow.domain.models.campaign.mission2
 
-import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
 import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
 
 /**
  * MISIÓN 2 de la campaña: "El rumor". Arranca al terminar la Misión 1 (el jugador ya ENTRÓ a la

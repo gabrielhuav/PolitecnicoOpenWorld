@@ -7,6 +7,7 @@ import android.graphics.Matrix
 import android.graphics.drawable.BitmapDrawable
 import android.util.LruCache
 import ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.getDrawable
 
 /**
  * Gestor de sprites para el NPC compañero Prankedy.

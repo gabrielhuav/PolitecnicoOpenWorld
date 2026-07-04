@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+// REFACTOR: extensión del VM (menú de teletransporte) → import explícito.
 import android.content.res.Configuration
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -30,14 +31,13 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleJoystickCo
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-// REFACTOR: extensión del VM (menú de teletransporte) → import explícito.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleTeleportMenu
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onInteractButtonPressed
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exitGlobalZombieMode
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.handleInteraction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveCharacterByAngle
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.handleInteraction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onClaimCollectiblePressed
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exitGlobalZombieMode
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onInteractButtonPressed
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleTeleportMenu
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 /**

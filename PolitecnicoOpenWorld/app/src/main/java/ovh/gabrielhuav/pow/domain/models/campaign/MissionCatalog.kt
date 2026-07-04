@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.domain.models.campaign
 
 import androidx.annotation.StringRes
 import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.all
 import ovh.gabrielhuav.pow.domain.models.campaign.mission1.Mission1
 import ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
 import ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3

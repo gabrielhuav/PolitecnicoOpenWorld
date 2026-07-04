@@ -2,7 +2,6 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import kotlinx.coroutines.flow.update
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager
 import ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase
 
 /**

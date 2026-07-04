@@ -1,7 +1,7 @@
 package ovh.gabrielhuav.pow.features.settings.viewmodel
 
-import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
+import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
 
 data class SettingsState(

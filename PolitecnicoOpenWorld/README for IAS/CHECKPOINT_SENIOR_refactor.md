@@ -410,6 +410,16 @@ workflow en el mismo push; (b) opcional: regenerar el baseline tras la limpieza 
 quitar esas 11 entradas obsoletas (inofensivas si se dejan). Deuda ALTA/MEDIA de detekt (PrintStackTrace,
 params sin uso en firmas…) queda PERDONADA por el baseline → "quemar" en PRs chicos a futuro (PENDIENTE_calidad.md).
 
+### Extra de cierre (2026-07-04): CI ahora ARMA la app + imports limpiados
+- `.github/workflows/pr-quality-gate.yml`: el job de tests pasó a `gradle :app:assembleDebug :app:testDebugUnitTest`
+  → el gate ahora COMPILA/ARMA la app (valida el grafo Hilt completo + manifest/recursos), no solo corre tests.
+- Limpieza de imports sin uso que dejó la migración Hilt: en los 11 screens tocados se quitaron
+  `LocalContext`/`viewModel`; el dueño corrió **Optimize Imports** (Ctrl+Alt+O) en TODO el proyecto para barrer
+  el resto (`ViewModelProvider`/`PowDatabase` en las VMs migradas). Rebuild + tests + commit CONFIRMADOS en verde.
+- **NEXT LEVEL (iniciativas nuevas, NO incompletitud de este programa):** partir `WorldMapState` en sub-estados
+  por grupo; tests de UI/Compose o screenshot; quemar la deuda detekt del baseline; KDoc en las APIs de los
+  managers. Cada una es su propio mini-programa con checkpoints.
+
 ### ⏸️ (histórico) CHECKPOINT COMPILACIÓN #10 — riesgos vigilados (ETAPA 4 · Hilt COMPLETA)
 **RIESGOS a vigilar al compilar (por orden de probabilidad):**
 1. **Versión de Hilt:** si el sync/compilación se queja de compat con Kotlin 2.2/KSP 2.3.2/AGP 9, subir

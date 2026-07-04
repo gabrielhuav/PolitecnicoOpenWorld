@@ -1,7 +1,7 @@
 package ovh.gabrielhuav.pow.domain.models.campaign.mission1
 
-import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
 import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
 
 /**
  * MISIÓN 1 de la campaña: de la ESCOM a la ENCB, escolta de Prankedy de vuelta a la ESCOM

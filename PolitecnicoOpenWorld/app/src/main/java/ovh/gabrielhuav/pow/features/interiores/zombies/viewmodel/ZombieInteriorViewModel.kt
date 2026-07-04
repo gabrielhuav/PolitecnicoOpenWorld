@@ -2,7 +2,6 @@ package ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
@@ -16,16 +15,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
-import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget   // tipo compartido (core)
 import ovh.gabrielhuav.pow.data.repository.CollisionMatrixRepository
-import ovh.gabrielhuav.pow.data.repository.WaypointRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.domain.models.zombie.ActiveEffect
+import ovh.gabrielhuav.pow.data.repository.WaypointRepository
 import ovh.gabrielhuav.pow.domain.models.zombie.CollisionMatrix
 import ovh.gabrielhuav.pow.domain.models.zombie.CombatMode
-import ovh.gabrielhuav.pow.domain.models.zombie.Projectile
-import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
-import ovh.gabrielhuav.pow.domain.models.zombie.SkillItem
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieEntity
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoom
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
@@ -38,7 +32,6 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
-import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 

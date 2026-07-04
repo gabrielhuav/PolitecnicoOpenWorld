@@ -2,8 +2,8 @@ package ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel
 
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.zombie.ActiveEffect
 import ovh.gabrielhuav.pow.domain.models.zombie.Projectile
 import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect

@@ -1,14 +1,14 @@
 package ovh.gabrielhuav.pow.features.interiores.escom.viewmodel
 
 import android.content.Context
+import androidx.annotation.StringRes
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.data.repository.MetroRepository
 import ovh.gabrielhuav.pow.data.repository.MetrobusRepository
 import ovh.gabrielhuav.pow.domain.models.map.TransitStation
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.NormRect
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor
-import androidx.annotation.StringRes
-import ovh.gabrielhuav.pow.R
 
 /** Eje por el que entra/sale el vehículo en la animación de la pantalla. */
 enum class TransitAnimationAxis { VERTICAL, HORIZONTAL }

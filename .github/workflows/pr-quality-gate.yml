@@ -46,9 +46,12 @@ jobs:
           echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
       # NOTA: no se escribe google-services.json a proposito -> el plugin google-services NO se aplica
       # (ver app/build.gradle.kts) y el proyecto compila/testea sin Firebase. Es lo que queremos en el gate.
-      - name: Run unit tests
+      # assembleDebug + testDebugUnitTest: (1) ARMA la app (compila, valida el grafo Hilt COMPLETO
+      # y el merge de manifest/recursos — cosas que los unit tests no cubren; clave tras la Etapa 4
+      # de DI), y (2) corre los tests de lógica pura. Ambos deben pasar para mergear.
+      - name: Build debug APK + run unit tests
         working-directory: ./PolitecnicoOpenWorld
-        run: gradle :app:testDebugUnitTest --stacktrace
+        run: gradle :app:assembleDebug :app:testDebugUnitTest --stacktrace
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4

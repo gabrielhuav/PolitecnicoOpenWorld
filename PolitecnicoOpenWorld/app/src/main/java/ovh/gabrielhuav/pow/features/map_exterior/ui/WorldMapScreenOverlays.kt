@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+// REFACTOR: extensiones del VM (Prankedy / fade puerta ESCOM) → import explícito.
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -29,13 +30,12 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimD
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyHireDialog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-// REFACTOR: extensiones del VM (Prankedy / fade puerta ESCOM) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3EnterEncb
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissClaimedPopup
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissVideo
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onEscomDoorFadeComplete
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissVideo
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissClaimedPopup
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3EnterEncb
 
 /**
  * Overlays y diálogos superpuestos de [WorldMapScreen] (pantalla WASTED, vídeo zombi,

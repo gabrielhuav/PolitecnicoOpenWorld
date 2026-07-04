@@ -6,16 +6,16 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import ovh.gabrielhuav.pow.data.local.room.dao.CollectibleDao
+import ovh.gabrielhuav.pow.data.local.room.dao.LandmarkDao
 import ovh.gabrielhuav.pow.data.local.room.dao.MapTileDao
 import ovh.gabrielhuav.pow.data.local.room.dao.RoadNetworkDao
-import ovh.gabrielhuav.pow.data.local.room.dao.LandmarkDao
+import ovh.gabrielhuav.pow.data.local.room.entity.CollectibleEntity
+import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.MapTileEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadNodeEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadWayEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadZoneEntity
-import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
-import ovh.gabrielhuav.pow.data.local.room.dao.CollectibleDao
-import ovh.gabrielhuav.pow.data.local.room.entity.CollectibleEntity
 import java.io.File
 
 @Database(

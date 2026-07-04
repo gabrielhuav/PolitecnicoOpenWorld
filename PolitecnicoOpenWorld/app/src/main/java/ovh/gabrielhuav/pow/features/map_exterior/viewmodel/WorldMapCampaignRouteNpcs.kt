@@ -2,12 +2,12 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import androidx.compose.ui.graphics.Color
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig
 import ovh.gabrielhuav.pow.domain.models.map.MapNode
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NPCs DE PRUEBA QUE CAMINAN POR LA RUTA ROJA DE CAMPAÑA
