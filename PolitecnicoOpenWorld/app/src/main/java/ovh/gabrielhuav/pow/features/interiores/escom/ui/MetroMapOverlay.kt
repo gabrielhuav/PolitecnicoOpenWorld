@@ -387,7 +387,8 @@ fun LoopingVideoPlayer(assetFileName: String, modifier: Modifier = Modifier) {
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // Log con tag filtrable en vez de printStackTrace (regla detekt; ver PENDIENTE_calidad).
+                android.util.Log.w("MetroMapOverlay", "Error copiando el asset del mapa a caché", e)
             }
         }
         file

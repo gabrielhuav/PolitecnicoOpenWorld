@@ -94,7 +94,6 @@ internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerL
 
 internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, playerLon: Double) {
         val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
-        val INTERACT_RADIUS_METERS = 15.0
 
         // 1. Verificar cercanía a estaciones del metro
         val metroStations = _uiState.value.metroStations

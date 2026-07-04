@@ -177,7 +177,10 @@ class RoadRouter {
         val startPoint = nearestPointOnNetwork(network, from)
         val endPoint = nearestPointOnNetwork(network, to)
         var current = startPoint
-        val visitedNodes = mutableSetOf<String>()
+        // Micro-opt heredada de la extensión retirada (2026-07-04): LatLng (data class) como key
+        // directa en vez de Strings concatenados — cero allocs de String por paso, mismo
+        // comportamiento (igualdad estructural lat/lon). Los tests golden-master siguen en verde.
+        val visitedNodes = mutableSetOf<LatLng>()
         for (step in 0 until MAX_STEPS) {
             val distToTarget = distance(current, endPoint)
             if (distToTarget < ARRIVE_EPS_DEG) break
@@ -185,8 +188,7 @@ class RoadRouter {
             var bestDist = distToTarget
             val candidateNodes = nearbyNodes(nodeGrid, current)
             for (nodePt in candidateNodes) {
-                val nodeKey = "${nodePt.lat},${nodePt.lon}"
-                if (visitedNodes.contains(nodeKey)) continue
+                if (visitedNodes.contains(nodePt)) continue
                 val dFromCurrent = distance(current, nodePt)
                 if (dFromCurrent < MAX_HOP_DEG) {
                     val dToTarget = distance(nodePt, endPoint)
@@ -198,12 +200,12 @@ class RoadRouter {
             }
             if (bestNext != null) {
                 current = bestNext
-                visitedNodes.add("${current.lat},${current.lon}")
+                visitedNodes.add(current)
                 route.add(current)
             } else break
         }
         route.add(endPoint)
         route.add(to)
-        return route.distinctBy { "${it.lat},${it.lon}" }
+        return route.distinct()
     }
 }

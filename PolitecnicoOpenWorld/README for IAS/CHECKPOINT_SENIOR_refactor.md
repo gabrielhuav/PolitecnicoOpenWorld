@@ -78,19 +78,30 @@ El dueño compila y prueba SOLO cuando se le pide; intervención mínima.
   - Anotado: micro-opt de la extensión muerta (keys `Pair` en vez de `String` en visited/distinct)
     puede aplicarse al RoadRouter DESPUÉS, con tests en verde (cambio separado).
 
+### ✅ CHECKPOINT COMPILACIÓN #2 — VERDE (confirmado por el dueño)
+- Rebuild OK, **44/44 tests OK**, navegación OK. **ETAPA 2 CERRADA.**
+
+### Hecho además — ETAPA 5 · lote 1 (2026-07-04, compilación PENDIENTE = ⏸️ CHECKPOINT #3)
+- Micro-opt del RoadRouter aplicada: `visitedNodes`/`distinct` por `LatLng` (igualdad estructural)
+  en vez de Strings concatenados — cero allocs de String por paso; contrato intacto (los 14 tests
+  deben seguir verdes SIN tocarlos).
+- Código muerto eliminado (inventario detekt verificado por grep — estaba MUY desactualizado, ver
+  nota nueva al inicio de `PENDIENTE_calidad.md`): `isGoingVeryFast` (VM), `hasTriggeredNativePan`
+  (WorldMapScreen), `INTERACT_RADIUS_METERS` local (WorldMapCollectiblesLogic), `newTarget`
+  (NpcAiManagerTraffic). Último `printStackTrace` → `Log.w` (MetroMapOverlay).
+- Lo que QUEDA de detekt: solo params-de-firma + 8 issues menores + regla de loops (detalle en
+  PENDIENTE_calidad.md). Recomendado: regenerar inventario con un run real de detekt + baseline.
+
 ### Coming next (orden estricto — próxima sesión)
-0. ⏸️ **CHECKPOINT COMPILACIÓN #2** — pedir al dueño: `Rebuild Project` + tests desde AS (clic
-   derecho en las 3 clases de test → Run; el wrapper de consola está roto, ver arriba). Prueba
-   manual de NAVEGACIÓN: marcar destino → ruta dibujada; conducir siguiéndola; marcar destino con
-   el jugador PARADO SOBRE un landmark (matiz del snap); TP y volver a marcar destino.
-1. Si todo verde: la Etapa 2 se da por CERRADA. (Opcional de bajo riesgo: aplicar la micro-opt de
-   keys `Pair` al RoadRouter — los tests deben seguir verdes sin tocarlos.)
-2. **Etapa 3 — descomponer el VM** según `PLAN_descomponer_WorldMapViewModel.md`: empezar por
+0. ⏸️ **CHECKPOINT COMPILACIÓN #3** — Rebuild + las 3 clases de test desde AS (44/44). Prueba
+   manual opcional: conducir 1 min por tráfico (se tocó una línea muerta del mover de campus).
+1. **Etapa 3 — descomponer el VM** según `PLAN_descomponer_WorldMapViewModel.md`: empezar por
    `DesignerManager` (dev-only, riesgo mínimo, prueba la técnica de la fachada `combine`).
-   1 manager por ⏸️ checkpoint de compilación. Luego CollectiblesManager → CombatManager → …
-3. Después: Etapa 4 (Hilt, `PLAN_DI_hilt.md`), Etapa 5 (deuda detekt, `PENDIENTE_calidad.md` —
-   los ~18 Unused ya bajaron: los muertos de routing se eliminaron aquí), Etapas 6-7.
-4. Restaurar el wrapper de Gradle (gradle-wrapper.jar) para poder correr tests por consola/CI local.
+   1 manager por ⏸️ checkpoint. Luego CollectiblesManager → CombatManager → Wanted/Transit →
+   Campaign. ES LA ETAPA MÁS GRANDE (~5-6 checkpoints).
+2. Después: Etapa 4 (Hilt, `PLAN_DI_hilt.md`, ~4-6 checkpoints chicos), resto Etapa 5 (params +
+   baseline detekt bloqueante, 1 checkpoint), Etapa 6 (perf gama baja dirigida, 1-2).
+3. Restaurar el wrapper de Gradle (falta `gradle/wrapper/gradle-wrapper.jar`) para tests por consola.
 
 ## Reglas para la IA que retome esto
 - Lee `09_CONVENTIONS_GOTCHAS.md` COMPLETO antes de tocar código (miembro-vs-extensión, CRLF,

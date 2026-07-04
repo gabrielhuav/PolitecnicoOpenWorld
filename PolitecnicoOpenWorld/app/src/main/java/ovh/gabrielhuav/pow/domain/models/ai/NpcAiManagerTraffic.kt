@@ -92,8 +92,6 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
                 else -> if (Random.nextBoolean()) 1 else -1
             }
 
-            val newTarget = (closestIdx + nextDir).coerceIn(0, nextWay.nodes.size - 1)
-
             return npc.copy(
                 currentLocalWay = nextWay,
                 targetNodeIndex = closestIdx, // Apunta exacto a la intersección para doblar bien

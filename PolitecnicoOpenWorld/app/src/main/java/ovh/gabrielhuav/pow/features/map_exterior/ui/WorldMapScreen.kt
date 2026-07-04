@@ -326,7 +326,7 @@ fun WorldMapScreen(
     }
 
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap?>() }
-    var hasTriggeredNativePan by remember { mutableStateOf(false) }
+    // (hasTriggeredNativePan vivía aquí sin uso: el estado real está en NativeOsmMap. Eliminado.)
 
     // Nuevos estados para las interacciones del Diseñador
     var showDesignerHint by remember { mutableStateOf(false) }

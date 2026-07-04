@@ -646,7 +646,6 @@ class WorldMapViewModel(
                             // REBASE AUTOMÁTICO Y COLISIONES:
                             // Comportamiento variado según velocidad y movimientos:
                             val absSpeed = kotlin.math.abs(currentSpeed)
-                            val isGoingVeryFast = absSpeed > MAX_SPEED * 0.95
                             val isSteeringSharply = isSteeringLeftPressed || isSteeringRightPressed
 
                             val overtakeRadius = 0.00008

@@ -1,5 +1,22 @@
 # PENDIENTE — Deuda de calidad detekt + camino a gate BLOQUEANTE
 
+> **⚠️ ACTUALIZACIÓN 2026-07-04 (Etapa 5 lote 1, ver CHECKPOINT_SENIOR_refactor.md): gran parte de
+> este inventario ya estaba RESUELTO** (los line numbers eran de 2026-06-24). Verificado por grep:
+> - PrintStackTrace: quedaba SOLO 1 (MetroMapOverlay:390) → corregido a `Log.w` con tag. ✔
+> - MayBeConst (5) y EmptyCatchBlock listados: ya estaban corregidos (const val / vals de Color
+>   que no pueden ser const). ✔
+> - Código muerto eliminado hoy: `isGoingVeryFast` (VM), `hasTriggeredNativePan` (WorldMapScreen —
+>   el vivo está en NativeOsmMap), `INTERACT_RADIUS_METERS` local (CollectiblesLogic),
+>   `newTarget` (NpcAiManagerTraffic). Los muertos de ROUTING (`rebuildRoadNodeGrid` miembro,
+>   `step`, etc.) cayeron con el de-dup de la Etapa 2. ✔
+> - QUEDA: params sin uso que tocan FIRMAS (PrankedyManager `now` ×3, WorldMapCampaignPolice
+>   `playerLoc`/`door`, WorldMapEscomItems `roadNetwork`/`cantidad`, WorldMapWidgets `context`) —
+>   requieren revisar call-sites, hacer en PRs chicos; UseRequire (2), ImplicitDefaultLocale (3),
+>   FunctionOnlyReturningConstant (2), ComplexCondition (1) — verificar línea antes (inventario
+>   viejo); y decidir `LoopWithTooManyJumpStatements: active: false` (recomendado).
+> - Siguiente paso recomendado: RE-CORRER detekt para regenerar el inventario real y/o crear el
+>   baseline (Opción A de abajo) y quitar `continue-on-error`.
+
 > Generado 2026-06-24 tras el primer run de `pr-quality-gate.yml`. detekt corre ahora en modo
 > ADVISORY (`continue-on-error: true`): reporta pero NO bloquea el merge. Los tests SI bloquean.
 > Aqui queda la deuda y como volver detekt bloqueante cuando se limpie (o con baseline).
