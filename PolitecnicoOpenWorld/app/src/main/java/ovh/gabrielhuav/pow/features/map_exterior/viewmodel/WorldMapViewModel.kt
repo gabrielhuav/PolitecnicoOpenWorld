@@ -174,6 +174,9 @@ class WorldMapViewModel(
     val roadNetworkFlow: StateFlow<List<MapWay>> = _roadNetworkFlow.asStateFlow()
 
     internal var roadNetworkNodeGrid: Map<Pair<Int, Int>, List<GeoPoint>> = emptyMap()
+    // ETAPA 2 (de-dup routing): algoritmo de routing PURO y TESTEADO (RoadRouterTest). Los
+    // gemelos miembro/extensión van delegando aquí uno por uno; ver CHECKPOINT_SENIOR_refactor.md.
+    internal val roadRouter = ovh.gabrielhuav.pow.domain.usecases.RoadRouter()
 
     // ─── Grafo de calles para A* (pathfinding de la policía) ─────────────────
     // Adyacencia por id de nodo (calles que comparten nodo = intersección conectada),
@@ -1353,20 +1356,10 @@ class WorldMapViewModel(
         return route.distinctBy { "${it.latitude},${it.longitude}" }
     }
 
-    private fun rebuildRoadNodeGrid(network: List<MapWay>) {
-        val uniqueNodes = linkedMapOf<String, GeoPoint>()
-        network.forEach { way ->
-            way.nodes.forEach { node ->
-                val key = "${node.lat},${node.lon}"
-                if (!uniqueNodes.containsKey(key)) uniqueNodes[key] = GeoPoint(node.lat, node.lon)
-            }
-        }
-        roadNetworkNodeGrid = uniqueNodes.values.groupBy { point ->
-            val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-            val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-            latCell to lonCell
-        }
-    }
+    // ETAPA 2 · paso 1 (de-dup routing): el gemelo miembro de `rebuildRoadNodeGrid` se ELIMINÓ.
+    // Estaba MUERTO (private → invisible para las extensiones; nada dentro de la clase lo llamaba;
+    // detekt lo confirmó). La ÚNICA implementación es la extensión de WorldMapRouting.kt, que
+    // delega en `roadRouter.buildNodeGrid` (RoadRouter puro + tests). NO recrear el miembro.
 
     private fun nearbyRoadNodes(point: GeoPoint): List<GeoPoint> {
         if (roadNetworkNodeGrid.isEmpty()) return emptyList()

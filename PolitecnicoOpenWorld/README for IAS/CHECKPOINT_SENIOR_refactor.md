@@ -44,19 +44,47 @@ El dueño compila y prueba SOLO cuando se le pide; intervención mínima.
   - `MissionCatalogTest.kt`: +3 tests (cadena de desbloqueo M1→M2→M3, `missionIdForObjective`,
     `firstObjectiveOf`).
 
-### En curso
-- ⏸️ **CHECKPOINT COMPILACIÓN #1** — pedido al usuario: `Rebuild Project` +
-  `gradlew.bat testDebugUnitTest` (o ▶ en las clases de test desde AS). TODO debe quedar en verde
-  ANTES de empezar la Etapa 2. Si un test del RoadRouter falla: el golden master se copió mal —
-  compara contra el miembro del VM (líneas ~1288-1383) y corrige el ROUTER (no el VM).
+### Resultado CHECKPOINT COMPILACIÓN #1 (2026-07-04)
+- ✅ `Rebuild Project` en VERDE (Etapa 1 compila).
+- ⚠️ **`testDebugUnitTest` AÚN NO CORRIÓ**: en PowerShell el comando lleva `.\` →
+  **`.\gradlew.bat testDebugUnitTest`** (o ▶ sobre las clases de test en AS). El dueño lo correrá
+  después. **Deben estar en VERDE antes de ejecutar los pasos 2-4 de abajo.** Si un test del
+  RoadRouter falla: el golden master se copió mal — compara contra el miembro del VM
+  (`calculateRouteOnNetwork`/`nearbyRoadNodes`, ~1318-1376) y corrige el ROUTER (no el VM).
 
-### Coming next (orden estricto)
-2. Etapa 2 paso 1: VM usa `roadRouter.nearbyNodes` (borrar gemelos de `nearbyRoadNodes`) → compilar.
-3. Etapa 2 paso 2: `rebuildRoadNodeGrid` → `roadRouter.buildNodeGrid` → compilar.
-4. Etapa 2 paso 3: `calculateRouteOnNetwork` → `roadRouter.route` → compilar.
-5. Etapa 2 paso 4: `updateDestinationRoute` queda ÚNICO (borrar el gemelo) → compilar + prueba manual
-   de navegación (marcar destino, ruta dibujada, TP).
-6. Etapa 3 (DesignerManager primero) según su plan; 1 manager por checkpoint.
+### Hecho además — ETAPA 2 · paso 1 (2026-07-04, compilación PENDIENTE)
+- **De-dup de `rebuildRoadNodeGrid`** (gemelo IDÉNTICO; el miembro además estaba MUERTO):
+  - `WorldMapViewModel.kt`: ELIMINADO el miembro privado `rebuildRoadNodeGrid` (private →
+    invisible para extensiones; nada en la clase lo llamaba; detekt lo confirmaba). Tombstone en
+    su lugar (~línea 1359). AÑADIDO `internal val roadRouter = RoadRouter()` junto a
+    `roadNetworkNodeGrid` (~línea 176-179).
+  - `WorldMapRouting.kt` (~334): la extensión (ÚNICA implementación ya) DELEGA en
+    `roadRouter.buildNodeGrid(network)` + conversión LatLng→GeoPoint (solo al reconstruir la red).
+  - Call-sites verificados con grep: solo `WorldMapRoadNetwork.kt` (109/165/193) → extensión. ✔
+
+### Coming next (orden estricto — próxima sesión)
+0. ⏸️ Pedir al dueño: `Rebuild Project` + `.\gradlew.bat testDebugUnitTest` (todo verde). Prueba
+   manual corta: entrar al mundo (la rejilla de nodos se reconstruye al cargar calles) y marcar un
+   destino → la ruta se dibuja.
+1. **Paso 2+3 JUNTOS — `calculateRouteOnNetwork` → `roadRouter.route`:** en el miembro VIVO
+   `updateDestinationRoute` (VM ~1288; lo llama `placeDestinationMarker`) sustituir
+   `calculateRouteOnNetwork(currentLoc, destination, roadNetwork)` por
+   `roadRouter.route(roadNetwork, LatLng(currentLoc.latitude, currentLoc.longitude), LatLng(destination.latitude, destination.longitude)).map { GeoPoint(it.lat, it.lon) }`
+   (import de LatLng/RoadRouter o FQN). Después BORRAR 4 funciones: miembro
+   `calculateRouteOnNetwork` (VM ~1318) + miembro `nearbyRoadNodes` (VM ~1364, solo lo llamaba ese
+   miembro) + extensiones MUERTAS `calculateRouteOnNetwork` (WorldMapRouting ~192) y
+   `nearbyRoadNodes` (~349, solo la llamaba esa extensión muerta). Dejar tombstones. ⚠️ Matiz: el
+   RoadRouter no aplica el pase-libre por landmarks al snapear extremos (el miembro usaba
+   `getNearestPointOnNetwork` que sí) — cosmético para la polilínea, pero verificar en la prueba
+   manual marcando destino con el jugador PARADO SOBRE un landmark. → Rebuild + tests + navegación.
+2. **Paso 4 — `updateDestinationRoute` único:** queda el par miembro private (VM ~1288, VIVO desde
+   `placeDestinationMarker`) vs extensión internal (WorldMapRouting ~162, la usan call-sites FUERA
+   de la clase: hacer grep primero y DIFERENCIAR ambas versiones). Canónico = el MIEMBRO; hacerlo
+   `internal`, sincronizar cualquier divergencia útil, borrar la extensión. → Rebuild + prueba
+   manual completa (destino, conducir por ruta, TP, atasco/rescate).
+3. Actualizar 09 §12 (la cadena de routing deja de ser NO-TOCAR; sin gemelos) + este archivo.
+4. Etapa 3 (DesignerManager primero) según `PLAN_descomponer_WorldMapViewModel.md`; 1 manager por
+   checkpoint. Luego Etapas 4-7 de la tabla.
 
 ## Reglas para la IA que retome esto
 - Lee `09_CONVENTIONS_GOTCHAS.md` COMPLETO antes de tocar código (miembro-vs-extensión, CRLF,

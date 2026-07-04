@@ -331,18 +331,13 @@ internal fun WorldMapViewModel.findRoadRoute(from: GeoPoint, to: GeoPoint): List
     return out
 }
 
+// ETAPA 2 · paso 1 (de-dup routing, ver CHECKPOINT_SENIOR_refactor.md): esta extensión es ahora
+// la ÚNICA implementación (el miembro privado del VM, que estaba MUERTO — nada dentro de la clase
+// lo llamaba, detekt lo confirmó — se ELIMINÓ) y DELEGA en el RoadRouter puro (testeado en
+// RoadRouterTest). La conversión LatLng→GeoPoint solo ocurre al (re)construir la red (rara vez).
 internal fun WorldMapViewModel.rebuildRoadNodeGrid(network: List<MapWay>) {
-        val uniqueNodes = linkedMapOf<String, GeoPoint>()
-        network.forEach { way ->
-            way.nodes.forEach { node ->
-                val key = "${node.lat},${node.lon}"
-                if (!uniqueNodes.containsKey(key)) uniqueNodes[key] = GeoPoint(node.lat, node.lon)
-            }
-        }
-        roadNetworkNodeGrid = uniqueNodes.values.groupBy { point ->
-            val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-            val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-            latCell to lonCell
+        roadNetworkNodeGrid = roadRouter.buildNodeGrid(network).mapValues { (_, points) ->
+            points.map { GeoPoint(it.lat, it.lon) }
         }
     }
 
