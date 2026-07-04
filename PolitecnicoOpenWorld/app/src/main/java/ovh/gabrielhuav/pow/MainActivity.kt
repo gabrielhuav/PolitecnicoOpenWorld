@@ -1,103 +1,36 @@
 package ovh.gabrielhuav.pow
 
+// REFACTOR: toggles de widgets extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
+// REFACTOR: ajustes/skin extraídos a WorldMapSettings.kt (extensiones) → import explícito.
+// REFACTOR: extensiones del VM (WorldMapProviders.kt) → requieren import explícito.
+// MODO HISTORIA: guardado/carga de la partida (JSON). Las extensiones del VM viven
+// en WorldMapSaveGame.kt y requieren import explícito desde fuera del paquete viewmodel.
+// REFACTOR: extensiones del VM extraídas (campaña/teleport/shinecto) → import explícito.
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import android.content.pm.ActivityInfo
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
-import androidx.navigation.NavController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.preference.PreferenceManager
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.AuditorioScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.BibliotecaScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.CafeteriaScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.CanchasFutbolScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.EdificioScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.EstacionamientoScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.MetroStationInteriorScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.MetrobusStationInteriorScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.PalapasScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoBeisScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoFutbolScreen
-import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
-import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.FesInteriorScreen
-import ovh.gabrielhuav.pow.features.campaign.ui.StoryModeScreen
-import ovh.gabrielhuav.pow.features.campaign.ui.StoryIntroScreen
-import ovh.gabrielhuav.pow.domain.models.campaign.SchoolCatalog
 import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
-import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-// REFACTOR: toggles de widgets extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCacheWidget
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleFpsWidget
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleZoomWidget
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleSpeedometer
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCoordsWidget
-// REFACTOR: ajustes/skin extraídos a WorldMapSettings.kt (extensiones) → import explícito.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setNpcDensity
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setNpcEmojiLod
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setNpcFullEmoji
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectSkin
-// REFACTOR: extensiones del VM (WorldMapProviders.kt) → requieren import explícito.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
-// MODO HISTORIA: guardado/carga de la partida (JSON). Las extensiones del VM viven
-// en WorldMapSaveGame.kt y requieren import explícito desde fuera del paquete viewmodel.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.retryCampaignMission
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission1ChaseIntro
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission1Chase
-// REFACTOR: extensiones del VM extraídas (campaña/teleport/shinecto) → import explícito.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setStorySpawn
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetroStation
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusStation
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onShineCTODiscoveryConfirmed
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeNavigateToShineCTO
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeEscomDoorNavigation
-import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
-import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
-import ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
-import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.EasterEggDiscoveryDialog
-import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.ShineCTOScreen
 
 // Spawn fijo: coordenadas del punto de teletransporte "ESCOM" (ver TeleportCatalog).
 // El juego SIEMPRE arranca en ESCOM, sin depender del GPS real del dispositivo.
