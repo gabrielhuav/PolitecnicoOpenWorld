@@ -1306,7 +1306,14 @@ class WorldMapViewModel(
         routeCalculationJob = viewModelScope.launch(Dispatchers.Default) {
             try {
                 Log.d("Navigation", "Calculando ruta...")
-                val route = calculateRouteOnNetwork(currentLoc, destination, roadNetwork)
+                // ETAPA 2 (de-dup routing): la ruta la calcula el RoadRouter PURO (fijado por
+                // RoadRouterTest). Matiz documentado: los extremos se snapean SIN el pase-libre
+                // por landmarks (cosmético: el 1er/último tramo une jugador/destino con la calle).
+                val route = roadRouter.route(
+                    roadNetwork,
+                    ovh.gabrielhuav.pow.domain.usecases.LatLng(currentLoc.latitude, currentLoc.longitude),
+                    ovh.gabrielhuav.pow.domain.usecases.LatLng(destination.latitude, destination.longitude)
+                ).map { GeoPoint(it.lat, it.lon) }
                 Log.d("Navigation", "Ruta calculada con ${route.size} puntos")
                 withContext(Dispatchers.Main) {
                     _uiState.update { it.copy(routeWaypoints = if (route.isNotEmpty()) route else listOf(currentLoc, destination)) }
@@ -1318,62 +1325,18 @@ class WorldMapViewModel(
         }
     }
 
-    private fun calculateRouteOnNetwork(from: GeoPoint, to: GeoPoint, network: List<MapWay>): List<GeoPoint> {
-        if (network.isEmpty()) return listOf(from, to)
-        val route = mutableListOf<GeoPoint>()
-        route.add(from)
-        val startPoint = getNearestPointOnNetwork(from)
-        val endPoint = getNearestPointOnNetwork(to)
-        var current = startPoint
-        val visitedNodes = mutableSetOf<String>()
-        val maxSteps = 20
-        for (step in 0 until maxSteps) {
-            val distToTarget = distance(current, endPoint)
-            if (distToTarget < 0.0005) break
-            var bestNext: GeoPoint? = null
-            var bestDist = distToTarget
-            val candidateNodes = nearbyRoadNodes(current)
-            for (nodePt in candidateNodes) {
-                val nodeKey = "${nodePt.latitude},${nodePt.longitude}"
-                if (visitedNodes.contains(nodeKey)) continue
-                val dFromCurrent = distance(current, nodePt)
-                if (dFromCurrent < 0.003) {
-                    val dToTarget = distance(nodePt, endPoint)
-                    if (dToTarget < bestDist) {
-                        bestDist = dToTarget
-                        bestNext = nodePt
-                    }
-                }
-            }
-            if (bestNext != null) {
-                current = bestNext
-                visitedNodes.add("${current.latitude},${current.longitude}")
-                route.add(current)
-            } else break
-        }
-        route.add(endPoint)
-        route.add(to)
-        return route.distinctBy { "${it.latitude},${it.longitude}" }
-    }
+    // ETAPA 2 (de-dup routing, 2026-07-04): el miembro `calculateRouteOnNetwork` se ELIMINÓ.
+    // La implementación canónica y ÚNICA es `RoadRouter.route` (domain/usecases, pura y fijada
+    // por RoadRouterTest); `updateDestinationRoute` (arriba) delega en ella. NO recrear el miembro.
 
     // ETAPA 2 · paso 1 (de-dup routing): el gemelo miembro de `rebuildRoadNodeGrid` se ELIMINÓ.
     // Estaba MUERTO (private → invisible para las extensiones; nada dentro de la clase lo llamaba;
     // detekt lo confirmó). La ÚNICA implementación es la extensión de WorldMapRouting.kt, que
     // delega en `roadRouter.buildNodeGrid` (RoadRouter puro + tests). NO recrear el miembro.
 
-    private fun nearbyRoadNodes(point: GeoPoint): List<GeoPoint> {
-        if (roadNetworkNodeGrid.isEmpty()) return emptyList()
-        val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-        val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-        val nearby = mutableListOf<GeoPoint>()
-        for (latOffset in -1..1) {
-            for (lonOffset in -1..1) {
-                roadNetworkNodeGrid[(latCell + latOffset) to (lonCell + lonOffset)]?.let { nearby.addAll(it) }
-            }
-        }
-        if (nearby.isNotEmpty()) return nearby
-        return roadNetworkNodeGrid.values.flatten()
-    }
+    // ETAPA 2 (de-dup routing, 2026-07-04): el miembro `nearbyRoadNodes` se ELIMINÓ (solo lo
+    // usaba el miembro `calculateRouteOnNetwork`, también eliminado). La lógica vive en
+    // `RoadRouter.nearbyNodes` (pura, testeada). NO recrear el miembro.
 
     // ─── APOCALIPSIS ZOMBI GLOBAL → WorldMapInteractions.kt ───────────────
 

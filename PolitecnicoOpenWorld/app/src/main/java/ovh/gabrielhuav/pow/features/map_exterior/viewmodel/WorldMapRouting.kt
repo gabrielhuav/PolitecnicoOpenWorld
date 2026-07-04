@@ -159,75 +159,13 @@ internal fun WorldMapViewModel.project(p: GeoPoint, v: GeoPoint, w: GeoPoint): G
             v.longitude + t * (w.longitude - v.longitude))
     }
 
-internal fun WorldMapViewModel.updateDestinationRoute() {
-        val destination = _uiState.value.destinationMarker ?: return
-        val currentLoc = _uiState.value.currentLocation ?: return
-        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) {
-            if (routeRetryJob?.isActive == true) return
-            routeRetryJob = viewModelScope.launch {
-                delay(1000)
-                routeRetryJob = null
-                if (_uiState.value.destinationMarker != null) updateDestinationRoute()
-            }
-            return
-        }
-        if (routeCalculationJob?.isActive == true) return
-        routeRetryJob?.cancel()
-        routeRetryJob = null
-        routeCalculationJob = viewModelScope.launch(Dispatchers.Default) {
-            try {
-                Log.d("Navigation", "Calculando ruta...")
-                val route = calculateRouteOnNetwork(currentLoc, destination, roadNetwork)
-                Log.d("Navigation", "Ruta calculada con ${route.size} puntos")
-                withContext(Dispatchers.Main) {
-                    _uiState.update { it.copy(routeWaypoints = if (route.isNotEmpty()) route else listOf(currentLoc, destination)) }
-                    val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
-                    if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) clearDestinationMarker()
-                }
-            } catch (e: Exception) { Log.e("Navigation", "Error calculando ruta: ${e.message}") }
-            finally { routeCalculationJob = null }
-        }
-    }
-
-internal fun WorldMapViewModel.calculateRouteOnNetwork(from: GeoPoint, to: GeoPoint, network: List<MapWay>): List<GeoPoint> {
-        if (network.isEmpty()) return listOf(from, to)
-        val route = mutableListOf<GeoPoint>()
-        route.add(from)
-        val startPoint = getNearestPointOnNetwork(from)
-        val endPoint = getNearestPointOnNetwork(to)
-        var current = startPoint
-        // Pair<lat, lon> en lugar de String concatenado: evita allocs de String y
-        // presión de GC en cada paso del routing.
-        val visitedNodes = mutableSetOf<Pair<Double, Double>>()
-        val maxSteps = 20
-        for (step in 0 until maxSteps) {
-            val distToTarget = distance(current, endPoint)
-            if (distToTarget < 0.0005) break
-            var bestNext: GeoPoint? = null
-            var bestDist = distToTarget
-            val candidateNodes = nearbyRoadNodes(current)
-            for (nodePt in candidateNodes) {
-                val nodeKey = nodePt.latitude to nodePt.longitude
-                if (visitedNodes.contains(nodeKey)) continue
-                val dFromCurrent = distance(current, nodePt)
-                if (dFromCurrent < 0.003) {
-                    val dToTarget = distance(nodePt, endPoint)
-                    if (dToTarget < bestDist) {
-                        bestDist = dToTarget
-                        bestNext = nodePt
-                    }
-                }
-            }
-            if (bestNext != null) {
-                current = bestNext
-                visitedNodes.add(current.latitude to current.longitude)
-                route.add(current)
-            } else break
-        }
-        route.add(endPoint)
-        route.add(to)
-        return route.distinctBy { it.latitude to it.longitude }
-    }
+// ETAPA 2 (de-dup routing, 2026-07-04): las extensiones MUERTAS `updateDestinationRoute` y
+// `calculateRouteOnNetwork` se ELIMINARON (grep verificado: cero call-sites Kotlin fuera del VM;
+// los `updateDestinationRoute` de la UI web son la FUNCIÓN JS homónima de WorldMapLeafletHtml).
+// El par quedó así: `updateDestinationRoute` = SOLO miembro del VM (canónico) y el cálculo =
+// `RoadRouter.route` (domain/usecases, puro y fijado por RoadRouterTest). La micro-opt de la
+// extensión muerta (keys Pair en vez de String) quedó ANOTADA para aplicarse al RoadRouter con
+// los tests en verde. NO recrear estas extensiones.
 
 // ─── GRAFO DE CALLES + A* (pathfinding de la policía) ───────────────────────────
 // Construye, a partir de la red, la adyacencia por id de nodo (dos nodos consecutivos
@@ -341,16 +279,6 @@ internal fun WorldMapViewModel.rebuildRoadNodeGrid(network: List<MapWay>) {
         }
     }
 
-internal fun WorldMapViewModel.nearbyRoadNodes(point: GeoPoint): List<GeoPoint> {
-        if (roadNetworkNodeGrid.isEmpty()) return emptyList()
-        val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-        val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-        val nearby = mutableListOf<GeoPoint>()
-        for (latOffset in -1..1) {
-            for (lonOffset in -1..1) {
-                roadNetworkNodeGrid[(latCell + latOffset) to (lonCell + lonOffset)]?.let { nearby.addAll(it) }
-            }
-        }
-        if (nearby.isNotEmpty()) return nearby
-        return roadNetworkNodeGrid.values.flatten()
-    }
+// ETAPA 2 (de-dup routing, 2026-07-04): la extensión `nearbyRoadNodes` se ELIMINÓ (solo la
+// llamaba la extensión muerta `calculateRouteOnNetwork`, también eliminada). La lógica canónica
+// es `RoadRouter.nearbyNodes` (pura, testeada). NO recrear.

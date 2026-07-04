@@ -62,29 +62,35 @@ El dueño compila y prueba SOLO cuando se le pide; intervención mínima.
     `roadRouter.buildNodeGrid(network)` + conversión LatLng→GeoPoint (solo al reconstruir la red).
   - Call-sites verificados con grep: solo `WorldMapRoadNetwork.kt` (109/165/193) → extensión. ✔
 
+### Hecho además — ETAPA 2 · pasos 2-4 ✅ COMPLETA (2026-07-04, compilación PENDIENTE)
+- Checkpoint del paso 1 verificado por el dueño: Rebuild verde + navegación/waypoints funcionando.
+- ⚠️ El wrapper de Gradle está ROTO en consola (`Unable to access jarfile ...gradle-wrapper.jar`,
+  falta `gradle/wrapper/gradle-wrapper.jar`): **correr los tests DESDE Android Studio** (clic
+  derecho sobre `RoadRouterTest`/`GameSaveDataTest`/`MissionCatalogTest` → Run) hasta restaurar el
+  jar (p. ej. `gradle wrapper` desde una instalación local o copiarlo de otro proyecto).
+- **La cadena de routing quedó SIN gemelos (era el "NO-TOCAR" del 09 §12, ya actualizado):**
+  - Miembro `updateDestinationRoute` (VIVO, único ya): delega en `roadRouter.route(...)` con
+    conversión LatLng↔GeoPoint (matiz documentado: snap de extremos sin pase-libre por landmarks).
+  - ELIMINADOS con tombstone: miembros `calculateRouteOnNetwork` + `nearbyRoadNodes` (VM) y
+    extensiones muertas `updateDestinationRoute` + `calculateRouteOnNetwork` + `nearbyRoadNodes`
+    (WorldMapRouting.kt). Grep verificado: 0 referencias vivas (los hits de UI web son la función
+    JS homónima de WorldMapLeafletHtml, no Kotlin).
+  - Anotado: micro-opt de la extensión muerta (keys `Pair` en vez de `String` en visited/distinct)
+    puede aplicarse al RoadRouter DESPUÉS, con tests en verde (cambio separado).
+
 ### Coming next (orden estricto — próxima sesión)
-0. ⏸️ Pedir al dueño: `Rebuild Project` + `.\gradlew.bat testDebugUnitTest` (todo verde). Prueba
-   manual corta: entrar al mundo (la rejilla de nodos se reconstruye al cargar calles) y marcar un
-   destino → la ruta se dibuja.
-1. **Paso 2+3 JUNTOS — `calculateRouteOnNetwork` → `roadRouter.route`:** en el miembro VIVO
-   `updateDestinationRoute` (VM ~1288; lo llama `placeDestinationMarker`) sustituir
-   `calculateRouteOnNetwork(currentLoc, destination, roadNetwork)` por
-   `roadRouter.route(roadNetwork, LatLng(currentLoc.latitude, currentLoc.longitude), LatLng(destination.latitude, destination.longitude)).map { GeoPoint(it.lat, it.lon) }`
-   (import de LatLng/RoadRouter o FQN). Después BORRAR 4 funciones: miembro
-   `calculateRouteOnNetwork` (VM ~1318) + miembro `nearbyRoadNodes` (VM ~1364, solo lo llamaba ese
-   miembro) + extensiones MUERTAS `calculateRouteOnNetwork` (WorldMapRouting ~192) y
-   `nearbyRoadNodes` (~349, solo la llamaba esa extensión muerta). Dejar tombstones. ⚠️ Matiz: el
-   RoadRouter no aplica el pase-libre por landmarks al snapear extremos (el miembro usaba
-   `getNearestPointOnNetwork` que sí) — cosmético para la polilínea, pero verificar en la prueba
-   manual marcando destino con el jugador PARADO SOBRE un landmark. → Rebuild + tests + navegación.
-2. **Paso 4 — `updateDestinationRoute` único:** queda el par miembro private (VM ~1288, VIVO desde
-   `placeDestinationMarker`) vs extensión internal (WorldMapRouting ~162, la usan call-sites FUERA
-   de la clase: hacer grep primero y DIFERENCIAR ambas versiones). Canónico = el MIEMBRO; hacerlo
-   `internal`, sincronizar cualquier divergencia útil, borrar la extensión. → Rebuild + prueba
-   manual completa (destino, conducir por ruta, TP, atasco/rescate).
-3. Actualizar 09 §12 (la cadena de routing deja de ser NO-TOCAR; sin gemelos) + este archivo.
-4. Etapa 3 (DesignerManager primero) según `PLAN_descomponer_WorldMapViewModel.md`; 1 manager por
-   checkpoint. Luego Etapas 4-7 de la tabla.
+0. ⏸️ **CHECKPOINT COMPILACIÓN #2** — pedir al dueño: `Rebuild Project` + tests desde AS (clic
+   derecho en las 3 clases de test → Run; el wrapper de consola está roto, ver arriba). Prueba
+   manual de NAVEGACIÓN: marcar destino → ruta dibujada; conducir siguiéndola; marcar destino con
+   el jugador PARADO SOBRE un landmark (matiz del snap); TP y volver a marcar destino.
+1. Si todo verde: la Etapa 2 se da por CERRADA. (Opcional de bajo riesgo: aplicar la micro-opt de
+   keys `Pair` al RoadRouter — los tests deben seguir verdes sin tocarlos.)
+2. **Etapa 3 — descomponer el VM** según `PLAN_descomponer_WorldMapViewModel.md`: empezar por
+   `DesignerManager` (dev-only, riesgo mínimo, prueba la técnica de la fachada `combine`).
+   1 manager por ⏸️ checkpoint de compilación. Luego CollectiblesManager → CombatManager → …
+3. Después: Etapa 4 (Hilt, `PLAN_DI_hilt.md`), Etapa 5 (deuda detekt, `PENDIENTE_calidad.md` —
+   los ~18 Unused ya bajaron: los muertos de routing se eliminaron aquí), Etapas 6-7.
+4. Restaurar el wrapper de Gradle (gradle-wrapper.jar) para poder correr tests por consola/CI local.
 
 ## Reglas para la IA que retome esto
 - Lee `09_CONVENTIONS_GOTCHAS.md` COMPLETO antes de tocar código (miembro-vs-extensión, CRLF,

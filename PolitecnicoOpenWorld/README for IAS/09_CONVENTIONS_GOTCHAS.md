@@ -26,9 +26,13 @@ low-end performance) or doc drift.
 > `spawnOustedDriver`, `triggerWastedSequence`, `addRemoteEntity`, `maybeRefetchRoadNetwork`,
 > `updateVisibleRoads`. **Fusionados** (se activó lógica buena que estaba muerta) = `handleMultiplayerMessage`
 > (3 bugfixes: isRemote sync, daño en hilo Main, miedo al combate) y `startGameLoop` (audio del game loop:
-> caminar/correr/coche/zombi). **NO TOCAR** (revertido, cadena de routing interdependiente) =
-> `updateDestinationRoute`+`calculateRouteOnNetwork`. `WorldMapGameLoop.kt` quedó como **tombstone**
-> (startGameLoop volvió a ser solo miembro, con el audio fusionado). Ya NO hay gemelos divergentes vivos.
+> caminar/correr/coche/zombi). ~~**NO TOCAR** = `updateDestinationRoute`+`calculateRouteOnNetwork`~~
+> **✅ RESUELTO (2026-07-04, Etapa 2 de CHECKPOINT_SENIOR_refactor.md):** la cadena de routing se
+> de-duplicó CON red de tests: el algoritmo vive en **`domain/usecases/RoadRouter.kt`** (puro, fijado
+> por `RoadRouterTest`); `updateDestinationRoute` es SOLO miembro y delega en `roadRouter.route`;
+> `calculateRouteOnNetwork`/`nearbyRoadNodes`/`rebuildRoadNodeGrid` ya NO tienen gemelos (tombstones
+> en VM y WorldMapRouting.kt). `WorldMapGameLoop.kt` quedó como **tombstone**
+> (startGameLoop volvió a ser solo miembro, con el audio fusionado). Ya NO hay gemelos vivos.
 >
 > **✅ DE-DUP 2ª TANDA + EXTRACCIÓN DE PARCIALES (2026-06-22):** se de-duplicaron los **4 gemelos restantes**
 > (miembro privado vivo + extensión muerta): `checkCollectibleProximity` (la extensión muerta NO tenía Metrobús ni la
