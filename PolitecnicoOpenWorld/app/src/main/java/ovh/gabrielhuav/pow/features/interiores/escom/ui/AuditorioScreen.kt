@@ -10,7 +10,6 @@ import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorViewModel
 
 @Composable
 fun AuditorioScreen(onExit: () -> Unit) {
-    val context = LocalContext.current
     val grid = remember { AuditorioCollisionGrid }
     val viewModel: InteriorViewModel = androidx.hilt.navigation.compose.hiltViewModel<InteriorViewModel, InteriorViewModel.Factory>(
         creationCallback = { factory -> factory.create(grid) }

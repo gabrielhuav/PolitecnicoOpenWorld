@@ -9,7 +9,6 @@ import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorViewModel
 
 @Composable
 fun DeportivoFutbolScreen(onExit: () -> Unit) {
-    val context = LocalContext.current
     val grid = remember { DeportivoFutbolCollisionGrid }
     val viewModel: InteriorViewModel = androidx.hilt.navigation.compose.hiltViewModel<InteriorViewModel, InteriorViewModel.Factory>(
         creationCallback = { factory -> factory.create(grid) }

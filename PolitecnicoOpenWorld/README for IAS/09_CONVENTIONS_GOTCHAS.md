@@ -312,6 +312,19 @@ px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo u
     el array vacío es justo lo que LIMPIA los marcadores; saltarlo deja burbujas/calles fantasma. Mover
     `configureOsmdroid` (I/O de `mkdirs`/SharedPrefs en main thread) a background: cambia el orden de
     arranque (osmdroid debe configurarse antes del 1er render) → requiere app para verificar.
+  - **🆕 AUDITORÍA PERF de la ETAPA 3/4 (managers + fachada combine + Hilt), 2026-07-04 — SIN regresión:**
+    la descomposición del VM en 6 managers detrás de `uiState = combine(_uiState, …5 sub-estados…)` añade
+    **exactamente UNA allocation por emisión**: el `base.copy(...)` de la fachada crea un `WorldMapState`
+    nuevo cada vez que emite `_uiState` (~30 Hz por el game loop). Es una copia **SUPERFICIAL** (data class:
+    copia referencias, no contenido) → coste bajo, **aceptado** por diseño (es el precio de migrar sin tocar
+    las Views). Lo demás NO añade coste por-frame: los managers escriben su `StateFlow` **solo cuando el
+    sub-estado cambia** (StateFlow deduplica por `equals`), no cada tick; el `combine` interno `(transit,
+    campaign)→Pair` solo crea el Pair cuando transit/campaign cambian (raro, no por-frame); `mergeAndPrunePoliceShots`
+    retorna temprano si no hay disparos (sin alloc en reposo, con `emptyList()` singleton). Las cachés LRU
+    (`nativeDrawableCache`), los sprite managers y los guards de reenvío web NO se tocaron. **Regla:** al
+    añadir campos a un manager, mantenerlos en el `base.copy` (no crear estructuras nuevas por-frame); si
+    algún día el copy de `WorldMapState` pesa, dividir `uiState` en varios StateFlow por grupo (la UI ya
+    observa por campo) en vez de un solo objeto — pero HOY no hace falta.
 
 ## 7. Mapa web `#map-wrapper` / web map wrapper
 

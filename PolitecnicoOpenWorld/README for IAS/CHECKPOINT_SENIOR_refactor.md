@@ -20,9 +20,9 @@ El dueño compila y prueba SOLO cuando se le pide; intervención mínima.
 | 2. De-dup cadena de routing (1 función por compilación, hoja→raíz) | `PLAN_dedup_routing.md` §3 | ✅ HECHA (CHECKPOINT #2 verde) |
 | 3. Descomponer VM en managers con sub-estado (fachada `combine`) | `PLAN_descomponer_WorldMapViewModel.md` | ✅ HECHA (6/6: Designer/Collectibles/Combat/Wanted/TransitTeleport/Campaign·registro; fase de misión = corte limpio. CHECKPOINTS #4-#9 verdes) |
 | 4. DI con Hilt (1 VM por PR; WorldMapViewModel al final) | `PLAN_DI_hilt.md` | ✅ IMPLEMENTADA (9 VMs migradas de golpe a petición del dueño; ⏸️ CHECKPOINT #10 pend. de compilar) |
-| 5. Deuda detekt ALTA/MEDIA + baseline bloqueante | `PENDIENTE_calidad.md` | pendiente |
-| 6. Perf gama baja (pasada dirigida) + higiene EOL/tamaños | 09 §6 | pendiente |
-| 7. Guía de mantenimiento para devs/IAs no-senior | (nuevo doc) | pendiente |
+| 5. Deuda detekt ALTA/MEDIA + baseline bloqueante | `PENDIENTE_calidad.md` | ✅ CONFIG+GATE HECHOS (loop rule off; continue-on-error retirado). Falta que el dueño GENERE+commitee `baseline.xml` (1 comando) |
+| 6. Perf gama baja (pasada dirigida) + higiene EOL/tamaños | 09 §6 | ✅ AUDITADA (sin regresión: 1 copy shallow/emisión del combine, aceptado; cachés LRU intactas). Ver 09 §6 |
+| 7. Guía de mantenimiento para devs/IAs no-senior | `GUIA_mantenimiento_no_senior.md` | ✅ YA EXISTE (creada en el programa) |
 
 ## Estado de la SESIÓN ACTUAL (2026-07-04, sesión senior-1)
 ### Hecho
@@ -353,6 +353,62 @@ Hilt es 100% codegen KSP → NO se pudo validar sin compilar. Migradas las **9 V
 Rebuild OK (KSP generó los componentes Hilt) + tests + arranque de la app + pantallas migradas OK.
 **ETAPA 4 · Hilt CERRADA.** Las 9 VMs vía Hilt (@HiltViewModel / @AssistedInject); WorldMapVM Activity-scoped
 sin regresión de recarga. **Siguiente: ETAPA 5 · detekt baseline** (PENDIENTE_calidad.md).
+
+### Hecho — ETAPA 5 · detekt como gate BLOQUEANTE con baseline (2026-07-04 sesión Opus 4.8)
+Opción A de `PENDIENTE_calidad.md` (adoptar el linter sin limpiar toda la deuda ya). Hecho por la IA:
+- `config/detekt/detekt.yml`: `style.LoopWithTooManyJumpStatements: active: false` (los ~22 hits BAJA son
+  game-loops/movers legítimos con varios break/continue — ruido, no bug).
+- `.github/workflows/pr-quality-gate.yml`: se RETIRÓ `continue-on-error: true` del job `detekt` → ahora
+  BLOQUEA el PR ante issues NUEVOS (los tests ya bloqueaban). El step ya usa `baseline.xml` si existe.
+- La IA **no pudo generar el baseline**: el sandbox no tiene red a GitHub/Maven (proxy 403) para bajar el
+  detekt CLI. Queda como ACCIÓN DEL DUEÑO (su "compilación" de esta etapa).
+- Nota: `UseRequire` (SettingsViewModel/WorldMapViewModel) ya no existe — sus Factory se borraron en Etapa 4.
+
+### ✅ ETAPA 5 CERRADA (2026-07-04): baseline GENERADO (23 issues perdonados) — el dueño lo corrió
+`config/detekt/baseline.xml` creado (XML válido, 23 `<ID>`; el set bajó de ~76 al desactivar la regla de
+loops y por la limpieza previa). Gate detekt ya BLOQUEANTE. **Falta solo COMMITEAR** `baseline.xml` + el
+cambio del workflow en el mismo push (el job detekt corre en PRs a main). Los 11 `val context` sin uso que
+capturó el baseline son secuela de la migración Hilt (se quitó el `Factory(context)`); se limpian en el
+cierre de docs (el baseline los perdona igual; entradas obsoletas del baseline son inofensivas).
+
+### ⏸️ (histórico) CHECKPOINT #11 — ACCIÓN DEL DUEÑO: generar + commitear el baseline de detekt
+Desde la RAÍZ del repo (donde está `.github/`), con el detekt CLI 1.23.8 (mismo que usa el CI):
+```
+# 1) baja el CLI una vez (si no lo tienes):
+curl -sSL -o detekt-cli.zip https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8.zip && unzip -q detekt-cli.zip
+# 2) genera el baseline (perdona TODA la deuda actual; exige el estándar solo a código NUEVO):
+./detekt-cli-1.23.8/bin/detekt-cli --create-baseline \
+  --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml \
+  --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
+  --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java
+```
+⚠️ **Commitea `PolitecnicoOpenWorld/config/detekt/baseline.xml` en el MISMO push que el cambio del workflow**
+(el job detekt solo corre en PRs a `main`; sin baseline saldría rojo). Con eso cierra la Etapa 5.
+**Siguiente: ETAPA 6 · perf gama baja** (pasada dirigida por 09 §6) → luego cierre de docs.
+
+### Hecho — ETAPA 6 · auditoría perf gama baja (2026-07-04 sesión Opus 4.8) — SIN CAMBIOS DE CÓDIGO
+Pasada dirigida por 09 §6 sobre lo que introdujo el programa (managers + fachada combine + Hilt):
+- **Única allocation nueva por-frame:** el `base.copy(...)` de la fachada `combine` (1 `WorldMapState`
+  SUPERFICIAL por emisión de `_uiState`, ~30 Hz) — coste bajo, ACEPTADO por diseño (migrar sin tocar Views).
+- Los managers escriben su `StateFlow` SOLO al cambiar el sub-estado (StateFlow deduplica), no por-frame;
+  el `combine` interno `(transit,campaign)→Pair` solo aloca al cambiar (raro); `mergeAndPrunePoliceShots`
+  retorna temprano en reposo. Cachés LRU / sprite managers / guards web INTACTOS (el programa no los tocó).
+- Hilt no añade coste de runtime (los componentes se generan en compilación; scoping igual que antes).
+- Conclusión documentada en 09 §6. **No se requieren cambios** (regla del plan: solo puntuales si hiciera falta).
+
+### 🏁 PROGRAMA "CALIDAD SENIOR" — COMPLETO (2026-07-04)
+Etapas 1 ✅, 2 ✅, 3 ✅ (6/6 managers), 4 ✅ (Hilt), 5 ✅ (detekt bloqueante + baseline generado por el dueño),
+6 ✅ (perf auditada), 7 ✅ (guía ya existía). **CIERRE DE DOCS HECHO (protocolo 09 §13):**
+- `01_ARCHITECTURE.md`: sección de managers+fachada `combine` en el bloque ViewModel; nota de DI → Hilt
+  (KSP, assisted-inject); `di/` añadido al árbol del cliente.
+- `04_MAP_EXTERIOR.md`: tabla "Key files" con la fila de los 6 XManager + fila de DI Hilt (`di/AppModule.kt`).
+- `09_CONVENTIONS_GOTCHAS.md`: §1 convención "campos poseídos por managers (fachada combine)"; §6 auditoría perf.
+- `README.md` público: entrada bilingüe (EN+ES) del programa interno de calidad (sin cambio para el jugador).
+- Limpieza: se quitaron los 11 `val context` sin uso que dejó la migración Hilt (estaban en el baseline).
+**PENDIENTE del dueño (acciones, no código):** (a) COMMITEAR `config/detekt/baseline.xml` + el cambio del
+workflow en el mismo push; (b) opcional: regenerar el baseline tras la limpieza de los `val context` para
+quitar esas 11 entradas obsoletas (inofensivas si se dejan). Deuda ALTA/MEDIA de detekt (PrintStackTrace,
+params sin uso en firmas…) queda PERDONADA por el baseline → "quemar" en PRs chicos a futuro (PENDIENTE_calidad.md).
 
 ### ⏸️ (histórico) CHECKPOINT COMPILACIÓN #10 — riesgos vigilados (ETAPA 4 · Hilt COMPLETA)
 **RIESGOS a vigilar al compilar (por orden de probabilidad):**

@@ -57,21 +57,18 @@ jobs:
           path: PolitecnicoOpenWorld/app/build/reports/tests/testDebugUnitTest
           if-no-files-found: ignore
 
-  # ── 2) Analisis estatico con detekt (ADVISORY) ───────────────────────────────────────────────
-  # continue-on-error: true => el job REPORTA issues pero NO bloquea el merge. Es la fase de
-  # ADOPCION: el codigo existente arrastra deuda de estilo (ver README for IAS / ANALISIS §9 y el
-  # CHANGELOG_NOCHE). Para volverlo BLOQUEANTE cuando se quiera:
-  #   1) genera un baseline UNA vez (perdona los issues actuales, exige el estandar SOLO al codigo nuevo):
-  #        ./detekt-cli-1.23.8/bin/detekt-cli --create-baseline \
-  #          --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml \
-  #          --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
-  #          --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java
-  #      commitea baseline.xml (el step de abajo ya lo usa si existe), y
-  #   2) quita `continue-on-error: true` de este job.
+  # ── 2) Analisis estatico con detekt (BLOQUEANTE con baseline — Etapa 5, 2026-07-04) ───────────
+  # Ya NO es advisory: se retiro `continue-on-error: true`. La deuda de estilo PREEXISTENTE queda
+  # PERDONADA por `config/detekt/baseline.xml` (Opcion A del PENDIENTE_calidad.md); detekt solo falla
+  # ante issues NUEVOS (codigo que se agregue de aqui en adelante). maxIssues:0 en el .yml.
+  # Regenerar el baseline (tras limpiar deuda o al subir la version de detekt):
+  #   ./detekt-cli-1.23.8/bin/detekt-cli --create-baseline \
+  #     --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml \
+  #     --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
+  #     --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java
   # Se usa la CLI (no el plugin Gradle) para NO tocar el build de la app (imposible romper assemble/bundle).
   detekt:
     runs-on: ubuntu-latest
-    continue-on-error: true
     env:
       DETEKT_VERSION: "1.23.8"
     steps:

@@ -34,6 +34,16 @@ Cada *feature* se divide en 3 capas / Every feature splits into 3 layers:
   `StateFlow` de solo lectura; corre los game loops con coroutines; orquesta repositorios. El
   estado es un `data class` inmutable actualizado con `_state.update { it.copy(...) }`. / ONE
   `MutableStateFlow<State>` exposed read-only; drives game loops; orchestrates repos. Immutable state via `copy`.
+- **🆕 Managers con sub-estado + fachada `combine` (WorldMapViewModel, Etapa 3 calidad senior):** para no
+  tener un god-object, el estado UI de `WorldMapViewModel` se reparte en **6 managers** propios
+  (`viewmodel/DesignerManager`, `CollectiblesManager`, `CombatManager`, `WantedManager`,
+  `TransitTeleportManager`, `CampaignManager`), cada uno con su `MutableStateFlow<XSubState>` y lógica pura
+  (testeable en JVM). El VM COMPONE el `uiState` con `combine(_uiState, …managers…) { base.copy(campos) }`
+  (anidado: >5 flows) para que las Views sigan viendo UN `WorldMapState`. Combat usa `mutableStateOf` delegado
+  en vez del combine (estado Compose-directo). Los campos poseídos por managers van anotados ⚠️ en
+  `WorldMapState.kt` (no escribirlos con `_uiState.update` → la fachada los sobreescribe; ver 09 §1). El
+  estado de FASE de misión se queda en el VM (corte limpio, entrelazado con el game loop). / Managers own
+  sub-state; VM composes `uiState` via `combine`; see 09 §1.
 - **View** (`features/<name>/ui/`): Compose puro; observa con `collectAsState()`; solo emite
   intenciones al ViewModel. **Nunca toca repos/DAOs.** / Pure Compose; observes via `collectAsState()`; emits intents only. Never touches repos/DAOs.
 
@@ -44,13 +54,19 @@ Cada *feature* se divide en 3 capas / Every feature splits into 3 layers:
 | `WorldMapViewModel`, `SettingsViewModel`, `CollectiblesViewModel` | **Activity** | Sobreviven a la navegación / survive navigation |
 | `InteriorViewModel`, `TransitInteriorViewModel`, `ZombieInteriorViewModel`, `ShineCTOViewModel` | **NavBackStackEntry** | Se reinician al salir / reset on leave |
 
-**DI / Inyección:** manual, vía `ViewModelProvider.Factory` co-localizada con cada ViewModel
-(p. ej. `WorldMapViewModel.Factory(context)`). / Manual DI via co-located factories.
+**DI / Inyección: 🆕 Hilt (Etapa 4 calidad senior; antes `ViewModelProvider.Factory` manual).** `@HiltAndroidApp`
+en `PowApplication`, `@AndroidEntryPoint` en `MainActivity`. Las 9 VMs son `@HiltViewModel @Inject`; las que
+reciben args de navegación (`InteriorViewModel`/`TransitInteriorViewModel`/`ZombieInteriorViewModel`) usan
+`@AssistedInject` + `@AssistedFactory` (`hiltViewModel(creationCallback)`). Las deps (BD Room, cachés,
+repos) las provee `di/AppModule.kt` (`@InstallIn(SingletonComponent)`). El scope se preserva: WorldMap/
+Settings/Collectibles con `by viewModels()` (Activity), el resto con `hiltViewModel()` (NavBackStackEntry).
+El compilador va por **KSP** (no kapt). Ver `PLAN_DI_hilt.md`. / Hilt DI (KSP); assisted-inject for nav-arg VMs.
 
 ## Árbol del cliente / Client tree
 
 ```text
 app/src/main/java/ovh/gabrielhuav/pow/
+├── di/                  # 🆕 Hilt: AppModule (@InstallIn SingletonComponent) → BD/cachés/repos
 ├── data/                # Capa de datos: Room, cachés, red, repos  → ver 02
 ├── domain/models/       # Modelos puros + IA                       → ver 03
 ├── features/            # Módulos por feature: <name>/ui + <name>/viewmodel

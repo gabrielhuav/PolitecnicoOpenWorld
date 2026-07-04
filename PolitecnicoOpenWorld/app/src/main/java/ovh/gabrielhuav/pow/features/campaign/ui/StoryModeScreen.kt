@@ -39,7 +39,6 @@ fun StoryModeScreen(
     onLoadCampaign: () -> Unit,   // abre el diálogo de slots para CARGAR
     onBack: () -> Unit
 ) {
-    val context = LocalContext.current
     val viewModel: StoryModeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val state by viewModel.state.collectAsState()
 

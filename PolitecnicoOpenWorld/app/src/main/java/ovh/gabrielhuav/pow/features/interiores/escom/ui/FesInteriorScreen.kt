@@ -10,7 +10,6 @@ import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorViewModel
 
 @Composable
 fun FesInteriorScreen(onExit: () -> Unit) {
-    val context = LocalContext.current
     val grid = remember { FesCollisionGrid }
     val viewModel: InteriorViewModel = androidx.hilt.navigation.compose.hiltViewModel<InteriorViewModel, InteriorViewModel.Factory>(
         creationCallback = { factory -> factory.create(grid) }

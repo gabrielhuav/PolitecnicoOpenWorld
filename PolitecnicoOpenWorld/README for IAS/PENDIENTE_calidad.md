@@ -1,5 +1,17 @@
 # PENDIENTE — Deuda de calidad detekt + camino a gate BLOQUEANTE
 
+> **✅ ETAPA 5 (2026-07-04): detekt ADOPTADO como gate BLOQUEANTE vía BASELINE (Opción A).** Hecho por la IA:
+> (a) `detekt.yml` → `LoopWithTooManyJumpStatements: active: false` (los ~22 hits BAJA son game-loops/movers
+> legítimos, no bugs); (b) `.github/workflows/pr-quality-gate.yml` → se RETIRÓ `continue-on-error: true` del
+> job detekt (ahora BLOQUEA). **Acción del dueño (una vez, como "compilar"):** generar y commitear el baseline
+> con el comando de "Opción A" de abajo — perdona TODA la deuda actual; detekt solo fallará ante código NUEVO.
+> ⚠️ Commitea `baseline.xml` en el MISMO push que el cambio del workflow, o el job detekt saldrá rojo en PRs
+> (solo corre en PRs a main, no en pushes directos). La DEUDA ALTA/MEDIA de abajo queda PERDONADA por el
+> baseline; se irá "quemando" en PRs chicos a futuro (ya no es bloqueante para avanzar). NOTA: la deuda
+> `UseRequire` (SettingsViewModel:148, WorldMapViewModel:118) DESAPARECIÓ en la Etapa 4 (se borraron esos
+> Factory al migrar a Hilt).
+
+
 > **⚠️ ACTUALIZACIÓN 2026-07-04 (Etapa 5 lote 1, ver CHECKPOINT_SENIOR_refactor.md): gran parte de
 > este inventario ya estaba RESUELTO** (los line numbers eran de 2026-06-24). Verificado por grep:
 > - PrintStackTrace: quedaba SOLO 1 (MetroMapOverlay:390) → corregido a `Log.w` con tag. ✔
