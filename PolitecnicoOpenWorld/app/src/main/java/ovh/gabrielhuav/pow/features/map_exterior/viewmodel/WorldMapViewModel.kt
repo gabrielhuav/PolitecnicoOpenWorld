@@ -59,7 +59,11 @@ import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
 import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
 
-class WorldMapViewModel(
+// ETAPA 4 (Hilt): @HiltViewModel + @Inject. Es AndroidViewModel (necesita Application) y se
+// scopea a la ACTIVITY desde MainActivity (by viewModels()) para SOBREVIVIR a la navegación
+// (el game loop / gate isMapReady NO se reinician — ver 09 §12). Sus 5 deps las provee AppModule.
+@dagger.hilt.android.lifecycle.HiltViewModel
+class WorldMapViewModel @javax.inject.Inject constructor(
     application: android.app.Application,
     internal val roadNetworkCache: RoadNetworkCache,
     val tileCache: TileCache,
@@ -111,40 +115,20 @@ class WorldMapViewModel(
     var pendingZombieMinigame: Boolean = false
         internal set
 
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            require(modelClass.isAssignableFrom(WorldMapViewModel::class.java)) { "Unknown ViewModel class: ${modelClass.name}" }
-            val appCtx = context.applicationContext
-            val database = PowDatabase.getInstance(appCtx)
-            val vm = WorldMapViewModel(
-                application = appCtx as android.app.Application,
-                roadNetworkCache = RoadNetworkCache(database.roadNetworkDao()),
-                tileCache        = TileCache(database.mapTileDao()),
-                settingsRepository = SettingsRepository(appCtx),
-                collectibleRepository = CollectibleRepository(database.collectibleDao())
-            )
-            // GAMA DEL TELÉFONO: escala la población de NPCs (menos en equipos débiles, más en
-            // gama alta). Combina con la densidad urbana (urbanFactor) y el ajuste del usuario.
-            vm.npcAiManager.deviceTierFactor = computeDeviceTierFactor(appCtx)
-            vm.npcAiManager.userPopulationFactor = vm.settingsRepository.getNpcDensity()
-            return vm as T
+    // RAM total (y isLowRamDevice) → factor de población. No persiste; se calcula al crear el VM.
+    // (ANTES vivía en el Factory manual; con Hilt el VM lo aplica en su init, ver abajo.)
+    private fun computeDeviceTierFactor(ctx: Context): Float = try {
+        val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val mi = android.app.ActivityManager.MemoryInfo()
+        am.getMemoryInfo(mi)
+        val gb = mi.totalMem / (1024.0 * 1024.0 * 1024.0)
+        when {
+            am.isLowRamDevice || gb <= 2.2 -> 0.6f   // gama baja (≤2 GB / Android Go)
+            gb <= 4.2 -> 1.0f                         // gama media (≤4 GB)
+            gb <= 6.2 -> 1.3f                         // gama alta (≤6 GB)
+            else       -> 1.5f                        // tope (no saturar gama alta)
         }
-
-        // RAM total (y isLowRamDevice) → factor de población. No persiste; se calcula al crear el VM.
-        private fun computeDeviceTierFactor(ctx: Context): Float = try {
-            val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            val mi = android.app.ActivityManager.MemoryInfo()
-            am.getMemoryInfo(mi)
-            val gb = mi.totalMem / (1024.0 * 1024.0 * 1024.0)
-            when {
-                am.isLowRamDevice || gb <= 2.2 -> 0.6f   // gama baja (≤2 GB / Android Go)
-                gb <= 4.2 -> 1.0f                         // gama media (≤4 GB)
-                gb <= 6.2 -> 1.3f                         // gama alta (≤6 GB)
-                else       -> 1.5f                        // tope (no saturar gama alta)
-            }
-        } catch (e: Exception) { 1.0f }
-    }
+    } catch (e: Exception) { 1.0f }
 
     internal val _uiState = MutableStateFlow(
         WorldMapState(
@@ -236,6 +220,14 @@ class WorldMapViewModel(
     internal val npcAiManager      = NpcAiManager()
     internal val overpassRepository = OverpassRepository()
     internal var roadNetwork: List<MapWay> = emptyList()
+
+    // ETAPA 4 (Hilt): lo que ANTES hacía el Factory manual tras construir el VM. Va en un init
+    // DESPUÉS de declarar npcAiManager (orden de inicialización de Kotlin). GAMA DEL TELÉFONO:
+    // escala la población de NPCs; se combina con urbanFactor (densidad urbana) y el ajuste del usuario.
+    init {
+        npcAiManager.deviceTierFactor = computeDeviceTierFactor(getApplication<android.app.Application>())
+        npcAiManager.userPopulationFactor = settingsRepository.getNpcDensity()
+    }
 
     // ─── Red de calles expuesta a la UI ──────────────────────────────────────
     // La WorldMapScreen consume este Flow para pintar las Polylines de los

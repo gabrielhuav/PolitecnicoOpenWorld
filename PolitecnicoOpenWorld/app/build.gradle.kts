@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
     // NOTA: el plugin google-services NO se aplica aquí. Se aplica condicionalmente al final
     // de este archivo SOLO si existe app/google-services.json, para que el proyecto compile
@@ -102,6 +103,11 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.compose.foundation)
     ksp(libs.androidx.room.compiler)
+
+    // Hilt (DI) — el compilador va por KSP (NO kapt) para no duplicar procesadores.
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
 
     implementation(libs.androidx.preference.ktx)
 

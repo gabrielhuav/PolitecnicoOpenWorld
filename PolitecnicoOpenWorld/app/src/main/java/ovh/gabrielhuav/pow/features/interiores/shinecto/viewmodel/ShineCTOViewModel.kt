@@ -24,7 +24,10 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-class ShineCTOViewModel(
+// ETAPA 4 (Hilt): @HiltViewModel + @Inject. AndroidViewModel (necesita Application, que Hilt
+// inyecta). settings/collectible repos los provee AppModule.
+@dagger.hilt.android.lifecycle.HiltViewModel
+class ShineCTOViewModel @javax.inject.Inject constructor(
     application: android.app.Application,
     private val settingsRepository: SettingsRepository,
     private val collectibleRepository: CollectibleRepository
@@ -349,19 +352,7 @@ class ShineCTOViewModel(
     }
 
 
-    // ─── Factory ────────────────────────────────────────────────────────────────
-
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            val db = PowDatabase.getInstance(context.applicationContext)
-            return ShineCTOViewModel(
-                context.applicationContext as android.app.Application,
-                SettingsRepository(context.applicationContext),
-                CollectibleRepository(db.collectibleDao())
-            ) as T
-        }
-    }
+    // ETAPA 4 (Hilt): Factory manual eliminado → hiltViewModel() + inyección (AppModule).
 
     /** Normalised rectangular hitbox. */
     private data class NormZone(val l: Float, val t: Float, val r: Float, val b: Float) {

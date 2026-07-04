@@ -245,7 +245,9 @@ internal fun npcWithinRadius(
 @Composable
 fun WorldMapScreen(
     context: Context,
-    viewModel: WorldMapViewModel = viewModel(factory = WorldMapViewModel.Factory(context)),
+    // ETAPA 4 (Hilt): en runtime el VM se pasa Activity-scoped desde AppNavGraph (SOBREVIVE a la
+    // navegación). Este default (hiltViewModel) es solo un fallback para previews/usos sin el arg.
+    viewModel: WorldMapViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onNavigateToMainMenu: () -> Unit = {},
     onNavigateToSettings: () -> Unit,
     onNavigateToInterior: (String) -> Unit = {},

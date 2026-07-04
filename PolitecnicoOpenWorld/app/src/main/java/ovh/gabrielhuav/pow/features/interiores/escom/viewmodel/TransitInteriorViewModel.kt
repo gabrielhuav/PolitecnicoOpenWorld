@@ -36,13 +36,18 @@ import kotlin.math.sin
  * lógica estaba DUPLICADA en dos archivos. Las pantallas crean este VM con la config adecuada vía
  * `Factory(context, config, stationName, spawnX, spawnY)`. Métodos y estado con nombres neutros (sistema-agnósticos).
  */
-class TransitInteriorViewModel(
-    private val context: Context,
+// ETAPA 4 (Hilt): @AssistedInject — config/estación/spawn son args de RUNTIME de la pantalla
+// (@Assisted; los 2 Float llevan qualifier "spawnX"/"spawnY" por ser del mismo tipo). context
+// (@ApplicationContext) y settingsRepository los inyecta Hilt. La pantalla usa el @AssistedFactory
+// vía hiltViewModel(creationCallback). Ver PLAN_DI_hilt.md / CHECKPOINT_SENIOR_refactor.md.
+@dagger.hilt.android.lifecycle.HiltViewModel(assistedFactory = TransitInteriorViewModel.Factory::class)
+class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
-    val config: TransitSystemConfig,
-    private val stationName: String,
-    private val spawnX: Float = -1f,
-    private val spawnY: Float = -1f
+    @dagger.assisted.Assisted val config: TransitSystemConfig,
+    @dagger.assisted.Assisted private val stationName: String,
+    @dagger.assisted.Assisted("spawnX") private val spawnX: Float,
+    @dagger.assisted.Assisted("spawnY") private val spawnY: Float
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -663,23 +668,16 @@ class TransitInteriorViewModel(
         collisionGrid = CollisionGrid(g)
     }
 
-    class Factory(
-        private val context: Context,
-        private val config: TransitSystemConfig,
-        private val stationName: String,
-        private val spawnX: Float,
-        private val spawnY: Float
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return TransitInteriorViewModel(
-                context = context.applicationContext,
-                settingsRepository = SettingsRepository(context.applicationContext),
-                config = config,
-                stationName = stationName,
-                spawnX = spawnX,
-                spawnY = spawnY
-            ) as T
-        }
+    // ETAPA 4 (Hilt): @AssistedFactory — reemplaza al ViewModelProvider.Factory manual. La pantalla
+    // lo invoca vía hiltViewModel<TransitInteriorViewModel, Factory>(creationCallback = {
+    //   it.create(TransitSystems.METRO, stationName, spawnX, spawnY) }).
+    @dagger.assisted.AssistedFactory
+    interface Factory {
+        fun create(
+            config: TransitSystemConfig,
+            stationName: String,
+            @dagger.assisted.Assisted("spawnX") spawnX: Float,
+            @dagger.assisted.Assisted("spawnY") spawnY: Float
+        ): TransitInteriorViewModel
     }
 }

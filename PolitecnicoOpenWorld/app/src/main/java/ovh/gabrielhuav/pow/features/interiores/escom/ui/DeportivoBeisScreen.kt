@@ -11,8 +11,8 @@ import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorViewModel
 fun DeportivoBeisScreen(onExit: () -> Unit) {
     val context = LocalContext.current
     val grid = remember { DeportivoBeisCollisionGrid }
-    val viewModel: InteriorViewModel = viewModel(
-        factory = InteriorViewModel.Factory(context, grid)
+    val viewModel: InteriorViewModel = androidx.hilt.navigation.compose.hiltViewModel<InteriorViewModel, InteriorViewModel.Factory>(
+        creationCallback = { factory -> factory.create(grid) }
     )
 
     InteriorScreenBase(

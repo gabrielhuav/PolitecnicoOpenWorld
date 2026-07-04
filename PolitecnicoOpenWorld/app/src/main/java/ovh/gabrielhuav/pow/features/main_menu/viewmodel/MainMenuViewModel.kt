@@ -12,7 +12,9 @@ import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.data.network.ServerWarmupManager
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 
-class MainMenuViewModel : ViewModel() {
+// ETAPA 4 (Hilt): @HiltViewModel + @Inject (sin deps). Se obtiene con hiltViewModel().
+@dagger.hilt.android.lifecycle.HiltViewModel
+class MainMenuViewModel @javax.inject.Inject constructor() : ViewModel() {
 
     private val _state = MutableStateFlow(MainMenuState())
     val state: StateFlow<MainMenuState> = _state.asStateFlow()

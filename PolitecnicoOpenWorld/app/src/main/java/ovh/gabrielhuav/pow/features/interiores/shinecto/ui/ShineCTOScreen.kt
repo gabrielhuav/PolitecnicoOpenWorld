@@ -65,7 +65,7 @@ private const val INTERIOR_ZOOM = 1.3f
 @Composable
 fun ShineCTOScreen(onExitToWorld: () -> Unit) {
     val context = LocalContext.current
-    val vm: ShineCTOViewModel = viewModel(factory = ShineCTOViewModel.Factory(context))
+    val vm: ShineCTOViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val state by vm.state.collectAsState()
     val density = LocalDensity.current
     // Respeta la skin elegida (antes ShineCTO siempre dibujaba a Lázaro porque no pasaba skin).

@@ -166,11 +166,13 @@ fun ZombieGameScreen(
     // durante la Misión 1). Se lee una vez al entrar a la pantalla.
     val developerMode = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getDeveloperMode() }
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
-    val viewModel: ZombieInteriorViewModel = viewModel(
-        factory = ZombieInteriorViewModel.Factory(
-            context, serverUrl, playerName, startRoomId, initialInventoryKeys, initialLab1KeyFound,
-            initialUnlockedSlots, firearmUnlocked, mission3Assault
-        )
+    val viewModel: ZombieInteriorViewModel = androidx.hilt.navigation.compose.hiltViewModel<ZombieInteriorViewModel, ZombieInteriorViewModel.Factory>(
+        creationCallback = { factory ->
+            factory.create(
+                serverUrl, playerName, startRoomId, initialInventoryKeys, initialLab1KeyFound,
+                initialUnlockedSlots, firearmUnlocked, mission3Assault
+            )
+        }
     )
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current

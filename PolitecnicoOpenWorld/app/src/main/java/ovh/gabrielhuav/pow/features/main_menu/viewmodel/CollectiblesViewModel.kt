@@ -13,7 +13,9 @@ import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.data.local.room.entity.CollectibleEntity
 
-class CollectiblesViewModel(
+// ETAPA 4 (Hilt): @HiltViewModel + @Inject; el CollectibleRepository lo provee AppModule.
+@dagger.hilt.android.lifecycle.HiltViewModel
+class CollectiblesViewModel @javax.inject.Inject constructor(
     private val collectibleRepository: CollectibleRepository
 ) : ViewModel() {
 
@@ -32,12 +34,5 @@ class CollectiblesViewModel(
                 initialValue = emptyList()
             )
 
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            val database = PowDatabase.getInstance(context.applicationContext)
-            val repository = CollectibleRepository(database.collectibleDao())
-            return CollectiblesViewModel(repository) as T
-        }
-    }
+    // ETAPA 4 (Hilt): Factory manual eliminado → hiltViewModel()/by viewModels() + inyección.
 }

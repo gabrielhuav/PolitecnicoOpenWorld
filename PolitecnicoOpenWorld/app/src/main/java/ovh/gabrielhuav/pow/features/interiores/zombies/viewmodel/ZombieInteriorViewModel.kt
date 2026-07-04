@@ -42,26 +42,29 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 
-class ZombieInteriorViewModel(
-    internal val applicationContext: Context,
+// ETAPA 4 (Hilt): @AssistedInject — casi todos los parámetros son args de RUNTIME que decide la
+// pantalla/AppNavGraph (serverUrl, playerName, sala, inventario, slots, arma, asalto), así que van
+// @Assisted; los que comparten tipo (3 String, 3 Boolean) llevan qualifier para desambiguar. Solo
+// applicationContext (@ApplicationContext) y settingsRepository los inyecta Hilt. La pantalla usa el
+// @AssistedFactory vía hiltViewModel(creationCallback). Ver PLAN_DI_hilt.md.
+@dagger.hilt.android.lifecycle.HiltViewModel(assistedFactory = ZombieInteriorViewModel.Factory::class)
+class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext internal val applicationContext: Context,
     internal val settingsRepository: SettingsRepository,
     // URL del servidor de zombis. null = partida offline (un jugador).
-    internal val serverUrl: String?,
-    internal val playerName: String,
-    // Sala donde arranca la sesión de Interiores. Por defecto el lobby de ESCOM;
-    // la puerta "Entrada FES Aragón" la fija a ZombieRoomCatalog.FES_ID.
-    internal val startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
+    @dagger.assisted.Assisted("serverUrl") internal val serverUrl: String?,
+    @dagger.assisted.Assisted("playerName") internal val playerName: String,
+    // Sala donde arranca la sesión de Interiores (lobby ESCOM / FES / ENCB…).
+    @dagger.assisted.Assisted("startRoomId") internal val startRoomId: String,
     // Estado restaurado al CARGAR partida dentro de un interior: inventario y progreso de ENCB_lab1.
-    internal val initialInventoryKeys: List<String> = emptyList(),
-    internal val initialLab1KeyFound: Boolean = false,
-    // MISIÓN 2 (mochila): slots de inventario DESBLOQUEADOS al entrar (1 antes de la mochila;
-    // INVENTORY_TOTAL_SLOTS después). Lo decide AppNavGraph desde el estado del mundo.
-    internal val initialUnlockedSlots: Int = INVENTORY_UNLOCKED_SLOTS,
-    // MISIÓN 3 (recompensa): ¿el jugador ya tiene ARMA DE FUEGO? En campaña bloquea el modo
-    // RANGED hasta conseguirla; fuera de campaña/multijugador AppNavGraph pasa true (sin cambio).
-    internal val firearmUnlockedParam: Boolean = true,
+    @dagger.assisted.Assisted internal val initialInventoryKeys: List<String>,
+    @dagger.assisted.Assisted("lab1KeyFound") internal val initialLab1KeyFound: Boolean,
+    // MISIÓN 2 (mochila): slots de inventario DESBLOQUEADOS al entrar. Lo decide AppNavGraph.
+    @dagger.assisted.Assisted internal val initialUnlockedSlots: Int,
+    // MISIÓN 3 (recompensa): ¿el jugador ya tiene ARMA DE FUEGO? En campaña bloquea RANGED.
+    @dagger.assisted.Assisted("firearmUnlocked") internal val firearmUnlockedParam: Boolean,
     // MISIÓN 3 (asalto): la cadena ENCB se siembra CON zombis + la EVIDENCIA 🧪 en encb_lab1.
-    internal val mission3Assault: Boolean = false
+    @dagger.assisted.Assisted("mission3Assault") internal val mission3Assault: Boolean
 ) : ViewModel() {
 
     internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(applicationContext)
@@ -1031,31 +1034,21 @@ class ZombieInteriorViewModel(
         wsManager?.disconnect()
     }
 
-    class Factory(
-        private val context: Context,
-        private val serverUrl: String?,
-        private val playerName: String,
-        private val startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
-        private val initialInventoryKeys: List<String> = emptyList(),
-        private val initialLab1KeyFound: Boolean = false,
-        private val initialUnlockedSlots: Int = INVENTORY_UNLOCKED_SLOTS,
-        private val firearmUnlocked: Boolean = true,
-        private val mission3Assault: Boolean = false
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ZombieInteriorViewModel(
-                context.applicationContext,
-                SettingsRepository(context.applicationContext),
-                serverUrl,
-                playerName,
-                startRoomId,
-                initialInventoryKeys,
-                initialLab1KeyFound,
-                initialUnlockedSlots,
-                firearmUnlocked,
-                mission3Assault
-            ) as T
-        }
+    // ETAPA 4 (Hilt): @AssistedFactory — reemplaza al ViewModelProvider.Factory manual. La pantalla
+    // lo invoca vía hiltViewModel<ZombieInteriorViewModel, Factory>(creationCallback = { it.create(...) }).
+    // Los qualifiers ("serverUrl"/"playerName"/… / "lab1KeyFound"/"firearmUnlocked"/"mission3Assault")
+    // DEBEN coincidir con los @Assisted del constructor.
+    @dagger.assisted.AssistedFactory
+    interface Factory {
+        fun create(
+            @dagger.assisted.Assisted("serverUrl") serverUrl: String?,
+            @dagger.assisted.Assisted("playerName") playerName: String,
+            @dagger.assisted.Assisted("startRoomId") startRoomId: String,
+            initialInventoryKeys: List<String>,
+            @dagger.assisted.Assisted("lab1KeyFound") initialLab1KeyFound: Boolean,
+            initialUnlockedSlots: Int,
+            @dagger.assisted.Assisted("firearmUnlocked") firearmUnlockedParam: Boolean,
+            @dagger.assisted.Assisted("mission3Assault") mission3Assault: Boolean
+        ): ZombieInteriorViewModel
     }
 }

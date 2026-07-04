@@ -16,7 +16,9 @@ import ovh.gabrielhuav.pow.domain.models.campaign.SchoolCatalog
 // la pantalla, así que re-lee la partida guardada cada vez que se entra). Orquesta la
 // selección de escuela y la lectura de la partida guardada (CampaignRepository). La
 // escritura del guardado y el spawn viven en MainActivity al COMENZAR/INICIAR.
-class StoryModeViewModel(
+// ETAPA 4 (Hilt): @HiltViewModel + @Inject; Campaign/SaveGame repos los provee AppModule.
+@dagger.hilt.android.lifecycle.HiltViewModel
+class StoryModeViewModel @javax.inject.Inject constructor(
     private val campaignRepository: CampaignRepository,
     private val saveGameRepository: SaveGameRepository
 ) : ViewModel() {
@@ -52,12 +54,5 @@ class StoryModeViewModel(
     fun savedSchool(): CampaignSchool? =
         _state.value.savedSchoolId?.let { id -> SchoolCatalog.schools.firstOrNull { it.id == id } }
 
-    // DI manual co-localizada (ver convención del archivo 01).
-    class Factory(context: Context) : ViewModelProvider.Factory {
-        private val appContext = context.applicationContext
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return StoryModeViewModel(CampaignRepository(appContext), SaveGameRepository(appContext)) as T
-        }
-    }
+    // ETAPA 4 (Hilt): Factory manual eliminado → hiltViewModel() + inyección (AppModule).
 }

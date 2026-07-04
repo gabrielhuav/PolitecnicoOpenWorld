@@ -19,7 +19,7 @@ El dueño compila y prueba SOLO cuando se le pide; intervención mínima.
 | 1. Red de tests de lógica pura (RoadRouter golden-master + guardado + catálogos) | `PLAN_dedup_routing.md` §2 | ✅ HECHA (CHECKPOINT #1 verde) |
 | 2. De-dup cadena de routing (1 función por compilación, hoja→raíz) | `PLAN_dedup_routing.md` §3 | ✅ HECHA (CHECKPOINT #2 verde) |
 | 3. Descomponer VM en managers con sub-estado (fachada `combine`) | `PLAN_descomponer_WorldMapViewModel.md` | ✅ HECHA (6/6: Designer/Collectibles/Combat/Wanted/TransitTeleport/Campaign·registro; fase de misión = corte limpio. CHECKPOINTS #4-#9 verdes) |
-| 4. DI con Hilt (1 VM por PR; WorldMapViewModel al final) | `PLAN_DI_hilt.md` | 🔨 SIGUIENTE |
+| 4. DI con Hilt (1 VM por PR; WorldMapViewModel al final) | `PLAN_DI_hilt.md` | ✅ IMPLEMENTADA (9 VMs migradas de golpe a petición del dueño; ⏸️ CHECKPOINT #10 pend. de compilar) |
 | 5. Deuda detekt ALTA/MEDIA + baseline bloqueante | `PENDIENTE_calidad.md` | pendiente |
 | 6. Perf gama baja (pasada dirigida) + higiene EOL/tamaños | 09 §6 | pendiente |
 | 7. Guía de mantenimiento para devs/IAs no-senior | (nuevo doc) | pendiente |
@@ -323,6 +323,49 @@ en 09 §Managers. **La Parte A (registro) sí valía**: era estado UI autoconten
 Combat ✅ (delegación Compose), Wanted ✅, TransitTeleport ✅, Campaign·registro ✅ (+ fase = corte limpio
 documentado). 86 tests en verde. **Siguiente: ETAPA 4 · Hilt** (`PLAN_DI_hilt.md`, 1 VM por PR,
 WorldMapViewModel AL FINAL).
+
+### Hecho — ETAPA 4 · DI con Hilt (2026-07-04 sesión Opus 4.8, compilación PENDIENTE = ⏸️ CHECKPOINT #10)
+⚠️ **A PETICIÓN EXPRESA DEL DUEÑO se hizo TODA la etapa de una vez (no 1 VM por PR); él compila al final.**
+Hilt es 100% codegen KSP → NO se pudo validar sin compilar. Migradas las **9 VMs** + infra:
+- **Gradle:** `libs.versions.toml` (hilt=`2.57.1` ⚠️ CONFIRMAR/ajustar en el 1er sync a la matriz compatible
+  con Kotlin 2.2/KSP 2.3.2/AGP 9; hilt-navigation-compose=`1.2.0`); plugin `com.google.dagger.hilt.android`
+  en root (apply false) y `app/`; deps `hilt-android` + `ksp(hilt-compiler)` + `hilt-navigation-compose`.
+- **App/Activity:** `@HiltAndroidApp` en `PowApplication`; `@AndroidEntryPoint` en `MainActivity` (los 3
+  `by viewModels()` perdieron su Factory → Hilt los provee; WorldMapVM sigue **Activity-scoped**).
+- **Módulo `di/AppModule.kt`** (`@InstallIn(SingletonComponent)`): provee `PowDatabase` (vía su getInstance),
+  `RoadNetworkCache`/`TileCache`/`CollectibleRepository` (de sus DAOs) y `SettingsRepository`/`CampaignRepository`/
+  `SaveGameRepository` (`@ApplicationContext`). SoundManager/OverpassRepository NO (singleton getInstance / interno).
+- **6 VMs de deps inyectables → `@HiltViewModel @Inject`** (Factory borrado): `SettingsViewModel`,
+  `CollectiblesViewModel`, `StoryModeViewModel`, `MainMenuViewModel`, `ShineCTOViewModel` (AndroidViewModel),
+  `WorldMapViewModel` (AndroidViewModel; el post-init `deviceTierFactor`/`userPopulationFactor` del viejo
+  Factory se movió a un `init{}` DESPUÉS de declarar `npcAiManager`). Call-sites → `hiltViewModel()` /
+  `by viewModels()`; `WorldMapScreen` sigue recibiendo el VM Activity-scoped desde AppNavGraph (default
+  `hiltViewModel()` solo fallback).
+- **3 VMs con args de navegación → `@HiltViewModel(assistedFactory=…)` + `@AssistedInject` + `@AssistedFactory`**:
+  `InteriorViewModel` (@Assisted `collisionGrid`; 10 pantallas), `TransitInteriorViewModel` (config/station/
+  spawnX/spawnY; los 2 Float con qualifier `"spawnX"/"spawnY"`; 2 pantallas), `ZombieInteriorViewModel`
+  (8 @Assisted; qualifiers en los 3 String y 3 Boolean; 1 pantalla). Pantallas →
+  `hiltViewModel<VM, VM.Factory>(creationCallback = { it.create(args) })`.
+- Verificado por grep: 0 `.Factory(` vivos, 0 `viewModel(factory=`, 0 subclases de `InteriorViewModel`.
+  Quedan imports/vals sin uso (`viewModel`, `context`) → SOLO warnings, no rompen el build.
+
+### ✅ CHECKPOINT COMPILACIÓN #10 — VERDE (confirmado por el dueño, 2026-07-04)
+Rebuild OK (KSP generó los componentes Hilt) + tests + arranque de la app + pantallas migradas OK.
+**ETAPA 4 · Hilt CERRADA.** Las 9 VMs vía Hilt (@HiltViewModel / @AssistedInject); WorldMapVM Activity-scoped
+sin regresión de recarga. **Siguiente: ETAPA 5 · detekt baseline** (PENDIENTE_calidad.md).
+
+### ⏸️ (histórico) CHECKPOINT COMPILACIÓN #10 — riesgos vigilados (ETAPA 4 · Hilt COMPLETA)
+**RIESGOS a vigilar al compilar (por orden de probabilidad):**
+1. **Versión de Hilt:** si el sync/compilación se queja de compat con Kotlin 2.2/KSP 2.3.2/AGP 9, subir
+   `hilt` en `libs.versions.toml` a la última de la matriz Hilt del momento (sigue por KSP, NO añadir kapt).
+2. **API de `hiltViewModel(creationCallback)`** (assisted): requiere `hilt-navigation-compose` ≥ 1.2.0. Si la
+   firma difiere, ajustar la llamada `hiltViewModel<VM, VM.Factory>(creationCallback = { it.create(...) })`.
+3. **Qualifiers @Assisted**: los nombres del constructor y del `@AssistedFactory.create` DEBEN coincidir
+   (Transit: spawnX/spawnY; Zombie: serverUrl/playerName/startRoomId/lab1KeyFound/firearmUnlocked/mission3Assault).
+4. **Runtime (compila pero probar):** que volver de Ajustes NO recargue el mapa (WorldMapVM Activity-scope OK).
+Pedir al dueño: Rebuild (KSP genera componentes) + `testDebugUnitTest` (86) + arrancar la app y entrar a CADA
+tipo de pantalla migrada (menú, ajustes, historia, coleccionables, mapa, interiores ESCOM, metro/metrobús,
+zombis, ShineCTO). Hilt falla en COMPILACIÓN con mensajes claros si falta un binding.
 
 ---
 

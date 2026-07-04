@@ -43,7 +43,7 @@ fun MainMenuScreen(
     onNavigateToStory: () -> Unit,
     authManager: ovh.gabrielhuav.pow.data.auth.AuthManager? = null
 ) {
-    val viewModel: MainMenuViewModel = viewModel()
+    val viewModel: MainMenuViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
 

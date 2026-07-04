@@ -40,7 +40,7 @@ fun StoryModeScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val viewModel: StoryModeViewModel = viewModel(factory = StoryModeViewModel.Factory(context))
+    val viewModel: StoryModeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val state by viewModel.state.collectAsState()
 
     val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))

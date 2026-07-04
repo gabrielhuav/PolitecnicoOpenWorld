@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     // KSP debe declararse aquí también con apply false
     alias(libs.plugins.ksp) apply false
+    // Hilt (DI) — se aplica en app/; el classpath del plugin se declara aquí con apply false.
+    alias(libs.plugins.hilt.android) apply false
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin") version "2.0.1" apply false
     // Firebase: procesa google-services.json (debes agregar el json en app/). Sin el json el
     // sync de Gradle fallará con "File google-services.json is missing" — es el paso pendiente.

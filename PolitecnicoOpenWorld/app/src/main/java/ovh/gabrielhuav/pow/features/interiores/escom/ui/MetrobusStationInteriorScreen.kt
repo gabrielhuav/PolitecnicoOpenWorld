@@ -69,8 +69,8 @@ fun MetrobusStationInteriorScreen(
     onTeleportToStation: (String, Float, Float) -> Unit
 ) {
     val context = LocalContext.current
-    val viewModel: TransitInteriorViewModel = viewModel(
-        factory = TransitInteriorViewModel.Factory(context, TransitSystems.METROBUS, stationName, spawnX, spawnY)
+    val viewModel: TransitInteriorViewModel = androidx.hilt.navigation.compose.hiltViewModel<TransitInteriorViewModel, TransitInteriorViewModel.Factory>(
+        creationCallback = { factory -> factory.create(TransitSystems.METROBUS, stationName, spawnX, spawnY) }
     )
     val state by viewModel.state.collectAsState()
     val configuration = LocalConfiguration.current

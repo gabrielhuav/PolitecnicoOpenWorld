@@ -104,6 +104,7 @@ import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.ShineCTOScreen
 private const val SPAWN_ESCOM_LAT = 19.504603
 private const val SPAWN_ESCOM_LON = -99.145985
 
+@dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     // i18n: aplica el idioma elegido (Ajustes) envolviendo el Context base antes de
@@ -113,18 +114,14 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(ovh.gabrielhuav.pow.i18n.LocaleHelper.wrap(newBase, lang))
     }
 
-    private val worldMapViewModel: WorldMapViewModel by viewModels {
-        WorldMapViewModel.Factory(this)
-    }
+    // ETAPA 4 (Hilt): `by viewModels()` SIN Factory → Hilt provee el VM (@HiltViewModel) y lo
+    // scopea a la ACTIVITY (clave para WorldMapViewModel: SOBREVIVE a la navegación, el game loop /
+    // gate isMapReady NO se reinician — ver 09 §12). El VM se pasa hacia abajo al AppNavGraph.
+    private val worldMapViewModel: WorldMapViewModel by viewModels()
 
-    // Instanciamos el ViewModel de los ajustes usando su Factory
-    private val settingsViewModel: SettingsViewModel by viewModels {
-        SettingsViewModel.Factory(this)
-    }
+    private val settingsViewModel: SettingsViewModel by viewModels()
 
-    private val collectiblesViewModel: CollectiblesViewModel by viewModels {
-        CollectiblesViewModel.Factory(this)
-    }
+    private val collectiblesViewModel: CollectiblesViewModel by viewModels()
 
     // Autenticación Google + Firebase. Gestiona login, token (para el handshake WS) y borrado de cuenta.
     private val authManager by lazy { ovh.gabrielhuav.pow.data.auth.AuthManager(this) }

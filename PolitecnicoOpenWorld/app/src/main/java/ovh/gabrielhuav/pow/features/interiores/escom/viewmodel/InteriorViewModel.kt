@@ -26,9 +26,13 @@ import kotlin.math.sin
  * el jugador se mueve sobre coordenadas normalizadas [0,1] y se valida cada
  * paso contra la matriz.
  */
-open class InteriorViewModel(
+// ETAPA 4 (Hilt): @AssistedInject — la MATRIZ DE COLISIÓN (collisionGrid) es un arg de RUNTIME que
+// construye cada pantalla (no es inyectable), así que va @Assisted; el SettingsRepository lo inyecta
+// Hilt (AppModule). El @AssistedFactory (abajo) lo usa hiltViewModel(creationCallback) en la pantalla.
+@dagger.hilt.android.lifecycle.HiltViewModel(assistedFactory = InteriorViewModel.Factory::class)
+open class InteriorViewModel @dagger.assisted.AssistedInject constructor(
     // Publico (solo lectura) para que la capa de OCLUSION de InteriorScreenBase lea las celdas '2'.
-    val collisionGrid: CollisionGrid,
+    @dagger.assisted.Assisted val collisionGrid: CollisionGrid,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
@@ -141,16 +145,10 @@ open class InteriorViewModel(
         }
     }
 
-    class Factory(
-        private val context: Context,
-        private val collisionGrid: CollisionGrid
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return InteriorViewModel(
-                collisionGrid = collisionGrid,
-                settingsRepository = SettingsRepository(context.applicationContext)
-            ) as T
-        }
+    // ETAPA 4 (Hilt): @AssistedFactory — reemplaza al ViewModelProvider.Factory manual. La pantalla
+    // lo invoca vía hiltViewModel<InteriorViewModel, Factory>(creationCallback = { it.create(grid) }).
+    @dagger.assisted.AssistedFactory
+    interface Factory {
+        fun create(collisionGrid: CollisionGrid): InteriorViewModel
     }
 }

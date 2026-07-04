@@ -12,7 +12,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
 
-class SettingsViewModel(private val repository: SettingsRepository) : ViewModel() {
+// ETAPA 4 (Hilt): @HiltViewModel + @Inject; el SettingsRepository lo provee AppModule.
+@dagger.hilt.android.lifecycle.HiltViewModel
+class SettingsViewModel @javax.inject.Inject constructor(private val repository: SettingsRepository) : ViewModel() {
 
     // Inicializa el estado leyendo la base de datos de preferencias
     private val _state = MutableStateFlow(
@@ -140,12 +142,6 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         )
     }
 
-    // Factory para inyectar el contexto
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            require(modelClass.isAssignableFrom(SettingsViewModel::class.java)) { "Unknown ViewModel class: ${modelClass.name}" }
-            return SettingsViewModel(SettingsRepository(context.applicationContext)) as T
-        }
-    }
+    // ETAPA 4 (Hilt): el Factory manual se eliminó — el VM se obtiene con hiltViewModel() /
+    // by viewModels() y Hilt inyecta el SettingsRepository (AppModule).
 }
