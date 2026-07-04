@@ -34,10 +34,12 @@ fun WorldMapViewModel.setStorySpawn(lat: Double, lon: Double) {
     mission1ChaseActivated = false      // re-arma la persecución final de la Misión 1
     campaignEscortPolice.clear()
     mission1ChaseCrowd.clear()
-    // MISIÓN 2 · "El rumor": pizarra limpia. Si se está CARGANDO una partida, restoreSaveData
-    // (que corre DESPUÉS de este spawn) re-aplica la fase guardada (mission2Phase).
+    // MISIONES 2/3: pizarra limpia. Si se está CARGANDO una partida, restoreSaveData (que corre
+    // DESPUÉS de este spawn) re-aplica las fases guardadas (mission2Phase/mission3Phase).
     clearMission2Story()
     mission2Phase = 0
+    clearMission3Story()
+    mission3Phase = 0
     npcWarmupCycles = 0          // re-arma el warm-up de NPCs del gate de carga
     lastNetworkFetchLocation = null  // fuerza el re-fetch de calles alrededor de la escuela
     lastFetchAttemptMs = 0L

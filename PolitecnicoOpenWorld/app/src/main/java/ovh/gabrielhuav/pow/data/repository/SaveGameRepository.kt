@@ -34,6 +34,15 @@ data class GameSaveData(
     // MISIÓN 2 · "El rumor": fase de la máquina de estados (Mission2.PHASE_*). 0 = no iniciada.
     // Int primitivo → Gson deja 0 en guardados antiguos (compatibilidad automática).
     val mission2Phase: Int = 0,
+    // MISIÓN 3 · "Regreso a la ENCB": fase (Mission3.PHASE_*). 0 = no iniciada.
+    val mission3Phase: Int = 0,
+    // Recompensa de la Misión 3: primera arma de fuego (desbloquea RANGED en campaña).
+    // Boolean primitivo → false en guardados antiguos.
+    val hasFirearm: Boolean = false,
+    // REGISTRO DE MISIONES: ids completadas (MissionCatalog.MISSION_*_ID). ⚠️ Gson deja NULL
+    // las listas ausentes en guardados antiguos → coalesce al leer (restoreSaveData ya recibe
+    // el default emptyList() solo en escrituras nuevas; ver gotcha de listas de Gson en 09).
+    val completedMissions: List<String> = emptyList(),
     // Tipo de guardado: "MANUAL" (el jugador eligió slot) o "AUTO" (al salir/cerrar la app).
     // Nullable por compatibilidad con guardados antiguos (Gson los deja en null).
     val saveType: String? = null,

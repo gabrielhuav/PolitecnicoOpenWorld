@@ -210,12 +210,15 @@ data class WorldMapState(
     // dibuja (overlay estilo subtítulo en WorldMapScreenOverlays). null = sin conversación.
     val storyConvoSpeaker: String? = null,
     val storyConvoText: String? = null,
-    // R7 — MUNDO LIBRE / diferir misiones: al cumplir la Misión 1 se muestra un diálogo para ELEGIR
-    // entre continuar la historia ya, o seguir en MUNDO LIBRE y retomar la misión después.
-    val showMissionContinueDialog: Boolean = false,
-    // Si != null, hay una misión pendiente de RETOMAR (id de la siguiente). Habilita "Retomar misión"
-    // en el menú de Opciones. Mundo libre = currentObjective == null && pendingResumeMissionId != null.
-    val pendingResumeMissionId: String? = null,
+    // ─── SELECTOR DE MISIONES (estilo Witcher; sustituye al viejo diálogo R7 "¿Continuar la
+    // historia o mundo libre?"). SIEMPRE puedes hacer mundo libre: una misión solo corre si la
+    // SIGUES desde el registro (Opciones → "Misiones"). `completedMissions` = ids del selector
+    // (MissionCatalog.MISSION_*_ID) ya terminadas; se PERSISTE en el guardado JSON. ───
+    val showMissionLog: Boolean = false,
+    val completedMissions: List<String> = emptyList(),
+    // MISIÓN 3: al alcanzar la entrada de la ENCB durante la infiltración, pide navegar al
+    // interior (cadena ENCB en modo ASALTO). La View lo consume y navega (WorldMapScreenOverlays).
+    val mission3EnterEncb: Boolean = false,
 
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,

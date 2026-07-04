@@ -318,6 +318,6 @@ internal fun WorldMapViewModel.updateNpcsState() {
         // + NPCs de la MISIÓN 2 (búsqueda/rumor/brote; ver WorldMapMission2.kt).
         val combined = remoteEntities.values + policeManager.activeUnits() +
             remotePolice.values + campaignEscortPolice.activeUnits() + mission1ChaseCrowd.values +
-            mission2Npcs.values
+            mission2Npcs.values + mission3Npcs.values
         _uiState.update { it.copy(npcs = combined.toList()) }
     }

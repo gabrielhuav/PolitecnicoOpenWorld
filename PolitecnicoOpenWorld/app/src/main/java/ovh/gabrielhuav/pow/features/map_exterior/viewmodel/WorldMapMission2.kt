@@ -39,27 +39,38 @@ private fun m2Dist(aLat: Double, aLon: Double, bLat: Double, bLon: Double): Doub
     return sqrt(dLat * dLat + dLon * dLon)
 }
 
+// ACTIVA = la fase corre Y el jugador la está SIGUIENDO (objetivo m2_* activo). Si dejas de
+// seguirla desde el registro de misiones, el tick se PAUSA (los actores se limpian en el game
+// loop) y se reanuda al volver a seguirla (resumeMission2Objective re-fija el objetivo de la fase).
 internal fun WorldMapViewModel.isMission2StoryActive(): Boolean =
-    inCampaign && mission2Phase >= Mission2.PHASE_HIDE && mission2Phase <= Mission2.PHASE_BACKPACK
+    inCampaign && mission2Phase >= Mission2.PHASE_HIDE && mission2Phase <= Mission2.PHASE_BACKPACK &&
+        _uiState.value.currentObjective?.id?.startsWith(Mission2.OBJECTIVE_ID_PREFIX) == true
 
-// ── ARRANQUE: al VOLVER al campus (mapa global) con "Ingresa a la ESCOM" cumplida ──
-// Idempotente y barato (la llama el game loop en cada tick de campaña). Espera a que el REMATE
-// de la persecución de la Misión 1 termine (los 6 policías entran/se van) para que la escena
-// quede limpia antes de que aparezcan los policías DE BÚSQUEDA.
-internal fun WorldMapViewModel.maybeStartMission2Story(playerLoc: GeoPoint) {
-    if (!inCampaign || mission2Phase != Mission2.PHASE_NONE) return
-    if (currentInteriorRoomId != null) return   // sigue DENTRO del interior de la ESCOM
-    val s = _uiState.value
-    if (s.currentObjective?.id != MissionCatalog.INGRESAR_ESCOM.id || !s.objectiveDone) return
-    if (campaignEscortPolice.isActive()) return // deja terminar el remate del chase
+// ── ARRANQUE (desde el REGISTRO DE MISIONES): fija la fase 1 y su objetivo. ──
+// Requiere la Misión 1 completada (lo valida selectCampaignMission). Los policías de búsqueda
+// spawnean en la entrada de la ESCOM (punto fijo) sin importar dónde estés; el 🎯 te guía.
+internal fun WorldMapViewModel.startMission2Story() {
     clearCampaignPolice()
     clearMission2Story()
     mission2Phase = Mission2.PHASE_HIDE
     setCampaignObjective(MissionCatalog.M2_ESCONDERSE_POLICIA)
     _uiState.update { it.copy(
-        interactionPrompt = "🚨 ¡La policía los busca a ti y a Prankedy! Aléjate de la entrada"
+        interactionPrompt = "🚨 ¡La policía los busca a ti y a Prankedy! Aléjate de la entrada de la ESCOM"
     ) }
-    android.util.Log.d("POW_DBG", "MISIÓN 2: arranca (fase ESCONDERSE)")
+    android.util.Log.d("POW_DBG", "MISIÓN 2: seguida desde el registro (fase ESCONDERSE)")
+}
+
+// ── REANUDAR (registro de misiones): re-fija el objetivo de la FASE actual (no reinicia). ──
+internal fun WorldMapViewModel.resumeMission2Objective() {
+    val obj = when (mission2Phase) {
+        Mission2.PHASE_HIDE -> MissionCatalog.M2_ESCONDERSE_POLICIA
+        Mission2.PHASE_RUMOR -> MissionCatalog.M2_PISTA_RUMOR
+        Mission2.PHASE_BROTE -> MissionCatalog.M2_PISTA_BROTE
+        Mission2.PHASE_TALK -> MissionCatalog.M2_HABLAR_PRANKEDY
+        Mission2.PHASE_BACKPACK -> MissionCatalog.M2_RECUPERAR_MOCHILA
+        else -> return
+    }
+    setCampaignObjective(obj)
 }
 
 // ── TICK PRINCIPAL (lo llama el game loop MIEMBRO cuando isMission2StoryActive()) ──
@@ -499,17 +510,18 @@ private fun WorldMapViewModel.tickM2Talk(playerLoc: GeoPoint, now: Long) {
 fun WorldMapViewModel.completeMission2Backpack() {
     if (mission2Phase != Mission2.PHASE_BACKPACK) return
     mission2Phase = Mission2.PHASE_DONE
+    markMissionCompleted(MissionCatalog.MISSION_2_ID)
     _uiState.update { it.copy(
         currentObjective = MissionCatalog.M2_RECUPERAR_MOCHILA,
         objectiveDone = true,
-        interactionPrompt = "🎒 ¡MISIÓN 2 COMPLETADA! Recuperaste la mochila de Prankedy"
+        interactionPrompt = "🎒 ¡MISIÓN 2 COMPLETADA! Nueva misión disponible en Opciones → Misiones"
     ) }
     soundManager.playMisionCumplida()
     android.util.Log.d("POW_DBG", "MISIÓN 2: COMPLETADA (mochila recuperada)")
 }
 
 // ── LIMPIEZA (idempotente). NO toca mission2Phase: eso lo decide quien llama
-//    (setStorySpawn la resetea; el retry re-arma vía maybeStartMission2Story). ──
+//    (setStorySpawn la resetea; el retry re-arma vía startMission2Story). ──
 internal fun WorldMapViewModel.clearMission2Story() {
     mission2Npcs.clear()
     mission2DetectSinceMs = 0L

@@ -145,7 +145,15 @@ fun ZombieGameScreen(
     onInteriorProgress: (List<String>, Boolean) -> Unit = { _, _ -> },
     // MISIÓN 2 · salón de la mochila: se dispara al RECOGER la mochila de Prankedy (el VM del
     // mundo completa la Misión 2 vía completeMission2Backpack; lo cablea AppNavGraph).
-    onMission2BackpackRecovered: () -> Unit = {}
+    onMission2BackpackRecovered: () -> Unit = {},
+    // MISIÓN 2 (mochila): slots de inventario desbloqueados al entrar (1 → 4 tras la mochila).
+    initialUnlockedSlots: Int = 1,
+    // MISIÓN 3 (recompensa): ¿ya tiene arma de fuego? (gate del modo RANGED; true fuera de campaña).
+    firearmUnlocked: Boolean = true,
+    // MISIÓN 3 (asalto ENCB): siembra zombis en la cadena ENCB + la evidencia 🧪 en encb_lab1.
+    mission3Assault: Boolean = false,
+    // MISIÓN 3: se dispara al RECOGER la evidencia (el mundo completa la misión + arma de fuego).
+    onMission3EvidenceRecovered: () -> Unit = {}
 ) {
     val context = LocalContext.current
     // Modo Desarrollador: si está APAGADO se ocultan botones de prueba (Diseñador, y "Salir al mapa"
@@ -153,7 +161,10 @@ fun ZombieGameScreen(
     val developerMode = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getDeveloperMode() }
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
     val viewModel: ZombieInteriorViewModel = viewModel(
-        factory = ZombieInteriorViewModel.Factory(context, serverUrl, playerName, startRoomId, initialInventoryKeys, initialLab1KeyFound)
+        factory = ZombieInteriorViewModel.Factory(
+            context, serverUrl, playerName, startRoomId, initialInventoryKeys, initialLab1KeyFound,
+            initialUnlockedSlots, firearmUnlocked, mission3Assault
+        )
     )
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current
@@ -190,6 +201,10 @@ fun ZombieGameScreen(
     // MISIÓN 2 · salón: al recoger la mochila se avisa al mundo (completa la misión). Una vez.
     LaunchedEffect(state.mission2BackpackTaken) {
         if (state.mission2BackpackTaken) onMission2BackpackRecovered()
+    }
+    // MISIÓN 3 · asalto: al recoger la evidencia se avisa al mundo (misión + arma de fuego).
+    LaunchedEffect(state.mission3EvidenceTaken) {
+        if (state.mission3EvidenceTaken) onMission3EvidenceRecovered()
     }
 
     DisposableEffect(Unit) {
@@ -488,6 +503,25 @@ fun ZombieGameScreen(
                                     y = with(density) { toScreenY(bpY).toDp() } - with(density) { (bpSize / 2).toDp() }
                                 )
                                 .alpha(if (state.mission2BackpackNearby) 1f else 0.88f)
+                        )
+                    }
+                }
+
+                // MISIÓN 3 · asalto ENCB: la EVIDENCIA 🧪 del laboratorio (emoji; sin asset propio).
+                run {
+                    val evX = state.mission3EvidenceX
+                    val evY = state.mission3EvidenceY
+                    if (evX != null && evY != null && !state.mission3EvidenceTaken && onScreen(evX, evY)) {
+                        val evSize = 42f * cam.scale
+                        Text(
+                            text = "🧪",
+                            fontSize = with(density) { evSize.toSp() },
+                            modifier = Modifier
+                                .absoluteOffset(
+                                    x = with(density) { toScreenX(evX).toDp() } - with(density) { (evSize / 2).toDp() },
+                                    y = with(density) { toScreenY(evY).toDp() } - with(density) { (evSize / 2).toDp() }
+                                )
+                                .alpha(if (state.mission3EvidenceNearby) 1f else 0.88f)
                         )
                     }
                 }
@@ -832,6 +866,9 @@ fun ZombieGameScreen(
                     stringResource(R.string.zgame_stink_prompt)
                 state.mission2BackpackNearby && !state.mission2BackpackTaken ->
                     stringResource(R.string.zgame_backpack_prompt)
+                // MISIÓN 3: recoger la evidencia del laboratorio.
+                state.mission3EvidenceNearby && !state.mission3EvidenceTaken ->
+                    stringResource(R.string.zgame_evidence_prompt)
                 else -> null
             }
             // Z-ORDER: el panel de INVENTARIO es un modal a pantalla completa (va por ENCIMA de todo).
@@ -848,9 +885,10 @@ fun ZombieGameScreen(
             }
 
             // ─── OBJETIVO (salas del Modo Historia ENCB) ────────────────────────
-            // Banner superpuesto, siempre visible mientras el jugador esté en la cadena
-            // lineal de la ENCB (lobby → salón → lab1 → lab2).
-            if (room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS) {
+            // Banner superpuesto mientras el jugador esté en la cadena lineal de la ENCB
+            // (lobby → salón → lab1 → lab2). En la MISIÓN 3 (asalto) NO aplica: ahí el objetivo
+            // lo muestra interiorObjective (ObjectivesWidget) y este banner sobraría.
+            if (room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS && interiorObjective == null) {
                 Box(
                     Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
                     Alignment.TopCenter

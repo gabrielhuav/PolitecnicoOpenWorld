@@ -224,6 +224,9 @@ internal fun WorldMapViewModel.handleInteraction() {
                     && !_uiState.value.objectiveDone) {
                     _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.let { getLocalizedString(it.titleRes) } ?: ""}") }
                     soundManager.playMisionCumplida()
+                    // MISIÓN 1 COMPLETADA (entraste a la ESCOM): se registra en el selector de
+                    // misiones; la Misión 2 queda DISPONIBLE (se sigue desde Opciones → Misiones).
+                    markMissionCompleted(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_1_ID)
                 }
                 // Al ENTRAR a la ESCOM, Prankedy ya quedó a salvo dentro: deja de acompañarte para
                 // que NO siga contigo al volver al mapa (Misión 1 terminada). Solo afecta al

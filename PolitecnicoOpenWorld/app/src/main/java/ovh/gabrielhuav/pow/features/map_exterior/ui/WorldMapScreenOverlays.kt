@@ -35,6 +35,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onEscomDoorFadeComple
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissVideo
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissClaimedPopup
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3EnterEncb
 
 /**
  * Overlays y diálogos superpuestos de [WorldMapScreen] (pantalla WASTED, vídeo zombi,
@@ -204,6 +205,17 @@ fun WorldMapOverlays(
         if (station != null) {
             viewModel.consumeMetrobusFadeComplete()
             onNavigateToInterior("metrobus_station_interior/${station.name}")
+        }
+    }
+
+    // ─── MISIÓN 3: entrada al ASALTO interior de la ENCB (cruzaste el cordón) ───
+    LaunchedEffect(uiState.mission3EnterEncb) {
+        if (uiState.mission3EnterEncb) {
+            viewModel.consumeMission3EnterEncb()
+            onNavigateToInterior(
+                "interiores_zombies?startRoom=" +
+                    ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID
+            )
         }
     }
 }

@@ -828,6 +828,38 @@ matrices por defecto son **border-only** hasta reemplazarse.
     SOLO para la ruta default de ESCOM (`WorldMapInteractions`); las puertas de FES/Neza no se tocan. El
     salón (lata apestosa, evacuación, mochila 🎒): ver 05. La lata tirada se dibuja como **🥫** (+💨
     mientras evacúan) en `ZombieGameState.mission2StinkX/Y` — SIN asset dedicado todavía.
+- **🆕 REGISTRO/SELECTOR DE MISIONES (2026-07-04, estilo Witcher) — reglas:** el diálogo R7
+  ("¿Continuar o mundo libre?") se ELIMINÓ (`continueStoryNow`/`deferStoryToFreeRoam`/
+  `resumeStoryMission`/`pendingResumeMissionId`/`showMissionContinueDialog` YA NO EXISTEN — la
+  escolta encadena DIRECTO con el cómic del chase). Las misiones 2/3 ya NO arrancan solas: se
+  SIGUEN desde Opciones → "Misiones" (`MissionLogDialog` + extensiones en `WorldMapMissionLog.kt`:
+  `selectCampaignMission`/`unfollowActiveMission`/`missionLogStatus`/`markMissionCompleted`).
+  "ACTIVA" = fase en curso Y objetivo con el prefijo de la misión (isMission2/3StoryActive lo
+  exige): DEJAR DE SEGUIR limpia el objetivo → los ticks se pausan y el game loop limpia sus NPCs;
+  RE-SEGUIR re-fija el objetivo de la fase (`resumeMission2/3Objective`). Completadas en
+  `WorldMapState.completedMissions` (persistidas; ⚠️ lista de Gson → coalesce NULL al restaurar).
+  M1 se marca completada al cumplir INGRESAR_ESCOM (WorldMapInteractions).
+- **🆕 MISIÓN 3 "Regreso a la ENCB" (2026-07-04):** `mission3/Mission3.kt` + `WorldMapMission3.kt`
+  (viaje → cordón de granaderos con SIGILO → asalto interior). Claves: los "granaderos" usan
+  `POLICE_COP` (render exterior premade pendiente); entrada/RE-entrada al interior vía
+  `mission3EnterEncb` (navega WorldMapScreenOverlays a `interiores_zombies?startRoom=encb_lobby`)
+  con HISTÉRESIS `mission3ReentryArmed` (aléjate >2× y vuelve — evita bucle de navegación en la
+  puerta); el interior siembra zombis en la cadena ENCB con `mission3Assault` (Factory param;
+  ignora `zombieModeActivated`) + EVIDENCIA 🧪 en `encb_lab1` con auto-salida al recogerla.
+  Persistencia: `GameSaveData.mission3Phase` + `hasFirearm`. Ver `CAMPAIGN/03_MISSION_3.md`.
+- **🆕 INVENTARIO desbloqueable + ARMA DE FUEGO (2026-07-04):** los slots usables son DINÁMICOS
+  (`ZombieGameState.inventoryUnlockedSlots`, default 1): la MOCHILA de Prankedy los sube a
+  `INVENTORY_TOTAL_SLOTS` (y AppNavGraph pasa 4 en sesiones futuras si `mission2Phase>=DONE`).
+  El modo RANGED se BLOQUEA en campaña sin `hasFirearm` (recompensa de la M3): candado 🔒 en
+  ZombieHud + rechazo con aviso en `selectCombatMode`; fuera de campaña/multijugador AppNavGraph
+  pasa `firearmUnlocked=true` (comportamiento intacto). NO volver a leer `INVENTORY_UNLOCKED_SLOTS`
+  como tope de recogida (usa el estado).
+- **🆕 FIX autos del estacionamiento del LOBBY (2026-07-04):** los sprites de coche son FRAMES
+  DIRECCIONALES (48/modelo): el exterior pide el frame del ángulo; el interior pedía el frame 0 y
+  lo giraba con `Modifier.rotate` → autos desalineados de los cajones. `ParkedCarsLayer` ahora
+  resuelve el MISMO frame direccional (facing = base del carril + calibración) y NO rota en
+  Compose. El prefetch de bitmaps se re-hace si cambia la calibración (keys del produceState).
+  NO reintroducir `.rotate(facing)` sobre frames direccionales.
 - **🆕 NPCs AMBIENTALES: vida universitaria + ANTI-ATASCO (2026-07-03, `ZombieAmbientNpcs.kt`):**
   máquina de modos `AmbientMode` (WANDER/MEETING/TALK/WALK_TOGETHER): parejas que quedan de verse,
   platican con **burbujas alternadas** (frases `@StringRes` `amb_phrase_1..10` + despedida

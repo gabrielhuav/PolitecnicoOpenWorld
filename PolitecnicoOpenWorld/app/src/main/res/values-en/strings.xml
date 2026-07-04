@@ -441,6 +441,32 @@
     <!-- Mission 2 · backpack classroom (interiors) -->
     <string name="zgame_stink_prompt">💨 Press ACTION to throw the STINK CAN</string>
     <string name="zgame_backpack_prompt">🎒 Press ACTION to pick up Prankedy\'s backpack</string>
+    <!-- Campaign objectives (Mission 3 · "Return to the ENCB") -->
+    <string name="obj_m3_ir_encb_title">Return to the ENCB</string>
+    <string name="obj_m3_ir_encb_desc">The ENCB is under quarantine. Go back and find out what they\'re hiding.</string>
+    <string name="obj_m3_infiltrarse_title">Infiltrate the ENCB</string>
+    <string name="obj_m3_infiltrarse_desc">Evade the riot-police cordon WITHOUT being seen and reach the entrance.</string>
+    <string name="obj_m3_evidencia_title">Recover the lab evidence</string>
+    <string name="obj_m3_evidencia_desc">There are infected inside. Find the 🧪 evidence in the lab and get out alive.</string>
+    <string name="zgame_evidence_prompt">🧪 Press ACTION to pick up the EVIDENCE</string>
+    <!-- Mission log / selector (Witcher style) -->
+    <string name="wm_opt_missions">Missions</string>
+    <string name="mlog_title">MISSIONS</string>
+    <string name="mlog_follow">TRACK THIS MISSION</string>
+    <string name="mlog_unfollow">STOP TRACKING</string>
+    <string name="mlog_close">CLOSE</string>
+    <string name="mlog_completed">✔ COMPLETED</string>
+    <string name="mlog_active">▶ ACTIVE</string>
+    <string name="mlog_available">AVAILABLE</string>
+    <string name="mlog_locked">🔒 LOCKED</string>
+    <string name="mlog_locked_hint">Complete the previous mission to unlock it.</string>
+    <string name="mlog_free_roam_hint">No active mission: you\'re in FREE ROAM. Track a mission whenever you want.</string>
+    <string name="mission1_title">Mission 1 · Outbreak origin</string>
+    <string name="mission1_desc">Investigate the ENCB, escort Prankedy to the ESCOM and get to safety from the police.</string>
+    <string name="mission2_title">Mission 2 · The rumor</string>
+    <string name="mission2_desc">Lose the police, listen to the zombie rumor, witness the first outbreak and recover Prankedy\'s backpack.</string>
+    <string name="mission3_title">Mission 3 · Return to the ENCB</string>
+    <string name="mission3_desc">Infiltrate the cordoned-off ENCB, survive the infected and recover the evidence. Reward: your first firearm.</string>
     <!-- University life: ambient NPC conversation phrases (speech bubbles, interiors) -->
     <string name="amb_phrase_1">Did you finish the compilers lab yet?</string>
     <string name="amb_phrase_2">The professor showed up late again…</string>

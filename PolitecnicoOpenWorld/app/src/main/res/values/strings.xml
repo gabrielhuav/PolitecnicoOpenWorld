@@ -443,6 +443,32 @@
     <!-- Misión 2 · salón de la mochila (interiores) -->
     <string name="zgame_stink_prompt">💨 Pulsa ACCIÓN para lanzar la LATA APESTOSA</string>
     <string name="zgame_backpack_prompt">🎒 Pulsa ACCIÓN para recoger la mochila de Prankedy</string>
+    <!-- Objetivos de campaña (Misión 3 · "Regreso a la ENCB") -->
+    <string name="obj_m3_ir_encb_title">Vuelve a la ENCB</string>
+    <string name="obj_m3_ir_encb_desc">La ENCB está en cuarentena. Vuelve allá y descubre qué esconden.</string>
+    <string name="obj_m3_infiltrarse_title">Infíltrate en la ENCB</string>
+    <string name="obj_m3_infiltrarse_desc">Evade el cordón de granaderos SIN que te vean y llega a la entrada.</string>
+    <string name="obj_m3_evidencia_title">Recupera la evidencia del laboratorio</string>
+    <string name="obj_m3_evidencia_desc">Dentro hay infectados. Encuentra la evidencia 🧪 en el laboratorio y sal con vida.</string>
+    <string name="zgame_evidence_prompt">🧪 Pulsa ACCIÓN para recoger la EVIDENCIA</string>
+    <!-- Registro / selector de misiones (estilo Witcher) -->
+    <string name="wm_opt_missions">Misiones</string>
+    <string name="mlog_title">MISIONES</string>
+    <string name="mlog_follow">SEGUIR ESTA MISIÓN</string>
+    <string name="mlog_unfollow">DEJAR DE SEGUIR</string>
+    <string name="mlog_close">CERRAR</string>
+    <string name="mlog_completed">✔ COMPLETADA</string>
+    <string name="mlog_active">▶ ACTIVA</string>
+    <string name="mlog_available">DISPONIBLE</string>
+    <string name="mlog_locked">🔒 BLOQUEADA</string>
+    <string name="mlog_locked_hint">Completa la misión anterior para desbloquearla.</string>
+    <string name="mlog_free_roam_hint">Sin misión activa: estás en MUNDO LIBRE. Sigue una misión cuando quieras.</string>
+    <string name="mission1_title">Misión 1 · El origen del brote</string>
+    <string name="mission1_desc">Investiga la ENCB, escolta a Prankedy hasta la ESCOM y ponte a salvo de la policía.</string>
+    <string name="mission2_title">Misión 2 · El rumor</string>
+    <string name="mission2_desc">Piérdele a la policía, escucha el rumor zombie, presencia el primer brote y recupera la mochila de Prankedy.</string>
+    <string name="mission3_title">Misión 3 · Regreso a la ENCB</string>
+    <string name="mission3_desc">Infíltrate en la ENCB acordonada, sobrevive a los infectados y recupera la evidencia. Recompensa: tu primera arma de fuego.</string>
     <!-- Vida universitaria: frases de las pláticas de NPCs ambientales (burbujas, interiores) -->
     <string name="amb_phrase_1">¿Ya hiciste la práctica de compiladores?</string>
     <string name="amb_phrase_2">El profe volvió a llegar tarde…</string>

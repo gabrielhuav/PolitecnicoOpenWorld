@@ -1,7 +1,25 @@
 package ovh.gabrielhuav.pow.domain.models.campaign
 
+import androidx.annotation.StringRes
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.campaign.mission1.Mission1
 import ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
+import ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3
+
+/**
+ * Ficha de una MISIÓN para el SELECTOR de misiones (estilo Witcher: elige qué misión seguir,
+ * ve cuáles ya hiciste). `side=true` para futuras misiones SECUNDARIAS. El estado
+ * (bloqueada/disponible/activa/completada) NO vive aquí: lo derivan el VM y la UI a partir de
+ * `completedMissions` + el objetivo activo (ver WorldMapMissionLog.kt / MissionLogDialog).
+ */
+data class CampaignMissionInfo(
+    val id: String,
+    @StringRes val titleRes: Int,
+    @StringRes val descriptionRes: Int,
+    // Misión que debe estar COMPLETADA para desbloquear esta (null = disponible desde el inicio).
+    val requiresMissionId: String? = null,
+    val side: Boolean = false
+)
 
 /**
  * Catálogo AGREGADOR de misiones/objetivos de la campaña (Modo Historia). Es la API pública
@@ -24,6 +42,30 @@ object MissionCatalog {
     val M2_HABLAR_PRANKEDY = Mission2.HABLAR_PRANKEDY
     val M2_RECUPERAR_MOCHILA = Mission2.RECUPERAR_MOCHILA
 
+    // ── Misión 3 · "Regreso a la ENCB" (viaje / infiltración / asalto interior) ──
+    val M3_IR_ENCB = Mission3.IR_ENCB
+    val M3_INFILTRARSE = Mission3.INFILTRARSE
+    val M3_RECUPERAR_EVIDENCIA = Mission3.RECUPERAR_EVIDENCIA
+
+    // ── SELECTOR DE MISIONES (ids estables; alimentan completedMissions del guardado) ──
+    const val MISSION_1_ID = "mission1"
+    const val MISSION_2_ID = "mission2"
+    const val MISSION_3_ID = "mission3"
+    val missions: List<CampaignMissionInfo> = listOf(
+        CampaignMissionInfo(MISSION_1_ID, R.string.mission1_title, R.string.mission1_desc),
+        CampaignMissionInfo(MISSION_2_ID, R.string.mission2_title, R.string.mission2_desc, requiresMissionId = MISSION_1_ID),
+        CampaignMissionInfo(MISSION_3_ID, R.string.mission3_title, R.string.mission3_desc, requiresMissionId = MISSION_2_ID)
+    )
+
+    /** Misión (id del selector) a la que pertenece un objetivo activo, o null. */
+    fun missionIdForObjective(objectiveId: String?): String? = when {
+        objectiveId == null -> null
+        objectiveId.startsWith(Mission2.OBJECTIVE_ID_PREFIX) -> MISSION_2_ID
+        objectiveId.startsWith(Mission3.OBJECTIVE_ID_PREFIX) -> MISSION_3_ID
+        Mission1.objectives.any { it.id == objectiveId } -> MISSION_1_ID
+        else -> null
+    }
+
     // ── Re-exposición de constantes (deben seguir siendo const: hay call-sites que las usan
     //    para inicializar otros `const val`, p. ej. WorldMapPrankedy.ESCOM_LAT) ──
     const val ESCOM_DOOR_LAT = Mission1.ESCOM_DOOR_LAT
@@ -35,7 +77,8 @@ object MissionCatalog {
     const val ESCOM_FORCEWALK_RADIUS_M = Mission1.ESCOM_FORCEWALK_RADIUS_M
 
     // Todos los objetivos de todas las misiones (al añadir misiones, concatena sus listas).
-    private val all: List<CampaignObjective> = Mission1.objectives + Mission2.objectives
+    private val all: List<CampaignObjective> =
+        Mission1.objectives + Mission2.objectives + Mission3.objectives
 
     // Objetivo con el que arranca una campaña nueva.
     val first: CampaignObjective = Mission1.IR_ENCB

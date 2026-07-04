@@ -290,6 +290,20 @@ class WorldMapViewModel(
     internal var mission2EventStageMs = 0L
     internal var mission2PhaseTransitionMs = 0L
 
+    // ─── MISIÓN 3 · "Regreso a la ENCB" — lógica en WorldMapMission3.kt ────
+    // Fase (Mission3.PHASE_*): 0 no iniciada, 1 viaje, 2 infiltración, 3 asalto interior,
+    // 4 completada. PERSISTIDA en GameSaveData.mission3Phase.
+    internal var mission3Phase = 0
+    // NPCs del cordón (granaderos) + paparazzi. Se fusionan en uiState.npcs (updateNpcsState).
+    internal val mission3Npcs = ConcurrentHashMap<String, Npc>()
+    internal var mission3DetectSinceMs = 0L
+    // Histéresis de RE-ENTRADA al asalto (fase 3): tras salir del interior hay que ALEJARSE del
+    // centro de la ENCB y volver para re-entrar (evita el bucle de navegación en la puerta).
+    internal var mission3ReentryArmed = false
+    // RECOMPENSA de la Misión 3: primera arma de fuego (desbloquea RANGED en interiores de
+    // campaña). PERSISTIDA en GameSaveData.hasFirearm.
+    internal var hasFirearm = false
+
     // ─── PRANKEDY (NPC compañero) ─────────────────────────────────────────────
     internal val prankedyManager = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager()
     // Policía REMOTA (de otros jugadores): solo se renderiza, no se simula. id -> (npc, lastSeenMs).
@@ -551,9 +565,8 @@ class WorldMapViewModel(
                             checkObjectiveProgress(location)
                             maybeSpawnPrankedyCompanion(location)
                             maybeHideCampaignRouteNearEscom(location)
-                            // MISIÓN 2 · "El rumor": arranca al VOLVER al campus (mapa global)
-                            // con "Ingresa a la ESCOM" ya cumplida. Gate barato e idempotente.
-                            maybeStartMission2Story(location)
+                            // (Las Misiones 2 y 3 ya NO arrancan solas: se SIGUEN desde el
+                            // registro de misiones — Opciones → "Misiones". Ver WorldMapMissionLog.kt.)
                         }
 
                         checkDestinationArrival()
@@ -830,11 +843,20 @@ class WorldMapViewModel(
                                     runMission2StoryTick(location)
                                 }
                             }
-                            // Fuera de la campaña / misión cumplida: limpia la policía de campaña y
-                            // corre la policía normal del mundo libre.
+                            // MISIÓN 3 · "Regreso a la ENCB": viaje + cordón de granaderos
+                            // (sigilo) + entrada al asalto interior. Ver WorldMapMission3.kt.
+                            isMission3StoryActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runMission3StoryTick(location)
+                                }
+                            }
+                            // Fuera de la campaña / misión cumplida / misión SIN SEGUIR: limpia la
+                            // policía de campaña y corre la policía normal del mundo libre. Los NPCs
+                            // de misión se limpian si su misión ya no se está siguiendo.
                             else -> {
                                 if (campaignPoliceActivated || mission1ChaseActivated) clearCampaignPolice()
-                                if (!inCampaign && mission2Npcs.isNotEmpty()) clearMission2Story()
+                                if (mission2Npcs.isNotEmpty() && !isMission2StoryActive()) clearMission2Story()
+                                if (mission3Npcs.isNotEmpty() && !isMission3StoryActive()) clearMission3Story()
                                 if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
                                     runPoliceTick(location)
                                 }

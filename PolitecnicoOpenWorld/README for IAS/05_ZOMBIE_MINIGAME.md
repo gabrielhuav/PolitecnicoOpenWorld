@@ -60,6 +60,15 @@ autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación 
 > `completeMission2Backpack()` en el VM del mundo (cableado en AppNavGraph). `loadRoom` re-arma la escena
 > al reentrar (si saliste sin la mochila, vuelve a haber clase). El objetivo del salón lo muestra
 > `interiorObjective = M2_RECUPERAR_MOCHILA` (ObjectivesWidget). Ver `CAMPAIGN/02_MISSION_2.md`.
+> **🆕 MISIÓN 3 · ASALTO A LA ENCB (2026-07-04):** con `mission3Assault=true` (Factory param, lo
+> decide AppNavGraph cuando `startRoom=encb_lobby` y `mission3Phase==PHASE_ASSAULT`), la cadena
+> ENCB se siembra con **zombis** (`ASSAULT_ZOMBIES_PER_ROOM=4`, IGNORA el gate de
+> `zombieModeActivated`) y la **EVIDENCIA 🧪** aparece en `encb_lab1` (`mission3Evidence*` en el
+> estado); recogerla (X) → `onMission3EvidenceRecovered` + **auto-salida** al mapa (2.6 s, la
+> cadena no tiene puerta TO_WORLD). El banner "Investiga qué pasó" se SUPRIME cuando hay
+> `interiorObjective` (el asalto muestra el suyo). **INVENTARIO desbloqueable:** slots usables =
+> `state.inventoryUnlockedSlots` (1 → 4 con la mochila de la M2). **ARMA DE FUEGO:** modo RANGED
+> bloqueado en campaña sin `hasFirearm` (recompensa M3); candado 🔒 en el menú de armas.
 
 **EN:** Ring of rooms: a **lobby** with doors to each ESCOM building (7 buildings). Inside a building,
 EXIT doors connect neighbors and a central door returns to the lobby. **Online: zombies and items are

@@ -153,6 +153,12 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
         val bpNear = bpX != null && bpY != null && !s.mission2BackpackTaken &&
             hypot(bpX - s.playerX, bpY - s.playerY) <= ITEM_PICKUP_DIST * 1.6f
 
+        // MISIÓN 3 · asalto ENCB: ¿el jugador está sobre la EVIDENCIA 🧪 (encb_lab1)?
+        val evX = s.mission3EvidenceX
+        val evY = s.mission3EvidenceY
+        val evNear = evX != null && evY != null && !s.mission3EvidenceTaken &&
+            hypot(evX - s.playerX, evY - s.playerY) <= ITEM_PICKUP_DIST * 1.6f
+
         _state.update {
             it.copy(
                 zombies = workingZombies,
@@ -166,7 +172,8 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
                 ambientNpcs = steppedAmbient,
                 mission2BackpackX = bpX,
                 mission2BackpackY = bpY,
-                mission2BackpackNearby = bpNear
+                mission2BackpackNearby = bpNear,
+                mission3EvidenceNearby = evNear
             )
         }
         if (spawnBackpack) {

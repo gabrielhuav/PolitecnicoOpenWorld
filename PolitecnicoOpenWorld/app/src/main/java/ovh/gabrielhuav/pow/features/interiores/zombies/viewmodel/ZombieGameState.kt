@@ -81,12 +81,24 @@ data class ZombieGameState(
     val mission2BackpackNearby: Boolean = false,
     val mission2BackpackTaken: Boolean = false,
 
+    // ─── MISIÓN 3 · ASALTO A LA ENCB (evidencia del laboratorio) ────────────
+    // La evidencia 🧪 aparece en encb_lab1 (solo en modo asalto); recogerla (X) dispara
+    // onMission3EvidenceRecovered en ZombieGameScreen y el auto-regreso al mapa.
+    val mission3EvidenceX: Float? = null,
+    val mission3EvidenceY: Float? = null,
+    val mission3EvidenceNearby: Boolean = false,
+    val mission3EvidenceTaken: Boolean = false,
+
     // ─── INVENTARIO ───────────────────────────────────────────────────────
-    // Por ahora 1 slot DESBLOQUEADO (guarda 1 llave); el resto se muestran bloqueados (rojo) y
-    // se desbloquearán en misiones futuras. `inventoryKeys` = assetPaths de llaves recogidas.
-    // Se GUARDA en las partidas (junto con lab1KeyFound). Se abre manteniendo Y.
+    // `inventoryUnlockedSlots` slots USABLES (1 al inicio; TODOS al recuperar la mochila de
+    // Prankedy — Misión 2); el resto se muestran bloqueados (rojo). `inventoryKeys` = entradas
+    // "misión|asset" recogidas. Se GUARDA en las partidas (junto con lab1KeyFound). Abre con Y.
     val showInventory: Boolean = false,
     val inventoryKeys: List<String> = emptyList(),
+    val inventoryUnlockedSlots: Int = 1,
+    // MISIÓN 3 (recompensa): sin arma de fuego, el modo RANGED está BLOQUEADO (solo campaña;
+    // fuera de campaña/multijugador llega true desde AppNavGraph).
+    val firearmUnlocked: Boolean = true,
 
     val controlType: ControlType = ControlType.JOYSTICK,
     val controlsScale: Float = 1.0f,

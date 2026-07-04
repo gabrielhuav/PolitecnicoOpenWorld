@@ -64,6 +64,9 @@ subtítulos (`WorldMapScreenOverlays`), `ZombieRoomCatalog.ESCOM_SALON_M2_ID` (s
 
 ## 6. Gancho a la Misión 3 / Hook to Mission 3
 
-El jugador tiene la mochila (la "evidencia" de la broma) y sabe que el brote escala en la **ENCB**
-("todo el personal policial" fue llamado allá). La Misión 3 natural: volver a la ENCB en plena
-contención, con `Granaderos`/`Paramedico` (NPCs ya recortados) y los primeros interiores con horda.
+El jugador tiene la mochila y sabe que el brote escala en la **ENCB** ("todo el personal policial"
+fue llamado allá). ✅ La Misión 3 ("Regreso a la ENCB": cordón de granaderos + asalto interior con
+zombis + evidencia → primera arma de fuego) está implementada — ver `03_MISSION_3.md`. **Extras de
+esta misión (2026-07-04):** la mochila ahora **DESBLOQUEA los 4 slots** del inventario
+(`inventoryUnlockedSlots`), y las misiones 2/3 se SIGUEN desde el **registro de misiones**
+(Opciones → "Misiones"; ya no arrancan solas — ver `00_OVERVIEW`).

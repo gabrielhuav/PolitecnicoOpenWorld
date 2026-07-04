@@ -53,7 +53,15 @@ class ZombieInteriorViewModel(
     internal val startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
     // Estado restaurado al CARGAR partida dentro de un interior: inventario y progreso de ENCB_lab1.
     internal val initialInventoryKeys: List<String> = emptyList(),
-    internal val initialLab1KeyFound: Boolean = false
+    internal val initialLab1KeyFound: Boolean = false,
+    // MISIÓN 2 (mochila): slots de inventario DESBLOQUEADOS al entrar (1 antes de la mochila;
+    // INVENTORY_TOTAL_SLOTS después). Lo decide AppNavGraph desde el estado del mundo.
+    internal val initialUnlockedSlots: Int = INVENTORY_UNLOCKED_SLOTS,
+    // MISIÓN 3 (recompensa): ¿el jugador ya tiene ARMA DE FUEGO? En campaña bloquea el modo
+    // RANGED hasta conseguirla; fuera de campaña/multijugador AppNavGraph pasa true (sin cambio).
+    internal val firearmUnlockedParam: Boolean = true,
+    // MISIÓN 3 (asalto): la cadena ENCB se siembra CON zombis + la EVIDENCIA 🧪 en encb_lab1.
+    internal val mission3Assault: Boolean = false
 ) : ViewModel() {
 
     internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(applicationContext)
@@ -103,7 +111,13 @@ class ZombieInteriorViewModel(
 
     init {
         // Siembra el inventario/progreso restaurado ANTES del primer loadRoom (que los preserva).
-        _state.update { it.copy(isLoading = true, inventoryKeys = initialInventoryKeys, lab1KeyFound = initialLab1KeyFound) }
+        _state.update { it.copy(
+            isLoading = true,
+            inventoryKeys = initialInventoryKeys,
+            lab1KeyFound = initialLab1KeyFound,
+            inventoryUnlockedSlots = initialUnlockedSlots.coerceIn(1, INVENTORY_TOTAL_SLOTS),
+            firearmUnlocked = firearmUnlockedParam
+        ) }
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -364,10 +378,18 @@ class ZombieInteriorViewModel(
         val hasWeapon = _state.value.combatMode == CombatMode.RANGED
 
         // En ONLINE los zombis los crea el servidor (llegan por ZOMBIE_STATE).
+        // MISIÓN 3 · ASALTO: la cadena ENCB (normalmente segura) se siembra CON zombis aunque el
+        // modo zombi global esté apagado (primer combate interior de campaña).
+        val m3Room = mission3Assault && room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS
         val isZombieEligible = room.type == ZoneType.BUILDING ||
-                (room.type == ZoneType.LOBBY && _state.value.zombieModeActivated)
-        val effectiveZombieCount = if (room.type == ZoneType.LOBBY) 5 else room.zombieCount
-        val zombies = if (!isMultiplayer && isZombieEligible && effectiveZombieCount > 0 && _state.value.zombieModeActivated) {
+                (room.type == ZoneType.LOBBY && _state.value.zombieModeActivated) || m3Room
+        val effectiveZombieCount = when {
+            m3Room -> ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.ASSAULT_ZOMBIES_PER_ROOM
+            room.type == ZoneType.LOBBY -> 5
+            else -> room.zombieCount
+        }
+        val zombies = if (!isMultiplayer && isZombieEligible && effectiveZombieCount > 0 &&
+            (_state.value.zombieModeActivated || m3Room)) {
             val lootIndex = Random.nextInt(effectiveZombieCount)
             (0 until effectiveZombieCount).map { i ->
                 val (zx, zy) = spawnAroundPlayer(spawnX, spawnY, room)
@@ -415,6 +437,12 @@ class ZombieInteriorViewModel(
                 mission2BackpackY = null,
                 mission2BackpackNearby = false,
                 mission2BackpackTaken = false,
+                // MISIÓN 3 · asalto: la EVIDENCIA 🧪 vive en encb_lab1 (mesa del derrame).
+                mission3EvidenceX = if (mission3Assault && room.id == ZombieRoomCatalog.ENCB_LAB1_ID &&
+                    !it.mission3EvidenceTaken) room.worldWidth * 0.52f else null,
+                mission3EvidenceY = if (mission3Assault && room.id == ZombieRoomCatalog.ENCB_LAB1_ID &&
+                    !it.mission3EvidenceTaken) room.worldHeight * 0.40f else null,
+                mission3EvidenceNearby = false,
                 showVictoryScreen = false,
                 activeEffects = emptyList(),
                 showExitGuide = room.type == ZoneType.BUILDING,
@@ -623,8 +651,9 @@ class ZombieInteriorViewModel(
         val keyId = s.nearbyKeyId
         if (keyId != null) {
             val key = s.keys.firstOrNull { it.id == keyId } ?: return
-            if (s.inventoryKeys.size >= INVENTORY_UNLOCKED_SLOTS) {
-                showKeyMessage("🎒 Inventario lleno (1 slot). Llévala al Laboratorio 2 y pruébala (mantén Y).")
+            // Slots USABLES dinámicos: 1 al inicio; TODOS tras recuperar la mochila (Misión 2).
+            if (s.inventoryKeys.size >= s.inventoryUnlockedSlots) {
+                showKeyMessage("🎒 Inventario lleno (${s.inventoryUnlockedSlots} slot(s)). Prueba o desecha una llave (mantén Y).")
                 return
             }
             soundManager.playItem()
@@ -654,10 +683,28 @@ class ZombieInteriorViewModel(
             }
             if (s.mission2BackpackNearby && !s.mission2BackpackTaken) {
                 soundManager.playItem()
-                _state.update { it.copy(mission2BackpackTaken = true, mission2BackpackNearby = false) }
-                showKeyMessage("🎒 Recuperaste la mochila de Prankedy.")
+                // 🎒 RECOMPENSA: la mochila de Prankedy DESBLOQUEA los slots del inventario.
+                _state.update { it.copy(
+                    mission2BackpackTaken = true,
+                    mission2BackpackNearby = false,
+                    inventoryUnlockedSlots = INVENTORY_TOTAL_SLOTS
+                ) }
+                showKeyMessage("🎒 ¡Mochila de Prankedy! Inventario DESBLOQUEADO ($INVENTORY_TOTAL_SLOTS slots).")
                 return
             }
+        }
+
+        // 1d. MISIÓN 3 · ASALTO ENCB: recoger la EVIDENCIA 🧪 del laboratorio (encb_lab1).
+        if (s.mission3EvidenceNearby && !s.mission3EvidenceTaken) {
+            soundManager.playItem()
+            _state.update { it.copy(mission3EvidenceTaken = true, mission3EvidenceNearby = false) }
+            showKeyMessage("🧪 ¡Evidencia recuperada! Saliendo de la ENCB…")
+            // Auto-regreso al mapa: el waypoint de salida no existe en la cadena ENCB.
+            viewModelScope.launch {
+                delay(2600)
+                goToRoom(ZombieRoomCatalog.EXIT_TO_WORLD)
+            }
+            return
         }
 
         // 2b. Mano zombi en lobby
@@ -868,6 +915,12 @@ class ZombieInteriorViewModel(
     }
 
     fun selectCombatMode(mode: CombatMode) {
+        // MISIÓN 3 (recompensa): sin ARMA DE FUEGO el modo RANGED está bloqueado (solo campaña;
+        // fuera de campaña firearmUnlocked llega true y no cambia nada).
+        if (mode == CombatMode.RANGED && !_state.value.firearmUnlocked) {
+            showKeyMessage("🔒 Aún no tienes un arma de fuego. Complétala en la Misión 3 (ENCB).")
+            return
+        }
         // El modo de golpe vive en el MENÚ COMBINADO (con el inventario, se abre con Y): elegir
         // un modo NO cierra el menú (el jugador puede ver/usar el inventario en el mismo panel).
         _state.update { it.copy(combatMode = mode) }
@@ -984,7 +1037,10 @@ class ZombieInteriorViewModel(
         private val playerName: String,
         private val startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
         private val initialInventoryKeys: List<String> = emptyList(),
-        private val initialLab1KeyFound: Boolean = false
+        private val initialLab1KeyFound: Boolean = false,
+        private val initialUnlockedSlots: Int = INVENTORY_UNLOCKED_SLOTS,
+        private val firearmUnlocked: Boolean = true,
+        private val mission3Assault: Boolean = false
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -995,7 +1051,10 @@ class ZombieInteriorViewModel(
                 playerName,
                 startRoomId,
                 initialInventoryKeys,
-                initialLab1KeyFound
+                initialLab1KeyFound,
+                initialUnlockedSlots,
+                firearmUnlocked,
+                mission3Assault
             ) as T
         }
     }

@@ -79,6 +79,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission1ChaseIntro
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission1Chase
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Backpack
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission3Evidence
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setStorySpawn
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetroStation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusStation
@@ -891,6 +892,12 @@ fun AppNavGraph(
                             // MODO HISTORIA: tras la Misión 1 (INGRESAR_ESCOM cumplida), al entrar al
                             // interior de la ESCOM (lobby) se muestra el objetivo "Busca pistas en la ESCOM".
                             // El objetivo exterior NO cambia (allá sigue "Ingresa a la ESCOM, Cumplido").
+                            // MISIÓN 3 · ASALTO: entrar a la cadena ENCB durante la fase 3 siembra
+                            // zombis + la evidencia (la navegación la disparó WorldMapMission3).
+                            val mission3Assault = worldMapViewModel.inCampaign &&
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID &&
+                                worldMapViewModel.mission3Phase ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.PHASE_ASSAULT
                             val interiorObjective = when {
                                 worldMapViewModel.inCampaign &&
                                 startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID &&
@@ -900,6 +907,9 @@ fun AppNavGraph(
                                 // MISIÓN 2 · fase MOCHILA: el salón muestra su propio objetivo.
                                 startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ESCOM_SALON_M2_ID ->
                                     ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_RECUPERAR_MOCHILA
+                                // MISIÓN 3 · ASALTO: la cadena ENCB muestra "Recupera la evidencia".
+                                mission3Assault ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M3_RECUPERAR_EVIDENCIA
                                 else -> null
                             }
                             ZombieGameScreen(
@@ -940,6 +950,16 @@ fun AppNavGraph(
                                 // salón, se completa la Misión 2 en el VM del mundo.
                                 onMission2BackpackRecovered = {
                                     worldMapViewModel.completeMission2Backpack()
+                                },
+                                // MISIÓN 2: la mochila desbloquea TODOS los slots del inventario
+                                // (persistido vía mission2Phase). MISIÓN 3: gate del arma de fuego
+                                // (solo campaña) + modo asalto ENCB + callback de la evidencia.
+                                initialUnlockedSlots = if (worldMapViewModel.mission2Phase >=
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_DONE) 4 else 1,
+                                firearmUnlocked = !worldMapViewModel.inCampaign || worldMapViewModel.hasFirearm,
+                                mission3Assault = mission3Assault,
+                                onMission3EvidenceRecovered = {
+                                    worldMapViewModel.completeMission3Evidence()
                                 }
                             )
                         }

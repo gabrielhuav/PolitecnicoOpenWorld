@@ -84,6 +84,14 @@ Desde el menú principal hay dos entradas (ver `07_OTHER_FEATURES.md`):
 |---|---|---|---|
 | 1 | `01_MISSION_1.md` | De la ESCOM a la ENCB · escolta de Prankedy · ingreso a la ESCOM | ✅ Implementada |
 | 2 | `02_MISSION_2.md` | "El rumor": esconderse de la policía, rumor zombie, primer brote público, Rey Grupero y la mochila de Prankedy | ✅ Implementada (2026-07-03) |
+| 3 | `03_MISSION_3.md` | "Regreso a la ENCB": cordón de granaderos (sigilo), asalto interior con zombis, evidencia del laboratorio → primera ARMA DE FUEGO | ✅ Implementada (2026-07-04) |
+
+> **🆕 REGISTRO DE MISIONES (2026-07-04, estilo Witcher):** ya NO existe el diálogo "¿Continuar la
+> historia o mundo libre?" — el jugador SIEMPRE está en mundo libre y elige qué misión SEGUIR desde
+> **Opciones → "Misiones"** (`MissionLogDialog` + `WorldMapMissionLog.kt` + `MissionCatalog.missions`).
+> Estados: 🔒 bloqueada (requiere la anterior) · disponible · ▶ activa (🎯 + línea guía) · ✔
+> completada (`completedMissions`, persistida en el JSON). "Dejar de seguir" pausa la misión (la
+> fase se conserva). Preparado para misiones SECUNDARIAS (`CampaignMissionInfo.side`).
 
 > **⚠️ Nota de nomenclatura (RESUELTA 2026-07-03):** la fase de persecución/ingreso que en el
 > código se llamaba "Misión 2" era mecánica de la Misión 1; al implementar la Misión 2 REAL se

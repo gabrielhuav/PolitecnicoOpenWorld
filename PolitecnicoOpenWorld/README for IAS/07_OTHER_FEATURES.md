@@ -116,6 +116,15 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
   `startMission1Chase`, `isMission1ChaseActive`, `consumePendingMission1ChaseIntro`, estado
   `pendingMission1ChaseIntro`, crowd `mission1ChaseCrowd`, cómic `MISSION1_CHASE_INTRO_ID`, ruta nav
   `story_mission1_chase`.
+- **🆕 REGISTRO/SELECTOR DE MISIONES (2026-07-04, estilo Witcher):** el diálogo R7 tras la escolta
+  se ELIMINÓ (la escolta encadena directo con el cómic + chase). El jugador SIEMPRE está en mundo
+  libre; sigue/pausa misiones desde **Opciones → "Misiones"** (`MissionLogDialog`; estados
+  bloqueada/disponible/activa/completada; `completedMissions` persistida). Las misiones 2 y 3 ya
+  NO arrancan solas. Ver `CAMPAIGN/00_OVERVIEW` y 09.
+- **🆕 MISIÓN 3 · "Regreso a la ENCB" (2026-07-04):** cordón de granaderos con sigilo + asalto
+  interior ENCB con zombis + evidencia 🧪 → recompensa **primera ARMA DE FUEGO** (`hasFirearm`,
+  desbloquea RANGED en campaña). La mochila de la M2 ahora **desbloquea los 4 slots** del
+  inventario. Ver `CAMPAIGN/03_MISSION_3.md`.
 - **🆕 MISIÓN 2 · "El rumor" (2026-07-03):** campaña REAL post-Misión 1, 5 fases sobre el campus ESCOM:
   esconderse de la policía de búsqueda → rumor zombie (2 estudiantes, conversación con subtítulos que se
   PAUSA si te alejas) → primer brote público (conversión + sometimiento + radio "refuerzos en la ENCB") →

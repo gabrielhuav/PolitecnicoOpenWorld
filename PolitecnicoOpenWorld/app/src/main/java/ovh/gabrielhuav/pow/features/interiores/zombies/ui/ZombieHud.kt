@@ -203,12 +203,19 @@ fun ZombieHud(
                     // — Modo de golpe —
                     Text(stringResource(R.string.zhud_combat_mode), color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     WeaponMenuButton(stringResource(R.string.zhud_mode_melee), state.combatMode == CombatMode.MELEE) { onSelectMode(CombatMode.MELEE) }
-                    WeaponMenuButton(stringResource(R.string.zhud_mode_ranged), state.combatMode == CombatMode.RANGED) { onSelectMode(CombatMode.RANGED) }
+                    // MISIÓN 3 (recompensa): sin arma de fuego, A DISTANCIA sale con candado (el
+                    // VM rechaza la selección con un aviso; aquí solo se marca visualmente).
+                    WeaponMenuButton(
+                        (if (state.firearmUnlocked) "" else "🔒 ") + stringResource(R.string.zhud_mode_ranged),
+                        state.combatMode == CombatMode.RANGED
+                    ) { onSelectMode(CombatMode.RANGED) }
                     // — Inventario —
                     Text(stringResource(R.string.zhud_inventory), color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         val totalSlots = 4
-                        val unlockedSlots = 1
+                        // Slots USABLES dinámicos: 1 al inicio; TODOS al recuperar la mochila de
+                        // Prankedy (Misión 2). Lo decide el VM (state.inventoryUnlockedSlots).
+                        val unlockedSlots = state.inventoryUnlockedSlots
                         for (i in 0 until totalSlots) {
                             val unlocked = i < unlockedSlots
                             val heldKey = state.inventoryKeys.getOrNull(i)

@@ -67,6 +67,10 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
         lab1KeyFound = currentInteriorLab1KeyFound,
         // MISIÓN 2 · "El rumor": fase de la máquina de estados (0 = no iniciada).
         mission2Phase = mission2Phase,
+        // MISIÓN 3 · "Regreso a la ENCB" + recompensa (arma de fuego) + registro de misiones.
+        mission3Phase = mission3Phase,
+        hasFirearm = hasFirearm,
+        completedMissions = s.completedMissions,
         saveType = saveType,
         savedAt = System.currentTimeMillis()
     )
@@ -100,9 +104,15 @@ fun WorldMapViewModel.restoreSaveData(data: GameSaveData) {
     // el interior para sembrar el estado del ZombieInteriorViewModel).
     currentInteriorInventory = data.inventoryKeys
     currentInteriorLab1KeyFound = data.lab1KeyFound
-    // MISIÓN 2 · "El rumor": restaura la fase; el tick (runMission2StoryTick) re-arma solo los
-    // actores de la fase (los NPCs de misión no se guardan). setStorySpawn ya limpió la pizarra.
+    // MISIONES 2/3: restaura fases; los ticks re-arman solos los actores de la fase (los NPCs de
+    // misión no se guardan). setStorySpawn ya limpió la pizarra. + Arma de fuego y registro.
     mission2Phase = data.mission2Phase
+    mission3Phase = data.mission3Phase
+    hasFirearm = data.hasFirearm
+    // ⚠️ Gotcha Gson: en guardados VIEJOS una lista AUSENTE llega NULL en runtime aunque el tipo
+    // Kotlin sea no-nulo (Gson no aplica defaults de Kotlin). Coalesce defensivo.
+    @Suppress("USELESS_ELVIS")
+    val restoredCompleted: List<String> = data.completedMissions ?: emptyList()
     _uiState.update {
         it.copy(
             wantedLevel = data.wantedLevel,
@@ -112,7 +122,8 @@ fun WorldMapViewModel.restoreSaveData(data: GameSaveData) {
             currentVehicleColor = data.vehicleColor,
             selectedSkin = skin,
             currentObjective = objective,
-            objectiveDone = data.objectiveDone
+            objectiveDone = data.objectiveDone,
+            completedMissions = restoredCompleted
         )
     }
     data.nearbyNpcs.forEach { sn ->
@@ -159,15 +170,23 @@ fun WorldMapViewModel.retryCampaignMission(context: Context) {
         playerHealth = maxPlayerHealth
     } else if (failedObjId != null && failedObjId.startsWith(
             ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.OBJECTIVE_ID_PREFIX)) {
-        // MISIÓN 2 · "El rumor": el checkpoint es la ENTRADA del campus (spawn ESCOM canónico).
-        // Se re-arma la misión COMPLETA desde la fase 1 (esconderse): mission2Phase=0 +
-        // INGRESAR_ESCOM cumplida hacen que maybeStartMission2Story la reinicie sola.
+        // MISIÓN 2 · "El rumor": checkpoint = ENTRADA del campus (spawn ESCOM canónico) y la
+        // misión se REINICIA completa desde la fase 1 (startMission2Story fija fase + objetivo).
         setStorySpawn(
             ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.RETRY_SPAWN_LAT,
             ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.RETRY_SPAWN_LON
         )
-        setCampaignObjective(MissionCatalog.INGRESAR_ESCOM)
-        _uiState.update { it.copy(objectiveDone = true) }
+        startMission2Story()
+        playerHealth = maxPlayerHealth
+    } else if (failedObjId != null && failedObjId.startsWith(
+            ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.OBJECTIVE_ID_PREFIX)) {
+        // MISIÓN 3 · "Regreso a la ENCB": checkpoint = entrada al vecindario ENCB; se reinicia
+        // completa desde la fase VIAJE (el cordón se re-arma al acercarte).
+        setStorySpawn(
+            ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.RETRY_SPAWN_LAT,
+            ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.RETRY_SPAWN_LON
+        )
+        startMission3Story()
         playerHealth = maxPlayerHealth
     } else if (!loadGame(context, campaignSlot)) {
         setCampaignObjective(MissionCatalog.ESCOLTAR_PRANKEDY)
@@ -188,29 +207,9 @@ fun WorldMapViewModel.setCampaignObjective(objective: ovh.gabrielhuav.pow.domain
     _uiState.update { it.copy(currentObjective = objective, objectiveDone = false, showMissionFailed = false) }
 }
 
-// ─── R7: CONTINUAR / DIFERIR LA HISTORIA tras la Misión 1 ──────────────────────────────────────
-// El diálogo "Misión cumplida" deja ELEGIR entre seguir la historia ya o quedarse en mundo libre.
-
-/** Continuar la historia AHORA: dispara el cómic IntroPOW12..15 + la persecución final (chase). */
-fun WorldMapViewModel.continueStoryNow() {
-    _uiState.update { it.copy(showMissionContinueDialog = false, pendingResumeMissionId = null, pendingMission1ChaseIntro = true) }
-}
-
-/** Seguir en MUNDO LIBRE: sin objetivo activo; deja la persecución PENDIENTE ("Retomar misión"). */
-fun WorldMapViewModel.deferStoryToFreeRoam() {
-    _uiState.update { it.copy(
-        showMissionContinueDialog = false,
-        currentObjective = null,
-        objectiveDone = false,
-        pendingResumeMissionId = MissionCatalog.INGRESAR_ESCOM.id
-    ) }
-}
-
-/** "Retomar misión" (Opciones): retoma la historia pendiente (cómic + persecución final). */
-fun WorldMapViewModel.resumeStoryMission() {
-    if (_uiState.value.pendingResumeMissionId == null) return
-    _uiState.update { it.copy(pendingResumeMissionId = null, pendingMission1ChaseIntro = true) }
-}
+// (El viejo diálogo R7 "¿Continuar la historia o mundo libre?" se ELIMINÓ: la escolta encadena
+// DIRECTO con el cómic + la persecución final (son parte de la Misión 1), y a partir de ahí el
+// jugador elige qué misión seguir desde el REGISTRO DE MISIONES — ver WorldMapMissionLog.kt.)
 
 // Comprueba si el jugador llegó al objetivo (lo llama el game loop). Al entrar en el radio
 // de llegada, marca el objetivo como cumplido y avisa por el HUD.
@@ -266,13 +265,12 @@ fun WorldMapViewModel.checkObjectiveProgress(location: GeoPoint) {
         _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${getLocalizedString(obj.titleRes)}") }
         // Jingle de "misión cumplida".
         soundManager.playMisionCumplida()
-        // MISIÓN 1 cumplida (llegaste a la PUERTA de la ESCOM con Prankedy) → dispara el cómic
-        // IntroPOW12..14 (MainActivity) y, al volver, arranca la persecución de la Misión 2.
+        // ESCOLTA cumplida (llegaste a la PUERTA de la ESCOM con Prankedy) → cómic IntroPOW12..15
+        // y, al volver, la persecución final. Encadena DIRECTO (sin el viejo diálogo R7: el
+        // jugador administra sus misiones desde el registro — Opciones → "Misiones").
         if (obj.id == MissionCatalog.ESCOLTAR_PRANKEDY.id) {
-            android.util.Log.d("POW_DBG", "MISIÓN 1 (ESCOLTAR) CUMPLIDA → diálogo Continuar/Mundo libre (R7)")
-            // R7: antes arrancaba directo el cómic + Misión 2 (pendingMission2Intro=true). Ahora
-            // ofrecemos ELEGIR: continuar la historia ya, o seguir en mundo libre y retomar después.
-            _uiState.update { it.copy(showMissionContinueDialog = true) }
+            android.util.Log.d("POW_DBG", "MISIÓN 1 (ESCOLTAR) CUMPLIDA → cómic + persecución final")
+            _uiState.update { it.copy(pendingMission1ChaseIntro = true) }
         }
     }
 }
