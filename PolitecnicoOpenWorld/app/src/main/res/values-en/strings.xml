@@ -429,7 +429,7 @@
     <string name="obj_buscar_pistas_escom_desc">Explore the ESCOM looking for clues.</string>
     <!-- Campaign objectives (Mission 2 · "The rumor") -->
     <string name="obj_m2_esconderse_title">Lose the police</string>
-    <string name="obj_m2_esconderse_desc">The police are looking for you and Prankedy. Move away from the ESCOM entrance before they recognize you.</string>
+    <string name="obj_m2_esconderse_desc">The police entered the ESCOM looking for you. Hide INSIDE the lobby and keep your distance until they give up.</string>
     <string name="obj_m2_pista_rumor_title">Search for clues in the ESCOM</string>
     <string name="obj_m2_pista_rumor_desc">Some students are talking about something strange. Get close and listen to the WHOLE rumor.</string>
     <string name="obj_m2_pista_brote_title">Keep looking for clues</string>
@@ -438,6 +438,11 @@
     <string name="obj_m2_hablar_prankedy_desc">Prankedy heard everything. Get close and talk to him.</string>
     <string name="obj_m2_recuperar_mochila_title">Recover Prankedy\'s backpack</string>
     <string name="obj_m2_recuperar_mochila_desc">The backpack is hidden in an ESCOM classroom. Class is in session: use the STINK CAN.</string>
+    <!-- Mission 2 · phase 1 "Hide" (lobby, interiors) -->
+    <string name="zgame_hide_countdown">🚨 Police in the lobby: hold on %1$d s without being seen</string>
+    <string name="amb_cop_search_1">Where did he go?</string>
+    <string name="amb_cop_search_2">Look carefully, he can\'t be far.</string>
+    <string name="amb_cop_alert">Isn\'t that…?! Hey, YOU!</string>
     <!-- Mission 2 · backpack classroom (interiors) -->
     <string name="zgame_stink_prompt">💨 Press ACTION to throw the STINK CAN</string>
     <string name="zgame_backpack_prompt">🎒 Press ACTION to pick up Prankedy\'s backpack</string>
@@ -463,6 +468,7 @@
     <string name="mlog_free_roam_hint">No active mission: you\'re in FREE ROAM. Track a mission whenever you want.</string>
     <string name="mlog_replay">REPLAY</string>
     <string name="mlog_tp_objective">TP TO OBJECTIVE</string>
+    <string name="mlog_tp_exit_first">TP moves the player on the MAP: exit the interior to use it.</string>
     <string name="mission1_title">Mission 1 · Outbreak origin</string>
     <string name="mission1_desc">Investigate the ENCB, escort Prankedy to the ESCOM and get to safety from the police.</string>
     <string name="mission2_title">Mission 2 · The rumor</string>
@@ -481,6 +487,31 @@
     <string name="amb_phrase_9">The school wifi is down again.</string>
     <string name="amb_phrase_10">They say weird things are happening in Zacatenco.</string>
     <string name="amb_phrase_bye">See you around</string>
+    <!-- University life: coherent conversation SCRIPTS (alternating lines A/B/A/B) -->
+    <string name="amb_convo1_1">How did the math midterm go?</string>
+    <string name="amb_convo1_2">I failed… the professor tested stuff we never covered.</string>
+    <string name="amb_convo1_3">Same here. Tutoring session tomorrow?</string>
+    <string name="amb_convo1_4">Deal. They say the fifth-floor tutor explains it well.</string>
+    <string name="amb_convo2_1">Got a topic for your thesis project yet?</string>
+    <string name="amb_convo2_2">Something with computer vision, but my advisor won\'t reply.</string>
+    <string name="amb_convo2_3">Switch advisors before registration closes.</string>
+    <string name="amb_convo2_4">Too late… guess I\'ll chase him down the hallways.</string>
+    <string name="amb_convo3_1">I\'m starving… cafeteria?</string>
+    <string name="amb_convo3_2">It\'s packed. Better the taco stand outside.</string>
+    <string name="amb_convo3_3">The basket tacos? I got a cold one yesterday.</string>
+    <string name="amb_convo3_4">Then hold your hunger till you get home, haha.</string>
+    <string name="amb_convo4_1">Is it true what they say about the ENCB?</string>
+    <string name="amb_convo4_2">My cousin saw ambulances and patrol cars all morning.</string>
+    <string name="amb_convo4_3">The group chat says people are BITING people, haha.</string>
+    <string name="amb_convo4_4">Don\'t laugh… my professor canceled class over a «contingency».</string>
+    <string name="amb_convo5_1">Can you get on the wifi? I need to upload my lab.</string>
+    <string name="amb_convo5_2">Don\'t even try, it\'s been down since morning.</string>
+    <string name="amb_convo5_3">Again? The deadline is at three.</string>
+    <string name="amb_convo5_4">Go to the networking lab, it works there.</string>
+    <string name="amb_convo6_1">Are you signing up for the physics makeup exam?</string>
+    <string name="amb_convo6_2">Yeah, no choice. You too?</string>
+    <string name="amb_convo6_3">Yep… see you at the exam then.</string>
+    <string name="amb_convo6_4">Deal. We\'ll study together the day before, right?</string>
     <!-- Transit: prompt + messages (were hardcoded in TransitSystemConfig) -->
     <string name="wm_prompt_metrobus">PRESS X TO ENTER METROBÚS STATION %1$s</string>
     <string name="transit_metro_msg_ticket">You reloaded your metro card</string>

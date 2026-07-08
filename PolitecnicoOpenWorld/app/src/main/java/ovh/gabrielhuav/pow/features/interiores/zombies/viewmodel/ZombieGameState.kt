@@ -66,6 +66,17 @@ data class ZombieGameState(
     val lab1KeyFound: Boolean = false,
     val keyMessage: String? = null,
 
+    // ─── MISIÓN 2 · FASE 1 "ESCONDERSE" (lobby de la ESCOM) ─────────────────
+    // Policías (skin POLICIA_CDMX) patrullan el lobby como NPCs ambientales (ids "m2cop_*" DENTRO
+    // de ambientNpcs). El jugador debe evitar que lo vean de cerca (Mission2.HIDE_DETECT_PX /
+    // HIDE_DETECT_MS) hasta que se rindan (HIDE_DURATION_MS): entonces corren a la puerta y se
+    // van. Desenlace → ZombieGameScreen dispara onMission2HideCompleted/Failed (AppNavGraph →
+    // completeMission2Hide()/failMission2Hide() del VM del mundo). Timers transitorios en el VM.
+    val mission2HideActive: Boolean = false,      // hay búsqueda en curso en esta sala
+    val mission2HideRemainingSec: Int? = null,    // countdown para el HUD (null = sin countdown)
+    val mission2HideCompleted: Boolean = false,   // aguantaste: policías rendidos y fuera
+    val mission2HideFailed: Boolean = false,      // te reconocieron → misión fallida
+
     // ─── MISIÓN 2 · SALÓN DE LA MOCHILA (escom_salon_m2) ────────────────────
     // Lata apestosa: al lanzarla (X), los NPCs ambientales EVACÚAN el salón; cuando queda vacío
     // aparece la MOCHILA de Prankedy (emoji 🎒, sin asset dedicado). Recogerla (X) marca

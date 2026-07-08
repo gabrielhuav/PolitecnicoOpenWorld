@@ -42,10 +42,13 @@ data class AmbientNpc(
     val partnerId: String? = null,       // con quién quedó de verse / platica / camina
     val modeUntilMs: Long = 0L,          // fin de la plática o tope del modo actual
     // Semilla COMPARTIDA de la pareja (la fija el emparejador, MISMO valor para ambos). Todas las
-    // decisiones de pareja (duración de la plática, ¿caminar juntos?, destino común) se derivan de
+    // decisiones de pareja (GUION de la plática, ¿caminar juntos?, destino común) se derivan de
     // aquí de forma DETERMINISTA → cada NPC se configura A SÍ MISMO sin escribirle al otro (sin
     // carreras por orden de procesamiento en el tick).
     val pairSeed: Long = 0L,
+    // 🆕 Inicio de la PLÁTICA actual (ms): con pairSeed elige el GUION (AMBIENT_CONVOS) y con
+    // (now - talkStartMs) la LÍNEA que toca — conversaciones COHERENTES, no frases sueltas.
+    val talkStartMs: Long = 0L,
     @StringRes val speechRes: Int? = null,   // burbuja de diálogo visible (null = sin burbuja)
     val speechUntilMs: Long = 0L,
     // ── Anti-atasco (checkpoint de movimiento) ──
@@ -69,16 +72,39 @@ private val AMBIENT_SKINS: List<PlayerSkin> =
         PlayerSkin.RND_1, PlayerSkin.DOC_1, PlayerSkin.EST_H1, PlayerSkin.EST_M1
     )
 
-// FRASES de la vida universitaria (burbujas de las pláticas). @StringRes → traducibles (ES+EN).
-private val AMBIENT_PHRASES: List<Int> = listOf(
-    R.string.amb_phrase_1, R.string.amb_phrase_2, R.string.amb_phrase_3, R.string.amb_phrase_4,
-    R.string.amb_phrase_5, R.string.amb_phrase_6, R.string.amb_phrase_7, R.string.amb_phrase_8,
-    R.string.amb_phrase_9, R.string.amb_phrase_10
+// 🆕 GUIONES de plática (vida universitaria): cada guion es una CONVERSACIÓN COHERENTE de líneas
+// ALTERNADAS (línea 0, 2, 4… las dice el NPC de id MENOR; 1, 3, 5… el otro). La pareja elige su
+// guion DETERMINISTA desde pairSeed y avanza línea por línea con (now - talkStartMs) — ya no son
+// frases sueltas al azar sin hilo. @StringRes → traducibles (ES+EN, paridad obligatoria).
+private val AMBIENT_CONVOS: List<List<Int>> = listOf(
+    listOf(R.string.amb_convo1_1, R.string.amb_convo1_2, R.string.amb_convo1_3, R.string.amb_convo1_4),
+    listOf(R.string.amb_convo2_1, R.string.amb_convo2_2, R.string.amb_convo2_3, R.string.amb_convo2_4),
+    listOf(R.string.amb_convo3_1, R.string.amb_convo3_2, R.string.amb_convo3_3, R.string.amb_convo3_4),
+    listOf(R.string.amb_convo4_1, R.string.amb_convo4_2, R.string.amb_convo4_3, R.string.amb_convo4_4),
+    listOf(R.string.amb_convo5_1, R.string.amb_convo5_2, R.string.amb_convo5_3, R.string.amb_convo5_4),
+    listOf(R.string.amb_convo6_1, R.string.amb_convo6_2, R.string.amb_convo6_3, R.string.amb_convo6_4),
+    // Guiones cortos (2 líneas) armados con las frases clásicas que SÍ hilan pregunta→respuesta.
+    listOf(R.string.amb_phrase_1, R.string.amb_phrase_7),
+    listOf(R.string.amb_phrase_5, R.string.amb_phrase_10),
+    listOf(R.string.amb_phrase_8, R.string.amb_phrase_4)
 )
 // Despedida al separarse (como el "Ahí nos vemos" de Prankedy al final de la Misión 1).
 private val AMBIENT_BYE: Int = R.string.amb_phrase_bye
 
-private const val AMBIENT_COUNT = 7
+// ── MISIÓN 2 · FASE 1 (lobby): policías de búsqueda como NPCs ambientales ──
+// Viven DENTRO de ambientNpcs (mismo render/burbuja) con este prefijo; el emparejador los IGNORA
+// (un policía no se pone a platicar con un alumno) y su paso es stepMission2HideCops, no el normal.
+internal const val M2COP_PREFIX = "m2cop_"
+private val M2COP_SEARCH_PHRASES: List<Int> =
+    listOf(R.string.amb_cop_search_1, R.string.amb_cop_search_2)
+
+// NPCs por sala: el LOBBY es el corazón de la vida universitaria (más denso); el salón M2 es una
+// clase (menos). Otras salas ambientales futuras caen al default.
+private fun ambientCountFor(room: ZombieRoom): Int = when (room.id) {
+    ZombieRoomCatalog.LOBBY_ID -> 13
+    ZombieRoomCatalog.ESCOM_SALON_M2_ID -> 8
+    else -> 7
+}
 private const val AMBIENT_SPEED = 3.0f          // px por tick (caminar tranquilo)
 private const val AMBIENT_RADIUS = 28f          // margen a paredes/bordes
 private const val AMBIENT_ARRIVE = 18f          // distancia para considerar "llego" al objetivo
@@ -89,7 +115,7 @@ private const val STUCK_EPS = 6f                // si se movió menos que esto�
 private const val STUCK_MS = 1600L              // …durante este tiempo, está ATORADO → cambia dirección
 
 // ── Vida universitaria (encuentros/pláticas) ──
-private const val PAIR_CHANCE_PER_TICK = 0.004f // ~1 encuentro cada ~8 s de tick (30 Hz) si hay libres
+private const val PAIR_CHANCE_PER_TICK = 0.009f // ~1 encuentro cada ~3.7 s de tick (30 Hz) si hay libres
 private const val TALK_START_DIST = 78f         // al quedar así de cerca del punto común → platican
 private const val TALK_GAP = 26f                // separación al pararse frente a frente
 private const val TALK_MIN_MS = 8000L
@@ -123,8 +149,10 @@ private fun randomWalkable(room: ZombieRoom, rnd: Random): Pair<Float, Float>? {
 /** Crea los NPCs ambientales de la sala (vacio si no aplica o si es multijugador). */
 internal fun ZombieInteriorViewModel.spawnAmbientNpcs(room: ZombieRoom): List<AmbientNpc> {
     if (isMultiplayer || room.id !in AMBIENT_ROOM_IDS || AMBIENT_SKINS.isEmpty()) return emptyList()
-    val list = ArrayList<AmbientNpc>(AMBIENT_COUNT)
-    repeat(AMBIENT_COUNT) { i ->
+    val count = ambientCountFor(room)
+    val now = System.currentTimeMillis()
+    val list = ArrayList<AmbientNpc>(count)
+    repeat(count) { i ->
         val p = randomWalkable(room) ?: return@repeat
         val t = randomWalkable(room) ?: p
         list.add(
@@ -139,14 +167,103 @@ internal fun ZombieInteriorViewModel.spawnAmbientNpcs(room: ZombieRoom): List<Am
             )
         )
     }
+    // 🆕 GRUPOS INICIALES (solo el lobby): 2 parejas nacen YA platicando frente a frente para que
+    // la sala se vea viva desde el primer segundo (no hay que esperar al emparejador aleatorio).
+    if (room.id == ZombieRoomCatalog.LOBBY_ID && list.size >= 4) {
+        for (g in 0 until 2) {
+            val ia = g * 2       // amb_0+amb_1 y amb_2+amb_3
+            val ib = g * 2 + 1
+            val spot = randomWalkable(room) ?: continue
+            val seed = now + g   // semilla COMPARTIDA de la pareja (guion determinista)
+            val talkMs = TALK_MIN_MS + (Random(seed).nextLong(TALK_MAX_MS - TALK_MIN_MS))
+            list[ia] = list[ia].copy(
+                x = spot.first - TALK_GAP / 2f, y = spot.second,
+                mode = AmbientMode.TALK, partnerId = list[ib].id, pairSeed = seed,
+                talkStartMs = now, modeUntilMs = now + talkMs,
+                action = PlayerAction.IDLE, facingRight = true
+            )
+            list[ib] = list[ib].copy(
+                x = spot.first + TALK_GAP / 2f, y = spot.second,
+                mode = AmbientMode.TALK, partnerId = list[ia].id, pairSeed = seed,
+                talkStartMs = now, modeUntilMs = now + talkMs,
+                action = PlayerAction.IDLE, facingRight = false
+            )
+        }
+    }
     return list
 }
 
-// ── Helpers de la vida universitaria ─────────────────────────────────────────
+// ── MISIÓN 2 · FASE 1 · POLICÍAS DEL LOBBY ───────────────────────────────────
 
-// Frase pseudoaleatoria DETERMINISTA por (npc, turno): no hay que guardar el índice de línea.
-private fun phraseFor(id: String, bucket: Long): Int =
-    AMBIENT_PHRASES[Random(id.hashCode() * 31L + bucket).nextInt(AMBIENT_PHRASES.size)]
+/** Crea los policías de búsqueda de la fase ESCONDERSE: entran por la puerta del lobby. */
+internal fun ZombieInteriorViewModel.spawnMission2HideCops(room: ZombieRoom): List<AmbientNpc> {
+    val door = room.doors.firstOrNull()
+    val dx = door?.let { (it.hitboxFrac.left + it.hitboxFrac.right) * 0.5f * room.worldWidth }
+        ?: (room.worldWidth * 0.5f)
+    val dy = door?.let { (it.hitboxFrac.top + it.hitboxFrac.bottom) * 0.5f * room.worldHeight }
+        ?: (room.worldHeight * 0.90f)
+    val m2 = ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
+    return (0 until m2.HIDE_COP_COUNT).map { i ->
+        // Aparecen ESCALONADOS junto a la puerta y se reparten a patrullar la sala.
+        val sx = (dx + (i - 1.5f) * 34f).coerceIn(AMBIENT_RADIUS, room.worldWidth - AMBIENT_RADIUS)
+        val t = randomWalkable(room) ?: (sx to dy)
+        AmbientNpc(
+            id = "$M2COP_PREFIX$i",
+            x = sx, y = dy,
+            skin = PlayerSkin.POLICIA_CDMX,
+            action = PlayerAction.WALK,
+            targetX = t.first, targetY = t.second
+        )
+    }
+}
+
+/**
+ * Paso de los policías de búsqueda: patrullan la sala (objetivos aleatorios caminables) y, cada
+ * HIDE_SWEEP_EVERY_MS, UNO (rotando) barre HACIA la posición actual del jugador — la búsqueda se
+ * siente dirigida sin ser injusta. Si te tienen a < HIDE_DETECT_PX te "ven" (burbuja de alerta);
+ * la CUENTA del reconocimiento (fallo) la lleva el tick del VM. Sin pláticas ni parejas.
+ */
+internal fun ZombieInteriorViewModel.stepMission2HideCops(
+    cops: List<AmbientNpc>, room: ZombieRoom, playerX: Float, playerY: Float, now: Long
+): List<AmbientNpc> {
+    if (cops.isEmpty()) return cops
+    val m2 = ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
+    // ¿A quién le toca el BARRIDO hacia el jugador en esta ventana? (rota de forma determinista)
+    val sweeperIdx = ((now / m2.HIDE_SWEEP_EVERY_MS) % cops.size).toInt()
+    return cops.mapIndexed { idx, cop0 ->
+        var cop = cop0
+        val dPlayer = hypot(cop.x - playerX, cop.y - playerY)
+        // Burbuja: alerta si te está viendo; si no, de vez en cuando una frase de búsqueda.
+        cop = when {
+            dPlayer < m2.HIDE_DETECT_PX ->
+                cop.copy(speechRes = R.string.amb_cop_alert, speechUntilMs = now + 900L)
+            cop.speechRes != null && now >= cop.speechUntilMs -> cop.copy(speechRes = null)
+            cop.speechRes == null && Random.nextFloat() < 0.002f ->
+                cop.copy(
+                    speechRes = M2COP_SEARCH_PHRASES[Random.nextInt(M2COP_SEARCH_PHRASES.size)],
+                    speechUntilMs = now + SPEECH_SHOW_MS
+                )
+            else -> cop
+        }
+        // Objetivo: el barredor de turno va hacia TI; el resto patrulla puntos aleatorios.
+        val arrived = hypot(cop.targetX - cop.x, cop.targetY - cop.y) <= AMBIENT_ARRIVE
+        if (idx == sweeperIdx) {
+            cop = cop.copy(targetX = playerX, targetY = playerY)
+        } else if (arrived || cop.retargetAtMs <= now) {
+            val t = randomWalkable(room)
+            if (t != null) cop = cop.copy(targetX = t.first, targetY = t.second,
+                retargetAtMs = now + 4000L + Random.nextLong(4000L))
+        }
+        val (rx, ry) = stepTowards(room, cop.x, cop.y, cop.targetX, cop.targetY, m2.HIDE_COP_SPEED_PX)
+        cop.copy(
+            x = rx, y = ry,
+            facingRight = if (abs(cop.targetX - cop.x) > 0.5f) cop.targetX >= cop.x else cop.facingRight,
+            action = PlayerAction.WALK
+        )
+    }
+}
+
+// ── Helpers de la vida universitaria ─────────────────────────────────────────
 
 // Rompe la pareja de un NPC (vuelve a WANDER con la despedida opcional).
 private fun AmbientNpc.unpair(room: ZombieRoom, now: Long, sayBye: Boolean): AmbientNpc {
@@ -201,9 +318,12 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
         }
     }
 
-    // ── 1. EMPAREJADOR: de vez en cuando, dos NPCs libres QUEDAN DE VERSE en un punto común. ──
+    // ── 1. EMPAREJADOR: de vez en cuando, dos NPCs libres QUEDAN DE VERSE en un punto común.
+    //       (Los policías m2cop_* de la Misión 2 NO platican: se excluyen del emparejador.) ──
     if (Random.nextFloat() < PAIR_CHANCE_PER_TICK) {
-        val free = byId.values.filter { it.mode == AmbientMode.WANDER && it.partnerId == null }
+        val free = byId.values.filter {
+            it.mode == AmbientMode.WANDER && it.partnerId == null && !it.id.startsWith(M2COP_PREFIX)
+        }
         if (free.size >= 2) {
             val a = free[Random.nextInt(free.size)]
             var b = free[Random.nextInt(free.size)]
@@ -239,12 +359,19 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
         }
 
         when (npc.mode) {
-            // ── PLÁTICA: parados frente a frente, burbujas alternadas. ──
+            // ── PLÁTICA: parados frente a frente, GUION coherente con líneas alternadas. ──
             AmbientMode.TALK -> {
                 val partner = npc.partnerId?.let { byId[it] }
+                // Guion DETERMINISTA de la pareja (misma semilla → mismo guion en ambos) y línea
+                // que toca según el tiempo transcurrido desde talkStartMs.
+                val script = AMBIENT_CONVOS[
+                    (Random(npc.pairSeed).nextInt(AMBIENT_CONVOS.size))
+                ]
+                val talkStart = if (npc.talkStartMs > 0L) npc.talkStartMs else now
+                val lineIdx = ((now - talkStart) / SPEECH_TURN_MS).toInt()
                 if (partner == null) {
                     npc = npc.unpair(room, now, sayBye = false)
-                } else if (now >= npc.modeUntilMs) {
+                } else if (now >= npc.modeUntilMs || lineIdx >= script.size) {
                     // Fin de la plática: 50% se van CAMINANDO JUNTOS, 50% despedida y separación.
                     // Decisión y destino común DETERMINISTAS desde pairSeed (idéntica en ambos):
                     // salen iguales para los dos, así CADA UNO se configura a sí mismo (sin
@@ -264,14 +391,15 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
                         npc.unpair(room, now, sayBye = true)
                     }
                 } else {
-                    // Frente a frente (idle) + TURNOS de habla: bucket par habla el de id menor.
-                    val myTurn = ((now / SPEECH_TURN_MS) % 2L == 0L) == (npc.id < (npc.partnerId ?: ""))
-                    val bucket = now / SPEECH_TURN_MS
+                    // Frente a frente (idle) + GUION por turnos: las líneas PARES (0,2,4…) las
+                    // dice el NPC de id MENOR y las impares el otro — ambos derivan lo mismo.
+                    val myLine = (lineIdx % 2 == 0) == (npc.id < (npc.partnerId ?: ""))
+                    val lineEndMs = talkStart + (lineIdx + 1L) * SPEECH_TURN_MS
                     npc = npc.copy(
                         action = PlayerAction.IDLE,
                         facingRight = partner.x >= npc.x,
-                        speechRes = if (myTurn) phraseFor(npc.id, bucket) else npc.speechRes,
-                        speechUntilMs = if (myTurn) ((bucket + 1) * SPEECH_TURN_MS).coerceAtMost(now + SPEECH_SHOW_MS)
+                        speechRes = if (myLine) script[lineIdx] else npc.speechRes,
+                        speechUntilMs = if (myLine) lineEndMs.coerceAtMost(now + SPEECH_SHOW_MS)
                                         else npc.speechUntilMs
                     )
                 }
@@ -292,7 +420,11 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
                             (Random(npc.pairSeed).nextLong(TALK_MAX_MS - TALK_MIN_MS))
                         npc = npc.copy(
                             mode = AmbientMode.TALK, action = PlayerAction.IDLE,
-                            modeUntilMs = now + talkMs, facingRight = partner.x >= npc.x
+                            modeUntilMs = now + talkMs, facingRight = partner.x >= npc.x,
+                            // Inicio del GUION: la línea que toca se deriva de aquí. Cada NPC
+                            // transiciona en un tick distinto (~33 ms de diferencia): la línea
+                            // derivada es la MISMA en la práctica (SPEECH_TURN_MS ≫ un tick).
+                            talkStartMs = now
                         )
                     }
                     else -> {
@@ -330,6 +462,40 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
                         facingRight = if (abs(npc.targetX - npc.x) > 0.5f) npc.targetX >= npc.x else npc.facingRight,
                         action = if (arrived) PlayerAction.IDLE else PlayerAction.WALK,
                         retargetAtMs = if (arrived) now + AMBIENT_WAIT_MS else npc.retargetAtMs
+                    )
+                }
+            }
+        }
+
+        // ── 2b. EVITAR AMONTONAMIENTO / ATASCOS DE CERCANÍA:
+        // Si el NPC está en modo WANDER, comprobamos si está demasiado cerca del jugador
+        // o de otro NPC (que no sea su pareja activa). Si es así, forzamos cambio de rumbo.
+        if (npc.mode == AmbientMode.WANDER) {
+            val px = _state.value.playerX
+            val py = _state.value.playerY
+            val distToPlayer = hypot(npc.x - px, npc.y - py)
+            var tooClose = distToPlayer < 35f
+
+            if (!tooClose) {
+                for (other in npcs) {
+                    if (other.id != npc.id) {
+                        val distToOther = hypot(npc.x - other.x, npc.y - other.y)
+                        val arePartners = npc.partnerId == other.id
+                        if (distToOther < 35f && !arePartners) {
+                            tooClose = true
+                            break
+                        }
+                    }
+                }
+            }
+
+            if (tooClose) {
+                val t = randomWalkable(room)
+                if (t != null) {
+                    npc = npc.copy(
+                        action = PlayerAction.WALK,
+                        targetX = t.first, targetY = t.second,
+                        stuckX = npc.x, stuckY = npc.y, stuckSinceMs = now
                     )
                 }
             }

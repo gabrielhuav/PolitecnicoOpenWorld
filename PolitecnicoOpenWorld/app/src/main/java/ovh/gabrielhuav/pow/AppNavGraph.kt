@@ -49,10 +49,12 @@ import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Backpack
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Hide
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission3Evidence
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeEscomDoorNavigation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeNavigateToShineCTO
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission1ChaseIntro
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.failMission2Hide
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onShineCTODiscoveryConfirmed
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
@@ -883,7 +885,22 @@ fun AppNavGraph(
                                 startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID &&
                                 worldMapViewModel.mission3Phase ==
                                     ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.PHASE_ASSAULT
+                            // MISIÓN 2 · fase 1 "ESCONDERSE": se juega DENTRO del lobby de la ESCOM.
+                            // Se RE-EVALÚA en cada recomposición (wmState cambia al seguir/avanzar la
+                            // misión) y ZombieGameScreen la arma/desarma en RUNTIME (setMission2Hide):
+                            // por eso NO es un parámetro assisted del VM de interiores — funciona
+                            // aunque sigas la Misión 2 desde el registro estando YA en el lobby.
+                            val mission2Hide = worldMapViewModel.inCampaign &&
+                                worldMapViewModel.mission2Phase ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_HIDE &&
+                                wmState.currentObjective?.id ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_ESCONDERSE_POLICIA.id
                             val interiorObjective = when {
+                                // MISIÓN 2 · fase ESCONDERSE: el lobby muestra su objetivo (prioridad
+                                // sobre "Busca pistas": la búsqueda policial está en curso).
+                                mission2Hide &&
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_ESCONDERSE_POLICIA
                                 worldMapViewModel.inCampaign &&
                                 startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID &&
                                 wmState.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id &&
@@ -956,6 +973,21 @@ fun AppNavGraph(
                                 mission3Assault = mission3Assault,
                                 onMission3EvidenceRecovered = {
                                     worldMapViewModel.completeMission3Evidence()
+                                },
+                                // MISIÓN 2 · fase ESCONDERSE (lobby): armado en runtime + desenlaces.
+                                mission2Hide = mission2Hide,
+                                onMission2HideCompleted = {
+                                    // Aguantaste: avanza a la fase RUMOR (el jugador sale cuando quiera;
+                                    // al salir, el 🎯 ya apunta a la escena del rumor en el campus).
+                                    worldMapViewModel.completeMission2Hide()
+                                },
+                                onMission2HideFailed = {
+                                    // Te reconocieron: MISIÓN FALLIDA. Se sale al mapa global, donde
+                                    // vive la pantalla de fallo + REINTENTAR (re-arma desde la fase 1).
+                                    worldMapViewModel.failMission2Hide()
+                                    worldMapViewModel.currentInteriorRoomId = null
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(activity).stopInvestigarMusic()
+                                    navController.popBackStack("world_map", inclusive = false)
                                 }
                             )
                         }

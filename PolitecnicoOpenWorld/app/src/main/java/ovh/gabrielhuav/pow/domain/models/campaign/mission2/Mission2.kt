@@ -8,8 +8,10 @@ import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
  * ESCOM huyendo de la policía) y se juega sobre el CAMPUS de la ESCOM (mapa global, zona libre)
  * salvo la última fase (interior: el salón de la mochila). Guion (ver CAMPAIGN/02_MISSION_2.md):
  *
- *  1. ESCONDERSE: la policía los busca a ti y a Prankedy; spawnean en la entrada del campus y
- *     debes ALEJARTE. Si te quedas cerca demasiado tiempo, te reconocen → MISIÓN FALLIDA.
+ *  1. ESCONDERSE: la policía ENTRÓ al lobby de la ESCOM a buscarlos. Se juega DENTRO del lobby
+ *     (motor de interiores): policías patrullan la sala y debes evitar que te vean de cerca
+ *     hasta que se rindan y se vayan. Si te quedas cerca demasiado tiempo → MISIÓN FALLIDA.
+ *     (Rediseño 2026-07-08: antes eran policías en la ENTRADA exterior del campus.)
  *  2. RUMOR: buscando pistas encuentras a 2 estudiantes platicando el RUMOR ZOMBIE (en la ENCB
  *     y en todo Zacatenco pasan "cosas raras"). Hay que quedarse a ESCUCHARLO COMPLETO.
  *  3. BROTE: presencias el primer brote público: un NPC se CONVIERTE, ataca gente, la policía lo
@@ -42,7 +44,8 @@ object Mission2 {
 
     // ─── COORDS FIJAS (X=lon, Y=lat), dentro del campus ESCOM (bbox ~±111 m de
     //     19.50456,-99.14674; ver EscomBoundingBox). Para reubicar algo, cambia LA CONSTANTE. ───
-    // Punto donde spawnean los policías que TE BUSCAN (fase 1): la entrada del campus.
+    // Entrada del campus: de aquí LLEGAN los policías del brote (fase 3) y hacia acá se llevan
+    // al detenido. (La fase 1 ya NO spawnea policías aquí: se juega dentro del lobby.)
     const val POLICE_SEARCH_LAT = 19.50480
     const val POLICE_SEARCH_LON = -99.14660
     // Punto del RUMOR (fase 2): 2 estudiantes platicando en la explanada sur.
@@ -59,15 +62,15 @@ object Mission2 {
     const val RETRY_SPAWN_LON = -99.145985
 
     // ─── UMBRALES / TIEMPOS (grados ≈ 111 km por grado; ms) ───
-    // Fase 1 · ESCONDERSE: si estás a < DETECT de un policía por > DETECT_MS, te reconocen
-    // (misión fallida). Si TODOS quedan a > SAFE por > SAFE_MS, los perdiste (cumplido).
+    // Fase 1 · ESCONDERSE (INTERIOR, píxeles de mundo del lobby — ver ZombieAmbientNpcs/Tick):
+    // si un policía te tiene a < DETECT_PX por > DETECT_MS, te reconoce (misión fallida).
+    // Aguanta HIDE_DURATION_MS y se rinden: corren a la puerta y se van (cumplido).
     const val HIDE_COP_COUNT = 4
-    const val HIDE_DETECT_DEG = 0.00022      // ~24 m
-    const val HIDE_DETECT_MS = 3000L
-    const val HIDE_SAFE_DEG = 0.00063        // ~70 m (= borde del fog)
-    const val HIDE_SAFE_MS = 4000L
-    const val HIDE_COP_SPEED = 0.0000035     // patrullan caminando
-    const val HIDE_PATROL_DEG = 0.00045      // ~50 m: radio de patrullaje alrededor de la entrada
+    const val HIDE_DETECT_PX = 120f          // radio de "te está viendo" (px de la sala)
+    const val HIDE_DETECT_MS = 2500L
+    const val HIDE_DURATION_MS = 35_000L     // cuánto dura la búsqueda antes de que se rindan
+    const val HIDE_COP_SPEED_PX = 3.4f       // patrullan caminando (px/tick, ~AMBIENT_SPEED)
+    const val HIDE_SWEEP_EVERY_MS = 7_000L   // cada tanto, UN policía barre hacia tu posición
     // Fase 2 · RUMOR: hay que estar a < LISTEN para que la conversación AVANCE (si te alejas,
     // se PAUSA y se retoma donde iba). Una línea cada CONVO_LINE_MS.
     const val LISTEN_DEG = 0.00016           // ~18 m
@@ -90,8 +93,10 @@ object Mission2 {
         id = "m2_esconderse_policia",
         titleRes = R.string.obj_m2_esconderse_title,
         descriptionRes = R.string.obj_m2_esconderse_desc,
-        targetLat = POLICE_SEARCH_LAT,
-        targetLon = POLICE_SEARCH_LON,
+        // La fase se juega DENTRO del lobby: el 🎯 apunta a la puerta de la ESCOM para guiarte
+        // a ENTRAR si sigues la misión desde el mapa global (dentro no hay waypoint exterior).
+        targetLat = 19.50490,
+        targetLon = -99.14674,
         arriveRadiusMeters = 0.0
     )
     val PISTA_RUMOR = CampaignObjective(

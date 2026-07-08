@@ -15,17 +15,19 @@
 
 ## 1. Dónde engancha / Where it hooks
 
-La Misión 1 termina con `INGRESAR_ESCOM` cumplida (el jugador ENTRÓ al interior). Al **VOLVER al
-campus** (mapa global, `currentInteriorRoomId == null`) y una vez que el REMATE del chase terminó
-(`campaignEscortPolice` inactiva), `maybeStartMission2Story` (game loop, gate `inCampaign`) arranca
-la fase 1 y fija el objetivo `m2_esconderse_policia`. Todo ocurre en la **zona libre** del campus
-ESCOM (beeline, sin snap a calles), salvo la fase 5 (interior).
+La Misión 1 termina con `INGRESAR_ESCOM` cumplida (el jugador ENTRÓ al interior). La Misión 2 se
+SIGUE desde el registro de misiones (Opciones → "Misiones"; `startMission2Story` fija la fase 1 y
+el objetivo `m2_esconderse_policia`). 🆕 2026-07-08: la **fase 1 se juega DENTRO del lobby de la
+ESCOM** (motor de interiores) — coherente con la narrativa (acabas de refugiarte ahí y la policía
+entra a buscarte); el 🎯 exterior apunta a la puerta para guiarte a ENTRAR si estás en el campus.
+Las fases 2–4 ocurren en la **zona libre** del campus ESCOM (beeline, sin snap a calles) y la
+fase 5 en el interior (salón).
 
 ## 2. Las 5 fases / The five phases
 
 | # | Fase (`mission2Phase`) | Objetivo (id) | Mecánica |
 |---|---|---|---|
-| 1 | `PHASE_HIDE` | `m2_esconderse_policia` | 4 policías (`M2_SEARCH_COP_*`) patrullan la entrada (`POLICE_SEARCH_*`, waypoints pseudoaleatorios DETERMINISTAS por cubeta de 6 s — sin estado extra). A <~24 m por >3 s → te reconocen → **MISIÓN FALLIDA**. Todos a >~70 m por >4 s → cumplido, se retiran. |
+| 1 | `PHASE_HIDE` | `m2_esconderse_policia` | 🆕 (2026-07-08) DENTRO del **lobby de la ESCOM**: 4 policías `m2cop_*` (skin `POLICIA_CDMX`) entran por la puerta y patrullan la sala (cada ~7 s UNO barre hacia ti). Si te tienen a <120 px por >2.5 s → te reconocen → **MISIÓN FALLIDA** (sales al mapa, REINTENTAR). Aguanta **35 s** (countdown en HUD) → se rinden, corren a la puerta y se van → cumplido (`completeMission2Hide` avanza a fase 2). Armado runtime vía `setMission2Hide`; ver 05/09. |
 | 2 | `PHASE_RUMOR` | `m2_pista_rumor` | 2 estudiantes (`M2_RUMOR_A/B`) frente a frente en `RUMOR_*`. A <~18 m la conversación AVANZA (1 línea/3.4 s, subtítulos `storyConvo*` + burbuja 💬 `talkingUntil` del que habla); alejarse la PAUSA (se retoma en la línea donde iba). 7 líneas (`RUMOR_LINES`) → cumplido. |
 | 3 | `PHASE_BROTE` | `m2_pista_brote` | Evento por ETAPAS (`mission2EventStage`) en `BROTE_*`: 0 armado (3 civiles + el "por convertirse", aún con look normal) → al acercarse a <~45 m: 1 CONVERSIÓN (type=ZOMBIE, `visualConfig=null` ⚠️ gotcha de render) + grito; el zombie persigue civiles y los civiles huyen → 2 llegan 2 policías corriendo desde la entrada → 3 SOMETIDO + RADIO (4 líneas `RADIO_LINES`: "refuerzos en la ENCB… TODO el personal") → 4 se lo LLEVAN a la entrada y desaparecen (tope 12 s) → cumplido. |
 | 4 | `PHASE_TALK` | `m2_hablar_prankedy` | Prankedy reaparece ESTÁTICO en `PRANKEDY_*` (spawnCompanion+warpTo; el game loop NO corre `runPrankedyTick` en esta fase). A <~13 m corre la plática (10 líneas `PRANKEDY_LINES`): la culpa de la broma, la competencia con el **REY GRUPERO** ("¡Vámonos a la v... wey!"), la mochila en un salón y la LATA APESTOSA. Al terminar se despide y se esconde (deactivate). |
@@ -48,8 +50,11 @@ ESCOM (beeline, sin snap a calles), salvo la fase 5 (interior).
 ## 5. Datos técnicos / Technical data
 
 **Coordenadas (constantes en `Mission2.kt`; X=lon, Y=lat; todas dentro del bbox del campus):**
-`POLICE_SEARCH` (19.50480, -99.14660) · `RUMOR` (19.50412, -99.14700) · `BROTE` (19.50396,
--99.14614) · `PRANKEDY` (19.50422, -99.14652) · `RETRY_SPAWN` (19.504603, -99.145985).
+`POLICE_SEARCH` (19.50480, -99.14660; hoy solo la usa la fase 3 — llegada/retirada de policías) ·
+`RUMOR` (19.50412, -99.14700) · `BROTE` (19.50396, -99.14614) · `PRANKEDY` (19.50422, -99.14652) ·
+`RETRY_SPAWN` (19.504603, -99.145985). **Fase 1 (interior, píxeles):** `HIDE_COP_COUNT=4`,
+`HIDE_DETECT_PX=120`, `HIDE_DETECT_MS=2500`, `HIDE_DURATION_MS=35000`, `HIDE_COP_SPEED_PX=3.4`,
+`HIDE_SWEEP_EVERY_MS=7000`.
 
 **Archivos:** `domain/models/campaign/mission2/Mission2.kt` (fases/coords/umbrales/diálogos),
 `viewmodel/WorldMapMission2.kt` (tick), `WorldMapState.storyConvoSpeaker/Text` + overlay de

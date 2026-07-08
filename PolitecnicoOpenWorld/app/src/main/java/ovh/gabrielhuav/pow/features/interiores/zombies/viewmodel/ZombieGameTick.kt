@@ -114,13 +114,48 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
             hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
         }
 
+        // MISIÓN 2 · FASE 1 "ESCONDERSE" (lobby): los policías m2cop_* viven dentro de
+        // ambientNpcs pero se simulan APARTE (patrulla + barridos hacia el jugador); los
+        // estudiantes siguen con su vida universitaria normal alrededor.
+        val m2c = ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
+        val hideCops0 = if (s.mission2HideActive)
+            s.ambientNpcs.filter { it.id.startsWith(M2COP_PREFIX) } else emptyList()
+        val students0 = if (hideCops0.isEmpty()) s.ambientNpcs
+            else s.ambientNpcs.filterNot { it.id.startsWith(M2COP_PREFIX) }
+
+        var hideCops = hideCops0
+        var hideFailed = s.mission2HideFailed
+        var hideCompleted = s.mission2HideCompleted
+        var hideRemaining: Int? = s.mission2HideRemainingSec
+        if (s.mission2HideActive && !hideFailed && !hideCompleted) {
+            val elapsed = now - mission2HideStartMs
+            if (elapsed >= m2c.HIDE_DURATION_MS) {
+                // Se RINDIERON: corren a la puerta y desaparecen (reusa la evacuación). Cuando
+                // sale el último, la fase queda CUMPLIDA (ZombieGameScreen avisa al mundo).
+                hideCops = evacuateAmbientNpcs(hideCops0, room)
+                hideRemaining = 0
+                if (hideCops.isEmpty()) hideCompleted = true
+            } else if (hideCops0.isNotEmpty()) {
+                hideCops = stepMission2HideCops(hideCops0, room, s.playerX, s.playerY, now)
+                hideRemaining = (((m2c.HIDE_DURATION_MS - elapsed) / 1000L) + 1L).toInt()
+                // ¿Te está VIENDO alguno? Sostenido HIDE_DETECT_MS → te reconoció (fallo).
+                val nearest = hideCops.minOf { hypot(it.x - s.playerX, it.y - s.playerY) }
+                if (nearest < m2c.HIDE_DETECT_PX) {
+                    if (mission2HideDetectSinceMs == 0L) mission2HideDetectSinceMs = now
+                    if (now - mission2HideDetectSinceMs > m2c.HIDE_DETECT_MS) hideFailed = true
+                } else {
+                    mission2HideDetectSinceMs = 0L
+                }
+            }
+        }
+
         // MISIÓN 2 · SALÓN DE LA MOCHILA: tras la lata apestosa los alumnos EVACÚAN (corren a la
         // puerta y desaparecen); con el salón vacío APARECE la mochila junto al escritorio.
         val inM2Salon = room.id == ZombieRoomCatalog.ESCOM_SALON_M2_ID
-        val steppedAmbient = if (inM2Salon && s.mission2StinkThrown)
-            evacuateAmbientNpcs(s.ambientNpcs, room)
+        val steppedAmbient = (if (inM2Salon && s.mission2StinkThrown)
+            evacuateAmbientNpcs(students0, room)
         else
-            stepAmbientNpcs(s.ambientNpcs, room, now)
+            stepAmbientNpcs(students0, room, now)) + hideCops
         val spawnBackpack = inM2Salon && s.mission2StinkThrown && steppedAmbient.isEmpty() &&
             s.mission2BackpackX == null && !s.mission2BackpackTaken
         val bpX = if (spawnBackpack) room.worldWidth * 0.50f else s.mission2BackpackX
@@ -144,7 +179,13 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
                 nearbyItemId = nearItem?.id,
                 nearbyKeyId = nearKey?.id,
                 activeEffects = if (effectsChanged) stillActive else it.activeEffects,
-                ambientNpcs = steppedAmbient,
+                ambientNpcs = if (hideFailed) steppedAmbient.filterNot { n ->
+                    n.id.startsWith(M2COP_PREFIX) } else steppedAmbient,
+                // MISIÓN 2 · fase ESCONDERSE: desenlace (los flags los consume ZombieGameScreen).
+                mission2HideActive = it.mission2HideActive && !hideCompleted && !hideFailed,
+                mission2HideRemainingSec = if (hideCompleted || hideFailed) null else hideRemaining,
+                mission2HideCompleted = hideCompleted,
+                mission2HideFailed = hideFailed,
                 mission2BackpackX = bpX,
                 mission2BackpackY = bpY,
                 mission2BackpackNearby = bpNear,

@@ -105,6 +105,43 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
     // INTERIORES EXPANDIBLE: lobby destino del diálogo "volver al lobby" (campus-agnóstico).
     internal var pendingLobbyTarget: String? = null
 
+    // ─── MISIÓN 2 · FASE 1 "ESCONDERSE" (lobby) — timers TRANSITORIOS (no viajan en el estado) ───
+    // Armado en RUNTIME desde ZombieGameScreen (setMission2Hide): así funciona tanto si entras al
+    // lobby con la fase ya activa como si SIGUES la Misión 2 desde el registro estando dentro.
+    internal var mission2HideArmed = false
+    internal var mission2HideStartMs = 0L
+    internal var mission2HideDetectSinceMs = 0L
+
+    /**
+     * MISIÓN 2 · fase ESCONDERSE: arma/desarma la búsqueda policial del lobby. Idempotente.
+     * Al armar (solo en el lobby y si no está ya resuelta) spawnea los policías m2cop_* DENTRO
+     * de ambientNpcs y arranca el countdown; al desarmar los retira.
+     */
+    fun setMission2Hide(enabled: Boolean) {
+        if (enabled == mission2HideArmed) return
+        mission2HideArmed = enabled
+        val room = currentRoom()
+        if (enabled && room.id == ZombieRoomCatalog.LOBBY_ID &&
+            !_state.value.mission2HideCompleted && !isMultiplayer) {
+            mission2HideStartMs = System.currentTimeMillis()
+            mission2HideDetectSinceMs = 0L
+            _state.update { st -> st.copy(
+                mission2HideActive = true,
+                mission2HideFailed = false,
+                mission2HideRemainingSec = (ovh.gabrielhuav.pow.domain.models.campaign.mission2
+                    .Mission2.HIDE_DURATION_MS / 1000L).toInt(),
+                ambientNpcs = st.ambientNpcs.filterNot { it.id.startsWith(M2COP_PREFIX) } +
+                    spawnMission2HideCops(room)
+            ) }
+        } else if (!enabled) {
+            _state.update { st -> st.copy(
+                mission2HideActive = false,
+                mission2HideRemainingSec = null,
+                ambientNpcs = st.ambientNpcs.filterNot { it.id.startsWith(M2COP_PREFIX) }
+            ) }
+        }
+    }
+
     init {
         // Siembra el inventario/progreso restaurado ANTES del primer loadRoom (que los preserva).
         _state.update { it.copy(
@@ -414,7 +451,20 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
                 pendingSpawnX = null,
                 pendingSpawnY = null,
                 zombies = zombies,
-                ambientNpcs = spawnAmbientNpcs(room),
+                // MISIÓN 2 · fase ESCONDERSE: si la búsqueda está ARMADA y esta sala es el lobby,
+                // los policías m2cop_* se (re)siembran junto con los estudiantes (idempotente:
+                // salir del lobby y volver re-arma la búsqueda desde cero).
+                ambientNpcs = spawnAmbientNpcs(room) + (
+                    if (mission2HideArmed && room.id == ZombieRoomCatalog.LOBBY_ID &&
+                        !it.mission2HideCompleted && !isMultiplayer) {
+                        mission2HideStartMs = now
+                        mission2HideDetectSinceMs = 0L
+                        spawnMission2HideCops(room)
+                    } else emptyList()
+                ),
+                mission2HideActive = mission2HideArmed && room.id == ZombieRoomCatalog.LOBBY_ID &&
+                    !it.mission2HideCompleted && !isMultiplayer,
+                mission2HideRemainingSec = null,
                 items = emptyList(),
                 projectiles = emptyList(),
                 totalZombies = zombies.size,
@@ -703,8 +753,8 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
             return
         }
 
-        // 2b. Mano zombi en lobby
-        if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID) {
+        // 2b. Mano zombi en lobby (solo interactuable en Modo Desarrollador)
+        if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID && settingsRepository.getDeveloperMode()) {
             val handNx = 0.50f
             val handNy = 0.45f
             val room = currentRoom()
@@ -840,7 +890,10 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
         val door = room.doors.firstOrNull {
             it.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight).contains(px, py)
         }
-        val handLabel = if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID && !_state.value.zombieModeActivated) {
+        val handLabel = if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID &&
+            !_state.value.zombieModeActivated &&
+            settingsRepository.getDeveloperMode()
+        ) {
             val room = currentRoom()
             val handWx = 0.50f * room.worldWidth
             val handWy = 0.45f * room.worldHeight

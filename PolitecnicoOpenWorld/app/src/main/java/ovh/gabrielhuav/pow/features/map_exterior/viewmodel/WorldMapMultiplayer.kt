@@ -275,6 +275,7 @@ internal fun WorldMapViewModel.updateNpcsState() {
         val combined = remoteEntities.values + policeManager.activeUnits() +
             remotePolice.values + campaignEscortPolice.activeUnits() + mission1ChaseCrowd.values +
             mission2Npcs.values + mission3Npcs.values +
-            sideMissionNpcs.values + dynamicEventNpcs.values
+            sideMissionNpcs.values + dynamicEventNpcs.values +
+            campusNpcs.values   // vida de campus ESCOM (WorldMapCampusLife.kt)
         _uiState.update { it.copy(npcs = combined.toList()) }
     }

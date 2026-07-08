@@ -181,7 +181,13 @@ fun ZombieGameScreen(
     // MISIÓN 3 (asalto ENCB): siembra zombis en la cadena ENCB + la evidencia 🧪 en encb_lab1.
     mission3Assault: Boolean = false,
     // MISIÓN 3: se dispara al RECOGER la evidencia (el mundo completa la misión + arma de fuego).
-    onMission3EvidenceRecovered: () -> Unit = {}
+    onMission3EvidenceRecovered: () -> Unit = {},
+    // MISIÓN 2 · fase 1 "ESCONDERSE" (lobby): true mientras la fase esté activa y seguida. Se
+    // pasa en RUNTIME (no al crear el VM): así también arma la búsqueda si sigues la Misión 2
+    // desde el registro estando YA dentro del lobby. Desenlaces → callbacks al VM del mundo.
+    mission2Hide: Boolean = false,
+    onMission2HideCompleted: () -> Unit = {},
+    onMission2HideFailed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     // Modo Desarrollador: si está APAGADO se ocultan botones de prueba (Diseñador, y "Salir al mapa"
@@ -235,6 +241,15 @@ fun ZombieGameScreen(
     // MISIÓN 3 · asalto: al recoger la evidencia se avisa al mundo (misión + arma de fuego).
     LaunchedEffect(state.mission3EvidenceTaken) {
         if (state.mission3EvidenceTaken) onMission3EvidenceRecovered()
+    }
+    // MISIÓN 2 · fase ESCONDERSE: arma/desarma la búsqueda en el lobby según la fase del mundo
+    // (runtime; ver setMission2Hide) y notifica el desenlace UNA vez.
+    LaunchedEffect(mission2Hide) { viewModel.setMission2Hide(mission2Hide) }
+    LaunchedEffect(state.mission2HideCompleted) {
+        if (state.mission2HideCompleted) onMission2HideCompleted()
+    }
+    LaunchedEffect(state.mission2HideFailed) {
+        if (state.mission2HideFailed) onMission2HideFailed()
     }
 
     DisposableEffect(Unit) {
@@ -937,6 +952,26 @@ fun ZombieGameScreen(
                 }
             }
 
+            // ─── MISIÓN 2 · fase ESCONDERSE: countdown de la búsqueda policial (lobby) ──
+            // Debajo del widget de objetivo. Aguanta sin que te vean hasta que llegue a 0.
+            state.mission2HideRemainingSec?.let { secs ->
+                Box(
+                    Modifier.fillMaxSize().systemBarsPadding().padding(top = 64.dp),
+                    Alignment.TopCenter
+                ) {
+                    Text(
+                        stringResource(R.string.zgame_hide_countdown, secs),
+                        color = Color(0xFFFFCDD2),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .background(Color(0xCC3B0D1B), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
             // ─── OBJETIVO DE CAMPAÑA EN INTERIORES (p. ej. ESCOM tras Misión 1) ──
             // Mismo widget que el mapa exterior, anclado arriba-centro. Sin distancia
             // (playerLocation=null) → muestra la descripción del objetivo.
@@ -1126,8 +1161,10 @@ fun ZombieGameScreen(
                         val sSaveGame = stringResource(R.string.wm_opt_save_game)
                         val sMissions = stringResource(R.string.wm_opt_missions)
                         buildList {
-                            // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto.
-                            add(OptionMenuItem(sChar, Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                            // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto. Solo en Modo Dev.
+                            if (developerMode) {
+                                add(OptionMenuItem(sChar, Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                            }
                             // MODO HISTORIA: REGISTRO DE MISIONES también en interiores (el diálogo
                             // vive a nivel AppNavGraph). Solo en campaña (callback non-null).
                             onRequestMissionLog?.let { openLog ->

@@ -900,10 +900,44 @@ matrices por defecto son **border-only** hasta reemplazarse.
   - **🆕 (2026-07-04b) "Elegir personaje" del MAPA GLOBAL = solo Modo Desarrollador:**
     `wm_opt_change_skin` en el menú Opciones de `WorldMapScreen` va gateado por `developerMode`.
     El "Elegir personaje" de INTERIORES (ZombieGameScreen) sigue visible para el jugador.
+- **🆕 (2026-07-08) MISIÓN 2 · FASE 1 "ESCONDERSE" REDISEÑADA — ahora se juega DENTRO del lobby:**
+  la vieja fase exterior (policías `M2_SEARCH_COP_*` en la entrada) se ELIMINÓ de
+  `WorldMapMission2.kt` (su `when` de `PHASE_HIDE` queda vacío; el 🎯 exterior apunta a la puerta
+  para guiarte a ENTRAR). La búsqueda vive en el motor de INTERIORES: policías **`m2cop_*`**
+  (skin `POLICIA_CDMX`) DENTRO de `ambientNpcs` (`spawnMission2HideCops`/`stepMission2HideCops`
+  en `ZombieAmbientNpcs.kt`; detección + countdown en `ZombieGameTick`; constantes en PÍXELES
+  `HIDE_DETECT_PX`/`HIDE_DURATION_MS`/… en `Mission2.kt`). Reglas:
+  - El armado es en **RUNTIME** (`ZombieInteriorViewModel.setMission2Hide`, llamado por
+    `LaunchedEffect(mission2Hide)` de `ZombieGameScreen`): NO es parámetro assisted del VM —
+    así funciona aunque sigas la M2 desde el registro estando YA dentro del lobby. AppNavGraph
+    calcula `mission2Hide` (inCampaign + fase HIDE + objetivo `m2_esconderse_policia` seguido).
+  - Desenlaces por callback (AppNavGraph): `onMission2HideCompleted → completeMission2Hide()`
+    (avanza a RUMOR y fija su 🎯; el jugador sale del lobby cuando quiera) y
+    `onMission2HideFailed → failMission2Hide()` + `popBackStack` al mapa (ahí vive MISIÓN
+    FALLIDA/REINTENTAR, rama `m2_`, que re-arma desde la fase 1).
+  - El emparejador de la vida universitaria **IGNORA** los ids `m2cop_*` (un policía no platica).
+  - Timers (`mission2HideStartMs/DetectSinceMs`) = vars TRANSITORIAS del VM de interiores; salir
+    del lobby y volver RE-ARMA la búsqueda desde cero (idempotente). Flags de desenlace en
+    `ZombieGameState.mission2Hide*`.
+- **🆕 (2026-07-08) VIDA ESCOM (interior + campus):** interiores: `ambientCountFor(room)` (lobby
+  13 / salón M2 8), GUIONES de plática coherentes (`AMBIENT_CONVOS` + `AmbientNpc.talkStartMs`;
+  strings `amb_convo{1..6}_{1..4}` ES+EN con paridad; ya NO frases sueltas sin hilo) y 2 parejas
+  nacen platicando en el lobby (`spawnAmbientNpcs`). Exterior: **`WorldMapCampusLife.kt`**
+  (NUEVO) mantiene ~10 estudiantes `CAMPUS_*` en el bbox de la ESCOM (deambulan + corrillos de 3
+  con 💬; TODO determinista por cubetas de tiempo, sin estado por NPC); lista `campusNpcs`
+  fusionada en `updateNpcsState` (`WorldMapMultiplayer.kt`), EXCLUIDA de `buildSaveData`
+  (prefijo `CAMPUS_`), pausada durante escolta/chase de M1 y en zombi global. ⚠️ Gotcha nuevo:
+  NO nombrar extensiones como las de stdlib (p. ej. `Set.indexOf` taparía la estándar de
+  `Iterable`) — por eso `campusSlotOf`.
 - **🆕 REJUGAR MISIONES + MODO DEV en el registro (2026-07-04b) — reglas:** las ✔ COMPLETADAS
   ganan botón **REJUGAR** (`replayCampaignMission`); con `developerMode` además: las 🔒 son
   seleccionables (`selectCampaignMission(id, force=true)` salta `requiresMissionId`) y cada misión
-  tiene **"TP al objetivo"** (`devTeleportToMissionObjective` → `teleportTo` con offset ~40 m N).
+  tiene **"TP al objetivo"** (`devTeleportToMissionObjective`). 🆕 2026-07-08: el TP ahora
+  **SIGUE la misión primero** (`selectCampaignMission(force=true)`, o `replayCampaignMission` si
+  está ✔ completada) y teletransporta al objetivo de la **FASE actual** (+~40 m N; antes hacía TP
+  "en frío" a un punto sin actores ni 🎯 y no quedaba claro qué seguir); en INTERIORES el botón
+  va **deshabilitado** con pista `mlog_tp_exit_first` (el TP mueve el MUNDO, no la sala) y la
+  extensión es no-op si `currentInteriorRoomId != null`.
   **REGLA DURA — el replay NO toca el progreso guardado.** Diseño:
   - `WorldMapViewModel.replayingMissionId` es **TRANSITORIO** (no viaja en `GameSaveData`).
     `setStorySpawn` lo limpia (COMENZAR/CARGAR cancelan replays); `replayCampaignMission` (M1) y

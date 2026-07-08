@@ -151,11 +151,24 @@ internal fun WorldMapViewModel.endMissionReplay() {
 }
 
 /**
- * MODO DESARROLLADOR · "TP al objetivo": teletransporta CERCA del objetivo actual de esa misión
- * (o de su primero si no está activa), con un offset de ~40 m al norte para no caer encima del
- * trigger. Usa la extensión existente teleportTo (gate de TP incluido).
+ * MODO DESARROLLADOR · "TP al objetivo": primero SIGUE esa misión (con `force`: también las 🔒
+ * bloqueadas), para que su fase actual quede ARMADA (🎯 + actores del tick), y luego teletransporta
+ * CERCA del objetivo de esa fase (offset ~40 m al norte para no caer encima del trigger).
+ * ⚠️ Antes se teletransportaba SIN seguir la misión → llegabas a un punto "vacío" (sin actores ni
+ * 🎯) y no quedaba claro qué objetivo seguir; además el TP del primer objetivo no correspondía a
+ * la fase real. NO funciona desde INTERIORES (el TP mueve el mundo, no la sala): la UI deshabilita
+ * el botón (mlog_tp_exit_first) y aquí se ignora por seguridad.
  */
 fun WorldMapViewModel.devTeleportToMissionObjective(missionId: String) {
+    if (currentInteriorRoomId != null) return   // en un interior el TP del mundo no se ve: no-op
+    // 1) SEGUIR la misión (arranca o reanuda su fase). Las ✔ completadas se REJUEGAN (replay
+    //    transitorio: el progreso guardado no se toca — misma regla que el botón REJUGAR).
+    if (missionLogStatus(missionId) == MissionLogStatus.COMPLETED) {
+        replayCampaignMission(missionId)
+    } else {
+        selectCampaignMission(missionId, force = true)
+    }
+    // 2) TP al objetivo de la FASE actual (selectCampaign/replay ya fijaron currentObjective).
     val s = _uiState.value
     val obj = if (MissionCatalog.missionIdForObjective(s.currentObjective?.id) == missionId)
         s.currentObjective
@@ -165,4 +178,7 @@ fun WorldMapViewModel.devTeleportToMissionObjective(missionId: String) {
     toggleMissionLog(false)
     // ~0.00036° de latitud ≈ 40 m (dentro del rango pedido de 30-50 m).
     teleportTo(obj.targetLat + 0.00036, obj.targetLon)
+    _uiState.update { it.copy(
+        interactionPrompt = "🧪 TP al objetivo: ${getLocalizedString(obj.titleRes)}"
+    ) }
 }

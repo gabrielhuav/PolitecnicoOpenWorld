@@ -39,7 +39,8 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
         .filterNot {
             it.id.startsWith("M2_") || it.id.startsWith("M3_") ||
                 it.id.startsWith("CAMPAIGN_COP_") || it.id.startsWith("ESCOM_FLOOD_") ||
-                it.id.startsWith("SM_") || it.id.startsWith("SMZ_") || it.id.startsWith("DYN_")
+                it.id.startsWith("SM_") || it.id.startsWith("SMZ_") || it.id.startsWith("DYN_") ||
+                it.id.startsWith("CAMPUS_")   // vida de campus: efímera (WorldMapCampusLife.kt)
         }
         .take(40)
         .map {

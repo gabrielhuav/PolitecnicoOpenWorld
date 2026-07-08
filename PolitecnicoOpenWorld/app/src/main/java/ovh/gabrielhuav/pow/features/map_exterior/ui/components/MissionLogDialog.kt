@@ -210,9 +210,16 @@ fun MissionLogDialog(uiState: WorldMapState, viewModel: WorldMapViewModel) {
                                     }
                                 }
                                 if (developerMode) {
+                                    // El TP mueve al jugador en el MUNDO: desde un interior no se
+                                    // vería (la sala no cambia) → deshabilitado con pista.
+                                    val inInterior = viewModel.currentInteriorRoomId != null
                                     Button(
                                         onClick = { viewModel.devTeleportToMissionObjective(mission.id) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF455A64)),
+                                        enabled = !inInterior,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF455A64),
+                                            disabledContainerColor = Color(0x66455A64)
+                                        ),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
                                         Text(
@@ -221,6 +228,13 @@ fun MissionLogDialog(uiState: WorldMapState, viewModel: WorldMapViewModel) {
                                         )
                                     }
                                 }
+                            }
+                            if (developerMode && viewModel.currentInteriorRoomId != null) {
+                                Text(
+                                    text = stringResource(R.string.mlog_tp_exit_first),
+                                    color = Color(0xFF90A4AE),
+                                    fontSize = 10.sp
+                                )
                             }
                         }
                     }

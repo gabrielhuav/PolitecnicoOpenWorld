@@ -60,6 +60,20 @@ autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación 
 > `completeMission2Backpack()` en el VM del mundo (cableado en AppNavGraph). `loadRoom` re-arma la escena
 > al reentrar (si saliste sin la mochila, vuelve a haber clase). El objetivo del salón lo muestra
 > `interiorObjective = M2_RECUPERAR_MOCHILA` (ObjectivesWidget). Ver `CAMPAIGN/02_MISSION_2.md`.
+> **🆕 MISIÓN 2 · FASE 1 "ESCONDERSE" EN EL LOBBY (2026-07-08):** la fase 1 se juega DENTRO del
+> lobby de ESCOM (`LOBBY_ID`): policías **`m2cop_*`** (skin `POLICIA_CDMX`) patrullan como NPCs
+> ambientales (`spawnMission2HideCops`/`stepMission2HideCops` en `ZombieAmbientNpcs.kt`; cada
+> ~7 s UNO barre hacia el jugador). Detección: < `HIDE_DETECT_PX` (120 px) sostenido
+> `HIDE_DETECT_MS` (2.5 s) → `mission2HideFailed`; aguantar `HIDE_DURATION_MS` (35 s) → se
+> rinden y EVACÚAN (reusa `evacuateAmbientNpcs`) → `mission2HideCompleted`. Countdown en el HUD
+> (`mission2HideRemainingSec` + string `zgame_hide_countdown`). El armado es en RUNTIME
+> (`setMission2Hide`, NO Factory param) y los desenlaces van por callbacks
+> `onMission2HideCompleted/Failed` (AppNavGraph → `completeMission2Hide`/`failMission2Hide`).
+> Ver 09 (reglas) y `CAMPAIGN/02_MISSION_2.md`.
+> **🆕 VIDA UNIVERSITARIA 2.0 (2026-07-08):** `ambientCountFor(room)` = lobby 13 / salón M2 8 /
+> default 7; las pláticas siguen **GUIONES coherentes** (`AMBIENT_CONVOS`, elegidos determinista
+> por `pairSeed`; línea actual por `talkStartMs`; strings `amb_convo{1..6}_{1..4}` ES+EN) en vez
+> de frases sueltas; 2 parejas nacen YA platicando en el lobby; `PAIR_CHANCE_PER_TICK` 0.004→0.009.
 > **🆕 MISIÓN 3 · ASALTO A LA ENCB (2026-07-04):** con `mission3Assault=true` (Factory param, lo
 > decide AppNavGraph cuando `startRoom=encb_lobby` y `mission3Phase==PHASE_ASSAULT`), la cadena
 > ENCB se siembra con **zombis** (`ASSAULT_ZOMBIES_PER_ROOM=4`, IGNORA el gate de

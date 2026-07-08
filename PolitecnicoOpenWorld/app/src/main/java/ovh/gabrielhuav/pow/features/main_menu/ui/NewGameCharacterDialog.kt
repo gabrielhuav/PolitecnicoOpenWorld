@@ -63,7 +63,8 @@ fun NewGameCharacterDialog(
             add(CharacterOption(PlayerSkin.escomboy, "Hombre"))
             add(CharacterOption(PlayerSkin.escomgirl, "Mujer"))
             add(CharacterOption(PlayerSkin.robot, "No binario"))
-            add(CharacterOption(PlayerSkin.REY_GRUPERO, "REY Grupero"))
+            // REY Grupero: solo disponible en Modo Desarrollador.
+            if (includeLazaro) add(CharacterOption(PlayerSkin.REY_GRUPERO, "REY Grupero"))
             // LÁZARO: solo disponible en Modo Desarrollador.
             if (includeLazaro) add(CharacterOption(PlayerSkin.LAZARO, "Lázaro (Dev)"))
         }

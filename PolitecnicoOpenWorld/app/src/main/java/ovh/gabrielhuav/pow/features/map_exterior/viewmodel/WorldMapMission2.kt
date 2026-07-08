@@ -18,7 +18,10 @@ import kotlin.math.sqrt
 // MODO HISTORIA · MISIÓN 2 "El rumor" (extensiones del WorldMapViewModel, sin gemelo miembro).
 //
 // Máquina de FASES sobre el CAMPUS de la ESCOM (zona libre del mapa global):
-//   1 ESCONDERSE  → policías de búsqueda en la entrada; aléjate o te reconocen (misión fallida).
+//   1 ESCONDERSE  → se juega DENTRO del lobby de la ESCOM (motor de interiores): policías
+//                   patrullan la sala; evítalos hasta que se rindan. La completa/falla el
+//                   interior vía completeMission2Hide()/failMission2Hide() (AppNavGraph).
+//                   Aquí el tick NO hace nada (el 🎯 exterior te guía a ENTRAR a la ESCOM).
 //   2 RUMOR       → 2 estudiantes platican el rumor zombie; quédate a escucharlo COMPLETO.
 //   3 BROTE       → un NPC se CONVIERTE y ataca; la policía lo somete, la radio pide refuerzos
 //                   en la ENCB y se lo llevan.
@@ -47,17 +50,18 @@ internal fun WorldMapViewModel.isMission2StoryActive(): Boolean =
         _uiState.value.currentObjective?.id?.startsWith(Mission2.OBJECTIVE_ID_PREFIX) == true
 
 // ── ARRANQUE (desde el REGISTRO DE MISIONES): fija la fase 1 y su objetivo. ──
-// Requiere la Misión 1 completada (lo valida selectCampaignMission). Los policías de búsqueda
-// spawnean en la entrada de la ESCOM (punto fijo) sin importar dónde estés; el 🎯 te guía.
+// Requiere la Misión 1 completada (lo valida selectCampaignMission). La fase 1 se juega DENTRO
+// del lobby de la ESCOM: si estás fuera, el 🎯 (puerta de la ESCOM) te guía a ENTRAR; si la
+// sigues desde el propio lobby, los policías spawnean ahí mismo (AppNavGraph → mission2Hide).
 internal fun WorldMapViewModel.startMission2Story() {
     clearCampaignPolice()
     clearMission2Story()
     mission2Phase = Mission2.PHASE_HIDE
     setCampaignObjective(MissionCatalog.M2_ESCONDERSE_POLICIA)
     _uiState.update { it.copy(
-        interactionPrompt = "🚨 ¡La policía los busca a ti y a Prankedy! Aléjate de la entrada de la ESCOM"
+        interactionPrompt = "🚨 ¡La policía entró a la ESCOM a buscarlos! Escóndete DENTRO del lobby"
     ) }
-    android.util.Log.d("POW_DBG", "MISIÓN 2: seguida desde el registro (fase ESCONDERSE)")
+    android.util.Log.d("POW_DBG", "MISIÓN 2: seguida desde el registro (fase ESCONDERSE, en el lobby)")
 }
 
 // ── REANUDAR (registro de misiones): re-fija el objetivo de la FASE actual (no reinicia). ──
@@ -75,10 +79,10 @@ internal fun WorldMapViewModel.resumeMission2Objective() {
 
 // ── TICK PRINCIPAL (lo llama el game loop MIEMBRO cuando isMission2StoryActive()) ──
 internal fun WorldMapViewModel.runMission2StoryTick(playerLoc: GeoPoint) {
-    if (currentInteriorRoomId != null) return   // dentro de un interior: la fase 5 corre allá
+    if (currentInteriorRoomId != null) return   // dentro de un interior: las fases 1 y 5 corren allá
     val now = System.currentTimeMillis()
     when (mission2Phase) {
-        Mission2.PHASE_HIDE -> tickM2Hide(playerLoc, now)
+        Mission2.PHASE_HIDE -> { /* se juega DENTRO del lobby (completeMission2Hide/failMission2Hide) */ }
         Mission2.PHASE_RUMOR -> tickM2Rumor(playerLoc, now)
         Mission2.PHASE_BROTE -> tickM2Brote(playerLoc, now)
         Mission2.PHASE_TALK -> tickM2Talk(playerLoc, now)
@@ -133,79 +137,29 @@ private fun WorldMapViewModel.advanceM2Phase() {
     android.util.Log.d("POW_DBG", "MISIÓN 2: avanza a fase $mission2Phase")
 }
 
-// ── FASE 1 · ESCONDERSE: policías de búsqueda patrullando la entrada ──
-private fun WorldMapViewModel.tickM2Hide(playerLoc: GeoPoint, now: Long) {
-    if (m2MaybeAdvancePhase(now)) return
+// ── FASE 1 · ESCONDERSE (INTERIOR): la juega el motor de interiores en el lobby de la ESCOM
+//    (policías con skin POLICIA_CDMX patrullando la sala; ver ZombieAmbientNpcs/ZombieGameTick).
+//    El interior avisa el desenlace por callback (AppNavGraph) a estas dos funciones. ──
 
-    // Spawn perezoso e idempotente (también re-arma la fase tras CARGAR una partida).
-    if (mission2Npcs.isEmpty()) {
-        for (i in 0 until Mission2.HIDE_COP_COUNT) {
-            val ang = 2.0 * Math.PI * i / Mission2.HIDE_COP_COUNT
-            val id = "M2_SEARCH_COP_$i"
-            mission2Npcs[id] = Npc(
-                id = id,
-                type = NpcType.POLICE_COP,
-                location = GeoPoint(
-                    Mission2.POLICE_SEARCH_LAT + sin(ang) * 0.00008,
-                    Mission2.POLICE_SEARCH_LON + cos(ang) * 0.00008
-                ),
-                speed = Mission2.HIDE_COP_SPEED,
-                isRemote = false,
-                isMoving = true,
-                policeDisembarked = true,
-                policeCanShoot = false
-            )
-        }
-    }
+/** El jugador AGUANTÓ la búsqueda en el lobby: los policías se rindieron → avanza a la fase 2. */
+fun WorldMapViewModel.completeMission2Hide() {
+    if (mission2Phase != Mission2.PHASE_HIDE) return
+    mission2Phase = Mission2.PHASE_RUMOR
+    clearMission2Story()
+    setCampaignObjective(MissionCatalog.M2_PISTA_RUMOR)
+    _uiState.update { it.copy(
+        interactionPrompt = "✅ ¡Los perdiste! Sal al campus y busca pistas del rumor"
+    ) }
+    soundManager.playMisionCumplida()
+    android.util.Log.d("POW_DBG", "MISIÓN 2: fase ESCONDERSE cumplida (lobby) → RUMOR")
+}
 
-    // Patrulla SIN estado extra: cada policía camina hacia un waypoint pseudoaleatorio DETERMINISTA
-    // por "cubeta" de tiempo (~6 s), alrededor de la entrada. Beeline: el campus es zona libre.
-    val bucket = now / 6000L
-    var nearest = Double.MAX_VALUE
-    for (cop in mission2Npcs.values.toList()) {
-        if (!cop.id.startsWith("M2_SEARCH_COP_")) continue
-        val rnd = java.util.Random(cop.id.hashCode() * 31L + bucket)
-        val ang = rnd.nextDouble() * 2.0 * Math.PI
-        val radius = Mission2.HIDE_PATROL_DEG * (0.25 + 0.75 * rnd.nextDouble())
-        val tLat = Mission2.POLICE_SEARCH_LAT + sin(ang) * radius
-        val tLon = Mission2.POLICE_SEARCH_LON + cos(ang) * radius
-        val a = atan2(tLat - cop.location.latitude, tLon - cop.location.longitude)
-        val step = Mission2.HIDE_COP_SPEED
-        val moved = GeoPoint(cop.location.latitude + sin(a) * step, cop.location.longitude + cos(a) * step)
-        val arrived = m2Dist(cop.location.latitude, cop.location.longitude, tLat, tLon) < 0.00005
-        mission2Npcs[cop.id] = cop.copy(
-            location = if (arrived) cop.location else moved,
-            isMoving = !arrived,
-            facingRight = cos(a) >= 0
-        )
-        val d = m2Dist(playerLoc.latitude, playerLoc.longitude, moved.latitude, moved.longitude)
-        if (d < nearest) nearest = d
-    }
-
-    // ¿Te van a RECONOCER? (muy cerca demasiado tiempo → MISIÓN FALLIDA).
-    if (nearest < Mission2.HIDE_DETECT_DEG) {
-        if (mission2DetectSinceMs == 0L) mission2DetectSinceMs = now
-        _uiState.update { it.copy(interactionPrompt = "⚠️ ¡Te van a reconocer! ALÉJATE de la policía") }
-        if (now - mission2DetectSinceMs > Mission2.HIDE_DETECT_MS) {
-            android.util.Log.d("POW_DBG", "MISIÓN 2: la policía te RECONOCIÓ → misión fallida")
-            mission2Npcs.clear()
-            _uiState.update { it.copy(showMissionFailed = true) }
-            return
-        }
-    } else {
-        mission2DetectSinceMs = 0L
-    }
-
-    // ¿Los PERDISTE? (todos lejos, sostenido).
-    if (nearest > Mission2.HIDE_SAFE_DEG) {
-        if (mission2SafeSinceMs == 0L) mission2SafeSinceMs = now
-        if (now - mission2SafeSinceMs > Mission2.HIDE_SAFE_MS) {
-            mission2Npcs.clear()   // los policías se rinden y se retiran
-            m2MarkObjectiveDone(now)
-        }
-    } else {
-        mission2SafeSinceMs = 0L
-    }
+/** Un policía te RECONOCIÓ dentro del lobby → MISIÓN FALLIDA (REINTENTAR re-arma desde fase 1). */
+fun WorldMapViewModel.failMission2Hide() {
+    if (mission2Phase != Mission2.PHASE_HIDE) return
+    clearMission2Story()
+    _uiState.update { it.copy(showMissionFailed = true) }
+    android.util.Log.d("POW_DBG", "MISIÓN 2: la policía te RECONOCIÓ en el lobby → misión fallida")
 }
 
 // ── FASE 2 · RUMOR: 2 estudiantes platican; quédate cerca hasta oírlo COMPLETO ──
@@ -398,8 +352,8 @@ private fun WorldMapViewModel.tickM2Brote(playerLoc: GeoPoint, now: Long) {
                     Mission2.POLICE_SEARCH_LON - npc.location.longitude)
                 mission2Npcs[id] = npc.copy(
                     location = GeoPoint(
-                        npc.location.latitude + sin(a) * Mission2.HIDE_COP_SPEED * 1.6,
-                        npc.location.longitude + cos(a) * Mission2.HIDE_COP_SPEED * 1.6
+                        npc.location.latitude + sin(a) * Mission2.BROTE_COP_SPEED * 1.6,
+                        npc.location.longitude + cos(a) * Mission2.BROTE_COP_SPEED * 1.6
                     ),
                     isMoving = true, facingRight = cos(a) >= 0
                 )

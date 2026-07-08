@@ -321,6 +321,12 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal val mission1ChaseCrowd = ConcurrentHashMap<String, Npc>()
     internal var mission1ChaseCrowdLastSpawn = 0L
 
+    // ─── VIDA DE CAMPUS (ESCOM, mapa global) — lógica en WorldMapCampusLife.kt ────
+    // Estudiantes ambientales del campus (ids CAMPUS_*): deambulan y forman corrillos de 3
+    // platicando. Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs vía
+    // updateNpcsState. EFÍMEROS: buildSaveData los excluye y no se persisten.
+    internal val campusNpcs = ConcurrentHashMap<String, Npc>()
+
     // ─── MISIÓN 2 · "El rumor" (Modo Historia) — lógica en WorldMapMission2.kt ────
     // Fase de la máquina de estados (Mission2.PHASE_*): 0 = no iniciada, 1 = esconderse de la
     // policía, 2 = rumor, 3 = brote, 4 = plática con Prankedy, 5 = mochila, 6 = completada.
@@ -957,6 +963,9 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                         if (_uiState.value.isRoadNetworkReady && _uiState.value.isMapReady &&
                             !_uiState.value.showWastedScreen) {
                             runDynamicEventsTick(location)
+                            // VIDA DE CAMPUS (ESCOM): estudiantes ambientales del campus.
+                            // Ver WorldMapCampusLife.kt (early-outs baratos fuera del campus).
+                            runCampusLifeTick(location)
                         }
                         updateDayNightTick()
 

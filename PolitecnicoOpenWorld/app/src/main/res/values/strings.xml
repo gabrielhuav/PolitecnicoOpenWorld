@@ -431,7 +431,7 @@
     <string name="obj_buscar_pistas_escom_desc">Explora la ESCOM en busca de pistas.</string>
     <!-- Objetivos de campaña (Misión 2 · "El rumor") -->
     <string name="obj_m2_esconderse_title">Piérdele a la policía</string>
-    <string name="obj_m2_esconderse_desc">La policía los busca a ti y a Prankedy. Aléjate de la entrada de la ESCOM sin que te reconozcan.</string>
+    <string name="obj_m2_esconderse_desc">La policía entró a la ESCOM buscándolos. Escóndete DENTRO del lobby y evita que te vean de cerca hasta que se rindan.</string>
     <string name="obj_m2_pista_rumor_title">Busca pistas en la ESCOM</string>
     <string name="obj_m2_pista_rumor_desc">Unos estudiantes platican algo raro. Acércate y escucha el rumor COMPLETO.</string>
     <string name="obj_m2_pista_brote_title">Sigue buscando pistas</string>
@@ -440,6 +440,11 @@
     <string name="obj_m2_hablar_prankedy_desc">Prankedy escuchó todo. Acércate a platicar con él.</string>
     <string name="obj_m2_recuperar_mochila_title">Recupera la mochila de Prankedy</string>
     <string name="obj_m2_recuperar_mochila_desc">La mochila quedó escondida en un salón de la ESCOM. El salón está en clases: usa la LATA APESTOSA.</string>
+    <!-- Misión 2 · fase 1 "Esconderse" (lobby, interiores) -->
+    <string name="zgame_hide_countdown">🚨 Policía en el lobby: aguanta %1$d s sin que te vean</string>
+    <string name="amb_cop_search_1">¿Dónde se metió?</string>
+    <string name="amb_cop_search_2">Revisen bien, no pudo ir lejos.</string>
+    <string name="amb_cop_alert">¡¿Ese no es…?! ¡Oye, TÚ!</string>
     <!-- Misión 2 · salón de la mochila (interiores) -->
     <string name="zgame_stink_prompt">💨 Pulsa ACCIÓN para lanzar la LATA APESTOSA</string>
     <string name="zgame_backpack_prompt">🎒 Pulsa ACCIÓN para recoger la mochila de Prankedy</string>
@@ -465,6 +470,7 @@
     <string name="mlog_free_roam_hint">Sin misión activa: estás en MUNDO LIBRE. Sigue una misión cuando quieras.</string>
     <string name="mlog_replay">REJUGAR</string>
     <string name="mlog_tp_objective">TP AL OBJETIVO</string>
+    <string name="mlog_tp_exit_first">El TP mueve al jugador en el MAPA: sal del interior para usarlo.</string>
     <string name="mission1_title">Misión 1 · El origen del brote</string>
     <string name="mission1_desc">Investiga la ENCB, escolta a Prankedy hasta la ESCOM y ponte a salvo de la policía.</string>
     <string name="mission2_title">Misión 2 · El rumor</string>
@@ -483,6 +489,31 @@
     <string name="amb_phrase_9">El wifi de la escuela otra vez no sirve.</string>
     <string name="amb_phrase_10">Dicen que en Zacatenco pasan cosas raras.</string>
     <string name="amb_phrase_bye">Ahí nos vemos</string>
+    <!-- Vida universitaria: GUIONES de plática coherentes (líneas alternadas A/B/A/B) -->
+    <string name="amb_convo1_1">¿Cómo te fue en el parcial de mate?</string>
+    <string name="amb_convo1_2">Reprobé… el profe puso temas que ni vimos.</string>
+    <string name="amb_convo1_3">Igual yo. ¿Vamos a asesorías mañana?</string>
+    <string name="amb_convo1_4">Va. Dicen que el de quinto piso explica bien.</string>
+    <string name="amb_convo2_1">¿Ya tienen tema para el TT?</string>
+    <string name="amb_convo2_2">Algo de visión por computadora, pero mi asesor no contesta.</string>
+    <string name="amb_convo2_3">Cámbiale de asesor antes del registro.</string>
+    <string name="amb_convo2_4">Ya es tarde… ni modo, a perseguirlo por los pasillos.</string>
+    <string name="amb_convo3_1">Tengo un hambre… ¿vamos a la cafetería?</string>
+    <string name="amb_convo3_2">Está llenísima. Mejor los tacos de la salida.</string>
+    <string name="amb_convo3_3">¿Los de canasta? Ayer me tocó uno frío.</string>
+    <string name="amb_convo3_4">Pues aguántate el hambre hasta tu casa, jaja.</string>
+    <string name="amb_convo4_1">¿Es cierto lo que dicen de la ENCB?</string>
+    <string name="amb_convo4_2">Mi prima vio ambulancias y patrullas toda la mañana.</string>
+    <string name="amb_convo4_3">En el grupo dicen que hay gente MORDIENDO gente, jajaja.</string>
+    <string name="amb_convo4_4">No te rías… mi profe canceló la clase por «contingencia».</string>
+    <string name="amb_convo5_1">¿Te conectas al wifi? Tengo que subir mi práctica.</string>
+    <string name="amb_convo5_2">Ni lo intentes, se cayó desde temprano.</string>
+    <string name="amb_convo5_3">¿Otra vez? La entrega cierra a las tres.</string>
+    <string name="amb_convo5_4">Vete al laboratorio de redes, ahí sí jala.</string>
+    <string name="amb_convo6_1">¿Vas a meter ETS de física?</string>
+    <string name="amb_convo6_2">Sí, ya ni modo. ¿Tú también?</string>
+    <string name="amb_convo6_3">También… nos vemos en el examen entonces.</string>
+    <string name="amb_convo6_4">Va. Un día antes estudiamos juntos, ¿no?</string>
     <!-- Transporte: prompt + mensajes (antes hardcodeados en TransitSystemConfig) -->
     <string name="wm_prompt_metrobus">PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS %1$s</string>
     <string name="transit_metro_msg_ticket">Has recargado tu tarjeta del metro</string>
