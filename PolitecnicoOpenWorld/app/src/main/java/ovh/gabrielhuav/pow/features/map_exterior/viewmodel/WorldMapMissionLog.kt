@@ -160,7 +160,25 @@ internal fun WorldMapViewModel.endMissionReplay() {
  * el botón (mlog_tp_exit_first) y aquí se ignora por seguridad.
  */
 fun WorldMapViewModel.devTeleportToMissionObjective(missionId: String) {
-    if (currentInteriorRoomId != null) return   // en un interior el TP del mundo no se ve: no-op
+    if (currentInteriorRoomId != null) {
+        // En modo desarrollador, si el objetivo está en interiores, forzamos el avance de la fase
+        // para que no queden bloqueados en el interior.
+        if (missionId == MissionCatalog.MISSION_2_ID) {
+            if (mission2Phase == Mission2.PHASE_HIDE) {
+                mission2Phase = Mission2.PHASE_RUMOR
+                clearMission2Story()
+                setCampaignObjective(MissionCatalog.M2_PISTA_RUMOR)
+            } else if (mission2Phase == Mission2.PHASE_BACKPACK) {
+                completeMission2Backpack()
+            }
+        } else if (missionId == MissionCatalog.MISSION_3_ID) {
+            if (mission3Phase == Mission3.PHASE_ASSAULT) {
+                completeMission3Evidence()
+            }
+        }
+        currentInteriorRoomId = null
+        soundManager.stopInvestigarMusic()
+    }
     // 1) SEGUIR la misión (arranca o reanuda su fase). Las ✔ completadas se REJUEGAN (replay
     //    transitorio: el progreso guardado no se toca — misma regla que el botón REJUGAR).
     if (missionLogStatus(missionId) == MissionLogStatus.COMPLETED) {

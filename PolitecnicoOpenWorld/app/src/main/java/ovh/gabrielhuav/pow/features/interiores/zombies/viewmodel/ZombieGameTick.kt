@@ -116,12 +116,20 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
 
         // MISIÓN 2 · FASE 1 "ESCONDERSE" (lobby): los policías m2cop_* viven dentro de
         // ambientNpcs pero se simulan APARTE (patrulla + barridos hacia el jugador); los
-        // estudiantes siguen con su vida universitaria normal alrededor.
+        // estudiantes siguen con su vida universitaria normal.
         val m2c = ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
         val hideCops0 = if (s.mission2HideActive)
             s.ambientNpcs.filter { it.id.startsWith(M2COP_PREFIX) } else emptyList()
-        val students0 = if (hideCops0.isEmpty()) s.ambientNpcs
+        var students0 = if (hideCops0.isEmpty()) s.ambientNpcs
             else s.ambientNpcs.filterNot { it.id.startsWith(M2COP_PREFIX) }
+
+        // Si la fase RUMOR está armada, aseguramos que los dos estudiantes estén instanciados.
+        if (mission2RumorArmed && room.id == ZombieRoomCatalog.LOBBY_ID && !isMultiplayer) {
+            val hasRumor = students0.any { it.id.startsWith("m2rumor_") }
+            if (!hasRumor) {
+                students0 = students0.filterNot { it.id.startsWith("m2rumor_") } + spawnMission2RumorStudents(room)
+            }
+        }
 
         var hideCops = hideCops0
         var hideFailed = s.mission2HideFailed
@@ -149,26 +157,61 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
             }
         }
 
+        // Lógica de avance de la conversación del rumor de la Misión 2 en interiores.
+        var rumorSpeaker: String? = s.storyConvoSpeaker
+        var rumorText: String? = s.storyConvoText
+        var rumorCompleted = s.mission2RumorCompleted
+        if (mission2RumorArmed && room.id == ZombieRoomCatalog.LOBBY_ID && !isMultiplayer) {
+            val cx = room.worldWidth * 0.5f
+            val cy = room.worldHeight * 0.5f
+            val dist = hypot(s.playerX - cx, s.playerY - cy)
+            if (dist <= 180f) {
+                if (mission2ConvoNextMs == 0L || now >= mission2ConvoNextMs) {
+                    if (mission2ConvoIndex >= m2c.RUMOR_LINES.size) {
+                        rumorSpeaker = null
+                        rumorText = null
+                        rumorCompleted = true
+                    } else {
+                        val (speaker, text) = m2c.RUMOR_LINES[mission2ConvoIndex]
+                        rumorSpeaker = speaker
+                        rumorText = text
+                        mission2ConvoIndex++
+                        mission2ConvoNextMs = now + m2c.CONVO_LINE_MS
+                    }
+                }
+            } else {
+                rumorSpeaker = null
+                rumorText = null
+                mission2ConvoNextMs = 0L
+            }
+        }
+
         // MISIÓN 2 · SALÓN DE LA MOCHILA: tras la lata apestosa los alumnos EVACÚAN (corren a la
         // puerta y desaparecen); con el salón vacío APARECE la mochila junto al escritorio.
         val inM2Salon = room.id == ZombieRoomCatalog.ESCOM_SALON_M2_ID
+        
+        // Separamos los NPCs del rumor para que no se muevan ni platiquen otras cosas
+        val rumorNpcs = students0.filter { it.id.startsWith("m2rumor_") }
+        val otherStudents = students0.filterNot { it.id.startsWith("m2rumor_") }
+
         val steppedAmbient = (if (inM2Salon && s.mission2StinkThrown)
             evacuateAmbientNpcs(students0, room)
         else
-            stepAmbientNpcs(students0, room, now)) + hideCops
+            stepAmbientNpcs(otherStudents, room, now) + rumorNpcs) + hideCops
+
         val spawnBackpack = inM2Salon && s.mission2StinkThrown && steppedAmbient.isEmpty() &&
             s.mission2BackpackX == null && !s.mission2BackpackTaken
         val bpX = if (spawnBackpack) room.worldWidth * 0.50f else s.mission2BackpackX
         val bpY = if (spawnBackpack) room.worldHeight * 0.42f else s.mission2BackpackY
         val bpNear = bpX != null && bpY != null && !s.mission2BackpackTaken &&
             hypot(bpX - s.playerX, bpY - s.playerY) <= ITEM_PICKUP_DIST * 1.6f
-
+ 
         // MISIÓN 3 · asalto ENCB: ¿el jugador está sobre la EVIDENCIA 🧪 (encb_lab1)?
         val evX = s.mission3EvidenceX
         val evY = s.mission3EvidenceY
         val evNear = evX != null && evY != null && !s.mission3EvidenceTaken &&
             hypot(evX - s.playerX, evY - s.playerY) <= ITEM_PICKUP_DIST * 1.6f
-
+ 
         _state.update {
             it.copy(
                 zombies = workingZombies,
@@ -189,7 +232,10 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
                 mission2BackpackX = bpX,
                 mission2BackpackY = bpY,
                 mission2BackpackNearby = bpNear,
-                mission3EvidenceNearby = evNear
+                mission3EvidenceNearby = evNear,
+                storyConvoSpeaker = rumorSpeaker,
+                storyConvoText = rumorText,
+                mission2RumorCompleted = rumorCompleted
             )
         }
         if (spawnBackpack) {

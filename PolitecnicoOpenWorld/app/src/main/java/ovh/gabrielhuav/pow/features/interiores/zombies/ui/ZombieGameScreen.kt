@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -187,7 +188,9 @@ fun ZombieGameScreen(
     // desde el registro estando YA dentro del lobby. Desenlaces → callbacks al VM del mundo.
     mission2Hide: Boolean = false,
     onMission2HideCompleted: () -> Unit = {},
-    onMission2HideFailed: () -> Unit = {}
+    onMission2HideFailed: () -> Unit = {},
+    mission2Rumor: Boolean = false,
+    onMission2RumorCompleted: () -> Unit = {}
 ) {
     val context = LocalContext.current
     // Modo Desarrollador: si está APAGADO se ocultan botones de prueba (Diseñador, y "Salir al mapa"
@@ -250,6 +253,10 @@ fun ZombieGameScreen(
     }
     LaunchedEffect(state.mission2HideFailed) {
         if (state.mission2HideFailed) onMission2HideFailed()
+    }
+    LaunchedEffect(mission2Rumor) { viewModel.setMission2Rumor(mission2Rumor) }
+    LaunchedEffect(state.mission2RumorCompleted) {
+        if (state.mission2RumorCompleted) onMission2RumorCompleted()
     }
 
     DisposableEffect(Unit) {
@@ -926,6 +933,37 @@ fun ZombieGameScreen(
                     Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
                         modifier = Modifier.background(Color(0xFF3B0D1B).copy(alpha = 0.85f), RoundedCornerShape(8.dp))
                             .padding(horizontal = 18.dp, vertical = 9.dp))
+                }
+            }
+
+            // ─── SUBTÍTULOS de la conversación de la Misión 2 (Rumor) ───
+            if (state.storyConvoText != null) {
+                Box(modifier = Modifier.fillMaxSize().padding(bottom = 96.dp), contentAlignment = Alignment.BottomCenter) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .widthIn(max = 340.dp)
+                            .background(color = Color(0xE0101018), shape = RoundedCornerShape(12.dp))
+                            .border(2.dp, Color(0xFFFFCC00), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 18.dp, vertical = 10.dp)
+                    ) {
+                        state.storyConvoSpeaker?.let { speaker ->
+                            Text(
+                                text = speaker,
+                                color = Color(0xFFFFCC00),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        Text(
+                            text = state.storyConvoText ?: "",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
 

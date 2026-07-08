@@ -112,6 +112,37 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
     internal var mission2HideStartMs = 0L
     internal var mission2HideDetectSinceMs = 0L
 
+    internal var mission2RumorArmed = false
+    internal var mission2ConvoIndex = 0
+    internal var mission2ConvoNextMs = 0L
+
+    /**
+     * MISIÓN 2 · fase RUMOR: arma/desarma la conversación de los dos estudiantes en el lobby.
+     * Si está armada, spawnea a m2rumor_a y m2rumor_b.
+     */
+    fun setMission2Rumor(enabled: Boolean) {
+        if (enabled == mission2RumorArmed) return
+        mission2RumorArmed = enabled
+        val room = currentRoom()
+        if (enabled && room.id == ZombieRoomCatalog.LOBBY_ID && !isMultiplayer) {
+            mission2ConvoIndex = 0
+            mission2ConvoNextMs = 0L
+            _state.update { st -> st.copy(
+                mission2RumorCompleted = false,
+                storyConvoSpeaker = null,
+                storyConvoText = null,
+                ambientNpcs = st.ambientNpcs.filterNot { it.id.startsWith("m2rumor_") } +
+                    spawnMission2RumorStudents(room)
+            ) }
+        } else if (!enabled) {
+            _state.update { st -> st.copy(
+                storyConvoSpeaker = null,
+                storyConvoText = null,
+                ambientNpcs = st.ambientNpcs.filterNot { it.id.startsWith("m2rumor_") }
+            ) }
+        }
+    }
+
     /**
      * MISIÓN 2 · fase ESCONDERSE: arma/desarma la búsqueda policial del lobby. Idempotente.
      * Al armar (solo en el lobby y si no está ya resuelta) spawnea los policías m2cop_* DENTRO
@@ -460,6 +491,12 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
                         mission2HideStartMs = now
                         mission2HideDetectSinceMs = 0L
                         spawnMission2HideCops(room)
+                    } else emptyList()
+                ) + (
+                    if (mission2RumorArmed && room.id == ZombieRoomCatalog.LOBBY_ID && !isMultiplayer) {
+                        mission2ConvoIndex = 0
+                        mission2ConvoNextMs = 0L
+                        spawnMission2RumorStudents(room)
                     } else emptyList()
                 ),
                 mission2HideActive = mission2HideArmed && room.id == ZombieRoomCatalog.LOBBY_ID &&

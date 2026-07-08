@@ -120,6 +120,9 @@ data class ZombieGameState(
     val ambientNpcs: List<AmbientNpc> = emptyList(),
     val zombieModeActivated: Boolean = false,
     val showZombieCinematic: Boolean = false,
+    val storyConvoSpeaker: String? = null,
+    val storyConvoText: String? = null,
+    val mission2RumorCompleted: Boolean = false,
 
     // ─── MODO DISEÑADOR DE LA MATRIZ DE COLISIÓN ───────────
     val designerMode: Boolean = false,

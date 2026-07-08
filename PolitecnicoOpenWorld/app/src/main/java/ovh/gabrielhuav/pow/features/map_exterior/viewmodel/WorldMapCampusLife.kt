@@ -141,8 +141,27 @@ internal fun WorldMapViewModel.clearCampusLife() {
 }
 
 // Look de ESTUDIANTE determinista por índice (paleta juvenil; mismo patrón civil de la M2).
+// Mezclamos un 40% de los NPCs genéricos pre-renderizados del interior con el ensamblado modular.
 private fun campusRandomStudentVisual(i: Int): CharacterVisualConfig {
     val rnd = java.util.Random(i * 31L + 11L)
+    if (rnd.nextFloat() < 0.40f) {
+        val generics = listOf(
+            "NPCS/Random1/Walk" to "rnd1_w_",
+            "NPCS/Doc1/Walk" to "doc1_w_",
+            "NPCS/EstH1/Walk" to "esth1_w_",
+            "NPCS/EstM1/Walk" to "estm1_w_"
+        )
+        val selected = generics[rnd.nextInt(generics.size)]
+        return CharacterVisualConfig(
+            bodyFolder = selected.first,
+            bodyPrefix = selected.second,
+            hairId = 999, // ID inválido para no cargar pelo modular
+            hairColor = androidx.compose.ui.graphics.Color.Transparent,
+            shirtColor = androidx.compose.ui.graphics.Color.Transparent,
+            pantsColor = androidx.compose.ui.graphics.Color.Transparent
+        )
+    }
+
     val hairColors = listOf(
         androidx.compose.ui.graphics.Color.Black,
         androidx.compose.ui.graphics.Color.DarkGray,

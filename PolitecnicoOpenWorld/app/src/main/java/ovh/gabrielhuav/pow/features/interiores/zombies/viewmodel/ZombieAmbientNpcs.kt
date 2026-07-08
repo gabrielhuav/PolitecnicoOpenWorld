@@ -64,13 +64,29 @@ enum class AmbientMode { WANDER, MEETING, TALK, WALK_TOGETHER }
 private val AMBIENT_ROOM_IDS: Set<String> =
     setOf(ZombieRoomCatalog.LOBBY_ID, ZombieRoomCatalog.ESCOM_SALON_M2_ID)
 
-// Skins usadas como MODELO de NPC (FASE 1 = estudiantes existentes). Cada NPC toma una al azar.
-private val AMBIENT_SKINS: List<PlayerSkin> =
-    // Pool del interior de la ESCOM: estudiantes IPN + 1 docente + NPC generico.
-    listOf(
-        PlayerSkin.IPN_1, PlayerSkin.IPN_2, PlayerSkin.IPN_3, PlayerSkin.IPN_4, PlayerSkin.IPN_5, PlayerSkin.IPN_6,
-        PlayerSkin.RND_1, PlayerSkin.DOC_1, PlayerSkin.EST_H1, PlayerSkin.EST_M1
+// Skins usadas como MODELO de NPC. Los exclusivos de ESCOM (IPN_1..6) solo salen dentro de la ESCOM.
+private fun getAmbientSkinsPool(room: ZombieRoom): List<PlayerSkin> {
+    val isEscom = room.id == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID ||
+                  room.id.startsWith("za_") ||
+                  room.id == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ESCOM_SALON_M2_ID
+
+    val globalAndGenericSkins = listOf(
+        PlayerSkin.RND_1, PlayerSkin.DOC_1, PlayerSkin.EST_H1, PlayerSkin.EST_M1,
+        PlayerSkin.LAZARO, PlayerSkin.escomboy, PlayerSkin.escomgirl, PlayerSkin.robot,
+        PlayerSkin.SENOR_TIENDA, PlayerSkin.REY_GRUPERO, PlayerSkin.PRANKEDY,
+        PlayerSkin.PAPARAZZI_N1, PlayerSkin.PAPARAZZI_N5, PlayerSkin.PARAMEDICO
     )
+
+    return if (isEscom) {
+        val escomExclusive = listOf(
+            PlayerSkin.IPN_1, PlayerSkin.IPN_2, PlayerSkin.IPN_3,
+            PlayerSkin.IPN_4, PlayerSkin.IPN_5, PlayerSkin.IPN_6
+        )
+        escomExclusive + globalAndGenericSkins
+    } else {
+        globalAndGenericSkins
+    }
+}
 
 // 🆕 GUIONES de plática (vida universitaria): cada guion es una CONVERSACIÓN COHERENTE de líneas
 // ALTERNADAS (línea 0, 2, 4… las dice el NPC de id MENOR; 1, 3, 5… el otro). La pareja elige su
@@ -101,7 +117,7 @@ private val M2COP_SEARCH_PHRASES: List<Int> =
 // NPCs por sala: el LOBBY es el corazón de la vida universitaria (más denso); el salón M2 es una
 // clase (menos). Otras salas ambientales futuras caen al default.
 private fun ambientCountFor(room: ZombieRoom): Int = when (room.id) {
-    ZombieRoomCatalog.LOBBY_ID -> 13
+    ZombieRoomCatalog.LOBBY_ID -> 25
     ZombieRoomCatalog.ESCOM_SALON_M2_ID -> 8
     else -> 7
 }
@@ -148,7 +164,8 @@ private fun randomWalkable(room: ZombieRoom, rnd: Random): Pair<Float, Float>? {
 
 /** Crea los NPCs ambientales de la sala (vacio si no aplica o si es multijugador). */
 internal fun ZombieInteriorViewModel.spawnAmbientNpcs(room: ZombieRoom): List<AmbientNpc> {
-    if (isMultiplayer || room.id !in AMBIENT_ROOM_IDS || AMBIENT_SKINS.isEmpty()) return emptyList()
+    val pool = getAmbientSkinsPool(room)
+    if (isMultiplayer || room.id !in AMBIENT_ROOM_IDS || pool.isEmpty()) return emptyList()
     val count = ambientCountFor(room)
     val now = System.currentTimeMillis()
     val list = ArrayList<AmbientNpc>(count)
@@ -159,7 +176,7 @@ internal fun ZombieInteriorViewModel.spawnAmbientNpcs(room: ZombieRoom): List<Am
             AmbientNpc(
                 id = "amb_$i",
                 x = p.first, y = p.second,
-                skin = AMBIENT_SKINS[Random.nextInt(AMBIENT_SKINS.size)],
+                skin = pool[Random.nextInt(pool.size)],
                 facingRight = Random.nextBoolean(),
                 action = PlayerAction.WALK,
                 targetX = t.first, targetY = t.second,
@@ -197,7 +214,9 @@ internal fun ZombieInteriorViewModel.spawnAmbientNpcs(room: ZombieRoom): List<Am
 
 /** Crea los policías de búsqueda de la fase ESCONDERSE: entran por la puerta del lobby. */
 internal fun ZombieInteriorViewModel.spawnMission2HideCops(room: ZombieRoom): List<AmbientNpc> {
-    val door = room.doors.firstOrNull()
+    // Buscar la puerta de entrada principal (salida al mapa) para spawnearlos ahí.
+    val door = room.doors.firstOrNull { it.targetRoomId == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.EXIT_TO_WORLD }
+        ?: room.doors.firstOrNull()
     val dx = door?.let { (it.hitboxFrac.left + it.hitboxFrac.right) * 0.5f * room.worldWidth }
         ?: (room.worldWidth * 0.5f)
     val dy = door?.let { (it.hitboxFrac.top + it.hitboxFrac.bottom) * 0.5f * room.worldHeight }
@@ -207,9 +226,34 @@ internal fun ZombieInteriorViewModel.spawnMission2HideCops(room: ZombieRoom): Li
         // Aparecen ESCALONADOS junto a la puerta y se reparten a patrullar la sala.
         val sx = (dx + (i - 1.5f) * 34f).coerceIn(AMBIENT_RADIUS, room.worldWidth - AMBIENT_RADIUS)
         val t = randomWalkable(room) ?: (sx to dy)
+        
+        // Buscar un pixel caminable cercano a (sx, dy) para evitar que nazcan dentro de la colisión de la puerta/pared.
+        var spawnX = sx
+        var spawnY = dy
+        if (!walkable(room, spawnX, spawnY)) {
+            var found = false
+            for (offsetY in listOf(0f, 20f, -20f, 40f, -40f)) {
+                for (offsetX in listOf(0f, 20f, -20f, 40f, -40f)) {
+                    val nx = (sx + offsetX).coerceIn(AMBIENT_RADIUS, room.worldWidth - AMBIENT_RADIUS)
+                    val ny = (dy + offsetY).coerceIn(AMBIENT_RADIUS, room.worldHeight - AMBIENT_RADIUS)
+                    if (walkable(room, nx, ny)) {
+                        spawnX = nx
+                        spawnY = ny
+                        found = true
+                        break
+                    }
+                }
+                if (found) break
+            }
+            if (!found) {
+                spawnX = t.first
+                spawnY = t.second
+            }
+        }
+
         AmbientNpc(
             id = "$M2COP_PREFIX$i",
-            x = sx, y = dy,
+            x = spawnX, y = spawnY,
             skin = PlayerSkin.POLICIA_CDMX,
             action = PlayerAction.WALK,
             targetX = t.first, targetY = t.second
@@ -556,4 +600,28 @@ internal fun ZombieInteriorViewModel.evacuateAmbientNpcs(
             mode = AmbientMode.WANDER, partnerId = null, speechRes = null
         )
     }
+}
+
+/** Crea los dos estudiantes del rumor de la Misión 2 ubicados frente a frente en el Lobby. */
+internal fun ZombieInteriorViewModel.spawnMission2RumorStudents(room: ZombieRoom): List<AmbientNpc> {
+    val cx = room.worldWidth * 0.5f
+    val cy = room.worldHeight * 0.5f
+    return listOf(
+        AmbientNpc(
+            id = "m2rumor_a",
+            x = cx - 35f, y = cy,
+            skin = PlayerSkin.escomboy,
+            action = PlayerAction.IDLE,
+            facingRight = true,
+            targetX = cx - 35f, targetY = cy
+        ),
+        AmbientNpc(
+            id = "m2rumor_b",
+            x = cx + 35f, y = cy,
+            skin = PlayerSkin.escomgirl,
+            action = PlayerAction.IDLE,
+            facingRight = false,
+            targetX = cx + 35f, targetY = cy
+        )
+    )
 }

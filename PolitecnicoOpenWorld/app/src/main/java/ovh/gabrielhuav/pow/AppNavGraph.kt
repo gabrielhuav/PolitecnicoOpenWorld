@@ -50,6 +50,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Backpack
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Hide
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Rumor
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission3Evidence
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeEscomDoorNavigation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeNavigateToShineCTO
@@ -874,7 +875,7 @@ fun AppNavGraph(
                             )
                         ) { backStackEntry ->
                             val wmState by worldMapViewModel.uiState.collectAsState()
-                            val startRoom = backStackEntry.arguments?.getString("startRoom")
+val startRoom = backStackEntry.arguments?.getString("startRoom")
                                 ?: ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
                             // MODO HISTORIA: tras la Misión 1 (INGRESAR_ESCOM cumplida), al entrar al
                             // interior de la ESCOM (lobby) se muestra el objetivo "Busca pistas en la ESCOM".
@@ -886,21 +887,25 @@ fun AppNavGraph(
                                 worldMapViewModel.mission3Phase ==
                                     ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.PHASE_ASSAULT
                             // MISIÓN 2 · fase 1 "ESCONDERSE": se juega DENTRO del lobby de la ESCOM.
-                            // Se RE-EVALÚA en cada recomposición (wmState cambia al seguir/avanzar la
-                            // misión) y ZombieGameScreen la arma/desarma en RUNTIME (setMission2Hide):
-                            // por eso NO es un parámetro assisted del VM de interiores — funciona
-                            // aunque sigas la Misión 2 desde el registro estando YA en el lobby.
                             val mission2Hide = worldMapViewModel.inCampaign &&
                                 worldMapViewModel.mission2Phase ==
                                     ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_HIDE &&
                                 wmState.currentObjective?.id ==
                                     ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_ESCONDERSE_POLICIA.id
+                            val mission2Rumor = worldMapViewModel.inCampaign &&
+                                worldMapViewModel.mission2Phase ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_RUMOR &&
+                                wmState.currentObjective?.id ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_PISTA_RUMOR.id
                             val interiorObjective = when {
                                 // MISIÓN 2 · fase ESCONDERSE: el lobby muestra su objetivo (prioridad
                                 // sobre "Busca pistas": la búsqueda policial está en curso).
                                 mission2Hide &&
                                 startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID ->
                                     ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_ESCONDERSE_POLICIA
+                                mission2Rumor &&
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_PISTA_RUMOR
                                 worldMapViewModel.inCampaign &&
                                 startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID &&
                                 wmState.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id &&
@@ -988,6 +993,10 @@ fun AppNavGraph(
                                     worldMapViewModel.currentInteriorRoomId = null
                                     ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(activity).stopInvestigarMusic()
                                     navController.popBackStack("world_map", inclusive = false)
+                                },
+                                mission2Rumor = mission2Rumor,
+                                onMission2RumorCompleted = {
+                                    worldMapViewModel.completeMission2Rumor()
                                 }
                             )
                         }

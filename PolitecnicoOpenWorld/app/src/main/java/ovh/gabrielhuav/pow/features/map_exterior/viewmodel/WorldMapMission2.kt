@@ -148,10 +148,23 @@ fun WorldMapViewModel.completeMission2Hide() {
     clearMission2Story()
     setCampaignObjective(MissionCatalog.M2_PISTA_RUMOR)
     _uiState.update { it.copy(
-        interactionPrompt = "✅ ¡Los perdiste! Sal al campus y busca pistas del rumor"
+        interactionPrompt = "✅ ¡Los perdiste! Busca a los estudiantes platicando en el lobby para escuchar el rumor"
     ) }
     soundManager.playMisionCumplida()
     android.util.Log.d("POW_DBG", "MISIÓN 2: fase ESCONDERSE cumplida (lobby) → RUMOR")
+}
+
+/** La conversación del rumor en el lobby de la ESCOM terminó → avanza a la fase 3 (brote). */
+fun WorldMapViewModel.completeMission2Rumor() {
+    if (mission2Phase != Mission2.PHASE_RUMOR) return
+    mission2Phase = Mission2.PHASE_BROTE
+    clearMission2Story()
+    setCampaignObjective(MissionCatalog.M2_PISTA_BROTE)
+    _uiState.update { it.copy(
+        interactionPrompt = "✅ ¡Rumor escuchado! Sal al campus a investigar el brote"
+    ) }
+    soundManager.playMisionCumplida()
+    android.util.Log.d("POW_DBG", "MISIÓN 2: fase RUMOR cumplida (lobby) → BROTE")
 }
 
 /** Un policía te RECONOCIÓ dentro del lobby → MISIÓN FALLIDA (REINTENTAR re-arma desde fase 1). */
