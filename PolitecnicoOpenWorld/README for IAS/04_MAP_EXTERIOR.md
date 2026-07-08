@@ -76,6 +76,10 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | 🆕 MISIÓN 2 "El rumor" (máquina de fases: esconderse/rumor/brote/plática/mochila) | `viewmodel/WorldMapMission2.kt` (NUEVO; guion/constantes en `domain/models/campaign/mission2/Mission2.kt`; ver `CAMPAIGN/02_MISSION_2.md`) |
 | 🆕 MISIÓN 3 "Regreso a la ENCB" (viaje/cordón-sigilo/asalto) | `viewmodel/WorldMapMission3.kt` (NUEVO; constantes en `domain/models/campaign/mission3/Mission3.kt`; ver `CAMPAIGN/03_MISSION_3.md`) |
 | 🆕 REGISTRO/SELECTOR de misiones (estilo Witcher) | `viewmodel/WorldMapMissionLog.kt` + `ui/components/MissionLogDialog.kt` (catálogo `MissionCatalog.missions`). 🆕 2026-07-04b: el diálogo se hospeda a nivel **AppNavGraph** (`MissionLogHost`, patrón SaveSlotsDialog) → sirve al mapa Y a interiores; REJUGAR ✔ completadas sin tocar el progreso (`replayingMissionId` transitorio); Modo Dev = seguir 🔒 + "TP al objetivo". Ver 09. |
+| 🆕 MISIONES SECUNDARIAS (side1 entrega / side2 contención) | `viewmodel/WorldMapSideMissions.kt` (tick; SIN fase persistida: el id del objetivo ES el estado) + `domain/models/campaign/side/SideMissions.kt` (coords/objetivos). Badge SECUNDARIA en el registro. Ver `CAMPAIGN/04_SIDE_MISSIONS.md` y 09. |
+| 🆕 EVENTOS DINÁMICOS del mundo (vida urbana: conversación / persecución / mini-brote) | `viewmodel/WorldMapDynamicEvents.kt` (tick del game loop; actores `DYN_*` en `dynamicEventNpcs`, scriptados beeline, no atacables). Mini-brote más probable de NOCHE y con la M3 completada. |
+| 🆕 ECONOMÍA (dinero del jugador) | `viewmodel/WorldMapEconomy.kt` (`addMoney`, `MissionRewards`, `COLLECTIBLE_MONEY`). `WorldMapState.playerMoney` + chip 💵; persistido en `GameSaveData.playerMoney`. Recompensa SOLO la 1ª vez (hook en `markMissionCompleted`). |
+| 🆕 CICLO DÍA/NOCHE | `viewmodel/WorldMapDayNight.kt` (reloj epoch: 1 min real = 1 h juego, ciclo 24 min; `gameHour`/`nightAlpha` en el estado). Velo nocturno = capa Compose renderer-agnóstica en `WorldMapScreen` + chip 🕐. |
 
 ---
 
@@ -130,6 +134,9 @@ data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
   (`Polygon.pointsAsCircle`, tag `route_overlay_tag+600`, culleada por viewport, bajo el icono). Google nativo = pendiente.
 - **Prefetch offline (solo OSM nativo):** `zonePrefetchActive, zonePrefetchProgress, zoneOfflineReady, zoneOfflineWarning`.
 - **Creador de rutas:** `routeDebugWaypoints, isParkingSlotMode, currentWayId(=100)`.
+- **🆕 Economía / día-noche (2026-07-08):** `playerMoney` (persistido en `GameSaveData.playerMoney`;
+  +$25 por coleccionable, recompensas por misión vía `MissionRewards`), `gameHour` (0-23) y
+  `nightAlpha` (0..0.38, velo nocturno). Ver `WorldMapEconomy.kt` / `WorldMapDayNight.kt`.
 
 ---
 
@@ -155,6 +162,8 @@ load roads (Room cache → else Overpass with exponential backoff 1s→30s). The
      acelerar, sigue la carretera. runOverNpcs(loc, v).
 6. applyNpcContactDamage(loc)  // NPCs agresivos en embestida pegan a TU jugador (cada cliente al suyo)
 7. si red lista && !WASTED → runPoliceTick(loc)
+7b. 🆕 tras el `when` de misiones (escolta/chase/M2/M3/SECUNDARIAS): si mundo completo && !WASTED →
+    runDynamicEventsTick(loc) (eventos ambientales); siempre → updateDayNightTick() (throttle ~1 Hz)
 8. maybeRefetchRoadNetwork(loc); cada 5 ticks → updateVisibleRoads(loc)
 9. si red lista, cada 3 ticks → setServerNpcs(npcs remotos) → npcAiManager.updateNpcs(loc, isHost)
      → si soy Host: aplicar pendingDespawns, volcar processedNpcs a remoteEntities → updateNpcsState()

@@ -39,6 +39,9 @@ data class GameSaveData(
     // Recompensa de la Misión 3: primera arma de fuego (desbloquea RANGED en campaña).
     // Boolean primitivo → false en guardados antiguos.
     val hasFirearm: Boolean = false,
+    // ECONOMÍA: dinero del jugador (coleccionables + recompensas de misión).
+    // Int primitivo → 0 en guardados antiguos (compatibilidad automática).
+    val playerMoney: Int = 0,
     // REGISTRO DE MISIONES: ids completadas (MissionCatalog.MISSION_*_ID). ⚠️ Gson deja NULL
     // las listas ausentes en guardados antiguos → coalesce al leer (restoreSaveData ya recibe
     // el default emptyList() solo en escrituras nuevas; ver gotcha de listas de Gson en 09).

@@ -737,6 +737,18 @@ fun WorldMapScreen(
             )
         }
 
+        // ─── CICLO DÍA/NOCHE: velo nocturno (renderer-agnóstico) ─────────────────
+        // Capa Compose azul-noche sobre el mapa y el jugador, BAJO el HUD. La intensidad
+        // (nightAlpha) la calcula el game loop (~1 Hz, WorldMapDayNight.kt). No toca los
+        // renderers ni el fog → funciona igual en OSM nativo, Google nativo y web.
+        if (uiState.nightAlpha > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF091126).copy(alpha = uiState.nightAlpha))
+            )
+        }
+
         // ─── BARRA DE VIDA FIJA (HUD) ────────────────────────────────────────────
         // Siempre visible (como en el modo zombis) para que se vea cuánta vida tienes
         // y cuándo te hacen daño. Arriba a la izquierda, bajo el botón de Ajustes.
@@ -930,6 +942,22 @@ fun WorldMapScreen(
                     x = loc?.let { "%.5f".format(it.longitude) } ?: "--",
                     y = loc?.let { "%.5f".format(it.latitude) } ?: "--",
                     z = "GLOBAL"
+                )
+            }
+            // RELOJ del ciclo día/noche (1 min real = 1 h de juego). Dorado de día, azul de noche.
+            CacheChip(
+                label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_clock),
+                text = String.format(java.util.Locale.US, "🕐 %02d:00", uiState.gameHour),
+                color = if (uiState.nightAlpha > 0.05f) Color(0xFF7FB2FF) else Color(0xFFD4AF37),
+                isLoading = false
+            )
+            // DINERO del jugador (coleccionables + recompensas de misión). Aparece al ganar el primero.
+            AnimatedVisibility(visible = uiState.playerMoney > 0, enter = fadeIn(), exit = fadeOut()) {
+                CacheChip(
+                    label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_money),
+                    text = "💵 $" + uiState.playerMoney,
+                    color = Color(0xFF4CAF50),
+                    isLoading = false
                 )
             }
             AnimatedVisibility(visible = uiState.isDesignerMode, enter = fadeIn(), exit = fadeOut()) {

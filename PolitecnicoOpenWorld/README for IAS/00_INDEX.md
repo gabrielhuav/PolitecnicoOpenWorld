@@ -65,7 +65,7 @@
 | `REVISION_repo.md` | **(2026-06-21)** Revisión de TODO el repo: raíz, servidores Node (solo revisión), seguridad (keystore NO comprometido), `.gitignore`, hardening de deploy. |
 | `CHECKPOINT_2026-07-04_siguiente_sesion.md` | **🆕 CHECKPOINT de la sesión 2026-07-03/04 (Misiones 2 y 3, selector de misiones, control Xbox, vida universitaria, fixes) + PROMPT listo para la siguiente sesión (tareas: skin dev-only, Misiones en interiores, rejugar misiones, modo dev en el registro + TP al objetivo).** |
 | `NPC_SPRITES_PIPELINE.md` | **🆕 Cómo recortar sprite sheets de NPCs al ESTÁNDAR (193×249, body 200, fracción 0.803) + cableado (`PlayerSkin`/`AMBIENT_SKINS`/`devOnlySkins`) + gotchas. Script: `tools/slice_npc_standard.py`. Léelo para agregar más docentes/estudiantes/genéricos en otra PC.** |
-| `CAMPAIGN/` (carpeta) | **🆕 Guion de la campaña (Modo Historia): `00_OVERVIEW.md` (fantasía = simulación de infección zombi + GTA), `01_MISSION_1.md` (Misión 1) y `02_MISSION_2.md` (Misión 2 "El rumor", ✅ implementada 2026-07-03). Futuras misiones = `0N_MISSION_N.md`.** |
+| `CAMPAIGN/` (carpeta) | **🆕 Guion de la campaña (Modo Historia): `00_OVERVIEW.md` (fantasía = simulación de infección zombi + GTA), `01..03_MISSION_N.md` (Misiones 1-3, ✅) y `04_SIDE_MISSIONS.md` (🆕 2026-07-08: secundarias side1/side2 con recompensa en DINERO). Futuras misiones = `0N_MISSION_N.md`.** |
 
 ---
 

@@ -595,7 +595,10 @@ internal fun NativeOsmMap(
 
                         if (isZoomedIn) {
                             if (npc.isDying) {
-                                marker.setAlpha(0.3f)
+                                // FANTASMITA al morir: fade-out POR FRAME (~30 Hz) desde el alpha
+                                // actual hasta casi transparente, mientras el VM retira el NPC
+                                // (~1 s tras isDying). Sin timestamps ni allocs (gama baja).
+                                marker.alpha = (marker.alpha - 0.035f).coerceAtLeast(0.05f)
                             } else {
                                 marker.setAlpha(1f)
                             }

@@ -238,6 +238,8 @@ internal fun WorldMapViewModel.onClaimCollectiblePressed() {
                 promptJob = null
                 collectiblesManager.claim(itemToClaim)
                 _uiState.update { it.copy(interactionPrompt = null) }
+                // ECONOMÍA: cada coleccionable reclamado da dinero (ver WorldMapEconomy.kt).
+                addMoney(COLLECTIBLE_MONEY)
             }
         }
     }

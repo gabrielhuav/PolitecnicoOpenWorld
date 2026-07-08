@@ -270,9 +270,11 @@ internal fun WorldMapViewModel.addRemoteEntity(remote: MultiplayerNpc) {
 internal fun WorldMapViewModel.updateNpcsState() {
         // Civiles/jugadores remotos + policía propia (simulada) + policía remota (solo render)
         // + policía de la CAMPAÑA (escolta/chase de la Misión 1; ver WorldMapCampaignPolice.kt)
-        // + NPCs de la MISIÓN 2 (búsqueda/rumor/brote; ver WorldMapMission2.kt).
+        // + NPCs de la MISIÓN 2 (búsqueda/rumor/brote; ver WorldMapMission2.kt)
+        // + actores de MISIONES SECUNDARIAS y de EVENTOS DINÁMICOS (vida urbana).
         val combined = remoteEntities.values + policeManager.activeUnits() +
             remotePolice.values + campaignEscortPolice.activeUnits() + mission1ChaseCrowd.values +
-            mission2Npcs.values + mission3Npcs.values
+            mission2Npcs.values + mission3Npcs.values +
+            sideMissionNpcs.values + dynamicEventNpcs.values
         _uiState.update { it.copy(npcs = combined.toList()) }
     }

@@ -40,6 +40,10 @@ fun WorldMapViewModel.setStorySpawn(lat: Double, lon: Double) {
     mission2Phase = 0
     clearMission3Story()
     mission3Phase = 0
+    // MISIONES SECUNDARIAS + EVENTOS DINÁMICOS: pizarra limpia (nada de esto se persiste
+    // aparte del objetivo activo, que restoreSaveData re-aplica si se está CARGANDO).
+    clearSideMissions()
+    clearDynamicEvent()
     // REPLAY: pizarra limpia también del modo rejugar (COMENZAR/CARGAR cancelan un replay).
     // ⚠️ replayCampaignMission (M1) y retryCampaignMission lo restauran a propósito después.
     replayingMissionId = null

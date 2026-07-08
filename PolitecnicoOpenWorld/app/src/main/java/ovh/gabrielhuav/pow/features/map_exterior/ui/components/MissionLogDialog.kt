@@ -135,6 +135,19 @@ fun MissionLogDialog(uiState: WorldMapState, viewModel: WorldMapViewModel) {
                                 fontSize = 15.sp,
                                 modifier = Modifier.weight(1f)
                             )
+                            // Badge de misión SECUNDARIA (CampaignMissionInfo.side).
+                            if (mission.side) {
+                                Text(
+                                    text = stringResource(R.string.mlog_side_badge),
+                                    color = Color(0xFF80CBC4),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier
+                                        .padding(end = 6.dp)
+                                        .background(Color(0x3380CBC4), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                             Text(
                                 text = chip,
                                 color = chipColor,

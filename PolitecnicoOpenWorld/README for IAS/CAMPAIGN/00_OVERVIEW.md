@@ -85,6 +85,7 @@ Desde el menú principal hay dos entradas (ver `07_OTHER_FEATURES.md`):
 | 1 | `01_MISSION_1.md` | De la ESCOM a la ENCB · escolta de Prankedy · ingreso a la ESCOM | ✅ Implementada |
 | 2 | `02_MISSION_2.md` | "El rumor": esconderse de la policía, rumor zombie, primer brote público, Rey Grupero y la mochila de Prankedy | ✅ Implementada (2026-07-03) |
 | 3 | `03_MISSION_3.md` | "Regreso a la ENCB": cordón de granaderos (sigilo), asalto interior con zombis, evidencia del laboratorio → primera ARMA DE FUEGO | ✅ Implementada (2026-07-04) |
+| S | `04_SIDE_MISSIONS.md` | 🆕 SECUNDARIAS: side1 "Suministros médicos" (entrega, req. M2) y side2 "Contención en Zacatenco" (eliminar 5 infectados, req. M3). Recompensa en DINERO (economía nueva) | ✅ Implementadas (2026-07-08, pendiente Rebuild) |
 
 > **🆕 REGISTRO DE MISIONES (2026-07-04, estilo Witcher):** ya NO existe el diálogo "¿Continuar la
 > historia o mundo libre?" — el jugador SIEMPRE está en mundo libre y elige qué misión SEGUIR desde

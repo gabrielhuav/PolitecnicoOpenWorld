@@ -492,4 +492,20 @@
     <string name="transit_metrobus_msg_wait">You must wait for the next bus</string>
     <string name="transit_metrobus_msg_wp_saved">Metrobús waypoints saved</string>
     <string name="transit_msg_exit_turnstile">You left the turnstiles. Go to the ticket booth to reload your card.</string>
+    <!-- SIDE missions + economy + day/night cycle (open world) -->
+    <string name="mlog_side_badge">SIDE QUEST</string>
+    <string name="side1_title">Side quest · Medical supplies</string>
+    <string name="side1_desc">With the outbreak growing, a paramedic needs supplies. Pick up the first-aid kit and deliver it. Reward: $150.</string>
+    <string name="side2_title">Side quest · Containment in Zacatenco</string>
+    <string name="side2_desc">Loose infected reported near campus. Take them out before the outbreak spreads. Reward: $250.</string>
+    <string name="obj_s1_recoger_title">Pick up the first-aid kit</string>
+    <string name="obj_s1_recoger_desc">Swing by the medical supplies kit.</string>
+    <string name="obj_s1_entregar_title">Deliver the supplies</string>
+    <string name="obj_s1_entregar_desc">Take the kit to the paramedic. You can drive there.</string>
+    <string name="obj_s2_ir_title">Go to the reported area</string>
+    <string name="obj_s2_ir_desc">Loose infected reported west of campus.</string>
+    <string name="obj_s2_eliminar_title">Take out the infected</string>
+    <string name="obj_s2_eliminar_desc">Finish off every infected in the area (hit them with B).</string>
+    <string name="wm_chip_money">Money</string>
+    <string name="wm_chip_clock">Time</string>
 </resources>

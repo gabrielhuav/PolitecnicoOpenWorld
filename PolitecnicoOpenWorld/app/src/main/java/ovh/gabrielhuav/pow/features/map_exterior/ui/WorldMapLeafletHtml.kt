@@ -535,6 +535,19 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                             var fill = hb.querySelector('.npc-hb-fill');
                             if (fill) { fill.style.width = hbPct + '%'; fill.style.background = hbColor; }
                         }
+                        // FANTASMITA al morir (paridad con OSM/Google nativos): el NPC muriendo
+                        // se desvanece con una transicion CSS hasta que el VM lo retira (~1 s).
+                        if (wrapper) {
+                            if (dying && !wrapper._ghost) {
+                                wrapper._ghost = true;
+                                wrapper.style.transition = 'opacity 0.85s linear';
+                                wrapper.style.opacity = '0.05';
+                            } else if (!dying && wrapper._ghost) {
+                                wrapper._ghost = false;
+                                wrapper.style.transition = '';
+                                wrapper.style.opacity = '1';
+                            }
+                        }
                         if (npc.type === 'CAR' || npc.type === 'MODULAR') {
                             var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
                             // FIX "NPC invisible": si el sprite aún no está listo NO ocultamos el

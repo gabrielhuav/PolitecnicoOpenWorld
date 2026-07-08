@@ -358,6 +358,32 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     // setStorySpawn lo limpia (pizarra limpia al COMENZAR/CARGAR). Ver endMissionReplay.
     internal var replayingMissionId: String? = null
 
+    // ─── MISIONES SECUNDARIAS (side1/side2) — lógica en WorldMapSideMissions.kt ────
+    // SIN fase persistida: el id del objetivo activo ES el estado. Actores propios en
+    // sideMissionNpcs (fusionados en uiState.npcs); los zombis de side2 van en remoteEntities
+    // (prefijo NpcAiManager.SIDE_ZOMBIE_PREFIX → atacables + mover zombi sin apocalipsis).
+    internal val sideMissionNpcs = ConcurrentHashMap<String, Npc>()
+    internal var sideMissionTransitionMs = 0L
+    internal var side2Spawned = false
+    internal var side2LastPromptMs = 0L
+
+    // ─── EVENTOS DINÁMICOS del mundo (vida urbana) — lógica en WorldMapDynamicEvents.kt ────
+    // Escenas ambientales efímeras (conversación / persecución / mini-brote) cerca del
+    // jugador. Actores en dynamicEventNpcs (prefijo DYN_, fusionados en uiState.npcs);
+    // NADA se persiste. Tipo/etapa/timers del tick:
+    internal val dynamicEventNpcs = ConcurrentHashMap<String, Npc>()
+    internal var dynamicEventType = 0
+    internal var dynamicEventStage = 0
+    internal var dynamicEventStageMs = 0L
+    internal var dynamicEventLat = 0.0
+    internal var dynamicEventLon = 0.0
+    internal var nextDynamicEventMs = 0L
+    internal var dynEvtAngle = 0.0
+
+    // ─── CICLO DÍA/NOCHE — lógica en WorldMapDayNight.kt ────
+    // Throttle del tick (~1 Hz). El reloj es derivado del epoch (nada que persistir).
+    internal var lastDayNightUpdateMs = 0L
+
     // ─── PRANKEDY (NPC compañero) ─────────────────────────────────────────────
     internal val prankedyManager = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager()
     // Policía REMOTA (de otros jugadores): solo se renderiza, no se simula. id -> (npc, lastSeenMs).
@@ -900,6 +926,15 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                     runMission3StoryTick(location)
                                 }
                             }
+                            // MISIONES SECUNDARIAS (side1 entrega / side2 contención): tick propio;
+                            // la policía normal SIGUE corriendo (son misiones de mundo abierto).
+                            // Ver WorldMapSideMissions.kt.
+                            isSideMissionStoryActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runSideMissionTick(location)
+                                    runPoliceTick(location)
+                                }
+                            }
                             // Fuera de la campaña / misión cumplida / misión SIN SEGUIR: limpia la
                             // policía de campaña y corre la policía normal del mundo libre. Los NPCs
                             // de misión se limpian si su misión ya no se está siguiendo.
@@ -907,11 +942,23 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                 if (campaignPoliceActivated || mission1ChaseActivated) clearCampaignPolice()
                                 if (mission2Npcs.isNotEmpty() && !isMission2StoryActive()) clearMission2Story()
                                 if (mission3Npcs.isNotEmpty() && !isMission3StoryActive()) clearMission3Story()
+                                if ((sideMissionNpcs.isNotEmpty() || side2Spawned) && !isSideMissionStoryActive()) {
+                                    clearSideMissions()
+                                }
                                 if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
                                     runPoliceTick(location)
                                 }
                             }
                         }
+
+                        // EVENTOS DINÁMICOS del mundo (vida urbana: conversaciones, persecuciones,
+                        // mini-brotes) + CICLO DÍA/NOCHE. Ambos ticks son baratos (early-outs y
+                        // throttle interno ~1 Hz el reloj). Ver WorldMapDynamicEvents/DayNight.kt.
+                        if (_uiState.value.isRoadNetworkReady && _uiState.value.isMapReady &&
+                            !_uiState.value.showWastedScreen) {
+                            runDynamicEventsTick(location)
+                        }
+                        updateDayNightTick()
 
                         maybeRefetchRoadNetwork(location)
                         if (_uiState.value.showRoadNetwork) {

@@ -6,6 +6,7 @@ import ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.all
 import ovh.gabrielhuav.pow.domain.models.campaign.mission1.Mission1
 import ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
 import ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3
+import ovh.gabrielhuav.pow.domain.models.campaign.side.SideMissions
 
 /**
  * Ficha de una MISIÓN para el SELECTOR de misiones (estilo Witcher: elige qué misión seguir,
@@ -52,10 +53,15 @@ object MissionCatalog {
     const val MISSION_1_ID = "mission1"
     const val MISSION_2_ID = "mission2"
     const val MISSION_3_ID = "mission3"
+    // Misiones SECUNDARIAS (side=true; objetivos/coords en side/SideMissions.kt).
+    const val SIDE_1_ID = "side1"
+    const val SIDE_2_ID = "side2"
     val missions: List<CampaignMissionInfo> = listOf(
         CampaignMissionInfo(MISSION_1_ID, R.string.mission1_title, R.string.mission1_desc),
         CampaignMissionInfo(MISSION_2_ID, R.string.mission2_title, R.string.mission2_desc, requiresMissionId = MISSION_1_ID),
-        CampaignMissionInfo(MISSION_3_ID, R.string.mission3_title, R.string.mission3_desc, requiresMissionId = MISSION_2_ID)
+        CampaignMissionInfo(MISSION_3_ID, R.string.mission3_title, R.string.mission3_desc, requiresMissionId = MISSION_2_ID),
+        CampaignMissionInfo(SIDE_1_ID, R.string.side1_title, R.string.side1_desc, requiresMissionId = MISSION_2_ID, side = true),
+        CampaignMissionInfo(SIDE_2_ID, R.string.side2_title, R.string.side2_desc, requiresMissionId = MISSION_3_ID, side = true)
     )
 
     /** Primer objetivo de una misión (para el "TP al objetivo" del Modo Desarrollador). */
@@ -63,6 +69,8 @@ object MissionCatalog {
         MISSION_1_ID -> Mission1.objectives.firstOrNull()
         MISSION_2_ID -> Mission2.objectives.firstOrNull()
         MISSION_3_ID -> Mission3.objectives.firstOrNull()
+        SIDE_1_ID -> SideMissions.S1_RECOGER
+        SIDE_2_ID -> SideMissions.S2_IR
         else -> null
     }
 
@@ -71,6 +79,8 @@ object MissionCatalog {
         objectiveId == null -> null
         objectiveId.startsWith(Mission2.OBJECTIVE_ID_PREFIX) -> MISSION_2_ID
         objectiveId.startsWith(Mission3.OBJECTIVE_ID_PREFIX) -> MISSION_3_ID
+        objectiveId.startsWith(SideMissions.S1_PREFIX) -> SIDE_1_ID
+        objectiveId.startsWith(SideMissions.S2_PREFIX) -> SIDE_2_ID
         Mission1.objectives.any { it.id == objectiveId } -> MISSION_1_ID
         else -> null
     }
@@ -86,8 +96,9 @@ object MissionCatalog {
     const val ESCOM_FORCEWALK_RADIUS_M = Mission1.ESCOM_FORCEWALK_RADIUS_M
 
     // Todos los objetivos de todas las misiones (al añadir misiones, concatena sus listas).
+    // Incluye las SECUNDARIAS: byId debe resolver s1_/s2_ al restaurar un guardado.
     private val all: List<CampaignObjective> =
-        Mission1.objectives + Mission2.objectives + Mission3.objectives
+        Mission1.objectives + Mission2.objectives + Mission3.objectives + SideMissions.objectives
 
     // Objetivo con el que arranca una campaña nueva.
     val first: CampaignObjective = Mission1.IR_ENCB

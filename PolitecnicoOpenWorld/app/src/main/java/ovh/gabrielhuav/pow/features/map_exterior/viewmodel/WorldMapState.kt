@@ -238,6 +238,17 @@ data class WorldMapState(
     // interior (cadena ENCB en modo ASALTO). La View lo consume y navega (WorldMapScreenOverlays).
     val mission3EnterEncb: Boolean = false,
 
+    // ─── ECONOMÍA: dinero del jugador ────────────────────────────────────────
+    // Se gana con coleccionables y al completar misiones (WorldMapEconomy.kt). Se PERSISTE
+    // en GameSaveData.playerMoney (Modo Historia). Chip 💵 en el HUD (WorldMapScreen).
+    val playerMoney: Int = 0,
+
+    // ─── CICLO DÍA/NOCHE (WorldMapDayNight.kt) ───────────────────────────────
+    // Hora de juego (0-23; 1 min real = 1 h de juego) y alpha del velo nocturno (0 = día).
+    // El velo se dibuja como capa Compose renderer-agnóstica en WorldMapScreen.
+    val gameHour: Int = 12,
+    val nightAlpha: Float = 0f,
+
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,
 

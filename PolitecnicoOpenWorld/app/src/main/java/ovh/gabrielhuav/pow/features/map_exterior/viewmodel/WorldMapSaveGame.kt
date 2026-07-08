@@ -32,12 +32,14 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
                 kotlin.math.abs(it.location.longitude - loc.longitude) < SAVE_NPC_RADIUS_DEG
         }
         // NO congelar NPCs DE MISIÓN (M2_* de la Misión 2, M3_* del cordón/paparazzi de la
-        // Misión 3, CAMPAIGN_COP_* de la escolta/chase, ESCOM_FLOOD_* de la multitud): al cargar
-        // se re-inyectarían como civiles "adoptados" por la IA Y ADEMÁS el tick de misión
-        // re-spawnea los suyos → duplicados/zombies huérfanos.
+        // Misión 3, CAMPAIGN_COP_* de la escolta/chase, ESCOM_FLOOD_* de la multitud, SM_/SMZ_
+        // de misiones SECUNDARIAS, DYN_ de eventos dinámicos): al cargar se re-inyectarían como
+        // civiles "adoptados" por la IA Y ADEMÁS el tick de misión re-spawnea los suyos →
+        // duplicados/zombies huérfanos.
         .filterNot {
             it.id.startsWith("M2_") || it.id.startsWith("M3_") ||
-                it.id.startsWith("CAMPAIGN_COP_") || it.id.startsWith("ESCOM_FLOOD_")
+                it.id.startsWith("CAMPAIGN_COP_") || it.id.startsWith("ESCOM_FLOOD_") ||
+                it.id.startsWith("SM_") || it.id.startsWith("SMZ_") || it.id.startsWith("DYN_")
         }
         .take(40)
         .map {
@@ -86,6 +88,8 @@ fun WorldMapViewModel.buildSaveData(schoolId: String, saveType: String = "MANUAL
         // MISIÓN 3 · "Regreso a la ENCB" + recompensa (arma de fuego) + registro de misiones.
         mission3Phase = savedM3Phase,
         hasFirearm = hasFirearm,
+        // ECONOMÍA: el dinero es campo plano de _uiState (no lo posee ningún manager).
+        playerMoney = s.playerMoney,
         completedMissions = campaignManager.state.value.completedMissions,
         saveType = saveType,
         savedAt = System.currentTimeMillis()
@@ -141,7 +145,9 @@ fun WorldMapViewModel.restoreSaveData(data: GameSaveData) {
             currentVehicleColor = data.vehicleColor,
             selectedSkin = skin,
             currentObjective = objective,
-            objectiveDone = data.objectiveDone
+            objectiveDone = data.objectiveDone,
+            // ECONOMÍA: dinero guardado (0 en guardados antiguos — Int primitivo).
+            playerMoney = data.playerMoney
         )
     }
     data.nearbyNpcs.forEach { sn ->

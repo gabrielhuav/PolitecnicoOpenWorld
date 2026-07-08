@@ -937,6 +937,39 @@ matrices por defecto son **border-only** hasta reemplazarse.
   ZombieHud + rechazo con aviso en `selectCombatMode`; fuera de campaña/multijugador AppNavGraph
   pasa `firearmUnlocked=true` (comportamiento intacto). NO volver a leer `INVENTORY_UNLOCKED_SLOTS`
   como tope de recogida (usa el estado).
+- **🆕 MISIONES SECUNDARIAS + ECONOMÍA + EVENTOS DINÁMICOS + DÍA/NOCHE (2026-07-08) — reglas:**
+  - **Secundarias (side1/side2, `WorldMapSideMissions.kt` + `side/SideMissions.kt`):** SIN fase
+    persistida (el id del objetivo activo ES el estado; `MissionCatalog.byId` resuelve `s1_/s2_`
+    porque `all` incluye `SideMissions.objectives` — NO quitarlas de ahí o CARGAR una partida a
+    media secundaria pierde el objetivo). Sin "MISIÓN FALLIDA" al morir. Limpieza en el `else`
+    del `when` de misiones del game loop y en `setStorySpawn` (`clearSideMissions`).
+  - **Zombis de side2 = `NpcAiManager.SIDE_ZOMBIE_PREFIX` (`SMZ_`) en `remoteEntities`:** el gate
+    del mover zombi en `updateNpcs` es `(globalZombieMode || id.startsWith(SIDE_ZOMBIE_PREFIX))`.
+    NO quitar el prefijo del gate: un ZOMBIE fuera del apocalipsis cae a `moveNpc` → null →
+    **despawn inmediato** (por eso los zombis scriptados de misión/eventos que NO deben ser
+    atacables van en listas propias, no en remoteEntities).
+  - **ECONOMÍA (`WorldMapEconomy.kt`):** `WorldMapState.playerMoney` es campo PLANO de `_uiState`
+    (ningún manager lo posee) y se persiste en `GameSaveData.playerMoney` (Int primitivo → 0 en
+    guardados viejos). La recompensa de misión la paga `markMissionCompleted` SOLO si la misión
+    NO estaba en `completedMissions` (los REPLAYS no duplican — no mover ese hook después de
+    `campaignManager.markCompleted` o pagaría 0 veces… ni quitarle el guard o pagaría siempre).
+  - **EVENTOS DINÁMICOS (`WorldMapDynamicEvents.kt`):** actores `DYN_*` en `dynamicEventNpcs`
+    (lista propia fusionada por `updateNpcsState`, NO atacables, movimiento scriptado). El tick
+    NO corre con apocalipsis ni durante escenas de misión (escolta/chase/M2/M3) y se cancela si
+    el jugador se aleja >~330 m (teleport). El mini-brote pondera por `nightAlpha` y M3 completada.
+  - **Exclusiones de guardado:** `buildSaveData` excluye TAMBIÉN los prefijos `SM_`/`SMZ_`/`DYN_`
+    del snapshot de NPCs (además de M2_/M3_/CAMPAIGN_COP_/ESCOM_FLOOD_).
+  - **DÍA/NOCHE (`WorldMapDayNight.kt`):** reloj DETERMINISTA del epoch (1 min real = 1 h de
+    juego, ciclo 24 min; nada persistido). `updateDayNightTick` corre cada tick con throttle
+    interno ~1 Hz y solo escribe si cambió. El VELO nocturno es una **capa Compose
+    renderer-agnóstica en WorldMapScreen** (Box alpha=`nightAlpha`, tras el flash de daño, BAJO
+    el HUD) — NO moverlo a un renderer concreto (mismo error que el editor de debug, ver arriba).
+    Chips nuevos del HUD: 🕐 hora (siempre) y 💵 dinero (si `playerMoney > 0`).
+  - **FANTASMITA al morir un NPC (3 renderers):** OSM nativo = fade POR FRAME
+    (`marker.alpha - 0.035f` por tick, sin timestamps ni allocs — el alpha vive en el Marker,
+    NUNCA meterlo al `cacheKey` de `nativeDrawableCache` o explota el LRU); web = fade CSS
+    (`wrapper._ghost` + `transition: opacity 0.85s` en `updateNpcs`); Google nativo ya tenía
+    `alpha = 0.5f` plano con `isDying`. El VM retira el NPC ~1 s tras `isDying=true` (Combat).
 - **🆕 FIX autos del estacionamiento del LOBBY (2026-07-04):** los sprites de coche son FRAMES
   DIRECCIONALES (48/modelo): el exterior pide el frame del ángulo; el interior pedía el frame 0 y
   lo giraba con `Modifier.rotate` → autos desalineados de los cajones. `ParkedCarsLayer` ahora

@@ -494,4 +494,20 @@
     <string name="transit_metrobus_msg_wait">Debes esperar a que llegue otro autobús</string>
     <string name="transit_metrobus_msg_wp_saved">Waypoints del Metrobús guardados</string>
     <string name="transit_msg_exit_turnstile">Has salido de los torniquetes. Ve a la taquilla para recargar tu tarjeta.</string>
+    <!-- Misiones SECUNDARIAS + economía + ciclo día/noche (mundo abierto) -->
+    <string name="mlog_side_badge">SECUNDARIA</string>
+    <string name="side1_title">Secundaria · Suministros médicos</string>
+    <string name="side1_desc">Con el brote creciendo, un paramédico necesita material. Recoge el botiquín y entrégaselo. Recompensa: $150.</string>
+    <string name="side2_title">Secundaria · Contención en Zacatenco</string>
+    <string name="side2_desc">Reportan infectados sueltos cerca del campus. Elimínalos antes de que el brote se extienda. Recompensa: $250.</string>
+    <string name="obj_s1_recoger_title">Recoge el botiquín</string>
+    <string name="obj_s1_recoger_desc">Pasa por el botiquín de suministros médicos.</string>
+    <string name="obj_s1_entregar_title">Entrega los suministros</string>
+    <string name="obj_s1_entregar_desc">Lleva el botiquín al paramédico. Puedes ir en coche.</string>
+    <string name="obj_s2_ir_title">Ve a la zona del reporte</string>
+    <string name="obj_s2_ir_desc">Reportan infectados sueltos al oeste del campus.</string>
+    <string name="obj_s2_eliminar_title">Elimina a los infectados</string>
+    <string name="obj_s2_eliminar_desc">Acaba con todos los infectados de la zona (golpéalos con B).</string>
+    <string name="wm_chip_money">Dinero</string>
+    <string name="wm_chip_clock">Hora</string>
 </resources>

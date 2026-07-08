@@ -45,6 +45,12 @@ internal fun WorldMapViewModel.markMissionCompleted(missionId: String) {
     // FIN DE UN REPLAY: al volver a completar la misión rejugada se apaga el modo replay (las
     // fases ya quedaron en DONE por el propio flujo de completado; recompensas idempotentes).
     if (replayingMissionId == missionId) replayingMissionId = null
+    // RECOMPENSA en DINERO: solo la PRIMERA vez (un replay ya está en completedMissions →
+    // no paga de nuevo). Ver MissionRewards en WorldMapEconomy.kt.
+    if (!campaignManager.isCompleted(missionId)) {
+        val reward = MissionRewards.moneyFor(missionId)
+        if (reward > 0) addMoney(reward)
+    }
     campaignManager.markCompleted(missionId)   // idempotente (no des-marca ni duplica)
 }
 
@@ -72,6 +78,10 @@ fun WorldMapViewModel.selectCampaignMission(missionId: String, force: Boolean = 
             if (mission3Phase == Mission3.PHASE_NONE) startMission3Story()
             else resumeMission3Objective()
         }
+        // SECUNDARIAS: sin fase persistida — seguir = (re)arrancar desde su primer objetivo
+        // (son cortas; si se dejó de seguir a medias, se reinician — documentado).
+        MissionCatalog.SIDE_1_ID -> startSideMission1()
+        MissionCatalog.SIDE_2_ID -> startSideMission2()
     }
     toggleMissionLog(false)
 }
@@ -114,6 +124,10 @@ fun WorldMapViewModel.replayCampaignMission(missionId: String) {
         }
         MissionCatalog.MISSION_2_ID -> startMission2Story()
         MissionCatalog.MISSION_3_ID -> startMission3Story()
+        // SECUNDARIAS: rejugar = re-arrancar. La recompensa NO se duplica (markMissionCompleted
+        // solo paga si la misión no estaba en completedMissions).
+        MissionCatalog.SIDE_1_ID -> startSideMission1()
+        MissionCatalog.SIDE_2_ID -> startSideMission2()
         else -> return
     }
     replayingMissionId = missionId   // DESPUÉS del arranque (setStorySpawn lo limpia)
@@ -130,6 +144,8 @@ internal fun WorldMapViewModel.endMissionReplay() {
         MissionCatalog.MISSION_1_ID -> clearCampaignPolice()
         MissionCatalog.MISSION_2_ID -> { clearMission2Story(); mission2Phase = Mission2.PHASE_DONE }
         MissionCatalog.MISSION_3_ID -> { clearMission3Story(); mission3Phase = Mission3.PHASE_DONE }
+        // SECUNDARIAS: no hay fase que restaurar; solo limpiar actores (paramédico/zombis SMZ_).
+        MissionCatalog.SIDE_1_ID, MissionCatalog.SIDE_2_ID -> clearSideMissions()
     }
     replayingMissionId = null
 }

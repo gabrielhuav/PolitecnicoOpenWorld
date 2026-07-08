@@ -46,6 +46,12 @@ class NpcAiManager {
         // por maxTotalNpcs: deben sobrevivir repartidos por TODA la ruta (no solo cerca del jugador).
         const val ROUTE_NPC_PREFIX = "CAMPAIGN_ROUTE_"
 
+        // Zombis de MISIÓN SECUNDARIA (side2 "Contención"; ver WorldMapSideMissions.kt): con
+        // este prefijo el mover zombi corre AUNQUE globalZombieMode esté apagado (gate ampliado
+        // en updateNpcs). Sin él, un ZOMBIE fuera del apocalipsis caía a moveNpc → null →
+        // despawn inmediato. Son atacables (viven en remoteEntities, como todo NPC de la IA).
+        const val SIDE_ZOMBIE_PREFIX = "SMZ_"
+
         // ─── Parámetros de comportamiento (compartidos SP/MP: el host los corre) ───
         const val FEAR_RADIUS = 0.0018
         const val FEAR_DURATION_MS = 4500L
@@ -720,7 +726,7 @@ class NpcAiManager {
                             isMoving = true,
                             facingRight = npc.dodgeDirLon >= 0
                         )
-                    } else if (globalZombieMode && npc.type == NpcType.ZOMBIE) {
+                    } else if ((globalZombieMode || npc.id.startsWith(SIDE_ZOMBIE_PREFIX)) && npc.type == NpcType.ZOMBIE) {
                         val moved = moveZombieNpc(npc, currentNetwork, now, pLat0, pLon0)
                         if (moved == null) {
                             synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
