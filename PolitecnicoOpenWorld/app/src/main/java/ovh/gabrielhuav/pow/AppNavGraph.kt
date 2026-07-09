@@ -45,6 +45,7 @@ import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.ShineCTOScreen
 import ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
+import ovh.gabrielhuav.pow.features.streetfighter.ui.StreetFighterScreen
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
@@ -229,6 +230,9 @@ fun AppNavGraph(
                                 },
                                 onNavigateToStory = {
                                     navController.navigate("story_mode")
+                                },
+                                onNavigateToStreetFighter = {
+                                    navController.navigate("street_fighter")
                                 },
                                 authManager = authManager
                             )
@@ -745,6 +749,16 @@ fun AppNavGraph(
                                 onBack = {
                                     navController.popBackStack()
                                 }
+                            )
+                        }
+
+                        // ─── STREET FIGHTER (minijuego dev, port fiel de StreetFighter-main) ───
+                        // Pelea 1v1 clásica Ryu vs Ken (CPU) con los sprites/sonidos originales
+                        // (assets/STREETFIGHTER). Se entra desde el menú principal SOLO con Modo
+                        // Desarrollador. La ruta NO está en portraitRoutes → landscape. Ver 07.
+                        composable(route = "street_fighter") {
+                            StreetFighterScreen(
+                                onExitToMap = { navController.popBackStack() }
                             )
                         }
 

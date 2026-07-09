@@ -168,6 +168,9 @@ fun WorldMapViewModel.devTeleportToMissionObjective(missionId: String) {
                 mission2Phase = Mission2.PHASE_RUMOR
                 clearMission2Story()
                 setCampaignObjective(MissionCatalog.M2_PISTA_RUMOR)
+                currentInteriorRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
+                transitTeleportManager.beginEscomDoorFade("interiores_zombies?startRoom=" + ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID)
+                return
             } else if (mission2Phase == Mission2.PHASE_BACKPACK) {
                 completeMission2Backpack()
             }
@@ -194,6 +197,22 @@ fun WorldMapViewModel.devTeleportToMissionObjective(missionId: String) {
         MissionCatalog.firstObjectiveOf(missionId)
     if (obj == null) return
     toggleMissionLog(false)
+
+    // Si el objetivo es de interiores, los teletransportamos directamente al interior correspondiente:
+    if (obj.id == MissionCatalog.M2_ESCONDERSE_POLICIA.id || obj.id == MissionCatalog.M2_PISTA_RUMOR.id) {
+        currentInteriorRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
+        soundManager.stopWalk()
+        soundManager.stopRun()
+        transitTeleportManager.beginEscomDoorFade("interiores_zombies?startRoom=" + ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID)
+        return
+    } else if (obj.id == MissionCatalog.M3_RECUPERAR_EVIDENCIA.id) {
+        currentInteriorRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID
+        soundManager.stopWalk()
+        soundManager.stopRun()
+        transitTeleportManager.beginEscomDoorFade("interiores_zombies?startRoom=" + ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID)
+        return
+    }
+
     // ~0.00036° de latitud ≈ 40 m (dentro del rango pedido de 30-50 m).
     teleportTo(obj.targetLat + 0.00036, obj.targetLon)
     _uiState.update { it.copy(

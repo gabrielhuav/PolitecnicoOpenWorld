@@ -78,6 +78,7 @@ app/src/main/java/ovh/gabrielhuav/pow/
 │   │   ├── escom/         → ver 06  (interiores simples ESCOM + metro; antes features/interior/)
 │   │   ├── zombies/       → ver 05  (capa de zombis; antes features/zombie_minigame/)
 │   │   └── shinecto/      → ver 07  (easter egg; antes features/shinecto/)
+│   ├── streetfighter/    → ver 07  (🆕 STREET FIGHTER: minijuego 1v1 dev-gated; ui + viewmodel + data; modelos puros en domain/models/streetfighter/; assets en assets/STREETFIGHTER/)
 │   └── settings/         → ver 07
 ├── ui/theme/            # Tema Material 3 (Color.kt, Theme.kt, Type.kt)
 └── MainActivity.kt      # Single-Activity + Compose NavHost
@@ -103,6 +104,7 @@ app/src/main/java/ovh/gabrielhuav/pow/
 | `metro_station_interior/{stationName}?spawnX={spawnX}&spawnY={spawnY}` | `MetroStationInteriorScreen` (`interiores.escom.ui`, ruta parametrizada) |
 | `interiores_zombies?startRoom={startRoom}` | `ZombieGameScreen` (motor de Interiores; `startRoom` = sala inicial, default `lobby_campus`; la puerta FES pasa `fes_interior`) |
 | `shinecto_interior` | `ShineCTOScreen` (`interiores.shinecto.ui`, easter egg) |
+| `street_fighter` | 🆕 `StreetFighterScreen` (`features/streetfighter/`): minijuego **STREET FIGHTER** (port fiel del clon JS StreetFighter-main: Ryu vs Ken CPU, sprites/sonidos originales en `assets/STREETFIGHTER/`). Botón del menú principal visible SOLO con Modo Desarrollador. Landscape (no está en `portraitRoutes`). Ver 07 |
 
 **MainActivity** también: configura osmdroid (`configureOsmdroid`), pide permisos y obtiene la
 ubicación con Fused Location Provider (`checkPermissionsAndFetchLocation`, `fetchCurrentLocation`),

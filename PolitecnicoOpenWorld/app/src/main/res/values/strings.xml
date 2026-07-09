@@ -14,6 +14,7 @@
     <string name="menu_multiplayer">MULTIJUGADOR</string>
     <string name="menu_settings">AJUSTES</string>
     <string name="menu_collectibles">COLECCIONABLES</string>
+    <string name="menu_street_fighter">STREET FIGHTER</string>
     <string name="menu_mp_dialog_title">Conectar a Servidor</string>
     <string name="menu_mp_username_label">Nombre de Usuario</string>
     <string name="menu_mp_connect">Conectar</string>

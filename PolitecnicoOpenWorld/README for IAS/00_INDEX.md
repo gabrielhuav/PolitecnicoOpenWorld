@@ -49,7 +49,7 @@
 | 04 | `04_MAP_EXTERIOR.md` | Open world: WorldMapViewModel + parciales, estado, render, policía |
 | 05 | `05_ZOMBIE_MINIGAME.md` | Minijuego zombi: VM, tick offline/online, constantes, render, diseñador |
 | 06 | `06_INTERIOR_METRO.md` | Interiores ESCOM + metro + CollisionGrid |
-| 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables |
+| 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables, 🆕 Street Fighter (dev) |
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
@@ -65,6 +65,7 @@
 | `REVISION_repo.md` | **(2026-06-21)** Revisión de TODO el repo: raíz, servidores Node (solo revisión), seguridad (keystore NO comprometido), `.gitignore`, hardening de deploy. |
 | `CHECKPOINT_2026-07-04_siguiente_sesion.md` | CHECKPOINT de la sesión 2026-07-03/04 (Misiones 2 y 3, selector de misiones, control Xbox, vida universitaria, fixes). Sus 4 tareas ya están ✅ HECHAS. |
 | `CHECKPOINT_2026-07-08_siguiente_sesion.md` | **🆕 CHECKPOINT MÁS RECIENTE (2026-07-08): fase 1 de la M2 rediseñada DENTRO del lobby (policías m2cop_*), fix "TP al objetivo" (sigue la misión primero), vida ESCOM interior (13 NPCs + guiones coherentes) y exterior (`WorldMapCampusLife.kt`). + PROMPT de arranque para el siguiente LLM. EMPIEZA AQUÍ para retomar.** |
+| `ASSETS_STREETFIGHTER_MIGRACION.md` | **🆕 (2026-07-09)** Modo pelea 1v1: qué assets del clon SF hay que sustituir por assets propios de POW (Prankedy…), formato del JSON de personaje (77 poses), pipeline de empaquetado y prompts para QWEN/ChatGPT. |
 | `NPC_SPRITES_PIPELINE.md` | **🆕 Cómo recortar sprite sheets de NPCs al ESTÁNDAR (193×249, body 200, fracción 0.803) + cableado (`PlayerSkin`/`AMBIENT_SKINS`/`devOnlySkins`) + gotchas. Script: `tools/slice_npc_standard.py`. Léelo para agregar más docentes/estudiantes/genéricos en otra PC.** |
 | `CAMPAIGN/` (carpeta) | **🆕 Guion de la campaña (Modo Historia): `00_OVERVIEW.md` (fantasía = simulación de infección zombi + GTA), `01..03_MISSION_N.md` (Misiones 1-3, ✅) y `04_SIDE_MISSIONS.md` (🆕 2026-07-08: secundarias side1/side2 con recompensa en DINERO). Futuras misiones = `0N_MISSION_N.md`.** |
 

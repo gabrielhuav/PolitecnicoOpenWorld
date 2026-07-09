@@ -72,9 +72,7 @@ private fun getAmbientSkinsPool(room: ZombieRoom): List<PlayerSkin> {
 
     val globalAndGenericSkins = listOf(
         PlayerSkin.RND_1, PlayerSkin.DOC_1, PlayerSkin.EST_H1, PlayerSkin.EST_M1,
-        PlayerSkin.LAZARO, PlayerSkin.escomboy, PlayerSkin.escomgirl, PlayerSkin.robot,
-        PlayerSkin.SENOR_TIENDA, PlayerSkin.REY_GRUPERO, PlayerSkin.PRANKEDY,
-        PlayerSkin.PAPARAZZI_N1, PlayerSkin.PAPARAZZI_N5, PlayerSkin.PARAMEDICO
+        PlayerSkin.escomboy, PlayerSkin.escomgirl
     )
 
     return if (isEscom) {

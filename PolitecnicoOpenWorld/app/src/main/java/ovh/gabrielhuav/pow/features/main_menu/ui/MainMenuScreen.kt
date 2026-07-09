@@ -63,6 +63,7 @@ fun MainMenuScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToCollectibles: () -> Unit,
     onNavigateToStory: () -> Unit,
+    onNavigateToStreetFighter: () -> Unit = {},
     authManager: ovh.gabrielhuav.pow.data.auth.AuthManager? = null
 ) {
     val viewModel: MainMenuViewModel = androidx.hilt.navigation.compose.hiltViewModel()
@@ -71,6 +72,9 @@ fun MainMenuScreen(
 
     // Nombre de jugador recordado entre sesiones (SharedPreferences). Se prellena al abrir.
     val settingsRepo = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context) }
+    // STREET FIGHTER (minijuego 1v1 en desarrollo): visible SOLO con Modo Desarrollador
+    // (Ajustes → Interfaz), como el resto de features de prueba (mismo patrón que las pantallas de juego).
+    val developerMode = remember { settingsRepo.getDeveloperMode() }
     LaunchedEffect(Unit) {
         if (state.playerName.isBlank()) {
             val saved = settingsRepo.getPlayerName()
@@ -135,7 +139,9 @@ fun MainMenuScreen(
                         onNavigateToSettings = onNavigateToSettings,
                         onNavigateToCollectibles = onNavigateToCollectibles,
                         onNavigateToStory = onNavigateToStory,
-                        onMultiplayerClick = onMultiplayer
+                        onMultiplayerClick = onMultiplayer,
+                        onNavigateToStreetFighter = onNavigateToStreetFighter,
+                        developerMode = developerMode
                     )
                 }
             }
@@ -154,7 +160,9 @@ fun MainMenuScreen(
                     onNavigateToSettings = onNavigateToSettings,
                     onNavigateToCollectibles = onNavigateToCollectibles,
                     onNavigateToStory = onNavigateToStory,
-                    onMultiplayerClick = onMultiplayer
+                    onMultiplayerClick = onMultiplayer,
+                    onNavigateToStreetFighter = onNavigateToStreetFighter,
+                    developerMode = developerMode
                 )
             }
         }
@@ -296,7 +304,9 @@ fun MenuButtonsList(
     onNavigateToSettings: () -> Unit,
     onNavigateToCollectibles: () -> Unit,
     onNavigateToStory: () -> Unit,
-    onMultiplayerClick: () -> Unit = { viewModel.onMultiplayerPressed() }
+    onMultiplayerClick: () -> Unit = { viewModel.onMultiplayerPressed() },
+    onNavigateToStreetFighter: () -> Unit = {},
+    developerMode: Boolean = false
 ) {
     // MUNDO LIBRE: el open world sin campaña (antes "Iniciar Juego"). Spawn por defecto.
     MenuButton(
@@ -341,6 +351,18 @@ fun MenuButtonsList(
         enabled = !state.isWarmingUp,
         color = Color(0xFF6B1C3A)
     )
+
+    // STREET FIGHTER (minijuego 1v1 clásico, port fiel de StreetFighter-main con sprites reales).
+    // SOLO en Modo Desarrollador mientras está en pruebas; se abrirá a todos en la versión final.
+    if (developerMode) {
+        Spacer(Modifier.height(16.dp))
+        MenuButton(
+            text = stringResource(R.string.menu_street_fighter),
+            onClick = onNavigateToStreetFighter,
+            enabled = !state.isWarmingUp,
+            color = Color(0xFF1C4A6B)
+        )
+    }
 }
 
 @Composable

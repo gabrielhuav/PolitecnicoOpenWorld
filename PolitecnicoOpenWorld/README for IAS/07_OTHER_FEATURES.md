@@ -24,6 +24,50 @@ Menú principal; título ligado a `BuildConfig.VERSION_NAME` con auto-shrink que
 **Botones (renombrados):** `menu_start_game` ahora es **"MUNDO LIBRE"** (open world sin campaña, spawn por
 defecto) y `menu_load_game` es **"MODO HISTORIA"** (antes deshabilitado; ahora navega a `story_mode` vía
 `onNavigateToStory`).
+**🆕 Botón "STREET FIGHTER" (`menu_street_fighter`, 2026-07-09):** visible SOLO con Modo
+Desarrollador (`SettingsRepository.getDeveloperMode()`, leído con `remember` como en las demás
+pantallas); navega a la ruta `street_fighter` (callback `onNavigateToStreetFighter` con default `{}`).
+
+---
+
+## 🥊 STREET FIGHTER (`features/streetfighter/`) — 🆕 2026-07-09, dev-gated
+
+**ES:** Port FIEL del clon JS `StreetFighter-main/` (hermano del repo): pelea 1v1 clásica **Ryu
+(jugador) vs Ken (CPU)** con los **sprites, escenario, HUD y sonidos originales**. Los assets viven en
+**`app/src/main/assets/STREETFIGHTER/`** (`IMAGES/` 7 png, `SOUNDS/` 12 ogg, `DATA/` ryu.json+ken.json).
+Los JSON se generaron **automáticamente desde Ryu.js/Ken.js** (77/78 frames con recorte+origen+pushbox+
+hurtbox+hitbox POR FRAME y las 30 animaciones con sus frame-delays); regenerables con el conversor
+**`tools/convert_streetfighter_frames.py`** (parsea el JS con ast; ajusta las rutas si mueves los repos). *(La 1ª iteración fue un port del
+fork StreetFighter-Maths con quiz; se descartó — `SfMathQuiz.kt` quedó como tombstone para borrar.)*
+**EN:** Faithful port of the sibling `StreetFighter-main/` JS clone: classic Ryu vs Ken (CPU) with the
+original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations converted to JSON from the JS.
+
+| Tema / Concern | Archivo / File |
+|---|---|
+| Modelos puros (constantes, enums de estados 1:1 con el JS, SfBox, snapshots, SfInput) | `domain/models/streetfighter/SfModels.kt` |
+| Carga del frame data JSON (Gson, cache estático) | `features/streetfighter/data/SfFrameCatalog.kt` |
+| 🆕 TEMA intercambiable (escenario/HUD/sombra/splashes/proyectil/sonidos como DATOS; hoy `SF_CLASSIC_THEME`) | `features/streetfighter/data/SfTheme.kt` |
+| Estado UI (peleadores, fireballs, splashes, cámara, timer, fin de pelea) | `features/streetfighter/viewmodel/StreetFighterState.kt` |
+| VM `@HiltViewModel` (port de Fighter.js/BattleScene.js/Fireball.js: máquina de 30 estados, animación por frame-delays, cajas por frame, hit-freeze 15 frames, hadouken ↓↘→+P, IA CPU, timer 99, sonidos por SharedFlow) | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` |
+| View (Canvas: sprite sheets con flip por ancla, escenario de Ken con parallax/bandera/barco, sombras, HUD de hud.png, winnerText; SoundPool + tema de Ken en loop; joystick POW + 6 botones) | `features/streetfighter/ui/StreetFighterScreen.kt` |
+
+- **Reloj de juego VIRTUAL:** `gameNow` solo avanza si no hay pausa/diálogo → los timers absolutos
+  (animaciones, timer, hit-freeze) NO se desplazan al pausar. `requestAnimationFrame` → coroutine 16 ms.
+- **Controles (2026-07-09b, MISMO diamante Xbox de POW):** joystick (←→ caminar, ↑ saltar, ↓ agacharse;
+  secuencia ↓ ↘ → + puño = **especial/hadouken**, ventana 800 ms) + diamante A/B/X/Y idéntico a
+  `ActionButtonsController`: **X = puño ligero · Y = puño medio · B = puño fuerte · A = patada**
+  (fuerza de la patada según el joystick: neutro = ligera, adelante = media, atrás = fuerte;
+  `onKickPressed` en el VM). El joystick no emite release → timeout 150 ms.
+- **🆕 SEPARACIÓN motor⇄assets (2026-07-09b):** la View ya no conoce recortes/rutas — todo viene del
+  `SfTheme` (data). Migrar a assets propios de POW (Prankedy, escenario ESCOM, sin copyright) = nuevos
+  PNG+JSON+tema, CERO lógica. **Receta completa + prompts de generación (QWEN/ChatGPT):**
+  `ASSETS_STREETFIGHTER_MIGRACION.md` (esta carpeta).
+- **Quirks del JS portados a propósito:** el chequeo de hitbox SALE al primer hurtbox que no traslapa;
+  los ataques ligeros se re-disparan desde el frame 2; LEGS cae a estados de cabeza; empate del timer lo
+  gana el jugador (>=).
+- **Pendiente:** i18n de los ~8 strings in-game (TODO en el archivo; el botón del menú SÍ está ES+EN),
+  fireball-vs-fireball (raro: requiere 2 hadoukens cruzados), roll-up de las barras de vida del HUD,
+  y abrirlo sin Modo Desarrollador cuando esté pulido.
 
 ---
 
