@@ -174,7 +174,10 @@ stepZombie(z, target, def, st, now):
   + separationNudge: empuja zombis cercanos (<SEPARATION_FRAC) para que no se apilen.
 ```
 Funciones núcleo / core: `borderOnly`, `loadMatrixOverrides`, `makeRoomDef`, `zoneOf`, `clampFrac`,
-`safeFrac`, `safeDamage`, `isBlocked`, `isCellBlocked`, `cellOf`, `cellCenterFrac`, `nearestWalkable`,
+`safeFrac`, `safeDamage`, 🆕 `isSolidCell` (**2026-07-10: `'#'` Y `'^'` bloquean — paridad de
+oclusión con el cliente**; antes el server solo bloqueaba `'#'` y los zombis online atravesaban
+los objetos `'^'`), `isBlocked`, `isCellBlocked` (ambos delegan en `isSolidCell`), `cellOf`,
+`cellCenterFrac`, `nearestWalkable`,
 `class MinHeap`, `buildFlowField(def, goalCell)` (Dijkstra 8-conn sin corte de esquina),
 `getField(st, def, goalCell, now)` (cache+TTL), `gradientTarget(field, def, zCell, tx, ty)`,
 `hasLineOfSight(def, ax, ay, bx, by)`, `moveToward`, `fallbackWander`, `separationNudge`, `stepZombie`,

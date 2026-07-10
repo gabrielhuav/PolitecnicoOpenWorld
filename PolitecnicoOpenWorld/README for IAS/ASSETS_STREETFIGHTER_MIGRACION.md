@@ -135,6 +135,14 @@ cara…"); luego recórtalos al lienzo 256×256 con los pies en (128,224) — GI
   su set NPC Idle/Walk/Run/Special: walk→caminatas, run→saltos/volteretas rotadas, special→golpes
   /victoria, idle inclinado/aplastado→reacciones/caídas/agacharse) + `pack_sf_character.py`.
   Por eso llevan **badge ALPHA**: sus poses se irán reemplazando con arte dedicado (prompt §6).
-- Falta: sustituir poses ALPHA por arte dedicado (los 4 nuevos + pulir Prankedy), escenario/HUD/
-  sonidos (`POW_THEME`), afinar cajas si el alcance se siente raro (usan las de ryu), tags de
-  nombre + filas de winner para los personajes POW, i18n in-game.
+- **🆕 ARTE DEDICADO INTEGRADO (2026-07-10c):** los 5 peleadores POW ya usan HOJAS DE REFERENCIA
+  reales (raíz del repo externo: `sprites Prankedy.png`, `paparazzi1/5.png`, `senortienda.png`,
+  `reygrupero.png` + `extras senortienda/reygrupero.png` con salto/agacharse/daño/derribo).
+  Rebanadores: `tools/slice_sf_reference_sheet.py` (hoja plantilla, escala POR SECCIÓN),
+  `tools/slice_sf_custom_sheets.py` (mapeo por personaje: cajas por sección, filtro de blobs
+  de 2 figuras) y `tools/slice_sf_extras.py` (hojas extra que SOBREESCRIBEN las poses aproximadas;
+  merge de blobs partidos con alfa por unión de ids). Todas las poses de pie ≈100 px, pies en
+  (128,224); agachado ~72-80 px, tendido ~40 px.
+- Falta: escenario/HUD/sonidos (`POW_THEME`), afinar cajas si el alcance se siente raro (usan
+  las de ryu), tags de nombre + filas de winner para los personajes POW, i18n in-game.
+  Nota: la hoja de Rey Grupero NO es pixel art (estilo semi-realista); regenerar si desentona.

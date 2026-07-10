@@ -35,7 +35,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -110,6 +112,20 @@ fun StreetFighterScreen(
     val playerData = remember(playerId) { SfFrameCatalog.load(context, playerId) }
     val cpuData = remember(cpuId) { SfFrameCatalog.load(context, cpuId) }
 
+    // ---- Selección en 2 pasos: PELEADOR → MAPA (el mapa lo elige el jugador) ----
+    var pendingFighter by remember { mutableStateOf<SfFighterId?>(null) }
+    var chosenBgFile by remember { mutableStateOf(theme.fullBackgrounds.firstOrNull()?.file) }
+    LaunchedEffect(state.inCharacterSelect) {
+        if (state.inCharacterSelect) pendingFighter = null // volver al selector reinicia el flujo
+    }
+    val bgImage = remember(chosenBgFile) {
+        chosenBgFile?.let { name ->
+            runCatching {
+                context.assets.open(theme.imagesDir + name).use { BitmapFactory.decodeStream(it) }.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+
     // ---- Sonidos del tema (SoundPool efectos + MediaPlayer música) ----
     val soundPool = remember {
         SoundPool.Builder()
@@ -174,7 +190,7 @@ fun StreetFighterScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ---- Escena completa (mundo + HUD) en un Canvas ----
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawScene(theme, state, images, playerData, cpuData)
+            drawScene(theme, state, images, playerData, cpuData, bgImage)
         }
 
         // ---- Controles de POW: joystick + diamante Xbox (ocultos durante la selección) ----
@@ -194,9 +210,21 @@ fun StreetFighterScreen(
             )
         }
 
-        // ---- Selector de personaje (antes de pelear) ----
+        // ---- Selección pre-pelea: paso 1 PELEADOR, paso 2 MAPA ----
         if (state.inCharacterSelect) {
-            CharacterSelectOverlay(onSelect = viewModel::selectCharacter)
+            val fighter = pendingFighter
+            if (fighter == null) {
+                CharacterSelectOverlay(onSelect = { pendingFighter = it })
+            } else {
+                StageSelectOverlay(
+                    theme = theme,
+                    onSelect = { file ->
+                        chosenBgFile = file ?: theme.fullBackgrounds.randomOrNull()?.file
+                        viewModel.selectCharacter(fighter)
+                    },
+                    onBack = { pendingFighter = null },
+                )
+            }
         }
 
         // Botón de salida
@@ -344,6 +372,95 @@ private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit) {
     }
 }
 
+// ------------------------------------------------------------------
+// Selector de MAPA (paso 2): miniaturas de los fondos POW + "Al azar".
+// Las miniaturas se decodifican submuestreadas (inSampleSize=8, ~248×110)
+// para no cargar los 6 fondos completos (RAM de gama baja, ver 09 §6).
+// ------------------------------------------------------------------
+
+@Composable
+private fun StageSelectOverlay(
+    theme: SfTheme,
+    onSelect: (String?) -> Unit,   // null = al azar
+    onBack: () -> Unit,
+) {
+    val context = LocalContext.current
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "ELIGE EL ESCENARIO",
+                color = Color(0xFFD4AF37),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                theme.fullBackgrounds.forEach { bg ->
+                    val thumb = remember(bg.file) {
+                        runCatching {
+                            val opts = BitmapFactory.Options().apply { inSampleSize = 8 }
+                            context.assets.open(theme.imagesDir + bg.file).use {
+                                BitmapFactory.decodeStream(it, null, opts)
+                            }?.asImageBitmap()
+                        }.getOrNull()
+                    }
+                    StageCard(name = bg.name, thumb = thumb) { onSelect(bg.file) }
+                }
+                StageCard(name = "Al azar", thumb = null, emoji = "🎲") { onSelect(null) }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            TextButton(onClick = onBack) {
+                Text("← Cambiar peleador", color = Color.White.copy(alpha = 0.7f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun StageCard(name: String, thumb: ImageBitmap?, emoji: String? = null, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF23233A))
+            .clickable { onClick() }
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier.width(132.dp).height(66.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF11111C)),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                thumb != null -> Image(
+                    bitmap = thumb,
+                    contentDescription = name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+                emoji != null -> Text(emoji, fontSize = 30.sp)
+                else -> Text("?", color = Color.White, fontSize = 24.sp)
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = name,
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier.width(132.dp),
+        )
+    }
+}
+
 /** Preview del peleador: recorte idle-1 de su sheet, recortado a su bbox opaco. */
 @Composable
 private fun rememberFighterPreview(id: SfFighterId): ImageBitmap? {
@@ -446,6 +563,7 @@ private fun DrawScope.drawScene(
     images: Map<String, ImageBitmap>,
     playerData: SfFighterData,
     cpuData: SfFighterData,
+    bgImage: ImageBitmap?,
 ) {
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
     val ctx = SceneCtx(
@@ -458,20 +576,25 @@ private fun DrawScope.drawScene(
     val stage = images.getValue(theme.stageImage)
     val t = state.gameTimeMs
 
-    // ---- Fondo (parallax por capas) ----
-    val bob = theme.boatBob[((t / 366) % theme.boatBob.size).toInt()]
-    drawSprite(ctx, stage, theme.stageBackground, 16f - ctx.camX / 2.157303f, -ctx.camY)
-    val flag = theme.flagFrames[((t / 133) % theme.flagFrames.size).toInt()]
-    drawSprite(ctx, stage, flag, 576f - ctx.camX / 2.157303f, 48f - ctx.camY)
-    drawSprite(ctx, stage, theme.stageBoat, 150f - ctx.camX / 1.613445f, -3f - ctx.camY - bob)
-    theme.stagePeople.forEach { prop ->
-        drawSprite(ctx, stage, prop.src, prop.x - ctx.camX / 1.613445f, prop.y.toFloat() - bob - ctx.camY)
+    if (bgImage != null) {
+        // ---- FONDO POW a pantalla completa (elegido al azar) con parallax de cámara ----
+        drawFullBackground(ctx, bgImage)
+    } else {
+        // ---- Fondo del escenario clásico (parallax por capas) ----
+        val bob = theme.boatBob[((t / 366) % theme.boatBob.size).toInt()]
+        drawSprite(ctx, stage, theme.stageBackground, 16f - ctx.camX / 2.157303f, -ctx.camY)
+        val flag = theme.flagFrames[((t / 133) % theme.flagFrames.size).toInt()]
+        drawSprite(ctx, stage, flag, 576f - ctx.camX / 2.157303f, 48f - ctx.camY)
+        drawSprite(ctx, stage, theme.stageBoat, 150f - ctx.camX / 1.613445f, -3f - ctx.camY - bob)
+        theme.stagePeople.forEach { prop ->
+            drawSprite(ctx, stage, prop.src, prop.x - ctx.camX / 1.613445f, prop.y.toFloat() - bob - ctx.camY)
+        }
+        drawSprite(ctx, stage, theme.stageFloor, SfConstants.STAGE_PADDING - ctx.camX * 1.1f, 176f - ctx.camY)
+        drawSprite(ctx, stage, theme.stageFloorBottom, SfConstants.STAGE_PADDING - ctx.camX * 1.1f, 232f - ctx.camY)
+        drawSprite(ctx, stage, theme.ballardSmall, 468f - 92f - ctx.camX / 1.54f, 166f - ctx.camY)
+        drawSprite(ctx, stage, theme.ballardSmall, 468f + 92f - ctx.camX / 1.54f, 166f - ctx.camY)
+        drawSprite(ctx, stage, theme.sideBarrels, SfConstants.STAGE_PADDING + SfConstants.STAGE_WIDTH - 152f - ctx.camX, 120f - ctx.camY)
     }
-    drawSprite(ctx, stage, theme.stageFloor, SfConstants.STAGE_PADDING - ctx.camX * 1.1f, 176f - ctx.camY)
-    drawSprite(ctx, stage, theme.stageFloorBottom, SfConstants.STAGE_PADDING - ctx.camX * 1.1f, 232f - ctx.camY)
-    drawSprite(ctx, stage, theme.ballardSmall, 468f - 92f - ctx.camX / 1.54f, 166f - ctx.camY)
-    drawSprite(ctx, stage, theme.ballardSmall, 468f + 92f - ctx.camX / 1.54f, 166f - ctx.camY)
-    drawSprite(ctx, stage, theme.sideBarrels, SfConstants.STAGE_PADDING + SfConstants.STAGE_WIDTH - 152f - ctx.camX, 120f - ctx.camY)
 
     // ---- Sombras ----
     drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.player)
@@ -514,26 +637,46 @@ private fun DrawScope.drawScene(
         drawSprite(ctx, images.getValue(theme.splashImage), frame.src, sp.x - ctx.camX - frame.origin[0], sp.y - ctx.camY - frame.origin[1])
     }
 
-    // ---- Primer plano ----
-    drawSprite(ctx, stage, theme.ballardLarge, SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING - 147f - ctx.camX / 0.958f, 200f - ctx.camY)
-    drawSprite(ctx, stage, theme.ballardLarge, SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING + 147f - ctx.camX / 0.958f, 200f - ctx.camY)
+    // ---- Primer plano (solo con el escenario clásico) ----
+    if (bgImage == null) {
+        drawSprite(ctx, stage, theme.ballardLarge, SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING - 147f - ctx.camX / 0.958f, 200f - ctx.camY)
+        drawSprite(ctx, stage, theme.ballardLarge, SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING + 147f - ctx.camX / 0.958f, 200f - ctx.camY)
+    }
 
     // ---- HUD ----
     drawHud(ctx, theme, images.getValue(theme.hudImage), state)
 
-    // ---- Texto de ganador (fila por PERSONAJE en el tema; sin fila = no se dibuja) ----
+    // ---- Texto de ganador: "<PERSONAJE> WINS" con la FUENTE arcade del HUD ----
+    // (funciona para CUALQUIER peleador; ya no depende de winnerText.png por filas)
     state.winnerIndex?.let { winner ->
         if (state.battleEnded) {
             val winnerFighter = if (winner == 0) state.player else state.cpu
-            theme.winnerRows[winnerFighter.id]?.let { row ->
-                drawSpriteScaled(
-                    ctx, images.getValue(theme.winnerImage),
-                    listOf(0, theme.winnerRowStride * row, theme.winnerSrcWidth, theme.winnerSrcHeight),
-                    120f, 60f, 140f, 30f,
-                )
-            }
+            val text = "${winnerFighter.id.shortName} WINS"
+            val sizeMul = 2f
+            val textW = text.length * 12f * sizeMul
+            drawFontText(ctx, theme, images.getValue(theme.hudImage), text, (SfConstants.SCENE_WIDTH - textW) / 2f, 58f, sizeMul)
         }
     }
+}
+
+/**
+ * Fondo POW a pantalla completa: se escala para cubrir el ALTO de la escena (224) y el
+ * ancho sobrante panea con la cámara (parallax 1:1 con el avance por el stage).
+ */
+private fun DrawScope.drawFullBackground(ctx: SceneCtx, bg: ImageBitmap) {
+    val s = SfConstants.SCENE_HEIGHT / bg.height.toFloat()
+    val scaledW = bg.width * s
+    val camSpan = SfConstants.STAGE_WIDTH - SfConstants.SCENE_WIDTH
+    val progress = ((ctx.camX - SfConstants.STAGE_PADDING) / camSpan).coerceIn(0f, 1f)
+    val offsetX = (scaledW - SfConstants.SCENE_WIDTH).coerceAtLeast(0f) * progress
+    drawImage(
+        image = bg,
+        srcOffset = IntOffset(0, 0),
+        srcSize = IntSize(bg.width, bg.height),
+        dstOffset = IntOffset((ctx.ox - offsetX * ctx.scale).toInt(), ctx.oy.toInt()),
+        dstSize = IntSize((scaledW * ctx.scale).toInt(), (SfConstants.SCENE_HEIGHT * ctx.scale).toInt()),
+        filterQuality = FilterQuality.Low, // foto: bilineal se ve mejor que None
+    )
 }
 
 /** Dibuja un recorte del sheet en coords de ESCENA (sin espejo). */
@@ -671,14 +814,15 @@ private fun DrawScope.drawHud(ctx: SceneCtx, theme: SfTheme, hud: ImageBitmap, s
     drawSprite(ctx, hud, digits.digit(timeStr[0] - '0'), 178f, 33f)
     drawSprite(ctx, hud, digits.digit(timeStr[1] - '0'), 194f, 33f)
 
-    // Nombres (tag por personaje, del tema)
-    theme.nameTags[state.player.id]?.let { drawSprite(ctx, hud, it, 32f, 33f) }
-    theme.nameTags[state.cpu.id]?.let { drawSprite(ctx, hud, it, 322f, 33f) }
+    // Nombres con la FUENTE arcade (cualquier peleador; el derecho alineado a la derecha)
+    drawFontText(ctx, theme, hud, state.player.id.shortName, 32f, 33f, 0.9f)
+    val cpuName = state.cpu.id.shortName
+    drawFontText(ctx, theme, hud, cpuName, 350f - cpuName.length * 12f * 0.9f, 33f, 0.9f)
 
     // Marcadores P1 / P2
-    drawScoreLabel(ctx, theme, hud, "P1", 4f)
+    drawFontText(ctx, theme, hud, "P1", 4f, 1f)
     drawScoreNumber(ctx, theme, hud, state.playerScore, 45f)
-    drawScoreLabel(ctx, theme, hud, "P2", 269f)
+    drawFontText(ctx, theme, hud, "P2", 269f, 1f)
     drawScoreNumber(ctx, theme, hud, state.cpuScore, 309f)
 }
 
@@ -696,15 +840,31 @@ private fun DrawScope.drawHudMirrored(ctx: SceneCtx, hud: ImageBitmap, src: List
     }
 }
 
-private fun DrawScope.drawScoreLabel(ctx: SceneCtx, theme: SfTheme, hud: ImageBitmap, label: String, x: Float) {
-    label.forEachIndexed { index, ch ->
-        val src = if (ch.isDigit()) theme.scoreDigits.digit(ch - '0') else theme.scoreLetterP
-        drawSprite(ctx, hud, src, x + 12f * index, 1f)
+/**
+ * Texto con la FUENTE arcade del HUD (recortes A-Z/0-9 de `theme.letterFont`).
+ * Avance fijo de 12 px por carácter (el espacio y los caracteres sin glifo dejan hueco).
+ * Es la fuente "oficial" del modo: tags de nombre, marcadores y "<X> WINS".
+ */
+private fun DrawScope.drawFontText(
+    ctx: SceneCtx,
+    theme: SfTheme,
+    hud: ImageBitmap,
+    text: String,
+    x: Float,
+    y: Float,
+    sizeMul: Float = 1f,
+) {
+    var cx = x
+    text.uppercase().forEach { ch ->
+        theme.letterFont[ch]?.let { src ->
+            drawSpriteScaled(ctx, hud, src, cx, y, src[2] * sizeMul, src[3] * sizeMul)
+        }
+        cx += 12f * sizeMul
     }
 }
 
 private fun DrawScope.drawScoreNumber(ctx: SceneCtx, theme: SfTheme, hud: ImageBitmap, score: Int, x: Float) {
     val str = score.toString()
     val padding = 6 * 12f - str.length * 12f
-    drawScoreLabel(ctx, theme, hud, str, x + padding)
+    drawFontText(ctx, theme, hud, str, x + padding, 1f)
 }

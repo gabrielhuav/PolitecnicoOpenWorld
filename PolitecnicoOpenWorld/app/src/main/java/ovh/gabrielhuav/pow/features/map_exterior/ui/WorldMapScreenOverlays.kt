@@ -57,7 +57,15 @@ fun WorldMapOverlays(
             LaunchedEffect(Unit) {
                 androidx.compose.animation.core.animate(initialValue = 0.5f, targetValue = 1.3f, animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)) { value, _ -> scale = value }
             }
-            Text(text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_wasted), color = Color(0xFFD32F2F), fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale))
+            // BUSTED (azul, arresto policial en la Misión 1) vs WASTED (rojo, muerte normal)
+            Text(
+                text = androidx.compose.ui.res.stringResource(
+                    if (uiState.wastedIsBusted) ovh.gabrielhuav.pow.R.string.wm_busted else ovh.gabrielhuav.pow.R.string.wm_wasted
+                ),
+                color = if (uiState.wastedIsBusted) Color(0xFF1E88E5) else Color(0xFFD32F2F),
+                fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif,
+                letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale)
+            )
         }
     }
     if (uiState.showZombiVideo) {

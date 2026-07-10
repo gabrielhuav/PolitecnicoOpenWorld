@@ -147,6 +147,10 @@ data class WorldMapState(
     val showClaimedPopupFor: ActiveCollectible? = null,
     val interactionPrompt: String? = null,
     val showWastedScreen: Boolean = false,
+    // MISIÓN 1: si te atrapa la POLICÍA en la escolta/ingreso, la pantalla dice "BUSTED"
+    // (te ARRESTAN, estilo GTA) en vez de "WASTED". Solo cambia el rótulo; el flujo de
+    // misión fallida es el mismo.
+    val wastedIsBusted: Boolean = false,
     val showVendorMenu: Boolean = false,
     // MODO HISTORIA: pantalla "MISIÓN FALLIDA" (cuando la policía mata a Prankedy en la escolta).
     val showMissionFailed: Boolean = false,

@@ -97,9 +97,11 @@ marca cumplido al entrar en `arriveRadiusMeters`.
   vial; "la ruta a seguir" hasta el "lugar seguro" (ESCOM). Desaparece a ~100 m de la ESCOM.
 - **Coche obligado a pie cerca de la ESCOM:** a ≤50 m de `ESCOM_FORCEWALK` y con objetivo escolta/ingreso,
   el coche **solo da reversa** → te obliga a bajarte y entrar **a pie** por la puerta.
-- **Morir en misión = MISIÓN FALLIDA:** si te matan con objetivo `ESCOLTAR_PRANKEDY`/`INGRESAR_ESCOM`, no
-  hay respawn normal: WASTED breve → **"MISIÓN FALLIDA"** → **REINTENTAR** recarga el último checkpoint
-  (Prankedy vuelve contigo).
+- **Caer en misión = MISIÓN FALLIDA:** si te atrapan con objetivo `ESCOLTAR_PRANKEDY`/`INGRESAR_ESCOM`, no
+  hay respawn normal: pantalla breve → **"MISIÓN FALLIDA"** → **REINTENTAR** recarga el último checkpoint
+  (Prankedy vuelve contigo). **🆕 (2026-07-10) La policía te ARRESTA, no te mata:** en esos dos objetivos
+  la pantalla dice **"BUSTED"** (azul, estilo GTA) en vez de "WASTED" (`WorldMapState.wastedIsBusted`,
+  fijado por `triggerWastedSequence`; el flujo de misión fallida es idéntico).
 - **Llegada a la ESCOM = cómic + persecución (`mission1ChaseIntro`, `IntroPOW12..15`):** al llegar con Prankedy
   a la puerta se dispara el cómic; Prankedy se despide (**"Ahí nos vemos"**) y **entra/huye**, la
   **policía lo persigue** y luego va por **ti** (salen del lado contrario a la puerta). Debes **ingresar a

@@ -632,21 +632,37 @@ class StreetFighterViewModel @Inject constructor(
         var attacker = sim.fighter(attackerIdx)
         var defender = sim.fighter(defenderIdx)
 
-        _soundEvents.tryEmit("${strength.name.lowercase()}-${type.name.lowercase()}-hit")
+        // BLOQUEO (estilo SF): caminar HACIA ATRÁS = cubrirse. El golpe entra "chip":
+        // daño /4 (mínimo 1), medio retroceso, sin pose de HURT, sin splash ni puntos.
+        val blocked = defender.state == SfFighterState.WALK_BACKWARD
+        val damage = if (blocked) maxOf(1, strength.damage / 4) else strength.damage
+
+        _soundEvents.tryEmit(
+            if (blocked) "land" // golpe amortiguado (thud)
+            else "${strength.name.lowercase()}-${type.name.lowercase()}-hit"
+        )
 
         attacker = attacker.copy(attackStruck = true)
         defender = defender.copy(
-            slideVelocity = strength.slideVelocity,
+            slideVelocity = strength.slideVelocity * (if (blocked) 0.5f else 1f),
             slideFriction = strength.slideFriction,
-            hitPoints = (defender.hitPoints - strength.damage).coerceAtLeast(0),
+            hitPoints = (defender.hitPoints - damage).coerceAtLeast(0),
             direction = attacker.direction.opposite(), // BattleScene: el golpeado queda de frente
         )
-        if (attackerIdx == 0) sim.score0 += strength.score else sim.score1 += strength.score
+        if (!blocked) {
+            if (attackerIdx == 0) sim.score0 += strength.score else sim.score1 += strength.score
+        }
         sim.setFighter(attackerIdx, attacker)
         sim.setFighter(defenderIdx, defender)
 
-        hitPos?.let { (x, y) ->
+        if (!blocked) hitPos?.let { (x, y) ->
             sim.splashes.add(SfHitSplash(x = x, y = y, playerId = attackerIdx, strength = strength, animationTimerMs = now))
+        }
+
+        if (blocked && defender.hitPoints > 0) {
+            // Bloqueado: sin cambio de estado (sigue cubriéndose) y hit-freeze corto
+            hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong() / 2
+            return
         }
 
         if (defender.hitPoints <= 0) {

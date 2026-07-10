@@ -1217,9 +1217,10 @@ puedes actualizar los docs, **la tarea no está terminada — dilo explícitamen
 - **Interiores simples (06):** `CollisionGrid` usa **valor `2`** (`CollisionGrid.OCCLUDER`) con la misma
   semántica; `InteriorScreenBase` tiene la misma capa (`computeGridOccluders`). `InteriorViewModel.collisionGrid`
   es **público** (solo lectura) para que la vista lea los `2`. Sin diseñador aquí → se autora la grid a mano.
-- **⚠️ GOTCHA servidor (online):** `server.js` (interiores) hoy solo bloquea `'#'`. Los `'^'` **NO** bloquean
-  a los zombis autoritativos online. Si se quiere paridad, añadir `'^'` al check del server (ver 08) y anotarlo.
-  El CLIENTE sí bloquea `'^'`/`2`. En salas ENCB/lobby (offline/seguras) no afecta.
+- **✅ RESUELTO (2026-07-10) — paridad de oclusión online:** `server.js` (interiores) ahora bloquea
+  `'#'` **y** `'^'` vía el helper `isSolidCell` (lo usan `isBlocked` e `isCellBlocked` → aplica a
+  zombis autoritativos, civiles, spawns, flow-field y la validación `PLAYER_CORRECT`). Igual que el
+  cliente (`'^'`/`2`). Validado con `node --check`. Requiere REDEPLOY del server de interiores. Ver 08.
 - **⚠️ GOTCHA render:** la capa de oclusión va **DESPUÉS del jugador y DENTRO de `!designerMode`**, antes del
   HUD (que se dibuja luego y nunca se tapa). En Modo Diseñador NO se ocluye (ves la matriz cruda).
 

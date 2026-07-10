@@ -535,19 +535,34 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                             var fill = hb.querySelector('.npc-hb-fill');
                             if (fill) { fill.style.width = hbPct + '%'; fill.style.background = hbColor; }
                         }
-                        // FANTASMITA al morir (paridad con OSM/Google nativos): el NPC muriendo
-                        // se desvanece con una transicion CSS hasta que el VM lo retira (~1 s).
+                        // FANTASMITA al morir (paridad con OSM nativo): el NPC muriendo se vuelve
+                        // un 👻 translúcido que SUBE AL CIELO con una transicion CSS (opacidad +
+                        // translateY) hasta que el VM lo retira (~1 s).
                         if (wrapper) {
                             if (dying && !wrapper._ghost) {
                                 wrapper._ghost = true;
-                                wrapper.style.transition = 'opacity 0.85s linear';
-                                wrapper.style.opacity = '0.05';
+                                var gSize = Math.round(Math.max(finalH || 24, 20) * 0.9);
+                                wrapper.innerHTML = '👻'; // 👻 (reemplaza al sprite)
+                                wrapper.style.display = 'flex';
+                                wrapper.style.alignItems = 'center';
+                                wrapper.style.justifyContent = 'center';
+                                wrapper.style.fontSize = gSize + 'px';
+                                wrapper.style.lineHeight = '1';
+                                wrapper.style.opacity = '0.55'; // fantasmita "un poco transparente"
+                                wrapper.style.transition = 'opacity 0.9s linear, transform 0.9s ease-in';
+                                // El translate base es (-50%,-50%): -320% = se va de la pantalla
+                                requestAnimationFrame(function() {
+                                    wrapper.style.opacity = '0.05';
+                                    wrapper.style.transform = 'translate(-50%, -320%)';
+                                });
                             } else if (!dying && wrapper._ghost) {
-                                wrapper._ghost = false;
-                                wrapper.style.transition = '';
-                                wrapper.style.opacity = '1';
+                                // "Revivió" (p. ej. PERSON→ZOMBIE): el sprite fue reemplazado por el
+                                // 👻 → recrear el marcador desde cero en el siguiente frame.
+                                map.removeLayer(npcMarkers[npc.id]); delete npcMarkers[npc.id];
+                                return;
                             }
                         }
+                        if (!dying) {
                         if (npc.type === 'CAR' || npc.type === 'MODULAR') {
                             var cachedImg = window.imgCache ? window.imgCache[npc.imageKey] : '';
                             // FIX "NPC invisible": si el sprite aún no está listo NO ocultamos el
@@ -565,6 +580,7 @@ internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                         } else if (wrapper) {
                             wrapper.style.transform = 'translate(-50%, -50%) rotate(0deg)';
                         }
+                        } // fin !dying (mientras muere, nada pisa la animación del 👻)
                     }
                 } else {
                     var html = '';

@@ -78,6 +78,28 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   set NPC estándar Idle/Walk/Run/Special, con rotaciones/aplastados para golpes/reacciones/caídas
   y filtro de cuadros corruptos — `rg_w_4.webp` era 4×13 px) + `pack_sf_character.py` (parcheado:
   ya NO empaqueta `proj-*` inexistentes → esos personajes usan el fireball del tema).
+- **🆕 MÚSICA de Prankedy + SELECTOR DE MAPA (2026-07-10e/f):** el tema del clon SF se
+  reemplazó por **`SOUNDS/prankedy-persecucion.mp3`** ("Persecución", la de sus videos; vol 0.3).
+  `SfTheme.fullBackgrounds` = lista de `SfStageBg(file, name)` con 6 fondos de pantalla completa
+  (**ESCOM, Queso IPN, ESIME Azcapotzalco, CECyT 9, CECyT 2, Biblioteca UNAM** en
+  `IMAGES/fondo_*.png`). La selección pre-pelea ahora es en **2 pasos**: PELEADOR → **MAPA**
+  (`StageSelectOverlay`: miniaturas submuestreadas `inSampleSize=8` + tarjeta "Al azar" 🎲 +
+  "← Cambiar peleador"; el flujo vive en la View — `pendingFighter`/`chosenBgFile` — porque el
+  fondo es solo presentación). Se decodifica SOLO el fondo elegido; se dibuja con **parallax de
+  cámara** (`drawFullBackground`) y sin las capas del muelle clásico. Lista vacía = escenario
+  clásico (fallback).
+- **🆕 BLOQUEO estilo SF (2026-07-10d):** caminar HACIA ATRÁS = cubrirse. En `applyAttackHit`
+  (VM), si el defensor está en `WALK_BACKWARD` el golpe entra "chip": daño /4 (mín 1), medio
+  retroceso, SIN pose de HURT ni splash ni puntos, hit-freeze corto y sonido "land". Aplica
+  igual a melee y proyectiles. El chip PUEDE noquear (KO clásico por chip).
+- **🆕 FUENTE arcade del HUD (2026-07-10d):** `SfTheme.letterFont` expone el abecedario A-Z +
+  dígitos que ya venían dentro de `hud.png` (filas score del StatusBar.js). Con
+  `drawFontText` se dibujan los TAGS de nombre (por `SfFighterId.shortName`, campo nuevo),
+  los marcadores P1/P2 y el **"<PERSONAJE> WINS" de CUALQUIER peleador** — `winnerText.png` y
+  los campos `nameTags`/`winnerRows` del tema se RETIRARON (el png queda sin uso en assets).
+- **🆕 Anchura por sección (2026-07-10d):** `place()` ganó `stretch_x`; el idle de Rey Grupero
+  (1.25) y Señor Tienda (1.15) se ensancha porque su hoja fuente los dibuja más grandes y al
+  normalizar por altura quedaban flacos respecto a su caminata.
 - **🆕 PAUSA AUTOMÁTICA (2026-07-10c):** al bloquear el celular/minimizar (`ON_PAUSE` del
   lifecycle, patrón de WorldMapScreen), el VM hace `forcePause()` (nunca des-pausa; no aplica en
   selector/fin de pelea) y la música se pausa (`ON_RESUME` la reanuda). Overlay "PAUSA" con

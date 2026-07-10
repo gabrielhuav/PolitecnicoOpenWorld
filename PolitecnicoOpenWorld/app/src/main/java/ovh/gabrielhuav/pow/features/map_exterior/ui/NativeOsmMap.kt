@@ -595,10 +595,27 @@ internal fun NativeOsmMap(
 
                         if (isZoomedIn) {
                             if (npc.isDying) {
-                                // FANTASMITA al morir: fade-out POR FRAME (~30 Hz) desde el alpha
-                                // actual hasta casi transparente, mientras el VM retira el NPC
-                                // (~1 s tras isDying). Sin timestamps ni allocs (gama baja).
+                                // FANTASMITA al morir, en 2 FASES (~30 Hz, sin timestamps: el
+                                // progreso se deriva del alpha del marker; el VM retira el NPC
+                                // ~1 s tras isDying):
+                                //  1) el sprite del NPC se DESVANECE en su lugar;
+                                //  2) se vuelve un 👻 translúcido que SUBE AL CIELO mientras
+                                //     termina de desvanecerse.
                                 marker.alpha = (marker.alpha - 0.035f).coerceAtLeast(0.05f)
+                                val ghostProgress = 1f - marker.alpha
+                                if (ghostProgress >= 0.35f) {
+                                    val ghostPx = (26f * screenDensity).toInt()
+                                    marker.icon = nativeDrawableCache.getOrPut("GHOST_EMOJI_$ghostPx") {
+                                        emojiToDrawable(context, "👻", ghostPx)
+                                    }
+                                    // Sube ~14 m durante el resto del fade ("se va al cielo")
+                                    val riseLat = ((ghostProgress - 0.35f) * 22.0) / 111320.0
+                                    marker.position = GeoPoint(
+                                        npc.location.latitude + riseLat,
+                                        npc.location.longitude
+                                    )
+                                    return@forEach // no re-asignar icono/posición normales
+                                }
                             } else {
                                 marker.setAlpha(1f)
                             }

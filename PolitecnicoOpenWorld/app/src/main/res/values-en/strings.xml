@@ -166,6 +166,7 @@
     <string name="wm_fab_map">Map</string>
     <string name="wm_fab_center">Center on player</string>
     <string name="wm_wasted">WASTED</string>
+    <string name="wm_busted">BUSTED</string>
     <string name="wm_designer_parking">Parking Spot</string>
     <string name="wm_designer_add_building">Add Building</string>
 

@@ -64,18 +64,19 @@ enum class SfDirection(val sign: Int) {
  */
 enum class SfFighterId(
     val displayName: String,
+    val shortName: String,   // para la FUENTE del HUD (tag de nombre y "<X> WINS"); solo A-Z/0-9/espacio
     val jsonAsset: String,
     val spriteAsset: String,
     val isAlpha: Boolean = false,
 ) {
-    RYU("Ryu", "STREETFIGHTER/DATA/ryu.json", "STREETFIGHTER/IMAGES/Ryu.png"),
-    KEN("Ken", "STREETFIGHTER/DATA/ken.json", "STREETFIGHTER/IMAGES/Ken.png"),
+    RYU("Ryu", "RYU", "STREETFIGHTER/DATA/ryu.json", "STREETFIGHTER/IMAGES/Ryu.png"),
+    KEN("Ken", "KEN", "STREETFIGHTER/DATA/ken.json", "STREETFIGHTER/IMAGES/Ken.png"),
     // 🆕 Peleadores PROPIOS de POW. Prankedy trae frames proj-* propios (broma del tanque).
-    PRANKEDY("Prankedy", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png", isAlpha = true),
-    SENOR_TIENDA("El Señor de la Tienda", "STREETFIGHTER/DATA/senortienda.json", "STREETFIGHTER/IMAGES/SenorTienda.png", isAlpha = true),
-    PAPARAZZI_1("Paparazzi 1", "STREETFIGHTER/DATA/paparazzi1.json", "STREETFIGHTER/IMAGES/Paparazzi1.png", isAlpha = true),
-    PAPARAZZI_5("Paparazzi 5", "STREETFIGHTER/DATA/paparazzi5.json", "STREETFIGHTER/IMAGES/Paparazzi5.png", isAlpha = true),
-    REY_GRUPERO("Rey Grupero", "STREETFIGHTER/DATA/reygrupero.json", "STREETFIGHTER/IMAGES/ReyGrupero.png", isAlpha = true),
+    PRANKEDY("Prankedy", "PRANKEDY", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png", isAlpha = true),
+    SENOR_TIENDA("El Señor de la Tienda", "TIENDA", "STREETFIGHTER/DATA/senortienda.json", "STREETFIGHTER/IMAGES/SenorTienda.png", isAlpha = true),
+    PAPARAZZI_1("Paparazzi 1", "PAPZ 1", "STREETFIGHTER/DATA/paparazzi1.json", "STREETFIGHTER/IMAGES/Paparazzi1.png", isAlpha = true),
+    PAPARAZZI_5("Paparazzi 5", "PAPZ 5", "STREETFIGHTER/DATA/paparazzi5.json", "STREETFIGHTER/IMAGES/Paparazzi5.png", isAlpha = true),
+    REY_GRUPERO("Rey Grupero", "GRUPERO", "STREETFIGHTER/DATA/reygrupero.json", "STREETFIGHTER/IMAGES/ReyGrupero.png", isAlpha = true),
 }
 
 /** Fuerza del ataque (fighter.js FighterAttackBaseData; slide ya en px/s). */

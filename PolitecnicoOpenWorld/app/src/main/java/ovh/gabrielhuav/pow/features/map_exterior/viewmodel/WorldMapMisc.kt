@@ -42,10 +42,17 @@ internal fun WorldMapViewModel.triggerWastedSequence() {
         // (modo retirada de la policía). Cascada verificada SEGURA: el único call externo, clearCampaignPolice(),
         // tiene UNA sola definición (ext WorldMapCampaignPolice.kt) — sin gemelo divergente.
         viewModelScope.launch(Dispatchers.Main) {
+            // MISIÓN 1 (escolta/ingreso): la policía te ARRESTA, no te mata → la pantalla
+            // dice "BUSTED" (azul) en vez de "WASTED". Mismo flujo de misión fallida.
+            val missionObj = _uiState.value.currentObjective
+            val busted = inCampaign && (
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
+                missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id)
             // Al morir te bajas del coche (no se respawnea conduciendo) y se quita el pánico de la zona.
             _uiState.update {
                 it.copy(
                     showWastedScreen = true,
+                    wastedIsBusted = busted,
                     isDriving = false,
                     currentVehicleModel = null,
                     currentVehicleColor = null,
@@ -55,7 +62,6 @@ internal fun WorldMapViewModel.triggerWastedSequence() {
             // MODO HISTORIA: morir DURANTE una misión de campaña = MISIÓN FALLIDA (reinicia desde el
             // último checkpoint con "REINTENTAR MISIÓN"), NO el respawn normal — si no, el jugador podría
             // dejarse matar para SALTARSE todo el trayecto de la escolta de Prankedy.
-            val missionObj = _uiState.value.currentObjective
             val inMission = inCampaign && (
                 missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.ESCOLTAR_PRANKEDY.id ||
                 missionObj?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id ||
@@ -75,7 +81,7 @@ internal fun WorldMapViewModel.triggerWastedSequence() {
                 playerHealth = maxPlayerHealth
                 damagePulseTrigger = 0
                 impactEffectTrigger = 0
-                _uiState.update { it.copy(isDrivingPoliceCar = false, showWastedScreen = false, showMissionFailed = true) }
+                _uiState.update { it.copy(isDrivingPoliceCar = false, showWastedScreen = false, wastedIsBusted = false, showMissionFailed = true) }
                 return@launch
             }
             delay(4000L)
@@ -87,7 +93,7 @@ internal fun WorldMapViewModel.triggerWastedSequence() {
             wantedManager.clearWanted()
             // RESPAWN EN ESCOM: Al morir, el jugador es llevado de vuelta a la ESCOM.
             val respawn = GeoPoint(19.504603, -99.145985)
-            _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false) }
+            _uiState.update { it.copy(currentLocation = respawn, showWastedScreen = false, wastedIsBusted = false) }
             playerHealth = maxPlayerHealth
             // Reiniciar contadores de animación y activar inmunidad temporal (2 s) para que ningún
             // policía/NPC con aggro residual dispare la animación de daño justo al reaaparecer.

@@ -168,6 +168,7 @@
     <string name="wm_fab_map">Mapa</string>
     <string name="wm_fab_center">Centrar en jugador</string>
     <string name="wm_wasted">WASTED</string>
+    <string name="wm_busted">BUSTED</string>
     <string name="wm_designer_parking">Cajón Estac.</string>
     <string name="wm_designer_add_building">Agregar Edificio</string>
 
