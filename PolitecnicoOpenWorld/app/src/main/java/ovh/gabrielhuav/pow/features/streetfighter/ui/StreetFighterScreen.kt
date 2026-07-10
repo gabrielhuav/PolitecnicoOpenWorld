@@ -1,20 +1,30 @@
 package ovh.gabrielhuav.pow.features.streetfighter.ui
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BitmapRegionDecoder
+import android.graphics.Rect
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.SoundPool
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -37,7 +47,10 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -84,14 +97,18 @@ fun StreetFighterScreen(
     val context = LocalContext.current
     val theme = remember { SF_CLASSIC_THEME }
 
-    // ---- Bitmaps del tema (decodificados una vez) ----
-    val images = remember(theme) {
-        theme.imageFiles.associateWith { name ->
-            context.assets.open(theme.imagesDir + name).use { BitmapFactory.decodeStream(it) }.asImageBitmap()
-        }
+    // ---- Bitmaps del tema + sheets de los peleadores ACTUALES (decodificados una vez) ----
+    val playerId = state.player.id
+    val cpuId = state.cpu.id
+    val images = remember(theme, playerId, cpuId) {
+        (theme.imageFiles + listOf(playerId, cpuId).map { it.spriteAsset.substringAfterLast('/') })
+            .distinct()
+            .associateWith { name ->
+                context.assets.open(theme.imagesDir + name).use { BitmapFactory.decodeStream(it) }.asImageBitmap()
+            }
     }
-    val ryuData = remember { SfFrameCatalog.load(context, SfFighterId.RYU) }
-    val kenData = remember { SfFrameCatalog.load(context, SfFighterId.KEN) }
+    val playerData = remember(playerId) { SfFrameCatalog.load(context, playerId) }
+    val cpuData = remember(cpuId) { SfFrameCatalog.load(context, cpuId) }
 
     // ---- Sonidos del tema (SoundPool efectos + MediaPlayer música) ----
     val soundPool = remember {
@@ -115,44 +132,72 @@ fun StreetFighterScreen(
             soundIds[key]?.let { soundPool.play(it, 1f, 1f, 1, 0, 1f) }
         }
     }
+    val musicPlayer = remember { MediaPlayer() }
     DisposableEffect(Unit) {
-        val player = MediaPlayer()
         runCatching {
             context.assets.openFd(theme.soundsDir + theme.musicFile).use { fd ->
-                player.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+                musicPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
             }
-            player.isLooping = true
-            player.setVolume(theme.musicVolume, theme.musicVolume)
-            player.prepare()
-            player.start()
+            musicPlayer.isLooping = true
+            musicPlayer.setVolume(theme.musicVolume, theme.musicVolume)
+            musicPlayer.prepare()
+            musicPlayer.start()
         }
         onDispose {
-            runCatching { player.stop() }
-            player.release()
+            runCatching { musicPlayer.stop() }
+            musicPlayer.release()
             soundPool.release()
         }
+    }
+
+    // PAUSA AUTOMÁTICA al bloquear el celular / minimizar la app: el juego queda en
+    // PAUSA (overlay con "Continuar") y la música se silencia; al volver, la música
+    // regresa pero la pelea sigue pausada hasta que el jugador continúe.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> {
+                    viewModel.forcePause()
+                    runCatching { if (musicPlayer.isPlaying) musicPlayer.pause() }
+                }
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
+                    runCatching { musicPlayer.start() }
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ---- Escena completa (mundo + HUD) en un Canvas ----
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawScene(theme, state, images, ryuData, kenData)
+            drawScene(theme, state, images, playerData, cpuData)
         }
 
-        // ---- Controles de POW: joystick + diamante Xbox ----
-        JoystickController(
-            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
-            onMove = viewModel::onJoystickMove,
-        )
-        // OJO: padding-end grande a propósito — en landscape la barra de navegación/gestos
-        // del sistema vive en el borde DERECHO y se comía los toques del botón B (los combos
-        // "no salían" porque esos taps nunca llegaban a la app). Separado del borde, todos
-        // los toques caen dentro del juego.
-        FighterXboxButtons(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = 16.dp),
-            onPunch = { strength -> viewModel.onAttackPressed(strength, SfAttackType.PUNCH) },
-            onKick = viewModel::onKickPressed,
-        )
+        // ---- Controles de POW: joystick + diamante Xbox (ocultos durante la selección) ----
+        if (!state.inCharacterSelect) {
+            JoystickController(
+                modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                onMove = viewModel::onJoystickMove,
+            )
+            // OJO: padding-end grande a propósito — en landscape la barra de navegación/gestos
+            // del sistema vive en el borde DERECHO y se comía los toques del botón B (los combos
+            // "no salían" porque esos taps nunca llegaban a la app). Separado del borde, todos
+            // los toques caen dentro del juego.
+            FighterXboxButtons(
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = 16.dp),
+                onPunch = { strength -> viewModel.onAttackPressed(strength, SfAttackType.PUNCH) },
+                onKick = viewModel::onKickPressed,
+            )
+        }
+
+        // ---- Selector de personaje (antes de pelear) ----
+        if (state.inCharacterSelect) {
+            CharacterSelectOverlay(onSelect = viewModel::selectCharacter)
+        }
 
         // Botón de salida
         TextButton(
@@ -170,7 +215,28 @@ fun StreetFighterScreen(
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(onClick = viewModel::restartBattle) { Text("Revancha") }
+                    OutlinedButton(onClick = viewModel::backToCharacterSelect) { Text("Cambiar personaje") }
                     OutlinedButton(onClick = onExitToMap) { Text("Volver al menú") }
+                }
+            }
+        }
+
+        // Overlay de PAUSA (auto al bloquear/minimizar; "Continuar" reanuda)
+        if (state.isPaused && !state.inCharacterSelect) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color(0xB3000000)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "PAUSA",
+                        color = Color.White,
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 4.sp,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = viewModel::togglePause) { Text("Continuar") }
                 }
             }
         }
@@ -186,6 +252,136 @@ fun StreetFighterScreen(
             )
         }
     }
+}
+
+// ------------------------------------------------------------------
+// Selector de personaje (pre-pelea): tarjetas con preview del sprite
+// (BitmapRegionDecoder: decodifica SOLO el recorte idle-1 de cada sheet,
+// no los 7 sheets completos — cuidado con la RAM en gama baja, ver 09 §6)
+// y aviso ALPHA para los peleadores POW con poses aproximadas.
+// ------------------------------------------------------------------
+
+@Composable
+private fun CharacterSelectOverlay(onSelect: (SfFighterId) -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "ELIGE A TU PELEADOR",
+                color = Color(0xFFD4AF37),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                SfFighterId.entries.forEach { id ->
+                    CharacterCard(id = id, onSelect = onSelect)
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "ALPHA = peleador de POW en desarrollo (poses aproximadas)",
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 11.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit) {
+    val preview = rememberFighterPreview(id)
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF23233A))
+            .clickable { onSelect(id) }
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(modifier = Modifier.size(86.dp), contentAlignment = Alignment.BottomCenter) {
+            if (preview != null) {
+                Image(
+                    bitmap = preview,
+                    contentDescription = id.displayName,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                    filterQuality = FilterQuality.None,
+                )
+            } else {
+                Text("?", color = Color.White, fontSize = 40.sp)
+            }
+            if (id.isAlpha) {
+                Text(
+                    text = "ALPHA",
+                    color = Color.Black,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFFFFB300))
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = id.displayName,
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            modifier = Modifier.width(90.dp),
+        )
+    }
+}
+
+/** Preview del peleador: recorte idle-1 de su sheet, recortado a su bbox opaco. */
+@Composable
+private fun rememberFighterPreview(id: SfFighterId): ImageBitmap? {
+    val context = LocalContext.current
+    return remember(id) {
+        runCatching {
+            val data = SfFrameCatalog.load(context, id)
+            val src = data.frames.getValue("idle-1").src
+            val decoder = context.assets.open(id.spriteAsset).use { ins ->
+                @Suppress("DEPRECATION")
+                BitmapRegionDecoder.newInstance(ins, false)
+            } ?: return@runCatching null
+            val region = decoder.decodeRegion(Rect(src[0], src[1], src[0] + src[2], src[1] + src[3]), null)
+            decoder.recycle()
+            region?.let { trimTransparent(it).asImageBitmap() }
+        }.getOrNull()
+    }
+}
+
+/** Recorta el bitmap a su contenido opaco (los peleadores POW vienen en celdas 256² con aire). */
+private fun trimTransparent(bmp: Bitmap): Bitmap {
+    val w = bmp.width
+    val h = bmp.height
+    val px = IntArray(w * h)
+    bmp.getPixels(px, 0, w, 0, 0, w, h)
+    var minX = w; var minY = h; var maxX = -1; var maxY = -1
+    for (y in 0 until h) {
+        for (x in 0 until w) {
+            if ((px[y * w + x] ushr 24) != 0) {
+                if (x < minX) minX = x
+                if (x > maxX) maxX = x
+                if (y < minY) minY = y
+                if (y > maxY) maxY = y
+            }
+        }
+    }
+    if (maxX < 0) return bmp
+    return Bitmap.createBitmap(bmp, minX, minY, maxX - minX + 1, maxY - minY + 1)
 }
 
 // ------------------------------------------------------------------
@@ -248,8 +444,8 @@ private fun DrawScope.drawScene(
     theme: SfTheme,
     state: StreetFighterState,
     images: Map<String, ImageBitmap>,
-    ryuData: SfFighterData,
-    kenData: SfFighterData,
+    playerData: SfFighterData,
+    cpuData: SfFighterData,
 ) {
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
     val ctx = SceneCtx(
@@ -282,15 +478,32 @@ private fun DrawScope.drawScene(
     drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.cpu)
 
     // ---- Peleadores (sheet según el personaje del snapshot) ----
-    drawFighter(ctx, images, ryuData, state.player, t)
-    drawFighter(ctx, images, kenData, state.cpu, t)
+    drawFighter(ctx, images, playerData, state.player, t)
+    drawFighter(ctx, images, cpuData, state.cpu, t)
 
     // ---- Proyectiles especiales ----
+    // Si el DUEÑO del proyectil trae sus propios frames "proj-*" en su JSON (Prankedy:
+    // tanque de gas + estallido de confeti), se usan ESOS desde su sheet; si no, el
+    // fireball del tema (hoy, el hadouken del clon).
     state.fireballs.forEach { fb ->
-        val frames = if (fb.state == SfFireballState.ACTIVE) theme.fireballActive else theme.fireballCollided
-        val frame = frames[fb.animationFrame.coerceIn(0, frames.size - 1)]
-        if (frame.src[2] > 0) {
-            drawSpriteAnchored(ctx, images.getValue(theme.fireballImage), frame.src, frame.origin, fb.x, fb.y, fb.direction)
+        val owner = if (fb.ownerIndex == 0) state.player else state.cpu
+        val ownerData = if (fb.ownerIndex == 0) playerData else cpuData
+        val ownerSheet = images[owner.id.spriteAsset.substringAfterLast('/')]
+        if (ownerSheet != null && ownerData.frames.containsKey("proj-fly-1")) {
+            val key = if (fb.state == SfFireballState.ACTIVE) {
+                if (fb.animationFrame % 2 == 0) "proj-fly-1" else "proj-fly-2"
+            } else {
+                "proj-hit-${(fb.animationFrame + 1).coerceIn(1, 3)}"
+            }
+            ownerData.frames[key]?.let { fd ->
+                drawSpriteAnchored(ctx, ownerSheet, fd.src, fd.origin, fb.x, fb.y, fb.direction)
+            }
+        } else {
+            val frames = if (fb.state == SfFireballState.ACTIVE) theme.fireballActive else theme.fireballCollided
+            val frame = frames[fb.animationFrame.coerceIn(0, frames.size - 1)]
+            if (frame.src[2] > 0) {
+                drawSpriteAnchored(ctx, images.getValue(theme.fireballImage), frame.src, frame.origin, fb.x, fb.y, fb.direction)
+            }
         }
     }
 
@@ -308,14 +521,17 @@ private fun DrawScope.drawScene(
     // ---- HUD ----
     drawHud(ctx, theme, images.getValue(theme.hudImage), state)
 
-    // ---- Texto de ganador ----
+    // ---- Texto de ganador (fila por PERSONAJE en el tema; sin fila = no se dibuja) ----
     state.winnerIndex?.let { winner ->
         if (state.battleEnded) {
-            drawSpriteScaled(
-                ctx, images.getValue(theme.winnerImage),
-                listOf(0, theme.winnerRowStride * winner, theme.winnerSrcWidth, theme.winnerSrcHeight),
-                120f, 60f, 140f, 30f,
-            )
+            val winnerFighter = if (winner == 0) state.player else state.cpu
+            theme.winnerRows[winnerFighter.id]?.let { row ->
+                drawSpriteScaled(
+                    ctx, images.getValue(theme.winnerImage),
+                    listOf(0, theme.winnerRowStride * row, theme.winnerSrcWidth, theme.winnerSrcHeight),
+                    120f, 60f, 140f, 30f,
+                )
+            }
         }
     }
 }

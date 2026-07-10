@@ -74,19 +74,34 @@ Mirando SIEMPRE a la derecha, pies al piso, sobre fondo transparente:
 
 ## 5. Pipeline recomendado (el que MENOS trabajo manual requiere)
 
-1. **Genera cada pose en un LIENZO FIJO de 256×256** (transparente), personaje ocupando ~60–110 px
-   de alto como Ryu, **pies siempre en el mismo píxel (128, 224)**, mirando a la DERECHA.
-   Un PNG por pose, nombrado con la clave (`idle-1.png`, `forwards-3.png`, …).
-2. **Empaqueta** con un script (hermano de `tools/convert_streetfighter_frames.py`): acomoda los
-   256×256 en una rejilla → `src` = celda, `origin` = `[128, 224]` fijo → escribe `prankedy.json`
-   **REUSANDO de `ryu.json` las `animations` (timings) y las cajas `push/hurt/hit`** (funcionan si
-   la silueta es de proporciones similares; se afinan después frame por frame si hace falta).
-3. Añade el personaje: en `SfFighterId` → `PRANKEDY("STREETFIGHTER/DATA/prankedy.json",
-   "STREETFIGHTER/IMAGES/Prankedy.png")` y úsalo en `StreetFighterState`.
-4. Escenario/HUD/sonidos: crea `POW_THEME` (copia de `SF_CLASSIC_THEME` con otras rutas/recortes)
-   y cámbialo en `StreetFighterScreen`. Sugerencia de escenario POW: la explanada de ESCOM.
-5. Sonidos: 12 .ogg cortos (<1 s salvo música). Se pueden grabar/generar libres; mismos nombres
-   de clave o cambia `soundKeys` en el tema.
+Para añadir a **Prankedy** (o cualquier otro personaje) al juego usando este pipeline automático:
+
+1. **Generación de Cuadros Individuales:**
+   Los cuadros de referencia se encuentran en `app/src/main/assets/SPRITES/NPC/PrankedyPlayable/` (estructurados en `Idle`, `Walk`, `Run` y `Special`). 
+   Mediante un script se extraen, se ajusta su escala a una altura homogénea de ~100 px, y se colocan centrados en un lienzo de `256x256` con los pies tocando exactamente `y=224` (para animaciones estáticas/caminar) o con su centro de gravedad en el centro para rotaciones en el aire (salto con giro).
+   Los frames individuales resultantes se guardan en:
+   `app/src/main/assets/STREETFIGHTER/GEN/prankedy/`
+   
+2. **Empaquetado automático con `tools/pack_sf_character.py`:**
+   Este script toma los cuadros de `GEN/prankedy/` y arma automáticamente el sprite sheet final y su JSON compatible con el motor.
+   Ejecuta:
+   ```bash
+   python tools/pack_sf_character.py prankedy Prankedy
+   ```
+   Esto produce:
+   * **Sprite sheet:** `app/src/main/assets/STREETFIGHTER/IMAGES/Prankedy.png` (cuadrícula regular de 10 columnas con todas las poses del personaje y proyectiles).
+   * **Frame data JSON:** `app/src/main/assets/STREETFIGHTER/DATA/prankedy.json` (reutiliza los tiempos de animación y las cajas físicas de colisión `push`, `hurt` y `hit` de `ryu.json`).
+
+3. **Registro en el Código (SfModels.kt):**
+   Añade el nuevo ID de personaje en la enumeración `SfFighterId` apuntando a sus respectivos assets empaquetados:
+   ```kotlin
+   PRANKEDY("STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png")
+   ```
+   Y configúralo en `StreetFighterState` o actívalo como personaje jugable.
+
+4. **Escenario/HUD/sonidos:** crea `POW_THEME` (copia de `SF_CLASSIC_THEME` con otras rutas/recortes) y cámbialo en `StreetFighterScreen`. Sugerencia de escenario POW: la explanada de ESCOM.
+
+5. **Sonidos:** 12 .ogg cortos (<1 s salvo música). Se pueden grabar/generar libres; mismos nombres de clave o cambia `soundKeys` en el tema.
 
 ## 6. Prompt para QWEN (generación por imagen; UNA animación por petición)
 
@@ -103,7 +118,23 @@ Repite por animación (tabla §4). Para hacerlos A MANO con ChatGPT: mismo promp
 por imagen y descríbele la pose exacta ("jab con el brazo izquierdo extendido a la altura de la
 cara…"); luego recórtalos al lienzo 256×256 con los pies en (128,224) — GIMP/Aseprite.
 
-## 7. Estado (2026-07-09)
+## 7. Estado (2026-07-10)
 - Motor y tema separados ✅. Controles = joystick + diamante Xbox de POW ✅
   (X puño ligero · Y medio · B fuerte · A patada con fuerza según joystick).
-- Falta: generar assets POW (este doc), `POW_THEME`, packer `tools/pack_sf_character.py`, i18n in-game.
+- **🆕 PRANKEDY ES EL JUGABLE (P1)** ✅: pipeline §5 ejecutado (80 frames en `GEN/prankedy/`,
+  sheet `IMAGES/Prankedy.png` 2560×2304 en rejilla 10×9 de 256², `DATA/prankedy.json` con las 30
+  animaciones y cajas heredadas de ryu). `SfFighterId.PRANKEDY` + `StreetFighterState.player`.
+  El VM/View cargan frame data y sheets POR IDENTIDAD (cache perezoso; ya no hay ryu/ken fijos).
+  Su especial usa sus frames **`proj-*` propios** (tanque de gas + confeti): el render los toma
+  del JSON del DUEÑO del proyectil si existen, si no cae al fireball del tema. `winnerRows` es
+  por personaje: si gana Prankedy no se dibuja el "RYU WINS" (texto propio pendiente en POW_THEME).
+  Referencia de estilo para MÁS assets: **`sprites Prankedy.png`** (raíz del repo externo).
+- **🆕 SELECTOR + ROSTER DE 7 (2026-07-10b):** selección de personaje pre-pelea; jugables Ryu,
+  Ken, Prankedy, El Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero. Los 4 nuevos se
+  generaron SIN arte nuevo con **`tools/gen_sf_frames_from_npc.py`** (77 poses aproximadas desde
+  su set NPC Idle/Walk/Run/Special: walk→caminatas, run→saltos/volteretas rotadas, special→golpes
+  /victoria, idle inclinado/aplastado→reacciones/caídas/agacharse) + `pack_sf_character.py`.
+  Por eso llevan **badge ALPHA**: sus poses se irán reemplazando con arte dedicado (prompt §6).
+- Falta: sustituir poses ALPHA por arte dedicado (los 4 nuevos + pulir Prankedy), escenario/HUD/
+  sonidos (`POW_THEME`), afinar cajas si el alcance se siente raro (usan las de ryu), tags de
+  nombre + filas de winner para los personajes POW, i18n in-game.

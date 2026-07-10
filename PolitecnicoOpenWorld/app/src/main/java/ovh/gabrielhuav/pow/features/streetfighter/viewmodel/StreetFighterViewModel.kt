@@ -57,10 +57,10 @@ class StreetFighterViewModel @Inject constructor(
     private val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val soundEvents: SharedFlow<String> = _soundEvents.asSharedFlow()
 
-    // Frame data por peleador (cache del catálogo)
-    private val ryuData = SfFrameCatalog.load(appContext, SfFighterId.RYU)
-    private val kenData = SfFrameCatalog.load(appContext, SfFighterId.KEN)
-    private fun dataFor(f: SfFighter): SfFighterData = if (f.id == SfFighterId.RYU) ryuData else kenData
+    // Frame data por peleador (cache perezoso por identidad; soporta CUALQUIER SfFighterId)
+    private val dataCache = mutableMapOf<SfFighterId, SfFighterData>()
+    private fun dataFor(f: SfFighter): SfFighterData =
+        dataCache.getOrPut(f.id) { SfFrameCatalog.load(appContext, f.id) }
 
     // ---- reloj de juego virtual ----
     private var loopJob: Job? = null
@@ -202,7 +202,8 @@ class StreetFighterViewModel @Inject constructor(
                 val dtMs = (real - lastRealMs).coerceAtMost(100L)
                 lastRealMs = real
                 val s = _state.value
-                if (s.isPaused || s.showExitDialog) continue // el reloj de juego se detiene
+                // El reloj de juego se detiene en pausa, diálogo de salida y selector de personaje
+                if (s.isPaused || s.showExitDialog || s.inCharacterSelect) continue
                 gameNow += dtMs
                 tick(gameNow, dtMs / 1000f)
             }
@@ -989,8 +990,44 @@ class StreetFighterViewModel @Inject constructor(
         _state.value = _state.value.copy(isPaused = !_state.value.isPaused)
     }
 
-    /** Revancha: reinicia el encuentro completo (resetGameState del JS). */
+    /** Pausa FORZADA (bloquear el celular / app a segundo plano): nunca des-pausa. */
+    fun forcePause() {
+        val s = _state.value
+        if (!s.isPaused && !s.inCharacterSelect && !s.showEndMenu) {
+            _state.value = s.copy(isPaused = true)
+        }
+    }
+
+    /** Revancha: reinicia el encuentro conservando los personajes elegidos. */
     fun restartBattle() {
+        val s = _state.value
+        startBattle(playerId = s.player.id, cpuId = s.cpu.id)
+    }
+
+    /** Selector: fija el personaje del jugador y arranca la pelea (CPU = Ken, o Ryu si eliges a Ken). */
+    fun selectCharacter(id: SfFighterId) {
+        val cpuId = if (id == SfFighterId.KEN) SfFighterId.RYU else SfFighterId.KEN
+        startBattle(playerId = id, cpuId = cpuId)
+    }
+
+    /** Vuelve al selector de personaje (desde el menú de fin de pelea). */
+    fun backToCharacterSelect() {
+        resetInternals()
+        _state.value = StreetFighterState() // inCharacterSelect = true por default
+    }
+
+    private fun startBattle(playerId: SfFighterId, cpuId: SfFighterId) {
+        resetInternals()
+        val base = StreetFighterState()
+        _state.value = base.copy(
+            player = base.player.copy(id = playerId),
+            cpu = base.cpu.copy(id = cpuId),
+            inCharacterSelect = false,
+        )
+    }
+
+    /** Reinicio de todos los relojes/colas internos (resetGameState del JS). */
+    private fun resetInternals() {
         gameNow = 0L
         lastRealMs = SystemClock.elapsedRealtime()
         hurtFreezeUntilMs = 0L
@@ -1006,6 +1043,5 @@ class StreetFighterViewModel @Inject constructor(
         pendingAttacks.clear()
         controlHistory.clear()
         lastZone = 0
-        _state.value = StreetFighterState()
     }
 }

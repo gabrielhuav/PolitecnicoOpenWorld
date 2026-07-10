@@ -57,10 +57,25 @@ enum class SfDirection(val sign: Int) {
     fun opposite(): SfDirection = if (this == RIGHT) LEFT else RIGHT
 }
 
-/** Identidad del peleador; jsonAsset apunta a su frame data en assets. */
-enum class SfFighterId(val jsonAsset: String, val spriteAsset: String) {
-    RYU("STREETFIGHTER/DATA/ryu.json", "STREETFIGHTER/IMAGES/Ryu.png"),
-    KEN("STREETFIGHTER/DATA/ken.json", "STREETFIGHTER/IMAGES/Ken.png"),
+/**
+ * Identidad del peleador; jsonAsset apunta a su frame data en assets.
+ * `isAlpha` = personaje POW con poses APROXIMADAS (generadas desde su set NPC con
+ * tools/gen_sf_frames_from_npc.py + pack_sf_character.py); se marca en el selector.
+ */
+enum class SfFighterId(
+    val displayName: String,
+    val jsonAsset: String,
+    val spriteAsset: String,
+    val isAlpha: Boolean = false,
+) {
+    RYU("Ryu", "STREETFIGHTER/DATA/ryu.json", "STREETFIGHTER/IMAGES/Ryu.png"),
+    KEN("Ken", "STREETFIGHTER/DATA/ken.json", "STREETFIGHTER/IMAGES/Ken.png"),
+    // 🆕 Peleadores PROPIOS de POW. Prankedy trae frames proj-* propios (broma del tanque).
+    PRANKEDY("Prankedy", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png", isAlpha = true),
+    SENOR_TIENDA("El Señor de la Tienda", "STREETFIGHTER/DATA/senortienda.json", "STREETFIGHTER/IMAGES/SenorTienda.png", isAlpha = true),
+    PAPARAZZI_1("Paparazzi 1", "STREETFIGHTER/DATA/paparazzi1.json", "STREETFIGHTER/IMAGES/Paparazzi1.png", isAlpha = true),
+    PAPARAZZI_5("Paparazzi 5", "STREETFIGHTER/DATA/paparazzi5.json", "STREETFIGHTER/IMAGES/Paparazzi5.png", isAlpha = true),
+    REY_GRUPERO("Rey Grupero", "STREETFIGHTER/DATA/reygrupero.json", "STREETFIGHTER/IMAGES/ReyGrupero.png", isAlpha = true),
 }
 
 /** Fuerza del ataque (fighter.js FighterAttackBaseData; slide ya en px/s). */

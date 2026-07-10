@@ -82,8 +82,9 @@ data class SfTheme(
     val scoreDigits: SfDigitStrip,
     val scoreLetterP: List<Int>,
 
-    // ---- Texto de ganador (fila por índice de ganador) ----
+    // ---- Texto de ganador (fila por PERSONAJE; sin entrada = no se dibuja) ----
     val winnerImage: String,
+    val winnerRows: Map<SfFighterId, Int>,
     val winnerSrcHeight: Int,            // alto visible de cada fila en el png
     val winnerRowStride: Int,            // separación vertical entre filas
     val winnerSrcWidth: Int,
@@ -202,6 +203,9 @@ val SF_CLASSIC_THEME = SfTheme(
     scoreLetterP = listOf(17, 125, 10, 10),
 
     winnerImage = "winnerText.png",
+    // Prankedy no tiene fila en winnerText.png (asset SF): al ganar él no se dibuja texto.
+    // El "PRANKEDY WINS" llegará con el POW_THEME.
+    winnerRows = mapOf(SfFighterId.RYU to 0, SfFighterId.KEN to 1),
     winnerSrcHeight = 9,
     winnerRowStride = 11,
     winnerSrcWidth = 70,

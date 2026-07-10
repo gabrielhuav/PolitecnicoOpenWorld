@@ -11,9 +11,9 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 // View con collectAsState() (contrato MVVM, README for IAS 01/09).
 
 data class StreetFighterState(
-    // Peleadores (0 = jugador con RYU, 1 = CPU con KEN), posiciones del JS
+    // Peleadores (0 = jugador con PRANKEDY 🆕, 1 = CPU con KEN), posiciones del JS
     val player: SfFighter = SfFighter(
-        id = SfFighterId.RYU,
+        id = SfFighterId.PRANKEDY,
         playerIndex = 0,
         x = SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING - SfConstants.FIGHTER_START_DISTANCE,
         direction = SfDirection.RIGHT,
@@ -49,4 +49,7 @@ data class StreetFighterState(
     // Overlays / control
     val isPaused: Boolean = false,
     val showExitDialog: Boolean = false,
+
+    // 🆕 Selección de personaje ANTES de pelear (arranca aquí; selectCharacter la cierra)
+    val inCharacterSelect: Boolean = true,
 )

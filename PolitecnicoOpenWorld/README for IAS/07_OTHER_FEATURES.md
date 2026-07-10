@@ -62,6 +62,26 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   `SfTheme` (data). Migrar a assets propios de POW (Prankedy, escenario ESCOM, sin copyright) = nuevos
   PNG+JSON+tema, CERO lógica. **Receta completa + prompts de generación (QWEN/ChatGPT):**
   `ASSETS_STREETFIGHTER_MIGRACION.md` (esta carpeta).
+- **🆕 PRANKEDY JUGABLE (2026-07-10):** P1 ya es **`SfFighterId.PRANKEDY`** (sheet
+  `IMAGES/Prankedy.png` + `DATA/prankedy.json`, generados con el pipeline del doc de migración);
+  la CPU sigue siendo Ken. VM y View cargan frame data/sheets **por identidad** (cache perezoso).
+  Su especial lanza la **broma del tanque** con confeti: frames `proj-*` del JSON del dueño
+  (fallback al fireball del tema). `winnerRows` por personaje (Prankedy aún sin fila → sin texto).
+- **🆕 SELECTOR DE PERSONAJE + 7 JUGABLES (2026-07-10b):** el modo arranca en
+  `inCharacterSelect=true` (el reloj de juego NO corre) con un overlay de tarjetas
+  (`CharacterSelectOverlay`; preview = recorte `idle-1` vía **BitmapRegionDecoder** + trim de
+  transparencia — NO se decodifican los 7 sheets completos). Roster: Ryu, Ken, **Prankedy, El
+  Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero** (los 5 POW con **badge ALPHA**,
+  `SfFighterId.isAlpha`: poses aproximadas). `selectCharacter(id)` arranca la pelea (CPU = Ken,
+  o Ryu si eliges a Ken); el menú de fin ganó **"Cambiar personaje"** (`backToCharacterSelect`).
+  Los 4 nuevos se generaron con **`tools/gen_sf_frames_from_npc.py`** (NUEVO: 77 poses desde el
+  set NPC estándar Idle/Walk/Run/Special, con rotaciones/aplastados para golpes/reacciones/caídas
+  y filtro de cuadros corruptos — `rg_w_4.webp` era 4×13 px) + `pack_sf_character.py` (parcheado:
+  ya NO empaqueta `proj-*` inexistentes → esos personajes usan el fireball del tema).
+- **🆕 PAUSA AUTOMÁTICA (2026-07-10c):** al bloquear el celular/minimizar (`ON_PAUSE` del
+  lifecycle, patrón de WorldMapScreen), el VM hace `forcePause()` (nunca des-pausa; no aplica en
+  selector/fin de pelea) y la música se pausa (`ON_RESUME` la reanuda). Overlay "PAUSA" con
+  botón Continuar (`togglePause`). El reloj de juego virtual ya se detenía solo.
 - **Quirks del JS portados a propósito:** el chequeo de hitbox SALE al primer hurtbox que no traslapa;
   los ataques ligeros se re-disparan desde el frame 2; LEGS cae a estados de cabeza; empate del timer lo
   gana el jugador (>=).
