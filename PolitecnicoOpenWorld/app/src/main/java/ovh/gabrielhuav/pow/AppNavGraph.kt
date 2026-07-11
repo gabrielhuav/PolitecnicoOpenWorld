@@ -55,7 +55,10 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Rumor
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission3Evidence
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeEscomDoorNavigation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeNavigateToShineCTO
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission2BackpackComic
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3IntroComic
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission1ChaseIntro
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectCampaignMission
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.failMission2Hide
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onShineCTODiscoveryConfirmed
@@ -486,6 +489,38 @@ fun AppNavGraph(
                             )
                         }
 
+                        // ─── MODO HISTORIA · Misión 2 "La mochila" (IntroPOW16..18) ──────────
+                        // Puente narrativo tras hablar con Prankedy (fase MOCHILA). Al terminar,
+                        // vuelve al mundo con el objetivo "recupera la mochila" ya fijado.
+                        composable(route = "story_mission2_backpack") {
+                            val goBack: () -> Unit = { navController.popBackStack("world_map", inclusive = false) }
+                            StoryIntroScreen(
+                                school = SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog.MISSION2_BACKPACK_INTRO_ID,
+                                onBegin = goBack,
+                                onBack = goBack
+                            )
+                        }
+
+                        // ─── MODO HISTORIA · Misión 3 "Regreso a la ENCB" (IntroPOW19..22) ──
+                        // Puente narrativo al completar la M2. Al terminar, SIGUE la Misión 3
+                        // (fija su 🎯) y vuelve al mundo para que la historia continúe.
+                        composable(route = "story_mission3_intro") {
+                            val goM3: () -> Unit = {
+                                worldMapViewModel.selectCampaignMission(
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_3_ID,
+                                    force = true
+                                )
+                                navController.popBackStack("world_map", inclusive = false)
+                            }
+                            StoryIntroScreen(
+                                school = SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog.MISSION3_INTRO_ID,
+                                onBegin = goM3,
+                                onBack = goM3
+                            )
+                        }
+
 
                         // Registramos la ruta de Ajustes
                         composable(
@@ -711,6 +746,30 @@ fun AppNavGraph(
                                     kotlinx.coroutines.delay(2200)
                                     worldMapViewModel.consumePendingMission1ChaseIntro()
                                     navController.navigate("story_mission1_chase")
+                                }
+                            }
+
+                            // MODO HISTORIA · M2 fase MOCHILA → cómic "La mochila" (IntroPOW16..18).
+                            // Se dispara en el mapa (tras hablar con Prankedy); al volver sigue la fase 5.
+                            LaunchedEffect(uiState.pendingMission2BackpackComic) {
+                                if (uiState.pendingMission2BackpackComic) {
+                                    kotlinx.coroutines.delay(2200)
+                                    worldMapViewModel.consumeMission2BackpackComic()
+                                    navController.navigate("story_mission2_backpack")
+                                }
+                            }
+
+                            // MODO HISTORIA · M2 completada → cómic "Regreso a la ENCB" (IntroPOW19..22).
+                            // La bandera se pone a true DENTRO del salón (al recoger la mochila): se
+                            // ESPERA a estar en el mapa (no en un interior) para no navegar encima de él.
+                            LaunchedEffect(uiState.pendingMission3IntroComic) {
+                                if (uiState.pendingMission3IntroComic) {
+                                    while (worldMapViewModel.currentInteriorRoomId != null) {
+                                        kotlinx.coroutines.delay(200)
+                                    }
+                                    kotlinx.coroutines.delay(600)
+                                    worldMapViewModel.consumeMission3IntroComic()
+                                    navController.navigate("story_mission3_intro")
                                 }
                             }
 

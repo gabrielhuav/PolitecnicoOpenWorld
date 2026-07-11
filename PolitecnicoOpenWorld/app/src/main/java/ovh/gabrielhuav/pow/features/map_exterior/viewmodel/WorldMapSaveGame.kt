@@ -189,6 +189,10 @@ fun WorldMapViewModel.retryCampaignMission(context: Context) {
     var keepReplay = replayingMissionId
     // Objetivo que estabas haciendo al fallar (triggerWastedSequence NO cambia el objetivo).
     val failedObjId = _uiState.value.currentObjective?.id
+    // Aísla el reintento: cancela el runtime de las OTRAS misiones (deja solo la que se reintenta).
+    // Evita que, al fallar habiendo cambiado de misión, quede viva la anterior y el retry se
+    // "confunda" (p. ej. reiniciaba en la Misión 1).
+    cancelOtherCampaignMissionsRuntime(keep = MissionCatalog.missionIdForObjective(failedObjId))
     if (failedObjId == MissionCatalog.ESCOLTAR_PRANKEDY.id) {
         // ESCOLTA (Misión 1): "vuelve a empezar desde que entras al mapa global" → reaparece en el
         // CHECKPOINT de entrada (MISSION1_SPAWN), NO en la posición guardada (que era el START en

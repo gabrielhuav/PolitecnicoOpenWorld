@@ -100,13 +100,26 @@ fun MissionLogDialog(uiState: WorldMapState, viewModel: WorldMapViewModel) {
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.mlog_title),
-                    color = Color(0xFFD4AF37),
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 20.sp,
-                    letterSpacing = 2.sp
-                )
+                // Título + botón CERRAR arriba (además del de abajo): así se cierra sin bajar toda
+                // la lista.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.mlog_title),
+                        color = Color(0xFFD4AF37),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                        letterSpacing = 2.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { viewModel.toggleMissionLog(false) }) {
+                        Text(
+                            "✕",
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                    }
+                }
                 MissionCatalog.missions.forEach { mission ->
                     val status = viewModel.missionLogStatus(mission.id)
                     val (chip, chipColor) = when (status) {

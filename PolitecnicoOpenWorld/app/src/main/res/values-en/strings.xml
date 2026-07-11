@@ -541,4 +541,20 @@
     <string name="obj_s2_eliminar_desc">Finish off every infected in the area (hit them with B).</string>
     <string name="wm_chip_money">Money</string>
     <string name="wm_chip_clock">Time</string>
+
+    <!-- Street Fighter mode (i18n 2026-07-10) -->
+    <string name="sf_choose_fighter">CHOOSE YOUR FIGHTER</string>
+    <string name="sf_alpha_note">ALPHA = POW fighter in development (approximate poses)</string>
+    <string name="sf_choose_stage">CHOOSE THE STAGE</string>
+    <string name="sf_random">Random</string>
+    <string name="sf_change_fighter">← Change fighter</string>
+    <string name="sf_rematch">Rematch</string>
+    <string name="sf_change_character">Change character</string>
+    <string name="sf_back_to_menu">Back to menu</string>
+    <string name="sf_paused">PAUSED</string>
+    <string name="sf_continue">Continue</string>
+    <string name="sf_exit_title">Leave the fight</string>
+    <string name="sf_exit_message">Quit the fight and return to the main menu?</string>
+    <string name="sf_exit_confirm">Leave</string>
+    <string name="sf_keep_fighting">Keep fighting</string>
 </resources>

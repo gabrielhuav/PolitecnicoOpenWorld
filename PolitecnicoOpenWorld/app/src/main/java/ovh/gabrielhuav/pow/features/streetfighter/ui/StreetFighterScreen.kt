@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -58,6 +59,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
@@ -242,9 +244,9 @@ fun StreetFighterScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = viewModel::restartBattle) { Text("Revancha") }
-                    OutlinedButton(onClick = viewModel::backToCharacterSelect) { Text("Cambiar personaje") }
-                    OutlinedButton(onClick = onExitToMap) { Text("Volver al menú") }
+                    Button(onClick = viewModel::restartBattle) { Text(stringResource(R.string.sf_rematch)) }
+                    OutlinedButton(onClick = viewModel::backToCharacterSelect) { Text(stringResource(R.string.sf_change_character)) }
+                    OutlinedButton(onClick = onExitToMap) { Text(stringResource(R.string.sf_back_to_menu)) }
                 }
             }
         }
@@ -257,14 +259,14 @@ fun StreetFighterScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "PAUSA",
+                        text = stringResource(R.string.sf_paused),
                         color = Color.White,
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 4.sp,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = viewModel::togglePause) { Text("Continuar") }
+                    Button(onClick = viewModel::togglePause) { Text(stringResource(R.string.sf_continue)) }
                 }
             }
         }
@@ -273,10 +275,10 @@ fun StreetFighterScreen(
         if (state.showExitDialog) {
             AlertDialog(
                 onDismissRequest = viewModel::dismissExitDialog,
-                title = { Text("Salir de la pelea") },
-                text = { Text("¿Abandonar la pelea y volver al menú principal?") },
-                confirmButton = { TextButton(onClick = onExitToMap) { Text("Salir") } },
-                dismissButton = { TextButton(onClick = viewModel::dismissExitDialog) { Text("Seguir peleando") } },
+                title = { Text(stringResource(R.string.sf_exit_title)) },
+                text = { Text(stringResource(R.string.sf_exit_message)) },
+                confirmButton = { TextButton(onClick = onExitToMap) { Text(stringResource(R.string.sf_exit_confirm)) } },
+                dismissButton = { TextButton(onClick = viewModel::dismissExitDialog) { Text(stringResource(R.string.sf_keep_fighting)) } },
             )
         }
     }
@@ -297,7 +299,7 @@ private fun CharacterSelectOverlay(onSelect: (SfFighterId) -> Unit) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "ELIGE A TU PELEADOR",
+                text = stringResource(R.string.sf_choose_fighter),
                 color = Color(0xFFD4AF37),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
@@ -314,7 +316,7 @@ private fun CharacterSelectOverlay(onSelect: (SfFighterId) -> Unit) {
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "ALPHA = peleador de POW en desarrollo (poses aproximadas)",
+                text = stringResource(R.string.sf_alpha_note),
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 11.sp,
             )
@@ -391,7 +393,7 @@ private fun StageSelectOverlay(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "ELIGE EL ESCENARIO",
+                text = stringResource(R.string.sf_choose_stage),
                 color = Color(0xFFD4AF37),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
@@ -413,11 +415,11 @@ private fun StageSelectOverlay(
                     }
                     StageCard(name = bg.name, thumb = thumb) { onSelect(bg.file) }
                 }
-                StageCard(name = "Al azar", thumb = null, emoji = "🎲") { onSelect(null) }
+                StageCard(name = stringResource(R.string.sf_random), thumb = null, emoji = "🎲") { onSelect(null) }
             }
             Spacer(modifier = Modifier.height(10.dp))
             TextButton(onClick = onBack) {
-                Text("← Cambiar peleador", color = Color.White.copy(alpha = 0.7f))
+                Text(stringResource(R.string.sf_change_fighter), color = Color.White.copy(alpha = 0.7f))
             }
         }
     }
@@ -713,18 +715,22 @@ private fun DrawScope.drawSpriteAnchored(
     worldY: Float,
     direction: SfDirection,
     shakeX: Float = 0f,
+    spriteScale: Float = 1f,   // parche de escala por-frame (p. ej. HURT de peleadores ALPHA)
 ) {
     val anchorSx = ctx.ox + (worldX - ctx.camX) * ctx.scale
     val anchorSy = ctx.oy + (worldY - ctx.camY) * ctx.scale
-    val dstX = anchorSx - origin[0] * ctx.scale + shakeX * ctx.scale
-    val dstY = anchorSy - origin[1] * ctx.scale
+    // El origin (ancla) se escala junto con el sprite → la figura crece/encoge alrededor de sus
+    // pies (origin), sin moverse de su punto de mundo.
+    val s = ctx.scale * spriteScale
+    val dstX = anchorSx - origin[0] * s + shakeX * ctx.scale
+    val dstY = anchorSy - origin[1] * s
     val draw: DrawScope.() -> Unit = {
         drawImage(
             image = image,
             srcOffset = IntOffset(src[0], src[1]),
             srcSize = IntSize(src[2], src[3]),
             dstOffset = IntOffset(dstX.toInt(), dstY.toInt()),
-            dstSize = IntSize((src[2] * ctx.scale).toInt(), (src[3] * ctx.scale).toInt()),
+            dstSize = IntSize((src[2] * s).toInt(), (src[3] * s).toInt()),
             filterQuality = FilterQuality.None,
         )
     }
@@ -742,9 +748,12 @@ private fun DrawScope.drawFighter(ctx: SceneCtx, images: Map<String, ImageBitmap
     val frameKey = anim[f.animationFrame.coerceIn(0, anim.size - 1)].frameKey
     val frame = data.frames[frameKey] ?: return
     // Sacudida al recibir golpe (hurt shake del JS), solo durante el 1er frame de HURT
-    val hurting = f.state.name.startsWith("HURT_") && f.animationFrame == 0
-    val shake = if (hurting) (if ((t / 32) % 2 == 0L) 2f else -2f) else 0f
-    drawSpriteAnchored(ctx, sheet, frame.src, frame.origin, f.x, f.y, f.direction, shakeX = shake)
+    val hurtState = f.state.name.startsWith("HURT_")
+    val shake = if (hurtState && f.animationFrame == 0) (if ((t / 32) % 2 == 0L) 2f else -2f) else 0f
+    // PARCHE ALPHA: los peleadores cuyas poses de golpe se generaron más chicas se reescalan SOLO
+    // en HURT (hurtScale != 1f) para que no "encojan" al recibir daño.
+    val spriteScale = if (hurtState) f.id.hurtScale else 1f
+    drawSpriteAnchored(ctx, sheet, frame.src, frame.origin, f.x, f.y, f.direction, shakeX = shake, spriteScale = spriteScale)
 }
 
 private fun DrawScope.drawShadow(ctx: SceneCtx, theme: SfTheme, shadowImg: ImageBitmap, f: SfFighter) {

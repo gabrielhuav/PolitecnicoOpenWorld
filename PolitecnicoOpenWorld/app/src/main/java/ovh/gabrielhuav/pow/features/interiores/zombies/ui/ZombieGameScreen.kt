@@ -983,39 +983,36 @@ fun ZombieGameScreen(
                 }
             }
 
-            // ─── MISIÓN 2 · fase ESCONDERSE: countdown de la búsqueda policial (lobby) ──
-            // Debajo del widget de objetivo. Aguanta sin que te vean hasta que llegue a 0.
-            state.mission2HideRemainingSec?.let { secs ->
-                Box(
-                    Modifier.fillMaxSize().systemBarsPadding().padding(top = 64.dp),
-                    Alignment.TopCenter
-                ) {
-                    Text(
-                        stringResource(R.string.zgame_hide_countdown, secs),
-                        color = Color(0xFFFFCDD2),
-                        fontWeight = FontWeight.Black,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .background(Color(0xCC3B0D1B), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 14.dp, vertical = 6.dp)
-                    )
-                }
-            }
-
-            // ─── OBJETIVO DE CAMPAÑA EN INTERIORES (p. ej. ESCOM tras Misión 1) ──
-            // Mismo widget que el mapa exterior, anclado arriba-centro. Sin distancia
-            // (playerLocation=null) → muestra la descripción del objetivo.
-            interiorObjective?.let { obj ->
-                Box(
+            // ─── OBJETIVO DE CAMPAÑA EN INTERIORES + countdown de la fase ESCONDERSE (M2) ──
+            // Mismo widget de objetivo que el mapa exterior (arriba-centro) y, DEBAJO, el countdown
+            // de la búsqueda policial (fase 1 de la M2 en el lobby). Van en un MISMO Column apilado
+            // para que NUNCA se traslapen: el objetivo puede ser de varias líneas (p. ej. "Policía
+            // en el lobby: aguanta X s sin que te vean") y con posiciones fijas se encimaban.
+            if (interiorObjective != null || state.mission2HideRemainingSec != null) {
+                Column(
                     Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
-                    Alignment.TopCenter
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
-                        objective = obj,
-                        done = false,
-                        playerLocation = null
-                    )
+                    interiorObjective?.let { obj ->
+                        ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
+                            objective = obj,
+                            done = false,
+                            playerLocation = null
+                        )
+                    }
+                    state.mission2HideRemainingSec?.let { secs ->
+                        Text(
+                            stringResource(R.string.zgame_hide_countdown, secs),
+                            color = Color(0xFFFFCDD2),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .background(Color(0xCC3B0D1B), RoundedCornerShape(10.dp))
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        )
+                    }
                 }
             }
 

@@ -58,9 +58,26 @@ internal fun WorldMapViewModel.markMissionCompleted(missionId: String) {
  * SEGUIR una misión desde el registro. ARRANCA la misión si nunca corrió, o la REANUDA en su
  * fase guardada si ya iba a medias. No-op para bloqueadas/completadas (la UI las deshabilita).
  */
+/**
+ * Cancela el estado RUNTIME (actores en curso; NO las fases persistidas) de todas las misiones de
+ * campaña MENOS la que se va a seguir. Así, al cambiar de misión, la anterior no sigue viva y
+ * "pisando" el objetivo/reintento. Idempotente: limpiar una misión inactiva es no-op.
+ */
+internal fun WorldMapViewModel.cancelOtherCampaignMissionsRuntime(keep: String?) {
+    if (keep != MissionCatalog.MISSION_1_ID) clearCampaignPolice()   // detiene escolta + persecución M1
+    if (keep != MissionCatalog.MISSION_2_ID) clearMission2Story()
+    if (keep != MissionCatalog.MISSION_3_ID) clearMission3Story()    // (también para el escort/brote M3)
+    if (keep != MissionCatalog.SIDE_1_ID && keep != MissionCatalog.SIDE_2_ID) clearSideMissions()
+}
+
 fun WorldMapViewModel.selectCampaignMission(missionId: String, force: Boolean = false) {
     // `force` = MODO DESARROLLADOR: permite seguir misiones 🔒 BLOQUEADAS (salta requiresMissionId).
     if (!force && missionLogStatus(missionId) !in setOf(MissionLogStatus.AVAILABLE, MissionLogStatus.ACTIVE)) return
+    // Al CAMBIAR de misión se CANCELA el runtime de las demás (actores + cadena de la M1) para que
+    // no se traslapen. Bug que arregla: seguir/TP a otra misión dejaba viva la anterior y, al
+    // FALLAR + REINTENTAR, te reiniciaba en la misión equivocada (p. ej. la M1). Las FASES
+    // persistidas NO se tocan → puedes reanudar donde ibas.
+    cancelOtherCampaignMissionsRuntime(keep = missionId)
     when (missionId) {
         MissionCatalog.MISSION_1_ID -> {
             // Misión 1: si no hay objetivo suyo activo, retoma desde su primer objetivo pendiente.
@@ -107,6 +124,8 @@ fun WorldMapViewModel.unfollowActiveMission() {
  */
 fun WorldMapViewModel.replayCampaignMission(missionId: String) {
     if (missionLogStatus(missionId) != MissionLogStatus.COMPLETED) return
+    // Rejugar TAMBIÉN aísla: cancela el runtime de las demás misiones (igual que selectCampaignMission).
+    cancelOtherCampaignMissionsRuntime(keep = missionId)
     when (missionId) {
         MissionCatalog.MISSION_1_ID -> {
             // M1 no tiene fase persistida propia: su cadena (escolta → chase) se re-arma con un

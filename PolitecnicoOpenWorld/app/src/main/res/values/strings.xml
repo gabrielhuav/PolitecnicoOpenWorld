@@ -543,4 +543,20 @@
     <string name="obj_s2_eliminar_desc">Acaba con todos los infectados de la zona (golpéalos con B).</string>
     <string name="wm_chip_money">Dinero</string>
     <string name="wm_chip_clock">Hora</string>
+
+    <!-- Modo Street Fighter (i18n 2026-07-10) -->
+    <string name="sf_choose_fighter">ELIGE A TU PELEADOR</string>
+    <string name="sf_alpha_note">ALPHA = peleador de POW en desarrollo (poses aproximadas)</string>
+    <string name="sf_choose_stage">ELIGE EL ESCENARIO</string>
+    <string name="sf_random">Al azar</string>
+    <string name="sf_change_fighter">← Cambiar peleador</string>
+    <string name="sf_rematch">Revancha</string>
+    <string name="sf_change_character">Cambiar personaje</string>
+    <string name="sf_back_to_menu">Volver al menú</string>
+    <string name="sf_paused">PAUSA</string>
+    <string name="sf_continue">Continuar</string>
+    <string name="sf_exit_title">Salir de la pelea</string>
+    <string name="sf_exit_message">¿Abandonar la pelea y volver al menú principal?</string>
+    <string name="sf_exit_confirm">Salir</string>
+    <string name="sf_keep_fighting">Seguir peleando</string>
 </resources>

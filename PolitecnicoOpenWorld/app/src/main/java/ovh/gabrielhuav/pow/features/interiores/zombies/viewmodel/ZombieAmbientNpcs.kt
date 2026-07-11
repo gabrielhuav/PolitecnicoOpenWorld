@@ -70,9 +70,10 @@ private fun getAmbientSkinsPool(room: ZombieRoom): List<PlayerSkin> {
                   room.id.startsWith("za_") ||
                   room.id == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ESCOM_SALON_M2_ID
 
+    // Skins de NPC de estudiante/genérico. NO se incluyen escomboy/escomgirl: esas son los
+    // personajes JUGABLES (selección de personaje) → un NPC no debe verse idéntico al jugador.
     val globalAndGenericSkins = listOf(
-        PlayerSkin.RND_1, PlayerSkin.DOC_1, PlayerSkin.EST_H1, PlayerSkin.EST_M1,
-        PlayerSkin.escomboy, PlayerSkin.escomgirl
+        PlayerSkin.RND_1, PlayerSkin.DOC_1, PlayerSkin.EST_H1, PlayerSkin.EST_M1
     )
 
     return if (isEscom) {
@@ -128,9 +129,13 @@ private const val AMBIENT_WAIT_MS = 600L       // pausa (idle) al llegar antes d
 private const val STUCK_EPS = 6f                // si se movió menos que esto…
 private const val STUCK_MS = 1600L              // …durante este tiempo, está ATORADO → cambia dirección
 
+// ── Anti-amontonamiento (separación suave con cooldown para no temblar) ──
+private const val CROWD_DIST = 35f              // más cerca que esto de otro NPC/jugador = amontonado
+private const val CROWD_RETARGET_MS = 1500L     // no re-elegir rumbo por amontonamiento más seguido que esto
+
 // ── Vida universitaria (encuentros/pláticas) ──
 private const val PAIR_CHANCE_PER_TICK = 0.009f // ~1 encuentro cada ~3.7 s de tick (30 Hz) si hay libres
-private const val TALK_START_DIST = 78f         // al quedar así de cerca del punto común → platican
+private const val TALK_START_DIST = 46f         // al quedar así de cerca → platican (+ snap a TALK_GAP)
 private const val TALK_GAP = 26f                // separación al pararse frente a frente
 private const val TALK_MIN_MS = 8000L
 private const val TALK_MAX_MS = 14000L
@@ -460,9 +465,21 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
                         // y la decisión de después (pairSeed) es la MISMA para los dos.
                         val talkMs = TALK_MIN_MS +
                             (Random(npc.pairSeed).nextLong(TALK_MAX_MS - TALK_MIN_MS))
+                        // SNAP a FRENTE A FRENTE: me coloco a TALK_GAP del compañero en mi dirección
+                        // para no platicar separado (cada NPC se configura a sí mismo). Fallback:
+                        // me quedo donde estoy si el punto pegado no es caminable.
+                        val dx = npc.x - partner.x
+                        val dy = npc.y - partner.y
+                        val d = hypot(dx, dy).coerceAtLeast(1f)
+                        val snapX = partner.x + dx / d * TALK_GAP
+                        val snapY = partner.y + dy / d * TALK_GAP
+                        val snapOk = walkable(room, snapX, snapY)
+                        val nx = if (snapOk) snapX else npc.x
+                        val ny = if (snapOk) snapY else npc.y
                         npc = npc.copy(
+                            x = nx, y = ny,
                             mode = AmbientMode.TALK, action = PlayerAction.IDLE,
-                            modeUntilMs = now + talkMs, facingRight = partner.x >= npc.x,
+                            modeUntilMs = now + talkMs, facingRight = partner.x >= nx,
                             // Inicio del GUION: la línea que toca se deriva de aquí. Cada NPC
                             // transiciona en un tick distinto (~33 ms de diferencia): la línea
                             // derivada es la MISMA en la práctica (SPEECH_TURN_MS ≫ un tick).
@@ -509,24 +526,21 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
             }
         }
 
-        // ── 2b. EVITAR AMONTONAMIENTO / ATASCOS DE CERCANÍA:
-        // Si el NPC está en modo WANDER, comprobamos si está demasiado cerca del jugador
-        // o de otro NPC (que no sea su pareja activa). Si es así, forzamos cambio de rumbo.
-        if (npc.mode == AmbientMode.WANDER) {
+        // ── 2b. EVITAR AMONTONAMIENTO: si un NPC en WANDER está muy cerca del jugador o de otro
+        // NPC (que no sea su pareja), cambia de rumbo. Con COOLDOWN (retargetAtMs): antes se
+        // re-elegía objetivo CADA tick mientras siguiera cerca (lobby denso) → movimiento errático
+        // y tembloroso. Ahora a lo más cada CROWD_RETARGET_MS, así se ve como estudiantes andando.
+        if (npc.mode == AmbientMode.WANDER && now >= npc.retargetAtMs) {
             val px = _state.value.playerX
             val py = _state.value.playerY
-            val distToPlayer = hypot(npc.x - px, npc.y - py)
-            var tooClose = distToPlayer < 35f
+            var tooClose = hypot(npc.x - px, npc.y - py) < CROWD_DIST
 
             if (!tooClose) {
                 for (other in npcs) {
-                    if (other.id != npc.id) {
-                        val distToOther = hypot(npc.x - other.x, npc.y - other.y)
-                        val arePartners = npc.partnerId == other.id
-                        if (distToOther < 35f && !arePartners) {
-                            tooClose = true
-                            break
-                        }
+                    if (other.id != npc.id && npc.partnerId != other.id &&
+                        hypot(npc.x - other.x, npc.y - other.y) < CROWD_DIST) {
+                        tooClose = true
+                        break
                     }
                 }
             }
@@ -537,6 +551,7 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
                     npc = npc.copy(
                         action = PlayerAction.WALK,
                         targetX = t.first, targetY = t.second,
+                        retargetAtMs = now + CROWD_RETARGET_MS,
                         stuckX = npc.x, stuckY = npc.y, stuckSinceMs = now
                     )
                 }
@@ -607,19 +622,19 @@ internal fun ZombieInteriorViewModel.spawnMission2RumorStudents(room: ZombieRoom
     return listOf(
         AmbientNpc(
             id = "m2rumor_a",
-            x = cx - 35f, y = cy,
-            skin = PlayerSkin.escomboy,
+            x = cx - 22f, y = cy,
+            skin = PlayerSkin.EST_H1,   // estudiante NPC (no la skin jugable escomboy)
             action = PlayerAction.IDLE,
             facingRight = true,
-            targetX = cx - 35f, targetY = cy
+            targetX = cx - 22f, targetY = cy
         ),
         AmbientNpc(
             id = "m2rumor_b",
-            x = cx + 35f, y = cy,
-            skin = PlayerSkin.escomgirl,
+            x = cx + 22f, y = cy,
+            skin = PlayerSkin.EST_M1,   // estudianta NPC (no la skin jugable escomgirl)
             action = PlayerAction.IDLE,
             facingRight = false,
-            targetX = cx + 35f, targetY = cy
+            targetX = cx + 22f, targetY = cy
         )
     )
 }

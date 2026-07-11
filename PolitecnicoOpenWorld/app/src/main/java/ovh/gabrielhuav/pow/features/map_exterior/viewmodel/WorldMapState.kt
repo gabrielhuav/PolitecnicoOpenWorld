@@ -222,6 +222,12 @@ data class WorldMapState(
     // arranque la persecución. Se consume (vuelve a false) al navegar al cómic.
     // (Antes se llamaba pendingMission2Intro; se renombró al crear la Misión 2 real.)
     val pendingMission1ChaseIntro: Boolean = false,
+    // 🆕 PUENTES NARRATIVOS M2→M3 (mismo patrón que pendingMission1ChaseIntro): AppNavGraph observa
+    // estas banderas y reproduce el cómic correspondiente, luego las consume.
+    //  - backpack: al pasar la M2 a la fase MOCHILA (tras hablar con Prankedy) → cómic "La mochila".
+    //  - m3intro:  al completar la M2 (mochila recuperada) → cómic "Regreso a la ENCB" (arranca M3).
+    val pendingMission2BackpackComic: Boolean = false,
+    val pendingMission3IntroComic: Boolean = false,
     // MISIÓN 2 · "El rumor" — SUBTÍTULOS de conversación (rumor de estudiantes, radio policial,
     // plática con Prankedy). Los fija WorldMapMission2.kt línea por línea; la View solo los
     // dibuja (overlay estilo subtítulo en WorldMapScreenOverlays). null = sin conversación.

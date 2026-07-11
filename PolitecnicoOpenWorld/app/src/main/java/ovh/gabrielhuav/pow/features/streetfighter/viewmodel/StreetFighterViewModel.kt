@@ -95,8 +95,11 @@ class StreetFighterViewModel @Inject constructor(
 
     private companion object {
         const val TICK_MS = 16L
-        const val JOYSTICK_IDLE_MS = 150L
-        const val HADOUKEN_WINDOW_MS = 800L
+        // Táctil: el joystick emite cada ~33 ms al sostenerse; con 150 ms el input quedaba "pegado"
+        // ~150 ms tras soltar (se sentía que "no reacciona"). 100 ms sigue siendo seguro (>33 ms).
+        const val JOYSTICK_IDLE_MS = 100L
+        // Ventana del cuarto de círculo del especial. Más ancha = más fácil en táctil.
+        const val HADOUKEN_WINDOW_MS = 1100L
         const val END_MENU_DELAY_MS = 4200L
         const val ZONE_DOWN = 1
         const val ZONE_FORWARD_DOWN = 2
@@ -418,6 +421,13 @@ class StreetFighterViewModel @Inject constructor(
                 if (nf.y > SfConstants.STAGE_FLOOR) {
                     sim.setFighter(idx, nf.copy(y = SfConstants.STAGE_FLOOR))
                     changeState(sim, idx, SfFighterState.JUMP_LAND, now)
+                    // 🆕 CROSS-UP: al aterrizar, ENCARA de inmediato al rival (sin animación de giro).
+                    // Si brincaste por encima quedabas viendo al lado contrario y "adelante" apuntaba
+                    // LEJOS del rival → no le podías pegar. Orientar al tocar piso lo arregla.
+                    val landed = sim.fighter(idx)
+                    val opp = sim.fighter(1 - idx)
+                    val facing = if (landed.x <= opp.x) SfDirection.RIGHT else SfDirection.LEFT
+                    if (facing != landed.direction) sim.setFighter(idx, landed.copy(direction = facing))
                     _soundEvents.tryEmit("land")
                 }
             }
@@ -883,14 +893,18 @@ class StreetFighterViewModel @Inject constructor(
         )
     }
 
-    /** ¿El historial reciente contiene ↓, ↘, → en orden (ventana de 800 ms)? */
+    /**
+     * ¿El historial reciente forma un cuarto de círculo hacia adelante (↓ … →)? TÁCTIL-TOLERANTE:
+     * basta ver ABAJO (↓ o la diagonal ↘) y DESPUÉS ADELANTE (→). La diagonal ↘ ya NO es
+     * obligatoria (antes exigía ↓ → ↘ → → exacto, casi imposible con el pulgar) — así los
+     * "hadoukens" salen mucho más fácil sin disparar falsos (aún requiere ir de abajo a adelante).
+     */
     private fun isHadoukenSequence(now: Long): Boolean {
         val recent = controlHistory.filter { now - it.second <= HADOUKEN_WINDOW_MS }.map { it.first }
-        var cursor = 0
-        val target = listOf(ZONE_DOWN, ZONE_FORWARD_DOWN, ZONE_FORWARD)
+        var sawDown = false
         for (z in recent) {
-            if (z == target[cursor]) cursor++
-            if (cursor == target.size) return true
+            if (z == ZONE_DOWN || z == ZONE_FORWARD_DOWN) sawDown = true
+            else if (z == ZONE_FORWARD && sawDown) return true
         }
         return false
     }

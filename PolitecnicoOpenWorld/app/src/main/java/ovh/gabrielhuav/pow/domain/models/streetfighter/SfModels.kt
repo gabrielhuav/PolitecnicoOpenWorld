@@ -68,14 +68,19 @@ enum class SfFighterId(
     val jsonAsset: String,
     val spriteAsset: String,
     val isAlpha: Boolean = false,
+    // PARCHE TEMPORAL (2026-07-10): algunos peleadores ALPHA se autogeneraron con las poses de GOLPE
+    // (hit-*) dibujadas MÁS CHICAS dentro de su celda 256² → "encogen" al recibir daño. Este factor
+    // los reescala SOLO en estados HURT (medido: figura de idle / figura de hit). 1f = sin parche.
+    // TODO: quitar cuando se regeneren esos sprites al tamaño correcto (ver GUIA_generacion_assets_SF).
+    val hurtScale: Float = 1f,
 ) {
     RYU("Ryu", "RYU", "STREETFIGHTER/DATA/ryu.json", "STREETFIGHTER/IMAGES/Ryu.png"),
     KEN("Ken", "KEN", "STREETFIGHTER/DATA/ken.json", "STREETFIGHTER/IMAGES/Ken.png"),
     // 🆕 Peleadores PROPIOS de POW. Prankedy trae frames proj-* propios (broma del tanque).
     PRANKEDY("Prankedy", "PRANKEDY", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png", isAlpha = true),
     SENOR_TIENDA("El Señor de la Tienda", "TIENDA", "STREETFIGHTER/DATA/senortienda.json", "STREETFIGHTER/IMAGES/SenorTienda.png", isAlpha = true),
-    PAPARAZZI_1("Paparazzi 1", "PAPZ 1", "STREETFIGHTER/DATA/paparazzi1.json", "STREETFIGHTER/IMAGES/Paparazzi1.png", isAlpha = true),
-    PAPARAZZI_5("Paparazzi 5", "PAPZ 5", "STREETFIGHTER/DATA/paparazzi5.json", "STREETFIGHTER/IMAGES/Paparazzi5.png", isAlpha = true),
+    PAPARAZZI_1("Paparazzi 1", "PAPZ 1", "STREETFIGHTER/DATA/paparazzi1.json", "STREETFIGHTER/IMAGES/Paparazzi1.png", isAlpha = true, hurtScale = 1.43f),
+    PAPARAZZI_5("Paparazzi 5", "PAPZ 5", "STREETFIGHTER/DATA/paparazzi5.json", "STREETFIGHTER/IMAGES/Paparazzi5.png", isAlpha = true, hurtScale = 1.37f),
     REY_GRUPERO("Rey Grupero", "GRUPERO", "STREETFIGHTER/DATA/reygrupero.json", "STREETFIGHTER/IMAGES/ReyGrupero.png", isAlpha = true),
 }
 

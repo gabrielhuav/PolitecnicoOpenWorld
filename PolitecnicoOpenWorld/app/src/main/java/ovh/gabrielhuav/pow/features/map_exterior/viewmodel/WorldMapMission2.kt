@@ -132,6 +132,13 @@ private fun WorldMapViewModel.advanceM2Phase() {
         Mission2.PHASE_TALK -> {
             mission2Phase = Mission2.PHASE_BACKPACK
             setCampaignObjective(MissionCatalog.M2_RECUPERAR_MOCHILA)
+            // Guía explícita + CÓMIC "La mochila" (AppNavGraph lo reproduce al ver la bandera): sin
+            // esto no queda claro que hay que ENTRAR a la ESCOM (la puerta redirige al salón) y usar
+            // la lata apestosa.
+            _uiState.update { it.copy(
+                interactionPrompt = "🎒 Ve a la ESCOM y ENTRA: la mochila está en un salón EN CLASES. Lanza la LATA APESTOSA (X) para vaciarlo.",
+                pendingMission2BackpackComic = true
+            ) }
         }
     }
     android.util.Log.d("POW_DBG", "MISIÓN 2: avanza a fase $mission2Phase")
@@ -483,10 +490,21 @@ fun WorldMapViewModel.completeMission2Backpack() {
     _uiState.update { it.copy(
         currentObjective = MissionCatalog.M2_RECUPERAR_MOCHILA,
         objectiveDone = true,
-        interactionPrompt = "🎒 ¡MISIÓN 2 COMPLETADA! Nueva misión disponible en Opciones → Misiones"
+        interactionPrompt = "🎒 ¡MISIÓN 2 COMPLETADA! Nueva misión disponible en Opciones → Misiones",
+        // CÓMIC "Regreso a la ENCB": AppNavGraph lo reproduce al volver al mapa (arranca la M3).
+        pendingMission3IntroComic = true
     ) }
     soundManager.playMisionCumplida()
     android.util.Log.d("POW_DBG", "MISIÓN 2: COMPLETADA (mochila recuperada)")
+}
+
+// Consumo de las banderas de cómic (AppNavGraph las apaga tras navegar al visor).
+internal fun WorldMapViewModel.consumeMission2BackpackComic() {
+    _uiState.update { it.copy(pendingMission2BackpackComic = false) }
+}
+
+internal fun WorldMapViewModel.consumeMission3IntroComic() {
+    _uiState.update { it.copy(pendingMission3IntroComic = false) }
 }
 
 // ── LIMPIEZA (idempotente). NO toca mission2Phase: eso lo decide quien llama
