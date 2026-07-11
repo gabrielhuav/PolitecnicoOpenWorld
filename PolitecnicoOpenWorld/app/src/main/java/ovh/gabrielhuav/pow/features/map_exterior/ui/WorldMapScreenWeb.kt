@@ -272,7 +272,7 @@ internal fun WebMapLayer(
                                 // nunca llegaba a registrarse a tiempo → el zombi no se veía en web.
                                 val frameIndex = ((timeMs / 220L) % 9L).toInt()
                                 // El rol entra en la clave para que cada tinte (palette swap) se cachee aparte.
-                                val cacheKey = "ZOMBIE_WEB_${npc.zombieRole.name}_${npc.facingRight}_${frameIndex}_D${npc.isDying}"
+                                val cacheKey = "ZOMBIE_WEB_${npc.zombieRole.name}_${npc.facingRight}_${frameIndex}_D${npc.isDying}_S${npc.zombieSpriteSet}"
                                 val base64Image = base64Cache[cacheKey]
                                 if (base64Image == null) {
                                     base64Cache[cacheKey] = ""

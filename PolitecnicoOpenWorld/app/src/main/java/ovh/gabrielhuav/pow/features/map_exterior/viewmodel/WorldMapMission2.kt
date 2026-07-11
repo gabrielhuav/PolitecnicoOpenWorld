@@ -263,10 +263,12 @@ private fun WorldMapViewModel.tickM2Brote(playerLoc: GeoPoint, now: Long) {
             val d = m2Dist(playerLoc.latitude, playerLoc.longitude, Mission2.BROTE_LAT, Mission2.BROTE_LON)
             if (d <= Mission2.BROTE_TRIGGER_DEG) {
                 // CONVERSIÓN: el NPC se vuelve ZOMBIE. ⚠️ visualConfig = null (gotcha de render:
-                // un zombi CON visualConfig se dibuja como humano en los 3 renderers).
+                // un zombi CON visualConfig se dibuja como humano en los 3 renderers). Usa el arte
+                // propio del "estudiante zombi" (SPRITES/ZOMBIE/ESTUDIANTE) en vez del genérico.
                 mission2Npcs["M2_ZOMBIE"]?.let {
                     mission2Npcs["M2_ZOMBIE"] = it.copy(
                         type = NpcType.ZOMBIE, visualConfig = null,
+                        zombieSpriteSet = "SPRITES/ZOMBIE/ESTUDIANTE",
                         speed = Mission2.BROTE_ZOMBIE_SPEED, isMoving = true
                     )
                 }

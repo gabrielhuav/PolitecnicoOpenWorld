@@ -35,6 +35,24 @@ private fun m3Dist(aLat: Double, aLon: Double, bLat: Double, bLon: Double): Doub
     return sqrt(dLat * dLat + dLon * dLon)
 }
 
+// ── BROTE junto a la ENCB (fase 2): ZONA DE GUERRA — granaderos/policías conteniendo zombis, que
+//    además pueden CONVERTIR a Prankedy. Solo aparece MUY cerca de la ENCB (o en el interior). ──
+private const val M3_BROTE_TRIGGER_DEG = 0.00035      // ~38 m: tan cerca hay que estar para armar el brote
+private const val M3_ZOMBIE_COUNT = 5                 // zombis en la refriega (arte "estudiante zombi")
+private const val M3_ZOMBIE_RING_DEG = 0.0003         // ~33 m: dónde nacen alrededor de la ENCB
+private const val M3_ZOMBIE_SPEED = 0.0000023         // paso por tick (similar al brote de la M2)
+private const val M3_ZOMBIE_CONTACT_DEG = 0.00006     // ~7 m: contacto zombi↔objetivo
+private const val M3_CONVERT_MS = 2500L               // contacto sostenido con Prankedy → conversión
+private const val M3_ZOMBIE_DAMAGE = 14f              // daño por contacto al jugador
+private const val M3_ZOMBIE_HIT_COOLDOWN_MS = 1200L   // entre golpes de contacto al jugador
+private const val M3_PRANKEDY_ZOMBIE_HP = 999999f     // "inmortal": no muere con el combate normal
+// Contención: policías que PELEAN con los zombis (dan el ambiente de apocalipsis).
+private const val M3_CONTAIN_COP_COUNT = 4            // policías de contención (además del cordón de sigilo)
+private const val M3_CONTAIN_RING_DEG = 0.00022       // ~24 m: dónde se despliegan
+private const val M3_CONTAIN_SPEED = 0.0000026        // avanzan hacia el zombi más cercano
+private const val M3_CONTAIN_KILL_DEG = 0.00007       // a esta distancia el policía "somete" al zombi
+private const val M3_CONTAIN_SUBDUE_CHANCE = 0.06     // prob./tick de que un zombi sometido reaparezca en el anillo (batalla perpetua)
+
 internal fun WorldMapViewModel.isMission3StoryActive(): Boolean =
     inCampaign && mission3Phase >= Mission3.PHASE_TRAVEL && mission3Phase <= Mission3.PHASE_ASSAULT &&
         _uiState.value.currentObjective?.id?.startsWith(Mission3.OBJECTIVE_ID_PREFIX) == true
@@ -133,6 +151,12 @@ private fun WorldMapViewModel.tickM3Infiltrate(playerLoc: GeoPoint, now: Long) {
         }
     }
 
+    // Prankedy te ESCOLTA durante toda la infiltración. El BROTE (zombis + contención policial)
+    // solo aparece cuando llegas MUY cerca de la ENCB (zona de guerra); una vez armado, corre su tick.
+    ensureM3PrankedyEscort(playerLoc, now)
+    armM3BroteIfClose(playerLoc, now)
+    if (mission3BroteArmed) tickM3Brote(playerLoc, now)
+
     // PATRULLA del cordón: cada granadero orbita su PUESTO del anillo (arco corto, determinista
     // por cubeta de tiempo — mismo truco sin estado que la Misión 2). Los paparazzi "reportean"
     // (burbuja 💬 intermitente), quietos.
@@ -182,6 +206,7 @@ private fun WorldMapViewModel.tickM3Infiltrate(playerLoc: GeoPoint, now: Long) {
         <= Mission3.ENTER_DEG) {
         mission3Phase = Mission3.PHASE_ASSAULT
         mission3Npcs.clear()
+        stopM3PrankedyEscort()   // Prankedy (o su zombi) NO entra al interior: se retira aquí
         setCampaignObjective(MissionCatalog.M3_RECUPERAR_EVIDENCIA)
         soundManager.playMisionCumplida()   // jingle: superaste el cordón
         _uiState.update { it.copy(
@@ -217,7 +242,178 @@ internal fun WorldMapViewModel.clearMission3Story() {
     mission3Npcs.clear()
     mission3DetectSinceMs = 0L
     mission3ReentryArmed = false
+    stopM3PrankedyEscort()   // retira la escolta y re-arma el brote para el siguiente intento
     if (_uiState.value.mission3EnterEncb) consumeMission3EnterEncb()
+}
+
+// ── BROTE (fase 2): escolta de Prankedy + zombis que lo convierten ──────────────
+//
+// Asegura que Prankedy te ESCOLTE durante la infiltración (para que los zombis puedan atacarlo).
+// Minimal a propósito: NO fija el objetivo (a diferencia de respawnPrankedyCompanionHere, que pone
+// ESCOLTAR_PRANKEDY y rompería isMission3StoryActive()). runPrankedyTick (game loop) lo hace seguirte.
+private fun WorldMapViewModel.ensureM3PrankedyEscort(playerLoc: GeoPoint, now: Long) {
+    if (mission3PrankedyConverted) return
+    val pm = prankedyManager
+    if (pm.phase != ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED || pm.location == null) {
+        pm.spawnCompanion(playerLoc, roadNetwork, now)
+        pm.warpTo(playerLoc)
+    }
+    if (!_uiState.value.prankedyEnabled || _uiState.value.prankedyLocation == null) {
+        _uiState.update { it.copy(
+            prankedyEnabled = true,
+            prankedyLocation = pm.location,
+            prankedyVisible = pm.location != null && !it.isDriving,
+            prankedyPhase = pm.phase
+        ) }
+    }
+}
+
+// ARMA el brote SOLO cuando el jugador está MUY cerca de la ENCB (zona de guerra): siembra zombis
+// (arte "estudiante zombi") + policías de CONTENCIÓN que los pelean. One-shot por intento.
+private fun WorldMapViewModel.armM3BroteIfClose(playerLoc: GeoPoint, now: Long) {
+    if (mission3BroteArmed) return
+    if (m3Dist(playerLoc.latitude, playerLoc.longitude, Mission3.ENCB_LAT, Mission3.ENCB_LON) > M3_BROTE_TRIGGER_DEG) return
+    mission3BroteArmed = true
+    for (i in 0 until M3_ZOMBIE_COUNT) {
+        val ang = 2.0 * Math.PI * i / M3_ZOMBIE_COUNT + 0.9
+        mission3Npcs["M3_ZOMBIE_$i"] = Npc(
+            id = "M3_ZOMBIE_$i", type = NpcType.ZOMBIE,
+            location = GeoPoint(Mission3.ENCB_LAT + sin(ang) * M3_ZOMBIE_RING_DEG,
+                Mission3.ENCB_LON + cos(ang) * M3_ZOMBIE_RING_DEG),
+            speed = M3_ZOMBIE_SPEED, isRemote = false, isMoving = true,
+            visualConfig = null, zombieSpriteSet = "SPRITES/ZOMBIE/ESTUDIANTE"
+        )
+    }
+    for (i in 0 until M3_CONTAIN_COP_COUNT) {
+        val ang = 2.0 * Math.PI * i / M3_CONTAIN_COP_COUNT + 0.3
+        mission3Npcs["M3_CONTAIN_$i"] = Npc(
+            id = "M3_CONTAIN_$i", type = NpcType.POLICE_COP,
+            location = GeoPoint(Mission3.ENCB_LAT + sin(ang) * M3_CONTAIN_RING_DEG,
+                Mission3.ENCB_LON + cos(ang) * M3_CONTAIN_RING_DEG),
+            speed = M3_CONTAIN_SPEED, isRemote = false, isMoving = true,
+            policeDisembarked = true, policeCanShoot = false
+        )
+    }
+    _uiState.update { it.copy(
+        interactionPrompt = "🧟 ¡La ENCB es una ZONA DE GUERRA! Granaderos conteniendo el brote… cuida a Prankedy y CORRE a la entrada"
+    ) }
+}
+
+// La REFRIEGA: zombis persiguen a Prankedy (si sigue humano) / policías de contención / al jugador;
+// los policías de contención cargan contra el zombi más cercano y lo "someten" (reaparece en el
+// anillo → batalla perpetua). Contacto sostenido con Prankedy = conversión; contacto con el jugador
+// = daño. El "PRANKEDY zombi" es inmortal y siempre te persigue a TI.
+private fun WorldMapViewModel.tickM3Brote(playerLoc: GeoPoint, now: Long) {
+    val pm = prankedyManager
+    val prankedyLoc = if (!mission3PrankedyConverted &&
+        pm.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED) pm.location else null
+    val cops = mission3Npcs.values.filter { it.id.startsWith("M3_CONTAIN_") }
+
+    fun nearest(from: GeoPoint, pts: List<GeoPoint>): GeoPoint? =
+        pts.minByOrNull { m3Dist(from.latitude, from.longitude, it.latitude, it.longitude) }
+
+    var zombieTouchingPrankedy = false
+    for (npc in mission3Npcs.values.toList()) {
+        val isPrankedyZombie = npc.id == "M3_PRANKEDY_ZOMBIE"
+        val isZombie = isPrankedyZombie || npc.id.startsWith("M3_ZOMBIE_")
+        if (isZombie) {
+            // El Prankedy zombi SIEMPRE te caza a TI; los demás van al objetivo más cercano
+            // (Prankedy humano / policía de contención / jugador) → se ve como refriega.
+            val target = if (isPrankedyZombie) playerLoc
+                else nearest(npc.location, listOfNotNull(prankedyLoc) + cops.map { it.location } + listOf(playerLoc)) ?: playerLoc
+            val a = kotlin.math.atan2(target.latitude - npc.location.latitude, target.longitude - npc.location.longitude)
+            var moved = GeoPoint(npc.location.latitude + sin(a) * M3_ZOMBIE_SPEED,
+                npc.location.longitude + cos(a) * M3_ZOMBIE_SPEED)
+            // CONTENCIÓN: si un policía lo tiene muy cerca, el zombi (normal) es "sometido" y
+            // reaparece en el anillo (probabilístico → no cada tick). El Prankedy zombi es inmune.
+            if (!isPrankedyZombie) {
+                val copNear = cops.any { m3Dist(it.location.latitude, it.location.longitude, moved.latitude, moved.longitude) < M3_CONTAIN_KILL_DEG }
+                if (copNear && Math.random() < M3_CONTAIN_SUBDUE_CHANCE) {
+                    val ra = Math.random() * 2.0 * Math.PI
+                    moved = GeoPoint(Mission3.ENCB_LAT + sin(ra) * M3_ZOMBIE_RING_DEG,
+                        Mission3.ENCB_LON + cos(ra) * M3_ZOMBIE_RING_DEG)
+                }
+            }
+            mission3Npcs[npc.id] = npc.copy(
+                location = moved, isMoving = true, facingRight = cos(a) >= 0,
+                health = if (isPrankedyZombie) M3_PRANKEDY_ZOMBIE_HP else npc.health,
+                maxHealth = if (isPrankedyZombie) M3_PRANKEDY_ZOMBIE_HP else npc.maxHealth
+            )
+            if (!isPrankedyZombie && prankedyLoc != null &&
+                m3Dist(moved.latitude, moved.longitude, prankedyLoc.latitude, prankedyLoc.longitude) < M3_ZOMBIE_CONTACT_DEG) {
+                zombieTouchingPrankedy = true
+            }
+            if (m3Dist(moved.latitude, moved.longitude, playerLoc.latitude, playerLoc.longitude) < M3_ZOMBIE_CONTACT_DEG &&
+                now - mission3ZombieHitCooldownMs > M3_ZOMBIE_HIT_COOLDOWN_MS) {
+                mission3ZombieHitCooldownMs = now
+                takeDamage(M3_ZOMBIE_DAMAGE)   // si te mata: triggerWastedSequence → MISIÓN FALLIDA (m3_*)
+            }
+        } else if (npc.id.startsWith("M3_CONTAIN_")) {
+            // Policía de contención: carga contra el zombi más cercano (da el ambiente de batalla).
+            val zpts = mission3Npcs.values.filter { it.id.startsWith("M3_ZOMBIE_") }.map { it.location }
+            val z = nearest(npc.location, zpts)
+            if (z != null) {
+                val a = kotlin.math.atan2(z.latitude - npc.location.latitude, z.longitude - npc.location.longitude)
+                val moved = GeoPoint(npc.location.latitude + sin(a) * M3_CONTAIN_SPEED,
+                    npc.location.longitude + cos(a) * M3_CONTAIN_SPEED)
+                mission3Npcs[npc.id] = npc.copy(location = moved, isMoving = true, facingRight = cos(a) >= 0)
+            }
+        }
+    }
+
+    // CONVERSIÓN de Prankedy: un zombi lo mantiene tocado por M3_CONVERT_MS.
+    if (prankedyLoc != null && zombieTouchingPrankedy) {
+        if (mission3PrankedyDetectSinceMs == 0L) mission3PrankedyDetectSinceMs = now
+        if (now - mission3PrankedyDetectSinceMs > M3_CONVERT_MS) convertM3Prankedy(prankedyLoc)
+    } else {
+        mission3PrankedyDetectSinceMs = 0L
+    }
+}
+
+// Prankedy es alcanzado → se convierte en el "PRANKEDY zombi" INMORTAL que te persigue hasta
+// matarte. Quita al compañero y lo reemplaza por un NPC zombi de misión con su arte propio.
+private fun WorldMapViewModel.convertM3Prankedy(atLoc: GeoPoint) {
+    if (mission3PrankedyConverted) return
+    mission3PrankedyConverted = true
+    mission3PrankedyDetectSinceMs = 0L
+    prankedyManager.deactivate()
+    _uiState.update { it.copy(
+        prankedyEnabled = false,
+        prankedyVisible = false,
+        prankedyLocation = null,
+        prankedyProjectileActive = false,
+        interactionPrompt = "🧟 ¡Los infectados alcanzaron a Prankedy! Ahora te persigue… ¡CORRE!"
+    ) }
+    mission3Npcs["M3_PRANKEDY_ZOMBIE"] = Npc(
+        id = "M3_PRANKEDY_ZOMBIE",
+        type = NpcType.ZOMBIE,
+        location = atLoc,
+        speed = M3_ZOMBIE_SPEED,
+        isRemote = false,
+        isMoving = true,
+        visualConfig = null,
+        zombieSpriteSet = "SPRITES/ZOMBIE/PRANKEDY",
+        health = M3_PRANKEDY_ZOMBIE_HP,
+        maxHealth = M3_PRANKEDY_ZOMBIE_HP
+    )
+}
+
+// Retira la escolta y RE-ARMA el brote para el siguiente intento (retry / entrar al interior /
+// dejar de seguir la misión). Idempotente.
+private fun WorldMapViewModel.stopM3PrankedyEscort() {
+    mission3PrankedyDetectSinceMs = 0L
+    mission3PrankedyConverted = false
+    mission3ZombieHitCooldownMs = 0L
+    mission3BroteArmed = false
+    if (prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED) {
+        prankedyManager.deactivate()
+        _uiState.update { it.copy(
+            prankedyEnabled = false,
+            prankedyVisible = false,
+            prankedyLocation = null,
+            prankedyProjectileActive = false
+        ) }
+    }
 }
 
 // Look civil del paparazzi (chaleco caqui + cámara imaginaria; render modular del exterior).

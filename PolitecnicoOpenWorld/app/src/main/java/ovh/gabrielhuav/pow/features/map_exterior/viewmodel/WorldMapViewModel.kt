@@ -351,6 +351,16 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     // NPCs del cordón (granaderos) + paparazzi. Se fusionan en uiState.npcs (updateNpcsState).
     internal val mission3Npcs = ConcurrentHashMap<String, Npc>()
     internal var mission3DetectSinceMs = 0L
+    // ── BROTE en el cordón (fase 2): zombis rondando la ENCB que pueden CONVERTIR a Prankedy ──
+    // (WorldMapMission3.kt). Prankedy te escolta; si un zombi lo alcanza y lo mantiene el tiempo
+    // de conversión, se vuelve el "PRANKEDY zombi" INMORTAL que te persigue hasta matarte (=misión
+    // fallida). Timers/banderas transitorios (no se serializan; se re-arman al reintentar).
+    internal var mission3PrankedyDetectSinceMs = 0L   // contacto sostenido zombi↔Prankedy
+    internal var mission3PrankedyConverted = false     // Prankedy ya se convirtió (one-shot por intento)
+    internal var mission3ZombieHitCooldownMs = 0L      // cooldown del daño por contacto al jugador
+    // El brote (zombis + contención policial) solo se ARMA cuando el jugador llega MUY cerca de la
+    // ENCB (no al armarse el cordón lejano). One-shot por intento; se re-arma en stopM3PrankedyEscort.
+    internal var mission3BroteArmed = false
     // Histéresis de RE-ENTRADA al asalto (fase 3): tras salir del interior hay que ALEJARSE del
     // centro de la ENCB y volver para re-entrar (evita el bucle de navegación en la puerta).
     internal var mission3ReentryArmed = false

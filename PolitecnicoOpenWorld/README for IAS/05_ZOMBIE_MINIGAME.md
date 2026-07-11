@@ -55,7 +55,8 @@ autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación 
 > **EN CLASES**: `AMBIENT_ROOM_IDS` incluye la sala → `spawnAmbientNpcs` puebla estudiantes IPN/docente.
 > **X** = lanzar la **LATA APESTOSA** (`ZombieGameState.mission2StinkThrown`) → el tick usa
 > `evacuateAmbientNpcs` (corren a la puerta y desaparecen) en vez de `stepAmbientNpcs`; con el salón VACÍO
-> aparece la **mochila 🎒** (emoji en `mission2BackpackX/Y`, sin asset dedicado); **X** cerca la recoge
+> aparece la **mochila** (asset `CAMPAIGN/MISSION2/mochila_prankedy.png` en `mission2BackpackX/Y`; la lata
+> usa `CAMPAIGN/MISSION2/lata_apestosa.png`, ambas vía `Mission2GroundSprite`); **X** cerca la recoge
 > (`mission2BackpackTaken`) → `ZombieGameScreen` dispara `onMission2BackpackRecovered` →
 > `completeMission2Backpack()` en el VM del mundo (cableado en AppNavGraph). `loadRoom` re-arma la escena
 > al reentrar (si saliste sin la mochila, vuelve a haber clase). El objetivo del salón lo muestra

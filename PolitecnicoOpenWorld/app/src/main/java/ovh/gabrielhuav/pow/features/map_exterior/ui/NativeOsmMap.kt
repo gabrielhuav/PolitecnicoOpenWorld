@@ -813,7 +813,7 @@ internal fun NativeOsmMap(
                                 }
                                 val exactPixels = ((1.3 / metersPerPixel) * screenDensity * roleSizeMul).toInt().coerceAtLeast(12)
                                 val zFrame = ((timeMs / 220L) % 9L).toInt()
-                                val cacheKey = "ZOMBIE_${npc.zombieRole.name}_${npc.facingRight}_${zFrame}_${exactPixels}_H${npc.health.toInt()}_M${npc.maxHealth.toInt()}_D${npc.isDying}"
+                                val cacheKey = "ZOMBIE_${npc.zombieRole.name}_${npc.facingRight}_${zFrame}_${exactPixels}_H${npc.health.toInt()}_M${npc.maxHealth.toInt()}_D${npc.isDying}_S${npc.zombieSpriteSet}"
 
                                 val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                     var baseDrawable: android.graphics.drawable.Drawable? = ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.getZombieDrawable(

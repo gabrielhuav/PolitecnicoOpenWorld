@@ -322,7 +322,7 @@ internal fun GoogleMapLayer(
                                         }
                                         val personSzDp = (24.0 + ((renderZoom - 18.0) * 8.0)).toFloat().coerceIn(16.0f, 40.0f)
                                         val exactPixels = (personSzDp * screenDensity * roleSizeMul).toInt()
-                                        "GM_ZOMBIE_${npc.zombieRole.name}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health.toInt()}_M${npc.maxHealth.toInt()}_D${npc.isDying}"
+                                        "GM_ZOMBIE_${npc.zombieRole.name}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health.toInt()}_M${npc.maxHealth.toInt()}_D${npc.isDying}_S${npc.zombieSpriteSet}"
                                     }
                                     else -> "GM_SVG_${npc.type.name}_H${qHealth}_D${npc.isDying}"
                                 }

@@ -540,40 +540,42 @@ fun ZombieGameScreen(
                     )
                 }
 
-                // MISIÓN 2 · salón: mochila de Prankedy en el suelo (emoji 🎒; sin asset propio).
+                // MISIÓN 2 · salón: mochila de Prankedy en el suelo (asset propio; 2026-07-10,
+                // antes emoji 🎒).
                 run {
                     val bpX = state.mission2BackpackX
                     val bpY = state.mission2BackpackY
                     if (bpX != null && bpY != null && !state.mission2BackpackTaken && onScreen(bpX, bpY)) {
-                        val bpSize = 46f * cam.scale
-                        Text(
-                            text = "🎒",
-                            fontSize = with(density) { bpSize.toSp() },
-                            modifier = Modifier
-                                .absoluteOffset(
-                                    x = with(density) { toScreenX(bpX).toDp() } - with(density) { (bpSize / 2).toDp() },
-                                    y = with(density) { toScreenY(bpY).toDp() } - with(density) { (bpSize / 2).toDp() }
-                                )
-                                .alpha(if (state.mission2BackpackNearby) 1f else 0.88f)
+                        val bpSize = 64f * cam.scale
+                        StoryGroundSprite(
+                            assetPath = "CAMPAIGN/MISSION2/mochila_prankedy.png",
+                            sizePx = bpSize,
+                            fallbackEmoji = "🎒",
+                            contentAlpha = if (state.mission2BackpackNearby) 1f else 0.88f,
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(bpX).toDp() } - with(density) { (bpSize / 2).toDp() },
+                                y = with(density) { toScreenY(bpY).toDp() } - with(density) { (bpSize / 2).toDp() }
+                            )
                         )
                     }
                 }
 
-                // MISIÓN 3 · asalto ENCB: la EVIDENCIA 🧪 del laboratorio (emoji; sin asset propio).
+                // MISIÓN 3 · asalto ENCB: la EVIDENCIA del laboratorio (asset propio; 2026-07-10,
+                // antes emoji 🧪).
                 run {
                     val evX = state.mission3EvidenceX
                     val evY = state.mission3EvidenceY
                     if (evX != null && evY != null && !state.mission3EvidenceTaken && onScreen(evX, evY)) {
-                        val evSize = 42f * cam.scale
-                        Text(
-                            text = "🧪",
-                            fontSize = with(density) { evSize.toSp() },
-                            modifier = Modifier
-                                .absoluteOffset(
-                                    x = with(density) { toScreenX(evX).toDp() } - with(density) { (evSize / 2).toDp() },
-                                    y = with(density) { toScreenY(evY).toDp() } - with(density) { (evSize / 2).toDp() }
-                                )
-                                .alpha(if (state.mission3EvidenceNearby) 1f else 0.88f)
+                        val evSize = 48f * cam.scale
+                        StoryGroundSprite(
+                            assetPath = "CAMPAIGN/MISSION3/evidencia_frasco.png",
+                            sizePx = evSize,
+                            fallbackEmoji = "🧪",
+                            contentAlpha = if (state.mission3EvidenceNearby) 1f else 0.88f,
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(evX).toDp() } - with(density) { (evSize / 2).toDp() },
+                                y = with(density) { toScreenY(evY).toDp() } - with(density) { (evSize / 2).toDp() }
+                            )
                         )
                     }
                 }
@@ -685,31 +687,22 @@ fun ZombieGameScreen(
                     }
                 }
 
-                // 🆕 MISIÓN 2: la LATA APESTOSA tirada en el piso (🥫) + humo 💨 mientras evacúan.
+                // 🆕 MISIÓN 2: la LATA APESTOSA tirada en el piso (asset propio; 2026-07-10, antes
+                // emoji 🥫). La lata ya trae el vapor apestoso integrado en el sprite.
                 run {
                     val stX = state.mission2StinkX
                     val stY = state.mission2StinkY
                     if (stX != null && stY != null && onScreen(stX, stY)) {
-                        val canSize = 30f * cam.scale
-                        Text(
-                            text = "🥫",
-                            fontSize = with(density) { canSize.toSp() },
+                        val canSize = 44f * cam.scale
+                        StoryGroundSprite(
+                            assetPath = "CAMPAIGN/MISSION2/lata_apestosa.png",
+                            sizePx = canSize,
+                            fallbackEmoji = "🥫",
                             modifier = Modifier.absoluteOffset(
                                 x = with(density) { toScreenX(stX).toDp() } - with(density) { (canSize / 2).toDp() },
                                 y = with(density) { toScreenY(stY).toDp() } - with(density) { (canSize / 2).toDp() }
                             )
                         )
-                        // El humo apestoso solo mientras los alumnos siguen saliendo.
-                        if (state.ambientNpcs.isNotEmpty()) {
-                            Text(
-                                text = "💨",
-                                fontSize = with(density) { (canSize * 1.2f).toSp() },
-                                modifier = Modifier.absoluteOffset(
-                                    x = with(density) { toScreenX(stX).toDp() } - with(density) { (canSize * 0.2f).toDp() },
-                                    y = with(density) { toScreenY(stY).toDp() } - with(density) { (canSize * 1.5f).toDp() }
-                                )
-                            )
-                        }
                     }
                 }
 
@@ -1456,6 +1449,47 @@ private fun ToolButton(label: String, selected: Boolean, color: Color, modifier:
         shape = RoundedCornerShape(8.dp)
     ) {
         Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// MODO HISTORIA · sprite de suelo (lata apestosa / mochila de la M2, frasco de evidencia de la M3…).
+// Carga el PNG del asset (submuestreado para gama baja), lo dibuja centrado al tamaño dado
+// conservando su aspecto y, si aún no carga, cae al emoji de respaldo. Reemplaza los emojis
+// 🥫/🎒/🧪 por assets propios (2026-07-10).
+@Composable
+private fun StoryGroundSprite(
+    assetPath: String,
+    sizePx: Float,
+    fallbackEmoji: String,
+    modifier: Modifier = Modifier,
+    contentAlpha: Float = 1f,
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    var bmp by remember(assetPath) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(assetPath) {
+        bmp = withContext(Dispatchers.IO) {
+            try {
+                context.assets.open(assetPath).use {
+                    val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }
+                    android.graphics.BitmapFactory.decodeStream(it, null, o)?.asImageBitmap()
+                }
+            } catch (e: Exception) { null }
+        }
+    }
+    val img = bmp
+    if (img != null) {
+        Image(
+            img,
+            contentDescription = null,
+            modifier = modifier.size(with(density) { sizePx.toDp() }).alpha(contentAlpha)
+        )
+    } else {
+        Text(
+            text = fallbackEmoji,
+            fontSize = with(density) { sizePx.toSp() },
+            modifier = modifier.alpha(contentAlpha)
+        )
     }
 }
 

@@ -38,10 +38,14 @@ object MapZombieSpriteManager {
             0 // Frame estático cuando no se mueve
         }
 
-        val assetPath = "SPRITES/ZOMBIE/z_walk_${frameIndex + 1}.webp"
+        // Ruta base OPCIONAL por NPC: un zombi de historia con arte propio (ESTUDIANTE, PRANKEDY…)
+        // trae su propia carpeta con z_walk_1..9.webp; si no, usa el genérico SPRITES/ZOMBIE.
+        val spriteBase = npc.zombieSpriteSet ?: "SPRITES/ZOMBIE"
+        val assetPath = "$spriteBase/z_walk_${frameIndex + 1}.webp"
         val roundedScale = Math.round(scale * 20f) / 20f
         // El ROL entra en la clave: cada rol es un palette swap (tinte) distinto del MISMO asset,
-        // así no gastamos RAM en sprites nuevos y cada tinte se cachea por separado.
+        // así no gastamos RAM en sprites nuevos y cada tinte se cachea por separado. El set custom
+        // también entra en la clave (distinto arte = distinto bitmap).
         val cacheKey = "${assetPath}_${npc.facingRight}_${roundedScale}_${npc.zombieRole.name}"
 
         drawableCache.get(cacheKey)?.let { return it }
@@ -61,8 +65,8 @@ object MapZombieSpriteManager {
                 )
 
                 // PALETTE SWAP por rol: tinte vía ColorMatrix (multiplica canales RGB) sobre el
-                // sprite. NORMAL no se tiñe.
-                val cm = colorMatrixFor(npc.zombieRole)
+                // sprite. NORMAL no se tiñe. Un set con ARTE PROPIO ya trae su color → sin tinte.
+                val cm = if (npc.zombieSpriteSet != null) null else colorMatrixFor(npc.zombieRole)
                 val finalBmp = if (cm == null) scaledBmp else {
                     val tinted = Bitmap.createBitmap(scaledBmp.width, scaledBmp.height, Bitmap.Config.ARGB_8888)
                     val canvas = android.graphics.Canvas(tinted)

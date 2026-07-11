@@ -90,6 +90,13 @@ data class Npc(
     val maxHealth: Float = 100f,        // para la barra de vida proporcional por rol
     val screamUntil: Long = 0L,         // SCOUT: mientras now < screamUntil muestra la burbuja de grito
 
+    // Sprite premade OPCIONAL para ESTE zombi (carpeta en assets con z_walk_1..9.webp). null = usa
+    // el genérico SPRITES/ZOMBIE + tinte por rol. Lo fijan conversiones de HISTORIA con arte propio
+    // (p. ej. "SPRITES/ZOMBIE/ESTUDIANTE" en el brote de la Misión 2; "SPRITES/ZOMBIE/PRANKEDY" si
+    // convierten a Prankedy). Al estar fijado se IGNORA el tinte por rol (el arte ya trae su color).
+    // Cosmético/local: los NPCs de historia no viajan por red, así que NO se serializa.
+    val zombieSpriteSet: String? = null,
+
     // ─── ESQUIVE estilo Midnight Club (peatón se aparta del coche) ────────────
     // Mientras now < dodgeUntil, el peatón se mueve hacia (dodgeDirLat, dodgeDirLon) — un sidestep
     // ANIMADO (no un teletransporte). Lo dispara el Host (runOverNpcs) y lo anima moveNpc.

@@ -154,8 +154,17 @@ para que **NO sea seleccionable** por el jugador (es NPC, no skin del jugador).
 
 > **Fase exterior (pendiente):** el mundo abierto usa **otro sistema** (`NpcAiManager` +
 > `CharacterSpriteManager`, que ENSAMBLA cuerpos con tinte+pelo). Meter modelos **premade** (sprite
-> completo) como los de aquí requiere añadir una **ruta de render premade** en el exterior. No está
-> hecho todavía.
+> completo) como los de aquí para HUMANOS requiere añadir una **ruta de render premade** en el
+> exterior. No está hecho todavía.
+>
+> **🆕 (2026-07-10) ZOMBIS premade por-NPC (sí implementado):** los zombis del exterior ya se
+> dibujan con hojas premade (`SPRITES/ZOMBIE/z_walk_1..9.webp`, 9 frames). Ahora `Npc.zombieSpriteSet`
+> permite darle a UN zombi su propia carpeta `SPRITES/ZOMBIE/<SET>/z_walk_1..9.webp` (mismo formato,
+> figura mirando a la DERECHA sobre lienzo cuadrado, pies abajo; el engine espejea para `!facingRight`
+> y OMITE el tinte por rol si hay set propio). Ya hay **`ESTUDIANTE`** (brote M2) y **`PRANKEDY`**
+> (Prankedy convertido). Se recortan de hojas con el mismo criterio de este doc (alfa limpio, altura
+> normalizada, pies alineados). Lo consumen `MapZombieSpriteManager.getZombieDrawable` + las claves de
+> caché de los 3 renderers (`NativeOsmMap`/`WorldMapScreenWeb`/`WorldMapScreenGoogle`).
 
 ---
 
