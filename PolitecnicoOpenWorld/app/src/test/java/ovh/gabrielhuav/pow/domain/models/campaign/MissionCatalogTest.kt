@@ -98,15 +98,22 @@ class MissionCatalogTest {
 
     @Test
     fun mission_selector_chain_is_m1_then_m2_then_m3() {
-        val missions = MissionCatalog.missions
+        // PRINCIPALES en orden. Las SECUNDARIAS (side=true, añadidas con la M2) van DESPUÉS
+        // de las principales en el registro y no participan en la cadena M1→M2→M3.
+        val main = MissionCatalog.missions.filter { !it.side }
         assertEquals(
             listOf(MissionCatalog.MISSION_1_ID, MissionCatalog.MISSION_2_ID, MissionCatalog.MISSION_3_ID),
-            missions.map { it.id }
+            main.map { it.id }
         )
         // Cadena de desbloqueo: M1 libre; M2 requiere M1; M3 requiere M2 (la salta el Modo Dev).
-        assertNull(missions[0].requiresMissionId)
-        assertEquals(MissionCatalog.MISSION_1_ID, missions[1].requiresMissionId)
-        assertEquals(MissionCatalog.MISSION_2_ID, missions[2].requiresMissionId)
+        assertNull(main[0].requiresMissionId)
+        assertEquals(MissionCatalog.MISSION_1_ID, main[1].requiresMissionId)
+        assertEquals(MissionCatalog.MISSION_2_ID, main[2].requiresMissionId)
+        // SECUNDARIAS: side1 se desbloquea con la M2 y side2 con la M3.
+        val sides = MissionCatalog.missions.filter { it.side }
+        assertEquals(listOf(MissionCatalog.SIDE_1_ID, MissionCatalog.SIDE_2_ID), sides.map { it.id })
+        assertEquals(MissionCatalog.MISSION_2_ID, sides[0].requiresMissionId)
+        assertEquals(MissionCatalog.MISSION_3_ID, sides[1].requiresMissionId)
     }
 
     @Test

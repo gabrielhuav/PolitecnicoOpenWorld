@@ -1,5 +1,9 @@
 # CHECKPOINT VIVO — Programa "calidad senior" (multi-sesión)
 
+> **📁 Nota (2026-07-11):** los `PLAN_*.md`, `PENDIENTE_calidad.md`, `ANALISIS_codigo.md` y los
+> checkpoints viejos que este registro cita viven ahora en **`_ARCHIVO/`** (limpieza de la carpeta;
+> ver `_ARCHIVO/README.md`). El `baseline.xml` de detekt ya está COMMITEADO (Etapa 5 cerrada).
+
 > **✅ AUDITORÍA FINAL APROBADA (2026-07-04, sesión Fable 5, solo lectura):** verificado sobre el
 > código real (Read/Grep, no docs): (A) 6 managers + fachada combine anidada correcta; CERO writes
 > `it.copy(campo-poseído)` y CERO reads `_uiState.value.campo-poseído` residuales; buildSaveData/

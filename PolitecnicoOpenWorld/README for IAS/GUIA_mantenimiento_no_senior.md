@@ -48,14 +48,15 @@
 | Metro/Metrobús | `06_INTERIOR_METRO.md` → `TransitInteriorViewModel` + `TransitSystems` |
 | Campaña / misiones / registro / replay | `CAMPAIGN/00..03` → `domain/models/campaign/` + `WorldMapMission*.kt` |
 | Guardado / slots | `WorldMapSaveGame.kt` + `SaveGameRepository` (y su test) |
-| Routing / snap-to-road | ⚠️ ZONA DELICADA: `domain/usecases/RoadRouter.kt` (puro, con tests) y la cadena del VM — ver `PLAN_dedup_routing.md` ANTES |
+| Routing / snap-to-road | ⚠️ ZONA DELICADA: `domain/usecases/RoadRouter.kt` (puro, con tests) y la cadena del VM — ver `_ARCHIVO/PLAN_dedup_routing.md` ANTES |
 | Servidores | `08_SERVERS.md` (`Multiplayer/` mundo abierto, `MultiplayerInteriores/` interiores) |
 | Ajustes / i18n / audio | `07_OTHER_FEATURES.md` |
 
 ## 5. Qué NO hacer sin supervisión/compilador
 - De-dup de gemelos, package-moves, mover campos de estado entre clases, Hilt: TODO eso está
-  planificado por etapas en `CHECKPOINT_SENIOR_refactor.md` + `PLAN_*.md`. Sigue el plan, paso a
-  paso, UN paso por compilación. No improvises un refactor grande "de una vez".
+  planificado por etapas en `CHECKPOINT_SENIOR_refactor.md` + `_ARCHIVO/PLAN_*.md` (ya ejecutados;
+  son la receta). Sigue el plan, paso a paso, UN paso por compilación. No improvises un refactor
+  grande "de una vez".
 - Find&Replace masivo (y NUNCA case-insensitive): ver el desastre documentado en 09 §0.
 - Tocar `startGameLoop`/cadena de routing del VM fuera del plan de la Etapa 2/3.
 

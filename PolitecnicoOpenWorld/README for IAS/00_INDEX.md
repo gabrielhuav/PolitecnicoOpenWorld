@@ -22,7 +22,7 @@
 3. El doc del feature que vayas a tocar (03-08 / CAMPAIGN) y su tabla "Key files".
 4. Si vas a REFACTORIZAR: `CHECKPOINT_SENIOR_refactor.md` (programa 2026-07-04 TERMINADO Y
    AUDITADO: managers+fachada, Hilt, tests, detekt — ahí está la receta y lo que NO se movió).
-   Los `PLAN_*.md` están ✅ EJECUTADOS: son referencia histórica, NO tareas pendientes.
+   Los `PLAN_*.md` y demás docs de `_ARCHIVO/` están ✅ EJECUTADOS: referencia histórica, NO tareas.
 5. Pídele la tarea y dile que **siga el MVVM y las convenciones del archivo 09** (incluida la
    política de comentarios y los campos "⚠️ LO POSEE XManager").
 6. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
@@ -53,22 +53,18 @@
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
-### Docs de trabajo / Working docs (no son 00–09; tareas en curso)
+### Docs de trabajo / Working docs (no son 00–09)
 
 | Archivo / File | Contenido / Contents |
 |---|---|
-| `GUIA_mantenimiento_no_senior.md` | **🆕 (2026-07-04) EMPEZAR AQUÍ si eres una IA/dev nuevo:** las 7 reglas que rompen el juego, flujo de trabajo estándar, chuleta de "dónde vive cada cosa", qué NO hacer sin compilador y cómo pedir compilaciones al dueño. |
-| `CHECKPOINT_SENIOR_refactor.md` | **✅ (2026-07-04) Programa "calidad senior" TERMINADO Y AUDITADO** (tests golden-master → de-dup routing → 6 managers + fachada combine → Hilt → detekt bloqueante → perf auditada). Registro completo etapa por etapa + nota de auditoría al inicio + "siguiente nivel" opcional. Para futuros refactors: la RECETA del patrón manager vive aquí. |
-| `PLAN_dedup_routing.md` / `PLAN_descomponer_WorldMapViewModel.md` / `PLAN_DI_hilt.md` / `PENDIENTE_calidad.md` | **✅ EJECUTADOS (histórico, 2026-07-04):** diseño original de las etapas del programa senior. NO son tareas pendientes (cada uno tiene banner al inicio). Deuda que sí queda viva: baseline detekt (23 issues perdonados) + params sin uso (ver nota en PENDIENTE_calidad). |
-| `PROMPT_nueva_optimizacion.md` | Prompt maestro de reuso: contexto + estado actual + reglas del entorno. Cópialo al iniciar una sesión con una IA y adjunta esta carpeta. |
-| `ANALISIS_codigo.md` | **(2026-06-21)** Informe: clases grandes, duplicación (metro⇄metrobús), MVVM, i18n migrado vs pendiente, perf, mejoras priorizadas por valor/esfuerzo. |
-| `REVISION_repo.md` | **(2026-06-21)** Revisión de TODO el repo: raíz, servidores Node (solo revisión), seguridad (keystore NO comprometido), `.gitignore`, hardening de deploy. |
-| `CHECKPOINT_2026-07-04_siguiente_sesion.md` | CHECKPOINT de la sesión 2026-07-03/04 (Misiones 2 y 3, selector de misiones, control Xbox, vida universitaria, fixes). Sus 4 tareas ya están ✅ HECHAS. |
-| `CHECKPOINT_2026-07-08_siguiente_sesion.md` | **🆕 CHECKPOINT MÁS RECIENTE (2026-07-08): fase 1 de la M2 rediseñada DENTRO del lobby (policías m2cop_*), fix "TP al objetivo" (sigue la misión primero), vida ESCOM interior (13 NPCs + guiones coherentes) y exterior (`WorldMapCampusLife.kt`). + PROMPT de arranque para el siguiente LLM. EMPIEZA AQUÍ para retomar.** |
-| `ASSETS_STREETFIGHTER_MIGRACION.md` | **🆕 (2026-07-09)** Modo pelea 1v1: qué assets del clon SF hay que sustituir por assets propios de POW (Prankedy…), formato del JSON de personaje (77 poses), pipeline de empaquetado y prompts para QWEN/ChatGPT. |
-| `GUIA_generacion_assets_SF.md` | **🆕 (2026-07-10)** Guía MANUAL cuadro-por-cuadro (QWEN no pudo; se harán en ChatGPT): las 17 poses malas de Prankedy, los 13 ataques de cada ALPHA, escenario ESCOM por capas, HUD por piezas, sonidos, prompts y orden de integración. |
-| `NPC_SPRITES_PIPELINE.md` | **🆕 Cómo recortar sprite sheets de NPCs al ESTÁNDAR (193×249, body 200, fracción 0.803) + cableado (`PlayerSkin`/`AMBIENT_SKINS`/`devOnlySkins`) + gotchas. Script: `tools/slice_npc_standard.py`. Léelo para agregar más docentes/estudiantes/genéricos en otra PC.** |
-| `CAMPAIGN/` (carpeta) | **🆕 Guion de la campaña (Modo Historia): `00_OVERVIEW.md` (fantasía = simulación de infección zombi + GTA), `01..03_MISSION_N.md` (Misiones 1-3, ✅) y `04_SIDE_MISSIONS.md` (🆕 2026-07-08: secundarias side1/side2 con recompensa en DINERO). Futuras misiones = `0N_MISSION_N.md`.** |
+| `GUIA_mantenimiento_no_senior.md` | **(2026-07-04) EMPEZAR AQUÍ si eres una IA/dev nuevo:** las 7 reglas que rompen el juego, flujo de trabajo estándar, chuleta de "dónde vive cada cosa", qué NO hacer sin compilador y cómo pedir compilaciones al dueño. |
+| `CHECKPOINT_2026-07-11_sesion_QA.md` | **🆕 CHECKPOINT MÁS RECIENTE (2026-07-11) — EMPIEZA AQUÍ para retomar:** QA de Misiones 2/3 (sprites lata/mochila/frasco, zombis con arte propio por-NPC, brote/conversión de Prankedy en M3), fixes de QA (traslapes, NPCs del lobby, separación de misiones/reintento), Street Fighter (cross-up, hadouken tolerante, hurtScale, i18n) y cómics M2→M3 (placeholders IntroPOW16..22). Auditado y verificado 2026-07-11 (compila, 13/13 suites de test en verde). |
+| `CHECKPOINT_SENIOR_refactor.md` | **✅ (2026-07-04) Programa "calidad senior" TERMINADO Y AUDITADO** (tests golden-master → de-dup routing → 6 managers + fachada combine → Hilt → detekt bloqueante → perf auditada). Para futuros refactors: la RECETA del patrón manager vive aquí. |
+| `ASSETS_STREETFIGHTER_MIGRACION.md` | **(2026-07-09)** Modo pelea 1v1: qué assets del clon SF hay que sustituir por assets propios de POW (Prankedy…), formato del JSON de personaje (77 poses), pipeline de empaquetado y prompts para QWEN/ChatGPT. |
+| `GUIA_generacion_assets_SF.md` | **(2026-07-10)** Guía MANUAL cuadro-por-cuadro (QWEN no pudo; se harán en ChatGPT): las 17 poses malas de Prankedy, los 13 ataques de cada ALPHA, escenario ESCOM por capas, HUD por piezas, sonidos, prompts y orden de integración. |
+| `NPC_SPRITES_PIPELINE.md` | Cómo recortar sprite sheets de NPCs al ESTÁNDAR (193×249, body 200, fracción 0.803) + cableado (`PlayerSkin`/`AMBIENT_SKINS`/`devOnlySkins`) + gotchas. Script: `tools/slice_npc_standard.py`. Léelo para agregar más docentes/estudiantes/genéricos en otra PC. |
+| `CAMPAIGN/` (carpeta) | **Guion de la campaña (Modo Historia): `00_OVERVIEW.md` (fantasía = simulación de infección zombi + GTA), `01..03_MISSION_N.md` (Misiones 1-3, ✅) y `04_SIDE_MISSIONS.md` (secundarias side1/side2 con recompensa en DINERO). Futuras misiones = `0N_MISSION_N.md`.** |
+| `_ARCHIVO/` (carpeta) | **Docs históricos ✅ EJECUTADOS o SUPERADOS** (los `PLAN_*` del programa senior, `PENDIENTE_calidad`, `ANALISIS_codigo`, `PROMPT_nueva_optimizacion` y los checkpoints viejos). El código los cita por nombre como registro; **NO son tareas pendientes**. Ver su `README.md`. |
 
 ---
 
@@ -79,8 +75,9 @@
 - **Arquitectura / Architecture:** MVVM estricto por *feature* / strict MVVM by feature
 - **Servidores / Servers:** 2× Node.js + `ws` (open world `Multiplayer/`, zombi `MultiplayerInteriores/`), dockerizados en Render
 - **Room DB:** versión 8 (`MIGRATION_7_8` + destructive fallback)
-- **~120 archivos Kotlin / Kotlin files**, ~36k líneas / lines (2026-06-21). Solo 5 archivos >1000:
-  `WorldMapViewModel`(2114), `NativeOsmMap`(1460), `WorldMapScreen`(1326), `MainActivity`(1064), `ZombieGameScreen`(1035)
+- **~223 archivos Kotlin / Kotlin files**, ~46k líneas / lines (2026-07-11). 7 archivos >1000 (ninguno >1600):
+  `ZombieGameScreen`(1591), `WorldMapViewModel`(1583), `WorldMapScreen`(1460), `NativeOsmMap`(1458),
+  `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093), `StreetFighterViewModel`(1077)
 - **Default map provider:** `CARTO_VOYAGER` (web, tiles reales hasta z20 / real tiles up to z20; no persistido / not persisted)
 - **Auth / Autenticación:** Firebase Auth (Google Sign-In) en `data/auth/` (`AuthManager`, `AuthSession`).
   Obligatoria para multijugador; local/Modo Historia sin login. Ambos servidores verifican el ID token

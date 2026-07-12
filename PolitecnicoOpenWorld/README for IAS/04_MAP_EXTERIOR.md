@@ -39,7 +39,7 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | 🆕 Editor del Debug Interiores (líneas rojas/verdes/naranjas) | `viewmodel/WorldMapDebugEditor.kt` + `ui/components/InteriorDebugEditorPanel.kt` |
 | Estado UI / UI state | `viewmodel/WorldMapState.kt` (⚠️ campos anotados "LOS POSEE XManager" = fachada combine) |
 | 🆕 Managers con SUB-ESTADO propio (Etapa 3 calidad senior; el VM compone `uiState` con `combine`) | `viewmodel/DesignerManager.kt`, `CollectiblesManager.kt`, `CombatManager.kt`, `WantedManager.kt`, `TransitTeleportManager.kt`, `CampaignManager.kt` (tests en `app/src/test/.../viewmodel/*ManagerTest.kt`) |
-| 🆕 DI con Hilt (BD/cachés/repos) | `di/AppModule.kt`; VMs `@HiltViewModel`/`@AssistedInject` (ver 01 + `PLAN_DI_hilt.md`) |
+| 🆕 DI con Hilt (BD/cachés/repos) | `di/AppModule.kt`; VMs `@HiltViewModel`/`@AssistedInject` (ver 01 + `_ARCHIVO/PLAN_DI_hilt.md`) |
 | Game loop | `WorldMapViewModel.startGameLoop()` (MIEMBRO; `viewmodel/WorldMapGameLoop.kt` = tombstone tras de-dup 2026-06-21) |
 | Multiplayer relay/parse | `viewmodel/WorldMapMultiplayer.kt` (+ `WorldMapMultiplayerModels.kt`) |
 | Red de calles / road network | `viewmodel/WorldMapRoadNetwork.kt` |

@@ -194,7 +194,7 @@ extraer composables/clases por sección. Pasos pequeños y verificables, uno por
   `Factory` manuales (tombstones). Scoping intacto: VMs top-level = Activity-scoped (`by viewModels()`;
   el WorldMapVM se PASA a AppNavGraph — obtenerlo con `hiltViewModel()` en una ruta lo re-crearía y
   volvería la regresión de recarga del mapa); interior/zombi/metro/shinecto = NavBackStackEntry-scoped
-  vía `hiltViewModel()`. Ver 01 y PLAN_DI_hilt.md (histórico). / DI is Hilt now; scoping per file 01.
+  vía `hiltViewModel()`. Ver 01 y _ARCHIVO/PLAN_DI_hilt.md (histórico). / DI is Hilt now; scoping per file 01.
 - **Comentarios y strings en español** (incluidos los dos `server.js`). Mantener ese estilo salvo que se
   pida lo contrario. / Comments/strings in Spanish; keep that style.
 - **🆕 POLÍTICA DE COMENTARIOS (2026-07-04) — hay 3 clases; trata cada una distinto:**

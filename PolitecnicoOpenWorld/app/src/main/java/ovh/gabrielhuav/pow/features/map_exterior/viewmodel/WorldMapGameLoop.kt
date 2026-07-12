@@ -12,4 +12,4 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 // Decisión (usuario, 2026-06-21): FUSIONAR el audio dentro del MIEMBRO (aditivo, sin re-enlace de
 // cascada) y borrar esta extensión muerta. El miembro de WorldMapViewModel.kt es ahora la única y
 // canónica versión, con su lógica completa + el bloque de audio (caminar/correr/coche/zombi-cerca).
-// Ver README for IAS/DEDUP_VM_pendiente.md, par 8.
+// Registro consolidado en README for IAS/09_CONVENTIONS_GOTCHAS.md §12 (de-dup de gemelos), par 8.

@@ -60,7 +60,7 @@ reciben args de navegación (`InteriorViewModel`/`TransitInteriorViewModel`/`Zom
 `@AssistedInject` + `@AssistedFactory` (`hiltViewModel(creationCallback)`). Las deps (BD Room, cachés,
 repos) las provee `di/AppModule.kt` (`@InstallIn(SingletonComponent)`). El scope se preserva: WorldMap/
 Settings/Collectibles con `by viewModels()` (Activity), el resto con `hiltViewModel()` (NavBackStackEntry).
-El compilador va por **KSP** (no kapt). Ver `PLAN_DI_hilt.md`. / Hilt DI (KSP); assisted-inject for nav-arg VMs.
+El compilador va por **KSP** (no kapt). Ver `_ARCHIVO/PLAN_DI_hilt.md` (histórico). / Hilt DI (KSP); assisted-inject for nav-arg VMs.
 
 ## Árbol del cliente / Client tree
 
