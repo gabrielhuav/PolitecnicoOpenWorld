@@ -1,6 +1,9 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog
 import ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
 import ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3
@@ -170,71 +173,125 @@ internal fun WorldMapViewModel.endMissionReplay() {
 }
 
 /**
- * MODO DESARROLLADOR · "TP al objetivo": primero SIGUE esa misión (con `force`: también las 🔒
- * bloqueadas), para que su fase actual quede ARMADA (🎯 + actores del tick), y luego teletransporta
- * CERCA del objetivo de esa fase (offset ~40 m al norte para no caer encima del trigger).
- * ⚠️ Antes se teletransportaba SIN seguir la misión → llegabas a un punto "vacío" (sin actores ni
- * 🎯) y no quedaba claro qué objetivo seguir; además el TP del primer objetivo no correspondía a
- * la fase real. NO funciona desde INTERIORES (el TP mueve el mundo, no la sala): la UI deshabilita
- * el botón (mlog_tp_exit_first) y aquí se ignora por seguridad.
+ * MODO DESARROLLADOR · "TP al objetivo" = TP al CHECKPOINT de la fase ACTUAL (2026-07-12).
+ *
+ * Semántica (petición del dueño): el TP te lleva al LUGAR REAL donde se juega la fase actual de
+ * la misión — una SALA de interiores o un punto del MAPA — con los REQUISITOS de esa fase ya
+ * concedidos (p. ej. la llave correcta del laboratorio en la M1, o Prankedy a tu lado en la
+ * escolta). **NO completa objetivos ni salta fases**: tú juegas la fase desde ahí, y al cumplirla
+ * el siguiente TP te lleva al siguiente checkpoint. Funciona desde el MAPA y desde INTERIORES:
+ * la navegación pendiente viaja en `WorldMapState.devTpRoute` y la ejecuta AppNavGraph (pop a
+ * world_map y, si aplica, navigate a la sala). ⚠️ NO recuperar el viejo comportamiento de
+ * "forzar avance de fase / completeMission*" desde aquí: eso completaba la misión en vez de
+ * llevarte al objetivo (bug reportado 2026-07-12).
+ *
+ * Checkpoints por misión:
+ *  - M1 · `ir_encb`  → sala `encb_lab2` CON `currentInteriorLab1KeyFound=true` (el waypoint del
+ *    fondo dispara la 2ª secuencia de cómic ENCB_OUTRO y la historia sigue con la escolta).
+ *  - M1 · `escoltar_prankedy` → mapa cerca de la puerta ESCOM + Prankedy invocado/warpeado a ti.
+ *  - M1 · `ingresar_escom` → mapa cerca de la puerta. · `buscar_pistas_escom` → lobby ESCOM.
+ *  - M2 · fases ESCONDERSE/RUMOR → lobby ESCOM (ahí se juegan). · BROTE/PLÁTICA → mapa (coords
+ *    de la escena). · MOCHILA → salón `escom_salon_m2`.
+ *  - M3 · VIAJE/INFILTRACIÓN → mapa (ENCB). · ASALTO → cadena `encb_lobby` (evidencia en lab1).
+ *  - Secundarias → mapa (su objetivo actual).
  */
 fun WorldMapViewModel.devTeleportToMissionObjective(missionId: String) {
-    if (currentInteriorRoomId != null) {
-        // En modo desarrollador, si el objetivo está en interiores, forzamos el avance de la fase
-        // para que no queden bloqueados en el interior.
-        if (missionId == MissionCatalog.MISSION_2_ID) {
-            if (mission2Phase == Mission2.PHASE_HIDE) {
-                mission2Phase = Mission2.PHASE_RUMOR
-                clearMission2Story()
-                setCampaignObjective(MissionCatalog.M2_PISTA_RUMOR)
-                currentInteriorRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
-                transitTeleportManager.beginEscomDoorFade("interiores_zombies?startRoom=" + ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID)
-                return
-            } else if (mission2Phase == Mission2.PHASE_BACKPACK) {
-                completeMission2Backpack()
-            }
-        } else if (missionId == MissionCatalog.MISSION_3_ID) {
-            if (mission3Phase == Mission3.PHASE_ASSAULT) {
-                completeMission3Evidence()
-            }
-        }
-        currentInteriorRoomId = null
-        soundManager.stopInvestigarMusic()
-    }
-    // 1) SEGUIR la misión (arranca o reanuda su fase). Las ✔ completadas se REJUEGAN (replay
-    //    transitorio: el progreso guardado no se toca — misma regla que el botón REJUGAR).
+    // 1) SEGUIR la misión (con `force`: también las 🔒) o REJUGARLA si está ✔ (replay transitorio:
+    //    el progreso guardado no se toca). Esto ARMA la fase actual (🎯 + actores del tick).
     if (missionLogStatus(missionId) == MissionLogStatus.COMPLETED) {
         replayCampaignMission(missionId)
     } else {
         selectCampaignMission(missionId, force = true)
     }
-    // 2) TP al objetivo de la FASE actual (selectCampaign/replay ya fijaron currentObjective).
+    toggleMissionLog(false)
+
+    // 2) Objetivo de la FASE actual (selectCampaign/replay ya fijaron currentObjective).
     val s = _uiState.value
     val obj = if (MissionCatalog.missionIdForObjective(s.currentObjective?.id) == missionId)
         s.currentObjective
     else
         MissionCatalog.firstObjectiveOf(missionId)
-    if (obj == null) return
-    toggleMissionLog(false)
 
-    // Si el objetivo es de interiores, los teletransportamos directamente al interior correspondiente:
-    if (obj.id == MissionCatalog.M2_ESCONDERSE_POLICIA.id || obj.id == MissionCatalog.M2_PISTA_RUMOR.id) {
-        currentInteriorRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
+    // 3) ¿El checkpoint de esta fase se juega en un INTERIOR? → sala + requisitos concedidos.
+    val zc = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
+    val interiorRoom: String? = when {
+        // M1 · exploración de la ENCB: el checkpoint es el LABORATORIO FINAL con la llave YA
+        // probada (requisito concedido) — cruzas el waypoint tú mismo y sigue el cómic/escolta.
+        missionId == MissionCatalog.MISSION_1_ID && obj?.id == MissionCatalog.IR_ENCB.id -> {
+            currentInteriorLab1KeyFound = true
+            zc.ENCB_LAB2_ID
+        }
+        missionId == MissionCatalog.MISSION_1_ID && obj?.id == MissionCatalog.BUSCAR_PISTAS_ESCOM.id ->
+            zc.LOBBY_ID
+        // M2 · fases 1-2 (esconderse / rumor) se juegan DENTRO del lobby de la ESCOM.
+        missionId == MissionCatalog.MISSION_2_ID &&
+            (mission2Phase == Mission2.PHASE_HIDE || mission2Phase == Mission2.PHASE_RUMOR) ->
+            zc.LOBBY_ID
+        // M2 · fase MOCHILA: el salón EN CLASES (ahí lanzas la lata y recoges la mochila).
+        missionId == MissionCatalog.MISSION_2_ID && mission2Phase == Mission2.PHASE_BACKPACK ->
+            zc.ESCOM_SALON_M2_ID
+        // M3 · ASALTO: la cadena ENCB sembrada con zombis (la evidencia está en encb_lab1).
+        missionId == MissionCatalog.MISSION_3_ID && mission3Phase == Mission3.PHASE_ASSAULT ->
+            zc.ENCB_LOBBY_ID
+        else -> null
+    }
+    if (interiorRoom != null) {
         soundManager.stopWalk()
         soundManager.stopRun()
-        transitTeleportManager.beginEscomDoorFade("interiores_zombies?startRoom=" + ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID)
-        return
-    } else if (obj.id == MissionCatalog.M3_RECUPERAR_EVIDENCIA.id) {
-        currentInteriorRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID
-        soundManager.stopWalk()
-        soundManager.stopRun()
-        transitTeleportManager.beginEscomDoorFade("interiores_zombies?startRoom=" + ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID)
+        currentInteriorRoomId = interiorRoom
+        _uiState.update { it.copy(devTpRoute = "interiores_zombies?startRoom=$interiorRoom") }
+        devShowTpPrompt("🧪 TP al checkpoint: " +
+            (obj?.let { o -> getLocalizedString(o.titleRes) } ?: interiorRoom))
         return
     }
 
-    // ~0.00036° de latitud ≈ 40 m (dentro del rango pedido de 30-50 m).
+    // 4) Checkpoint de MAPA: TP CERCA del objetivo (~0.00036° ≈ 40 m al norte, para no caer
+    //    encima del trigger — el jugador camina el último tramo y la fase se juega, no se salta).
+    if (obj == null) return
+    if (currentInteriorRoomId != null) {
+        // Venías de un interior: se sale al mapa SIN completar nada (la fase sigue como estaba).
+        currentInteriorRoomId = null
+        soundManager.stopInvestigarMusic()
+    }
     teleportTo(obj.targetLat + 0.00036, obj.targetLon)
+    // Requisito de la escolta (M1): Prankedy acompañante JUNTO a ti al llegar.
+    if (obj.id == MissionCatalog.ESCOLTAR_PRANKEDY.id) devEnsurePrankedyEscort()
+    _uiState.update { it.copy(devTpRoute = DEV_TP_TO_MAP) }
+    devShowTpPrompt("🧪 TP al objetivo: ${getLocalizedString(obj.titleRes)}")
+}
+
+// Prompt del TP dev con AUTO-LIMPIEZA (~4 s): antes se quedaba pegado en pantalla (y encimado
+// con el widget de objetivo). Solo se borra si sigue siendo EL MISMO texto (no pisa prompts
+// posteriores de misión).
+private fun WorldMapViewModel.devShowTpPrompt(text: String) {
+    _uiState.update { it.copy(interactionPrompt = text) }
+    viewModelScope.launch {
+        delay(4000L)
+        _uiState.update { if (it.interactionPrompt == text) it.copy(interactionPrompt = null) else it }
+    }
+}
+
+/** Sentinela de devTpRoute: "solo vuelve al mapa global" (sin navegar a un interior). */
+const val DEV_TP_TO_MAP = "world_map"
+
+/** Consumido por AppNavGraph tras ejecutar la navegación pendiente del TP dev. */
+fun WorldMapViewModel.consumeDevTpRoute() {
+    _uiState.update { it.copy(devTpRoute = null) }
+}
+
+// Requisito de la escolta de la M1: Prankedy acompañante (HIRED) warpeado al jugador. Mismo
+// patrón mínimo que ensureM3PrankedyEscort (spawnCompanion + warpTo; NO toca el objetivo).
+private fun WorldMapViewModel.devEnsurePrankedyEscort() {
+    val loc = _uiState.value.currentLocation ?: return
+    val pm = prankedyManager
+    if (pm.phase != ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED || pm.location == null) {
+        pm.spawnCompanion(loc, roadNetwork, System.currentTimeMillis())
+    }
+    pm.warpTo(loc)
     _uiState.update { it.copy(
-        interactionPrompt = "🧪 TP al objetivo: ${getLocalizedString(obj.titleRes)}"
+        prankedyEnabled = true,
+        prankedyLocation = pm.location,
+        prankedyVisible = pm.location != null && !it.isDriving,
+        prankedyPhase = pm.phase
     ) }
 }

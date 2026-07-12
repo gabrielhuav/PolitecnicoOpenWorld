@@ -557,4 +557,37 @@
     <string name="sf_exit_message">Quit the fight and return to the main menu?</string>
     <string name="sf_exit_confirm">Leave</string>
     <string name="sf_keep_fighting">Keep fighting</string>
+
+    <!-- Controls tutorial (optional, i18n 2026-07-11) -->
+    <string name="tutorial_prompt_title">Controls tutorial</string>
+    <string name="tutorial_prompt_msg">Want a quick tour of the controls? You can revisit it anytime in Settings → Controls.</string>
+    <string name="tutorial_prompt_yes">SHOW TUTORIAL</string>
+    <string name="tutorial_prompt_no">Not now</string>
+    <string name="tutorial_next">Next</string>
+    <string name="tutorial_prev">Back</string>
+    <string name="tutorial_done">Got it!</string>
+    <string name="tutorial_ext_title">Controls · Open world</string>
+    <string name="tutorial_int_title">Controls · Interiors</string>
+    <string name="tutorial_page_move_title">Move</string>
+    <string name="tutorial_page_move_body">Walk with the D-pad or joystick. Style, size and side can be changed in Settings → Controls.</string>
+    <string name="tutorial_page_run_title">Run</string>
+    <string name="tutorial_page_run_body">Hold A while moving to run.</string>
+    <string name="tutorial_page_ext_interact_title">Interact</string>
+    <string name="tutorial_page_ext_interact_body">X enters buildings (ESCOM, metro, metrobus…), picks up collectibles and uses mission items.</string>
+    <string name="tutorial_page_ext_attack_title">Punch</string>
+    <string name="tutorial_page_ext_attack_body">B throws punches. Careful: attacking civilians raises your wanted level and the police will come for you.</string>
+    <string name="tutorial_page_ext_vehicle_title">Drive</string>
+    <string name="tutorial_page_ext_vehicle_body">Y gets you in or out of the nearest car. Behind the wheel, the same movement control accelerates, brakes and steers.</string>
+    <string name="tutorial_page_ext_teleport_title">Teleport</string>
+    <string name="tutorial_page_ext_teleport_body">Open the options menu (top right) → Map → Teleport points for fast travel.</string>
+    <string name="tutorial_page_int_interact_title">Interact</string>
+    <string name="tutorial_page_int_interact_body">X picks up keys and items, uses mission objects (like the stink can) and confirms actions.</string>
+    <string name="tutorial_page_int_attack_title">Attack</string>
+    <string name="tutorial_page_int_attack_body">B attacks: melee punch or shot, depending on the selected mode. NPCs also react to your hits.</string>
+    <string name="tutorial_page_int_mode_title">Combat mode &amp; inventory</string>
+    <string name="tutorial_page_int_mode_body">Hold Y to open the combined menu: switch between punch and shoot, and check your inventory.</string>
+    <string name="settings_tutorial_section">Reference &amp; tutorial</string>
+    <string name="settings_tutorial_hint">Review what each button does in each world. The settings above (style, size, side) change how they are laid out on screen.</string>
+    <string name="settings_tutorial_exterior">TUTORIAL · OPEN WORLD</string>
+    <string name="settings_tutorial_interior">TUTORIAL · INTERIORS</string>
 </resources>

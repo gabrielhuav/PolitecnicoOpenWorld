@@ -80,6 +80,10 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
 
         val deadZombieIds = mutableListOf<String>()
         val survivingProjectiles = mutableListOf<Projectile>()
+        // 🆕 Los proyectiles también pueden pegarle a los NPCs AMBIENTALES (paridad con el
+        // exterior, 2026-07-11); los de MISIÓN (m2rumor_/m2cop_) son inmunes. Esta lista con
+        // el daño aplicado sustituye a s.ambientNpcs en TODO el resto del tick.
+        var workingAmbient = s.ambientNpcs
         for (p in s.projectiles) {
             if (now - p.bornAtMs > PROJECTILE_LIFETIME_MS) continue
             val nx = p.x + p.dirX * PROJECTILE_SPEED
@@ -91,6 +95,9 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
             val hit = workingZombies.firstOrNull {
                 !it.isDying && hypot(it.x - nx, it.y - ny) <= PROJECTILE_HIT_RADIUS
             }
+            val hitNpc = if (hit == null) workingAmbient.firstOrNull {
+                !it.isDying && !it.isMissionNpc() && hypot(it.x - nx, it.y - ny) <= PROJECTILE_HIT_RADIUS
+            } else null
             if (hit != null) {
                 val newHp = hit.health - PROJECTILE_DAMAGE * playerDamageFactor()
                 // Knockback en la dirección de viaje del proyectil (desde su origen).
@@ -100,6 +107,19 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
                         if (newHp <= 0f) { deadZombieIds.add(z.id); z.copy(health = 0f, isDying = true, x = kx, y = ky) }
                         else z.copy(health = newHp, x = kx, y = ky)
                     } else z
+                }
+            } else if (hitNpc != null) {
+                val newHp = hitNpc.health - PROJECTILE_DAMAGE * playerDamageFactor()
+                val (kx, ky) = knockbackZombie(hitNpc.x, hitNpc.y, p.x, p.y, room, PROJECTILE_KNOCKBACK)
+                workingAmbient = workingAmbient.map { n ->
+                    when {
+                        n.id != hitNpc.id -> n
+                        newHp <= 0f -> n.copy(
+                            health = 0f, isDying = true, dyingSinceMs = now, x = kx, y = ky,
+                            speechRes = null, partnerId = null, mode = AmbientMode.WANDER
+                        )
+                        else -> n.copy(health = newHp, x = kx, y = ky, fleeUntilMs = now + AMBIENT_FLEE_MS)
+                    }
                 }
             } else survivingProjectiles.add(p.copy(x = nx, y = ny))
         }
@@ -119,9 +139,9 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
         // estudiantes siguen con su vida universitaria normal.
         val m2c = ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
         val hideCops0 = if (s.mission2HideActive)
-            s.ambientNpcs.filter { it.id.startsWith(M2COP_PREFIX) } else emptyList()
-        var students0 = if (hideCops0.isEmpty()) s.ambientNpcs
-            else s.ambientNpcs.filterNot { it.id.startsWith(M2COP_PREFIX) }
+            workingAmbient.filter { it.id.startsWith(M2COP_PREFIX) } else emptyList()
+        var students0 = if (hideCops0.isEmpty()) workingAmbient
+            else workingAmbient.filterNot { it.id.startsWith(M2COP_PREFIX) }
 
         // Si la fase RUMOR está armada, aseguramos que los dos estudiantes estén instanciados.
         if (mission2RumorArmed && room.id == ZombieRoomCatalog.LOBBY_ID && !isMultiplayer) {
@@ -140,8 +160,10 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
             if (elapsed >= m2c.HIDE_DURATION_MS) {
                 // Se RINDIERON: corren a la puerta y desaparecen (reusa la evacuación). Cuando
                 // sale el último, la fase queda CUMPLIDA (ZombieGameScreen avisa al mundo).
+                // 🆕 2026-07-12: el countdown se OCULTA ya (null, no 0): mientras evacúan se
+                // quedaba pegado el mensaje "aguanta 0 s sin que te vean".
                 hideCops = evacuateAmbientNpcs(hideCops0, room)
-                hideRemaining = 0
+                hideRemaining = null
                 if (hideCops.isEmpty()) hideCompleted = true
             } else if (hideCops0.isNotEmpty()) {
                 hideCops = stepMission2HideCops(hideCops0, room, s.playerX, s.playerY, now)

@@ -1457,4 +1457,10 @@ fun WorldMapScreen(
         viewModel = viewModel,
         onNavigateToInterior = onNavigateToInterior
     )
+
+    // 🆕 TUTORIAL de controles (optativo, 2026-07-11): se OFRECE una sola vez, con el mundo ya
+    // cargado (no encima de la pantalla de carga). Se puede re-ver en Ajustes → Controles.
+    if (uiState.isMapReady && uiState.npcsWarmedUp && !uiState.isLoadingLocation) {
+        ovh.gabrielhuav.pow.features.settings.ui.ControlsTutorialFirstRun(interior = false)
+    }
 }

@@ -658,11 +658,38 @@ fun ZombieGameScreen(
                             action = npc.action,
                             facingRight = npc.facingRight,
                             sizePx = rpSize,
-                            modifier = Modifier.absoluteOffset(
-                                x = with(density) { toScreenX(npc.x).toDp() } - with(density) { (rpSize / 2).toDp() },
-                                y = with(density) { toScreenY(npc.y).toDp() } - with(density) { (rpSize / 2).toDp() }
-                            )
+                            modifier = Modifier
+                                .absoluteOffset(
+                                    x = with(density) { toScreenX(npc.x).toDp() } - with(density) { (rpSize / 2).toDp() },
+                                    y = with(density) { toScreenY(npc.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                                )
+                                // 🆕 COMBATE: colapsado en el piso (rotado + desvanecido) al morir.
+                                .graphicsLayer {
+                                    if (npc.isDying) { rotationZ = 90f; alpha = 0.65f }
+                                }
                         )
+                        // 🆕 Barrita de vida SOLO si está dañado (paridad con el exterior).
+                        if (!npc.isDying && npc.health < 100f) {
+                            val hbW = 34.dp
+                            Box(
+                                modifier = Modifier
+                                    .absoluteOffset(
+                                        x = with(density) { toScreenX(npc.x).toDp() } - hbW / 2,
+                                        y = with(density) { toScreenY(npc.y).toDp() } -
+                                            with(density) { (rpSize / 2).toDp() } - 8.dp
+                                    )
+                                    .width(hbW)
+                                    .height(4.dp)
+                                    .background(Color(0xAA000000), RoundedCornerShape(2.dp))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(npc.health / 100f)
+                                        .height(4.dp)
+                                        .background(Color(0xFFE53935), RoundedCornerShape(2.dp))
+                                )
+                            }
+                        }
                         // 🆕 BURBUJA de plática (vida universitaria): frase traducible sobre la
                         // cabeza mientras el NPC "habla" (la fija/limpia stepAmbientNpcs).
                         npc.speechRes?.let { res ->
@@ -1260,6 +1287,12 @@ fun ZombieGameScreen(
                 // mapa al pintar la matriz. Es arrástrable (asa ⠿) y escalable (−/+).
                 modifier = Modifier.align(Alignment.BottomStart)
             )
+        }
+
+        // 🆕 TUTORIAL de controles de INTERIORES (optativo, 2026-07-11): se OFRECE una sola vez
+        // al entrar por primera vez a un interior. Se puede re-ver en Ajustes → Controles.
+        if (!state.designerMode) {
+            ovh.gabrielhuav.pow.features.settings.ui.ControlsTutorialFirstRun(interior = true)
         }
     }
 }

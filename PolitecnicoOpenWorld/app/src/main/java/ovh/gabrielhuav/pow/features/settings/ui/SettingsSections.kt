@@ -45,6 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
@@ -331,6 +333,45 @@ internal fun ControlsSettingsConfig(
                     checkedTrackColor = Color(0xFF6B1C3A)
                 )
             )
+        }
+
+        // 🆕 4. Referencia y TUTORIAL de controles (optativo, 2026-07-11): además del que se
+        // ofrece la primera vez en cada mundo, aquí se puede RE-VER cuando se quiera.
+        var tutorialWorld by remember { mutableStateOf<Int?>(null) }   // null = cerrado; 0 = exterior; 1 = interiores
+        Column {
+            Text(stringResource(R.string.settings_tutorial_section), color = Color.White, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.settings_tutorial_hint), color = Color.Gray, fontSize = 12.sp)
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { tutorialWorld = 0 },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21))
+                ) {
+                    Text(stringResource(R.string.settings_tutorial_exterior), color = Color.White, fontSize = 11.sp)
+                }
+                Button(
+                    onClick = { tutorialWorld = 1 },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21))
+                ) {
+                    Text(stringResource(R.string.settings_tutorial_interior), color = Color.White, fontSize = 11.sp)
+                }
+            }
+        }
+        if (tutorialWorld != null) {
+            // Dialog a pantalla completa (usePlatformDefaultWidth=false) para que el overlay
+            // no quede constreñido por la columna scrolleable de Ajustes.
+            Dialog(
+                onDismissRequest = { tutorialWorld = null },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                ControlsTutorialOverlay(
+                    titleRes = if (tutorialWorld == 1) R.string.tutorial_int_title else R.string.tutorial_ext_title,
+                    pages = if (tutorialWorld == 1) interiorTutorialPages() else exteriorTutorialPages(),
+                    onDismiss = { tutorialWorld = null }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))

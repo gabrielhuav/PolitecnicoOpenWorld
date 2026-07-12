@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
-// REFACTOR: extensión del VM (menú de teletransporte) → import explícito.
 import android.content.res.Configuration
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -12,16 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
@@ -37,7 +31,6 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveCharacterByAngle
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onClaimCollectiblePressed
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onInteractButtonPressed
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleTeleportMenu
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 /**
@@ -45,11 +38,13 @@ import ovh.gabrielhuav.pow.features.settings.models.ControlType
  * tamaño): vals de layout (escala/padding según orientación), botón "Salir del apocalipsis"
  * y la fila inferior de controles (D-pad/joystick de movimiento o conducción + el MISMO
  * diamante Xbox A/B/X/Y a pie y conduciendo). Es una extensión de [BoxScope] porque usa `align`.
- * MVVM: solo observa `uiState` y emite intenciones al VM. La pulsación larga de Y
- * (mantener 3 s → menú de teletransporte) se gestiona aquí con `yButtonHoldJob` local.
+ * MVVM: solo observa `uiState` y emite intenciones al VM.
+ * TOMBSTONE (2026-07-12): el "mantener Y 3 s → menú de teletransporte" (`yButtonHoldJob`) se
+ * RETIRÓ a petición del dueño — el teletransporte tiene su propio botón en el menú Mapa. NO
+ * recrear la pulsación larga de Y.
  *
- * @param optionsExpanded si el menú de Opciones está abierto (en horizontal desplaza el
- *   control de la derecha para no taparlo).
+ * @param optionsExpanded si el menú de Opciones está abierto (desplaza el control de la
+ *   derecha a la izquierda — en horizontal Y en vertical — para no taparlo).
  */
 @Composable
 fun BoxScope.WorldMapControls(
@@ -57,8 +52,6 @@ fun BoxScope.WorldMapControls(
     viewModel: WorldMapViewModel,
     optionsExpanded: Boolean
 ) {
-    val coroutineScope = rememberCoroutineScope()
-    var yButtonHoldJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
@@ -70,13 +63,17 @@ fun BoxScope.WorldMapControls(
     val sidePadding = if (isPortrait) 8.dp else 32.dp
     val bottomPadding = if (isPortrait) 32.dp else 20.dp
 
-    // En HORIZONTAL, al abrir el menú de Opciones, este (arriba a la derecha) se
-    // extiende hacia abajo y choca con el control de la derecha (D-pad/diamante).
-    // Desplazamos ese control hacia la izquierda mientras el menú está abierto para
-    // que el usuario pueda usar el menú (con su scroll) sin que tape los botones.
-    val isMenuOpenLandscape = optionsExpanded && !isPortrait
+    // Al abrir el menú de Opciones/Mapa (arriba a la derecha), sus entradas se extienden
+    // hacia abajo y chocan con el control de la derecha (D-pad/diamante). Desplazamos ese
+    // control hacia la izquierda mientras el menú está abierto para que el usuario pueda
+    // usar el menú (con su scroll) sin que tape los botones. 🆕 2026-07-12: aplica TAMBIÉN
+    // en VERTICAL (antes solo horizontal; en vertical el menú se encimaba con A/B/X/Y).
     val rightCtrlShift by animateDpAsState(
-        targetValue = if (isMenuOpenLandscape) (-150).dp else 0.dp,
+        targetValue = when {
+            optionsExpanded && !isPortrait -> (-150).dp
+            optionsExpanded && isPortrait -> (-120).dp
+            else -> 0.dp
+        },
         label = "rightCtrlShift"
     )
     val rightShiftMod = Modifier.offset(x = rightCtrlShift)
@@ -115,7 +112,9 @@ fun BoxScope.WorldMapControls(
                     )
             }
             // MISMO diamante Xbox que a pie (control unificado, 2026-07-03):
-            // Y SALIR (mantener → teletransporte) · A gas · B freno · X freno de mano.
+            // Y SALIR del coche · A gas · B freno · X freno de mano.
+            // 🆕 2026-07-12: se RETIRÓ el "mantener Y 3 s → menú de teletransporte" (petición del
+            // dueño): el teletransporte ya tiene su propio botón en el menú Mapa. NO recrearlo.
             val drivingActions = @Composable { m: Modifier ->
                 VehicleActionButtonsController(
                     modifier = m.scale(effectiveScale),
@@ -123,11 +122,7 @@ fun BoxScope.WorldMapControls(
                     onBrake = { viewModel.brake(it) },
                     onHandbrake = { viewModel.brake(it) },
                     onExit = { isPressed ->
-                        if (isPressed) {
-                            viewModel.onInteractButtonPressed()
-                            yButtonHoldJob?.cancel()
-                            yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
-                        } else { yButtonHoldJob?.cancel() }
+                        if (isPressed) viewModel.onInteractButtonPressed()
                     }
                 )
             }
@@ -145,14 +140,10 @@ fun BoxScope.WorldMapControls(
                             if (action == GameAction.X && isPressed) {
                                 viewModel.handleInteraction()
                             }
-                            if (action == GameAction.Y) {
-                                if (isPressed) {
-                                    viewModel.onInteractButtonPressed()
-                                    yButtonHoldJob?.cancel()
-                                    yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
-                                } else {
-                                    yButtonHoldJob?.cancel()
-                                }
+                            // 🆕 2026-07-12: Y = solo subir/bajar del coche. El "mantener Y 3 s
+                            // → teletransporte" se RETIRÓ (el TP tiene su botón en el menú Mapa).
+                            if (action == GameAction.Y && isPressed) {
+                                viewModel.onInteractButtonPressed()
                             }
                             viewModel.updateActionState(action, isPressed)
                         },

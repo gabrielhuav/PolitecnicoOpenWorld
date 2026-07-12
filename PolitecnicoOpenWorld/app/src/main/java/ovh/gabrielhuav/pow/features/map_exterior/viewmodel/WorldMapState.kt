@@ -228,6 +228,14 @@ data class WorldMapState(
     //  - m3intro:  al completar la M2 (mochila recuperada) → cómic "Regreso a la ENCB" (arranca M3).
     val pendingMission2BackpackComic: Boolean = false,
     val pendingMission3IntroComic: Boolean = false,
+    // 🆕 Cierre de la M3 (2026-07-12): al recuperar la evidencia → cómic "mission3_outro"
+    // (IntroPOW23..24). Mismo patrón; espera a estar en el MAPA (la evidencia se recoge dentro).
+    val pendingMission3OutroComic: Boolean = false,
+    // 🆕 MODO DEV · "TP al objetivo" por CHECKPOINTS (2026-07-12): navegación pendiente que
+    // ejecuta AppNavGraph (efecto junto a MissionLogHost, activo desde CUALQUIER pantalla).
+    // Valores: ruta "interiores_zombies?startRoom=<sala>" o DEV_TP_TO_MAP ("world_map" = solo
+    // volver al mapa). Se consume con consumeDevTpRoute(). Ver WorldMapMissionLog.kt.
+    val devTpRoute: String? = null,
     // MISIÓN 2 · "El rumor" — SUBTÍTULOS de conversación (rumor de estudiantes, radio policial,
     // plática con Prankedy). Los fija WorldMapMission2.kt línea por línea; la View solo los
     // dibuja (overlay estilo subtítulo en WorldMapScreenOverlays). null = sin conversación.

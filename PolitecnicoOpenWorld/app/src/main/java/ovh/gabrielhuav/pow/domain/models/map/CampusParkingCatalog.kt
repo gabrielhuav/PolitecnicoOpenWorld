@@ -8,9 +8,15 @@ import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
  *
  *  - [assetMatch]: subcadena del assetPath/backgroundAsset que identifica al campus
  *    (p. ej. "building_escom"). El truco funciona porque el landmark del mapa global y el
- *    fondo del lobby usan EL MISMO archivo, así que una coordenada local 0-1 cae igual en ambos.
+ *    fondo del lobby usan EL MISMO archivo.
  *  - [navGraphAsset]: ruta en assets/ del navGraph del campus. Sus nodos `isParkingSlot=true`
  *    (coords locales 0-1) son la FUENTE ÚNICA de las plazas de estacionamiento.
+ *    ⚠️ CONVENCIÓN DE EJES (2026-07-12): `localY` está guardada con ORIGEN ABAJO — es como la
+ *    consume el exterior (`Landmark.toGlobalGeoPoint`: dyMeters = (0.5 - localY) hacia el
+ *    norte). Un consumidor TOP-DOWN (el lobby, que dibuja el asset con Y hacia abajo) debe
+ *    ESPEJAR: posición = (localX, 1 - localY) y dirección = (dirX, -dirY). Verificado
+ *    dibujando los slots sobre building_escom.webp: sin el espejo caen fuera de los cajones
+ *    (bug "coches mal acomodados en el lobby"). Ver ParkedCarsLayer.buildParkedCars.
  *  - [baseWidthMeters]: ancho REAL del asset en metros. Permite escalar los autos del interior
  *    (metros→píxel) para que se vean del MISMO tamaño que en el exterior.
  */

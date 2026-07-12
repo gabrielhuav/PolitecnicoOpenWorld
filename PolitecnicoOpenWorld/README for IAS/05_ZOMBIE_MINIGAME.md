@@ -84,6 +84,17 @@ autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación 
 > `interiorObjective` (el asalto muestra el suyo). **INVENTARIO desbloqueable:** slots usables =
 > `state.inventoryUnlockedSlots` (1 → 4 con la mochila de la M2). **ARMA DE FUEGO:** modo RANGED
 > bloqueado en campaña sin `hasFirearm` (recompensa M3); candado 🔒 en el menú de armas.
+> **🆕 COMBATE CONTRA NPCs AMBIENTALES (2026-07-11, paridad con el exterior):** los estudiantes/
+> docentes YA reciben golpes (antes eran intocables). `AmbientNpc` ganó `health/isDying/
+> dyingSinceMs/fleeUntilMs`. Melee: `performPlayerAttack` (ZombieCombat.kt) asusta a los cercanos
+> en CADA golpe (`scareAmbientNpcs`, radio `AMBIENT_FEAR_RADIUS`=150 px — como `triggerFear`
+> exterior) y, si no hay zombi al alcance, daña al más cercano (`hitNearestAmbientNpc`: daño +
+> knockback + miedo `AMBIENT_FLEE_MS`=4 s; a 0 HP → `isDying` ~1 s tirado y desaparece). Los
+> PROYECTILES también les pegan (tick, `workingAmbient`). Con miedo HUYEN corriendo del jugador
+> (rama nueva en `stepAmbientNpcs`; cancela pareja/burbuja). **INMUNES los NPCs de MISIÓN**
+> (`isMissionNpc()`: `m2rumor_`/`m2cop_`) para no romper la M2 — misma protección que Prankedy
+> HIRED. Render: barrita de vida si está dañado y colapso rotado 90° al morir (ZombieGameScreen).
+> Son NPCs LOCALES: nada viaja al servidor.
 
 **EN:** Ring of rooms: a **lobby** with doors to each ESCOM building (7 buildings). Inside a building,
 EXIT doors connect neighbors and a central door returns to the lobby. **Online: zombies and items are

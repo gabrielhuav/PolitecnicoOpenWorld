@@ -35,9 +35,19 @@ fun ZombieInteriorViewModel.performPlayerAttack() {
     lastPlayerAttackMs = now
 
     val s = _state.value
+    // 🆕 MIEDO AL COMBATE (paridad con el exterior, 2026-07-11): cada golpe ASUSTA a los NPCs
+    // ambientales cercanos, CONECTE O NO — igual que triggerFear en el mapa global.
+    scareAmbientNpcs(s.playerX, s.playerY, now)
+
     val target = s.zombies
         .filter { !it.isDying && hypot(it.x - s.playerX, it.y - s.playerY) <= PLAYER_ATTACK_RADIUS }
-        .minByOrNull { hypot(it.x - s.playerX, it.y - s.playerY) } ?: return
+        .minByOrNull { hypot(it.x - s.playerX, it.y - s.playerY) }
+    if (target == null) {
+        // 🆕 Sin zombi al alcance: el golpe puede conectar con un NPC AMBIENTAL (estudiante/
+        // docente). Antes eran intocables; ahora hay paridad con el exterior.
+        hitNearestAmbientNpc(s.playerX, s.playerY, now)
+        return
+    }
 
     if (isMultiplayer) {
         sendZombieDamage(target.id, PLAYER_PUNCH_DAMAGE * playerDamageFactor())
@@ -60,6 +70,47 @@ fun ZombieInteriorViewModel.performPlayerAttack() {
                 if (it.id == target.id) it.copy(health = newHealth, x = kx, y = ky) else it
             })
         }
+    }
+}
+
+// ─── 🆕 COMBATE CONTRA NPCs AMBIENTALES (paridad exterior, 2026-07-11) ─────────
+// Los estudiantes/docentes de interiores reciben golpes como los civiles del mapa global:
+// daño + knockback + MIEDO (huyen corriendo); a 0 HP colapsan (isDying) y desaparecen en el
+// tick (stepAmbientNpcs). Los NPCs de MISIÓN (m2rumor_/m2cop_) son INMUNES para no romper la
+// Misión 2 — misma protección que Prankedy HIRED en el exterior. Son NPCs LOCALES (offline):
+// no se relaya nada al servidor.
+
+/** Asusta a los NPCs ambientales cercanos al golpe (conecte o no; los de misión no). */
+internal fun ZombieInteriorViewModel.scareAmbientNpcs(px: Float, py: Float, now: Long) {
+    if (_state.value.ambientNpcs.isEmpty()) return
+    _state.update { cur ->
+        cur.copy(ambientNpcs = cur.ambientNpcs.map { n ->
+            if (!n.isDying && !n.isMissionNpc() && hypot(n.x - px, n.y - py) <= AMBIENT_FEAR_RADIUS)
+                n.copy(fleeUntilMs = now + AMBIENT_FLEE_MS) else n
+        })
+    }
+}
+
+/** Golpe melee al NPC ambiental más cercano dentro del radio de ataque (si hay). */
+internal fun ZombieInteriorViewModel.hitNearestAmbientNpc(px: Float, py: Float, now: Long) {
+    val s = _state.value
+    val target = s.ambientNpcs
+        .filter { !it.isDying && !it.isMissionNpc() && hypot(it.x - px, it.y - py) <= PLAYER_ATTACK_RADIUS }
+        .minByOrNull { hypot(it.x - px, it.y - py) } ?: return
+    val room = currentRoom()
+    val (kx, ky) = knockbackZombie(target.x, target.y, px, py, room, MELEE_KNOCKBACK)
+    val newHealth = target.health - PLAYER_PUNCH_DAMAGE * playerDamageFactor()
+    _state.update { cur ->
+        cur.copy(ambientNpcs = cur.ambientNpcs.map { n ->
+            when {
+                n.id != target.id -> n
+                newHealth <= 0f -> n.copy(
+                    health = 0f, isDying = true, dyingSinceMs = now, x = kx, y = ky,
+                    speechRes = null, partnerId = null, mode = AmbientMode.WANDER
+                )
+                else -> n.copy(health = newHealth, x = kx, y = ky, fleeUntilMs = now + AMBIENT_FLEE_MS)
+            }
+        })
     }
 }
 

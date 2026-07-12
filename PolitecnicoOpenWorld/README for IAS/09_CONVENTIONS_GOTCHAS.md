@@ -932,12 +932,17 @@ matrices por defecto son **border-only** hasta reemplazarse.
 - **🆕 REJUGAR MISIONES + MODO DEV en el registro (2026-07-04b) — reglas:** las ✔ COMPLETADAS
   ganan botón **REJUGAR** (`replayCampaignMission`); con `developerMode` además: las 🔒 son
   seleccionables (`selectCampaignMission(id, force=true)` salta `requiresMissionId`) y cada misión
-  tiene **"TP al objetivo"** (`devTeleportToMissionObjective`). 🆕 2026-07-08: el TP ahora
-  **SIGUE la misión primero** (`selectCampaignMission(force=true)`, o `replayCampaignMission` si
-  está ✔ completada) y teletransporta al objetivo de la **FASE actual** (+~40 m N; antes hacía TP
-  "en frío" a un punto sin actores ni 🎯 y no quedaba claro qué seguir); en INTERIORES el botón
-  va **deshabilitado** con pista `mlog_tp_exit_first` (el TP mueve el MUNDO, no la sala) y la
-  extensión es no-op si `currentInteriorRoomId != null`.
+  tiene **"TP al objetivo"** (`devTeleportToMissionObjective`). 🆕 2026-07-12: el TP es **TP al
+  CHECKPOINT de la fase ACTUAL**: sigue la misión primero (force / replay si ✔) y te lleva al
+  **LUGAR REAL donde se juega la fase** — una SALA de interiores (M1 `ir_encb`→`encb_lab2` CON
+  `currentInteriorLab1KeyFound=true` para que el waypoint dispare el cómic ENCB_OUTRO; M1 pistas /
+  M2 esconderse/rumor→lobby ESCOM; M2 mochila→`escom_salon_m2`; M3 asalto→cadena ENCB) o un punto
+  del MAPA (+~40 m N del 🎯; escolta M1 = además warpea a Prankedy contigo,
+  `devEnsurePrankedyEscort`). **NUNCA completa objetivos ni salta fases** (⚠️ el comportamiento
+  viejo llamaba `completeMission2Backpack`/`completeMission3Evidence` desde interiores — NO
+  recuperarlo). Funciona desde mapa E interiores: la navegación viaja en
+  `WorldMapState.devTpRoute` (sala o sentinela `DEV_TP_TO_MAP`) y la ejecuta un efecto junto a
+  `MissionLogHost` en AppNavGraph (pop a world_map + navigate; colecta solo ese campo).
   **REGLA DURA — el replay NO toca el progreso guardado.** Diseño:
   - `WorldMapViewModel.replayingMissionId` es **TRANSITORIO** (no viaja en `GameSaveData`).
     `setStorySpawn` lo limpia (COMENZAR/CARGAR cancelan replays); `replayCampaignMission` (M1) y
@@ -1144,9 +1149,12 @@ matrices por defecto son **border-only** hasta reemplazarse.
   estilo PS4 (`Ps4ActionButtonsController`/`Ps4Button` ELIMINADOS): ahora es
   **`VehicleActionButtonsController`**, que reutiliza el MISMO `ActionButton` Xbox del modo a pie
   (mismas letras/colores/posiciones: Y arriba amarillo · X izquierda azul · B derecha rojo · A abajo
-  verde). Mapeo al conducir: **Y = SALIR** (mantener 3 s → teletransporte, igual que a pie),
-  **A = GAS**, **B = FRENO**, **X = freno de mano**. No reintroducir símbolos PS (△○✕□): un solo
-  lenguaje de control en todo el juego.
+  verde). Mapeo al conducir: **Y = SALIR**, **A = GAS**, **B = FRENO**, **X = freno de mano**.
+  No reintroducir símbolos PS (△○✕□): un solo lenguaje de control en todo el juego.
+  **🆕 (2026-07-12) El "mantener Y 3 s → menú de teletransporte" se RETIRÓ** (a pie Y conduciendo;
+  petición del dueño: el TP tiene su botón propio en el menú Mapa). `yButtonHoldJob` ya no existe —
+  NO recrear la pulsación larga de Y. Además, al abrir el menú de Opciones/Mapa la botonera derecha
+  se desplaza a la izquierda TAMBIÉN en vertical (antes solo horizontal) para no traslaparse.
 - **🆕 Multitud civil de ESCOM (Misión 2) = 50+ desde punto fijo:** `updateEscomCrowd` ahora spawnea desde
   `CROWD_SPAWN` (no la puerta), `CROWD_MAX=55`, intervalo 150 ms; se alejan, se despawnean al salir del fog y se
   reemplazan por nuevos. (Ojo gama baja: son NPCs PERSON; si pesa, baja `CROWD_MAX`.) **🆕 La multitud camina

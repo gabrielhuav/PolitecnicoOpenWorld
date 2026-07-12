@@ -145,8 +145,9 @@ rumor zombi (Misión 2).
 
 ## 6. Gancho a la Misión 2 / Hook to Mission 2
 
-La Misión 1 deja al jugador **dentro de la ESCOM** con el objetivo activo **"Busca pistas en la ESCOM"**
-y la **policía persiguiéndolo**. La Misión 2 arranca justo ahí (al VOLVER al campus): esconderse de la
-policía, escuchar el **rumor zombie** de la ENCB/Zacatenco, presenciar el **primer brote público**, la
-confesión de Prankedy (REY GRUPERO) y recuperar la **mochila** con la lata apestosa. Ver
-`02_MISSION_2.md` (✅ implementada).
+**🆕 (2026-07-12) La Misión 2 se SIGUE AUTOMÁTICAMENTE al completar la M1:** al ENTRAR a la ESCOM
+(objetivo `ingresar_escom` cumplido → `markMissionCompleted(M1)` en `WorldMapInteractions`), se llama
+`selectCampaignMission(MISSION_2_ID)` — la fase 1 de la M2 ("esconderse") se juega justo en el lobby
+al que estás entrando, así que la historia fluye sin pasar por el registro. (En un REPLAY de la M1 NO
+se encadena.) La M2: esconderse de la policía, el **rumor zombie**, el **primer brote público**, la
+confesión de Prankedy (REY GRUPERO) y la **mochila** con la lata apestosa. Ver `02_MISSION_2.md`.

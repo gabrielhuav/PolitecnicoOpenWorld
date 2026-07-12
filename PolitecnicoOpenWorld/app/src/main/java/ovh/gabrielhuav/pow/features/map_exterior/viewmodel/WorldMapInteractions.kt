@@ -179,9 +179,16 @@ internal fun WorldMapViewModel.handleInteraction() {
                     && !_uiState.value.objectiveDone) {
                     _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.let { getLocalizedString(it.titleRes) } ?: ""}") }
                     soundManager.playMisionCumplida()
-                    // MISIÓN 1 COMPLETADA (entraste a la ESCOM): se registra en el selector de
-                    // misiones; la Misión 2 queda DISPONIBLE (se sigue desde Opciones → Misiones).
+                    // MISIÓN 1 COMPLETADA (entraste a la ESCOM): se registra en el selector.
                     markMissionCompleted(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_1_ID)
+                    // 🆕 2026-07-12: la historia SIGUE SOLA — al completar la M1 se sigue la
+                    // Misión 2 automáticamente (su fase 1 "esconderse" se juega justo aquí
+                    // adentro, en el lobby al que estás entrando). Antes quedaba solo DISPONIBLE
+                    // y había que seguirla a mano desde Opciones → Misiones. En un REPLAY de la
+                    // M1 no se encadena (el replay no debe alterar el flujo/progreso).
+                    if (replayingMissionId == null) {
+                        selectCampaignMission(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_2_ID)
+                    }
                 }
                 // Al ENTRAR a la ESCOM, Prankedy ya quedó a salvo dentro: deja de acompañarte para
                 // que NO siga contigo al volver al mapa (Misión 1 terminada). Solo afecta al

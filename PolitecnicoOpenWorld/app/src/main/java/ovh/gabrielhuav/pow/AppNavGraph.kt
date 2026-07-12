@@ -23,6 +23,8 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.domain.models.campaign.SchoolCatalog
@@ -53,10 +55,12 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Backp
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Hide
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Rumor
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission3Evidence
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeDevTpRoute
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeEscomDoorNavigation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeNavigateToShineCTO
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission2BackpackComic
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3IntroComic
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3OutroComic
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission1ChaseIntro
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectCampaignMission
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.failMission2Hide
@@ -502,6 +506,19 @@ fun AppNavGraph(
                             )
                         }
 
+                        // 🆕 ─── MODO HISTORIA · CIERRE de la Misión 3 (IntroPOW23..24) ─────────
+                        // Se reproduce al completar la M3 (evidencia + arma). Solo vuelve al
+                        // mundo: el gancho a la M4 queda sembrado ("¿a quién se lo llevamos?").
+                        composable(route = "story_mission3_outro") {
+                            val goBack: () -> Unit = { navController.popBackStack("world_map", inclusive = false) }
+                            StoryIntroScreen(
+                                school = SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog.MISSION3_OUTRO_ID,
+                                onBegin = goBack,
+                                onBack = goBack
+                            )
+                        }
+
                         // ─── MODO HISTORIA · Misión 3 "Regreso a la ENCB" (IntroPOW19..22) ──
                         // Puente narrativo al completar la M2. Al terminar, SIGUE la Misión 3
                         // (fija su 🎯) y vuelve al mundo para que la historia continúe.
@@ -770,6 +787,20 @@ fun AppNavGraph(
                                     kotlinx.coroutines.delay(600)
                                     worldMapViewModel.consumeMission3IntroComic()
                                     navController.navigate("story_mission3_intro")
+                                }
+                            }
+
+                            // 🆕 MODO HISTORIA · M3 completada (evidencia) → cómic de CIERRE
+                            // "mission3_outro" (IntroPOW23..24). La bandera se pone DENTRO de la
+                            // ENCB (auto-salida 2.6 s después): se espera a estar en el mapa.
+                            LaunchedEffect(uiState.pendingMission3OutroComic) {
+                                if (uiState.pendingMission3OutroComic) {
+                                    while (worldMapViewModel.currentInteriorRoomId != null) {
+                                        kotlinx.coroutines.delay(200)
+                                    }
+                                    kotlinx.coroutines.delay(600)
+                                    worldMapViewModel.consumeMission3OutroComic()
+                                    navController.navigate("story_mission3_outro")
                                 }
                             }
 
@@ -1090,4 +1121,23 @@ val startRoom = backStackEntry.arguments?.getString("startRoom")
                     // overlay Compose, no un Dialog de ventana). MissionLogHost solo colecta
                     // showMissionLog mientras está cerrado (no recompone a 30 Hz).
                     ovh.gabrielhuav.pow.features.map_exterior.ui.components.MissionLogHost(worldMapViewModel)
+
+                    // ─── MODO DEV · "TP al objetivo" por CHECKPOINTS (2026-07-12): ejecuta la
+                    // navegación pendiente (WorldMapState.devTpRoute) desde CUALQUIER pantalla:
+                    // pop a world_map y, si el checkpoint es una SALA, navigate al interior.
+                    // Coroutine pura sobre el flow (colecta SOLO devTpRoute, sin recomponer a
+                    // 30 Hz — mismo espíritu que MissionLogHost). Ver WorldMapMissionLog.kt.
+                    LaunchedEffect(Unit) {
+                        worldMapViewModel.uiState
+                            .map { it.devTpRoute }
+                            .distinctUntilChanged()
+                            .collect { route ->
+                                if (route == null) return@collect
+                                worldMapViewModel.consumeDevTpRoute()
+                                navController.popBackStack("world_map", inclusive = false)
+                                if (route != ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DEV_TP_TO_MAP) {
+                                    navController.navigate(route)
+                                }
+                            }
+                    }
 }

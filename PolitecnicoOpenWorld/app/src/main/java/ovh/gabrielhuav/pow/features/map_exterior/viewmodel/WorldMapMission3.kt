@@ -231,10 +231,18 @@ fun WorldMapViewModel.completeMission3Evidence() {
     _uiState.update { it.copy(
         currentObjective = MissionCatalog.M3_RECUPERAR_EVIDENCIA,
         objectiveDone = true,
-        interactionPrompt = "🔫 ¡MISIÓN 3 COMPLETADA! Conseguiste tu primera ARMA DE FUEGO"
+        interactionPrompt = "🔫 ¡MISIÓN 3 COMPLETADA! Conseguiste tu primera ARMA DE FUEGO",
+        // 🆕 Cierre narrativo (2026-07-12): cómic "mission3_outro" (IntroPOW23..24) al volver
+        // al mapa (AppNavGraph espera a salir del interior, igual que el intro de la M3).
+        pendingMission3OutroComic = true
     ) }
     soundManager.playMisionCumplida()
     android.util.Log.d("POW_DBG", "MISIÓN 3: COMPLETADA (evidencia + arma de fuego)")
+}
+
+/** Consume la bandera del cómic de cierre de la M3 (AppNavGraph, antes de navegar). */
+fun WorldMapViewModel.consumeMission3OutroComic() {
+    _uiState.update { it.copy(pendingMission3OutroComic = false) }
 }
 
 // ── LIMPIEZA (idempotente; NO toca mission3Phase — eso lo decide quien llama) ──

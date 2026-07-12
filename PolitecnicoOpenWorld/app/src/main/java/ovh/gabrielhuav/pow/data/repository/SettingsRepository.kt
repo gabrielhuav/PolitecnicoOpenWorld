@@ -30,6 +30,10 @@ class SettingsRepository(context: Context) {
         private const val KEY_SFX_VOLUME = "SFX_VOLUME"     // volumen efectos 0f..1f (Audio)
         private const val KEY_LANGUAGE = "APP_LANGUAGE"             // idioma de la UI (BCP-47; "" = sistema)
         private const val KEY_PLAYER_NAME = "PLAYER_NAME"           // nombre de jugador para multijugador
+        // Tutorial de controles (optativo): ¿ya se le OFRECIÓ al jugador? (una vez por mundo;
+        // siempre re-visible desde Ajustes → Controles).
+        private const val KEY_TUTORIAL_EXTERIOR_SEEN = "TUTORIAL_EXTERIOR_SEEN"
+        private const val KEY_TUTORIAL_INTERIOR_SEEN = "TUTORIAL_INTERIOR_SEEN"
         const val NPC_DENSITY_MIN = 0.4f
         const val NPC_DENSITY_MAX = 1.6f
     }
@@ -136,6 +140,19 @@ class SettingsRepository(context: Context) {
     fun getDeveloperMode(): Boolean = prefs.getBoolean(KEY_DEVELOPER_MODE, false)
     fun saveDeveloperMode(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_DEVELOPER_MODE, enabled).apply()
+    }
+
+    // ─── Tutorial de controles (optativo): se ofrece UNA vez al entrar por primera vez al
+    // mapa exterior / a un interior; después queda disponible en Ajustes → Controles. ──
+
+    fun getTutorialExteriorSeen(): Boolean = prefs.getBoolean(KEY_TUTORIAL_EXTERIOR_SEEN, false)
+    fun saveTutorialExteriorSeen() {
+        prefs.edit().putBoolean(KEY_TUTORIAL_EXTERIOR_SEEN, true).apply()
+    }
+
+    fun getTutorialInteriorSeen(): Boolean = prefs.getBoolean(KEY_TUTORIAL_INTERIOR_SEEN, false)
+    fun saveTutorialInteriorSeen() {
+        prefs.edit().putBoolean(KEY_TUTORIAL_INTERIOR_SEEN, true).apply()
     }
 
     // ─── Audio: volumen de música y efectos (0f..1f). Default = 1.0 (máximo). ──

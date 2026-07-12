@@ -208,6 +208,7 @@ A circular **ring of rooms**: a lobby with doors to each ESCOM building. Inside 
 - **Dual combat:** hold **Y** (500 ms) to toggle MELEE/RANGED; **B** attacks.
 - **Damage feedback:** screen shake on hit, a red **damage vignette/flash that scales with lost HP**, a **low-HP pulse**, **zombie knockback** on melee/projectile hits (collision-aware), and **player recoil** on firing with per-axis position correction so the player never clips through walls.
 - **SkillEffect drops:** six effects (45% chance) drawn as pure Canvas icons.
+- **Ambient NPCs react to combat (open-world parity):** interior students/teachers can now be punched or shot — they take damage, flee scared (nearby ones too), and collapse at 0 HP. Mission NPCs (M2 rumor students / search cops) are immune so story missions can't be broken.
 - **Collision Designer Mode:** an in-game editor paints the per-room collision matrix on top of the room art, persists it to `collision_matrices.json`, and can export/import the same JSON the server reads.
 - **Dynamic lighting** in dark interiors; **WASTED/Victory** screens.
 
@@ -246,6 +247,7 @@ Coordinates on the wire are fractional `[0,1]` (the client converts to pixels). 
 - **Two movement styles:** D-Pad or virtual joystick (360°), switchable from Settings.
 - **Adaptive scaling** (60%–140%, capped at 100% in portrait), **left-handed swap**, gamepad-style A/B/X/Y buttons.
 - **Staged control settings:** changes to control type, scale and swap are held in a temporary state and only affect gameplay after pressing **SAVE** (then committed, persisted and pushed to the map). Leaving Settings discards unsaved changes.
+- **Optional controls tutorial:** offered once the first time you enter the open world and the first time you enter an interior (you can decline); paginated overlay explaining every button (open world includes driving/teleport, interiors include combat mode/inventory). Replayable anytime from **Settings → Controls → Reference & tutorial**.
 - **Optional diagnostic HUD:** cache widget and FPS widget. Preferences persist via `SettingsRepository` (SharedPreferences).
 
 ### 🚀 Tech Stack
@@ -433,6 +435,7 @@ Anillo circular de cuartos: un lobby con puertas a cada edificio de ESCOM, con p
 - **Combate dual:** mantener **Y** (500 ms) alterna MELEE/RANGED; **B** ataca.
 - **Efectos de daño:** *screen shake* al recibir golpes, **viñeta/flash rojo que escala con la vida perdida**, **pulso de vida baja**, **knockback a los zombis** en golpes/proyectiles (consciente de colisiones) y **recoil del jugador** al disparar con corrección de posición por eje para no atravesar paredes.
 - **Drops de SkillEffect:** seis efectos (45%) dibujados como iconos de Canvas puros.
+- **Los NPCs ambientales reaccionan al combate (paridad con el mundo abierto):** a los estudiantes/docentes de interiores ya se les puede pegar o disparar — reciben daño, huyen con miedo (también los cercanos) y colapsan a 0 HP. Los NPCs de misión (rumor de la M2 / policías de búsqueda) son inmunes para no romper la historia.
 - **Modo Diseñador de colisión:** un editor in-game pinta la matriz de colisión de cada sala sobre el dibujo del cuarto, la persiste en `collision_matrices.json` y permite exportar/importar el mismo JSON que lee el servidor.
 - **Iluminación dinámica** en interiores oscuros; pantallas **WASTED/Victoria**.
 
@@ -471,6 +474,7 @@ Las coordenadas en el cable son fraccionarias `[0,1]` (el cliente convierte a p�
 - **Dos estilos de movimiento:** D-Pad o joystick virtual (360°), configurables.
 - **Escala adaptativa** (60%–140%, tope 100% en retrato), **modo zurdo**, botones A/B/X/Y.
 - **Controles en estado temporal:** los cambios de tipo, escala y swap se quedan en estado temporal y solo afectan al juego al presionar **GUARDAR** (entonces se sincronizan, persisten y notifican al mapa). Salir de Ajustes descarta los cambios no guardados.
+- **Tutorial de controles optativo:** se ofrece una vez al entrar por primera vez al mundo abierto y a un interior (se puede rechazar); overlay paginado que explica cada botón (el del mundo abierto incluye conducción/teletransporte; el de interiores, modo de golpe/inventario). Re-visible cuando quieras en **Ajustes → Controles → Referencia y tutorial**.
 - **HUD de diagnóstico opcional:** widget de caché y de FPS. Las preferencias persisten vía `SettingsRepository` (SharedPreferences).
 
 ### 🚀 Stack Tecnológico

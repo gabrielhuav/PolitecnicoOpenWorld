@@ -163,20 +163,33 @@ private fun buildParkedCars(
     return slots.mapIndexedNotNull { i, slot ->
         val model = models[i % models.size]
         val color = CAR_PALETTE[(i * 5) % CAR_PALETTE.size]
-        // Rotación BASE = la MISMA que deriva el global (sentido del carril nodo previo→cajón), en el
-        // marco del PNG SIN rotar (aspecto baseW/baseH). Coincide numéricamente con el
-        // `rotationAngle` que calcula NpcAiManager.spawnParkedCar para el mismo cajón.
+        // ⚠️ CONVENCIÓN DE EJES (fix 2026-07-12, bug "coches fuera de los cajones en el lobby"):
+        // el navGraph guarda `localY` con ORIGEN ABAJO — es la convención con la que lo consume
+        // el exterior (`Landmark.toGlobalGeoPoint`: dyMeters = (0.5 - localY) hacia el norte).
+        // El lobby dibuja el asset con Y hacia ABAJO (top-down), así que hay que ESPEJAR la Y
+        // tanto en POSICIÓN como en DIRECCIÓN del carril, o los autos caen espejados
+        // verticalmente (sobre árboles/pasto) aunque en el exterior se vean bien.
+        // Verificado dibujando los slots sobre building_escom.webp: solo alinean con (1 - localY).
+        val yFracTd = 1f - slot.localY          // posición en marco top-down del asset
+        val dirYTd = -slot.dirY                 // dirección del carril en ese mismo marco
+        // Rotación BASE en la CONVENCIÓN DE FRAMES de los sprites de coche (verificada frame a
+        // frame: 0°=OESTE, 90°=SUR, 180°=ESTE, 270°=NORTE, es decir dir de pantalla
+        // (-cosθ, +sinθ)). Para que el auto apunte a lo largo del carril (dx, dy) en pantalla:
+        // θ = atan2(dy, -dx). Con dy = dirYTd·baseH y dx = dirX·baseW:
         val baseFacing = Math.toDegrees(
-            atan2((slot.dirY * campus.baseHeightMeters).toDouble(), (slot.dirX * campus.baseWidthMeters).toDouble())
+            atan2(
+                (dirYTd * campus.baseHeightMeters).toDouble(),
+                (-slot.dirX * campus.baseWidthMeters).toDouble()
+            )
         ).toFloat()
         // Facing FINAL (base + calibración de grupo/propio + volteo) → se pide el FRAME direccional
-        // de ese ángulo, exactamente como hace el exterior. NADA se rota después en Compose.
+        // de ese ángulo. NADA se rota después en Compose.
         val facing = baseFacing + headingDeg + selfRotationDeg + (if (i in flipped) 180f else 0f)
         // Tintado (palette-swap píxel a píxel) a MENOR resolución (0.5×): son escenografía pequeña en
         // el lobby, no necesitan resolución completa. Reduce ~4× el trabajo por plaza (estaba en 1.0×,
         // serializado por @Synchronized → tardaba en "verse bien" la imagen 2D al entrar/zoom — R4).
         val drawable = VehicleSpriteManager.getTintedCarNpc(context, facing, color, 0.5f, model)
         val bitmap = (drawable as? BitmapDrawable)?.bitmap?.asImageBitmap() ?: return@mapIndexedNotNull null
-        ParkedCar(slot.localX, slot.localY, bitmap)
+        ParkedCar(slot.localX, yFracTd, bitmap)
     }
 }

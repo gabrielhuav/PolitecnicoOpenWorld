@@ -54,7 +54,15 @@ data class AmbientNpc(
     // ── Anti-atasco (checkpoint de movimiento) ──
     val stuckX: Float = x,
     val stuckY: Float = y,
-    val stuckSinceMs: Long = 0L
+    val stuckSinceMs: Long = 0L,
+    // ── 🆕 COMBATE (paridad con el exterior, 2026-07-11): el jugador SÍ puede golpearlos ──
+    // (antes eran intocables). Reciben daño de melee/proyectil, HUYEN con miedo (fleeUntilMs,
+    // como triggerFear del exterior) y a 0 HP colapsan (isDying ~1 s) y desaparecen. Los NPCs
+    // de MISIÓN (m2rumor_/m2cop_) son INMUNES — misma protección que Prankedy HIRED exterior.
+    val health: Float = 100f,
+    val isDying: Boolean = false,
+    val dyingSinceMs: Long = 0L,
+    val fleeUntilMs: Long = 0L
 )
 
 enum class AmbientMode { WANDER, MEETING, TALK, WALK_TOGETHER }
@@ -128,6 +136,16 @@ private const val AMBIENT_WAIT_MS = 600L       // pausa (idle) al llegar antes d
 // ── Anti-atasco ──
 private const val STUCK_EPS = 6f                // si se movió menos que esto…
 private const val STUCK_MS = 1600L              // …durante este tiempo, está ATORADO → cambia dirección
+
+// ── 🆕 Combate contra NPCs ambientales (paridad exterior) ──
+internal const val AMBIENT_FEAR_RADIUS = 150f   // px: cada golpe asusta a los NPCs cercanos (conecte o no)
+internal const val AMBIENT_FLEE_MS = 4000L      // cuánto dura el miedo (corren lejos del jugador)
+internal const val AMBIENT_DIE_MS = 1000L       // colapsado en el piso antes de desaparecer
+private const val AMBIENT_FLEE_SPEED_MULT = 2.4f // huyen corriendo (mismo factor que la evacuación)
+
+/** ¿Este NPC ambiental es de MISIÓN (intocable)? Golpearlo rompería la M2 (rumor/policías). */
+internal fun AmbientNpc.isMissionNpc(): Boolean =
+    id.startsWith("m2rumor_") || id.startsWith(M2COP_PREFIX)
 
 // ── Anti-amontonamiento (separación suave con cooldown para no temblar) ──
 private const val CROWD_DIST = 35f              // más cerca que esto de otro NPC/jugador = amontonado
@@ -405,6 +423,36 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
             npc = npc.copy(speechRes = null)
         }
 
+        // ── 🆕 COMBATE: muriendo → colapsado AMBIENT_DIE_MS y desaparece; con MIEDO → huye
+        // del jugador corriendo (paridad con triggerFear/muerte de civiles del exterior). ──
+        if (npc.isDying) {
+            if (now - npc.dyingSinceMs < AMBIENT_DIE_MS) result.add(npc)
+            continue
+        }
+        if (npc.fleeUntilMs > now) {
+            val s = _state.value
+            val dx = npc.x - s.playerX
+            val dy = npc.y - s.playerY
+            val d = hypot(dx, dy).coerceAtLeast(0.001f)
+            // Rumbo: alejarse del jugador (clampeado a la sala; stepTowards respeta colisiones).
+            val fx = (npc.x + dx / d * 220f).coerceIn(AMBIENT_RADIUS, room.worldWidth - AMBIENT_RADIUS)
+            val fy = (npc.y + dy / d * 220f).coerceIn(AMBIENT_RADIUS, room.worldHeight - AMBIENT_RADIUS)
+            val (rx, ry) = stepTowards(room, npc.x, npc.y, fx, fy, AMBIENT_SPEED * AMBIENT_FLEE_SPEED_MULT)
+            result.add(npc.copy(
+                x = rx, y = ry,
+                facingRight = if (abs(fx - npc.x) > 0.5f) fx >= npc.x else npc.facingRight,
+                action = PlayerAction.RUN,
+                // Huyendo nadie platica: pareja y burbuja canceladas.
+                mode = AmbientMode.WANDER, partnerId = null, speechRes = null,
+                stuckX = rx, stuckY = ry, stuckSinceMs = now
+            ))
+            continue
+        }
+        if (npc.action == PlayerAction.RUN && npc.fleeUntilMs != 0L) {
+            // Se le pasó el susto: vuelve a caminar normal (un solo frame de transición).
+            npc = npc.copy(action = PlayerAction.WALK, fleeUntilMs = 0L)
+        }
+
         when (npc.mode) {
             // ── PLÁTICA: parados frente a frente, GUION coherente con líneas alternadas. ──
             AmbientMode.TALK -> {
@@ -435,7 +483,10 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
                             stuckX = npc.x, stuckY = npc.y, stuckSinceMs = now
                         )
                     } else {
-                        npc.unpair(room, now, sayBye = true)
+                        // 🆕 2026-07-12: la despedida la dice SOLO UNO de los dos (el de id menor)
+                        // — antes ambos soltaban "Ahí nos vemos" a la vez y el lobby se llenaba
+                        // de despedidas duplicadas sin sentido.
+                        npc.unpair(room, now, sayBye = npc.id < (npc.partnerId ?: ""))
                     }
                 } else {
                     // Frente a frente (idle) + GUION por turnos: las líneas PARES (0,2,4…) las
@@ -456,8 +507,11 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
             AmbientMode.MEETING, AmbientMode.WALK_TOGETHER -> {
                 val partner = npc.partnerId?.let { byId[it] }
                 when {
+                    // 🆕 2026-07-12: SIN despedida — aquí la pareja DESAPARECIÓ o venció el tope
+                    // del modo a mitad de camino: decir "Ahí nos vemos" solo/a la distancia no
+                    // tiene sentido (era la fuente del spam de despedidas del lobby).
                     partner == null || now >= npc.modeUntilMs ->
-                        npc = npc.unpair(room, now, sayBye = npc.mode == AmbientMode.WALK_TOGETHER)
+                        npc = npc.unpair(room, now, sayBye = false)
                     npc.mode == AmbientMode.MEETING &&
                         hypot(partner.x - npc.x, partner.y - npc.y) <= TALK_START_DIST -> {
                         // ¡Se encontraron! → plática. Duración DETERMINISTA desde pairSeed: aunque
@@ -495,8 +549,9 @@ internal fun ZombieInteriorViewModel.stepAmbientNpcs(
                             action = if (arrived) PlayerAction.IDLE else PlayerAction.WALK
                         )
                         // Paseo juntos: al LLEGAR al destino común, despedida y separación.
+                        // (Solo la dice UNO de los dos — ver nota de 2026-07-12 arriba.)
                         if (arrived && npc.mode == AmbientMode.WALK_TOGETHER) {
-                            npc = npc.unpair(room, now, sayBye = true)
+                            npc = npc.unpair(room, now, sayBye = npc.id < (npc.partnerId ?: ""))
                         }
                     }
                 }
@@ -601,7 +656,12 @@ internal fun ZombieInteriorViewModel.evacuateAmbientNpcs(
     val ey = exit?.let { (it.hitboxFrac.top + it.hitboxFrac.bottom) * 0.5f * room.worldHeight }
         ?: (room.worldHeight * 0.92f)
     val speed = AMBIENT_SPEED * 2.4f   // corren: el olor es insoportable
+    val nowEvac = System.currentTimeMillis()
     return npcs.mapNotNull { npc ->
+        // 🆕 Un NPC colapsado (golpeado a 0 HP) no evacúa: yace AMBIENT_DIE_MS y desaparece.
+        if (npc.isDying) {
+            return@mapNotNull if (nowEvac - npc.dyingSinceMs < AMBIENT_DIE_MS) npc else null
+        }
         val d = hypot(ex - npc.x, ey - npc.y)
         if (d <= 46f) return@mapNotNull null   // llegó a la puerta → sale del salón
         val (rx, ry) = stepTowards(room, npc.x, npc.y, ex, ey, speed)

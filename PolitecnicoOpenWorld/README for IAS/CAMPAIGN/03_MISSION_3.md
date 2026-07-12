@@ -39,6 +39,15 @@ exista esa ruta, cambiarles el visual.
 
 ## 4. Gancho a la Misión 4 / Hook
 
+**🆕 (2026-07-12) Cierre narrativo cableado:** al completar la M3 (`completeMission3Evidence`) se
+reproduce el cómic **`mission3_outro`** (`IntroPOW23..24`, PLACEHOLDERS — "Esto lo prueba todo." /
+"¿Y ahora a QUIÉN se lo llevamos?"), vía `pendingMission3OutroComic` → LaunchedEffect (espera a
+salir del interior) → ruta `story_mission3_outro`.
+
 Con la evidencia y un arma, el jugador puede PROBAR el origen del brote… pero la ENCB ya está
 perdida y la infección se expande por Zacatenco. Misión 4 natural: defensa/evacuación con
-`PARAMEDICO` + primeras hordas en el mundo abierto (instancia apocalipsis).
+`PARAMEDICO` + primeras hordas en el mundo abierto (instancia apocalipsis). **🆕 Sus cómics ya
+están RESERVADOS en `StoryComicCatalog`:** `MISSION4_INTRO_ID` (`IntroPOW25..28`: nadie les cree →
+radio médica → primera horda → la paramédica recluta) y `MISSION4_OUTRO_ID` (`IntroPOW29..30`:
+evacuación lograda → un evacuado viene MORDIDO, gancho a la M5). Placeholders listos; cablear con
+el patrón bandera→LaunchedEffect→ruta al crear la misión.

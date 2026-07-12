@@ -559,4 +559,37 @@
     <string name="sf_exit_message">¿Abandonar la pelea y volver al menú principal?</string>
     <string name="sf_exit_confirm">Salir</string>
     <string name="sf_keep_fighting">Seguir peleando</string>
+
+    <!-- Tutorial de controles (optativo, i18n 2026-07-11) -->
+    <string name="tutorial_prompt_title">Tutorial de controles</string>
+    <string name="tutorial_prompt_msg">¿Quieres un repaso rápido de los controles? Puedes verlo cuando quieras en Ajustes → Controles.</string>
+    <string name="tutorial_prompt_yes">VER TUTORIAL</string>
+    <string name="tutorial_prompt_no">Ahora no</string>
+    <string name="tutorial_next">Siguiente</string>
+    <string name="tutorial_prev">Anterior</string>
+    <string name="tutorial_done">¡Entendido!</string>
+    <string name="tutorial_ext_title">Controles · Mundo abierto</string>
+    <string name="tutorial_int_title">Controles · Interiores</string>
+    <string name="tutorial_page_move_title">Moverte</string>
+    <string name="tutorial_page_move_body">Camina con el D-pad o el joystick. El estilo, tamaño y lado se cambian en Ajustes → Controles.</string>
+    <string name="tutorial_page_run_title">Correr</string>
+    <string name="tutorial_page_run_body">Mantén A mientras te mueves para correr.</string>
+    <string name="tutorial_page_ext_interact_title">Interactuar</string>
+    <string name="tutorial_page_ext_interact_body">Con X entras a edificios (ESCOM, metro, metrobús…), recoges coleccionables y usas objetos de misión.</string>
+    <string name="tutorial_page_ext_attack_title">Golpear</string>
+    <string name="tutorial_page_ext_attack_body">Con B lanzas golpes. Ojo: agredir civiles sube tu nivel de búsqueda y la policía irá por ti.</string>
+    <string name="tutorial_page_ext_vehicle_title">Conducir</string>
+    <string name="tutorial_page_ext_vehicle_body">Con Y subes o bajas del coche más cercano. Al volante, el mismo control de movimiento acelera, frena y gira.</string>
+    <string name="tutorial_page_ext_teleport_title">Teletransporte</string>
+    <string name="tutorial_page_ext_teleport_body">Abre el menú de opciones (arriba a la derecha) → Mapa → Puntos de teletransporte para viajar rápido.</string>
+    <string name="tutorial_page_int_interact_title">Interactuar</string>
+    <string name="tutorial_page_int_interact_body">Con X recoges llaves y objetos, usas objetos de misión (como la lata apestosa) y confirmas acciones.</string>
+    <string name="tutorial_page_int_attack_title">Atacar</string>
+    <string name="tutorial_page_int_attack_body">Con B atacas: golpe cuerpo a cuerpo o disparo, según el modo elegido. Los NPCs también reaccionan a tus golpes.</string>
+    <string name="tutorial_page_int_mode_title">Modo de golpe e inventario</string>
+    <string name="tutorial_page_int_mode_body">Mantén Y para abrir el menú combinado: cambia entre golpe y disparo, y revisa tu inventario.</string>
+    <string name="settings_tutorial_section">Referencia y tutorial</string>
+    <string name="settings_tutorial_hint">Repasa qué hace cada botón en cada mundo. Los ajustes de arriba (estilo, tamaño, lado) cambian cómo se acomodan en pantalla.</string>
+    <string name="settings_tutorial_exterior">TUTORIAL · MUNDO ABIERTO</string>
+    <string name="settings_tutorial_interior">TUTORIAL · INTERIORES</string>
 </resources>

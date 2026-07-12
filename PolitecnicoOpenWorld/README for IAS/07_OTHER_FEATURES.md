@@ -348,6 +348,16 @@ fields and **only apply on SAVE**; leaving discards.
   `tempControlType/tempControlsScale/tempSwapControls`.
 - `saveControlsSettings()` (commit + persiste vía `SettingsRepository` + empuja al mapa),
   `discardControlsChanges()` (al salir).
+- **🆕 TUTORIAL DE CONTROLES optativo (2026-07-11, `settings/ui/ControlsTutorial.kt`):** overlay
+  paginado (páginas con el botón A/B/X/Y dibujado con su color real + título + explicación) en dos
+  variantes: `exteriorTutorialPages()` (mover/correr/X interactuar/B golpe/Y coche/Y-hold teleport)
+  e `interiorTutorialPages()` (sin conducción; B ataque, Y-hold menú de golpe+inventario).
+  `ControlsTutorialFirstRun(interior)` se monta al final del Box raíz de `WorldMapScreen` (gated a
+  mundo cargado) y de `ZombieGameScreen`: OFRECE el tutorial UNA vez por mundo (diálogo "¿Ver
+  tutorial?"; flags `TUTORIAL_EXTERIOR/INTERIOR_SEEN` en `SettingsRepository`, se marcan acepte o
+  no). En **Ajustes → Controles** hay sección "Referencia y tutorial" con 2 botones que lo re-abren
+  cuando se quiera (en un `Dialog` fullscreen). Strings `tutorial_*`/`settings_tutorial_*` (ES+EN).
+  Composables SIN VM (overlays puros); la lectura puntual de prefs sigue el patrón MissionLogDialog.
 - `toggleRoadNetwork(show)`. `Factory(context)`.
 - **Jugabilidad / Gameplay:** `changeNpcDensity(v: Float)` (0.4–1.6, persiste al instante),
   `toggleNpcEmojiLod(b)` y `toggleNpcFullEmoji(b)`. La pestaña **Jugabilidad** tiene:
