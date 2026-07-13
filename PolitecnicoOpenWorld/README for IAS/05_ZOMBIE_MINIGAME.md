@@ -342,20 +342,29 @@ data class ZombieServerMessage(type, sessionId, id, displayName, roomId, zone, x
 que una coordenada local 0-1 cae igual en ambos. La función está **SEPARADA en 3 piezas** (no todo en un archivo):
 
 - **`domain/models/map/CampusParkingCatalog.kt`** — FUENTE ÚNICA de datos: `assetMatch → {navGraphAsset,
-  baseWidthMeters, baseHeightMeters}` + extensión `LandmarkNavGraph.parkingSlots()` → `ParkingSlot(localX, localY,
-  dirX, dirY)` (dir = nodo previo→cajón). Solo lo lee el interior; el exterior queda intacto.
+  baseWidthMeters, baseHeightMeters}` + `parkingCalibrationAsset` (`CONFIG/parking/<assetMatch>.json`) +
+  `loadCalibration()` (lee ese JSON → `ParkingCalibration`) + extensión `LandmarkNavGraph.parkingSlots()` →
+  `ParkingSlot(localX, localY, dirX, dirY)` (dir = nodo previo→cajón). Solo lo lee el interior; el exterior intacto.
 - **`features/interiores/zombies/ui/ParkedCarsLayer.kt`** — ESCENOGRAFÍA (render + carga). Un auto por slot
   `isParkingSlot`, sin colisión ni IA. Posición = `cam.offset + local*worldW/H*cam.scale`; tamaño por metros
   (`CAR_FOOTPRINT_METERS/baseWidthMeters*worldWidth`). Carga+teñido (`VehicleSpriteManager`) en `Dispatchers.IO`
-  vía `produceState`. **Rotación BASE heredada del global:** cada auto arranca con la MISMA orientación que deriva
-  el exterior (`NpcAiManager.spawnParkedCar`: sentido del carril), calculada en el marco del PNG sin rotar
-  (`atan2(dirY*baseH, dirX*baseW)`). Encima se aplica una transformación de GRUPO + volteo por auto.
+  vía `produceState`. `baseFacing = laneFacing + 90°` (`laneFacing = atan2(dirY*baseH, dirX*baseW)`), y **encima la
+  transformación de GRUPO** (heading/offset/scale/selfRot/flip). **⚠️ POR QUÉ EL LOBBY NO REPLICA SOLO EL EXTERIOR
+  (fix 2026-07-13):** las coords crudas del navGraph trazan los **carriles** (curvas alrededor de las islas), no filas
+  de cajones. El **exterior** las acomoda porque su pipeline aplica DOS rotaciones que casan (`toGlobalGeoPoint` gira
+  las **posiciones** por el ángulo del campus + `GroundOverlay.bearing` gira el **asset** lo mismo); el lobby dibuja el
+  asset CRUDO con coords CRUDAS → el CÚMULO entero queda rotado (~-2R) y desplazado. Es un error de **CUERPO RÍGIDO**
+  (rotar+trasladar el grupo), NO un offset de orientación por auto — por eso ningún `baseFacing` por sí solo lo
+  arregla. La corrección es la transformación de grupo, **hallada con el calibrador en vivo y guardada como JSON**
+  (`assets/CONFIG/parking/building_escom.json`: `headingDeg=307.661, offsetX=0.048, offsetY=-0.212, scale=1,
+  selfRotationDeg=271.436`). Verificado en emulador: autos en filas dentro de los cajones, igual que el exterior.
 - **`features/interiores/zombies/ui/ParkingDesignerTool.kt`** — UI de CALIBRACIÓN (solo Modo Desarrollador). Se
-  abre desde el botón "Diseñador" → **selector** (Colisiones/Waypoints | **Estacionamiento**). Edita una
-  transformación de grupo estilo PowerPoint (rotar pivote, girar c/auto sobre su eje, mover fino/grueso, escalar)
-  + **voltear ↑↓ por auto TOCÁNDOLO** (para islas con autos en sentidos opuestos), con **EXPORTAR** (SAF JSON:
-  `headingDeg/selfRotationDeg/offsetX/Y/scale/flipped`) y **CERRAR**. Al diseñar NO se cullea (lote 100% poblado).
-  El estado de calibración vive en `ZombieGameScreen` (provisional; se afinará/persistirá después).
+  abre desde el botón "Diseñador" → **selector** (Colisiones/Waypoints | **Estacionamiento**). Edita la transformación
+  de grupo estilo PowerPoint (rotar pivote, girar c/auto sobre su eje, mover fino/grueso, escalar) + **voltear ↑↓ por
+  auto TOCÁNDOLO**, con **EXPORTAR** (SAF JSON) y **CERRAR**. Al diseñar NO se cullea (lote 100% poblado).
+  **WORKFLOW por campus (interior+exterior):** el exterior ya sale bien solo; para el lobby, calibra en vivo →
+  EXPORTAR → guarda el .json como `assets/CONFIG/parking/<assetMatch>.json`. `ZombieGameScreen` lo carga async al
+  entrar (`CampusParkingCatalog.loadCalibration`) e inicializa el estado del grupo. Sin JSON → identidad (lote crudo).
 
 **EXPANDIBLE (FES, UAM…):** añadir una universidad = 1 línea en `CampusParkingCatalog.campuses` (asset + navGraph
 + baseW/H) + su navGraph en `assets/CONFIG/navgraphs/` + usar su asset top-down como fondo del landmark exterior Y

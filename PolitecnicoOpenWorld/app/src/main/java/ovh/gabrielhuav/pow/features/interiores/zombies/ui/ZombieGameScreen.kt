@@ -293,14 +293,30 @@ fun ZombieGameScreen(
     var shakeY by remember { mutableStateOf(0f) }
     // Flash rojo breve al recibir daño.
     var flashAlpha by remember { mutableStateOf(0f) }
-    // Calibración EN VIVO de los autos del estacionamiento del lobby (solo modo desarrollador):
-    // rotación uniforme + offset de grupo. Se ajusta con ParkingTuneTool; defaults en ParkedCarsLayer.
-    var parkAngle by remember { mutableStateOf(0f) }   // ajuste de grupo (0 = igual que el global)
+    // Calibración de los autos del estacionamiento del lobby (transformación de GRUPO estilo
+    // PowerPoint). La FUENTE es un JSON en assets por campus (CONFIG/parking/<assetMatch>.json) que
+    // produce el calibrador en vivo al EXPORTAR; reproduce el acomodo del exterior. Se carga async
+    // (I/O de assets) y llena estos estados; el modo desarrollador (ParkingTuneTool) los re-ajusta en
+    // vivo. Añadir/ajustar un campus = soltar su .json, sin tocar Kotlin.
+    var parkAngle by remember { mutableStateOf(0f) }
     var parkOffX by remember { mutableStateOf(0f) }
     var parkOffY by remember { mutableStateOf(0f) }
     var parkScale by remember { mutableStateOf(1f) }
     var parkSelfAngle by remember { mutableStateOf(0f) }   // giro de cada auto sobre su propio eje
     var parkFlipped by remember { mutableStateOf(setOf<Int>()) }   // autos volteados 180° (identificador ↑↓)
+    LaunchedEffect(room.backgroundAsset) {
+        val campus = ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog.forAsset(room.backgroundAsset)
+            ?: return@LaunchedEffect
+        val calib = withContext(Dispatchers.IO) {
+            ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog.loadCalibration(context, campus)
+        }
+        parkAngle = calib.headingDeg
+        parkOffX = calib.offsetXFrac
+        parkOffY = calib.offsetYFrac
+        parkScale = calib.scale
+        parkSelfAngle = calib.selfRotationDeg
+        parkFlipped = calib.flipped.toSet()
+    }
     // Diseñador de estacionamiento (se abre desde el selector del botón "Diseñador").
     var parkingDesignerActive by remember { mutableStateOf(false) }
     var designerChooserOpen by remember { mutableStateOf(false) }
