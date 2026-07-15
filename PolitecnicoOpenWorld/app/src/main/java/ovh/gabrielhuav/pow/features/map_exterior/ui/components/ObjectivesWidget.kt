@@ -23,12 +23,16 @@ import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
 // ─── WIDGET DE OBJETIVOS (Modo Historia) ──────────────────────────────────────
 // HUD pequeño SIEMPRE visible mientras haya un objetivo de campaña activo. Muestra el
 // título del objetivo y la distancia al destino; al cumplirse, lo indica.
+// `compact` = modo PLEGADO (solo el título, más translúcido): lo usan los interiores tras unos
+// segundos de mostrar la tarjeta completa, para que no tape la acción (QA 2026-07-13: la tarjeta
+// título+descripción encima del countdown de la M2 era demasiado intrusiva en el lobby).
 @Composable
 fun ObjectivesWidget(
     objective: CampaignObjective,
     done: Boolean,
     playerLocation: GeoPoint?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    compact: Boolean = false
 ) {
     val distM: Int? = playerLocation?.let { loc ->
         val dLat = (loc.latitude - objective.targetLat) * 111_320.0
@@ -42,18 +46,20 @@ fun ObjectivesWidget(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .alpha(0.88f)
+            .alpha(if (compact) 0.72f else 0.88f)
             .widthIn(max = 250.dp)
             .background(Color(0x99101015), RoundedCornerShape(12.dp))
             .padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
-        Text(stringResource(R.string.wm_objective_label), color = Color(0xFFFFCC80), fontSize = 10.sp,
-            fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        if (!compact) {
+            Text(stringResource(R.string.wm_objective_label), color = Color(0xFFFFCC80), fontSize = 10.sp,
+                fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        }
         Text(stringResource(objective.titleRes), color = Color.White, fontSize = 13.sp,
             fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         if (done) {
             Text(stringResource(R.string.wm_objective_done), color = Color(0xFF7CE38B), fontSize = 11.sp, textAlign = TextAlign.Center)
-        } else {
+        } else if (!compact) {
             val distText = when {
                 distM == null -> stringResource(objective.descriptionRes)
                 distM >= 1000 -> stringResource(R.string.wm_dist_km, String.format(java.util.Locale.US, "%.1f", distM / 1000.0))

@@ -71,6 +71,12 @@ object Mission2 {
     const val HIDE_DURATION_MS = 35_000L     // cuánto dura la búsqueda antes de que se rindan
     const val HIDE_COP_SPEED_PX = 3.4f       // patrullan caminando (px/tick, ~AMBIENT_SPEED)
     const val HIDE_SWEEP_EVERY_MS = 7_000L   // cada tanto, UN policía barre hacia tu posición
+    // Tope de seguridad de la RETIRADA: si un policía se atora contra una colisión del lobby
+    // (p. ej. los autos del estacionamiento) camino a la puerta, la fase quedaba SIN completar
+    // para siempre ("los pierdo y no pasa nada", QA 2026-07-13). Pasado este extra tras la
+    // rendición, los rezagados desaparecen y la fase se da por CUMPLIDA (mismo espíritu que el
+    // tope de 12 s de la escena del brote).
+    const val HIDE_EVAC_TIMEOUT_MS = 10_000L
     // Fase 2 · RUMOR: hay que estar a < LISTEN para que la conversación AVANCE (si te alejas,
     // se PAUSA y se retoma donde iba). Una línea cada CONVO_LINE_MS.
     const val LISTEN_DEG = 0.00016           // ~18 m

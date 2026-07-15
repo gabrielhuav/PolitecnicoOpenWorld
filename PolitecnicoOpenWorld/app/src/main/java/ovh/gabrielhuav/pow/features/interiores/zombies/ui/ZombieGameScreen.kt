@@ -1032,6 +1032,17 @@ fun ZombieGameScreen(
             // para que NUNCA se traslapen: el objetivo puede ser de varias líneas (p. ej. "Policía
             // en el lobby: aguanta X s sin que te vean") y con posiciones fijas se encimaban.
             if (interiorObjective != null || state.mission2HideRemainingSec != null) {
+                // QA 2026-07-13: la tarjeta completa (etiqueta + título + descripción) encima del
+                // countdown tapaba media pantalla durante la búsqueda policial. Se muestra completa
+                // unos segundos (para leer QUÉ hacer) y luego se PLIEGA a solo el título.
+                var objectiveCompact by remember { mutableStateOf(false) }
+                LaunchedEffect(interiorObjective?.id) {
+                    objectiveCompact = false
+                    if (interiorObjective != null) {
+                        delay(6000)
+                        objectiveCompact = true
+                    }
+                }
                 Column(
                     Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -1041,7 +1052,8 @@ fun ZombieGameScreen(
                         ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
                             objective = obj,
                             done = false,
-                            playerLocation = null
+                            playerLocation = null,
+                            compact = objectiveCompact
                         )
                     }
                     state.mission2HideRemainingSec?.let { secs ->
@@ -1049,11 +1061,12 @@ fun ZombieGameScreen(
                             stringResource(R.string.zgame_hide_countdown, secs),
                             color = Color(0xFFFFCDD2),
                             fontWeight = FontWeight.Black,
-                            fontSize = 14.sp,
+                            fontSize = 12.sp,
                             textAlign = TextAlign.Center,
                             modifier = Modifier
-                                .background(Color(0xCC3B0D1B), RoundedCornerShape(10.dp))
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                                .alpha(0.85f)
+                                .background(Color(0xB33B0D1B), RoundedCornerShape(10.dp))
+                                .padding(horizontal = 12.dp, vertical = 5.dp)
                         )
                     }
                 }
