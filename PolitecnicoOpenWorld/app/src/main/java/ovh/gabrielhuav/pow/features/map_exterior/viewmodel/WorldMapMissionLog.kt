@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog
 import ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
 import ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3
+import ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODO HISTORIA · REGISTRO / SELECTOR DE MISIONES (estilo Witcher 3).
@@ -175,23 +176,29 @@ internal fun WorldMapViewModel.endMissionReplay() {
 /**
  * MODO DESARROLLADOR · "TP al objetivo" = TP al CHECKPOINT de la fase ACTUAL (2026-07-12).
  *
- * Semántica (petición del dueño): el TP te lleva al LUGAR REAL donde se juega la fase actual de
- * la misión — una SALA de interiores o un punto del MAPA — con los REQUISITOS de esa fase ya
- * concedidos (p. ej. la llave correcta del laboratorio en la M1, o Prankedy a tu lado en la
- * escolta). **NO completa objetivos ni salta fases**: tú juegas la fase desde ahí, y al cumplirla
- * el siguiente TP te lleva al siguiente checkpoint. Funciona desde el MAPA y desde INTERIORES:
- * la navegación pendiente viaja en `WorldMapState.devTpRoute` y la ejecuta AppNavGraph (pop a
- * world_map y, si aplica, navigate a la sala). ⚠️ NO recuperar el viejo comportamiento de
- * "forzar avance de fase / completeMission*" desde aquí: eso completaba la misión en vez de
- * llevarte al objetivo (bug reportado 2026-07-12).
+ * Semántica (petición del dueño, refinada 2026-07-13b): el TP CUMPLE el objetivo ACTUAL y te
+ * lleva al LUGAR donde se juega el SIGUIENTE — una SALA de interiores o un punto del MAPA:
+ *  · Si el objetivo pide un ÍTEM, se te da en el INVENTARIO y se quita del mapa (p. ej. la llave
+ *    correcta del laboratorio en la M1; `lab1KeyFound=true` evita que se siembre en lab1).
+ *  · En la M2, CADA TP completa la fase en curso (perder a la policía / rumor / brote / plática,
+ *    `devCompleteMission2Phase`) y te deja en el punto de la siguiente — sin esto el TP te
+ *    regresaba a la persecución una y otra vez (QA 2026-07-13).
+ *  · La ÚLTIMA fase de una misión (p. ej. la mochila) NO se completa: el TP te deja en la escena
+ *    y la juegas tú. ⚠️ NUNCA completar misiones enteras desde aquí (bug 2026-07-12).
+ * Funciona desde el MAPA y desde INTERIORES: la navegación pendiente viaja en
+ * `WorldMapState.devTpRoute` y la ejecuta AppNavGraph (pop a world_map y, si aplica, navigate a
+ * la sala).
  *
  * Checkpoints por misión:
- *  - M1 · `ir_encb`  → sala `encb_lab2` CON `currentInteriorLab1KeyFound=true` (el waypoint del
- *    fondo dispara la 2ª secuencia de cómic ENCB_OUTRO y la historia sigue con la escolta).
+ *  - M1 · `ir_encb`  → sala `encb_lab2` CON la llave correcta EN EL INVENTARIO y
+ *    `currentInteriorLab1KeyFound=true` (el waypoint del fondo dispara la 2ª secuencia de cómic
+ *    ENCB_OUTRO y la historia sigue con la escolta).
  *  - M1 · `escoltar_prankedy` → mapa cerca de la puerta ESCOM + Prankedy invocado/warpeado a ti.
  *  - M1 · `ingresar_escom` → mapa cerca de la puerta. · `buscar_pistas_escom` → lobby ESCOM.
- *  - M2 · fases ESCONDERSE/RUMOR → lobby ESCOM (ahí se juegan). · BROTE/PLÁTICA → mapa (coords
- *    de la escena). · MOCHILA → salón `escom_salon_m2`.
+ *  - M2 · el TP cumple la fase actual y te deja en la SIGUIENTE: esconderse→rumor (lobby ESCOM),
+ *    rumor→brote (mapa), brote→plática (mapa, Prankedy ya spawneado), plática→mochila (salón
+ *    `escom_salon_m2`; el cómic de la mochila se consume para no chocar con la navegación del
+ *    TP). En la fase mochila el TP solo te lleva al salón (se juega).
  *  - M3 · VIAJE/INFILTRACIÓN → mapa (ENCB). · ASALTO → cadena `encb_lobby` (evidencia en lab1).
  *  - Secundarias → mapa (su objetivo actual).
  */
@@ -205,27 +212,40 @@ fun WorldMapViewModel.devTeleportToMissionObjective(missionId: String) {
     }
     toggleMissionLog(false)
 
-    // 2) Objetivo de la FASE actual (selectCampaign/replay ya fijaron currentObjective).
+    // 2) CUMPLIR el objetivo ACTUAL de la M2 (petición del dueño 2026-07-13b): cada TP completa
+    //    la fase en curso (perder a la policía / rumor / brote / plática) y te lleva al punto de
+    //    la SIGUIENTE. La última fase (mochila) NO se completa: el TP te deja en el salón a
+    //    jugarla — la misión nunca se completa por TP.
+    if (missionId == MissionCatalog.MISSION_2_ID &&
+        mission2Phase in Mission2.PHASE_HIDE..Mission2.PHASE_TALK) {
+        devCompleteMission2Phase()
+    }
+
+    // 3) Objetivo de la FASE actual (selectCampaign/replay/auto-cumplido ya fijaron currentObjective).
     val s = _uiState.value
     val obj = if (MissionCatalog.missionIdForObjective(s.currentObjective?.id) == missionId)
         s.currentObjective
     else
         MissionCatalog.firstObjectiveOf(missionId)
 
-    // 3) ¿El checkpoint de esta fase se juega en un INTERIOR? → sala + requisitos concedidos.
+    // 4) ¿El checkpoint de esta fase se juega en un INTERIOR? → sala + requisitos concedidos.
     val zc = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
     val interiorRoom: String? = when {
-        // M1 · exploración de la ENCB: el checkpoint es el LABORATORIO FINAL con la llave YA
-        // probada (requisito concedido) — cruzas el waypoint tú mismo y sigue el cómic/escolta.
+        // M1 · exploración de la ENCB: el checkpoint es el LABORATORIO FINAL con la llave
+        // correcta EN EL INVENTARIO (y quitada del salón: con lab1KeyFound=true lab1 ya no
+        // siembra llaves) — cruzas el waypoint tú mismo y sigue el cómic/escolta.
         missionId == MissionCatalog.MISSION_1_ID && obj?.id == MissionCatalog.IR_ENCB.id -> {
             currentInteriorLab1KeyFound = true
+            currentInteriorInventory =
+                currentInteriorInventory.filterNot { KeyDrop.entryMission(it) == KeyDrop.MISSION_1 } +
+                    KeyDrop.inventoryEntry(KeyDrop.MISSION_1, KeyDrop.LAB1_CORRECT_KEY)
             zc.ENCB_LAB2_ID
         }
         missionId == MissionCatalog.MISSION_1_ID && obj?.id == MissionCatalog.BUSCAR_PISTAS_ESCOM.id ->
             zc.LOBBY_ID
-        // M2 · fases 1-2 (esconderse / rumor) se juegan DENTRO del lobby de la ESCOM.
-        missionId == MissionCatalog.MISSION_2_ID &&
-            (mission2Phase == Mission2.PHASE_HIDE || mission2Phase == Mission2.PHASE_RUMOR) ->
+        // M2 · fase RUMOR se juega DENTRO del lobby de la ESCOM (a ESCONDERSE ya no se llega:
+        // el paso 2 la cumple y aquí la fase es al menos RUMOR).
+        missionId == MissionCatalog.MISSION_2_ID && mission2Phase == Mission2.PHASE_RUMOR ->
             zc.LOBBY_ID
         // M2 · fase MOCHILA: el salón EN CLASES (ahí lanzas la lata y recoges la mochila).
         missionId == MissionCatalog.MISSION_2_ID && mission2Phase == Mission2.PHASE_BACKPACK ->
@@ -245,7 +265,7 @@ fun WorldMapViewModel.devTeleportToMissionObjective(missionId: String) {
         return
     }
 
-    // 4) Checkpoint de MAPA: TP CERCA del objetivo (~0.00036° ≈ 40 m al norte, para no caer
+    // 5) Checkpoint de MAPA: TP CERCA del objetivo (~0.00036° ≈ 40 m al norte, para no caer
     //    encima del trigger — el jugador camina el último tramo y la fase se juega, no se salta).
     if (obj == null) return
     if (currentInteriorRoomId != null) {

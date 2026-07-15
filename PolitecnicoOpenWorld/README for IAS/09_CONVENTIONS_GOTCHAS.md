@@ -932,15 +932,21 @@ matrices por defecto son **border-only** hasta reemplazarse.
 - **🆕 REJUGAR MISIONES + MODO DEV en el registro (2026-07-04b) — reglas:** las ✔ COMPLETADAS
   ganan botón **REJUGAR** (`replayCampaignMission`); con `developerMode` además: las 🔒 son
   seleccionables (`selectCampaignMission(id, force=true)` salta `requiresMissionId`) y cada misión
-  tiene **"TP al objetivo"** (`devTeleportToMissionObjective`). 🆕 2026-07-12: el TP es **TP al
-  CHECKPOINT de la fase ACTUAL**: sigue la misión primero (force / replay si ✔) y te lleva al
-  **LUGAR REAL donde se juega la fase** — una SALA de interiores (M1 `ir_encb`→`encb_lab2` CON
-  `currentInteriorLab1KeyFound=true` para que el waypoint dispare el cómic ENCB_OUTRO; M1 pistas /
-  M2 esconderse/rumor→lobby ESCOM; M2 mochila→`escom_salon_m2`; M3 asalto→cadena ENCB) o un punto
-  del MAPA (+~40 m N del 🎯; escolta M1 = además warpea a Prankedy contigo,
-  `devEnsurePrankedyEscort`). **NUNCA completa objetivos ni salta fases** (⚠️ el comportamiento
-  viejo llamaba `completeMission2Backpack`/`completeMission3Evidence` desde interiores — NO
-  recuperarlo). Funciona desde mapa E interiores: la navegación viaja en
+  tiene **"TP al objetivo"** (`devTeleportToMissionObjective`). 🆕 2026-07-12 (+refinado
+  2026-07-13): el TP es **TP al CHECKPOINT de la fase ACTUAL con el requisito BLOQUEANTE
+  concedido**: sigue la misión primero (force / replay si ✔) y te lleva al **LUGAR REAL donde se
+  juega la fase** — una SALA de interiores (M1 `ir_encb`→`encb_lab2` CON la llave correcta **en el
+  inventario** (`KeyDrop.LAB1_CORRECT_KEY`) y `currentInteriorLab1KeyFound=true` — así el waypoint
+  dispara el cómic ENCB_OUTRO y lab1 ya no siembra llaves; M1 pistas / M2 rumor→lobby ESCOM; M2
+  mochila→`escom_salon_m2`; M3 asalto→cadena ENCB) o un punto del MAPA (+~40 m N del 🎯; escolta
+  M1 = además warpea a Prankedy contigo, `devEnsurePrankedyEscort`). 🆕 2026-07-13b: en la M2
+  **cada TP CUMPLE la fase actual** (esconderse/rumor/brote/plática → `devCompleteMission2Phase`,
+  que reusa `advanceM2Phase` y consume el cómic de la mochila para no chocar con la navegación
+  del TP) **y te deja en el punto de la SIGUIENTE** — antes el TP te regresaba a la persecución
+  sin salida. La ÚLTIMA fase (mochila) NO se completa: el TP te deja en el salón y la juegas.
+  **NUNCA completa la MISIÓN entera** (⚠️ el comportamiento viejo llamaba
+  `completeMission2Backpack`/`completeMission3Evidence` desde interiores — NO recuperarlo).
+  Funciona desde mapa E interiores: la navegación viaja en
   `WorldMapState.devTpRoute` (sala o sentinela `DEV_TP_TO_MAP`) y la ejecuta un efecto junto a
   `MissionLogHost` en AppNavGraph (pop a world_map + navigate; colecta solo ese campo).
   **REGLA DURA — el replay NO toca el progreso guardado.** Diseño:

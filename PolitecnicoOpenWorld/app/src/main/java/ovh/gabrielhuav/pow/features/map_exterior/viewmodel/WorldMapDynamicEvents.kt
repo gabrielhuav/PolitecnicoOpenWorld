@@ -55,7 +55,10 @@ private fun dynDist(aLat: Double, aLon: Double, bLat: Double, bLon: Double): Dou
 // ── TICK PRINCIPAL (lo llama el game loop MIEMBRO; early-outs baratos) ──
 internal fun WorldMapViewModel.runDynamicEventsTick(playerLoc: GeoPoint) {
     // No competir con el apocalipsis ni con escenas scriptadas de misión; ni en interiores.
-    if (_uiState.value.globalZombieMode) { if (dynamicEventType != DYN_EVT_NONE) clearDynamicEvent(); return }
+    if (_uiState.value.globalZombieMode) {
+        if (dynamicEventType != DYN_EVT_NONE) clearDynamicEvent()
+        return
+    }
     if (currentInteriorRoomId != null) return
     if (isCampaignEscortActive() || isMission1ChaseActive() ||
         isMission2StoryActive() || isMission3StoryActive()) {

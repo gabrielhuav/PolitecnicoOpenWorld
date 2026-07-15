@@ -40,7 +40,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "9.4.1"
+          # "wrapper" = usa la version declarada en gradle-wrapper.properties del repo.
+          # (Fallo 2026-07-15: el pin "9.4.1" quedo atras cuando el proyecto subio a
+          # AGP 9.3.0 + Gradle 9.5.0 — AGP 9.3 exige Gradle >= 9.5 y el job moria al
+          # configurar. Con "wrapper" ya no hay que tocar el YAML en cada upgrade.)
+          gradle-version: wrapper
       - name: Create secrets.properties (Maps API key; vacio es valido para tests)
         run: |
           echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
@@ -86,7 +90,10 @@ jobs:
         run: |
           curl -sSL -o detekt-cli.zip \
             "https://github.com/detekt/detekt/releases/download/v${DETEKT_VERSION}/detekt-cli-${DETEKT_VERSION}.zip"
-          unzip -q detekt-cli.zip
+          # -o = sobreescribir SIN preguntar: el zip de detekt trae entradas duplicadas y el
+          # prompt interactivo de unzip ("replace ...-all.jar?") moria con EOF → exit 1
+          # (fallo reportado 2026-07-15: el job caia ANTES de analizar nada).
+          unzip -q -o detekt-cli.zip
       - name: Run detekt (advisory)
         run: |
           BASELINE_ARG=""

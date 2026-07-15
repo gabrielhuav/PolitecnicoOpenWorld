@@ -21,6 +21,19 @@ import java.util.UUID
 // El ESTADO sigue en el ViewModel; aquí solo hay lógica (extensiones internal).
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─── INVENTARIO EN EL MAPA (mantener Y, 🆕 2026-07-13) ──────────────────────
+// Panel de SOLO LECTURA con los objetos de misión (llave M1 / lata M2): mismos datos que el
+// inventario de interiores (currentInteriorInventory). Probar/desechar siguen siendo de
+// interiores (ahí vive la lógica del puzzle).
+fun WorldMapViewModel.toggleWorldInventory(show: Boolean) {
+    _uiState.update { it.copy(showWorldInventory = show) }
+}
+
+/** Slots desbloqueados para el panel del mapa (mismo gate que AppNavGraph: mochila M2 = 4). */
+fun WorldMapViewModel.worldInventoryUnlockedSlots(): Int =
+    if (mission2Phase >= ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_DONE ||
+        campaignManager.isCompleted(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_2_ID)) 4 else 2
+
 internal fun WorldMapViewModel.onInteractButtonPressed() {
         val loc = _uiState.value.currentLocation ?: return
 
@@ -162,17 +175,10 @@ internal fun WorldMapViewModel.handleInteraction() {
                 // aquí). Usa `contains` (no match exacto) para tolerar variantes/acentos al
                 // colocar la puerta en el Diseñador; si nada casa, cae a DEFAULT_ROUTE (lobby
                 // ESCOM). Para añadir un edificio enterable, edita InteriorEntryCatalog. Ver 04/06.
-                val baseRoute = ovh.gabrielhuav.pow.domain.models.map.InteriorEntryCatalog.routeForDoorName(nearby.name)
-                // MISIÓN 2 · fase MOCHILA: la puerta de la ESCOM lleva DIRECTO al salón donde
-                // Prankedy escondió su mochila (sala en clases; lata apestosa). Solo aplica a la
-                // ruta default de ESCOM (las puertas de FES/Neza no se tocan).
-                val targetRoute = if (
-                    mission2Phase == ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_BACKPACK &&
-                    baseRoute == ovh.gabrielhuav.pow.domain.models.map.InteriorEntryCatalog.DEFAULT_ROUTE
-                ) {
-                    "interiores_zombies?startRoom=" +
-                        ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ESCOM_SALON_M2_ID
-                } else baseRoute
+                val targetRoute = ovh.gabrielhuav.pow.domain.models.map.InteriorEntryCatalog.routeForDoorName(nearby.name)
+                // MISIÓN 2 · fase MOCHILA (🆕 2026-07-13): la puerta de la ESCOM YA NO redirige
+                // al salón — se entra por el flujo normal (lobby → Edificio Principal → salón,
+                // puertas en ZombieRoomCatalog). El TP del modo dev sí va directo (devTpRoute).
                 // MODO HISTORIA · Misión 2 "Ingresa a la ESCOM": se cumple al ENTRAR por la puerta
                 // (este es el momento de "ingresar"). Marca el objetivo cumplido + jingle.
                 if (_uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id

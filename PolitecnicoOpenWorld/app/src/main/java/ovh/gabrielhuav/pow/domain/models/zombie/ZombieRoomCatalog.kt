@@ -29,10 +29,11 @@ object ZombieRoomCatalog {
     const val ENCB_LAB2_ID = "encb_lab2"
 
     // MODO HISTORIA · MISIÓN 2 (fase MOCHILA): salón de la ESCOM donde Prankedy escondió su
-    // mochila. Sala STANDALONE tipo LOBBY (sin zombis) EN CLASES: los NPCs ambientales
-    // (estudiantes IPN/docente) están dentro y SOLO salen al lanzar la LATA APESTOSA; entonces
-    // aparece la mochila 🎒. Se entra por la puerta de la ESCOM SOLO durante esa fase
-    // (WorldMapInteractions redirige la ruta) y su única puerta regresa al mapa.
+    // mochila. Sala tipo LOBBY (sin zombis) EN CLASES: los NPCs ambientales (estudiantes
+    // IPN/docente) están dentro y SOLO salen al lanzar la LATA APESTOSA (ítem del inventario);
+    // entonces aparece la mochila 🎒. 🆕 2026-07-13: se entra por el flujo NORMAL de interiores
+    // — lobby ESCOM → Edificio Principal (za_edificio) → este salón — (antes la puerta exterior
+    // redirigía directo; eso quedó solo para el TP del modo dev) y su puerta regresa al edificio.
     const val ESCOM_SALON_M2_ID = "escom_salon_m2"
 
     // Salas del Modo Historia de la ENCB. ZombieGameScreen pinta el banner de objetivo
@@ -88,11 +89,18 @@ object ZombieRoomCatalog {
 
         val next = buildingOrder[(index + 1) % buildingOrder.size]
         val prev = buildingOrder[(index - 1 + buildingOrder.size) % buildingOrder.size]
-        return listOf(
-            ZoneDoor(NormRect(0.40f, 0.86f, 0.60f, 0.99f), LOBBY_ID, "Volver al Lobby", DoorKind.GENERIC),
-            ZoneDoor(NormRect(0.90f, 0.38f, 0.99f, 0.56f), next, "EXIT →", DoorKind.EXIT_NEXT),
-            ZoneDoor(NormRect(0.01f, 0.38f, 0.10f, 0.56f), prev, "← EXIT", DoorKind.EXIT_PREV)
-        )
+        return buildList {
+            add(ZoneDoor(NormRect(0.40f, 0.86f, 0.60f, 0.99f), LOBBY_ID, "Volver al Lobby", DoorKind.GENERIC))
+            add(ZoneDoor(NormRect(0.90f, 0.38f, 0.99f, 0.56f), next, "EXIT →", DoorKind.EXIT_NEXT))
+            add(ZoneDoor(NormRect(0.01f, 0.38f, 0.10f, 0.56f), prev, "← EXIT", DoorKind.EXIT_PREV))
+            // 🆕 MISIÓN 2 (2026-07-13): el salón de la mochila cuelga del EDIFICIO PRINCIPAL (el
+            // de salones): lobby → za_edificio → escom_salon_m2 (ya no se entra por redirect de
+            // la puerta exterior). La puerta existe SIEMPRE: fuera de la fase el salón es un aula
+            // normal en clases (sin la lata en el inventario no pasa nada ahí).
+            if (buildingOrder[index] == "za_edificio") {
+                add(ZoneDoor(NormRect(0.40f, 0.02f, 0.60f, 0.16f), ESCOM_SALON_M2_ID, "Salón 2009", DoorKind.GENERIC))
+            }
+        }
     }
 
     private fun buildingDisplayName(id: String) = when (id) {
@@ -186,8 +194,9 @@ object ZombieRoomCatalog {
         add(encbStoryRoom(ENCB_LAB2_ID,   "Lab. ENCB 2", "INTERIORS/ENCB/ENCB_lab2.webp",   nextTargetId = EXIT_TO_STORY_OUTRO, prevTargetId = ENCB_LAB1_ID, playerScaleMul = 3f))
         // ─── MISIÓN 2 · SALÓN DE LA MOCHILA (ESCOM) ──────────────────────────
         // Reusa el fondo de salón de la ENCB (mismo estilo de aula; sin asset propio todavía).
-        // Única puerta = salida al mapa (abajo). Los estudiantes "en clase" son NPCs ambientales
-        // (ZombieAmbientNpcs); la lata apestosa y la mochila viven en el VM de interiores.
+        // Única puerta = regreso al EDIFICIO PRINCIPAL (🆕 2026-07-13; antes salía directo al
+        // mapa). Los estudiantes "en clase" son NPCs ambientales (ZombieAmbientNpcs); la lata
+        // apestosa y la mochila viven en el VM de interiores.
         add(
             ZombieRoom(
                 id = ESCOM_SALON_M2_ID,
@@ -199,7 +208,7 @@ object ZombieRoomCatalog {
                 zoom = 1.0f,
                 playerSpawnFrac = NormPoint(0.50f, 0.85f),
                 doors = listOf(
-                    ZoneDoor(NormRect(0.42f, 0.86f, 0.58f, 0.98f), EXIT_TO_WORLD, "Salir al mapa", DoorKind.TO_WORLD)
+                    ZoneDoor(NormRect(0.42f, 0.86f, 0.58f, 0.98f), "za_edificio", "← Volver al edificio", DoorKind.GENERIC)
                 ),
                 zombieCount = 0,
                 gridCols = 30,

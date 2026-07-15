@@ -100,12 +100,13 @@ data class ZombieGameState(
     val mission3EvidenceTaken: Boolean = false,
 
     // ─── INVENTARIO ───────────────────────────────────────────────────────
-    // `inventoryUnlockedSlots` slots USABLES (1 al inicio; TODOS al recuperar la mochila de
-    // Prankedy — Misión 2); el resto se muestran bloqueados (rojo). `inventoryKeys` = entradas
-    // "misión|asset" recogidas. Se GUARDA en las partidas (junto con lab1KeyFound). Abre con Y.
+    // `inventoryUnlockedSlots` slots USABLES (2 al inicio — llave M1 + lata M2 conviven —;
+    // TODOS al recuperar la mochila de Prankedy — Misión 2); el resto se muestran bloqueados
+    // (rojo). `inventoryKeys` = entradas "misión|asset" recogidas. Se GUARDA en las partidas
+    // (junto con lab1KeyFound). Abre con Y.
     val showInventory: Boolean = false,
     val inventoryKeys: List<String> = emptyList(),
-    val inventoryUnlockedSlots: Int = 1,
+    val inventoryUnlockedSlots: Int = 2,
     // MISIÓN 3 (recompensa): sin arma de fuego, el modo RANGED está BLOQUEADO (solo campaña;
     // fuera de campaña/multijugador llega true desde AppNavGraph).
     val firearmUnlocked: Boolean = true,

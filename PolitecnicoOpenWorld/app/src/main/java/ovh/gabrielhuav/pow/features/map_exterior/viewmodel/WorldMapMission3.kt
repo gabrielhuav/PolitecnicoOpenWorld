@@ -154,7 +154,7 @@ private fun WorldMapViewModel.tickM3Infiltrate(playerLoc: GeoPoint, now: Long) {
     // Prankedy te ESCOLTA durante toda la infiltración. El BROTE (zombis + contención policial)
     // solo aparece cuando llegas MUY cerca de la ENCB (zona de guerra); una vez armado, corre su tick.
     ensureM3PrankedyEscort(playerLoc, now)
-    armM3BroteIfClose(playerLoc, now)
+    armM3BroteIfClose(playerLoc)
     if (mission3BroteArmed) tickM3Brote(playerLoc, now)
 
     // PATRULLA del cordón: cada granadero orbita su PUESTO del anillo (arco corto, determinista
@@ -278,7 +278,7 @@ private fun WorldMapViewModel.ensureM3PrankedyEscort(playerLoc: GeoPoint, now: L
 
 // ARMA el brote SOLO cuando el jugador está MUY cerca de la ENCB (zona de guerra): siembra zombis
 // (arte "estudiante zombi") + policías de CONTENCIÓN que los pelean. One-shot por intento.
-private fun WorldMapViewModel.armM3BroteIfClose(playerLoc: GeoPoint, now: Long) {
+private fun WorldMapViewModel.armM3BroteIfClose(playerLoc: GeoPoint) {
     if (mission3BroteArmed) return
     if (m3Dist(playerLoc.latitude, playerLoc.longitude, Mission3.ENCB_LAT, Mission3.ENCB_LON) > M3_BROTE_TRIGGER_DEG) return
     mission3BroteArmed = true

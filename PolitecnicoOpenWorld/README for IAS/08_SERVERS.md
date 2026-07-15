@@ -237,8 +237,29 @@ Repo en el navegador → **Settings** → **Secrets and variables** → **Action
 ### Caveats (Play Store)
 - El **primer** release de un track se crea **a mano** una vez en Play Console (ya hecho: la app está en producción/prueba cerrada). La API ya puede subir a la pista existente.
 - La service account necesita permiso **"Release apps to testing tracks"**.
-- `versionCode` SIEMPRE mayor que el último subido a Play (va a mano en `build.gradle.kts`); súbelo en cada PR de release.
+- `versionCode` SIEMPRE mayor que el último subido a Play (va a mano en `build.gradle.kts`, hoy = 11, con override por env `APP_VERSION_CODE`); súbelo en cada PR de release.
 - Si tu pista cerrada tiene **nombre propio** (no "alpha"), cámbialo en `track:` del workflow.
 - ⚠️ **El workflow nuevo debe estar EN `main`** para que dispare en merges futuros (como cualquier cambio de workflow):
   mergéalo una vez y a partir de ahí cada PR mergeado a `main` sube su AAB. **Recuerda subir el `versionCode` en cada PR**
   que quieras publicar; si mergeas sin subirlo, el job de Play falla por versionCode duplicado (el APK debug sí se genera).
+- 🆕 (2026-07-15) **`gradle-version: wrapper` en los 3 jobs** (gate + release + playstore): usa la versión de
+  `gradle-wrapper.properties`. El pin fijo `"9.4.1"` rompió el CI cuando el repo subió a AGP 9.3.0 + Gradle 9.5.0
+  (AGP 9.3 exige Gradle ≥ 9.5) — NO volver a fijar la versión a mano. En el gate, el unzip de detekt lleva `-o`
+  (su zip trae entradas duplicadas; el prompt interactivo moría con EOF → exit 1).
+
+### 🔑 Firebase · huellas SHA (Play App Signing + cambiar de PC) — PENDIENTE del dueño
+El login con Google (Firebase Auth) valida la firma del APK contra las huellas registradas en Firebase.
+Hay que registrar **TODAS** estas huellas en **Firebase Console → Project settings → General → app Android
+(`ovh.gabrielhuav.pow`) → "Add fingerprint"** (SHA-1 **y** SHA-256 de cada una):
+
+1. **La clave de FIRMA DE PLAY (App Signing)** — ⚠️ la más importante y la que faltaba: Play RE-FIRMA el AAB
+   con su propia clave, así que los builds instalados desde la prueba cerrada NO llevan tu firma de upload.
+   Cópialas de **Play Console → (tu app) → Setup → App integrity → App signing → "App signing key
+   certificate"** (SHA-1 y SHA-256). Sin esto, el login con Google FALLA en los builds bajados de Play.
+2. **Tu clave de UPLOAD/release** (`llave_pow.jks`): `keytool -list -v -keystore llave_pow.jks -alias <alias>`.
+3. **El debug.keystore de CADA PC de desarrollo** (cada máquina genera el suyo en `%USERPROFILE%\.android\`):
+   `keytool -list -v -keystore "%USERPROFILE%\.android\debug.keystore" -alias androiddebugkey -storepass android`.
+   Alternativa al cambiar de PC: copiar el `debug.keystore` viejo a la máquina nueva (misma huella, cero altas).
+
+Tras agregar huellas: **re-descargar `google-services.json`** desde Firebase, reemplazar `app/google-services.json`
+local y actualizar el secret `GOOGLE_SERVICES_JSON` (base64) — el json incluye los certificate_hash.

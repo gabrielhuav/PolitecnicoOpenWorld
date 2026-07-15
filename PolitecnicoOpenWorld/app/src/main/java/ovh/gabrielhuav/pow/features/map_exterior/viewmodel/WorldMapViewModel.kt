@@ -261,7 +261,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal val MAX_SPEED = 0.000017
     internal val ACCELERATION = 0.0000003
     internal val BRAKING_FRICTION = 0.000001
-    internal val INTERACT_RADIUS = 0.00018   // ~18 m: hay que estar realmente junto al auto
+    internal val INTERACT_RADIUS = 0.00008   // ~9 m (🆕 2026-07-13, antes ~18 m: te subía a autos "medio lejos")
 
     internal val PLAYER_PUNCH_DAMAGE = 15f
     internal var lastAttackTime = 0L

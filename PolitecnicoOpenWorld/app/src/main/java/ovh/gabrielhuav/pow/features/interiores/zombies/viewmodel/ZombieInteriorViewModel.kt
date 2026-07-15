@@ -116,6 +116,12 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
     internal var mission2ConvoIndex = 0
     internal var mission2ConvoNextMs = 0L
 
+    // 🆕 2026-07-13: OBJETOS DE MISIÓN bloqueados contra desechar. true mientras las misiones
+    // 1-2 estén en curso (lo fija ZombieGameScreen en runtime, como setMission2Hide): la llave
+    // correcta de la M1 no se puede tirar (la lata de la M2 no se tira NUNCA: se consume).
+    internal var missionItemsLocked = false
+    fun setMissionItemsLocked(locked: Boolean) { missionItemsLocked = locked }
+
     /**
      * MISIÓN 2 · fase RUMOR: arma/desarma la conversación de los dos estudiantes en el lobby.
      * Si está armada, spawnea a m2rumor_a y m2rumor_b.
@@ -752,14 +758,20 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
         }
         // 1c. MISIÓN 2 · SALÓN DE LA MOCHILA (escom_salon_m2): lanzar la LATA APESTOSA (vacía el
         // salón) y, con el salón vacío, RECOGER la mochila de Prankedy. Prioridad sobre puertas.
+        // 🆕 2026-07-13: la lata es un ÍTEM DEL INVENTARIO (te la da Prankedy en la plática):
+        // lanzarla requiere TENERLA y la CONSUME. Sin lata (p. ej. entraste al salón fuera de la
+        // fase), el salón es un aula normal en clases.
         if (currentRoom().id == ZombieRoomCatalog.ESCOM_SALON_M2_ID) {
-            if (!s.mission2StinkThrown && s.ambientNpcs.isNotEmpty()) {
+            val kd = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop
+            val stinkEntry = s.inventoryKeys.firstOrNull { kd.entryAsset(it) == kd.M2_STINK_CAN }
+            if (!s.mission2StinkThrown && s.ambientNpcs.isNotEmpty() && stinkEntry != null) {
                 soundManager.playItem()
                 // La lata "cae" un poco adelante del jugador y queda tirada en el piso (🥫).
                 _state.update { it.copy(
                     mission2StinkThrown = true,
                     mission2StinkX = s.playerX,
-                    mission2StinkY = s.playerY - 30f
+                    mission2StinkY = s.playerY - 30f,
+                    inventoryKeys = it.inventoryKeys.filter { k -> k != stinkEntry }
                 ) }
                 showKeyMessage("💨 ¡Lanzaste la LATA APESTOSA! El olor es INSOPORTABLE…")
                 return
@@ -831,7 +843,10 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
 
         // Puerta de un EDIFICIO hacia el lobby de SU campus (ESCOM o FES): pide confirmación.
         // Generalizado: el destino es cualquier sala LOBBY (antes sólo el lobby de ESCOM).
-        val targetIsLobby = ZombieRoomCatalog.roomById(door.targetRoomId)?.type == ZoneType.LOBBY
+        // ⚠️ El salón de la M2 es tipo LOBBY (zona segura) pero NO es un lobby de campus:
+        // entrar del edificio al salón NO debe pedir confirmación.
+        val targetIsLobby = ZombieRoomCatalog.roomById(door.targetRoomId)?.type == ZoneType.LOBBY &&
+            door.targetRoomId != ZombieRoomCatalog.ESCOM_SALON_M2_ID
         if (targetIsLobby && room.type == ZoneType.BUILDING) {
             pendingLobbyTarget = door.targetRoomId
             _state.update { it.copy(showExitToLobbyDialog = true) }
@@ -1046,13 +1061,24 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
     /**
      * PUZZLE Misión 1: DESECHA (tira) una llave del inventario para liberar el slot. Se invoca con
      * MANTENER PULSADA la llave en el inventario. Reglas: una llave INCORRECTA se puede desechar
-     * SIEMPRE; la CORRECTA solo DESPUÉS de haberla USADO para abrir la puerta (`lab1KeyFound`), antes no.
+     * SIEMPRE; la CORRECTA solo DESPUÉS de haberla USADO para abrir la puerta (`lab1KeyFound`) Y
+     * con las misiones 1-2 ya completadas (🆕 2026-07-13, `missionItemsLocked`: es objeto de
+     * misión mientras la historia la necesita). La LATA de la M2 nunca se desecha (se consume).
      */
     fun discardInventoryKey(entry: String) {
         val s = _state.value
         if (entry !in s.inventoryKeys) return
-        val asset = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.entryAsset(entry)
-        if (asset == ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.LAB1_CORRECT_KEY && !s.lab1KeyFound) {
+        val kd = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop
+        val asset = kd.entryAsset(entry)
+        if (kd.entryMission(entry) == kd.MISSION_2) {
+            showKeyMessage("🔒 Objeto de misión: la lata se usa en el salón de la mochila (X), no se tira.")
+            return
+        }
+        if (asset == kd.LAB1_CORRECT_KEY && missionItemsLocked) {
+            showKeyMessage("🔒 Objeto de misión: no puedes desechar esta llave todavía.")
+            return
+        }
+        if (asset == kd.LAB1_CORRECT_KEY && !s.lab1KeyFound) {
             showKeyMessage("🔒 No puedes desechar esta llave todavía. Pruébala primero en la puerta (Lab 2).")
             return
         }

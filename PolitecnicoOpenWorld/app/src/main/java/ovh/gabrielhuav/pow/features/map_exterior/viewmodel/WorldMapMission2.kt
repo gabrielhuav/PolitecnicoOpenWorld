@@ -132,16 +132,34 @@ private fun WorldMapViewModel.advanceM2Phase() {
         Mission2.PHASE_TALK -> {
             mission2Phase = Mission2.PHASE_BACKPACK
             setCampaignObjective(MissionCatalog.M2_RECUPERAR_MOCHILA)
+            // 🥫 Prankedy te DA la lata apestosa: va al INVENTARIO (slot 2) y se ve con su asset;
+            // se consume al lanzarla en el salón. Idempotente (replay/TP no la duplican).
+            grantMission2StinkCan()
             // Guía explícita + CÓMIC "La mochila" (AppNavGraph lo reproduce al ver la bandera): sin
-            // esto no queda claro que hay que ENTRAR a la ESCOM (la puerta redirige al salón) y usar
-            // la lata apestosa.
+            // esto no queda claro que hay que ENTRAR a la ESCOM (lobby → Edificio Principal → salón)
+            // y usar la lata apestosa.
             _uiState.update { it.copy(
-                interactionPrompt = "🎒 Ve a la ESCOM y ENTRA: la mochila está en un salón EN CLASES. Lanza la LATA APESTOSA (X) para vaciarlo.",
+                interactionPrompt = "🎒 Ve a la ESCOM: la mochila está en un salón EN CLASES del Edificio Principal. Lanza la LATA APESTOSA (X) para vaciarlo.",
                 pendingMission2BackpackComic = true
             ) }
         }
     }
     android.util.Log.d("POW_DBG", "MISIÓN 2: avanza a fase $mission2Phase")
+}
+
+// ── MODO DEV · "TP al objetivo" (2026-07-13b): CUMPLE la fase ACTUAL y arma la SIGUIENTE. ──
+// Petición del dueño: cada TP debe completar el objetivo en curso (p. ej. perder a la policía)
+// y llevarte al punto de la siguiente fase. Reusa advanceM2Phase (limpia actores, fija el
+// objetivo siguiente, spawnea a Prankedy en TALK, prompt de la mochila en BACKPACK). La última
+// fase (MOCHILA) NO se completa desde aquí: la misión NUNCA se completa por TP (bug 2026-07-12).
+internal fun WorldMapViewModel.devCompleteMission2Phase() {
+    if (mission2Phase < Mission2.PHASE_HIDE || mission2Phase > Mission2.PHASE_TALK) return
+    advanceM2Phase()
+    // El cómic de la mochila (TALK→BACKPACK) navegaría al visor y CHOCARÍA con la navegación del
+    // propio TP (devTpRoute); se consume aquí (el cómic se ve jugando la plática normal).
+    if (_uiState.value.pendingMission2BackpackComic) consumeMission2BackpackComic()
+    soundManager.playMisionCumplida()
+    android.util.Log.d("POW_DBG", "MISIÓN 2 (dev TP): fase cumplida → $mission2Phase")
 }
 
 // ── FASE 1 · ESCONDERSE (INTERIOR): la juega el motor de interiores en el lobby de la ESCOM
@@ -479,6 +497,16 @@ private fun WorldMapViewModel.tickM2Talk(playerLoc: GeoPoint, now: Long) {
     } else {
         if (_uiState.value.storyConvoText != null) m2ClearConvo()
         mission2ConvoNextMs = 0L
+    }
+}
+
+// La LATA APESTOSA de Prankedy como ítem de inventario (idempotente). El VM de interiores la
+// consume al lanzarla (onInteract) y el cambio regresa vía onInteriorProgress.
+internal fun WorldMapViewModel.grantMission2StinkCan() {
+    val kd = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop
+    val entry = kd.inventoryEntry(kd.MISSION_2, kd.M2_STINK_CAN)
+    if (entry !in currentInteriorInventory) {
+        currentInteriorInventory = currentInteriorInventory + entry
     }
 }
 

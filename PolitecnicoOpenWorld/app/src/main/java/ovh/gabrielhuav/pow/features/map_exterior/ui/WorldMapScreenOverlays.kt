@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyHireDialog
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.WorldInventoryDialog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3EnterEncb
@@ -36,6 +37,8 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissVideo
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onEscomDoorFadeComplete
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleWorldInventory
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.worldInventoryUnlockedSlots
 
 /**
  * Overlays y diálogos superpuestos de [WorldMapScreen] (pantalla WASTED, vídeo zombi,
@@ -228,5 +231,17 @@ fun WorldMapOverlays(
                     ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID
             )
         }
+    }
+
+    // ─── 🆕 INVENTARIO EN EL MAPA (mantener Y a pie, 2026-07-13) ───────────────
+    // Panel de SOLO LECTURA con los objetos de misión (llave M1 / lata M2); los mismos datos
+    // del inventario de interiores (currentInteriorInventory). Va al FINAL = encima de los
+    // demás overlays.
+    if (uiState.showWorldInventory) {
+        WorldInventoryDialog(
+            inventoryKeys = viewModel.currentInteriorInventory,
+            unlockedSlots = viewModel.worldInventoryUnlockedSlots(),
+            onDismiss = { viewModel.toggleWorldInventory(false) }
+        )
     }
 }

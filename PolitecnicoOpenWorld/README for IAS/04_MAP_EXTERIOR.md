@@ -276,8 +276,13 @@ al pulsarlas despliegan su buscador + estaciones (`metroStations`/`metrobusStati
 para que la lista de TP no crezca de más),
 `takeDamage(amount)`, `heal(amount)`, `onClaimCollectiblePressed`, widgets (`toggleCacheWidget/FpsWidget`).
 
-> **`onInteractButtonPressed` (botón Y, MIEMBRO):** sube/baja del coche. Si no hay coche civil (CAR) en
-> `remoteEntities` dentro de `INTERACT_RADIUS`, ahora intenta **subir a una PATRULLA** (POLICE_CAR) vía
+> **`onInteractButtonPressed` (botón Y, MIEMBRO):** sube/baja del coche. 🆕 (2026-07-13) A PIE el
+> toque corto de Y actúa **al SOLTAR**; **MANTENER Y ~450 ms abre el INVENTARIO del mapa**
+> (`WorldInventoryDialog`, solo lectura: los mismos objetos que interiores vía
+> `currentInteriorInventory`; `showWorldInventory` + `toggleWorldInventory`/`worldInventoryUnlockedSlots`
+> en `WorldMapInteractions.kt`; hold en `WorldMapScreenControls`). `INTERACT_RADIUS` bajó
+> **0.00018→0.00008 (~9 m)**: te subía a autos "medio lejos". Si no hay coche civil (CAR) en
+> `remoteEntities` dentro de `INTERACT_RADIUS`, intenta **subir a una PATRULLA** (POLICE_CAR) vía
 > `policeManager.boardPatrol(id)`: la roba, difunde `POLICE_DESTROY` y fija `wantedLevel=5` (robar una
 > patrulla = máximo nivel de búsqueda). **Skin conducible:** `isDrivingPoliceCar` en `WorldMapState` hace
 > que `PlayerCharacter` dibuje el asset de `PoliceSpriteManager` (overlay común a los 3 renderers).

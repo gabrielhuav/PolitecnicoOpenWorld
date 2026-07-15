@@ -162,7 +162,13 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
                 // sale el último, la fase queda CUMPLIDA (ZombieGameScreen avisa al mundo).
                 // 🆕 2026-07-12: el countdown se OCULTA ya (null, no 0): mientras evacúan se
                 // quedaba pegado el mensaje "aguanta 0 s sin que te vean".
-                hideCops = evacuateAmbientNpcs(hideCops0, room)
+                // 🆕 2026-07-13: TOPE de la retirada — un policía atorado contra una colisión
+                // (autos del lobby) dejaba la fase SIN completar para siempre; pasado el tope,
+                // los rezagados desaparecen y la fase cumple igual.
+                hideCops = if (elapsed >= m2c.HIDE_DURATION_MS + m2c.HIDE_EVAC_TIMEOUT_MS)
+                    emptyList()
+                else
+                    evacuateAmbientNpcs(hideCops0, room)
                 hideRemaining = null
                 if (hideCops.isEmpty()) hideCompleted = true
             } else if (hideCops0.isNotEmpty()) {

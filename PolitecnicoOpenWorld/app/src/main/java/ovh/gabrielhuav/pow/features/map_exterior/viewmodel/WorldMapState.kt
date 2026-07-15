@@ -154,6 +154,10 @@ data class WorldMapState(
     val showVendorMenu: Boolean = false,
     // MODO HISTORIA: pantalla "MISIÓN FALLIDA" (cuando la policía mata a Prankedy en la escolta).
     val showMissionFailed: Boolean = false,
+    // 🆕 INVENTARIO EN EL MAPA (2026-07-13): panel de solo lectura con los objetos de misión
+    // (llaves/lata; mismos datos que interiores vía currentInteriorInventory). Abre MANTENIENDO
+    // Y a pie; el toque corto de Y sigue siendo subir/bajar del auto.
+    val showWorldInventory: Boolean = false,
 
     // ─── NIVEL DE BÚSQUEDA (estilo GTA) ──────────────────────────────────────
     // ⚠️ LOS POSEE WantedManager (Etapa 3, manager 4/6) — NO escribirlos con _uiState.update:

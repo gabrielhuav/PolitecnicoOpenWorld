@@ -64,6 +64,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3OutroC
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission1ChaseIntro
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectCampaignMission
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.failMission2Hide
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.grantMission2StinkCan
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onShineCTODiscoveryConfirmed
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
@@ -434,7 +435,9 @@ fun AppNavGraph(
                                 onInteriorProgress = { keys, found ->
                                     worldMapViewModel.currentInteriorInventory = keys
                                     worldMapViewModel.currentInteriorLab1KeyFound = found
-                                }
+                                },
+                                // Cadena ENCB = siempre Misión 1 en curso → la llave es objeto de misión.
+                                missionItemsLocked = true
                             )
                         }
 
@@ -1001,6 +1004,12 @@ val startRoom = backStackEntry.arguments?.getString("startRoom")
                                     ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_RUMOR &&
                                 wmState.currentObjective?.id ==
                                     ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_PISTA_RUMOR.id
+                            // 🥫 Salvaguarda: en la fase MOCHILA la lata debe ir en el inventario
+                            // (cubre partidas guardadas ANTES de que la lata fuera un ítem).
+                            if (worldMapViewModel.inCampaign && worldMapViewModel.mission2Phase ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_BACKPACK) {
+                                worldMapViewModel.grantMission2StinkCan()
+                            }
                             val interiorObjective = when {
                                 // MISIÓN 2 · fase ESCONDERSE: el lobby muestra su objetivo (prioridad
                                 // sobre "Busca pistas": la búsqueda policial está en curso).
@@ -1017,6 +1026,16 @@ val startRoom = backStackEntry.arguments?.getString("startRoom")
                                     ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.BUSCAR_PISTAS_ESCOM
                                 // MISIÓN 2 · fase MOCHILA: el salón muestra su propio objetivo.
                                 startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ESCOM_SALON_M2_ID ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_RECUPERAR_MOCHILA
+                                // MISIÓN 2 · fase MOCHILA por el flujo NORMAL (🆕 2026-07-13): entras
+                                // por el lobby y navegas lobby → Edificio Principal → salón; el
+                                // objetivo guía toda la sesión de interiores.
+                                worldMapViewModel.inCampaign &&
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID &&
+                                worldMapViewModel.mission2Phase ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_BACKPACK &&
+                                wmState.currentObjective?.id ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_RECUPERAR_MOCHILA.id ->
                                     ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_RECUPERAR_MOCHILA
                                 // MISIÓN 3 · ASALTO: la cadena ENCB muestra "Recupera la evidencia".
                                 mission3Assault ->
@@ -1074,10 +1093,11 @@ val startRoom = backStackEntry.arguments?.getString("startRoom")
                                 // va a la mitad en memoria, pero los slots NO se pierden → también
                                 // gatea por completedMissions. MISIÓN 3: gate del arma de fuego
                                 // (solo campaña) + modo asalto ENCB + callback de la evidencia.
+                                // 🆕 2026-07-13: default 2 slots (llave M1 + lata M2 conviven).
                                 initialUnlockedSlots = if (worldMapViewModel.mission2Phase >=
                                     ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_DONE ||
                                     ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_2_ID in
-                                        wmState.completedMissions) 4 else 1,
+                                        wmState.completedMissions) 4 else 2,
                                 firearmUnlocked = !worldMapViewModel.inCampaign || worldMapViewModel.hasFirearm,
                                 mission3Assault = mission3Assault,
                                 onMission3EvidenceRecovered = {
@@ -1101,7 +1121,12 @@ val startRoom = backStackEntry.arguments?.getString("startRoom")
                                 mission2Rumor = mission2Rumor,
                                 onMission2RumorCompleted = {
                                     worldMapViewModel.completeMission2Rumor()
-                                }
+                                },
+                                // 🆕 OBJETOS DE MISIÓN: la llave de la M1 no se desecha mientras
+                                // las misiones 1-2 estén en curso (M2 completada implica M1).
+                                missionItemsLocked = worldMapViewModel.inCampaign &&
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_2_ID !in
+                                        wmState.completedMissions
                             )
                         }
 

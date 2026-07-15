@@ -101,9 +101,12 @@ Desde el menú principal hay dos entradas (ver `07_OTHER_FEATURES.md`):
 > `completedMissions`, NO pierde `hasFirearm`/slots, y `buildSaveData` clampa las fases a DONE →
 > el progreso guardado queda intacto; abandonar con "Dejar de seguir" restaura la fase vía
 > `endMissionReplay`). Con **Modo Desarrollador**: las 🔒 son seleccionables (salta
-> `requiresMissionId`) y cada misión tiene **"TP al objetivo"** = TP al **CHECKPOINT de la fase
-> actual** (sala de interiores con requisitos concedidos — p. ej. la llave del lab de la M1 — o
-> punto del mapa a ~40 m del 🎯; NUNCA completa la fase: la juegas tú). Ver 09.
+> `requiresMissionId`) y cada misión tiene **"TP al objetivo"** (🆕 2026-07-13b): **CUMPLE el
+> objetivo actual y te deja en el punto del SIGUIENTE** — si pide un ÍTEM se te da en el
+> inventario y se quita del mapa (la llave del lab de la M1); en la M2 cada TP completa la fase
+> en curso (esconderse/rumor/brote/plática, `devCompleteMission2Phase`). La ÚLTIMA fase de cada
+> misión (p. ej. la mochila) NO se completa — el TP te deja en la escena y la juegas: NUNCA
+> completa la misión entera. Ver 09.
 
 > **⚠️ Nota de nomenclatura (RESUELTA 2026-07-03):** la fase de persecución/ingreso que en el
 > código se llamaba "Misión 2" era mecánica de la Misión 1; al implementar la Misión 2 REAL se

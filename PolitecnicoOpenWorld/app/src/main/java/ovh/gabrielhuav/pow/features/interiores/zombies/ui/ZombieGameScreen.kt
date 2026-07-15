@@ -176,7 +176,7 @@ fun ZombieGameScreen(
     // mundo completa la Misión 2 vía completeMission2Backpack; lo cablea AppNavGraph).
     onMission2BackpackRecovered: () -> Unit = {},
     // MISIÓN 2 (mochila): slots de inventario desbloqueados al entrar (1 → 4 tras la mochila).
-    initialUnlockedSlots: Int = 1,
+    initialUnlockedSlots: Int = 2,
     // MISIÓN 3 (recompensa): ¿ya tiene arma de fuego? (gate del modo RANGED; true fuera de campaña).
     firearmUnlocked: Boolean = true,
     // MISIÓN 3 (asalto ENCB): siembra zombis en la cadena ENCB + la evidencia 🧪 en encb_lab1.
@@ -190,7 +190,10 @@ fun ZombieGameScreen(
     onMission2HideCompleted: () -> Unit = {},
     onMission2HideFailed: () -> Unit = {},
     mission2Rumor: Boolean = false,
-    onMission2RumorCompleted: () -> Unit = {}
+    onMission2RumorCompleted: () -> Unit = {},
+    // 🆕 OBJETOS DE MISIÓN bloqueados contra desechar (llave M1) mientras las misiones 1-2
+    // estén en curso. Runtime, como mission2Hide.
+    missionItemsLocked: Boolean = false
 ) {
     val context = LocalContext.current
     // Modo Desarrollador: si está APAGADO se ocultan botones de prueba (Diseñador, y "Salir al mapa"
@@ -255,6 +258,7 @@ fun ZombieGameScreen(
         if (state.mission2HideFailed) onMission2HideFailed()
     }
     LaunchedEffect(mission2Rumor) { viewModel.setMission2Rumor(mission2Rumor) }
+    LaunchedEffect(missionItemsLocked) { viewModel.setMissionItemsLocked(missionItemsLocked) }
     LaunchedEffect(state.mission2RumorCompleted) {
         if (state.mission2RumorCompleted) onMission2RumorCompleted()
     }
@@ -628,8 +632,10 @@ fun ZombieGameScreen(
                     }
                 }
 
-                // Jugadores remotos
-                val rpSize = PLAYER_SPRITE_BASE * cam.scale
+                // Jugadores remotos y NPCs. `room.playerScaleMul` aplica IGUAL que al jugador:
+                // en salas con fondo que achica los sprites (salones ENCB / salón M2, ×3) los
+                // NPCs ambientales se veían diminutos junto al jugador (QA 2026-07-13).
+                val rpSize = PLAYER_SPRITE_BASE * cam.scale * room.playerScaleMul
                 state.remotePlayers.forEach { rp ->
                     if (!onScreen(rp.x, rp.y)) return@forEach
                     key(rp.id) {
@@ -946,11 +952,16 @@ fun ZombieGameScreen(
             // puerta cerrada) tiene prioridad y es transitorio.
             val keyPrompt = if (state.nearbyKeyId != null)
                 stringResource(R.string.zgame_key_prompt) else null
-            // MISIÓN 2 · salón de la mochila: prompt de la LATA APESTOSA (con la clase adentro)
-            // o de RECOGER la mochila (cuando ya apareció y estás encima).
+            // MISIÓN 2 · salón de la mochila: prompt de la LATA APESTOSA (con la clase adentro
+            // Y la lata EN EL INVENTARIO — sin ella el salón es un aula normal) o de RECOGER la
+            // mochila (cuando ya apareció y estás encima).
+            val hasStinkCan = state.inventoryKeys.any {
+                ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.entryAsset(it) ==
+                    ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.M2_STINK_CAN
+            }
             val m2Prompt = when {
                 room.id == ZombieRoomCatalog.ESCOM_SALON_M2_ID &&
-                    !state.mission2StinkThrown && state.ambientNpcs.isNotEmpty() ->
+                    !state.mission2StinkThrown && state.ambientNpcs.isNotEmpty() && hasStinkCan ->
                     stringResource(R.string.zgame_stink_prompt)
                 state.mission2BackpackNearby && !state.mission2BackpackTaken ->
                     stringResource(R.string.zgame_backpack_prompt)

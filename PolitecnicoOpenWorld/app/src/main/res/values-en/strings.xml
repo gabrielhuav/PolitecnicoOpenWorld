@@ -384,6 +384,7 @@
     <string name="zhud_inv_empty">Empty. Find and pick up a key.</string>
     <string name="zhud_inv_has_key">Key stored. Test it in Lab 2; long-press the key to discard it.</string>
     <string name="zhud_inv_test">Test</string>
+    <string name="wm_inv_readonly_hint">Mission items. They are used at their story location; here you can only view them.</string>
     <string name="zhud_inv_discard">Discard</string>
     <string name="zgame_key_prompt">🔑 There\'s a key — press ACTION to inspect it</string>
     <string name="zgame_objective_investigate">Objective: Investigate what happened</string>

@@ -275,7 +275,8 @@ fun ZombieHud(
                     // PUZZLE Misión 1: con una llave guardada SIN confirmar aún, el botón PROBAR la
                     // prueba (solo abre en Lab 2). DESECHAR ya NO es un botón: se MANTIENE PULSADA la
                     // llave en su slot (arriba). Al CONFIRMAR la correcta (lab1KeyFound) PROBAR desaparece.
-                    state.inventoryKeys.firstOrNull()?.let { heldKey ->
+                    // Solo aplica a LLAVES de la M1 (la lata de la M2 no se "prueba").
+                    state.inventoryKeys.firstOrNull { KeyDrop.entryMission(it) == KeyDrop.MISSION_1 }?.let { heldKey ->
                         if (!state.lab1KeyFound) {
                             Button(
                                 onClick = { onTestKey(heldKey) },

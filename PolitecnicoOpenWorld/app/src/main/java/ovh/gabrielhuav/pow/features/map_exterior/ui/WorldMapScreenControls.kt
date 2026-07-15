@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -29,9 +33,17 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exitGlobalZombieMode
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.handleInteraction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveCharacterByAngle
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onClaimCollectiblePressed
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onInteractButtonPressed
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleWorldInventory
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
+
+// MANTENER Y (a pie) este tiempo = abrir el INVENTARIO del mapa (paridad con interiores,
+// petición del dueño 2026-07-13). Un toque más corto = subir/bajar del auto (al SOLTAR).
+private const val Y_HOLD_INVENTORY_MS = 450L
 
 /**
  * Controles en pantalla del mundo abierto (extraído de WorldMapScreen.kt para reducir su
@@ -39,9 +51,11 @@ import ovh.gabrielhuav.pow.features.settings.models.ControlType
  * y la fila inferior de controles (D-pad/joystick de movimiento o conducción + el MISMO
  * diamante Xbox A/B/X/Y a pie y conduciendo). Es una extensión de [BoxScope] porque usa `align`.
  * MVVM: solo observa `uiState` y emite intenciones al VM.
- * TOMBSTONE (2026-07-12): el "mantener Y 3 s → menú de teletransporte" (`yButtonHoldJob`) se
+ * TOMBSTONE (2026-07-12): el "mantener Y 3 s → menú de TELETRANSPORTE" (`yButtonHoldJob`) se
  * RETIRÓ a petición del dueño — el teletransporte tiene su propio botón en el menú Mapa. NO
- * recrear la pulsación larga de Y.
+ * recrear ESE menú en Y. 🆕 2026-07-13 (también petición del dueño): mantener Y (~450 ms, a
+ * pie) ahora abre el INVENTARIO del mapa (paridad con interiores) — es un uso distinto, no el
+ * teletransporte; el toque corto de Y (al soltar) sigue siendo subir/bajar del auto.
  *
  * @param optionsExpanded si el menú de Opciones está abierto (desplaza el control de la
  *   derecha a la izquierda — en horizontal Y en vertical — para no taparlo).
@@ -133,6 +147,11 @@ fun BoxScope.WorldMapControls(
                     if (uiState.controlType == ControlType.DPAD) DPadController(modifier = m.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
                     else JoystickController(modifier = m.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
                 }
+                // 🆕 2026-07-13: Y a pie tiene DOS usos — toque corto (al SOLTAR) = subir al
+                // auto; MANTENER ~450 ms = abrir el INVENTARIO del mapa (paridad con interiores).
+                val yScope = rememberCoroutineScope()
+                var yHoldJob by remember { mutableStateOf<Job?>(null) }
+                var yPressedAtMs by remember { mutableStateOf(0L) }
                 val actionComponent = @Composable { m: Modifier ->
                     ActionButtonsController(
                         modifier = m.scale(effectiveScale),
@@ -140,10 +159,20 @@ fun BoxScope.WorldMapControls(
                             if (action == GameAction.X && isPressed) {
                                 viewModel.handleInteraction()
                             }
-                            // 🆕 2026-07-12: Y = solo subir/bajar del coche. El "mantener Y 3 s
-                            // → teletransporte" se RETIRÓ (el TP tiene su botón en el menú Mapa).
-                            if (action == GameAction.Y && isPressed) {
-                                viewModel.onInteractButtonPressed()
+                            if (action == GameAction.Y) {
+                                if (isPressed) {
+                                    yPressedAtMs = System.currentTimeMillis()
+                                    yHoldJob?.cancel()
+                                    yHoldJob = yScope.launch {
+                                        delay(Y_HOLD_INVENTORY_MS)
+                                        viewModel.toggleWorldInventory(true)
+                                    }
+                                } else {
+                                    yHoldJob?.cancel()
+                                    if (System.currentTimeMillis() - yPressedAtMs < Y_HOLD_INVENTORY_MS) {
+                                        viewModel.onInteractButtonPressed()
+                                    }
+                                }
                             }
                             viewModel.updateActionState(action, isPressed)
                         },

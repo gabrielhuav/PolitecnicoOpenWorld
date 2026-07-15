@@ -48,26 +48,37 @@ autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación 
 > `interiores_zombies?startRoom=encb_lobby` (en `MainActivity`, ruta `encb_lobby`); las transiciones internas
 > ocurren dentro del mismo `ZombieGameScreen` (mismo VM). El banner **"Objetivo: Investiga qué pasó"** se pinta
 > cuando `room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS`. Ver 06/07.
-> **🆕 SALÓN DE LA MISIÓN 2 (`ESCOM_SALON_M2_ID="escom_salon_m2"`, 2026-07-03):** sala STANDALONE tipo
-> `LOBBY` (fondo reusa `INTERIORS/ENCB/ENCB_salon1.webp`, `playerScaleMul=3f`, ÚNICA puerta = `TO_WORLD`).
-> Se entra por la puerta de la ESCOM SOLO en la fase MOCHILA de la Misión 2 (`WorldMapInteractions`
-> redirige a `interiores_zombies?startRoom=escom_salon_m2` cuando `mission2Phase==PHASE_BACKPACK`). Está
-> **EN CLASES**: `AMBIENT_ROOM_IDS` incluye la sala → `spawnAmbientNpcs` puebla estudiantes IPN/docente.
-> **X** = lanzar la **LATA APESTOSA** (`ZombieGameState.mission2StinkThrown`) → el tick usa
-> `evacuateAmbientNpcs` (corren a la puerta y desaparecen) en vez de `stepAmbientNpcs`; con el salón VACÍO
-> aparece la **mochila** (asset `CAMPAIGN/MISSION2/mochila_prankedy.png` en `mission2BackpackX/Y`; la lata
-> usa `CAMPAIGN/MISSION2/lata_apestosa.png`, ambas vía `Mission2GroundSprite`); **X** cerca la recoge
+> **🆕 SALÓN DE LA MISIÓN 2 (`ESCOM_SALON_M2_ID="escom_salon_m2"`, 2026-07-03 / rev 2026-07-13):** sala
+> tipo `LOBBY` (fondo reusa `INTERIORS/ENCB/ENCB_salon1.webp`, `playerScaleMul=3f` — 🆕 el multiplicador
+> aplica también a los NPCs ambientales vía `rpSize`, antes se veían diminutos). 🆕 Se entra por el
+> **flujo NORMAL de interiores**: lobby ESCOM → **Edificio Principal** (`za_edificio`, puerta
+> "Salón 2009" arriba-centro, solo ese edificio) → salón; su ÚNICA puerta REGRESA al edificio (ya no
+> `TO_WORLD`, y el redirect de la puerta exterior en `WorldMapInteractions` se ELIMINÓ — el TP dev sí
+> navega directo). ⚠️ El salón es tipo LOBBY pero NO es lobby de campus: edificio→salón NO pide la
+> confirmación "¿volver al lobby?" (excluido en `onInteract`). Está **EN CLASES**: `AMBIENT_ROOM_IDS`
+> incluye la sala → `spawnAmbientNpcs` puebla estudiantes IPN/docente. 🆕 La **LATA APESTOSA es un
+> ÍTEM del inventario** (`KeyDrop.MISSION_2` + `M2_STINK_CAN`; la concede `grantMission2StinkCan` al
+> pasar a la fase MOCHILA, con salvaguarda en AppNavGraph para saves viejos): **X** la lanza solo si
+> la TIENES (la consume; `mission2StinkThrown`) → el tick usa `evacuateAmbientNpcs` (corren a la
+> puerta y desaparecen) en vez de `stepAmbientNpcs`; con el salón VACÍO aparece la **mochila** (asset
+> `CAMPAIGN/MISSION2/mochila_prankedy.png` en `mission2BackpackX/Y`; la lata usa
+> `CAMPAIGN/MISSION2/lata_apestosa.png`, ambas vía `Mission2GroundSprite`); **X** cerca la recoge
 > (`mission2BackpackTaken`) → `ZombieGameScreen` dispara `onMission2BackpackRecovered` →
 > `completeMission2Backpack()` en el VM del mundo (cableado en AppNavGraph). `loadRoom` re-arma la escena
-> al reentrar (si saliste sin la mochila, vuelve a haber clase). El objetivo del salón lo muestra
-> `interiorObjective = M2_RECUPERAR_MOCHILA` (ObjectivesWidget). Ver `CAMPAIGN/02_MISSION_2.md`.
+> al reentrar (si saliste sin la mochila, vuelve a haber clase; la lata NO se re-siembra: es de inventario).
+> El objetivo lo muestra `interiorObjective = M2_RECUPERAR_MOCHILA` (ObjectivesWidget; 🆕 también con
+> `startRoom=lobby_campus` si `mission2Phase==PHASE_BACKPACK`). Ver `CAMPAIGN/02_MISSION_2.md`.
 > **🆕 MISIÓN 2 · FASE 1 "ESCONDERSE" EN EL LOBBY (2026-07-08):** la fase 1 se juega DENTRO del
 > lobby de ESCOM (`LOBBY_ID`): policías **`m2cop_*`** (skin `POLICIA_CDMX`) patrullan como NPCs
 > ambientales (`spawnMission2HideCops`/`stepMission2HideCops` en `ZombieAmbientNpcs.kt`; cada
 > ~7 s UNO barre hacia el jugador). Detección: < `HIDE_DETECT_PX` (120 px) sostenido
 > `HIDE_DETECT_MS` (2.5 s) → `mission2HideFailed`; aguantar `HIDE_DURATION_MS` (35 s) → se
-> rinden y EVACÚAN (reusa `evacuateAmbientNpcs`) → `mission2HideCompleted`. Countdown en el HUD
-> (`mission2HideRemainingSec` + string `zgame_hide_countdown`). El armado es en RUNTIME
+> rinden y EVACÚAN (reusa `evacuateAmbientNpcs`) → `mission2HideCompleted`. 🆕 (2026-07-13) tope
+> `HIDE_EVAC_TIMEOUT_MS` (10 s): si un policía se atora contra una colisión camino a la puerta,
+> los rezagados desaparecen y la fase CUMPLE igual (antes quedaba sin completar). Countdown en el
+> HUD (`mission2HideRemainingSec` + string `zgame_hide_countdown`); 🆕 el widget de objetivo de
+> interiores se PLIEGA a solo el título tras ~6 s (`ObjectivesWidget(compact)`) para no tapar la
+> acción. El armado es en RUNTIME
 > (`setMission2Hide`, NO Factory param) y los desenlaces van por callbacks
 > `onMission2HideCompleted/Failed` (AppNavGraph → `completeMission2Hide`/`failMission2Hide`).
 > Ver 09 (reglas) y `CAMPAIGN/02_MISSION_2.md`.
@@ -82,7 +93,11 @@ autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación 
 > estado); recogerla (X) → `onMission3EvidenceRecovered` + **auto-salida** al mapa (2.6 s, la
 > cadena no tiene puerta TO_WORLD). El banner "Investiga qué pasó" se SUPRIME cuando hay
 > `interiorObjective` (el asalto muestra el suyo). **INVENTARIO desbloqueable:** slots usables =
-> `state.inventoryUnlockedSlots` (1 → 4 con la mochila de la M2). **ARMA DE FUEGO:** modo RANGED
+> `state.inventoryUnlockedSlots` (🆕 2026-07-13: **2 por defecto** — llave M1 + lata M2 conviven —
+> → 4 con la mochila de la M2). 🆕 **Objetos de misión bloqueados** (`missionItemsLocked`, runtime
+> desde AppNavGraph como `mission2Hide`): la llave CORRECTA de la M1 no se puede desechar mientras
+> las misiones 1-2 estén en curso; la lata de la M2 no se desecha nunca (se consume al lanzarla) y
+> el botón PROBAR solo considera llaves de la M1. **ARMA DE FUEGO:** modo RANGED
 > bloqueado en campaña sin `hasFirearm` (recompensa M3); candado 🔒 en el menú de armas.
 > **🆕 COMBATE CONTRA NPCs AMBIENTALES (2026-07-11, paridad con el exterior):** los estudiantes/
 > docentes YA reciben golpes (antes eran intocables). `AmbientNpc` ganó `health/isDying/
