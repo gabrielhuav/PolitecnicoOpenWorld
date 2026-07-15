@@ -14,7 +14,7 @@
     <string name="menu_multiplayer">MULTIPLAYER</string>
     <string name="menu_settings">SETTINGS</string>
     <string name="menu_collectibles">COLLECTIBLES</string>
-    <string name="menu_street_fighter">STREET FIGHTER</string>
+    <string name="menu_street_fighter">HUELUM VS. GOYA</string>
     <string name="menu_mp_dialog_title">Connect to Server</string>
     <string name="menu_mp_username_label">Username</string>
     <string name="menu_mp_connect">Connect</string>
@@ -558,6 +558,25 @@
     <string name="sf_exit_message">Quit the fight and return to the main menu?</string>
     <string name="sf_exit_confirm">Leave</string>
     <string name="sf_keep_fighting">Keep fighting</string>
+    <!-- Fight mode · 1v1 multiplayer -->
+    <string name="sf_mp_button">🌐 MULTIPLAYER</string>
+    <string name="sf_mp_title">1v1 MULTIPLAYER</string>
+    <string name="sf_mp_create">CREATE ROOM</string>
+    <string name="sf_mp_join">JOIN</string>
+    <string name="sf_mp_code_label">Code</string>
+    <string name="sf_mp_cancel">Cancel</string>
+    <string name="sf_mp_connecting_title">CONNECTING…</string>
+    <string name="sf_mp_connecting_sub">Waking up the server (Render free plan): it can take up to a minute</string>
+    <string name="sf_mp_room">ROOM %1$s</string>
+    <string name="sf_mp_waiting_sub">Share the code with your rival; waiting for them to join…</string>
+    <string name="sf_mp_pick_sub">ROOM %1$s · pick your fighter</string>
+    <string name="sf_mp_host_choosing_map">The host is choosing the stage…</string>
+    <string name="sf_mp_leave_room">Leave room</string>
+    <string name="sf_mp_opp_wants_rematch">Your rival wants a rematch</string>
+    <string name="sf_mp_public">PUBLIC ROOM</string>
+    <string name="sf_mp_queue_title">WAITING LIST</string>
+    <string name="sf_mp_queue_sub">Looking for a rival in public rooms…</string>
+    <string name="sf_choose_rival">Now pick the RIVAL (CPU-controlled)</string>
 
     <!-- Controls tutorial (optional, i18n 2026-07-11) -->
     <string name="tutorial_prompt_title">Controls tutorial</string>

@@ -52,4 +52,26 @@ data class StreetFighterState(
 
     // 🆕 Selección de personaje ANTES de pelear (arranca aquí; selectCharacter la cierra)
     val inCharacterSelect: Boolean = true,
+
+    // ─── 🆕 MULTIJUGADOR 1v1 (servidor MultiplayerSF/ en Render, relay puro) ───
+    val onlineStatus: SfOnlineStatus = SfOnlineStatus.OFF,
+    val roomCode: String? = null,
+    val isHost: Boolean = false,          // el anfitrión (p1) elige el mapa y arranca a la izquierda
+    val onlineCountdown: Int = 0,         // 3-2-1 sincronizado por el servidor
+    val onlineError: String? = null,
+    val onlineMapFile: String? = null,    // mapa elegido por el anfitrión (fondo del combate)
+    val opponentWantsRematch: Boolean = false,
+    val activeRoomsInfo: String? = null,  // resumen "Salas activas: N · En espera: M"
 )
+
+/** Fase del flujo online (OFF = jugando offline contra la CPU). */
+enum class SfOnlineStatus {
+    OFF,
+    CONNECTING,        // warmup del free tier de Render + abrir WebSocket
+    WAITING_OPPONENT,  // sala creada, esperando al rival (mostrar el código)
+    SELECTING,         // ambos en sala eligiendo peleador
+    WAITING_MAP,       // personajes listos; el anfitrión elige el mapa
+    COUNTDOWN,         // 3-2-1 del servidor
+    FIGHTING,
+    OPPONENT_LEFT,     // el rival se fue (victoria por abandono / sala rota)
+}

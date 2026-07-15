@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -31,7 +32,13 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
+import ovh.gabrielhuav.pow.BuildConfig
+import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfMatchClient
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetFireball
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetMsg
+import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.random.Random
@@ -92,6 +99,21 @@ class StreetFighterViewModel @Inject constructor(
     private var koFlashTimerMs = 0L
     private var koFrame = 0
     private var endMenuAtMs = 0L
+
+    // ─── 🆕 MULTIJUGADOR 1v1 (relay puro contra MultiplayerSF/ en Render) ───
+    // Cada cliente simula a SU peleador (índice 0 local); el rival (índice 1) llega
+    // por red: posición/estado/frame/hp vía OPPONENT_STATE y el daño que ME hacen vía
+    // PLAYER_DAMAGE (autoridad del RECEPTOR sobre su propio HP).
+    private var matchClient: SfMatchClient? = null
+    @Volatile private var remoteSnapshot: SfNetMsg? = null
+    private val netDamageQueue = ConcurrentLinkedQueue<SfNetMsg>()
+    private var myOnlineChar: SfFighterId? = null
+    private var oppOnlineChar: SfFighterId? = null
+    private var lastNetSendMs = 0L
+    private var onlineEndSent = false
+    private var countdownJob: Job? = null
+    private val isOnline: Boolean get() = _state.value.onlineStatus != SfOnlineStatus.OFF
+    private val inOnlineFight: Boolean get() = _state.value.onlineStatus == SfOnlineStatus.FIGHTING
 
     private companion object {
         const val TICK_MS = 16L
@@ -232,9 +254,11 @@ class StreetFighterViewModel @Inject constructor(
 
     private fun tick(now: Long, dt: Float) {
         val s = _state.value
+        val online = s.onlineStatus == SfOnlineStatus.FIGHTING
         val sim = Sim(
             p0 = s.player, p1 = s.cpu,
-            fireballs = s.fireballs.toMutableList(),
+            // ONLINE: solo se re-simulan MIS fireballs; los del rival son render-only
+            fireballs = (if (online) s.fireballs.filter { it.ownerIndex == 0 } else s.fireballs).toMutableList(),
             splashes = s.splashes.toMutableList(),
             camX = s.cameraX, camY = s.cameraY,
             score0 = s.playerScore, score1 = s.cpuScore,
@@ -243,16 +267,27 @@ class StreetFighterViewModel @Inject constructor(
 
         if (!sim.battleEnded) updateTimer(sim, now)
 
+        if (online) {
+            applyRemoteSnapshot(sim, now)   // posición/estado/hp del rival (red)
+            processNetDamage(sim, now)      // daño que el rival ME mandó (yo soy la autoridad de mi HP)
+        }
+
         // Hit-freeze: al conectar un golpe, los peleadores se congelan 15 frames
         val frozen = now < hurtFreezeUntilMs
         if (!frozen) {
             updateFighter(sim, 0, buildPlayerInput(now, sim), now, dt)
-            updateFighter(sim, 1, buildCpuInput(now, sim), now, dt)
+            // El rival: CPU offline; por RED online (no se simula localmente)
+            if (!online) updateFighter(sim, 1, buildCpuInput(now, sim), now, dt)
         }
         updateFireballs(sim, now, dt)
         updateSplashes(sim, now)
         updateCamera(sim)
         updateKoFlash(sim, now)
+
+        if (online) {
+            sendNetState(sim, now)
+            appendRemoteFireballs(sim)      // render de los proyectiles del rival
+        }
 
         val showEnd = sim.battleEnded && now >= endMenuAtMs
         _state.update(sim, now, showEnd)
@@ -642,6 +677,20 @@ class StreetFighterViewModel @Inject constructor(
         var attacker = sim.fighter(attackerIdx)
         var defender = sim.fighter(defenderIdx)
 
+        // ONLINE: el HP del RIVAL es suyo (autoridad del receptor). Si MI golpe/proyectil
+        // conecta con él, solo AVISO (PLAYER_DAMAGE) + efectos optimistas locales; su HP y
+        // su pose de daño llegarán en su siguiente OPPONENT_STATE.
+        if (inOnlineFight && defenderIdx == 1) {
+            _soundEvents.tryEmit("${strength.name.lowercase()}-${type.name.lowercase()}-hit")
+            sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
+            matchClient?.sendDamage(strength.damage, strength.name, type.name)
+            hitPos?.let { (x, y) ->
+                sim.splashes.add(SfHitSplash(x = x, y = y, playerId = attackerIdx, strength = strength, animationTimerMs = now))
+            }
+            hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong() / 2
+            return
+        }
+
         // BLOQUEO (estilo SF): caminar HACIA ATRÁS = cubrirse. El golpe entra "chip":
         // daño /4 (mínimo 1), medio retroceso, sin pose de HURT, sin splash ni puntos.
         val blocked = defender.state == SfFighterState.WALK_BACKWARD
@@ -681,6 +730,8 @@ class StreetFighterViewModel @Inject constructor(
             sim.winner = attackerIdx
             sim.battleEnded = true
             endMenuAtMs = now + END_MENU_DELAY_MS
+            // ONLINE: si el que cayó soy YO (defensor local), publico el resultado
+            if (inOnlineFight) sendOnlineEnd(winnerIdx = attackerIdx)
         } else {
             val hurtState = when (area) {
                 SfHurtArea.BODY -> when (strength) {
@@ -821,6 +872,7 @@ class StreetFighterViewModel @Inject constructor(
             sim.winner = winnerIdx
             sim.battleEnded = true
             endMenuAtMs = now + END_MENU_DELAY_MS
+            if (isOnline) sendOnlineEnd(winnerIdx) // timeout: ambos lo calculan; el guard evita doble envío
         }
     }
 
@@ -1028,20 +1080,36 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
-    /** Revancha: reinicia el encuentro conservando los personajes elegidos. */
+    /** Revancha: offline reinicia ya; online la PIDE (arranca cuando la pidan los dos). */
     fun restartBattle() {
+        if (isOnline) {
+            matchClient?.requestRematch()
+            return
+        }
         val s = _state.value
         startBattle(playerId = s.player.id, cpuId = s.cpu.id)
     }
 
-    /** Selector: fija el personaje del jugador y arranca la pelea (CPU = Ken, o Ryu si eliges a Ken). */
-    fun selectCharacter(id: SfFighterId) {
-        val cpuId = if (id == SfFighterId.KEN) SfFighterId.RYU else SfFighterId.KEN
+    /**
+     * Selector: fija el personaje. Online avisa y espera al rival; offline arranca ya
+     * contra `rivalId` (🆕 el jugador también ELIGE al enemigo; null = Ken/Ryu default).
+     */
+    fun selectCharacter(id: SfFighterId, rivalId: SfFighterId? = null) {
+        if (isOnline) {
+            myOnlineChar = id
+            matchClient?.selectCharacter(id.name)
+            return // la pelea arranca cuando el servidor mande FIGHT_START
+        }
+        val cpuId = rivalId ?: if (id == SfFighterId.KEN) SfFighterId.RYU else SfFighterId.KEN
         startBattle(playerId = id, cpuId = cpuId)
     }
 
     /** Vuelve al selector de personaje (desde el menú de fin de pelea). */
     fun backToCharacterSelect() {
+        if (isOnline) {
+            cancelOnline()
+            return
+        }
         resetInternals()
         _state.value = StreetFighterState() // inCharacterSelect = true por default
     }
@@ -1073,5 +1141,281 @@ class StreetFighterViewModel @Inject constructor(
         pendingAttacks.clear()
         controlHistory.clear()
         lastZone = 0
+        lastNetSendMs = 0L
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // 🆕 MULTIJUGADOR 1v1 — intents y manejo de red (relay puro)
+    // ══════════════════════════════════════════════════════════════════
+
+    /** Crea sala privada o se une con código. */
+    fun startOnline(create: Boolean, code: String? = null) =
+        connectOnline { c -> if (create) c.createRoom() else c.joinRoom(code.orEmpty()) }
+
+    /** SALA PÚBLICA: entra a la lista de espera; el server empareja al llegar otro. */
+    fun startOnlineQuick() = connectOnline { c ->
+        c.quickMatch()
+        c.listRooms() // de paso, el resumen de partidas activas
+    }
+
+    /** Conecta (despertando el free tier de Render primero) y ejecuta la acción inicial. */
+    private fun connectOnline(onReady: (SfMatchClient) -> Unit) {
+        if (isOnline) return
+        _state.value = _state.value.copy(onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null)
+        viewModelScope.launch(Dispatchers.IO) {
+            if (!SfMatchClient.warmupBlocking(BuildConfig.SF_SERVER_URL)) {
+                _state.value = _state.value.copy(
+                    onlineStatus = SfOnlineStatus.OFF,
+                    onlineError = "No se pudo despertar el servidor (plan gratis de Render). Intenta de nuevo.",
+                )
+                return@launch
+            }
+            val client = SfMatchClient()
+            matchClient = client
+            client.connect(
+                BuildConfig.SF_SERVER_URL,
+                object : SfMatchClient.Listener {
+                    override fun onOpen() {
+                        onReady(client)
+                    }
+                    override fun onMessage(msg: SfNetMsg) {
+                        // Llega en el hilo de OkHttp → se serializa con el tick en Main
+                        viewModelScope.launch { handleNetMessage(msg) }
+                    }
+                    override fun onClosed() {
+                        viewModelScope.launch { onNetDropped(null) }
+                    }
+                    override fun onFailure(reason: String) {
+                        viewModelScope.launch { onNetDropped(reason) }
+                    }
+                },
+            )
+        }
+    }
+
+    /** Sale de la sala y vuelve al selector offline (con error opcional a mostrar). */
+    fun cancelOnline(errorMsg: String? = null) {
+        countdownJob?.cancel()
+        matchClient?.leaveRoom()
+        matchClient?.close()
+        matchClient = null
+        remoteSnapshot = null
+        netDamageQueue.clear()
+        myOnlineChar = null
+        oppOnlineChar = null
+        onlineEndSent = false
+        resetInternals()
+        _state.value = StreetFighterState(onlineError = errorMsg)
+    }
+
+    /** El ANFITRIÓN elige el mapa (null = al azar del tema); el server lo replica. */
+    fun chooseMapOnline(file: String?) {
+        val resolved = file ?: SF_CLASSIC_THEME.fullBackgrounds.randomOrNull()?.file ?: return
+        matchClient?.selectMap(resolved)
+    }
+
+    private fun handleNetMessage(msg: SfNetMsg) {
+        val s = _state.value
+        when (msg.type) {
+            "ROOM_CREATED" -> _state.value = s.copy(
+                onlineStatus = SfOnlineStatus.WAITING_OPPONENT, roomCode = msg.code, isHost = true,
+            )
+            "ROOM_JOINED" -> _state.value = s.copy(
+                onlineStatus = SfOnlineStatus.SELECTING, roomCode = msg.code, isHost = false,
+            )
+            "OPPONENT_JOINED" -> _state.value = s.copy(onlineStatus = SfOnlineStatus.SELECTING)
+            // Sala pública: en lista de espera (roomCode null → la UI muestra "buscando rival")
+            "QUEUED" -> _state.value = s.copy(
+                onlineStatus = SfOnlineStatus.WAITING_OPPONENT, roomCode = null,
+            )
+            "ROOMS_LIST" -> _state.value = s.copy(
+                activeRoomsInfo = "Salas activas: ${msg.rooms?.size ?: 0} · En espera: ${msg.queue ?: 0}",
+            )
+            "ERROR" -> cancelOnline(msg.message ?: "Error del servidor")
+            "CHARACTERS_SELECTED" -> {
+                val oppName = if (s.isHost) msg.char2 else msg.char1
+                oppOnlineChar = oppName?.let { n -> runCatching { SfFighterId.valueOf(n) }.getOrNull() }
+                    ?: SfFighterId.KEN
+                _state.value = s.copy(onlineStatus = SfOnlineStatus.WAITING_MAP)
+            }
+            "MAP_SELECTED" -> {
+                _state.value = s.copy(
+                    onlineStatus = SfOnlineStatus.COUNTDOWN,
+                    onlineMapFile = msg.map,
+                    onlineCountdown = 3,
+                )
+                countdownJob?.cancel()
+                countdownJob = viewModelScope.launch {
+                    for (n in 2 downTo 1) {
+                        delay(1000)
+                        _state.value = _state.value.copy(onlineCountdown = n)
+                    }
+                }
+            }
+            "FIGHT_START" -> startOnlineBattle()
+            "OPPONENT_STATE" -> remoteSnapshot = msg
+            "PLAYER_DAMAGE" -> netDamageQueue.add(msg)
+            "MATCH_ENDED" -> endFromNet(msg.winner)
+            "REMATCH_REQUESTED" -> _state.value = s.copy(opponentWantsRematch = true)
+            "REMATCH_ACCEPTED" -> {
+                resetInternals()
+                onlineEndSent = false
+                remoteSnapshot = null
+                netDamageQueue.clear()
+                myOnlineChar = null
+                oppOnlineChar = null
+                _state.value = StreetFighterState(
+                    onlineStatus = SfOnlineStatus.SELECTING,
+                    roomCode = s.roomCode,
+                    isHost = s.isHost,
+                )
+            }
+            "OPPONENT_LEFT", "OPPONENT_DISCONNECTED" -> {
+                if (s.onlineStatus == SfOnlineStatus.FIGHTING && !s.battleEnded) {
+                    // Victoria por abandono
+                    onlineEndSent = true
+                    _state.value = s.copy(
+                        battleEnded = true, winnerIndex = 0, showEndMenu = true,
+                        onlineStatus = SfOnlineStatus.OPPONENT_LEFT,
+                    )
+                } else if (s.isHost) {
+                    // El invitado se fue en la antesala: la sala sigue viva esperando a otro
+                    _state.value = s.copy(
+                        onlineStatus = SfOnlineStatus.WAITING_OPPONENT, opponentWantsRematch = false,
+                    )
+                } else {
+                    cancelOnline("El anfitrión cerró la sala")
+                }
+            }
+        }
+    }
+
+    /** FIGHT_START: arranca la pelea online. El anfitrión pelea a la IZQUIERDA. */
+    private fun startOnlineBattle() {
+        val s = _state.value
+        resetInternals()
+        onlineEndSent = false
+        remoteSnapshot = null
+        netDamageQueue.clear()
+        val base = StreetFighterState()
+        val my = myOnlineChar ?: SfFighterId.PRANKEDY
+        val opp = oppOnlineChar ?: SfFighterId.KEN
+        val leftX = base.player.x
+        val rightX = base.cpu.x
+        _state.value = base.copy(
+            player = base.player.copy(
+                id = my,
+                x = if (s.isHost) leftX else rightX,
+                direction = if (s.isHost) SfDirection.RIGHT else SfDirection.LEFT,
+            ),
+            cpu = base.cpu.copy(
+                id = opp,
+                x = if (s.isHost) rightX else leftX,
+                direction = if (s.isHost) SfDirection.LEFT else SfDirection.RIGHT,
+            ),
+            inCharacterSelect = false,
+            onlineStatus = SfOnlineStatus.FIGHTING,
+            roomCode = s.roomCode,
+            isHost = s.isHost,
+            onlineMapFile = s.onlineMapFile,
+        )
+    }
+
+    /** Aplica el último OPPONENT_STATE al peleador remoto (índice 1). */
+    private fun applyRemoteSnapshot(sim: Sim, now: Long) {
+        val rs = remoteSnapshot ?: return
+        val st = rs.state?.let { n -> runCatching { SfFighterState.valueOf(n) }.getOrNull() } ?: sim.p1.state
+        sim.p1 = sim.p1.copy(
+            x = rs.x ?: sim.p1.x,
+            y = rs.y ?: sim.p1.y,
+            state = st,
+            animationFrame = rs.frame ?: 0,
+            direction = if ((rs.dir ?: 1) >= 0) SfDirection.RIGHT else SfDirection.LEFT,
+            hitPoints = rs.hp ?: sim.p1.hitPoints,
+        )
+        // Si su propio estado reporta 0 HP, gané (él manda MATCH_ENDED; esto lo adelanta)
+        if ((rs.hp ?: 1) <= 0 && !sim.battleEnded) {
+            sim.winner = 0
+            sim.battleEnded = true
+            endMenuAtMs = now + END_MENU_DELAY_MS
+            sendOnlineEnd(winnerIdx = 0)
+        }
+    }
+
+    /** Aplica a MI peleador el daño que me mandó el rival (yo decido bloqueo con MI estado). */
+    private fun processNetDamage(sim: Sim, now: Long) {
+        while (true) {
+            val m = netDamageQueue.poll() ?: break
+            val strength = m.strength?.let { n -> runCatching { SfAttackStrength.valueOf(n) }.getOrNull() }
+                ?: SfAttackStrength.LIGHT
+            val type = m.atkType?.let { n -> runCatching { SfAttackType.valueOf(n) }.getOrNull() }
+                ?: SfAttackType.PUNCH
+            val hitX = (sim.p0.x + sim.p1.x) / 2f
+            val hitY = minOf(sim.p0.y, sim.p1.y) - 54f
+            applyAttackHit(sim, attackerIdx = 1, strength, type, SfHurtArea.BODY, hitX to hitY, now)
+        }
+    }
+
+    /** Manda MI estado al rival cada ~66 ms (posición, pose, frame, HP y mis proyectiles). */
+    private fun sendNetState(sim: Sim, now: Long) {
+        if (now - lastNetSendMs < 66) return
+        lastNetSendMs = now
+        val f = sim.p0
+        matchClient?.sendPlayerState(
+            x = f.x, y = f.y, state = f.state.name, frame = f.animationFrame,
+            dir = f.direction.sign, hp = f.hitPoints,
+            fireballs = sim.fireballs.filter { it.ownerIndex == 0 }.map {
+                SfNetFireball(it.x, it.y, it.direction.sign, it.strength.name, it.state.name, it.animationFrame)
+            },
+        )
+    }
+
+    /** Añade los proyectiles del RIVAL (render-only; su dueño calcula las colisiones). */
+    private fun appendRemoteFireballs(sim: Sim) {
+        remoteSnapshot?.fireballs?.forEach { nf ->
+            sim.fireballs.add(
+                SfFireball(
+                    ownerIndex = 1,
+                    x = nf.x, y = nf.y,
+                    direction = if (nf.dir >= 0) SfDirection.RIGHT else SfDirection.LEFT,
+                    strength = runCatching { SfAttackStrength.valueOf(nf.strength) }.getOrDefault(SfAttackStrength.LIGHT),
+                    velocity = 0f,
+                    state = runCatching { SfFireballState.valueOf(nf.state) }.getOrDefault(SfFireballState.ACTIVE),
+                    animationFrame = nf.frame,
+                ),
+            )
+        }
+    }
+
+    /** Publica el fin de pelea UNA sola vez ("p1" = anfitrión). */
+    private fun sendOnlineEnd(winnerIdx: Int) {
+        if (onlineEndSent) return
+        onlineEndSent = true
+        val iAmP1 = _state.value.isHost
+        val side = if (winnerIdx == 0) (if (iAmP1) "p1" else "p2") else (if (iAmP1) "p2" else "p1")
+        matchClient?.sendMatchEnded(side)
+    }
+
+    /** MATCH_ENDED recibido: reconcilia el final (por si mi sim aún no lo detectaba). */
+    private fun endFromNet(winnerSide: String?) {
+        val s = _state.value
+        if (s.battleEnded && s.showEndMenu) return
+        val winnerIdx = when (winnerSide) {
+            "p1" -> if (s.isHost) 0 else 1
+            "p2" -> if (s.isHost) 1 else 0
+            else -> 0
+        }
+        onlineEndSent = true
+        _state.value = s.copy(battleEnded = true, winnerIndex = winnerIdx, showEndMenu = true)
+    }
+
+    private fun onNetDropped(reason: String?) {
+        if (!isOnline) return
+        cancelOnline(reason?.let { "Conexión perdida: $it" } ?: "Conexión perdida con el servidor")
+    }
+
+    override fun onCleared() {
+        matchClient?.close()
+        super.onCleared()
     }
 }

@@ -14,7 +14,7 @@
     <string name="menu_multiplayer">MULTIJUGADOR</string>
     <string name="menu_settings">AJUSTES</string>
     <string name="menu_collectibles">COLECCIONABLES</string>
-    <string name="menu_street_fighter">STREET FIGHTER</string>
+    <string name="menu_street_fighter">HUELUM VS. GOYA</string>
     <string name="menu_mp_dialog_title">Conectar a Servidor</string>
     <string name="menu_mp_username_label">Nombre de Usuario</string>
     <string name="menu_mp_connect">Conectar</string>
@@ -560,6 +560,25 @@
     <string name="sf_exit_message">¿Abandonar la pelea y volver al menú principal?</string>
     <string name="sf_exit_confirm">Salir</string>
     <string name="sf_keep_fighting">Seguir peleando</string>
+    <!-- Modo pelea · multijugador 1v1 -->
+    <string name="sf_mp_button">🌐 MULTIJUGADOR</string>
+    <string name="sf_mp_title">MULTIJUGADOR 1v1</string>
+    <string name="sf_mp_create">CREAR SALA</string>
+    <string name="sf_mp_join">UNIRSE</string>
+    <string name="sf_mp_code_label">Código</string>
+    <string name="sf_mp_cancel">Cancelar</string>
+    <string name="sf_mp_connecting_title">CONECTANDO…</string>
+    <string name="sf_mp_connecting_sub">Despertando el servidor (plan gratis de Render): puede tardar hasta un minuto</string>
+    <string name="sf_mp_room">SALA %1$s</string>
+    <string name="sf_mp_waiting_sub">Comparte el código con tu rival; esperando a que se una…</string>
+    <string name="sf_mp_pick_sub">SALA %1$s · elige tu peleador</string>
+    <string name="sf_mp_host_choosing_map">El anfitrión está eligiendo el mapa…</string>
+    <string name="sf_mp_leave_room">Salir de la sala</string>
+    <string name="sf_mp_opp_wants_rematch">El rival quiere la revancha</string>
+    <string name="sf_mp_public">SALA PÚBLICA</string>
+    <string name="sf_mp_queue_title">LISTA DE ESPERA</string>
+    <string name="sf_mp_queue_sub">Buscando rival en salas públicas…</string>
+    <string name="sf_choose_rival">Ahora elige al RIVAL (lo controla la CPU)</string>
 
     <!-- Tutorial de controles (optativo, i18n 2026-07-11) -->
     <string name="tutorial_prompt_title">Tutorial de controles</string>

@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -74,6 +75,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickControlle
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewModel
 
@@ -116,12 +118,19 @@ fun StreetFighterScreen(
 
     // ---- Selección en 2 pasos: PELEADOR → MAPA (el mapa lo elige el jugador) ----
     var pendingFighter by remember { mutableStateOf<SfFighterId?>(null) }
+    var pendingRival by remember { mutableStateOf<SfFighterId?>(null) } // 🆕 rival elegible offline
     var chosenBgFile by remember { mutableStateOf(theme.fullBackgrounds.firstOrNull()?.file) }
     LaunchedEffect(state.inCharacterSelect) {
-        if (state.inCharacterSelect) pendingFighter = null // volver al selector reinicia el flujo
+        if (state.inCharacterSelect) { pendingFighter = null; pendingRival = null }
     }
-    val bgImage = remember(chosenBgFile) {
-        chosenBgFile?.let { name ->
+    // ONLINE: manda el mapa que eligió el ANFITRIÓN (viene por red en el estado)
+    val effectiveBgFile = if (state.onlineStatus != SfOnlineStatus.OFF && state.onlineMapFile != null) {
+        state.onlineMapFile
+    } else {
+        chosenBgFile
+    }
+    val bgImage = remember(effectiveBgFile) {
+        effectiveBgFile?.let { name ->
             runCatching {
                 context.assets.open(theme.imagesDir + name).use { BitmapFactory.decodeStream(it) }.asImageBitmap()
             }.getOrNull()
@@ -212,19 +221,97 @@ fun StreetFighterScreen(
             )
         }
 
-        // ---- Selección pre-pelea: paso 1 PELEADOR, paso 2 MAPA ----
+        // ---- Selección pre-pelea: paso 1 PELEADOR, paso 2 MAPA (offline y online) ----
+        var showOnlineMenu by remember { mutableStateOf(false) }
         if (state.inCharacterSelect) {
-            val fighter = pendingFighter
-            if (fighter == null) {
-                CharacterSelectOverlay(onSelect = { pendingFighter = it })
-            } else {
-                StageSelectOverlay(
-                    theme = theme,
-                    onSelect = { file ->
-                        chosenBgFile = file ?: theme.fullBackgrounds.randomOrNull()?.file
-                        viewModel.selectCharacter(fighter)
+            when (state.onlineStatus) {
+                SfOnlineStatus.CONNECTING -> OnlineInfoOverlay(
+                    title = stringResource(R.string.sf_mp_connecting_title),
+                    subtitle = stringResource(R.string.sf_mp_connecting_sub),
+                    onCancel = { viewModel.cancelOnline() },
+                )
+                SfOnlineStatus.WAITING_OPPONENT -> OnlineInfoOverlay(
+                    // roomCode null = SALA PÚBLICA (lista de espera del quick match)
+                    title = if (state.roomCode != null) {
+                        stringResource(R.string.sf_mp_room, state.roomCode!!)
+                    } else {
+                        stringResource(R.string.sf_mp_queue_title)
                     },
-                    onBack = { pendingFighter = null },
+                    subtitle = (if (state.roomCode != null) {
+                        stringResource(R.string.sf_mp_waiting_sub)
+                    } else {
+                        stringResource(R.string.sf_mp_queue_sub)
+                    }) + (state.activeRoomsInfo?.let { "\n$it" } ?: ""),
+                    onCancel = { viewModel.cancelOnline() },
+                )
+                SfOnlineStatus.SELECTING -> CharacterSelectOverlay(
+                    subtitle = stringResource(R.string.sf_mp_pick_sub, state.roomCode ?: ""),
+                    onSelect = viewModel::selectCharacter,
+                )
+                SfOnlineStatus.WAITING_MAP -> if (state.isHost) {
+                    StageSelectOverlay(theme = theme, onSelect = viewModel::chooseMapOnline, onBack = null)
+                } else {
+                    OnlineInfoOverlay(
+                        title = stringResource(R.string.sf_mp_room, state.roomCode ?: ""),
+                        subtitle = stringResource(R.string.sf_mp_host_choosing_map),
+                        onCancel = { viewModel.cancelOnline() },
+                    )
+                }
+                SfOnlineStatus.COUNTDOWN -> Unit // el número gigante se dibuja abajo
+                else -> {
+                    // OFFLINE: flujo de 3 pasos — TU peleador → el RIVAL (🆕) → el mapa
+                    val fighter = pendingFighter
+                    val rival = pendingRival
+                    when {
+                        fighter == null -> CharacterSelectOverlay(
+                            subtitle = state.onlineError,
+                            onSelect = { pendingFighter = it },
+                            onOnline = { showOnlineMenu = true },
+                        )
+                        rival == null -> CharacterSelectOverlay(
+                            subtitle = stringResource(R.string.sf_choose_rival),
+                            onSelect = { pendingRival = it },
+                        )
+                        else -> StageSelectOverlay(
+                            theme = theme,
+                            onSelect = { file ->
+                                chosenBgFile = file ?: theme.fullBackgrounds.randomOrNull()?.file
+                                viewModel.selectCharacter(fighter, rival)
+                            },
+                            onBack = { pendingFighter = null; pendingRival = null },
+                        )
+                    }
+                }
+            }
+        }
+
+        // Menú de multijugador (crear sala / unirse con código)
+        if (showOnlineMenu && state.onlineStatus == SfOnlineStatus.OFF) {
+            OnlineMenuOverlay(
+                onCreate = {
+                    showOnlineMenu = false
+                    viewModel.startOnline(create = true)
+                },
+                onJoin = { code ->
+                    showOnlineMenu = false
+                    viewModel.startOnline(create = false, code = code)
+                },
+                onQuickMatch = {
+                    showOnlineMenu = false
+                    viewModel.startOnlineQuick()
+                },
+                onDismiss = { showOnlineMenu = false },
+            )
+        }
+
+        // Countdown 3-2-1 sincronizado por el servidor
+        if (state.onlineStatus == SfOnlineStatus.COUNTDOWN) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = state.onlineCountdown.toString(),
+                    color = Color(0xFFFFD54F),
+                    fontSize = 110.sp,
+                    fontWeight = FontWeight.Black,
                 )
             }
         }
@@ -243,10 +330,26 @@ fun StreetFighterScreen(
                 modifier = Modifier.align(Alignment.Center).padding(top = 120.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                // Aviso online: el rival ya pidió revancha
+                if (state.opponentWantsRematch && state.onlineStatus == SfOnlineStatus.FIGHTING) {
+                    Text(
+                        text = stringResource(R.string.sf_mp_opp_wants_rematch),
+                        color = Color(0xFFFFB74D), fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = viewModel::restartBattle) { Text(stringResource(R.string.sf_rematch)) }
-                    OutlinedButton(onClick = viewModel::backToCharacterSelect) { Text(stringResource(R.string.sf_change_character)) }
-                    OutlinedButton(onClick = onExitToMap) { Text(stringResource(R.string.sf_back_to_menu)) }
+                    // Online: la revancha se PIDE (arranca cuando la pidan los dos); el rival
+                    // que abandonó (OPPONENT_LEFT) ya no puede aceptar → sin botón de revancha.
+                    if (state.onlineStatus != SfOnlineStatus.OPPONENT_LEFT) {
+                        PowButton(text = stringResource(R.string.sf_rematch), onClick = viewModel::restartBattle)
+                    }
+                    if (state.onlineStatus == SfOnlineStatus.OFF) {
+                        PowButton(text = stringResource(R.string.sf_change_character), onClick = viewModel::backToCharacterSelect)
+                    } else {
+                        PowButton(text = stringResource(R.string.sf_mp_leave_room), onClick = { viewModel.cancelOnline() })
+                    }
+                    PowButton(text = stringResource(R.string.sf_back_to_menu), onClick = onExitToMap)
                 }
             }
         }
@@ -266,7 +369,7 @@ fun StreetFighterScreen(
                         letterSpacing = 4.sp,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = viewModel::togglePause) { Text(stringResource(R.string.sf_continue)) }
+                    PowButton(text = stringResource(R.string.sf_continue), onClick = viewModel::togglePause)
                 }
             }
         }
@@ -292,7 +395,11 @@ fun StreetFighterScreen(
 // ------------------------------------------------------------------
 
 @Composable
-private fun CharacterSelectOverlay(onSelect: (SfFighterId) -> Unit) {
+private fun CharacterSelectOverlay(
+    onSelect: (SfFighterId) -> Unit,
+    subtitle: String? = null,
+    onOnline: (() -> Unit)? = null,
+) {
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
         contentAlignment = Alignment.Center,
@@ -305,6 +412,9 @@ private fun CharacterSelectOverlay(onSelect: (SfFighterId) -> Unit) {
                 fontWeight = FontWeight.Black,
                 letterSpacing = 3.sp,
             )
+            subtitle?.let {
+                Text(text = it, color = Color(0xFF90CAF9), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
             Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -320,6 +430,115 @@ private fun CharacterSelectOverlay(onSelect: (SfFighterId) -> Unit) {
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 11.sp,
             )
+            onOnline?.let {
+                Spacer(modifier = Modifier.height(6.dp))
+                PowButton(text = stringResource(R.string.sf_mp_button), onClick = it)
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// Botón con el ESTILO POW (mismo lenguaje visual que MenuButton del menú
+// principal: esquinas cortadas + vino + texto bold espaciado), tamaño compacto.
+// Úsalo para TODOS los botones de este modo (paridad visual con el juego).
+// ------------------------------------------------------------------
+
+@Composable
+private fun PowButton(
+    text: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    color: Color = Color(0xFF6B1C3A),
+) {
+    val shape = androidx.compose.foundation.shape.CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp)
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        shape = shape,
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+            containerColor = color,
+            contentColor = Color.White,
+            disabledContainerColor = Color(0xFF2A1C21),
+            disabledContentColor = Color.Gray,
+        ),
+        modifier = Modifier.height(44.dp),
+    ) { Text(text, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp) }
+}
+
+// ------------------------------------------------------------------
+// Overlays del MULTIJUGADOR: menú crear/unir/pública + pantallas de espera
+// ------------------------------------------------------------------
+
+@Composable
+private fun OnlineMenuOverlay(
+    onCreate: () -> Unit,
+    onJoin: (String) -> Unit,
+    onQuickMatch: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var code by remember { mutableStateOf("") }
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = stringResource(R.string.sf_mp_title),
+                color = Color(0xFFD4AF37),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            PowButton(text = stringResource(R.string.sf_mp_public), onClick = onQuickMatch)
+            Spacer(modifier = Modifier.height(10.dp))
+            PowButton(text = stringResource(R.string.sf_mp_create), onClick = onCreate)
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it.uppercase().take(4) },
+                    label = { Text(stringResource(R.string.sf_mp_code_label), color = Color.White.copy(alpha = 0.7f)) },
+                    singleLine = true,
+                    modifier = Modifier.width(140.dp),
+                )
+                PowButton(
+                    text = stringResource(R.string.sf_mp_join),
+                    onClick = { if (code.length == 4) onJoin(code) },
+                    enabled = code.length == 4,
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.sf_mp_cancel), color = Color.White.copy(alpha = 0.7f)) }
+        }
+    }
+}
+
+@Composable
+private fun OnlineInfoOverlay(title: String, subtitle: String, onCancel: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = title,
+                color = Color(0xFFD4AF37),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 4.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = subtitle,
+                color = Color.White.copy(alpha = 0.75f),
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(300.dp),
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.sf_mp_cancel), color = Color.White.copy(alpha = 0.7f)) }
         }
     }
 }
@@ -384,7 +603,7 @@ private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit) {
 private fun StageSelectOverlay(
     theme: SfTheme,
     onSelect: (String?) -> Unit,   // null = al azar
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,         // null (online): sin "cambiar peleador", ya se avisó al rival
 ) {
     val context = LocalContext.current
     Box(
@@ -418,7 +637,7 @@ private fun StageSelectOverlay(
                 StageCard(name = stringResource(R.string.sf_random), thumb = null, emoji = "🎲") { onSelect(null) }
             }
             Spacer(modifier = Modifier.height(10.dp))
-            TextButton(onClick = onBack) {
+            if (onBack != null) TextButton(onClick = onBack) {
                 Text(stringResource(R.string.sf_change_fighter), color = Color.White.copy(alpha = 0.7f))
             }
         }

@@ -78,6 +78,20 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   set NPC estándar Idle/Walk/Run/Special, con rotaciones/aplastados para golpes/reacciones/caídas
   y filtro de cuadros corruptos — `rg_w_4.webp` era 4×13 px) + `pack_sf_character.py` (parcheado:
   ya NO empaqueta `proj-*` inexistentes → esos personajes usan el fireball del tema).
+- **🆕 RENOMBRE + MEJORAS ONLINE (2026-07-11b):** el modo se llama **"HUELUM VS. GOYA"**
+  (solo strings user-facing; los ids internos siguen siendo street_fighter/Sf*). Online ganó
+  **SALA PÚBLICA** (lista de espera; el server empareja con `QUICK_MATCH`) y **resumen de
+  partidas activas** (`LIST_ROOMS` → `activeRoomsInfo`). Botones con estilo POW (`PowButton`,
+  esquinas cortadas + vino). Offline: ahora también se ELIGE AL RIVAL (flujo de 3 pasos:
+  peleador → rival → mapa; `selectCharacter(id, rivalId?)`). Detalle y PENDIENTES para la
+  siguiente IA: `AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 2").
+- **🆕 MULTIJUGADOR 1v1 (2026-07-11):** 3er servidor **`MultiplayerSF/`** (relay puro en
+  Render FREE; salas por código de 4 letras). Cada cliente simula a SU peleador; el rival
+  llega por red (~15 Hz) y el daño lo aplica el RECEPTOR (decide bloqueo con su estado real).
+  Cliente: `data/SfMatchClient.kt` (OkHttp WS + warmup del free tier) + `SfOnlineStatus` en el
+  estado + botón 🌐 en el selector (crear/unir), el anfitrión elige el mapa, countdown 3-2-1
+  del server, revancha bilateral y victoria por abandono. `BuildConfig.SF_SERVER_URL`.
+  **Detalle completo + protocolo + cómo desplegar: `AUDIT_SF_MULTIPLAYER.md`.**
 - **🆕 MÚSICA de Prankedy + SELECTOR DE MAPA (2026-07-10e/f):** el tema del clon SF se
   reemplazó por **`SOUNDS/prankedy-persecucion.mp3`** ("Persecución", la de sus videos; vol 0.3).
   `SfTheme.fullBackgrounds` = lista de `SfStageBg(file, name)` con 6 fondos de pantalla completa
