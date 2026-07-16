@@ -33,6 +33,8 @@ data class SfNetMsg(
     val frame: Int? = null,
     val dir: Int? = null,            // +1 derecha / -1 izquierda
     val hp: Int? = null,
+    // 🆕 SINCRONÍA DEL TIMER: solo lo manda el HOST (autoridad del reloj); el invitado lo adopta
+    val timer: Int? = null,
     val fireballs: List<SfNetFireball>? = null,
     // Daño (PLAYER_DAMAGE)
     val damage: Int? = null,
@@ -116,11 +118,11 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
     override fun sendDamage(damage: Int, strength: String, atkType: String) =
         send(mapOf("type" to "PLAYER_DAMAGE", "damage" to damage, "strength" to strength, "atkType" to atkType))
 
-    override fun sendPlayerState(x: Float, y: Float, state: String, frame: Int, dir: Int, hp: Int, fireballs: List<SfNetFireball>) =
+    override fun sendPlayerState(x: Float, y: Float, state: String, frame: Int, dir: Int, hp: Int, timer: Int?, fireballs: List<SfNetFireball>) =
         send(
             mapOf(
                 "type" to "PLAYER_STATE", "x" to x, "y" to y, "state" to state,
-                "frame" to frame, "dir" to dir, "hp" to hp, "fireballs" to fireballs,
+                "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer, "fireballs" to fireballs,
             ),
         )
 

@@ -38,7 +38,8 @@ interface SfNetTransport {
     fun sendRoundEnded(winner: String)
     fun sendMatchEnded(winner: String)
     fun sendDamage(damage: Int, strength: String, atkType: String)
-    fun sendPlayerState(x: Float, y: Float, state: String, frame: Int, dir: Int, hp: Int, fireballs: List<SfNetFireball>)
+    /** `timer` = 🆕 sincronía del reloj de la ronda: solo lo manda el HOST (null en el invitado). */
+    fun sendPlayerState(x: Float, y: Float, state: String, frame: Int, dir: Int, hp: Int, timer: Int?, fireballs: List<SfNetFireball>)
 
     fun close()
 }

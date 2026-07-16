@@ -76,10 +76,10 @@
 - **Arquitectura / Architecture:** MVVM estricto por *feature* / strict MVVM by feature
 - **Servidores / Servers:** 2× Node.js + `ws` (open world `Multiplayer/`, zombi `MultiplayerInteriores/`), dockerizados en Render
 - **Room DB:** versión 8 (`MIGRATION_7_8` + destructive fallback)
-- **~227 archivos Kotlin / Kotlin files**, ~47k líneas / lines (2026-07-15). 8 archivos >1000 (ninguno >1700):
-  `StreetFighterViewModel`(1610, creció con multijugador BT+lobby), `ZombieGameScreen`(1591),
-  `WorldMapViewModel`(1583), `WorldMapScreen`(1460), `NativeOsmMap`(1458), `StreetFighterScreen`(1425),
-  `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093)
+- **~229 archivos Kotlin / Kotlin files**, ~47k líneas / lines (2026-07-16). 8 archivos >1000 (ninguno >2100):
+  `StreetFighterViewModel`(2001, creció con multijugador BT/LAN+rondas+opcionales de red SESIÓN 4),
+  `ZombieGameScreen`(1591), `WorldMapViewModel`(1583), `WorldMapScreen`(1460), `NativeOsmMap`(1458),
+  `StreetFighterScreen`(~1630 con rondas/LAN), `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093)
 - **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15):** 11 de los 14 peleadores de "HUELUM VS. GOYA"
   se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
   en el APK (solo Ryu/Ken/Prankedy conservan hoja propia). Ver 07 y 09 §12.

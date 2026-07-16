@@ -4,10 +4,12 @@
 > sesiones 1–3c (server, cliente WS, sala pública, lobby con aprobación, Bluetooth con
 > handshake/reintentos/encendido de BT, gate Ryu/Ken) está **implementado, COMPILADO y
 > probado por el dueño** (BT mejorado el 2026-07-16). Los banners de abajo son REGISTRO, no
-> tareas. **Pendientes REALES:** (1) deploy de `MultiplayerSF/` en Render + `SF_SERVER_URL`
-> real (placeholder hasta el 1er deploy) y prueba online en 2 dispositivos; (2) lo consciente
-> del §4 (interpolación del rival, reconexión a sala, espectadores, sincronía del timer) —
-> opcional, no bloquea.
+> tareas. **Pendientes REALES:** (1) deploy de `MultiplayerSF/` en Render y prueba online en
+> 2 dispositivos — la `SF_SERVER_URL` YA está en gradle (`wss://politecnicoopenworld-2.onrender.com`,
+> debug+release) pero el SERVICIO aún no se crea (dueño 2026-07-16: "solo puse la URL"; se hará
+> al cerrar el PR — el 1er deploy ya saldrá con el bugfix del spread de la SESIÓN 4); (2) del §4
+> quedan reconexión a sala, espectadores y anti-cheat (conscientes, no bloquean) — interpolación,
+> sincronía del timer, fireball-vs-fireball y roll-up del HUD ✅ SESIÓN 4.
 
 > **🆕 SESIÓN 2 (mismo día) — mejoras hechas y PENDIENTES para QWEN/CODEX:**
 >
@@ -99,6 +101,34 @@
 >   (`selectableFighters`/`classicFightersUnlocked` en el VM; rival default offline sin dev =
 >   Prankedy/Rey Grupero). Ver 07 §STREET FIGHTER.
 
+> **🆕 SESIÓN 4 (2026-07-16b) — 4 opcionales del §4 + BUGFIX del server (sin compilar;
+> Rebuild pendiente):**
+> - **🐛 BUGFIX server (CRÍTICO para online):** el relay de PLAYER_STATE hacía
+>   `{ type: 'OPPONENT_STATE', ...msg }` — el spread iba DESPUÉS y `msg.type` ('PLAYER_STATE')
+>   SOBRESCRIBÍA el type: el cliente recibía "PLAYER_STATE" (sin case en `handleNetMessage`)
+>   y el rival se veía CONGELADO en online. Fix: `{ ...msg, type: 'OPPONENT_STATE' }`. BT/LAN
+>   nunca lo sufrieron (`SfStreamPeer` usa `msg.copy(type=…)`) — por eso las pruebas locales
+>   pasaban. **Regla: en relays con spread, el type nuevo va SIEMPRE al FINAL.** Sale en el
+>   1er deploy (aún no hay ninguno).
+> - **Interpolación del rival:** `applyRemoteSnapshot(sim, now, dt)` ALISA x/y con lerp
+>   exponencial (`NET_LERP_RATE=14`); >`NET_SNAP_DIST=80` px snapea (reset de ronda/teleport).
+>   Pose/frame/dir/HP directos. Campos `lastSeenSnapshot`/`remoteSnapshotAtMs` (identidad →
+>   edad del snapshot; se resetean en `resetInternals` Y `resetRound`).
+> - **Proyectiles remotos extrapolados:** `appendRemoteFireballs(sim, now)` avanza los ACTIVE
+>   a su velocidad nominal por la edad del snapshot (tope `NET_FB_MAX_AGE_S=0.25 s`).
+> - **Sincronía del timer:** PLAYER_STATE ganó campo opcional `timer` (SfNetMsg +
+>   `sendPlayerState(..., timer: Int?, ...)` en la interfaz, SfMatchClient y SfStreamPeer —
+>   cubre WS/BT/LAN; el server lo relaya por el spread sin cambios). SOLO lo manda el HOST;
+>   el invitado lo ADOPTA si el drift es ≥ `TIMER_RESYNC_DIFF=2`, **gateado por
+>   `roundGraceUntilMs`** (un timer viejo en vuelo no pisa el 99 de la ronda recién reseteada).
+> - **Fireball-vs-fireball:** `collideFireballPairs` — dos ACTIVE de dueños opuestos que
+>   traslapan REVIENTAN (COLLIDED ×0.33 + sonido). Offline: tras `updateFireballs`. Online:
+>   tras `appendRemoteFireballs` y ANTES de `sendNetState`; revienta MI copia y el rival hace
+>   lo simétrico (~66 ms, parpadeo aceptado).
+> - **Roll-up del HUD:** `displayHp0/1` (Float) en el estado; el VM drena `dispHp0/1` a
+>   `HP_DRAIN_PER_SEC=200` hacia el HP real (SUBIR es instantáneo → el reset de ronda/revancha
+>   rellena solo, sin tocar resets). `drawHud` pinta las barras con `displayHp*`.
+
 > Servidor base generado por QWEN (interrumpido), **auditado y corregido**; cliente Kotlin
 > implementado desde cero por la IA principal. NADA compilado aún (Rebuild pendiente).
 
@@ -128,7 +158,7 @@
 | SELECT_CHARACTER → CHARACTERS_SELECTED | C→S→C | `character` → `char1, char2` (nombres de `SfFighterId`) |
 | SELECT_MAP → MAP_SELECTED | C→S→C | `map` (archivo del fondo) → `map, countdownMs` |
 | FIGHT_START | S→C | tras 3 s de countdown del server |
-| PLAYER_STATE → OPPONENT_STATE | C→S→C | `x,y,state,frame,dir,hp,fireballs[]` cada ~66 ms |
+| PLAYER_STATE → OPPONENT_STATE | C→S→C | `x,y,state,frame,dir,hp,timer?,fireballs[]` cada ~66 ms (🆕 `timer` solo lo manda el HOST — sincronía del reloj, SESIÓN 4) |
 | PLAYER_DAMAGE | C→S→C(rival) | `damage, strength, atkType` |
 | MATCH_ENDED | C→S→C | `winner` ("p1"/"p2") |
 | REQUEST_REMATCH → REMATCH_REQUESTED / REMATCH_ACCEPTED | C→S→C | acepta cuando lo piden AMBOS |
@@ -162,10 +192,10 @@
 
 ## 4. NO implementado (consciente)
 
-Interpolación del rival (llega "crudo" a 15 Hz), reconexión a la sala tras caída (se pierde
-la pelea), espectadores, matchmaking (solo código compartido), validación anti-cheat (relay
-confía en los clientes — aceptable entre amigos), sincronía del timer (cada quien corre el
-suyo; reconciliado por MATCH_ENDED).
+Reconexión a la sala tras caída (se pierde la pelea), espectadores y validación anti-cheat
+(relay confía en los clientes — aceptable entre amigos). *(La interpolación del rival, la
+sincronía del timer, el fireball-vs-fireball y el roll-up del HUD se implementaron en la
+SESIÓN 4 — ver banner. El matchmaking existe desde la SESIÓN 2: sala pública QUICK_MATCH.)*
 
 ## 5. Cómo probar / desplegar (GRATIS)
 

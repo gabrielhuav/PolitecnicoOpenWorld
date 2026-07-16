@@ -1528,7 +1528,9 @@ private fun DrawScope.drawHud(ctx: SceneCtx, theme: SfTheme, hud: ImageBitmap, s
     // Daño en rojo sobre la barra
     val maxHp = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat()
     val damageColor = Color(0xFFF30000)
-    val leftDamage = (144f * (maxHp - state.player.hitPoints) / maxHp)
+    // 🆕 Con el HP MOSTRADO (displayHp*, roll-up gradual del VM), no con el hitPoints real:
+    // la barra "drena" al recibir daño en vez de saltar de golpe
+    val leftDamage = (144f * (maxHp - state.displayHp0) / maxHp)
     if (leftDamage > 0f) {
         drawRect(
             color = damageColor,
@@ -1536,9 +1538,9 @@ private fun DrawScope.drawHud(ctx: SceneCtx, theme: SfTheme, hud: ImageBitmap, s
             size = Size(leftDamage * ctx.scale, 9f * ctx.scale),
         )
     }
-    val rightDamage = (144f * (maxHp - state.cpu.hitPoints) / maxHp)
+    val rightDamage = (144f * (maxHp - state.displayHp1) / maxHp)
     if (rightDamage > 0f) {
-        val rx = 208f + (144f * state.cpu.hitPoints / maxHp)
+        val rx = 208f + (144f * state.displayHp1 / maxHp)
         drawRect(
             color = damageColor,
             topLeft = Offset(ctx.ox + rx * ctx.scale, ctx.oy + 21f * ctx.scale),

@@ -241,6 +241,13 @@ AMBOS, NO toca la fase — la pelea sigue); `MATCH_ENDED` queda solo para el com
 (2 rondas). ⚠️ Requiere redeploy. Y **tercer transporte local: Servidor LAN** (`SfLanClient`,
 TCP puerto fijo 47645, unirse por IP del host, cero permisos nuevos) — junto con BT comparten
 la base `SfStreamPeer` (mismos mensajes JSON sin server).
+🆕 (2026-07-16b, SESIÓN 4) **BUGFIX crítico del relay:** el reenvío de `PLAYER_STATE` era
+`{ type: 'OPPONENT_STATE', ...msg }` — el spread DESPUÉS del type lo sobrescribía con
+'PLAYER_STATE' y el cliente ignoraba el snapshot (rival CONGELADO en online; BT/LAN no lo
+sufrían: `SfStreamPeer` usa `msg.copy`). Corregido a `{ ...msg, type: 'OPPONENT_STATE' }`.
+**Regla: en relays con spread, el `type` nuevo va SIEMPRE al FINAL.** Además `PLAYER_STATE`
+ganó el campo opcional `timer` (sincronía del reloj: solo lo manda el HOST; pasa por el
+spread sin tocar el server). Sale en el 1er deploy.
 **EN:** 🆕 AoE2-style approval lobby (`REQUEST_JOIN`/`RESPOND_JOIN`/`JOIN_REJECTED`, one pending
 request per room; code join stays direct), serverless local **Bluetooth transport**
 (`SfBtClient`) and 🆕 **LAN server transport** (`SfLanClient`, fixed TCP port 47645, join by the

@@ -140,6 +140,15 @@ class StreetFighterViewModel @Inject constructor(
     private var myOnlineChar: SfFighterId? = null
     private var oppOnlineChar: SfFighterId? = null
     private var lastNetSendMs = 0L
+    // 🆕 INTERPOLACIÓN del rival (SESIÓN 4): el snapshot llega a ~15 Hz; la posición se
+    // ALISA con lerp por tick (y los proyectiles remotos se EXTRAPOLAN por la edad del
+    // snapshot). lastSeenSnapshot detecta el CAMBIO de referencia (se compara identidad
+    // en el tick, hilo Main).
+    private var lastSeenSnapshot: SfNetMsg? = null
+    private var remoteSnapshotAtMs = 0L
+    // 🆕 ROLL-UP del HUD: HP mostrado (drena gradual hacia el real; subir = instantáneo)
+    private var dispHp0 = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat()
+    private var dispHp1 = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat()
     private var onlineEndSent = false
     private var countdownJob: Job? = null
     private var roomsRefreshJob: Job? = null   // refresca LIST_ROOMS mientras estás en la lista de espera
@@ -161,6 +170,16 @@ class StreetFighterViewModel @Inject constructor(
         const val ROUND_RESET_DELAY_MS = 3500L   // "X WINS" en pantalla antes de la ronda nueva
         const val ROUND_INTRO_MS = 1800L         // banner "RONDA N / PELEA" con input congelado
         const val ROUND_GRACE_MS = 1200L         // ignora estado/daño del rival en vuelo tras el reset
+        // 🆕 Interpolación del rival: tasa del lerp (≈rate*dt por tick) y distancia a partir
+        // de la cual se SNAPEA (teleport/reset de ronda — no perseguirlo lerpeando)
+        const val NET_LERP_RATE = 14f
+        const val NET_SNAP_DIST = 80f
+        // 🆕 Extrapolación de proyectiles remotos: tope de edad del snapshot (no sobrepasar)
+        const val NET_FB_MAX_AGE_S = 0.25f
+        // 🆕 Sincronía del timer: el invitado adopta el del host si difieren >= este umbral
+        const val TIMER_RESYNC_DIFF = 2
+        // 🆕 Roll-up del HUD: velocidad de drenado de la barra (HP por segundo)
+        const val HP_DRAIN_PER_SEC = 200f
         const val ZONE_DOWN = 1
         const val ZONE_FORWARD_DOWN = 2
         const val ZONE_FORWARD = 3
@@ -309,8 +328,8 @@ class StreetFighterViewModel @Inject constructor(
         if (!sim.battleEnded && now >= roundIntroUntilMs) updateTimer(sim, now)
 
         if (online) {
-            applyRemoteSnapshot(sim, now)   // posición/estado/hp del rival (red)
-            processNetDamage(sim, now)      // daño que el rival ME mandó (yo soy la autoridad de mi HP)
+            applyRemoteSnapshot(sim, now, dt) // posición/estado/hp del rival (red, interpolado)
+            processNetDamage(sim, now)        // daño que el rival ME mandó (yo soy la autoridad de mi HP)
         }
 
         // Hit-freeze (golpe conectado) o intro de ronda: peleadores congelados
@@ -321,14 +340,24 @@ class StreetFighterViewModel @Inject constructor(
             if (!online) updateFighter(sim, 1, buildCpuInput(now, sim), now, dt)
         }
         updateFireballs(sim, now, dt)
+        // 🆕 FIREBALL-VS-FIREBALL offline: ambos dueños viven en sim.fireballs
+        if (!online) collideFireballPairs(sim, now)
         updateSplashes(sim, now)
         updateCamera(sim)
         updateKoFlash(sim, now)
 
         if (online) {
+            appendRemoteFireballs(sim, now) // render de los proyectiles del rival (extrapolados)
+            // 🆕 FIREBALL-VS-FIREBALL online: los MÍOS contra los del rival (simétrico: él hace
+            // lo mismo con los suyos). ANTES de sendNetState para avisar el COLLIDED sin demora.
+            collideFireballPairs(sim, now)
             sendNetState(sim, now)
-            appendRemoteFireballs(sim)      // render de los proyectiles del rival
         }
+
+        // 🆕 ROLL-UP del HUD: el HP mostrado drena gradual hacia el real (subir = instantáneo,
+        // así el reset de ronda/revancha rellena la barra solo, sin tocar los resets)
+        dispHp0 = rollUpHp(dispHp0, sim.p0.hitPoints, dt)
+        dispHp1 = rollUpHp(dispHp1, sim.p1.hitPoints, dt)
 
         // El menú de fin SOLO con el COMBATE decidido (2 rondas); entre rondas solo se congela
         val showEnd = sim.battleEnded && matchOver && now >= endMenuAtMs
@@ -353,8 +382,15 @@ class StreetFighterViewModel @Inject constructor(
             koFlash = koFrame == 1,
             gameTimeMs = now,
             showRoundIntro = now < roundIntroUntilMs,
+            displayHp0 = dispHp0,
+            displayHp1 = dispHp1,
         )
     }
+
+    /** 🆕 Roll-up del HUD: drena hacia el HP real a HP_DRAIN_PER_SEC; subir es instantáneo. */
+    private fun rollUpHp(disp: Float, target: Int, dt: Float): Float =
+        if (target >= disp) target.toFloat()
+        else maxOf(target.toFloat(), disp - HP_DRAIN_PER_SEC * dt)
 
     // ------------------------------------------------------------------
     // Animación por frames (setAnimationFrame / updateAnimation del JS)
@@ -1205,6 +1241,11 @@ class StreetFighterViewModel @Inject constructor(
         roundIntroUntilMs = 0L
         roundGraceUntilMs = 0L
         roundEndSent = false
+        // 🆕 SESIÓN 4: gameNow vuelve a 0 → resetear también lo anclado a él y el HUD
+        lastSeenSnapshot = null
+        remoteSnapshotAtMs = 0L
+        dispHp0 = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat()
+        dispHp1 = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat()
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -1636,18 +1677,44 @@ class StreetFighterViewModel @Inject constructor(
         )
     }
 
-    /** Aplica el último OPPONENT_STATE al peleador remoto (índice 1). */
-    private fun applyRemoteSnapshot(sim: Sim, now: Long) {
+    /**
+     * Aplica el último OPPONENT_STATE al peleador remoto (índice 1).
+     * 🆕 INTERPOLADO (SESIÓN 4): el snapshot llega a ~15 Hz; la posición se ALISA con un lerp
+     * exponencial por tick (NET_LERP_RATE) en vez de saltar cada 4 ticks. Si la distancia
+     * supera NET_SNAP_DIST (reset de ronda/teleport) se SNAPEA — no perseguirlo lerpeando.
+     * Pose/frame/dirección/HP se aplican DIRECTO (interpolarlos falsearía la pelea).
+     */
+    private fun applyRemoteSnapshot(sim: Sim, now: Long, dt: Float) {
         val rs = remoteSnapshot ?: return
+        if (rs !== lastSeenSnapshot) {
+            lastSeenSnapshot = rs
+            remoteSnapshotAtMs = now // edad del snapshot (para extrapolar sus proyectiles)
+        }
         val st = rs.state?.let { n -> runCatching { SfFighterState.valueOf(n) }.getOrNull() } ?: sim.p1.state
+        val tx = rs.x ?: sim.p1.x
+        val ty = rs.y ?: sim.p1.y
+        val far = abs(tx - sim.p1.x) > NET_SNAP_DIST || abs(ty - sim.p1.y) > NET_SNAP_DIST
+        val alpha = if (far) 1f else (dt * NET_LERP_RATE).coerceAtMost(1f)
         sim.p1 = sim.p1.copy(
-            x = rs.x ?: sim.p1.x,
-            y = rs.y ?: sim.p1.y,
+            x = sim.p1.x + (tx - sim.p1.x) * alpha,
+            y = sim.p1.y + (ty - sim.p1.y) * alpha,
             state = st,
             animationFrame = rs.frame ?: 0,
             direction = if ((rs.dir ?: 1) >= 0) SfDirection.RIGHT else SfDirection.LEFT,
             hitPoints = rs.hp ?: sim.p1.hitPoints,
         )
+        // 🆕 SINCRONÍA DEL TIMER: el HOST manda su reloj en PLAYER_STATE; el invitado lo
+        // ADOPTA solo si el drift acumulado es >= TIMER_RESYNC_DIFF (el conteo local sigue
+        // bajando suave; esto solo re-ancla). GRACIA post-reset: un timer viejo en vuelo de
+        // la ronda anterior NO debe pisar el 99 recién reseteado.
+        if (!_state.value.isHost && !sim.battleEnded && now >= roundGraceUntilMs) {
+            rs.timer?.let { t ->
+                if (abs(time - t) >= TIMER_RESYNC_DIFF) {
+                    time = t
+                    timeTimerMs = now
+                }
+            }
+        }
         // Si su propio estado reporta 0 HP, gané la RONDA (él manda ROUND/MATCH_ENDED; esto
         // lo adelanta). GRACIA post-reset: ignora snapshots viejos en vuelo con hp=0.
         if ((rs.hp ?: 1) <= 0 && !sim.battleEnded && now >= roundGraceUntilMs) {
@@ -1674,7 +1741,7 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
-    /** Manda MI estado al rival cada ~66 ms (posición, pose, frame, HP y mis proyectiles). */
+    /** Manda MI estado al rival cada ~66 ms (posición, pose, frame, HP, 🆕 timer del host y mis proyectiles). */
     private fun sendNetState(sim: Sim, now: Long) {
         if (now - lastNetSendMs < 66) return
         lastNetSendMs = now
@@ -1682,28 +1749,77 @@ class StreetFighterViewModel @Inject constructor(
         transport?.sendPlayerState(
             x = f.x, y = f.y, state = f.state.name, frame = f.animationFrame,
             dir = f.direction.sign, hp = f.hitPoints,
+            // 🆕 SINCRONÍA: solo el HOST es autoridad del reloj (el relay lo pasa tal cual)
+            timer = if (_state.value.isHost) time else null,
             fireballs = sim.fireballs.filter { it.ownerIndex == 0 }.map {
                 SfNetFireball(it.x, it.y, it.direction.sign, it.strength.name, it.state.name, it.animationFrame)
             },
         )
     }
 
-    /** Añade los proyectiles del RIVAL (render-only; su dueño calcula las colisiones). */
-    private fun appendRemoteFireballs(sim: Sim) {
-        remoteSnapshot?.fireballs?.forEach { nf ->
+    /**
+     * Añade los proyectiles del RIVAL (render-only; su dueño calcula las colisiones).
+     * 🆕 EXTRAPOLADOS (SESIÓN 4): entre snapshots (~66 ms) los ACTIVE avanzan a su velocidad
+     * nominal según la EDAD del snapshot (tope NET_FB_MAX_AGE_S) — antes se congelaban 4 ticks.
+     */
+    private fun appendRemoteFireballs(sim: Sim, now: Long) {
+        val fbs = remoteSnapshot?.fireballs ?: return
+        val ageS = ((now - remoteSnapshotAtMs).coerceAtLeast(0L) / 1000f).coerceAtMost(NET_FB_MAX_AGE_S)
+        fbs.forEach { nf ->
+            val strength = runCatching { SfAttackStrength.valueOf(nf.strength) }.getOrDefault(SfAttackStrength.LIGHT)
+            val fbState = runCatching { SfFireballState.valueOf(nf.state) }.getOrDefault(SfFireballState.ACTIVE)
+            val dir = if (nf.dir >= 0) SfDirection.RIGHT else SfDirection.LEFT
+            // Solo los ACTIVOS vuelan; un COLLIDED se queda donde reventó
+            val x = if (fbState == SfFireballState.ACTIVE) {
+                nf.x + strength.fireballVelocity * dir.sign * ageS
+            } else {
+                nf.x
+            }
             sim.fireballs.add(
                 SfFireball(
                     ownerIndex = 1,
-                    x = nf.x, y = nf.y,
-                    direction = if (nf.dir >= 0) SfDirection.RIGHT else SfDirection.LEFT,
-                    strength = runCatching { SfAttackStrength.valueOf(nf.strength) }.getOrDefault(SfAttackStrength.LIGHT),
+                    x = x, y = nf.y,
+                    direction = dir,
+                    strength = strength,
                     velocity = 0f,
-                    state = runCatching { SfFireballState.valueOf(nf.state) }.getOrDefault(SfFireballState.ACTIVE),
+                    state = fbState,
                     animationFrame = nf.frame,
                 ),
             )
         }
     }
+
+    /**
+     * 🆕 FIREBALL-VS-FIREBALL (SESIÓN 4): dos proyectiles ACTIVOS de DUEÑOS OPUESTOS que se
+     * traslapan REVIENTAN los dos (pose COLLIDED, como al pegar). Offline cancela ambos de
+     * verdad; online el del rival es render-only — aquí se revienta MI copia y el rival hará
+     * lo propio con la suya en su lado (~66 ms; el parpadeo de su copia es aceptado).
+     */
+    private fun collideFireballPairs(sim: Sim, now: Long) {
+        if (sim.fireballs.size < 2) return
+        for (i in sim.fireballs.indices) {
+            val a = sim.fireballs[i]
+            if (a.state != SfFireballState.ACTIVE) continue
+            for (j in i + 1 until sim.fireballs.size) {
+                val b = sim.fireballs[j]
+                if (b.state != SfFireballState.ACTIVE || b.ownerIndex == a.ownerIndex) continue
+                val boxA = fireballBox.toWorld(a.x, a.y, a.direction)
+                val boxB = fireballBox.toWorld(b.x, b.y, b.direction)
+                if (!boxA.overlaps(boxB)) continue
+                sim.fireballs[i] = collidedFireball(a, now)
+                sim.fireballs[j] = collidedFireball(b, now)
+                _soundEvents.tryEmit("light-punch-hit")
+                return // a lo sumo un cruce por tick (2 pares simultáneos es rarísimo)
+            }
+        }
+    }
+
+    private fun collidedFireball(fb: SfFireball, now: Long): SfFireball = fb.copy(
+        state = SfFireballState.COLLIDED,
+        animationFrame = 0,
+        velocity = fb.velocity * 0.33f,
+        animationTimerMs = now + (fireballCollidedDelays[0] * SfConstants.FRAME_TIME_MS).toLong(),
+    )
 
     /** Índice local → lado de red ("p1" = anfitrión), para ROUND/MATCH_ENDED. */
     private fun sideOf(winnerIdx: Int): String {
@@ -1805,6 +1921,8 @@ class StreetFighterViewModel @Inject constructor(
         controlHistory.clear()
         lastZone = 0
         remoteSnapshot = null
+        lastSeenSnapshot = null   // 🆕 SESIÓN 4: la edad del snapshot arranca con el próximo
+        remoteSnapshotAtMs = 0L
         netDamageQueue.clear()
         onlineEndSent = false
         roundEndSent = false

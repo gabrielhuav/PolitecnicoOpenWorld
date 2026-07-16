@@ -24,9 +24,10 @@ Menú principal; título ligado a `BuildConfig.VERSION_NAME` con auto-shrink que
 **Botones (renombrados):** `menu_start_game` ahora es **"MUNDO LIBRE"** (open world sin campaña, spawn por
 defecto) y `menu_load_game` es **"MODO HISTORIA"** (antes deshabilitado; ahora navega a `story_mode` vía
 `onNavigateToStory`).
-**🆕 Botón "STREET FIGHTER" (`menu_street_fighter`, 2026-07-09):** visible SOLO con Modo
-Desarrollador (`SettingsRepository.getDeveloperMode()`, leído con `remember` como en las demás
-pantallas); navega a la ruta `street_fighter` (callback `onNavigateToStreetFighter` con default `{}`).
+**🆕 Botón "HUELUM VS. GOYA" (`menu_street_fighter`, 2026-07-09 · PÚBLICO desde 2026-07-15):**
+SIEMPRE visible (el gate por Modo Desarrollador se INVIRTIÓ: ahora el dev mode solo desbloquea a
+RYU/KEN dentro del selector, ver §GATE INVERTIDO abajo); navega a la ruta `street_fighter`
+(callback `onNavigateToStreetFighter` con default `{}`).
 
 ---
 
@@ -252,8 +253,21 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   CHARACTERS_SELECTED con la selección vieja del host); visibilidad del host 120→**300 s**; y el
   VM al recibir `OPPONENT_JOINED` con `battleEnded`/pelea corrida hace **reset limpio** a
   SELECTING (como REMATCH_ACCEPTED) — antes quedaba el selector sobre el fin de pelea.
-- **Pendiente:** fireball-vs-fireball (raro: requiere 2 hadoukens cruzados) y roll-up de las
-  barras de vida del HUD. *(i18n ✅ 2026-07-11; abrirlo sin dev ✅ 2026-07-15.)*
+- **🆕 SESIÓN 4 — pulido de red + HUD (2026-07-16b; detalle: `AUDIT_SF_MULTIPLAYER.md`
+  banner "SESIÓN 4"):** (1) **BUGFIX server:** el relay de PLAYER_STATE devolvía el type
+  equivocado (`{ type: 'OPPONENT_STATE', ...msg }` — el spread DESPUÉS pisaba el type) → el
+  rival se veía CONGELADO en online; BT/LAN no lo sufrían. Corregido (spread PRIMERO); sale
+  en el 1er deploy. (2) **Interpolación del rival:** lerp exponencial de x/y por tick
+  (`NET_LERP_RATE=14`, snap a >80 px = reset de ronda/teleport); proyectiles remotos
+  EXTRAPOLADOS por la edad del snapshot (tope 0.25 s). (3) **Sincronía del timer:** campo
+  `timer` en PLAYER_STATE (interfaz + WS + SfStreamPeer→BT/LAN); solo lo manda el HOST y el
+  invitado re-ancla si drift ≥2 s, gateado por la gracia de ronda. (4) **Fireball-vs-fireball**
+  (`collideFireballPairs`: dos ACTIVE de dueños opuestos se revientan; offline y online
+  simétrico). (5) **Roll-up del HUD** (`displayHp0/1`: la barra drena a 200 HP/s hacia el HP
+  real; subir instantáneo → el reset de ronda rellena solo; `drawHud` pinta con estos).
+- **Pendiente:** reconexión a sala tras caída, espectadores y anti-cheat (conscientes, ver
+  AUDIT §4). *(i18n ✅ 2026-07-11; abrirlo sin dev ✅ 2026-07-15; fireball-vs-fireball y
+  roll-up del HUD ✅ 2026-07-16 SESIÓN 4.)*
 
 ---
 

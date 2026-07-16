@@ -47,6 +47,11 @@ data class StreetFighterState(
     val showEndMenu: Boolean = false,                // Revancha / Volver al menú (solo con el COMBATE decidido)
     val koFlash: Boolean = false,                    // parpadeo del icono KO en el HUD
 
+    // 🆕 ROLL-UP del HUD: HP MOSTRADO en las barras (drena GRADUAL hacia el hitPoints real;
+    // subir — reset de ronda/revancha — es instantáneo). La View pinta las barras con ESTOS.
+    val displayHp0: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
+    val displayHp1: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
+
     // ─── 🆕 RONDAS estilo SF (2026-07-16): mejor de 3 — gana quien tome 2 rondas ───
     // Cada ronda termina por KO o timeout (más vida gana; EMPATE exacto → azar; online el
     // azar es DETERMINISTA con semilla compartida para que ambos lados coincidan).

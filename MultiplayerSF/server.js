@@ -308,8 +308,10 @@ wss.on('connection', (ws, req) => {
 
             case 'PLAYER_STATE': {
                 if (!room || room.phase !== 'fighting' && room.phase !== 'countdown') break;
-                // Relay puro al oponente
-                const payload = { type: 'OPPONENT_STATE', ...msg };
+                // Relay puro al oponente. ⚠️ El ...msg va PRIMERO: si fuera después, su
+                // type:'PLAYER_STATE' SOBRESCRIBIRÍA el 'OPPONENT_STATE' (bug real 2026-07-16:
+                // el cliente ignoraba el snapshot y el rival se veía CONGELADO en online).
+                const payload = { ...msg, type: 'OPPONENT_STATE' };
                 const target = (ws === room.p1) ? room.p2 : room.p1;
                 if (target && target.readyState === WebSocket.OPEN) {
                     target.send(JSON.stringify(payload));
