@@ -76,9 +76,13 @@
 - **Arquitectura / Architecture:** MVVM estricto por *feature* / strict MVVM by feature
 - **Servidores / Servers:** 2× Node.js + `ws` (open world `Multiplayer/`, zombi `MultiplayerInteriores/`), dockerizados en Render
 - **Room DB:** versión 8 (`MIGRATION_7_8` + destructive fallback)
-- **~223 archivos Kotlin / Kotlin files**, ~46k líneas / lines (2026-07-11). 7 archivos >1000 (ninguno >1600):
-  `ZombieGameScreen`(1591), `WorldMapViewModel`(1583), `WorldMapScreen`(1460), `NativeOsmMap`(1458),
-  `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093), `StreetFighterViewModel`(1077)
+- **~227 archivos Kotlin / Kotlin files**, ~47k líneas / lines (2026-07-15). 8 archivos >1000 (ninguno >1700):
+  `StreetFighterViewModel`(1610, creció con multijugador BT+lobby), `ZombieGameScreen`(1591),
+  `WorldMapViewModel`(1583), `WorldMapScreen`(1460), `NativeOsmMap`(1458), `StreetFighterScreen`(1425),
+  `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093)
+- **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15):** 11 de los 14 peleadores de "HUELUM VS. GOYA"
+  se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
+  en el APK (solo Ryu/Ken/Prankedy conservan hoja propia). Ver 07 y 09 §12.
 - **Default map provider:** `CARTO_VOYAGER` (web, tiles reales hasta z20 / real tiles up to z20; no persistido / not persisted)
 - **Auth / Autenticación:** Firebase Auth (Google Sign-In) en `data/auth/` (`AuthManager`, `AuthSession`).
   Obligatoria para multijugador; local/Modo Historia sin login. Ambos servidores verifican el ID token

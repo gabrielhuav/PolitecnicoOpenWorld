@@ -396,6 +396,22 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
+- **🆕 ASSETS COMPARTIDOS SF⇄MUNDO (2026-07-15) — reglas:** 11 de los 14 peleadores de
+  "HUELUM VS. GOYA" se arman EN RUNTIME (`SfSharedSheets`) desde los sets del mundo
+  (`SPRITES/PLAYER|NPC/`, convención de `PlayerSkin`). (a) **NO regenerar/committear sheets
+  empaquetados** para personajes que tengan set en el mundo (volverían a duplicar ~12 MB que
+  se borraron); empaquetado solo para arte PROPIO de pelea (Ryu/Ken/Prankedy). (b) El
+  `spriteAsset` de un compartido es VIRTUAL (`RUNTIME/<X>.png`): es solo la KEY del mapa de
+  imágenes de la Screen — **abrirlo con `assets.open()` CRASHEA**; toda hoja pasa por
+  `SfSharedSheets.sheetFor()`. (c) Su `jsonAsset` es el TEMPLATE `ryu.json` — **no borrar
+  ryu.json ni reordenar sus claves**: el ORDEN define el layout de la rejilla runtime
+  (`templateFrameOrder`). (d) Los LIENZOS fuente son heterogéneos a propósito: la
+  normalización (bbox + escala única TARGET_H/alto del idle) vive en el CÓDIGO — si cambias
+  el arte de un set del mundo, el peleador SF se actualiza SOLO; si un personaje mira a la
+  IZQUIERDA en su set, márcalo con `SfSharedSet(flip = true)` (lázaro, escomboy). (e) Memoria:
+  la hoja runtime pesa lo mismo que decodificar el PNG que había (2560×2048); cache LRU 3 —
+  no subir el cap sin medir en gama baja (09 §6).
+
 - **GOTCHA DEL SANDBOX (2) - bash sirve copias TRUNCADAS de archivos EXISTENTES editados con las
   herramientas (Edit/Write) (2026-06-24):** tras editar con Edit/Write un `.kt`/`.md` que YA existia, el
   `bash` (otro path de montaje) sirve una copia RECORTADA a ~su tamano PREVIO (la cola nueva se pierde en

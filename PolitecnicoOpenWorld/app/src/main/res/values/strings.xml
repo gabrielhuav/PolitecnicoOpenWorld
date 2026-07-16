@@ -578,6 +578,22 @@
     <string name="sf_mp_public">SALA PÚBLICA</string>
     <string name="sf_mp_queue_title">LISTA DE ESPERA</string>
     <string name="sf_mp_queue_sub">Buscando rival en salas públicas…</string>
+    <string name="sf_mp_rooms_summary">Salas activas: %1$d · En espera: %2$d</string>
+    <string name="sf_mp_room_waiting">esperando rival · toca para solicitar unirte</string>
+    <string name="sf_mp_room_busy">en pelea</string>
+    <string name="sf_mp_join_request">Un jugador quiere unirse a tu sala. ¿Lo aceptas?</string>
+    <string name="sf_mp_accept">ACEPTAR</string>
+    <string name="sf_mp_reject">RECHAZAR</string>
+    <string name="sf_mp_awaiting_host">Solicitud enviada; esperando la respuesta del anfitrión…</string>
+    <string name="sf_bt_section">BLUETOOTH (sin internet)</string>
+    <string name="sf_bt_host">ANFITRIÓN</string>
+    <string name="sf_bt_scan">BUSCAR RIVAL</string>
+    <string name="sf_bt_host_title">ANFITRIÓN BLUETOOTH</string>
+    <string name="sf_bt_host_sub">Visible por Bluetooth; esperando a que tu rival te encuentre con BUSCAR RIVAL…</string>
+    <string name="sf_bt_connecting_sub">Conectando por Bluetooth con el anfitrión…</string>
+    <string name="sf_bt_pick_title">ELIGE AL ANFITRIÓN</string>
+    <string name="sf_bt_pick_sub">Dispositivos emparejados y cercanos (activa Bluetooth en ambos teléfonos)</string>
+    <string name="sf_bt_none">Buscando dispositivos…</string>
     <string name="sf_choose_rival">Ahora elige al RIVAL (lo controla la CPU)</string>
 
     <!-- Tutorial de controles (optativo, i18n 2026-07-11) -->

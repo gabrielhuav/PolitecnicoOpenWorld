@@ -7,19 +7,48 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterData
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
 
-// Carga el frame data de los peleadores desde assets/STREETFIGHTER/DATA/{ryu,ken}.json
+// Carga el frame data de los peleadores desde assets/STREETFIGHTER/DATA/*.json
 // (generados 1:1 desde Ryu.js/Ken.js del clon original: recortes del sprite sheet,
 // orígenes, pushbox/hurtbox/hitbox por frame y animaciones con sus frame-delays).
 // Cache estático: se parsea UNA vez por proceso (los usan el VM y el render).
+//
+// 🆕 PELEADORES COMPARTIDOS (id.sharedSet != null): su jsonAsset es el TEMPLATE ryu.json;
+// se conservan cajas/timings pero el `src` se REMAPEA a la rejilla 10×N de celdas 256²
+// (origin 128,224) que SfSharedSheets arma en runtime desde los sprites del mundo.
+// El orden de celdas = orden de claves de ryu.json (idéntico a pack_sf_character.py).
 
 object SfFrameCatalog {
+
+    private const val CELL = 256
+    private const val COLS = 10
 
     private val cache = mutableMapOf<SfFighterId, SfFighterData>()
 
     @Synchronized
     fun load(context: Context, id: SfFighterId): SfFighterData = cache.getOrPut(id) {
         val json = context.assets.open(id.jsonAsset).bufferedReader().use { it.readText() }
-        parse(json)
+        val data = parse(json)
+        if (id.sharedSet == null) data else remapToRuntimeGrid(data)
+    }
+
+    /** Claves del template en su orden (define el layout de la hoja runtime compartida). */
+    @Synchronized
+    fun templateFrameOrder(context: Context): List<String> =
+        load(context, SfFighterId.RYU).frames.keys.toList()
+
+    /** Mismos frames/cajas/animaciones, pero con src = rejilla runtime y pies en (128,224). */
+    private fun remapToRuntimeGrid(template: SfFighterData): SfFighterData {
+        val frames = LinkedHashMap<String, SfFrameDef>()
+        template.frames.entries.forEachIndexed { idx, (key, def) ->
+            frames[key] = SfFrameDef(
+                src = listOf((idx % COLS) * CELL, (idx / COLS) * CELL, CELL, CELL),
+                origin = listOf(128, 224),
+                push = def.push,
+                hurt = def.hurt,
+                hit = def.hit,
+            )
+        }
+        return SfFighterData(frames = frames, animations = template.animations)
     }
 
     private fun parse(json: String): SfFighterData {

@@ -11,8 +11,9 @@
 >   se limpia la cola en `close`. Cliente: botón "SALA PÚBLICA" en `OnlineMenuOverlay` →
 >   `startOnlineQuick()`; `WAITING_OPPONENT` con `roomCode == null` = "LISTA DE ESPERA".
 > - **Resumen de partidas:** `LIST_ROOMS` → `ROOMS_LIST{rooms:[{code,players,phase}],queue}`;
->   el VM lo condensa en `state.activeRoomsInfo` ("Salas activas: N · En espera: M") y se
->   muestra bajo el subtítulo de la lista de espera.
+>   el VM lo condensaba en `state.activeRoomsInfo` ("Salas activas: N · En espera: M").
+>   *(SESIÓN 3: reemplazado por `activeRooms`/`queueCount` — el texto lo arma la VIEW con
+>   string resource y las salas se pintan como tarjetas, ver banner de abajo.)*
 > - **Botones estilo POW:** composable `PowButton` en la Screen (CutCornerShape topStart/
 >   bottomEnd + vino #6B1C3A + texto bold espaciado, como `MenuButton` del menú principal);
 >   ya usado en menú online, unirse, fin de pelea, pausa y botón 🌐.
@@ -20,17 +21,74 @@
 >   el RIVAL (2º `CharacterSelectOverlay` con subtítulo `sf_choose_rival`) → mapa.
 >   `selectCharacter(id, rivalId?)` en el VM (rivalId null = Ken/Ryu de antes; online lo ignora).
 >
-> **PENDIENTE (para QWEN/CODEX, en orden):**
-> 1. `CANCEL_QUEUE` del cliente: `cancelOnline()` cierra el WS (el server limpia la cola en
->    close, así que FUNCIONA), pero lo fino es mandar `CANCEL_QUEUE` antes de cerrar.
-> 2. Lista de salas RICA: mostrar `rooms[]` como tarjetas tocables (unirse a una sala en fase
->    'waiting' directamente) en `OnlineMenuOverlay` — hoy solo hay contadores.
-> 3. Refrescar `LIST_ROOMS` periódicamente en la lista de espera (hoy solo se pide 1 vez).
-> 4. `PowButton` podría moverse a `map_exterior/ui/components/` si otros modos lo quieren.
-> 5. Sweep visual: quedan `TextButton` (Cancelar/diálogos) y `OutlinedTextField` con estilo
->    M3 default; alinear al tema vino/dorado si se quiere paridad total.
-> 6. Strings nuevos ya en ES+EN: `sf_mp_public`, `sf_mp_queue_title`, `sf_mp_queue_sub`,
->    `sf_choose_rival` (revisar paridad si añades más).
+> **✅ SESIÓN 3 (2026-07-15) — los 6 PENDIENTES de arriba quedaron RESUELTOS** (sin compilar;
+> Rebuild pendiente):
+> 1. ✅ `cancelOnline()` manda `CANCEL_QUEUE` + `LEAVE_ROOM` ANTES de cerrar el WS (el server
+>    ignora el que no aplique) y cancela `roomsRefreshJob`.
+> 2. ✅ Lista de salas RICA: la LISTA DE ESPERA pública es ahora `PublicQueueOverlay` (Screen):
+>    resumen (`sf_mp_rooms_summary`, arma el texto la VIEW — se retiró el string hardcodeado
+>    `activeRoomsInfo` del VM) + `rooms[]` como tarjetas (`RoomCard`); las salas en 'waiting'
+>    con hueco son TOCABLES → `joinRoomFromQueue(code)` en el VM (`CANCEL_QUEUE` + `JOIN_ROOM`).
+>    Estado: `activeRooms: List<SfRoomSummary>` + `queueCount: Int?` (null = sin datos).
+>    NOTA: se puso en la lista de espera y NO en `OnlineMenuOverlay` como decía el pendiente:
+>    ese menú se muestra con el WS AÚN SIN CONECTAR (status OFF) — no hay de dónde pedir
+>    `LIST_ROOMS` sin pagar el warmup (~1 min) solo por abrir el menú.
+>    Server endurecido: `JOIN_ROOM`/`CREATE_ROOM` sacan al ws de `publicQueue` y el matchmaker
+>    poda a quien ya está en sala (`!wsToRoom.has(w)`) → sin doble emparejamiento. `node --check` OK.
+> 3. ✅ `startRoomsRefresh()` (VM): en lista de espera re-pide `LIST_ROOMS` cada
+>    `ROOMS_REFRESH_MS=5000`; se auto-detiene al emparejarte/unirte/cancelar.
+> 4. ✅ `PowButton` movido a `map_exterior/ui/components/PowButton.kt` (público, junto a
+>    ActionButton/JoystickController); la Screen lo importa (se borró el privado — gana nada:
+>    no quedó gemelo).
+> 5. ✅ Sweep visual: `OutlinedTextField` con colores vino/dorado (`OutlinedTextFieldDefaults.colors`),
+>    los `TextButton` de Cancelar/volver en dorado `#D4AF37` y el `AlertDialog` de salida con
+>    fondo oscuro `#1A1016` + botones al tema.
+> 6. ✅ Strings nuevos ES+EN (paridad): `sf_mp_rooms_summary`, `sf_mp_room_waiting`, `sf_mp_room_busy`.
+>
+> **🆕 SESIÓN 3b (2026-07-15, mismo día) — LOBBY CON APROBACIÓN + BLUETOOTH:**
+> - **Lobby estilo AoE2 (online):** tocar una tarjeta de sala ya NO une directo: manda
+>   `REQUEST_JOIN{code}` → el server avisa al host (`JOIN_REQUESTED`) → el host ve un diálogo
+>   ACEPTAR/RECHAZAR (`RESPOND_JOIN{accept}`) → aceptar = `ROOM_JOINED`+`OPPONENT_JOINED`
+>   (flujo existente); rechazar/sala llena = **`JOIN_REJECTED{message}`** (soft, NO `ERROR`: el
+>   invitado re-entra a la cola con `QUICK_MATCH` y ve el aviso `queueNotice`). El server
+>   guarda `room.pendingJoin` (UNA solicitud a la vez); si el solicitante se desconecta →
+>   `JOIN_REQUEST_CANCELLED` al host; si el host se va → se rechaza al pendiente. UNIRSE por
+>   CÓDIGO sigue siendo directo (el código ES la invitación). Estado: `joinRequestPending`
+>   (host) / `awaitingJoinOk` + `queueNotice` (invitado); intents `requestJoinRoom`/`respondJoin`.
+> - **BLUETOOTH local (sin internet):** interfaz común **`SfNetTransport`** (Listener + mismos
+>   mensajes `SfNetMsg`); `SfMatchClient` la implementa y el VM solo habla con `transport`.
+>   **`SfBtClient`** = RFCOMM con **UUID fijo** (`SF_BT_UUID`), JSON por líneas; el **HOST hace
+>   de server** (accept + genera localmente lo que en online manda el relay: OPPONENT_JOINED,
+>   CHARACTERS_SELECTED, MAP_SELECTED+countdown, FIGHT_START, REMATCH_ACCEPTED bilateral);
+>   `PLAYER_STATE` entrante → `OPPONENT_STATE` en el receptor (misma autoridad del receptor).
+>   Caída del socket → `OPPONENT_DISCONNECTED` (abandono); el host vuelve a aceptar.
+>   UI: sección "BLUETOOTH (sin internet)" en el menú 🌐 (ANFITRIÓN = visible+accept /
+>   BUSCAR RIVAL = emparejados+discovery con selector). `roomCode="BT"` + `state.btMode`.
+> - **Permisos (Manifest, ya aprobado en Play):** `BLUETOOTH`/`BLUETOOTH_ADMIN` con
+>   `maxSdkVersion=30`; `BLUETOOTH_CONNECT`/`BLUETOOTH_ADVERTISE`/`BLUETOOTH_SCAN`, este último
+>   con **`usesPermissionFlags="neverForLocation"` (CRÍTICO:** sin él el escaneo cuenta como
+>   ubicación; con él, el `ACCESS_FINE_LOCATION` existente se justifica SOLO por los mapas).
+>   Runtime SOLO al tocar la sección BT (Android 12+: CONNECT+ADVERTISE al hospedar,
+>   SCAN+CONNECT al buscar); en ≤11 no se pide nada (el discovery usa la ubicación que la app
+>   ya tiene por el mapa). **PROHIBIDO foreground service** (targetSdk 34 obligaría declaración
+>   con video en Play Console): la conexión vive con la Activity y `close()` al salir.
+>   Play Console: Data Safety NO cambia (tráfico dispositivo-a-dispositivo efímero ≠
+>   recopilación); no hay formulario de declaración para permisos BT; solo mencionar la
+>   función en las notas de versión.
+>
+> **🆕 SESIÓN 3c (2026-07-15, mismo día) — BT PERSISTENTE + MODO PÚBLICO:**
+> - **Robustez/persistencia BT (`SfBtClient`):** HEARTBEAT cada 10 s (Timer; el receptor lo
+>   ignora, NO sube al VM) + si una ESCRITURA falla se cierra el socket → el readLoop destraba
+>   YA y notifica el abandono (sin esto una caída silenciosa colgaba la pelea hasta que el
+>   stack BT reportara); `onPeerConnected` resetea TODA la sala local (incl. `char1`);
+>   visibilidad del host 120→300 s; timer cancelado en pérdida de peer y en `close()`.
+> - **Re-entrada limpia:** VM `OPPONENT_JOINED` con `battleEnded`/pelea corrida → reset a
+>   SELECTING como REMATCH_ACCEPTED (aplica a BT —el host re-acepta tras un abandono— y al
+>   online cuando un nuevo rival entra a la sala tras una pelea).
+> - **GATE INVERTIDO:** el modo es PÚBLICO (botón del menú siempre visible); el Modo
+>   Desarrollador ahora solo desbloquea a **RYU/KEN** en el selector
+>   (`selectableFighters`/`classicFightersUnlocked` en el VM; rival default offline sin dev =
+>   Prankedy/Rey Grupero). Ver 07 §STREET FIGHTER.
 
 > Servidor base generado por QWEN (interrumpido), **auditado y corregido**; cliente Kotlin
 > implementado desde cero por la IA principal. NADA compilado aún (Rebuild pendiente).
@@ -42,8 +100,11 @@
 | `MultiplayerSF/server.js` (~330 líneas) | Relay puro 1v1: salas de 4 letras, selección, countdown, estado, daño, fin, revancha. **Fixes sobre lo de QWEN:** PLAYER_DAMAGE ahora va SIEMPRE al rival del emisor (antes comparaba un `targetId` inexistente), JOIN rechaza salas sin anfitrión, revancha requiere a LOS DOS (`rematch1/2` + `REMATCH_REQUESTED`), cualquier mensaje en sala refresca `lastActivityMs` (una pelea >5 min ya no expira) |
 | `MultiplayerSF/{package.json, Dockerfile, docker-compose.yml, auth.js}` | Patrón de MultiplayerInteriores; `auth.js` modo suave (`AUTH_REQUIRED`), `GET /status` para warmup |
 | `app/build.gradle.kts` | `BuildConfig.SF_SERVER_URL` (debug+release) → **ajustar al nombre real del servicio tras el 1er deploy** |
-| `features/streetfighter/data/SfMatchClient.kt` (NUEVO) | WebSocket OkHttp (ping 20 s + HEARTBEAT 45 s), `SfNetMsg` laxo (Gson), helpers de envío y `warmupBlocking()` (GET /status con reintentos ≤90 s para despertar el free tier) |
-| `viewmodel/StreetFighterState.kt` | `SfOnlineStatus` (OFF/CONNECTING/WAITING_OPPONENT/SELECTING/WAITING_MAP/COUNTDOWN/FIGHTING/OPPONENT_LEFT) + campos `roomCode/isHost/onlineCountdown/onlineError/onlineMapFile/opponentWantsRematch` |
+| `features/streetfighter/data/SfMatchClient.kt` (NUEVO) | WebSocket OkHttp (ping 20 s + HEARTBEAT 45 s), `SfNetMsg` laxo (Gson), helpers de envío y `warmupBlocking()` (GET /status con reintentos ≤90 s para despertar el free tier). 🆕 SESIÓN 3b: implementa `SfNetTransport` + `requestJoin`/`respondJoin` |
+| 🆕 `features/streetfighter/data/SfNetTransport.kt` (SESIÓN 3b) | Interfaz común del transporte (Listener + senders); el VM solo habla con ella |
+| 🆕 `features/streetfighter/data/SfBtClient.kt` (SESIÓN 3b) | Multijugador LOCAL por Bluetooth RFCOMM (UUID fijo, JSON por líneas); el HOST genera localmente los mensajes del relay; `startScan/stopScan` (emparejados + discovery). Sin foreground service |
+| 🆕 `app/src/main/AndroidManifest.xml` (SESIÓN 3b) | Permisos BT: legacy con `maxSdkVersion=30` + CONNECT/ADVERTISE/SCAN (`neverForLocation`) |
+| `viewmodel/StreetFighterState.kt` | `SfOnlineStatus` (OFF/CONNECTING/WAITING_OPPONENT/SELECTING/WAITING_MAP/COUNTDOWN/FIGHTING/OPPONENT_LEFT) + campos `roomCode/isHost/onlineCountdown/onlineError/onlineMapFile/opponentWantsRematch` + 🆕 `activeRooms: List<SfRoomSummary>` y `queueCount: Int?` (resumen LIST_ROOMS; null = sin datos) |
 | `viewmodel/StreetFighterViewModel.kt` | Integración online: ver §3 |
 | `ui/StreetFighterScreen.kt` | Botón 🌐 en el selector, `OnlineMenuOverlay` (crear/unir con código), `OnlineInfoOverlay` (conectando/esperando), countdown gigante, mapa del anfitrión por red, menú de fin online (revancha bilateral + salir de sala) |
 | `strings.xml` ES+EN | 15 strings `sf_mp_*` (paridad) |
@@ -63,6 +124,13 @@
 | MATCH_ENDED | C→S→C | `winner` ("p1"/"p2") |
 | REQUEST_REMATCH → REMATCH_REQUESTED / REMATCH_ACCEPTED | C→S→C | acepta cuando lo piden AMBOS |
 | HEARTBEAT / ERROR / SESSION_INIT | varios | keep-alive de sala / `message` / `sessionId` |
+| 🆕 REQUEST_JOIN → JOIN_REQUESTED | C→S→host | `code`: solicitud de unión (lobby con aprobación) |
+| 🆕 RESPOND_JOIN | host→S | `accept`: true = mete al pendiente (ROOM_JOINED/OPPONENT_JOINED) |
+| 🆕 JOIN_REJECTED / JOIN_REQUEST_CANCELLED | S→C / S→host | `message` (soft-reject; el invitado re-encola) / el solicitante se fue |
+
+> **Bluetooth (SfBtClient):** mismos mensajes SIN server — el host agrega SELECT_CHARACTER/
+> REQUEST_REMATCH del invitado y emite CHARACTERS_SELECTED/MAP_SELECTED/FIGHT_START/
+> REMATCH_ACCEPTED; PLAYER_STATE entrante se convierte a OPPONENT_STATE en el receptor.
 
 ## 3. Decisiones (qué es autoritativo y por qué)
 

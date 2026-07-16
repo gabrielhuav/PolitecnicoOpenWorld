@@ -130,6 +130,9 @@ wss.on('connection', (ws, req) => {
 
             case 'CREATE_ROOM': {
                 if (room) break; // ya está en una sala
+                // Si estaba en la lista de espera pública, sale de ella (evita que el
+                // matchmaker lo empareje mientras ya es anfitrión de una sala)
+                publicQueue = publicQueue.filter(w => w !== ws);
                 let code = msg.code || generateRoomCode();
                 // Validar que sea 4 caracteres alfanuméricos
                 if (!/^[A-Z0-9]{4}$/.test(code)) {
@@ -153,6 +156,8 @@ wss.on('connection', (ws, req) => {
 
             case 'JOIN_ROOM': {
                 if (room) break;
+                // Unirse desde la LISTA DE ESPERA (tarjeta tocada): sale de la cola antes
+                publicQueue = publicQueue.filter(w => w !== ws);
                 const code = (msg.code || '').toUpperCase();
                 const targetRoom = rooms.get(code);
                 // También rechaza salas SIN anfitrión (p1 se fue antes de que llegara el p2)
@@ -181,7 +186,8 @@ wss.on('connection', (ws, req) => {
             // ─── SALA PÚBLICA (lista de espera) ───
             case 'QUICK_MATCH': {
                 if (room) break;
-                publicQueue = publicQueue.filter(w => w.readyState === WebSocket.OPEN && w !== ws);
+                // Poda la cola: muertos, el propio ws y quien ya entró a una sala por su cuenta
+                publicQueue = publicQueue.filter(w => w.readyState === WebSocket.OPEN && w !== ws && !wsToRoom.has(w));
                 const waiter = publicQueue.shift();
                 if (waiter) {
                     // Empareja: el que esperaba es el ANFITRIÓN (p1)
@@ -204,6 +210,49 @@ wss.on('connection', (ws, req) => {
 
             case 'CANCEL_QUEUE': {
                 publicQueue = publicQueue.filter(w => w !== ws);
+                break;
+            }
+
+            // ─── Lobby con APROBACIÓN (estilo AoE2): pides unirte y el HOST decide ───
+            case 'REQUEST_JOIN': {
+                if (room) break; // ya está en una sala
+                publicQueue = publicQueue.filter(w => w !== ws); // sale de la cola mientras espera respuesta
+                const code = (msg.code || '').toUpperCase();
+                const targetRoom = rooms.get(code);
+                // Soft-reject (JOIN_REJECTED, no ERROR): el solicitante sigue conectado y
+                // puede volver a la lista de espera / pedir otra sala.
+                if (!targetRoom || targetRoom.p1 === null || targetRoom.p2 !== null) {
+                    ws.send(JSON.stringify({ type: 'JOIN_REJECTED', message: 'Sala no encontrada o llena' }));
+                    break;
+                }
+                if (targetRoom.pendingJoin && targetRoom.pendingJoin.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'JOIN_REJECTED', message: 'El anfitrión está atendiendo otra solicitud' }));
+                    break;
+                }
+                targetRoom.pendingJoin = ws;
+                targetRoom.lastActivityMs = Date.now();
+                if (targetRoom.p1.readyState === WebSocket.OPEN) {
+                    targetRoom.p1.send(JSON.stringify({ type: 'JOIN_REQUESTED' }));
+                }
+                break;
+            }
+
+            case 'RESPOND_JOIN': {
+                // Solo el HOST (p1) de la sala puede responder
+                if (!room || room.p1 !== ws) break;
+                const pending = room.pendingJoin;
+                room.pendingJoin = null;
+                if (!pending || pending.readyState !== WebSocket.OPEN) break;
+                if (msg.accept === true && room.p2 === null) {
+                    room.p2 = pending;
+                    room.phase = 'selecting';
+                    room.lastActivityMs = Date.now();
+                    wsToRoom.set(pending, roomCode);
+                    pending.send(JSON.stringify({ type: 'ROOM_JOINED', code: roomCode, playerIndex: 2 }));
+                    ws.send(JSON.stringify({ type: 'OPPONENT_JOINED', playerIndex: 2 }));
+                } else {
+                    pending.send(JSON.stringify({ type: 'JOIN_REJECTED', message: 'El anfitrión rechazó tu solicitud' }));
+                }
                 break;
             }
 
@@ -313,6 +362,15 @@ wss.on('connection', (ws, req) => {
     ws.on('close', () => {
         console.log(`[SF] Conexión cerrada: ${ws.sessionId}`);
         publicQueue = publicQueue.filter(w => w !== ws);
+        // Si era el SOLICITANTE pendiente de alguna sala, se limpia y se avisa al host
+        for (const r of rooms.values()) {
+            if (r.pendingJoin === ws) {
+                r.pendingJoin = null;
+                if (r.p1 && r.p1.readyState === WebSocket.OPEN) {
+                    r.p1.send(JSON.stringify({ type: 'JOIN_REQUEST_CANCELLED' }));
+                }
+            }
+        }
         const code = wsToRoom.get(ws);
         if (code) {
             const room = rooms.get(code);
@@ -335,6 +393,11 @@ wss.on('connection', (ws, req) => {
 });
 
 function handlePlayerLeave(ws, room, code) {
+    // Si el HOST se va con una solicitud pendiente, se rechaza al solicitante
+    if (room.p1 === ws && room.pendingJoin && room.pendingJoin.readyState === WebSocket.OPEN) {
+        room.pendingJoin.send(JSON.stringify({ type: 'JOIN_REJECTED', message: 'El anfitrión cerró la sala' }));
+        room.pendingJoin = null;
+    }
     if (room.p1 === ws) room.p1 = null;
     if (room.p2 === ws) room.p2 = null;
     wsToRoom.delete(ws);

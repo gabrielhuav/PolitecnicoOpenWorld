@@ -72,9 +72,8 @@ fun MainMenuScreen(
 
     // Nombre de jugador recordado entre sesiones (SharedPreferences). Se prellena al abrir.
     val settingsRepo = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context) }
-    // STREET FIGHTER (minijuego 1v1 en desarrollo): visible SOLO con Modo Desarrollador
-    // (Ajustes → Interfaz), como el resto de features de prueba (mismo patrón que las pantallas de juego).
-    val developerMode = remember { settingsRepo.getDeveloperMode() }
+    // (2026-07-15) "HUELUM VS. GOYA" ya es PÚBLICO: el botón se muestra siempre. Lo que ahora
+    // gatea el Modo Desarrollador son RYU y KEN dentro del selector (ver StreetFighterViewModel).
     LaunchedEffect(Unit) {
         if (state.playerName.isBlank()) {
             val saved = settingsRepo.getPlayerName()
@@ -140,8 +139,7 @@ fun MainMenuScreen(
                         onNavigateToCollectibles = onNavigateToCollectibles,
                         onNavigateToStory = onNavigateToStory,
                         onMultiplayerClick = onMultiplayer,
-                        onNavigateToStreetFighter = onNavigateToStreetFighter,
-                        developerMode = developerMode
+                        onNavigateToStreetFighter = onNavigateToStreetFighter
                     )
                 }
             }
@@ -161,8 +159,7 @@ fun MainMenuScreen(
                     onNavigateToCollectibles = onNavigateToCollectibles,
                     onNavigateToStory = onNavigateToStory,
                     onMultiplayerClick = onMultiplayer,
-                    onNavigateToStreetFighter = onNavigateToStreetFighter,
-                    developerMode = developerMode
+                    onNavigateToStreetFighter = onNavigateToStreetFighter
                 )
             }
         }
@@ -305,8 +302,7 @@ fun MenuButtonsList(
     onNavigateToCollectibles: () -> Unit,
     onNavigateToStory: () -> Unit,
     onMultiplayerClick: () -> Unit = { viewModel.onMultiplayerPressed() },
-    onNavigateToStreetFighter: () -> Unit = {},
-    developerMode: Boolean = false
+    onNavigateToStreetFighter: () -> Unit = {}
 ) {
     // MUNDO LIBRE: el open world sin campaña (antes "Iniciar Juego"). Spawn por defecto.
     MenuButton(
@@ -352,17 +348,16 @@ fun MenuButtonsList(
         color = Color(0xFF6B1C3A)
     )
 
-    // STREET FIGHTER (minijuego 1v1 clásico, port fiel de StreetFighter-main con sprites reales).
-    // SOLO en Modo Desarrollador mientras está en pruebas; se abrirá a todos en la versión final.
-    if (developerMode) {
-        Spacer(Modifier.height(16.dp))
-        MenuButton(
-            text = stringResource(R.string.menu_street_fighter),
-            onClick = onNavigateToStreetFighter,
-            enabled = !state.isWarmingUp,
-            color = Color(0xFF1C4A6B)
-        )
-    }
+    // HUELUM VS. GOYA (minijuego 1v1 clásico, port fiel de StreetFighter-main con sprites reales).
+    // (2026-07-15) PÚBLICO para todos; el Modo Desarrollador solo desbloquea a RYU/KEN en el
+    // selector (StreetFighterViewModel.selectableFighters).
+    Spacer(Modifier.height(16.dp))
+    MenuButton(
+        text = stringResource(R.string.menu_street_fighter),
+        onClick = onNavigateToStreetFighter,
+        enabled = !state.isWarmingUp,
+        color = Color(0xFF1C4A6B)
+    )
 }
 
 @Composable

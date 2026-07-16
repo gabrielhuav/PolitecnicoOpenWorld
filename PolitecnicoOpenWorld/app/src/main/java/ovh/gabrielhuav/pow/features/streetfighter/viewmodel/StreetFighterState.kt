@@ -6,6 +6,8 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighter
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireball
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
 
 // Estado UI inmutable del modo STREET FIGHTER. UN solo data class observado por la
 // View con collectAsState() (contrato MVVM, README for IAS 01/09).
@@ -61,7 +63,20 @@ data class StreetFighterState(
     val onlineError: String? = null,
     val onlineMapFile: String? = null,    // mapa elegido por el anfitrión (fondo del combate)
     val opponentWantsRematch: Boolean = false,
-    val activeRoomsInfo: String? = null,  // resumen "Salas activas: N · En espera: M"
+    // Resumen de partidas (LIST_ROOMS): salas activas + tamaño de la lista de espera.
+    // La View arma el texto (i18n) y pinta las salas en 'waiting' como tarjetas tocables.
+    val activeRooms: List<SfRoomSummary> = emptyList(),
+    val queueCount: Int? = null,          // null = aún sin datos del servidor
+
+    // ─── 🆕 Lobby con APROBACIÓN (estilo AoE2, solo online) ───
+    val joinRequestPending: Boolean = false, // (host) alguien pidió unirse: mostrar ACEPTAR/RECHAZAR
+    val awaitingJoinOk: Boolean = false,     // (invitado) solicitud enviada; esperando al anfitrión
+    val queueNotice: String? = null,         // aviso en la lista de espera (p. ej. "te rechazaron")
+
+    // ─── 🆕 MULTIJUGADOR LOCAL por BLUETOOTH (SfBtClient; sin internet) ───
+    val btMode: Boolean = false,             // la sesión online actual va por Bluetooth
+    val btPicking: Boolean = false,          // selector "BUSCAR RIVAL" abierto
+    val btDevices: List<SfBtDevice> = emptyList(), // emparejados + hallados por discovery
 )
 
 /** Fase del flujo online (OFF = jugando offline contra la CPU). */

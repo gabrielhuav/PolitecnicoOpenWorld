@@ -5,6 +5,15 @@
 > reemplazarlos NO toca lógica. Este doc dice exactamente QUÉ generar, en QUÉ formato y CÓMO
 > cablearlo. Personaje objetivo de ejemplo: **Prankedy**.
 
+> **⚠️ ACTUALIZACIÓN 2026-07-15 — el modo ya es PÚBLICO (decisión del dueño) → esta migración
+> SUBE de prioridad:** aunque Ryu/Ken solo se pueden ELEGIR con Modo Desarrollador, del clon
+> siguen VIAJANDO en el APK y/o viéndose en público: hojas de Ryu/Ken, `hud.png` (barras +
+> fuente arcade), sonidos (golpes/hadouken), `shadow.png`, splashes, el fireball del tema y el
+> muelle de Ken (fallback). **Ya propio:** música ("Persecución" de Prankedy), 6 fondos
+> IPN/UNAM y los 12 peleadores POW (11 compartidos EN RUNTIME desde los sets del mundo — ver
+> 07/09 §12 — + Prankedy empaquetado). Falta migrar: HUD, sonidos, sombra/splash/fireball y
+> decidir qué hacer con Ryu/Ken en release.
+
 ## 1. Dónde está la separación (no tocar lógica al migrar)
 
 | Capa | Archivo | Qué sabe |

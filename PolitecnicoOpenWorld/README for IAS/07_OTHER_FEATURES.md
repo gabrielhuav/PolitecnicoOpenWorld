@@ -30,7 +30,7 @@ pantallas); navega a la ruta `street_fighter` (callback `onNavigateToStreetFight
 
 ---
 
-## 🥊 STREET FIGHTER (`features/streetfighter/`) — 🆕 2026-07-09, dev-gated
+## 🥊 STREET FIGHTER (`features/streetfighter/`) — 🆕 2026-07-09 · PÚBLICO desde 2026-07-15 (RYU/KEN dev-only)
 
 **ES:** Port FIEL del clon JS `StreetFighter-main/` (hermano del repo): pelea 1v1 clásica **Ryu
 (jugador) vs Ken (CPU)** con los **sprites, escenario, HUD y sonidos originales**. Los assets viven en
@@ -45,7 +45,9 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
 | Tema / Concern | Archivo / File |
 |---|---|
 | Modelos puros (constantes, enums de estados 1:1 con el JS, SfBox, snapshots, SfInput) | `domain/models/streetfighter/SfModels.kt` |
-| Carga del frame data JSON (Gson, cache estático) | `features/streetfighter/data/SfFrameCatalog.kt` |
+| Carga del frame data JSON (Gson, cache estático; 🆕 remap a rejilla runtime para compartidos) | `features/streetfighter/data/SfFrameCatalog.kt` |
+| 🆕 HOJAS COMPARTIDAS con el mundo (armado runtime desde SPRITES/*, normaliza lienzos heterogéneos, LRU 3) | `features/streetfighter/data/SfSharedSheets.kt` |
+| 🆕 Transporte común del multijugador (interfaz; WS online / BT local) | `features/streetfighter/data/SfNetTransport.kt`, `SfMatchClient.kt`, `SfBtClient.kt` |
 | 🆕 TEMA intercambiable (escenario/HUD/sombra/splashes/proyectil/sonidos como DATOS; hoy `SF_CLASSIC_THEME`) | `features/streetfighter/data/SfTheme.kt` |
 | Estado UI (peleadores, fireballs, splashes, cámara, timer, fin de pelea) | `features/streetfighter/viewmodel/StreetFighterState.kt` |
 | VM `@HiltViewModel` (port de Fighter.js/BattleScene.js/Fireball.js: máquina de 30 estados, animación por frame-delays, cajas por frame, hit-freeze 15 frames, hadouken ↓↘→+P, IA CPU, timer 99, sonidos por SharedFlow) | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` |
@@ -81,10 +83,28 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
 - **🆕 RENOMBRE + MEJORAS ONLINE (2026-07-11b):** el modo se llama **"HUELUM VS. GOYA"**
   (solo strings user-facing; los ids internos siguen siendo street_fighter/Sf*). Online ganó
   **SALA PÚBLICA** (lista de espera; el server empareja con `QUICK_MATCH`) y **resumen de
-  partidas activas** (`LIST_ROOMS` → `activeRoomsInfo`). Botones con estilo POW (`PowButton`,
-  esquinas cortadas + vino). Offline: ahora también se ELIGE AL RIVAL (flujo de 3 pasos:
-  peleador → rival → mapa; `selectCharacter(id, rivalId?)`). Detalle y PENDIENTES para la
-  siguiente IA: `AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 2").
+  partidas activas**. Botones con estilo POW (`PowButton`, esquinas cortadas + vino).
+  Offline: ahora también se ELIGE AL RIVAL (flujo de 3 pasos: peleador → rival → mapa;
+  `selectCharacter(id, rivalId?)`). Detalle: `AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 2").
+- **🆕 SESIÓN 3 ONLINE (2026-07-15) — los 6 pendientes del AUDIT resueltos:** la LISTA DE
+  ESPERA pública muestra el resumen (`sf_mp_rooms_summary`; estado `activeRooms`/`queueCount`)
+  y las **salas activas como TARJETAS tocables** (las 'waiting' con hueco te unen directo:
+  `joinRoomFromQueue` = `CANCEL_QUEUE`+`JOIN_ROOM`), con refresh de `LIST_ROOMS` cada 5 s;
+  `cancelOnline` avisa (`CANCEL_QUEUE`+`LEAVE_ROOM`) antes de cerrar el WS; **`PowButton` se
+  movió COMPARTIDO a `map_exterior/ui/components/PowButton.kt`**; sweep visual vino/dorado
+  (`OutlinedTextField`, `TextButton`, diálogo de salida). Server: `JOIN_ROOM`/`CREATE_ROOM`
+  sacan de la cola pública y el matchmaker no empareja a quien ya está en sala. Detalle:
+  `AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 3").
+- **🆕 SESIÓN 3b (2026-07-15) — LOBBY con APROBACIÓN + BLUETOOTH local:** (1) tocar una sala
+  de la lista ahora **SOLICITA unirse** (estilo AoE2): el HOST ve ACEPTAR/RECHAZAR
+  (`REQUEST_JOIN`/`RESPOND_JOIN`/`JOIN_REJECTED`; unirse por CÓDIGO sigue directo).
+  (2) **Multijugador por BLUETOOTH sin internet:** interfaz común
+  **`data/SfNetTransport.kt`** (el VM solo habla con `transport`) + **`data/SfBtClient.kt`**
+  (RFCOMM, UUID fijo; el HOST genera localmente los mensajes del relay). Sección
+  "BLUETOOTH (sin internet)" en el menú 🌐: ANFITRIÓN (visible+accept) / BUSCAR RIVAL
+  (emparejados+discovery). Permisos BT en Manifest (SCAN con `neverForLocation`;
+  runtime solo al tocar la sección, Android 12+; SIN foreground service). Detalle y
+  protocolo: `AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 3b").
 - **🆕 MULTIJUGADOR 1v1 (2026-07-11):** 3er servidor **`MultiplayerSF/`** (relay puro en
   Render FREE; salas por código de 4 letras). Cada cliente simula a SU peleador; el rival
   llega por red (~15 Hz) y el daño lo aplica el RECEPTOR (decide bloqueo con su estado real).
@@ -121,9 +141,50 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
 - **Quirks del JS portados a propósito:** el chequeo de hitbox SALE al primer hurtbox que no traslapa;
   los ataques ligeros se re-disparan desde el frame 2; LEGS cae a estados de cabeza; empate del timer lo
   gana el jugador (>=).
-- **Pendiente:** i18n de los ~8 strings in-game (TODO en el archivo; el botón del menú SÍ está ES+EN),
-  fireball-vs-fireball (raro: requiere 2 hadoukens cruzados), roll-up de las barras de vida del HUD,
-  y abrirlo sin Modo Desarrollador cuando esté pulido.
+- **🆕 ASSETS COMPARTIDOS CON EL MUNDO — hojas armadas EN RUNTIME (2026-07-15d):** el roster
+  subió a **14** (12 sin Modo Dev) y **11 peleadores ya NO tienen sprite sheet propio en el
+  APK**: su hoja se ARMA EN RUNTIME desde los MISMOS assets que usa el mundo abierto
+  (`SPRITES/PLAYER/` y `SPRITES/NPC/`) — un solo juego de sprites alimenta AMBAS modalidades.
+  Compartidos: **Señor de la Tienda, Paparazzi 1/5, Rey Grupero** (antes empaquetados; sus
+  PNG/JSON se BORRARON) + **Lázaro, Estudiante (escomboy), Estudianta (escomgirl), Robot,
+  Policía CDMX, Granadero y Paramédico** (nuevos). Piezas:
+  - `SfFighterId.sharedSet: SfSharedSet(basePath, folder, prefix, flip)` — misma convención
+    que `PlayerSkin`; `flip=true` en lázaro/escomboy (dibujados a la IZQUIERDA; SF exige DERECHA).
+    Su `jsonAsset` apunta al TEMPLATE `ryu.json` y su `spriteAsset` es VIRTUAL `RUNTIME/<X>.png`
+    (solo key del mapa de imágenes — NUNCA abrirlo como asset).
+  - **`data/SfSharedSheets.kt` (NUEVO):** port Kotlin de `gen_sf_frames_from_npc.py` +
+    `pack_sf_character.py` — recorta cada cuadro a su bbox, **normaliza los LIENZOS
+    HETEROGÉNEOS por código** (escala única = 100 px / alto del idle; robot 256², lázaro
+    338×422, escomgirl hasta 542×681 — da igual), aproxima las 77 poses (rotaciones/aplastados,
+    ALPHA) y pega la hoja 2560×2048 (misma RAM que decodificar el PNG que había). Cache LRU 3.
+    Preview del selector = 1er cuadro del Idle del set del mundo (barato).
+  - `SfFrameCatalog`: para compartidos parsea `ryu.json` y REMAPEA `src` a la rejilla runtime
+    (`templateFrameOrder` fija el layout; cajas/timings de Ryu se conservan, igual que el packer).
+  - **Quedan EMPAQUETADOS solo Ryu, Ken** (clon original, sin set en el mundo) **y Prankedy**
+    (poses regeneradas a mano + frames `proj-*` de la broma del tanque que el set del mundo no tiene).
+  - **Rey de las Bromas y Pepe NO entran** (no jugables por diseño; comentados en `PlayerSkin`).
+  - **Se BORRARON** los 11 sheets+JSON duplicados y TODO el intermedio `STREETFIGHTER/GEN/`
+    (~12 MB menos en assets). Los tools de generación offline SIGUEN sirviendo para personajes
+    con ARTE PROPIO (hoja de referencia → `pack_sf_character.py`, como Prankedy);
+    `gen_sf_frames_from_npc.py` ganó `PLAYER:<skin>` y flag `flip` por si se quiere volver a
+    empaquetar offline.
+- **🆕 GATE INVERTIDO (2026-07-15c):** el modo ya es **PÚBLICO** (botón del menú principal
+  SIEMPRE visible, `MainMenuScreen` sin `developerMode`); ahora el **Modo Desarrollador solo
+  desbloquea a RYU y KEN** (los del clon original) en el selector:
+  `StreetFighterViewModel.selectableFighters` (snapshot al crear el VM, scope NavBackStackEntry
+  → se relee al re-entrar al modo) y `classicFightersUnlocked` para el rival default offline
+  (sin dev: Prankedy, o Rey Grupero si eliges a Prankedy — nunca Ryu/Ken). Los 3
+  `CharacterSelectOverlay` reciben `fighters` del VM. Online, si un jugador CON dev elige a
+  Ryu/Ken, el rival sin dev lo VE igual (los assets van en el APK; solo se bloquea elegirlos).
+- **🆕 BT ROBUSTECIDO (2026-07-15c, "persistencia"):** `SfBtClient` ganó **HEARTBEAT cada 10 s**
+  (el receptor lo ignora; NO sube al VM) + **cierre del socket al fallar una ESCRITURA** (destraba
+  el readLoop de inmediato → el abandono se detecta en segundos aunque el stack BT no reporte);
+  `onPeerConnected` resetea TODA la "sala" local (incl. `char1` — un rival nuevo ya no dispara
+  CHARACTERS_SELECTED con la selección vieja del host); visibilidad del host 120→**300 s**; y el
+  VM al recibir `OPPONENT_JOINED` con `battleEnded`/pelea corrida hace **reset limpio** a
+  SELECTING (como REMATCH_ACCEPTED) — antes quedaba el selector sobre el fin de pelea.
+- **Pendiente:** fireball-vs-fireball (raro: requiere 2 hadoukens cruzados) y roll-up de las
+  barras de vida del HUD. *(i18n ✅ 2026-07-11; abrirlo sin dev ✅ 2026-07-15.)*
 
 ---
 

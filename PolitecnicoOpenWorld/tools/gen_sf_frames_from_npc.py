@@ -64,12 +64,29 @@ def make_frame(img, scale, rot=0.0, squash_y=1.0, dx=0, anchor="feet", lift=0):
     canvas.paste(img, (x, y), img)
     return canvas
 
-def generate(npc_folder, char):
-    src_dir = os.path.join(NPC_DIR, npc_folder)
-    idle = load_anim(os.path.join(src_dir, "Idle"))
-    walk = load_anim(os.path.join(src_dir, "Walk"))
-    run = load_anim(os.path.join(src_dir, "Run"))
-    special = load_anim(os.path.join(src_dir, "Special"))
+def generate(npc_folder, char, flip=False):
+    # "PLAYER:<skin>" = set de jugador (SPRITES/PLAYER/<skin>{Idle,Walk,Run,Special}/);
+    # sin prefijo = set NPC estandar (SPRITES/NPC/<Folder>/{Idle,Walk,Run,Special}/).
+    # flip=True espeja horizontalmente (SF exige personaje mirando a la DERECHA;
+    # lazaro y escomboy estan dibujados hacia la IZQUIERDA).
+    if npc_folder.startswith("PLAYER:"):
+        skin = npc_folder.split(":", 1)[1]
+        pbase = os.path.join(BASE, "app/src/main/assets/SPRITES/PLAYER")
+        def adir(a):
+            return os.path.join(pbase, skin + a)
+    else:
+        src_dir = os.path.join(NPC_DIR, npc_folder)
+        def adir(a):
+            return os.path.join(src_dir, a)
+    idle = load_anim(adir("Idle"))
+    walk = load_anim(adir("Walk"))
+    run = load_anim(adir("Run"))
+    special = load_anim(adir("Special"))
+    if flip:
+        idle = [im.transpose(Image.Transpose.FLIP_LEFT_RIGHT) for im in idle]
+        walk = [im.transpose(Image.Transpose.FLIP_LEFT_RIGHT) for im in walk]
+        run = [im.transpose(Image.Transpose.FLIP_LEFT_RIGHT) for im in run]
+        special = [im.transpose(Image.Transpose.FLIP_LEFT_RIGHT) for im in special]
     if not idle:
         sys.exit(f"ERROR: {npc_folder} no tiene Idle/")
     if not walk:
@@ -160,5 +177,6 @@ if __name__ == "__main__":
     ]
     if len(sys.argv) > 2:
         targets = [(sys.argv[1], sys.argv[2])]
-    for folder, char in targets:
-        generate(folder, char)
+    for t in targets:
+        # (carpeta, char) o (carpeta, char, flip)
+        generate(t[0], t[1], flip=(len(t) > 2 and bool(t[2])) or "flip" in sys.argv[3:])

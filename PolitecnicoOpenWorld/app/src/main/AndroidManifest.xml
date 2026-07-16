@@ -6,6 +6,19 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- BLUETOOTH (multijugador local de "HUELUM VS. GOYA", sin internet).
+         Legacy (≤ Android 11): permisos normales, sin runtime.
+         Android 12+: CONNECT/ADVERTISE/SCAN en runtime; neverForLocation es CRÍTICO:
+         sin ese flag el escaneo contaría como acceso a UBICACIÓN (el FINE_LOCATION de
+         arriba se justifica SOLO por los mapas). Ver AUDIT_SF_MULTIPLAYER.md. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+
     <application
         android:name=".PowApplication"
         android:allowBackup="false"

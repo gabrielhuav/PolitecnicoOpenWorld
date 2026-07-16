@@ -58,14 +58,37 @@ enum class SfDirection(val sign: Int) {
 }
 
 /**
+ * 🆕 (2026-07-15) Fuente COMPARTIDA con el mundo abierto: el peleador NO tiene sheet propio en
+ * assets — su hoja se ARMA EN RUNTIME (SfSharedSheets) desde el MISMO set de sprites que usa el
+ * mundo (`SPRITES/PLAYER/` o `SPRITES/NPC/`). Los sets tienen LIENZOS HETEROGÉNEOS (256²,
+ * 338×422, 542×681…): el código los normaliza midiendo la figura (escala única por personaje
+ * → ~100 px de alto, pies en 128,224 del lienzo 256²), así que NO importa el tamaño fuente.
+ */
+data class SfSharedSet(
+    /** "SPRITES/PLAYER/" o "SPRITES/NPC/" (misma convención que PlayerSkin.basePath). */
+    val basePath: String,
+    /** "lazaro" (PLAYER: carpetas <folder>Idle/…) o "PoliciaCDMX/" (NPC: <folder>Idle/…). */
+    val folder: String,
+    /** Prefijo de archivo: "<prefix>i_1.webp" / _w_ / _r_ / _s_ (igual que PlayerSkin.skinPrefix). */
+    val prefix: String,
+    /** true = la fuente está dibujada mirando a la IZQUIERDA → espejar (SF exige DERECHA). */
+    val flip: Boolean = false,
+)
+
+/**
  * Identidad del peleador; jsonAsset apunta a su frame data en assets.
- * `isAlpha` = personaje POW con poses APROXIMADAS (generadas desde su set NPC con
- * tools/gen_sf_frames_from_npc.py + pack_sf_character.py); se marca en el selector.
+ * `isAlpha` = personaje POW con poses APROXIMADAS (derivadas de su set del mundo);
+ * se marca en el selector.
  */
 enum class SfFighterId(
     val displayName: String,
     val shortName: String,   // para la FUENTE del HUD (tag de nombre y "<X> WINS"); solo A-Z/0-9/espacio
+    /** JSON de frame data. Para los COMPARTIDOS apunta al TEMPLATE ryu.json (cajas/timings). */
     val jsonAsset: String,
+    /**
+     * Sheet del peleador. Para los COMPARTIDOS es un nombre VIRTUAL "RUNTIME/<X>.png": NUNCA se
+     * abre como asset — solo sirve de KEY del mapa de imágenes; el bitmap lo arma SfSharedSheets.
+     */
     val spriteAsset: String,
     val isAlpha: Boolean = false,
     // PARCHE TEMPORAL (2026-07-10): algunos peleadores ALPHA se autogeneraron con las poses de GOLPE
@@ -73,15 +96,64 @@ enum class SfFighterId(
     // los reescala SOLO en estados HURT (medido: figura de idle / figura de hit). 1f = sin parche.
     // TODO: quitar cuando se regeneren esos sprites al tamaño correcto (ver GUIA_generacion_assets_SF).
     val hurtScale: Float = 1f,
+    /** null = sheet propio empaquetado en assets; no-null = COMPARTIDO (armado en runtime). */
+    val sharedSet: SfSharedSet? = null,
 ) {
     RYU("Ryu", "RYU", "STREETFIGHTER/DATA/ryu.json", "STREETFIGHTER/IMAGES/Ryu.png"),
     KEN("Ken", "KEN", "STREETFIGHTER/DATA/ken.json", "STREETFIGHTER/IMAGES/Ken.png"),
     // 🆕 Peleadores PROPIOS de POW. Prankedy trae frames proj-* propios (broma del tanque).
     PRANKEDY("Prankedy", "PRANKEDY", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png", isAlpha = true),
-    SENOR_TIENDA("El Señor de la Tienda", "TIENDA", "STREETFIGHTER/DATA/senortienda.json", "STREETFIGHTER/IMAGES/SenorTienda.png", isAlpha = true),
-    PAPARAZZI_1("Paparazzi 1", "PAPZ 1", "STREETFIGHTER/DATA/paparazzi1.json", "STREETFIGHTER/IMAGES/Paparazzi1.png", isAlpha = true, hurtScale = 1.43f),
-    PAPARAZZI_5("Paparazzi 5", "PAPZ 5", "STREETFIGHTER/DATA/paparazzi5.json", "STREETFIGHTER/IMAGES/Paparazzi5.png", isAlpha = true, hurtScale = 1.37f),
-    REY_GRUPERO("Rey Grupero", "GRUPERO", "STREETFIGHTER/DATA/reygrupero.json", "STREETFIGHTER/IMAGES/ReyGrupero.png", isAlpha = true),
+    // ── 🆕 (2026-07-15) PELEADORES COMPARTIDOS: usan los MISMOS assets del mundo abierto
+    //    (SPRITES/PLAYER/ y SPRITES/NPC/) — NO tienen sheet/JSON propio en el APK. La hoja se
+    //    ARMA EN RUNTIME (SfSharedSheets, cache LRU) con cajas/timings del template ryu.json.
+    //    Lázaro y escomboy están dibujados a la IZQUIERDA → flip=true. Rey de las Bromas y
+    //    Pepe NO entran (no jugables por diseño; comentados también en PlayerSkin).
+    //    PRANKEDY conserva sheet PROPIO: sus poses se regeneraron a mano (hoja de referencia)
+    //    y trae frames proj-* (broma del tanque) que el set del mundo no tiene. ─────────────
+    SENOR_TIENDA(
+        "El Señor de la Tienda", "TIENDA", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/SenorTienda.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "SenorTienda/", "st_"),
+    ),
+    PAPARAZZI_1(
+        "Paparazzi 1", "PAPZ 1", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Paparazzi1.png",
+        isAlpha = true, hurtScale = 1.43f, sharedSet = SfSharedSet("SPRITES/NPC/", "PaparazziN1/", "pn1_"),
+    ),
+    PAPARAZZI_5(
+        "Paparazzi 5", "PAPZ 5", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Paparazzi5.png",
+        isAlpha = true, hurtScale = 1.37f, sharedSet = SfSharedSet("SPRITES/NPC/", "PaparazziN5/", "pn5_"),
+    ),
+    REY_GRUPERO(
+        "Rey Grupero", "GRUPERO", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/ReyGrupero.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "ReyGrupero/", "rg_"),
+    ),
+    LAZARO(
+        "Lázaro", "LAZARO", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Lazaro.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "lazaro", "lazaro_", flip = true),
+    ),
+    ESCOMBOY(
+        "Estudiante", "ESCOMBOY", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/EscomBoy.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "escomboy", "escomboy_", flip = true),
+    ),
+    ESCOMGIRL(
+        "Estudianta", "ESCOMGIRL", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/EscomGirl.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "escomgirl", "escomgirl_"),
+    ),
+    ROBOT(
+        "Robot Estudiantx", "ROBOT", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Robot.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "robot", "robot_"),
+    ),
+    POLICIA_CDMX(
+        "Policía CDMX", "POLICIA", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/PoliciaCDMX.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "PoliciaCDMX/", "pcd_"),
+    ),
+    GRANADERO(
+        "Granadero", "GRANADERO", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Granadero.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "Granaderos/", "gra_"),
+    ),
+    PARAMEDICO(
+        "Paramédico", "PARAMEDICO", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Paramedico.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "Paramedico/", "pmd_"),
+    ),
 }
 
 /** Fuerza del ataque (fighter.js FighterAttackBaseData; slide ya en px/s). */

@@ -1,19 +1,22 @@
 # 08 · Servidores Node.js + Protocolo de red / Node.js servers + Wire protocol
 
-**ES:** Dos servidores **independientes** `Node.js 18 + Express + ws`, ambos dockerizados, ambos
-escuchan en contenedor **`:8080`** (`GET /status`, `WS /`). Comparten el mismo `WebSocketManager` en el
-cliente. Comentarios en español (mantener). Validar: `node --check server.js`.
-**EN:** Two **independent** `Node.js 18 + Express + ws` servers, both dockerized, both listen on
-container **`:8080`** (`GET /status`, `WS /`). Both use the same client `WebSocketManager`. Spanish
-comments (keep). Validate: `node --check server.js`.
+**ES:** Tres servidores **independientes** `Node.js 18 + Express + ws`, todos dockerizados, todos
+escuchan en contenedor **`:8080`** (`GET /status`, `WS /`). Los dos primeros comparten el mismo
+`WebSocketManager` en el cliente; el del modo pelea usa su propio `SfMatchClient` (ver §3).
+Comentarios en español (mantener). Validar: `node --check server.js`.
+**EN:** Three **independent** `Node.js 18 + Express + ws` servers, all dockerized, all listen on
+container **`:8080`** (`GET /status`, `WS /`). The first two share the client `WebSocketManager`;
+the fight mode uses its own `SfMatchClient` (§3). Spanish comments (keep). Validate: `node --check server.js`.
 
 ```bash
 cd Multiplayer       && docker compose up -d   # host :8080
 cd MultiplayerInteriores && docker compose up -d   # host :8081 → contenedor :8080
+cd MultiplayerSF     && docker compose up -d   # host :8082 → contenedor :8080 (modo pelea)
 ```
-URLs inyectadas / injected: `BuildConfig.MULTIPLAYER_SERVER_URL`, `BuildConfig.INTERIORS_SERVER_URL`.
+URLs inyectadas / injected: `BuildConfig.MULTIPLAYER_SERVER_URL`, `BuildConfig.INTERIORS_SERVER_URL`,
+`BuildConfig.SF_SERVER_URL` (⚠️ placeholder hasta el 1er deploy en Render / placeholder until 1st deploy).
 
-> **🆕 AUTENTICACIÓN (Firebase) en AMBOS servidores (`auth.js`):** cada servidor tiene un módulo
+> **🆕 AUTENTICACIÓN (Firebase) en los TRES servidores (`auth.js`):** cada servidor tiene un módulo
 > **`auth.js`** (`initFirebaseAuth`, `verifyClient`) que verifica el **ID token de Firebase** que el
 > cliente manda en el **handshake** del WebSocket (cabecera `Authorization: Bearer <token>`, o `?token=`
 > de respaldo). Se pasa como opción `verifyClient` a `new WebSocket.Server({ server, verifyClient })`, así
@@ -209,7 +212,43 @@ el cable **no cambia**. / AI state lives in non-serialized fields; the `ZOMBIE_S
 
 ---
 
-## 3) CI/CD Android → Play Store (GitHub Actions) — `.github/workflows/android-release.yml`
+## 3) Servidor 1v1 del modo pelea "HUELUM VS. GOYA" — `MultiplayerSF/server.js` (~340 líneas)
+
+**ES:** **RELAY PURO** (tercer servidor; mismo patrón `Dockerfile`/`auth.js` modo suave/`GET /status`
+para warmup): NO simula la pelea — cada cliente simula a SU peleador y el DAÑO lo aplica el RECEPTOR.
+Protocolo completo, decisiones de autoridad, riesgos y deploy GRATIS en Render: **`AUDIT_SF_MULTIPLAYER.md`**.
+Resumen: salas por código de 4 letras (`CREATE_ROOM`/`JOIN_ROOM`), **SALA PÚBLICA** (`publicQueue`:
+`QUICK_MATCH` empareja al llegar el 2º — el que esperaba es p1/anfitrión —, `CANCEL_QUEUE`, `QUEUED`),
+resumen de partidas `LIST_ROOMS` → `ROOMS_LIST{rooms:[{code,players,phase}], queue}`, selección de
+personaje/mapa, countdown 3-2-1, `PLAYER_STATE`/`PLAYER_DAMAGE` (siempre al rival del emisor),
+`MATCH_ENDED`, revancha BILATERAL y victoria por abandono. Salas expiran a 5 min sin actividad
+(cualquier mensaje en sala refresca `lastActivityMs`). 🆕 (2026-07-15) el cliente en LISTA DE ESPERA
+re-pide `LIST_ROOMS` cada 5 s y pinta las salas en `waiting` como **tarjetas tocables** (unirse directo:
+`CANCEL_QUEUE` + `JOIN_ROOM`); el server saca al ws de la cola en `JOIN_ROOM`/`CREATE_ROOM` y el
+matchmaker poda de la cola a quien ya está en sala (`!wsToRoom.has(w)`) para no emparejar doble.
+Cliente Kotlin: `features/streetfighter/data/SfMatchClient.kt` (OkHttp WS, ping 20 s, HEARTBEAT 45 s,
+`warmupBlocking` ≤90 s).
+🆕 (2026-07-15b) **Lobby con APROBACIÓN (estilo AoE2):** tocar una sala de la lista SOLICITA unirse:
+`REQUEST_JOIN{code}` → `JOIN_REQUESTED` al host → `RESPOND_JOIN{accept}` → aceptar reusa
+`ROOM_JOINED`/`OPPONENT_JOINED`; rechazo/lleno = `JOIN_REJECTED{message}` (soft; el invitado re-encola
+con `QUICK_MATCH`) y `JOIN_REQUEST_CANCELLED` si el solicitante se desconecta (`room.pendingJoin`,
+UNA solicitud a la vez). Unirse por CÓDIGO sigue directo. 🆕 Además existe un transporte
+**BLUETOOTH local SIN servidor** (`SfBtClient` vía la interfaz común `SfNetTransport`): mismos
+mensajes JSON sobre RFCOMM; el HOST genera localmente lo que aquí manda el relay. Ver
+`AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 3b").
+**EN:** 🆕 AoE2-style approval lobby (`REQUEST_JOIN`/`RESPOND_JOIN`/`JOIN_REJECTED`, one pending
+request per room; code join stays direct) and a serverless local **Bluetooth transport**
+(`SfBtClient` behind the shared `SfNetTransport` interface, same JSON messages over RFCOMM).
+**EN:** Pure-relay 1v1 fight-mode server (3rd server, same Docker/auth/warmup pattern); it does NOT
+simulate the fight (each client simulates its own fighter; the RECEIVER applies incoming damage). Full
+protocol + free Render deploy: `AUDIT_SF_MULTIPLAYER.md`. 4-letter code rooms + public queue
+(quick match) + room list; 🆕 the waiting-list client polls `LIST_ROOMS` every 5 s and shows `waiting`
+rooms as tappable cards (direct join); the server dequeues on `JOIN_ROOM`/`CREATE_ROOM` and skips
+queued players already in a room. Kotlin client: `SfMatchClient.kt`.
+
+---
+
+## 4) CI/CD Android → Play Store (GitHub Actions) — `.github/workflows/android-release.yml`
 
 Dos disparadores:
 - **PR mergeado a `main`** → build **APK debug** + GitHub Release (`debug-latest`). [flujo original]

@@ -4,6 +4,15 @@
 > con nombre exacto, tamaño, descripción de pose y prompt. Orden = prioridad real.
 > **Al terminar cada bloque me pasas los PNG y yo empaqueto/cableo** (packer + temas).
 
+> **🆕 (2026-07-15) YA NO HACE FALTA generar/empaquetar para personajes con set en el mundo:**
+> los 11 peleadores compartidos se arman **EN RUNTIME** (`SfSharedSheets.kt`, port Kotlin de
+> estos tools) desde `SPRITES/PLAYER|NPC/` — sus sheets/JSON empaquetados y `GEN/` se
+> BORRARON del APK. Esta guía sigue vigente SOLO para personajes con **ARTE PROPIO de pelea**
+> (hoja de referencia → `slice_sf_reference_sheet.py` → `pack_sf_character.py`, como
+> Prankedy): eso SUSTITUYE las poses aproximadas ALPHA por poses reales. Nota:
+> `gen_sf_frames_from_npc.py` ganó `PLAYER:<skin>` y flag `flip` por si se quiere empaquetar
+> offline de nuevo (regla 09 §12: no committear esos sheets). Ver 07.
+
 ---
 
 ## ⭐ MODO SIMPLE (2026-07-10, el que usamos) — UNA hoja por personaje

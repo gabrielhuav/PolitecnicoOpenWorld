@@ -576,6 +576,22 @@
     <string name="sf_mp_public">PUBLIC ROOM</string>
     <string name="sf_mp_queue_title">WAITING LIST</string>
     <string name="sf_mp_queue_sub">Looking for a rival in public rooms…</string>
+    <string name="sf_mp_rooms_summary">Active rooms: %1$d · Waiting: %2$d</string>
+    <string name="sf_mp_room_waiting">waiting for a rival · tap to request to join</string>
+    <string name="sf_mp_room_busy">fighting</string>
+    <string name="sf_mp_join_request">A player wants to join your room. Let them in?</string>
+    <string name="sf_mp_accept">ACCEPT</string>
+    <string name="sf_mp_reject">REJECT</string>
+    <string name="sf_mp_awaiting_host">Request sent; waiting for the host\'s answer…</string>
+    <string name="sf_bt_section">BLUETOOTH (no internet)</string>
+    <string name="sf_bt_host">HOST</string>
+    <string name="sf_bt_scan">FIND RIVAL</string>
+    <string name="sf_bt_host_title">BLUETOOTH HOST</string>
+    <string name="sf_bt_host_sub">Discoverable over Bluetooth; waiting for your rival to find you with FIND RIVAL…</string>
+    <string name="sf_bt_connecting_sub">Connecting to the host over Bluetooth…</string>
+    <string name="sf_bt_pick_title">PICK THE HOST</string>
+    <string name="sf_bt_pick_sub">Paired and nearby devices (turn Bluetooth on on both phones)</string>
+    <string name="sf_bt_none">Searching for devices…</string>
     <string name="sf_choose_rival">Now pick the RIVAL (CPU-controlled)</string>
 
     <!-- Controls tutorial (optional, i18n 2026-07-11) -->

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
@@ -33,11 +34,14 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
 import ovh.gabrielhuav.pow.BuildConfig
+import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfMatchClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetFireball
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetMsg
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetTransport
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
 import kotlin.math.abs
@@ -63,6 +67,18 @@ class StreetFighterViewModel @Inject constructor(
     /** Claves de sonido (nombre base del .ogg en STREETFIGHTER/SOUNDS). */
     private val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val soundEvents: SharedFlow<String> = _soundEvents.asSharedFlow()
+
+    // (2026-07-15) El modo ya es PÚBLICO para todos; el Modo Desarrollador ahora solo
+    // desbloquea a los peleadores del clon ORIGINAL (RYU y KEN) en el selector. Snapshot al
+    // crear el VM (scope NavBackStackEntry → se relee cada vez que entras al modo).
+    private val classicFightersUnlocked: Boolean = SettingsRepository(appContext).getDeveloperMode()
+
+    /** Roster del selector (lo lee la View): sin Modo Desarrollador, RYU y KEN quedan fuera. */
+    val selectableFighters: List<SfFighterId> = if (classicFightersUnlocked) {
+        SfFighterId.entries.toList()
+    } else {
+        SfFighterId.entries.filter { it != SfFighterId.RYU && it != SfFighterId.KEN }
+    }
 
     // Frame data por peleador (cache perezoso por identidad; soporta CUALQUIER SfFighterId)
     private val dataCache = mutableMapOf<SfFighterId, SfFighterData>()
@@ -104,7 +120,10 @@ class StreetFighterViewModel @Inject constructor(
     // Cada cliente simula a SU peleador (índice 0 local); el rival (índice 1) llega
     // por red: posición/estado/frame/hp vía OPPONENT_STATE y el daño que ME hacen vía
     // PLAYER_DAMAGE (autoridad del RECEPTOR sobre su propio HP).
-    private var matchClient: SfMatchClient? = null
+    // TRANSPORTE intercambiable: SfMatchClient (WebSocket/Render) o SfBtClient (Bluetooth
+    // local). Mismos mensajes/arquitectura; el VM solo habla con la interfaz.
+    private var transport: SfNetTransport? = null
+    private var btScanner: SfBtClient? = null   // discovery del selector "BUSCAR RIVAL"
     @Volatile private var remoteSnapshot: SfNetMsg? = null
     private val netDamageQueue = ConcurrentLinkedQueue<SfNetMsg>()
     private var myOnlineChar: SfFighterId? = null
@@ -112,6 +131,7 @@ class StreetFighterViewModel @Inject constructor(
     private var lastNetSendMs = 0L
     private var onlineEndSent = false
     private var countdownJob: Job? = null
+    private var roomsRefreshJob: Job? = null   // refresca LIST_ROOMS mientras estás en la lista de espera
     private val isOnline: Boolean get() = _state.value.onlineStatus != SfOnlineStatus.OFF
     private val inOnlineFight: Boolean get() = _state.value.onlineStatus == SfOnlineStatus.FIGHTING
 
@@ -123,6 +143,8 @@ class StreetFighterViewModel @Inject constructor(
         // Ventana del cuarto de círculo del especial. Más ancha = más fácil en táctil.
         const val HADOUKEN_WINDOW_MS = 1100L
         const val END_MENU_DELAY_MS = 4200L
+        // Lista de espera pública: cada cuánto se re-pide LIST_ROOMS (resumen + salas tocables)
+        const val ROOMS_REFRESH_MS = 5000L
         const val ZONE_DOWN = 1
         const val ZONE_FORWARD_DOWN = 2
         const val ZONE_FORWARD = 3
@@ -683,7 +705,7 @@ class StreetFighterViewModel @Inject constructor(
         if (inOnlineFight && defenderIdx == 1) {
             _soundEvents.tryEmit("${strength.name.lowercase()}-${type.name.lowercase()}-hit")
             sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
-            matchClient?.sendDamage(strength.damage, strength.name, type.name)
+            transport?.sendDamage(strength.damage, strength.name, type.name)
             hitPos?.let { (x, y) ->
                 sim.splashes.add(SfHitSplash(x = x, y = y, playerId = attackerIdx, strength = strength, animationTimerMs = now))
             }
@@ -1083,7 +1105,7 @@ class StreetFighterViewModel @Inject constructor(
     /** Revancha: offline reinicia ya; online la PIDE (arranca cuando la pidan los dos). */
     fun restartBattle() {
         if (isOnline) {
-            matchClient?.requestRematch()
+            transport?.requestRematch()
             return
         }
         val s = _state.value
@@ -1097,10 +1119,16 @@ class StreetFighterViewModel @Inject constructor(
     fun selectCharacter(id: SfFighterId, rivalId: SfFighterId? = null) {
         if (isOnline) {
             myOnlineChar = id
-            matchClient?.selectCharacter(id.name)
+            transport?.selectCharacter(id.name)
             return // la pelea arranca cuando el servidor mande FIGHT_START
         }
-        val cpuId = rivalId ?: if (id == SfFighterId.KEN) SfFighterId.RYU else SfFighterId.KEN
+        // Rival default (rivalId null): con Modo Desarrollador, Ken/Ryu clásicos; sin él,
+        // NUNCA Ryu/Ken (están bloqueados) → cae a un peleador POW.
+        val cpuId = rivalId ?: when {
+            classicFightersUnlocked -> if (id == SfFighterId.KEN) SfFighterId.RYU else SfFighterId.KEN
+            id == SfFighterId.PRANKEDY -> SfFighterId.REY_GRUPERO
+            else -> SfFighterId.PRANKEDY
+        }
         startBattle(playerId = id, cpuId = cpuId)
     }
 
@@ -1171,10 +1199,10 @@ class StreetFighterViewModel @Inject constructor(
                 return@launch
             }
             val client = SfMatchClient()
-            matchClient = client
+            transport = client
             client.connect(
                 BuildConfig.SF_SERVER_URL,
-                object : SfMatchClient.Listener {
+                object : SfNetTransport.Listener {
                     override fun onOpen() {
                         onReady(client)
                     }
@@ -1193,12 +1221,116 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
+    // ══════════════════════════════════════════════════════════════════
+    // 🆕 MULTIJUGADOR LOCAL por BLUETOOTH (SfBtClient; mismo flujo que online)
+    // Los permisos runtime (CONNECT/SCAN/ADVERTISE en Android 12+) los pide la
+    // View ANTES de llamar estos intents.
+    // ══════════════════════════════════════════════════════════════════
+
+    /** Listener común de red para los transportes que no necesitan acción al abrir (BT). */
+    private fun makeNetListener() = object : SfNetTransport.Listener {
+        override fun onOpen() = Unit
+        override fun onMessage(msg: SfNetMsg) {
+            viewModelScope.launch { handleNetMessage(msg) }
+        }
+        override fun onClosed() {
+            viewModelScope.launch { onNetDropped(null) }
+        }
+        override fun onFailure(reason: String) {
+            viewModelScope.launch { onNetDropped(reason) }
+        }
+    }
+
+    /** ANFITRIÓN Bluetooth: visible + accept; el flujo sigue como online (ROOM_CREATED "BT"). */
+    fun startBtHost() {
+        if (isOnline) return
+        stopBtScanInternal()
+        _state.value = _state.value.copy(
+            onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null, btMode = true,
+        )
+        val client = SfBtClient(appContext)
+        transport = client
+        client.startHost(makeNetListener())
+    }
+
+    /** BUSCAR RIVAL: abre el selector y llena btDevices (emparejados + discovery). */
+    fun startBtScan() {
+        if (isOnline) return
+        stopBtScanInternal()
+        _state.value = _state.value.copy(
+            btPicking = true, btMode = true, btDevices = emptyList(), onlineError = null,
+        )
+        val scanner = SfBtClient(appContext)
+        btScanner = scanner
+        val ok = scanner.startScan { dev ->
+            _state.update { s ->
+                if (s.btDevices.any { it.address == dev.address }) s
+                else s.copy(btDevices = s.btDevices + dev)
+            }
+        }
+        if (!ok) {
+            stopBtScanInternal()
+            _state.value = _state.value.copy(
+                btPicking = false, btMode = false,
+                onlineError = "Bluetooth apagado o no disponible: enciéndelo e intenta de nuevo.",
+            )
+        }
+    }
+
+    /** Cierra el selector de dispositivos sin conectar. */
+    fun cancelBtScan() {
+        stopBtScanInternal()
+        _state.value = _state.value.copy(btPicking = false, btMode = false, btDevices = emptyList())
+    }
+
+    /** INVITADO Bluetooth: conecta al host elegido (el flujo sigue como online). */
+    fun connectBtDevice(address: String) {
+        if (isOnline) return
+        stopBtScanInternal()
+        _state.value = _state.value.copy(
+            btPicking = false, onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
+        )
+        val client = SfBtClient(appContext)
+        transport = client
+        client.connectToHost(address, makeNetListener())
+    }
+
+    private fun stopBtScanInternal() {
+        btScanner?.stopScan()
+        btScanner?.close()
+        btScanner = null
+    }
+
+    /**
+     * 🆕 Lobby estilo AoE2: al tocar una sala en 'waiting' se SOLICITA unirse (REQUEST_JOIN);
+     * el ANFITRIÓN decide (ACEPTAR → ROOM_JOINED / RECHAZAR → JOIN_REJECTED y de regreso a
+     * la lista de espera). El server saca al solicitante de la cola mientras el host decide.
+     */
+    fun requestJoinRoom(code: String) {
+        val s = _state.value
+        if (s.onlineStatus != SfOnlineStatus.WAITING_OPPONENT || s.roomCode != null || s.awaitingJoinOk) return
+        transport?.requestJoin(code)
+        _state.value = s.copy(awaitingJoinOk = true, queueNotice = null)
+    }
+
+    /** (HOST) Responde la solicitud de unión pendiente: aceptar mete al rival a la sala. */
+    fun respondJoin(accept: Boolean) {
+        transport?.respondJoin(accept)
+        _state.value = _state.value.copy(joinRequestPending = false)
+    }
+
     /** Sale de la sala y vuelve al selector offline (con error opcional a mostrar). */
     fun cancelOnline(errorMsg: String? = null) {
         countdownJob?.cancel()
-        matchClient?.leaveRoom()
-        matchClient?.close()
-        matchClient = null
+        roomsRefreshJob?.cancel()
+        // Lo fino es AVISAR antes de cerrar el WS: CANCEL_QUEUE saca de la lista de espera
+        // (el server también limpia la cola en close, pero así no queda ventana) y LEAVE_ROOM
+        // libera la sala; el server ignora el que no aplique.
+        transport?.cancelQueue()
+        transport?.leaveRoom()
+        transport?.close()
+        transport = null
+        stopBtScanInternal()
         remoteSnapshot = null
         netDamageQueue.clear()
         myOnlineChar = null
@@ -1211,7 +1343,7 @@ class StreetFighterViewModel @Inject constructor(
     /** El ANFITRIÓN elige el mapa (null = al azar del tema); el server lo replica. */
     fun chooseMapOnline(file: String?) {
         val resolved = file ?: SF_CLASSIC_THEME.fullBackgrounds.randomOrNull()?.file ?: return
-        matchClient?.selectMap(resolved)
+        transport?.selectMap(resolved)
     }
 
     private fun handleNetMessage(msg: SfNetMsg) {
@@ -1222,14 +1354,51 @@ class StreetFighterViewModel @Inject constructor(
             )
             "ROOM_JOINED" -> _state.value = s.copy(
                 onlineStatus = SfOnlineStatus.SELECTING, roomCode = msg.code, isHost = false,
+                awaitingJoinOk = false, queueNotice = null,
             )
-            "OPPONENT_JOINED" -> _state.value = s.copy(onlineStatus = SfOnlineStatus.SELECTING)
+            "OPPONENT_JOINED" -> {
+                if (s.battleEnded || !s.inCharacterSelect) {
+                    // Un rival NUEVO entró cuando la pelea anterior ya corrió/terminó (p. ej.
+                    // en BT el host sigue aceptando tras un abandono): sala en limpio, como
+                    // en REMATCH_ACCEPTED — sin esto quedaba SELECTING sobre el fin de pelea.
+                    resetInternals()
+                    onlineEndSent = false
+                    remoteSnapshot = null
+                    netDamageQueue.clear()
+                    myOnlineChar = null
+                    oppOnlineChar = null
+                    _state.value = StreetFighterState(
+                        onlineStatus = SfOnlineStatus.SELECTING,
+                        roomCode = s.roomCode,
+                        isHost = s.isHost,
+                        btMode = s.btMode,
+                    )
+                } else {
+                    _state.value = s.copy(
+                        onlineStatus = SfOnlineStatus.SELECTING, joinRequestPending = false,
+                    )
+                }
+            }
             // Sala pública: en lista de espera (roomCode null → la UI muestra "buscando rival")
-            "QUEUED" -> _state.value = s.copy(
-                onlineStatus = SfOnlineStatus.WAITING_OPPONENT, roomCode = null,
-            )
+            "QUEUED" -> {
+                _state.value = s.copy(
+                    onlineStatus = SfOnlineStatus.WAITING_OPPONENT, roomCode = null,
+                    awaitingJoinOk = false,
+                )
+                startRoomsRefresh()
+            }
+            // ─── 🆕 Lobby con aprobación ───
+            // (HOST) alguien pide unirse → la View muestra ACEPTAR/RECHAZAR
+            "JOIN_REQUESTED" -> _state.value = s.copy(joinRequestPending = true)
+            "JOIN_REQUEST_CANCELLED" -> _state.value = s.copy(joinRequestPending = false)
+            // (INVITADO) rechazado/sala llena → vuelve a la lista de espera con el aviso
+            "JOIN_REJECTED" -> {
+                transport?.quickMatch() // re-entra a la cola pública
+                _state.value = s.copy(awaitingJoinOk = false, queueNotice = msg.message)
+            }
             "ROOMS_LIST" -> _state.value = s.copy(
-                activeRoomsInfo = "Salas activas: ${msg.rooms?.size ?: 0} · En espera: ${msg.queue ?: 0}",
+                activeRooms = msg.rooms ?: emptyList(),
+                queueCount = msg.queue ?: 0,
             )
             "ERROR" -> cancelOnline(msg.message ?: "Error del servidor")
             "CHARACTERS_SELECTED" -> {
@@ -1268,6 +1437,7 @@ class StreetFighterViewModel @Inject constructor(
                     onlineStatus = SfOnlineStatus.SELECTING,
                     roomCode = s.roomCode,
                     isHost = s.isHost,
+                    btMode = s.btMode, // la revancha BT sigue siendo BT
                 )
             }
             "OPPONENT_LEFT", "OPPONENT_DISCONNECTED" -> {
@@ -1286,6 +1456,22 @@ class StreetFighterViewModel @Inject constructor(
                 } else {
                     cancelOnline("El anfitrión cerró la sala")
                 }
+            }
+        }
+    }
+
+    /**
+     * Mientras estás en la LISTA DE ESPERA pública, re-pide LIST_ROOMS cada ROOMS_REFRESH_MS
+     * (resumen + tarjetas de salas). Se auto-detiene al emparejarte/unirte/cancelar.
+     */
+    private fun startRoomsRefresh() {
+        roomsRefreshJob?.cancel()
+        roomsRefreshJob = viewModelScope.launch {
+            while (isActive) {
+                delay(ROOMS_REFRESH_MS)
+                val st = _state.value
+                if (st.onlineStatus != SfOnlineStatus.WAITING_OPPONENT || st.roomCode != null) break
+                transport?.listRooms()
             }
         }
     }
@@ -1318,6 +1504,7 @@ class StreetFighterViewModel @Inject constructor(
             roomCode = s.roomCode,
             isHost = s.isHost,
             onlineMapFile = s.onlineMapFile,
+            btMode = s.btMode, // conservar el transporte para overlays post-pelea
         )
     }
 
@@ -1361,7 +1548,7 @@ class StreetFighterViewModel @Inject constructor(
         if (now - lastNetSendMs < 66) return
         lastNetSendMs = now
         val f = sim.p0
-        matchClient?.sendPlayerState(
+        transport?.sendPlayerState(
             x = f.x, y = f.y, state = f.state.name, frame = f.animationFrame,
             dir = f.direction.sign, hp = f.hitPoints,
             fireballs = sim.fireballs.filter { it.ownerIndex == 0 }.map {
@@ -1393,7 +1580,7 @@ class StreetFighterViewModel @Inject constructor(
         onlineEndSent = true
         val iAmP1 = _state.value.isHost
         val side = if (winnerIdx == 0) (if (iAmP1) "p1" else "p2") else (if (iAmP1) "p2" else "p1")
-        matchClient?.sendMatchEnded(side)
+        transport?.sendMatchEnded(side)
     }
 
     /** MATCH_ENDED recibido: reconcilia el final (por si mi sim aún no lo detectaba). */
@@ -1415,7 +1602,8 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        matchClient?.close()
+        transport?.close()
+        stopBtScanInternal()
         super.onCleared()
     }
 }
