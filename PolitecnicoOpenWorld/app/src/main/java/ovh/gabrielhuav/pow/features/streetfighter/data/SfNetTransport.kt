@@ -34,6 +34,8 @@ interface SfNetTransport {
     fun selectCharacter(name: String)
     fun selectMap(file: String)
     fun requestRematch()
+    /** 🆕 Fin de RONDA intermedia (el combate sigue); MATCH_ENDED = combate decidido (2 rondas). */
+    fun sendRoundEnded(winner: String)
     fun sendMatchEnded(winner: String)
     fun sendDamage(damage: Int, strength: String, atkType: String)
     fun sendPlayerState(x: Float, y: Float, state: String, frame: Int, dir: Int, hp: Int, fireballs: List<SfNetFireball>)

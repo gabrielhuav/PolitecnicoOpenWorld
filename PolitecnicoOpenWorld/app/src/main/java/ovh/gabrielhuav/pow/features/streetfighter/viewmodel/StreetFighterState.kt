@@ -42,10 +42,18 @@ data class StreetFighterState(
     val timeFlashing: Boolean = false,               // últimos segundos parpadean
     val playerScore: Int = 0,
     val cpuScore: Int = 0,
-    val battleEnded: Boolean = false,
+    val battleEnded: Boolean = false,                // fin de RONDA (congela); el combate sigue si nadie llegó a 2
     val winnerIndex: Int? = null,
-    val showEndMenu: Boolean = false,                // Revancha / Volver al menú
+    val showEndMenu: Boolean = false,                // Revancha / Volver al menú (solo con el COMBATE decidido)
     val koFlash: Boolean = false,                    // parpadeo del icono KO en el HUD
+
+    // ─── 🆕 RONDAS estilo SF (2026-07-16): mejor de 3 — gana quien tome 2 rondas ───
+    // Cada ronda termina por KO o timeout (más vida gana; EMPATE exacto → azar; online el
+    // azar es DETERMINISTA con semilla compartida para que ambos lados coincidan).
+    val playerRoundWins: Int = 0,
+    val cpuRoundWins: Int = 0,
+    val roundNumber: Int = 1,                        // 1..3
+    val showRoundIntro: Boolean = false,             // banner "RONDA N / PELEA" (input congelado)
 
     // Reloj de juego virtual (ms); la View lo usa para animaciones del escenario
     val gameTimeMs: Long = 0L,
@@ -79,11 +87,17 @@ data class StreetFighterState(
     val btMode: Boolean = false,             // la sesión online actual va por Bluetooth
     val btPicking: Boolean = false,          // selector "BUSCAR RIVAL" abierto
     val btDevices: List<SfBtDevice> = emptyList(), // emparejados + hallados por discovery
-    // Falla de conexión BT → overlay bloqueante con REINTENTAR (jamás se cae al selector
-    // offline en silencio: elegiste BT y NO se pelea contra la IA sin conexión verificada)
+    // Falla de conexión LOCAL (BT o LAN) → overlay bloqueante con REINTENTAR (jamás se cae
+    // al selector offline en silencio: elegiste BT/LAN y NO se pelea contra la IA sin
+    // conexión verificada). btError/btHandshaking se REUSAN para LAN (mismo overlay/flujo).
     val btError: String? = null,
-    val btRetryAddress: String? = null,      // rival elegido a reintentar (null = era ANFITRIÓN)
+    val btRetryAddress: String? = null,      // rival BT a reintentar (null = era ANFITRIÓN)
     val btHandshaking: Boolean = false,      // socket conectado; verificando con el anfitrión
+
+    // ─── 🆕 SERVIDOR LOCAL (LAN/Wi-Fi, SfLanClient): el jugador hostea su propia sala ───
+    val lanMode: Boolean = false,            // la sesión actual va por LAN
+    val lanLocalIp: String? = null,          // (host) IP a COMPARTIR con el rival; null = sin red
+    val lanHostAddress: String? = null,      // (invitado) IP tecleada, para REINTENTAR
 )
 
 /** Fase del flujo online (OFF = jugando offline contra la CPU). */

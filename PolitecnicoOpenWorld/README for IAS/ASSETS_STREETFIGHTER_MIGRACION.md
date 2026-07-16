@@ -12,11 +12,32 @@
 > usan `DATA/sf_template.json` (main) como template de cajas/timings. Ver 07/09 §12.
 > **Ya propio:** música ("Persecución" de Prankedy), 6 fondos IPN/UNAM y los 12 peleadores POW
 > (11 compartidos EN RUNTIME desde los sets del mundo + Prankedy empaquetado).
-> **SIGUE VIAJANDO del clon en release (pendiente de esta guía):** `hud.png` (barras + fuente
-> arcade), los 11 sonidos (golpes/hadouken/land), `shadow.png`, `decals.png` (splashes +
-> fireball), `kenstage.png` (fallback del escenario) y `winnerText.png` (sin uso — candidato a
-> borrar). Nota: `sf_template.json` conserva NÚMEROS (timings/cajas) derivados del clon —
+> **SIGUE VIAJANDO del clon en release (pendiente de esta guía):** ver el checklist definitivo
+> de abajo. Nota: `sf_template.json` conserva NÚMEROS (timings/cajas) derivados del clon —
 > riesgo bajo (datos, no arte), sustituible cuando exista un template propio.
+
+## ✅ CHECKLIST DEFINITIVO DE COPYRIGHT (2026-07-16) — qué falta cambiar y cómo
+
+**Decisión del dueño: REGENERAR TODO con el generador de imágenes de ChatGPT Plus** (prompts
+listos en `GUIA_generacion_assets_SF.md`, "modo simple"). Flujo por pieza: el dueño genera el
+PNG con ChatGPT → lo deja en la raíz del repo → la IA lo rebana/empaqueta/cablea (los slicers
+de `tools/` ya existen). Estado por archivo, en ORDEN DE PRIORIDAD:
+
+| # | Archivo del clon (en release) | Qué es | Sustituir por | Estado |
+|---|---|---|---|---|
+| 1 | `decals.png` | ⚡ **LOS PODERES** (fireball del hadouken: 2 frames de vuelo + 3 de impacto) y los **splashes de golpe** (2 filas × 4 frames por fuerza) | Proyectil PROPIO de POW (p. ej. bola de energía "HUELUM") + splashes propios; Prankedy YA tiene su proyectil propio (tanque de gas → confeti), sirve de referencia de formato | 🔴 PENDIENTE (prioridad 1 del dueño) |
+| 2 | `hud.png` | Barras de vida, dígitos del timer, icono KO y la **FUENTE arcade A-Z/0-9** (nombres, "X WINS", "RONDA N/PELEA") | HUD propio POR PIEZAS (GUIA §HUD); la fuente es lo más usado — sin ella no hay tags ni banners | 🔴 PENDIENTE |
+| 3 | 11 sonidos `.ogg` (`SOUNDS/`) | Golpes light/med/heavy, impactos, land y hadouken | Sonidos propios o CC0 (generador de audio / freesound CC0); mismos NOMBRES de archivo = cero cambios de código | 🔴 PENDIENTE |
+| 4 | `kenstage.png` | Muelle de Ken (solo FALLBACK si falla un fondo) | Con 6 fondos propios ya casi no se ve: generar el "escenario ESCOM por capas" (GUIA) o BORRARLO y quitar el fallback clásico del código | 🟡 PENDIENTE (baja exposición) |
+| 5 | `shadow.png` | Óvalo de sombra bajo el peleador | Trivial: óvalo propio (hasta dibujable por código) | 🟡 PENDIENTE |
+| 6 | `sf_template.json` | NÚMEROS de timings/cajas (derivados del JS del clon) | Template propio cuando se re-tunee el gameplay | 🟢 Riesgo bajo (datos) |
+| — | `Ryu.png`/`Ken.png`/`ryu.json`/`ken.json`/`kens-theme.ogg` | Peleadores del clon | — | ✅ FUERA de release (source set debug, 2026-07-15e) |
+| — | `winnerText.png` | Letrero viejo de ganador | — | ✅ BORRADO (2026-07-16) |
+| — | Música, 6 fondos, 12 peleadores POW | — | — | ✅ YA PROPIOS |
+
+**Fase 2 (calidad, no copyright):** regenerar con ChatGPT las poses reales de los 11 peleadores
+ALPHA (hoja de referencia por personaje → `slice_sf_reference_sheet.py` → empaquetar como
+Prankedy) — sustituye las poses aproximadas y permite quitar `hurtScale`.
 
 ## 1. Dónde está la separación (no tocar lógica al migrar)
 

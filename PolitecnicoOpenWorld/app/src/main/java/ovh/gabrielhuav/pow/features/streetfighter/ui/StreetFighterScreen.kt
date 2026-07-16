@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -217,10 +218,14 @@ fun StreetFighterScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // Textos del banner de RONDA (i18n; la fuente arcade solo tiene A-Z/0-9)
+    val roundBannerText = stringResource(R.string.sf_round_banner, state.roundNumber)
+    val fightBannerText = stringResource(R.string.sf_fight_banner)
+
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ---- Escena completa (mundo + HUD) en un Canvas ----
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawScene(theme, state, images, playerData, cpuData, bgImage)
+            drawScene(theme, state, images, playerData, cpuData, bgImage, roundBannerText, fightBannerText)
         }
 
         // ---- Controles de POW: joystick + diamante Xbox (ocultos durante la selección) ----
@@ -246,17 +251,26 @@ fun StreetFighterScreen(
             when (state.onlineStatus) {
                 SfOnlineStatus.CONNECTING -> OnlineInfoOverlay(
                     title = stringResource(R.string.sf_mp_connecting_title),
-                    // BT en 2 etapas para que se ENTIENDA qué pasa: conectando → verificando
+                    // BT/LAN en 2 etapas para que se ENTIENDA qué pasa: conectando → verificando
                     subtitle = stringResource(
                         when {
-                            state.btMode && state.btHandshaking -> R.string.sf_bt_handshake_sub
+                            (state.btMode || state.lanMode) && state.btHandshaking -> R.string.sf_bt_handshake_sub
+                            state.lanMode -> R.string.sf_lan_connecting_sub
                             state.btMode -> R.string.sf_bt_connecting_sub
                             else -> R.string.sf_mp_connecting_sub
                         },
                     ),
                     onCancel = { viewModel.cancelOnline() },
                 )
-                SfOnlineStatus.WAITING_OPPONENT -> if (state.btMode) {
+                SfOnlineStatus.WAITING_OPPONENT -> if (state.lanMode) {
+                    // SERVIDOR LOCAL: mostrar la IP a compartir (misma red Wi-Fi/hotspot)
+                    OnlineInfoOverlay(
+                        title = stringResource(R.string.sf_lan_host_title),
+                        subtitle = state.lanLocalIp?.let { stringResource(R.string.sf_lan_host_sub, it) }
+                            ?: stringResource(R.string.sf_lan_no_ip),
+                        onCancel = { viewModel.cancelOnline() },
+                    )
+                } else if (state.btMode) {
                     // ANFITRIÓN Bluetooth: visible + esperando que el rival conecte
                     OnlineInfoOverlay(
                         title = stringResource(R.string.sf_bt_host_title),
@@ -405,6 +419,15 @@ fun StreetFighterScreen(
                     showOnlineMenu = false
                     withBtPerms(btScanPerms()) { viewModel.startBtScan() }
                 },
+                // SERVIDOR LOCAL (LAN): sin permisos nuevos — directo al VM
+                onLanHost = {
+                    showOnlineMenu = false
+                    viewModel.startLanHost()
+                },
+                onLanJoin = { ip ->
+                    showOnlineMenu = false
+                    viewModel.connectLanHost(ip)
+                },
                 onDismiss = { showOnlineMenu = false },
             )
         }
@@ -432,12 +455,16 @@ fun StreetFighterScreen(
         if (state.btError != null && state.onlineStatus == SfOnlineStatus.OFF) {
             BtRetryOverlay(
                 error = state.btError!!,
+                hintRes = if (state.lanMode) R.string.sf_lan_error_hint else R.string.sf_bt_error_hint,
                 onRetry = {
+                    val lanAddr = state.lanHostAddress
                     val addr = state.btRetryAddress
-                    if (addr != null) {
-                        withBtPerms(btScanPerms()) { viewModel.connectBtDevice(addr) }
-                    } else {
-                        withBtPerms(btHostPerms()) {
+                    when {
+                        // LAN: repite exactamente lo que hacías (unirte a esa IP u hostear)
+                        state.lanMode && lanAddr != null -> viewModel.connectLanHost(lanAddr)
+                        state.lanMode -> viewModel.startLanHost()
+                        addr != null -> withBtPerms(btScanPerms()) { viewModel.connectBtDevice(addr) }
+                        else -> withBtPerms(btHostPerms()) {
                             runCatching {
                                 context.startActivity(
                                     Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
@@ -618,14 +645,21 @@ private fun OnlineMenuOverlay(
     onQuickMatch: () -> Unit,
     onBtHost: () -> Unit,
     onBtScan: () -> Unit,
+    onLanHost: () -> Unit,
+    onLanJoin: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var code by remember { mutableStateOf("") }
+    var lanIp by remember { mutableStateOf("") }
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // Con 3 secciones (online/BT/LAN) el menú puede exceder el alto en landscape → scroll
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Text(
                 text = stringResource(R.string.sf_mp_title),
                 color = Color(0xFFD4AF37),
@@ -675,6 +709,41 @@ private fun OnlineMenuOverlay(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PowButton(text = stringResource(R.string.sf_bt_host), onClick = onBtHost)
                 PowButton(text = stringResource(R.string.sf_bt_scan), onClick = onBtScan)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            // ─── 🆕 SERVIDOR LOCAL (LAN): el jugador hostea su sala en la misma red Wi-Fi ───
+            Text(
+                text = stringResource(R.string.sf_lan_section),
+                color = Color(0xFFD4AF37).copy(alpha = 0.8f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            PowButton(text = stringResource(R.string.sf_lan_host), onClick = onLanHost)
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = lanIp,
+                    onValueChange = { lanIp = it.trim() },
+                    label = { Text(stringResource(R.string.sf_lan_ip_label)) },
+                    singleLine = true,
+                    modifier = Modifier.width(180.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFD4AF37),
+                        unfocusedBorderColor = Color(0xFF6B1C3A),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color(0xFFD4AF37),
+                        focusedLabelColor = Color(0xFFD4AF37),
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                    ),
+                )
+                PowButton(
+                    text = stringResource(R.string.sf_mp_join),
+                    onClick = { if (lanIp.contains('.')) onLanJoin(lanIp) },
+                    enabled = lanIp.count { it == '.' } == 3, // IPv4 completa
+                )
             }
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.sf_mp_cancel), color = Color(0xFFD4AF37)) }
@@ -852,7 +921,7 @@ private fun JoinRequestOverlay(onAccept: () -> Unit, onReject: () -> Unit) {
 // ------------------------------------------------------------------
 
 @Composable
-private fun BtRetryOverlay(error: String, onRetry: () -> Unit, onCancel: () -> Unit) {
+private fun BtRetryOverlay(error: String, hintRes: Int, onRetry: () -> Unit, onCancel: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -878,7 +947,7 @@ private fun BtRetryOverlay(error: String, onRetry: () -> Unit, onCancel: () -> U
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = stringResource(R.string.sf_bt_error_hint),
+                text = stringResource(hintRes),
                 color = Color.White.copy(alpha = 0.55f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
@@ -1219,6 +1288,8 @@ private fun DrawScope.drawScene(
     playerData: SfFighterData,
     cpuData: SfFighterData,
     bgImage: ImageBitmap?,
+    roundBannerText: String,
+    fightBannerText: String,
 ) {
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
     val ctx = SceneCtx(
@@ -1311,6 +1382,15 @@ private fun DrawScope.drawScene(
             val textW = text.length * 12f * sizeMul
             drawFontText(ctx, theme, images.getValue(theme.hudImage), text, (SfConstants.SCENE_WIDTH - textW) / 2f, 58f, sizeMul)
         }
+    }
+
+    // ---- 🆕 Banner de RONDA ("RONDA N" + "PELEA"), fuente arcade, input congelado ----
+    if (state.showRoundIntro) {
+        val hud = images.getValue(theme.hudImage)
+        val rw = roundBannerText.length * 12f * 2f
+        drawFontText(ctx, theme, hud, roundBannerText, (SfConstants.SCENE_WIDTH - rw) / 2f, 76f, 2f)
+        val fw = fightBannerText.length * 12f * 1.2f
+        drawFontText(ctx, theme, hud, fightBannerText, (SfConstants.SCENE_WIDTH - fw) / 2f, 104f, 1.2f)
     }
 }
 
@@ -1486,6 +1566,23 @@ private fun DrawScope.drawHud(ctx: SceneCtx, theme: SfTheme, hud: ImageBitmap, s
     drawScoreNumber(ctx, theme, hud, state.playerScore, 45f)
     drawFontText(ctx, theme, hud, "P2", 269f, 1f)
     drawScoreNumber(ctx, theme, hud, state.cpuScore, 309f)
+
+    // 🆕 RONDAS GANADAS (mejor de 3): cuadritos dorados bajo el nombre de cada lado
+    val roundMark = Color(0xFFD4AF37)
+    for (i in 0 until state.playerRoundWins.coerceAtMost(2)) {
+        drawRect(
+            color = roundMark,
+            topLeft = Offset(ctx.ox + (32f + i * 11f) * ctx.scale, ctx.oy + 45f * ctx.scale),
+            size = Size(7f * ctx.scale, 7f * ctx.scale),
+        )
+    }
+    for (i in 0 until state.cpuRoundWins.coerceAtMost(2)) {
+        drawRect(
+            color = roundMark,
+            topLeft = Offset(ctx.ox + (346f - i * 11f) * ctx.scale, ctx.oy + 45f * ctx.scale),
+            size = Size(7f * ctx.scale, 7f * ctx.scale),
+        )
+    }
 }
 
 private fun DrawScope.drawHudMirrored(ctx: SceneCtx, hud: ImageBitmap, src: List<Int>, sceneX: Float, sceneY: Float) {

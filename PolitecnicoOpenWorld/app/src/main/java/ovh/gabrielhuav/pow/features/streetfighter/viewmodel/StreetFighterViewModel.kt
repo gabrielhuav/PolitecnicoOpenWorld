@@ -38,6 +38,7 @@ import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfMatchClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetFireball
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetMsg
@@ -119,6 +120,13 @@ class StreetFighterViewModel @Inject constructor(
     private var koFrame = 0
     private var endMenuAtMs = 0L
 
+    // ─── 🆕 RONDAS (mejor de 3) ───
+    private var matchOver = false          // alguien ya tomó 2 rondas → el fin muestra el menú
+    private var roundResetAtMs = 0L        // >0 = hay ronda nueva programada (intermedio corriendo)
+    private var roundIntroUntilMs = 0L     // banner "RONDA N / PELEA": input y timer congelados
+    private var roundGraceUntilMs = 0L     // tras el reset, ignora snapshots/daño viejos del rival
+    private var roundEndSent = false       // guard de ROUND_ENDED (como onlineEndSent por ronda)
+
     // ─── 🆕 MULTIJUGADOR 1v1 (relay puro contra MultiplayerSF/ en Render) ───
     // Cada cliente simula a SU peleador (índice 0 local); el rival (índice 1) llega
     // por red: posición/estado/frame/hp vía OPPONENT_STATE y el daño que ME hacen vía
@@ -148,6 +156,11 @@ class StreetFighterViewModel @Inject constructor(
         const val END_MENU_DELAY_MS = 4200L
         // Lista de espera pública: cada cuánto se re-pide LIST_ROOMS (resumen + salas tocables)
         const val ROOMS_REFRESH_MS = 5000L
+        // 🆕 Rondas (mejor de 3, dinámica original de SF)
+        const val ROUNDS_TO_WIN = 2
+        const val ROUND_RESET_DELAY_MS = 3500L   // "X WINS" en pantalla antes de la ronda nueva
+        const val ROUND_INTRO_MS = 1800L         // banner "RONDA N / PELEA" con input congelado
+        const val ROUND_GRACE_MS = 1200L         // ignora estado/daño del rival en vuelo tras el reset
         const val ZONE_DOWN = 1
         const val ZONE_FORWARD_DOWN = 2
         const val ZONE_FORWARD = 3
@@ -278,6 +291,8 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     private fun tick(now: Long, dt: Float) {
+        // 🆕 RONDAS: ¿toca arrancar la ronda nueva? (resetea el estado ANTES de armar el Sim)
+        if (roundResetAtMs > 0 && now >= roundResetAtMs) resetRound(now)
         val s = _state.value
         val online = s.onlineStatus == SfOnlineStatus.FIGHTING
         val sim = Sim(
@@ -290,15 +305,16 @@ class StreetFighterViewModel @Inject constructor(
             winner = s.winnerIndex, battleEnded = s.battleEnded,
         )
 
-        if (!sim.battleEnded) updateTimer(sim, now)
+        // El timer NO corre durante el banner "RONDA N / PELEA"
+        if (!sim.battleEnded && now >= roundIntroUntilMs) updateTimer(sim, now)
 
         if (online) {
             applyRemoteSnapshot(sim, now)   // posición/estado/hp del rival (red)
             processNetDamage(sim, now)      // daño que el rival ME mandó (yo soy la autoridad de mi HP)
         }
 
-        // Hit-freeze: al conectar un golpe, los peleadores se congelan 15 frames
-        val frozen = now < hurtFreezeUntilMs
+        // Hit-freeze (golpe conectado) o intro de ronda: peleadores congelados
+        val frozen = now < hurtFreezeUntilMs || now < roundIntroUntilMs
         if (!frozen) {
             updateFighter(sim, 0, buildPlayerInput(now, sim), now, dt)
             // El rival: CPU offline; por RED online (no se simula localmente)
@@ -314,7 +330,8 @@ class StreetFighterViewModel @Inject constructor(
             appendRemoteFireballs(sim)      // render de los proyectiles del rival
         }
 
-        val showEnd = sim.battleEnded && now >= endMenuAtMs
+        // El menú de fin SOLO con el COMBATE decidido (2 rondas); entre rondas solo se congela
+        val showEnd = sim.battleEnded && matchOver && now >= endMenuAtMs
         _state.update(sim, now, showEnd)
     }
 
@@ -335,6 +352,7 @@ class StreetFighterViewModel @Inject constructor(
             showEndMenu = showEnd,
             koFlash = koFrame == 1,
             gameTimeMs = now,
+            showRoundIntro = now < roundIntroUntilMs,
         )
     }
 
@@ -752,11 +770,8 @@ class StreetFighterViewModel @Inject constructor(
         if (defender.hitPoints <= 0) {
             changeState(sim, defenderIdx, SfFighterState.KO, now)
             sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(victory = true))
-            sim.winner = attackerIdx
-            sim.battleEnded = true
-            endMenuAtMs = now + END_MENU_DELAY_MS
-            // ONLINE: si el que cayó soy YO (defensor local), publico el resultado
-            if (inOnlineFight) sendOnlineEnd(winnerIdx = attackerIdx)
+            // 🆕 KO = fin de RONDA (mejor de 3); endRound decide si el combate terminó
+            endRound(sim, attackerIdx, now)
         } else {
             val hurtState = when (area) {
                 SfHurtArea.BODY -> when (strength) {
@@ -889,15 +904,24 @@ class StreetFighterViewModel @Inject constructor(
             useFlashFrames = !useFlashFrames
         }
         if (time == -2 && !sim.battleEnded) {
-            // onTimeEnd: gana quien tenga más vida (empate = jugador, como el JS >=)
-            val playerWins = sim.p0.hitPoints >= sim.p1.hitPoints
-            val winnerIdx = if (playerWins) 0 else 1
+            // 🆕 onTimeEnd estilo SF: gana la RONDA quien tenga más vida; EMPATE exacto →
+            // AZAR (offline: Random real; online: azar DETERMINISTA con semilla compartida
+            // — roundNumber + rondas ganadas son iguales en ambos lados — para que los dos
+            // teléfonos "sorteen" al MISMO ganador sin mensajes extra).
+            val s = _state.value
+            val winnerIdx = when {
+                sim.p0.hitPoints > sim.p1.hitPoints -> 0
+                sim.p0.hitPoints < sim.p1.hitPoints -> 1
+                !isOnline -> if (Random.nextBoolean()) 0 else 1
+                else -> {
+                    val seed = s.roundNumber * 31L + s.playerRoundWins + s.cpuRoundWins
+                    val hostWins = Random(seed).nextBoolean()
+                    if (hostWins == s.isHost) 0 else 1
+                }
+            }
             sim.setFighter(winnerIdx, sim.fighter(winnerIdx).copy(victory = true))
             changeState(sim, 1 - winnerIdx, SfFighterState.KO, now)
-            sim.winner = winnerIdx
-            sim.battleEnded = true
-            endMenuAtMs = now + END_MENU_DELAY_MS
-            if (isOnline) sendOnlineEnd(winnerIdx) // timeout: ambos lo calculan; el guard evita doble envío
+            endRound(sim, winnerIdx, now) // timeout: ambos lo calculan; los guards evitan doble envío
         }
     }
 
@@ -1147,11 +1171,13 @@ class StreetFighterViewModel @Inject constructor(
 
     private fun startBattle(playerId: SfFighterId, cpuId: SfFighterId) {
         resetInternals()
+        roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" (gameNow arranca en 0)
         val base = StreetFighterState()
         _state.value = base.copy(
             player = base.player.copy(id = playerId),
             cpu = base.cpu.copy(id = cpuId),
             inCharacterSelect = false,
+            showRoundIntro = true,
         )
     }
 
@@ -1173,6 +1199,12 @@ class StreetFighterViewModel @Inject constructor(
         controlHistory.clear()
         lastZone = 0
         lastNetSendMs = 0L
+        // 🆕 rondas: pelea nueva = marcador y relojes de ronda en cero
+        matchOver = false
+        roundResetAtMs = 0L
+        roundIntroUntilMs = 0L
+        roundGraceUntilMs = 0L
+        roundEndSent = false
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -1251,6 +1283,7 @@ class StreetFighterViewModel @Inject constructor(
         _state.value = _state.value.copy(
             onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null, btMode = true,
             btError = null, btRetryAddress = null, btHandshaking = false,
+            lanMode = false, lanLocalIp = null, lanHostAddress = null,
         )
         val client = SfBtClient(appContext)
         transport = client
@@ -1294,24 +1327,65 @@ class StreetFighterViewModel @Inject constructor(
         _state.value = _state.value.copy(
             btPicking = false, onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
             btMode = true, btError = null, btRetryAddress = address, btHandshaking = false,
+            lanMode = false, lanLocalIp = null, lanHostAddress = null,
         )
         val client = SfBtClient(appContext)
         transport = client
         client.connectToHost(address, makeNetListener())
     }
 
-    /** Cierra el overlay de error BT y regresa (EXPLÍCITAMENTE) al selector offline. */
+    // ══════════════════════════════════════════════════════════════════
+    // 🆕 SERVIDOR LOCAL (LAN/Wi-Fi): el jugador hostea su propia sala, estilo LAN party.
+    // Sin permisos nuevos (solo INTERNET) ni cambios de Play Console.
+    // ══════════════════════════════════════════════════════════════════
+
+    /** HOST LAN: abre el servidor y muestra la IP a compartir (misma red Wi-Fi/hotspot). */
+    fun startLanHost() {
+        if (isOnline) return
+        stopBtScanInternal()
+        _state.value = _state.value.copy(
+            onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
+            btMode = false, lanMode = true,
+            lanLocalIp = SfLanClient.localIpAddress(), lanHostAddress = null,
+            btError = null, btRetryAddress = null, btHandshaking = false,
+        )
+        val client = SfLanClient()
+        transport = client
+        client.startHost(makeNetListener())
+    }
+
+    /** INVITADO LAN: conecta a la IP que muestra la pantalla del host. */
+    fun connectLanHost(addressRaw: String) {
+        if (isOnline) return
+        val address = addressRaw.trim()
+        if (address.isEmpty()) return
+        stopBtScanInternal()
+        _state.value = _state.value.copy(
+            onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
+            btMode = false, lanMode = true,
+            lanLocalIp = null, lanHostAddress = address,
+            btError = null, btRetryAddress = null, btHandshaking = false,
+        )
+        val client = SfLanClient()
+        transport = client
+        client.connectToHost(address, makeNetListener())
+    }
+
+    /** Cierra el overlay de error BT/LAN y regresa (EXPLÍCITAMENTE) al selector offline. */
     fun dismissBtError() {
-        _state.value = _state.value.copy(btError = null, btMode = false, btRetryAddress = null)
+        _state.value = _state.value.copy(
+            btError = null, btRetryAddress = null, btMode = false,
+            lanMode = false, lanLocalIp = null, lanHostAddress = null,
+        )
     }
 
     /**
-     * Falla de BT ANTES de pelear → overlay bloqueante con REINTENTAR. Regla del modo BT:
-     * elegiste jugar por Bluetooth, así que JAMÁS se cae en silencio al selector offline
+     * Falla del enlace LOCAL (BT o LAN) ANTES de pelear → overlay bloqueante con REINTENTAR.
+     * Regla: elegiste jugar por BT/LAN, así que JAMÁS se cae en silencio al selector offline
      * (nada de terminar peleando contra la IA creyendo que era tu rival); se reintenta
      * hasta que la conexión esté VERIFICADA o el jugador cancele explícitamente.
      */
-    private fun onBtFailed(reason: String?) {
+    private fun onLocalLinkFailed(reason: String?) {
         val s = _state.value
         transport?.close()
         transport = null
@@ -1322,9 +1396,11 @@ class StreetFighterViewModel @Inject constructor(
         onlineEndSent = false
         resetInternals()
         _state.value = StreetFighterState(
-            btMode = true,
-            btError = reason ?: "No se pudo conectar por Bluetooth",
+            btMode = s.btMode,
+            lanMode = s.lanMode,
+            btError = reason ?: "No se pudo conectar",
             btRetryAddress = s.btRetryAddress,
+            lanHostAddress = s.lanHostAddress,
         )
     }
 
@@ -1405,6 +1481,8 @@ class StreetFighterViewModel @Inject constructor(
                         roomCode = s.roomCode,
                         isHost = s.isHost,
                         btMode = s.btMode,
+                        lanMode = s.lanMode,
+                        lanLocalIp = s.lanLocalIp,
                     )
                 } else {
                     _state.value = s.copy(
@@ -1461,6 +1539,7 @@ class StreetFighterViewModel @Inject constructor(
             "FIGHT_START" -> startOnlineBattle()
             "OPPONENT_STATE" -> remoteSnapshot = msg
             "PLAYER_DAMAGE" -> netDamageQueue.add(msg)
+            "ROUND_ENDED" -> roundEndedFromNet(msg.winner) // 🆕 fin de RONDA intermedia
             "MATCH_ENDED" -> endFromNet(msg.winner)
             "REMATCH_REQUESTED" -> _state.value = s.copy(opponentWantsRematch = true)
             "REMATCH_ACCEPTED" -> {
@@ -1474,25 +1553,31 @@ class StreetFighterViewModel @Inject constructor(
                     onlineStatus = SfOnlineStatus.SELECTING,
                     roomCode = s.roomCode,
                     isHost = s.isHost,
-                    btMode = s.btMode, // la revancha BT sigue siendo BT
+                    btMode = s.btMode, // la revancha BT/LAN sigue en su transporte
+                    lanMode = s.lanMode,
+                    lanLocalIp = s.lanLocalIp,
                 )
             }
             "OPPONENT_LEFT", "OPPONENT_DISCONNECTED" -> {
                 if (s.onlineStatus == SfOnlineStatus.FIGHTING && !s.battleEnded) {
-                    // Victoria por abandono
+                    // Victoria por abandono (decide el COMBATE, no solo la ronda)
                     onlineEndSent = true
+                    matchOver = true
+                    endMenuAtMs = 0L
+                    roundResetAtMs = 0L
                     _state.value = s.copy(
                         battleEnded = true, winnerIndex = 0, showEndMenu = true,
                         onlineStatus = SfOnlineStatus.OPPONENT_LEFT,
+                        playerRoundWins = ROUNDS_TO_WIN,
                     )
                 } else if (s.isHost) {
                     // El invitado se fue en la antesala: la sala sigue viva esperando a otro
                     _state.value = s.copy(
                         onlineStatus = SfOnlineStatus.WAITING_OPPONENT, opponentWantsRematch = false,
                     )
-                } else if (s.btMode) {
-                    // BT: se perdió al anfitrión en la antesala → overlay de REINTENTAR
-                    onBtFailed("Se perdió la conexión con el anfitrión")
+                } else if (s.btMode || s.lanMode) {
+                    // BT/LAN: se perdió al anfitrión en la antesala → overlay de REINTENTAR
+                    onLocalLinkFailed("Se perdió la conexión con el anfitrión")
                 } else {
                     cancelOnline("El anfitrión cerró la sala")
                 }
@@ -1520,6 +1605,7 @@ class StreetFighterViewModel @Inject constructor(
     private fun startOnlineBattle() {
         val s = _state.value
         resetInternals()
+        roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" tras el countdown
         onlineEndSent = false
         remoteSnapshot = null
         netDamageQueue.clear()
@@ -1545,6 +1631,8 @@ class StreetFighterViewModel @Inject constructor(
             isHost = s.isHost,
             onlineMapFile = s.onlineMapFile,
             btMode = s.btMode, // conservar el transporte para overlays post-pelea
+            lanMode = s.lanMode,
+            lanLocalIp = s.lanLocalIp,
         )
     }
 
@@ -1560,17 +1648,20 @@ class StreetFighterViewModel @Inject constructor(
             direction = if ((rs.dir ?: 1) >= 0) SfDirection.RIGHT else SfDirection.LEFT,
             hitPoints = rs.hp ?: sim.p1.hitPoints,
         )
-        // Si su propio estado reporta 0 HP, gané (él manda MATCH_ENDED; esto lo adelanta)
-        if ((rs.hp ?: 1) <= 0 && !sim.battleEnded) {
-            sim.winner = 0
-            sim.battleEnded = true
-            endMenuAtMs = now + END_MENU_DELAY_MS
-            sendOnlineEnd(winnerIdx = 0)
+        // Si su propio estado reporta 0 HP, gané la RONDA (él manda ROUND/MATCH_ENDED; esto
+        // lo adelanta). GRACIA post-reset: ignora snapshots viejos en vuelo con hp=0.
+        if ((rs.hp ?: 1) <= 0 && !sim.battleEnded && now >= roundGraceUntilMs) {
+            endRound(sim, winnerIdx = 0, now = now)
         }
     }
 
     /** Aplica a MI peleador el daño que me mandó el rival (yo decido bloqueo con MI estado). */
     private fun processNetDamage(sim: Sim, now: Long) {
+        // Ronda terminada o gracia post-reset: el daño en vuelo del rival ya no cuenta
+        if (sim.battleEnded || now < roundGraceUntilMs) {
+            netDamageQueue.clear()
+            return
+        }
         while (true) {
             val m = netDamageQueue.poll() ?: break
             val strength = m.strength?.let { n -> runCatching { SfAttackStrength.valueOf(n) }.getOrNull() }
@@ -1614,26 +1705,151 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
-    /** Publica el fin de pelea UNA sola vez ("p1" = anfitrión). */
+    /** Índice local → lado de red ("p1" = anfitrión), para ROUND/MATCH_ENDED. */
+    private fun sideOf(winnerIdx: Int): String {
+        val iAmP1 = _state.value.isHost
+        return if (winnerIdx == 0) (if (iAmP1) "p1" else "p2") else (if (iAmP1) "p2" else "p1")
+    }
+
+    /** Lado de red → índice local (reconciliación de ROUND/MATCH_ENDED entrantes). */
+    private fun idxOf(side: String?): Int = when (side) {
+        "p1" -> if (_state.value.isHost) 0 else 1
+        "p2" -> if (_state.value.isHost) 1 else 0
+        else -> 0
+    }
+
+    /**
+     * 🆕 Fin de RONDA (KO, timeout o adelanto por red). Suma la ronda al ganador y decide:
+     * ¿alguien llegó a ROUNDS_TO_WIN? → COMBATE terminado (menú de fin, MATCH_ENDED).
+     * ¿No? → congela con "X WINS" y programa la ronda siguiente (ROUND_ENDED al rival).
+     */
+    private fun endRound(sim: Sim, winnerIdx: Int, now: Long) {
+        if (sim.battleEnded) return
+        sim.winner = winnerIdx
+        sim.battleEnded = true
+        val s = _state.value
+        val w0 = s.playerRoundWins + if (winnerIdx == 0) 1 else 0
+        val w1 = s.cpuRoundWins + if (winnerIdx == 1) 1 else 0
+        _state.value = _state.value.copy(playerRoundWins = w0, cpuRoundWins = w1)
+        if (w0 >= ROUNDS_TO_WIN || w1 >= ROUNDS_TO_WIN) {
+            matchOver = true
+            endMenuAtMs = now + END_MENU_DELAY_MS
+            if (isOnline) sendOnlineEnd(winnerIdx)
+        } else {
+            roundResetAtMs = now + ROUND_RESET_DELAY_MS
+            if (isOnline && !roundEndSent) {
+                roundEndSent = true
+                transport?.sendRoundEnded(sideOf(winnerIdx))
+            }
+        }
+    }
+
+    /** ROUND_ENDED recibido: reconcilia el fin de RONDA si mi sim aún no lo detectaba. */
+    private fun roundEndedFromNet(winnerSide: String?) {
+        val s = _state.value
+        if (s.battleEnded || s.onlineStatus != SfOnlineStatus.FIGHTING) return
+        val winnerIdx = idxOf(winnerSide)
+        val now = gameNow
+        roundEndSent = true // ya lo publicó el otro lado; no re-enviar
+        val w0 = s.playerRoundWins + if (winnerIdx == 0) 1 else 0
+        val w1 = s.cpuRoundWins + if (winnerIdx == 1) 1 else 0
+        _state.value = s.copy(
+            playerRoundWins = w0, cpuRoundWins = w1,
+            battleEnded = true, winnerIndex = winnerIdx,
+        )
+        if (w0 >= ROUNDS_TO_WIN || w1 >= ROUNDS_TO_WIN) {
+            matchOver = true
+            endMenuAtMs = now + END_MENU_DELAY_MS
+        } else {
+            roundResetAtMs = now + ROUND_RESET_DELAY_MS
+        }
+    }
+
+    /**
+     * 🆕 Arranca la ronda siguiente: HP/posiciones/timer frescos (mismos peleadores y mapa),
+     * banner "RONDA N / PELEA" con input congelado y GRACIA para ignorar mensajes en vuelo
+     * de la ronda anterior. Cada lado la arranca con su propio reloj (desfase de ms,
+     * aceptable — misma decisión que el timer online, ver AUDIT §4).
+     */
+    private fun resetRound(now: Long) {
+        roundResetAtMs = 0L
+        val s = _state.value
+        val base = StreetFighterState()
+        val onlineFight = s.onlineStatus == SfOnlineStatus.FIGHTING
+        val leftX = base.player.x
+        val rightX = base.cpu.x
+        // Mismo acomodo que al arrancar: offline jugador a la izquierda; online el HOST
+        val playerLeft = !onlineFight || s.isHost
+        val p0 = base.player.copy(
+            id = s.player.id,
+            x = if (playerLeft) leftX else rightX,
+            direction = if (playerLeft) SfDirection.RIGHT else SfDirection.LEFT,
+        )
+        val p1 = base.cpu.copy(
+            id = s.cpu.id,
+            x = if (playerLeft) rightX else leftX,
+            direction = if (playerLeft) SfDirection.LEFT else SfDirection.RIGHT,
+        )
+        // Relojes/colas de la ronda (como resetInternals pero SIN tocar marcador de rondas)
+        time = SfConstants.BATTLE_TIME
+        timeTimerMs = now
+        timeFlashTimerMs = 0L
+        useFlashFrames = false
+        koFlashTimerMs = 0L
+        koFrame = 0
+        hurtFreezeUntilMs = 0L
+        endMenuAtMs = 0L
+        cpuNextDecisionMs = 0L
+        cpuHold = SfInput()
+        pendingAttacks.clear()
+        controlHistory.clear()
+        lastZone = 0
+        remoteSnapshot = null
+        netDamageQueue.clear()
+        onlineEndSent = false
+        roundEndSent = false
+        roundGraceUntilMs = now + ROUND_GRACE_MS
+        roundIntroUntilMs = now + ROUND_INTRO_MS
+        _state.value = s.copy(
+            player = p0,
+            cpu = p1,
+            fireballs = emptyList(),
+            splashes = emptyList(),
+            cameraX = base.cameraX,
+            cameraY = base.cameraY,
+            displayTime = SfConstants.BATTLE_TIME,
+            timeFlashing = false,
+            battleEnded = false,
+            winnerIndex = null,
+            showEndMenu = false,
+            koFlash = false,
+            roundNumber = s.roundNumber + 1,
+            showRoundIntro = true,
+        )
+    }
+
+    /** Publica el fin del COMBATE una sola vez ("p1" = anfitrión). */
     private fun sendOnlineEnd(winnerIdx: Int) {
         if (onlineEndSent) return
         onlineEndSent = true
-        val iAmP1 = _state.value.isHost
-        val side = if (winnerIdx == 0) (if (iAmP1) "p1" else "p2") else (if (iAmP1) "p2" else "p1")
-        transport?.sendMatchEnded(side)
+        transport?.sendMatchEnded(sideOf(winnerIdx))
     }
 
-    /** MATCH_ENDED recibido: reconcilia el final (por si mi sim aún no lo detectaba). */
+    /** MATCH_ENDED recibido: reconcilia el final del COMBATE (por si mi sim no lo detectaba). */
     private fun endFromNet(winnerSide: String?) {
         val s = _state.value
         if (s.battleEnded && s.showEndMenu) return
-        val winnerIdx = when (winnerSide) {
-            "p1" -> if (s.isHost) 0 else 1
-            "p2" -> if (s.isHost) 1 else 0
-            else -> 0
-        }
+        val winnerIdx = idxOf(winnerSide)
         onlineEndSent = true
-        _state.value = s.copy(battleEnded = true, winnerIndex = winnerIdx, showEndMenu = true)
+        matchOver = true
+        endMenuAtMs = 0L      // que el tick no re-oculte el menú
+        roundResetAtMs = 0L   // cancela cualquier ronda programada
+        _state.value = s.copy(
+            battleEnded = true, winnerIndex = winnerIdx, showEndMenu = true,
+            // reconcilia el marcador: el ganador tiene las rondas del combate
+            playerRoundWins = if (winnerIdx == 0) ROUNDS_TO_WIN else s.playerRoundWins,
+            cpuRoundWins = if (winnerIdx == 1) ROUNDS_TO_WIN else s.cpuRoundWins,
+        )
     }
 
     /**
@@ -1651,9 +1867,9 @@ class StreetFighterViewModel @Inject constructor(
     private fun onNetDropped(reason: String?) {
         if (!isOnline) return
         val s = _state.value
-        if (s.btMode && !s.battleEnded && s.onlineStatus != SfOnlineStatus.OPPONENT_LEFT) {
-            // BT sin pelea terminada: reintento (overlay), no selector offline
-            onBtFailed(reason)
+        if ((s.btMode || s.lanMode) && !s.battleEnded && s.onlineStatus != SfOnlineStatus.OPPONENT_LEFT) {
+            // BT/LAN sin pelea terminada: reintento (overlay), no selector offline
+            onLocalLinkFailed(reason)
             return
         }
         cancelOnline(reason?.let { "Conexión perdida: $it" } ?: "Conexión perdida con el servidor")

@@ -329,6 +329,15 @@ wss.on('connection', (ws, req) => {
                 break;
             }
 
+            // 🆕 Fin de RONDA intermedia (mejor-de-3): relay puro a AMBOS, SIN tocar la
+            // fase de la sala (la pelea sigue; MATCH_ENDED = combate decidido)
+            case 'ROUND_ENDED': {
+                if (!room) break;
+                room.lastActivityMs = Date.now();
+                broadcastToRoom(room, { type: 'ROUND_ENDED', winner: msg.winner });
+                break;
+            }
+
             case 'MATCH_ENDED': {
                 if (!room) break;
                 room.phase = 'ended';

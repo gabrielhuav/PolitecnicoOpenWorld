@@ -61,8 +61,10 @@ enum class SfDirection(val sign: Int) {
  * 🆕 (2026-07-15) Fuente COMPARTIDA con el mundo abierto: el peleador NO tiene sheet propio en
  * assets — su hoja se ARMA EN RUNTIME (SfSharedSheets) desde el MISMO set de sprites que usa el
  * mundo (`SPRITES/PLAYER/` o `SPRITES/NPC/`). Los sets tienen LIENZOS HETEROGÉNEOS (256²,
- * 338×422, 542×681…): el código los normaliza midiendo la figura (escala única por personaje
- * → ~100 px de alto, pies en 128,224 del lienzo 256²), así que NO importa el tamaño fuente.
+ * 338×422, 542×681…) e incluso escalas DISTINTAS entre animaciones del mismo personaje: el
+ * código normaliza midiendo la figura POR ANIMACIÓN (mediana de alturas → ~100 px de alto,
+ * pies en 128,224 del lienzo 256²), así que NO importa el tamaño fuente ni que cada acción
+ * venga a otra escala (ver SfSharedSheets.normalizeAnim).
  */
 data class SfSharedSet(
     /** "SPRITES/PLAYER/" o "SPRITES/NPC/" (misma convención que PlayerSkin.basePath). */

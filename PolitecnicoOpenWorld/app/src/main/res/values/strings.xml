@@ -598,6 +598,17 @@
     <string name="sf_bt_error_title">SIN CONEXIÓN BLUETOOTH</string>
     <string name="sf_bt_error_hint">Revisa que ambos tengan Bluetooth encendido, que el anfitrión esté en ANFITRIÓN (visible) y estén cerca. Reintentar vuelve a pedir permisos si hace falta.</string>
     <string name="sf_bt_retry">REINTENTAR</string>
+    <string name="sf_lan_section">SERVIDOR LOCAL (misma red Wi-Fi)</string>
+    <string name="sf_lan_host">CREAR SERVIDOR</string>
+    <string name="sf_lan_ip_label">IP del anfitrión</string>
+    <string name="sf_lan_host_title">SERVIDOR LOCAL</string>
+    <string name="sf_lan_host_sub">Tu sala está abierta. Comparte esta dirección con tu rival (misma red Wi-Fi o tu hotspot):\n\n%1$s</string>
+    <string name="sf_lan_no_ip">No se detectó red local: conéctate a una red Wi-Fi o enciende tu hotspot y reintenta.</string>
+    <string name="sf_lan_connecting_sub">Conectando con el servidor local…</string>
+    <string name="sf_lan_error_hint">Ambos teléfonos deben estar en la MISMA red Wi-Fi (o uno al hotspot del otro). Verifica la IP que muestra la pantalla del anfitrión y reintenta.</string>
+    <!-- Banner de rondas (fuente arcade: solo A-Z y 0-9, sin acentos ni signos) -->
+    <string name="sf_round_banner">RONDA %1$d</string>
+    <string name="sf_fight_banner">PELEA</string>
     <string name="sf_choose_rival">Ahora elige al RIVAL (lo controla la CPU)</string>
 
     <!-- Tutorial de controles (optativo, i18n 2026-07-11) -->

@@ -420,10 +420,13 @@ matrices por defecto son **border-only** hasta reemplazarse.
   se borraron); empaquetado solo para arte PROPIO de pelea (Ryu/Ken/Prankedy). (b) El
   `spriteAsset` de un compartido es VIRTUAL (`RUNTIME/<X>.png`): es solo la KEY del mapa de
   imágenes de la Screen — **abrirlo con `assets.open()` CRASHEA**; toda hoja pasa por
-  `SfSharedSheets.sheetFor()`. (c) Su `jsonAsset` es el TEMPLATE `ryu.json` — **no borrar
-  ryu.json ni reordenar sus claves**: el ORDEN define el layout de la rejilla runtime
+  `SfSharedSheets.sheetFor()`. (c) Su `jsonAsset` es el TEMPLATE `sf_template.json` (desde el
+  2026-07-15e; ryu.json vive en el source set debug) — **no borrar sf_template.json ni
+  reordenar sus claves**: el ORDEN define el layout de la rejilla runtime
   (`templateFrameOrder`). (d) Los LIENZOS fuente son heterogéneos a propósito: la
-  normalización (bbox + escala única TARGET_H/alto del idle) vive en el CÓDIGO — si cambias
+  normalización (bbox + escala **POR ANIMACIÓN**, mediana de alturas → TARGET_H; 🆕
+  2026-07-16 — antes era única por personaje y la figura cambiaba de tamaño entre acciones)
+  vive en el CÓDIGO — si cambias
   el arte de un set del mundo, el peleador SF se actualiza SOLO; si un personaje mira a la
   IZQUIERDA en su set, márcalo con `SfSharedSet(flip = true)` (lázaro, escomboy). (e) Memoria:
   la hoja runtime pesa lo mismo que decodificar el PNG que había (2560×2048); cache LRU 3 —

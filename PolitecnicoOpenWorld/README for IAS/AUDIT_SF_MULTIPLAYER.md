@@ -133,13 +133,16 @@
 | MATCH_ENDED | C→S→C | `winner` ("p1"/"p2") |
 | REQUEST_REMATCH → REMATCH_REQUESTED / REMATCH_ACCEPTED | C→S→C | acepta cuando lo piden AMBOS |
 | HEARTBEAT / ERROR / SESSION_INIT | varios | keep-alive de sala / `message` / `sessionId` |
+| 🆕 ROUND_ENDED (2026-07-16) | C→S→AMBOS | `winner` ("p1"/"p2"): fin de RONDA intermedia (mejor de 3); NO toca la fase de la sala — MATCH_ENDED queda solo para el combate decidido. ⚠️ Requiere redeploy |
 | 🆕 REQUEST_JOIN → JOIN_REQUESTED | C→S→host | `code`: solicitud de unión (lobby con aprobación) |
 | 🆕 RESPOND_JOIN | host→S | `accept`: true = mete al pendiente (ROOM_JOINED/OPPONENT_JOINED) |
 | 🆕 JOIN_REJECTED / JOIN_REQUEST_CANCELLED | S→C / S→host | `message` (soft-reject; el invitado re-encola) / el solicitante se fue |
 
-> **Bluetooth (SfBtClient):** mismos mensajes SIN server — el host agrega SELECT_CHARACTER/
-> REQUEST_REMATCH del invitado y emite CHARACTERS_SELECTED/MAP_SELECTED/FIGHT_START/
-> REMATCH_ACCEPTED; PLAYER_STATE entrante se convierte a OPPONENT_STATE en el receptor.
+> **Bluetooth (SfBtClient) y 🆕 Servidor LAN (SfLanClient, 2026-07-16):** mismos mensajes SIN
+> server — la base común `SfStreamPeer` (host agrega SELECT_CHARACTER/REQUEST_REMATCH del
+> invitado y emite CHARACTERS_SELECTED/MAP_SELECTED/FIGHT_START/REMATCH_ACCEPTED/ROUND_ENDED;
+> PLAYER_STATE entrante → OPPONENT_STATE; handshake HELLO→WELCOME; heartbeat). LAN = TCP en
+> puerto fijo 47645, unirse por IP del host (se muestra en su pantalla); cero permisos nuevos.
 
 ## 3. Decisiones (qué es autoritativo y por qué)
 

@@ -52,7 +52,7 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
 | Modelos puros (constantes, enums de estados 1:1 con el JS, SfBox, snapshots, SfInput) | `domain/models/streetfighter/SfModels.kt` |
 | Carga del frame data JSON (Gson, cache estático; 🆕 remap a rejilla runtime para compartidos) | `features/streetfighter/data/SfFrameCatalog.kt` |
 | 🆕 HOJAS COMPARTIDAS con el mundo (armado runtime desde SPRITES/*, normaliza lienzos heterogéneos, LRU 3) | `features/streetfighter/data/SfSharedSheets.kt` |
-| 🆕 Transporte común del multijugador (interfaz; WS online / BT local) | `features/streetfighter/data/SfNetTransport.kt`, `SfMatchClient.kt`, `SfBtClient.kt` |
+| 🆕 Transporte común del multijugador (interfaz; WS online / BT / LAN local) | `features/streetfighter/data/SfNetTransport.kt`, `SfMatchClient.kt`, `SfStreamPeer.kt` (base de stream), `SfBtClient.kt`, `SfLanClient.kt` |
 | 🆕 TEMA intercambiable (escenario/HUD/sombra/splashes/proyectil/sonidos como DATOS; hoy `SF_CLASSIC_THEME`) | `features/streetfighter/data/SfTheme.kt` |
 | Estado UI (peleadores, fireballs, splashes, cámara, timer, fin de pelea) | `features/streetfighter/viewmodel/StreetFighterState.kt` |
 | VM `@HiltViewModel` (port de Fighter.js/BattleScene.js/Fireball.js: máquina de 30 estados, animación por frame-delays, cajas por frame, hit-freeze 15 frames, hadouken ↓↘→+P, IA CPU, timer 99, sonidos por SharedFlow) | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` |
@@ -159,10 +159,14 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     (solo key del mapa de imágenes — NUNCA abrirlo como asset).
   - **`data/SfSharedSheets.kt` (NUEVO):** port Kotlin de `gen_sf_frames_from_npc.py` +
     `pack_sf_character.py` — recorta cada cuadro a su bbox, **normaliza los LIENZOS
-    HETEROGÉNEOS por código** (escala única = 100 px / alto del idle; robot 256², lázaro
-    338×422, escomgirl hasta 542×681 — da igual), aproxima las 77 poses (rotaciones/aplastados,
-    ALPHA) y pega la hoja 2560×2048 (misma RAM que decodificar el PNG que había). Cache LRU 3.
-    Preview del selector = 1er cuadro del Idle del set del mundo (barato).
+    HETEROGÉNEOS por código** 🆕 **POR ANIMACIÓN (2026-07-16)**: cada animación se mide
+    (mediana de alturas de sus cuadros) y se escala a 100 px — antes la escala era única por
+    personaje (medida del idle) y si el set traía otra acción dibujada a otra escala (lázaro
+    idle 338×422 vs run 256², escomgirl run 542×681…) la figura CRECÍA/ENCOGÍA al caminar/
+    correr/atacar; ahora mide lo MISMO en todas las acciones (`normalizeAnim`; el rebote
+    natural DENTRO de una animación se conserva). Aproxima las 77 poses (rotaciones/
+    aplastados, ALPHA) y pega la hoja 2560×2048 (misma RAM que decodificar el PNG que había).
+    Cache LRU 3. Preview del selector = 1er cuadro del Idle del set del mundo (barato).
   - `SfFrameCatalog`: para compartidos parsea `ryu.json` y REMAPEA `src` a la rejilla runtime
     (`templateFrameOrder` fija el layout; cajas/timings de Ryu se conservan, igual que el packer).
   - **Quedan EMPAQUETADOS solo Ryu, Ken** (clon original, sin set en el mundo) **y Prankedy**
@@ -173,6 +177,32 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     con ARTE PROPIO (hoja de referencia → `pack_sf_character.py`, como Prankedy);
     `gen_sf_frames_from_npc.py` ganó `PLAYER:<skin>` y flag `flip` por si se quiere volver a
     empaquetar offline.
+- **🆕 RONDAS ESTILO SF — MEJOR DE 3 (2026-07-16):** cada combate son hasta 3 rondas; gana
+  quien tome 2 (`ROUNDS_TO_WIN`). Una ronda termina por KO o por TIMEOUT (más vida gana;
+  **EMPATE exacto → AZAR**: offline `Random` real; online azar DETERMINISTA con semilla
+  compartida `roundNumber+wins` para que ambos lados sorteen al MISMO ganador sin mensajes).
+  Entre rondas: "X WINS" congelado ~3.5 s → reset de ronda (HP/posiciones/timer frescos,
+  mismos peleadores y mapa) → banner **"RONDA N / PELEA"** (~1.8 s, input y timer congelados,
+  fuente arcade → strings `sf_round_banner`/`sf_fight_banner` SIN acentos). HUD: cuadritos
+  dorados bajo cada nombre = rondas ganadas. El menú de fin SOLO al decidirse el combate.
+  ONLINE/BT/LAN: nuevo mensaje **`ROUND_ENDED{winner}`** (relay puro, NO toca la fase de la
+  sala) reconcilia las rondas intermedias; `MATCH_ENDED` queda solo para el combate decidido;
+  gracia post-reset (`ROUND_GRACE_MS`) ignora snapshots/daño en vuelo de la ronda anterior.
+  ⚠️ Requiere REDEPLOY de `MultiplayerSF/` (case nuevo). El quirk viejo "empate del timer lo
+  gana el jugador (>=)" quedó SUSTITUIDO por el azar.
+- **🆕 SERVIDOR LOCAL LAN — el jugador HOSTEA su sala (2026-07-16):** tercera vía de
+  multijugador, estilo LAN party y SIN servidor: sección **"SERVIDOR LOCAL (misma red
+  Wi-Fi)"** en el menú 🌐 — **CREAR SERVIDOR** (abre un `ServerSocket` TCP en el puerto fijo
+  `SF_LAN_PORT=47645` y muestra TU IP para compartir) / **UNIRSE** (tecleas la IP del host;
+  botón habilitado con IPv4 completa). Piezas: base común **`data/SfStreamPeer.kt`** (extraída
+  de SfBtClient para no duplicar: sesión de stream, handshake HELLO→WELCOME verificado,
+  heartbeat 10 s, "server" local del host, reintentos) + **`data/SfLanClient.kt`** (TCP,
+  `tcpNoDelay`, `localIpAddress()` sin permisos vía `NetworkInterface`). Reusa TODO el flujo
+  del VM (`roomCode="LAN"`, `lanMode/lanLocalIp/lanHostAddress` en el estado) y el overlay de
+  REINTENTAR de BT (hint propio `sf_lan_error_hint`). **⚠️ PLAY STORE: cero permisos nuevos
+  (solo INTERNET ya declarado), sin foreground service, tráfico device-to-device efímero → NO
+  cambia Data Safety ni formularios.** Requisito de red: misma Wi-Fi o hotspot de uno de los
+  dos (el aislamiento AP de algunas redes públicas puede bloquearlo → hint del overlay).
 - **🆕 BT CONFIABLE E INTUITIVO (2026-07-16, fix del crash de permisos):** en dispositivo,
   ANFITRIÓN crasheaba con `Need android.permission.BLUETOOTH_SCAN … cancelDiscovery()`: ese
   flujo solo pide CONNECT+ADVERTISE y `cancelDiscovery()` EXIGE SCAN en Android 12+ → ahora

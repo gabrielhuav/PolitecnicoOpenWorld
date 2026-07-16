@@ -236,9 +236,16 @@ UNA solicitud a la vez). Unirse por CÓDIGO sigue directo. 🆕 Además existe u
 **BLUETOOTH local SIN servidor** (`SfBtClient` vía la interfaz común `SfNetTransport`): mismos
 mensajes JSON sobre RFCOMM; el HOST genera localmente lo que aquí manda el relay. Ver
 `AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 3b").
+🆕 (2026-07-16) **RONDAS mejor-de-3:** mensaje nuevo **`ROUND_ENDED{winner}`** (relay puro a
+AMBOS, NO toca la fase — la pelea sigue); `MATCH_ENDED` queda solo para el combate decidido
+(2 rondas). ⚠️ Requiere redeploy. Y **tercer transporte local: Servidor LAN** (`SfLanClient`,
+TCP puerto fijo 47645, unirse por IP del host, cero permisos nuevos) — junto con BT comparten
+la base `SfStreamPeer` (mismos mensajes JSON sin server).
 **EN:** 🆕 AoE2-style approval lobby (`REQUEST_JOIN`/`RESPOND_JOIN`/`JOIN_REJECTED`, one pending
-request per room; code join stays direct) and a serverless local **Bluetooth transport**
-(`SfBtClient` behind the shared `SfNetTransport` interface, same JSON messages over RFCOMM).
+request per room; code join stays direct), serverless local **Bluetooth transport**
+(`SfBtClient`) and 🆕 **LAN server transport** (`SfLanClient`, fixed TCP port 47645, join by the
+host's IP) — both extend the shared `SfStreamPeer` base (same JSON messages over a stream).
+🆕 Best-of-3 **rounds**: new `ROUND_ENDED` relay message (doesn't touch room phase); redeploy needed.
 **EN:** Pure-relay 1v1 fight-mode server (3rd server, same Docker/auth/warmup pattern); it does NOT
 simulate the fight (each client simulates its own fighter; the RECEIVER applies incoming damage). Full
 protocol + free Render deploy: `AUDIT_SF_MULTIPLAYER.md`. 4-letter code rooms + public queue

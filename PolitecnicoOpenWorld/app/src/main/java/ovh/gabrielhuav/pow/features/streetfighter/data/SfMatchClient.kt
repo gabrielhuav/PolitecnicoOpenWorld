@@ -110,6 +110,7 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
     override fun selectCharacter(name: String) = send(mapOf("type" to "SELECT_CHARACTER", "character" to name))
     override fun selectMap(file: String) = send(mapOf("type" to "SELECT_MAP", "map" to file))
     override fun requestRematch() = send(mapOf("type" to "REQUEST_REMATCH"))
+    override fun sendRoundEnded(winner: String) = send(mapOf("type" to "ROUND_ENDED", "winner" to winner))
     override fun sendMatchEnded(winner: String) = send(mapOf("type" to "MATCH_ENDED", "winner" to winner))
 
     override fun sendDamage(damage: Int, strength: String, atkType: String) =

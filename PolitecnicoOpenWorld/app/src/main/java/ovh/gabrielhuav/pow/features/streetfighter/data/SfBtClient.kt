@@ -10,31 +10,19 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import com.google.gson.Gson
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStream
-import java.util.Timer
-import java.util.TimerTask
 import java.util.UUID
 
 // MULTIJUGADOR LOCAL por BLUETOOTH del modo pelea "HUELUM VS. GOYA" (sin internet).
 //
-// MISMA arquitectura que el online (AUDIT_SF_MULTIPLAYER.md §3): relay puro con
-// autoridad del RECEPTOR — cada teléfono simula a SU peleador y viajan los MISMOS
-// mensajes JSON (SfNetMsg) que con MultiplayerSF/, solo cambia el TRANSPORTE:
-// BluetoothSocket RFCOMM con UUID fijo (SF_BT_UUID, igual en ambos lados).
+// La lógica de sesión (relay puro con autoridad del receptor, handshake HELLO/WELCOME,
+// heartbeat, "server" local del host) vive en la BASE COMÚN SfStreamPeer (compartida con
+// el servidor LAN); aquí solo queda lo específico de Bluetooth: RFCOMM con UUID fijo
+// (SF_BT_UUID, igual en ambos lados), accept del host, connect con reintentos del invitado
+// y el discovery del selector "BUSCAR RIVAL".
 //
-// El HOST hace de "server": acepta 1 conexión y GENERA LOCALMENTE los mensajes
-// que en online manda el relay (OPPONENT_JOINED, CHARACTERS_SELECTED, MAP_SELECTED,
-// FIGHT_START tras el countdown, REMATCH_ACCEPTED cuando la piden los dos).
-// El INVITADO manda sus mensajes crudos y el host los agrega.
-// PLAYER_STATE entrante se convierte a OPPONENT_STATE en el receptor (ambos lados).
-//
-// SIN foreground service (prohibido: con targetSdk 34 obligaría a declaración con
-// video en Play Console): la conexión vive con la Activity, como el WebSocket, y
-// close() cierra los sockets al salir. Los permisos runtime los pide la UI ANTES
-// de llamar aquí (por eso el @SuppressLint("MissingPermission") de la clase).
+// SIN foreground service (con targetSdk 34 obligaría a declaración con video en Play
+// Console): la conexión vive con la Activity y close() cierra los sockets al salir.
+// Los permisos runtime los pide la UI ANTES de llamar aquí (de ahí el @SuppressLint).
 
 /** Dispositivo visible/emparejado para el selector "BUSCAR RIVAL". */
 data class SfBtDevice(val name: String, val address: String)
@@ -42,33 +30,14 @@ data class SfBtDevice(val name: String, val address: String)
 @SuppressLint("MissingPermission") // la UI pide CONNECT/SCAN/ADVERTISE antes de instanciar
 class SfBtClient(
     private val context: Context,
-    private val gson: Gson = Gson(),
-) : SfNetTransport {
+) : SfStreamPeer() {
 
-    private var listener: SfNetTransport.Listener? = null
+    override val roomCode: String = BT_ROOM_CODE
+    override val handshakeFailMessage: String =
+        "Bluetooth: el anfitrión no respondió (¿está en ANFITRIÓN y visible?)"
+
     private var serverSocket: BluetoothServerSocket? = null
     @Volatile private var socket: BluetoothSocket? = null
-    @Volatile private var out: OutputStream? = null
-    @Volatile private var running = false
-    private var isHostRole = false
-
-    // ── "server" local del HOST (lo que en online guarda la sala del relay) ──
-    @Volatile private var char1: String? = null
-    @Volatile private var char2: String? = null
-    @Volatile private var rematch1 = false
-    @Volatile private var rematch2 = false
-    @Volatile private var peerLostNotified = false
-    // HANDSHAKE (conexión VERIFICADA): invitado manda BT_HELLO al conectar; el host contesta
-    // BT_WELCOME. Solo entonces se entregan ROOM_JOINED/OPPONENT_JOINED al VM. Detecta
-    // sockets "a medias" (conectan pero no fluyen datos) antes de dar la sala por buena.
-    @Volatile private var handshaken = false
-
-    // KEEPALIVE de la conexión (persistencia): RFCOMM no siempre reporta rápido un enlace
-    // muerto (rival fuera de alcance / app matada sin close). Un HEARTBEAT periódico fuerza
-    // tráfico → si la escritura falla, se cierra el socket y el readLoop destraba YA con el
-    // abandono, en vez de colgarse esperando al stack BT. (Mismo patrón que el WS online.)
-    private var heartbeatTimer: Timer? = null
-
     private var discoveryReceiver: BroadcastReceiver? = null
 
     private fun adapter(): BluetoothAdapter? =
@@ -96,10 +65,10 @@ class SfBtClient(
                 while (running) {
                     val s = ss.accept() // bloquea hasta que un rival conecta
                     if (!running) { runCatching { s.close() }; break }
-                    onPeerConnected(s)
-                    // El OPPONENT_JOINED se entrega hasta recibir el HELLO del rival
-                    // (handshake = conexión VERIFICADA en ambos sentidos), en onLine().
-                    readLoop(s) // regresa cuando el rival se desconecta → volver a aceptar
+                    socket = s
+                    // OPPONENT_JOINED se entrega al recibir el HELLO (handshake, en la base)
+                    runPeerSession(s.inputStream, s.outputStream) // bloquea hasta perder al rival
+                    socket = null
                 }
             } catch (t: Throwable) {
                 if (running) listener.onFailure("Bluetooth: ${t.message ?: "no disponible"}")
@@ -110,8 +79,7 @@ class SfBtClient(
     /**
      * INVITADO: conecta al host elegido en el selector. Equivale a JOIN_ROOM.
      * REINTENTA el connect hasta 3 veces (el 1er intento suele fallar si el sistema
-     * interpone el diálogo de emparejamiento) y luego hace HANDSHAKE (HELLO→WELCOME):
-     * el ROOM_JOINED solo se entrega con la conexión VERIFICADA en ambos sentidos.
+     * interpone el diálogo de emparejamiento); el handshake corre en la base.
      */
     fun connectToHost(address: String, listener: SfNetTransport.Listener) {
         this.listener = listener
@@ -140,121 +108,25 @@ class SfBtClient(
                     if (attempt < CONNECT_ATTEMPTS) Thread.sleep(CONNECT_RETRY_PAUSE_MS)
                 }
                 val sock = s ?: throw (lastError ?: error("sin socket"))
-                onPeerConnected(sock)
+                socket = sock
                 listener.onOpen()
-                // HANDSHAKE: aviso de progreso a la UI + HELLO; el watchdog corta si el
-                // anfitrión no contesta WELCOME (socket "a medias" → reintento del jugador).
-                deliver(SfNetMsg(type = "BT_HANDSHAKE"))
-                sendRaw(mapOf("type" to "BT_HELLO"))
-                startWelcomeWatchdog(sock)
-                readLoop(sock)
+                runPeerSession(sock.inputStream, sock.outputStream)
+                socket = null
             } catch (t: Throwable) {
                 if (running) listener.onFailure("Bluetooth: no se pudo conectar (${t.message ?: "?"})")
             }
         }, "SfBtJoin").start()
     }
 
-    /** Si el WELCOME no llega en HANDSHAKE_TIMEOUT_MS, se cierra el socket (conexión NO verificada). */
-    private fun startWelcomeWatchdog(sock: BluetoothSocket) {
-        Thread({
-            runCatching { Thread.sleep(HANDSHAKE_TIMEOUT_MS) }
-            if (running && !handshaken && socket === sock) {
-                runCatching { sock.close() } // destraba el readLoop → onFailure de handshake
-            }
-        }, "SfBtWelcome").start()
-    }
-
-    private fun onPeerConnected(s: BluetoothSocket) {
-        socket = s
-        out = s.outputStream
-        peerLostNotified = false
-        handshaken = false
-        // Sala "nueva" para esta conexión: TAMBIÉN char1 (si el host arrastrara su selección
-        // anterior, un SELECT_CHARACTER del rival nuevo dispararía CHARACTERS_SELECTED viejo)
-        char1 = null
-        char2 = null
-        rematch1 = false
-        rematch2 = false
-        // KEEPALIVE cada 10 s (el receptor lo ignora; ver comentario del campo)
-        heartbeatTimer?.cancel()
-        heartbeatTimer = Timer(true).also { t ->
-            t.schedule(
-                object : TimerTask() {
-                    override fun run() { sendRaw(mapOf("type" to "HEARTBEAT")) }
-                },
-                HEARTBEAT_MS, HEARTBEAT_MS,
-            )
-        }
-    }
-
-    /** Lee líneas JSON hasta que el peer se desconecta. Corre en el hilo BT. */
-    private fun readLoop(s: BluetoothSocket) {
-        try {
-            val reader = BufferedReader(InputStreamReader(s.inputStream))
-            while (running) {
-                val line = reader.readLine() ?: break
-                if (line.isBlank()) continue
-                onLine(line)
-            }
-        } catch (_: Throwable) {
-            // caída del socket → abajo se notifica como abandono
-        }
-        heartbeatTimer?.cancel()
-        heartbeatTimer = null
+    override fun closePeerSocket() {
+        runCatching { socket?.close() }
         socket = null
-        out = null
-        if (running && !peerLostNotified) {
-            peerLostNotified = true
-            when {
-                // Con handshake COMPLETO, como en online: el VM decide (pelea → victoria por
-                // abandono; antesala del host → volver a esperar; invitado → salir de la sala).
-                handshaken -> deliver(SfNetMsg(type = "OPPONENT_DISCONNECTED", winner = "abandon"))
-                // Invitado SIN handshake: la conexión nunca se verificó → error reintentable
-                // (la UI muestra REINTENTAR; jamás se da la sala por buena).
-                !isHostRole -> listener?.onFailure(
-                    "Bluetooth: el anfitrión no respondió (¿está en ANFITRIÓN y visible?)",
-                )
-                // Host sin handshake: el intento de conexión murió a medias; se sigue aceptando.
-                else -> Unit
-            }
-        }
     }
 
-    /** Enruta un mensaje entrante (el HOST además AGREGA lo que en online hace el relay). */
-    private fun onLine(raw: String) {
-        val msg = runCatching { gson.fromJson(raw, SfNetMsg::class.java) }.getOrNull() ?: return
-        when (msg.type) {
-            // ── HANDSHAKE (conexión verificada) ──
-            // Host: llegó el HELLO del rival → contesta WELCOME y AHORA sí hay sala.
-            "BT_HELLO" -> if (isHostRole && !handshaken) {
-                handshaken = true
-                sendRaw(mapOf("type" to "BT_WELCOME"))
-                deliver(SfNetMsg(type = "OPPONENT_JOINED", playerIndex = 2))
-            }
-            // Invitado: el host confirmó → conexión verificada en ambos sentidos.
-            "BT_WELCOME" -> if (!isHostRole && !handshaken) {
-                handshaken = true
-                deliver(SfNetMsg(type = "ROOM_JOINED", code = BT_ROOM_CODE, playerIndex = 2))
-            }
-            // Keepalive del enlace: NO sube al VM
-            "HEARTBEAT" -> Unit
-            // Autoridad del receptor: mi rival me manda SU estado; para MÍ es el oponente
-            "PLAYER_STATE" -> deliver(msg.copy(type = "OPPONENT_STATE"))
-            // El host agrega la selección del invitado (char2) y publica cuando están ambos
-            "SELECT_CHARACTER" -> if (isHostRole) {
-                char2 = msg.character
-                maybeCharactersSelected()
-            }
-            // El host agrega la revancha (la piden LOS DOS, como el relay)
-            "REQUEST_REMATCH" -> if (isHostRole) {
-                rematch2 = true
-                deliver(SfNetMsg(type = "REMATCH_REQUESTED"))
-                maybeRematchAccepted()
-            }
-            // Todo lo demás viaja tal cual (PLAYER_DAMAGE, MATCH_ENDED, CHARACTERS_SELECTED,
-            // MAP_SELECTED, FIGHT_START, REMATCH_REQUESTED/ACCEPTED generados por el host…)
-            else -> deliver(msg)
-        }
+    override fun closeTransport() {
+        stopScan()
+        runCatching { serverSocket?.close() }
+        serverSocket = null
     }
 
     // ══════════════════ ESCANEO (selector "BUSCAR RIVAL") ══════════════════
@@ -286,139 +158,14 @@ class SfBtClient(
         discoveryReceiver = null
     }
 
-    // ══════════════ SfNetTransport: flujo de pelea (mismos mensajes) ══════════════
-
-    override fun selectCharacter(name: String) {
-        if (isHostRole) {
-            char1 = name
-            maybeCharactersSelected()
-        } else {
-            sendRaw(mapOf("type" to "SELECT_CHARACTER", "character" to name))
-        }
-    }
-
-    /** Solo lo llama el HOST (el VM ya lo gatea con isHost, igual que online). */
-    override fun selectMap(file: String) {
-        if (!isHostRole) return
-        val payload = mapOf("type" to "MAP_SELECTED", "map" to file, "countdownMs" to COUNTDOWN_MS)
-        sendRaw(payload)
-        deliver(SfNetMsg(type = "MAP_SELECTED", map = file, countdownMs = COUNTDOWN_MS))
-        // El countdown que en online corre el server, aquí lo corre el host
-        Thread({
-            runCatching { Thread.sleep(COUNTDOWN_MS.toLong()) }
-            if (running && socket != null) {
-                sendRaw(mapOf("type" to "FIGHT_START"))
-                deliver(SfNetMsg(type = "FIGHT_START"))
-            }
-        }, "SfBtCountdown").start()
-    }
-
-    override fun requestRematch() {
-        if (isHostRole) {
-            rematch1 = true
-            sendRaw(mapOf("type" to "REMATCH_REQUESTED")) // avisa al rival (como el relay)
-            maybeRematchAccepted()
-        } else {
-            sendRaw(mapOf("type" to "REQUEST_REMATCH")) // el host agrega
-        }
-    }
-
-    override fun sendMatchEnded(winner: String) {
-        // El relay lo difunde a AMBOS: aquí = mandar al peer + entregármelo a mí mismo
-        sendRaw(mapOf("type" to "MATCH_ENDED", "winner" to winner))
-        deliver(SfNetMsg(type = "MATCH_ENDED", winner = winner))
-    }
-
-    override fun sendDamage(damage: Int, strength: String, atkType: String) =
-        sendRaw(mapOf("type" to "PLAYER_DAMAGE", "damage" to damage, "strength" to strength, "atkType" to atkType))
-
-    override fun sendPlayerState(x: Float, y: Float, state: String, frame: Int, dir: Int, hp: Int, fireballs: List<SfNetFireball>) =
-        sendRaw(
-            mapOf(
-                "type" to "PLAYER_STATE", "x" to x, "y" to y, "state" to state,
-                "frame" to frame, "dir" to dir, "hp" to hp, "fireballs" to fireballs,
-            ),
-        )
-
-    // ── Salas/cola/lobby: solo tienen sentido con el server online → no-op en BT ──
-    override fun createRoom() = Unit
-    override fun joinRoom(code: String) = Unit
-    override fun quickMatch() = Unit
-    override fun cancelQueue() = Unit
-    override fun listRooms() = Unit
-    override fun leaveRoom() = Unit // el peer detecta el cierre del socket (abandono)
-    override fun requestJoin(code: String) = Unit
-    override fun respondJoin(accept: Boolean) = Unit
-
-    override fun close() {
-        running = false
-        heartbeatTimer?.cancel()
-        heartbeatTimer = null
-        stopScan()
-        runCatching { socket?.close() }
-        socket = null
-        out = null
-        runCatching { serverSocket?.close() }
-        serverSocket = null
-        listener = null
-    }
-
-    // ══════════════════════════ internos ══════════════════════════
-
-    /** El host publica CHARACTERS_SELECTED cuando ya eligieron LOS DOS (como el relay). */
-    private fun maybeCharactersSelected() {
-        val c1 = char1 ?: return
-        val c2 = char2 ?: return
-        sendRaw(mapOf("type" to "CHARACTERS_SELECTED", "char1" to c1, "char2" to c2))
-        deliver(SfNetMsg(type = "CHARACTERS_SELECTED", char1 = c1, char2 = c2))
-    }
-
-    /** El host publica REMATCH_ACCEPTED cuando la revancha la pidieron LOS DOS. */
-    private fun maybeRematchAccepted() {
-        if (!rematch1 || !rematch2) return
-        rematch1 = false
-        rematch2 = false
-        char1 = null
-        char2 = null
-        sendRaw(mapOf("type" to "REMATCH_ACCEPTED"))
-        deliver(SfNetMsg(type = "REMATCH_ACCEPTED"))
-    }
-
-    /**
-     * Escribe una línea JSON al peer. Si la ESCRITURA falla, el enlace está muerto: se cierra
-     * el socket para DESTRABAR el readLoop de inmediato (que es quien notifica el abandono) —
-     * sin esto, una caída silenciosa podía dejar la pelea colgada hasta que el stack BT
-     * reportara solo. El HEARTBEAT de 10 s garantiza que siempre haya escrituras que fallen.
-     */
-    private fun sendRaw(payload: Map<String, Any?>) {
-        val line = gson.toJson(payload.filterValues { it != null }) + "\n"
-        val ok = runCatching {
-            out?.let { o ->
-                synchronized(o) {
-                    o.write(line.toByteArray())
-                    o.flush()
-                }
-            }
-        }.isSuccess
-        if (!ok) runCatching { socket?.close() }
-    }
-
-    private fun deliver(msg: SfNetMsg) {
-        listener?.onMessage(msg)
-    }
-
     companion object {
         /** UUID FIJO del servicio RFCOMM (debe coincidir en ambos teléfonos). */
         val SF_BT_UUID: UUID = UUID.fromString("7f9b1e40-5c33-4b7a-9c1e-8d2f6a4b0c37")
         private const val SERVICE_NAME = "POW-HUELUM-VS-GOYA"
         /** Código de "sala" simbólico para reusar el flujo del VM (roomCode = "BT"). */
         const val BT_ROOM_CODE = "BT"
-        private const val COUNTDOWN_MS = 3000
-        private const val HEARTBEAT_MS = 10_000L
-        // Conexión del invitado: reintentos del connect (el 1º suele morir con el diálogo
-        // de emparejamiento) y timeout del WELCOME del handshake
+        // Reintentos del connect del invitado (el 1º suele morir con el diálogo de emparejamiento)
         private const val CONNECT_ATTEMPTS = 3
         private const val CONNECT_RETRY_PAUSE_MS = 1200L
-        private const val HANDSHAKE_TIMEOUT_MS = 6000L
     }
 }
