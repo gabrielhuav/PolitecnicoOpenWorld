@@ -513,7 +513,7 @@
     <string name="amb_convo5_4">Go to the networking lab, it works there.</string>
     <string name="amb_convo6_1">Are you signing up for the physics makeup exam?</string>
     <string name="amb_convo6_2">Yeah, no choice. You too?</string>
-    <string name="amb_convo6_3a">Yep… see you at the exam then.</string>
+    <string name="amb_convo6_3">Yep… see you at the exam then.</string>
     <string name="amb_convo6_4">Deal. We\'ll study together the day before, right?</string>
     <!-- Transit: prompt + messages (were hardcoded in TransitSystemConfig) -->
     <string name="wm_prompt_metrobus">PRESS X TO ENTER METROBÚS STATION %1$s</string>

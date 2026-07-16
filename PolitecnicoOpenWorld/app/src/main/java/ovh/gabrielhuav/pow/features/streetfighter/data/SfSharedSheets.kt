@@ -64,21 +64,20 @@ object SfSharedSheets {
     // ══════════════════ armado de la hoja (port de gen_sf_frames_from_npc.py) ══════════════════
 
     private fun buildSharedSheet(context: Context, set: SfSharedSet): Bitmap {
-        // Animaciones fuente (recortadas a bbox + espejadas). Mismos fallbacks que el tool.
-        val idle = loadAnim(context, set, "Idle")
-        var walk = loadAnim(context, set, "Walk")
-        var run = loadAnim(context, set, "Run")
-        var special = loadAnim(context, set, "Special")
+        // Animaciones fuente (recortadas a bbox + espejadas), NORMALIZADAS por animación.
+        // Mismos fallbacks que el tool (ya normalizados: reusar la lista es seguro).
+        val idle = normalizeAnim(loadAnim(context, set, "Idle"))
+        var walk = normalizeAnim(loadAnim(context, set, "Walk"))
+        var run = normalizeAnim(loadAnim(context, set, "Run"))
+        var special = normalizeAnim(loadAnim(context, set, "Special"))
         require(idle.isNotEmpty()) { "Set compartido sin Idle/: ${set.basePath}${set.folder}" }
         if (walk.isEmpty()) walk = run.ifEmpty { idle }
         if (run.isEmpty()) run = walk
         if (special.isEmpty()) special = idle
 
-        // ESCALA ÚNICA por personaje (aquí se absorben los lienzos heterogéneos)
-        val scale = TARGET_H / idle[0].height.toFloat()
-
-        // Los 75 cuadros generados (los alias stun-1/2 y "jump-start/land" se resuelven al pegar)
-        val gen = buildGenFrames(idle, walk, run, special, scale)
+        // Los 75 cuadros generados (los alias stun-1/2 y "jump-start/land" se resuelven al pegar).
+        // scale = 1f: la normalización de tamaño ya se aplicó POR ANIMACIÓN arriba.
+        val gen = buildGenFrames(idle, walk, run, special, scale = 1f)
 
         // Cuadros en el ORDEN del template ryu.json (mismo layout que SfFrameCatalog.remap)
         val order = SfFrameCatalog.templateFrameOrder(context)
@@ -98,6 +97,30 @@ object SfSharedSheets {
         "jump-start/land" -> "jump-start-land-1"
         "stun-1", "stun-2" -> "stun-3"
         else -> key
+    }
+
+    /**
+     * 🆕 El "IF DE TAMAÑOS" POR ANIMACIÓN (2026-07-16): antes había UNA escala por personaje
+     * (medida del idle) y si el set fuente traía OTRA animación dibujada a otra escala
+     * (lienzos/zoom distintos por acción — pasa en los sets de PLAYER: lázaro idle 338×422
+     * vs run 256², escomgirl run 542×681…), la figura CRECÍA/ENCOGÍA al caminar/correr/
+     * atacar. Ahora CADA animación se mide (mediana de alturas de sus cuadros, robusta a
+     * outliers; los corruptos ya se filtraron) y se escala a TARGET_H: la figura mide lo
+     * MISMO en todas las animaciones, vengan del tamaño que vengan. El movimiento natural
+     * DENTRO de una animación (rebote al correr) se conserva porque la escala es por
+     * animación, no por cuadro.
+     */
+    private fun normalizeAnim(frames: List<Bitmap>): List<Bitmap> {
+        if (frames.isEmpty()) return frames
+        val heights = frames.map { it.height }.sorted()
+        val median = heights[heights.size / 2].toFloat()
+        if (median <= 0f) return frames
+        val s = TARGET_H / median
+        return frames.map { f ->
+            val w = max(1, (f.width * s).roundToInt())
+            val h = max(1, (f.height * s).roundToInt())
+            Bitmap.createScaledBitmap(f, w, h, true)
+        }
     }
 
     /** Carga y prepara una animación fuente: orden numérico, bbox, flip y filtro de corruptos. */
