@@ -513,7 +513,7 @@
     <string name="amb_convo5_4">Go to the networking lab, it works there.</string>
     <string name="amb_convo6_1">Are you signing up for the physics makeup exam?</string>
     <string name="amb_convo6_2">Yeah, no choice. You too?</string>
-    <string name="amb_convo6_3">Yep… see you at the exam then.</string>
+    <string name="amb_convo6_3a">Yep… see you at the exam then.</string>
     <string name="amb_convo6_4">Deal. We\'ll study together the day before, right?</string>
     <!-- Transit: prompt + messages (were hardcoded in TransitSystemConfig) -->
     <string name="wm_prompt_metrobus">PRESS X TO ENTER METROBÚS STATION %1$s</string>
@@ -592,6 +592,10 @@
     <string name="sf_bt_pick_title">PICK THE HOST</string>
     <string name="sf_bt_pick_sub">Paired and nearby devices (turn Bluetooth on on both phones)</string>
     <string name="sf_bt_none">Searching for devices…</string>
+    <string name="sf_bt_handshake_sub">Connected; verifying the link with the host…</string>
+    <string name="sf_bt_error_title">NO BLUETOOTH CONNECTION</string>
+    <string name="sf_bt_error_hint">Make sure Bluetooth is on on both phones, the host is in HOST mode (discoverable) and you are close. Retrying will re-request permissions if needed.</string>
+    <string name="sf_bt_retry">RETRY</string>
     <string name="sf_choose_rival">Now pick the RIVAL (CPU-controlled)</string>
 
     <!-- Controls tutorial (optional, i18n 2026-07-11) -->

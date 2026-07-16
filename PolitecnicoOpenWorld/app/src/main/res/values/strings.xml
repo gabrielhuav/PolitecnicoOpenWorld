@@ -594,6 +594,10 @@
     <string name="sf_bt_pick_title">ELIGE AL ANFITRIÓN</string>
     <string name="sf_bt_pick_sub">Dispositivos emparejados y cercanos (activa Bluetooth en ambos teléfonos)</string>
     <string name="sf_bt_none">Buscando dispositivos…</string>
+    <string name="sf_bt_handshake_sub">Conectado; verificando la conexión con el anfitrión…</string>
+    <string name="sf_bt_error_title">SIN CONEXIÓN BLUETOOTH</string>
+    <string name="sf_bt_error_hint">Revisa que ambos tengan Bluetooth encendido, que el anfitrión esté en ANFITRIÓN (visible) y estén cerca. Reintentar vuelve a pedir permisos si hace falta.</string>
+    <string name="sf_bt_retry">REINTENTAR</string>
     <string name="sf_choose_rival">Ahora elige al RIVAL (lo controla la CPU)</string>
 
     <!-- Tutorial de controles (optativo, i18n 2026-07-11) -->

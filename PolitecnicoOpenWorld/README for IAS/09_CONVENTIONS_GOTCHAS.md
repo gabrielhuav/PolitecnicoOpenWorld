@@ -396,6 +396,23 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
+- **🆕 GOTCHA BLUETOOTH — `cancelDiscovery()` EXIGE BLUETOOTH_SCAN (2026-07-16):** en Android
+  12+ hasta CANCELAR el discovery pide el permiso SCAN; el flujo de ANFITRIÓN solo pide
+  CONNECT+ADVERTISE → crasheaba con SecurityException al abrir. **Regla:** en `SfBtClient`
+  toda llamada a `cancelDiscovery()` va en `runCatching` (best-effort) y NUNCA asumas SCAN
+  fuera del flujo de BUSCAR RIVAL. Regla hermana: una falla BT pre-pelea pasa por
+  `onBtFailed` (overlay REINTENTAR bloqueante), no por `cancelOnline` — el jugador que eligió
+  BT no debe acabar en el selector offline sin notarlo.
+- **🆕 ASSETS POR VARIANTE — RYU/KEN solo en DEBUG (2026-07-15, copyright):** los assets del
+  clon SF de Ryu/Ken viven en **`app/src/debug/assets/STREETFIGHTER/`** (el merge de source
+  sets los añade SOLO al build debug; release/Play no los lleva). **Reglas:** (a) NADA en
+  `src/main` puede cargar `Ryu.png/Ken.png/ryu.json/ken.json` incondicionalmente — todo acceso
+  va gateado por `BuildConfig.DEBUG` (selector) o saneado si viene de red (`sanitizeNetFighter`
+  → PRANKEDY); el template de los compartidos es `sf_template.json` (main), NO `ryu.json`.
+  (b) El default de peleador en `StreetFighterState` se DECODIFICA al abrir el modo → debe ser
+  SIEMPRE un peleador POW. (c) Al probar: **Rebuild en debug prueba Ryu/Ken; probar TAMBIÉN un
+  build release** (o bundle) para verificar que el modo abre sin ellos. (d) Si se añade otro
+  asset con riesgo de copyright, va al source set debug con el mismo patrón.
 - **🆕 ASSETS COMPARTIDOS SF⇄MUNDO (2026-07-15) — reglas:** 11 de los 14 peleadores de
   "HUELUM VS. GOYA" se arman EN RUNTIME (`SfSharedSheets`) desde los sets del mundo
   (`SPRITES/PLAYER|NPC/`, convención de `PlayerSkin`). (a) **NO regenerar/committear sheets

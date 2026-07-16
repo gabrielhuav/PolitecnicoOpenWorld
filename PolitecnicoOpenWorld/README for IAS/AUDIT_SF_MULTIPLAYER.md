@@ -1,5 +1,14 @@
 # AUDIT · Multijugador 1v1 del modo pelea "HUELUM VS. GOYA" (2026-07-11)
 
+> **✅ ESTADO ACTUAL (2026-07-16) — esto MANDA sobre los banners de abajo:** TODO lo de las
+> sesiones 1–3c (server, cliente WS, sala pública, lobby con aprobación, Bluetooth con
+> handshake/reintentos/encendido de BT, gate Ryu/Ken) está **implementado, COMPILADO y
+> probado por el dueño** (BT mejorado el 2026-07-16). Los banners de abajo son REGISTRO, no
+> tareas. **Pendientes REALES:** (1) deploy de `MultiplayerSF/` en Render + `SF_SERVER_URL`
+> real (placeholder hasta el 1er deploy) y prueba online en 2 dispositivos; (2) lo consciente
+> del §4 (interpolación del rival, reconexión a sala, espectadores, sincronía del timer) —
+> opcional, no bloquea.
+
 > **🆕 SESIÓN 2 (mismo día) — mejoras hechas y PENDIENTES para QWEN/CODEX:**
 >
 > **HECHO:**

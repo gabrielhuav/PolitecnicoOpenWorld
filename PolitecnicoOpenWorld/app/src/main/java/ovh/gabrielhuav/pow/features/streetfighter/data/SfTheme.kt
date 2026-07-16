@@ -100,7 +100,10 @@ data class SfTheme(
 val SF_CLASSIC_THEME = SfTheme(
     imagesDir = "STREETFIGHTER/IMAGES/",
     soundsDir = "STREETFIGHTER/SOUNDS/",
-    imageFiles = listOf("Ryu.png", "Ken.png", "kenstage.png", "shadow.png", "decals.png", "hud.png"),
+    // ⚠️ (2026-07-15) SIN Ryu.png/Ken.png: las hojas de PELEADOR ya no se precargan aquí — las
+    // resuelve SfSharedSheets por peleador elegido. Además Ryu/Ken viven SOLO en el source set
+    // DEBUG (app/src/debug/assets/): precargarlos aquí CRASHEARÍA el release de Play Store.
+    imageFiles = listOf("kenstage.png", "shadow.png", "decals.png", "hud.png"),
     soundKeys = listOf(
         "light-attack", "medium-attack", "heavy-attack",
         "light-punch-hit", "medium-punch-hit", "heavy-punch-hit",

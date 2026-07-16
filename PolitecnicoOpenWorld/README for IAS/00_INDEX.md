@@ -49,7 +49,7 @@
 | 04 | `04_MAP_EXTERIOR.md` | Open world: WorldMapViewModel + parciales, estado, render, policía |
 | 05 | `05_ZOMBIE_MINIGAME.md` | Minijuego zombi: VM, tick offline/online, constantes, render, diseñador |
 | 06 | `06_INTERIOR_METRO.md` | Interiores ESCOM + metro + CollisionGrid |
-| 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables, 🆕 Street Fighter (dev) |
+| 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables, 🥊 HUELUM VS. GOYA (modo pelea 1v1; en CÓDIGO los ids siguen siendo street_fighter/Sf*) |
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
@@ -58,7 +58,7 @@
 | Archivo / File | Contenido / Contents |
 |---|---|
 | `GUIA_mantenimiento_no_senior.md` | **(2026-07-04) EMPEZAR AQUÍ si eres una IA/dev nuevo:** las 7 reglas que rompen el juego, flujo de trabajo estándar, chuleta de "dónde vive cada cosa", qué NO hacer sin compilador y cómo pedir compilaciones al dueño. |
-| `CHECKPOINT_2026-07-11_sesion_QA.md` | **🆕 CHECKPOINT MÁS RECIENTE (2026-07-11) — EMPIEZA AQUÍ para retomar:** QA de Misiones 2/3 (sprites lata/mochila/frasco, zombis con arte propio por-NPC, brote/conversión de Prankedy en M3), fixes de QA (traslapes, NPCs del lobby, separación de misiones/reintento), Street Fighter (cross-up, hadouken tolerante, hurtScale, i18n) y cómics M2→M3 (placeholders IntroPOW16..22). Auditado y verificado 2026-07-11 (compila, 13/13 suites de test en verde). |
+| *(estado actual)* | **Para RETOMAR (2026-07-16):** el estado vigente vive en los docs 00–09 (el modo pelea en **07 §HUELUM VS. GOYA** + `AUDIT_SF_MULTIPLAYER.md`). Los checkpoints de sesiones pasadas están ✅ ejecutados y viven en `_ARCHIVO/`. |
 | `CHECKPOINT_SENIOR_refactor.md` | **✅ (2026-07-04) Programa "calidad senior" TERMINADO Y AUDITADO** (tests golden-master → de-dup routing → 6 managers + fachada combine → Hilt → detekt bloqueante → perf auditada). Para futuros refactors: la RECETA del patrón manager vive aquí. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | **(2026-07-09)** Modo pelea 1v1: qué assets del clon SF hay que sustituir por assets propios de POW (Prankedy…), formato del JSON de personaje (77 poses), pipeline de empaquetado y prompts para QWEN/ChatGPT. |
 | `AUDIT_SF_MULTIPLAYER.md` | **🆕 (2026-07-11)** Multijugador 1v1 del modo pelea: audit del server `MultiplayerSF/` (QWEN corregido), protocolo completo, decisiones de autoridad, deploy GRATIS en Render y qué probar. |

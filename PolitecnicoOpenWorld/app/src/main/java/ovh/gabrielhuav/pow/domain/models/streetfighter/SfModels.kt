@@ -99,59 +99,64 @@ enum class SfFighterId(
     /** null = sheet propio empaquetado en assets; no-null = COMPARTIDO (armado en runtime). */
     val sharedSet: SfSharedSet? = null,
 ) {
+    // ⚠️ COPYRIGHT (2026-07-15): los assets de RYU/KEN viven SOLO en el source set DEBUG
+    // (app/src/debug/assets/STREETFIGHTER/) — instalas por cable y ahí SÍ están; el bundle de
+    // Play Store (release) NO los incluye. En release estos ids existen pero JAMÁS deben
+    // cargarse: el selector los oculta (selectableFighters exige BuildConfig.DEBUG) y lo que
+    // llegue por red se sanea a PRANKEDY (sanitizeNetFighter del VM).
     RYU("Ryu", "RYU", "STREETFIGHTER/DATA/ryu.json", "STREETFIGHTER/IMAGES/Ryu.png"),
     KEN("Ken", "KEN", "STREETFIGHTER/DATA/ken.json", "STREETFIGHTER/IMAGES/Ken.png"),
     // 🆕 Peleadores PROPIOS de POW. Prankedy trae frames proj-* propios (broma del tanque).
     PRANKEDY("Prankedy", "PRANKEDY", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png", isAlpha = true),
     // ── 🆕 (2026-07-15) PELEADORES COMPARTIDOS: usan los MISMOS assets del mundo abierto
     //    (SPRITES/PLAYER/ y SPRITES/NPC/) — NO tienen sheet/JSON propio en el APK. La hoja se
-    //    ARMA EN RUNTIME (SfSharedSheets, cache LRU) con cajas/timings del template ryu.json.
+    //    ARMA EN RUNTIME (SfSharedSheets, cache LRU) con cajas/timings de sf_template.json.
     //    Lázaro y escomboy están dibujados a la IZQUIERDA → flip=true. Rey de las Bromas y
     //    Pepe NO entran (no jugables por diseño; comentados también en PlayerSkin).
     //    PRANKEDY conserva sheet PROPIO: sus poses se regeneraron a mano (hoja de referencia)
     //    y trae frames proj-* (broma del tanque) que el set del mundo no tiene. ─────────────
     SENOR_TIENDA(
-        "El Señor de la Tienda", "TIENDA", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/SenorTienda.png",
+        "El Señor de la Tienda", "TIENDA", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/SenorTienda.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "SenorTienda/", "st_"),
     ),
     PAPARAZZI_1(
-        "Paparazzi 1", "PAPZ 1", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Paparazzi1.png",
+        "Paparazzi 1", "PAPZ 1", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paparazzi1.png",
         isAlpha = true, hurtScale = 1.43f, sharedSet = SfSharedSet("SPRITES/NPC/", "PaparazziN1/", "pn1_"),
     ),
     PAPARAZZI_5(
-        "Paparazzi 5", "PAPZ 5", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Paparazzi5.png",
+        "Paparazzi 5", "PAPZ 5", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paparazzi5.png",
         isAlpha = true, hurtScale = 1.37f, sharedSet = SfSharedSet("SPRITES/NPC/", "PaparazziN5/", "pn5_"),
     ),
     REY_GRUPERO(
-        "Rey Grupero", "GRUPERO", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/ReyGrupero.png",
+        "Rey Grupero", "GRUPERO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/ReyGrupero.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "ReyGrupero/", "rg_"),
     ),
     LAZARO(
-        "Lázaro", "LAZARO", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Lazaro.png",
+        "Lázaro", "LAZARO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Lazaro.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "lazaro", "lazaro_", flip = true),
     ),
     ESCOMBOY(
-        "Estudiante", "ESCOMBOY", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/EscomBoy.png",
+        "Estudiante", "ESCOMBOY", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/EscomBoy.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "escomboy", "escomboy_", flip = true),
     ),
     ESCOMGIRL(
-        "Estudianta", "ESCOMGIRL", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/EscomGirl.png",
+        "Estudianta", "ESCOMGIRL", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/EscomGirl.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "escomgirl", "escomgirl_"),
     ),
     ROBOT(
-        "Robot Estudiantx", "ROBOT", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Robot.png",
+        "Robot Estudiantx", "ROBOT", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Robot.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "robot", "robot_"),
     ),
     POLICIA_CDMX(
-        "Policía CDMX", "POLICIA", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/PoliciaCDMX.png",
+        "Policía CDMX", "POLICIA", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/PoliciaCDMX.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "PoliciaCDMX/", "pcd_"),
     ),
     GRANADERO(
-        "Granadero", "GRANADERO", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Granadero.png",
+        "Granadero", "GRANADERO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Granadero.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "Granaderos/", "gra_"),
     ),
     PARAMEDICO(
-        "Paramédico", "PARAMEDICO", "STREETFIGHTER/DATA/ryu.json", "RUNTIME/Paramedico.png",
+        "Paramédico", "PARAMEDICO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paramedico.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "Paramedico/", "pmd_"),
     ),
 }

@@ -13,7 +13,9 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
 // View con collectAsState() (contrato MVVM, README for IAS 01/09).
 
 data class StreetFighterState(
-    // Peleadores (0 = jugador con PRANKEDY 🆕, 1 = CPU con KEN), posiciones del JS
+    // Peleadores (0 = jugador con PRANKEDY, 1 = CPU con REY GRUPERO). ⚠️ El default de la CPU
+    // era KEN: sus assets ahora viven SOLO en debug (copyright) y el default se DECODIFICA al
+    // abrir el modo → en release crashearía. Defaults SIEMPRE de peleadores POW.
     val player: SfFighter = SfFighter(
         id = SfFighterId.PRANKEDY,
         playerIndex = 0,
@@ -21,7 +23,7 @@ data class StreetFighterState(
         direction = SfDirection.RIGHT,
     ),
     val cpu: SfFighter = SfFighter(
-        id = SfFighterId.KEN,
+        id = SfFighterId.REY_GRUPERO,
         playerIndex = 1,
         x = SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING + SfConstants.FIGHTER_START_DISTANCE,
         direction = SfDirection.LEFT,
@@ -77,6 +79,11 @@ data class StreetFighterState(
     val btMode: Boolean = false,             // la sesión online actual va por Bluetooth
     val btPicking: Boolean = false,          // selector "BUSCAR RIVAL" abierto
     val btDevices: List<SfBtDevice> = emptyList(), // emparejados + hallados por discovery
+    // Falla de conexión BT → overlay bloqueante con REINTENTAR (jamás se cae al selector
+    // offline en silencio: elegiste BT y NO se pelea contra la IA sin conexión verificada)
+    val btError: String? = null,
+    val btRetryAddress: String? = null,      // rival elegido a reintentar (null = era ANFITRIÓN)
+    val btHandshaking: Boolean = false,      // socket conectado; verificando con el anfitrión
 )
 
 /** Fase del flujo online (OFF = jugando offline contra la CPU). */

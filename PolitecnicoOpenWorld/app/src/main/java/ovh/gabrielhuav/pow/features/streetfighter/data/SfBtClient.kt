@@ -58,6 +58,10 @@ class SfBtClient(
     @Volatile private var rematch1 = false
     @Volatile private var rematch2 = false
     @Volatile private var peerLostNotified = false
+    // HANDSHAKE (conexión VERIFICADA): invitado manda BT_HELLO al conectar; el host contesta
+    // BT_WELCOME. Solo entonces se entregan ROOM_JOINED/OPPONENT_JOINED al VM. Detecta
+    // sockets "a medias" (conectan pero no fluyen datos) antes de dar la sala por buena.
+    @Volatile private var handshaken = false
 
     // KEEPALIVE de la conexión (persistencia): RFCOMM no siempre reporta rápido un enlace
     // muerto (rival fuera de alcance / app matada sin close). Un HEARTBEAT periódico fuerza
@@ -79,9 +83,11 @@ class SfBtClient(
         running = true
         Thread({
             try {
-                val ad = adapter() ?: throw IllegalStateException("Sin Bluetooth")
-                if (!ad.isEnabled) throw IllegalStateException("Bluetooth apagado")
-                ad.cancelDiscovery()
+                val ad = adapter() ?: error("Sin Bluetooth")
+                check(ad.isEnabled) { "Bluetooth apagado" }
+                // ⚠️ cancelDiscovery exige BLUETOOTH_SCAN (Android 12+) y el flujo de HOST solo
+                // pide CONNECT+ADVERTISE → SIEMPRE best-effort (sin él solo empeora el enlace).
+                runCatching { ad.cancelDiscovery() }
                 val ss = ad.listenUsingRfcommWithServiceRecord(SERVICE_NAME, SF_BT_UUID)
                 serverSocket = ss
                 listener.onOpen()
@@ -91,7 +97,8 @@ class SfBtClient(
                     val s = ss.accept() // bloquea hasta que un rival conecta
                     if (!running) { runCatching { s.close() }; break }
                     onPeerConnected(s)
-                    deliver(SfNetMsg(type = "OPPONENT_JOINED", playerIndex = 2))
+                    // El OPPONENT_JOINED se entrega hasta recibir el HELLO del rival
+                    // (handshake = conexión VERIFICADA en ambos sentidos), en onLine().
                     readLoop(s) // regresa cuando el rival se desconecta → volver a aceptar
                 }
             } catch (t: Throwable) {
@@ -100,32 +107,68 @@ class SfBtClient(
         }, "SfBtHost").start()
     }
 
-    /** INVITADO: conecta al host elegido en el selector. Equivale a JOIN_ROOM. */
+    /**
+     * INVITADO: conecta al host elegido en el selector. Equivale a JOIN_ROOM.
+     * REINTENTA el connect hasta 3 veces (el 1er intento suele fallar si el sistema
+     * interpone el diálogo de emparejamiento) y luego hace HANDSHAKE (HELLO→WELCOME):
+     * el ROOM_JOINED solo se entrega con la conexión VERIFICADA en ambos sentidos.
+     */
     fun connectToHost(address: String, listener: SfNetTransport.Listener) {
         this.listener = listener
         isHostRole = false
         running = true
         Thread({
             try {
-                val ad = adapter() ?: throw IllegalStateException("Sin Bluetooth")
-                ad.cancelDiscovery() // el discovery activo degrada la conexión RFCOMM
+                val ad = adapter() ?: error("Sin Bluetooth")
+                check(ad.isEnabled) { "Bluetooth apagado" }
+                runCatching { ad.cancelDiscovery() } // el discovery degrada RFCOMM (best-effort)
                 val device = ad.getRemoteDevice(address)
-                val s = device.createRfcommSocketToServiceRecord(SF_BT_UUID)
-                s.connect() // dispara el diálogo de emparejamiento del sistema si hace falta
-                onPeerConnected(s)
+                var s: BluetoothSocket? = null
+                var lastError: Throwable? = null
+                for (attempt in 1..CONNECT_ATTEMPTS) {
+                    if (!running) return@Thread
+                    val candidate = device.createRfcommSocketToServiceRecord(SF_BT_UUID)
+                    s = try {
+                        candidate.connect() // puede disparar el diálogo de emparejamiento
+                        candidate
+                    } catch (t: Throwable) {
+                        lastError = t
+                        runCatching { candidate.close() } // no filtrar sockets a medio crear
+                        null
+                    }
+                    if (s != null) break
+                    if (attempt < CONNECT_ATTEMPTS) Thread.sleep(CONNECT_RETRY_PAUSE_MS)
+                }
+                val sock = s ?: throw (lastError ?: error("sin socket"))
+                onPeerConnected(sock)
                 listener.onOpen()
-                deliver(SfNetMsg(type = "ROOM_JOINED", code = BT_ROOM_CODE, playerIndex = 2))
-                readLoop(s)
+                // HANDSHAKE: aviso de progreso a la UI + HELLO; el watchdog corta si el
+                // anfitrión no contesta WELCOME (socket "a medias" → reintento del jugador).
+                deliver(SfNetMsg(type = "BT_HANDSHAKE"))
+                sendRaw(mapOf("type" to "BT_HELLO"))
+                startWelcomeWatchdog(sock)
+                readLoop(sock)
             } catch (t: Throwable) {
                 if (running) listener.onFailure("Bluetooth: no se pudo conectar (${t.message ?: "?"})")
             }
         }, "SfBtJoin").start()
     }
 
+    /** Si el WELCOME no llega en HANDSHAKE_TIMEOUT_MS, se cierra el socket (conexión NO verificada). */
+    private fun startWelcomeWatchdog(sock: BluetoothSocket) {
+        Thread({
+            runCatching { Thread.sleep(HANDSHAKE_TIMEOUT_MS) }
+            if (running && !handshaken && socket === sock) {
+                runCatching { sock.close() } // destraba el readLoop → onFailure de handshake
+            }
+        }, "SfBtWelcome").start()
+    }
+
     private fun onPeerConnected(s: BluetoothSocket) {
         socket = s
         out = s.outputStream
         peerLostNotified = false
+        handshaken = false
         // Sala "nueva" para esta conexión: TAMBIÉN char1 (si el host arrastrara su selección
         // anterior, un SELECT_CHARACTER del rival nuevo dispararía CHARACTERS_SELECTED viejo)
         char1 = null
@@ -162,9 +205,18 @@ class SfBtClient(
         out = null
         if (running && !peerLostNotified) {
             peerLostNotified = true
-            // Como en online: el VM decide (pelea → victoria por abandono; antesala del
-            // host → volver a esperar rival; invitado → salir de la "sala").
-            deliver(SfNetMsg(type = "OPPONENT_DISCONNECTED", winner = "abandon"))
+            when {
+                // Con handshake COMPLETO, como en online: el VM decide (pelea → victoria por
+                // abandono; antesala del host → volver a esperar; invitado → salir de la sala).
+                handshaken -> deliver(SfNetMsg(type = "OPPONENT_DISCONNECTED", winner = "abandon"))
+                // Invitado SIN handshake: la conexión nunca se verificó → error reintentable
+                // (la UI muestra REINTENTAR; jamás se da la sala por buena).
+                !isHostRole -> listener?.onFailure(
+                    "Bluetooth: el anfitrión no respondió (¿está en ANFITRIÓN y visible?)",
+                )
+                // Host sin handshake: el intento de conexión murió a medias; se sigue aceptando.
+                else -> Unit
+            }
         }
     }
 
@@ -172,6 +224,18 @@ class SfBtClient(
     private fun onLine(raw: String) {
         val msg = runCatching { gson.fromJson(raw, SfNetMsg::class.java) }.getOrNull() ?: return
         when (msg.type) {
+            // ── HANDSHAKE (conexión verificada) ──
+            // Host: llegó el HELLO del rival → contesta WELCOME y AHORA sí hay sala.
+            "BT_HELLO" -> if (isHostRole && !handshaken) {
+                handshaken = true
+                sendRaw(mapOf("type" to "BT_WELCOME"))
+                deliver(SfNetMsg(type = "OPPONENT_JOINED", playerIndex = 2))
+            }
+            // Invitado: el host confirmó → conexión verificada en ambos sentidos.
+            "BT_WELCOME" -> if (!isHostRole && !handshaken) {
+                handshaken = true
+                deliver(SfNetMsg(type = "ROOM_JOINED", code = BT_ROOM_CODE, playerIndex = 2))
+            }
             // Keepalive del enlace: NO sube al VM
             "HEARTBEAT" -> Unit
             // Autoridad del receptor: mi rival me manda SU estado; para MÍ es el oponente
@@ -351,5 +415,10 @@ class SfBtClient(
         const val BT_ROOM_CODE = "BT"
         private const val COUNTDOWN_MS = 3000
         private const val HEARTBEAT_MS = 10_000L
+        // Conexión del invitado: reintentos del connect (el 1º suele morir con el diálogo
+        // de emparejamiento) y timeout del WELCOME del handshake
+        private const val CONNECT_ATTEMPTS = 3
+        private const val CONNECT_RETRY_PAUSE_MS = 1200L
+        private const val HANDSHAKE_TIMEOUT_MS = 6000L
     }
 }

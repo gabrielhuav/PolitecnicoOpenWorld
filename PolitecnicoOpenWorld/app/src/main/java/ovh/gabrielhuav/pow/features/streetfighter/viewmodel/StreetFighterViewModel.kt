@@ -68,10 +68,13 @@ class StreetFighterViewModel @Inject constructor(
     private val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val soundEvents: SharedFlow<String> = _soundEvents.asSharedFlow()
 
-    // (2026-07-15) El modo ya es PÚBLICO para todos; el Modo Desarrollador ahora solo
-    // desbloquea a los peleadores del clon ORIGINAL (RYU y KEN) en el selector. Snapshot al
+    // (2026-07-15) El modo ya es PÚBLICO para todos; RYU y KEN se desbloquean SOLO en builds
+    // DEBUG (cable desde Android Studio) + Modo Desarrollador: sus assets viven en el source
+    // set app/src/debug/assets/ y el bundle de Play Store (release) NO los incluye (copyright)
+    // — en release ni el Modo Desarrollador los muestra (cargarlos crashearía). Snapshot al
     // crear el VM (scope NavBackStackEntry → se relee cada vez que entras al modo).
-    private val classicFightersUnlocked: Boolean = SettingsRepository(appContext).getDeveloperMode()
+    private val classicFightersUnlocked: Boolean =
+        BuildConfig.DEBUG && SettingsRepository(appContext).getDeveloperMode()
 
     /** Roster del selector (lo lee la View): sin Modo Desarrollador, RYU y KEN quedan fuera. */
     val selectableFighters: List<SfFighterId> = if (classicFightersUnlocked) {
@@ -1247,6 +1250,7 @@ class StreetFighterViewModel @Inject constructor(
         stopBtScanInternal()
         _state.value = _state.value.copy(
             onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null, btMode = true,
+            btError = null, btRetryAddress = null, btHandshaking = false,
         )
         val client = SfBtClient(appContext)
         transport = client
@@ -1289,10 +1293,39 @@ class StreetFighterViewModel @Inject constructor(
         stopBtScanInternal()
         _state.value = _state.value.copy(
             btPicking = false, onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
+            btMode = true, btError = null, btRetryAddress = address, btHandshaking = false,
         )
         val client = SfBtClient(appContext)
         transport = client
         client.connectToHost(address, makeNetListener())
+    }
+
+    /** Cierra el overlay de error BT y regresa (EXPLÍCITAMENTE) al selector offline. */
+    fun dismissBtError() {
+        _state.value = _state.value.copy(btError = null, btMode = false, btRetryAddress = null)
+    }
+
+    /**
+     * Falla de BT ANTES de pelear → overlay bloqueante con REINTENTAR. Regla del modo BT:
+     * elegiste jugar por Bluetooth, así que JAMÁS se cae en silencio al selector offline
+     * (nada de terminar peleando contra la IA creyendo que era tu rival); se reintenta
+     * hasta que la conexión esté VERIFICADA o el jugador cancele explícitamente.
+     */
+    private fun onBtFailed(reason: String?) {
+        val s = _state.value
+        transport?.close()
+        transport = null
+        remoteSnapshot = null
+        netDamageQueue.clear()
+        myOnlineChar = null
+        oppOnlineChar = null
+        onlineEndSent = false
+        resetInternals()
+        _state.value = StreetFighterState(
+            btMode = true,
+            btError = reason ?: "No se pudo conectar por Bluetooth",
+            btRetryAddress = s.btRetryAddress,
+        )
     }
 
     private fun stopBtScanInternal() {
@@ -1387,6 +1420,8 @@ class StreetFighterViewModel @Inject constructor(
                 )
                 startRoomsRefresh()
             }
+            // (BT) Socket conectado; verificando con el anfitrión (progreso en la UI)
+            "BT_HANDSHAKE" -> _state.value = s.copy(btHandshaking = true)
             // ─── 🆕 Lobby con aprobación ───
             // (HOST) alguien pide unirse → la View muestra ACEPTAR/RECHAZAR
             "JOIN_REQUESTED" -> _state.value = s.copy(joinRequestPending = true)
@@ -1403,8 +1438,10 @@ class StreetFighterViewModel @Inject constructor(
             "ERROR" -> cancelOnline(msg.message ?: "Error del servidor")
             "CHARACTERS_SELECTED" -> {
                 val oppName = if (s.isHost) msg.char2 else msg.char1
-                oppOnlineChar = oppName?.let { n -> runCatching { SfFighterId.valueOf(n) }.getOrNull() }
-                    ?: SfFighterId.KEN
+                oppOnlineChar = sanitizeNetFighter(
+                    oppName?.let { n -> runCatching { SfFighterId.valueOf(n) }.getOrNull() }
+                        ?: SfFighterId.PRANKEDY,
+                )
                 _state.value = s.copy(onlineStatus = SfOnlineStatus.WAITING_MAP)
             }
             "MAP_SELECTED" -> {
@@ -1453,6 +1490,9 @@ class StreetFighterViewModel @Inject constructor(
                     _state.value = s.copy(
                         onlineStatus = SfOnlineStatus.WAITING_OPPONENT, opponentWantsRematch = false,
                     )
+                } else if (s.btMode) {
+                    // BT: se perdió al anfitrión en la antesala → overlay de REINTENTAR
+                    onBtFailed("Se perdió la conexión con el anfitrión")
                 } else {
                     cancelOnline("El anfitrión cerró la sala")
                 }
@@ -1485,7 +1525,7 @@ class StreetFighterViewModel @Inject constructor(
         netDamageQueue.clear()
         val base = StreetFighterState()
         val my = myOnlineChar ?: SfFighterId.PRANKEDY
-        val opp = oppOnlineChar ?: SfFighterId.KEN
+        val opp = oppOnlineChar ?: SfFighterId.PRANKEDY
         val leftX = base.player.x
         val rightX = base.cpu.x
         _state.value = base.copy(
@@ -1596,8 +1636,26 @@ class StreetFighterViewModel @Inject constructor(
         _state.value = s.copy(battleEnded = true, winnerIndex = winnerIdx, showEndMenu = true)
     }
 
+    /**
+     * ⚠️ COPYRIGHT: en RELEASE los assets de RYU/KEN no existen (viven en el source set
+     * debug); si un rival con build de cable los elige, aquí se sustituyen por PRANKEDY
+     * para no crashear (el rival se ve distinto en cada lado — aceptado y documentado).
+     */
+    private fun sanitizeNetFighter(id: SfFighterId): SfFighterId =
+        if (!BuildConfig.DEBUG && (id == SfFighterId.RYU || id == SfFighterId.KEN)) {
+            SfFighterId.PRANKEDY
+        } else {
+            id
+        }
+
     private fun onNetDropped(reason: String?) {
         if (!isOnline) return
+        val s = _state.value
+        if (s.btMode && !s.battleEnded && s.onlineStatus != SfOnlineStatus.OPPONENT_LEFT) {
+            // BT sin pelea terminada: reintento (overlay), no selector offline
+            onBtFailed(reason)
+            return
+        }
         cancelOnline(reason?.let { "Conexión perdida: $it" } ?: "Conexión perdida con el servidor")
     }
 

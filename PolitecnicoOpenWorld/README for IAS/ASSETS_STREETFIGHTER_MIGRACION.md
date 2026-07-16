@@ -1,18 +1,22 @@
-# Migración de assets del modo PELEA 1v1 (de SF clásico → assets propios de POW)
+# Migración de assets de "HUELUM VS. GOYA" (modo pelea 1v1: de SF clásico → assets propios de POW)
 
 > **Objetivo:** el modo usa HOY los assets del clon Street Fighter (SOLO en Modo Desarrollador,
 > nunca en release público — riesgo de copyright). El motor ya está SEPARADO de los assets:
 > reemplazarlos NO toca lógica. Este doc dice exactamente QUÉ generar, en QUÉ formato y CÓMO
 > cablearlo. Personaje objetivo de ejemplo: **Prankedy**.
 
-> **⚠️ ACTUALIZACIÓN 2026-07-15 — el modo ya es PÚBLICO (decisión del dueño) → esta migración
-> SUBE de prioridad:** aunque Ryu/Ken solo se pueden ELEGIR con Modo Desarrollador, del clon
-> siguen VIAJANDO en el APK y/o viéndose en público: hojas de Ryu/Ken, `hud.png` (barras +
-> fuente arcade), sonidos (golpes/hadouken), `shadow.png`, splashes, el fireball del tema y el
-> muelle de Ken (fallback). **Ya propio:** música ("Persecución" de Prankedy), 6 fondos
-> IPN/UNAM y los 12 peleadores POW (11 compartidos EN RUNTIME desde los sets del mundo — ver
-> 07/09 §12 — + Prankedy empaquetado). Falta migrar: HUD, sonidos, sombra/splash/fireball y
-> decidir qué hacer con Ryu/Ken en release.
+> **⚠️ ACTUALIZACIÓN 2026-07-15 — el modo ya es PÚBLICO → estado del riesgo:**
+> **✅ RYU/KEN RESUELTO (2026-07-15e):** sus assets se movieron al source set
+> **`app/src/debug/assets/`** → el bundle de Play Store (release) YA NO los incluye; en builds
+> de cable (debug) siguen intactos y jugables (BuildConfig.DEBUG + Modo Dev). Los compartidos
+> usan `DATA/sf_template.json` (main) como template de cajas/timings. Ver 07/09 §12.
+> **Ya propio:** música ("Persecución" de Prankedy), 6 fondos IPN/UNAM y los 12 peleadores POW
+> (11 compartidos EN RUNTIME desde los sets del mundo + Prankedy empaquetado).
+> **SIGUE VIAJANDO del clon en release (pendiente de esta guía):** `hud.png` (barras + fuente
+> arcade), los 11 sonidos (golpes/hadouken/land), `shadow.png`, `decals.png` (splashes +
+> fireball), `kenstage.png` (fallback del escenario) y `winnerText.png` (sin uso — candidato a
+> borrar). Nota: `sf_template.json` conserva NÚMEROS (timings/cajas) derivados del clon —
+> riesgo bajo (datos, no arte), sustituible cuando exista un template propio.
 
 ## 1. Dónde está la separación (no tocar lógica al migrar)
 

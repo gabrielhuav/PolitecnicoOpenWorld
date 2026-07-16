@@ -15,7 +15,8 @@
 | `ANALISIS_codigo.md` | Informe 2026-06-21: clases grandes, duplicación, perf, prioridades | Insumo del programa senior; casi todo ejecutado |
 | `PROMPT_nueva_optimizacion.md` | Prompt de arranque de sesión (estado 2026-06-21) | Superado: usa `GUIA_mantenimiento_no_senior.md` + el prompt de reuso de `00_INDEX.md` |
 | `CHECKPOINT_2026-07-04_siguiente_sesion.md` | Checkpoint sesión M2/M3 + selector de misiones | Sus 4 tareas ✅ hechas; detalle vive en docs 00–09 y CAMPAIGN |
-| `CHECKPOINT_2026-07-08_siguiente_sesion.md` | Checkpoint fase 1 M2 en el lobby + vida universitaria | Superado por `../CHECKPOINT_2026-07-11_sesion_QA.md` |
+| `CHECKPOINT_2026-07-08_siguiente_sesion.md` | Checkpoint fase 1 M2 en el lobby + vida universitaria | Superado por `CHECKPOINT_2026-07-11_sesion_QA.md` |
+| `CHECKPOINT_2026-07-11_sesion_QA.md` | QA Misiones 2/3 + fixes SF + cómics M2→M3 | ✅ Ejecutado (compilado y committeado); el estado vigente vive en 07 + `../AUDIT_SF_MULTIPLAYER.md` |
 
 *(La receta viva del patrón manager/refactor sigue en `../CHECKPOINT_SENIOR_refactor.md`, que NO
 está archivado a propósito.)*

@@ -49,7 +49,7 @@ object SfSharedSheets {
         val set = id.sharedSet
             ?: return context.assets.open(id.spriteAsset).use { BitmapFactory.decodeStream(it) }
         cache.get(id)?.let { return it }
-        val sheet = buildSharedSheet(context, id, set)
+        val sheet = buildSharedSheet(context, set)
         cache.put(id, sheet)
         return sheet
     }
@@ -63,7 +63,7 @@ object SfSharedSheets {
 
     // ══════════════════ armado de la hoja (port de gen_sf_frames_from_npc.py) ══════════════════
 
-    private fun buildSharedSheet(context: Context, id: SfFighterId, set: SfSharedSet): Bitmap {
+    private fun buildSharedSheet(context: Context, set: SfSharedSet): Bitmap {
         // Animaciones fuente (recortadas a bbox + espejadas). Mismos fallbacks que el tool.
         val idle = loadAnim(context, set, "Idle")
         var walk = loadAnim(context, set, "Walk")

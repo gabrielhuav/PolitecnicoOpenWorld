@@ -27,7 +27,11 @@ def pack_character(char_name, char_title):
         print(f"Error: Directory not found: {char_gen_dir}")
         sys.exit(1)
         
-    ryu_json_path = os.path.join(DATA_DIR, "ryu.json")
+    # Template de cajas/timings: sf_template.json (main; ryu.json vive ahora en el
+    # source set DEBUG por copyright — fallback por si se corre en un checkout viejo)
+    ryu_json_path = os.path.join(DATA_DIR, "sf_template.json")
+    if not os.path.exists(ryu_json_path):
+        ryu_json_path = os.path.join(DATA_DIR, "ryu.json")
     if not os.path.exists(ryu_json_path):
         print(f"Error: Template file not found: {ryu_json_path}")
         sys.exit(1)

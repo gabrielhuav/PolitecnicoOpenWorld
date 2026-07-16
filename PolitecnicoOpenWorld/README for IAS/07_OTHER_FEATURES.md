@@ -30,7 +30,12 @@ pantallas); navega a la ruta `street_fighter` (callback `onNavigateToStreetFight
 
 ---
 
-## 🥊 STREET FIGHTER (`features/streetfighter/`) — 🆕 2026-07-09 · PÚBLICO desde 2026-07-15 (RYU/KEN dev-only)
+## 🥊 HUELUM VS. GOYA — modo de pelea 1v1 (`features/streetfighter/`) — 🆕 2026-07-09 · PÚBLICO desde 2026-07-15 (RYU/KEN dev-only)
+
+> **NOMBRES:** en UI/UX el modo se llama **"HUELUM VS. GOYA"** (strings `menu_street_fighter`
+> ES+EN); en CÓDIGO se conserva el nombre técnico (paquete `features/streetfighter/`, ruta
+> `street_fighter`, clases `Sf*`/`StreetFighter*`) — NO renombrar el código. Los docs usan el
+> nombre de UI; "Street Fighter" a secas se refiere al CLON original del que se portó el motor.
 
 **ES:** Port FIEL del clon JS `StreetFighter-main/` (hermano del repo): pelea 1v1 clásica **Ryu
 (jugador) vs Ken (CPU)** con los **sprites, escenario, HUD y sonidos originales**. Los assets viven en
@@ -38,7 +43,7 @@ pantallas); navega a la ruta `street_fighter` (callback `onNavigateToStreetFight
 Los JSON se generaron **automáticamente desde Ryu.js/Ken.js** (77/78 frames con recorte+origen+pushbox+
 hurtbox+hitbox POR FRAME y las 30 animaciones con sus frame-delays); regenerables con el conversor
 **`tools/convert_streetfighter_frames.py`** (parsea el JS con ast; ajusta las rutas si mueves los repos). *(La 1ª iteración fue un port del
-fork StreetFighter-Maths con quiz; se descartó — `SfMathQuiz.kt` quedó como tombstone para borrar.)*
+fork StreetFighter-Maths con quiz; se descartó — el tombstone `SfMathQuiz.kt` se BORRÓ el 2026-07-16.)*
 **EN:** Faithful port of the sibling `StreetFighter-main/` JS clone: classic Ryu vs Ken (CPU) with the
 original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations converted to JSON from the JS.
 
@@ -130,7 +135,7 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   dígitos que ya venían dentro de `hud.png` (filas score del StatusBar.js). Con
   `drawFontText` se dibujan los TAGS de nombre (por `SfFighterId.shortName`, campo nuevo),
   los marcadores P1/P2 y el **"<PERSONAJE> WINS" de CUALQUIER peleador** — `winnerText.png` y
-  los campos `nameTags`/`winnerRows` del tema se RETIRARON (el png queda sin uso en assets).
+  los campos `nameTags`/`winnerRows` del tema se RETIRARON (el png se BORRÓ de assets el 2026-07-16).
 - **🆕 Anchura por sección (2026-07-10d):** `place()` ganó `stretch_x`; el idle de Rey Grupero
   (1.25) y Señor Tienda (1.15) se ensancha porque su hoja fuente los dibuja más grandes y al
   normalizar por altura quedaban flacos respecto a su caminata.
@@ -168,6 +173,40 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     con ARTE PROPIO (hoja de referencia → `pack_sf_character.py`, como Prankedy);
     `gen_sf_frames_from_npc.py` ganó `PLAYER:<skin>` y flag `flip` por si se quiere volver a
     empaquetar offline.
+- **🆕 BT CONFIABLE E INTUITIVO (2026-07-16, fix del crash de permisos):** en dispositivo,
+  ANFITRIÓN crasheaba con `Need android.permission.BLUETOOTH_SCAN … cancelDiscovery()`: ese
+  flujo solo pide CONNECT+ADVERTISE y `cancelDiscovery()` EXIGE SCAN en Android 12+ → ahora
+  TODA llamada a `cancelDiscovery()` es best-effort (`runCatching`, 3 sitios). Además el flujo
+  BT se rediseñó para ser a prueba de dudas: (1) **HANDSHAKE de verificación** `BT_HELLO` →
+  `BT_WELCOME` — `ROOM_JOINED`/`OPPONENT_JOINED` solo se entregan con la conexión VERIFICADA
+  en ambos sentidos (watchdog de 6 s si el host no contesta; sockets "a medias" ya no crean
+  sala); (2) el connect del invitado **reintenta ×3** (el 1º suele morir con el diálogo de
+  emparejamiento); (3) UI por etapas: "Conectando…" → "verificando la conexión…"
+  (`BT_HANDSHAKE`/`btHandshaking`); (4) **si BT falla, JAMÁS se cae en silencio al selector
+  offline** (regla: elegiste BT → nada de acabar peleando vs la IA): overlay BLOQUEANTE
+  `BtRetryOverlay` (consume los toques) con el error claro + **REINTENTAR** (repite ANFITRIÓN
+  o la conexión al mismo rival, RE-PIDIENDO permisos si hace falta) + Cancelar como única
+  salida explícita. VM: `btError/btRetryAddress/btHandshaking` + `onBtFailed`/`dismissBtError`;
+  el host ignora intentos de conexión muertos sin handshake (sigue aceptando). (5) **BT
+  apagado → SIEMPRE se pide encenderlo** (`ACTION_REQUEST_ENABLE`, diálogo del sistema) en la
+  cadena `withBtPerms → whenBtEnabled → acción` de la Screen — cubre ANFITRIÓN, BUSCAR RIVAL
+  y REINTENTAR; si el jugador lo niega, el siguiente toque lo vuelve a pedir (igual que los
+  permisos). Gotcha del launcher: capturar y LIMPIAR `pendingBtAction` ANTES de invocarla
+  (la acción re-encola el paso "encender BT"; un null posterior rompía la cadena).
+- **🆕 COPYRIGHT: RYU/KEN SOLO EN BUILDS DEBUG (2026-07-15e):** sus assets (`Ryu.png`,
+  `Ken.png`, `ryu.json`, `ken.json` + `kens-theme.ogg` sin uso) se MOVIERON al source set
+  **`app/src/debug/assets/STREETFIGHTER/`** → el build por CABLE (Android Studio, debug) los
+  tiene y funcionan como siempre; el **bundle de Play Store (release) NO los incluye**.
+  Cierres para que release no crashee: (1) `SF_CLASSIC_THEME.imageFiles` ya NO precarga
+  Ryu.png/Ken.png (las hojas las resuelve `SfSharedSheets` por peleador); (2) el default de la
+  CPU en `StreetFighterState` pasó de KEN a REY_GRUPERO (el default se decodifica al abrir el
+  modo); (3) `classicFightersUnlocked` exige **`BuildConfig.DEBUG` + Modo Desarrollador** (en
+  release ni el dev mode los muestra); (4) los COMPARTIDOS usan el template
+  **`DATA/sf_template.json`** (copia de cajas/timings que SÍ viaja en release; `ryu.json` ya
+  no se toca en release); (5) `sanitizeNetFighter` (VM): si un rival con build de cable elige
+  Ryu/Ken online/BT, el lado release lo pinta como PRANKEDY (mismatch visual entre lados,
+  aceptado). Sigue PENDIENTE del clon en release: hud.png (fuente/barras), sonidos, sombra,
+  splashes, fireball y kenstage (fallback) — ver `ASSETS_STREETFIGHTER_MIGRACION.md`.
 - **🆕 GATE INVERTIDO (2026-07-15c):** el modo ya es **PÚBLICO** (botón del menú principal
   SIEMPRE visible, `MainMenuScreen` sin `developerMode`); ahora el **Modo Desarrollador solo
   desbloquea a RYU y KEN** (los del clon original) en el selector:

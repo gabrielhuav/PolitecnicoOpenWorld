@@ -1,7 +1,10 @@
 package ovh.gabrielhuav.pow.features.streetfighter.ui
 
 import android.Manifest
+import android.app.Activity
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -243,8 +246,13 @@ fun StreetFighterScreen(
             when (state.onlineStatus) {
                 SfOnlineStatus.CONNECTING -> OnlineInfoOverlay(
                     title = stringResource(R.string.sf_mp_connecting_title),
+                    // BT en 2 etapas para que se ENTIENDA qué pasa: conectando → verificando
                     subtitle = stringResource(
-                        if (state.btMode) R.string.sf_bt_connecting_sub else R.string.sf_mp_connecting_sub,
+                        when {
+                            state.btMode && state.btHandshaking -> R.string.sf_bt_handshake_sub
+                            state.btMode -> R.string.sf_bt_connecting_sub
+                            else -> R.string.sf_mp_connecting_sub
+                        },
                     ),
                     onCancel = { viewModel.cancelOnline() },
                 )
@@ -319,21 +327,46 @@ fun StreetFighterScreen(
 
         // ---- Permisos BT runtime (solo Android 12+; en ≤11 son permisos normales y el
         // discovery usa la ubicación que la app YA tiene por los mapas — no se pide nada) ----
+        // CADENA COMPLETA de "listo para BT": permisos → BT ENCENDIDO → acción. Si el BT está
+        // apagado SIEMPRE se pide encenderlo (diálogo del sistema); si el jugador lo niega, el
+        // SIGUIENTE intento (tocar de nuevo / REINTENTAR) lo vuelve a pedir — igual los permisos.
         var pendingBtAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+        val btEnableLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            val act = pendingBtAction
+            pendingBtAction = null
+            if (result.resultCode == Activity.RESULT_OK) act?.invoke() // BT encendido → sigue
+            // denegado: no hacemos nada; el próximo toque vuelve a pedirlo
+        }
+        val whenBtEnabled: (() -> Unit) -> Unit = { action ->
+            val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+            when {
+                adapter == null -> Unit // hardware sin Bluetooth: no hay nada que encender
+                adapter.isEnabled -> action()
+                else -> {
+                    pendingBtAction = action
+                    runCatching { btEnableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
+                }
+            }
+        }
         val btPermLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) { grants ->
-            if (grants.values.all { it }) pendingBtAction?.invoke()
+            // OJO: capturar y limpiar ANTES de invocar — la acción puede re-encolar
+            // pendingBtAction (paso "encender BT") y un null posterior lo rompería
+            val act = pendingBtAction
             pendingBtAction = null
+            if (grants.values.all { it }) act?.invoke()
         }
         val withBtPerms: (Array<String>, () -> Unit) -> Unit = { perms, action ->
             val granted = Build.VERSION.SDK_INT < 31 || perms.all {
                 ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
             }
             if (granted) {
-                action()
+                whenBtEnabled(action)
             } else {
-                pendingBtAction = action
+                pendingBtAction = { whenBtEnabled(action) }
                 btPermLauncher.launch(perms)
             }
         }
@@ -390,6 +423,32 @@ fun StreetFighterScreen(
             JoinRequestOverlay(
                 onAccept = { viewModel.respondJoin(true) },
                 onReject = { viewModel.respondJoin(false) },
+            )
+        }
+
+        // Falla de conexión BT → overlay BLOQUEANTE con REINTENTAR: elegiste jugar por BT,
+        // así que NUNCA se cae en silencio al selector (nada de pelear contra la IA sin
+        // conexión); reintentar VUELVE A PEDIR los permisos si hicieran falta.
+        if (state.btError != null && state.onlineStatus == SfOnlineStatus.OFF) {
+            BtRetryOverlay(
+                error = state.btError!!,
+                onRetry = {
+                    val addr = state.btRetryAddress
+                    if (addr != null) {
+                        withBtPerms(btScanPerms()) { viewModel.connectBtDevice(addr) }
+                    } else {
+                        withBtPerms(btHostPerms()) {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                                        .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300),
+                                )
+                            }
+                            viewModel.startBtHost()
+                        }
+                    }
+                },
+                onCancel = viewModel::dismissBtError,
             )
         }
 
@@ -781,6 +840,55 @@ private fun JoinRequestOverlay(onAccept: () -> Unit, onReject: () -> Unit) {
                     onClick = onReject,
                     color = Color(0xFF2A1C21),
                 )
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// Falla de conexión BLUETOOTH: overlay BLOQUEANTE (consume los toques —
+// nada de tocar el selector de abajo por accidente) con el error claro
+// y REINTENTAR / CANCELAR. Cancelar es la ÚNICA salida al selector.
+// ------------------------------------------------------------------
+
+@Composable
+private fun BtRetryOverlay(error: String, onRetry: () -> Unit, onCancel: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xF0101018))
+            .clickable(enabled = true, onClick = {}), // bloquea los toques hacia abajo
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = stringResource(R.string.sf_bt_error_title),
+                color = Color(0xFFFFB74D),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = error,
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(320.dp),
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.sf_bt_error_hint),
+                color = Color.White.copy(alpha = 0.55f),
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(320.dp),
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            PowButton(text = stringResource(R.string.sf_bt_retry), onClick = onRetry)
+            Spacer(modifier = Modifier.height(10.dp))
+            TextButton(onClick = onCancel) {
+                Text(stringResource(R.string.sf_mp_cancel), color = Color(0xFFD4AF37))
             }
         }
     }

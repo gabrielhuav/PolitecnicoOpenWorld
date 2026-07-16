@@ -139,7 +139,12 @@ permissions + Fused Location, and frees sprite caches on `onTrimMemory` (see 09)
   conexión. Con el json, el multijugador exige sesión de Google. El maintainer agrega el json (y configura
   `FIREBASE_SERVICE_ACCOUNT` en los servidores) para habilitar la identidad por cuenta.
 - **URLs de servidor / Server URLs** inyectadas vía Gradle → `BuildConfig.MULTIPLAYER_SERVER_URL`
-  (open world) y `BuildConfig.INTERIORS_SERVER_URL` (zombi). Versión en menú: `BuildConfig.VERSION_NAME`.
+  (open world), `BuildConfig.INTERIORS_SERVER_URL` (zombi) y `BuildConfig.SF_SERVER_URL` (modo
+  pelea). Versión en menú: `BuildConfig.VERSION_NAME`.
+- **🆕 Assets por VARIANTE (2026-07-15):** `app/src/debug/assets/STREETFIGHTER/` lleva los
+  assets del clon SF (Ryu/Ken) SOLO en builds debug (cable); el bundle de Play (release) no
+  los incluye — copyright. Reglas y cierres en 09 §12 y 07 §STREET FIGHTER. / Debug-only
+  source-set assets for the SF clone (Ryu/Ken); release/Play ships without them.
 - **Servidores (separados, ambos escuchan en contenedor `:8080`, `GET /status`, `WS /`):**
   - Open world: `cd Multiplayer && docker compose up -d` (host `:8080`).
   - Zombi: `cd MultiplayerInteriores && docker compose up -d` (host `:8081` → contenedor `:8080`).

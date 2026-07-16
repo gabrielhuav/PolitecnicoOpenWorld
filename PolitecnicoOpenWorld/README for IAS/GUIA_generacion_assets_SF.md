@@ -1,4 +1,4 @@
-# GUÍA DETALLADA · Generación MANUAL de assets del modo de pelea 1v1 (ChatGPT u otra herramienta)
+# GUÍA DETALLADA · Generación MANUAL de assets de "HUELUM VS. GOYA" (modo pelea 1v1; ChatGPT u otra herramienta)
 
 > Complemento práctico de `ASSETS_STREETFIGHTER_MIGRACION.md`: qué imagen generar, UNA POR UNA,
 > con nombre exacto, tamaño, descripción de pose y prompt. Orden = prioridad real.

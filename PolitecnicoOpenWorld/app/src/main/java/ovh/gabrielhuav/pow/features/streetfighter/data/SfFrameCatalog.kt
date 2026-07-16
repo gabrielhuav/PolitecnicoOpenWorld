@@ -12,29 +12,43 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
 // orígenes, pushbox/hurtbox/hitbox por frame y animaciones con sus frame-delays).
 // Cache estático: se parsea UNA vez por proceso (los usan el VM y el render).
 //
-// 🆕 PELEADORES COMPARTIDOS (id.sharedSet != null): su jsonAsset es el TEMPLATE ryu.json;
-// se conservan cajas/timings pero el `src` se REMAPEA a la rejilla 10×N de celdas 256²
-// (origin 128,224) que SfSharedSheets arma en runtime desde los sprites del mundo.
-// El orden de celdas = orden de claves de ryu.json (idéntico a pack_sf_character.py).
+// 🆕 PELEADORES COMPARTIDOS (id.sharedSet != null): su jsonAsset es el TEMPLATE
+// sf_template.json (copia de las cajas/timings de ryu.json que SÍ viaja en release —
+// ryu.json/ken.json viven solo en el source set DEBUG por copyright); se conservan
+// cajas/timings pero el `src` se REMAPEA a la rejilla 10×N de celdas 256² (origin 128,224)
+// que SfSharedSheets arma en runtime desde los sprites del mundo. El orden de celdas =
+// orden de claves del template (idéntico a pack_sf_character.py). ⚠️ NO reordenar sus claves.
 
 object SfFrameCatalog {
 
     private const val CELL = 256
     private const val COLS = 10
+    private const val TEMPLATE_ASSET = "STREETFIGHTER/DATA/sf_template.json"
 
     private val cache = mutableMapOf<SfFighterId, SfFighterData>()
+    private var templateCache: SfFighterData? = null
 
     @Synchronized
     fun load(context: Context, id: SfFighterId): SfFighterData = cache.getOrPut(id) {
-        val json = context.assets.open(id.jsonAsset).bufferedReader().use { it.readText() }
-        val data = parse(json)
-        if (id.sharedSet == null) data else remapToRuntimeGrid(data)
+        if (id.sharedSet != null) {
+            remapToRuntimeGrid(template(context))
+        } else {
+            val json = context.assets.open(id.jsonAsset).bufferedReader().use { it.readText() }
+            parse(json)
+        }
     }
 
     /** Claves del template en su orden (define el layout de la hoja runtime compartida). */
     @Synchronized
     fun templateFrameOrder(context: Context): List<String> =
-        load(context, SfFighterId.RYU).frames.keys.toList()
+        template(context).frames.keys.toList()
+
+    /** Template de cajas/timings de los COMPARTIDOS (NO depende de ryu.json: release-safe). */
+    @Synchronized
+    private fun template(context: Context): SfFighterData = templateCache ?: run {
+        val json = context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
+        parse(json).also { templateCache = it }
+    }
 
     /** Mismos frames/cajas/animaciones, pero con src = rejilla runtime y pies en (128,224). */
     private fun remapToRuntimeGrid(template: SfFighterData): SfFighterData {
