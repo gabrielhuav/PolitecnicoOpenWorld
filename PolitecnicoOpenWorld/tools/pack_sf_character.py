@@ -291,16 +291,18 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
                   if os.path.exists(os.path.join(char_gen_dir, filename_for_key(k)))]
     bonus_keys = []
     bonus_power_count = 0
-    for power in range(1, 10):
+    power = 1
+    while True:
         keys = [f"bonus-{power}-{i}" for i in range(1, 6)]
         present = [os.path.exists(os.path.join(char_gen_dir, f"{key}.png")) for key in keys]
         if all(present):
             bonus_keys.extend(keys)
             bonus_power_count = power
+            power += 1
         elif any(present):
             print(f"Error: bonusPower{power} esta incompleto.")
             sys.exit(1)
-        elif power <= bonus_power_count + 1:
+        else:
             break
     all_keys = frame_keys + extra_keys + existing_proj + bonus_keys
     num_frames = len(all_keys)

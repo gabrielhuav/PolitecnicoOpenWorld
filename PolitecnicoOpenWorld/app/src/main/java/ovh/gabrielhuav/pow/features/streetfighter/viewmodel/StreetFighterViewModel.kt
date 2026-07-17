@@ -517,6 +517,7 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.BONUS_POWER_1, SfFighterState.BONUS_POWER_2, SfFighterState.BONUS_POWER_3,
             SfFighterState.BONUS_POWER_4, SfFighterState.BONUS_POWER_5, SfFighterState.BONUS_POWER_6,
             SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
+            SfFighterState.BONUS_POWER_10, SfFighterState.BONUS_POWER_11,
             -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
                 _soundEvents.tryEmit("hadouken")
@@ -687,10 +688,15 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.BONUS_POWER_1, SfFighterState.BONUS_POWER_2, SfFighterState.BONUS_POWER_3,
             SfFighterState.BONUS_POWER_4, SfFighterState.BONUS_POWER_5, SfFighterState.BONUS_POWER_6,
             SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
+            SfFighterState.BONUS_POWER_10, SfFighterState.BONUS_POWER_11,
             -> {
                 // Los cuadros Grok ya contienen el eclipse/metamorfosis. En el cuadro central
-                // emiten ademas el proyectil real: Yoalli usa HEAVY; Tzitzimime, MEDIUM.
-                val strength = if (f.id == SfFighterId.YOALLI_EHECATL) {
+                // emiten ademas el proyectil real: Yoalli y la metamorfosis final de
+                // La Presidenta usan HEAVY; el resto conserva MEDIUM.
+                val strength = if (
+                    f.id == SfFighterId.YOALLI_EHECATL ||
+                    (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11)
+                ) {
                     SfAttackStrength.HEAVY
                 } else {
                     SfAttackStrength.MEDIUM

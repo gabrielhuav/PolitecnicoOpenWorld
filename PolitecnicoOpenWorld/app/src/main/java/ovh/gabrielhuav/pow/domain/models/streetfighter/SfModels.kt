@@ -163,6 +163,7 @@ enum class SfFighterId(
     LA_PRESIDENTA(
         "La Presidenta", "PRESIDENTA",
         "STREETFIGHTER/DATA/lapresidenta.json", "STREETFIGHTER/IMAGES/LaPresidenta.png",
+        bonusPowerCount = 11,
     ),
     POLICIA_CDMX(
         "Policía CDMX", "POLICIA",
@@ -269,6 +270,8 @@ enum class SfFighterState(val jsKey: String) {
     BONUS_POWER_7("bonusPower7"),
     BONUS_POWER_8("bonusPower8"),
     BONUS_POWER_9("bonusPower9"),
+    BONUS_POWER_10("bonusPower10"),
+    BONUS_POWER_11("bonusPower11"),
     VICTORY("victory"),
     KO("ko"),
 }
@@ -277,6 +280,7 @@ val SF_BONUS_POWER_STATES: List<SfFighterState> = listOf(
     SfFighterState.BONUS_POWER_1, SfFighterState.BONUS_POWER_2, SfFighterState.BONUS_POWER_3,
     SfFighterState.BONUS_POWER_4, SfFighterState.BONUS_POWER_5, SfFighterState.BONUS_POWER_6,
     SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
+    SfFighterState.BONUS_POWER_10, SfFighterState.BONUS_POWER_11,
 )
 
 fun sfBonusPowerState(index: Int): SfFighterState? = SF_BONUS_POWER_STATES.getOrNull(index - 1)

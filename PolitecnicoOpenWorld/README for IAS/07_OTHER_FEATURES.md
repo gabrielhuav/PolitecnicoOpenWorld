@@ -215,10 +215,12 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   y cinco poderes Grok). Mundo `LaTzitzimime` usa Idle 6, Walk 6, Run 8, Special 5 y Talk 4
   en lienzos 512²/360 px; su KO no necesita `flipX`.
 - **🆕 LA PRESIDENTA CROMA (2026-07-17):** identidad nueva con
-  `LaPresidenta.png`/`lapresidenta.json` dedicados (123 cuadros, 30 animaciones y cinco efectos).
+  `LaPresidenta.png`/`lapresidenta.json` dedicados (178 cuadros, 41 animaciones, once poderes
+  extra y metamorfosis final a Yoalli Ehécatl).
   Mundo `LaPresidenta`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4, 512²/360 px.
 - **🆕 PODERES GROK (2026-07-17):** botón central `P`, cinco poderes para La Tzitzimime y
-  nueve para Yoalli. Yoalli usa fuerza HEAVY, Tzitzimime MEDIUM; `Stellar Dominion`,
+  nueve para Yoalli, y once para La Presidenta. Yoalli usa fuerza HEAVY, Tzitzimime MEDIUM;
+  La Presidenta usa MEDIUM salvo `bonusPower11` (metamorfosis Presidenta → Yoalli), que es HEAVY. `Stellar Dominion`,
   `Void Reaver` y `Lich Ascendant` muestran sus metamorfosis. Son estados reales utilizables
   por jugador/IA y sincronizables online, no assets decorativos sin uso.
 - **⏳ LA LLORONA (2026-07-17):** sus 18 hojas presentes están recortadas de forma parcial,

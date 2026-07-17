@@ -412,27 +412,39 @@ alfa desde la máscara CRUDA — sin verde interior):
 
 - Las 19 hojas de `newSFAssets/LaPresidenta/` están completas. La primera tanda llegó
   01→02→05→04→03; se identificó por títulos y se renombró al catálogo canónico.
-- Identidad nueva `SfFighterId.LA_PRESIDENTA`: `LaPresidenta.png` 2560×3328 y
-  `lapresidenta.json`, con 123 cuadros, 30 animaciones y cinco efectos blanco-verdes.
-  Poses erguidas exactamente a 100 px y KO correctamente orientado sin `flipX`.
+- Identidad nueva `SfFighterId.LA_PRESIDENTA`: `LaPresidenta.png` 2560×4608 y
+  `lapresidenta.json`, con 178 cuadros, 41 animaciones, el especial croma base y once
+  poderes extra. Poses erguidas exactamente a 100 px y KO correctamente orientado sin `flipX`.
 - Mundo `SPRITES/NPC/LaPresidenta`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4; lienzos
   512², mediana corporal 360 px, pies Y=456 y `uniform512Canvas=true`.
 - Validación: `python tools/validate_sf_chroma_character.py lapresidenta LaPresidenta`
-  ` LaPresidenta lpr_` → `VALIDACION OK`.
+  ` LaPresidenta lpr_ --bonus-powers 11` → `VALIDACION OK`.
 
 ## 2s. Poderes extra Grok y metamorfosis (2026-07-17, hecho)
 
 - `tools/slice_sf_bonus_powers.py` recorta hojas JPG croma 1360×768 en secuencias de cinco
-  cuadros, elimina títulos/ruido JPG y usa una escala fija por secuencia. Efectos y formas
+  cuadros, elimina títulos/ruido JPG y usa una escala fija por secuencia. Acepta rejillas de
+  1–3 filas y número variable de columnas (`--columns`, `--frame-columns`, `--start-row`), por lo
+  que también sirve para tiras de metamorfosis y poderes individuales. Efectos y formas
   transformadas pueden crecer, pero el personaje base no cambia de zoom cuadro por cuadro.
 - La Tzitzimime tiene `bonusPower1..5`: 148 cuadros y 35 animaciones. Yoalli Ehécatl tiene
   `bonusPower1..9`: 168 cuadros y 39 animaciones; sus tres primeras secuencias son
   `Stellar Dominion`, `Void Reaver` y `Lich Ascendant` con metamorfosis visibles.
+- La Presidenta tiene `bonusPower1..11`: seis secuencias cósmicas/tricolor/económicas, cuatro
+  poderes elementales (portal, aire, fuego y tierra) y `bonusPower11`, la metamorfosis completa
+  Presidenta → Yoalli Ehécatl. La transformación usa fuerza HEAVY; sus otros diez poderes MEDIUM.
+  Para regenerarla, los tres Grok secuenciales usan inicios 1/3/5 con
+  `--rows 2 --sheet-rows 2 --fixed-scale 0.48`. La hoja elemental 2×2 usa cuatro invocaciones
+  con `--columns 2`, `--start-row 0|1`, `--frame-columns 1,1,1,1,1` o `2,2,2,2,2`,
+  `--header-cut-px 120 --fixed-scale 0.48` e inicios 7/8/9/10. La metamorfosis usa
+  `metamorfosis 1.jpg`, inicio 11 y `--rows 1 --sheet-rows 1 --columns 6`
+  `--frame-columns 1,2,3,4,6 --header-cut-px 210`; no sustituirla por las variantes 2/3.
 - El botón morado central `P` aparece solo si `SfFighterId.bonusPowerCount > 0` y recorre P1→PN.
   Cada poder es un estado SF real, se puede usar por la IA, viaja por el snapshot online y emite
   un proyectil: Yoalli usa fuerza HEAVY y La Tzitzimime MEDIUM, por lo que Yoalli es más poderosa
-  además de tener más variedad. Las hojas Grok auxiliares de efectos se conservan fuera del APK.
-- El packer descubre `bonus-N-1..5`, amplía dinámicamente hoja/JSON y el validador usa
+  además de tener más variedad. La metamorfosis final de La Presidenta también es HEAVY. Las hojas
+  Grok auxiliares y las variantes de metamorfosis se conservan fuera del APK.
+- El packer descubre sin tope fijo todos los `bonus-N-1..5`, amplía dinámicamente hoja/JSON y el validador usa
   `--bonus-powers N`; personajes sin extras mantienen exactamente 123 cuadros/30 animaciones.
 
 ## 2t. Pase de combate completo (2026-07-16, hecho)
