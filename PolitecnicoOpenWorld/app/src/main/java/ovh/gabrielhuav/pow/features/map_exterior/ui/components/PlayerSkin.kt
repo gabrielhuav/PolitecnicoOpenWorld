@@ -99,9 +99,13 @@ enum class PlayerSkin(
         displayName = "Robot Estudiantx",
         skinFolder  = "robot",
         skinPrefix  = "robot_",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
         comicSuffix = "Robot",
-        walkBodyFraction = 0.62f,
-        idleBodyFraction = 0.710f, runBodyFraction = 0.679f, specialBodyFraction = 0.650f
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     escomboy(
         displayName = "Estudiante",

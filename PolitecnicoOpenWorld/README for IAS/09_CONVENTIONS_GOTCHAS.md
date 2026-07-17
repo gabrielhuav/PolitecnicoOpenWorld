@@ -413,12 +413,12 @@ matrices por defecto son **border-only** hasta reemplazarse.
   SIEMPRE un peleador POW. (c) Al probar: **Rebuild en debug prueba Ryu/Ken; probar TAMBIÉN un
   build release** (o bundle) para verificar que el modo abre sin ellos. (d) Si se añade otro
   asset con riesgo de copyright, va al source set debug con el mismo patrón.
-- **🆕 ASSETS COMPARTIDOS SF⇄MUNDO (2026-07-15/17) — reglas:** 4 de los 18 peleadores de
+- **🆕 ASSETS COMPARTIDOS SF⇄MUNDO (2026-07-15/17) — reglas:** 3 de los 18 peleadores de
   "HUELUM VS. GOYA" se arman EN RUNTIME (`SfSharedSheets`) desde los sets del mundo
   (`SPRITES/PLAYER|NPC/`, convención de `PlayerSkin`). (a) **NO regenerar/committear sheets
   empaquetados** para personajes que tengan set en el mundo, salvo cuando ya exista un set croma
-  completo con poses reales. Compartidos actuales: **Lázaro, Robot, Granadero y Paramédico**;
-  los 12 POW restantes usan croma dedicado y Ryu/Ken se empaquetan solo en debug. (b) El
+  completo con poses reales. Compartidos actuales: **Lázaro, Granadero y Paramédico**;
+  los 13 POW restantes usan croma dedicado y Ryu/Ken se empaquetan solo en debug. (b) El
   `spriteAsset` de un compartido es VIRTUAL (`RUNTIME/<X>.png`): es solo la KEY del mapa de
   imágenes de la Screen — **abrirlo con `assets.open()` CRASHEA**; toda hoja pasa por
   `SfSharedSheets.sheetFor()`. (c) Su `jsonAsset` es el TEMPLATE `sf_template.json` (desde el

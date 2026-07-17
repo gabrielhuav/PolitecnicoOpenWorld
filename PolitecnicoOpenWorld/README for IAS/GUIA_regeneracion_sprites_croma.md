@@ -5,7 +5,7 @@
 > usando hojas con **fondo croma verde #00FF00** y 2 grupos de animación por hoja.
 > Sustituye al "modo simple" de `GUIA_generacion_assets_SF.md` (fondo negro) para
 > personajes nuevos. **Prankedy, Señor de la Tienda, Rey Grupero, ambos Paparazzi, las policías CDMX,
-> Paramédico Cruz Roja, ambos Policías Granadero y estudiantes ESCOM ya se
+> Paramédico Cruz Roja, ambos Policías Granadero y los tres estudiantes ESCOM ya se
 > regeneraron así (2026-07-16)**.
 > Canon Prankedy: cabello RIZADO (no rastas), idle del mundo SIN guardia.
 > Esta guía es AUTOSUFICIENTE: contiene el prompt maestro completo.
@@ -338,7 +338,22 @@ alfa desde la máscara CRUDA — sin verde interior):
 - Validador: `python tools/validate_sf_chroma_character.py policiagranaderomujer`
   ` PoliciaGranaderoMujer PoliciaGranaderoFemeninoCDMX pgf_`.
 
-## 2m. Pase de combate completo (2026-07-16, hecho)
+## 2m. Registro ESCOMROBOT (2026-07-17, hecho)
+
+- Las 19 hojas de `newSFAssets/ESCOMROBOT/` están completas y se renombraron
+  `ESCOMROBOT_01..19` por título; las hojas refinadas 14/15 sobrescriben golpes/patadas base.
+- Sheet dedicado `Robot.png` 2560×3328 + `robot.json`: 123 cuadros, 30 animaciones y pulso
+  energético con cinco efectos. `SfFighterId.ROBOT` dejó `sf_template.json`, `RUNTIME/Robot.png`,
+  `isAlpha` y `sharedSet`, conservando enum, desbloqueos y progreso arcade.
+- CROUCH llegó 8/9 y HURT BODY 12/13; el faltante único usa el vecino central y HURT conserva
+  suficientes cuadros. KO no necesitó `flipX`; todas las poses erguidas validan 100 px.
+- Mundo reemplazó los cuatro ciclos históricos de 25 cuadros (`robotIdle/Walk/Run/Special`)
+  por 6/6/8/5 y añadió `robotTalk` 4. Convención PLAYER plana, lienzos 512², cuerpo mediano
+  360 px, pies Y=456, `uniform512Canvas=true` y fracción común `0.703125`.
+- Validación: `python tools/validate_sf_chroma_character.py robot Robot robot robot_`
+  ` --world-base SPRITES/PLAYER --flat-world-folders` → `VALIDACION OK`.
+
+## 2n. Pase de combate completo (2026-07-16, hecho)
 
 - El recortador ya no comprime los golpes al mínimo del template: LIGHT PUNCH 4, MEDIUM/HEAVY
   PUNCH 6, LIGHT/HEAVY KICK 6 y MEDIUM KICK 5. Las hitboxes solo existen en los cuadros de
@@ -346,8 +361,8 @@ alfa desde la máscara CRUDA — sin verde interior):
 - JUMP START usa 2 cuadros, JUMP LAND 3 y JUMP BACKWARD sus 7 cuadros propios. STUN usa 1→2→3.
 - SPECIAL LIGHT/MEDIUM/HEAVY usa 5 cuadros distintos por fuerza. `pack_sf_character.py` agrega
   `events.projectile.<strength>` con cuadro de salida, offset y escala; Kotlin lo carga de forma
-  genérica. Las doce identidades quedan visibles: confeti, polvo de escoba, ondas de megáfono,
-  humo rosa, destellos fotográficos, haces policiales, descarga médica y portales de estudiantes.
+  genérica. Las trece identidades quedan visibles: confeti, polvo de escoba, ondas de megáfono,
+  humo rosa, destellos fotográficos, haces policiales, descarga médica y energía tecnológica ESCOM.
 - El sheet dedicado pasa a 123 cuadros en rejilla 10×13 (`2560×3328`); los 123 quedan referenciados.
   `pack_sf_character.py --gen <ruta>` permite empaquetar desde intermedios externos sin devolver
   `STREETFIGHTER/GEN/` al APK.

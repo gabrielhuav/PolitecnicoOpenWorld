@@ -141,8 +141,8 @@ enum class SfFighterId(
         "STREETFIGHTER/DATA/escomgirl.json", "STREETFIGHTER/IMAGES/EscomGirl.png",
     ),
     ROBOT(
-        "Robot Estudiantx", "ROBOT", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Robot.png",
-        isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "robot", "robot_"),
+        "Robot Estudiantx", "ROBOT",
+        "STREETFIGHTER/DATA/robot.json", "STREETFIGHTER/IMAGES/Robot.png",
     ),
     POLICIA_CDMX(
         "Policía CDMX", "POLICIA",

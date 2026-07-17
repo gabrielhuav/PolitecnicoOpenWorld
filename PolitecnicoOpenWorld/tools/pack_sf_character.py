@@ -113,6 +113,11 @@ PROJECTILE_PROFILES = {
         "medium": {"frame": 2, "offset": [62, -55], "scale": 1.00},
         "heavy":  {"frame": 2, "offset": [76, -56], "scale": 1.30},
     },
+    "robot": {
+        "light":  {"frame": 2, "offset": [48, -54], "scale": 0.70},
+        "medium": {"frame": 2, "offset": [62, -55], "scale": 1.00},
+        "heavy":  {"frame": 2, "offset": [76, -56], "scale": 1.30},
+    },
 }
 
 # Correcciones anatomicas detectadas por QA. No se mide la caja alfa completa porque
