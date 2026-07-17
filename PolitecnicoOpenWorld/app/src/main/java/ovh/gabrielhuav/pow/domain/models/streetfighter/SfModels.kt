@@ -198,8 +198,11 @@ enum class SfAttackType { PUNCH, KICK }
  * - NORMAL: la IA clásica del port (decisiones al azar cada ~280-620 ms).
  * - AVANZADA: REACTIVA y casi imposible: bloquea tus ataques, castiga tu
  *   recuperación, anti-aéreo, esquiva hadoukens y lanza MUCHOS poderes.
+ * - PESADILLA: brutal. Ataca sin parar con COMBOS muy seguidos, ESQUIVA tus golpes
+ *   (salto/dash atrás), castiga durísimo y reacciona casi al instante (~50-110 ms).
+ * ⚠️ El ORDEN importa (se usa ordinal para la rampa del arcade): de más fácil a más difícil.
  */
-enum class SfCpuDifficulty { BASICA, NORMAL, AVANZADA }
+enum class SfCpuDifficulty { BASICA, NORMAL, AVANZADA, PESADILLA }
 
 /** Zona golpeada (hurtboxes por frame: [head, body, legs]). */
 enum class SfHurtArea { HEAD, BODY, LEGS }

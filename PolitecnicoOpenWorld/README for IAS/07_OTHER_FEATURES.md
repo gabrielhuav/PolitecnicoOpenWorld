@@ -335,7 +335,15 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   `startBattle`); `resetRound` (s.copy) y la revancha la CONSERVAN. Solo offline: online el rival
   es humano y `buildCpuInput` no corre. La IA se partió en `basicCpuDecision`/`normalCpuDecision`/
   `advancedCpuDecision` + helper `cpuAttack` (VM); sets `cpuThreatStates`/`cpuPunishStates`.
-  Strings `sf_choose_difficulty`/`sf_diff_*` (ES+EN, paridad). ⚠️ Al calibrar el fix del
+  Strings `sf_choose_difficulty`/`sf_diff_*` (ES+EN, paridad). **🆕 (2026-07-17) 4ª dificultad
+  `PESADILLA`** (`pesadillaCpuDecision`): combos casi constantes, ESQUIVA (salto/dash atrás) además
+  de bloquear, castigo durísimo, reacción ~50-110 ms. El FINAL del arcade (Prankedy) la usa.
+  **Modo Desarrollador** (Ajustes, `getDeveloperMode`) → `devUnlockAll()` desbloquea TODO
+  (personajes y mapas). **Preview del selector** más lento (`PREVIEW_SLOWDOWN`/`PREVIEW_MIN_MS`) y
+  ahora anima IDLE + `walkForwards` como complemento. **Ajustes → "Mostrar hitboxes"**
+  (`SettingsRepository.getShowHitboxes`, estilo Minecraft F3+B): `drawFighter` dibuja las cajas
+  push (blanca), hurt (cian) y hit (rojo) sobre los peleadores — diagnóstico del "cambio de
+  tamaño" de los assets (la caja marca dónde debería estar). ⚠️ Al calibrar el fix del
   STUN-LOCK (ver `PENDIENTES_SF_2026-07-16.md` ②) probar también vs AVANZADA (castiga rápido).
 - **🆕 MODO ARCADE POW — escalera de 11 peleas (2026-07-17):** botón **ARCADE** en el selector.
   El jugador elige uno de los 3 estudiantes DESBLOQUEADOS (ESCOMBOY/ESCOMGIRL/ROBOT) + dificultad

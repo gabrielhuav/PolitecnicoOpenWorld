@@ -97,6 +97,8 @@
     <string name="settings_coords_widget_desc">Muestra tu posición X/Y/Z en el mundo y en interiores</string>
     <string name="settings_developer_mode">Modo Desarrollador</string>
     <string name="settings_developer_mode_desc">Muestra opciones y botones de prueba reservados para desarrollo</string>
+    <string name="settings_show_hitboxes">Mostrar hitboxes (modo pelea)</string>
+    <string name="settings_show_hitboxes_desc">Dibuja las cajas de colisión sobre los peleadores, como las hitboxes de Minecraft</string>
     <!-- ─── Cuenta / Autenticación (Google Sign-In) ─── -->
     <string name="settings_cat_account">Cuenta</string>
     <string name="settings_account_desc">Inicia sesión con Google para jugar en línea. El juego local y el Modo Historia no requieren cuenta.</string>
@@ -620,6 +622,8 @@
     <string name="sf_diff_normal_desc">La pelea clásica de siempre</string>
     <string name="sf_diff_advanced">AVANZADA</string>
     <string name="sf_diff_advanced_desc">Bloquea, castiga y lanza muchos poderes. ¿Podrás ganarle?</string>
+    <string name="sf_diff_nightmare">PESADILLA</string>
+    <string name="sf_diff_nightmare_desc">Combos sin parar, esquiva tus golpes y castiga durísimo. Casi imposible.</string>
     <!-- 🆕 Modo ARCADE (escalera de 11 peleas) -->
     <string name="sf_arcade_button">ARCADE</string>
     <string name="sf_arcade_pick_you">Elige tu peleador (desbloqueas más al ganar)</string>

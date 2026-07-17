@@ -137,6 +137,18 @@ Los locked salen con candado; el fondo del muelle SF queda de fallback.
   fin en arcade; fondo desde `arcadeMapFile`; candado 🔒 en `CharacterCard` y `StageCard`.
   + strings ES+EN (`sf_arcade_*`, `sf_back`).
 
+## Añadidos 2026-07-17b
+
+- **Dificultad `PESADILLA`** (4ª): combos casi constantes, esquiva, castiga; el FINAL del arcade
+  (Prankedy) la usa (rampa `arcadeDifficulty`: final +2, semifinal/2ª mitad +1). Opción en el
+  selector + strings `sf_diff_nightmare(_desc)` ES+EN.
+- **Modo Desarrollador** (`devUnlockAll()` = `getDeveloperMode()`): desbloquea TODOS los
+  personajes y mapas (sin candados) en selector y práctica.
+- **Modos:** ARCADE = campaña con desbloqueos; el flujo peleador→rival→**dificultad**→mapa es
+  PRÁCTICA y **NO desbloquea nada** (solo `handleArcadeMatchEnd` desbloquea, y solo en arcade).
+- **Escalera 8-9** ya usa los Granadero reales (`POLICIA_GRANADERO_HOMBRE/MUJER`).
+- **Preview del selector** más lento + anima IDLE + `walkForwards`.
+
 ## ⚠️ Implicaciones / límites del build actual (para la próxima sesión)
 
 - **Roster libre (VS y online) ahora = SOLO desbloqueados.** Al inicio son los 3 estudiantes;

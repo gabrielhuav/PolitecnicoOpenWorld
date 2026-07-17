@@ -26,6 +26,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_SHOW_SPEEDOMETER = "SHOW_SPEEDOMETER"  // widget velocímetro al conducir (Interfaz)
         private const val KEY_SHOW_COORDS_WIDGET = "SHOW_COORDS_WIDGET" // widget de coordenadas X/Y/Z (Interfaz)
         private const val KEY_DEVELOPER_MODE = "DEVELOPER_MODE" // Modo Desarrollador (Interfaz): muestra botones/opciones de prueba
+        private const val KEY_SHOW_HITBOXES = "SHOW_HITBOXES" // 🆕 dibuja las hitboxes del modo pelea (estilo Minecraft)
         private const val KEY_MUSIC_VOLUME = "MUSIC_VOLUME" // volumen música 0f..1f (Audio)
         private const val KEY_SFX_VOLUME = "SFX_VOLUME"     // volumen efectos 0f..1f (Audio)
         private const val KEY_LANGUAGE = "APP_LANGUAGE"             // idioma de la UI (BCP-47; "" = sistema)
@@ -140,6 +141,14 @@ class SettingsRepository(context: Context) {
     fun getDeveloperMode(): Boolean = prefs.getBoolean(KEY_DEVELOPER_MODE, false)
     fun saveDeveloperMode(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_DEVELOPER_MODE, enabled).apply()
+    }
+
+    // ─── 🆕 Modo pelea: dibujar HITBOXES (push/hurt/hit) sobre los peleadores, estilo
+    // Minecraft (F3+B). Default = desactivado. Útil para ver dónde "vive" cada asset. ──
+
+    fun getShowHitboxes(): Boolean = prefs.getBoolean(KEY_SHOW_HITBOXES, false)
+    fun saveShowHitboxes(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_HITBOXES, enabled).apply()
     }
 
     // ─── Tutorial de controles (optativo): se ofrece UNA vez al entrar por primera vez al

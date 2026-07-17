@@ -60,6 +60,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -75,6 +76,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfBox
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
@@ -227,11 +229,13 @@ fun StreetFighterScreen(
     // Textos del banner de RONDA (i18n; la fuente arcade solo tiene A-Z/0-9)
     val roundBannerText = stringResource(R.string.sf_round_banner, state.roundNumber)
     val fightBannerText = stringResource(R.string.sf_fight_banner)
+    // 🆕 Ajustes → "Mostrar hitboxes" (se lee al entrar al modo)
+    val showHitboxes = remember { viewModel.showHitboxes() }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ---- Escena completa (mundo + HUD) en un Canvas ----
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawScene(theme, state, images, playerData, cpuData, bgImage, roundBannerText, fightBannerText)
+            drawScene(theme, state, images, playerData, cpuData, bgImage, roundBannerText, fightBannerText, showHitboxes)
         }
 
         // ---- Controles de POW: joystick + diamante Xbox (ocultos durante la selección) ----
@@ -326,7 +330,7 @@ fun StreetFighterScreen(
                 SfOnlineStatus.WAITING_MAP -> if (state.isHost) {
                     StageSelectOverlay(
                         theme = theme,
-                        unlockedMaps = viewModel.unlockedMaps(),
+                        unlockedMaps = if (viewModel.devUnlockAll()) null else viewModel.unlockedMaps(),
                         onSelect = viewModel::chooseMapOnline,
                         onBack = null,
                     )
@@ -382,7 +386,7 @@ fun StreetFighterScreen(
                         )
                         else -> StageSelectOverlay(
                             theme = theme,
-                            unlockedMaps = viewModel.unlockedMaps(),
+                            unlockedMaps = if (viewModel.devUnlockAll()) null else viewModel.unlockedMaps(),
                             onSelect = { file ->
                                 chosenBgFile = file ?: theme.fullBackgrounds.randomOrNull()?.file
                                 viewModel.selectCharacter(fighter, rival, difficulty)
@@ -826,6 +830,11 @@ private fun DifficultySelectOverlay(
                 title = stringResource(R.string.sf_diff_advanced),
                 desc = stringResource(R.string.sf_diff_advanced_desc),
                 onClick = { onSelect(SfCpuDifficulty.AVANZADA) },
+            )
+            DifficultyOption(
+                title = stringResource(R.string.sf_diff_nightmare),
+                desc = stringResource(R.string.sf_diff_nightmare_desc),
+                onClick = { onSelect(SfCpuDifficulty.PESADILLA) },
             )
             Spacer(modifier = Modifier.height(4.dp))
             TextButton(onClick = onBack) {
@@ -1447,6 +1456,11 @@ private data class FighterPreviewAnimation(
     val delaysMs: List<Long>,
 )
 
+// 🆕 Ritmo del PREVIEW del selector (más lento que la pelea, para que no "vibre").
+private const val PREVIEW_SLOWDOWN = 1.8f  // factor sobre los delays del JSON (dedicados)
+private const val PREVIEW_MIN_MS = 95L     // mínimo por frame
+private const val PREVIEW_SHARED_MS = 170L // frame fijo para peleadores compartidos (runtime)
+
 @Composable
 private fun rememberAnimatedFighterPreview(id: SfFighterId): ImageBitmap? {
     val context = LocalContext.current
@@ -1454,31 +1468,37 @@ private fun rememberAnimatedFighterPreview(id: SfFighterId): ImageBitmap? {
         runCatching {
             val shared = id.sharedSet
             if (shared != null) {
+                // Compartidos (runtime): más lento que antes (170 ms/frame) para que no "vibre".
                 val frames = SfSharedSheets.previewFramesFor(context, shared)
                     .map { trimTransparent(it).asImageBitmap() }
-                FighterPreviewAnimation(frames, List(frames.size) { 110L })
+                FighterPreviewAnimation(frames, List(frames.size) { PREVIEW_SHARED_MS })
             } else {
                 val data = SfFrameCatalog.load(context, id)
-                val idle = data.animations.getValue(SfFighterState.IDLE.jsKey)
-                    .filter { it.delay > 0 }
                 val decoder = context.assets.open(id.spriteAsset).use { ins ->
                     @Suppress("DEPRECATION")
                     BitmapRegionDecoder.newInstance(ins, false)
                 } ?: return@runCatching null
                 try {
-                    val frames = idle.mapNotNull { step ->
-                        val src = data.frames[step.frameKey]?.src ?: return@mapNotNull null
-                        decoder.decodeRegion(
-                            Rect(src[0], src[1], src[0] + src[2], src[1] + src[3]),
-                            null,
-                        )?.let { trimTransparent(it).asImageBitmap() }
+                    // 🆕 Preview = IDLE + CAMINAR (walkForwards) como COMPLEMENTO (idle no se quita),
+                    // y MÁS LENTO (factor + mínimo por frame) para que no se mueva tan rápido.
+                    fun decodeState(stateKey: String): Pair<List<ImageBitmap>, List<Long>> {
+                        val steps = data.animations[stateKey].orEmpty().filter { it.delay > 0 }
+                        val fr = steps.mapNotNull { step ->
+                            val src = data.frames[step.frameKey]?.src ?: return@mapNotNull null
+                            decoder.decodeRegion(
+                                Rect(src[0], src[1], src[0] + src[2], src[1] + src[3]),
+                                null,
+                            )?.let { trimTransparent(it).asImageBitmap() }
+                        }
+                        val dl = steps.take(fr.size).map {
+                            (it.delay * SfConstants.FRAME_TIME_MS * PREVIEW_SLOWDOWN).toLong()
+                                .coerceAtLeast(PREVIEW_MIN_MS)
+                        }
+                        return fr to dl
                     }
-                    FighterPreviewAnimation(
-                        frames = frames,
-                        delaysMs = idle.take(frames.size).map {
-                            (it.delay * SfConstants.FRAME_TIME_MS).toLong().coerceAtLeast(50L)
-                        },
-                    )
+                    val (idleF, idleD) = decodeState(SfFighterState.IDLE.jsKey)
+                    val (walkF, walkD) = decodeState(SfFighterState.WALK_FORWARD.jsKey)
+                    FighterPreviewAnimation(idleF + walkF, idleD + walkD)
                 } finally {
                     decoder.recycle()
                 }
@@ -1583,6 +1603,7 @@ private fun DrawScope.drawScene(
     bgImage: ImageBitmap?,
     roundBannerText: String,
     fightBannerText: String,
+    showHitboxes: Boolean = false,
 ) {
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
     val ctx = SceneCtx(
@@ -1620,8 +1641,8 @@ private fun DrawScope.drawScene(
     drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.cpu)
 
     // ---- Peleadores (sheet según el personaje del snapshot) ----
-    drawFighter(ctx, images, playerData, state.player, t)
-    drawFighter(ctx, images, cpuData, state.cpu, t)
+    drawFighter(ctx, images, playerData, state.player, t, showHitboxes)
+    drawFighter(ctx, images, cpuData, state.cpu, t, showHitboxes)
 
     // ---- Proyectiles especiales ----
     // Si el DUEÑO del proyectil trae sus propios frames "proj-*" en su JSON (Prankedy:
@@ -1772,7 +1793,14 @@ private fun DrawScope.drawSpriteAnchored(
     }
 }
 
-private fun DrawScope.drawFighter(ctx: SceneCtx, images: Map<String, ImageBitmap>, data: SfFighterData, f: SfFighter, t: Long) {
+private fun DrawScope.drawFighter(
+    ctx: SceneCtx,
+    images: Map<String, ImageBitmap>,
+    data: SfFighterData,
+    f: SfFighter,
+    t: Long,
+    showHitboxes: Boolean = false,
+) {
     val sheet = images[f.id.spriteAsset.substringAfterLast('/')] ?: return
     val anim = data.animations[f.state.jsKey] ?: return
     val frameKey = anim[f.animationFrame.coerceIn(0, anim.size - 1)].frameKey
@@ -1787,6 +1815,33 @@ private fun DrawScope.drawFighter(ctx: SceneCtx, images: Map<String, ImageBitmap
     // por continuidad visual y marca solo esos cuadros; la corrección sirve para todo peleador futuro.
     val drawDirection = if (frame.flipX) f.direction.opposite() else f.direction
     drawSpriteAnchored(ctx, sheet, frame.src, frame.origin, f.x, f.y, drawDirection, shakeX = shake, spriteScale = spriteScale)
+
+    // 🆕 HITBOXES (Ajustes → "Mostrar hitboxes", estilo Minecraft): push = colisión (blanca),
+    // hurt = zonas golpeables (cian), hit = ataque activo (rojo). Marcan dónde "vive" el asset.
+    if (showHitboxes) {
+        SfBox.fromList(frame.push).takeIf { it.width > 0f }
+            ?.let { drawWorldBox(ctx, it.toWorld(f.x, f.y, f.direction), Color.White) }
+        frame.hurt?.forEach { row ->
+            SfBox.fromList(row).takeIf { it.width > 0f }
+                ?.let { drawWorldBox(ctx, it.toWorld(f.x, f.y, f.direction), Color(0xFF29B6F6)) }
+        }
+        frame.hit?.let { hb ->
+            SfBox.fromList(hb).takeIf { it.width > 0f }
+                ?.let { drawWorldBox(ctx, it.toWorld(f.x, f.y, f.direction), Color(0xFFEF5350)) }
+        }
+    }
+}
+
+/** Dibuja una SfBox (en coords de MUNDO) como rectángulo hueco en pantalla (hitbox de debug). */
+private fun DrawScope.drawWorldBox(ctx: SceneCtx, box: SfBox, color: Color) {
+    val x = ctx.ox + (box.x - ctx.camX) * ctx.scale
+    val y = ctx.oy + (box.y - ctx.camY) * ctx.scale
+    drawRect(
+        color = color,
+        topLeft = Offset(x, y),
+        size = Size(box.width * ctx.scale, box.height * ctx.scale),
+        style = Stroke(width = 2f),
+    )
 }
 
 private fun DrawScope.drawShadow(ctx: SceneCtx, theme: SfTheme, shadowImg: ImageBitmap, f: SfFighter) {

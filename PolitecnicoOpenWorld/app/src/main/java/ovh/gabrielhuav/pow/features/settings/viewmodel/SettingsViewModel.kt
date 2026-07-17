@@ -29,6 +29,7 @@ class SettingsViewModel @javax.inject.Inject constructor(private val repository:
                 showSpeedometer = repository.getShowSpeedometer(),
                 showCoordsWidget = repository.getShowCoordsWidget(),
                 developerMode = repository.getDeveloperMode(),
+                showHitboxes = repository.getShowHitboxes(),
                 musicVolume = repository.getMusicVolume(),
                 sfxVolume = repository.getSfxVolume(),
                 npcDensity = repository.getNpcDensity(),
@@ -65,6 +66,11 @@ class SettingsViewModel @javax.inject.Inject constructor(private val repository:
     fun toggleDeveloperMode(enabled: Boolean) {
         _state.update { it.copy(developerMode = enabled) }
         repository.saveDeveloperMode(enabled)
+    }
+    // 🆕 Mostrar hitboxes del modo pelea (estilo Minecraft). Persiste al instante.
+    fun toggleHitboxes(enabled: Boolean) {
+        _state.update { it.copy(showHitboxes = enabled) }
+        repository.saveShowHitboxes(enabled)
     }
 
     // Audio: persisten al instante; MainActivity los empuja en vivo al SoundManager.

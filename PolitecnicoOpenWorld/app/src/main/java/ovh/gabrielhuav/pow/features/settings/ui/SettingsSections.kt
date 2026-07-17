@@ -583,12 +583,14 @@ internal fun DiagnosticWidgetsSetting(
     speedometerEnabled: Boolean,
     coordsWidgetEnabled: Boolean,
     developerModeEnabled: Boolean,
+    hitboxesEnabled: Boolean,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
     onZoomWidgetToggled: (Boolean) -> Unit,
     onSpeedometerToggled: (Boolean) -> Unit,
     onCoordsWidgetToggled: (Boolean) -> Unit,
     onDeveloperModeToggled: (Boolean) -> Unit,
+    onHitboxesToggled: (Boolean) -> Unit,
     currentLanguage: String,
     onLanguageChanged: (String) -> Unit
 ) {
@@ -606,6 +608,20 @@ internal fun DiagnosticWidgetsSetting(
             Switch(
                 checked = developerModeEnabled,
                 onCheckedChange = onDeveloperModeToggled,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+            )
+        }
+
+        // 🆕 Mostrar hitboxes del modo pelea (estilo Minecraft F3+B): dibuja las cajas
+        // push/hurt/hit sobre los peleadores. Útil para ver dónde "vive" cada asset.
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_show_hitboxes), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_show_hitboxes_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
+            }
+            Switch(
+                checked = hitboxesEnabled,
+                onCheckedChange = onHitboxesToggled,
                 colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
             )
         }

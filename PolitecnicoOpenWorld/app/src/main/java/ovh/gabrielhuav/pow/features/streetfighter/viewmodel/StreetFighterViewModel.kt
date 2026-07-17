@@ -37,6 +37,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfProjectileEvent
 import ovh.gabrielhuav.pow.BuildConfig
+import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.data.repository.SfArcadeRepository
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtClient
@@ -75,6 +76,12 @@ class StreetFighterViewModel @Inject constructor(
     // 🆕 Progreso del ARCADE (guardado LOCAL). Define qué peleadores/mapas están desbloqueados.
     private val arcadeRepo = SfArcadeRepository(appContext)
 
+    /** 🆕 Modo Desarrollador (Ajustes): si está ON, TODO desbloqueado (personajes y mapas). */
+    fun devUnlockAll(): Boolean = SettingsRepository(appContext).getDeveloperMode()
+
+    /** 🆕 Ajustes → "Mostrar hitboxes": dibuja las cajas push/hurt/hit sobre los peleadores. */
+    fun showHitboxes(): Boolean = SettingsRepository(appContext).getShowHitboxes()
+
     /** Ids desbloqueados (arcade) como SfFighterId (ignora nombres inválidos). */
     private fun unlockedIds(): Set<SfFighterId> =
         arcadeRepo.unlockedFighters().mapNotNull { name ->
@@ -82,17 +89,19 @@ class StreetFighterViewModel @Inject constructor(
         }.toSet()
 
     /**
-     * Roster SELECCIONABLE (lo lee la View): solo los DESBLOQUEADOS del arcade. Es función (no
-     * val) para releer el progreso en vivo tras desbloquear en la escalera. (RYU/KEN se
-     * eliminaron del juego; ver SfFighterId.)
+     * Roster SELECCIONABLE (lo lee la View): los DESBLOQUEADOS del arcade (o TODOS con Modo
+     * Desarrollador). Es función (no val) para releer el progreso en vivo tras desbloquear.
+     * (RYU/KEN se eliminaron del juego; ver SfFighterId.)
      */
     fun selectableFighters(): List<SfFighterId> {
+        if (devUnlockAll()) return SfArcadeLadder.ALL_PARTICIPANTS
         val unlocked = unlockedIds()
         return SfArcadeLadder.ALL_PARTICIPANTS.filter { it in unlocked }
     }
 
-    /** Personajes del arcade AÚN bloqueados (la View los pinta con candado 🔒). */
+    /** Personajes del arcade AÚN bloqueados (la View los pinta con candado 🔒). Vacío en Dev. */
     fun lockedFighters(): List<SfFighterId> {
+        if (devUnlockAll()) return emptyList()
         val unlocked = unlockedIds()
         return SfArcadeLadder.ALL_PARTICIPANTS.filter { it !in unlocked }
     }
@@ -1122,12 +1131,14 @@ class StreetFighterViewModel @Inject constructor(
             SfCpuDifficulty.BASICA -> Random.nextLong(800L, 1500L)
             SfCpuDifficulty.NORMAL -> Random.nextLong(280L, 620L)
             SfCpuDifficulty.AVANZADA -> Random.nextLong(90L, 180L)
+            SfCpuDifficulty.PESADILLA -> Random.nextLong(50L, 110L) // reacciona casi al instante
         }
-        cpuNextDecisionMs = now + (baseDelay * (1f - 0.45f * cpuIntensity)).toLong().coerceAtLeast(60L)
+        cpuNextDecisionMs = now + (baseDelay * (1f - 0.45f * cpuIntensity)).toLong().coerceAtLeast(40L)
         cpuHold = when (difficulty) {
             SfCpuDifficulty.BASICA -> basicCpuDecision(sim)
             SfCpuDifficulty.NORMAL -> normalCpuDecision(sim)
             SfCpuDifficulty.AVANZADA -> advancedCpuDecision(sim)
+            SfCpuDifficulty.PESADILLA -> pesadillaCpuDecision(sim)
         }
         // Los botones son de UN tick: se entregan una vez y la intención queda solo direccional
         val oneShot = cpuHold
@@ -1239,6 +1250,58 @@ class StreetFighterViewModel @Inject constructor(
                 roll < 0.80f -> SfInput(special = SfAttackStrength.LIGHT) // poder a quemarropa
                 roll < 0.90f -> SfInput(backward = true)                  // bait + guardia
                 else -> SfInput(forward = true)
+            }
+        }
+    }
+
+    /**
+     * PESADILLA — la más brutal: ataca SIN PARAR con combos muy seguidos, ESQUIVA tus golpes
+     * (salto/dash atrás) además de bloquear, castiga durísimo y presiona a toda distancia.
+     * Reacciona casi al instante (~50-110 ms, ver buildCpuInput). Pensada para el jefe final.
+     */
+    private fun pesadillaCpuDecision(sim: Sim): SfInput {
+        val me = sim.p1
+        val foe = sim.p0
+        val dist = abs(me.x - foe.x)
+        val roll = Random.nextFloat()
+
+        // (1) Proyectil entrante → ESQUIVA saltando o lo revienta con su propio poder
+        val incoming = sim.fireballs.any { fb ->
+            fb.ownerIndex == 0 && fb.state == SfFireballState.ACTIVE &&
+                abs(fb.x - me.x) < 300f && (me.x - fb.x) * fb.direction.sign > 0f
+        }
+        if (incoming && !me.isAirborne) {
+            return if (roll < 0.6f) SfInput(up = true) else SfInput(special = SfAttackStrength.HEAVY)
+        }
+        // (2) Anti-aéreo brutal
+        if (foe.isAirborne && dist < 165f) return cpuAttack(SfAttackStrength.HEAVY, punch = true)
+        // (3) El rival ATACA a rango → ESQUIVA (salto atrás) o bloquea; a veces contragolpea
+        if (foe.state in cpuThreatStates && dist < 185f) {
+            return when {
+                roll < 0.45f -> SfInput(backward = true, up = true) // esquiva saltando atrás
+                roll < 0.92f -> SfInput(backward = true)            // bloqueo
+                else -> cpuAttack(SfAttackStrength.LIGHT, punch = true) // contragolpe rápido
+            }
+        }
+        // (4) Castigo durísimo en cuanto quedas vulnerable
+        if (foe.state in cpuPunishStates && dist < 135f) {
+            return cpuAttack(SfAttackStrength.HEAVY, punch = Random.nextBoolean())
+        }
+        // (5) Presión total: COMBOS muy seguidos de cerca, poderes de lejos
+        return when {
+            dist > 190f -> if (roll < 0.70f) SfInput(special = SfAttackStrength.entries.random()) else SfInput(forward = true)
+            dist > 90f -> when {
+                roll < 0.40f -> SfInput(special = SfAttackStrength.entries.random())
+                roll < 0.90f -> SfInput(forward = true)              // se acerca a presionar
+                else -> SfInput(up = true, forward = true)           // salto de acercamiento
+            }
+            else -> when {
+                roll < 0.85f -> cpuAttack(                           // combos casi constantes
+                    if (Random.nextFloat() < 0.6f) SfAttackStrength.HEAVY else SfAttackStrength.MEDIUM,
+                    punch = Random.nextBoolean(),
+                )
+                roll < 0.93f -> SfInput(special = SfAttackStrength.LIGHT) // poder a quemarropa
+                else -> SfInput(backward = true, up = true)          // reposición esquivando
             }
         }
     }
@@ -1426,8 +1489,14 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Dificultad HÍBRIDA: la base elegida + rampa hacia los jefes (tope AVANZADA). */
     private fun arcadeDifficulty(step: SfArcadeLadder.Step): SfCpuDifficulty {
-        if (step.isBoss) return SfCpuDifficulty.AVANZADA
-        val bump = if (step.index >= 6) 1 else 0
+        // Rampa sobre la base elegida: FINAL (Prankedy) = +2 (llega a PESADILLA con base NORMAL);
+        // semifinal y 2ª mitad = +1; primeras = base. Cap en PESADILLA.
+        val bump = when {
+            step.index >= SfArcadeLadder.TOTAL_FIGHTS -> 2
+            step.isBoss -> 1
+            step.index >= 6 -> 1
+            else -> 0
+        }
         val i = (arcadeBase.ordinal + bump).coerceAtMost(SfCpuDifficulty.entries.lastIndex)
         return SfCpuDifficulty.entries[i]
     }

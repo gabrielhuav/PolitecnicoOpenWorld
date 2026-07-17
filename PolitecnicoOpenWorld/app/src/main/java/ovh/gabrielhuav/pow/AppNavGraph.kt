@@ -573,6 +573,7 @@ fun AppNavGraph(
                                     worldMapViewModel.toggleCoordsWidget(it)
                                 },
                                 onDeveloperModeToggled = { settingsViewModel.toggleDeveloperMode(it) },
+                                onHitboxesToggled = { settingsViewModel.toggleHitboxes(it) },
                                 // Audio: persisten en Ajustes Y se aplican en vivo al SoundManager.
                                 onMusicVolumeChanged = {
                                     settingsViewModel.changeMusicVolume(it)

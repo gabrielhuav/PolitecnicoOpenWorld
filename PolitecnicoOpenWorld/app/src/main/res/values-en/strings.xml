@@ -97,6 +97,8 @@
     <string name="settings_coords_widget_desc">Shows your X/Y/Z position in the world and indoors</string>
     <string name="settings_developer_mode">Developer Mode</string>
     <string name="settings_developer_mode_desc">Shows test options and buttons reserved for development</string>
+    <string name="settings_show_hitboxes">Show hitboxes (fight mode)</string>
+    <string name="settings_show_hitboxes_desc">Draws the collision boxes over the fighters, like Minecraft hitboxes</string>
     <!-- ─── Account / Authentication (Google Sign-In) ─── -->
     <string name="settings_cat_account">Account</string>
     <string name="settings_account_desc">Sign in with Google to play online. Local play and Story Mode don\'t require an account.</string>
@@ -618,6 +620,8 @@
     <string name="sf_diff_normal_desc">The classic fight as always</string>
     <string name="sf_diff_advanced">ADVANCED</string>
     <string name="sf_diff_advanced_desc">Blocks, punishes and throws lots of powers. Can you beat it?</string>
+    <string name="sf_diff_nightmare">NIGHTMARE</string>
+    <string name="sf_diff_nightmare_desc">Nonstop combos, dodges your hits and punishes hard. Nearly impossible.</string>
     <!-- 🆕 ARCADE mode (11-fight ladder) -->
     <string name="sf_arcade_button">ARCADE</string>
     <string name="sf_arcade_pick_you">Choose your fighter (win to unlock more)</string>
