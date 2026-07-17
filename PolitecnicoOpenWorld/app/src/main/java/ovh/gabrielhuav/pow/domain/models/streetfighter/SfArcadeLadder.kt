@@ -11,9 +11,8 @@ import kotlin.random.Random
  * Estructura (el jugador elige 1 de {ESCOMBOY, ESCOMGIRL, ROBOT}):
  *   1-2  : los OTROS 2 estudiantes (orden ALEATORIO)
  *   3-5  : PARAMEDICO_CRUZ_ROJA, SENOR_TIENDA, PAPARAZZI_1 (orden ALEATORIO)
- *   6-9  : POLICIA_CDMX_HOMBRE, POLICIA_CDMX (mujer), GRANADERO, GRANADERO (orden FIJO)
- *          ⚠️ los 2 GRANADERO son PLACEHOLDER de "Granadero Hombre/Mujer" hasta tener assets
- *          (hoy solo existe un GRANADERO ALPHA). Cuando existan las variantes, se sustituyen.
+ *   6-9  : POLICIA_CDMX_HOMBRE, POLICIA_CDMX (mujer), POLICIA_GRANADERO_HOMBRE,
+ *          POLICIA_GRANADERO_MUJER (orden FIJO). Ya con arte dedicado (2026-07-17).
  *   10   : REY_GRUPERO (SEMIFINAL)
  *   11   : PRANKEDY (FINAL)
  *
@@ -33,12 +32,12 @@ object SfArcadeLadder {
     /**
      * TODOS los personajes que participan en el arcade (desbloqueables jugando), en orden de
      * aparición aproximado. Lo usa el selector para pintar los bloqueados con candado 🔒.
-     * (Granadero aparece 1 vez aunque ocupe 2 escalones placeholder.)
      */
     val ALL_PARTICIPANTS = listOf(
         SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT,
         SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1,
-        SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_CDMX, SfFighterId.GRANADERO,
+        SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_CDMX,
+        SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.POLICIA_GRANADERO_MUJER,
         SfFighterId.REY_GRUPERO, SfFighterId.PRANKEDY,
     )
 
@@ -74,12 +73,12 @@ object SfArcadeLadder {
             SfFighterId.PAPARAZZI_1,
         ).shuffled(rng)
 
-        // 6-9: policías + granaderos (ORDEN FIJO). Granadero ×2 = placeholder H/M.
+        // 6-9: policías + granaderos (ORDEN FIJO). Ya con arte dedicado (2026-07-17).
         steps += listOf(
             SfFighterId.POLICIA_CDMX_HOMBRE,
             SfFighterId.POLICIA_CDMX,
-            SfFighterId.GRANADERO,
-            SfFighterId.GRANADERO,
+            SfFighterId.POLICIA_GRANADERO_HOMBRE,
+            SfFighterId.POLICIA_GRANADERO_MUJER,
         )
 
         // 10-11: jefes

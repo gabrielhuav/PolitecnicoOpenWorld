@@ -106,8 +106,12 @@ Los locked salen con candado; el fondo del muelle SF queda de fallback.
 
 ## PENDIENTE de que lo dé el dueño
 
-- **Assets:** Granadero Hombre/Mujer (en proceso) y arte final de ESCOMBOY/ESCOMGIRL/ROBOT.
-  Cuando existan, sustituir en `SfArcadeLadder` sin tocar lógica.
+- **Assets:** SOLO falta **ROBOT** (sigue ALPHA `sf_template`+`RUNTIME/Robot.png`). ✅ Ya con arte
+  dedicado y VERIFICADOS (2026-07-17, pull "Refactor SF 4-5/9"): ESCOMBOY, ESCOMGIRL,
+  `POLICIA_GRANADERO_HOMBRE` y `POLICIA_GRANADERO_MUJER` (JSON+PNG propios, sin `isAlpha`). La
+  escalera ya los usa (escalones 8-9 = los Granadero reales; el placeholder `GRANADERO` salió).
+  ⚠️ Ojo: `escomboy/escomgirl/policiagranaderomujer.json` son byte-idénticos entre sí (comparten
+  la caja de Rey Grupero) → revisar en dispositivo que hurt/hit-boxes calcen con cada sprite.
 - **Asociación mapa ↔ rival** de los escalones 2-10 (qué mapa desbloquea cada rival). Fijos:
   escalón 1 = Queso IPN; escalón 11 (final, Prankedy) = CU UNAM. Intermedios hoy `null` (TBD).
 - Detalle del ENDING (pantalla/texto/recompensa) al ganar la final.
