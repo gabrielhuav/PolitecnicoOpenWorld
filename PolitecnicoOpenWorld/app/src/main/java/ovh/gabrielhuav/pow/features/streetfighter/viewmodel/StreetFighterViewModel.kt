@@ -33,6 +33,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfProjectileEvent
 import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
@@ -599,15 +600,16 @@ class StreetFighterViewModel @Inject constructor(
             }
 
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY -> {
-                // handleHadouken: el fireball sale en el frame 3
-                if (f.animationFrame == 3 && !f.fireballFired) {
+                val meta = attackMeta.getValue(f.state)
+                val event = dataFor(f).projectileEvents[meta.strength] ?: SfProjectileEvent()
+                // Cada hoja dedicada marca el cuadro exacto donde el objeto emite su efecto.
+                if (f.animationFrame == event.animationFrame && !f.fireballFired) {
                     sim.setFighter(idx, f.copy(fireballFired = true))
-                    val meta = attackMeta.getValue(f.state)
                     sim.fireballs.add(
                         SfFireball(
                             ownerIndex = idx,
-                            x = f.x + 76f * f.direction.sign,
-                            y = f.y - 57f,
+                            x = f.x + event.offsetX * f.direction.sign,
+                            y = f.y + event.offsetY,
                             direction = f.direction,
                             strength = meta.strength,
                             velocity = meta.strength.fireballVelocity,

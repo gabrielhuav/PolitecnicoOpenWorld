@@ -243,6 +243,21 @@ fun StreetFighterScreen(
                 onPunch = { strength -> viewModel.onAttackPressed(strength, SfAttackType.PUNCH) },
                 onKick = viewModel::onKickPressed,
             )
+            if (!state.isPaused && !state.showEndMenu) {
+                Text(
+                    text = stringResource(R.string.sf_controls_hint),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 4.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Color.Black.copy(alpha = 0.62f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    color = Color.White.copy(alpha = 0.88f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                )
+            }
         }
 
         // ---- Selección pre-pelea: paso 1 PELEADOR, paso 2 MAPA (offline y online) ----
@@ -542,6 +557,13 @@ fun StreetFighterScreen(
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 4.sp,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(R.string.sf_controls_help),
+                        color = Color.White.copy(alpha = 0.82f),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     PowButton(text = stringResource(R.string.sf_continue), onClick = viewModel::togglePause)
@@ -1345,7 +1367,11 @@ private fun DrawScope.drawScene(
                 "proj-hit-${(fb.animationFrame + 1).coerceIn(1, 3)}"
             }
             ownerData.frames[key]?.let { fd ->
-                drawSpriteAnchored(ctx, ownerSheet, fd.src, fd.origin, fb.x, fb.y, fb.direction)
+                val effectScale = ownerData.projectileEvents[fb.strength]?.visualScale ?: 1f
+                drawSpriteAnchored(
+                    ctx, ownerSheet, fd.src, fd.origin, fb.x, fb.y, fb.direction,
+                    spriteScale = effectScale,
+                )
             }
         } else {
             val frames = if (fb.state == SfFireballState.ACTIVE) theme.fireballActive else theme.fireballCollided

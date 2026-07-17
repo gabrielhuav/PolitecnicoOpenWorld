@@ -156,7 +156,7 @@ cara…"); luego recórtalos al lienzo 256×256 con los pies en (128,224) — GI
 - Motor y tema separados ✅. Controles = joystick + diamante Xbox de POW ✅
   (X puño ligero · Y medio · B fuerte · A patada con fuerza según joystick).
 - **🆕 PRANKEDY ES EL JUGABLE (P1)** ✅: pipeline §5 ejecutado (80 frames en `GEN/prankedy/`,
-  sheet `IMAGES/Prankedy.png` 2560×2304 en rejilla 10×9 de 256², `DATA/prankedy.json` con las 30
+  sheet `IMAGES/Prankedy.png` 2560×3328 en rejilla 10×13 de 256², `DATA/prankedy.json` con las 30
   animaciones y cajas heredadas de ryu). `SfFighterId.PRANKEDY` + `StreetFighterState.player`.
   El VM/View cargan frame data y sheets POR IDENTIDAD (cache perezoso; ya no hay ryu/ken fijos).
   Su especial usa sus frames **`proj-*` propios** (tanque de gas + confeti): el render los toma

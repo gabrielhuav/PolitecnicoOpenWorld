@@ -40,6 +40,9 @@ SF_POSE_TARGET_H = {
     "CROUCH TURN": 65.0,
     "JUMP START": 85.0,
     "JUMP LAND": 85.0,
+    "HURT HEAD": 100.0,
+    "HURT BODY": 100.0,
+    "STUN": 100.0,
     "KO": None,
     "PROJECTILE": None,
 }
@@ -54,30 +57,30 @@ SHEETS = {
          ("CROUCH TURN",    4, (nums("crouch-turn", 3), "even"), None)],
     3:  [("CAMINAR",        6, (nums("forwards", 6), "even"),    ("Walk", "w")),
          ("CORRER",         8, (None, None),                     ("Run", "r"))],
-    4:  [("JUMP START",     2, (["jump-start-land-1"], "first"), None),
-         ("JUMP LAND",      3, (None, None),                     None)],
+    4:  [("JUMP START",     2, (["jump-start-land-1", "jump-start-2"], "even"), None),
+         ("JUMP LAND",      3, (nums("jump-land", 3), "even"), None)],
     5:  [("JUMP UP",        6, (nums("jump-up", 6), "even"),     None),
          ("JUMP FORWARD",   7, (nums("jump-roll", 7), "even"),   None)],
-    6:  [("JUMP BACKWARD",  7, (None, None),                     None),
-         ("LIGHT PUNCH",    4, (nums("light-punch", 2), "attack2"), None)],
-    7:  [("MEDIUM PUNCH",   6, (nums("med-punch", 3), "even"),   None),
-         ("HEAVY PUNCH",    6, (["heavy-punch-1"], "mid"),       None)],
-    8:  [("LIGHT KICK",     6, (nums("light-kick", 2), "attack2"), None),
-         ("MEDIUM KICK",    5, (["med-kick-1"], "mid"),          None)],
-    9:  [("HEAVY KICK",     6, (nums("heavy-kick", 5), "even"),  None),
+    6:  [("JUMP BACKWARD",  7, (nums("jump-back", 7), "even"), None),
+         ("LIGHT PUNCH",    4, (nums("light-punch", 4), "even"), None)],
+    7:  [("MEDIUM PUNCH",   6, (nums("med-punch", 6), "even"),   None),
+         ("HEAVY PUNCH",    6, (nums("heavy-punch", 6), "even"), None)],
+    8:  [("LIGHT KICK",     6, (nums("light-kick", 6), "even"), None),
+         ("MEDIUM KICK",    5, (nums("med-kick", 5), "even"), None)],
+    9:  [("HEAVY KICK",     6, (nums("heavy-kick", 6), "even"),  None),
          ("HURT HEAD",     14, (nums("hit-face", 4), "first_half"),    None)],
     10: [("HURT BODY",     13, (nums("hit-stomach", 4), "first_half"), None),
-         ("STUN",           3, (["stun-3"], "mid"),              None)],
-    11: [("SPECIAL LIGHT",  5, (None, None),                     None),
-         ("SPECIAL MEDIUM", 5, (None, None),                     None)],
-    12: [("SPECIAL HEAVY",  5, (nums("special", 4), "even"),     ("Special", "s")),
+         ("STUN",           3, (nums("stun", 3), "even"),       None)],
+    11: [("SPECIAL LIGHT",  5, (nums("special-light", 5), "even"), None),
+         ("SPECIAL MEDIUM", 5, (nums("special-medium", 5), "even"), None)],
+    12: [("SPECIAL HEAVY",  5, (nums("special", 5), "even"),     ("Special", "s")),
          ("PROJECTILE",     5, (nums("proj-fly", 2) + nums("proj-hit", 3), "even"), None)],
     13: [("VICTORY",        6, (nums("victory", 4), "even"),     None),
          ("KO",             6, (nums("fall", 5), "even"),        None)],
-    14: [("MEDIUM PUNCH REFINED", 6, (nums("med-punch", 3), "even"), None),
-         ("HEAVY PUNCH REFINED",  6, (["heavy-punch-1"], "mid"),     None)],
-    15: [("MEDIUM KICK REFINED",  5, (["med-kick-1"], "mid"),        None),
-         ("HEAVY KICK REFINED",   6, (nums("heavy-kick", 5), "even"),None)],
+    14: [("MEDIUM PUNCH REFINED", 6, (nums("med-punch", 6), "even"), None),
+         ("HEAVY PUNCH REFINED",  6, (nums("heavy-punch", 6), "even"), None)],
+    15: [("MEDIUM KICK REFINED",  5, (nums("med-kick", 5), "even"), None),
+         ("HEAVY KICK REFINED",   6, (nums("heavy-kick", 6), "even"),None)],
     16: [("HANDGUN READY",  5, (None, None), None),
          ("HANDGUN AIM",    5, (None, None), None)],
     17: [("RIFLE READY",    6, (None, None), None),
@@ -343,7 +346,6 @@ def main():
 
     for (label, _, (targets, mode), world), group in ((SHEETS[num][0], framesA), (SHEETS[num][1], framesB)):
         sf_target_h = SF_POSE_TARGET_H.get(label, TARGET_H)
-        sf_scale = sequence_scale(group, sf_target_h, scale)
         if targets:
             if label == "PROJECTILE" and len(group) == 4 and len(targets) == 5:
                 # Dos cuadros de vuelo + tres de impacto. Con cuatro efectos, el segundo
@@ -351,6 +353,10 @@ def main():
                 chosen = [group[0], group[1], group[1], group[2], group[3]]
             else:
                 chosen = pick(group, len(targets), mode)
+            # La escala se calcula sobre los cuadros que realmente se exportan. En
+            # HURT se elige la primera mitad; medir tambien la mitad descartada era la
+            # causa de que algunas reacciones quedaran hasta 25 % mas grandes.
+            sf_scale = sequence_scale(chosen, sf_target_h, scale)
             # Crouch necesita una progresion explicita: algunas hojas dibujan el primer
             # cuadro mas grande y el ultimo con otro zoom. 90 -> 80 -> 68 evita que el
             # personaje primero crezca y luego parezca reducirse al flexionar las piernas.
@@ -361,6 +367,8 @@ def main():
                                 for target, fr in zip(crouch_heights, chosen)]
             elif label == "CROUCH TURN":
                 frame_scales = [68.0 / fr.height if fr.height > 0 else sf_scale for fr in chosen]
+            elif label in ("HURT HEAD", "HURT BODY", "STUN"):
+                frame_scales = [TARGET_H / fr.height if fr.height > 0 else sf_scale for fr in chosen]
             for name, fr, frame_scale in zip(targets, chosen, frame_scales):
                 place_sf(fr, frame_scale, center=name.startswith("proj-")).save(
                     os.path.join(gen_dir, name + ".png"))
@@ -371,6 +379,7 @@ def main():
                 print("ORI %-22s -> flipX: %s" % (label, ", ".join(flipped) if flipped else "ninguno"))
             print("SF  %-22s -> %s" % (label, ", ".join(targets)))
         else:
+            sf_scale = sequence_scale(group, sf_target_h, scale)
             ex = os.path.join(gen_dir, "_extra", label.lower().replace(" ", "-"))
             os.makedirs(ex, exist_ok=True)
             for i, fr in enumerate(group, 1):

@@ -3,9 +3,11 @@ package ovh.gabrielhuav.pow.features.streetfighter.data
 import android.content.Context
 import com.google.gson.JsonParser
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAnimFrame
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterData
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfProjectileEvent
 
 // Carga el frame data de los peleadores desde assets/STREETFIGHTER/DATA/*.json
 // (generados 1:1 desde Ryu.js/Ken.js del clon original: recortes del sprite sheet,
@@ -63,7 +65,11 @@ object SfFrameCatalog {
                 flipX = def.flipX,
             )
         }
-        return SfFighterData(frames = frames, animations = template.animations)
+        return SfFighterData(
+            frames = frames,
+            animations = template.animations,
+            projectileEvents = template.projectileEvents,
+        )
     }
 
     private fun parse(json: String): SfFighterData {
@@ -90,6 +96,26 @@ object SfFrameCatalog {
             }
         }
 
-        return SfFighterData(frames = frames, animations = animations)
+        val projectileEvents = mutableMapOf<SfAttackStrength, SfProjectileEvent>()
+        val projectileRoot = root.getAsJsonObject("events")?.getAsJsonObject("projectile")
+        if (projectileRoot != null) {
+            for (strength in SfAttackStrength.entries) {
+                val key = strength.name.lowercase()
+                val event = projectileRoot.getAsJsonObject(key) ?: continue
+                val offset = event.getAsJsonArray("offset")
+                projectileEvents[strength] = SfProjectileEvent(
+                    animationFrame = event.get("frame")?.asInt ?: 3,
+                    offsetX = if (offset != null && offset.size() > 0) offset[0].asFloat else 76f,
+                    offsetY = if (offset != null && offset.size() > 1) offset[1].asFloat else -57f,
+                    visualScale = event.get("scale")?.asFloat ?: 1f,
+                )
+            }
+        }
+
+        return SfFighterData(
+            frames = frames,
+            animations = animations,
+            projectileEvents = projectileEvents,
+        )
     }
 }

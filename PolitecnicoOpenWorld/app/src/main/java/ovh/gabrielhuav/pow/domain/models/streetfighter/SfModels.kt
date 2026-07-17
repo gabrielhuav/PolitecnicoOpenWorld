@@ -266,10 +266,19 @@ data class SfFrameDef(
 /** Paso de animación: frame + delay en FRAMES (0 = FREEZE, -1 = TRANSITION). */
 data class SfAnimFrame(val frameKey: String, val delay: Int)
 
+/** Evento de salida del efecto especial, definido por personaje y fuerza en su JSON. */
+data class SfProjectileEvent(
+    val animationFrame: Int = 3,
+    val offsetX: Float = 76f,
+    val offsetY: Float = -57f,
+    val visualScale: Float = 1f,
+)
+
 /** Frame data completo de un peleador (cargado del JSON). */
 data class SfFighterData(
     val frames: Map<String, SfFrameDef>,
     val animations: Map<String, List<SfAnimFrame>>,
+    val projectileEvents: Map<SfAttackStrength, SfProjectileEvent> = emptyMap(),
 )
 
 /** Snapshot inmutable de un peleador; se actualiza SIEMPRE con copy(...) en el VM. */

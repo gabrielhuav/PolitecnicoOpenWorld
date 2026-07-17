@@ -77,20 +77,26 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   (fallback al fireball del tema). `winnerRows` por personaje (Prankedy aún sin fila → sin texto).
 - **🆕 PRANKEDY REGENERADO POR CROMA (2026-07-16):** sus 19 hojas originales alimentan un único
   arte para pelea y mundo mediante `tools/slice_sf_chroma_sheets.py` (orden obligatorio 01→19;
-  14/15 refinan y sobrescriben puños/patadas). SF queda en 82 frames/30 animaciones, incluido el
+  14/15 refinan y sobrescriben puños/patadas). SF queda en 123 frames/30 animaciones, incluido el
   proyectil de confeti; el mundo usa Idle relajado 6, Walk 6, Run 8, Special 5 y Talk 4. Fuente e
   intermedios viven fuera del APK en `newSFAssets/`; receta: `GUIA_regeneracion_sprites_croma.md`.
 - **🆕 SEÑOR DE LA TIENDA REGENERADO POR CROMA (2026-07-16):** deja `sharedSet` y usa
-  `IMAGES/SenorTienda.png` + `DATA/senortienda.json` propios (82 frames/30 animaciones/proyectil
+  `IMAGES/SenorTienda.png` + `DATA/senortienda.json` propios (123 frames/30 animaciones/proyectil
   de barrido-polvo); mundo Idle 6, Walk 6, Run 8, Special 5, Talk 4. Prankedy y Tienda ya no son
   ALPHA. Ambos dedicados fuerzan cuerpo 100 px en SF; mundo croma = 512²/cuerpo base 360 px.
   El detector genérico de continuidad KO marca `fall-4/fall-5.flipX` y la UI los espeja al tenderse.
 - **🆕 REY GRUPERO + PAPARAZZI 1 REGENERADOS POR CROMA (2026-07-16):** ambos dejan
-  `sharedSet` y usan hojas/JSON propios de 82 frames y 30 animaciones. Sus sets del mundo quedan
+  `sharedSet` y usan hojas/JSON propios de 123 frames y 30 animaciones. Sus sets del mundo quedan
   uniformes: Idle 6, Walk 6, Run 8, Special 5 y Talk 4, todos en lienzo 512² con cuerpo base
   360 px. En SF, idle/caminatas = 100 px y el agachado usa alturas fijas 90→80→68 px sin
   encoger cabeza/torso. Paparazzi acepta PROJECTILE de 4 efectos y duplica con seguridad el
   cuadro central para completar 2 de vuelo + 3 de impacto. Ambos pierden badge ALPHA.
+- **🆕 COMBATE CROMA COMPLETO (2026-07-16):** los cuatro dedicados aprovechan 123/123 cuadros:
+  puños y patadas conservan preparación/contacto/recuperación completos, salto atrás y aterrizaje
+  usan sus hojas reales, STUN recorre sus tres poses y SPECIAL L/M/H usa cinco cuadros distintos.
+  Cada JSON trae `events.projectile` por fuerza (`frame`, `offset`, `scale`), por lo que el efecto
+  nace del tanque/escoba/megáfono/cámara y ya no de un frame/offset global hardcodeado. La UI muestra
+  permanentemente el comando `↓↘→ + X/Y/B` y la pausa explica las seis fuerzas.
 - **🆕 SELECTOR DE PERSONAJE + 7 JUGABLES (2026-07-10b):** el modo arranca en
   `inCharacterSelect=true` (el reloj de juego NO corre) con un overlay de tarjetas
   (`CharacterSelectOverlay`; preview = recorte `idle-1` vía **BitmapRegionDecoder** + trim de

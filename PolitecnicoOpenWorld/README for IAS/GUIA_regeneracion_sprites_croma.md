@@ -42,9 +42,10 @@
 
 `tools/slice_sf_chroma_sheets.py` (fondo croma → transparente, despill de borde,
 alfa desde la máscara CRUDA — sin verde interior):
-- **SF:** `GEN/<char>/*.png` — los 77 nombres del template + `proj-*` si hay
+- **SF:** `GEN/<char>/*.png` — 118 cuadros dedicados + 5 `proj-*` (123 en total)
   (256², pies en (128,224); cada secuencia erguida calibra su mediana a 100 px y
-  el packer vuelve a imponer el Idle a 100 px como defensa final;
+  el packer impone **100 px por cuadro** en Idle, caminatas, golpes, patadas y reacciones,
+  no solo en la mediana. Especiales, saltos, crouch, victoria y KO conservan su escala física;
   `proj-*` centrados en (128,128)).
   `crouch-1..3` impone alturas de silueta **90→80→68 px** y `crouch-turn-*` mantiene
   68 px: cambia la postura, no la escala anatómica, y evita que cada personaje parezca
@@ -76,19 +77,19 @@ alfa desde la máscara CRUDA — sin verde interior):
 ## 2. Registro Prankedy (2026-07-16, hecho)
 
 - 19/19 hojas OK (GPT dibujó 13/14 en HURT HEAD y 12/13 en HURT BODY — irrelevante,
-  solo se usan 4). Sheet 2560×2304, 82 frames, 30 anims; mismas rutas → sin código SF.
+  solo se usan 4). Sheet 2560×3328, 123 frames, 30 anims; mismas rutas → sin código SF.
 - Mundo: `PrankedyPlayable` reemplazado (Idle 3→6 relajado, Walk 9→6, Run 8, Special 5
   + carpeta `Talk/` NUEVA aún sin cablear). Idle/Walk/Run/Talk median 360 px;
   `PlayerSkin.PRANKEDY` usa caja UI fija 512² y fracción común `0.703125`.
 - KO: detector marcó `fall-4/fall-5` con `flipX`; ya no cambia de lado al quedar tendido.
 - Intermedios y hojas fuente: `newSFAssets/Prankedy/` + `newSFAssets/GEN_prankedy_intermedio/`
-  (incluye `_extra/`: HANDGUN/RIFLE ready-aim-walk, JUMP BACKWARD, JUMP LAND,
-  SPECIAL LIGHT/MEDIUM, IDLE RELAXED, TALK — para futuras features: armas por capas, plática).
+  (incluye `_extra/`: HANDGUN/RIFLE ready-aim-walk, IDLE RELAXED, RUN y TALK; salto atrás,
+  aterrizaje y SPECIAL L/M ya se integran directamente en SF).
 
 ## 2b. Registro Señor de la Tienda (2026-07-16, hecho)
 
 - 19/19 hojas utilizables (CROUCH 8/9, HURT HEAD 15/14, HURT BODY 12/13; sobran los slots
-  necesarios). Sheet dedicado `SenorTienda.png` 2560×2304 + `senortienda.json`: 82 frames,
+  necesarios). Sheet dedicado `SenorTienda.png` 2560×3328 + `senortienda.json`: 123 frames,
   30 animaciones, proyectil propio de barrido/polvo; deja de usar `sharedSet` y pierde badge ALPHA.
 - Mundo `SenorTienda`: Idle 3→6, Walk 4→6, Run 8, Special 6→5, Talk NUEVO; lienzos 512²,
   secuencias median 360 px; caja UI fija y fracción común `0.703125`.
@@ -101,7 +102,7 @@ alfa desde la máscara CRUDA — sin verde interior):
 - Las 19 hojas de `newSFAssets/ReyGrupero/` se identificaron por título y renombraron
   `ReyGrupero_01..19`; 19/19 son utilizables (HURT HEAD/BODY pueden traer menos cuadros que
   el rótulo, pero superan los slots consumidos).
-- Sheet dedicado `ReyGrupero.png` 2560×2304 + `reygrupero.json`: 82 frames, 30 animaciones;
+- Sheet dedicado `ReyGrupero.png` 2560×3328 + `reygrupero.json`: 123 frames, 30 animaciones;
   deja `sharedSet`, pierde ALPHA y usa escala SF fija (idle/caminatas ≈100 px; crouch 90→80→68).
 - Mundo `ReyGrupero`: Idle 6, Walk 6, Run 8, Special 5, Talk 4; lienzos 512², cuerpo mediano
   360 px, `uniform512Canvas=true` y fracción común `0.703125`. Se eliminaron los antiguos
@@ -113,7 +114,7 @@ alfa desde la máscara CRUDA — sin verde interior):
 
 - Las 19 hojas de `newSFAssets/Paparazzi1/` se renombraron **por el título dibujado, no por fecha
   de descarga** (la primera tanda llegó Crouch, Idle, Jump Up, Jump Start, Walk). 19/19 utilizables.
-- Sheet dedicado `Paparazzi1.png` 2560×2304 + `paparazzi1.json`: 82 frames, 30 animaciones;
+- Sheet dedicado `Paparazzi1.png` 2560×3328 + `paparazzi1.json`: 123 frames, 30 animaciones;
   deja `sharedSet`, pierde ALPHA y comparte las mismas alturas fijas. Su PROJECTILE llegó con
   4 efectos y se normalizó a 5 mediante el mapeo seguro descrito arriba.
 - Mundo `PaparazziN1`: Idle 6, Walk 6, Run 8, Special 5, Talk 4; lienzos 512², cuerpo mediano
@@ -121,6 +122,26 @@ alfa desde la máscara CRUDA — sin verde interior):
   `Walk 7/8` y `Run 9/10`.
 - KO: el detector no pidió `flipX`; no se fuerza orientación cuando la continuidad ya es correcta.
 - Intermedios de los cuatro personajes: `newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/`.
+
+## 2e. Pase de combate completo (2026-07-16, hecho)
+
+- El recortador ya no comprime los golpes al mínimo del template: LIGHT PUNCH 4, MEDIUM/HEAVY
+  PUNCH 6, LIGHT/HEAVY KICK 6 y MEDIUM KICK 5. Las hitboxes solo existen en los cuadros de
+  contacto; preparación y recuperación no producen golpes fantasma.
+- JUMP START usa 2 cuadros, JUMP LAND 3 y JUMP BACKWARD sus 7 cuadros propios. STUN usa 1→2→3.
+- SPECIAL LIGHT/MEDIUM/HEAVY usa 5 cuadros distintos por fuerza. `pack_sf_character.py` agrega
+  `events.projectile.<strength>` con cuadro de salida, offset y escala; Kotlin lo carga de forma
+  genérica. Las cuatro identidades quedan visibles: confeti, polvo de escoba, onda de megáfono y flash.
+- El sheet dedicado pasa a 123 cuadros en rejilla 10×13 (`2560×3328`); los 123 quedan referenciados.
+  `pack_sf_character.py --gen <ruta>` permite empaquetar desde intermedios externos sin devolver
+  `STREETFIGHTER/GEN/` al APK.
+- Intermedios vigentes: `newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/`.
+  HANDGUN/RIFLE siguen reservados: las hojas contienen pose corporal sin arma y requieren una capa
+  de arma antes de poder mostrarse correctamente.
+- Corrección de tamaño final: HURT ahora calcula la escala usando solo los cuatro cuadros elegidos
+  (no también los descartados) y el packer valida un rango exacto de 100–100 px en todas las poses
+  erguidas. Si una futura hoja vuelve a introducir zoom variable, el empaquetado falla en vez de
+  permitir que llegue al modo SF.
 
 ## 3. Pendientes que NO cubre esta guía
 
