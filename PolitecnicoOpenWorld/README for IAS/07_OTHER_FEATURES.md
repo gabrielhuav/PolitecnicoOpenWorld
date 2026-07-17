@@ -75,12 +75,23 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   la CPU sigue siendo Ken. VM y View cargan frame data/sheets **por identidad** (cache perezoso).
   Su especial lanza la **broma del tanque** con confeti: frames `proj-*` del JSON del dueño
   (fallback al fireball del tema). `winnerRows` por personaje (Prankedy aún sin fila → sin texto).
+- **🆕 PRANKEDY REGENERADO POR CROMA (2026-07-16):** sus 19 hojas originales alimentan un único
+  arte para pelea y mundo mediante `tools/slice_sf_chroma_sheets.py` (orden obligatorio 01→19;
+  14/15 refinan y sobrescriben puños/patadas). SF queda en 82 frames/30 animaciones, incluido el
+  proyectil de confeti; el mundo usa Idle relajado 6, Walk 6, Run 8, Special 5 y Talk 4. Fuente e
+  intermedios viven fuera del APK en `newSFAssets/`; receta: `GUIA_regeneracion_sprites_croma.md`.
+- **🆕 SEÑOR DE LA TIENDA REGENERADO POR CROMA (2026-07-16):** deja `sharedSet` y usa
+  `IMAGES/SenorTienda.png` + `DATA/senortienda.json` propios (82 frames/30 animaciones/proyectil
+  de barrido-polvo); mundo Idle 6, Walk 6, Run 8, Special 5, Talk 4. Prankedy y Tienda ya no son
+  ALPHA. Ambos dedicados fuerzan cuerpo 100 px en SF; mundo croma = 512²/cuerpo base 360 px.
+  El detector genérico de continuidad KO marca `fall-4/fall-5.flipX` y la UI los espeja al tenderse.
 - **🆕 SELECTOR DE PERSONAJE + 7 JUGABLES (2026-07-10b):** el modo arranca en
   `inCharacterSelect=true` (el reloj de juego NO corre) con un overlay de tarjetas
   (`CharacterSelectOverlay`; preview = recorte `idle-1` vía **BitmapRegionDecoder** + trim de
   transparencia — NO se decodifican los 7 sheets completos). Roster: Ryu, Ken, **Prankedy, El
-  Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero** (los 5 POW con **badge ALPHA**,
-  `SfFighterId.isAlpha`: poses aproximadas). `selectCharacter(id)` arranca la pelea (CPU = Ken,
+  Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero** (hoy solo Paparazzi 1/5 y
+  Rey Grupero conservan **badge ALPHA**, `SfFighterId.isAlpha`; Prankedy/Tienda ya tienen poses
+  completas). `selectCharacter(id)` arranca la pelea (CPU = Ken,
   o Ryu si eliges a Ken); el menú de fin ganó **"Cambiar personaje"** (`backToCharacterSelect`).
   Los 4 nuevos se generaron con **`tools/gen_sf_frames_from_npc.py`** (NUEVO: 77 poses desde el
   set NPC estándar Idle/Walk/Run/Special, con rotaciones/aplastados para golpes/reacciones/caídas
@@ -147,12 +158,12 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
 - **Quirks del JS portados a propósito:** el chequeo de hitbox SALE al primer hurtbox que no traslapa;
   los ataques ligeros se re-disparan desde el frame 2; LEGS cae a estados de cabeza; empate del timer lo
   gana el jugador (>=).
-- **🆕 ASSETS COMPARTIDOS CON EL MUNDO — hojas armadas EN RUNTIME (2026-07-15d):** el roster
-  subió a **14** (12 sin Modo Dev) y **11 peleadores ya NO tienen sprite sheet propio en el
+- **🆕 ASSETS COMPARTIDOS CON EL MUNDO — hojas armadas EN RUNTIME (2026-07-15d/16):** el roster
+  subió a **14** (12 sin Modo Dev) y **10 peleadores ya NO tienen sprite sheet propio en el
   APK**: su hoja se ARMA EN RUNTIME desde los MISMOS assets que usa el mundo abierto
   (`SPRITES/PLAYER/` y `SPRITES/NPC/`) — un solo juego de sprites alimenta AMBAS modalidades.
-  Compartidos: **Señor de la Tienda, Paparazzi 1/5, Rey Grupero** (antes empaquetados; sus
-  PNG/JSON se BORRARON) + **Lázaro, Estudiante (escomboy), Estudianta (escomgirl), Robot,
+  Compartidos: **Paparazzi 1/5 y Rey Grupero** (antes empaquetados; sus PNG/JSON se BORRARON) +
+  **Lázaro, Estudiante (escomboy), Estudianta (escomgirl), Robot,
   Policía CDMX, Granadero y Paramédico** (nuevos). Piezas:
   - `SfFighterId.sharedSet: SfSharedSet(basePath, folder, prefix, flip)` — misma convención
     que `PlayerSkin`; `flip=true` en lázaro/escomboy (dibujados a la IZQUIERDA; SF exige DERECHA).
@@ -170,11 +181,11 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     Cache LRU 3. Preview del selector = 1er cuadro del Idle del set del mundo (barato).
   - `SfFrameCatalog`: para compartidos parsea `ryu.json` y REMAPEA `src` a la rejilla runtime
     (`templateFrameOrder` fija el layout; cajas/timings de Ryu se conservan, igual que el packer).
-  - **Quedan EMPAQUETADOS solo Ryu, Ken** (clon original, sin set en el mundo) **y Prankedy**
-    (poses regeneradas a mano + frames `proj-*` de la broma del tanque que el set del mundo no tiene).
+  - **Quedan EMPAQUETADOS Ryu, Ken** (clon original/debug), **Prankedy y Señor de la Tienda**
+    (19 hojas croma cada uno + `proj-*`; escala común 100 px y KO con `flipX` automático).
   - **Rey de las Bromas y Pepe NO entran** (no jugables por diseño; comentados en `PlayerSkin`).
-  - **Se BORRARON** los 11 sheets+JSON duplicados y TODO el intermedio `STREETFIGHTER/GEN/`
-    (~12 MB menos en assets). Los tools de generación offline SIGUEN sirviendo para personajes
+  - **Se BORRARON** los 11 sheets+JSON duplicados originales; Señor de la Tienda volvió después
+    con arte dedicado completo. `STREETFIGHTER/GEN/` siempre sale del APK. Los tools offline siguen sirviendo para personajes
     con ARTE PROPIO (hoja de referencia → `pack_sf_character.py`, como Prankedy);
     `gen_sf_frames_from_npc.py` ganó `PLAYER:<skin>` y flag `flip` por si se quiere volver a
     empaquetar offline.

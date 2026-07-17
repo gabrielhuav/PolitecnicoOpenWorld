@@ -1486,7 +1486,10 @@ private fun DrawScope.drawFighter(ctx: SceneCtx, images: Map<String, ImageBitmap
     // PARCHE ALPHA: los peleadores cuyas poses de golpe se generaron más chicas se reescalan SOLO
     // en HURT (hurtScale != 1f) para que no "encojan" al recibir daño.
     val spriteScale = if (hurtState) f.id.hurtScale else 1f
-    drawSpriteAnchored(ctx, sheet, frame.src, frame.origin, f.x, f.y, f.direction, shakeX = shake, spriteScale = spriteScale)
+    // Algunas hojas cambian el eje corporal al tocar el piso en KO. El pipeline lo detecta
+    // por continuidad visual y marca solo esos cuadros; la corrección sirve para todo peleador futuro.
+    val drawDirection = if (frame.flipX) f.direction.opposite() else f.direction
+    drawSpriteAnchored(ctx, sheet, frame.src, frame.origin, f.x, f.y, drawDirection, shakeX = shake, spriteScale = spriteScale)
 }
 
 private fun DrawScope.drawShadow(ctx: SceneCtx, theme: SfTheme, shadowImg: ImageBitmap, f: SfFighter) {

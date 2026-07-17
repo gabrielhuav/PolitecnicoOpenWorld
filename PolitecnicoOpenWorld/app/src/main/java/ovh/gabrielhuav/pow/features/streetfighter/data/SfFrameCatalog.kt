@@ -60,6 +60,7 @@ object SfFrameCatalog {
                 push = def.push,
                 hurt = def.hurt,
                 hit = def.hit,
+                flipX = def.flipX,
             )
         }
         return SfFighterData(frames = frames, animations = template.animations)
@@ -77,6 +78,7 @@ object SfFrameCatalog {
                 push = o.getAsJsonArray("push")?.map { it.asInt },
                 hurt = o.getAsJsonArray("hurt")?.map { row -> row.asJsonArray.map { it.asInt } },
                 hit = o.getAsJsonArray("hit")?.map { it.asInt },
+                flipX = o.get("flipX")?.asBoolean ?: false,
             )
         }
 

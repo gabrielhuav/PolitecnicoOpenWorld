@@ -109,7 +109,11 @@ enum class SfFighterId(
     RYU("Ryu", "RYU", "STREETFIGHTER/DATA/ryu.json", "STREETFIGHTER/IMAGES/Ryu.png"),
     KEN("Ken", "KEN", "STREETFIGHTER/DATA/ken.json", "STREETFIGHTER/IMAGES/Ken.png"),
     // 🆕 Peleadores PROPIOS de POW. Prankedy trae frames proj-* propios (broma del tanque).
-    PRANKEDY("Prankedy", "PRANKEDY", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png", isAlpha = true),
+    PRANKEDY("Prankedy", "PRANKEDY", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png"),
+    SENOR_TIENDA(
+        "El Señor de la Tienda", "TIENDA",
+        "STREETFIGHTER/DATA/senortienda.json", "STREETFIGHTER/IMAGES/SenorTienda.png",
+    ),
     // ── 🆕 (2026-07-15) PELEADORES COMPARTIDOS: usan los MISMOS assets del mundo abierto
     //    (SPRITES/PLAYER/ y SPRITES/NPC/) — NO tienen sheet/JSON propio en el APK. La hoja se
     //    ARMA EN RUNTIME (SfSharedSheets, cache LRU) con cajas/timings de sf_template.json.
@@ -117,10 +121,6 @@ enum class SfFighterId(
     //    Pepe NO entran (no jugables por diseño; comentados también en PlayerSkin).
     //    PRANKEDY conserva sheet PROPIO: sus poses se regeneraron a mano (hoja de referencia)
     //    y trae frames proj-* (broma del tanque) que el set del mundo no tiene. ─────────────
-    SENOR_TIENDA(
-        "El Señor de la Tienda", "TIENDA", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/SenorTienda.png",
-        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "SenorTienda/", "st_"),
-    ),
     PAPARAZZI_1(
         "Paparazzi 1", "PAPZ 1", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paparazzi1.png",
         isAlpha = true, hurtScale = 1.43f, sharedSet = SfSharedSet("SPRITES/NPC/", "PaparazziN1/", "pn1_"),
@@ -261,6 +261,7 @@ data class SfFrameDef(
     val push: List<Int>? = null,        // pushbox [x, y, w, h]
     val hurt: List<List<Int>>? = null,  // [head, body, legs]
     val hit: List<Int>? = null,         // hitbox del ataque (solo frames activos)
+    val flipX: Boolean = false,          // corrige orientación interna (p. ej. giro al quedar tendido en KO)
 )
 
 /** Paso de animación: frame + delay en FRAMES (0 = FREEZE, -1 = TRANSITION). */

@@ -12,6 +12,8 @@ import json
 import sys
 from PIL import Image
 
+TARGET_BODY_H = 100.0
+
 # Directories
 HERE = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.normpath(os.path.join(HERE, ".."))
@@ -56,6 +58,29 @@ def pack_character(char_name, char_title):
     existing_proj = [k for k in proj_keys if os.path.exists(os.path.join(char_gen_dir, f"{k}.png"))]
     all_keys = frame_keys + existing_proj
     num_frames = len(all_keys)
+
+    # Invariante de tamano para TODOS los personajes dedicados: el recortador ya deja
+    # el idle a 100 px, y el packer lo vuelve a imponer como ultima defensa antes del APK.
+    idle_heights = []
+    for key in ("idle-1", "idle-2", "idle-3", "idle-4"):
+        path = os.path.join(char_gen_dir, f"{key}.png")
+        if os.path.exists(path):
+            bbox = Image.open(path).convert("RGBA").getbbox()
+            if bbox:
+                idle_heights.append(bbox[3] - bbox[1])
+    if not idle_heights:
+        print("Error: no hay cuadros idle opacos para normalizar el tamano.")
+        sys.exit(1)
+    idle_heights.sort()
+    idle_median = float(idle_heights[len(idle_heights) // 2])
+    pack_scale = TARGET_BODY_H / idle_median
+    print(f"Escala visual comun: idle mediano {idle_median:.1f}px -> {TARGET_BODY_H:.1f}px (x{pack_scale:.4f})")
+
+    meta_path = os.path.join(char_gen_dir, "_frame_meta.json")
+    frame_meta = {}
+    if os.path.exists(meta_path):
+        with open(meta_path, "r", encoding="utf-8") as f:
+            frame_meta = json.load(f)
     
     # 10 columns grid layout
     cols = 10
@@ -90,6 +115,18 @@ def pack_character(char_name, char_title):
             if img.size != (256, 256):
                 print(f"Warning: {filename} size is {img.size}, expected (256, 256). Resizing.")
                 img = img.resize((256, 256), Image.Resampling.LANCZOS)
+            if not key.startswith("proj-") and abs(pack_scale - 1.0) > 0.0001:
+                bbox = img.getbbox()
+                if bbox:
+                    crop = img.crop(bbox)
+                    w = max(1, int(round(crop.width * pack_scale)))
+                    h = max(1, int(round(crop.height * pack_scale)))
+                    crop = crop.resize((w, h), Image.Resampling.LANCZOS)
+                    center_x = 128 + (((bbox[0] + bbox[2]) / 2.0) - 128) * pack_scale
+                    bottom_y = 224 + (bbox[3] - 224) * pack_scale
+                    normalized = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+                    normalized.paste(crop, (int(round(center_x - w / 2.0)), int(round(bottom_y - h))), crop)
+                    img = normalized
                 
         sheet_img.paste(img, (src_x, src_y), img)
         
@@ -111,6 +148,8 @@ def pack_character(char_name, char_title):
         else:
             # Projectiles are centered
             entry["origin"] = [128, 128]
+        if frame_meta.get(key, {}).get("flipX"):
+            entry["flipX"] = True
             
         packed_frames[key] = entry
         

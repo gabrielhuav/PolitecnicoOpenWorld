@@ -121,8 +121,11 @@ enum class PlayerSkin(
         skinFolder  = "SenorTienda/",
         skinPrefix  = "st_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 4, runFrames = 8, specialFrames = 3,  // special = ESCOBAZO (golpe)
-        walkBodyFraction = 0.865f
+        // 🆕 (2026-07-16) Set croma unificado: lienzos 512² y una sola escala fuente.
+        // Las fracciones por acción fuerzan el mismo tamaño corporal percibido en la UI.
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.583f,
+        idleBodyFraction = 0.683f, runBodyFraction = 0.534f, specialBodyFraction = 0.627f
     ),
     REY_GRUPERO(
         displayName = "REY Grupero",
@@ -161,9 +164,11 @@ enum class PlayerSkin(
         skinFolder  = "PrankedyPlayable/",
         skinPrefix  = "pk_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 9, runFrames = 8, specialFrames = 5,
-        walkBodyFraction = 0.740f,
-        idleBodyFraction = 0.717f, runBodyFraction = 0.736f, specialBodyFraction = 0.711f
+        // 🆕 (2026-07-16) Set REGENERADO desde las hojas croma (newSFAssets/Prankedy +
+        // tools/slice_sf_chroma_sheets.py): Idle=IDLE RELAXED (sin guardia). Fracciones re-medidas.
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.603f,
+        idleBodyFraction = 0.695f, runBodyFraction = 0.494f, specialBodyFraction = 0.475f
     ),
 
     // ── 🆕 5 PERSONAJES (paparazzis, policías, paramédico) — recortados con tools/_slice5.py.

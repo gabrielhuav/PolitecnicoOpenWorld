@@ -21,9 +21,9 @@ import kotlin.math.roundToInt
 //
 // TAMAÑOS HETEROGÉNEOS — la normalización vive en el CÓDIGO: los sets fuente tienen lienzos
 // distintos (robot 256², lázaro 338×422, escomgirl hasta 542×681…). Aquí NO importa: cada
-// cuadro se recorta a su bbox opaco y el personaje se escala con una ESCALA ÚNICA por peleador
-// (TARGET_H / alto de su idle-1) para medir ~100 px con los pies en (128, 224) del lienzo 256².
-// Si mañana un set cambia de resolución, esto lo absorbe sin tocar nada.
+// cuadro se recorta a su bbox opaco y CADA ANIMACIÓN se normaliza por su altura mediana a
+// TARGET_H=100 px, con pies en (128,224) del lienzo 256². Es el mismo estándar que el packer
+// fuerza para sheets dedicados: compartidos y dedicados miden igual en la UI de pelea.
 //
 // Memoria (09 §6): la hoja armada mide 2560×2048 (≈20 MB ARGB) — IGUAL que decodificar los
 // PNG empaquetados que había antes; cache LRU de 3 (los 2 peleadores en pantalla + 1).

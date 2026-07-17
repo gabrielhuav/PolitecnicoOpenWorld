@@ -59,6 +59,10 @@ secrets.properties
 .gradle/
 gradle/wrapper/gradle-wrapper.jar
 
+# Cachés de las herramientas Python de recorte/generación
+__pycache__/
+*.py[cod]
+
 # MacOS adicional
 ._*
 .Spotlight-V100

@@ -35,7 +35,7 @@ de `tools/` ya existen). Estado por archivo, en ORDEN DE PRIORIDAD:
 | — | `winnerText.png` | Letrero viejo de ganador | — | ✅ BORRADO (2026-07-16) |
 | — | Música, 6 fondos, 12 peleadores POW | — | — | ✅ YA PROPIOS |
 
-**Fase 2 (calidad, no copyright):** regenerar con ChatGPT las poses reales de los 11 peleadores
+**Fase 2 (calidad, no copyright):** regenerar con ChatGPT las poses reales de los 10 peleadores
 ALPHA (hoja de referencia por personaje → `slice_sf_reference_sheet.py` → empaquetar como
 Prankedy) — sustituye las poses aproximadas y permite quitar `hurtScale`.
 

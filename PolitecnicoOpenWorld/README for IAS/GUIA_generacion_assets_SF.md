@@ -5,7 +5,7 @@
 > **Al terminar cada bloque me pasas los PNG y yo empaqueto/cableo** (packer + temas).
 
 > **🆕 (2026-07-15) YA NO HACE FALTA generar/empaquetar para personajes con set en el mundo:**
-> los 11 peleadores compartidos se arman **EN RUNTIME** (`SfSharedSheets.kt`, port Kotlin de
+> los 10 peleadores compartidos se arman **EN RUNTIME** (`SfSharedSheets.kt`, port Kotlin de
 > estos tools) desde `SPRITES/PLAYER|NPC/` — sus sheets/JSON empaquetados y `GEN/` se
 > BORRARON del APK. Esta guía sigue vigente SOLO para personajes con **ARTE PROPIO de pelea**
 > (hoja de referencia → `slice_sf_reference_sheet.py` → `pack_sf_character.py`, como
