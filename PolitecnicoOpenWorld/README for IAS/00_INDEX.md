@@ -80,9 +80,10 @@
   `StreetFighterViewModel`(2001, creció con multijugador BT/LAN+rondas+opcionales de red SESIÓN 4),
   `ZombieGameScreen`(1591), `WorldMapViewModel`(1583), `WorldMapScreen`(1460), `NativeOsmMap`(1458),
   `StreetFighterScreen`(~1630 con rondas/LAN), `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093)
-- **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/16):** 10 de los 14 peleadores de "HUELUM VS. GOYA"
+- **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/16):** 8 de los 14 peleadores de "HUELUM VS. GOYA"
   se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
-  en el APK (solo Ryu/Ken/Prankedy conservan hoja propia). Ver 07 y 09 §12.
+  en el APK. Prankedy, Señor de la Tienda, Paparazzi 1 y Rey Grupero ya tienen hojas croma
+  dedicadas; Ryu/Ken solo existen en debug. Ver 07 y 09 §12.
 - **Default map provider:** `CARTO_VOYAGER` (web, tiles reales hasta z20 / real tiles up to z20; no persistido / not persisted)
 - **Auth / Autenticación:** Firebase Auth (Google Sign-In) en `data/auth/` (`AuthManager`, `AuthSession`).
   Obligatoria para multijugador; local/Modo Historia sin login. Ambos servidores verifican el ID token

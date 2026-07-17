@@ -76,6 +76,8 @@ internal fun PlayerHealthBarFixed(health: Float) {
 // (REF / skin.walkBodyFraction) para que el cuerpo mida lo mismo: antes el interior dibujaba con
 // fillMaxSize y la chica (0.94) salía mucho más grande que hombre/robot. Ver PlayerSkin.walkBodyFraction.
 private const val INTERIOR_PLAYER_BODY_REF_FRACTION = 0.62f
+private const val UNIFORM_512_INTERIOR_SCALE =
+    INTERIOR_PLAYER_BODY_REF_FRACTION / PlayerSkin.WORLD_BODY_CANVAS_FRACTION
 
 // PlayerView — recibe skin: PlayerSkin y usa sus paths y frame counts.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -147,8 +149,13 @@ fun PlayerView(
             // Antes se usaba fillMaxSize; como cada skin llena distinta fracción del lienzo
             // (escomgirl 0.94 vs lázaro/robot ~0.61), la chica se veía MUCHO más grande. Reescalamos
             // por la fracción opaca estática walkBodyFraction respecto a la de referencia (hombre/robot).
-            val ref = skin.walkBodyFraction.coerceIn(0.05f, 1f)
-            val hDp = sizeDp * (INTERIOR_PLAYER_BODY_REF_FRACTION / ref).coerceIn(0.5f, 3f)
+            val canvasScale = if (skin.uniform512Canvas) {
+                UNIFORM_512_INTERIOR_SCALE
+            } else {
+                val ref = skin.walkBodyFraction.coerceIn(0.05f, 1f)
+                (INTERIOR_PLAYER_BODY_REF_FRACTION / ref).coerceIn(0.5f, 3f)
+            }
+            val hDp = sizeDp * canvasScale
             val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
             val wDp = hDp * aspect
             Image(
@@ -269,8 +276,13 @@ fun InteriorNpcView(
     Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.Center) {
         val img = image
         if (img != null) {
-            val ref = skin.walkBodyFraction.coerceIn(0.05f, 1f)
-            val hDp = sizeDp * (INTERIOR_PLAYER_BODY_REF_FRACTION / ref).coerceIn(0.5f, 3f)
+            val canvasScale = if (skin.uniform512Canvas) {
+                UNIFORM_512_INTERIOR_SCALE
+            } else {
+                val ref = skin.walkBodyFraction.coerceIn(0.05f, 1f)
+                (INTERIOR_PLAYER_BODY_REF_FRACTION / ref).coerceIn(0.5f, 3f)
+            }
+            val hDp = sizeDp * canvasScale
             val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
             val wDp = hDp * aspect
             Image(

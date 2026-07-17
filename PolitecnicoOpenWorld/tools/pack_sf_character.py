@@ -10,7 +10,8 @@ ryu.json timings and boxes).
 import os
 import json
 import sys
-from PIL import Image
+import statistics
+from PIL import Image, ImageChops, ImageStat
 
 TARGET_BODY_H = 100.0
 
@@ -59,6 +60,21 @@ def pack_character(char_name, char_title):
     all_keys = frame_keys + existing_proj
     num_frames = len(all_keys)
 
+    # Algunas hojas de LIGHT PUNCH traen dos cuadros casi identicos a la guardia: el
+    # boton X funciona, pero visualmente parece no hacer nada. Si la diferencia media es
+    # minima, reutilizamos los dos primeros cuadros del MEDIUM PUNCH REFINED como jab
+    # corto. Es preferible a una pose HANDGUN porque no introduce un arma en un golpe.
+    light_paths = [os.path.join(char_gen_dir, f"light-punch-{i}.png") for i in (1, 2)]
+    medium_paths = [os.path.join(char_gen_dir, f"med-punch-{i}.png") for i in (1, 2)]
+    light_punch_fallback = False
+    if all(os.path.exists(p) for p in light_paths + medium_paths):
+        a = Image.open(light_paths[0]).convert("RGBA")
+        b = Image.open(light_paths[1]).convert("RGBA")
+        diff_mean = sum(ImageStat.Stat(ImageChops.difference(a, b)).mean) / 4.0
+        light_punch_fallback = diff_mean < 1.5
+        if light_punch_fallback:
+            print(f"Puño X: LIGHT casi inmovil (dif. {diff_mean:.2f}); uso MEDIUM 1/2 como jab corto.")
+
     # Invariante de tamano para TODOS los personajes dedicados: el recortador ya deja
     # el idle a 100 px, y el packer lo vuelve a imponer como ultima defensa antes del APK.
     idle_heights = []
@@ -91,6 +107,7 @@ def pack_character(char_name, char_title):
     
     sheet_img = Image.new("RGBA", (sheet_w, sheet_h), (0, 0, 0, 0))
     packed_frames = {}
+    packed_heights = {}
     
     for idx, key in enumerate(all_keys):
         col = idx % cols
@@ -103,6 +120,8 @@ def pack_character(char_name, char_title):
             filename = "jump-start-land-1.png"
         elif key in ("stun-1", "stun-2"):
             filename = "stun-3.png"
+        elif light_punch_fallback and key in ("light-punch-1", "light-punch-2"):
+            filename = key.replace("light-punch", "med-punch") + ".png"
         else:
             filename = f"{key}.png"
             
@@ -129,6 +148,8 @@ def pack_character(char_name, char_title):
                     img = normalized
                 
         sheet_img.paste(img, (src_x, src_y), img)
+        bbox = img.getbbox()
+        packed_heights[key] = (bbox[3] - bbox[1]) if bbox else 0
         
         # Build frame data JSON entry
         entry = {
@@ -152,6 +173,20 @@ def pack_character(char_name, char_title):
             entry["flipX"] = True
             
         packed_frames[key] = entry
+
+    # Guardia contra la regresion que motivo la normalizacion: en una pelea, pasar de
+    # Idle a caminar adelante/atras no puede cambiar el zoom del personaje. El lienzo
+    # siempre es 256², pero tambien comprobamos la altura VISIBLE de esas secuencias.
+    for prefix in ("idle", "forwards", "backwards"):
+        heights = [h for key, h in packed_heights.items()
+                   if key.startswith(prefix + "-") and "turn" not in key and h > 0]
+        if not heights:
+            continue
+        median_h = float(statistics.median(heights))
+        if abs(median_h - TARGET_BODY_H) > 2.0:
+            print(f"Error: {prefix} mediano={median_h:.1f}px; debe quedar en {TARGET_BODY_H:.1f}px.")
+            sys.exit(1)
+        print(f"Tamano SF {prefix:9s}: mediana {median_h:.1f}px OK")
         
     # Save the packed sprite sheet
     os.makedirs(IMAGES_DIR, exist_ok=True)

@@ -413,11 +413,12 @@ matrices por defecto son **border-only** hasta reemplazarse.
   SIEMPRE un peleador POW. (c) Al probar: **Rebuild en debug prueba Ryu/Ken; probar TAMBIÉN un
   build release** (o bundle) para verificar que el modo abre sin ellos. (d) Si se añade otro
   asset con riesgo de copyright, va al source set debug con el mismo patrón.
-- **🆕 ASSETS COMPARTIDOS SF⇄MUNDO (2026-07-15/16) — reglas:** 10 de los 14 peleadores de
+- **🆕 ASSETS COMPARTIDOS SF⇄MUNDO (2026-07-15/16) — reglas:** 8 de los 14 peleadores de
   "HUELUM VS. GOYA" se arman EN RUNTIME (`SfSharedSheets`) desde los sets del mundo
   (`SPRITES/PLAYER|NPC/`, convención de `PlayerSkin`). (a) **NO regenerar/committear sheets
-  empaquetados** para personajes que tengan set en el mundo (volverían a duplicar ~12 MB que
-  se borraron); empaquetado solo para arte PROPIO de pelea (Ryu/Ken/Prankedy/SeñorTienda). (b) El
+  empaquetados** para personajes que tengan set en el mundo, salvo cuando ya exista un set croma
+  completo con poses reales; empaquetado propio actual: Ryu/Ken (debug), Prankedy, Señor de la
+  Tienda, Paparazzi 1 y Rey Grupero. (b) El
   `spriteAsset` de un compartido es VIRTUAL (`RUNTIME/<X>.png`): es solo la KEY del mapa de
   imágenes de la Screen — **abrirlo con `assets.open()` CRASHEA**; toda hoja pasa por
   `SfSharedSheets.sheetFor()`. (c) Su `jsonAsset` es el TEMPLATE `sf_template.json` (desde el
@@ -431,11 +432,14 @@ matrices por defecto son **border-only** hasta reemplazarse.
   IZQUIERDA en su set, márcalo con `SfSharedSet(flip = true)` (lázaro, escomboy). (e) Memoria:
   la hoja runtime pesa lo mismo que decodificar el PNG que había (2560×2048); cache LRU 3 —
   no subir el cap sin medir en gama baja (09 §6). (f) El arte DEDICADO de Prankedy se regenera
-  con `slice_sf_chroma_sheets.py` en orden estricto **01→19**: 01 fija escala y 14/15 deben correr
+  con `slice_sf_chroma_sheets.py` en orden estricto **01→19**: 01 fija la referencia y cada
+  secuencia corrige el zoom desigual de su hoja; 14/15 deben correr
   después de 07–09 porque sus poses `REFINED` sobrescriben esos nombres. Al terminar,
   `STREETFIGHTER/GEN/` sale de assets hacia `newSFAssets/`; nunca debe viajar en el APK.
-  Todos los dedicados se fuerzan a cuerpo de **100 px** en celda 256²; mundo = lienzo 512²,
-  cuerpo base **360 px**, pies Y=456. El slicer detecta inversión brusca en KO y guarda `flipX`
+  Todos los dedicados calibran cada secuencia erguida a **100 px** en celda 256²; mundo =
+  lienzo 512² con cada secuencia a mediana **360 px**, pies Y=456. Para los sets croma,
+  `PlayerSkin.uniform512Canvas` fuerza la misma caja en exterior e interiores: no usar una caja
+  distinta por `bodyFraction` para Idle/Walk/Run/Special. El slicer detecta inversión brusca en KO y guarda `flipX`
   por frame; `StreetFighterScreen` lo aplica sin excepciones por personaje.
 
 - **GOTCHA DEL SANDBOX (2) - bash sirve copias TRUNCADAS de archivos EXISTENTES editados con las

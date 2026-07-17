@@ -63,7 +63,13 @@ enum class PlayerSkin(
      */
     val idleBodyFraction: Float = -1f,
     val runBodyFraction: Float = -1f,
-    val specialBodyFraction: Float = -1f
+    val specialBodyFraction: Float = -1f,
+    /**
+     * El set completo usa lienzos cuadrados 512x512 y una densidad comun de 360 px de
+     * personaje. En estas skins la UI debe dibujar SIEMPRE el mismo lienzo, sin volver a
+     * ampliar Walk/Run/Special a partir de su bbox opaco.
+     */
+    val uniform512Canvas: Boolean = false
 ) {
     LAZARO(
         displayName = "Lázaro",
@@ -121,20 +127,25 @@ enum class PlayerSkin(
         skinFolder  = "SenorTienda/",
         skinPrefix  = "st_",
         basePath    = "SPRITES/NPC/",
-        // 🆕 (2026-07-16) Set croma unificado: lienzos 512² y una sola escala fuente.
-        // Las fracciones por acción fuerzan el mismo tamaño corporal percibido en la UI.
+        // Set croma unificado: lienzos 512², secuencias calibradas a 360 px y caja UI fija.
         idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
-        walkBodyFraction = 0.583f,
-        idleBodyFraction = 0.683f, runBodyFraction = 0.534f, specialBodyFraction = 0.627f
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     REY_GRUPERO(
         displayName = "REY Grupero",
         skinFolder  = "ReyGrupero/",
         skinPrefix  = "rg_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 8, runFrames = 8, specialFrames = 6,  // special = bromas/acciones
-        walkBodyFraction = 0.873f,
-        idleBodyFraction = 0.866f, runBodyFraction = 0.868f, specialBodyFraction = 0.865f
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     // 🚫 DESACTIVADOS del selector y de la historia (decisión de diseño). Assets CONSERVADOS en
     //    SPRITES/NPC/ReyBromas|PepeRey por si se reusan. Para reactivar: descomenta este bloque
@@ -164,11 +175,13 @@ enum class PlayerSkin(
         skinFolder  = "PrankedyPlayable/",
         skinPrefix  = "pk_",
         basePath    = "SPRITES/NPC/",
-        // 🆕 (2026-07-16) Set REGENERADO desde las hojas croma (newSFAssets/Prankedy +
-        // tools/slice_sf_chroma_sheets.py): Idle=IDLE RELAXED (sin guardia). Fracciones re-medidas.
+        // Set regenerado desde croma: Idle relajado, secuencias a 360 px y caja UI fija.
         idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
-        walkBodyFraction = 0.603f,
-        idleBodyFraction = 0.695f, runBodyFraction = 0.494f, specialBodyFraction = 0.475f
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
 
     // ── 🆕 5 PERSONAJES (paparazzis, policías, paramédico) — recortados con tools/_slice5.py.
@@ -179,8 +192,12 @@ enum class PlayerSkin(
         skinFolder  = "PaparazziN1/",
         skinPrefix  = "pn1_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 6, runFrames = 10, specialFrames = 4,  // special = TOMAR FOTO
-        walkBodyFraction = 0.865f
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     PAPARAZZI_N5(
         displayName = "Paparazzi #5",
@@ -323,6 +340,9 @@ enum class PlayerSkin(
     }.let { if (it > 0f) it else walkBodyFraction }
 
     companion object {
+        /** Altura opaca objetivo (360) respecto al lienzo uniforme (512). */
+        const val WORLD_BODY_CANVAS_FRACTION = 360f / 512f
+
         /**
          * Estándar ÚNICO de tamaño del jugador a pie (mapa exterior): alto en pantalla, en dp, que
          * debe ocupar el CUERPO (parte opaca) del personaje, IGUAL para TODAS las skins y TODAS las
@@ -330,5 +350,8 @@ enum class PlayerSkin(
          * Sube/baja este único valor para agrandar/encoger a TODOS por igual.
          */
         const val PLAYER_BODY_STANDARD_DP = 23.5f
+
+        /** Caja fija para un lienzo 512² normalizado; 360 px opacos equivalen a 23.5 dp. */
+        const val UNIFORM_512_CANVAS_DP = PLAYER_BODY_STANDARD_DP / WORLD_BODY_CANVAS_FRACTION
     }
 }

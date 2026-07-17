@@ -114,24 +114,23 @@ enum class SfFighterId(
         "El Señor de la Tienda", "TIENDA",
         "STREETFIGHTER/DATA/senortienda.json", "STREETFIGHTER/IMAGES/SenorTienda.png",
     ),
+    PAPARAZZI_1(
+        "Paparazzi 1", "PAPZ 1",
+        "STREETFIGHTER/DATA/paparazzi1.json", "STREETFIGHTER/IMAGES/Paparazzi1.png",
+    ),
+    REY_GRUPERO(
+        "Rey Grupero", "GRUPERO",
+        "STREETFIGHTER/DATA/reygrupero.json", "STREETFIGHTER/IMAGES/ReyGrupero.png",
+    ),
     // ── 🆕 (2026-07-15) PELEADORES COMPARTIDOS: usan los MISMOS assets del mundo abierto
     //    (SPRITES/PLAYER/ y SPRITES/NPC/) — NO tienen sheet/JSON propio en el APK. La hoja se
     //    ARMA EN RUNTIME (SfSharedSheets, cache LRU) con cajas/timings de sf_template.json.
     //    Lázaro y escomboy están dibujados a la IZQUIERDA → flip=true. Rey de las Bromas y
     //    Pepe NO entran (no jugables por diseño; comentados también en PlayerSkin).
-    //    PRANKEDY conserva sheet PROPIO: sus poses se regeneraron a mano (hoja de referencia)
-    //    y trae frames proj-* (broma del tanque) que el set del mundo no tiene. ─────────────
-    PAPARAZZI_1(
-        "Paparazzi 1", "PAPZ 1", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paparazzi1.png",
-        isAlpha = true, hurtScale = 1.43f, sharedSet = SfSharedSet("SPRITES/NPC/", "PaparazziN1/", "pn1_"),
-    ),
+    //    Prankedy, Señor Tienda, Paparazzi 1 y Rey Grupero ya tienen arte dedicado. ─────────
     PAPARAZZI_5(
         "Paparazzi 5", "PAPZ 5", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paparazzi5.png",
         isAlpha = true, hurtScale = 1.37f, sharedSet = SfSharedSet("SPRITES/NPC/", "PaparazziN5/", "pn5_"),
-    ),
-    REY_GRUPERO(
-        "Rey Grupero", "GRUPERO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/ReyGrupero.png",
-        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "ReyGrupero/", "rg_"),
     ),
     LAZARO(
         "Lázaro", "LAZARO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Lazaro.png",

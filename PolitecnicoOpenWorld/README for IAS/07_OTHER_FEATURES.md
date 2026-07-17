@@ -85,18 +85,25 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   de barrido-polvo); mundo Idle 6, Walk 6, Run 8, Special 5, Talk 4. Prankedy y Tienda ya no son
   ALPHA. Ambos dedicados fuerzan cuerpo 100 px en SF; mundo croma = 512²/cuerpo base 360 px.
   El detector genérico de continuidad KO marca `fall-4/fall-5.flipX` y la UI los espeja al tenderse.
+- **🆕 REY GRUPERO + PAPARAZZI 1 REGENERADOS POR CROMA (2026-07-16):** ambos dejan
+  `sharedSet` y usan hojas/JSON propios de 82 frames y 30 animaciones. Sus sets del mundo quedan
+  uniformes: Idle 6, Walk 6, Run 8, Special 5 y Talk 4, todos en lienzo 512² con cuerpo base
+  360 px. En SF, idle/caminatas = 100 px y el agachado usa alturas fijas 90→80→68 px sin
+  encoger cabeza/torso. Paparazzi acepta PROJECTILE de 4 efectos y duplica con seguridad el
+  cuadro central para completar 2 de vuelo + 3 de impacto. Ambos pierden badge ALPHA.
 - **🆕 SELECTOR DE PERSONAJE + 7 JUGABLES (2026-07-10b):** el modo arranca en
   `inCharacterSelect=true` (el reloj de juego NO corre) con un overlay de tarjetas
   (`CharacterSelectOverlay`; preview = recorte `idle-1` vía **BitmapRegionDecoder** + trim de
   transparencia — NO se decodifican los 7 sheets completos). Roster: Ryu, Ken, **Prankedy, El
-  Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero** (hoy solo Paparazzi 1/5 y
-  Rey Grupero conservan **badge ALPHA**, `SfFighterId.isAlpha`; Prankedy/Tienda ya tienen poses
-  completas). `selectCharacter(id)` arranca la pelea (CPU = Ken,
+  Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero** (hoy solo Paparazzi 5 conserva
+  **badge ALPHA** dentro de ese bloque, `SfFighterId.isAlpha`; Prankedy/Tienda/Paparazzi 1/Rey
+  ya tienen poses completas). `selectCharacter(id)` arranca la pelea (CPU = Ken,
   o Ryu si eliges a Ken); el menú de fin ganó **"Cambiar personaje"** (`backToCharacterSelect`).
-  Los 4 nuevos se generaron con **`tools/gen_sf_frames_from_npc.py`** (NUEVO: 77 poses desde el
+  Los 4 nuevos se generaron originalmente con **`tools/gen_sf_frames_from_npc.py`** (77 poses desde el
   set NPC estándar Idle/Walk/Run/Special, con rotaciones/aplastados para golpes/reacciones/caídas
   y filtro de cuadros corruptos — `rg_w_4.webp` era 4×13 px) + `pack_sf_character.py` (parcheado:
-  ya NO empaqueta `proj-*` inexistentes → esos personajes usan el fireball del tema).
+  ya NO empaqueta `proj-*` inexistentes → esos personajes usan el fireball del tema). Prankedy,
+  Tienda, Paparazzi 1 y Rey ya sustituyeron esas aproximaciones por sus hojas croma dedicadas.
 - **🆕 RENOMBRE + MEJORAS ONLINE (2026-07-11b):** el modo se llama **"HUELUM VS. GOYA"**
   (solo strings user-facing; los ids internos siguen siendo street_fighter/Sf*). Online ganó
   **SALA PÚBLICA** (lista de espera; el server empareja con `QUICK_MATCH`) y **resumen de
@@ -159,15 +166,14 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   los ataques ligeros se re-disparan desde el frame 2; LEGS cae a estados de cabeza; empate del timer lo
   gana el jugador (>=).
 - **🆕 ASSETS COMPARTIDOS CON EL MUNDO — hojas armadas EN RUNTIME (2026-07-15d/16):** el roster
-  subió a **14** (12 sin Modo Dev) y **10 peleadores ya NO tienen sprite sheet propio en el
+  subió a **14** (12 sin Modo Dev) y **8 peleadores ya NO tienen sprite sheet propio en el
   APK**: su hoja se ARMA EN RUNTIME desde los MISMOS assets que usa el mundo abierto
   (`SPRITES/PLAYER/` y `SPRITES/NPC/`) — un solo juego de sprites alimenta AMBAS modalidades.
-  Compartidos: **Paparazzi 1/5 y Rey Grupero** (antes empaquetados; sus PNG/JSON se BORRARON) +
-  **Lázaro, Estudiante (escomboy), Estudianta (escomgirl), Robot,
+  Compartidos: **Paparazzi 5**, **Lázaro, Estudiante (escomboy), Estudianta (escomgirl), Robot,
   Policía CDMX, Granadero y Paramédico** (nuevos). Piezas:
   - `SfFighterId.sharedSet: SfSharedSet(basePath, folder, prefix, flip)` — misma convención
     que `PlayerSkin`; `flip=true` en lázaro/escomboy (dibujados a la IZQUIERDA; SF exige DERECHA).
-    Su `jsonAsset` apunta al TEMPLATE `ryu.json` y su `spriteAsset` es VIRTUAL `RUNTIME/<X>.png`
+    Su `jsonAsset` apunta al TEMPLATE `sf_template.json` y su `spriteAsset` es VIRTUAL `RUNTIME/<X>.png`
     (solo key del mapa de imágenes — NUNCA abrirlo como asset).
   - **`data/SfSharedSheets.kt` (NUEVO):** port Kotlin de `gen_sf_frames_from_npc.py` +
     `pack_sf_character.py` — recorta cada cuadro a su bbox, **normaliza los LIENZOS

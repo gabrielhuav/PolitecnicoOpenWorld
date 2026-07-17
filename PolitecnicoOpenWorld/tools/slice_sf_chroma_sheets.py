@@ -31,6 +31,19 @@ WORLD_FEET_Y = 456
 ORIENTATION_SWITCH_RATIO = 0.82
 ORIENTATION_MIN_GAIN = 0.004
 
+# Altura visible objetivo por TIPO DE POSE. Las hojas generadas no conservan siempre
+# el mismo zoom entre acciones (un Walk puede venir 15-25 % mas pequeno que el Idle).
+# Calibrar cada secuencia evita que el personaje cambie de escala al empezar a moverse,
+# sin inflar las poses que intencionalmente son bajas o giran hasta quedar horizontales.
+SF_POSE_TARGET_H = {
+    "CROUCH": 70.0,
+    "CROUCH TURN": 65.0,
+    "JUMP START": 85.0,
+    "JUMP LAND": 85.0,
+    "KO": None,
+    "PROJECTILE": None,
+}
+
 def nums(p, n): return ["%s-%d" % (p, i) for i in range(1, n + 1)]
 
 # Por hoja: (label, cuadros esperados, (targets SF, modo pick), destino mundo)
@@ -46,10 +59,10 @@ SHEETS = {
     5:  [("JUMP UP",        6, (nums("jump-up", 6), "even"),     None),
          ("JUMP FORWARD",   7, (nums("jump-roll", 7), "even"),   None)],
     6:  [("JUMP BACKWARD",  7, (None, None),                     None),
-         ("LIGHT PUNCH",    4, (nums("light-punch", 2), "even"), None)],
+         ("LIGHT PUNCH",    4, (nums("light-punch", 2), "attack2"), None)],
     7:  [("MEDIUM PUNCH",   6, (nums("med-punch", 3), "even"),   None),
          ("HEAVY PUNCH",    6, (["heavy-punch-1"], "mid"),       None)],
-    8:  [("LIGHT KICK",     6, (nums("light-kick", 2), "even"),  None),
+    8:  [("LIGHT KICK",     6, (nums("light-kick", 2), "attack2"), None),
          ("MEDIUM KICK",    5, (["med-kick-1"], "mid"),          None)],
     9:  [("HEAVY KICK",     6, (nums("heavy-kick", 5), "even"),  None),
          ("HURT HEAD",     14, (nums("hit-face", 4), "first_half"),    None)],
@@ -158,6 +171,10 @@ def pick(frames, k, mode):
     n = len(frames)
     if mode == "first": return frames[:k]
     if mode == "mid":   return [frames[n // 2]] if k == 1 else pick(frames, k, "even")
+    # Ataque de dos cuadros = preparacion + CONTACTO. "even" elegia primero y
+    # ultimo, que suelen ser dos guardias iguales; por eso X parecia no golpear.
+    if mode == "attack2" and k == 2 and n >= 3:
+        return [frames[0], frames[n // 2]]
     if mode == "first_half":
         return pick(frames[:max(k, (n + 1) // 2)], k, "even")
     if n <= k: return list(frames)
@@ -234,6 +251,18 @@ def place_world(img, scale, feet_y):
     cv.paste(img, (W_CANVAS // 2 - w // 2, feet_y - h), img)
     return cv
 
+def sequence_scale(frames, target_h, fallback):
+    """Una escala fija por secuencia, nunca una escala distinta por cuadro.
+
+    Asi se corrige el zoom inconsistente entre hojas y se conserva el rebote natural
+    dentro de Walk/Run/Idle. ``target_h=None`` mantiene la escala fisica del Idle para
+    proyectiles y KO, cuyas siluetas no deben forzarse a una altura vertical.
+    """
+    if target_h is None or not frames:
+        return fallback
+    med = float(np.median([f.height for f in frames]))
+    return target_h / med if med > 0 else fallback
+
 def ref_world_metrics(ref_dir):
     idle = os.path.join(ref_dir, "Idle")
     f = sorted(os.listdir(idle))[0]
@@ -281,7 +310,8 @@ def main():
         return
     for (label, targets), grp in ((("A", sfA), A), (("B", sfB), B)):
         t = targets[0]
-        if t and len(grp) < len(t):
+        projectile_short_ok = num == 12 and label == "B" and len(grp) == 4 and len(t or []) == 5
+        if t and len(grp) < len(t) and not projectile_short_ok:
             sys.exit("Grupo %s tiene %d cuadros y necesita >= %d (%s). Regenera la hoja." %
                      (label, len(grp), len(t), ", ".join(t)))
 
@@ -297,27 +327,42 @@ def main():
         with open(scale_file, "w", encoding="utf-8") as f:
             json.dump({"scale": scale, "targetHeight": TARGET_H}, f)
 
-        # Una sola escala para TODO el set del mundo: evita que Walk/Run/Special cambien
-        # de tamano por medir cada animacion por separado. La hoja 01 es la referencia comun.
+        # Contrato del mundo. Cada animacion se calibra a la MISMA altura objetivo al
+        # procesarla: las hojas de origen suelen traer distinto zoom aunque el personaje
+        # sea el mismo. La escala queda fija dentro de la secuencia (no por cuadro).
         world_dir = os.path.join(args.gen, "WORLD_" + args.char)
         os.makedirs(world_dir, exist_ok=True)
-        # Estandar absoluto compartido por TODOS los personajes croma. No heredar el
-        # tamano del set viejo: eso hacia que un personaje midiera 200 px y otro 358 px.
-        # --world-ref se conserva por compatibilidad de comandos antiguos, pero ya no manda.
         ref_h, feet = WORLD_TARGET_H, WORLD_FEET_Y
-        world_scale = ref_h / med
         with open(os.path.join(world_dir, "_world_scale.json"), "w", encoding="utf-8") as f:
-            json.dump({"scale": world_scale, "feetY": feet, "targetHeight": ref_h}, f)
+            json.dump({"feetY": feet, "targetHeight": ref_h,
+                       "strategy": "perAnimationMedian"}, f)
     elif os.path.exists(scale_file):
         scale = json.load(open(scale_file))["scale"]
     else:
         sys.exit("Falta %s: procesa primero la hoja 01 (fija la escala)." % scale_file)
 
     for (label, _, (targets, mode), world), group in ((SHEETS[num][0], framesA), (SHEETS[num][1], framesB)):
+        sf_target_h = SF_POSE_TARGET_H.get(label, TARGET_H)
+        sf_scale = sequence_scale(group, sf_target_h, scale)
         if targets:
-            chosen = pick(group, len(targets), mode)
-            for name, fr in zip(targets, chosen):
-                place_sf(fr, scale, center=name.startswith("proj-")).save(
+            if label == "PROJECTILE" and len(group) == 4 and len(targets) == 5:
+                # Dos cuadros de vuelo + tres de impacto. Con cuatro efectos, el segundo
+                # sirve tambien como primer impacto para conservar el fade completo.
+                chosen = [group[0], group[1], group[1], group[2], group[3]]
+            else:
+                chosen = pick(group, len(targets), mode)
+            # Crouch necesita una progresion explicita: algunas hojas dibujan el primer
+            # cuadro mas grande y el ultimo con otro zoom. 90 -> 80 -> 68 evita que el
+            # personaje primero crezca y luego parezca reducirse al flexionar las piernas.
+            frame_scales = [sf_scale] * len(chosen)
+            if label == "CROUCH":
+                crouch_heights = [90.0, 80.0, 68.0]
+                frame_scales = [target / fr.height if fr.height > 0 else sf_scale
+                                for target, fr in zip(crouch_heights, chosen)]
+            elif label == "CROUCH TURN":
+                frame_scales = [68.0 / fr.height if fr.height > 0 else sf_scale for fr in chosen]
+            for name, fr, frame_scale in zip(targets, chosen, frame_scales):
+                place_sf(fr, frame_scale, center=name.startswith("proj-")).save(
                     os.path.join(gen_dir, name + ".png"))
             if label == "KO":
                 flips = detect_orientation_flips(chosen)
@@ -329,7 +374,7 @@ def main():
             ex = os.path.join(gen_dir, "_extra", label.lower().replace(" ", "-"))
             os.makedirs(ex, exist_ok=True)
             for i, fr in enumerate(group, 1):
-                place_sf(fr, scale).save(os.path.join(ex, "%02d.png" % i))
+                place_sf(fr, sf_scale).save(os.path.join(ex, "%02d.png" % i))
             print("SF  %-22s -> _extra/ (%d cuadros)" % (label, len(group)))
         if world:
             folder, letter = world
@@ -339,7 +384,8 @@ def main():
             if not os.path.exists(world_scale_file):
                 sys.exit("Falta %s: procesa primero la hoja 01 (fija la escala mundial)." % world_scale_file)
             world_meta = json.load(open(world_scale_file, encoding="utf-8"))
-            wscale, feet = world_meta["scale"], world_meta["feetY"]
+            feet = world_meta["feetY"]
+            wscale = sequence_scale(group, world_meta["targetHeight"], scale)
             for i, fr in enumerate(group, 1):
                 place_world(fr, wscale, feet).save(
                     os.path.join(wdir, "%s%s_%d.webp" % (args.world_prefix, letter, i)), lossless=True)

@@ -11,7 +11,7 @@
 > de cable (debug) siguen intactos y jugables (BuildConfig.DEBUG + Modo Dev). Los compartidos
 > usan `DATA/sf_template.json` (main) como template de cajas/timings. Ver 07/09 §12.
 > **Ya propio:** música ("Persecución" de Prankedy), 6 fondos IPN/UNAM y los 12 peleadores POW
-> (11 compartidos EN RUNTIME desde los sets del mundo + Prankedy empaquetado).
+> (8 compartidos EN RUNTIME + Prankedy, Señor de la Tienda, Paparazzi 1 y Rey Grupero dedicados).
 > **SIGUE VIAJANDO del clon en release (pendiente de esta guía):** ver el checklist definitivo
 > de abajo. Nota: `sf_template.json` conserva NÚMEROS (timings/cajas) derivados del clon —
 > riesgo bajo (datos, no arte), sustituible cuando exista un template propio.
@@ -35,7 +35,7 @@ de `tools/` ya existen). Estado por archivo, en ORDEN DE PRIORIDAD:
 | — | `winnerText.png` | Letrero viejo de ganador | — | ✅ BORRADO (2026-07-16) |
 | — | Música, 6 fondos, 12 peleadores POW | — | — | ✅ YA PROPIOS |
 
-**Fase 2 (calidad, no copyright):** regenerar con ChatGPT las poses reales de los 10 peleadores
+**Fase 2 (calidad, no copyright):** regenerar con ChatGPT las poses reales de los 8 peleadores
 ALPHA (hoja de referencia por personaje → `slice_sf_reference_sheet.py` → empaquetar como
 Prankedy) — sustituye las poses aproximadas y permite quitar `hurtScale`.
 
