@@ -88,6 +88,11 @@ PROJECTILE_PROFILES = {
         "medium": {"frame": 2, "offset": [58, -56], "scale": 1.00},
         "heavy":  {"frame": 2, "offset": [76, -58], "scale": 1.30},
     },
+    "paramedicocruzroja": {
+        "light":  {"frame": 2, "offset": [46, -52], "scale": 0.70},
+        "medium": {"frame": 2, "offset": [60, -54], "scale": 1.00},
+        "heavy":  {"frame": 2, "offset": [76, -56], "scale": 1.30},
+    },
 }
 
 # Correcciones anatomicas detectadas por QA. No se mide la caja alfa completa porque

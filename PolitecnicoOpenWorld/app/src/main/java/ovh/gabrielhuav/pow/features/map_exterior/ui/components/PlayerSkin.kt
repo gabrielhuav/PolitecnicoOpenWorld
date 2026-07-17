@@ -235,6 +235,18 @@ enum class PlayerSkin(
         specialBodyFraction = 0.703125f,
         uniform512Canvas = true
     ),
+    PARAMEDICO_CRUZ_ROJA(
+        displayName = "Paramédico Cruz Roja",
+        skinFolder  = "ParamedicoCruzRoja/",
+        skinPrefix  = "pcr_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
     GRANADERO(
         displayName = "Granadero",
         skinFolder  = "Granaderos/",

@@ -156,6 +156,10 @@ enum class SfFighterId(
         "Policía CDMX (Hombre)", "POLICIA H",
         "STREETFIGHTER/DATA/policiacdmxhombre.json", "STREETFIGHTER/IMAGES/PoliciaCDMXHombre.png",
     ),
+    PARAMEDICO_CRUZ_ROJA(
+        "Paramédico Cruz Roja", "PARAMED CR",
+        "STREETFIGHTER/DATA/paramedicocruzroja.json", "STREETFIGHTER/IMAGES/ParamedicoCruzRoja.png",
+    ),
     GRANADERO(
         "Granadero", "GRANADERO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Granadero.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "Granaderos/", "gra_"),

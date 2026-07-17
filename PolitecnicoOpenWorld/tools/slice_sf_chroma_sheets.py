@@ -474,9 +474,13 @@ def main():
                 sys.exit("Falta %s: procesa primero la hoja 01 (fija la escala mundial)." % world_scale_file)
             world_meta = json.load(open(world_scale_file, encoding="utf-8"))
             feet = world_meta["feetY"]
-            # Mantiene tambien el contrato del mundo cuando el grupo trae exactamente
-            # un cuadro menos: la misma repeticion central segura usada en SF.
-            world_frames = pick(group, expected_count, "even") if len(group) + 1 == expected_count else group
+            # Mantiene el contrato exacto del mundo: si sobra arte, muestrea uniformemente;
+            # si falta un solo cuadro, repite el vecino central como en SF. Faltantes mayores
+            # se rechazan para no fabricar una animacion casi entera a base de duplicados.
+            if len(group) + 1 < expected_count:
+                sys.exit("Grupo de mundo %s tiene %d cuadros y necesita >= %d." %
+                         (label, len(group), expected_count - 1))
+            world_frames = pick(group, expected_count, "even")
             wscale = sequence_scale(world_frames, world_meta["targetHeight"], scale)
             for i, fr in enumerate(world_frames, 1):
                 place_world(fr, wscale, feet, anchor_body=label.startswith("SPECIAL")).save(

@@ -4,7 +4,8 @@
 > "HUELUM VS. GOYA" **y** su set del mundo abierto desde CERO con ChatGPT Images,
 > usando hojas con **fondo croma verde #00FF00** y 2 grupos de animación por hoja.
 > Sustituye al "modo simple" de `GUIA_generacion_assets_SF.md` (fondo negro) para
-> personajes nuevos. **Prankedy, Señor de la Tienda, Rey Grupero, ambos Paparazzi y las policías CDMX ya se
+> personajes nuevos. **Prankedy, Señor de la Tienda, Rey Grupero, ambos Paparazzi, las policías CDMX y
+> Paramédico Cruz Roja ya se
 > regeneraron así (2026-07-16)**.
 > Canon Prankedy: cabello RIZADO (no rastas), idle del mundo SIN guardia.
 > Esta guía es AUTOSUFICIENTE: contiene el prompt maestro completo.
@@ -167,7 +168,22 @@ alfa desde la máscara CRUDA — sin verde interior):
 - KO no necesitó `flipX`. Intermedios dentro del directorio histórico
   `GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/`.
 
-## 2h. Pase de combate completo (2026-07-16, hecho)
+## 2h. Registro Paramédico Cruz Roja (2026-07-16, hecho)
+
+- Las 19 hojas de `newSFAssets/ParamedicoCruzRoja/` se identificaron por título y renombraron
+  `ParamedicoCruzRoja_01..19`. RUN llegó 9/8 y se muestreó uniformemente a ocho cuadros para el
+  mundo; LIGHT/HEAVY KICK llegaron 5/6 y usan la repetición central segura. HURT BODY 12/13
+  conserva de sobra los cuatro cuadros consumidos.
+- Sheet dedicado `ParamedicoCruzRoja.png` 2560×3328 + `paramedicocruzroja.json`: 123 cuadros,
+  30 animaciones y descarga/desfibrilador con cinco efectos eléctricos reales. Es una identidad
+  separada del `PARAMEDICO` genérico compartido.
+- Mundo `ParamedicoCruzRoja`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4; lienzos 512²,
+  cuerpo mediano ≈360 px, pies Y=456, `uniform512Canvas=true` y fracción común `0.703125`.
+- El detector de orientación marcó únicamente `fall-5.flipX`, corrigiendo el lado del cuerpo al
+  quedar tendido. Intermedios dentro del directorio histórico
+  `GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/`.
+
+## 2i. Pase de combate completo (2026-07-16, hecho)
 
 - El recortador ya no comprime los golpes al mínimo del template: LIGHT PUNCH 4, MEDIUM/HEAVY
   PUNCH 6, LIGHT/HEAVY KICK 6 y MEDIUM KICK 5. Las hitboxes solo existen en los cuadros de
@@ -175,8 +191,8 @@ alfa desde la máscara CRUDA — sin verde interior):
 - JUMP START usa 2 cuadros, JUMP LAND 3 y JUMP BACKWARD sus 7 cuadros propios. STUN usa 1→2→3.
 - SPECIAL LIGHT/MEDIUM/HEAVY usa 5 cuadros distintos por fuerza. `pack_sf_character.py` agrega
   `events.projectile.<strength>` con cuadro de salida, offset y escala; Kotlin lo carga de forma
-  genérica. Las siete identidades quedan visibles: confeti, polvo de escoba, onda de megáfono,
-  destellos fotográficos y los haces luminosos propios de ambas policías CDMX.
+  genérica. Las ocho identidades quedan visibles: confeti, polvo de escoba, onda de megáfono,
+  destellos fotográficos, los haces luminosos de ambas policías y la descarga del paramédico.
 - El sheet dedicado pasa a 123 cuadros en rejilla 10×13 (`2560×3328`); los 123 quedan referenciados.
   `pack_sf_character.py --gen <ruta>` permite empaquetar desde intermedios externos sin devolver
   `STREETFIGHTER/GEN/` al APK.
