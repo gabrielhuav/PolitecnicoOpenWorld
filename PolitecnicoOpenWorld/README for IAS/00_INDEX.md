@@ -82,9 +82,9 @@
   `StreetFighterViewModel`(~2145, creció con multijugador BT/LAN+rondas+red SESIÓN 4+IA con 3 dificultades),
   `ZombieGameScreen`(1591), `WorldMapViewModel`(1583), `WorldMapScreen`(1460), `NativeOsmMap`(1458),
   `StreetFighterScreen`(~1767 con rondas/LAN/selector de dificultad), `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093)
-- **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/16):** 8 de los 14 peleadores de "HUELUM VS. GOYA"
+- **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/17):** 4 de los 18 peleadores de "HUELUM VS. GOYA"
   se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
-  en el APK. Prankedy, Señor de la Tienda, Paparazzi 1 y Rey Grupero ya tienen hojas croma
+  en el APK: Lázaro, Robot, Granadero y Paramédico. Los otros 12 POW tienen hojas croma
   dedicadas; Ryu/Ken solo existen en debug. Ver 07 y 09 §12.
 - **Default map provider:** `CARTO_VOYAGER` (web, tiles reales hasta z20 / real tiles up to z20; no persistido / not persisted)
 - **Auth / Autenticación:** Firebase Auth (Google Sign-In) en `data/auth/` (`AuthManager`, `AuthSession`).

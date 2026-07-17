@@ -121,9 +121,9 @@ enum class SfFighterId(
     // ── 🆕 (2026-07-15) PELEADORES COMPARTIDOS: usan los MISMOS assets del mundo abierto
     //    (SPRITES/PLAYER/ y SPRITES/NPC/) — NO tienen sheet/JSON propio en el APK. La hoja se
     //    ARMA EN RUNTIME (SfSharedSheets, cache LRU) con cajas/timings de sf_template.json.
-    //    Lázaro y escomboy están dibujados a la IZQUIERDA → flip=true. (Rey de las Bromas y
+    //    Lázaro está dibujado a la IZQUIERDA → flip=true. (Rey de las Bromas y
     //    Pepe se ELIMINARON del juego en 2026-07-16; ya no existen como personajes.)
-    //    Prankedy, Señor Tienda, ambos Paparazzi, Rey Grupero y Policía ya tienen arte dedicado.
+    //    Prankedy, Señor Tienda, ambos Paparazzi, Rey Grupero, policías y estudiantes ESCOM ya tienen arte dedicado.
     PAPARAZZI_5(
         "Paparazzi 5", "PAPZ 5",
         "STREETFIGHTER/DATA/paparazzi5.json", "STREETFIGHTER/IMAGES/Paparazzi5.png",
@@ -133,12 +133,12 @@ enum class SfFighterId(
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "lazaro", "lazaro_", flip = true),
     ),
     ESCOMBOY(
-        "Estudiante", "ESCOMBOY", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/EscomBoy.png",
-        isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "escomboy", "escomboy_", flip = true),
+        "Estudiante", "ESCOMBOY",
+        "STREETFIGHTER/DATA/escomboy.json", "STREETFIGHTER/IMAGES/EscomBoy.png",
     ),
     ESCOMGIRL(
-        "Estudianta", "ESCOMGIRL", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/EscomGirl.png",
-        isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "escomgirl", "escomgirl_"),
+        "Estudianta", "ESCOMGIRL",
+        "STREETFIGHTER/DATA/escomgirl.json", "STREETFIGHTER/IMAGES/EscomGirl.png",
     ),
     ROBOT(
         "Robot Estudiantx", "ROBOT", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Robot.png",
@@ -155,6 +155,14 @@ enum class SfFighterId(
     PARAMEDICO_CRUZ_ROJA(
         "Paramédico Cruz Roja", "PARAMED CR",
         "STREETFIGHTER/DATA/paramedicocruzroja.json", "STREETFIGHTER/IMAGES/ParamedicoCruzRoja.png",
+    ),
+    POLICIA_GRANADERO_HOMBRE(
+        "Policía Granadero CDMX (Hombre)", "GRANADERO H",
+        "STREETFIGHTER/DATA/policiagranaderohombre.json", "STREETFIGHTER/IMAGES/PoliciaGranaderoHombre.png",
+    ),
+    POLICIA_GRANADERO_MUJER(
+        "Policía Granadero CDMX (Mujer)", "GRANADERA",
+        "STREETFIGHTER/DATA/policiagranaderomujer.json", "STREETFIGHTER/IMAGES/PoliciaGranaderoMujer.png",
     ),
     GRANADERO(
         "Granadero", "GRANADERO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Granadero.png",

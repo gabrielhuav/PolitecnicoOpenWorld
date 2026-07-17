@@ -87,13 +87,13 @@ enum class PlayerSkin(
         displayName = "Estudianta",
         skinFolder  = "escomgirl",
         skinPrefix  = "escomgirl_",
-        idleFrames   = 6,   // tienes 6
-        walkFrames   = 5,   // tienes 5
-        runFrames    = 4,   // tienes 4
-        specialFrames = 6,  // tienes 6
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
         comicSuffix = "Girl",
-        walkBodyFraction = 0.94f,
-        idleBodyFraction = 0.953f, runBodyFraction = 0.932f, specialBodyFraction = 0.909f
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     robot(
         displayName = "Robot Estudiantx",
@@ -107,14 +107,13 @@ enum class PlayerSkin(
         displayName = "Estudiante",
         skinFolder  = "escomboy",
         skinPrefix  = "escomboy_",
-        idleFrames   = 16,  // tienes 16
-        walkFrames   = 25,  // tienes 25
-        runFrames    = 16,  // tienes 16
-        specialFrames = 16, // tienes 16
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
         comicSuffix = "Boy", // sin assets IntroPOW*Boy → cae al panel por defecto (hombre)
-        renderScale = 1.8f,  // (legado) ya NO se usa para el cuerpo en exterior; ahora normaliza el estándar
-        walkBodyFraction = 0.41f,
-        idleBodyFraction = 0.406f, runBodyFraction = 0.407f, specialBodyFraction = 0.412f
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
 
     // ── 🆕 PERSONAJES NUEVOS (sprites bajo SPRITES/NPC/<Char>/, recortados con
@@ -221,6 +220,30 @@ enum class PlayerSkin(
         displayName = "Paramédico Cruz Roja",
         skinFolder  = "ParamedicoCruzRoja/",
         skinPrefix  = "pcr_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    POLICIA_GRANADERO_HOMBRE(
+        displayName = "Policía Granadero CDMX (Hombre)",
+        skinFolder  = "PoliciaGranaderoMasculinoCDMX/",
+        skinPrefix  = "pgm_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    POLICIA_GRANADERO_MUJER(
+        displayName = "Policía Granadero CDMX (Mujer)",
+        skinFolder  = "PoliciaGranaderoFemeninoCDMX/",
+        skinPrefix  = "pgf_",
         basePath    = "SPRITES/NPC/",
         idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
         walkBodyFraction = 0.703125f,

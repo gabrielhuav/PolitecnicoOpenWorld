@@ -91,7 +91,7 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   360 px. En SF, idle/caminatas = 100 px y el agachado usa alturas fijas 90→80→68 px sin
   encoger cabeza/torso. Paparazzi acepta PROJECTILE de 4 efectos y duplica con seguridad el
   cuadro central para completar 2 de vuelo + 3 de impacto. Ambos pierden badge ALPHA.
-- **🆕 COMBATE CROMA COMPLETO (2026-07-16):** los ocho dedicados aprovechan 123/123 cuadros:
+- **🆕 COMBATE CROMA COMPLETO (2026-07-16/17):** los doce dedicados aprovechan 123/123 cuadros:
   puños y patadas conservan preparación/contacto/recuperación completos, salto atrás y aterrizaje
   usan sus hojas reales, STUN recorre sus tres poses y SPECIAL L/M/H usa cinco cuadros distintos.
   Cada JSON trae `events.projectile` por fuerza (`frame`, `offset`, `scale`), por lo que el efecto
@@ -179,13 +179,33 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   `PARAMEDICO` genérico compartido. Usa `ParamedicoCruzRoja.png`/`paramedicocruzroja.json`
   (123 cuadros, 30 animaciones, descarga eléctrica con cinco efectos) y un set mundial 512²
   de Idle 6, Walk 6, Run 8, Special 5 y Talk 4. El KO corrige `fall-5` con `flipX` automático.
+- **🆕 POLICÍA GRANADERO HOMBRE CROMA (2026-07-17):** identidad dedicada independiente del
+  `GRANADERO` genérico compartido. Usa `PoliciaGranaderoHombre.png`/
+  `policiagranaderohombre.json` (123 cuadros, 30 animaciones y pulso sónico de megáfono) y el
+  set mundial `PoliciaGranaderoMasculinoCDMX` 512²: Idle 6, Walk 6, Run 8, Special 5, Talk 4.
+  El KO no necesitó `flipX`. El pipeline ganó partición A→B para hojas con ambos grupos en una
+  sola fila y `tools/validate_sf_chroma_character.py` para validar futuras entregas.
+- **🆕 ESCOMBOY CROMA CON 18 HOJAS (2026-07-17):** deja de ser ALPHA/compartido y usa
+  `EscomBoy.png`/`escomboy.json` propios (123 cuadros, 30 animaciones y portal tecnológico con
+  proyectil USB). Falta solo la hoja opcional 15 de patadas refinadas; conserva las patadas base
+  completas de 08/09 y mantiene el hueco numérico. Su mundo reemplaza ciclos antiguos
+  16/25/16/16 por Idle 6, Walk 6, Run 8, Special 5 y Talk 4, todos 512²/360 px.
+- **🆕 ESCOMGIRL CROMA (2026-07-17):** deja de ser ALPHA/compartida y conserva el mismo enum
+  y progreso arcade, ahora con `EscomGirl.png`/`escomgirl.json` propios (123 cuadros,
+  30 animaciones y portal tecnológico con cinco efectos). Sus 19 hojas incluyen ambos refuerzos
+  14/15. Mundo reemplaza 6/5/4/6 por Idle 6, Walk 6, Run 8, Special 5 y Talk 4, 512²/360 px.
+- **🆕 POLICÍA GRANADERO MUJER CROMA (2026-07-17):** identidad independiente con
+  `PoliciaGranaderoMujer.png`/`policiagranaderomujer.json` (123 cuadros, 30 animaciones y
+  cápsula de humo rosa con cinco efectos). Mundo `PoliciaGranaderoFemeninoCDMX` usa Idle 6,
+  Walk 6, Run 8, Special 5 y Talk 4 en 512²/360 px. KO no necesitó `flipX`.
 - **🆕 ASSETS COMPARTIDOS CON EL MUNDO — hojas armadas EN RUNTIME (2026-07-15d/16):** el roster
-  subió a **16** (14 sin Modo Dev) y **6 peleadores ya NO tienen sprite sheet propio en el
+  sube a **18** (16 sin Modo Dev) y **4 peleadores ya NO tienen sprite sheet propio en el
   APK**: su hoja se ARMA EN RUNTIME desde los MISMOS assets que usa el mundo abierto
   (`SPRITES/PLAYER/` y `SPRITES/NPC/`) — un solo juego de sprites alimenta AMBAS modalidades.
-  Compartidos: **Lázaro, Estudiante (escomboy), Estudianta (escomgirl), Robot,
-  Granadero y Paramédico**. Paparazzi 5 y Policía CDMX dejaron este grupo al recibir hojas croma;
-  Policía CDMX (Hombre) nació directamente como dedicado. Piezas:
+  Compartidos: **Lázaro, Robot, Granadero y Paramédico**.
+  Paparazzi 5, Policía CDMX, ESCOMBOY y ESCOMGIRL dejaron este grupo al recibir hojas croma;
+  Policía CDMX (Hombre), Paramédico Cruz Roja y Policía Granadero Hombre nacieron directamente
+  como dedicados. Piezas:
   - `SfFighterId.sharedSet: SfSharedSet(basePath, folder, prefix, flip)` — misma convención
     que `PlayerSkin`; `flip=true` en lázaro/escomboy (dibujados a la IZQUIERDA; SF exige DERECHA).
     Su `jsonAsset` apunta al TEMPLATE `sf_template.json` y su `spriteAsset` es VIRTUAL `RUNTIME/<X>.png`
@@ -202,9 +222,9 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     Cache LRU 3. Preview del selector = 1er cuadro del Idle del set del mundo (barato).
   - `SfFrameCatalog`: para compartidos parsea `ryu.json` y REMAPEA `src` a la rejilla runtime
     (`templateFrameOrder` fija el layout; cajas/timings de Ryu se conservan, igual que el packer).
-  - **Quedan EMPAQUETADOS Ryu, Ken** (clon original/debug) y los ocho croma dedicados:
-    **Prankedy, Señor de la Tienda, Rey Grupero, Paparazzi 1, Paparazzi 5, ambas policías CDMX
-    y Paramédico Cruz Roja**
+  - **Quedan EMPAQUETADOS Ryu, Ken** (clon original/debug) y los doce croma dedicados:
+    **Prankedy, Señor de la Tienda, Rey Grupero, Paparazzi 1, Paparazzi 5, ambas policías CDMX,
+    Paramédico Cruz Roja, ambos Policías Granadero, ESCOMBOY y ESCOMGIRL**
     (19 hojas por identidad + `proj-*`; escala común 100 px y KO con `flipX` automático).
   - **Rey de las Bromas y Pepe NO entran** (no jugables por diseño; comentados en `PlayerSkin`).
   - **Se BORRARON** los 11 sheets+JSON duplicados originales; Señor de la Tienda volvió después

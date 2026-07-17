@@ -4,8 +4,8 @@
 > "HUELUM VS. GOYA" **y** su set del mundo abierto desde CERO con ChatGPT Images,
 > usando hojas con **fondo croma verde #00FF00** y 2 grupos de animación por hoja.
 > Sustituye al "modo simple" de `GUIA_generacion_assets_SF.md` (fondo negro) para
-> personajes nuevos. **Prankedy, Señor de la Tienda, Rey Grupero, ambos Paparazzi, las policías CDMX y
-> Paramédico Cruz Roja ya se
+> personajes nuevos. **Prankedy, Señor de la Tienda, Rey Grupero, ambos Paparazzi, las policías CDMX,
+> Paramédico Cruz Roja, ambos Policías Granadero y estudiantes ESCOM ya se
 > regeneraron así (2026-07-16)**.
 > Canon Prankedy: cabello RIZADO (no rastas), idle del mundo SIN guardia.
 > Esta guía es AUTOSUFICIENTE: contiene el prompt maestro completo.
@@ -13,7 +13,9 @@
 ## 0. Resumen del flujo (por personaje)
 
 1. Nueva conversación en ChatGPT: subir las 9 referencias + PROMPT MAESTRO (§4).
-2. GPT genera 19 hojas en tandas (5 → 10 → 4); revisar cada tanda y corregir puntuales.
+2. GPT genera normalmente 19 hojas en tandas (5 → 10 → 4); revisar cada tanda y corregir puntuales.
+   Solo las hojas 14/15 `REFINED` son reemplazos opcionales: puede haber 18 si se omitió una de
+   ellas, siempre que las versiones base 07–09 existan. Cualquier otra ausencia es bloqueante.
 3. Descargar TODO a `newSFAssets/<Personaje>/` (raíz del REPO, fuera del proyecto Android).
 4. Identificar/renombrar las hojas (los nombres de descarga de GPT no sirven): por los
    títulos amarillos — a mano o con OCR (`tesseract` sobre la máscara amarilla).
@@ -38,6 +40,88 @@
    Ahí quedan también `_extra/` (armas, talk, jump land, specials L/M) y `WORLD_*`.
 9. Rebuild + probar: selector SF (preview idle-1), pelea completa, especial/proyectil,
    y en el mundo idle/caminar/correr/especial del skin.
+
+### 0b. Traspaso exacto para otro modelo/agente (Claude, Gemini o Codex)
+
+No improvisar rutas ni nombres. Desde la raíz del proyecto Android (`PolitecnicoOpenWorld/`):
+
+1. **Inspeccionar visualmente las 19 hojas antes de renombrar.** El nombre/fecha de descarga NO
+   determina el orden. Leer los títulos amarillos y asignar el catálogo §5. La hoja que contiene
+   `IDLE + IDLE TURN` siempre será `_01_`, aunque haya sido la cuarta descarga.
+2. Elegir cuatro identificadores que no colisionen con personajes existentes:
+   - `<char>`: minúsculas sin espacios, usado por JSON y `GEN` (ej. `policiagranaderohombre`).
+   - `<Titulo>`: PascalCase del sheet (ej. `PoliciaGranaderoHombre`).
+   - `<CarpetaMundo>`: carpeta bajo `SPRITES/NPC/` (ej. `PoliciaGranaderoMasculinoCDMX`).
+   - `<prefijo>`: tres letras + `_`, único (ej. `pgm_`).
+3. Procesar **01 primero** y luego 02→19. Usar un `GEN` externo; nunca dejarlo en assets:
+
+```powershell
+$Source = "..\newSFAssets\<Personaje>"
+$Gen = "..\newSFAssets\GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio"
+$Char = "<char>"
+$Prefix = "<prefijo>"
+
+# Conteo previo, sin escribir resultados.
+1..19 | ForEach-Object {
+    $File = Get-ChildItem -LiteralPath $Source -Filter ("<Personaje>_{0:D2}_*.png" -f $_)
+    python tools\slice_sf_chroma_sheets.py $File.FullName $Char --sheet-num $_ `
+        --list --gen $Gen --world-prefix $Prefix
+}
+
+# Recorte real, siempre en orden.
+1..19 | ForEach-Object {
+    $File = Get-ChildItem -LiteralPath $Source -Filter ("<Personaje>_{0:D2}_*.png" -f $_)
+    python tools\slice_sf_chroma_sheets.py $File.FullName $Char --sheet-num $_ `
+        --gen $Gen --world-prefix $Prefix
+    if ($LASTEXITCODE -ne 0) { throw "Falló hoja $_" }
+}
+```
+
+4. Leer los 19 resultados. `OK` es ideal; un sobrante se muestrea uniformemente y un faltante de
+   exactamente un cuadro se completa con el vecino central. Un faltante mayor DEBE abortar. La
+   herramienta ya contempla ambos grupos en una sola fila, proyectiles formados por chispas y KO
+   con cambio de orientación; no parchear cuadros manualmente antes de entender el aviso.
+   Si hay 18 hojas, identificar la ausente por título. **Únicamente 14 o 15 pueden omitirse**:
+   conservar el hueco numérico y procesar los archivos presentes, nunca renombrar 16→15. Ejemplo:
+
+```powershell
+Get-ChildItem -LiteralPath $Source -Filter "<Personaje>_*.png" | Sort-Object Name | ForEach-Object {
+    if ($_.Name -notmatch '^<Personaje>_(\d{2})_') { throw "Nombre no canónico" }
+    $SheetNumber = [int]$Matches[1]
+    python tools\slice_sf_chroma_sheets.py $_.FullName $Char --sheet-num $SheetNumber `
+        --gen $Gen --world-prefix $Prefix
+    if ($LASTEXITCODE -ne 0) { throw "Falló hoja $SheetNumber" }
+}
+```
+
+   Antes de empaquetar debe haber 123 PNG en `GEN/<char>/`; los golpes de 07–09 permanecen
+   válidos cuando falta su refinamiento 14/15.
+5. Añadir `<char>` a `PROJECTILE_PROFILES` en `tools/pack_sf_character.py`. Comparar el cuadro
+   `special-3` para que `offset` nazca en manos/objeto; declarar `light`, `medium`, `heavy`.
+6. Empaquetar y registrar:
+
+```powershell
+python tools\pack_sf_character.py <char> <Titulo> --gen $Gen
+```
+
+   - `SfFighterId`: identidad, display name, JSON y PNG. Si reemplaza un `sharedSet` existente,
+     quitar `isAlpha/sharedSet`; si es otra persona, crear un enum NUEVO y conservar el genérico.
+   - `PlayerSkin`: carpeta/prefijo, conteos 6/6/8/5, las cuatro fracciones `0.703125f` y
+     `uniform512Canvas=true`.
+   - `SkinSelectorDialog.devOnlySkins`: agregar la skin del mundo. SF la toma automáticamente de
+     `SfFighterId.entries`.
+   - Copiar solo `Idle/Walk/Run/Special/Talk` desde `WORLD_<char>` a la carpeta mundial. Si se
+     reemplaza una carpeta existente, retirar primero únicamente sus cuadros viejos sobrantes.
+7. Ejecutar el validador obligatorio y después compilar:
+
+```powershell
+python tools\validate_sf_chroma_character.py <char> <Titulo> <CarpetaMundo> <prefijo>
+.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-daemon
+```
+
+   No entregar si el validador no termina en `VALIDACION OK` o si Gradle no termina en
+   `BUILD SUCCESSFUL`. Finalmente actualizar esta guía y `07_OTHER_FEATURES.md` con conteos,
+   identidad del especial, excepciones de hojas y resultado de KO.
 
 ## 1. Qué produce el recorte
 
@@ -68,6 +152,10 @@ alfa desde la máscara CRUDA — sin verde interior):
   interna por secuencia, pies Y=456; `--world-ref`
   queda aceptado solo por compatibilidad y ya NO hereda tamaños viejos desiguales).
   Idle del mundo = IDLE RELAXED (hoja 18), NO el idle de guardia.
+- **Alfa/pies exactos:** después de reescalar, el mundo recorta filas transparentes generadas por
+  LANCZOS y compone RGBA con `alpha_composite` (una sola aplicación del alfa). Usar
+  `paste(..., img)` multiplicaba el alfa como fuente+máscara y podía borrar 1–3 píxeles suaves
+  del calzado; el validador exige que todos los cuadros terminen exactamente en Y=456.
 - **Orientación KO automática:** compara continuidad de silueta+color entre cuadros tal cual
   y espejados. Si detecta una inversión fuerte al tocar el piso, escribe `_frame_meta.json`
   (`flipX` por cuadro); el packer lo pasa al JSON y la UI lo aplica de forma genérica.
@@ -183,7 +271,74 @@ alfa desde la máscara CRUDA — sin verde interior):
   quedar tendido. Intermedios dentro del directorio histórico
   `GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/`.
 
-## 2i. Pase de combate completo (2026-07-16, hecho)
+## 2i. Registro Policía Granadero Hombre CDMX (2026-07-17, hecho)
+
+- Las 19 hojas de `newSFAssets/PoliciaGranaderoMasculinoCDMX/` se identificaron por título. La
+  primera tanda llegó fuera de orden (Crouch, Jump Start/Land, Walk/Run, Idle/Turn, Jump) y se
+  renombró correctamente como `PoliciaGranaderoMasculinoCDMX_01..19` por contenido.
+- Sheet dedicado `PoliciaGranaderoHombre.png` 2560×3328 + `policiagranaderohombre.json`:
+  123 cuadros, 30 animaciones y pulso sónico de megáfono con cinco efectos. Es una identidad
+  separada del `GRANADERO` genérico compartido.
+- JUMP FORWARD llegó 8/7 y se muestreó a siete; HURT BODY llegó 12/13, pero conserva de sobra
+  los cuatro cuadros utilizados. La hoja 04 colocó ambos grupos en una sola fila; el recortador
+  ahora aplica un corte A→B contractual cuando esto ocurre.
+- Mundo `PoliciaGranaderoMasculinoCDMX`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4; lienzos
+  512², cuerpo mediano 360 px, pies Y=456, `uniform512Canvas=true` y fracción común `0.703125`.
+- KO no necesitó `flipX`. El validador nuevo `tools/validate_sf_chroma_character.py` confirmó
+  sheet/JSON/mundo y ausencia de `STREETFIGHTER/GEN` dentro del APK.
+
+## 2j. Registro ESCOMBOY con 18 hojas (2026-07-17, hecho)
+
+- `newSFAssets/ESCOMBOY/` contiene 18 hojas reales: están 01–14 y 16–19; falta únicamente
+  `15 MEDIUM KICK REFINED + HEAVY KICK REFINED`. Se conservó el hueco 15 y NO se desplazaron
+  las hojas de armas/Idle relajado. Las patadas base de 08/09 alimentan los mismos slots finales.
+- Sheet dedicado `EscomBoy.png` 2560×3328 + `escomboy.json`: 123 cuadros, 30 animaciones y
+  especial tecnológico de laptop/portal con proyectil USB de cinco efectos. `SfFighterId.ESCOMBOY`
+  dejó `sf_template.json`, `RUNTIME/EscomBoy.png`, `isAlpha` y `sharedSet`.
+- RUN llegó 7/8 y se completó con el vecino central; HURT BODY llegó 12/13 pero solo usa cuatro.
+  KO no necesitó `flipX`. Todas las poses erguidas empaquetadas validan 100 px exactos.
+- Mundo reemplazó los ciclos históricos grandes `escomboyIdle/Walk/Run/Special` (16/25/16/16)
+  por 6/6/8/5 y añadió `escomboyTalk` 4. Se conserva la convención PLAYER sin subcarpeta:
+  lienzos 512², cuerpo mediano 360 px, pies Y=456, `uniform512Canvas=true`, fracción `0.703125`.
+- Validación especial para protagonistas:
+  `python tools/validate_sf_chroma_character.py escomboy EscomBoy escomboy escomboy_`
+  ` --world-base SPRITES/PLAYER --flat-world-folders`.
+
+## 2k. Registro ESCOMGIRL (2026-07-17, hecho)
+
+- Las 19 hojas de `newSFAssets/ESCOMGIRL/` están completas y se renombraron
+  `ESCOMGIRL_01..19` por título. Las hojas refinadas 14/15 sí existen y sobrescriben
+  intencionalmente golpes y patadas base.
+- Sheet dedicado `EscomGirl.png` 2560×3328 + `escomgirl.json`: 123 cuadros, 30 animaciones y
+  especial tecnológico de dispositivo/portal con cinco efectos. `SfFighterId.ESCOMGIRL` dejó
+  `sf_template.json`, `RUNTIME/EscomGirl.png`, `isAlpha` y `sharedSet`, conservando el mismo enum.
+- CROUCH llegó 8/9, WALK 5/6 y RUN 7/8; cada faltante único usa el vecino central. HURT HEAD
+  llegó 15/14 y HURT BODY 12/13, pero ambos conservan suficientes cuadros para los cuatro usados.
+  KO no necesitó `flipX`; las poses erguidas empaquetadas validan 100 px exactos.
+- Mundo reemplazó `escomgirlIdle/Walk/Run/Special` 6/5/4/6 por 6/6/8/5 y añadió
+  `escomgirlTalk` 4. Mantiene la convención PLAYER plana; lienzos 512², cuerpo 360 px,
+  pies Y=456, `uniform512Canvas=true` y fracción común `0.703125`.
+- Validación: `python tools/validate_sf_chroma_character.py escomgirl EscomGirl escomgirl`
+  ` escomgirl_ --world-base SPRITES/PLAYER --flat-world-folders` → `VALIDACION OK`.
+
+## 2l. Registro Policía Granadero Mujer CDMX (2026-07-17, hecho)
+
+- Las 19 hojas de `newSFAssets/PoliciaGranaderoFemeninoCDMX/` llegaron en tandas invertidas:
+  las primeras diez eran 06–15, las siguientes cinco 01–05 y las últimas cuatro 16–19. Se
+  renombraron `PoliciaGranaderoFemeninoCDMX_01..19` estrictamente por título.
+- Sheet dedicado `PoliciaGranaderoMujer.png` 2560×3328 + `policiagranaderomujer.json`:
+  123 cuadros, 30 animaciones y proyectil propio de cápsula/humo rosa con cinco efectos. Es una
+  identidad separada de Policía Granadero Hombre y del `GRANADERO` genérico compartido.
+- HURT HEAD llegó 13/14, HURT BODY 12/13 y KO 7/6; hay suficientes cuadros para los slots
+  consumidos y KO se muestreó a cinco. No necesitó `flipX`; las poses erguidas validan 100 px.
+- Mundo `PoliciaGranaderoFemeninoCDMX`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4; lienzos
+  512², cuerpo mediano 360 px, pies Y=456, `uniform512Canvas=true` y fracción `0.703125`.
+- El validador detectó que `Special/pgf_s_5` terminaba inicialmente en Y=453 por alfa duplicado;
+  el compositor mundial se corrigió de forma genérica y la secuencia completa volvió a Y=456.
+- Validador: `python tools/validate_sf_chroma_character.py policiagranaderomujer`
+  ` PoliciaGranaderoMujer PoliciaGranaderoFemeninoCDMX pgf_`.
+
+## 2m. Pase de combate completo (2026-07-16, hecho)
 
 - El recortador ya no comprime los golpes al mínimo del template: LIGHT PUNCH 4, MEDIUM/HEAVY
   PUNCH 6, LIGHT/HEAVY KICK 6 y MEDIUM KICK 5. Las hitboxes solo existen en los cuadros de
@@ -191,8 +346,8 @@ alfa desde la máscara CRUDA — sin verde interior):
 - JUMP START usa 2 cuadros, JUMP LAND 3 y JUMP BACKWARD sus 7 cuadros propios. STUN usa 1→2→3.
 - SPECIAL LIGHT/MEDIUM/HEAVY usa 5 cuadros distintos por fuerza. `pack_sf_character.py` agrega
   `events.projectile.<strength>` con cuadro de salida, offset y escala; Kotlin lo carga de forma
-  genérica. Las ocho identidades quedan visibles: confeti, polvo de escoba, onda de megáfono,
-  destellos fotográficos, los haces luminosos de ambas policías y la descarga del paramédico.
+  genérica. Las doce identidades quedan visibles: confeti, polvo de escoba, ondas de megáfono,
+  humo rosa, destellos fotográficos, haces policiales, descarga médica y portales de estudiantes.
 - El sheet dedicado pasa a 123 cuadros en rejilla 10×13 (`2560×3328`); los 123 quedan referenciados.
   `pack_sf_character.py --gen <ruta>` permite empaquetar desde intermedios externos sin devolver
   `STREETFIGHTER/GEN/` al APK.

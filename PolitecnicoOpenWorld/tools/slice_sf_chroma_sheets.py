@@ -123,6 +123,11 @@ def detect(path, close=5):
 
 def split_groups(bands, nA, nB):
     """Grupo A = primeras bandas. Corte exacto si se puede; si no, el mas cercano a nA."""
+    # Algunas hojas acomodan ambos grupos en una sola fila continua. Los cuadros siguen
+    # ordenados A→B de izquierda a derecha, por lo que el corte contractual es inequívoco.
+    if len(bands) == 1:
+        row = sorted(bands[0], key=lambda bl: bl[0])
+        return row[:nA], row[nA:], (len(row) != nA + nB)
     sizes = [len(b) for b in bands]
     best, bestd = 1, 10 ** 9
     for cut_i in range(1, len(bands)):
@@ -136,6 +141,8 @@ def maybe_split(grp, lbl, raw, n_expected):
     """Si el grupo trae MENOS blobs de los esperados y hay uno anormalmente ancho
     (cuadros fusionados por confeti/efectos), lo parte en el valle de densidad."""
     grp = sorted(grp, key=lambda bl: bl[0])
+    if not grp:
+        return grp
     while len(grp) < n_expected:
         widths = sorted(bl[2] - bl[0] for bl in grp)
         med = widths[len(widths) // 2]
@@ -323,9 +330,20 @@ def place_world(img, scale, feet_y, anchor_body=False):
     h = max(1, int(round(img.height * scale)))
     body_cx = dense_body_center_x(img) * scale if anchor_body else None
     img = img.resize((w, h), Image.Resampling.LANCZOS)
+    # LANCZOS puede dejar 1-3 filas/columnas totalmente transparentes aunque la entrada
+    # estuviera ajustada al bbox. Recorta DESPUES de escalar para que el ultimo pixel alfa,
+    # no la altura nominal, quede exactamente en feet_y. Conserva el ancla corporal X.
+    bbox = img.getchannel("A").getbbox()
+    if bbox:
+        if body_cx is not None:
+            body_cx -= bbox[0]
+        img = img.crop(bbox)
+        w, h = img.size
     cv = Image.new("RGBA", (W_CANVAS, W_CANVAS), (0, 0, 0, 0))
     x = int(round(W_CANVAS / 2.0 - body_cx)) if body_cx is not None else (W_CANVAS // 2 - w // 2)
-    cv.paste(img, (x, feet_y - h), img)
+    # alpha_composite conserva el alfa una sola vez. paste(..., img) lo multiplicaba como
+    # fuente y mascara, borrando bordes suaves (hasta tres pixeles de pie al exportar WebP).
+    cv.alpha_composite(img, (x, feet_y - h))
     return cv
 
 def sequence_scale(frames, target_h, fallback):
