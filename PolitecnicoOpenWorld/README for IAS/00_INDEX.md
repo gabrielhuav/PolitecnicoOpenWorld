@@ -59,6 +59,8 @@
 |---|---|
 | `GUIA_mantenimiento_no_senior.md` | **(2026-07-04) EMPEZAR AQUÍ si eres una IA/dev nuevo:** las 7 reglas que rompen el juego, flujo de trabajo estándar, chuleta de "dónde vive cada cosa", qué NO hacer sin compilador y cómo pedir compilaciones al dueño. |
 | *(estado actual)* | **Para RETOMAR (2026-07-16):** el estado vigente vive en los docs 00–09 (el modo pelea en **07 §HUELUM VS. GOYA** + `AUDIT_SF_MULTIPLAYER.md`). Los checkpoints de sesiones pasadas están ✅ ejecutados y viven en `_ARCHIVO/`. |
+| `PENDIENTES_SF_2026-07-16.md` | **🆕 PENDIENTES REALES del modo pelea (2026-07-16):** ① IA con dificultad ✅ hecha (falta probar); ② BUG stun-lock online/BT (machacar botón mata sin defensa) con diseño de fix; ③ BUG sincronización de la REVANCHA online; ④ SERVIDOR LOCAL: autodescubrir la sala por UDP + pedir código (no teclear IP). **EMPEZAR AQUÍ la próxima sesión de SF.** |
+| `DISENO_ARCADE_SF_POW.md` | **🆕 DISEÑO del modo ARCADE POW (2026-07-16):** quitar copyright (RYU/KEN), TODOS los personajes bloqueados y se desbloquean al derrotarlos en una escalera de dificultad creciente; penúltimo = Paramédico Cruz Roja, final = Rey Grupero (provisional); escalera solo con los 8 bien implementados (ALPHA excluidos). Roster real, cambios por archivo y decisiones pendientes. **Nada implementado aún.** |
 | `CHECKPOINT_SENIOR_refactor.md` | **✅ (2026-07-04) Programa "calidad senior" TERMINADO Y AUDITADO** (tests golden-master → de-dup routing → 6 managers + fachada combine → Hilt → detekt bloqueante → perf auditada). Para futuros refactors: la RECETA del patrón manager vive aquí. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | **(2026-07-09)** Modo pelea 1v1: qué assets del clon SF hay que sustituir por assets propios de POW (Prankedy…), formato del JSON de personaje (77 poses), pipeline de empaquetado y prompts para QWEN/ChatGPT. |
 | `AUDIT_SF_MULTIPLAYER.md` | **🆕 (2026-07-11)** Multijugador 1v1 del modo pelea: audit del server `MultiplayerSF/` (QWEN corregido), protocolo completo, decisiones de autoridad, deploy GRATIS en Render y qué probar. |
@@ -77,9 +79,9 @@
 - **Servidores / Servers:** 2× Node.js + `ws` (open world `Multiplayer/`, zombi `MultiplayerInteriores/`), dockerizados en Render
 - **Room DB:** versión 8 (`MIGRATION_7_8` + destructive fallback)
 - **~229 archivos Kotlin / Kotlin files**, ~47k líneas / lines (2026-07-16). 8 archivos >1000 (ninguno >2100):
-  `StreetFighterViewModel`(2001, creció con multijugador BT/LAN+rondas+opcionales de red SESIÓN 4),
+  `StreetFighterViewModel`(~2145, creció con multijugador BT/LAN+rondas+red SESIÓN 4+IA con 3 dificultades),
   `ZombieGameScreen`(1591), `WorldMapViewModel`(1583), `WorldMapScreen`(1460), `NativeOsmMap`(1458),
-  `StreetFighterScreen`(~1630 con rondas/LAN), `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093)
+  `StreetFighterScreen`(~1767 con rondas/LAN/selector de dificultad), `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093)
 - **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/16):** 8 de los 14 peleadores de "HUELUM VS. GOYA"
   se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
   en el APK. Prankedy, Señor de la Tienda, Paparazzi 1 y Rey Grupero ya tienen hojas croma

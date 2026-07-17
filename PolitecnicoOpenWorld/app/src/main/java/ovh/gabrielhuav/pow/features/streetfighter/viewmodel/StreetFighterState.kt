@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDirection
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighter
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
@@ -70,6 +71,19 @@ data class StreetFighterState(
     // 🆕 Selección de personaje ANTES de pelear (arranca aquí; selectCharacter la cierra)
     val inCharacterSelect: Boolean = true,
 
+    // 🆕 Dificultad de la CPU (solo offline; online se ignora). La fija selectCharacter
+    // desde el paso DIFICULTAD del flujo pre-pelea; resetRound la conserva (s.copy).
+    val cpuDifficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL,
+
+    // ─── 🆕 MODO ARCADE (escalera de 11 peleas, offline; ver SfArcadeLadder) ───
+    // Todos los personajes/mapas empiezan bloqueados y se desbloquean derrotando rivales.
+    val arcadeActive: Boolean = false,                 // hay una escalera en curso
+    val arcadeStep: Int = 0,                           // pelea actual 1..11 (0 = fuera)
+    val arcadeTotal: Int = 0,                          // total de peleas (HUD "PELEA N / T")
+    val arcadeRival: SfFighterId? = null,              // rival de la pelea actual (para carteles)
+    val arcadeMapFile: String? = null,                 // fondo de la pelea de arcade
+    val arcadeOutcome: SfArcadeOutcome = SfArcadeOutcome.NONE, // dirige el overlay de fin
+
     // ─── 🆕 MULTIJUGADOR 1v1 (servidor MultiplayerSF/ en Render, relay puro) ───
     val onlineStatus: SfOnlineStatus = SfOnlineStatus.OFF,
     val roomCode: String? = null,
@@ -104,6 +118,14 @@ data class StreetFighterState(
     val lanLocalIp: String? = null,          // (host) IP a COMPARTIR con el rival; null = sin red
     val lanHostAddress: String? = null,      // (invitado) IP tecleada, para REINTENTAR
 )
+
+/** Resultado de una pelea de arcade (dirige el overlay de fin del modo arcade). */
+enum class SfArcadeOutcome {
+    NONE,       // no aplica (fuera del arcade o pelea en curso)
+    WON,        // ganaste el escalón → CONTINUAR al siguiente rival
+    LOST,       // perdiste → REINTENTAR (retrocede 1 pelea)
+    COMPLETED,  // venciste al jefe final (Prankedy) → ¡campeón!
+}
 
 /** Fase del flujo online (OFF = jugando offline contra la CPU). */
 enum class SfOnlineStatus {

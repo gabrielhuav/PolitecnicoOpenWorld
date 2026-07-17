@@ -101,13 +101,9 @@ enum class SfFighterId(
     /** null = sheet propio empaquetado en assets; no-null = COMPARTIDO (armado en runtime). */
     val sharedSet: SfSharedSet? = null,
 ) {
-    // ⚠️ COPYRIGHT (2026-07-15): los assets de RYU/KEN viven SOLO en el source set DEBUG
-    // (app/src/debug/assets/STREETFIGHTER/) — instalas por cable y ahí SÍ están; el bundle de
-    // Play Store (release) NO los incluye. En release estos ids existen pero JAMÁS deben
-    // cargarse: el selector los oculta (selectableFighters exige BuildConfig.DEBUG) y lo que
-    // llegue por red se sanea a PRANKEDY (sanitizeNetFighter del VM).
-    RYU("Ryu", "RYU", "STREETFIGHTER/DATA/ryu.json", "STREETFIGHTER/IMAGES/Ryu.png"),
-    KEN("Ken", "KEN", "STREETFIGHTER/DATA/ken.json", "STREETFIGHTER/IMAGES/Ken.png"),
+    // ⚠️ COPYRIGHT (2026-07-17): RYU y KEN se ELIMINARON del juego (versión POW 100% propia).
+    // Sus assets quedan en el source set debug pero YA NO hay ids en el enum: si un cliente viejo
+    // manda "RYU"/"KEN" por red, SfFighterId.valueOf falla y cae a PRANKEDY (parse defensivo).
     // 🆕 Peleadores PROPIOS de POW. Prankedy trae frames proj-* propios (broma del tanque).
     PRANKEDY("Prankedy", "PRANKEDY", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png"),
     SENOR_TIENDA(
@@ -125,8 +121,8 @@ enum class SfFighterId(
     // ── 🆕 (2026-07-15) PELEADORES COMPARTIDOS: usan los MISMOS assets del mundo abierto
     //    (SPRITES/PLAYER/ y SPRITES/NPC/) — NO tienen sheet/JSON propio en el APK. La hoja se
     //    ARMA EN RUNTIME (SfSharedSheets, cache LRU) con cajas/timings de sf_template.json.
-    //    Lázaro y escomboy están dibujados a la IZQUIERDA → flip=true. Rey de las Bromas y
-    //    Pepe NO entran (no jugables por diseño; comentados también en PlayerSkin).
+    //    Lázaro y escomboy están dibujados a la IZQUIERDA → flip=true. (Rey de las Bromas y
+    //    Pepe se ELIMINARON del juego en 2026-07-16; ya no existen como personajes.)
     //    Prankedy, Señor Tienda, ambos Paparazzi, Rey Grupero y Policía ya tienen arte dedicado.
     PAPARAZZI_5(
         "Paparazzi 5", "PAPZ 5",
@@ -185,6 +181,17 @@ enum class SfAttackStrength(
 
 /** Tipo de ataque (elige el sonido de impacto). */
 enum class SfAttackType { PUNCH, KICK }
+
+/**
+ * 🆕 Dificultad de la CPU offline (2026-07-16). Se elige en el flujo pre-pelea
+ * (peleador → rival → DIFICULTAD → mapa); online se ignora (el rival es humano).
+ * - BASICA: reacciona lento, camina mucho, solo golpes ligeros; NUNCA bloquea,
+ *   salta ni lanza poderes. Para aprender los controles.
+ * - NORMAL: la IA clásica del port (decisiones al azar cada ~280-620 ms).
+ * - AVANZADA: REACTIVA y casi imposible: bloquea tus ataques, castiga tu
+ *   recuperación, anti-aéreo, esquiva hadoukens y lanza MUCHOS poderes.
+ */
+enum class SfCpuDifficulty { BASICA, NORMAL, AVANZADA }
 
 /** Zona golpeada (hurtboxes por frame: [head, body, legs]). */
 enum class SfHurtArea { HEAD, BODY, LEGS }

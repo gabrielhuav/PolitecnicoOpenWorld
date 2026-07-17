@@ -51,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -76,6 +77,7 @@ import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDirection
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighter
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterData
@@ -91,6 +93,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewModel
@@ -137,18 +140,20 @@ fun StreetFighterScreen(
     val playerData = remember(playerId) { SfFrameCatalog.load(context, playerId) }
     val cpuData = remember(cpuId) { SfFrameCatalog.load(context, cpuId) }
 
-    // ---- Selección en 2 pasos: PELEADOR → MAPA (el mapa lo elige el jugador) ----
+    // ---- Selección offline en 4 pasos: PELEADOR → RIVAL → DIFICULTAD → MAPA ----
     var pendingFighter by remember { mutableStateOf<SfFighterId?>(null) }
     var pendingRival by remember { mutableStateOf<SfFighterId?>(null) } // 🆕 rival elegible offline
+    var pendingDifficulty by remember { mutableStateOf<SfCpuDifficulty?>(null) } // 🆕 dificultad CPU
     var chosenBgFile by remember { mutableStateOf(theme.fullBackgrounds.firstOrNull()?.file) }
     LaunchedEffect(state.inCharacterSelect) {
-        if (state.inCharacterSelect) { pendingFighter = null; pendingRival = null }
+        if (state.inCharacterSelect) { pendingFighter = null; pendingRival = null; pendingDifficulty = null }
     }
-    // ONLINE: manda el mapa que eligió el ANFITRIÓN (viene por red en el estado)
-    val effectiveBgFile = if (state.onlineStatus != SfOnlineStatus.OFF && state.onlineMapFile != null) {
-        state.onlineMapFile
-    } else {
-        chosenBgFile
+    // Fondo del combate: ARCADE manda su mapa (ligado al rival); ONLINE el del ANFITRIÓN;
+    // si no, el elegido offline en el selector.
+    val effectiveBgFile = when {
+        state.arcadeActive && state.arcadeMapFile != null -> state.arcadeMapFile
+        state.onlineStatus != SfOnlineStatus.OFF && state.onlineMapFile != null -> state.onlineMapFile
+        else -> chosenBgFile
     }
     val bgImage = remember(effectiveBgFile) {
         effectiveBgFile?.let { name ->
@@ -263,6 +268,7 @@ fun StreetFighterScreen(
 
         // ---- Selección pre-pelea: paso 1 PELEADOR, paso 2 MAPA (offline y online) ----
         var showOnlineMenu by remember { mutableStateOf(false) }
+        var arcadeSetup by remember { mutableStateOf(false) } // 🆕 flujo de arranque del ARCADE
         if (state.inCharacterSelect) {
             when (state.onlineStatus) {
                 SfOnlineStatus.CONNECTING -> OnlineInfoOverlay(
@@ -312,12 +318,18 @@ fun StreetFighterScreen(
                     )
                 }
                 SfOnlineStatus.SELECTING -> CharacterSelectOverlay(
-                    fighters = viewModel.selectableFighters,
+                    fighters = viewModel.selectableFighters(),
+                    lockedFighters = viewModel.lockedFighters(),
                     subtitle = stringResource(R.string.sf_mp_pick_sub, state.roomCode ?: ""),
                     onSelect = viewModel::selectCharacter,
                 )
                 SfOnlineStatus.WAITING_MAP -> if (state.isHost) {
-                    StageSelectOverlay(theme = theme, onSelect = viewModel::chooseMapOnline, onBack = null)
+                    StageSelectOverlay(
+                        theme = theme,
+                        unlockedMaps = viewModel.unlockedMaps(),
+                        onSelect = viewModel::chooseMapOnline,
+                        onBack = null,
+                    )
                 } else {
                     OnlineInfoOverlay(
                         title = stringResource(R.string.sf_mp_room, state.roomCode ?: ""),
@@ -327,28 +339,55 @@ fun StreetFighterScreen(
                 }
                 SfOnlineStatus.COUNTDOWN -> Unit // el número gigante se dibuja abajo
                 else -> {
-                    // OFFLINE: flujo de 3 pasos — TU peleador → el RIVAL (🆕) → el mapa
                     val fighter = pendingFighter
                     val rival = pendingRival
+                    val difficulty = pendingDifficulty
                     when {
+                        // 🆕 ARCADE: TU peleador (de los DESBLOQUEADOS) → dificultad base → arranca la escalera
+                        arcadeSetup -> when (fighter) {
+                            null -> CharacterSelectOverlay(
+                                fighters = viewModel.selectableFighters(),
+                                lockedFighters = viewModel.lockedFighters(),
+                                subtitle = stringResource(R.string.sf_arcade_pick_you),
+                                onSelect = { pendingFighter = it },
+                                onBack = { arcadeSetup = false; pendingFighter = null },
+                            )
+                            else -> DifficultySelectOverlay(
+                                onSelect = { base ->
+                                    viewModel.startArcade(fighter, base)
+                                    arcadeSetup = false
+                                    pendingFighter = null
+                                },
+                                onBack = { pendingFighter = null },
+                            )
+                        }
+                        // VERSUS offline: flujo de 4 pasos — TU peleador → el RIVAL → DIFICULTAD → mapa
                         fighter == null -> CharacterSelectOverlay(
-                            fighters = viewModel.selectableFighters,
+                            fighters = viewModel.selectableFighters(),
+                            lockedFighters = viewModel.lockedFighters(),
                             subtitle = state.onlineError,
                             onSelect = { pendingFighter = it },
                             onOnline = { showOnlineMenu = true },
+                            onArcade = { arcadeSetup = true },
                         )
                         rival == null -> CharacterSelectOverlay(
-                            fighters = viewModel.selectableFighters,
+                            fighters = viewModel.selectableFighters(),
+                            lockedFighters = viewModel.lockedFighters(),
                             subtitle = stringResource(R.string.sf_choose_rival),
                             onSelect = { pendingRival = it },
                         )
+                        difficulty == null -> DifficultySelectOverlay(
+                            onSelect = { pendingDifficulty = it },
+                            onBack = { pendingFighter = null; pendingRival = null },
+                        )
                         else -> StageSelectOverlay(
                             theme = theme,
+                            unlockedMaps = viewModel.unlockedMaps(),
                             onSelect = { file ->
                                 chosenBgFile = file ?: theme.fullBackgrounds.randomOrNull()?.file
-                                viewModel.selectCharacter(fighter, rival)
+                                viewModel.selectCharacter(fighter, rival, difficulty)
                             },
-                            onBack = { pendingFighter = null; pendingRival = null },
+                            onBack = { pendingFighter = null; pendingRival = null; pendingDifficulty = null },
                         )
                     }
                 }
@@ -515,8 +554,21 @@ fun StreetFighterScreen(
             Text("✕", color = Color.White, fontSize = 18.sp)
         }
 
-        // Menú de fin de pelea
-        if (state.showEndMenu) {
+        // 🆕 Fin de pelea en ARCADE: ganar (CONTINUAR) / perder (REINTENTAR) / campeón. Reemplaza
+        // el menú normal mientras haya una escalera en curso.
+        if (state.showEndMenu && state.arcadeActive) {
+            ArcadeResultOverlay(
+                outcome = state.arcadeOutcome,
+                step = state.arcadeStep,
+                total = state.arcadeTotal,
+                onContinue = viewModel::arcadeContinue,
+                onRetry = viewModel::arcadeRetry,
+                onExit = viewModel::arcadeExit,
+            )
+        }
+
+        // Menú de fin de pelea (VERSUS / online; en arcade lo sustituye ArcadeResultOverlay)
+        if (state.showEndMenu && !state.arcadeActive) {
             Column(
                 modifier = Modifier.align(Alignment.Center).padding(top = 120.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -598,10 +650,13 @@ fun StreetFighterScreen(
 
 @Composable
 private fun CharacterSelectOverlay(
-    fighters: List<SfFighterId>, // roster gateado por el VM (RYU/KEN solo con Modo Desarrollador)
+    fighters: List<SfFighterId>, // DESBLOQUEADOS (RYU/KEN solo con Modo Desarrollador)
     onSelect: (SfFighterId) -> Unit,
     subtitle: String? = null,
+    lockedFighters: List<SfFighterId> = emptyList(), // 🆕 se pintan con candado 🔒 (no seleccionables)
     onOnline: (() -> Unit)? = null,
+    onArcade: (() -> Unit)? = null,                  // 🆕 abre el flujo de ARCADE
+    onBack: (() -> Unit)? = null,                    // 🆕 volver (p. ej. salir del setup de arcade)
 ) {
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
@@ -626,6 +681,10 @@ private fun CharacterSelectOverlay(
                 fighters.forEach { id ->
                     CharacterCard(id = id, onSelect = onSelect)
                 }
+                // Bloqueados: se ven pero con candado 🔒 (motivan a seguir jugando el arcade)
+                lockedFighters.forEach { id ->
+                    CharacterCard(id = id, onSelect = {}, locked = true)
+                }
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
@@ -633,11 +692,164 @@ private fun CharacterSelectOverlay(
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 11.sp,
             )
-            onOnline?.let {
-                Spacer(modifier = Modifier.height(6.dp))
-                PowButton(text = stringResource(R.string.sf_mp_button), onClick = it)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                onArcade?.let {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    PowButton(text = stringResource(R.string.sf_arcade_button), onClick = it)
+                }
+                onOnline?.let {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    PowButton(text = stringResource(R.string.sf_mp_button), onClick = it)
+                }
+            }
+            onBack?.let {
+                TextButton(onClick = it) {
+                    Text(stringResource(R.string.sf_back), color = Color(0xFFD4AF37))
+                }
             }
         }
+    }
+}
+
+// ------------------------------------------------------------------
+// 🆕 Overlay de fin del MODO ARCADE: ganar (CONTINUAR) / perder (REINTENTAR) / campeón.
+// ------------------------------------------------------------------
+
+@Composable
+private fun ArcadeResultOverlay(
+    outcome: SfArcadeOutcome,
+    step: Int,
+    total: Int,
+    onContinue: () -> Unit,
+    onRetry: () -> Unit,
+    onExit: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xE6101018))
+            .clickable(enabled = true, onClick = {}), // bloquea toques al joystick de atrás
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            when (outcome) {
+                SfArcadeOutcome.COMPLETED -> {
+                    Text(
+                        text = stringResource(R.string.sf_arcade_champion),
+                        color = Color(0xFFD4AF37), fontSize = 26.sp, fontWeight = FontWeight.Black,
+                        letterSpacing = 2.sp,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.sf_arcade_champion_sub),
+                        color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    PowButton(text = stringResource(R.string.sf_arcade_finish), onClick = onExit)
+                }
+                SfArcadeOutcome.LOST -> {
+                    Text(
+                        text = stringResource(R.string.sf_arcade_lost),
+                        color = Color(0xFFEF5350), fontSize = 24.sp, fontWeight = FontWeight.Black,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.sf_arcade_lost_sub),
+                        color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        PowButton(text = stringResource(R.string.sf_arcade_retry), onClick = onRetry)
+                        PowButton(text = stringResource(R.string.sf_arcade_quit), onClick = onExit)
+                    }
+                }
+                else -> { // WON
+                    Text(
+                        text = stringResource(R.string.sf_arcade_won),
+                        color = Color(0xFF81C784), fontSize = 24.sp, fontWeight = FontWeight.Black,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.sf_arcade_progress, step, total),
+                        color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        PowButton(text = stringResource(R.string.sf_arcade_continue), onClick = onContinue)
+                        PowButton(text = stringResource(R.string.sf_arcade_quit), onClick = onExit)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// 🆕 Selector de DIFICULTAD de la CPU (paso 3 del flujo offline, 2026-07-16):
+// BÁSICA (aprender) / NORMAL (la clásica) / AVANZADA (casi imposible).
+// Solo offline: online el rival es humano y este paso no existe.
+// ------------------------------------------------------------------
+
+@Composable
+private fun DifficultySelectOverlay(
+    onSelect: (SfCpuDifficulty) -> Unit,
+    onBack: () -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.sf_choose_difficulty),
+                color = Color(0xFFD4AF37),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            DifficultyOption(
+                title = stringResource(R.string.sf_diff_basic),
+                desc = stringResource(R.string.sf_diff_basic_desc),
+                onClick = { onSelect(SfCpuDifficulty.BASICA) },
+            )
+            DifficultyOption(
+                title = stringResource(R.string.sf_diff_normal),
+                desc = stringResource(R.string.sf_diff_normal_desc),
+                onClick = { onSelect(SfCpuDifficulty.NORMAL) },
+            )
+            DifficultyOption(
+                title = stringResource(R.string.sf_diff_advanced),
+                desc = stringResource(R.string.sf_diff_advanced_desc),
+                onClick = { onSelect(SfCpuDifficulty.AVANZADA) },
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            TextButton(onClick = onBack) {
+                Text(
+                    text = stringResource(R.string.sf_change_fighter),
+                    color = Color(0xFFD4AF37),
+                    fontSize = 13.sp,
+                )
+            }
+        }
+    }
+}
+
+/** Botón de dificultad + su descripción corta debajo (mismo tema vino/dorado). */
+@Composable
+private fun DifficultyOption(title: String, desc: String, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        PowButton(text = title, onClick = onClick)
+        Text(
+            text = desc,
+            color = Color.White.copy(alpha = 0.65f),
+            fontSize = 11.sp,
+            modifier = Modifier.padding(top = 2.dp, bottom = 10.dp),
+        )
     }
 }
 
@@ -1060,14 +1272,15 @@ private fun BtDevicePickerOverlay(
 }
 
 @Composable
-private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit) {
+private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit, locked: Boolean = false) {
     val preview = rememberAnimatedFighterPreview(id)
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xFF23233A))
-            .clickable { onSelect(id) }
-            .padding(8.dp),
+            .clickable(enabled = !locked) { onSelect(id) }
+            .padding(8.dp)
+            .alpha(if (locked) 0.45f else 1f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(modifier = Modifier.size(86.dp), contentAlignment = Alignment.BottomCenter) {
@@ -1081,6 +1294,14 @@ private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit) {
                 )
             } else {
                 Text("?", color = Color.White, fontSize = 40.sp)
+            }
+            // 🆕 Candado del ARCADE en la esquina superior (motiva a desbloquear jugando)
+            if (locked) {
+                Text(
+                    text = "🔒",
+                    fontSize = 22.sp,
+                    modifier = Modifier.align(Alignment.TopStart),
+                )
             }
             if (id.isAlpha) {
                 Text(
@@ -1120,6 +1341,7 @@ private fun StageSelectOverlay(
     theme: SfTheme,
     onSelect: (String?) -> Unit,   // null = al azar
     onBack: (() -> Unit)?,         // null (online): sin "cambiar peleador", ya se avisó al rival
+    unlockedMaps: Set<String>? = null, // 🆕 null = todos disponibles; si no, los demás salen con 🔒
 ) {
     val context = LocalContext.current
     Box(
@@ -1148,7 +1370,10 @@ private fun StageSelectOverlay(
                             }?.asImageBitmap()
                         }.getOrNull()
                     }
-                    StageCard(name = bg.name, thumb = thumb) { onSelect(bg.file) }
+                    val locked = unlockedMaps != null && bg.file !in unlockedMaps
+                    StageCard(name = bg.name, thumb = thumb, locked = locked) {
+                        if (!locked) onSelect(bg.file)
+                    }
                 }
                 StageCard(name = stringResource(R.string.sf_random), thumb = null, emoji = "🎲") { onSelect(null) }
             }
@@ -1161,13 +1386,20 @@ private fun StageSelectOverlay(
 }
 
 @Composable
-private fun StageCard(name: String, thumb: ImageBitmap?, emoji: String? = null, onClick: () -> Unit) {
+private fun StageCard(
+    name: String,
+    thumb: ImageBitmap?,
+    emoji: String? = null,
+    locked: Boolean = false,
+    onClick: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xFF23233A))
-            .clickable { onClick() }
-            .padding(8.dp),
+            .clickable(enabled = !locked) { onClick() }
+            .padding(8.dp)
+            .alpha(if (locked) 0.45f else 1f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -1183,6 +1415,14 @@ private fun StageCard(name: String, thumb: ImageBitmap?, emoji: String? = null, 
                 )
                 emoji != null -> Text(emoji, fontSize = 30.sp)
                 else -> Text("?", color = Color.White, fontSize = 24.sp)
+            }
+            // 🆕 Candado del ARCADE en la esquina superior del mapa bloqueado
+            if (locked) {
+                Text(
+                    text = "🔒",
+                    fontSize = 24.sp,
+                    modifier = Modifier.align(Alignment.TopStart).padding(2.dp),
+                )
             }
         }
         Spacer(modifier = Modifier.height(6.dp))

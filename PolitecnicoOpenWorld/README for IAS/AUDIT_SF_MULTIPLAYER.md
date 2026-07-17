@@ -9,7 +9,10 @@
 > debug+release) pero el SERVICIO aún no se crea (dueño 2026-07-16: "solo puse la URL"; se hará
 > al cerrar el PR — el 1er deploy ya saldrá con el bugfix del spread de la SESIÓN 4); (2) del §4
 > quedan reconexión a sala, espectadores y anti-cheat (conscientes, no bloquean) — interpolación,
-> sincronía del timer, fireball-vs-fireball y roll-up del HUD ✅ SESIÓN 4.
+> sincronía del timer, fireball-vs-fireball y roll-up del HUD ✅ SESIÓN 4; (3) **🆕 reportados
+> por el dueño el 2026-07-16 (diseño de fix en `PENDIENTES_SF_2026-07-16.md`):** STUN-LOCK
+> online/BT (machacar un botón mata sin defensa), sincronización imperfecta de la REVANCHA, y
+> SERVIDOR LOCAL con autodescubrimiento (sala visible sola + código, sin teclear IP).
 
 > **🆕 SESIÓN 2 (mismo día) — mejoras hechas y PENDIENTES para QWEN/CODEX:**
 >

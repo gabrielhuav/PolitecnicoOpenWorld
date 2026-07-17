@@ -19,10 +19,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfArcadeLadder
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfBox
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDirection
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighter
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterData
@@ -35,7 +37,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfProjectileEvent
 import ovh.gabrielhuav.pow.BuildConfig
-import ovh.gabrielhuav.pow.data.repository.SettingsRepository
+import ovh.gabrielhuav.pow.data.repository.SfArcadeRepository
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
@@ -70,20 +72,39 @@ class StreetFighterViewModel @Inject constructor(
     private val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val soundEvents: SharedFlow<String> = _soundEvents.asSharedFlow()
 
-    // (2026-07-15) El modo ya es PÚBLICO para todos; RYU y KEN se desbloquean SOLO en builds
-    // DEBUG (cable desde Android Studio) + Modo Desarrollador: sus assets viven en el source
-    // set app/src/debug/assets/ y el bundle de Play Store (release) NO los incluye (copyright)
-    // — en release ni el Modo Desarrollador los muestra (cargarlos crashearía). Snapshot al
-    // crear el VM (scope NavBackStackEntry → se relee cada vez que entras al modo).
-    private val classicFightersUnlocked: Boolean =
-        BuildConfig.DEBUG && SettingsRepository(appContext).getDeveloperMode()
+    // 🆕 Progreso del ARCADE (guardado LOCAL). Define qué peleadores/mapas están desbloqueados.
+    private val arcadeRepo = SfArcadeRepository(appContext)
 
-    /** Roster del selector (lo lee la View): sin Modo Desarrollador, RYU y KEN quedan fuera. */
-    val selectableFighters: List<SfFighterId> = if (classicFightersUnlocked) {
-        SfFighterId.entries.toList()
-    } else {
-        SfFighterId.entries.filter { it != SfFighterId.RYU && it != SfFighterId.KEN }
+    /** Ids desbloqueados (arcade) como SfFighterId (ignora nombres inválidos). */
+    private fun unlockedIds(): Set<SfFighterId> =
+        arcadeRepo.unlockedFighters().mapNotNull { name ->
+            runCatching { SfFighterId.valueOf(name) }.getOrNull()
+        }.toSet()
+
+    /**
+     * Roster SELECCIONABLE (lo lee la View): solo los DESBLOQUEADOS del arcade. Es función (no
+     * val) para releer el progreso en vivo tras desbloquear en la escalera. (RYU/KEN se
+     * eliminaron del juego; ver SfFighterId.)
+     */
+    fun selectableFighters(): List<SfFighterId> {
+        val unlocked = unlockedIds()
+        return SfArcadeLadder.ALL_PARTICIPANTS.filter { it in unlocked }
     }
+
+    /** Personajes del arcade AÚN bloqueados (la View los pinta con candado 🔒). */
+    fun lockedFighters(): List<SfFighterId> {
+        val unlocked = unlockedIds()
+        return SfArcadeLadder.ALL_PARTICIPANTS.filter { it !in unlocked }
+    }
+
+    /** Archivos de mapa desbloqueados (para el selector con candado 🔒). */
+    fun unlockedMaps(): Set<String> = arcadeRepo.unlockedMaps()
+
+    // Estado interno de la escalera de arcade en curso (la lista pesada NO va al UiState).
+    private var arcadeLadder: List<SfArcadeLadder.Step> = emptyList()
+    private var arcadeBase: SfCpuDifficulty = SfCpuDifficulty.NORMAL
+    private var arcadeMapCurrent: String? = null
+    private var arcadePlayer: SfFighterId = SfFighterId.ESCOMBOY
 
     // Frame data por peleador (cache perezoso por identidad; soporta CUALQUIER SfFighterId)
     private val dataCache = mutableMapOf<SfFighterId, SfFighterData>()
@@ -110,6 +131,10 @@ class StreetFighterViewModel @Inject constructor(
     // ---- IA de la CPU ----
     private var cpuNextDecisionMs = 0L
     private var cpuHold = SfInput()     // intención sostenida (caminar)
+    // 🆕 Intensidad de la CPU 0f..1f (POR FASES del arcade): 0 = como en VS; 1 = máxima. Escala
+    // la CADENCIA de decisión (reacciona más rápido) y la agresividad/bloqueo. En VS es 0
+    // (comportamiento idéntico al de siempre); el arcade la sube según avanzas en la escalera.
+    private var cpuIntensity = 0f
 
     // ---- batalla ----
     private var hurtFreezeUntilMs = 0L  // hit-freeze (FighterStruckDelay)
@@ -1065,17 +1090,82 @@ class StreetFighterViewModel @Inject constructor(
 
     // ------------------------------------------------------------------
     // IA de la CPU (el JS original era 2 jugadores humanos; aquí P2 = CPU)
+    // 🆕 DIFICULTAD (2026-07-16): BASICA (lenta, sin poderes, para aprender),
+    // NORMAL (la IA clásica del port) y AVANZADA (reactiva: bloquea, castiga,
+    // anti-aéreo, esquiva hadoukens y lanza MUCHOS poderes — casi imposible).
+    // Se elige en el paso DIFICULTAD del flujo offline pre-pelea; resetRound
+    // y la revancha la CONSERVAN (viaja en state.cpuDifficulty vía s.copy).
     // ------------------------------------------------------------------
+
+    /** Estados en los que el RIVAL está atacando (la IA avanzada BLOQUEA al verlos). */
+    private val cpuThreatStates = setOf(
+        SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
+        SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
+        SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
+    )
+
+    /** Estados en los que el RIVAL está vulnerable (recuperación) → la avanzada CASTIGA. */
+    private val cpuPunishStates = setOf(
+        SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
+        SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
+        SfFighterState.JUMP_LAND, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_UP,
+    )
 
     private fun buildCpuInput(now: Long, sim: Sim): SfInput {
         if (sim.battleEnded) return SfInput()
         if (now < cpuNextDecisionMs) return cpuHold
 
-        cpuNextDecisionMs = now + Random.nextLong(280L, 620L)
+        // Cadencia de decisión por dificultad: la avanzada "piensa" ~4× más rápido. 🆕 La
+        // INTENSIDAD del arcade la acelera hasta ~45% más (reacciona antes conforme avanzas).
+        val difficulty = _state.value.cpuDifficulty
+        val baseDelay = when (difficulty) {
+            SfCpuDifficulty.BASICA -> Random.nextLong(800L, 1500L)
+            SfCpuDifficulty.NORMAL -> Random.nextLong(280L, 620L)
+            SfCpuDifficulty.AVANZADA -> Random.nextLong(90L, 180L)
+        }
+        cpuNextDecisionMs = now + (baseDelay * (1f - 0.45f * cpuIntensity)).toLong().coerceAtLeast(60L)
+        cpuHold = when (difficulty) {
+            SfCpuDifficulty.BASICA -> basicCpuDecision(sim)
+            SfCpuDifficulty.NORMAL -> normalCpuDecision(sim)
+            SfCpuDifficulty.AVANZADA -> advancedCpuDecision(sim)
+        }
+        // Los botones son de UN tick: se entregan una vez y la intención queda solo direccional
+        val oneShot = cpuHold
+        cpuHold = cpuHold.copy(
+            lightPunch = false, mediumPunch = false, heavyPunch = false,
+            lightKick = false, mediumKick = false, heavyKick = false, special = null,
+        )
+        return oneShot
+    }
+
+    /**
+     * BÁSICA — para APRENDER los controles: reacciona lento (~0.8-1.5 s), camina mucho,
+     * se queda quieta seguido y solo tira golpes LIGEROS de vez en cuando. NUNCA lanza
+     * poderes, NUNCA salta y NUNCA se cubre a propósito.
+     */
+    private fun basicCpuDecision(sim: Sim): SfInput {
         val dist = abs(sim.p1.x - sim.p0.x)
         val roll = Random.nextFloat()
+        return when {
+            dist > 190f -> if (roll < 0.65f) SfInput(forward = true) else SfInput()
+            dist > 90f -> when {
+                roll < 0.45f -> SfInput(forward = true)
+                roll < 0.75f -> SfInput()
+                else -> SfInput(backward = true)
+            }
+            else -> when {
+                roll < 0.22f -> cpuAttack(SfAttackStrength.LIGHT, punch = Random.nextBoolean())
+                roll < 0.60f -> SfInput()
+                else -> SfInput(backward = true)
+            }
+        }
+    }
 
-        cpuHold = when {
+    /** NORMAL — la IA clásica del port: decisiones al azar por bandas de distancia. */
+    private fun normalCpuDecision(sim: Sim): SfInput {
+        val dist = abs(sim.p1.x - sim.p0.x)
+        val roll = Random.nextFloat()
+        return when {
             dist > 190f -> when {
                 roll < 0.12f -> SfInput(special = SfAttackStrength.entries.random()) // hadouken lejano
                 roll < 0.25f -> SfInput(up = true, forward = true)                    // salto adelante
@@ -1087,37 +1177,89 @@ class StreetFighterViewModel @Inject constructor(
                 else -> SfInput(down = true)
             }
             else -> when {
-                roll < 0.45f -> randomCpuAttack()
+                roll < 0.45f + 0.20f * cpuIntensity -> randomCpuAttack() // 🆕 más agresiva por fase
                 roll < 0.65f -> SfInput(backward = true)
                 roll < 0.75f -> SfInput(up = true)
                 else -> SfInput()
             }
         }
-        // Los botones son de UN tick: se entregan una vez y la intención queda solo direccional
-        val oneShot = cpuHold
-        cpuHold = cpuHold.copy(
-            lightPunch = false, mediumPunch = false, heavyPunch = false,
-            lightKick = false, mediumKick = false, heavyKick = false, special = null,
-        )
-        return oneShot
     }
 
-    private fun randomCpuAttack(): SfInput {
-        val strength = SfAttackStrength.entries.random()
-        return if (Random.nextBoolean()) {
-            when (strength) {
-                SfAttackStrength.LIGHT -> SfInput(lightPunch = true)
-                SfAttackStrength.MEDIUM -> SfInput(mediumPunch = true)
-                SfAttackStrength.HEAVY -> SfInput(heavyPunch = true)
+    /**
+     * AVANZADA — reactiva y pensada para ser CASI IMPOSIBLE: lee el estado del rival
+     * cada ~90-180 ms. Prioridades: (1) hadouken entrante → saltarlo (o contra-poder);
+     * (2) rival por el aire cerca → ANTI-AÉREO fuerte; (3) rival atacando a rango →
+     * BLOQUEAR (caminar hacia atrás = chip); (4) rival en recuperación → CASTIGO;
+     * (5) por distancia: lejos = MUCHOS poderes, medio = presión, cerca = mixups fuertes.
+     */
+    private fun advancedCpuDecision(sim: Sim): SfInput {
+        val me = sim.p1
+        val foe = sim.p0
+        val dist = abs(me.x - foe.x)
+        val roll = Random.nextFloat()
+
+        // (1) Proyectil del rival en vuelo HACIA mí y cerca → brincarlo (o reventarlo
+        // con otro poder: fireball-vs-fireball, ver SESIÓN 4)
+        val incoming = sim.fireballs.any { fb ->
+            fb.ownerIndex == 0 && fb.state == SfFireballState.ACTIVE &&
+                abs(fb.x - me.x) < 260f && (me.x - fb.x) * fb.direction.sign > 0f
+        }
+        if (incoming && !me.isAirborne) {
+            return if (roll < 0.75f) SfInput(up = true, forward = true)
+            else SfInput(special = SfAttackStrength.HEAVY)
+        }
+        // (2) Anti-aéreo: el rival me salta encima → puño fuerte
+        if (foe.isAirborne && dist < 140f) return cpuAttack(SfAttackStrength.HEAVY, punch = true)
+        // (3) BLOQUEO reactivo: el rival está atacando a rango → cubrirse casi siempre.
+        // 🆕 La intensidad sube el bloqueo hasta ~0.98 (más avanzas = más difícil pegarle).
+        if (foe.state in cpuThreatStates && dist < 170f && roll < 0.85f + 0.13f * cpuIntensity) {
+            return SfInput(backward = true)
+        }
+        // (4) Castigo: el rival quedó vulnerable cerca → golpe fuerte inmediato
+        if (foe.state in cpuPunishStates && dist < 110f) {
+            return cpuAttack(SfAttackStrength.HEAVY, punch = Random.nextBoolean())
+        }
+        // (5) Juego por distancia ("cuando sea avanzado usa muchos poderes")
+        return when {
+            dist > 190f -> when {
+                roll < 0.55f + 0.15f * cpuIntensity -> SfInput(special = SfAttackStrength.entries.random())
+                roll < 0.70f -> SfInput(up = true, forward = true)
+                else -> SfInput(forward = true)
             }
-        } else {
-            when (strength) {
-                SfAttackStrength.LIGHT -> SfInput(lightKick = true)
-                SfAttackStrength.MEDIUM -> SfInput(mediumKick = true)
-                SfAttackStrength.HEAVY -> SfInput(heavyKick = true)
+            dist > 90f -> when {
+                roll < 0.25f + 0.15f * cpuIntensity -> SfInput(special = SfAttackStrength.entries.random())
+                roll < 0.85f -> SfInput(forward = true)
+                else -> SfInput(up = true, forward = true)
+            }
+            else -> when {
+                roll < 0.70f + 0.18f * cpuIntensity -> cpuAttack(
+                    if (Random.nextFloat() < 0.65f) SfAttackStrength.HEAVY else SfAttackStrength.MEDIUM,
+                    punch = Random.nextBoolean(),
+                )
+                roll < 0.80f -> SfInput(special = SfAttackStrength.LIGHT) // poder a quemarropa
+                roll < 0.90f -> SfInput(backward = true)                  // bait + guardia
+                else -> SfInput(forward = true)
             }
         }
     }
+
+    /** Arma un SfInput de golpe (puño o patada) de la fuerza pedida. */
+    private fun cpuAttack(strength: SfAttackStrength, punch: Boolean): SfInput = if (punch) {
+        when (strength) {
+            SfAttackStrength.LIGHT -> SfInput(lightPunch = true)
+            SfAttackStrength.MEDIUM -> SfInput(mediumPunch = true)
+            SfAttackStrength.HEAVY -> SfInput(heavyPunch = true)
+        }
+    } else {
+        when (strength) {
+            SfAttackStrength.LIGHT -> SfInput(lightKick = true)
+            SfAttackStrength.MEDIUM -> SfInput(mediumKick = true)
+            SfAttackStrength.HEAVY -> SfInput(heavyKick = true)
+        }
+    }
+
+    private fun randomCpuAttack(): SfInput =
+        cpuAttack(SfAttackStrength.entries.random(), punch = Random.nextBoolean())
 
     // ------------------------------------------------------------------
     // Intenciones de la View
@@ -1189,27 +1331,28 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
         val s = _state.value
-        startBattle(playerId = s.player.id, cpuId = s.cpu.id)
+        // Revancha offline: MISMA dificultad de CPU que la pelea anterior
+        startBattle(playerId = s.player.id, cpuId = s.cpu.id, difficulty = s.cpuDifficulty)
     }
 
     /**
      * Selector: fija el personaje. Online avisa y espera al rival; offline arranca ya
-     * contra `rivalId` (🆕 el jugador también ELIGE al enemigo; null = Ken/Ryu default).
+     * contra `rivalId` (🆕 el jugador también ELIGE al enemigo; null = Ken/Ryu default)
+     * con la `difficulty` elegida (🆕 paso DIFICULTAD del flujo pre-pelea; online se ignora).
      */
-    fun selectCharacter(id: SfFighterId, rivalId: SfFighterId? = null) {
+    fun selectCharacter(
+        id: SfFighterId,
+        rivalId: SfFighterId? = null,
+        difficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL,
+    ) {
         if (isOnline) {
             myOnlineChar = id
             transport?.selectCharacter(id.name)
             return // la pelea arranca cuando el servidor mande FIGHT_START
         }
-        // Rival default (rivalId null): con Modo Desarrollador, Ken/Ryu clásicos; sin él,
-        // NUNCA Ryu/Ken (están bloqueados) → cae a un peleador POW.
-        val cpuId = rivalId ?: when {
-            classicFightersUnlocked -> if (id == SfFighterId.KEN) SfFighterId.RYU else SfFighterId.KEN
-            id == SfFighterId.PRANKEDY -> SfFighterId.REY_GRUPERO
-            else -> SfFighterId.PRANKEDY
-        }
-        startBattle(playerId = id, cpuId = cpuId)
+        // Rival default (rivalId null): un peleador POW distinto al elegido.
+        val cpuId = rivalId ?: if (id == SfFighterId.PRANKEDY) SfFighterId.REY_GRUPERO else SfFighterId.PRANKEDY
+        startBattle(playerId = id, cpuId = cpuId, difficulty = difficulty)
     }
 
     /** Vuelve al selector de personaje (desde el menú de fin de pelea). */
@@ -1222,7 +1365,11 @@ class StreetFighterViewModel @Inject constructor(
         _state.value = StreetFighterState() // inCharacterSelect = true por default
     }
 
-    private fun startBattle(playerId: SfFighterId, cpuId: SfFighterId) {
+    private fun startBattle(
+        playerId: SfFighterId,
+        cpuId: SfFighterId,
+        difficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL,
+    ) {
         resetInternals()
         roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" (gameNow arranca en 0)
         val base = StreetFighterState()
@@ -1231,7 +1378,99 @@ class StreetFighterViewModel @Inject constructor(
             cpu = base.cpu.copy(id = cpuId),
             inCharacterSelect = false,
             showRoundIntro = true,
+            cpuDifficulty = difficulty,
         )
+    }
+
+    // ------------------------------------------------------------------
+    // 🆕 MODO ARCADE (escalera de 11 peleas, OFFLINE). Ver SfArcadeLadder + SfArcadeRepository.
+    // Todos los personajes/mapas empiezan bloqueados; se desbloquean derrotando rivales.
+    // ------------------------------------------------------------------
+
+    /** Arranca el arcade con el `playerId` elegido (un estudiante) y una dificultad base. */
+    fun startArcade(playerId: SfFighterId, base: SfCpuDifficulty) {
+        arcadePlayer = playerId
+        arcadeLadder = SfArcadeLadder.build(playerId)
+        arcadeBase = base
+        arcadeMapCurrent = SfArcadeLadder.MAP_FIRST
+        startArcadeStep(1)
+    }
+
+    /** Prepara y arranca la pelea del escalón `step` (1..TOTAL). */
+    private fun startArcadeStep(step: Int) {
+        if (arcadeLadder.isEmpty()) return
+        val idx = step.coerceIn(1, arcadeLadder.size)
+        val stepData = arcadeLadder[idx - 1]
+        // Mapa "ligado al rival": si el escalón trae mapa, cámbialo; si no, conserva el vigente.
+        arcadeMapCurrent = stepData.mapFile ?: arcadeMapCurrent
+        resetInternals()
+        // 🆕 IA POR FASES: la intensidad sube 0→1 conforme avanzas en la escalera (pelea 1 = 0,
+        // final = 1). Se suma a la dificultad de tier (arcadeDifficulty) → cada pelea más dura.
+        cpuIntensity = if (arcadeLadder.size > 1) (idx - 1).toFloat() / (arcadeLadder.size - 1) else 1f
+        roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA"
+        val base = StreetFighterState()
+        _state.value = base.copy(
+            player = base.player.copy(id = arcadePlayer),
+            cpu = base.cpu.copy(id = stepData.rival),
+            inCharacterSelect = false,
+            showRoundIntro = true,
+            cpuDifficulty = arcadeDifficulty(stepData),
+            arcadeActive = true,
+            arcadeStep = idx,
+            arcadeTotal = arcadeLadder.size,
+            arcadeRival = stepData.rival,
+            arcadeMapFile = arcadeMapCurrent,
+            arcadeOutcome = SfArcadeOutcome.NONE,
+        )
+    }
+
+    /** Dificultad HÍBRIDA: la base elegida + rampa hacia los jefes (tope AVANZADA). */
+    private fun arcadeDifficulty(step: SfArcadeLadder.Step): SfCpuDifficulty {
+        if (step.isBoss) return SfCpuDifficulty.AVANZADA
+        val bump = if (step.index >= 6) 1 else 0
+        val i = (arcadeBase.ordinal + bump).coerceAtMost(SfCpuDifficulty.entries.lastIndex)
+        return SfCpuDifficulty.entries[i]
+    }
+
+    /**
+     * Fin del COMBATE en arcade (offline): si GANASTE, desbloquea al rival vencido + su mapa y
+     * guarda el progreso; si perdiste, marca la derrota. El overlay lo dibuja la View según
+     * `arcadeOutcome`. Lo llama endRound cuando alguien llega a ROUNDS_TO_WIN.
+     */
+    private fun handleArcadeMatchEnd(winnerIdx: Int) {
+        val s = _state.value
+        val step = arcadeLadder.getOrNull(s.arcadeStep - 1) ?: return
+        val outcome = if (winnerIdx == 0) {
+            arcadeRepo.unlockFighter(step.rival.name)
+            step.mapFile?.let { arcadeRepo.unlockMap(it) }
+            arcadeRepo.setLadderStep(s.arcadeStep)
+            if (s.arcadeStep >= arcadeLadder.size) SfArcadeOutcome.COMPLETED else SfArcadeOutcome.WON
+        } else {
+            SfArcadeOutcome.LOST
+        }
+        _state.value = _state.value.copy(arcadeOutcome = outcome)
+    }
+
+    /** CONTINUAR tras ganar un escalón → siguiente rival (o salir si era la final). */
+    fun arcadeContinue() {
+        val s = _state.value
+        if (!s.arcadeActive) return
+        if (s.arcadeOutcome == SfArcadeOutcome.COMPLETED) { arcadeExit(); return }
+        startArcadeStep(s.arcadeStep + 1)
+    }
+
+    /** REINTENTAR tras perder → retrocede 1 pelea (repite la anterior; nunca antes de la 1ª). */
+    fun arcadeRetry() {
+        val s = _state.value
+        if (!s.arcadeActive) return
+        startArcadeStep((s.arcadeStep - 1).coerceAtLeast(1))
+    }
+
+    /** Salir del arcade → volver al selector de personaje (fresco). */
+    fun arcadeExit() {
+        arcadeLadder = emptyList()
+        resetInternals()
+        _state.value = StreetFighterState()
     }
 
     /** Reinicio de todos los relojes/colas internos (resetGameState del JS). */
@@ -1248,6 +1487,7 @@ class StreetFighterViewModel @Inject constructor(
         endMenuAtMs = 0L
         cpuNextDecisionMs = 0L
         cpuHold = SfInput()
+        cpuIntensity = 0f // VS: sin escalado; el arcade la sube en startArcadeStep
         pendingAttacks.clear()
         controlHistory.clear()
         lastZone = 0
@@ -1574,10 +1814,9 @@ class StreetFighterViewModel @Inject constructor(
             "ERROR" -> cancelOnline(msg.message ?: "Error del servidor")
             "CHARACTERS_SELECTED" -> {
                 val oppName = if (s.isHost) msg.char2 else msg.char1
-                oppOnlineChar = sanitizeNetFighter(
-                    oppName?.let { n -> runCatching { SfFighterId.valueOf(n) }.getOrNull() }
-                        ?: SfFighterId.PRANKEDY,
-                )
+                // Parse defensivo: un id inválido/eliminado (p. ej. "RYU"/"KEN" de un cliente viejo) → PRANKEDY.
+                oppOnlineChar = oppName?.let { n -> runCatching { SfFighterId.valueOf(n) }.getOrNull() }
+                    ?: SfFighterId.PRANKEDY
                 _state.value = s.copy(onlineStatus = SfOnlineStatus.WAITING_MAP)
             }
             "MAP_SELECTED" -> {
@@ -1868,6 +2107,8 @@ class StreetFighterViewModel @Inject constructor(
             matchOver = true
             endMenuAtMs = now + END_MENU_DELAY_MS
             if (isOnline) sendOnlineEnd(winnerIdx)
+            // 🆕 ARCADE (offline): desbloqueo/avance de la escalera al decidirse el combate.
+            if (_state.value.arcadeActive) handleArcadeMatchEnd(winnerIdx)
         } else {
             roundResetAtMs = now + ROUND_RESET_DELAY_MS
             if (isOnline && !roundEndSent) {
@@ -1986,18 +2227,6 @@ class StreetFighterViewModel @Inject constructor(
             cpuRoundWins = if (winnerIdx == 1) ROUNDS_TO_WIN else s.cpuRoundWins,
         )
     }
-
-    /**
-     * ⚠️ COPYRIGHT: en RELEASE los assets de RYU/KEN no existen (viven en el source set
-     * debug); si un rival con build de cable los elige, aquí se sustituyen por PRANKEDY
-     * para no crashear (el rival se ve distinto en cada lado — aceptado y documentado).
-     */
-    private fun sanitizeNetFighter(id: SfFighterId): SfFighterId =
-        if (!BuildConfig.DEBUG && (id == SfFighterId.RYU || id == SfFighterId.KEN)) {
-            SfFighterId.PRANKEDY
-        } else {
-            id
-        }
 
     private fun onNetDropped(reason: String?) {
         if (!isOnline) return

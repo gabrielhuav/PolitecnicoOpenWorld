@@ -121,7 +121,7 @@ val SF_CLASSIC_THEME = SfTheme(
         SfStageBg("fondo_IPN_ESIME_AZC_1.png", "ESIME Azcapotzalco"),
         SfStageBg("fondo_IPN_cecyt9_1.png", "CECyT 9"),
         SfStageBg("fondo_IPN_cecyt2_1.png", "CECyT 2"),
-        SfStageBg("fondo_UNAM_bibliotecaCentral_1.png", "Biblioteca UNAM"),
+        SfStageBg("fondo_UNAM_bibliotecaCentral_1.png", "Ciudad Universitaria UNAM"),
     ),
     stageImage = "kenstage.png",
     stageBackground = listOf(72, 208, 768, 176),

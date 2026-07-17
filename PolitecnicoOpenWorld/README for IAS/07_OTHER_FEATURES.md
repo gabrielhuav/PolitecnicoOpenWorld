@@ -56,7 +56,7 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
 | 🆕 Transporte común del multijugador (interfaz; WS online / BT / LAN local) | `features/streetfighter/data/SfNetTransport.kt`, `SfMatchClient.kt`, `SfStreamPeer.kt` (base de stream), `SfBtClient.kt`, `SfLanClient.kt` |
 | 🆕 TEMA intercambiable (escenario/HUD/sombra/splashes/proyectil/sonidos como DATOS; hoy `SF_CLASSIC_THEME`) | `features/streetfighter/data/SfTheme.kt` |
 | Estado UI (peleadores, fireballs, splashes, cámara, timer, fin de pelea) | `features/streetfighter/viewmodel/StreetFighterState.kt` |
-| VM `@HiltViewModel` (port de Fighter.js/BattleScene.js/Fireball.js: máquina de 30 estados, animación por frame-delays, cajas por frame, hit-freeze 15 frames, hadouken ↓↘→+P, IA CPU, timer 99, sonidos por SharedFlow) | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` |
+| VM `@HiltViewModel` (port de Fighter.js/BattleScene.js/Fireball.js: máquina de 30 estados, animación por frame-delays, cajas por frame, hit-freeze 15 frames, hadouken ↓↘→+P, IA CPU con 3 dificultades 🆕, timer 99, sonidos por SharedFlow) | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` |
 | View (Canvas: sprite sheets con flip por ancla, escenario de Ken con parallax/bandera/barco, sombras, HUD de hud.png, winnerText; SoundPool + tema de Ken en loop; joystick POW + 6 botones) | `features/streetfighter/ui/StreetFighterScreen.kt` |
 
 - **Reloj de juego VIRTUAL:** `gameNow` solo avanza si no hay pausa/diálogo → los timers absolutos
@@ -299,9 +299,35 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   (`collideFireballPairs`: dos ACTIVE de dueños opuestos se revientan; offline y online
   simétrico). (5) **Roll-up del HUD** (`displayHp0/1`: la barra drena a 200 HP/s hacia el HP
   real; subir instantáneo → el reset de ronda rellena solo; `drawHud` pinta con estos).
+- **🆕 DIFICULTAD DE LA CPU — 3 niveles (2026-07-16c):** el flujo offline pre-pelea ahora es de
+  **4 pasos**: peleador → rival → **DIFICULTAD** (`DifficultySelectOverlay`, 3 `PowButton` con
+  descripción) → mapa. Enum **`SfCpuDifficulty`** (`SfModels.kt`): **BASICA** (decisiones cada
+  ~0.8-1.5 s, camina/espera, solo golpes LIGEROS esporádicos; jamás bloquea/salta/lanza poderes —
+  para aprender), **NORMAL** (la IA clásica del port, ~280-620 ms) y **AVANZADA** (reactiva cada
+  ~90-180 ms, casi imposible: BLOQUEA tus ataques a rango (~85%), ANTI-AÉREO fuerte, CASTIGA tu
+  recuperación (HURT/JUMP_LAND/CROUCH), brinca o contra-poderea hadoukens entrantes y lanza
+  MUCHOS poderes — 55% lejos, 25% a media distancia, incluso a quemarropa). Vive en
+  `state.cpuDifficulty` (default NORMAL; la fija `selectCharacter(id, rivalId, difficulty)` →
+  `startBattle`); `resetRound` (s.copy) y la revancha la CONSERVAN. Solo offline: online el rival
+  es humano y `buildCpuInput` no corre. La IA se partió en `basicCpuDecision`/`normalCpuDecision`/
+  `advancedCpuDecision` + helper `cpuAttack` (VM); sets `cpuThreatStates`/`cpuPunishStates`.
+  Strings `sf_choose_difficulty`/`sf_diff_*` (ES+EN, paridad). ⚠️ Al calibrar el fix del
+  STUN-LOCK (ver `PENDIENTES_SF_2026-07-16.md` ②) probar también vs AVANZADA (castiga rápido).
+- **🆕 MODO ARCADE POW — escalera de 11 peleas (2026-07-17):** botón **ARCADE** en el selector.
+  El jugador elige uno de los 3 estudiantes DESBLOQUEADOS (ESCOMBOY/ESCOMGIRL/ROBOT) + dificultad
+  base; pelea una escalera FIJA (`SfArcadeLadder.build`): 1-2 los otros 2 estudiantes (azar), 3-5
+  Paramédico CR/Señor Tienda/Paparazzi 1 (azar), 6-9 Policía CDMX H/M + Granadero×2 (placeholder),
+  10 semifinal **Rey Grupero**, 11 final **Prankedy**. **Dificultad HÍBRIDA** (base + rampa a los
+  jefes = AVANZADA) + **IA POR FASES** (`cpuIntensity` 0→1 según el avance: reacciona más rápido y
+  bloquea/ataca más entre más lejos llegas; en VS = 0, sin cambios). Al GANAR desbloquea al rival + su mapa y **guarda LOCAL** (`SfArcadeRepository`,
+  SharedPreferences `pow_sf_arcade`); al PERDER retrocede 1 pelea (`ArcadeResultOverlay`:
+  GANASTE/PERDISTE/CAMPEÓN). **Todo bloqueado hasta ganarlo:** `selectableFighters()` (ahora
+  función) devuelve solo desbloqueados, y `CharacterCard`/`StageCard` pintan los bloqueados con
+  **candado 🔒**. Estado: `arcade*` + enum `SfArcadeOutcome`. Solo OFFLINE (no toca red). Diseño y
+  pendientes (assets Granadero H/M, mapa↔rival, quitar RYU/KEN del enum): `DISENO_ARCADE_SF_POW.md`.
 - **Pendiente:** reconexión a sala tras caída, espectadores y anti-cheat (conscientes, ver
   AUDIT §4). *(i18n ✅ 2026-07-11; abrirlo sin dev ✅ 2026-07-15; fireball-vs-fireball y
-  roll-up del HUD ✅ 2026-07-16 SESIÓN 4.)*
+  roll-up del HUD ✅ 2026-07-16 SESIÓN 4; ARCADE ✅ 2026-07-17.)*
 
 ---
 

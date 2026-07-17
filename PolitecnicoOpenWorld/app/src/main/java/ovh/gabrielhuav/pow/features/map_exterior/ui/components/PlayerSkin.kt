@@ -147,27 +147,9 @@ enum class PlayerSkin(
         specialBodyFraction = 0.703125f,
         uniform512Canvas = true
     ),
-    // 🚫 DESACTIVADOS del selector y de la historia (decisión de diseño). Assets CONSERVADOS en
-    //    SPRITES/NPC/ReyBromas|PepeRey por si se reusan. Para reactivar: descomenta este bloque
-    //    y sus entradas en SkinSelectorDialog.
-    /*
-    REY_BROMAS(
-        displayName = "El Rey de las Bromas",
-        skinFolder  = "ReyBromas/",
-        skinPrefix  = "rb_",
-        basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 6, runFrames = 8, specialFrames = 4,  // special = bromas (spray/megáfono/globo)
-        walkBodyFraction = 0.865f
-    ),
-    PEPE_REY(
-        displayName = "Pepe del Rey de las Bromas",
-        skinFolder  = "PepeRey/",
-        skinPrefix  = "pr_",
-        basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 4, runFrames = 8, specialFrames = 3,  // special = BROMA CON TANQUE (golpe)
-        walkBodyFraction = 0.865f
-    ),
-    */
+    // 🚫 ELIMINADOS por diseño (2026-07-16): REY_BROMAS y PEPE_REY ya no son personajes del
+    //    juego. Sus assets siguen en SPRITES/NPC/ReyBromas|PepeRey por si acaso, pero NO hay
+    //    entrada de skin. "Rey de las Bromas" sobrevive SOLO como título en la historia (Mission2).
     // PRANKEDY jugable: reutiliza sus sprites (copiados de SPRITES/NPC/Prankedy/ a la convención de
     // skin en SPRITES/NPC/PrankedyPlayable/). Lienzos 512² uniformes → fracciones por acción medidas.
     PRANKEDY(
