@@ -96,6 +96,8 @@ fun SkinSelectorDialog(
         PlayerSkin.PAPARAZZI_N1, PlayerSkin.PAPARAZZI_N5, PlayerSkin.POLICIA_CDMX,
         PlayerSkin.POLICIA_CDMX_HOMBRE, PlayerSkin.PARAMEDICO_CRUZ_ROJA,
         PlayerSkin.POLICIA_GRANADERO_HOMBRE, PlayerSkin.POLICIA_GRANADERO_MUJER,
+        PlayerSkin.YOALLI_EHECATL, PlayerSkin.CHARRO_NEGRO, PlayerSkin.LA_TZITZIMIME,
+        PlayerSkin.LA_PRESIDENTA,
         PlayerSkin.GRANADERO, PlayerSkin.PARAMEDICO,
         PlayerSkin.IPN_1, PlayerSkin.IPN_2, PlayerSkin.IPN_3, PlayerSkin.IPN_4, PlayerSkin.IPN_5, PlayerSkin.IPN_6,
         PlayerSkin.DOC_1,

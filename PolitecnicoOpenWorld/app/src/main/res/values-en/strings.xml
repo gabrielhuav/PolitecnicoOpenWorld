@@ -556,7 +556,7 @@
     <string name="sf_back_to_menu">Back to menu</string>
     <string name="sf_paused">PAUSED</string>
     <string name="sf_continue">Continue</string>
-    <string name="sf_controls_hint">X/Y/B: PUNCH  •  A: KICK  •  ↓↘→ + X/Y/B: SPECIAL</string>
+    <string name="sf_controls_hint">X/Y/B: PUNCH  •  A: KICK  •  ↓↘→ + X/Y/B: SPECIAL  •  P: EXTRA POWER</string>
     <string name="sf_controls_help">X/Y/B = light, medium and heavy punch\nA neutral/forward/back = light, medium and heavy kick\n↓ ↘ → + X/Y/B = light, medium or heavy special</string>
     <string name="sf_exit_title">Leave the fight</string>
     <string name="sf_exit_message">Quit the fight and return to the main menu?</string>

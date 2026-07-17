@@ -36,6 +36,8 @@ def main():
                     help="base relativa a assets; usa SPRITES/PLAYER para protagonistas")
     ap.add_argument("--flat-world-folders", action="store_true",
                     help="convencion antigua <folder>Idle/<folder>Walk en vez de <folder>/Idle")
+    ap.add_argument("--bonus-powers", type=int, default=0,
+                    help="secuencias Grok extra de cinco cuadros cada una")
     args = ap.parse_args()
 
     assets = Path(args.assets_root)
@@ -45,10 +47,13 @@ def main():
     world = world_base / args.world_folder
     errors = []
 
+    expected_frames = 123 + args.bonus_powers * 5
+    expected_animations = 30 + args.bonus_powers
+    expected_sheet_size = (2560, ((expected_frames + 9) // 10) * 256)
     if not sheet_path.is_file():
         errors.append("Falta sheet: %s" % sheet_path)
-    elif Image.open(sheet_path).size != (2560, 3328):
-        errors.append("Sheet no mide 2560x3328: %s" % (Image.open(sheet_path).size,))
+    elif Image.open(sheet_path).size != expected_sheet_size:
+        errors.append("Sheet no mide %sx%s: %s" % (*expected_sheet_size, Image.open(sheet_path).size))
 
     data = None
     if not json_path.is_file():
@@ -59,10 +64,14 @@ def main():
         animations = data.get("animations", {})
         projectiles = [key for key in frames if key.startswith("proj-")]
         events = data.get("events", {}).get("projectile", {})
-        if len(frames) != 123:
-            errors.append("JSON tiene %d frames; deben ser 123" % len(frames))
-        if len(animations) != 30:
-            errors.append("JSON tiene %d animaciones; deben ser 30" % len(animations))
+        if len(frames) != expected_frames:
+            errors.append("JSON tiene %d frames; deben ser %d" % (len(frames), expected_frames))
+        if len(animations) != expected_animations:
+            errors.append("JSON tiene %d animaciones; deben ser %d" %
+                          (len(animations), expected_animations))
+        for power in range(1, args.bonus_powers + 1):
+            if len(animations.get("bonusPower%d" % power, [])) != 6:
+                errors.append("bonusPower%d debe tener 5 cuadros + transicion" % power)
         if len(projectiles) != 5:
             errors.append("JSON tiene %d proj-*; deben ser 5" % len(projectiles))
         if set(events) != {"light", "medium", "heavy"}:

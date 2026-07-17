@@ -5,7 +5,8 @@
 > usando hojas con **fondo croma verde #00FF00** y 2 grupos de animación por hoja.
 > Sustituye al "modo simple" de `GUIA_generacion_assets_SF.md` (fondo negro) para
 > personajes nuevos. **Prankedy, Señor de la Tienda, Rey Grupero, ambos Paparazzi, las policías CDMX,
-> Paramédico Cruz Roja, ambos Policías Granadero y los tres estudiantes ESCOM ya se
+> Paramédico Cruz Roja, ambos Policías Granadero, los tres estudiantes ESCOM, Yoalli Ehécatl,
+> el Charro Negro, La Tzitzimime y La Presidenta ya se
 > regeneraron así (2026-07-16)**.
 > Canon Prankedy: cabello RIZADO (no rastas), idle del mundo SIN guardia.
 > Esta guía es AUTOSUFICIENTE: contiene el prompt maestro completo.
@@ -353,7 +354,88 @@ alfa desde la máscara CRUDA — sin verde interior):
 - Validación: `python tools/validate_sf_chroma_character.py robot Robot robot robot_`
   ` --world-base SPRITES/PLAYER --flat-world-folders` → `VALIDACION OK`.
 
-## 2n. Pase de combate completo (2026-07-16, hecho)
+## 2n. Registro Yoalli Ehécatl (2026-07-17, hecho)
+
+- Las 19 hojas de `newSFAssets/YoalliEhecatl/` están completas y se renombraron
+  `YoalliEhecatl_01..19` por título antes del recorte estricto 01→19.
+- Identidad nueva `SfFighterId.YOALLI_EHECATL`: `YoalliEhecatl.png` 2560×4352 y
+  `yoalliehecatl.json`, con 168 cuadros, 39 animaciones, nueve poderes y metamorfosis.
+  Las poses erguidas miden exactamente 100 px; el poder mantiene el tamaño del cuerpo y solo
+  permite que el torbellino sobresalga. KO no necesitó `flipX`.
+- Mundo `SPRITES/NPC/YoalliEhecatl`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4; todos los
+  lienzos son 512², cuerpo mediano 360 px, pies Y=456, fracciones `0.703125` y
+  `uniform512Canvas=true` para que exterior, interiores y selector usen la misma caja.
+- Validación: `python tools/validate_sf_chroma_character.py yoalliehecatl YoalliEhecatl`
+  ` YoalliEhecatl yeh_ --bonus-powers 9` → `VALIDACION OK`.
+
+## 2o. La Llorona con 18 hojas (2026-07-17, bloqueada por hoja obligatoria)
+
+- Las 18 entregas de `newSFAssets/LaLlorona/` se identificaron por título y conservan el hueco
+  real: falta `_12_SpecialHeavy_Projectile.png`, no una refinada opcional 14/15.
+- Ya se recortaron las 18 hojas presentes en `GEN/lallorona`: hay 113/123 PNG válidos y el
+  mundo parcial 6/6/8/5/4. Faltan exactamente `special-1..5`, `proj-fly-1..2` y
+  `proj-hit-1..3`, todos provenientes de la hoja 12.
+- **No empaquetar, copiar al mundo ni registrar `SfFighterId`/`PlayerSkin` todavía.** Al recibir
+  `LaLlorona_12_SpecialHeavy_Projectile.png` (SPECIAL HEAVY 5 poses + PROJECTILE 5 efectos),
+  procesar solamente `--sheet-num 12`, confirmar 123 PNG y continuar desde el paso 5 de §0b.
+  Inventar esos cuadros o desplazar 13→12 rompería el contrato de animaciones.
+
+## 2p. Registro Charro Negro (2026-07-17, hecho)
+
+- Las 19 hojas de `newSFAssets/CharroNegro/` están completas, se identificaron visualmente y se
+  renombraron `CharroNegro_01..19` por título antes del recorte estricto 01→19.
+- Identidad nueva `SfFighterId.CHARRO_NEGRO`: `CharroNegro.png` 2560×3328 y
+  `charronegro.json`, con 123 cuadros, 30 animaciones y cinco efectos de energía verde-negra.
+  Todas las poses erguidas miden exactamente 100 px. El detector de orientación aplica `flipX`
+  solamente en `fall-2` y `fall-3`; el Charro termina correctamente orientado en el suelo.
+- Mundo `SPRITES/NPC/CharroNegro`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4, lienzos 512²,
+  pies Y=456, fracciones `0.703125` y `uniform512Canvas=true`. El especial conserva la escala;
+  su mediana opaca de 354 px responde a las poses inclinadas, no a un cambio de zoom.
+- Validación: `python tools/validate_sf_chroma_character.py charronegro CharroNegro`
+  ` CharroNegro cn_` → `VALIDACION OK`.
+
+## 2q. Registro La Tzitzimime (2026-07-17, hecho)
+
+- Las 19 hojas de `newSFAssets/LaTzitzimime/` están completas. La última tanda llegó como
+  18→17→16→19 (`IDLE RELAXED`, `RIFLE`, `HANDGUN`, `WALK BACKWARD`); se identificó por títulos
+  y se renombró al orden canónico sin desplazar las hojas.
+- Identidad nueva `SfFighterId.LA_TZITZIMIME`: `LaTzitzimime.png` 2560×3840 y
+  `latzitzimime.json`, con 148 cuadros, 35 animaciones y cinco poderes extra Grok.
+  Todas las poses erguidas miden exactamente 100 px; el aura no entra en la medición corporal.
+  KO ya viene orientado correctamente y no requiere `flipX`.
+- Mundo `SPRITES/NPC/LaTzitzimime`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4, todos 512²,
+  cuerpo mediano 360 px, pies Y=456, fracciones `0.703125` y `uniform512Canvas=true`.
+- Validación: `python tools/validate_sf_chroma_character.py latzitzimime LaTzitzimime`
+  ` LaTzitzimime ltz_ --bonus-powers 5` → `VALIDACION OK`.
+
+## 2r. Registro La Presidenta (2026-07-17, hecho)
+
+- Las 19 hojas de `newSFAssets/LaPresidenta/` están completas. La primera tanda llegó
+  01→02→05→04→03; se identificó por títulos y se renombró al catálogo canónico.
+- Identidad nueva `SfFighterId.LA_PRESIDENTA`: `LaPresidenta.png` 2560×3328 y
+  `lapresidenta.json`, con 123 cuadros, 30 animaciones y cinco efectos blanco-verdes.
+  Poses erguidas exactamente a 100 px y KO correctamente orientado sin `flipX`.
+- Mundo `SPRITES/NPC/LaPresidenta`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4; lienzos
+  512², mediana corporal 360 px, pies Y=456 y `uniform512Canvas=true`.
+- Validación: `python tools/validate_sf_chroma_character.py lapresidenta LaPresidenta`
+  ` LaPresidenta lpr_` → `VALIDACION OK`.
+
+## 2s. Poderes extra Grok y metamorfosis (2026-07-17, hecho)
+
+- `tools/slice_sf_bonus_powers.py` recorta hojas JPG croma 1360×768 en secuencias de cinco
+  cuadros, elimina títulos/ruido JPG y usa una escala fija por secuencia. Efectos y formas
+  transformadas pueden crecer, pero el personaje base no cambia de zoom cuadro por cuadro.
+- La Tzitzimime tiene `bonusPower1..5`: 148 cuadros y 35 animaciones. Yoalli Ehécatl tiene
+  `bonusPower1..9`: 168 cuadros y 39 animaciones; sus tres primeras secuencias son
+  `Stellar Dominion`, `Void Reaver` y `Lich Ascendant` con metamorfosis visibles.
+- El botón morado central `P` aparece solo si `SfFighterId.bonusPowerCount > 0` y recorre P1→PN.
+  Cada poder es un estado SF real, se puede usar por la IA, viaja por el snapshot online y emite
+  un proyectil: Yoalli usa fuerza HEAVY y La Tzitzimime MEDIUM, por lo que Yoalli es más poderosa
+  además de tener más variedad. Las hojas Grok auxiliares de efectos se conservan fuera del APK.
+- El packer descubre `bonus-N-1..5`, amplía dinámicamente hoja/JSON y el validador usa
+  `--bonus-powers N`; personajes sin extras mantienen exactamente 123 cuadros/30 animaciones.
+
+## 2t. Pase de combate completo (2026-07-16, hecho)
 
 - El recortador ya no comprime los golpes al mínimo del template: LIGHT PUNCH 4, MEDIUM/HEAVY
   PUNCH 6, LIGHT/HEAVY KICK 6 y MEDIUM KICK 5. Las hitboxes solo existen en los cuadros de
@@ -361,7 +443,7 @@ alfa desde la máscara CRUDA — sin verde interior):
 - JUMP START usa 2 cuadros, JUMP LAND 3 y JUMP BACKWARD sus 7 cuadros propios. STUN usa 1→2→3.
 - SPECIAL LIGHT/MEDIUM/HEAVY usa 5 cuadros distintos por fuerza. `pack_sf_character.py` agrega
   `events.projectile.<strength>` con cuadro de salida, offset y escala; Kotlin lo carga de forma
-  genérica. Las trece identidades quedan visibles: confeti, polvo de escoba, ondas de megáfono,
+  genérica. Las diecisiete identidades quedan visibles: confeti, polvo de escoba, ondas de megáfono,
   humo rosa, destellos fotográficos, haces policiales, descarga médica y energía tecnológica ESCOM.
 - El sheet dedicado pasa a 123 cuadros en rejilla 10×13 (`2560×3328`); los 123 quedan referenciados.
   `pack_sf_character.py --gen <ruta>` permite empaquetar desde intermedios externos sin devolver

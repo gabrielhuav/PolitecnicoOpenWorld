@@ -100,6 +100,8 @@ enum class SfFighterId(
     val hurtScale: Float = 1f,
     /** null = sheet propio empaquetado en assets; no-null = COMPARTIDO (armado en runtime). */
     val sharedSet: SfSharedSet? = null,
+    /** Poderes extra Grok disponibles desde el boton central P; 0 = controles clasicos. */
+    val bonusPowerCount: Int = 0,
 ) {
     // ⚠️ COPYRIGHT (2026-07-17): RYU y KEN se ELIMINARON del juego (versión POW 100% propia).
     // Sus assets quedan en el source set debug pero YA NO hay ids en el enum: si un cliente viejo
@@ -143,6 +145,24 @@ enum class SfFighterId(
     ROBOT(
         "Robot Estudiantx", "ROBOT",
         "STREETFIGHTER/DATA/robot.json", "STREETFIGHTER/IMAGES/Robot.png",
+    ),
+    YOALLI_EHECATL(
+        "Yoalli Ehécatl", "YOALLI",
+        "STREETFIGHTER/DATA/yoalliehecatl.json", "STREETFIGHTER/IMAGES/YoalliEhecatl.png",
+        bonusPowerCount = 9,
+    ),
+    CHARRO_NEGRO(
+        "El Charro Negro", "CHARRO",
+        "STREETFIGHTER/DATA/charronegro.json", "STREETFIGHTER/IMAGES/CharroNegro.png",
+    ),
+    LA_TZITZIMIME(
+        "La Tzitzimime", "TZITZIMIME",
+        "STREETFIGHTER/DATA/latzitzimime.json", "STREETFIGHTER/IMAGES/LaTzitzimime.png",
+        bonusPowerCount = 5,
+    ),
+    LA_PRESIDENTA(
+        "La Presidenta", "PRESIDENTA",
+        "STREETFIGHTER/DATA/lapresidenta.json", "STREETFIGHTER/IMAGES/LaPresidenta.png",
     ),
     POLICIA_CDMX(
         "Policía CDMX", "POLICIA",
@@ -240,9 +260,28 @@ enum class SfFighterState(val jsKey: String) {
     SPECIAL_1_LIGHT("special1Light"),
     SPECIAL_1_MEDIUM("special1Medium"),
     SPECIAL_1_HEAVY("special1Heavy"),
+    BONUS_POWER_1("bonusPower1"),
+    BONUS_POWER_2("bonusPower2"),
+    BONUS_POWER_3("bonusPower3"),
+    BONUS_POWER_4("bonusPower4"),
+    BONUS_POWER_5("bonusPower5"),
+    BONUS_POWER_6("bonusPower6"),
+    BONUS_POWER_7("bonusPower7"),
+    BONUS_POWER_8("bonusPower8"),
+    BONUS_POWER_9("bonusPower9"),
     VICTORY("victory"),
     KO("ko"),
 }
+
+val SF_BONUS_POWER_STATES: List<SfFighterState> = listOf(
+    SfFighterState.BONUS_POWER_1, SfFighterState.BONUS_POWER_2, SfFighterState.BONUS_POWER_3,
+    SfFighterState.BONUS_POWER_4, SfFighterState.BONUS_POWER_5, SfFighterState.BONUS_POWER_6,
+    SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
+)
+
+fun sfBonusPowerState(index: Int): SfFighterState? = SF_BONUS_POWER_STATES.getOrNull(index - 1)
+fun SfFighterState.bonusPowerIndex(): Int? =
+    SF_BONUS_POWER_STATES.indexOf(this).takeIf { it >= 0 }?.plus(1)
 
 /** Estados en los que un peleador PUEDE ser golpeado (FighterHurtStates del JS). */
 val SF_HURT_STATES: Set<SfFighterState> = setOf(
@@ -255,7 +294,7 @@ val SF_HURT_STATES: Set<SfFighterState> = setOf(
     SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
     SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
     SfFighterState.CROUCH, SfFighterState.CROUCH_UP, SfFighterState.CROUCH_DOWN,
-)
+) + SF_BONUS_POWER_STATES
 
 /** Caja alineada a ejes relativa al ancla (pies) del peleador. */
 data class SfBox(val x: Float, val y: Float, val width: Float, val height: Float) {
@@ -370,4 +409,5 @@ data class SfInput(
     val mediumKick: Boolean = false,
     val heavyKick: Boolean = false,
     val special: SfAttackStrength? = null, // hadouken detectado (↓ ↘ → + puño)
+    val bonusPower: Int? = null,           // poder extra Grok (boton P; indice 1..N)
 )

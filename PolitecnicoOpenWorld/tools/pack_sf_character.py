@@ -118,6 +118,26 @@ PROJECTILE_PROFILES = {
         "medium": {"frame": 2, "offset": [62, -55], "scale": 1.00},
         "heavy":  {"frame": 2, "offset": [76, -56], "scale": 1.30},
     },
+    "yoalliehecatl": {
+        "light":  {"frame": 2, "offset": [48, -58], "scale": 0.70},
+        "medium": {"frame": 2, "offset": [62, -58], "scale": 1.00},
+        "heavy":  {"frame": 2, "offset": [76, -58], "scale": 1.30},
+    },
+    "charronegro": {
+        "light":  {"frame": 2, "offset": [48, -58], "scale": 0.70},
+        "medium": {"frame": 2, "offset": [62, -58], "scale": 1.00},
+        "heavy":  {"frame": 2, "offset": [76, -58], "scale": 1.30},
+    },
+    "latzitzimime": {
+        "light":  {"frame": 2, "offset": [48, -62], "scale": 0.70},
+        "medium": {"frame": 2, "offset": [62, -62], "scale": 1.00},
+        "heavy":  {"frame": 2, "offset": [76, -62], "scale": 1.30},
+    },
+    "lapresidenta": {
+        "light":  {"frame": 2, "offset": [48, -52], "scale": 0.70},
+        "medium": {"frame": 2, "offset": [62, -54], "scale": 1.00},
+        "heavy":  {"frame": 2, "offset": [76, -56], "scale": 1.30},
+    },
 }
 
 # Correcciones anatomicas detectadas por QA. No se mide la caja alfa completa porque
@@ -158,7 +178,7 @@ def animation_with_transition(keys, delays):
     assert len(keys) == len(delays)
     return [[key, delay] for key, delay in zip(keys, delays)] + [[keys[-1], -1]]
 
-def dedicated_animations(template):
+def dedicated_animations(template, bonus_powers=0):
     """Animaciones completas para arte croma; conserva estados/timings del motor."""
     out = json.loads(json.dumps(template))
     out["lightPunch"] = animation_with_transition(
@@ -195,6 +215,9 @@ def dedicated_animations(template):
         ["hit-stomach-4", 4], ["stun-1", 3], ["stun-2", 3],
         ["stun-3", 9], ["stun-3", -1],
     ]
+    for power in range(1, bonus_powers + 1):
+        out[f"bonusPower{power}"] = animation_with_transition(
+            [f"bonus-{power}-{i}" for i in range(1, 6)], [5, 7, 10, 12, 18])
     return out
 
 def reference_frame_key(key):
@@ -266,7 +289,20 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
     existing_proj = [k for k in proj_keys if os.path.exists(os.path.join(char_gen_dir, f"{k}.png"))]
     extra_keys = [k for k in DEDICATED_EXTRA_KEYS
                   if os.path.exists(os.path.join(char_gen_dir, filename_for_key(k)))]
-    all_keys = frame_keys + extra_keys + existing_proj
+    bonus_keys = []
+    bonus_power_count = 0
+    for power in range(1, 10):
+        keys = [f"bonus-{power}-{i}" for i in range(1, 6)]
+        present = [os.path.exists(os.path.join(char_gen_dir, f"{key}.png")) for key in keys]
+        if all(present):
+            bonus_keys.extend(keys)
+            bonus_power_count = power
+        elif any(present):
+            print(f"Error: bonusPower{power} esta incompleto.")
+            sys.exit(1)
+        elif power <= bonus_power_count + 1:
+            break
+    all_keys = frame_keys + extra_keys + existing_proj + bonus_keys
     num_frames = len(all_keys)
 
     # Algunas hojas de LIGHT PUNCH traen dos cuadros casi identicos a la guardia: el
@@ -370,7 +406,10 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             "origin": [128, 224]
         }
         
-        ref_key, keep_hit = reference_frame_key(key)
+        if key.startswith("bonus-"):
+            ref_key, keep_hit = "special-3", False
+        else:
+            ref_key, keep_hit = reference_frame_key(key)
         if ref_key in ryu_frames:
             # Copia la caja clasica mas cercana. En secuencias expandidas solo los
             # cuadros de contacto conservan hitbox; preparacion/recuperacion no pegan.
@@ -417,7 +456,7 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
     # Save the JSON data
     out_json = {
         "frames": packed_frames,
-        "animations": dedicated_animations(ryu_animations),
+        "animations": dedicated_animations(ryu_animations, bonus_power_count),
         "events": {"projectile": PROJECTILE_PROFILES.get(char_name, {})},
     }
     

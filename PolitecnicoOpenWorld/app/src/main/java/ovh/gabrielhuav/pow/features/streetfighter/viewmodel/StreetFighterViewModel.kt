@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfArcadeLadder
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
@@ -36,6 +37,8 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfProjectileEvent
+import ovh.gabrielhuav.pow.domain.models.streetfighter.bonusPowerIndex
+import ovh.gabrielhuav.pow.domain.models.streetfighter.sfBonusPowerState
 import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.data.repository.SfArcadeRepository
@@ -132,6 +135,8 @@ class StreetFighterViewModel @Inject constructor(
     private var joyDown = false
     private var joyLastMs = 0L          // real time; timeout = soltado
     private val pendingAttacks = ArrayDeque<Pair<SfAttackStrength, SfAttackType>>()
+    private var pendingBonusPower: Int? = null
+    private var bonusPowerCursor = 0
 
     // Historial de direcciones para el hadouken (↓ ↘ → + puño), estilo ControlHistory
     private val controlHistory = ArrayDeque<Pair<Int, Long>>() // (zona, gameNow)
@@ -299,7 +304,7 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.SPECIAL_1_HEAVY to specialValidFrom,
         SfFighterState.VICTORY to SfFighterState.entries.toSet(),
         SfFighterState.KO to SfFighterState.entries.toSet(),
-    )
+    ) + SF_BONUS_POWER_STATES.associateWith { specialValidFrom }
 
     init {
         startGameLoop()
@@ -509,6 +514,13 @@ class StreetFighterViewModel @Inject constructor(
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
                 _soundEvents.tryEmit("hadouken")
             }
+            SfFighterState.BONUS_POWER_1, SfFighterState.BONUS_POWER_2, SfFighterState.BONUS_POWER_3,
+            SfFighterState.BONUS_POWER_4, SfFighterState.BONUS_POWER_5, SfFighterState.BONUS_POWER_6,
+            SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
+            -> {
+                nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
+                _soundEvents.tryEmit("hadouken")
+            }
             else -> Unit // CROUCH / CROUCH_UP / IDLE_TURN / CROUCH_TURN: sin init
         }
         sim.setFighter(idx, nf)
@@ -672,6 +684,38 @@ class StreetFighterViewModel @Inject constructor(
                 }
             }
 
+            SfFighterState.BONUS_POWER_1, SfFighterState.BONUS_POWER_2, SfFighterState.BONUS_POWER_3,
+            SfFighterState.BONUS_POWER_4, SfFighterState.BONUS_POWER_5, SfFighterState.BONUS_POWER_6,
+            SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
+            -> {
+                // Los cuadros Grok ya contienen el eclipse/metamorfosis. En el cuadro central
+                // emiten ademas el proyectil real: Yoalli usa HEAVY; Tzitzimime, MEDIUM.
+                val strength = if (f.id == SfFighterId.YOALLI_EHECATL) {
+                    SfAttackStrength.HEAVY
+                } else {
+                    SfAttackStrength.MEDIUM
+                }
+                val event = dataFor(f).projectileEvents[strength] ?: SfProjectileEvent()
+                if (f.animationFrame == 2 && !f.fireballFired) {
+                    sim.setFighter(idx, f.copy(fireballFired = true))
+                    sim.fireballs.add(
+                        SfFireball(
+                            ownerIndex = idx,
+                            x = f.x + event.offsetX * f.direction.sign,
+                            y = f.y + event.offsetY,
+                            direction = f.direction,
+                            strength = strength,
+                            velocity = strength.fireballVelocity,
+                            animationTimerMs = now,
+                        ),
+                    )
+                }
+                if (isAnimationCompleted(sim.fighter(idx))) {
+                    sim.setFighter(idx, sim.fighter(idx).copy(fireballFired = false))
+                    changeState(sim, idx, SfFighterState.IDLE, now)
+                }
+            }
+
             SfFighterState.KO -> {
                 // handleFallBack: cae hasta el piso en el frame 2 (fall-2 = FREEZE)
                 if (f.animationFrame == 2) {
@@ -690,6 +734,7 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Transiciones comunes de estados neutros (handleIdle del JS): salto/agacharse/caminar/ataques. */
     private fun handleCommonNeutral(sim: Sim, idx: Int, input: SfInput, now: Long): Boolean {
+        if (input.bonusPower != null && tryBonusPower(sim, idx, input.bonusPower, now)) return true
         if (input.special != null && trySpecial(sim, idx, input.special, now)) return true
         return when {
             input.up -> changeState(sim, idx, SfFighterState.JUMP_START, now)
@@ -716,6 +761,14 @@ class StreetFighterViewModel @Inject constructor(
             SfAttackStrength.MEDIUM -> SfFighterState.SPECIAL_1_MEDIUM
             SfAttackStrength.HEAVY -> SfFighterState.SPECIAL_1_HEAVY
         }
+        return changeState(sim, idx, state, now)
+    }
+
+    private fun tryBonusPower(sim: Sim, idx: Int, power: Int, now: Long): Boolean {
+        val fighter = sim.fighter(idx)
+        if (power !in 1..fighter.id.bonusPowerCount) return false
+        val state = sfBonusPowerState(power) ?: return false
+        if (dataFor(fighter).animations[state.jsKey].isNullOrEmpty()) return false
         return changeState(sim, idx, state, now)
     }
 
@@ -1054,6 +1107,8 @@ class StreetFighterViewModel @Inject constructor(
         var lp = false; var mp = false; var hp = false
         var lk = false; var mk = false; var hk = false
         var special: SfAttackStrength? = null
+        val bonusPower = pendingBonusPower
+        pendingBonusPower = null
         while (pendingAttacks.isNotEmpty()) {
             val (strength, type) = pendingAttacks.removeFirst()
             if (type == SfAttackType.PUNCH && isHadoukenSequence(now)) {
@@ -1078,6 +1133,7 @@ class StreetFighterViewModel @Inject constructor(
             lightPunch = lp, mediumPunch = mp, heavyPunch = hp,
             lightKick = lk, mediumKick = mk, heavyKick = hk,
             special = special,
+            bonusPower = bonusPower,
         )
     }
 
@@ -1111,7 +1167,7 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
         SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
         SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
-    )
+    ) + SF_BONUS_POWER_STATES
 
     /** Estados en los que el RIVAL está vulnerable (recuperación) → la avanzada CASTIGA. */
     private val cpuPunishStates = setOf(
@@ -1140,11 +1196,18 @@ class StreetFighterViewModel @Inject constructor(
             SfCpuDifficulty.AVANZADA -> advancedCpuDecision(sim)
             SfCpuDifficulty.PESADILLA -> pesadillaCpuDecision(sim)
         }
+        val bonusCount = sim.p1.id.bonusPowerCount
+        if (bonusCount > 0 && difficulty != SfCpuDifficulty.BASICA &&
+            sim.p1.state == SfFighterState.IDLE && Random.nextFloat() < 0.10f
+        ) {
+            cpuHold = SfInput(bonusPower = Random.nextInt(1, bonusCount + 1))
+        }
         // Los botones son de UN tick: se entregan una vez y la intención queda solo direccional
         val oneShot = cpuHold
         cpuHold = cpuHold.copy(
             lightPunch = false, mediumPunch = false, heavyPunch = false,
             lightKick = false, mediumKick = false, heavyKick = false, special = null,
+            bonusPower = null,
         )
         return oneShot
     }
@@ -1365,6 +1428,16 @@ class StreetFighterViewModel @Inject constructor(
         pendingAttacks.addLast(strength to SfAttackType.KICK)
     }
 
+    /** Recorre todos los poderes Grok disponibles; cada toque ejecuta el siguiente. */
+    fun onBonusPowerPressed() {
+        val s = _state.value
+        if (s.battleEnded || s.isPaused || s.showExitDialog) return
+        val count = s.player.id.bonusPowerCount
+        if (count <= 0) return
+        bonusPowerCursor = bonusPowerCursor % count + 1
+        pendingBonusPower = bonusPowerCursor
+    }
+
     fun requestExit() {
         _state.value = _state.value.copy(showExitDialog = true)
     }
@@ -1558,6 +1631,7 @@ class StreetFighterViewModel @Inject constructor(
         cpuHold = SfInput()
         cpuIntensity = 0f // VS: sin escalado; el arcade la sube en startArcadeStep
         pendingAttacks.clear()
+        pendingBonusPower = null
         controlHistory.clear()
         lastZone = 0
         lastNetSendMs = 0L
@@ -2245,6 +2319,7 @@ class StreetFighterViewModel @Inject constructor(
         cpuNextDecisionMs = 0L
         cpuHold = SfInput()
         pendingAttacks.clear()
+        pendingBonusPower = null
         controlHistory.clear()
         lastZone = 0
         remoteSnapshot = null

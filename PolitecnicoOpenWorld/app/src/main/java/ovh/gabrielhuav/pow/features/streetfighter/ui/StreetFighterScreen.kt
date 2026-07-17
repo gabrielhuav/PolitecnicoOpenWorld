@@ -252,6 +252,8 @@ fun StreetFighterScreen(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = 16.dp),
                 onPunch = { strength -> viewModel.onAttackPressed(strength, SfAttackType.PUNCH) },
                 onKick = viewModel::onKickPressed,
+                bonusPowerCount = state.player.id.bonusPowerCount,
+                onBonusPower = viewModel::onBonusPowerPressed,
             )
             if (!state.isPaused && !state.showEndMenu) {
                 Text(
@@ -1549,6 +1551,8 @@ private fun FighterXboxButtons(
     modifier: Modifier = Modifier,
     onPunch: (SfAttackStrength) -> Unit,
     onKick: () -> Unit,
+    bonusPowerCount: Int,
+    onBonusPower: () -> Unit,
 ) {
     Box(
         modifier = modifier
@@ -1576,6 +1580,13 @@ private fun FighterXboxButtons(
             // A abajo — PATADA (verde; fuerza según joystick: neutro/adelante/atrás)
             ActionButton(text = "A", color = Color(0xFF2ECC71), onHoldEvent = { pressed ->
                 if (pressed) onKick()
+            })
+        }
+        if (bonusPowerCount > 0) {
+            // Centro del diamante: recorre P1..PN. El siguiente toque avanza al poder
+            // siguiente; Yoalli tiene 9 y La Tzitzimime 5.
+            ActionButton(text = "P", color = Color(0xFF8E44AD), onHoldEvent = { pressed ->
+                if (pressed) onBonusPower()
             })
         }
     }

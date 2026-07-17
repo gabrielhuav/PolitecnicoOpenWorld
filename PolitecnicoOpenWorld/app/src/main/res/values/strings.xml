@@ -558,7 +558,7 @@
     <string name="sf_back_to_menu">Volver al menú</string>
     <string name="sf_paused">PAUSA</string>
     <string name="sf_continue">Continuar</string>
-    <string name="sf_controls_hint">X/Y/B: PUÑOS  •  A: PATADA  •  ↓↘→ + X/Y/B: ESPECIAL</string>
+    <string name="sf_controls_hint">X/Y/B: PUÑOS  •  A: PATADA  •  ↓↘→ + X/Y/B: ESPECIAL  •  P: PODER EXTRA</string>
     <string name="sf_controls_help">X/Y/B = puños ligero, medio y fuerte\nA neutro/adelante/atrás = patada ligera, media y fuerte\n↓ ↘ → + X/Y/B = especial ligero, medio o fuerte</string>
     <string name="sf_exit_title">Salir de la pelea</string>
     <string name="sf_exit_message">¿Abandonar la pelea y volver al menú principal?</string>

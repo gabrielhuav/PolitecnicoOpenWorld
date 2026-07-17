@@ -413,12 +413,12 @@ matrices por defecto son **border-only** hasta reemplazarse.
   SIEMPRE un peleador POW. (c) Al probar: **Rebuild en debug prueba Ryu/Ken; probar TAMBIÉN un
   build release** (o bundle) para verificar que el modo abre sin ellos. (d) Si se añade otro
   asset con riesgo de copyright, va al source set debug con el mismo patrón.
-- **🆕 ASSETS COMPARTIDOS SF⇄MUNDO (2026-07-15/17) — reglas:** 3 de los 18 peleadores de
+- **🆕 ASSETS COMPARTIDOS SF⇄MUNDO (2026-07-15/17) — reglas:** 3 de los 22 peleadores de
   "HUELUM VS. GOYA" se arman EN RUNTIME (`SfSharedSheets`) desde los sets del mundo
   (`SPRITES/PLAYER|NPC/`, convención de `PlayerSkin`). (a) **NO regenerar/committear sheets
   empaquetados** para personajes que tengan set en el mundo, salvo cuando ya exista un set croma
   completo con poses reales. Compartidos actuales: **Lázaro, Granadero y Paramédico**;
-  los 13 POW restantes usan croma dedicado y Ryu/Ken se empaquetan solo en debug. (b) El
+  los 17 POW restantes usan croma dedicado y Ryu/Ken se empaquetan solo en debug. (b) El
   `spriteAsset` de un compartido es VIRTUAL (`RUNTIME/<X>.png`): es solo la KEY del mapa de
   imágenes de la Screen — **abrirlo con `assets.open()` CRASHEA**; toda hoja pasa por
   `SfSharedSheets.sheetFor()`. (c) Su `jsonAsset` es el TEMPLATE `sf_template.json` (desde el
@@ -442,7 +442,9 @@ matrices por defecto son **border-only** hasta reemplazarse.
   distinta por `bodyFraction` para Idle/Walk/Run/Special. El slicer detecta inversión brusca en KO y guarda `flipX`
   por frame; `StreetFighterScreen` lo aplica sin excepciones por personaje. Excepción documentada:
   14/15 son refinamientos opcionales y puede faltar una conservando su hueco (ESCOMBOY tiene 18
-  hojas); ninguna otra hoja puede omitirse. Antes de entregar ejecutar
+  hojas); ninguna otra hoja puede omitirse. La Llorona ejemplifica el caso bloqueante: sus 18
+  entregas omiten la hoja obligatoria 12 (`SPECIAL HEAVY + PROJECTILE`), por lo que debe quedar
+  sin registrar hasta recibirla y alcanzar 123 cuadros. Antes de entregar ejecutar
   `tools/validate_sf_chroma_character.py`; protagonistas PLAYER planos usan
   `--world-base SPRITES/PLAYER --flat-world-folders`.
 

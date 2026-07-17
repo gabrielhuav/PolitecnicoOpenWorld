@@ -107,6 +107,54 @@ enum class PlayerSkin(
         specialBodyFraction = 0.703125f,
         uniform512Canvas = true
     ),
+    YOALLI_EHECATL(
+        displayName = "Yoalli Ehécatl",
+        skinFolder  = "YoalliEhecatl/",
+        skinPrefix  = "yeh_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    CHARRO_NEGRO(
+        displayName = "El Charro Negro",
+        skinFolder  = "CharroNegro/",
+        skinPrefix  = "cn_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    LA_TZITZIMIME(
+        displayName = "La Tzitzimime",
+        skinFolder  = "LaTzitzimime/",
+        skinPrefix  = "ltz_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    LA_PRESIDENTA(
+        displayName = "La Presidenta",
+        skinFolder  = "LaPresidenta/",
+        skinPrefix  = "lpr_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
     escomboy(
         displayName = "Estudiante",
         skinFolder  = "escomboy",
