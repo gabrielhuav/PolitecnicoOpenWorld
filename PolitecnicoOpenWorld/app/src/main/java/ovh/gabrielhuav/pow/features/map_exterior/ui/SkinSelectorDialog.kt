@@ -94,6 +94,7 @@ fun SkinSelectorDialog(
     val devOnlySkins = setOf(
         PlayerSkin.LAZARO, PlayerSkin.SENOR_TIENDA, PlayerSkin.PRANKEDY, PlayerSkin.REY_GRUPERO,
         PlayerSkin.PAPARAZZI_N1, PlayerSkin.PAPARAZZI_N5, PlayerSkin.POLICIA_CDMX,
+        PlayerSkin.POLICIA_CDMX_HOMBRE,
         PlayerSkin.GRANADERO, PlayerSkin.PARAMEDICO,
         PlayerSkin.IPN_1, PlayerSkin.IPN_2, PlayerSkin.IPN_3, PlayerSkin.IPN_4, PlayerSkin.IPN_5, PlayerSkin.IPN_6,
         PlayerSkin.DOC_1,

@@ -73,6 +73,33 @@ PROJECTILE_PROFILES = {
         "medium": {"frame": 2, "offset": [61, -66], "scale": 1.00},
         "heavy":  {"frame": 2, "offset": [74, -68], "scale": 1.25},
     },
+    "paparazzi5": {
+        "light":  {"frame": 2, "offset": [48, -68], "scale": 0.70},
+        "medium": {"frame": 2, "offset": [61, -69], "scale": 1.00},
+        "heavy":  {"frame": 2, "offset": [74, -70], "scale": 1.25},
+    },
+    "policiacdmx": {
+        "light":  {"frame": 2, "offset": [42, -54], "scale": 0.70},
+        "medium": {"frame": 2, "offset": [58, -56], "scale": 1.00},
+        "heavy":  {"frame": 2, "offset": [76, -58], "scale": 1.30},
+    },
+    "policiacdmxhombre": {
+        "light":  {"frame": 2, "offset": [42, -54], "scale": 0.70},
+        "medium": {"frame": 2, "offset": [58, -56], "scale": 1.00},
+        "heavy":  {"frame": 2, "offset": [76, -58], "scale": 1.30},
+    },
+}
+
+# Correcciones anatomicas detectadas por QA. No se mide la caja alfa completa porque
+# incluiria objetos (escoba, tanque, megafono) y efectos, y terminaria encogiendo al
+# personaje. La escala se aplica alrededor del origen/pies. Un `_frame_meta.json` puede
+# declarar `scale` por cuadro para futuros assets sin cambiar este script.
+QA_FRAME_SCALE_OVERRIDES = {
+    "reygrupero": {
+        # La hoja SPECIAL HEAVY cambia el zoom en el arranque y la recuperacion.
+        "special-1": 0.92,
+        "special-5": 0.91,
+    },
 }
 
 def filename_for_key(key):
@@ -290,6 +317,12 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
                 img = img.resize((256, 256), Image.Resampling.LANCZOS)
             if not key.startswith("proj-") and abs(pack_scale - 1.0) > 0.0001:
                 img = scale_around_origin(img, pack_scale)
+            # Ajuste fino de zoom corporal: primero metadata del recorte y, si no existe,
+            # el perfil de QA conocido. Efectos/proyectiles independientes no pasan aqui.
+            frame_scale = frame_meta.get(key, {}).get(
+                "scale", QA_FRAME_SCALE_OVERRIDES.get(char_name, {}).get(key, 1.0))
+            if not key.startswith("proj-") and abs(float(frame_scale) - 1.0) > 0.0001:
+                img = scale_around_origin(img, float(frame_scale))
             # Defensa final por CUADRO. Las fuentes IA cambian el zoom incluso dentro
             # de una misma accion; el lienzo 256x256 por si solo no evita ese efecto.
             if requires_fixed_upright_height(key):

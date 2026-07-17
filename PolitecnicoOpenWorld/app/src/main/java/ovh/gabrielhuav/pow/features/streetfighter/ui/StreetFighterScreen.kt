@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.delay
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
@@ -1060,7 +1061,7 @@ private fun BtDevicePickerOverlay(
 
 @Composable
 private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit) {
-    val preview = rememberFighterPreview(id)
+    val preview = rememberAnimatedFighterPreview(id)
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
@@ -1198,32 +1199,62 @@ private fun StageCard(name: String, thumb: ImageBitmap?, emoji: String? = null, 
 }
 
 /**
- * Preview del peleador para el selector. Empaquetados: recorte idle-1 de su sheet
- * (BitmapRegionDecoder, no decodifica la hoja completa). COMPARTIDOS: 1er cuadro del
- * Idle del set del MUNDO (mismo asset que usa el mapa; con flip si aplica) — más barato
- * aún que armar la hoja runtime solo para una tarjeta.
+ * Preview animado del selector. Para sheets dedicados recorta solo las regiones de Idle
+ * (nunca decodifica la hoja completa); los compartidos usan el Idle completo del mundo.
  */
+private data class FighterPreviewAnimation(
+    val frames: List<ImageBitmap>,
+    val delaysMs: List<Long>,
+)
+
 @Composable
-private fun rememberFighterPreview(id: SfFighterId): ImageBitmap? {
+private fun rememberAnimatedFighterPreview(id: SfFighterId): ImageBitmap? {
     val context = LocalContext.current
-    return remember(id) {
+    val animation = remember(id) {
         runCatching {
             val shared = id.sharedSet
             if (shared != null) {
-                SfSharedSheets.previewFor(context, shared)?.let { trimTransparent(it).asImageBitmap() }
+                val frames = SfSharedSheets.previewFramesFor(context, shared)
+                    .map { trimTransparent(it).asImageBitmap() }
+                FighterPreviewAnimation(frames, List(frames.size) { 110L })
             } else {
                 val data = SfFrameCatalog.load(context, id)
-                val src = data.frames.getValue("idle-1").src
+                val idle = data.animations.getValue(SfFighterState.IDLE.jsKey)
+                    .filter { it.delay > 0 }
                 val decoder = context.assets.open(id.spriteAsset).use { ins ->
                     @Suppress("DEPRECATION")
                     BitmapRegionDecoder.newInstance(ins, false)
                 } ?: return@runCatching null
-                val region = decoder.decodeRegion(Rect(src[0], src[1], src[0] + src[2], src[1] + src[3]), null)
-                decoder.recycle()
-                region?.let { trimTransparent(it).asImageBitmap() }
+                try {
+                    val frames = idle.mapNotNull { step ->
+                        val src = data.frames[step.frameKey]?.src ?: return@mapNotNull null
+                        decoder.decodeRegion(
+                            Rect(src[0], src[1], src[0] + src[2], src[1] + src[3]),
+                            null,
+                        )?.let { trimTransparent(it).asImageBitmap() }
+                    }
+                    FighterPreviewAnimation(
+                        frames = frames,
+                        delaysMs = idle.take(frames.size).map {
+                            (it.delay * SfConstants.FRAME_TIME_MS).toLong().coerceAtLeast(50L)
+                        },
+                    )
+                } finally {
+                    decoder.recycle()
+                }
             }
-        }.getOrNull()
+        }.getOrNull()?.takeIf { it.frames.isNotEmpty() }
     }
+    var frameIndex by remember(id, animation) { mutableStateOf(0) }
+    LaunchedEffect(id, animation) {
+        frameIndex = 0
+        val anim = animation ?: return@LaunchedEffect
+        while (anim.frames.size > 1) {
+            delay(anim.delaysMs.getOrElse(frameIndex) { 100L })
+            frameIndex = (frameIndex + 1) % anim.frames.size
+        }
+    }
+    return animation?.frames?.getOrNull(frameIndex)
 }
 
 /** Recorta el bitmap a su contenido opaco (los peleadores POW vienen en celdas 256² con aire). */

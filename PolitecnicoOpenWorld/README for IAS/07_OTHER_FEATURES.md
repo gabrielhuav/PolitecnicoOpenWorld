@@ -91,25 +91,24 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   360 px. En SF, idle/caminatas = 100 px y el agachado usa alturas fijas 90→80→68 px sin
   encoger cabeza/torso. Paparazzi acepta PROJECTILE de 4 efectos y duplica con seguridad el
   cuadro central para completar 2 de vuelo + 3 de impacto. Ambos pierden badge ALPHA.
-- **🆕 COMBATE CROMA COMPLETO (2026-07-16):** los cuatro dedicados aprovechan 123/123 cuadros:
+- **🆕 COMBATE CROMA COMPLETO (2026-07-16):** los siete dedicados aprovechan 123/123 cuadros:
   puños y patadas conservan preparación/contacto/recuperación completos, salto atrás y aterrizaje
   usan sus hojas reales, STUN recorre sus tres poses y SPECIAL L/M/H usa cinco cuadros distintos.
   Cada JSON trae `events.projectile` por fuerza (`frame`, `offset`, `scale`), por lo que el efecto
-  nace del tanque/escoba/megáfono/cámara y ya no de un frame/offset global hardcodeado. La UI muestra
+  nace del tanque/escoba/megáfono/cámara/haz policial propio y ya no de un frame/offset global hardcodeado. La UI muestra
   permanentemente el comando `↓↘→ + X/Y/B` y la pausa explica las seis fuerzas.
 - **🆕 SELECTOR DE PERSONAJE + 7 JUGABLES (2026-07-10b):** el modo arranca en
   `inCharacterSelect=true` (el reloj de juego NO corre) con un overlay de tarjetas
-  (`CharacterSelectOverlay`; preview = recorte `idle-1` vía **BitmapRegionDecoder** + trim de
-  transparencia — NO se decodifican los 7 sheets completos). Roster: Ryu, Ken, **Prankedy, El
-  Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero** (hoy solo Paparazzi 5 conserva
-  **badge ALPHA** dentro de ese bloque, `SfFighterId.isAlpha`; Prankedy/Tienda/Paparazzi 1/Rey
-  ya tienen poses completas). `selectCharacter(id)` arranca la pelea (CPU = Ken,
+  (`CharacterSelectOverlay`; preview animado = regiones del Idle completo vía
+  **BitmapRegionDecoder** + trim de transparencia — NO se decodifican los sheets completos).
+  Roster: Ryu, Ken, **Prankedy, El Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero**;
+  los cinco POW ya tienen poses completas y no llevan badge ALPHA. `selectCharacter(id)` arranca la pelea (CPU = Ken,
   o Ryu si eliges a Ken); el menú de fin ganó **"Cambiar personaje"** (`backToCharacterSelect`).
-  Los 4 nuevos se generaron originalmente con **`tools/gen_sf_frames_from_npc.py`** (77 poses desde el
+  Los 5 POW se generaron originalmente con **`tools/gen_sf_frames_from_npc.py`** (77 poses desde el
   set NPC estándar Idle/Walk/Run/Special, con rotaciones/aplastados para golpes/reacciones/caídas
   y filtro de cuadros corruptos — `rg_w_4.webp` era 4×13 px) + `pack_sf_character.py` (parcheado:
   ya NO empaqueta `proj-*` inexistentes → esos personajes usan el fireball del tema). Prankedy,
-  Tienda, Paparazzi 1 y Rey ya sustituyeron esas aproximaciones por sus hojas croma dedicadas.
+  Tienda, ambos Paparazzi y Rey ya sustituyeron esas aproximaciones por sus hojas croma dedicadas.
 - **🆕 RENOMBRE + MEJORAS ONLINE (2026-07-11b):** el modo se llama **"HUELUM VS. GOYA"**
   (solo strings user-facing; los ids internos siguen siendo street_fighter/Sf*). Online ganó
   **SALA PÚBLICA** (lista de espera; el server empareja con `QUICK_MATCH`) y **resumen de
@@ -171,12 +170,18 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
 - **Quirks del JS portados a propósito:** el chequeo de hitbox SALE al primer hurtbox que no traslapa;
   los ataques ligeros se re-disparan desde el frame 2; LEGS cae a estados de cabeza; empate del timer lo
   gana el jugador (>=).
+- **🆕 POLICÍAS CDMX CROMA (2026-07-16):** la policía femenina usa
+  `PoliciaCDMX.png`/`policiacdmx.json` y el policía masculino es una identidad independiente con
+  `PoliciaCDMXHombre.png`/`policiacdmxhombre.json`. Ambos tienen 123 cuadros, especial de haz
+  anclado al cuerpo y sets de mundo 512² (Idle 6, Walk 6, Run 8, Special 5, Talk 4). El masculino
+  recupera sus cinco efectos reales de proyectil, incluidas las partículas finales dispersas.
 - **🆕 ASSETS COMPARTIDOS CON EL MUNDO — hojas armadas EN RUNTIME (2026-07-15d/16):** el roster
-  subió a **14** (12 sin Modo Dev) y **8 peleadores ya NO tienen sprite sheet propio en el
+  subió a **15** (13 sin Modo Dev) y **6 peleadores ya NO tienen sprite sheet propio en el
   APK**: su hoja se ARMA EN RUNTIME desde los MISMOS assets que usa el mundo abierto
   (`SPRITES/PLAYER/` y `SPRITES/NPC/`) — un solo juego de sprites alimenta AMBAS modalidades.
-  Compartidos: **Paparazzi 5**, **Lázaro, Estudiante (escomboy), Estudianta (escomgirl), Robot,
-  Policía CDMX, Granadero y Paramédico** (nuevos). Piezas:
+  Compartidos: **Lázaro, Estudiante (escomboy), Estudianta (escomgirl), Robot,
+  Granadero y Paramédico**. Paparazzi 5 y Policía CDMX dejaron este grupo al recibir hojas croma;
+  Policía CDMX (Hombre) nació directamente como dedicado. Piezas:
   - `SfFighterId.sharedSet: SfSharedSet(basePath, folder, prefix, flip)` — misma convención
     que `PlayerSkin`; `flip=true` en lázaro/escomboy (dibujados a la IZQUIERDA; SF exige DERECHA).
     Su `jsonAsset` apunta al TEMPLATE `sf_template.json` y su `spriteAsset` es VIRTUAL `RUNTIME/<X>.png`
@@ -193,8 +198,9 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     Cache LRU 3. Preview del selector = 1er cuadro del Idle del set del mundo (barato).
   - `SfFrameCatalog`: para compartidos parsea `ryu.json` y REMAPEA `src` a la rejilla runtime
     (`templateFrameOrder` fija el layout; cajas/timings de Ryu se conservan, igual que el packer).
-  - **Quedan EMPAQUETADOS Ryu, Ken** (clon original/debug), **Prankedy y Señor de la Tienda**
-    (19 hojas croma cada uno + `proj-*`; escala común 100 px y KO con `flipX` automático).
+  - **Quedan EMPAQUETADOS Ryu, Ken** (clon original/debug) y los siete croma dedicados:
+    **Prankedy, Señor de la Tienda, Rey Grupero, Paparazzi 1, Paparazzi 5 y ambas policías CDMX**
+    (19 hojas por identidad + `proj-*`; escala común 100 px y KO con `flipX` automático).
   - **Rey de las Bromas y Pepe NO entran** (no jugables por diseño; comentados en `PlayerSkin`).
   - **Se BORRARON** los 11 sheets+JSON duplicados originales; Señor de la Tienda volvió después
     con arte dedicado completo. `STREETFIGHTER/GEN/` siempre sale del APK. Los tools offline siguen sirviendo para personajes

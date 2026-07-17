@@ -127,10 +127,10 @@ enum class SfFighterId(
     //    ARMA EN RUNTIME (SfSharedSheets, cache LRU) con cajas/timings de sf_template.json.
     //    Lázaro y escomboy están dibujados a la IZQUIERDA → flip=true. Rey de las Bromas y
     //    Pepe NO entran (no jugables por diseño; comentados también en PlayerSkin).
-    //    Prankedy, Señor Tienda, Paparazzi 1 y Rey Grupero ya tienen arte dedicado. ─────────
+    //    Prankedy, Señor Tienda, ambos Paparazzi, Rey Grupero y Policía ya tienen arte dedicado.
     PAPARAZZI_5(
-        "Paparazzi 5", "PAPZ 5", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paparazzi5.png",
-        isAlpha = true, hurtScale = 1.37f, sharedSet = SfSharedSet("SPRITES/NPC/", "PaparazziN5/", "pn5_"),
+        "Paparazzi 5", "PAPZ 5",
+        "STREETFIGHTER/DATA/paparazzi5.json", "STREETFIGHTER/IMAGES/Paparazzi5.png",
     ),
     LAZARO(
         "Lázaro", "LAZARO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Lazaro.png",
@@ -149,8 +149,12 @@ enum class SfFighterId(
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/PLAYER/", "robot", "robot_"),
     ),
     POLICIA_CDMX(
-        "Policía CDMX", "POLICIA", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/PoliciaCDMX.png",
-        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "PoliciaCDMX/", "pcd_"),
+        "Policía CDMX", "POLICIA",
+        "STREETFIGHTER/DATA/policiacdmx.json", "STREETFIGHTER/IMAGES/PoliciaCDMX.png",
+    ),
+    POLICIA_CDMX_HOMBRE(
+        "Policía CDMX (Hombre)", "POLICIA H",
+        "STREETFIGHTER/DATA/policiacdmxhombre.json", "STREETFIGHTER/IMAGES/PoliciaCDMXHombre.png",
     ),
     GRANADERO(
         "Granadero", "GRANADERO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Granadero.png",

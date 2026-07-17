@@ -164,11 +164,12 @@ cara…"); luego recórtalos al lienzo 256×256 con los pies en (128,224) — GI
   por personaje: si gana Prankedy no se dibuja el "RYU WINS" (texto propio pendiente en POW_THEME).
   Referencia de estilo para MÁS assets: **`sprites Prankedy.png`** (raíz del repo externo).
 - **🆕 SELECTOR + ROSTER DE 7 (2026-07-10b):** selección de personaje pre-pelea; jugables Ryu,
-  Ken, Prankedy, El Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero. Los 4 nuevos se
+  Ken, Prankedy, El Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero. Los 5 POW se
   generaron SIN arte nuevo con **`tools/gen_sf_frames_from_npc.py`** (77 poses aproximadas desde
   su set NPC Idle/Walk/Run/Special: walk→caminatas, run→saltos/volteretas rotadas, special→golpes
   /victoria, idle inclinado/aplastado→reacciones/caídas/agacharse) + `pack_sf_character.py`.
-  Por eso llevan **badge ALPHA**: sus poses se irán reemplazando con arte dedicado (prompt §6).
+  Esas aproximaciones ya fueron reemplazadas por las 19 hojas croma dedicadas de cada personaje;
+  ninguno de los cinco conserva badge ALPHA.
 - **🆕 ARTE DEDICADO INTEGRADO (2026-07-10c):** los 5 peleadores POW ya usan HOJAS DE REFERENCIA
   reales (raíz del repo externo: `sprites Prankedy.png`, `paparazzi1/5.png`, `senortienda.png`,
   `reygrupero.png` + `extras senortienda/reygrupero.png` con salto/agacharse/daño/derribo).

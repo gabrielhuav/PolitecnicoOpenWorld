@@ -54,12 +54,10 @@ object SfSharedSheets {
         return sheet
     }
 
-    /** Preview para el selector: 1er cuadro del Idle del SET fuente (con flip si aplica). */
-    fun previewFor(context: Context, set: SfSharedSet): Bitmap? = runCatching {
-        val raw = context.assets.open("${set.basePath}${set.folder}Idle/${set.prefix}i_1.webp")
-            .use { BitmapFactory.decodeStream(it) } ?: return null
-        if (set.flip) flipHorizontal(raw) else raw
-    }.getOrNull()
+    /** Idle completo para el selector, recortado, orientado y normalizado a la misma altura. */
+    fun previewFramesFor(context: Context, set: SfSharedSet): List<Bitmap> = runCatching {
+        normalizeAnim(loadAnim(context, set, "Idle"))
+    }.getOrDefault(emptyList())
 
     // ══════════════════ armado de la hoja (port de gen_sf_frames_from_npc.py) ══════════════════
 

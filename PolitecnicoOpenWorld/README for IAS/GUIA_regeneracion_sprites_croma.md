@@ -4,7 +4,7 @@
 > "HUELUM VS. GOYA" **y** su set del mundo abierto desde CERO con ChatGPT Images,
 > usando hojas con **fondo croma verde #00FF00** y 2 grupos de animación por hoja.
 > Sustituye al "modo simple" de `GUIA_generacion_assets_SF.md` (fondo negro) para
-> personajes nuevos. **Prankedy, Señor de la Tienda, Rey Grupero y Paparazzi 1 ya se
+> personajes nuevos. **Prankedy, Señor de la Tienda, Rey Grupero, ambos Paparazzi y las policías CDMX ya se
 > regeneraron así (2026-07-16)**.
 > Canon Prankedy: cabello RIZADO (no rastas), idle del mundo SIN guardia.
 > Esta guía es AUTOSUFICIENTE: contiene el prompt maestro completo.
@@ -57,7 +57,9 @@ alfa desde la máscara CRUDA — sin verde interior):
   (a menudo ambos son guardia). Como defensa para assets futuros, el packer mide la diferencia
   visual del puño ligero; si queda casi estático, reutiliza los dos primeros cuadros de MEDIUM
   PUNCH antes de producir el sheet.
-- **PROJECTILE tolerante:** lo ideal son 5 efectos (2 vuelo + 3 impacto). Si GPT entrega 4,
+- **PROJECTILE tolerante:** lo ideal son 5 efectos (2 vuelo + 3 impacto). Los efectos dispersos
+  de la fila inferior se recuperan por intervalos horizontales, conservando incluso chispas que
+  serían demasiado pequeñas para el detector de cuerpos. Si GPT entrega realmente solo 4,
   se aceptan como `[0,1,1,2,3]`, duplicando únicamente el cuadro central para conservar el
   contrato de cinco slots sin inventar ni estirar otro asset.
 - **Mundo:** `GEN/WORLD_<char>/{Idle,Walk,Run,Special,Talk}/<prefix><k>_<n>.webp`
@@ -71,8 +73,9 @@ alfa desde la máscara CRUDA — sin verde interior):
 - **Robustez:** grupos por FILAS con partición flexible (tolera que GPT dibuje ±1
   cuadro: aviso ⚠ y sigue); efectos DISPERSOS (confeti) → reintento con cierre 25 y
   partición por valle de densidad si dos cuadros se fusionan. El aviso se imprime como
-  `AVISO` ASCII para no abortar en consolas Windows `cp1252`. Aborta solo si un grupo trae
-  MENOS cuadros que slots SF necesita.
+  `AVISO` ASCII para no abortar en consolas Windows `cp1252`. Si falta exactamente un cuadro
+  requerido, repite el vecino central más cercano tanto en SF como en mundo; faltantes mayores
+  abortan. PROJECTILE 4→5 conserva su mapeo especializado.
 
 ## 2. Registro Prankedy (2026-07-16, hecho)
 
@@ -123,7 +126,48 @@ alfa desde la máscara CRUDA — sin verde interior):
 - KO: el detector no pidió `flipX`; no se fuerza orientación cuando la continuidad ya es correcta.
 - Intermedios de los cuatro personajes: `newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/`.
 
-## 2e. Pase de combate completo (2026-07-16, hecho)
+## 2e. Registro Paparazzi 5 (2026-07-16, hecho)
+
+- Las 19 hojas de `newSFAssets/Paparazzi5/` se identificaron por título y renombraron
+  `Paparazzi5_01..19`; todos los grupos llegaron con el conteo exacto salvo PROJECTILE 4/5,
+  normalizado mediante el mapeo tolerante previsto.
+- Sheet dedicado `Paparazzi5.png` 2560×3328 + `paparazzi5.json`: 123 cuadros, 30 animaciones
+  y eventos de destello por fuerza. Deja `sharedSet`, pierde ALPHA y usa tamaño SF fijo.
+- Mundo `PaparazziN5`: Idle 3→6, Walk 7→6, Run 10→8, Special 4→5 y Talk 4 nuevo; todo en
+  lienzos 512², mediana corporal 360 px, `uniform512Canvas=true` y fracción común `0.703125`.
+- KO no necesitó `flipX`. Fuentes en `newSFAssets/Paparazzi5/`; intermedios dentro del directorio
+  histórico `GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/`.
+
+## 2f. Registro Policía Femenina CDMX (2026-07-16, hecho)
+
+- Las 19 hojas de `newSFAssets/PoliciaFemeninoCDMX/` se identificaron por título y renombraron
+  `PoliciaFemeninoCDMX_01..19`. WALK llegó 5/6 y se completó repitiendo el vecino central;
+  CROUCH 8/9, HURT HEAD 12/14 y HURT BODY 12/13 conservan más cuadros que los slots consumidos.
+- Sheet dedicado `PoliciaCDMX.png` 2560×3328 + `policiacdmx.json`: 123 cuadros, 30 animaciones
+  y proyectil luminoso por fuerza. Deja `sharedSet`, pierde ALPHA y usa tamaño SF fijo.
+- El anclaje genérico de SPECIAL separa visualmente cuerpo y efecto por densidad vertical: la
+  policía queda centrada en sus pies mientras el haz ancho se extiende y recorta hacia adelante.
+- Mundo `PoliciaCDMX`: Idle 4→6, Walk 7→6, Run 11→8, Special 5 y Talk 4 nuevo; lienzos 512²,
+  cuerpo mediano ≈360 px, pies Y=456, `uniform512Canvas=true` y fracción común `0.703125`.
+- KO no necesitó `flipX`. Intermedios dentro del directorio histórico
+  `GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/`.
+
+## 2g. Registro Policía Masculino CDMX (2026-07-16, hecho)
+
+- Las 19 hojas de `newSFAssets/PoliciaMasculinoCDMX/` se identificaron por título y renombraron
+  `PoliciaMasculinoCDMX_01..19`; HURT HEAD llegó 13/14, pero conserva de sobra los cuatro cuadros
+  utilizados por el juego.
+- Sheet dedicado `PoliciaCDMXHombre.png` 2560×3328 + `policiacdmxhombre.json`: 123 cuadros,
+  30 animaciones y eventos de proyectil por fuerza. Es una identidad separada de la policía mujer.
+- PROJECTILE contiene cinco estados reales (dos de avance y tres de impacto). El recuperador de
+  efectos dispersos evita perder el último fade de partículas; SPECIAL conserva el cuerpo centrado
+  aunque el haz se extienda ampliamente hacia adelante.
+- Mundo `PoliciaMasculinoCDMX`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4; lienzos 512²,
+  cuerpo mediano ≈360 px, pies Y=456, `uniform512Canvas=true` y fracción común `0.703125`.
+- KO no necesitó `flipX`. Intermedios dentro del directorio histórico
+  `GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/`.
+
+## 2h. Pase de combate completo (2026-07-16, hecho)
 
 - El recortador ya no comprime los golpes al mínimo del template: LIGHT PUNCH 4, MEDIUM/HEAVY
   PUNCH 6, LIGHT/HEAVY KICK 6 y MEDIUM KICK 5. Las hitboxes solo existen en los cuadros de
@@ -131,7 +175,8 @@ alfa desde la máscara CRUDA — sin verde interior):
 - JUMP START usa 2 cuadros, JUMP LAND 3 y JUMP BACKWARD sus 7 cuadros propios. STUN usa 1→2→3.
 - SPECIAL LIGHT/MEDIUM/HEAVY usa 5 cuadros distintos por fuerza. `pack_sf_character.py` agrega
   `events.projectile.<strength>` con cuadro de salida, offset y escala; Kotlin lo carga de forma
-  genérica. Las cuatro identidades quedan visibles: confeti, polvo de escoba, onda de megáfono y flash.
+  genérica. Las siete identidades quedan visibles: confeti, polvo de escoba, onda de megáfono,
+  destellos fotográficos y los haces luminosos propios de ambas policías CDMX.
 - El sheet dedicado pasa a 123 cuadros en rejilla 10×13 (`2560×3328`); los 123 quedan referenciados.
   `pack_sf_character.py --gen <ruta>` permite empaquetar desde intermedios externos sin devolver
   `STREETFIGHTER/GEN/` al APK.
@@ -142,6 +187,14 @@ alfa desde la máscara CRUDA — sin verde interior):
   (no también los descartados) y el packer valida un rango exacto de 100–100 px en todas las poses
   erguidas. Si una futura hoja vuelve a introducir zoom variable, el empaquetado falla en vez de
   permitir que llegue al modo SF.
+- Objetos y efectos no se usan para medir la anatomía: pueden sobresalir sin encoger al cuerpo.
+  Para una irregularidad interna de una hoja, `_frame_meta.json` admite `{"<frame>":{"scale":0.95}}`;
+  el packer aplica esa corrección alrededor de los pies. QA usa este mecanismo/perfil para los
+  cuadros inicial/final de SPECIAL HEAVY de Rey Grupero, que venían con zoom corporal adicional.
+- En el selector, cada tarjeta recorre el Idle completo cargando solo sus regiones del sheet
+  (no la imagen completa). Durante `RONDA / PELEA` el input, el movimiento y el reloj siguen
+  bloqueados, pero ambos peleadores también recorren el Idle; ya no quedan congelados antes
+  de iniciar el combate.
 
 ## 3. Pendientes que NO cubre esta guía
 

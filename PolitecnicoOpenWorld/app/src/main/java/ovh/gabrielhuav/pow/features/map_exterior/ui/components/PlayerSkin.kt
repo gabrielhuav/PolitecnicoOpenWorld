@@ -204,16 +204,36 @@ enum class PlayerSkin(
         skinFolder  = "PaparazziN5/",
         skinPrefix  = "pn5_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 7, runFrames = 10, specialFrames = 4,  // special = TOMAR FOTO
-        walkBodyFraction = 0.865f
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     POLICIA_CDMX(
         displayName = "Policía CDMX",
         skinFolder  = "PoliciaCDMX/",
         skinPrefix  = "pcd_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 4, walkFrames = 7, runFrames = 11, specialFrames = 3,  // special = DISPARAR (3 frames)
-        walkBodyFraction = 0.865f
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    POLICIA_CDMX_HOMBRE(
+        displayName = "Policía CDMX (Hombre)",
+        skinFolder  = "PoliciaMasculinoCDMX/",
+        skinPrefix  = "pcm_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     GRANADERO(
         displayName = "Granadero",

@@ -333,12 +333,20 @@ class StreetFighterViewModel @Inject constructor(
             processNetDamage(sim, now)        // daño que el rival ME mandó (yo soy la autoridad de mi HP)
         }
 
-        // Hit-freeze (golpe conectado) o intro de ronda: peleadores congelados
-        val frozen = now < hurtFreezeUntilMs || now < roundIntroUntilMs
-        if (!frozen) {
-            updateFighter(sim, 0, buildPlayerInput(now, sim), now, dt)
-            // El rival: CPU offline; por RED online (no se simula localmente)
-            if (!online) updateFighter(sim, 1, buildCpuInput(now, sim), now, dt)
+        // Durante el banner la pelea sigue bloqueada, pero el Idle completo avanza: los
+        // personajes ya no parecen estampas congeladas antes de "PELEA". Hit-freeze si
+        // conserva el congelado total porque forma parte de la respuesta visual del golpe.
+        when {
+            now < hurtFreezeUntilMs -> Unit
+            now < roundIntroUntilMs -> {
+                sim.setFighter(0, updateRoundIntroAnimation(sim.fighter(0), now))
+                sim.setFighter(1, updateRoundIntroAnimation(sim.fighter(1), now))
+            }
+            else -> {
+                updateFighter(sim, 0, buildPlayerInput(now, sim), now, dt)
+                // El rival: CPU offline; por RED online (no se simula localmente)
+                if (!online) updateFighter(sim, 1, buildCpuInput(now, sim), now, dt)
+            }
         }
         updateFireballs(sim, now, dt)
         // 🆕 FIREBALL-VS-FIREBALL offline: ambos dueños viven en sim.fireballs
@@ -413,6 +421,13 @@ class StreetFighterViewModel @Inject constructor(
         val delay = anim[f.animationFrame.coerceIn(0, anim.size - 1)].delay
         if (delay <= 0 || now <= f.animationTimerMs) return f // FREEZE/TRANSITION o aún no toca
         return withAnimationFrame(f, f.animationFrame + 1, now)
+    }
+
+    /** Anima solo la pose neutral durante la presentacion, sin mover ni aceptar input. */
+    private fun updateRoundIntroAnimation(f: SfFighter, now: Long): SfFighter {
+        if (f.state != SfFighterState.IDLE) return f
+        return if (f.animationTimerMs <= 0L) withAnimationFrame(f, 0, now)
+        else updateAnimation(f, now)
     }
 
     private fun isAnimationCompleted(f: SfFighter): Boolean {

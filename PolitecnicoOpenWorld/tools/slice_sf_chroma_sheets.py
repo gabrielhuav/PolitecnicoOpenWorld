@@ -157,10 +157,44 @@ def maybe_split(grp, lbl, raw, n_expected):
         grp = sorted(grp, key=lambda bl: bl[0])
     return grp
 
+def recover_sparse_projectiles(raw, n_expected):
+    """Recupera efectos dispersos de la fila PROJECTILE por intervalos X.
+
+    Los impactos finales pueden estar formados por muchas chispas pequeñas y, por ello,
+    no sobreviven el filtro de componentes pensado para cuerpos. En la zona inferior no
+    hay personajes: agrupamos todas las partículas cercanas horizontalmente y obtenemos
+    una caja por estado real, sin inventar ni repetir cuadros.
+    """
+    height, width = raw.shape
+    y_floor = int(round(height * 0.62))
+    lower = raw[y_floor:, :]
+    occupied = lower.sum(axis=0) >= 2
+    occupied = ndimage.binary_closing(occupied, structure=np.ones(35, dtype=bool))
+    runs_lbl, _ = ndimage.label(occupied)
+    runs = []
+    for sl in ndimage.find_objects(runs_lbl):
+        if sl is None:
+            continue
+        x0, x1 = sl[0].start, sl[0].stop
+        if x1 - x0 < 15:
+            continue
+        ys, xs = np.where(lower[:, x0:x1])
+        if len(xs) == 0:
+            continue
+        # bid=None indica a cut() que conserve todos los componentes crudos dentro de
+        # esta caja; es indispensable para destellos que no son una silueta conectada.
+        runs.append((x0 + int(xs.min()), y_floor + int(ys.min()),
+                     x0 + int(xs.max()) + 1, y_floor + int(ys.max()) + 1, None))
+    return runs if len(runs) == n_expected else []
+
 def cut(im, lbl, raw, blob):
     x0, y0, x1, y1, bid = blob
     rgb = np.asarray(im)[y0:y1, x0:x1].copy()
-    mask = (lbl[y0:y1, x0:x1] == bid) & raw[y0:y1, x0:x1]   # alfa CRUDO: sin verde interior
+    if bid is None:
+        mask = raw[y0:y1, x0:x1]
+    else:
+        mask = (lbl[y0:y1, x0:x1] == bid) & raw[y0:y1, x0:x1]
+    # alfa CRUDO: sin verde interior
     edge = mask & ~ndimage.binary_erosion(mask, iterations=2)
     r, g, b = rgb[..., 0].astype(int), rgb[..., 1].astype(int), rgb[..., 2].astype(int)
     spill = edge & (g > r + 30) & (g > b + 30)
@@ -172,6 +206,7 @@ def cut(im, lbl, raw, blob):
 
 def pick(frames, k, mode):
     n = len(frames)
+    if n == 0: return []
     if mode == "first": return frames[:k]
     if mode == "mid":   return [frames[n // 2]] if k == 1 else pick(frames, k, "even")
     # Ataque de dos cuadros = preparacion + CONTACTO. "even" elegia primero y
@@ -180,7 +215,13 @@ def pick(frames, k, mode):
         return [frames[0], frames[n // 2]]
     if mode == "first_half":
         return pick(frames[:max(k, (n + 1) // 2)], k, "even")
-    if n <= k: return list(frames)
+    # Una hoja ocasionalmente trae UN cuadro menos que el rotulo. Repetimos el vecino
+    # central mas cercano para conservar el contrato (p. ej. WALK 5 -> 6) sin inventar
+    # poses ni alterar escala. La validacion de main sigue rechazando faltantes mayores.
+    if n < k:
+        idx = [round(i * (n - 1) / (k - 1)) for i in range(k)] if k > 1 else [n // 2]
+        return [frames[i] for i in idx]
+    if n == k: return list(frames)
     idx = [round(i * (n - 1) / (k - 1)) for i in range(k)] if k > 1 else [n // 2]
     return [frames[i] for i in idx]
 
@@ -237,21 +278,54 @@ def update_frame_meta(gen_dir, names, flips):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2, sort_keys=True)
 
-def place_sf(img, scale, center=False):
+def dense_body_center_x(img):
+    """Centro X del cuerpo en poses con un efecto ancho hacia la derecha.
+
+    La figura es el primer grupo de columnas con gran soporte vertical; haces, flash y
+    confeti suelen formar grupos posteriores. No usa colores ni anatomia especifica, por
+    lo que tambien sirve para personajes futuros.
+    """
+    alpha = np.asarray(img.convert("RGBA"))[..., 3] > 0
+    counts = alpha.sum(axis=0)
+    if counts.size == 0 or counts.max() <= 0:
+        return img.width / 2.0
+    dense = counts >= max(3.0, float(counts.max()) * 0.45)
+    groups = []
+    start = None
+    for x, filled in enumerate(dense):
+        if filled and start is None:
+            start = x
+        if start is not None and (not filled or x == len(dense) - 1):
+            end = x if not filled else x + 1
+            if end - start >= 2:
+                groups.append((start, end))
+            start = None
+    if not groups:
+        return img.width / 2.0
+    start, end = groups[0]  # personaje a la izquierda; efecto sale hacia la derecha
+    weights = counts[start:end].astype(float)
+    xs = np.arange(start, end, dtype=float)
+    return float((xs * weights).sum() / weights.sum()) if weights.sum() > 0 else (start + end) / 2.0
+
+def place_sf(img, scale, center=False, anchor_body=False):
     w = max(1, int(round(img.width * scale)))
     h = max(1, int(round(img.height * scale)))
+    body_cx = dense_body_center_x(img) * scale if anchor_body else None
     img = img.resize((w, h), Image.Resampling.LANCZOS)
     cv = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
     y = (CANVAS // 2 - h // 2) if center else (FEET_Y - h)   # proyectiles: origen (128,128)
-    cv.paste(img, (CX - w // 2, y), img)
+    x = int(round(CX - body_cx)) if body_cx is not None else (CX - w // 2)
+    cv.paste(img, (x, y), img)
     return cv
 
-def place_world(img, scale, feet_y):
+def place_world(img, scale, feet_y, anchor_body=False):
     w = max(1, int(round(img.width * scale)))
     h = max(1, int(round(img.height * scale)))
+    body_cx = dense_body_center_x(img) * scale if anchor_body else None
     img = img.resize((w, h), Image.Resampling.LANCZOS)
     cv = Image.new("RGBA", (W_CANVAS, W_CANVAS), (0, 0, 0, 0))
-    cv.paste(img, (W_CANVAS // 2 - w // 2, feet_y - h), img)
+    x = int(round(W_CANVAS / 2.0 - body_cx)) if body_cx is not None else (W_CANVAS // 2 - w // 2)
+    cv.paste(img, (x, feet_y - h), img)
     return cv
 
 def sequence_scale(frames, target_h, fallback):
@@ -302,6 +376,10 @@ def main():
     A, B, warn = split_groups(bands, nA, nB)
     A = maybe_split(A, lbl, raw, nA)
     B = maybe_split(B, lbl, raw, nB)
+    if num == 12 and len(B) != nB:
+        recovered = recover_sparse_projectiles(raw, nB)
+        if recovered:
+            B = recovered
     warn = (len(A) != nA or len(B) != nB)
     msg = "Hoja %02d: %s %d/%d + %s %d/%d" % (num, nameA, len(A), nA, nameB, len(B), nB)
     # Solo ASCII: la consola clasica de Windows usa cp1252 y no puede imprimir "⚠".
@@ -314,7 +392,8 @@ def main():
     for (label, targets), grp in ((("A", sfA), A), (("B", sfB), B)):
         t = targets[0]
         projectile_short_ok = num == 12 and label == "B" and len(grp) == 4 and len(t or []) == 5
-        if t and len(grp) < len(t) and not projectile_short_ok:
+        one_short_ok = t and len(grp) + 1 == len(t)
+        if t and len(grp) < len(t) and not projectile_short_ok and not one_short_ok:
             sys.exit("Grupo %s tiene %d cuadros y necesita >= %d (%s). Regenera la hoja." %
                      (label, len(grp), len(t), ", ".join(t)))
 
@@ -344,7 +423,7 @@ def main():
     else:
         sys.exit("Falta %s: procesa primero la hoja 01 (fija la escala)." % scale_file)
 
-    for (label, _, (targets, mode), world), group in ((SHEETS[num][0], framesA), (SHEETS[num][1], framesB)):
+    for (label, expected_count, (targets, mode), world), group in ((SHEETS[num][0], framesA), (SHEETS[num][1], framesB)):
         sf_target_h = SF_POSE_TARGET_H.get(label, TARGET_H)
         if targets:
             if label == "PROJECTILE" and len(group) == 4 and len(targets) == 5:
@@ -370,7 +449,8 @@ def main():
             elif label in ("HURT HEAD", "HURT BODY", "STUN"):
                 frame_scales = [TARGET_H / fr.height if fr.height > 0 else sf_scale for fr in chosen]
             for name, fr, frame_scale in zip(targets, chosen, frame_scales):
-                place_sf(fr, frame_scale, center=name.startswith("proj-")).save(
+                place_sf(fr, frame_scale, center=name.startswith("proj-"),
+                         anchor_body=label.startswith("SPECIAL")).save(
                     os.path.join(gen_dir, name + ".png"))
             if label == "KO":
                 flips = detect_orientation_flips(chosen)
@@ -394,11 +474,14 @@ def main():
                 sys.exit("Falta %s: procesa primero la hoja 01 (fija la escala mundial)." % world_scale_file)
             world_meta = json.load(open(world_scale_file, encoding="utf-8"))
             feet = world_meta["feetY"]
-            wscale = sequence_scale(group, world_meta["targetHeight"], scale)
-            for i, fr in enumerate(group, 1):
-                place_world(fr, wscale, feet).save(
+            # Mantiene tambien el contrato del mundo cuando el grupo trae exactamente
+            # un cuadro menos: la misma repeticion central segura usada en SF.
+            world_frames = pick(group, expected_count, "even") if len(group) + 1 == expected_count else group
+            wscale = sequence_scale(world_frames, world_meta["targetHeight"], scale)
+            for i, fr in enumerate(world_frames, 1):
+                place_world(fr, wscale, feet, anchor_body=label.startswith("SPECIAL")).save(
                     os.path.join(wdir, "%s%s_%d.webp" % (args.world_prefix, letter, i)), lossless=True)
-            print("POW %-22s -> WORLD_%s/%s/ (%d)" % (label, args.char, folder, len(group)))
+            print("POW %-22s -> WORLD_%s/%s/ (%d)" % (label, args.char, folder, len(world_frames)))
 
 if __name__ == "__main__":
     main()
