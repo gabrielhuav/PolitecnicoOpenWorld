@@ -67,6 +67,7 @@
   al entrar a pelea, **guardado de sesión arcade** al pausar (retomar al reabrir).
 - Fondos: todos `_anim` ≤2048; selector de mapa = thumbs + 1 preview animado.
 - **PRIORIDAD:** reemplazar SFX `hadouken.ogg` (copyright residual). Ken/Ryu fuera del juego.
+- **La Presidenta:** a ≤1/4 vida → metamorfosis real a **Yoalli** (50% HP); no muere en el KO.
 - Arcade: escalera + desbloqueos; ver `DISENO_ARCADE_SF_POW.md`.
 
 ### Docs de trabajo / Working docs (no son 00–09)

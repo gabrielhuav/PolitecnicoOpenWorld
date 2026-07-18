@@ -372,6 +372,13 @@ data class SfFighter(
     val attackStruck: Boolean = false,  // el ataque actual ya conectó
     val fireballFired: Boolean = false, // el hadouken de este special ya salió
     val victory: Boolean = false,
+    /**
+     * 🆕 Metamorfosis La Presidenta → Yoalli Ehécatl (final arcade / IA vs IA).
+     * - [metamorphosing]: anim BONUS_POWER_11 en curso (invulnerable).
+     * - [metamorphosed]: ya transformó (no se repite; el id ya es YOALLI o no aplica).
+     */
+    val metamorphosing: Boolean = false,
+    val metamorphosed: Boolean = false,
 ) {
     val isAirborne: Boolean
         get() = state == SfFighterState.JUMP_UP ||

@@ -410,6 +410,27 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     (`resumeArcadeSession` / `discardArcadeSession`).
   - **PRIORIDAD copyright:** sustituir **`hadouken.ogg`** (+ golpes legacy) por SFX propios;
     Ken/Ryu ya NO están en el enum (solo restos de comentario/debug assets).
+- **🆕 IA vs IA: no salir de pantalla + menos spam de poderes (2026-07-18d):**
+  - Clamp duro de X/Y al escenario (`STAGE_X_MIN/MAX`, piso) tras constraints; NaN → centro.
+  - Especiales: cooldown 0.9 s (1.4 s en IA vs IA), **máx 1 proyectil activo por peleador**,
+    tope global 4 fireballs (antes se acumulaban y lag + muro imbloqueable).
+  - PESADILLA: al ver proyectil **prioriza salto/bloqueo** (no contra-spamear); rates de
+    special bajados; bonus powers 3% (antes 10%).
+  - Auditoría assets: `tools/audit_sf_fighters.py` (18 dedicados OK, 0 OOB / 0 miss anim).
+  - **No se puede “probar todos vs todos” en emulador desde esta sesión de tooling**; el
+    script de auditoría cubre integridad de frames. Prueba en dispositivo: IA vs IA con
+    varios pares y mira clamp + cooldowns.
+- **🆕 LA PRESIDENTA → YOALLI (metamorfosis real, 2026-07-18e):**
+  - Al bajar a **≤1/4 de vida** (o daño letal), **no KO**: anima `bonusPower11` (invulnerable)
+    y al terminar el **id pasa a `YOALLI_EHECATL` con 50% HP** (`metamorphosed=true`).
+  - **Se queda** como Yoalli (no “vuelve” a Presidenta). P11 **no** se elige con el botón P
+    ni por la IA (solo 1..10); la transform es automática por umbral de vida.
+  - Draw: fallback idle si falta frame; poderes/metamorfosis **sin** reescalado de contenido
+    (evita “cambio de skin” / recortes raros); precarga hoja Yoalli si pelea la Presidenta.
+- **🆕 IA melee-first (2026-07-18f):** deja de acampar en esquinas spameando poderes.
+  - Si está en borde del stage → **siempre** camina hacia el rival.
+  - AVANZADA/PESADILLA: special ~4–12% (antes mucho más); bonus solo cerca y raro.
+  - Presión cuerpo a cuerpo (forward + combos). IA vs IA se ve pelear; vs Presidenta se puede ganar.
 - **🆕 MODO ARCADE POW — escalera de 11 peleas (2026-07-17):** botón **ARCADE** en el selector.
   El jugador elige uno de los 3 estudiantes DESBLOQUEADOS (ESCOMBOY/ESCOMGIRL/ROBOT) + dificultad
   base; pelea una escalera FIJA (`SfArcadeLadder.build`): 1-2 los otros 2 estudiantes (azar), 3-5

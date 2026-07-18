@@ -157,6 +157,9 @@ class StreetFighterViewModel @Inject constructor(
     // ambos índices tienen su propia cadencia e intención sostenida.
     private val cpuNextDecisionMs = LongArray(2) { 0L }
     private val cpuHold = Array(2) { SfInput() } // intención sostenida (caminar) por índice
+    // 🆕 Cooldown de especial/bonus por peleador (ms de juego). Evita spam de hadoukens
+    // en PESADILLA / IA vs IA que llenaba la pantalla y no se podía contrarrestar.
+    private val specialCooldownUntil = LongArray(2) { 0L }
     // 🆕 Intensidad de la CPU 0f..1f (POR FASES del arcade): 0 = como en VS; 1 = máxima. Escala
     // la CADENCIA de decisión (reacciona más rápido) y la agresividad/bloqueo. En VS es 0
     // (comportamiento idéntico al de siempre); el arcade la sube según avanzas en la escalera.
@@ -224,6 +227,14 @@ class StreetFighterViewModel @Inject constructor(
         const val ROUND_RESET_DELAY_MS = 3500L   // "X WINS" en pantalla antes de la ronda nueva
         const val ROUND_INTRO_MS = 1800L         // banner "RONDA N / PELEA" con input congelado
         const val ROUND_GRACE_MS = 1200L         // ignora estado/daño del rival en vuelo tras el reset
+        // 🆕 Especiales: cooldown + tope de proyectiles (PESADILLA spameaba y no se contrarrestaba)
+        const val SPECIAL_COOLDOWN_MS = 900L
+        const val SPECIAL_COOLDOWN_AIVSAI_MS = 1400L
+        const val MAX_ACTIVE_FIREBALLS_PER_FIGHTER = 1
+        const val MAX_FIREBALLS_TOTAL = 4
+        // Límites mundiales del escenario (padding + stage). Mantienen a los peleadores visibles.
+        val STAGE_X_MIN = SfConstants.STAGE_PADDING + 24f
+        val STAGE_X_MAX = SfConstants.STAGE_PADDING + SfConstants.STAGE_WIDTH - 24f
         // 🆕 Interpolación del rival: tasa del lerp (≈rate*dt por tick) y distancia a partir
         // de la cual se SNAPEA (teleport/reset de ronda — no perseguirlo lerpeando)
         const val NET_LERP_RATE = 14f
@@ -276,7 +287,8 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
             SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
-        ),
+            // 🆕 Tras poderes Grok / metamorfosis Presidenta→Yoalli se vuelve a IDLE
+        ) + SF_BONUS_POWER_STATES.toSet(),
         SfFighterState.WALK_FORWARD to setOf(
             SfFighterState.IDLE, SfFighterState.JUMP_FORWARD, SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
         ),
@@ -572,6 +584,8 @@ class StreetFighterViewModel @Inject constructor(
 
         sim.setFighter(idx, updateAnimation(sim.fighter(idx), now))
         updateStageConstraints(sim, idx, dt)
+        // Doble seguro: tras anim/empuje, NUNCA fuera de pantalla (IA vs IA)
+        sim.setFighter(idx, clampFighterToStage(sim.fighter(idx)))
         updateAttackBoxCollided(sim, idx, now)
     }
 
@@ -710,13 +724,16 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
             SfFighterState.BONUS_POWER_10, SfFighterState.BONUS_POWER_11,
             -> {
-                // Los cuadros Grok ya contienen el eclipse/metamorfosis. En el cuadro central
-                // emiten ademas el proyectil real: Yoalli y la metamorfosis final de
-                // La Presidenta usan HEAVY; el resto conserva MEDIUM.
-                val strength = if (
-                    f.id == SfFighterId.YOALLI_EHECATL ||
-                    (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11)
-                ) {
+                // 🆕 BONUS_POWER_11 de La Presidenta = SOLO metamorfosis (sin proyectil spam):
+                // al terminar la anim el id pasa a YOALLI con 50% HP y se QUEDA (no vuelve a Presidenta).
+                if (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11) {
+                    if (isAnimationCompleted(f)) {
+                        completePresidentaMetamorphosis(sim, idx, now)
+                    }
+                    return
+                }
+                // Otros bonus: proyectil en cuadro central (Yoalli HEAVY; resto MEDIUM).
+                val strength = if (f.id == SfFighterId.YOALLI_EHECATL) {
                     SfAttackStrength.HEAVY
                 } else {
                     SfAttackStrength.MEDIUM
@@ -782,20 +799,97 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     private fun trySpecial(sim: Sim, idx: Int, strength: SfAttackStrength, now: Long): Boolean {
+        // Cooldown + tope de proyectiles propios activos (evita muro de hadoukens)
+        if (now < specialCooldownUntil[idx.coerceIn(0, 1)]) return false
+        val ownBalls = sim.fireballs.count {
+            it.ownerIndex == idx && it.state == SfFireballState.ACTIVE
+        }
+        if (ownBalls >= MAX_ACTIVE_FIREBALLS_PER_FIGHTER) return false
         val state = when (strength) {
             SfAttackStrength.LIGHT -> SfFighterState.SPECIAL_1_LIGHT
             SfAttackStrength.MEDIUM -> SfFighterState.SPECIAL_1_MEDIUM
             SfAttackStrength.HEAVY -> SfFighterState.SPECIAL_1_HEAVY
         }
-        return changeState(sim, idx, state, now)
+        val ok = changeState(sim, idx, state, now)
+        if (ok) {
+            // IA vs IA / PESADILLA: cooldown más largo para que el rival pueda reaccionar
+            val aiVs = _state.value.aiVsAi
+            specialCooldownUntil[idx.coerceIn(0, 1)] = now + if (aiVs) SPECIAL_COOLDOWN_AIVSAI_MS
+            else SPECIAL_COOLDOWN_MS
+        }
+        return ok
     }
 
     private fun tryBonusPower(sim: Sim, idx: Int, power: Int, now: Long): Boolean {
+        if (now < specialCooldownUntil[idx.coerceIn(0, 1)]) return false
         val fighter = sim.fighter(idx)
-        if (power !in 1..fighter.id.bonusPowerCount) return false
+        // La Presidenta: P1..P10 son poderes; P11 es SOLO la metamorfosis automática (no se elige).
+        val maxUsable = usableBonusPowerCount(fighter.id)
+        if (power !in 1..maxUsable) return false
         val state = sfBonusPowerState(power) ?: return false
         if (dataFor(fighter).animations[state.jsKey].isNullOrEmpty()) return false
-        return changeState(sim, idx, state, now)
+        val ok = changeState(sim, idx, state, now)
+        if (ok) {
+            specialCooldownUntil[idx.coerceIn(0, 1)] = now + if (_state.value.aiVsAi) {
+                SPECIAL_COOLDOWN_AIVSAI_MS
+            } else {
+                SPECIAL_COOLDOWN_MS
+            }
+        }
+        return ok
+    }
+
+    /** Poderes Grok “lanzables” (excluye metamorfosis P11 de La Presidenta). */
+    private fun usableBonusPowerCount(id: SfFighterId): Int = when (id) {
+        SfFighterId.LA_PRESIDENTA -> (id.bonusPowerCount - 1).coerceAtLeast(0) // 1..10
+        else -> id.bonusPowerCount
+    }
+
+    /**
+     * Fin de BONUS_POWER_11 de La Presidenta: se convierte en Yoalli Ehécatl a 50% HP.
+     * El cambio de id es PERMANENTE (no “vuelve” a Presidenta al idle).
+     */
+    private fun completePresidentaMetamorphosis(sim: Sim, idx: Int, now: Long) {
+        val f = sim.fighter(idx)
+        if (f.id != SfFighterId.LA_PRESIDENTA) {
+            changeState(sim, idx, SfFighterState.IDLE, now)
+            return
+        }
+        val halfHp = SfConstants.HEALTH_MAX_HIT_POINTS / 2
+        // Cambia identidad + vida + limpia flags de transform; anim en IDLE de Yoalli
+        val yoalli = clampFighterToStage(
+            f.copy(
+                id = SfFighterId.YOALLI_EHECATL,
+                hitPoints = halfHp,
+                metamorphosing = false,
+                metamorphosed = true,
+                fireballFired = false,
+                attackStruck = false,
+                velocityX = 0f,
+                velocityY = 0f,
+                slideVelocity = 0f,
+                slideFriction = 0f,
+                y = SfConstants.STAGE_FLOOR,
+            ),
+        )
+        sim.setFighter(idx, yoalli)
+        // changeState con el nuevo id usa el JSON/hoja de Yoalli
+        changeState(sim, idx, SfFighterState.IDLE, now)
+        // Reafirmar flags (changeState no debe borrar metamorphosed)
+        val after = sim.fighter(idx)
+        sim.setFighter(
+            idx,
+            clampFighterToStage(
+                after.copy(
+                    id = SfFighterId.YOALLI_EHECATL,
+                    hitPoints = halfHp,
+                    metamorphosed = true,
+                    metamorphosing = false,
+                ),
+            ),
+        )
+        // HUD: forzar roll-up hacia el nuevo HP (subir a 50% es instantáneo en rollUpHp)
+        if (idx == 0) dispHp0 = halfHp.toFloat() else dispHp1 = halfHp.toFloat()
     }
 
     private fun maybeTurn(sim: Sim, idx: Int, turnState: SfFighterState, now: Long) {
@@ -820,31 +914,65 @@ class StreetFighterViewModel @Inject constructor(
         var f = sim.fighter(idx)
         val push = SfBox.fromList(frameDef(f).push)
 
-        // Límites del viewport (como el JS, contra la cámara)
-        if (f.x - sim.camX + SfConstants.FIGHTER_DEFAULT_WIDTH > SfConstants.SCENE_WIDTH) {
-            f = f.copy(x = sim.camX + SfConstants.SCENE_WIDTH - SfConstants.FIGHTER_DEFAULT_WIDTH)
-        } else if (f.x - sim.camX - SfConstants.FIGHTER_DEFAULT_WIDTH < 0f) {
-            f = f.copy(x = sim.camX + SfConstants.FIGHTER_DEFAULT_WIDTH)
+        // 1) Clamp AL ESCENARIO MUNDO (nunca fuera del stage — evita “desaparecer”
+        // en IA vs IA cuando el empuje/slide los lanza fuera de cámara).
+        f = clampFighterToStage(f)
+
+        // 2) Límites del viewport (como el JS, contra la cámara)
+        val margin = SfConstants.FIGHTER_DEFAULT_WIDTH
+        if (f.x - sim.camX + margin > SfConstants.SCENE_WIDTH) {
+            f = f.copy(x = sim.camX + SfConstants.SCENE_WIDTH - margin)
+        } else if (f.x - sim.camX - margin < 0f) {
+            f = f.copy(x = sim.camX + margin)
         }
+        f = clampFighterToStage(f)
         sim.setFighter(idx, f)
 
         // Empuje al traslaparse los pushbox (updateStageConstraints del JS)
         var opp = sim.fighter(1 - idx)
-        if (!pushBoxWorld(f).overlaps(pushBoxWorld(opp))) return
+        if (!pushBoxWorld(f).overlaps(pushBoxWorld(opp))) {
+            // Aun sin overlap, re-asegura al rival (el otro update lo hará también)
+            return
+        }
 
         val pushableStates = setOf(
             SfFighterState.IDLE, SfFighterState.CROUCH, SfFighterState.JUMP_UP,
             SfFighterState.JUMP_BACKWARD, SfFighterState.JUMP_FORWARD,
         )
         if (f.x <= opp.x) {
-            f = f.copy(x = maxOf(opp.x + SfBox.fromList(frameDef(opp).push).x - (push.x + push.width), push.width - 1f))
-            if (opp.state in pushableStates) opp = opp.copy(x = opp.x + SfConstants.FIGHTER_PUSH_FRICTION * dt)
+            val nx = opp.x + SfBox.fromList(frameDef(opp).push).x - (push.x + push.width)
+            f = f.copy(x = nx.coerceIn(STAGE_X_MIN, STAGE_X_MAX))
+            if (opp.state in pushableStates) {
+                opp = clampFighterToStage(
+                    opp.copy(x = opp.x + SfConstants.FIGHTER_PUSH_FRICTION * dt),
+                )
+            }
         } else {
-            f = f.copy(x = minOf(sim.camX + SfConstants.SCENE_WIDTH - push.width, opp.x + SfBox.fromList(frameDef(opp).push).width))
-            if (opp.state in pushableStates) opp = opp.copy(x = opp.x - SfConstants.FIGHTER_PUSH_FRICTION * dt)
+            val nx = minOf(
+                sim.camX + SfConstants.SCENE_WIDTH - push.width.coerceAtLeast(1f),
+                opp.x + SfBox.fromList(frameDef(opp).push).width,
+            )
+            f = f.copy(x = nx.coerceIn(STAGE_X_MIN, STAGE_X_MAX))
+            if (opp.state in pushableStates) {
+                opp = clampFighterToStage(
+                    opp.copy(x = opp.x - SfConstants.FIGHTER_PUSH_FRICTION * dt),
+                )
+            }
         }
-        sim.setFighter(idx, f)
-        sim.setFighter(1 - idx, opp)
+        sim.setFighter(idx, clampFighterToStage(f))
+        sim.setFighter(1 - idx, clampFighterToStage(opp))
+    }
+
+    /** Mantener al peleador DENTRO del escenario (mundo). Y nunca por debajo del piso. */
+    private fun clampFighterToStage(f: SfFighter): SfFighter {
+        var x = f.x
+        var y = f.y
+        if (x.isNaN() || x.isInfinite()) x = SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING
+        if (y.isNaN() || y.isInfinite()) y = SfConstants.STAGE_FLOOR
+        x = x.coerceIn(STAGE_X_MIN, STAGE_X_MAX)
+        // No permitir caer bajo el piso; el salto puede subir pero con tope de aire
+        y = y.coerceIn(SfConstants.STAGE_FLOOR - 220f, SfConstants.STAGE_FLOOR)
+        return if (x != f.x || y != f.y) f.copy(x = x, y = y) else f
     }
 
     private fun updateAttackBoxCollided(sim: Sim, idx: Int, now: Long) {
@@ -885,6 +1013,12 @@ class StreetFighterViewModel @Inject constructor(
         val defenderIdx = 1 - attackerIdx
         var attacker = sim.fighter(attackerIdx)
         var defender = sim.fighter(defenderIdx)
+
+        // Metamorfosis en curso: invulnerable (no se puede “matar” a media anim)
+        if (isMetamorphosing(defender)) {
+            sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
+            return
+        }
 
         // ONLINE: el HP del RIVAL es suyo (autoridad del receptor). Si MI golpe/proyectil
         // conecta con él, solo AVISO (PLAYER_DAMAGE) + efectos optimistas locales; su HP y
@@ -933,6 +1067,13 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
 
+        // 🆕 LA PRESIDENTA no “pierde” al KO: a ≤1/4 de vida (o daño letal) se metamorfosea
+        // a Yoalli Ehécatl con 50% de vida (una sola vez). Invulnerable durante la anim.
+        if (tryPresidentaMetamorphosis(sim, defenderIdx, attackerIdx, now)) {
+            hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
+            return
+        }
+
         if (defender.hitPoints <= 0) {
             changeState(sim, defenderIdx, SfFighterState.KO, now)
             sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(victory = true))
@@ -956,6 +1097,51 @@ class StreetFighterViewModel @Inject constructor(
         hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
     }
 
+    /**
+     * Si la defensora es La Presidenta sin haber metamorfoseado y el golpe la deja en
+     * ≤25% HP (o la mataría), lanza BONUS_POWER_11 y NO aplica KO.
+     * Al terminar la anim (ver handler BONUS_POWER_*), el id pasa a YOALLI con 50% HP.
+     * @return true si se consumió el golpe como metamorfosis (el caller no hace KO/hurt).
+     */
+    private fun tryPresidentaMetamorphosis(
+        sim: Sim,
+        defenderIdx: Int,
+        attackerIdx: Int,
+        now: Long,
+    ): Boolean {
+        val d = sim.fighter(defenderIdx)
+        if (d.id != SfFighterId.LA_PRESIDENTA || d.metamorphosed || d.metamorphosing) return false
+        val maxHp = SfConstants.HEALTH_MAX_HIT_POINTS
+        val threshold = maxHp / 4 // 50 de 200
+        if (d.hitPoints > threshold) return false
+        // Ya está en ≤1/4 (el HP se restó arriba). Arranca anim de metamorfosis.
+        // FORZAR estado: puede venir de HURT (validFrom de BONUS_POWER no lo incluye).
+        val pinnedHp = d.hitPoints.coerceIn(1, threshold)
+        var nf = d.copy(
+            state = SfFighterState.BONUS_POWER_11,
+            hitPoints = pinnedHp,
+            metamorphosing = true,
+            metamorphosed = false,
+            velocityX = 0f,
+            velocityY = 0f,
+            slideVelocity = 0f,
+            slideFriction = 0f,
+            attackStruck = false,
+            fireballFired = false,
+            y = SfConstants.STAGE_FLOOR,
+        )
+        nf = withAnimationFrame(nf, 0, now)
+        sim.setFighter(defenderIdx, clampFighterToStage(nf))
+        sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(attackStruck = true))
+        _soundEvents.tryEmit("hadouken")
+        return true
+    }
+
+    /** Invulnerable mientras se transforma (Presidenta en BONUS_POWER_11 con flag). */
+    private fun isMetamorphosing(f: SfFighter): Boolean =
+        f.metamorphosing ||
+            (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11 && !f.metamorphosed)
+
     // ------------------------------------------------------------------
     // Fireballs (Fireball.js) — animación, movimiento, colisión
     // ------------------------------------------------------------------
@@ -966,6 +1152,14 @@ class StreetFighterViewModel @Inject constructor(
     private val fireballBox = SfBox(-15f, -13f, 30f, 24f)
 
     private fun updateFireballs(sim: Sim, now: Long, dt: Float) {
+        // Tope global: en PESADILLA/IA-vs-IA se acumulaban decenas → lag + muro imbloqueable
+        if (sim.fireballs.size > MAX_FIREBALLS_TOTAL) {
+            val keep = sim.fireballs
+                .sortedByDescending { it.state == SfFireballState.ACTIVE }
+                .take(MAX_FIREBALLS_TOTAL)
+            sim.fireballs.clear()
+            sim.fireballs.addAll(keep)
+        }
         if (sim.fireballs.isEmpty()) return
         val iterator = sim.fireballs.listIterator()
         while (iterator.hasNext()) {
@@ -1228,9 +1422,21 @@ class StreetFighterViewModel @Inject constructor(
             SfCpuDifficulty.PESADILLA -> pesadillaCpuDecision(sim, i)
         }
         val me = sim.fighter(i)
-        val bonusCount = me.id.bonusPowerCount
-        if (bonusCount > 0 && difficulty != SfCpuDifficulty.BASICA &&
-            me.state == SfFighterState.IDLE && Random.nextFloat() < 0.10f
+        // Bonus powers: muy raros (y solo si ya estamos cerca — no “spamear desde lejos”)
+        val bonusCount = usableBonusPowerCount(me.id)
+        val distToFoe = abs(me.x - sim.fighter(1 - i).x)
+        val bonusChance = when {
+            difficulty == SfCpuDifficulty.BASICA -> 0f
+            distToFoe > 140f -> 0.01f // lejos casi nunca
+            me.id == SfFighterId.LA_PRESIDENTA -> 0.02f // rival jugable
+            else -> 0.025f
+        }
+        if (bonusCount > 0 &&
+            me.state == SfFighterState.IDLE &&
+            !me.metamorphosing &&
+            !isNearStageCorner(me.x) &&
+            now >= specialCooldownUntil[i] &&
+            Random.nextFloat() < bonusChance
         ) {
             cpuHold[i] = SfInput(bonusPower = Random.nextInt(1, bonusCount + 1))
         }
@@ -1269,141 +1475,184 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
-    /** NORMAL — la IA clásica del port: decisiones al azar por bandas de distancia. */
+    /** NORMAL — se acerca a pelear; pocos poderes (no acampar en esquina). */
     private fun normalCpuDecision(sim: Sim, selfIndex: Int): SfInput {
         val me = sim.fighter(selfIndex)
         val opp = sim.fighter(1 - selfIndex)
         val dist = abs(me.x - opp.x)
         val roll = Random.nextFloat()
+        if (isNearStageCorner(me.x) && dist > 60f) return cpuApproach(me, opp)
         return when {
             dist > 190f -> when {
-                roll < 0.12f -> SfInput(special = SfAttackStrength.entries.random()) // hadouken lejano
-                roll < 0.25f -> SfInput(up = true, forward = true)                    // salto adelante
-                else -> SfInput(forward = true)
+                roll < 0.08f -> SfInput(special = SfAttackStrength.LIGHT) // raro
+                roll < 0.22f -> SfInput(up = true, forward = true)
+                else -> cpuApproach(me, opp)
             }
             dist > 90f -> when {
-                roll < 0.70f -> SfInput(forward = true)
-                roll < 0.85f -> SfInput(backward = true)
+                roll < 0.78f -> cpuApproach(me, opp)
+                roll < 0.88f -> SfInput(backward = true)
                 else -> SfInput(down = true)
             }
             else -> when {
-                roll < 0.45f + 0.20f * cpuIntensity -> randomCpuAttack() // 🆕 más agresiva por fase
-                roll < 0.65f -> SfInput(backward = true)
-                roll < 0.75f -> SfInput(up = true)
-                else -> SfInput()
+                roll < 0.55f + 0.20f * cpuIntensity -> randomCpuAttack()
+                roll < 0.72f -> cpuApproach(me, opp)
+                roll < 0.85f -> SfInput(backward = true)
+                else -> SfInput(up = true)
             }
         }
     }
 
+    /** ¿Está pegado a un borde del stage? (evita “acampada” en esquina spameando poderes). */
+    private fun isNearStageCorner(x: Float): Boolean =
+        x <= STAGE_X_MIN + 48f || x >= STAGE_X_MAX - 48f
+
     /**
-     * AVANZADA — reactiva y pensada para ser CASI IMPOSIBLE: lee el estado del rival
-     * cada ~90-180 ms. Prioridades: (1) hadouken entrante → saltarlo (o contra-poder);
-     * (2) rival por el aire cerca → ANTI-AÉREO fuerte; (3) rival atacando a rango →
-     * BLOQUEAR (caminar hacia atrás = chip); (4) rival en recuperación → CASTIGO;
-     * (5) por distancia: lejos = MUCHOS poderes, medio = presión, cerca = mixups fuertes.
+     * Camina HACIA el rival (presión). Si estoy en esquina, SIEMPRE salir hacia el centro/rival
+     * — no quedarse a spamear hadoukens de esquina (se ve poco profesional, sobre todo IA vs IA).
+     */
+    private fun cpuApproach(me: SfFighter, foe: SfFighter): SfInput {
+        // Si la cara no apunta al rival, “adelante” se interpreta tras maybeTurn en IDLE;
+        // forzar forward sigue siendo lo correcto cuando ya miran al oponente.
+        if (isNearStageCorner(me.x)) return SfInput(forward = true)
+        return SfInput(forward = true)
+    }
+
+    /**
+     * AVANZADA — reactiva, pero PRIORIZA pelea cuerpo a cuerpo (acercarse + golpes).
+     * Poderes: raros y solo de lejos, nunca como plan A en esquina.
      */
     private fun advancedCpuDecision(sim: Sim, selfIndex: Int): SfInput {
         val me = sim.fighter(selfIndex)
         val foe = sim.fighter(1 - selfIndex)
         val dist = abs(me.x - foe.x)
         val roll = Random.nextFloat()
+        val corner = isNearStageCorner(me.x)
+        val ownActive = sim.fireballs.any {
+            it.ownerIndex == selfIndex && it.state == SfFireballState.ACTIVE
+        }
 
-        // (1) Proyectil del rival en vuelo HACIA mí y cerca → brincarlo (o reventarlo
-        // con otro poder: fireball-vs-fireball, ver SESIÓN 4)
+        // (0) Esquina → salir y pelear (nunca spamear desde el borde)
+        if (corner && dist > 70f) return cpuApproach(me, foe)
+
+        // (1) Proyectil entrante → saltar / bloquear (casi nunca contra-poder)
         val oppIndex = 1 - selfIndex
         val incoming = sim.fireballs.any { fb ->
             fb.ownerIndex == oppIndex && fb.state == SfFireballState.ACTIVE &&
                 abs(fb.x - me.x) < 260f && (me.x - fb.x) * fb.direction.sign > 0f
         }
         if (incoming && !me.isAirborne) {
-            return if (roll < 0.75f) SfInput(up = true, forward = true)
-            else SfInput(special = SfAttackStrength.HEAVY)
+            return if (roll < 0.80f) SfInput(up = true, forward = true)
+            else SfInput(backward = true)
         }
-        // (2) Anti-aéreo: el rival me salta encima → puño fuerte
+        // (2) Anti-aéreo
         if (foe.isAirborne && dist < 140f) return cpuAttack(SfAttackStrength.HEAVY, punch = true)
-        // (3) BLOQUEO reactivo: el rival está atacando a rango → cubrirse casi siempre.
-        // 🆕 La intensidad sube el bloqueo hasta ~0.98 (más avanzas = más difícil pegarle).
-        if (foe.state in cpuThreatStates && dist < 170f && roll < 0.85f + 0.13f * cpuIntensity) {
+        // (3) Bloqueo solo a media distancia (de cerca: intercambiar golpes)
+        if (foe.state in cpuThreatStates && dist in 90f..170f &&
+            roll < 0.70f + 0.10f * cpuIntensity
+        ) {
             return SfInput(backward = true)
         }
-        // (4) Castigo: el rival quedó vulnerable cerca → golpe fuerte inmediato
-        if (foe.state in cpuPunishStates && dist < 110f) {
+        // (4) Castigo
+        if (foe.state in cpuPunishStates && dist < 120f) {
             return cpuAttack(SfAttackStrength.HEAVY, punch = Random.nextBoolean())
         }
-        // (5) Juego por distancia ("cuando sea avanzado usa muchos poderes")
+        // (5) Por distancia: ACERCARSE + melee; special muy raro
         return when {
-            dist > 190f -> when {
-                roll < 0.55f + 0.15f * cpuIntensity -> SfInput(special = SfAttackStrength.entries.random())
-                roll < 0.70f -> SfInput(up = true, forward = true)
-                else -> SfInput(forward = true)
+            dist > 160f -> when {
+                !corner && !ownActive && roll < 0.12f + 0.05f * cpuIntensity ->
+                    SfInput(special = SfAttackStrength.LIGHT)
+                roll < 0.20f -> SfInput(up = true, forward = true)
+                else -> cpuApproach(me, foe)
             }
-            dist > 90f -> when {
-                roll < 0.25f + 0.15f * cpuIntensity -> SfInput(special = SfAttackStrength.entries.random())
-                roll < 0.85f -> SfInput(forward = true)
-                else -> SfInput(up = true, forward = true)
+            dist > 70f -> when {
+                roll < 0.75f -> cpuApproach(me, foe)
+                roll < 0.90f -> SfInput(up = true, forward = true)
+                else -> cpuAttack(SfAttackStrength.MEDIUM, punch = Random.nextBoolean())
             }
-            else -> when {
-                roll < 0.70f + 0.18f * cpuIntensity -> cpuAttack(
-                    if (Random.nextFloat() < 0.65f) SfAttackStrength.HEAVY else SfAttackStrength.MEDIUM,
+            else -> when { // cuerpo a cuerpo
+                roll < 0.72f + 0.12f * cpuIntensity -> cpuAttack(
+                    if (Random.nextFloat() < 0.55f) SfAttackStrength.HEAVY else SfAttackStrength.MEDIUM,
                     punch = Random.nextBoolean(),
                 )
-                roll < 0.80f -> SfInput(special = SfAttackStrength.LIGHT) // poder a quemarropa
-                roll < 0.90f -> SfInput(backward = true)                  // bait + guardia
-                else -> SfInput(forward = true)
+                roll < 0.88f -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
+                else -> SfInput(forward = true) // pegarse más / pressure
             }
         }
     }
 
     /**
-     * PESADILLA — la más brutal: ataca SIN PARAR con combos muy seguidos, ESQUIVA tus golpes
-     * (salto/dash atrás) además de bloquear, castiga durísimo y presiona a toda distancia.
-     * Reacciona casi al instante (~50-110 ms, ver buildCpuInput). Pensada para el jefe final
-     * y para el modo IA vs IA (ambos a máxima dificultad).
+     * PESADILLA — agresiva de CERCA: avanza, comboa, castiga. Casi no acampa ni spamea
+     * proyectiles (IA vs IA debe verse a pelear, no a intercambiar hadoukens desde esquinas).
+     * Como rival humano (p. ej. Presidenta) sigue siendo dura pero se puede ganar acercándose.
      */
     private fun pesadillaCpuDecision(sim: Sim, selfIndex: Int): SfInput {
         val me = sim.fighter(selfIndex)
         val foe = sim.fighter(1 - selfIndex)
         val dist = abs(me.x - foe.x)
         val roll = Random.nextFloat()
+        val corner = isNearStageCorner(me.x)
+        val ownActive = sim.fireballs.any {
+            it.ownerIndex == selfIndex && it.state == SfFireballState.ACTIVE
+        }
+        val aiVs = _state.value.aiVsAi
+        // Human vs CPU: aún menos special (jugable). IA vs IA: un poco más de “show” pero melee-first.
+        val specialFar = if (aiVs) 0.10f else 0.08f
+        val specialMid = if (aiVs) 0.05f else 0.04f
 
-        // (1) Proyectil entrante → ESQUIVA saltando o lo revienta con su propio poder
+        // (0) Esquina → SIEMPRE salir hacia el rival
+        if (corner) return cpuApproach(me, foe)
+
+        // (1) Proyectil entrante → saltar adelante / bloquear (no contra-spam)
         val oppIndex = 1 - selfIndex
         val incoming = sim.fireballs.any { fb ->
             fb.ownerIndex == oppIndex && fb.state == SfFireballState.ACTIVE &&
                 abs(fb.x - me.x) < 300f && (me.x - fb.x) * fb.direction.sign > 0f
         }
         if (incoming && !me.isAirborne) {
-            return if (roll < 0.6f) SfInput(up = true) else SfInput(special = SfAttackStrength.HEAVY)
-        }
-        // (2) Anti-aéreo brutal
-        if (foe.isAirborne && dist < 165f) return cpuAttack(SfAttackStrength.HEAVY, punch = true)
-        // (3) El rival ATACA a rango → ESQUIVA (salto atrás) o bloquea; a veces contragolpea
-        if (foe.state in cpuThreatStates && dist < 185f) {
             return when {
-                roll < 0.45f -> SfInput(backward = true, up = true) // esquiva saltando atrás
-                roll < 0.92f -> SfInput(backward = true)            // bloqueo
-                else -> cpuAttack(SfAttackStrength.LIGHT, punch = true) // contragolpe rápido
+                roll < 0.60f -> SfInput(up = true, forward = true)
+                roll < 0.88f -> SfInput(up = true)
+                else -> SfInput(backward = true)
             }
         }
-        // (4) Castigo durísimo en cuanto quedas vulnerable
-        if (foe.state in cpuPunishStates && dist < 135f) {
+        // (2) Anti-aéreo
+        if (foe.isAirborne && dist < 165f) return cpuAttack(SfAttackStrength.HEAVY, punch = true)
+        // (3) Amenaza a media distancia: a veces bloquea; de cerca prefiere chocar
+        if (foe.state in cpuThreatStates && dist in 100f..185f && roll < 0.55f) {
+            return SfInput(backward = true)
+        }
+        if (foe.state in cpuThreatStates && dist < 100f && roll < 0.35f) {
+            return cpuAttack(SfAttackStrength.LIGHT, punch = true) // trade / interrupt
+        }
+        // (4) Castigo
+        if (foe.state in cpuPunishStates && dist < 140f) {
             return cpuAttack(SfAttackStrength.HEAVY, punch = Random.nextBoolean())
         }
-        // (5) Presión total: COMBOS muy seguidos de cerca, poderes de lejos
+        // (5) Presión cuerpo a cuerpo — special solo ocasional y lejos del borde
         return when {
-            dist > 190f -> if (roll < 0.70f) SfInput(special = SfAttackStrength.entries.random()) else SfInput(forward = true)
-            dist > 90f -> when {
-                roll < 0.40f -> SfInput(special = SfAttackStrength.entries.random())
-                roll < 0.90f -> SfInput(forward = true)              // se acerca a presionar
-                else -> SfInput(up = true, forward = true)           // salto de acercamiento
+            dist > 150f -> when {
+                !ownActive && roll < specialFar ->
+                    SfInput(special = SfAttackStrength.LIGHT)
+                roll < 0.18f -> SfInput(up = true, forward = true)
+                else -> cpuApproach(me, foe)
             }
-            else -> when {
-                roll < 0.85f -> cpuAttack(                           // combos casi constantes
-                    if (Random.nextFloat() < 0.6f) SfAttackStrength.HEAVY else SfAttackStrength.MEDIUM,
+            dist > 65f -> when {
+                !ownActive && roll < specialMid ->
+                    SfInput(special = SfAttackStrength.MEDIUM)
+                roll < 0.15f -> SfInput(up = true, forward = true)
+                else -> cpuApproach(me, foe)
+            }
+            else -> when { // rango de pelea real
+                roll < 0.82f -> cpuAttack(
+                    when {
+                        Random.nextFloat() < 0.45f -> SfAttackStrength.HEAVY
+                        Random.nextFloat() < 0.70f -> SfAttackStrength.MEDIUM
+                        else -> SfAttackStrength.LIGHT
+                    },
                     punch = Random.nextBoolean(),
                 )
-                roll < 0.93f -> SfInput(special = SfAttackStrength.LIGHT) // poder a quemarropa
-                else -> SfInput(backward = true, up = true)          // reposición esquivando
+                roll < 0.92f -> SfInput(forward = true) // pressure / walk-in
+                else -> SfInput(backward = true) // micro-bait, no huir a esquina
             }
         }
     }
@@ -1471,7 +1720,7 @@ class StreetFighterViewModel @Inject constructor(
     fun onBonusPowerPressed() {
         val s = _state.value
         if (s.battleEnded || s.isPaused || s.showExitDialog) return
-        val count = s.player.id.bonusPowerCount
+        val count = usableBonusPowerCount(s.player.id)
         if (count <= 0) return
         bonusPowerCursor = bonusPowerCursor % count + 1
         pendingBonusPower = bonusPowerCursor
@@ -1780,6 +2029,8 @@ class StreetFighterViewModel @Inject constructor(
         cpuNextDecisionMs[1] = 0L
         cpuHold[0] = SfInput()
         cpuHold[1] = SfInput()
+        specialCooldownUntil[0] = 0L
+        specialCooldownUntil[1] = 0L
         cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
         pendingAttacks.clear()
         pendingBonusPower = null
@@ -2471,6 +2722,8 @@ class StreetFighterViewModel @Inject constructor(
         cpuNextDecisionMs[1] = 0L
         cpuHold[0] = SfInput()
         cpuHold[1] = SfInput()
+        specialCooldownUntil[0] = 0L
+        specialCooldownUntil[1] = 0L
         pendingAttacks.clear()
         pendingBonusPower = null
         controlHistory.clear()

@@ -83,6 +83,7 @@ import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfBox
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDirection
@@ -149,7 +150,15 @@ fun StreetFighterScreen(
             }.getOrNull()
         }.filterValues { it != null }.mapValues { it.value!! }.toMutableMap()
         if (!state.inCharacterSelect) {
-            listOf(playerId, cpuId).distinct().forEach { id ->
+            // Precargar Yoalli si pelea La Presidenta (metamorfosis a mitad de pelea)
+            val ids = buildList {
+                add(playerId)
+                add(cpuId)
+                if (playerId == SfFighterId.LA_PRESIDENTA || cpuId == SfFighterId.LA_PRESIDENTA) {
+                    add(SfFighterId.YOALLI_EHECATL)
+                }
+            }.distinct()
+            ids.forEach { id ->
                 m[id.spriteAsset.substringAfterLast('/')] =
                     SfSharedSheets.sheetFor(context, id).asImageBitmap()
             }
@@ -1948,8 +1957,12 @@ private fun loadStageBackground(
     return runCatching {
         val opts = BitmapFactory.Options().apply {
             inPreferredConfig = Bitmap.Config.RGB_565
-            // Gama baja: mitad de lado → ~1/4 de texels (1920→960). Sigue ≤2048.
-            if (lowEnd) inSampleSize = 2
+            // Gama baja: 1/4 de lado (~1/16 texels, 1920→480). Sigue jugable y mucho menos lag.
+            // Media: 1/2. Alta: full.
+            inSampleSize = when {
+                lowEnd -> 4
+                else -> 1
+            }
         }
         val bmp = context.assets.open(imagesDir + file).use { BitmapFactory.decodeStream(it, null, opts) }
             ?: return null
@@ -2203,28 +2216,48 @@ private fun DrawScope.drawFighter(
     showHitboxes: Boolean = false,
     contentHeights: Map<String, Int> = emptyMap(),
 ) {
-    val sheet = images[f.id.spriteAsset.substringAfterLast('/')] ?: return
-    val anim = data.animations[f.state.jsKey] ?: return
-    val frameKey = anim[f.animationFrame.coerceIn(0, anim.size - 1)].frameKey
-    val frame = data.frames[frameKey] ?: return
+    // 🆕 Nunca “desaparecer”: si falta hoja/anim/frame, cae a IDLE-1 o al primer frame disponible.
+    val sheetKey = f.id.spriteAsset.substringAfterLast('/')
+    val sheet = images[sheetKey]
+        ?: images.values.firstOrNull()
+        ?: return
+    val anim = data.animations[f.state.jsKey]
+        ?: data.animations[SfFighterState.IDLE.jsKey]
+        ?: data.animations.values.firstOrNull()
+        ?: return
+    val frameKey = anim[f.animationFrame.coerceIn(0, anim.lastIndex)].frameKey
+    val frame = data.frames[frameKey]
+        ?: data.frames["idle-1"]
+        ?: data.frames.values.firstOrNull()
+        ?: return
     // Sacudida al recibir golpe (hurt shake del JS), solo durante el 1er frame de HURT
     val hurtState = f.state.name.startsWith("HURT_")
     val shake = if (hurtState && f.animationFrame == 0) (if ((t / 32) % 2 == 0L) 2f else -2f) else 0f
-    // PARCHE ALPHA: hurtScale en HURT (poses de impacto más chicas en celdas viejas).
     val hurtMul = if (hurtState) f.id.hurtScale else 1f
-    // 🆕 FORZAR TAMAÑO: escala por CONTENIDO opaco (no por hitbox/push).
-    // Erguido → contenido ≈ 100 px; crouch/KO conservan altura natural del arte.
+    // 🆕 Poderes/metamorfosis: NO reescalar por contenido (auras grandes → “cambio de skin”
+    // o recortes raros). Solo idle/walk/golpes normales se normalizan a ~100 px.
+    val isFxPose = f.state in SF_BONUS_POWER_STATES ||
+        f.state == SfFighterState.SPECIAL_1_LIGHT ||
+        f.state == SfFighterState.SPECIAL_1_MEDIUM ||
+        f.state == SfFighterState.SPECIAL_1_HEAVY ||
+        f.metamorphosing
     val contentH = contentHeights[frameKey]?.takeIf { it > 0 } ?: frame.src.getOrElse(3) { 100 }
-    val bodyMul = if (f.state.keepsNaturalHeight() || contentH <= 0) {
-        1f
-    } else {
-        (TARGET_BODY_CONTENT_H / contentH.toFloat()).coerceIn(0.55f, 1.35f)
+    val bodyMul = when {
+        isFxPose || f.state.keepsNaturalHeight() || contentH <= 0 -> 1f
+        else -> (TARGET_BODY_CONTENT_H / contentH.toFloat()).coerceIn(0.70f, 1.25f)
     }
-    val spriteScale = hurtMul * bodyMul
-    // Algunas hojas cambian el eje corporal al tocar el piso en KO. El pipeline lo detecta
-    // por continuidad visual y marca solo esos cuadros; la corrección sirve para todo peleador futuro.
+    val spriteScale = (hurtMul * bodyMul).coerceIn(0.70f, 1.35f)
     val drawDirection = if (frame.flipX) f.direction.opposite() else f.direction
-    drawSpriteAnchored(ctx, sheet, frame.src, frame.origin, f.x, f.y, drawDirection, shakeX = shake, spriteScale = spriteScale)
+    // Origen seguro (pies): si el JSON trae basura, anclar al centro-bajo de la celda
+    val origin = if (frame.origin.size >= 2 && frame.origin[1] > 0) {
+        frame.origin
+    } else {
+        listOf(frame.src.getOrElse(2) { 128 } / 2, frame.src.getOrElse(3) { 256 } * 7 / 8)
+    }
+    drawSpriteAnchored(
+        ctx, sheet, frame.src, origin, f.x, f.y, drawDirection,
+        shakeX = shake, spriteScale = spriteScale,
+    )
 
     // 🆕 HITBOXES (Ajustes → "Mostrar hitboxes"): push/hurt/hit. También se reescalan
     // visualmente con bodyMul para alinear cajas al sprite dibujado.
