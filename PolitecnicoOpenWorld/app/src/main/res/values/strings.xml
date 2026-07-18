@@ -654,7 +654,7 @@
     <string name="sf_mode_ai_vs_ai">IA VS IA</string>
     <string name="sf_mode_ai_vs_ai_desc">CPU vs CPU a dificultad PESADILLA (para grabar)</string>
     <string name="sf_gauntlet_all">Autojuego: todos vs todos</string>
-    <string name="sf_gauntlet_arcade">Autojuego: arcade (rotando)</string>
+    <string name="sf_gauntlet_arcade">Auditar las 9 campañas (acelerado)</string>
     <string name="sf_gauntlet_showcase">Showcase: animaciones y sonidos</string>
     <string name="sf_confirm">Confirmar</string>
     <string name="sf_gauntlet_stop">Detener</string>

@@ -2,7 +2,7 @@ name: PR Quality Gate
 
 # Gate de CALIDAD que corre en cada PR ABIERTO/actualizado hacia main (ANTES del merge):
 #   1) tests unitarios (testDebugUnitTest)  -> GATE DURO (bloquea)
-#   2) analisis estatico con detekt          -> ADVISORY por ahora (reporta, no bloquea)
+#   2) analisis estatico con detekt          -> GATE DURO (bloquea; deuda vieja va al baseline)
 # NO toca ni depende del workflow de deploy (`android-release.yml`), que corre al CERRAR/MERGEAR el PR.
 # Por eso este usa types: [opened, synchronize, reopened] (PR vivo) y aquel usa types: [closed].
 
@@ -94,7 +94,7 @@ jobs:
           # prompt interactivo de unzip ("replace ...-all.jar?") moria con EOF → exit 1
           # (fallo reportado 2026-07-15: el job caia ANTES de analizar nada).
           unzip -q -o detekt-cli.zip
-      - name: Run detekt (advisory)
+      - name: Run detekt (blocking)
         run: |
           BASELINE_ARG=""
           if [ -f PolitecnicoOpenWorld/config/detekt/baseline.xml ]; then

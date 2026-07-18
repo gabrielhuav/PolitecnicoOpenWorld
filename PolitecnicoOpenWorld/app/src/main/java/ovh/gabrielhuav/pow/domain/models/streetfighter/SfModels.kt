@@ -149,7 +149,7 @@ enum class SfFighterId(
     YOALLI_EHECATL(
         "Yoalli Ehécatl", "YOALLI",
         "STREETFIGHTER/DATA/yoalliehecatl.json", "STREETFIGHTER/IMAGES/YoalliEhecatl.png",
-        bonusPowerCount = 9,
+        bonusPowerCount = 10,
     ),
     CHARRO_NEGRO(
         "El Charro Negro", "CHARRO",
@@ -373,9 +373,8 @@ data class SfFighter(
     val fireballFired: Boolean = false, // el hadouken de este special ya salió
     val victory: Boolean = false,
     /**
-     * 🆕 Metamorfosis La Presidenta → Yoalli Ehécatl (final arcade / IA vs IA).
-     * - [metamorphosing]: anim BONUS_POWER_11 en curso (invulnerable).
-     * - [metamorphosed]: ya transformó (no se repite; el id ya es YOALLI o no aplica).
+     * Metamorfosis Presidenta ↔ Yoalli.
+     * [metamorphosing] marca la animación invulnerable; [metamorphosed] evita un ciclo automático.
      */
     val metamorphosing: Boolean = false,
     val metamorphosed: Boolean = false,

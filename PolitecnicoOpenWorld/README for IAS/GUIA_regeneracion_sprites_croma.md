@@ -368,17 +368,16 @@ alfa desde la máscara CRUDA — sin verde interior):
 - Validación: `python tools/validate_sf_chroma_character.py yoalliehecatl YoalliEhecatl`
   ` YoalliEhecatl yeh_ --bonus-powers 9` → `VALIDACION OK`.
 
-## 2o. La Llorona con 18 hojas (2026-07-17, bloqueada por hoja obligatoria)
+## 2o. Registro La Llorona (2026-07-18, hecho en pelea)
 
-- Las 18 entregas de `newSFAssets/LaLlorona/` se identificaron por título y conservan el hueco
-  real: falta `_12_SpecialHeavy_Projectile.png`, no una refinada opcional 14/15.
-- Ya se recortaron las 18 hojas presentes en `GEN/lallorona`: hay 113/123 PNG válidos y el
-  mundo parcial 6/6/8/5/4. Faltan exactamente `special-1..5`, `proj-fly-1..2` y
-  `proj-hit-1..3`, todos provenientes de la hoja 12.
-- **No empaquetar, copiar al mundo ni registrar `SfFighterId`/`PlayerSkin` todavía.** Al recibir
-  `LaLlorona_12_SpecialHeavy_Projectile.png` (SPECIAL HEAVY 5 poses + PROJECTILE 5 efectos),
-  procesar solamente `--sheet-num 12`, confirmar 123 PNG y continuar desde el paso 5 de §0b.
-  Inventar esos cuadros o desplazar 13→12 rompería el contrato de animaciones.
+- La hoja obligatoria `_12_SpecialHeavy_Projectile.png` ya llegó: el conjunto tiene las 19
+  hojas, 123 recortes válidos, especial pesado y los cinco efectos de proyectil completos.
+- `pack_sf_character.py lallorona LaLlorona` genera `LaLlorona.png` (2560×3328) y
+  `lallorona.json` con 123 frames/30 animaciones; `SfFighterId.LA_LLORONA` usa esos assets.
+- Fix release: el template repetía poses en `hurtHeadLight`, `hurtBodyLight` y
+  `hurtBodyMedium`. Para Llorona, el packer consume `hit-face-1..4` y
+  `hit-stomach-1..4`: 4/4, 3/3 y 4/4 poses visibles únicas respectivamente. No volver a
+  rellenarlas duplicando el primer cuadro.
 
 ## 2p. Registro Charro Negro (2026-07-17, hecho)
 

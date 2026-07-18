@@ -203,8 +203,8 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   30 animaciones y pulso energético con cinco efectos). Mundo reemplaza cuatro ciclos de
   25 cuadros por Idle 6, Walk 6, Run 8, Special 5 y Talk 4, todos 512²/360 px.
 - **🆕 YOALLI EHÉCATL CROMA (2026-07-17):** identidad femenina nueva con
-  `YoalliEhecatl.png`/`yoalliehecatl.json` dedicados (168 cuadros, 39 animaciones,
-  nueve poderes y metamorfosis). Mundo `YoalliEhecatl` usa Idle 6, Walk 6, Run 8,
+  `YoalliEhecatl.png`/`yoalliehecatl.json` dedicados (173 cuadros, 40 animaciones,
+  diez poderes; el décimo es la metamorfosis inversa a Presidenta). Mundo `YoalliEhecatl` usa Idle 6, Walk 6, Run 8,
   Special 5 y Talk 4 en lienzos 512², cuerpo mediano 360 px y caja UI uniforme.
 - **🆕 CHARRO NEGRO CROMA (2026-07-17):** identidad nueva con
   `CharroNegro.png`/`charronegro.json` dedicados (123 cuadros, 30 animaciones y energía
@@ -219,13 +219,13 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   extra y metamorfosis final a Yoalli Ehécatl).
   Mundo `LaPresidenta`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4, 512²/360 px.
 - **🆕 PODERES GROK (2026-07-17):** botón central `P`, cinco poderes para La Tzitzimime y
-  nueve para Yoalli, y once para La Presidenta. Yoalli usa fuerza HEAVY, Tzitzimime MEDIUM;
+  diez para Yoalli, y once para La Presidenta. Yoalli usa fuerza HEAVY, Tzitzimime MEDIUM;
   La Presidenta usa MEDIUM salvo `bonusPower11` (metamorfosis Presidenta → Yoalli), que es HEAVY. `Stellar Dominion`,
   `Void Reaver` y `Lich Ascendant` muestran sus metamorfosis. Son estados reales utilizables
   por jugador/IA y sincronizables online, no assets decorativos sin uso.
-- **⏳ LA LLORONA (2026-07-17):** sus 18 hojas presentes están recortadas de forma parcial,
-  pero falta la hoja obligatoria 12 `SPECIAL HEAVY + PROJECTILE` (10 cuadros). No está en el
-  roster ni en el mundo hasta completar 123/123; no confundir este caso con la omisión segura
+- **✅ LA LLORONA (2026-07-18):** las 19 hojas están completas, incluida la 12
+  `SPECIAL HEAVY + PROJECTILE`; está empacada en 123 cuadros/30 animaciones y en el roster.
+  Sus HURT de cabeza/cuerpo usan ahora 3–4 poses únicas; no confundir este caso con la omisión segura
   de una hoja refinada 14/15.
 - **🆕 ASSETS COMPARTIDOS CON EL MUNDO — hojas armadas EN RUNTIME (2026-07-15d/16):** el roster
   se mantiene en **22** (20 sin Modo Dev) y **3 peleadores ya NO tienen sprite sheet propio en el
@@ -451,10 +451,12 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
 - **🆕 LA PRESIDENTA → YOALLI (metamorfosis real, 2026-07-18e):**
   - Al bajar a **≤1/4 de vida** (o daño letal), **no KO**: anima `bonusPower11` (invulnerable)
     y al terminar el **id pasa a `YOALLI_EHECATL` con 50% HP** (`metamorphosed=true`).
-  - **Se queda** como Yoalli (no “vuelve” a Presidenta). P11 **no** se elige con el botón P
-    ni por la IA (solo 1..10); la transform es automática por umbral de vida.
+  - P11 **no** se elige con el botón P ni por la IA (solo 1..10); la transformación inicial
+    es automática por umbral de vida. Ya como Yoalli, `bonusPower10` reproduce en reversa los
+    cinco cuadros de P11 y vuelve a La Presidenta conservando HP.
   - Draw: fallback idle si falta frame; poderes/metamorfosis **sin** reescalado de contenido
-    (evita “cambio de skin” / recortes raros); precarga hoja Yoalli si pelea la Presidenta.
+    (evita “cambio de skin” / recortes raros); la Screen precarga ambas hojas en cualquiera
+    de las dos direcciones.
 - **🆕 IA melee-first (2026-07-18f):** deja de acampar en esquinas spameando poderes.
   - Si está en borde del stage → **siempre** camina hacia el rival.
   - AVANZADA/PESADILLA: special ~4–12% (antes mucho más); bonus solo cerca y raro.
@@ -525,9 +527,37 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   - **Audio:** los pasos forzados EMITEN sonido reutilizando .ogg correctos (HURT →
     `<fuerza>-punch-hit`, KO → `heavy-kick-hit`, VICTORY y metamorfosis → voz
     `special_<id>.ogg`; solo idx 0 para no duplicar volumen). Además, **en pelea real**
-    VICTORY ahora suena con la voz del peleadór (`changeState`). ⚠️ La CALIDAD/corrección de
-    las voces (deepfake con los videos originales) sigue **NO implementada** — es pipeline de
-    assets (ver `SF_SPECIAL_VOICES_SFX.md`), no código; la auditoría reporta los faltantes.
+    VICTORY ahora suena con la voz del peleadór (`changeState`). La nota de 18k sobre audio
+    pendiente es histórica y queda superada por RELEASE 1/9 inmediatamente abajo.
+- **✅ RELEASE 1/9: audio final, arte y auditoría completa de IA (2026-07-18, Sol):**
+  - **Audio 21/21:** `sf_audio_cuts_v3.json` es la verdad canónica. Los cortes provienen solo de
+    material ya local (`raw_yt/`, `out_diarized/`, material nuevo); no se re-scrapeó YouTube.
+    Cada duración se decidió por contenido: voces ~2.4–13.8 s y la banda completa de Granadero
+    27.5 s. Presidenta = voz auténtica de Claudia, 8.3 s; Lázaro ya no cae a hadouken.
+  - **Contenido:** `transcribe_sf_voice_sources.py` genera transcripciones con timestamps;
+    `verify_sf_audio_content.py` vuelve a transcribir los OGG finales y exige idioma español y
+    coincidencia con `phrase_es`. `audio_final_audit.json` queda PASS técnico + contenido 21/21.
+    Los SFX no verbales (Yoalli, Charro, Llorona, Tzitzimime y banda) no tienen frases inventadas.
+  - **Reproducción:** `special_*.ogg` pasa por `MediaPlayer`, uno por asset y liberado en
+    completion/error/pause/dispose. `SoundPool` queda para impactos cortos; así una banda de
+    27.5 s termina completa. El audio es único en español; `phrase_en` traduce solo subtítulos.
+  - **Política de voz:** no se clonaron voces identificables. Al existir audio auténtico, el
+    recorte verificado es más fiel que un deepfake; únicamente el Robot ficticio usa SAPI + FX.
+    Esto SUPERA la nota pendiente de 18k.
+  - **Arte:** Llorona `hurtHeadLight`/`hurtBodyLight`/`hurtBodyMedium` usan poses visibles únicas;
+    Yoalli suma `bonusPower10`, inversión real de Presidenta P11, y termina como La Presidenta
+    conservando HP. Ambas hojas y JSON se regeneraron/validaron.
+  - **IA/campaña:** `startGauntletArcade` ya no rota una muestra: ejecuta 3 protagonistas × 3
+    dificultades × 15 escalones = **135 peleas**, respetando dificultad, intensidad y mapa de
+    cada paso. El bot QA simula 6 ticks estables por frame, cediendo la UI entre ellos, y su
+    límite permite las tres rondas completas (325 s virtuales) para evitar falsos TIMEOUT.
+    `watchStalemate` sigue picando a la IA tras 12 s y deja telemetría recuperable tras 45/35/25 s
+    según dificultad, pero no la mezcla con fallos de assets/TIMEOUT; sus relojes se reinician
+    en cada pelea para no arrastrar falsos avisos.
+    En BÁSICA el watchdog ofensivo se habilita únicamente cuando ambos lados son bots (3.5 s,
+    solo golpes LIGHT); contra el jugador conserva su comportamiento lento y aprendible.
+    `SfArcadeCampaignAuditTest` revisa además 600 órdenes/configuraciones y todos
+    los assets de rival/mapa/voz. La auditoría estática detecta animaciones relleno estrictas.
 - **🆕 Botón CONFIRMAR en el selector (2026-07-18h, Claude):** `CharacterSelectOverlay` ahora
   muestra un botón explícito para confirmar el peleador resaltado (antes solo el 2.º toque).
   string `sf_confirm` ES+EN.

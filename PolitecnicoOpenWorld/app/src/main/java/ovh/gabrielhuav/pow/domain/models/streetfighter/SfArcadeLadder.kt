@@ -57,6 +57,21 @@ object SfArcadeLadder {
     /** Total de peleas (15). */
     const val TOTAL_FIGHTS = 15
 
+    /** Dificultad real de una pelea: los últimos escalones elevan la IA hasta PESADILLA. */
+    fun difficultyForStep(base: SfCpuDifficulty, step: Step): SfCpuDifficulty {
+        val increments = when {
+            step.isFinal -> 2
+            step.isBoss || step.index >= 10 -> 1
+            else -> 0
+        }
+        val difficulties = SfCpuDifficulty.entries
+        return difficulties[(base.ordinal + increments).coerceAtMost(difficulties.lastIndex)]
+    }
+
+    /** Intensidad adicional de la IA, de 20 % en la primera pelea a 100 % en la final. */
+    fun intensityForStep(index: Int, total: Int): Float =
+        if (total <= 1) 1f else 0.20f + 0.80f * (index - 1).toFloat() / (total - 1)
+
     /**
      * Arma la secuencia de escalones para el `player` elegido.
      * @param difficulty Fácil/Medio/Difícil → ilumina el mapa hogar del rival (día/noche/apocalipsis).

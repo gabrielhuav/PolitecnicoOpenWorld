@@ -123,6 +123,57 @@ import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewMod
 // (2026-07-15) El modo es PÚBLICO; el Modo Desarrollador solo desbloquea a RYU/KEN
 // (roster gateado por el VM: selectableFighters).
 
+/** Reproduce una voz o pieza larga completa; SoundPool puede truncar archivos extensos. */
+private fun playSfSpecial(
+    context: Context,
+    assetPath: String,
+    activePlayers: MutableMap<String, MediaPlayer>,
+): Boolean {
+    activePlayers[assetPath]?.let { current ->
+        if (current.isPlaying) return true
+        activePlayers.remove(assetPath)
+        runCatching { current.release() }
+    }
+    val player = MediaPlayer()
+    val result = runCatching {
+        player.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build(),
+        )
+        context.assets.openFd(assetPath).use { fd ->
+            player.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+        }
+        player.setOnCompletionListener { completed ->
+            activePlayers.remove(assetPath, completed)
+            completed.release()
+        }
+        player.setOnErrorListener { failed, _, _ ->
+            activePlayers.remove(assetPath, failed)
+            failed.release()
+            true
+        }
+        activePlayers[assetPath] = player
+        player.prepare()
+        player.start()
+    }
+    if (result.isFailure) {
+        activePlayers.remove(assetPath, player)
+        runCatching { player.release() }
+    }
+    return result.isSuccess
+}
+
+private fun releaseSfSpecials(activePlayers: MutableMap<String, MediaPlayer>) {
+    val players = activePlayers.values.toList()
+    activePlayers.clear()
+    players.forEach { player ->
+        runCatching { if (player.isPlaying) player.stop() }
+        runCatching { player.release() }
+    }
+}
+
 @Composable
 fun StreetFighterScreen(
     onExitToMap: () -> Unit,
@@ -150,12 +201,15 @@ fun StreetFighterScreen(
             }.getOrNull()
         }.filterValues { it != null }.mapValues { it.value!! }.toMutableMap()
         if (!state.inCharacterSelect) {
-            // Precargar Yoalli si pelea La Presidenta (metamorfosis a mitad de pelea)
+            // Precargar ambas identidades si una puede metamorfosearse durante la pelea.
             val ids = buildList {
                 add(playerId)
                 add(cpuId)
                 if (playerId == SfFighterId.LA_PRESIDENTA || cpuId == SfFighterId.LA_PRESIDENTA) {
                     add(SfFighterId.YOALLI_EHECATL)
+                }
+                if (playerId == SfFighterId.YOALLI_EHECATL || cpuId == SfFighterId.YOALLI_EHECATL) {
+                    add(SfFighterId.LA_PRESIDENTA)
                 }
             }.distinct()
             ids.forEach { id ->
@@ -235,21 +289,8 @@ fun StreetFighterScreen(
     }
     // Base theme SFX + special_<fighter> por los peleadores del match (y Yoalli si hay metamorfosis).
     // Faltantes se omiten; el collect cae a "hadouken" si no hay special del id.
-    val soundIds = remember(theme, playerId, cpuId) {
-        val specialKeys = buildList {
-            add("special_${playerId.name.lowercase()}")
-            add("special_${cpuId.name.lowercase()}")
-            if (playerId == SfFighterId.LA_PRESIDENTA || cpuId == SfFighterId.LA_PRESIDENTA) {
-                add("special_${SfFighterId.YOALLI_EHECATL.name.lowercase()}")
-            }
-            // Precargar todos los specials del roster (assets ligeros ~10 KB c/u) para arcade/online
-            // sin re-crear el SoundPool al cambiar de rival.
-            SfFighterId.entries.forEach { id ->
-                add("special_${id.name.lowercase()}")
-            }
-        }.distinct()
-        val keys = (theme.soundKeys + specialKeys).distinct()
-        keys.mapNotNull { key ->
+    val soundIds = remember(theme) {
+        theme.soundKeys.distinct().mapNotNull { key ->
             runCatching {
                 context.assets.openFd("${theme.soundsDir}$key.ogg").use { fd ->
                     key to soundPool.load(fd, 1)
@@ -257,10 +298,20 @@ fun StreetFighterScreen(
             }.getOrNull()
         }.toMap()
     }
+    val activeSpecialPlayers = remember { mutableMapOf<String, MediaPlayer>() }
     LaunchedEffect(soundIds) {
         viewModel.soundEvents.collect { key ->
-            val poolId = soundIds[key] ?: soundIds["hadouken"]
-            poolId?.let { soundPool.play(it, 1f, 1f, 1, 0, 1f) }
+            if (key.startsWith("special_")) {
+                val played = playSfSpecial(
+                    context = context,
+                    assetPath = "${theme.soundsDir}$key.ogg",
+                    activePlayers = activeSpecialPlayers,
+                )
+                if (!played) soundIds["hadouken"]?.let { soundPool.play(it, 1f, 1f, 1, 0, 1f) }
+            } else {
+                val poolId = soundIds[key] ?: soundIds["hadouken"]
+                poolId?.let { soundPool.play(it, 1f, 1f, 1, 0, 1f) }
+            }
         }
     }
     val musicPlayer = remember { MediaPlayer() }
@@ -277,6 +328,7 @@ fun StreetFighterScreen(
         onDispose {
             runCatching { musicPlayer.stop() }
             musicPlayer.release()
+            releaseSfSpecials(activeSpecialPlayers)
             soundPool.release()
         }
     }
@@ -290,6 +342,7 @@ fun StreetFighterScreen(
                 androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> {
                     viewModel.forcePause()
                     runCatching { if (musicPlayer.isPlaying) musicPlayer.pause() }
+                    releaseSfSpecials(activeSpecialPlayers)
                 }
                 androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
                     runCatching { musicPlayer.start() }

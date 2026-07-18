@@ -178,7 +178,32 @@ def animation_with_transition(keys, delays):
     assert len(keys) == len(delays)
     return [[key, delay] for key, delay in zip(keys, delays)] + [[keys[-1], -1]]
 
-def dedicated_animations(template, bonus_powers=0):
+DERIVED_BONUS_POWERS = {
+    # La metamorfosis canónica ya contiene las cinco etapas completas. Yoalli reutiliza
+    # esos cuadros en orden inverso para regresar a La Presidenta sin duplicar arte.
+    ("yoalliehecatl", 10): ("lapresidenta", 11, True),
+}
+
+
+def derived_bonus_path(char_name, key, gen_root):
+    match = re.fullmatch(r"bonus-(\d+)-(\d+)", key)
+    if not match:
+        return None
+    power, frame = (int(value) for value in match.groups())
+    source = DERIVED_BONUS_POWERS.get((char_name, power))
+    if source is None:
+        return None
+    source_char, source_power, reverse = source
+    source_frame = 6 - frame if reverse else frame
+    return os.path.join(gen_root, source_char, f"bonus-{source_power}-{source_frame}.png")
+
+
+def frame_source_path(char_name, key, char_gen_dir, gen_root):
+    return derived_bonus_path(char_name, key, gen_root) or os.path.join(
+        char_gen_dir, filename_for_key(key))
+
+
+def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False):
     """Animaciones completas para arte croma; conserva estados/timings del motor."""
     out = json.loads(json.dumps(template))
     out["lightPunch"] = animation_with_transition(
@@ -215,6 +240,17 @@ def dedicated_animations(template, bonus_powers=0):
         ["hit-stomach-4", 4], ["stun-1", 3], ["stun-2", 3],
         ["stun-3", 9], ["stun-3", -1],
     ]
+    if unique_hurt_frames:
+        # La Llorona sí trae cuatro poses distintas por reacción; el template clásico
+        # repetía las primeras y hacía que el Showcase pareciera congelado.
+        out["hurtHeadLight"] = animation_with_transition(
+            [f"hit-face-{i}" for i in range(1, 5)], [8, 6, 6, 6])
+        out["hurtHeadMedium"] = animation_with_transition(
+            [f"hit-face-{i}" for i in range(1, 5)], [8, 7, 7, 9])
+        out["hurtBodyLight"] = animation_with_transition(
+            [f"hit-stomach-{i}" for i in range(1, 4)], [8, 8, 10])
+        out["hurtBodyMedium"] = animation_with_transition(
+            [f"hit-stomach-{i}" for i in range(1, 5)], [8, 7, 7, 9])
     for power in range(1, bonus_powers + 1):
         out[f"bonusPower{power}"] = animation_with_transition(
             [f"bonus-{power}-{i}" for i in range(1, 6)], [5, 7, 10, 12, 18])
@@ -294,7 +330,8 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
     power = 1
     while True:
         keys = [f"bonus-{power}-{i}" for i in range(1, 6)]
-        present = [os.path.exists(os.path.join(char_gen_dir, f"{key}.png")) for key in keys]
+        present = [os.path.exists(frame_source_path(char_name, key, char_gen_dir, gen_root))
+                   for key in keys]
         if all(present):
             bonus_keys.extend(keys)
             bonus_power_count = power
@@ -365,16 +402,22 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
         src_y = row * 256
         
         # Map key to filename in GEN folder
-        if key == "jump-start/land":
+        derived_path = derived_bonus_path(char_name, key, gen_root)
+        if derived_path:
+            filename = os.path.basename(derived_path)
+            file_path = derived_path
+        elif key == "jump-start/land":
             filename = "jump-start-land-1.png"
+            file_path = os.path.join(char_gen_dir, filename)
         elif key in ("stun-1", "stun-2"):
             filename = "stun-3.png"
+            file_path = os.path.join(char_gen_dir, filename)
         elif light_punch_fallback and key.startswith("light-punch-"):
             filename = key.replace("light-punch", "med-punch") + ".png"
+            file_path = os.path.join(char_gen_dir, filename)
         else:
             filename = f"{key}.png"
-            
-        file_path = os.path.join(char_gen_dir, filename)
+            file_path = os.path.join(char_gen_dir, filename)
         if not os.path.exists(file_path):
             print(f"Warning: File not found: {file_path}. Using fallback empty cell.")
             img = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
@@ -458,7 +501,11 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
     # Save the JSON data
     out_json = {
         "frames": packed_frames,
-        "animations": dedicated_animations(ryu_animations, bonus_power_count),
+        "animations": dedicated_animations(
+            ryu_animations,
+            bonus_power_count,
+            unique_hurt_frames=char_name == "lallorona",
+        ),
         "events": {"projectile": PROJECTILE_PROFILES.get(char_name, {})},
     }
     

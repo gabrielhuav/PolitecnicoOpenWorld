@@ -1,5 +1,24 @@
 # SFX de especiales por personaje (voces) — HUELUM VS. GOYA
 
+> **ESTADO CANÓNICO — v3 producción, 2026-07-18 (Sol).** Lo que sigue debajo de esta caja
+> documenta las pasadas v1/v2 y es histórico cuando contradiga esta sección. El paquete final
+> está instalado, auditado y listo: **21/21 `special_*.ogg`, audio únicamente en español**.
+>
+> - Verdad editable: `tools/sf_voice_scrape/sf_audio_cuts_v3.json`.
+> - Fuentes: solo archivos ya locales; **no re-scrapear** y no borrar `raw_yt/`/`out_diarized/`.
+> - Build: `tools/build_sf_audio_v3.py`; verifica fuente, corte, duración, loudness, hashes,
+>   catálogo runtime y los 21 ids. Robot es la única voz sintética (personaje ficticio).
+> - Contenido: `tools/transcribe_sf_voice_sources.py` + `tools/verify_sf_audio_content.py`
+>   (Whisper local, idioma español, comparación con la frase real). Resultado canónico:
+>   `audio_final_audit.json`; `functional_verify.json` y `pack_report.json` reflejan la misma v3.
+> - No se usó clonación/deepfake de personas identificables: cuando existe su fuente auténtica,
+>   se conserva esa voz y se corta la frase real. Esto reemplaza el antiguo backlog “deepfake”.
+> - Duraciones son deliberadamente distintas. Presidenta 8.3 s; voces 2.37–13.8 s; Granadero,
+>   Granadero hombre y Granadero mujer conservan la banda completa de 27.5 s.
+> - Los SFX sin habla no inventan subtítulo. `phrase_en` existe solo como traducción visual;
+>   nunca hay una pista inglesa. Los clips largos se reproducen con `MediaPlayer` hasta terminar.
+> - Lázaro está incluido con voz propia; la exclusión/fallback descrita abajo ya no aplica.
+
 > **Actualizado 2026-07-18 (sesión Grok / voces v2).**  
 > **No empieces de cero:** las fuentes YT **ya están en disco** y los specials **nuevos** están en
 > `tools/sf_voice_scrape/out_diarized/` (aún **no** copiados a assets salvo que el dueño lo apruebe).

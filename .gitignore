@@ -92,3 +92,6 @@ PolitecnicoOpenWorld/tools/sf_voice_scrape/**/*.mp3
 ._*
 .Spotlight-V100
 .Trashes
+# Entornos y modelos temporales usados por las auditorías locales de Codex.
+.codex-tmp/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/out_v3/

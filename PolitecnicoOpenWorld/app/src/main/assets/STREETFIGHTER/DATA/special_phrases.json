@@ -1,173 +1,123 @@
 {
-  "version": 1,
+  "version": 3,
   "default_lang": "es",
   "supported_langs": [
     "es",
     "en"
   ],
-  "exclude_fighters": [
-    "LAZARO"
-  ],
+  "audio_language": "es-MX",
   "fighters": {
     "PRANKEDY": {
-      "phrase_es": "¡Ey, mira esto!",
-      "phrase_en": "Hey, check this out!",
-      "phrase_hud": "EY MIRA ESTO",
+      "phrase_es": "Pero pues yo, o sea, yo vengo en buena onda a notificarle, no vengo a…",
+      "phrase_en": "But I mean, I'm just here in good faith to notify you; I'm not here to…",
+      "phrase_hud": "PERO PUES YO O SEA YO VENGO EN BUENA ONDA A NOTIFICARLE NO VENGO A",
       "audio": "special_prankedy.ogg",
-      "subtitle_ms": 3900,
-      "tier": "canon_special"
-    },
-    "PAPARAZZI_1": {
-      "phrase_es": "¡Paparazzi, paparazzi!",
-      "phrase_en": "Paparazzi, paparazzi!",
-      "phrase_hud": "PAPARAZZI PAPARAZZI",
-      "audio": "special_paparazzi_1.ogg",
-      "subtitle_ms": 4944,
-      "tier": "canon_special"
-    },
-    "PAPARAZZI_5": {
-      "phrase_es": "¡Cámara, cámara!",
-      "phrase_en": "Camera, camera!",
-      "phrase_hud": "CAMARA CAMARA",
-      "audio": "special_paparazzi_5.ogg",
-      "subtitle_ms": 1894,
-      "tier": "canon_special"
+      "subtitle_ms": 3100,
+      "tier": "authentic_voice"
     },
     "SENOR_TIENDA": {
-      "phrase_es": "¡Fuera de mi tienda!",
-      "phrase_en": "Get out of my store!",
-      "phrase_hud": "FUERA DE MI TIENDA",
+      "phrase_es": "Sí sabes qué, retírate, güey. Te rompo tu madre, güey. Así es derecho. Retírate, cabrón.",
+      "phrase_en": "You know what? Get out. I'll beat you up. That's how it is. Get out.",
+      "phrase_hud": "SI SABES QUE RETIRATE GUEY TE ROMPO TU MADRE GUEY ASI ES DERECHO RETIRATE CABRON",
       "audio": "special_senor_tienda.ogg",
-      "subtitle_ms": 3595,
-      "tier": "canon_special"
+      "subtitle_ms": 5800,
+      "tier": "authentic_voice"
+    },
+    "PAPARAZZI_1": {
+      "phrase_es": "¿De qué se trata? Contéstame, por favor.",
+      "phrase_en": "What is this about? Please answer me.",
+      "phrase_hud": "DE QUE SE TRATA CONTESTAME POR FAVOR",
+      "audio": "special_paparazzi_1.ogg",
+      "subtitle_ms": 4800,
+      "tier": "authentic_voice"
+    },
+    "PAPARAZZI_5": {
+      "phrase_es": "¿Pero para qué? ¿O qué? ¿De qué se trata? Contéstame, por favor.",
+      "phrase_en": "But what for? What is this about? Please answer me.",
+      "phrase_hud": "PERO PARA QUE O QUE DE QUE SE TRATA CONTESTAME POR FAVOR",
+      "audio": "special_paparazzi_5.ogg",
+      "subtitle_ms": 6100,
+      "tier": "authentic_voice"
     },
     "REY_GRUPERO": {
-      "phrase_es": "¡Que suene la cumbia!",
-      "phrase_en": "Crank up the cumbia!",
-      "phrase_hud": "QUE SUENE LA CUMBIA",
+      "phrase_es": "Oye, hermano, ¿me regalas una selfie? Claro, claro, ¿dónde? A ti te conozco de algo, ¿no?",
+      "phrase_en": "Hey, brother, can I get a selfie? Sure, where? I know you from somewhere, right?",
+      "phrase_hud": "OYE HERMANO ME REGALAS UNA SELFIE CLARO CLARO DONDE A TI TE CONOZCO DE ALGO NO",
       "audio": "special_rey_grupero.ogg",
-      "subtitle_ms": 3199,
-      "tier": "canon_special"
+      "subtitle_ms": 4900,
+      "tier": "authentic_voice"
     },
-    "LA_LLORONA": {
-      "phrase_es": "¡Ay, mis hijos!",
-      "phrase_en": "Oh, my children!",
-      "phrase_hud": "AY MIS HIJOS",
-      "audio": "special_la_llorona.ogg",
-      "subtitle_ms": 1994,
-      "tier": "canon_special"
-    },
-    "LA_PRESIDENTA": {
-      "phrase_es": "¡Buenos días!",
-      "phrase_en": "Good morning!",
-      "phrase_hud": "BUENOS DIAS",
-      "audio": "special_la_presidenta.ogg",
-      "subtitle_ms": 5900,
-      "tier": "canon_voice"
-    },
-    "LA_TZITZIMIME": {
-      "phrase_es": "¡Devoren el cielo!",
-      "phrase_en": "Devour the sky!",
-      "phrase_hud": "DEVOREN EL CIELO",
-      "audio": "special_la_tzitzimime.ogg",
-      "subtitle_ms": 2900,
-      "tier": "generic_sfx"
-    },
-    "YOALLI_EHECATL": {
-      "phrase_es": "¡Soplo del anahuac!",
-      "phrase_en": "Breath of Anahuac!",
-      "phrase_hud": "SOPLO DEL ANAHUAC",
-      "audio": "special_yoalli_ehecatl.ogg",
-      "subtitle_ms": 2900,
-      "tier": "generic_sfx"
-    },
-    "CHARRO_NEGRO": {
-      "phrase_es": "¡El nahual despierta!",
-      "phrase_en": "The nahual awakens!",
-      "phrase_hud": "EL NAHUAL DESPIERTA",
-      "audio": "special_charro_negro.ogg",
-      "subtitle_ms": 3200,
-      "tier": "canon_special"
+    "LAZARO": {
+      "phrase_es": "Oye, ¿ya viste el Goku que está ahí? Está cagado, ¿no?",
+      "phrase_en": "Hey, did you see that Goku over there? It's hilarious, right?",
+      "phrase_hud": "OYE YA VISTE EL GOKU QUE ESTA AHI ESTA CAGADO NO",
+      "audio": "special_lazaro.ogg",
+      "subtitle_ms": 4700,
+      "tier": "authentic_voice"
     },
     "ESCOMBOY": {
-      "phrase_es": "¡Vamos ESCOM!",
-      "phrase_en": "Let's go ESCOM!",
-      "phrase_hud": "VAMOS ESCOM",
+      "phrase_es": "Así que pues estamos aquí para hacer un videoblog, porque eso es lo que son estos videos. Así es.",
+      "phrase_en": "So we're here to make a video blog, because that's what these videos are. That's right.",
+      "phrase_hud": "ASI QUE PUES ESTAMOS AQUI PARA HACER UN VIDEOBLOG PORQUE ESO ES LO QUE SON ESTOS VIDEOS ASI ES",
       "audio": "special_escomboy.ogg",
-      "subtitle_ms": 4900,
-      "tier": "generic_student"
+      "subtitle_ms": 4500,
+      "tier": "authentic_voice"
     },
     "ESCOMGIRL": {
-      "phrase_es": "¡No te confíes!",
-      "phrase_en": "Don't get cocky!",
-      "phrase_hud": "NO TE CONFIES",
+      "phrase_es": "Dejen, les muestro lo real.",
+      "phrase_en": "Let me show you the real thing.",
+      "phrase_hud": "DEJEN LES MUESTRO LO REAL",
       "audio": "special_escomgirl.ogg",
-      "subtitle_ms": 4900,
-      "tier": "generic_student"
+      "subtitle_ms": 2770,
+      "tier": "authentic_voice"
     },
     "ROBOT": {
-      "phrase_es": "Sistema activado",
-      "phrase_en": "System activated",
-      "phrase_hud": "SISTEMA ACTIVADO",
+      "phrase_es": "Sistema activado. Objetivo localizado.",
+      "phrase_en": "System activated. Target located.",
+      "phrase_hud": "SISTEMA ACTIVADO OBJETIVO LOCALIZADO",
       "audio": "special_robot.ogg",
-      "subtitle_ms": 1424,
-      "tier": "generic_robot"
+      "subtitle_ms": 5000,
+      "tier": "synthetic_fictional"
     },
-    "PARAMEDICO_CRUZ_ROJA": {
-      "phrase_es": "¡Urgencias!",
-      "phrase_en": "Emergency!",
-      "phrase_hud": "URGENCIAS",
-      "audio": "special_paramedico_cruz_roja.ogg",
-      "subtitle_ms": 3600,
-      "tier": "canon_voice"
-    },
-    "PARAMEDICO": {
-      "phrase_es": "¡A salvar vidas!",
-      "phrase_en": "Saving lives!",
-      "phrase_hud": "A SALVAR VIDAS",
-      "audio": "special_paramedico.ogg",
-      "subtitle_ms": 4900,
-      "tier": "generic_medic"
+    "LA_PRESIDENTA": {
+      "phrase_es": "Sí. Siempre. Nosotros vamos a actuar siempre en el marco de la ley. Siempre.",
+      "phrase_en": "Yes. Always. We will always act within the law. Always.",
+      "phrase_hud": "SI SIEMPRE NOSOTROS VAMOS A ACTUAR SIEMPRE EN EL MARCO DE LA LEY SIEMPRE",
+      "audio": "special_la_presidenta.ogg",
+      "subtitle_ms": 8700,
+      "tier": "authentic_voice"
     },
     "POLICIA_CDMX": {
-      "phrase_es": "¡Alto, policía!",
-      "phrase_en": "Freeze, police!",
-      "phrase_hud": "ALTO POLICIA",
+      "phrase_es": "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad, que me tuvieran confianza y que ellos obtuvieran de mí una mejor tranquilidad.",
+      "phrase_en": "As a policewoman, I committed to helping citizens feel safer, trust me and find greater peace of mind through me.",
+      "phrase_hud": "SI DICES POLICIA ME COMPROMETI COMO MUJER A QUE LA CIUDADANIA SINTIERA UNA MEJOR SEGURIDAD QUE ME TUVIERAN CONFIANZA Y QUE ELLOS OBTUVIERAN DE MI UNA MEJOR TRANQUILIDAD",
       "audio": "special_policia_cdmx.ogg",
-      "subtitle_ms": 4400,
-      "tier": "canon_voice"
+      "subtitle_ms": 14200,
+      "tier": "authentic_voice"
     },
     "POLICIA_CDMX_HOMBRE": {
-      "phrase_es": "¡Deténgase!",
-      "phrase_en": "Stop right there!",
-      "phrase_hud": "DETENGASE",
+      "phrase_es": "Trabajamos permanentemente en estrategias de seguridad vial, con el fin de salvaguardar y concientizar a los ciudadanos para evitar accidentes automovilísticos.",
+      "phrase_en": "We constantly work on road-safety strategies to protect citizens and prevent traffic accidents.",
+      "phrase_hud": "TRABAJAMOS PERMANENTEMENTE EN ESTRATEGIAS DE SEGURIDAD VIAL CON EL FIN DE SALVAGUARDAR Y CONCIENTIZAR A LOS CIUDADANOS PARA EVITAR ACCIDENTES AUTOMOVILISTICOS",
       "audio": "special_policia_cdmx_hombre.ogg",
-      "subtitle_ms": 2005,
-      "tier": "canon_voice"
+      "subtitle_ms": 10200,
+      "tier": "authentic_voice"
     },
-    "POLICIA_GRANADERO_HOMBRE": {
-      "phrase_es": "¡A la carga!",
-      "phrase_en": "Charge!",
-      "phrase_hud": "A LA CARGA",
-      "audio": "special_policia_granadero_hombre.ogg",
-      "subtitle_ms": 3600,
-      "tier": "canon_band_sfx"
+    "PARAMEDICO_CRUZ_ROJA": {
+      "phrase_es": "No olvides que saber primeros auxilios marca la diferencia y salva vidas.",
+      "phrase_en": "Remember: knowing first aid makes a difference and saves lives.",
+      "phrase_hud": "NO OLVIDES QUE SABER PRIMEROS AUXILIOS MARCA LA DIFERENCIA Y SALVA VIDAS",
+      "audio": "special_paramedico_cruz_roja.ogg",
+      "subtitle_ms": 4400,
+      "tier": "authentic_voice"
     },
-    "POLICIA_GRANADERO_MUJER": {
-      "phrase_es": "¡Formen filas!",
-      "phrase_en": "Fall in line!",
-      "phrase_hud": "FORMEN FILAS",
-      "audio": "special_policia_granadero_mujer.ogg",
-      "subtitle_ms": 3334,
-      "tier": "canon_band_sfx"
-    },
-    "GRANADERO": {
-      "phrase_es": "¡Toque de diana!",
-      "phrase_en": "Diana call!",
-      "phrase_hud": "TOQUE DE DIANA",
-      "audio": "special_granadero.ogg",
-      "subtitle_ms": 3600,
-      "tier": "canon_band_sfx"
+    "PARAMEDICO": {
+      "phrase_es": "Así, los niños y adultos reciben lo estrictamente necesario para su diagnóstico.",
+      "phrase_en": "This way, children and adults receive exactly what is needed for their diagnosis.",
+      "phrase_hud": "ASI LOS NINOS Y ADULTOS RECIBEN LO ESTRICTAMENTE NECESARIO PARA SU DIAGNOSTICO",
+      "audio": "special_paramedico.ogg",
+      "subtitle_ms": 5100,
+      "tier": "authentic_voice"
     }
   }
 }

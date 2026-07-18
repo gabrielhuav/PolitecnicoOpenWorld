@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfArcadeLadder
@@ -85,17 +86,13 @@ class StreetFighterViewModel @Inject constructor(
      */
     private fun specialSfxKey(id: SfFighterId): String = "special_${id.name.lowercase()}"
 
-    /** Frases special (ES/EN + HUD) — Lázaro excluido. Lazy desde assets. */
+    /** Frases special (ES/EN + HUD) de los 21 peleadores. Lazy desde assets. */
     private val specialPhrases by lazy {
         ovh.gabrielhuav.pow.features.streetfighter.data.SfSpecialPhrases.load(appContext)
     }
 
     /** Emite SFX + subtítulo arcade de la frase del special. */
     private fun emitSpecialVoice(id: SfFighterId, now: Long) {
-        if (id == SfFighterId.LAZARO) {
-            _soundEvents.tryEmit("hadouken")
-            return
-        }
         _soundEvents.tryEmit(specialSfxKey(id))
         val phrase = specialPhrases[id] ?: return
         val until = now + phrase.subtitleMs
@@ -113,6 +110,7 @@ class StreetFighterViewModel @Inject constructor(
     // 🆕 Gama baja: tick más lento (~30 fps) y menos trabajo por segundo (ver SfDeviceTier).
     private val lowEndDevice: Boolean = appContext.isSfLowEnd()
     private val tickMs: Long = if (lowEndDevice) 33L else 16L
+    private val gauntletAuditSteps = 6
 
     /** true si el dispositivo es gama baja (la View reduce previews/fondos). */
     fun isLowEndDevice(): Boolean = lowEndDevice
@@ -231,13 +229,20 @@ class StreetFighterViewModel @Inject constructor(
 
     // 🆕 AUTOJUEGO (gauntlet): cola de parejas a pelear en IA vs IA, encadenadas automáticamente.
     private var gauntletActive = false
-    private val gauntletQueue = ArrayDeque<Pair<SfFighterId, SfFighterId>>()
+    private data class GauntletFight(
+        val player: SfFighterId,
+        val rival: SfFighterId,
+        val difficulty: SfCpuDifficulty = SfCpuDifficulty.PESADILLA,
+        val intensity: Float = 1f,
+        val mapFile: String? = null,
+    )
+
+    private val gauntletQueue = ArrayDeque<GauntletFight>()
     private var gauntletTotal = 0
     private var gauntletDone = 0
-    private val gauntletFightCapMs = 60000L // tope por pelea (gameNow reinicia a 0 en cada combate)
-    // 🆕 (2026-07-18j) Tope de la pelea EN CURSO: 60 s en peleas IA vs IA; en showcase se calcula
-    // POR PASOS (el guion completo con HURT/KO/VICTORY — y la metamorfosis de La Presidenta —
-    // dura más de 60 s y el cap fijo lo cortaba con un TIMEOUT falso).
+    private val gauntletFightCapMs = 325000L // tres rounds de 99 s + intros/transiciones
+    // Tope de la pelea EN CURSO: en campaña depende de la dificultad; en showcase se calcula
+    // por pasos para no cortar HURT/KO/VICTORY ni las metamorfosis con un TIMEOUT falso.
     private var gauntletFightCapCurMs = 60000L
     // 🆕 SHOWCASE: variante del gauntlet que recorre TODAS las animaciones + sonidos de cada
     // peleador (script de moves), para QA visual/auditiva de los assets (watchStuck loguea los rotos).
@@ -447,8 +452,16 @@ class StreetFighterViewModel @Inject constructor(
                 val s = _state.value
                 // El reloj de juego se detiene en pausa, diálogo de salida y selector de personaje
                 if (s.isPaused || s.showExitDialog || s.inCharacterSelect) continue
-                gameNow += dtMs
-                tick(gameNow, dtMs / 1000f)
+                // La auditoría de campaña es un bot de QA, no una modalidad de juego: simula
+                // varios ticks estables por frame para recorrer sus 135 peleas en tiempo útil.
+                // El showcase conserva velocidad real para que cada audio pueda oírse completo.
+                val auditSteps = if (gauntletActive && !showcaseMode) gauntletAuditSteps else 1
+                for (step in 0 until auditSteps) {
+                    if (step > 0 && !gauntletActive) break
+                    gameNow += dtMs
+                    tick(gameNow, dtMs / 1000f)
+                    if (step + 1 < auditSteps) yield()
+                }
             }
         }
     }
@@ -691,7 +704,15 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
             SfFighterState.BONUS_POWER_10, SfFighterState.BONUS_POWER_11,
             -> {
-                nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
+                val returnsToPresidenta = nf.id == SfFighterId.YOALLI_EHECATL &&
+                    newState == SfFighterState.BONUS_POWER_10
+                nf = nf.copy(
+                    velocityX = 0f,
+                    velocityY = 0f,
+                    attackStruck = false,
+                    fireballFired = false,
+                    metamorphosing = nf.metamorphosing || returnsToPresidenta,
+                )
                 emitSpecialVoice(nf.id, now)
             }
             else -> Unit // CROUCH / CROUCH_UP / IDLE_TURN / CROUCH_TURN: sin init
@@ -774,9 +795,19 @@ class StreetFighterViewModel @Inject constructor(
         if (hp0 != lastHpSeen[0] || hp1 != lastHpSeen[1]) lastDamageMs = now // hubo daño o ronda nueva
         lastHpSeen[0] = hp0
         lastHpSeen[1] = hp1
-        if (now - lastDamageMs > stalemateMs) {
-            if (now - lastStalemateLogMs > stalemateMs) {
-                logAssetIssue("ESTANCAMIENTO ${sim.p0.id.name} vs ${sim.p1.id.name}: sin daño >${stalemateMs / 1000}s (revisar hitboxes/rango/IA)")
+        val noDamageMs = now - lastDamageMs
+        if (noDamageMs > stalemateMs) {
+            val reportAfterMs = when (_state.value.cpuDifficulty) {
+                SfCpuDifficulty.BASICA -> 45000L
+                SfCpuDifficulty.NORMAL -> 35000L
+                SfCpuDifficulty.AVANZADA, SfCpuDifficulty.PESADILLA -> 25000L
+            }
+            if (noDamageMs > reportAfterMs && now - lastStalemateLogMs > reportAfterMs) {
+                android.util.Log.w(
+                    "SF-DIAG",
+                    "ESTANCAMIENTO ${sim.p0.id.name} vs ${sim.p1.id.name}: " +
+                        "sin daño >${reportAfterMs / 1000}s; watchdog aplicado y pelea en curso",
+                )
                 lastStalemateLogMs = now
             }
             cpuLastOffenseMs[0] = 0L; cpuLastOffenseMs[1] = 0L
@@ -964,6 +995,14 @@ class StreetFighterViewModel @Inject constructor(
                     }
                     return
                 }
+                // BONUS_POWER_10 de Yoalli reproduce la misma metamorfosis en reversa y
+                // recupera la identidad de La Presidenta, sin proyectil ni cambio de vida.
+                if (f.id == SfFighterId.YOALLI_EHECATL && f.state == SfFighterState.BONUS_POWER_10) {
+                    if (isAnimationCompleted(f)) {
+                        completeYoalliMetamorphosis(sim, idx, now)
+                    }
+                    return
+                }
                 // Otros bonus: proyectil en cuadro central (Yoalli HEAVY; resto MEDIUM).
                 val strength = if (f.id == SfFighterId.YOALLI_EHECATL) {
                     SfAttackStrength.HEAVY
@@ -1088,11 +1127,30 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
         val halfHp = SfConstants.HEALTH_MAX_HIT_POINTS / 2
-        // Cambia identidad + vida + limpia flags de transform; anim en IDLE de Yoalli
-        val yoalli = clampFighterToStage(
-            f.copy(
-                id = SfFighterId.YOALLI_EHECATL,
-                hitPoints = halfHp,
+        completeMetamorphosis(sim, idx, SfFighterId.YOALLI_EHECATL, halfHp, now)
+    }
+
+    /** Fin de BONUS_POWER_10 de Yoalli: regresa a La Presidenta conservando su vida. */
+    private fun completeYoalliMetamorphosis(sim: Sim, idx: Int, now: Long) {
+        val f = sim.fighter(idx)
+        if (f.id != SfFighterId.YOALLI_EHECATL) {
+            changeState(sim, idx, SfFighterState.IDLE, now)
+            return
+        }
+        completeMetamorphosis(sim, idx, SfFighterId.LA_PRESIDENTA, f.hitPoints, now)
+    }
+
+    private fun completeMetamorphosis(
+        sim: Sim,
+        idx: Int,
+        targetId: SfFighterId,
+        targetHitPoints: Int,
+        now: Long,
+    ) {
+        val transformed = clampFighterToStage(
+            sim.fighter(idx).copy(
+                id = targetId,
+                hitPoints = targetHitPoints,
                 metamorphosing = false,
                 metamorphosed = true,
                 fireballFired = false,
@@ -1104,24 +1162,22 @@ class StreetFighterViewModel @Inject constructor(
                 y = SfConstants.STAGE_FLOOR,
             ),
         )
-        sim.setFighter(idx, yoalli)
-        // changeState con el nuevo id usa el JSON/hoja de Yoalli
+        sim.setFighter(idx, transformed)
         changeState(sim, idx, SfFighterState.IDLE, now)
-        // Reafirmar flags (changeState no debe borrar metamorphosed)
         val after = sim.fighter(idx)
         sim.setFighter(
             idx,
             clampFighterToStage(
                 after.copy(
-                    id = SfFighterId.YOALLI_EHECATL,
-                    hitPoints = halfHp,
+                    id = targetId,
+                    hitPoints = targetHitPoints,
                     metamorphosed = true,
                     metamorphosing = false,
                 ),
             ),
         )
-        // HUD: forzar roll-up hacia el nuevo HP (subir a 50% es instantáneo en rollUpHp)
-        if (idx == 0) dispHp0 = halfHp.toFloat() else dispHp1 = halfHp.toFloat()
+        // HUD: forzar roll-up hacia la vida resultante de la transformación.
+        if (idx == 0) dispHp0 = targetHitPoints.toFloat() else dispHp1 = targetHitPoints.toFloat()
     }
 
     private fun maybeTurn(sim: Sim, idx: Int, turnState: SfFighterState, now: Long) {
@@ -1385,10 +1441,11 @@ class StreetFighterViewModel @Inject constructor(
         return true
     }
 
-    /** Invulnerable mientras se transforma (Presidenta en BONUS_POWER_11 con flag). */
+    /** Invulnerable durante cualquiera de las dos direcciones de la metamorfosis. */
     private fun isMetamorphosing(f: SfFighter): Boolean =
         f.metamorphosing ||
-            (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11 && !f.metamorphosed)
+            (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11 && !f.metamorphosed) ||
+            (f.id == SfFighterId.YOALLI_EHECATL && f.state == SfFighterState.BONUS_POWER_10)
 
     // ------------------------------------------------------------------
     // Fireballs (Fireball.js) — animación, movimiento, colisión
@@ -1670,7 +1727,7 @@ class StreetFighterViewModel @Inject constructor(
             (baseDelay * (1f - 0.42f * cpuIntensity)).toLong().coerceAtLeast(30L)
 
         var decision = when (difficulty) {
-            SfCpuDifficulty.BASICA -> basicCpuDecision(sim, i, now)
+            SfCpuDifficulty.BASICA -> basicCpuDecision(sim, i)
             SfCpuDifficulty.NORMAL -> normalCpuDecision(sim, i, now)
             SfCpuDifficulty.AVANZADA -> smartCpuDecision(sim, i, now, nightmare = false)
             SfCpuDifficulty.PESADILLA -> smartCpuDecision(sim, i, now, nightmare = true)
@@ -1691,16 +1748,26 @@ class StreetFighterViewModel @Inject constructor(
         // CAMINANDO / mirándose a media distancia sin que saltara nunca. Ahora cubre CUALQUIER
         // distancia: si están LEJOS obliga a CERRAR distancia (approach), y en rango de golpe
         // fuerza ataque o clinch break. Así nunca se estancan sin pelear.
-        if (difficulty != SfCpuDifficulty.BASICA) {
+        val watchdogLimit = when {
+            difficulty == SfCpuDifficulty.BASICA && aiVs -> 3500L
+            difficulty == SfCpuDifficulty.BASICA -> null
+            aiVs -> 420L
+            else -> 700L
+        }
+        if (watchdogLimit != null) {
             val staleMs = now - cpuLastOffenseMs[i]
-            val limit = if (aiVs) 420L else 700L
-            if (staleMs > limit && !decision.hasAttackOrSpecial()) {
+            if (staleMs > watchdogLimit && !decision.hasAttackOrSpecial()) {
                 // 🆕 (2026-07-18j) Con pasividad extrema (>2×limit) el golpe es OBLIGATORIO en
                 // rango de pelea: garantiza que NUNCA pasen ~2 s sin acción estando cerca.
-                val forceHit = staleMs > limit * 2
+                val forceHit = staleMs > watchdogLimit * 2
+                val attack = if (difficulty == SfCpuDifficulty.BASICA) {
+                    cpuAttack(SfAttackStrength.LIGHT, punch = Random.nextBoolean())
+                } else {
+                    variedCpuAttack(i)
+                }
                 decision = when {
                     dist < CPU_CLINCH_DIST -> cpuClinchBreak(me, foe, now, i)
-                    dist < 150f -> if (forceHit || Random.nextFloat() < 0.75f) variedCpuAttack(i) else cpuJumpIn(me, foe)
+                    dist < 150f -> if (forceHit || Random.nextFloat() < 0.75f) attack else cpuJumpIn(me, foe)
                     else -> cpuApproach(me, foe) // pasivo demasiado tiempo y lejos → acercarse YA
                 }
             }
@@ -1734,14 +1801,11 @@ class StreetFighterViewModel @Inject constructor(
             aiVs -> 0.07f
             else -> 0.045f
         }
-        if (bonusCount > 0 &&
-            me.state in attackValidFrom &&
-            !me.metamorphosing &&
-            !isNearStageCorner(me.x) &&
-            dist in 70f..200f &&
-            now >= specialCooldownUntil[i] &&
-            Random.nextFloat() < bonusChance
-        ) {
+        val bonusStateReady = bonusCount > 0 && me.state in attackValidFrom && !me.metamorphosing
+        val bonusPositionReady = !isNearStageCorner(me.x) && dist in 70f..200f
+        val bonusCooldownReady = now >= specialCooldownUntil[i]
+        if (bonusStateReady && bonusPositionReady && bonusCooldownReady &&
+            Random.nextFloat() < bonusChance) {
             cpuHold[i] = SfInput(bonusPower = Random.nextInt(1, bonusCount + 1))
             cpuLastOffenseMs[i] = now
         }
@@ -1848,7 +1912,7 @@ class StreetFighterViewModel @Inject constructor(
     // ------------------------------------------------------------------
 
     /** BÁSICA — aprendible: lenta, pocos golpes, sin poderes. */
-    private fun basicCpuDecision(sim: Sim, selfIndex: Int, now: Long): SfInput {
+    private fun basicCpuDecision(sim: Sim, selfIndex: Int): SfInput {
         val me = sim.fighter(selfIndex)
         val foe = sim.fighter(1 - selfIndex)
         val dist = abs(me.x - foe.x)
@@ -2209,7 +2273,7 @@ class StreetFighterViewModel @Inject constructor(
         val s = _state.value
         // IA vs IA: revancha con los mismos dos peleadores a PESADILLA
         if (s.aiVsAi) {
-            startAiVsAi(s.player.id, s.cpu.id)
+            startAiVsAi(s.player.id, s.cpu.id, s.cpuDifficulty)
             return
         }
         // Revancha offline: MISMA dificultad de CPU que la pelea anterior
@@ -2269,10 +2333,15 @@ class StreetFighterViewModel @Inject constructor(
      * en video / espectáculo. Copia de [startBattle] con `aiVsAi = true`. Solo OFFLINE.
      * `a` = índice 0 (izquierda), `b` = índice 1 (derecha). buildPlayerInput NO se usa.
      */
-    fun startAiVsAi(a: SfFighterId, b: SfFighterId) {
+    fun startAiVsAi(
+        a: SfFighterId,
+        b: SfFighterId,
+        difficulty: SfCpuDifficulty = SfCpuDifficulty.PESADILLA,
+        intensity: Float = 1f,
+    ) {
         resetInternals()
         // Intensidad al máximo (igual que la final del arcade); resetInternals la deja en 0
-        cpuIntensity = 1f
+        cpuIntensity = intensity.coerceIn(0f, 1f)
         roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" (gameNow arranca en 0)
         val base = StreetFighterState()
         _state.value = base.copy(
@@ -2280,7 +2349,7 @@ class StreetFighterViewModel @Inject constructor(
             cpu = base.cpu.copy(id = b),
             inCharacterSelect = false,
             showRoundIntro = true,
-            cpuDifficulty = SfCpuDifficulty.PESADILLA,
+            cpuDifficulty = difficulty,
             aiVsAi = true,
         )
     }
@@ -2295,8 +2364,8 @@ class StreetFighterViewModel @Inject constructor(
     fun startGauntletRoundRobin() {
         showcaseMode = false
         val roster = SfArcadeLadder.ALL_PARTICIPANTS
-        val q = ArrayDeque<Pair<SfFighterId, SfFighterId>>()
-        for (a in roster) for (b in roster) if (a != b) q.add(a to b)
+        val q = ArrayDeque<GauntletFight>()
+        for (a in roster) for (b in roster) if (a != b) q.add(GauntletFight(a, b))
         beginGauntlet(q)
     }
 
@@ -2310,25 +2379,42 @@ class StreetFighterViewModel @Inject constructor(
      */
     fun startShowcase() {
         showcaseMode = true
-        val q = ArrayDeque<Pair<SfFighterId, SfFighterId>>()
-        SfArcadeLadder.ALL_PARTICIPANTS.forEach { q.add(it to it) } // espejo: se ve la anim en ambos
+        val q = ArrayDeque<GauntletFight>()
+        SfArcadeLadder.ALL_PARTICIPANTS.forEach {
+            q.add(GauntletFight(it, it)) // Espejo: se ve la animación en ambos.
+        }
         beginGauntlet(q)
     }
 
-    /** Bot 2: la ESCALERA del arcade en orden, rotando el peleador para que las parejas cambien. */
+    /** Bot 2: las 9 campañas completas (3 protagonistas × 3 dificultades), 135 peleas reales. */
     fun startGauntletArcade() {
         showcaseMode = false
-        val roster = SfArcadeLadder.ALL_PARTICIPANTS
-        val q = ArrayDeque<Pair<SfFighterId, SfFighterId>>()
-        roster.forEach { player ->
-            SfArcadeLadder.build(player).forEach { step ->
-                if (step.rival != player) q.add(player to step.rival)
+        val difficulties = listOf(
+            SfCpuDifficulty.BASICA,
+            SfCpuDifficulty.NORMAL,
+            SfCpuDifficulty.AVANZADA,
+        )
+        val q = ArrayDeque<GauntletFight>()
+        SfArcadeLadder.STARTERS.forEach { player ->
+            difficulties.forEach { difficulty ->
+                val ladder = SfArcadeLadder.build(player, difficulty)
+                ladder.forEach { step ->
+                    q.add(
+                        GauntletFight(
+                            player = player,
+                            rival = step.rival,
+                            difficulty = SfArcadeLadder.difficultyForStep(difficulty, step),
+                            intensity = SfArcadeLadder.intensityForStep(step.index, ladder.size),
+                            mapFile = step.mapFile,
+                        ),
+                    )
+                }
             }
         }
         beginGauntlet(q)
     }
 
-    private fun beginGauntlet(q: ArrayDeque<Pair<SfFighterId, SfFighterId>>) {
+    private fun beginGauntlet(q: ArrayDeque<GauntletFight>) {
         assetIssues.clear()
         gauntletQueue.clear()
         gauntletQueue.addAll(q)
@@ -2347,7 +2433,7 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
         gauntletDone++
-        startAiVsAi(next.first, next.second) // resetInternals(): gameNow→0, aiVsAi, PESADILLA
+        startAiVsAi(next.player, next.rival, next.difficulty, next.intensity)
         gauntletActive = true
         if (showcaseMode) {
             showcaseStep = -1 // el primer tick lo sube a 0 (paso "caminar")
@@ -2355,9 +2441,9 @@ class StreetFighterViewModel @Inject constructor(
             showcaseFiredStep = -2
             showcaseForcedState = null
             // Cap POR PASOS: el guion completo (con extras/metamorfosis) supera los 60 s fijos
-            gauntletFightCapCurMs = (showcaseTotalSteps(next.first) + 3L) * showcaseStepMs + 4000L
+            gauntletFightCapCurMs = (showcaseTotalSteps(next.player) + 3L) * showcaseStepMs + 4000L
             // 🆕 Auditoría estática del peleadór (anims + frames + special_<id>.ogg)
-            auditFighterAssets(next.first)
+            auditFighterAssets(next.player)
         } else {
             gauntletFightCapCurMs = gauntletFightCapMs
         }
@@ -2366,9 +2452,9 @@ class StreetFighterViewModel @Inject constructor(
         // = hogar del rival en su variante APOCALIPSIS (acorde a PESADILLA). Así el bot también
         // recorre/prueba los fondos.
         val mapFile = if (showcaseMode) {
-            SfStageCatalog.homeStage(next.first).file(SfStageCatalog.Lighting.DAY)
+            SfStageCatalog.homeStage(next.player).file(SfStageCatalog.Lighting.DAY)
         } else {
-            SfStageCatalog.mapForRival(next.second, SfCpuDifficulty.PESADILLA)
+            next.mapFile ?: SfStageCatalog.mapForRival(next.rival, next.difficulty)
         }
         _state.update {
             it.copy(
@@ -2582,11 +2668,18 @@ class StreetFighterViewModel @Inject constructor(
                     logAssetIssue("FRAME ROTO ${id.name}: ${st.jsKey} usa '${fr.frameKey}' y no existe")
                 }
             }
+            val visibleSteps = anim.filter { it.delay >= 0 }
+            val uniqueSources = visibleSteps.mapNotNull { frame ->
+                data.frames[frame.frameKey]?.src
+            }.distinct()
+            if (visibleSteps.size >= 3 && uniqueSources.size == 1) {
+                logAssetIssue(
+                    "ANIM RELLENO ${id.name}: ${st.jsKey} repite una sola pose " +
+                        "en ${visibleSteps.size} pasos",
+                )
+            }
         }
-        // Voz del special (Lázaro usa hadouken.ogg del tema a propósito — no es un faltante)
-        if (id != SfFighterId.LAZARO &&
-            !sfAssetExists("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg")
-        ) {
+        if (!sfAssetExists("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg")) {
             logAssetIssue("FALTA SONIDO ${specialSfxKey(id)}.ogg (${id.name})")
         }
     }
@@ -2642,11 +2735,7 @@ class StreetFighterViewModel @Inject constructor(
             ?: SfStageCatalog.mapForRival(stepData.rival, arcadeChosenDifficulty)
         resetInternals()
         // Intensidad sube por fase (piso 0.2) encima de la dificultad elegida
-        cpuIntensity = if (arcadeLadder.size > 1) {
-            0.20f + 0.80f * (idx - 1).toFloat() / (arcadeLadder.size - 1)
-        } else {
-            1f
-        }
+        cpuIntensity = SfArcadeLadder.intensityForStep(idx, arcadeLadder.size)
         roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA"
         val base = StreetFighterState()
         _state.value = base.copy(
@@ -2668,21 +2757,8 @@ class StreetFighterViewModel @Inject constructor(
      * Dificultad de la pelea = base elegida (Fácil/Medio/Difícil) + escalones en jefes.
      * Mapas ya se fijaron con [arcadeChosenDifficulty] al construir la escalera.
      */
-    private fun arcadeDifficultyForStep(step: SfArcadeLadder.Step): SfCpuDifficulty {
-        val base = arcadeChosenDifficulty
-        val bumped = when {
-            step.isFinal -> bumpDifficulty(base, 2)
-            step.isBoss -> bumpDifficulty(base, 1)
-            step.index >= 10 -> bumpDifficulty(base, 1)
-            else -> base
-        }
-        return bumped
-    }
-
-    private fun bumpDifficulty(d: SfCpuDifficulty, steps: Int): SfCpuDifficulty {
-        val vals = SfCpuDifficulty.entries
-        return vals[(d.ordinal + steps).coerceAtMost(vals.lastIndex)]
-    }
+    private fun arcadeDifficultyForStep(step: SfArcadeLadder.Step): SfCpuDifficulty =
+        SfArcadeLadder.difficultyForStep(arcadeChosenDifficulty, step)
 
     /**
      * Fin del COMBATE en arcade (offline): si GANASTE, desbloquea al rival vencido + su mapa y
@@ -2737,6 +2813,9 @@ class StreetFighterViewModel @Inject constructor(
     private fun resetInternals() {
         gameNow = 0L
         lastRealMs = SystemClock.elapsedRealtime()
+        lastHpSeen.fill(-1)
+        lastDamageMs = 0L
+        lastStalemateLogMs = -100000L
         hurtFreezeUntilMs = 0L
         time = SfConstants.BATTLE_TIME
         timeTimerMs = 0L

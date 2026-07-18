@@ -1,7 +1,8 @@
 # DISEÑO · MODO ARCADE "HUELUM VS. GOYA" — versión POW completa (2026-07-16)
 
-> **Para la próxima sesión de IA.** Decisiones CERRADAS con el dueño (abajo). Implementación
-> EN CURSO. Leer antes: 07 §HUELUM VS. GOYA + `AUDIT_SF_MULTIPLAYER.md`. Convenciones: 09
+> **Estado: release candidate 1/9 (2026-07-18).** Decisiones cerradas con el dueño; audio,
+> arte pendiente de esta pasada y auditoría completa de campaña implementados. Leer antes:
+> 07 §HUELUM VS. GOYA + `AUDIT_SF_MULTIPLAYER.md`. Convenciones: 09
 > (MVVM, estado inmutable con `_state.update { it.copy(...) }`, strings ES+EN con paridad,
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
@@ -51,7 +52,23 @@
   showcase=día, gauntlet=apocalipsis); la Screen lo prioriza en `effectiveBgFile`.
 - Audio: pasos forzados con .ogg reutilizados (HURT→hit por fuerza, KO→heavy-kick-hit,
   VICTORY/metamorfosis→voz `special_<id>.ogg`, solo idx 0); VICTORY con voz también en pelea
-  real. Deepfake de voces: SIGUE sin implementar (pipeline de assets, no código).
+  real. El estado de audio pendiente de esta pasada queda superado por Release 1/9 abajo.
+
+## Release 2026-07-18 · Launch Relase 1/9 (Sol) — audio/arte/IA cerrados
+
+- Audio regenerado desde las fuentes locales para los 21 ids, solo español, duraciones por
+  contenido (2.37–13.8 s hablado; banda Granadero completa 27.5 s). `MediaPlayer` reproduce los
+  specials largos completos; `SoundPool` conserva efectos breves. Presidenta auténtica 8.3 s,
+  Lázaro incluido y Robot ficticio sintetizado. Whisper verifica texto/idioma de cada voz.
+- Pipeline reproducible: `transcribe_sf_voice_sources.py` → `sf_audio_cuts_v3.json` →
+  `build_sf_audio_v3.py` → `verify_sf_audio_content.py`; reportes v3 con hashes, 21/21 PASS.
+  No se re-scrapeó YouTube ni se borraron `raw_yt/`/`out_diarized/`.
+- La Llorona: HURT repetidos regenerados con 3–4 poses únicas. Yoalli: `bonusPower10` invierte
+  la metamorfosis Presidenta P11 y convierte Yoalli→Presidenta conservando HP.
+- Auditoría IA ejecutable: 9 campañas completas, 135 peleas, dificultad/intensidad/mapa reales,
+  aceleradas solo en el bot QA. Test puro: 600 configuraciones aleatorias + presencia de assets.
+- CI: errores `ComplexCondition`/`UnusedParameter` corregidos; detekt bloqueante local PASS;
+  debug APK, unit tests y release AAB compilan con AGP/Gradle actuales. Versión 1.0.0.12.
 
 ## Objetivo
 

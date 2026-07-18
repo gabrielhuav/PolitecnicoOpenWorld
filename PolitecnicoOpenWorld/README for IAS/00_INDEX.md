@@ -87,7 +87,15 @@
 - **✅ Showcase v2 2026-07-18k (Fable, feedback dueño):** avance automático + botón SALTAR
   (`sf_showcase_skip`), mapa HOGAR por peleadór (`gauntletMapFile`), audio en pasos forzados
   (hits/KO/voz en VICTORY-metamorfosis; VICTORY con voz también en pelea real), fix salto
-  perdido. Deepfake voces: SIGUE sin implementar (assets). Detalle: 07 §HUELUM + DISENO §18k.
+  perdido. Su nota de audio pendiente es histórica; Release 1/9 abajo la supera. Detalle: 07
+  §HUELUM + DISENO §18k.
+- **✅ Release 1/9 2026-07-18 (Sol):** audio final **21/21 solo español**, cortes locales de
+  duración individual, contenido hablado verificado con Whisper y hashes reproducibles; Lázaro
+  incluido, Presidenta 8.3 s y banda Granadero completa 27.5 s. Los especiales largos migran a
+  `MediaPlayer`. La nota “deepfake pendiente” de 18k queda SUPERADA: se usan voces auténticas de
+  las fuentes locales y síntesis únicamente para el Robot ficticio. Arte: HURT únicos de Llorona
+  + metamorfosis inversa Yoalli→Presidenta. Auditoría IA: 9 campañas/135 peleas aceleradas y 600
+  configuraciones estructurales. Play Store: `versionCode 12`, `versionName 1.0.0.12`.
 
 ### Docs de trabajo / Working docs (no son 00–09)
 
@@ -98,7 +106,7 @@
 | **`SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleadór→hogar (tabla dueño), desbloqueos MP.** |
 | `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
-| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX: diarización, YT ya en `raw_yt/`, `out_diarized/`, subtítulos, backlog Pap5/deepfake. |
+| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. |
 | `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo. |
 | `GUIA_generacion_assets_SF.md` | Guía manual de generación de assets. |
 | `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |

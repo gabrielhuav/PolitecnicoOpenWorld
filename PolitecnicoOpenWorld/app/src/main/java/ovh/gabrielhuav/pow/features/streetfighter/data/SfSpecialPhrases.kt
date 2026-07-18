@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicReference
  * - `phrase_en` = traducción para idioma inglés del juego
  * - `phrase_hud` = A-Z/0-9 para la fuente arcade POW del HUD
  *
- * LÁZARO está en exclude: no tiene frase de special.
+ * Los 21 peleadores tienen audio; los SFX sin habla pueden no tener subtítulo.
  */
 data class SfSpecialPhrase(
     val fighterId: SfFighterId,
@@ -73,7 +73,6 @@ object SfSpecialPhrases {
         while (keys.hasNext()) {
             val name = keys.next()
             val id = runCatching { SfFighterId.valueOf(name) }.getOrNull() ?: continue
-            if (id == SfFighterId.LAZARO) continue // no implementar
             val o = fighters.getJSONObject(name)
             val es = o.optString("phrase_es", "")
             if (es.isBlank()) continue

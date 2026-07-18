@@ -1,155 +1,155 @@
 {
+  "version": 3,
+  "status": "PASS",
+  "language": "es-MX",
+  "fighter_count": 21,
   "fighters": {
     "PRANKEDY": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_prankedy.ogg",
-      "sources": 5
+      "duration_sec": 2.7,
+      "sha256": "172124cb5e2b0c96597368f124d4b87a5e5db96454202b3c969a9a7610d91749"
     },
     "SENOR_TIENDA": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_senor_tienda.ogg",
-      "sources": 2
+      "duration_sec": 5.4,
+      "sha256": "4921232b5dbc3736a3e3b34ec4a337a5779b66d33a8936aab76ea554ace3c9b2"
     },
     "PAPARAZZI_1": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_paparazzi_1.ogg",
-      "sources": 2
-    },
-    "REY_GRUPERO": {
-      "status": "packed",
-      "file": "special_rey_grupero.ogg",
-      "sources": 2
+      "duration_sec": 4.4,
+      "sha256": "dc38b8cba4b2c1374522e8e48ae36331684bc1a6e60bdcd3ee2620e991181a8a"
     },
     "PAPARAZZI_5": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_paparazzi_5.ogg",
-      "sources": 2
+      "duration_sec": 5.7,
+      "sha256": "fc64ec6e9594f5e350ace75017ef1b3e848777af692182e30eb2f6868af0cc77"
+    },
+    "REY_GRUPERO": {
+      "status": "PASS",
+      "content_status": "PASS",
+      "file": "special_rey_grupero.ogg",
+      "duration_sec": 4.5,
+      "sha256": "0a7e6b49cece93e18354cd77e06d50ce4b79a6ffa710de0950a2a5f8aec2c666"
     },
     "LAZARO": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_lazaro.ogg",
-      "sources": 2
+      "duration_sec": 4.3,
+      "sha256": "76e709f1cc535b1e03843b389b33039b421585362b04bb5888d7aab863541247"
     },
     "ESCOMBOY": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_escomboy.ogg",
-      "sources": 2
+      "duration_sec": 4.1,
+      "sha256": "52c052e34f63026930571e001fb3e2edc32046793db1924e74ded0c784f54366"
     },
     "ESCOMGIRL": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_escomgirl.ogg",
-      "sources": 2
+      "duration_sec": 2.37,
+      "sha256": "14e4e30b4fcdc06f990074cfee80650858a18d160d675d7b347214019e5d035a"
     },
     "ROBOT": {
-      "status": "fallback",
-      "from": "LA_PRESIDENTA",
-      "file": "special_robot.ogg"
+      "status": "PASS",
+      "content_status": "PASS",
+      "file": "special_robot.ogg",
+      "duration_sec": 4.6,
+      "sha256": "9d14b9053b00a15bc3d2c16783d4d0b85e389468b487b1fb7b3c540e9501ee04"
     },
     "YOALLI_EHECATL": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS_NO_SPEECH_EXPECTED",
       "file": "special_yoalli_ehecatl.ogg",
-      "sources": 2
+      "duration_sec": 2.5,
+      "sha256": "5d10992fa0517fa32f1a28461a2292af016b325d057790a7cde26574113b86c3"
     },
     "CHARRO_NEGRO": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS_NO_SPEECH_EXPECTED",
       "file": "special_charro_negro.ogg",
-      "sources": 5
+      "duration_sec": 2.8,
+      "sha256": "3cdb056df9b2643ec884de6dd7fb826589fa63bc5b3d29be487777763d704293"
     },
     "LA_LLORONA": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS_NO_SPEECH_EXPECTED",
       "file": "special_la_llorona.ogg",
-      "sources": 5
+      "duration_sec": 1.595,
+      "sha256": "11ce821ad8326922d6ec50836991f32452473fc42dcc73608802441a8a4de8cb"
     },
     "LA_TZITZIMIME": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS_NO_SPEECH_EXPECTED",
       "file": "special_la_tzitzimime.ogg",
-      "sources": 2
+      "duration_sec": 2.5,
+      "sha256": "8a6fb66bc40ea17a010d53a4a09b2711e392512fb36993ae65923f7566337e64"
     },
     "LA_PRESIDENTA": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_la_presidenta.ogg",
-      "sources": 5
+      "duration_sec": 8.3,
+      "sha256": "f97b94a7afd5a78c09f4ce6f2985e26a8efe425735180341685907b0c9a00abe"
     },
     "POLICIA_CDMX": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_policia_cdmx.ogg",
-      "sources": 3
+      "duration_sec": 13.8,
+      "sha256": "af2db9c812f3517b39e6889b517a4d9e7d15beabefbad43b64bb7b75ea34bd48"
     },
     "POLICIA_CDMX_HOMBRE": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_policia_cdmx_hombre.ogg",
-      "sources": 2
+      "duration_sec": 9.8,
+      "sha256": "3a747f6dc0b5b3ae45512db940b9f3c1e43df701587212139b32aeaac7450ee8"
     },
     "PARAMEDICO_CRUZ_ROJA": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_paramedico_cruz_roja.ogg",
-      "sources": 4
-    },
-    "POLICIA_GRANADERO_HOMBRE": {
-      "status": "packed",
-      "file": "special_policia_granadero_hombre.ogg",
-      "sources": 2
-    },
-    "POLICIA_GRANADERO_MUJER": {
-      "status": "packed",
-      "file": "special_policia_granadero_mujer.ogg",
-      "sources": 1
-    },
-    "GRANADERO": {
-      "status": "packed",
-      "file": "special_granadero.ogg",
-      "sources": 2
+      "duration_sec": 4.0,
+      "sha256": "4be885c57c6b4d8e3817435ab179d937c5f9e4e0c676d6f98f48b2fb48d844d6"
     },
     "PARAMEDICO": {
-      "status": "packed",
+      "status": "PASS",
+      "content_status": "PASS",
       "file": "special_paramedico.ogg",
-      "sources": 2
+      "duration_sec": 4.7,
+      "sha256": "e031ce7c00445af6d0aeeaeb68acc80660ec9c00d4f0943122588071f3f65ad1"
+    },
+    "POLICIA_GRANADERO_HOMBRE": {
+      "status": "PASS",
+      "content_status": "PASS_NO_SPEECH_EXPECTED",
+      "file": "special_policia_granadero_hombre.ogg",
+      "duration_sec": 27.5,
+      "sha256": "4141f35221ce1059ade4aea28f43afc92fead23b6c2b05e5c0b24b73de103569"
+    },
+    "POLICIA_GRANADERO_MUJER": {
+      "status": "PASS",
+      "content_status": "PASS_NO_SPEECH_EXPECTED",
+      "file": "special_policia_granadero_mujer.ogg",
+      "duration_sec": 27.5,
+      "sha256": "db6150c7c29faff1d3cd839768574bdccd0bc1dd8a858cf806e30416ebb14da8"
+    },
+    "GRANADERO": {
+      "status": "PASS",
+      "content_status": "PASS_NO_SPEECH_EXPECTED",
+      "file": "special_granadero.ogg",
+      "duration_sec": 27.5,
+      "sha256": "d3abd4558474a875947312b2830291582a4576ca56601dd0aec2799ccdb77fe9"
     }
-  },
-  "produced": {
-    "PRANKEDY": "special_prankedy.ogg",
-    "SENOR_TIENDA": "special_senor_tienda.ogg",
-    "PAPARAZZI_1": "special_paparazzi_1.ogg",
-    "REY_GRUPERO": "special_rey_grupero.ogg",
-    "PAPARAZZI_5": "special_paparazzi_5.ogg",
-    "LAZARO": "special_lazaro.ogg",
-    "ESCOMBOY": "special_escomboy.ogg",
-    "ESCOMGIRL": "special_escomgirl.ogg",
-    "YOALLI_EHECATL": "special_yoalli_ehecatl.ogg",
-    "CHARRO_NEGRO": "special_charro_negro.ogg",
-    "LA_LLORONA": "special_la_llorona.ogg",
-    "LA_TZITZIMIME": "special_la_tzitzimime.ogg",
-    "LA_PRESIDENTA": "special_la_presidenta.ogg",
-    "POLICIA_CDMX": "special_policia_cdmx.ogg",
-    "POLICIA_CDMX_HOMBRE": "special_policia_cdmx_hombre.ogg",
-    "PARAMEDICO_CRUZ_ROJA": "special_paramedico_cruz_roja.ogg",
-    "POLICIA_GRANADERO_HOMBRE": "special_policia_granadero_hombre.ogg",
-    "POLICIA_GRANADERO_MUJER": "special_policia_granadero_mujer.ogg",
-    "GRANADERO": "special_granadero.ogg",
-    "PARAMEDICO": "special_paramedico.ogg",
-    "ROBOT": "special_robot.ogg"
-  },
-  "key_map": {
-    "PRANKEDY": "special_prankedy",
-    "SENOR_TIENDA": "special_senor_tienda",
-    "PAPARAZZI_1": "special_paparazzi_1",
-    "REY_GRUPERO": "special_rey_grupero",
-    "PAPARAZZI_5": "special_paparazzi_5",
-    "LAZARO": "special_lazaro",
-    "ESCOMBOY": "special_escomboy",
-    "ESCOMGIRL": "special_escomgirl",
-    "YOALLI_EHECATL": "special_yoalli_ehecatl",
-    "CHARRO_NEGRO": "special_charro_negro",
-    "LA_LLORONA": "special_la_llorona",
-    "LA_TZITZIMIME": "special_la_tzitzimime",
-    "LA_PRESIDENTA": "special_la_presidenta",
-    "POLICIA_CDMX": "special_policia_cdmx",
-    "POLICIA_CDMX_HOMBRE": "special_policia_cdmx_hombre",
-    "PARAMEDICO_CRUZ_ROJA": "special_paramedico_cruz_roja",
-    "POLICIA_GRANADERO_HOMBRE": "special_policia_granadero_hombre",
-    "POLICIA_GRANADERO_MUJER": "special_policia_granadero_mujer",
-    "GRANADERO": "special_granadero",
-    "PARAMEDICO": "special_paramedico",
-    "ROBOT": "special_robot"
   }
 }

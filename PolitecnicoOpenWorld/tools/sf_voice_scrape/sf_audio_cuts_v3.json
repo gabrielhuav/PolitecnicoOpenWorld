@@ -1,8 +1,7 @@
 {
   "version": 3,
-  "notes": "Catálogo canónico de cortes locales. El audio final es únicamente español; phrase_en se conserva solo para subtítulos traducidos.",
-  "source_policy": "local_only_no_rescrape",
-  "exclude_fighters": [],
+  "language": "es-MX",
+  "policy": "Fuentes locales solamente; no volver a descargar YouTube. Las voces identificables usan fragmentos auténticos. La síntesis se limita al Robot ficticio.",
   "fighters": {
     "PRANKEDY": {
       "source": "raw_yt/TIENDA_bestof_FdUblky8bV4.wav",
