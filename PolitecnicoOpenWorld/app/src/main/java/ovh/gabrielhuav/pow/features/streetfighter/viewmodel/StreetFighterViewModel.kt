@@ -50,6 +50,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfMatchClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetFireball
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetMsg
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetTransport
+import ovh.gabrielhuav.pow.features.streetfighter.data.isSfLowEnd
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
 import kotlin.math.abs
@@ -78,6 +79,16 @@ class StreetFighterViewModel @Inject constructor(
 
     // 🆕 Progreso del ARCADE (guardado LOCAL). Define qué peleadores/mapas están desbloqueados.
     private val arcadeRepo = SfArcadeRepository(appContext)
+
+    // 🆕 Gama baja: tick más lento (~30 fps) y menos trabajo por segundo (ver SfDeviceTier).
+    private val lowEndDevice: Boolean = appContext.isSfLowEnd()
+    private val tickMs: Long = if (lowEndDevice) 33L else 16L
+
+    /** true si el dispositivo es gama baja (la View reduce previews/fondos). */
+    fun isLowEndDevice(): Boolean = lowEndDevice
+
+    /** ¿Hay pelea arcade a medias para retomar? (solo lectura; no I/O pesado). */
+    fun hasArcadeSession(): Boolean = arcadeRepo.hasSession()
 
     /** 🆕 Modo Desarrollador (Ajustes): si está ON, TODO desbloqueado (personajes y mapas). */
     fun devUnlockAll(): Boolean = SettingsRepository(appContext).getDeveloperMode()
@@ -141,12 +152,15 @@ class StreetFighterViewModel @Inject constructor(
     private val controlHistory = ArrayDeque<Pair<Int, Long>>() // (zona, gameNow)
     private var lastZone = 0
 
-    // ---- IA de la CPU ----
-    private var cpuNextDecisionMs = 0L
-    private var cpuHold = SfInput()     // intención sostenida (caminar)
+    // ---- IA de la CPU (POR PELEADOR: índice 0 y 1; en VS normal solo corre el 1) ----
+    // Arrays de tamaño 2: en modo normal CPU = índice 1 (idéntico al de siempre); en IA vs IA
+    // ambos índices tienen su propia cadencia e intención sostenida.
+    private val cpuNextDecisionMs = LongArray(2) { 0L }
+    private val cpuHold = Array(2) { SfInput() } // intención sostenida (caminar) por índice
     // 🆕 Intensidad de la CPU 0f..1f (POR FASES del arcade): 0 = como en VS; 1 = máxima. Escala
     // la CADENCIA de decisión (reacciona más rápido) y la agresividad/bloqueo. En VS es 0
     // (comportamiento idéntico al de siempre); el arcade la sube según avanzas en la escalera.
+    // IA vs IA la fija en 1f (máxima, como la final del arcade).
     private var cpuIntensity = 0f
 
     // ---- batalla ----
@@ -195,7 +209,8 @@ class StreetFighterViewModel @Inject constructor(
     private val inOnlineFight: Boolean get() = _state.value.onlineStatus == SfOnlineStatus.FIGHTING
 
     private companion object {
-        const val TICK_MS = 16L
+        // TICK_MS por defecto; el loop usa [tickMs] (33 ms en gama baja).
+        const val TICK_MS_DEFAULT = 16L
         // Táctil: el joystick emite cada ~33 ms al sostenerse; con 150 ms el input quedaba "pegado"
         // ~150 ms tras soltar (se sentía que "no reacciona"). 100 ms sigue siendo seguro (>33 ms).
         const val JOYSTICK_IDLE_MS = 100L
@@ -318,7 +333,7 @@ class StreetFighterViewModel @Inject constructor(
         lastRealMs = SystemClock.elapsedRealtime()
         loopJob = viewModelScope.launch {
             while (isActive) {
-                delay(TICK_MS)
+                delay(tickMs) // 16 ms (~60) o 33 ms (~30) en gama baja
                 val real = SystemClock.elapsedRealtime()
                 val dtMs = (real - lastRealMs).coerceAtMost(100L)
                 lastRealMs = real
@@ -381,9 +396,15 @@ class StreetFighterViewModel @Inject constructor(
                 sim.setFighter(1, updateRoundIntroAnimation(sim.fighter(1), now))
             }
             else -> {
-                updateFighter(sim, 0, buildPlayerInput(now, sim), now, dt)
-                // El rival: CPU offline; por RED online (no se simula localmente)
-                if (!online) updateFighter(sim, 1, buildCpuInput(now, sim), now, dt)
+                if (s.aiVsAi) {
+                    // IA vs IA: ambos peleadores bajo CPU (PESADILLA); sin input humano
+                    updateFighter(sim, 0, buildCpuInput(now, sim, 0), now, dt)
+                    updateFighter(sim, 1, buildCpuInput(now, sim, 1), now, dt)
+                } else {
+                    updateFighter(sim, 0, buildPlayerInput(now, sim), now, dt)
+                    // El rival: CPU offline (índice 1); por RED online (no se simula localmente)
+                    if (!online) updateFighter(sim, 1, buildCpuInput(now, sim, 1), now, dt)
+                }
             }
         }
         updateFireballs(sim, now, dt)
@@ -1181,9 +1202,14 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.JUMP_LAND, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_UP,
     )
 
-    private fun buildCpuInput(now: Long, sim: Sim): SfInput {
+    /**
+     * IA de UN peleador (`selfIndex` 0 o 1). En VS normal solo se llama con 1 (CPU);
+     * en IA vs IA se llama para 0 y 1. Cadencia e intención sostenida son POR índice.
+     */
+    private fun buildCpuInput(now: Long, sim: Sim, selfIndex: Int): SfInput {
         if (sim.battleEnded) return SfInput()
-        if (now < cpuNextDecisionMs) return cpuHold
+        val i = selfIndex.coerceIn(0, 1)
+        if (now < cpuNextDecisionMs[i]) return cpuHold[i]
 
         // Cadencia de decisión por dificultad: la avanzada "piensa" ~4× más rápido. 🆕 La
         // INTENSIDAD del arcade la acelera hasta ~45% más (reacciona antes conforme avanzas).
@@ -1194,22 +1220,23 @@ class StreetFighterViewModel @Inject constructor(
             SfCpuDifficulty.AVANZADA -> Random.nextLong(90L, 180L)
             SfCpuDifficulty.PESADILLA -> Random.nextLong(50L, 110L) // reacciona casi al instante
         }
-        cpuNextDecisionMs = now + (baseDelay * (1f - 0.45f * cpuIntensity)).toLong().coerceAtLeast(40L)
-        cpuHold = when (difficulty) {
-            SfCpuDifficulty.BASICA -> basicCpuDecision(sim)
-            SfCpuDifficulty.NORMAL -> normalCpuDecision(sim)
-            SfCpuDifficulty.AVANZADA -> advancedCpuDecision(sim)
-            SfCpuDifficulty.PESADILLA -> pesadillaCpuDecision(sim)
+        cpuNextDecisionMs[i] = now + (baseDelay * (1f - 0.45f * cpuIntensity)).toLong().coerceAtLeast(40L)
+        cpuHold[i] = when (difficulty) {
+            SfCpuDifficulty.BASICA -> basicCpuDecision(sim, i)
+            SfCpuDifficulty.NORMAL -> normalCpuDecision(sim, i)
+            SfCpuDifficulty.AVANZADA -> advancedCpuDecision(sim, i)
+            SfCpuDifficulty.PESADILLA -> pesadillaCpuDecision(sim, i)
         }
-        val bonusCount = sim.p1.id.bonusPowerCount
+        val me = sim.fighter(i)
+        val bonusCount = me.id.bonusPowerCount
         if (bonusCount > 0 && difficulty != SfCpuDifficulty.BASICA &&
-            sim.p1.state == SfFighterState.IDLE && Random.nextFloat() < 0.10f
+            me.state == SfFighterState.IDLE && Random.nextFloat() < 0.10f
         ) {
-            cpuHold = SfInput(bonusPower = Random.nextInt(1, bonusCount + 1))
+            cpuHold[i] = SfInput(bonusPower = Random.nextInt(1, bonusCount + 1))
         }
         // Los botones son de UN tick: se entregan una vez y la intención queda solo direccional
-        val oneShot = cpuHold
-        cpuHold = cpuHold.copy(
+        val oneShot = cpuHold[i]
+        cpuHold[i] = cpuHold[i].copy(
             lightPunch = false, mediumPunch = false, heavyPunch = false,
             lightKick = false, mediumKick = false, heavyKick = false, special = null,
             bonusPower = null,
@@ -1222,8 +1249,10 @@ class StreetFighterViewModel @Inject constructor(
      * se queda quieta seguido y solo tira golpes LIGEROS de vez en cuando. NUNCA lanza
      * poderes, NUNCA salta y NUNCA se cubre a propósito.
      */
-    private fun basicCpuDecision(sim: Sim): SfInput {
-        val dist = abs(sim.p1.x - sim.p0.x)
+    private fun basicCpuDecision(sim: Sim, selfIndex: Int): SfInput {
+        val me = sim.fighter(selfIndex)
+        val opp = sim.fighter(1 - selfIndex)
+        val dist = abs(me.x - opp.x)
         val roll = Random.nextFloat()
         return when {
             dist > 190f -> if (roll < 0.65f) SfInput(forward = true) else SfInput()
@@ -1241,8 +1270,10 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** NORMAL — la IA clásica del port: decisiones al azar por bandas de distancia. */
-    private fun normalCpuDecision(sim: Sim): SfInput {
-        val dist = abs(sim.p1.x - sim.p0.x)
+    private fun normalCpuDecision(sim: Sim, selfIndex: Int): SfInput {
+        val me = sim.fighter(selfIndex)
+        val opp = sim.fighter(1 - selfIndex)
+        val dist = abs(me.x - opp.x)
         val roll = Random.nextFloat()
         return when {
             dist > 190f -> when {
@@ -1271,16 +1302,17 @@ class StreetFighterViewModel @Inject constructor(
      * BLOQUEAR (caminar hacia atrás = chip); (4) rival en recuperación → CASTIGO;
      * (5) por distancia: lejos = MUCHOS poderes, medio = presión, cerca = mixups fuertes.
      */
-    private fun advancedCpuDecision(sim: Sim): SfInput {
-        val me = sim.p1
-        val foe = sim.p0
+    private fun advancedCpuDecision(sim: Sim, selfIndex: Int): SfInput {
+        val me = sim.fighter(selfIndex)
+        val foe = sim.fighter(1 - selfIndex)
         val dist = abs(me.x - foe.x)
         val roll = Random.nextFloat()
 
         // (1) Proyectil del rival en vuelo HACIA mí y cerca → brincarlo (o reventarlo
         // con otro poder: fireball-vs-fireball, ver SESIÓN 4)
+        val oppIndex = 1 - selfIndex
         val incoming = sim.fireballs.any { fb ->
-            fb.ownerIndex == 0 && fb.state == SfFireballState.ACTIVE &&
+            fb.ownerIndex == oppIndex && fb.state == SfFireballState.ACTIVE &&
                 abs(fb.x - me.x) < 260f && (me.x - fb.x) * fb.direction.sign > 0f
         }
         if (incoming && !me.isAirborne) {
@@ -1325,17 +1357,19 @@ class StreetFighterViewModel @Inject constructor(
     /**
      * PESADILLA — la más brutal: ataca SIN PARAR con combos muy seguidos, ESQUIVA tus golpes
      * (salto/dash atrás) además de bloquear, castiga durísimo y presiona a toda distancia.
-     * Reacciona casi al instante (~50-110 ms, ver buildCpuInput). Pensada para el jefe final.
+     * Reacciona casi al instante (~50-110 ms, ver buildCpuInput). Pensada para el jefe final
+     * y para el modo IA vs IA (ambos a máxima dificultad).
      */
-    private fun pesadillaCpuDecision(sim: Sim): SfInput {
-        val me = sim.p1
-        val foe = sim.p0
+    private fun pesadillaCpuDecision(sim: Sim, selfIndex: Int): SfInput {
+        val me = sim.fighter(selfIndex)
+        val foe = sim.fighter(1 - selfIndex)
         val dist = abs(me.x - foe.x)
         val roll = Random.nextFloat()
 
         // (1) Proyectil entrante → ESQUIVA saltando o lo revienta con su propio poder
+        val oppIndex = 1 - selfIndex
         val incoming = sim.fireballs.any { fb ->
-            fb.ownerIndex == 0 && fb.state == SfFireballState.ACTIVE &&
+            fb.ownerIndex == oppIndex && fb.state == SfFireballState.ACTIVE &&
                 abs(fb.x - me.x) < 300f && (me.x - fb.x) * fb.direction.sign > 0f
         }
         if (incoming && !me.isAirborne) {
@@ -1462,7 +1496,90 @@ class StreetFighterViewModel @Inject constructor(
         val s = _state.value
         if (!s.isPaused && !s.inCharacterSelect && !s.showEndMenu) {
             _state.value = s.copy(isPaused = true)
+            // 🆕 Guardar progreso arcade al ir a segundo plano (barato: 1 putString async).
+            // NO se guarda cada tick → sin lag en gama baja.
+            if (s.arcadeActive) persistArcadeSession(s)
         }
+    }
+
+    /** Snapshot ligero de la pelea arcade (ids + rondas). apply() = no bloquea UI. */
+    private fun persistArcadeSession(s: StreetFighterState = _state.value) {
+        if (!s.arcadeActive || arcadeLadder.isEmpty()) return
+        arcadeRepo.saveSession(
+            SfArcadeRepository.ArcadeSession(
+                playerId = arcadePlayer.name,
+                step = s.arcadeStep,
+                total = s.arcadeTotal,
+                ladderRivals = arcadeLadder.map { it.rival.name },
+                mapFile = s.arcadeMapFile,
+                playerRoundWins = s.playerRoundWins,
+                cpuRoundWins = s.cpuRoundWins,
+                difficulty = s.cpuDifficulty.name,
+                paused = true,
+            ),
+        )
+    }
+
+    /**
+     * Retoma la pelea arcade guardada (si hay). Devuelve true si se restauró.
+     * Reconstruye la escalera desde los ids guardados (sin re-aleatorizar).
+     */
+    fun resumeArcadeSession(): Boolean {
+        val ses = arcadeRepo.loadSession() ?: return false
+        val player = runCatching { SfFighterId.valueOf(ses.playerId) }.getOrNull() ?: return false
+        val rivals = ses.ladderRivals.mapNotNull { n ->
+            runCatching { SfFighterId.valueOf(n) }.getOrNull()
+        }
+        if (rivals.isEmpty() || ses.step !in 1..rivals.size) return false
+        arcadePlayer = player
+        arcadeLadder = rivals.mapIndexed { i, rival ->
+            val n = i + 1
+            SfArcadeLadder.Step(
+                index = n,
+                rival = rival,
+                mapFile = when (n) {
+                    1 -> SfArcadeLadder.MAP_FIRST
+                    rivals.size -> SfArcadeLadder.MAP_FINAL
+                    else -> null
+                },
+                isBoss = n >= rivals.size - 2,
+                isFinal = n == rivals.size,
+            )
+        }
+        arcadeMapCurrent = ses.mapFile ?: SfArcadeLadder.MAP_FIRST
+        val stepData = arcadeLadder[ses.step - 1]
+        val diff = runCatching { SfCpuDifficulty.valueOf(ses.difficulty) }
+            .getOrDefault(arcadeDifficulty(stepData))
+        resetInternals()
+        cpuIntensity = if (arcadeLadder.size > 1) {
+            0.25f + 0.75f * (ses.step - 1).toFloat() / (arcadeLadder.size - 1)
+        } else {
+            1f
+        }
+        roundIntroUntilMs = ROUND_INTRO_MS
+        val base = StreetFighterState()
+        _state.value = base.copy(
+            player = base.player.copy(id = player),
+            cpu = base.cpu.copy(id = stepData.rival),
+            inCharacterSelect = false,
+            showRoundIntro = true,
+            isPaused = true, // reanuda con overlay PAUSA (Continuar)
+            cpuDifficulty = diff,
+            arcadeActive = true,
+            arcadeStep = ses.step,
+            arcadeTotal = ses.total.coerceAtLeast(rivals.size),
+            arcadeRival = stepData.rival,
+            arcadeMapFile = arcadeMapCurrent,
+            playerRoundWins = ses.playerRoundWins.coerceIn(0, ROUNDS_TO_WIN),
+            cpuRoundWins = ses.cpuRoundWins.coerceIn(0, ROUNDS_TO_WIN),
+            arcadeOutcome = SfArcadeOutcome.NONE,
+        )
+        return true
+    }
+
+    /** Descarta la pelea a medias (el usuario elige "Nueva partida"). */
+    fun discardArcadeSession() {
+        arcadeRepo.clearSession()
     }
 
     /** Revancha: offline reinicia ya; online la PIDE (arranca cuando la pidan los dos). */
@@ -1472,6 +1589,11 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
         val s = _state.value
+        // IA vs IA: revancha con los mismos dos peleadores a PESADILLA
+        if (s.aiVsAi) {
+            startAiVsAi(s.player.id, s.cpu.id)
+            return
+        }
         // Revancha offline: MISMA dificultad de CPU que la pelea anterior
         startBattle(playerId = s.player.id, cpuId = s.cpu.id, difficulty = s.cpuDifficulty)
     }
@@ -1520,6 +1642,28 @@ class StreetFighterViewModel @Inject constructor(
             inCharacterSelect = false,
             showRoundIntro = true,
             cpuDifficulty = difficulty,
+            // aiVsAi queda false por default del base (VS / práctica humanos)
+        )
+    }
+
+    /**
+     * 🆕 IA vs IA (CPU vs CPU) a dificultad PESADILLA e intensidad máxima: para grabar
+     * en video / espectáculo. Copia de [startBattle] con `aiVsAi = true`. Solo OFFLINE.
+     * `a` = índice 0 (izquierda), `b` = índice 1 (derecha). buildPlayerInput NO se usa.
+     */
+    fun startAiVsAi(a: SfFighterId, b: SfFighterId) {
+        resetInternals()
+        // Intensidad al máximo (igual que la final del arcade); resetInternals la deja en 0
+        cpuIntensity = 1f
+        roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" (gameNow arranca en 0)
+        val base = StreetFighterState()
+        _state.value = base.copy(
+            player = base.player.copy(id = a),
+            cpu = base.cpu.copy(id = b),
+            inCharacterSelect = false,
+            showRoundIntro = true,
+            cpuDifficulty = SfCpuDifficulty.PESADILLA,
+            aiVsAi = true,
         )
     }
 
@@ -1589,6 +1733,8 @@ class StreetFighterViewModel @Inject constructor(
         } else {
             SfArcadeOutcome.LOST
         }
+        // Combate resuelto → la sesión a medias ya no aplica
+        arcadeRepo.clearSession()
         _state.value = _state.value.copy(arcadeOutcome = outcome)
     }
 
@@ -1609,6 +1755,10 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Salir del arcade → volver al selector de personaje (fresco). */
     fun arcadeExit() {
+        // Si había pelea en curso, guarda antes de salir (por si el usuario vuelve)
+        val s = _state.value
+        if (s.arcadeActive && !s.showEndMenu) persistArcadeSession(s)
+        else arcadeRepo.clearSession()
         arcadeLadder = emptyList()
         resetInternals()
         _state.value = StreetFighterState()
@@ -1626,9 +1776,11 @@ class StreetFighterViewModel @Inject constructor(
         koFlashTimerMs = 0L
         koFrame = 0
         endMenuAtMs = 0L
-        cpuNextDecisionMs = 0L
-        cpuHold = SfInput()
-        cpuIntensity = 0f // VS: sin escalado; el arcade la sube en startArcadeStep
+        cpuNextDecisionMs[0] = 0L
+        cpuNextDecisionMs[1] = 0L
+        cpuHold[0] = SfInput()
+        cpuHold[1] = SfInput()
+        cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
         pendingAttacks.clear()
         pendingBonusPower = null
         controlHistory.clear()
@@ -2315,8 +2467,10 @@ class StreetFighterViewModel @Inject constructor(
         koFrame = 0
         hurtFreezeUntilMs = 0L
         endMenuAtMs = 0L
-        cpuNextDecisionMs = 0L
-        cpuHold = SfInput()
+        cpuNextDecisionMs[0] = 0L
+        cpuNextDecisionMs[1] = 0L
+        cpuHold[0] = SfInput()
+        cpuHold[1] = SfInput()
         pendingAttacks.clear()
         pendingBonusPower = null
         controlHistory.clear()
@@ -2329,6 +2483,7 @@ class StreetFighterViewModel @Inject constructor(
         roundEndSent = false
         roundGraceUntilMs = now + ROUND_GRACE_MS
         roundIntroUntilMs = now + ROUND_INTRO_MS
+        // s.copy conserva aiVsAi / cpuDifficulty / arcade*
         _state.value = s.copy(
             player = p0,
             cpu = p1,

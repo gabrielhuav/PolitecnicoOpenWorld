@@ -2,6 +2,8 @@ package ovh.gabrielhuav.pow.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import org.json.JSONArray
+import org.json.JSONObject
 
 // Persistencia del MODO ARCADE de HUELUM VS. GOYA (SF POW). LOCAL, con SharedPreferences,
 // igual que CampaignRepository/SettingsRepository (no hay base de datos ni Firestore: el
@@ -9,10 +11,11 @@ import android.content.SharedPreferences
 // desbloqueado el jugador + hasta qué escalón de la escalera llegó. Diseño DATA-DRIVEN:
 // guarda ids/archivos como texto, así el roster puede crecer sin migraciones.
 //
-// Defaults (arranque limpio): desbloqueados SOLO los 3 estudiantes ESCOMBOY/ESCOMGIRL/ROBOT
-// (el jugador elige uno de ellos) y solo el mapa "Queso IPN" (fondo_IPN_QUESO_1.png). El
-// resto del roster y los mapas se ganan en la escalera; el jefe FINAL es Prankedy y la
-// semifinal Rey Grupero. Ver README for IAS/DISENO_ARCADE_SF_POW.md (decisiones + escalera).
+// 🆕 (2026-07-18) SESIÓN EN CURSO: al pausar/minimizar se guarda un snapshot LIGERO
+// (solo ids + marcador de rondas, un putString) para retomar sin perder progreso.
+// NO se guarda cada frame (evitar lag en gama baja): solo en forcePause / salida.
+//
+// Defaults: 3 estudiantes ESCOM + mapa Queso animado. Ver DISENO_ARCADE_SF_POW.md.
 class SfArcadeRepository(context: Context) {
 
     companion object {
@@ -20,15 +23,32 @@ class SfArcadeRepository(context: Context) {
         private const val KEY_FIGHTERS = "UNLOCKED_FIGHTERS" // StringSet de SfFighterId.name
         private const val KEY_MAPS = "UNLOCKED_MAPS"          // StringSet de nombres de archivo
         private const val KEY_LADDER_STEP = "LADDER_STEP"     // escalón alcanzado (0 = ninguno)
+        private const val KEY_SESSION = "ARCADE_SESSION_JSON" // snapshot pelea en curso (o null)
 
         /** Peleadores desbloqueados de arranque: los 3 estudiantes (el jugador elige uno). */
         val DEFAULT_FIGHTERS = setOf("ESCOMBOY", "ESCOMGIRL", "ROBOT")
         /** Mapa desbloqueado de arranque (primera pelea del arcade). */
-        const val DEFAULT_MAP = "fondo_IPN_QUESO_1.png"
+        const val DEFAULT_MAP = "fondo_queso_ipn_anim.png"
     }
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    /**
+     * Snapshot mínimo de una pelea arcade a medias (para retomar tras salir/minimizar).
+     * Sin bitmaps ni frames: solo strings/ints → write barato, sin lag.
+     */
+    data class ArcadeSession(
+        val playerId: String,
+        val step: Int,
+        val total: Int,
+        val ladderRivals: List<String>, // SfFighterId.name en orden
+        val mapFile: String?,
+        val playerRoundWins: Int,
+        val cpuRoundWins: Int,
+        val difficulty: String,
+        val paused: Boolean = true,
+    )
 
     // ── Peleadores ────────────────────────────────────────────────────────────
 
@@ -75,5 +95,57 @@ class SfArcadeRepository(context: Context) {
     /** Borra TODO el progreso del arcade (vuelve a los defaults). */
     fun reset() {
         prefs.edit().clear().apply()
+    }
+
+    // ── Sesión en curso (pausa / minimizar) ────────────────────────────────────
+
+    /**
+     * Guarda la pelea arcade a medias. Usa apply() (async): no bloquea el hilo UI.
+     * Llamar SOLO desde forcePause / salir — nunca por tick.
+     */
+    fun saveSession(session: ArcadeSession) {
+        val o = JSONObject()
+            .put("playerId", session.playerId)
+            .put("step", session.step)
+            .put("total", session.total)
+            .put("mapFile", session.mapFile)
+            .put("playerRoundWins", session.playerRoundWins)
+            .put("cpuRoundWins", session.cpuRoundWins)
+            .put("difficulty", session.difficulty)
+            .put("paused", session.paused)
+        val arr = JSONArray()
+        session.ladderRivals.forEach { arr.put(it) }
+        o.put("ladderRivals", arr)
+        prefs.edit().putString(KEY_SESSION, o.toString()).apply()
+    }
+
+    /** Lee la sesión en curso; null si no hay o el JSON es inválido. */
+    fun loadSession(): ArcadeSession? {
+        val raw = prefs.getString(KEY_SESSION, null) ?: return null
+        return runCatching {
+            val o = JSONObject(raw)
+            val arr = o.optJSONArray("ladderRivals") ?: JSONArray()
+            val rivals = buildList {
+                for (i in 0 until arr.length()) add(arr.getString(i))
+            }
+            ArcadeSession(
+                playerId = o.getString("playerId"),
+                step = o.getInt("step"),
+                total = o.getInt("total"),
+                ladderRivals = rivals,
+                mapFile = o.optString("mapFile", null).takeIf { it.isNotEmpty() && it != "null" },
+                playerRoundWins = o.optInt("playerRoundWins", 0),
+                cpuRoundWins = o.optInt("cpuRoundWins", 0),
+                difficulty = o.optString("difficulty", "NORMAL"),
+                paused = o.optBoolean("paused", true),
+            )
+        }.getOrNull()
+    }
+
+    fun hasSession(): Boolean = !prefs.getString(KEY_SESSION, null).isNullOrEmpty()
+
+    /** Borra la sesión (al terminar pelea / abandonar / retomar y acabar). */
+    fun clearSession() {
+        prefs.edit().remove(KEY_SESSION).apply()
     }
 }

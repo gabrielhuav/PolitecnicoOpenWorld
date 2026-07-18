@@ -112,20 +112,64 @@ val SF_CLASSIC_THEME = SfTheme(
     musicVolume = 0.3f,
 
     // Fondos POW (IPN/UNAM), elegibles en el selector de mapa; el muelle SF queda de fallback
+    // 🆕 Fondos POW. Los "_anim.png" son ATLAS de frames (con su JSON) generados por
+    // tools/build_map_backgrounds.py: se animan en el draw loop (un solo bitmap, ping-pong
+    // embebido). Los "_1.png" son fotos fijas (escenarios sin video). El loader detecta cuál
+    // es cada uno por el sufijo "_anim". Los 6 originales IPN/UNAM ahora usan su versión
+    // ANIMADA (los antiguos fondo_IPN_*/fondo_UNAM_* quedan sin uso).
     fullBackgrounds = listOf(
-        SfStageBg("fondo_IPN_ESCOM_1.png", "ESCOM"),
-        SfStageBg("fondo_IPN_QUESO_1.png", "Queso IPN"),
-        SfStageBg("fondo_IPN_ESIME_AZC_1.png", "ESIME Azcapotzalco"),
-        SfStageBg("fondo_IPN_cecyt9_1.png", "CECyT 9"),
-        SfStageBg("fondo_IPN_cecyt2_1.png", "CECyT 2"),
-        SfStageBg("fondo_UNAM_bibliotecaCentral_1.png", "Ciudad Universitaria UNAM"),
-        // 🆕 Fondos ANIMADOS (atlas de frames "_anim.png" + JSON, generados por
-        // tools/build_map_backgrounds.py). Se animan en el draw loop (un solo bitmap).
+        // ---- IPN (animados) ----
+        SfStageBg("fondo_escom_anim.png", "ESCOM"),
+        SfStageBg("fondo_escom_noche_1_anim.png", "ESCOM (Noche)"),
+        SfStageBg("fondo_escom_noche_2_anim.png", "ESCOM (Noche 2)"),
+        SfStageBg("fondo_queso_ipn_anim.png", "Queso IPN"),
+        SfStageBg("fondo_queso_ipn_noche_1_anim.png", "Queso IPN (Noche)"),
+        SfStageBg("fondo_queso_ipn_noche_2_anim.png", "Queso IPN (Noche 2)"),
+        SfStageBg("fondo_esime_azc_anim.png", "ESIME Azcapotzalco"),
+        SfStageBg("fondo_esime_azc_noche_1_anim.png", "ESIME Azcapotzalco (Noche)"),
+        SfStageBg("fondo_esime_azc_noche_2_anim.png", "ESIME Azcapotzalco (Noche 2)"),
+        SfStageBg("fondo_cecyt_9_anim.png", "CECyT 9"),
+        SfStageBg("fondo_cecyt_9_noche_1_anim.png", "CECyT 9 (Noche)"),
+        SfStageBg("fondo_cecyt_9_noche_2_anim.png", "CECyT 9 (Noche 2)"),
+        SfStageBg("fondo_cecyt_2_anim.png", "CECyT 2"),
+        SfStageBg("fondo_cecyt_2_noche_1_anim.png", "CECyT 2 (Noche)"),
+        SfStageBg("fondo_cecyt_2_noche_2_anim.png", "CECyT 2 (Noche 2)"),
+        // ---- UNAM (animados) ----
+        SfStageBg("fondo_unam_biblioteca_cu_anim.png", "Ciudad Universitaria UNAM"),
+        SfStageBg("fondo_unam_biblioteca_cu_noche_1_anim.png", "CU UNAM (Noche)"),
+        SfStageBg("fondo_unam_biblioteca_cu_noche_2_anim.png", "CU UNAM (Noche 2)"),
+        SfStageBg("fondo_fes_acatlan_anim.png", "FES Acatlán"),
+        SfStageBg("fondo_fes_acatlan_noche_1_anim.png", "FES Acatlán (Noche)"),
+        SfStageBg("fondo_fes_acatlan_noche_2_anim.png", "FES Acatlán (Noche 2)"),
+        // ---- Otros escenarios (animados) ----
         SfStageBg("fondo_uam_azcapo_anim.png", "UAM Azcapotzalco"),
         SfStageBg("fondo_uam_azcapo_noche_1_anim.png", "UAM Azcapotzalco (Noche)"),
         SfStageBg("fondo_uam_azcapo_noche_2_anim.png", "UAM Azcapotzalco (Noche 2)"),
         SfStageBg("fondo_islamunecas_anim.png", "Isla de las Muñecas"),
         SfStageBg("fondo_islamunecas_noche_1_anim.png", "Isla de las Muñecas (Noche)"),
+        SfStageBg("fondo_islamunecas_noche_2_anim.png", "Isla de las Muñecas (Noche 2)"),
+        SfStageBg("fondo_mictlan_anim.png", "Mictlán"),
+        SfStageBg("fondo_mictlan_noche_1_anim.png", "Mictlán (Noche)"),
+        SfStageBg("fondo_mictlan_noche_2_anim.png", "Mictlán (Noche 2)"),
+        // ---- Antes estáticos: ahora también ANIMADOS (Ken Burns desde foto, tool 2026-07-18) ----
+        SfStageBg("fondo_campos_agave_jalisco_anim.png", "Campos de Agave Jalisco"),
+        SfStageBg("fondo_campos_agave_jalisco_noche_1_anim.png", "Campos de Agave Jalisco (Noche)"),
+        SfStageBg("fondo_campos_agave_jalisco_noche_2_anim.png", "Campos de Agave Jalisco (Noche 2)"),
+        SfStageBg("fondo_facultad_medicina_anim.png", "Facultad de Medicina"),
+        SfStageBg("fondo_facultad_medicina_noche_1_anim.png", "Facultad de Medicina (Noche)"),
+        SfStageBg("fondo_facultad_medicina_noche_2_anim.png", "Facultad de Medicina (Noche 2)"),
+        SfStageBg("fondo_fes_aragon_anim.png", "FES Aragón"),
+        SfStageBg("fondo_fes_aragon_noche_1_anim.png", "FES Aragón (Noche)"),
+        SfStageBg("fondo_fes_aragon_noche_2_anim.png", "FES Aragón (Noche 2)"),
+        SfStageBg("fondo_piramidesol_anim.png", "Pirámide del Sol"),
+        SfStageBg("fondo_piramidesol_noche_1_anim.png", "Pirámide del Sol (Noche)"),
+        SfStageBg("fondo_piramidesol_noche_2_anim.png", "Pirámide del Sol (Noche 2)"),
+        SfStageBg("fondo_uam_cuajimalpa_anim.png", "UAM Cuajimalpa"),
+        SfStageBg("fondo_uam_cuajimalpa_noche_1_anim.png", "UAM Cuajimalpa (Noche)"),
+        SfStageBg("fondo_uam_cuajimalpa_noche_2_anim.png", "UAM Cuajimalpa (Noche 2)"),
+        SfStageBg("fondo_zocalo_anim.png", "Zócalo"),
+        SfStageBg("fondo_zocalo_noche_1_anim.png", "Zócalo (Noche)"),
+        SfStageBg("fondo_zocalo_noche_2_anim.png", "Zócalo (Noche 2)"),
     ),
     stageImage = "kenstage.png",
     stageBackground = listOf(72, 208, 768, 176),

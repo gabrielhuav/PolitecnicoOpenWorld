@@ -1,12 +1,13 @@
 {
-  "frameWidth": 640,
-  "frameHeight": 360,
-  "cols": 5,
+  "frameWidth": 480,
+  "frameHeight": 270,
+  "cols": 4,
   "rows": 7,
-  "frameCount": 34,
+  "frameCount": 28,
   "fps": 12.0,
   "loop": true,
   "pingPong": true,
   "slug": "mictlan_noche_2",
-  "source": "Mictlan Noche 2.mp4"
+  "source": "Mictlan Noche 2.mp4",
+  "maxAtlasSide": 2048
 }

@@ -53,22 +53,36 @@
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
+### Estado vigente (2026-07-18) — LÉEME PRIMERO
+
+> **ES:** El estado del modo pelea y del resto del juego vive en **00–09** (sobre todo
+> **07 §HUELUM VS. GOYA**). Los prompts/checkpoints/pendientes de sesiones pasadas están en
+> **`_ARCHIVO/`** → **NO hace falta leerlos** para retomar trabajo (son histórico).
+> **EN:** Live state is in **00–09** (esp. **07 §HUELUM VS. GOYA**). Past session prompts live
+> under **`_ARCHIVO/`** — **do not read them** to resume work.
+
+**HUELUM VS. GOYA — lo reciente (resumen vivo, detalle en 07):**
+- Modos: ARCADE (default) / PRÁCTICA / **IA VS IA** / MULTIJUGADOR.
+- **Gama baja:** tick ~30 fps, atlas sample 2, selector sin animar todos los cards, CARGANDO
+  al entrar a pelea, **guardado de sesión arcade** al pausar (retomar al reabrir).
+- Fondos: todos `_anim` ≤2048; selector de mapa = thumbs + 1 preview animado.
+- **PRIORIDAD:** reemplazar SFX `hadouken.ogg` (copyright residual). Ken/Ryu fuera del juego.
+- Arcade: escalera + desbloqueos; ver `DISENO_ARCADE_SF_POW.md`.
+
 ### Docs de trabajo / Working docs (no son 00–09)
 
 | Archivo / File | Contenido / Contents |
 |---|---|
-| `GUIA_mantenimiento_no_senior.md` | **(2026-07-04) EMPEZAR AQUÍ si eres una IA/dev nuevo:** las 7 reglas que rompen el juego, flujo de trabajo estándar, chuleta de "dónde vive cada cosa", qué NO hacer sin compilador y cómo pedir compilaciones al dueño. |
-| *(estado actual)* | **Para RETOMAR (2026-07-16):** el estado vigente vive en los docs 00–09 (el modo pelea en **07 §HUELUM VS. GOYA** + `AUDIT_SF_MULTIPLAYER.md`). Los checkpoints de sesiones pasadas están ✅ ejecutados y viven en `_ARCHIVO/`. |
-| `PENDIENTES_SF_2026-07-16.md` | **🆕 PENDIENTES REALES del modo pelea (2026-07-16):** ① IA con dificultad ✅ hecha (falta probar); ② BUG stun-lock online/BT (machacar botón mata sin defensa) con diseño de fix; ③ BUG sincronización de la REVANCHA online; ④ SERVIDOR LOCAL: autodescubrir la sala por UDP + pedir código (no teclear IP). **EMPEZAR AQUÍ la próxima sesión de SF.** |
-| `PROMPT_traspaso_2026-07-17.md` | **🆕 PROMPT para cambiar de cuenta/PC (2026-07-17):** pégalo como primer mensaje en la nueva sesión. Estado actual del modo pelea (arcade, PESADILLA, modo desarrollador, personajes completos salvo Robot) + **TAREA TOP: bug de cambio de TAMAÑO de los peleadores al hacer acciones** (causa raíz + 3 opciones de fix). |
-| `DISENO_ARCADE_SF_POW.md` | **🆕 DISEÑO del modo ARCADE POW (2026-07-16):** quitar copyright (RYU/KEN), TODOS los personajes bloqueados y se desbloquean al derrotarlos en una escalera de dificultad creciente; penúltimo = Paramédico Cruz Roja, final = Rey Grupero (provisional); escalera solo con los 8 bien implementados (ALPHA excluidos). Roster real, cambios por archivo y decisiones pendientes. **Nada implementado aún.** |
-| `CHECKPOINT_SENIOR_refactor.md` | **✅ (2026-07-04) Programa "calidad senior" TERMINADO Y AUDITADO** (tests golden-master → de-dup routing → 6 managers + fachada combine → Hilt → detekt bloqueante → perf auditada). Para futuros refactors: la RECETA del patrón manager vive aquí. |
-| `ASSETS_STREETFIGHTER_MIGRACION.md` | **(2026-07-09)** Modo pelea 1v1: qué assets del clon SF hay que sustituir por assets propios de POW (Prankedy…), formato del JSON de personaje (77 poses), pipeline de empaquetado y prompts para QWEN/ChatGPT. |
-| `AUDIT_SF_MULTIPLAYER.md` | **🆕 (2026-07-11)** Multijugador 1v1 del modo pelea: audit del server `MultiplayerSF/` (QWEN corregido), protocolo completo, decisiones de autoridad, deploy GRATIS en Render y qué probar. |
-| `GUIA_generacion_assets_SF.md` | **(2026-07-10)** Guía MANUAL cuadro-por-cuadro (QWEN no pudo; se harán en ChatGPT): las 17 poses malas de Prankedy, los 13 ataques de cada ALPHA, escenario ESCOM por capas, HUD por piezas, sonidos, prompts y orden de integración. |
-| `NPC_SPRITES_PIPELINE.md` | Cómo recortar sprite sheets de NPCs al ESTÁNDAR (193×249, body 200, fracción 0.803) + cableado (`PlayerSkin`/`AMBIENT_SKINS`/`devOnlySkins`) + gotchas. Script: `tools/slice_npc_standard.py`. Léelo para agregar más docentes/estudiantes/genéricos en otra PC. |
-| `CAMPAIGN/` (carpeta) | **Guion de la campaña (Modo Historia): `00_OVERVIEW.md` (fantasía = simulación de infección zombi + GTA), `01..03_MISSION_N.md` (Misiones 1-3, ✅) y `04_SIDE_MISSIONS.md` (secundarias side1/side2 con recompensa en DINERO). Futuras misiones = `0N_MISSION_N.md`.** |
-| `_ARCHIVO/` (carpeta) | **Docs históricos ✅ EJECUTADOS o SUPERADOS** (los `PLAN_*` del programa senior, `PENDIENTE_calidad`, `ANALISIS_codigo`, `PROMPT_nueva_optimizacion` y los checkpoints viejos). El código los cita por nombre como registro; **NO son tareas pendientes**. Ver su `README.md`. |
+| `GUIA_mantenimiento_no_senior.md` | **EMPEZAR AQUÍ si eres IA/dev nuevo:** 7 reglas, chuleta, qué NO hacer. |
+| `DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |
+| `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
+| `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
+| `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo. |
+| `GUIA_generacion_assets_SF.md` | Guía manual de generación de assets. |
+| `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
+| `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). |
+| `CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
+| `_ARCHIVO/` | **Histórico ✅** (prompts, pendientes viejos, checkpoints). **No leer como tareas.** |
 
 ---
 

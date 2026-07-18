@@ -150,10 +150,18 @@ Los locked salen con candado; el fondo del muelle SF queda de fallback.
 - **Botón menú principal** (`MainMenuScreen.FeaturedStreetFighterButton`): destacado + animado
   (pulso, brillo dorado que barre, borde/sombra que laten), tag `◆ MODO COMBATE ◆`.
 - **Menú de modos POW** al entrar (`SfModeMenuOverlay`): ARCADE (principal) / PRÁCTICA /
-  MULTIJUGADOR. Arcade = SOLO eliges peleador (dificultad FIJA, `startArcade(playerId)` sin base).
+  **IA VS IA** / MULTIJUGADOR. Arcade = SOLO eliges peleador (dificultad FIJA, `startArcade(playerId)` sin base).
 - **Dificultad arcade** (`arcadeDifficulty`, fija): NORMAL peleas 1-7, AVANZADA 8-12, AVANZADA
   jefes (Tzitzímime/Yoalli), PESADILLA final (La Presidenta). `cpuIntensity` con PISO 0.25 (la
   pelea 1 no es trivial) → 1.0 en la final.
+- **🆕 IA VS IA (2026-07-18):** CPU vs CPU a PESADILLA + `cpuIntensity = 1f` para grabar en
+  video. `state.aiVsAi`; IA por índice (`buildCpuInput(..., selfIndex)`); controles táctiles
+  ocultos, solo "Salir". No desbloquea arcade. Solo offline.
+- **🆕 Fondos cap 2048 + thumbs (2026-07-18):** atlas ≤2048 (gama baja), frames ~480×270
+  crop-to-fill, ~28 frames ping-pong, `_thumb.png` ~256 px. Tool `build_map_backgrounds.py`.
+- **🆕 Selector de mapa (`SfStageSelectOverlay.kt`, 2026-07-18b):** preview **estático** en
+  todas las tarjetas; **solo el focused** anima (un frame del atlas, no el filmstrip);
+  confirmar con botón. Lógica separada del Canvas de combate.
 
 ## PENDIENTE — siguiente sesión
 

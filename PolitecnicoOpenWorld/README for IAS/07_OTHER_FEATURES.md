@@ -371,6 +371,45 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   push (blanca), hurt (cian) y hit (rojo) sobre los peleadores — diagnóstico del "cambio de
   tamaño" de los assets (la caja marca dónde debería estar). ⚠️ Al calibrar el fix del
   STUN-LOCK (ver `PENDIENTES_SF_2026-07-16.md` ②) probar también vs AVANZADA (castiga rápido).
+- **🆕 IA VS IA — CPU vs CPU a PESADILLA (2026-07-18):** modo espectáculo/grabación en el
+  menú de modos (`SfModeMenuOverlay` → "IA VS IA"). Eliges **dos peleadores** (roster =
+  `selectableFighters()`; completo con Modo Desarrollador) y arranca
+  `startAiVsAi(a, b)`: `state.aiVsAi = true`, `cpuDifficulty = PESADILLA`,
+  `cpuIntensity = 1f` (máxima, como la final del arcade). La IA se generalizó a
+  `buildCpuInput(now, sim, selfIndex)` con `cpuNextDecisionMs[]`/`cpuHold[]` **por
+  índice** (0 y 1); en VS normal solo corre el índice 1 → comportamiento idéntico al de
+  siempre. En pelea se **ocultan** joystick/botones y solo queda "Salir" al menú
+  (`backToCharacterSelect`). Solo OFFLINE; arcade/práctica/online no cambian.
+  Strings `sf_mode_ai_vs_ai`/`sf_exit`/`sf_ai_vs_ai_pick_*` (ES+EN).
+- **🆕 FONDOS ANIMADOS CAPADOS A 2048 + THUMBS (2026-07-18):**
+  `tools/build_map_backgrounds.py` regenera atlases con **CAP DURO ≤ 2048 px** por lado
+  (GPU de gama baja topan ahí; >2048 no se veían), frames ~480×270 crop-to-fill 16:9,
+  ~28 frames con ping-pong embebido, logo RGBA, y **miniatura**
+  `<archivo>_thumb.png` (~256 px) por mapa. `loadStageBackground` /
+  `drawAnimatedBackground` (combate) no cambian (leen el JSON; un frame por tick).
+- **🆕 SELECTOR DE MAPA CON PREVIEW ANIMADO (2026-07-18b) — lógica SEPARADA:**
+  archivo **`ui/SfStageSelectOverlay.kt`** (fuera del monstruo `StreetFighterScreen.kt`).
+  Flujo: **tocar = focus/preview** → borde dorado → **"Elegir este mapa"** confirma
+  (`onSelect`). Cada tarjeta muestra la **thumb estática**; **solo el focused** con
+  `_anim.png` carga UN atlas submuestreado (`inSampleSize=4`) y pinta **un sub-rect de
+  frame** a la vez (`StageAnimFrameView` + `fps` del JSON) — **nunca** el filmstrip/
+  spreadsheet completo ni 48 atlases a la vez. Estáticos focused = solo thumb + borde.
+  "Al azar" = focus especial → `onSelect(null)`. Strings `sf_stage_tap_preview` /
+  `sf_stage_confirm` (ES+EN).
+- **🆕 GAMA BAJA + GUARDADO DE PELEA (2026-07-18c):**
+  - **`SfDeviceTier`**: LOW si `isLowRamDevice` o ≤2.2 GB. En LOW: tick pelea **~30 fps**
+    (33 ms), atlas de fondo `inSampleSize=2`, fps de fondo ×0.66, **sin** medición de
+    contenido opaco por frame (era un scan al cargar = lag).
+  - **Selector de personaje**: solo anima el **focused** (2.º toque confirma); en LOW
+    **ningún** card anima (1 frame idle). Hojas de pelea **no** se decodifican en el
+    selector (solo al pelear).
+  - **CARGANDO**: overlay con fuente POW (`sf_hud_pow` letterFont) mientras se decodifica
+    el atlas al entrar a pelea.
+  - **Guardar/pausar arcade**: `SfArcadeRepository.saveSession` (JSON mínimo ids+rondas)
+    en `forcePause`/salir — **no** cada tick. Al reabrir: diálogo CONTINUAR / Nueva partida
+    (`resumeArcadeSession` / `discardArcadeSession`).
+  - **PRIORIDAD copyright:** sustituir **`hadouken.ogg`** (+ golpes legacy) por SFX propios;
+    Ken/Ryu ya NO están en el enum (solo restos de comentario/debug assets).
 - **🆕 MODO ARCADE POW — escalera de 11 peleas (2026-07-17):** botón **ARCADE** en el selector.
   El jugador elige uno de los 3 estudiantes DESBLOQUEADOS (ESCOMBOY/ESCOMGIRL/ROBOT) + dificultad
   base; pelea una escalera FIJA (`SfArcadeLadder.build`): 1-2 los otros 2 estudiantes (azar), 3-5

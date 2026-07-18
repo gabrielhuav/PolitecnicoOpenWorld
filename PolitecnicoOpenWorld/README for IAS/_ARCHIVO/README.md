@@ -17,6 +17,9 @@
 | `CHECKPOINT_2026-07-04_siguiente_sesion.md` | Checkpoint sesión M2/M3 + selector de misiones | Sus 4 tareas ✅ hechas; detalle vive en docs 00–09 y CAMPAIGN |
 | `CHECKPOINT_2026-07-08_siguiente_sesion.md` | Checkpoint fase 1 M2 en el lobby + vida universitaria | Superado por `CHECKPOINT_2026-07-11_sesion_QA.md` |
 | `CHECKPOINT_2026-07-11_sesion_QA.md` | QA Misiones 2/3 + fixes SF + cómics M2→M3 | ✅ Ejecutado (compilado y committeado); el estado vigente vive en 07 + `../AUDIT_SF_MULTIPLAYER.md` |
+| `PENDIENTES_SF_2026-07-16.md` | Pendientes SF de media sesión (IA ✅, stun-lock, revancha, LAN UDP) | Superado / parcialmente hecho; estado vivo en **07** |
+| `PROMPT_traspaso_2026-07-17.md` | Prompt de traspaso PC (arcade + bug tamaño) | Histórico; retomar con **00_INDEX + 07** |
+| `PROMPT_nueva_sesion_claude.md` | Prompt genérico de sesión Claude | Histórico; usar prompt de reuso en `00_INDEX` |
 
-*(La receta viva del patrón manager/refactor sigue en `../CHECKPOINT_SENIOR_refactor.md`, que NO
-está archivado a propósito.)*
+*(La receta viva del patrón manager/refactor sigue en `../CHECKPOINT_SENIOR_refactor.md`.
+El estado del modo pelea se actualiza en **07 §HUELUM VS. GOYA**, no aquí.)*

@@ -641,8 +641,23 @@
     <string name="sf_mode_arcade">ARCADE</string>
     <string name="sf_mode_arcade_desc">Campaign: beat everyone and unlock fighters</string>
     <string name="sf_mode_practice">PRACTICE</string>
+    <string name="sf_mode_ai_vs_ai">AI VS AI</string>
+    <string name="sf_mode_ai_vs_ai_desc">CPU vs CPU at NIGHTMARE difficulty (for recording)</string>
+    <string name="sf_ai_vs_ai_pick_a">Pick fighter 1 (AI)</string>
+    <string name="sf_ai_vs_ai_pick_b">Pick fighter 2 (AI)</string>
+    <string name="sf_exit">Exit</string>
     <string name="sf_mode_multiplayer">MULTIPLAYER</string>
     <string name="sf_other_modes">↕ Other modes</string>
+    <!-- Stage picker: preview (tap) + confirm -->
+    <string name="sf_stage_tap_preview">Tap a stage to preview · only the selected one animates</string>
+    <string name="sf_stage_confirm">Choose this stage</string>
+    <string name="sf_loading">LOADING</string>
+    <string name="sf_loading_sub">Preparing fight…</string>
+    <string name="sf_resume_title">Resume fight</string>
+    <string name="sf_resume_message">You have an unfinished arcade fight. Resume where you left off?</string>
+    <string name="sf_resume_yes">CONTINUE</string>
+    <string name="sf_resume_no">New game</string>
+    <string name="sf_fighter_tap_hint">Tap to focus · tap again to choose</string>
 
     <!-- Controls tutorial (optional, i18n 2026-07-11) -->
     <string name="tutorial_prompt_title">Controls tutorial</string>

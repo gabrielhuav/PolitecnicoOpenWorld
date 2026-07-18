@@ -643,8 +643,23 @@
     <string name="sf_mode_arcade">ARCADE</string>
     <string name="sf_mode_arcade_desc">Campaña: derrota a todos y desbloquea peleadores</string>
     <string name="sf_mode_practice">PRÁCTICA</string>
+    <string name="sf_mode_ai_vs_ai">IA VS IA</string>
+    <string name="sf_mode_ai_vs_ai_desc">CPU vs CPU a dificultad PESADILLA (para grabar)</string>
+    <string name="sf_ai_vs_ai_pick_a">Elige al peleador 1 (IA)</string>
+    <string name="sf_ai_vs_ai_pick_b">Elige al peleador 2 (IA)</string>
+    <string name="sf_exit">Salir</string>
     <string name="sf_mode_multiplayer">MULTIJUGADOR</string>
     <string name="sf_other_modes">↕ Otros modos</string>
+    <!-- Selector de mapa: preview (toca) + confirmar -->
+    <string name="sf_stage_tap_preview">Toca un mapa para previsualizar · animado solo el seleccionado</string>
+    <string name="sf_stage_confirm">Elegir este mapa</string>
+    <string name="sf_loading">CARGANDO</string>
+    <string name="sf_loading_sub">Preparando pelea…</string>
+    <string name="sf_resume_title">Continuar pelea</string>
+    <string name="sf_resume_message">Hay una pelea de arcade a medias. ¿Quieres retomar donde la dejaste?</string>
+    <string name="sf_resume_yes">CONTINUAR</string>
+    <string name="sf_resume_no">Nueva partida</string>
+    <string name="sf_fighter_tap_hint">Toca para enfocar · otra vez para elegir</string>
 
     <!-- Tutorial de controles (optativo, i18n 2026-07-11) -->
     <string name="tutorial_prompt_title">Tutorial de controles</string>

@@ -23,8 +23,10 @@ import kotlin.random.Random
  */
 object SfArcadeLadder {
 
-    const val MAP_FIRST = "fondo_IPN_QUESO_1.png"                 // Queso IPN (escalón 1)
-    const val MAP_FINAL = "fondo_UNAM_bibliotecaCentral_1.png"    // "Ciudad Universitaria UNAM" (final)
+    // 🆕 (2026-07-18) Mapas ANIMADOS (atlas ≤2048). Los viejos fondo_IPN_*/fondo_UNAM_*
+    // estáticos ya no se usan en pelea (GPU de gama baja + falta de animación).
+    const val MAP_FIRST = "fondo_queso_ipn_anim.png"              // Queso IPN (escalón 1)
+    const val MAP_FINAL = "fondo_unam_biblioteca_cu_anim.png"     // CU UNAM (final)
 
     /** Los 3 estudiantes desbloqueados de arranque; el jugador elige uno (NO son enemigos). */
     val STARTERS = listOf(SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT)

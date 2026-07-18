@@ -20,6 +20,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -77,6 +78,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfBox
@@ -89,6 +91,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterData
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButton
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PowButton
@@ -131,19 +134,47 @@ fun StreetFighterScreen(
     // ---- Bitmaps del tema + sheets de los peleadores ACTUALES (decodificados una vez) ----
     val playerId = state.player.id
     val cpuId = state.cpu.id
-    val images = remember(theme, playerId, cpuId) {
+    // 🆕 Hojas pesadas SOLO en pelea (no en selector → menos RAM/lag al abrir el modo).
+    // En selector solo se usan thumbs de region-decoder por card.
+    val images = remember(theme, playerId, cpuId, state.inCharacterSelect) {
         val m = theme.imageFiles.associateWith { name ->
-            context.assets.open(theme.imagesDir + name).use { BitmapFactory.decodeStream(it) }.asImageBitmap()
-        }.toMutableMap()
-        // Hojas de los peleadores: EMPAQUETADAS (Ryu/Ken/Prankedy) o COMPARTIDAS con el mundo
-        // (armadas en runtime desde SPRITES/* por SfSharedSheets); key = nombre del spriteAsset
-        listOf(playerId, cpuId).distinct().forEach { id ->
-            m[id.spriteAsset.substringAfterLast('/')] = SfSharedSheets.sheetFor(context, id).asImageBitmap()
+            // HUD/sombra: siempre; kenstage puede faltar
+            val opts = BitmapFactory.Options().apply {
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+            runCatching {
+                context.assets.open(theme.imagesDir + name).use {
+                    BitmapFactory.decodeStream(it, null, opts)
+                }?.asImageBitmap()
+            }.getOrNull()
+        }.filterValues { it != null }.mapValues { it.value!! }.toMutableMap()
+        if (!state.inCharacterSelect) {
+            listOf(playerId, cpuId).distinct().forEach { id ->
+                m[id.spriteAsset.substringAfterLast('/')] =
+                    SfSharedSheets.sheetFor(context, id).asImageBitmap()
+            }
         }
         m
     }
     val playerData = remember(playerId) { SfFrameCatalog.load(context, playerId) }
     val cpuData = remember(cpuId) { SfFrameCatalog.load(context, cpuId) }
+    val lowEnd = remember { viewModel.isLowEndDevice() }
+    // 🆕 Alturas de CONTENIDO opaco: en GAMA BAJA se OMITEN (scan caro de cada frame del
+    // sheet al entrar a pelea → lag de carga). En media/alta se miden para forzar tamaño.
+    val playerContentH = remember(playerId, images, lowEnd) {
+        if (lowEnd) emptyMap()
+        else {
+            val sheet = images[playerId.spriteAsset.substringAfterLast('/')]
+            if (sheet != null) measureFrameContentHeights(sheet, playerData.frames) else emptyMap()
+        }
+    }
+    val cpuContentH = remember(cpuId, images, lowEnd) {
+        if (lowEnd) emptyMap()
+        else {
+            val sheet = images[cpuId.spriteAsset.substringAfterLast('/')]
+            if (sheet != null) measureFrameContentHeights(sheet, cpuData.frames) else emptyMap()
+        }
+    }
 
     // ---- Selección offline en 4 pasos: PELEADOR → RIVAL → DIFICULTAD → MAPA ----
     var pendingFighter by remember { mutableStateOf<SfFighterId?>(null) }
@@ -160,10 +191,23 @@ fun StreetFighterScreen(
         state.onlineStatus != SfOnlineStatus.OFF && state.onlineMapFile != null -> state.onlineMapFile
         else -> chosenBgFile
     }
-    // Fondo del combate: estático (foto) o ANIMADO (atlas "_anim.png" + JSON). Se decodifica
-    // UNA vez al cambiar de mapa (remember por archivo); RGB_565 para bajar RAM.
-    val stageBg = remember(effectiveBgFile) {
-        effectiveBgFile?.let { loadStageBackground(context, theme.imagesDir, it) }
+    // Fondo del combate: ANIMADO (atlas) o estático. RGB_565; en gama baja inSampleSize=2.
+    // Carga en IO + overlay CARGANDO (evita freeze de UI al decodificar ~6 MB de atlas).
+    var assetsLoading by remember { mutableStateOf(false) }
+    var stageBg by remember { mutableStateOf<SfStageBackground?>(null) }
+    LaunchedEffect(effectiveBgFile, state.inCharacterSelect, lowEnd) {
+        if (state.inCharacterSelect) {
+            stageBg = null
+            assetsLoading = false
+            return@LaunchedEffect
+        }
+        assetsLoading = true
+        stageBg = withContext(kotlinx.coroutines.Dispatchers.IO) {
+            effectiveBgFile?.let {
+                loadStageBackground(context, theme.imagesDir, it, lowEnd = lowEnd)
+            }
+        }
+        assetsLoading = false
     }
 
     // ---- Sonidos del tema (SoundPool efectos + MediaPlayer música) ----
@@ -206,9 +250,8 @@ fun StreetFighterScreen(
         }
     }
 
-    // PAUSA AUTOMÁTICA al bloquear el celular / minimizar la app: el juego queda en
-    // PAUSA (overlay con "Continuar") y la música se silencia; al volver, la música
-    // regresa pero la pelea sigue pausada hasta que el jugador continúe.
+    // PAUSA AUTOMÁTICA al bloquear el celular / minimizar: pausa + guarda sesión arcade
+    // (forcePause → putString async, sin lag). Al volver, música reanuda; pelea sigue en PAUSA.
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -227,6 +270,9 @@ fun StreetFighterScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // 🆕 Retomar pelea arcade a medias (si saliste / minimizaste)
+    var showResumeDialog by remember { mutableStateOf(viewModel.hasArcadeSession()) }
+
     // Textos del banner de RONDA (i18n; la fuente arcade solo tiene A-Z/0-9)
     val roundBannerText = stringResource(R.string.sf_round_banner, state.roundNumber)
     val fightBannerText = stringResource(R.string.sf_fight_banner)
@@ -235,12 +281,24 @@ fun StreetFighterScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ---- Escena completa (mundo + HUD) en un Canvas ----
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawScene(theme, state, images, playerData, cpuData, stageBg, roundBannerText, fightBannerText, showHitboxes)
+        // En selector no hace falta el Canvas de pelea (ahorra GPU en gama baja).
+        if (!state.inCharacterSelect) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawScene(
+                    theme, state, images, playerData, cpuData, stageBg,
+                    roundBannerText, fightBannerText, showHitboxes,
+                    playerContentH, cpuContentH,
+                )
+            }
+        }
+        // 🆕 Pantalla CARGANDO (fuente POW del HUD) mientras se decodifican atlas/hojas
+        if (!state.inCharacterSelect && (assetsLoading || stageBg == null && effectiveBgFile != null)) {
+            SfLoadingOverlay(theme = theme)
         }
 
-        // ---- Controles de POW: joystick + diamante Xbox (ocultos durante la selección) ----
-        if (!state.inCharacterSelect) {
+        // ---- Controles de POW: joystick + diamante Xbox (ocultos en selección y en IA vs IA) ----
+        // IA vs IA: ambos los controla la CPU → solo botón "Salir" al menú (sin joystick/botones).
+        if (!state.inCharacterSelect && !state.aiVsAi) {
             JoystickController(
                 modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
                 onMove = viewModel::onJoystickMove,
@@ -272,15 +330,33 @@ fun StreetFighterScreen(
                 )
             }
         }
+        // IA vs IA: botón "Salir" al menú de modos (sin controles táctiles de pelea)
+        if (!state.inCharacterSelect && state.aiVsAi && !state.showEndMenu) {
+            PowButton(
+                text = stringResource(R.string.sf_exit),
+                onClick = viewModel::backToCharacterSelect,
+                color = Color(0xFF8B1538),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+                    .fillMaxWidth(0.36f),
+            )
+        }
 
         // ---- Selección pre-pelea: paso 1 PELEADOR, paso 2 MAPA (offline y online) ----
         var showOnlineMenu by remember { mutableStateOf(false) }
         // 🆕 ARCADE es el modo POR DEFECTO al entrar (se ven los personajes, más llamativo).
         var arcadeSetup by remember { mutableStateOf(true) }
-        // Menú de MODOS (PRÁCTICA/MULTIJUGADOR) = SECUNDARIO, se abre con "Otros modos".
+        // Menú de MODOS (PRÁCTICA / IA VS IA / MULTIJUGADOR) = SECUNDARIO, se abre con "Otros modos".
         var sfMenu by remember { mutableStateOf(false) }
+        // 🆕 Flujo IA vs IA: elige peleador A → peleaador B → startAiVsAi (PESADILLA, sin mapa).
+        var aiVsAiSetup by remember { mutableStateOf(false) }
         LaunchedEffect(state.inCharacterSelect) {
-            if (state.inCharacterSelect) { arcadeSetup = true; sfMenu = false }
+            if (state.inCharacterSelect) {
+                arcadeSetup = true
+                sfMenu = false
+                aiVsAiSetup = false
+            }
         }
         if (state.inCharacterSelect) {
             when (state.onlineStatus) {
@@ -335,6 +411,7 @@ fun StreetFighterScreen(
                     lockedFighters = viewModel.lockedFighters(),
                     subtitle = stringResource(R.string.sf_mp_pick_sub, state.roomCode ?: ""),
                     onSelect = viewModel::selectCharacter,
+                    lowEnd = lowEnd,
                 )
                 SfOnlineStatus.WAITING_MAP -> if (state.isHost) {
                     StageSelectOverlay(
@@ -342,6 +419,7 @@ fun StreetFighterScreen(
                         unlockedMaps = if (viewModel.devUnlockAll()) null else viewModel.unlockedMaps(),
                         onSelect = viewModel::chooseMapOnline,
                         onBack = null,
+                        lowEnd = lowEnd,
                     )
                 } else {
                     OnlineInfoOverlay(
@@ -356,10 +434,18 @@ fun StreetFighterScreen(
                     val rival = pendingRival
                     val difficulty = pendingDifficulty
                     when {
-                        // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, MULTIJUGADOR
+                        // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, IA VS IA, MULTIJUGADOR
                         sfMenu -> SfModeMenuOverlay(
-                            onArcade = { sfMenu = false; arcadeSetup = true },
-                            onPractice = { sfMenu = false },
+                            onArcade = { sfMenu = false; arcadeSetup = true; aiVsAiSetup = false },
+                            onPractice = { sfMenu = false; aiVsAiSetup = false },
+                            onAiVsAi = {
+                                sfMenu = false
+                                arcadeSetup = false
+                                aiVsAiSetup = true
+                                pendingFighter = null
+                                pendingRival = null
+                                pendingDifficulty = null
+                            },
                             onMultiplayer = { showOnlineMenu = true },
                             onBack = onExitToMap,
                         )
@@ -371,6 +457,35 @@ fun StreetFighterScreen(
                             onSelect = { viewModel.startArcade(it) },
                             onBack = { arcadeSetup = false; sfMenu = true },
                             backText = stringResource(R.string.sf_other_modes),
+                            lowEnd = lowEnd,
+                        )
+                        // 🆕 IA VS IA: dos peleadores (CPU vs CPU a PESADILLA) → startAiVsAi
+                        // Roster = selectableFighters() (completo si Modo Desarrollador activo).
+                        aiVsAiSetup && fighter == null -> CharacterSelectOverlay(
+                            fighters = viewModel.selectableFighters(),
+                            lockedFighters = viewModel.lockedFighters(),
+                            subtitle = stringResource(R.string.sf_ai_vs_ai_pick_a),
+                            onSelect = { pendingFighter = it },
+                            onBack = { aiVsAiSetup = false; sfMenu = true },
+                            lowEnd = lowEnd,
+                        )
+                        aiVsAiSetup && rival == null -> CharacterSelectOverlay(
+                            fighters = viewModel.selectableFighters(),
+                            lockedFighters = viewModel.lockedFighters(),
+                            subtitle = stringResource(R.string.sf_ai_vs_ai_pick_b),
+                            onSelect = { b ->
+                                val a = fighter!!
+                                // Fondo al azar entre los disponibles (no hay paso de mapa)
+                                if (chosenBgFile == null) {
+                                    chosenBgFile = theme.fullBackgrounds.randomOrNull()?.file
+                                }
+                                viewModel.startAiVsAi(a, b)
+                                pendingFighter = null
+                                pendingRival = null
+                                aiVsAiSetup = false
+                            },
+                            onBack = { pendingFighter = null },
+                            lowEnd = lowEnd,
                         )
                         // PRÁCTICA (versus): peleador → RIVAL → DIFICULTAD → mapa
                         fighter == null -> CharacterSelectOverlay(
@@ -379,6 +494,7 @@ fun StreetFighterScreen(
                             subtitle = state.onlineError,
                             onSelect = { pendingFighter = it },
                             onBack = { sfMenu = true },
+                            lowEnd = lowEnd,
                         )
                         rival == null -> CharacterSelectOverlay(
                             fighters = viewModel.selectableFighters(),
@@ -386,6 +502,7 @@ fun StreetFighterScreen(
                             subtitle = stringResource(R.string.sf_choose_rival),
                             onSelect = { pendingRival = it },
                             onBack = { pendingFighter = null },
+                            lowEnd = lowEnd,
                         )
                         difficulty == null -> DifficultySelectOverlay(
                             onSelect = { pendingDifficulty = it },
@@ -399,6 +516,7 @@ fun StreetFighterScreen(
                                 viewModel.selectCharacter(fighter, rival, difficulty)
                             },
                             onBack = { pendingFighter = null; pendingRival = null; pendingDifficulty = null },
+                            lowEnd = lowEnd,
                         )
                     }
                 }
@@ -635,6 +753,33 @@ fun StreetFighterScreen(
             }
         }
 
+        // 🆕 Retomar pelea arcade guardada (tras minimizar / salir a medias)
+        if (showResumeDialog && state.inCharacterSelect) {
+            AlertDialog(
+                onDismissRequest = {
+                    viewModel.discardArcadeSession()
+                    showResumeDialog = false
+                },
+                containerColor = Color(0xFF1A1016),
+                titleContentColor = Color.White,
+                textContentColor = Color.White.copy(alpha = 0.8f),
+                title = { Text(stringResource(R.string.sf_resume_title)) },
+                text = { Text(stringResource(R.string.sf_resume_message)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        if (viewModel.resumeArcadeSession()) showResumeDialog = false
+                        else showResumeDialog = false
+                    }) { Text(stringResource(R.string.sf_resume_yes), color = Color(0xFFD4AF37)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        viewModel.discardArcadeSession()
+                        showResumeDialog = false
+                    }) { Text(stringResource(R.string.sf_resume_no), color = Color.White.copy(alpha = 0.7f)) }
+                },
+            )
+        }
+
         // Diálogo de salida
         if (state.showExitDialog) {
             // Diálogo alineado al tema vino/dorado del modo (no el M3 default)
@@ -645,7 +790,13 @@ fun StreetFighterScreen(
                 textContentColor = Color.White.copy(alpha = 0.8f),
                 title = { Text(stringResource(R.string.sf_exit_title)) },
                 text = { Text(stringResource(R.string.sf_exit_message)) },
-                confirmButton = { TextButton(onClick = onExitToMap) { Text(stringResource(R.string.sf_exit_confirm), color = Color(0xFFD4AF37)) } },
+                confirmButton = {
+                    // Al salir a menú con arcade activo, forcePause ya guardó; aquí re-guarda por si acaso
+                    TextButton(onClick = {
+                        viewModel.forcePause()
+                        onExitToMap()
+                    }) { Text(stringResource(R.string.sf_exit_confirm), color = Color(0xFFD4AF37)) }
+                },
                 dismissButton = { TextButton(onClick = viewModel::dismissExitDialog) { Text(stringResource(R.string.sf_keep_fighting), color = Color.White.copy(alpha = 0.7f)) } },
             )
         }
@@ -661,6 +812,7 @@ fun StreetFighterScreen(
 private fun SfModeMenuOverlay(
     onArcade: () -> Unit,
     onPractice: () -> Unit,
+    onAiVsAi: () -> Unit,
     onMultiplayer: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -704,6 +856,21 @@ private fun SfModeMenuOverlay(
                 modifier = Modifier.fillMaxWidth(0.68f),
             )
             Spacer(modifier = Modifier.height(8.dp))
+            // 🆕 IA VS IA (CPU vs CPU a PESADILLA; para grabar en video)
+            PowButton(
+                text = stringResource(R.string.sf_mode_ai_vs_ai),
+                onClick = onAiVsAi,
+                color = Color(0xFF4A148C),
+                modifier = Modifier.fillMaxWidth(0.68f),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.sf_mode_ai_vs_ai_desc),
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             PowButton(
                 text = stringResource(R.string.sf_mode_multiplayer),
                 onClick = onMultiplayer,
@@ -735,7 +902,11 @@ private fun CharacterSelectOverlay(
     onArcade: (() -> Unit)? = null,                  // 🆕 abre el flujo de ARCADE
     onBack: (() -> Unit)? = null,                    // 🆕 volver (p. ej. salir del setup de arcade)
     backText: String? = null,                        // 🆕 etiqueta del botón volver (default "← Volver")
+    /** Gama baja: previews siempre estáticos (sin animar ningún card). */
+    lowEnd: Boolean = false,
 ) {
+    // 🆕 Solo el focused anima (y solo si NO es gama baja). 2.º toque confirma.
+    var focusedId by remember(fighters) { mutableStateOf(fighters.firstOrNull()) }
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
         contentAlignment = Alignment.Center,
@@ -757,11 +928,19 @@ private fun CharacterSelectOverlay(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 fighters.forEach { id ->
-                    CharacterCard(id = id, onSelect = onSelect)
+                    CharacterCard(
+                        id = id,
+                        selected = id == focusedId,
+                        animate = !lowEnd && id == focusedId,
+                        onSelect = {
+                            if (lowEnd || id == focusedId) onSelect(id)
+                            else focusedId = id
+                        },
+                    )
                 }
-                // Bloqueados: se ven pero con candado 🔒 (motivan a seguir jugando el arcade)
+                // Bloqueados: estáticos (nunca animar)
                 lockedFighters.forEach { id ->
-                    CharacterCard(id = id, onSelect = {}, locked = true)
+                    CharacterCard(id = id, onSelect = {}, locked = true, animate = false, selected = false)
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
@@ -1363,15 +1542,23 @@ private fun pixelateBitmap(src: ImageBitmap, targetW: Int): ImageBitmap {
 }
 
 @Composable
-private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit, locked: Boolean = false) {
-    val preview = rememberAnimatedFighterPreview(id)
-    // 🆕 BLOQUEADO: no debes saber quién es. Misma animación pero PIXELADA (baja resolución) y
-    // repintada en NEGRO (silueta) → shape se mueve pero no se distingue el personaje.
+private fun CharacterCard(
+    id: SfFighterId,
+    onSelect: (SfFighterId) -> Unit,
+    locked: Boolean = false,
+    /** true = animar idle+walk; false = un solo frame estático (default en gama baja). */
+    animate: Boolean = false,
+    selected: Boolean = false,
+) {
+    val preview = rememberFighterPreview(id, animate = animate && !locked)
+    // 🆕 BLOQUEADO: silueta pixelada negra (siempre estática).
     val shown = if (locked && preview != null) remember(preview) { pixelateBitmap(preview, 12) } else preview
+    val shape = RoundedCornerShape(10.dp)
     Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(shape)
             .background(Color(0xFF23233A))
+            .then(if (selected && !locked) Modifier.border(2.dp, Color(0xFFD4AF37), shape) else Modifier)
             .clickable(enabled = !locked) { onSelect(id) }
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1424,117 +1611,12 @@ private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit, lock
     }
 }
 
-// ------------------------------------------------------------------
-// Selector de MAPA (paso 2): miniaturas de los fondos POW + "Al azar".
-// Las miniaturas se decodifican submuestreadas (inSampleSize=8, ~248×110)
-// para no cargar los 6 fondos completos (RAM de gama baja, ver 09 §6).
-// ------------------------------------------------------------------
-
-@Composable
-private fun StageSelectOverlay(
-    theme: SfTheme,
-    onSelect: (String?) -> Unit,   // null = al azar
-    onBack: (() -> Unit)?,         // null (online): sin "cambiar peleador", ya se avisó al rival
-    unlockedMaps: Set<String>? = null, // 🆕 null = todos disponibles; si no, los demás salen con 🔒
-) {
-    val context = LocalContext.current
-    Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = stringResource(R.string.sf_choose_stage),
-                color = Color(0xFFD4AF37),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 3.sp,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                theme.fullBackgrounds.forEach { bg ->
-                    val thumb = remember(bg.file) {
-                        runCatching {
-                            val opts = BitmapFactory.Options().apply { inSampleSize = 8 }
-                            context.assets.open(theme.imagesDir + bg.file).use {
-                                BitmapFactory.decodeStream(it, null, opts)
-                            }?.asImageBitmap()
-                        }.getOrNull()
-                    }
-                    val locked = unlockedMaps != null && bg.file !in unlockedMaps
-                    StageCard(name = bg.name, thumb = thumb, locked = locked) {
-                        if (!locked) onSelect(bg.file)
-                    }
-                }
-                StageCard(name = stringResource(R.string.sf_random), thumb = null, emoji = "🎲") { onSelect(null) }
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            if (onBack != null) TextButton(onClick = onBack) {
-                Text(stringResource(R.string.sf_change_fighter), color = Color(0xFFD4AF37))
-            }
-        }
-    }
-}
-
-@Composable
-private fun StageCard(
-    name: String,
-    thumb: ImageBitmap?,
-    emoji: String? = null,
-    locked: Boolean = false,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF23233A))
-            .clickable(enabled = !locked) { onClick() }
-            .padding(8.dp)
-            .alpha(if (locked) 0.45f else 1f),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier = Modifier.width(132.dp).height(66.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF11111C)),
-            contentAlignment = Alignment.Center,
-        ) {
-            when {
-                thumb != null -> Image(
-                    bitmap = thumb,
-                    contentDescription = name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-                emoji != null -> Text(emoji, fontSize = 30.sp)
-                else -> Text("?", color = Color.White, fontSize = 24.sp)
-            }
-            // 🆕 Candado del ARCADE en la esquina superior del mapa bloqueado
-            if (locked) {
-                Text(
-                    text = "🔒",
-                    fontSize = 24.sp,
-                    modifier = Modifier.align(Alignment.TopStart).padding(2.dp),
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = name,
-            color = Color.White,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            modifier = Modifier.width(132.dp),
-        )
-    }
-}
+// Selector de MAPA: vive en SfStageSelectOverlay.kt (miniatura estática + preview animado
+// SOLO del focused, un frame a la vez; confirmación explícita). No mezclar con el draw loop.
 
 /**
- * Preview animado del selector. Para sheets dedicados recorta solo las regiones de Idle
- * (nunca decodifica la hoja completa); los compartidos usan el Idle completo del mundo.
+ * Preview animado del selector de PERSONAJE. Para sheets dedicados recorta solo las regiones
+ * de Idle (nunca decodifica la hoja completa); los compartidos usan el Idle del mundo.
  */
 private data class FighterPreviewAnimation(
     val frames: List<ImageBitmap>,
@@ -1546,16 +1628,25 @@ private const val PREVIEW_SLOWDOWN = 1.8f  // factor sobre los delays del JSON (
 private const val PREVIEW_MIN_MS = 95L     // mínimo por frame
 private const val PREVIEW_SHARED_MS = 170L // frame fijo para peleadores compartidos (runtime)
 
+/**
+ * Preview del selector de personaje.
+ * - animate=false (default / no focused / gama baja): 1 frame IDLE estático (barato).
+ * - animate=true (solo el focused en media/alta): idle+walk en loop.
+ * Nunca decodifica la hoja completa: BitmapRegionDecoder o previewFramesFor.
+ */
 @Composable
-private fun rememberAnimatedFighterPreview(id: SfFighterId): ImageBitmap? {
+private fun rememberFighterPreview(id: SfFighterId, animate: Boolean): ImageBitmap? {
     val context = LocalContext.current
-    val animation = remember(id) {
+    val animation = remember(id, animate) {
         runCatching {
             val shared = id.sharedSet
             if (shared != null) {
-                // Compartidos (runtime): más lento que antes (170 ms/frame) para que no "vibre".
-                val frames = SfSharedSheets.previewFramesFor(context, shared)
-                    .map { trimTransparent(it).asImageBitmap() }
+                val raw = SfSharedSheets.previewFramesFor(context, shared)
+                val frames = if (animate) {
+                    raw.map { trimTransparent(it).asImageBitmap() }
+                } else {
+                    listOfNotNull(raw.firstOrNull()?.let { trimTransparent(it).asImageBitmap() })
+                }
                 FighterPreviewAnimation(frames, List(frames.size) { PREVIEW_SHARED_MS })
             } else {
                 val data = SfFrameCatalog.load(context, id)
@@ -1564,10 +1655,8 @@ private fun rememberAnimatedFighterPreview(id: SfFighterId): ImageBitmap? {
                     BitmapRegionDecoder.newInstance(ins, false)
                 } ?: return@runCatching null
                 try {
-                    // 🆕 Preview = IDLE + CAMINAR (walkForwards) como COMPLEMENTO (idle no se quita),
-                    // y MÁS LENTO (factor + mínimo por frame) para que no se mueva tan rápido.
-                    fun decodeState(stateKey: String): Pair<List<ImageBitmap>, List<Long>> {
-                        val steps = data.animations[stateKey].orEmpty().filter { it.delay > 0 }
+                    fun decodeState(stateKey: String, maxFrames: Int = Int.MAX_VALUE): Pair<List<ImageBitmap>, List<Long>> {
+                        val steps = data.animations[stateKey].orEmpty().filter { it.delay > 0 }.take(maxFrames)
                         val fr = steps.mapNotNull { step ->
                             val src = data.frames[step.frameKey]?.src ?: return@mapNotNull null
                             decoder.decodeRegion(
@@ -1581,20 +1670,27 @@ private fun rememberAnimatedFighterPreview(id: SfFighterId): ImageBitmap? {
                         }
                         return fr to dl
                     }
-                    val (idleF, idleD) = decodeState(SfFighterState.IDLE.jsKey)
-                    val (walkF, walkD) = decodeState(SfFighterState.WALK_FORWARD.jsKey)
-                    FighterPreviewAnimation(idleF + walkF, idleD + walkD)
+                    if (!animate) {
+                        // Solo 1 frame idle (estático)
+                        val (idleF, idleD) = decodeState(SfFighterState.IDLE.jsKey, maxFrames = 1)
+                        FighterPreviewAnimation(idleF, idleD.ifEmpty { listOf(PREVIEW_MIN_MS) })
+                    } else {
+                        val (idleF, idleD) = decodeState(SfFighterState.IDLE.jsKey)
+                        val (walkF, walkD) = decodeState(SfFighterState.WALK_FORWARD.jsKey)
+                        FighterPreviewAnimation(idleF + walkF, idleD + walkD)
+                    }
                 } finally {
                     decoder.recycle()
                 }
             }
         }.getOrNull()?.takeIf { it.frames.isNotEmpty() }
     }
-    var frameIndex by remember(id, animation) { mutableStateOf(0) }
-    LaunchedEffect(id, animation) {
+    var frameIndex by remember(id, animation, animate) { mutableStateOf(0) }
+    LaunchedEffect(id, animation, animate) {
         frameIndex = 0
         val anim = animation ?: return@LaunchedEffect
-        while (anim.frames.size > 1) {
+        if (!animate || anim.frames.size <= 1) return@LaunchedEffect
+        while (true) {
             delay(anim.delaysMs.getOrElse(frameIndex) { 100L })
             frameIndex = (frameIndex + 1) % anim.frames.size
         }
@@ -1698,6 +1794,8 @@ private fun DrawScope.drawScene(
     roundBannerText: String,
     fightBannerText: String,
     showHitboxes: Boolean = false,
+    playerContentH: Map<String, Int> = emptyMap(),
+    cpuContentH: Map<String, Int> = emptyMap(),
 ) {
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
     val ctx = SceneCtx(
@@ -1745,8 +1843,8 @@ private fun DrawScope.drawScene(
     drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.cpu)
 
     // ---- Peleadores (sheet según el personaje del snapshot) ----
-    drawFighter(ctx, images, playerData, state.player, t, showHitboxes)
-    drawFighter(ctx, images, cpuData, state.cpu, t, showHitboxes)
+    drawFighter(ctx, images, playerData, state.player, t, showHitboxes, playerContentH)
+    drawFighter(ctx, images, cpuData, state.cpu, t, showHitboxes, cpuContentH)
 
     // ---- Proyectiles especiales ----
     // Si el DUEÑO del proyectil trae sus propios frames "proj-*" en su JSON (Prankedy:
@@ -1837,12 +1935,22 @@ private sealed interface SfStageBackground {
 
 /**
  * Decodifica el fondo desde assets. Si el archivo termina en "_anim.png" y existe su JSON
- * hermano (frameWidth/frameHeight/cols/rows/frameCount/fps), devuelve un fondo ANIMADO;
- * si no, uno estático. Se decodifica en RGB_565 (fotos sin alpha) para ~mitad de RAM.
+ * hermano, devuelve un fondo ANIMADO; si no, uno estático.
+ * RGB_565 (sin alpha). En [lowEnd] usa inSampleSize=2 (~¼ de RAM de textura) y deriva
+ * frameW/H del atlas real (no del JSON a full-res).
  */
-private fun loadStageBackground(context: Context, imagesDir: String, file: String): SfStageBackground? {
+private fun loadStageBackground(
+    context: Context,
+    imagesDir: String,
+    file: String,
+    lowEnd: Boolean = false,
+): SfStageBackground? {
     return runCatching {
-        val opts = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.RGB_565 }
+        val opts = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.RGB_565
+            // Gama baja: mitad de lado → ~1/4 de texels (1920→960). Sigue ≤2048.
+            if (lowEnd) inSampleSize = 2
+        }
         val bmp = context.assets.open(imagesDir + file).use { BitmapFactory.decodeStream(it, null, opts) }
             ?: return null
         val jsonName = file.substringBeforeLast('.') + ".json"
@@ -1851,19 +1959,76 @@ private fun loadStageBackground(context: Context, imagesDir: String, file: Strin
         }.getOrNull()
         if (file.endsWith("_anim.png") && meta != null) {
             val o = org.json.JSONObject(meta)
+            val cols = o.getInt("cols").coerceAtLeast(1)
+            val rows = o.getInt("rows").coerceAtLeast(1)
+            // Tras sample, el tamaño de celda real = atlas/grid (más fiable que frameW del JSON)
+            val cellW = (bmp.width / cols).coerceAtLeast(1)
+            val cellH = (bmp.height / rows).coerceAtLeast(1)
+            // Gama baja: bajar fps de anim del fondo (menos “trabajo” visual; sigue vivo)
+            val fps = o.getDouble("fps").toFloat().let { if (lowEnd) (it * 0.66f).coerceAtLeast(6f) else it }
             SfStageBackground.Animated(
                 atlas = bmp.asImageBitmap(),
-                frameW = o.getInt("frameWidth"),
-                frameH = o.getInt("frameHeight"),
-                cols = o.getInt("cols"),
-                rows = o.getInt("rows"),
-                frameCount = o.getInt("frameCount"),
-                fps = o.getDouble("fps").toFloat(),
+                frameW = cellW,
+                frameH = cellH,
+                cols = cols,
+                rows = rows,
+                frameCount = o.getInt("frameCount").coerceAtLeast(1),
+                fps = fps,
             )
         } else {
             SfStageBackground.Static(bmp.asImageBitmap())
         }
     }.getOrNull()
+}
+
+/**
+ * Overlay CARGANDO con la fuente arcade POW (sf_hud_pow.png).
+ * Se muestra al decodificar atlas/hojas en gama baja (entrada a pelea puede tardar).
+ */
+@Composable
+private fun SfLoadingOverlay(theme: SfTheme) {
+    val context = LocalContext.current
+    val hud = remember(theme) {
+        runCatching {
+            context.assets.open(theme.imagesDir + theme.hudImage).use {
+                BitmapFactory.decodeStream(it)
+            }?.asImageBitmap()
+        }.getOrNull()
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xF0101018))
+            .clickable(enabled = true, onClick = {}), // bloquea toques
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (hud != null) {
+                // Dibuja "CARGANDO" con la fuente del HUD (glifos A-Z)
+                Canvas(modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / 40f)
+                    val ctx = SceneCtx(scale, (size.width - SfConstants.SCENE_WIDTH * scale) / 2f, 0f, 0f, 0f)
+                    val text = "CARGANDO"
+                    val tw = text.length * 12f * 2.2f
+                    drawFontText(ctx, theme, hud, text, (SfConstants.SCENE_WIDTH - tw / scale) / 2f, 8f, 2.2f)
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.sf_loading),
+                    color = Color(0xFFD4AF37),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 4.sp,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.sf_loading_sub),
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 12.sp,
+            )
+        }
+    }
 }
 
 /**
@@ -1967,6 +2132,68 @@ private fun DrawScope.drawSpriteAnchored(
     }
 }
 
+/**
+ * Altura de cuerpo OBJETIVO en px de la hoja (contenido opaco). El packer croma fija
+ * poses erguidas a ~100 px; si un ataque/especial pinta más grande en la celda 256²
+ * (p. ej. auras, brazos), se reescala en draw para NO "crecer" al golpear.
+ * El pushbox NO bastaba: muchos JSON repiten push 78 en idle y special con contenido 100→168.
+ */
+private const val TARGET_BODY_CONTENT_H = 100f
+
+/** Estados donde el cuerpo DEBE verse más bajo/tumbado: no forzar a 100 px. */
+private fun SfFighterState.keepsNaturalHeight(): Boolean = when (this) {
+    SfFighterState.CROUCH, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_UP,
+    SfFighterState.CROUCH_TURN,
+    SfFighterState.KO,
+    -> true
+    else -> name.startsWith("HURT_") // hurt puede aplastar; hurtScale aparte
+}
+
+/**
+ * Mide, por frameKey, la altura de píxeles opacos en el recorte src de la hoja.
+ * Se calcula UNA vez al cargar el personaje (no por tick).
+ */
+private fun measureFrameContentHeights(
+    sheet: ImageBitmap,
+    frames: Map<String, SfFrameDef>,
+): Map<String, Int> {
+    val bmp = sheet.asAndroidBitmap()
+    val out = HashMap<String, Int>(frames.size)
+    val wBmp = bmp.width
+    val hBmp = bmp.height
+    for ((key, fr) in frames) {
+        if (key.startsWith("proj")) continue
+        val src = fr.src
+        if (src.size < 4) continue
+        val x0 = src[0].coerceIn(0, wBmp - 1)
+        val y0 = src[1].coerceIn(0, hBmp - 1)
+        val x1 = (src[0] + src[2]).coerceIn(x0 + 1, wBmp)
+        val y1 = (src[1] + src[3]).coerceIn(y0 + 1, hBmp)
+        var minY = y1
+        var maxY = y0 - 1
+        // Muestreo cada 2 px (suficiente y más barato en gama baja)
+        var y = y0
+        while (y < y1) {
+            var x = x0
+            var rowHit = false
+            while (x < x1) {
+                if ((bmp.getPixel(x, y) ushr 24) > 16) {
+                    rowHit = true
+                    break
+                }
+                x += 2
+            }
+            if (rowHit) {
+                if (y < minY) minY = y
+                if (y > maxY) maxY = y
+            }
+            y += 2
+        }
+        out[key] = if (maxY >= minY) (maxY - minY + 1) else src[3]
+    }
+    return out
+}
+
 private fun DrawScope.drawFighter(
     ctx: SceneCtx,
     images: Map<String, ImageBitmap>,
@@ -1974,6 +2201,7 @@ private fun DrawScope.drawFighter(
     f: SfFighter,
     t: Long,
     showHitboxes: Boolean = false,
+    contentHeights: Map<String, Int> = emptyMap(),
 ) {
     val sheet = images[f.id.spriteAsset.substringAfterLast('/')] ?: return
     val anim = data.animations[f.state.jsKey] ?: return
@@ -1982,26 +2210,36 @@ private fun DrawScope.drawFighter(
     // Sacudida al recibir golpe (hurt shake del JS), solo durante el 1er frame de HURT
     val hurtState = f.state.name.startsWith("HURT_")
     val shake = if (hurtState && f.animationFrame == 0) (if ((t / 32) % 2 == 0L) 2f else -2f) else 0f
-    // PARCHE ALPHA: los peleadores cuyas poses de golpe se generaron más chicas se reescalan SOLO
-    // en HURT (hurtScale != 1f) para que no "encojan" al recibir daño.
-    val spriteScale = if (hurtState) f.id.hurtScale else 1f
+    // PARCHE ALPHA: hurtScale en HURT (poses de impacto más chicas en celdas viejas).
+    val hurtMul = if (hurtState) f.id.hurtScale else 1f
+    // 🆕 FORZAR TAMAÑO: escala por CONTENIDO opaco (no por hitbox/push).
+    // Erguido → contenido ≈ 100 px; crouch/KO conservan altura natural del arte.
+    val contentH = contentHeights[frameKey]?.takeIf { it > 0 } ?: frame.src.getOrElse(3) { 100 }
+    val bodyMul = if (f.state.keepsNaturalHeight() || contentH <= 0) {
+        1f
+    } else {
+        (TARGET_BODY_CONTENT_H / contentH.toFloat()).coerceIn(0.55f, 1.35f)
+    }
+    val spriteScale = hurtMul * bodyMul
     // Algunas hojas cambian el eje corporal al tocar el piso en KO. El pipeline lo detecta
     // por continuidad visual y marca solo esos cuadros; la corrección sirve para todo peleador futuro.
     val drawDirection = if (frame.flipX) f.direction.opposite() else f.direction
     drawSpriteAnchored(ctx, sheet, frame.src, frame.origin, f.x, f.y, drawDirection, shakeX = shake, spriteScale = spriteScale)
 
-    // 🆕 HITBOXES (Ajustes → "Mostrar hitboxes", estilo Minecraft): push = colisión (blanca),
-    // hurt = zonas golpeables (cian), hit = ataque activo (rojo). Marcan dónde "vive" el asset.
+    // 🆕 HITBOXES (Ajustes → "Mostrar hitboxes"): push/hurt/hit. También se reescalan
+    // visualmente con bodyMul para alinear cajas al sprite dibujado.
     if (showHitboxes) {
+        val boxScale = bodyMul
+        fun scaleBox(b: SfBox): SfBox = SfBox(b.x * boxScale, b.y * boxScale, b.width * boxScale, b.height * boxScale)
         SfBox.fromList(frame.push).takeIf { it.width > 0f }
-            ?.let { drawWorldBox(ctx, it.toWorld(f.x, f.y, f.direction), Color.White) }
+            ?.let { drawWorldBox(ctx, scaleBox(it).toWorld(f.x, f.y, f.direction), Color.White) }
         frame.hurt?.forEach { row ->
             SfBox.fromList(row).takeIf { it.width > 0f }
-                ?.let { drawWorldBox(ctx, it.toWorld(f.x, f.y, f.direction), Color(0xFF29B6F6)) }
+                ?.let { drawWorldBox(ctx, scaleBox(it).toWorld(f.x, f.y, f.direction), Color(0xFF29B6F6)) }
         }
         frame.hit?.let { hb ->
             SfBox.fromList(hb).takeIf { it.width > 0f }
-                ?.let { drawWorldBox(ctx, it.toWorld(f.x, f.y, f.direction), Color(0xFFEF5350)) }
+                ?.let { drawWorldBox(ctx, scaleBox(it).toWorld(f.x, f.y, f.direction), Color(0xFFEF5350)) }
         }
     }
 }

@@ -75,6 +75,10 @@ data class StreetFighterState(
     // desde el paso DIFICULTAD del flujo pre-pelea; resetRound la conserva (s.copy).
     val cpuDifficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL,
 
+    // 🆕 IA vs IA (CPU vs CPU a PESADILLA): ambos índices los controla la IA; sin input
+    // táctil del jugador. Solo offline (grabación/espectáculo). startAiVsAi lo pone true.
+    val aiVsAi: Boolean = false,
+
     // ─── 🆕 MODO ARCADE (escalera de 11 peleas, offline; ver SfArcadeLadder) ───
     // Todos los personajes/mapas empiezan bloqueados y se desbloquean derrotando rivales.
     val arcadeActive: Boolean = false,                 // hay una escalera en curso

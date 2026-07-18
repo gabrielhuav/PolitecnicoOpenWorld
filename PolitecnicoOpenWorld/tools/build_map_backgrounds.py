@@ -61,15 +61,22 @@ DEFAULT_IMAGES_OUT = APP_ASSETS / "IMAGES"
 DEFAULT_SOUNDS_OUT = APP_ASSETS / "SOUNDS"
 
 # ---------------------------------------------------------------------------
-# Parámetros de pipeline
+# Parámetros de pipeline (CAPADO PARA GAMA BAJA)
 # ---------------------------------------------------------------------------
 
-TARGET_FRAME_WIDTH = 640  # ~16:9 => ~640x360
+# CAP DURO de textura en GPUs de gama baja (Android): 2048 px por lado.
+# Los atlas >2048 no se muestran en muchos equipos (por eso fallaban).
+MAX_ATLAS_SIDE = 2048
+
+# Frame ~448-480 px de ancho, aspecto 16:9 FIJO (crop-to-fill, sin letterbox).
+# 480×270 × grid 4×7 = 1920×1890 ≤ 2048 (cabe con ~28 frames ping-pong).
+TARGET_FRAME_WIDTH = 480
+TARGET_FRAME_HEIGHT = 270  # 16:9 exacto
 SAMPLE_FPS = 12.0
-LOOP_SECONDS = 2.75  # centro del rango 2.5–3.0 s
-# Frames finales deseados tras ping-pong ≈ SAMPLE_FPS * LOOP_SECONDS ≈ 33
-MAX_ATLAS_SIDE = 4096  # límite de textura en GPUs viejas
-STATIC_SIZE = (1900, 850)  # tamaño aproximado de fondos actuales
+# ~24-30 frames finales con ping-pong (2n-2): n=15 → 28 frames
+TARGET_FINAL_FRAMES = 28
+STATIC_SIZE = (1900, 850)  # ≤2048 por lado; convención de fondos estáticos
+THUMB_WIDTH = 256  # miniatura de un frame para el selector de mapa
 AUDIO_BITRATE = "96k"
 LOGO_WIDTH_FRAC = 0.14  # ~14% del ancho del frame (cubre la estrella Gemini)
 LOGO_MARGIN_FRAC = 0.02  # margen ~2% desde bordes inferior/derecho
@@ -234,32 +241,58 @@ def ping_pong(frames: List[Image.Image]) -> List[Image.Image]:
     return forward + reverse
 
 
-def resize_frame(im: Image.Image, target_w: int = TARGET_FRAME_WIDTH) -> Image.Image:
-    """Downscale manteniendo aspecto (~16:9 -> ~640x360). RGB sin alpha."""
-    im = im.convert("RGB")
-    w, h = im.size
-    if w <= 0 or h <= 0:
-        raise ValueError("imagen vacía")
-    if w == target_w:
-        return im
-    new_h = max(1, round(h * (target_w / w)))
-    return im.resize((target_w, new_h), Image.Resampling.LANCZOS)
-
-
-def resize_static(im: Image.Image, size: Tuple[int, int] = STATIC_SIZE) -> Image.Image:
+def crop_to_fill(im: Image.Image, size: Tuple[int, int]) -> Image.Image:
     """
-    Reescala a ~1900x850 RGB sin alpha (cover + crop centrado).
-    Coincide con la convención de fondos estáticos del juego.
+    Cover + crop centrado a `size` (RGB). TODOS los frames/estáticos del mismo
+    pipeline salen con el MISMO aspecto (sin letterbox ni tamaños raros).
     """
     im = im.convert("RGB")
     tw, th = size
     w, h = im.size
+    if w <= 0 or h <= 0:
+        raise ValueError("imagen vacía")
     scale = max(tw / w, th / h)
     nw, nh = max(1, round(w * scale)), max(1, round(h * scale))
     im = im.resize((nw, nh), Image.Resampling.LANCZOS)
     left = max(0, (nw - tw) // 2)
     top = max(0, (nh - th) // 2)
     return im.crop((left, top, left + tw, top + th))
+
+
+def resize_frame(
+    im: Image.Image,
+    size: Tuple[int, int] = (TARGET_FRAME_WIDTH, TARGET_FRAME_HEIGHT),
+) -> Image.Image:
+    """Downscale crop-to-fill a tamaño de frame FIJO (~480×270, 16:9)."""
+    return crop_to_fill(im, size)
+
+
+def resize_static(im: Image.Image, size: Tuple[int, int] = STATIC_SIZE) -> Image.Image:
+    """
+    Reescala a ~1900x850 RGB sin alpha (cover + crop centrado).
+    Coincide con la convención de fondos estáticos del juego (≤2048 por lado).
+    """
+    return crop_to_fill(im, size)
+
+
+def save_thumb(im: Image.Image, out_path: Path, width: int = THUMB_WIDTH) -> Path:
+    """
+    Miniatura de UN frame (~width px de ancho, aspecto conservado, con logo ya
+    aplicado en `im`). Naming: <archivo sin .png>_thumb.png
+    """
+    w, h = im.size
+    tw = width
+    th = max(1, int(round(h * (tw / max(1, w)))))
+    thumb = im.convert("RGB").resize((tw, th), Image.Resampling.LANCZOS)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    thumb.save(out_path, format="PNG", optimize=True)
+    thumb.close()
+    return out_path
+
+
+def thumb_path_for(main_png: Path) -> Path:
+    """fondo_foo_anim.png -> fondo_foo_anim_thumb.png"""
+    return main_png.with_name(main_png.stem + "_thumb.png")
 
 
 def load_logo(logo_path: Path) -> Optional[Image.Image]:
@@ -377,12 +410,15 @@ def extract_sampled_frames(
     video: Path, work_dir: Path, fps: float, unique_count: int, start_sec: float
 ) -> List[Image.Image]:
     """
-    Extrae `unique_count` frames a `fps` desde start_sec, downscale a TARGET_FRAME_WIDTH.
-    Usa ffmpeg scale + fps filter; escribe PNGs temporales y los carga con Pillow.
+    Extrae `unique_count` frames a `fps` desde start_sec.
+    ffmpeg hace un scale ancho (más barato); Pillow aplica crop-to-fill al tamaño FIJO
+    (TARGET_FRAME_WIDTH × TARGET_FRAME_HEIGHT) para unificar aspecto en todos los mapas.
     """
     pattern = work_dir / "frame_%04d.png"
     duration = unique_count / fps
-    vf = f"fps={fps},scale={TARGET_FRAME_WIDTH}:-2:flags=lanczos"
+    # Scale a un ancho algo mayor que el target; el crop final fija 16:9 exacto
+    scale_w = max(TARGET_FRAME_WIDTH, 640)
+    vf = f"fps={fps},scale={scale_w}:-2:flags=lanczos"
     cmd = [
         "ffmpeg", "-y",
         "-ss", f"{start_sec:.3f}",
@@ -447,12 +483,15 @@ def process_video(
     json_path = images_out / f"fondo_{slug}_anim.json"
     audio_path = sounds_out / f"amb_{slug}.ogg"
 
+    thumb_out = thumb_path_for(atlas_path)
     log(f"\n[VIDEO] {video.name}")
     log(f"  slug     = {slug}")
     log(f"  atlas    = {atlas_path}")
     log(f"  json     = {json_path}")
+    log(f"  thumb    = {thumb_out}")
     log(f"  audio    = {audio_path}")
     log("  loop     = PING-PONG embebido en atlas (ida + vuelta)")
+    log(f"  cap      = atlas ≤ {MAX_ATLAS_SIDE}px | frame {TARGET_FRAME_WIDTH}x{TARGET_FRAME_HEIGHT}")
 
     if dry_run:
         stats.rows.append(
@@ -461,9 +500,8 @@ def process_video(
         return
 
     duration = probe_duration(video)
-    # ~30–36 frames finales: con ping-pong, n + (n-2) = 2n-2 ≈ target
-    target_final = int(round(SAMPLE_FPS * LOOP_SECONDS))  # ~33
-    target_final = max(30, min(36, target_final))
+    # ~24–30 frames finales: con ping-pong, n + (n-2) = 2n-2 ≈ TARGET_FINAL_FRAMES
+    target_final = max(24, min(30, TARGET_FINAL_FRAMES))
     unique_count = max(2, int(round((target_final + 2) / 2)))
 
     segment_dur = unique_count / SAMPLE_FPS
@@ -483,13 +521,22 @@ def process_video(
         frames = extract_sampled_frames(
             video, work, SAMPLE_FPS, unique_count, start_sec
         )
-        # 1) PING-PONG embebido  2) LOGO en cada frame del loop  3) atlas
+        # 1) PING-PONG embebido  2) LOGO en cada frame del loop  3) atlas ≤2048
         loop_frames = ping_pong(frames)
         branded: List[Image.Image] = [paste_logo(fr, logo) for fr in loop_frames]
 
         fw, fh = branded[0].size
-        cols, rows = choose_grid(len(branded), fw, fh)
+        # Seguridad: todos los frames deben ser idénticos (crop-to-fill fijo)
+        for fr in branded:
+            if fr.size != (fw, fh):
+                raise RuntimeError(f"frame size mismatch: {fr.size} != {(fw, fh)}")
+        cols, rows = choose_grid(len(branded), fw, fh, MAX_ATLAS_SIDE)
         atlas = pack_atlas(branded, cols, rows)
+        if atlas.size[0] > MAX_ATLAS_SIDE or atlas.size[1] > MAX_ATLAS_SIDE:
+            raise RuntimeError(
+                f"atlas {atlas.size} supera CAP {MAX_ATLAS_SIDE} "
+                f"(fw={fw} fh={fh} frames={len(branded)} grid={cols}x{rows})"
+            )
 
         images_out.mkdir(parents=True, exist_ok=True)
         atlas.save(atlas_path, format="PNG", optimize=True)
@@ -505,15 +552,18 @@ def process_video(
             "pingPong": True,
             "slug": slug,
             "source": video.name,
+            "maxAtlasSide": MAX_ATLAS_SIDE,
         }
         json_path.write_text(
             json.dumps(meta, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+        # Miniatura = primer frame del loop (ya con logo)
+        save_thumb(branded[0], thumb_out)
         log(
             f"  atlas {atlas.size[0]}x{atlas.size[1]} | "
             f"grid {cols}x{rows} | frames={len(branded)} (ping-pong) | "
-            f"{kb(atlas_path):.0f} KB"
+            f"{kb(atlas_path):.0f} KB | thumb {kb(thumb_out):.0f} KB"
         )
 
         audio_ok = extract_audio_ogg(video, audio_path)
@@ -529,6 +579,7 @@ def process_video(
                 frames=str(len(branded)),
                 atlas_kb=f"{kb(atlas_path):.0f}",
                 audio_kb=f"{kb(audio_path):.0f}" if audio_ok else "—",
+                notes=f"thumb={kb(thumb_out):.0f}KB",
             )
         )
 
@@ -540,6 +591,31 @@ def process_video(
         atlas.close()
 
 
+def ken_burns_frames(im: Image.Image, unique_count: int) -> List[Image.Image]:
+    """
+    Genera `unique_count` frames 480×270 con paneo suave (Ken Burns) a partir de
+    una foto fija, para que TODOS los escenarios tengan atlas animado aunque no
+    haya video. El recorte se mueve lentamente en horizontal (±6%).
+    """
+    base = crop_to_fill(im, (TARGET_FRAME_WIDTH, TARGET_FRAME_HEIGHT))
+    # Trabajar a 1.12× para poder panear sin letterbox
+    big_w = int(TARGET_FRAME_WIDTH * 1.12)
+    big_h = int(TARGET_FRAME_HEIGHT * 1.12)
+    big = crop_to_fill(im, (big_w, big_h))
+    frames: List[Image.Image] = []
+    max_dx = big_w - TARGET_FRAME_WIDTH
+    for i in range(unique_count):
+        t = i / max(1, unique_count - 1)  # 0..1
+        # ida suave (luego ping-pong cierra la vuelta)
+        dx = int(round(max_dx * t))
+        dy = (big_h - TARGET_FRAME_HEIGHT) // 2
+        fr = big.crop((dx, dy, dx + TARGET_FRAME_WIDTH, dy + TARGET_FRAME_HEIGHT))
+        frames.append(fr.convert("RGB"))
+    big.close()
+    base.close()
+    return frames
+
+
 def process_static(
     image: Path,
     images_out: Path,
@@ -547,35 +623,95 @@ def process_static(
     dry_run: bool,
     stats: BuildStats,
 ) -> None:
+    """
+    Foto sin video → (1) PNG estático 1900×850 + thumb  y  (2) atlas ANIMADO
+    con paneo Ken Burns (mismo pipeline que video: ping-pong, logo, ≤2048).
+    El juego usa el `_anim` para pelea; el `_1` queda de respaldo.
+    """
     slug = to_slug(image.stem)
     out_path = images_out / f"fondo_{slug}_1.png"
+    thumb_static = thumb_path_for(out_path)
+    atlas_path = images_out / f"fondo_{slug}_anim.png"
+    json_path = images_out / f"fondo_{slug}_anim.json"
+    thumb_anim = thumb_path_for(atlas_path)
 
-    log(f"\n[STATIC] {image.name}")
-    log(f"  slug  = {slug}")
-    log(f"  out   = {out_path}")
-    log(f"  logo  = {'sí' if logo else 'no'}")
+    log(f"\n[STATIC→ANIM] {image.name}")
+    log(f"  slug   = {slug}")
+    log(f"  still  = {out_path}")
+    log(f"  atlas  = {atlas_path}")
+    log(f"  logo   = {'sí' if logo else 'no'}")
 
     if dry_run:
         stats.rows.append(
-            RowSummary(mapa=image.stem, slug=slug, kind="static", notes="dry-run")
+            RowSummary(mapa=image.stem, slug=slug, kind="static", notes="dry-run→anim")
         )
         return
 
+    target_final = max(24, min(30, TARGET_FINAL_FRAMES))
+    unique_count = max(2, int(round((target_final + 2) / 2)))
+    frame_count = 0
+    atlas_wh = "-"
+
     with Image.open(image) as im:
-        out = resize_static(im)
-        out = paste_logo(out, logo)
+        # --- estático de respaldo ---
+        still = resize_static(im)
+        still = paste_logo(still, logo)
         images_out.mkdir(parents=True, exist_ok=True)
-        out.save(out_path, format="PNG", optimize=True)
-        log(f"  size  = {out.size[0]}x{out.size[1]} RGB | {kb(out_path):.0f} KB")
-        out.close()
+        still.save(out_path, format="PNG", optimize=True)
+        save_thumb(still, thumb_static)
+
+        # --- animado Ken Burns (crop-to-fill 480×270 + ping-pong + logo) ---
+        frames = ken_burns_frames(im, unique_count)
+        branded = [paste_logo(fr, logo) for fr in frames]
+        loop_frames = ping_pong(branded)
+        frame_count = len(loop_frames)
+        fw, fh = loop_frames[0].size
+        cols, rows = choose_grid(frame_count, fw, fh, MAX_ATLAS_SIDE)
+        atlas = pack_atlas(loop_frames, cols, rows)
+        if atlas.size[0] > MAX_ATLAS_SIDE or atlas.size[1] > MAX_ATLAS_SIDE:
+            raise RuntimeError(f"atlas estático {atlas.size} > {MAX_ATLAS_SIDE}")
+        atlas.save(atlas_path, format="PNG", optimize=True)
+        atlas_wh = f"{atlas.size[0]}x{atlas.size[1]}"
+        meta = {
+            "frameWidth": fw,
+            "frameHeight": fh,
+            "cols": cols,
+            "rows": rows,
+            "frameCount": frame_count,
+            "fps": SAMPLE_FPS,
+            "loop": True,
+            "pingPong": True,
+            "slug": slug,
+            "source": image.name,
+            "maxAtlasSide": MAX_ATLAS_SIDE,
+            "kenBurns": True,
+        }
+        json_path.write_text(
+            json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        save_thumb(loop_frames[0], thumb_anim)
+        log(
+            f"  still {still.size[0]}x{still.size[1]} {kb(out_path):.0f}KB | "
+            f"atlas {atlas_wh} frames={frame_count} {kb(atlas_path):.0f}KB"
+        )
+        for fr in frames + branded + loop_frames:
+            try:
+                fr.close()
+            except Exception:
+                pass
+        still.close()
+        atlas.close()
 
     stats.rows.append(
         RowSummary(
             mapa=image.stem,
             slug=slug,
             kind="static",
+            atlas_wh=atlas_wh,
+            frames=str(frame_count),
+            atlas_kb=f"{kb(atlas_path):.0f}",
             static_kb=f"{kb(out_path):.0f}",
-            notes=f"{STATIC_SIZE[0]}x{STATIC_SIZE[1]}",
+            notes="kenBurns+still",
         )
     )
 
@@ -697,8 +833,119 @@ def print_summary(stats: BuildStats) -> None:
     n_s = len(statics)
     log("=" * 100)
     log(f"Total: {n_v} videos (atlas+json+audio) | {n_s} solo-estáticos")
+    log(f"CAP atlas ≤ {MAX_ATLAS_SIDE}px | frame {TARGET_FRAME_WIDTH}x{TARGET_FRAME_HEIGHT}")
     log("PING-PONG: embebido en cada atlas (frameCount ≈ 2*únicos - 2).")
     log("LOGO: aplicado abajo-derecha en cada frame del atlas y en cada estático.")
+    log("THUMB: <archivo>_thumb.png (~256 px) para el selector de mapa.")
+
+
+def parse_theme_backgrounds() -> List[str]:
+    """
+    Extrae los `file` de SfTheme.fullBackgrounds desde SfTheme.kt
+    (sin compilar; solo regex). Orden de aparición en el tema.
+    """
+    theme_path = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "ovh"
+        / "gabrielhuav"
+        / "pow"
+        / "features"
+        / "streetfighter"
+        / "data"
+        / "SfTheme.kt"
+    )
+    if not theme_path.is_file():
+        log(f"AVISO: no se encontró SfTheme.kt en {theme_path}")
+        return []
+    text = theme_path.read_text(encoding="utf-8")
+    # SfStageBg("fondo_....png", "Nombre")
+    return re.findall(r'SfStageBg\(\s*"([^"]+\.png)"', text)
+
+
+def diagnose_theme_backgrounds(images_out: Path) -> List[str]:
+    """
+    Por cada escenario de SfTheme.fullBackgrounds:
+      - .png existe
+      - si es atlas (_anim): ≤2048 por lado + JSON consistente
+        (cols*frameW == ancho, rows*frameH == alto, cols*rows >= frameCount)
+      - miniatura _thumb.png existe (aviso si falta)
+    Devuelve lista de fallos (strings).
+    """
+    files = parse_theme_backgrounds()
+    log("\n" + "=" * 100)
+    log(f"DIAGNÓSTICO SfTheme.fullBackgrounds ({len(files)} escenarios) — cap {MAX_ATLAS_SIDE}")
+    log("=" * 100)
+    fails: List[str] = []
+    ok_n = 0
+    for fname in files:
+        png = images_out / fname
+        issues: List[str] = []
+        if not png.is_file():
+            issues.append("PNG AUSENTE")
+            fails.append(f"{fname}: PNG AUSENTE")
+            log(f"  FAIL  {fname}: PNG AUSENTE")
+            continue
+
+        try:
+            with Image.open(png) as im:
+                w, h = im.size
+        except Exception as e:
+            issues.append(f"no se pudo abrir ({e})")
+            fails.append(f"{fname}: {issues[-1]}")
+            log(f"  FAIL  {fname}: {issues[-1]}")
+            continue
+
+        is_anim = fname.endswith("_anim.png") or "_anim." in fname
+        thumb = thumb_path_for(png)
+        thumb_note = f"thumb={'sí' if thumb.is_file() else 'NO'}"
+
+        if is_anim:
+            if w > MAX_ATLAS_SIDE or h > MAX_ATLAS_SIDE:
+                issues.append(f"atlas {w}x{h} > {MAX_ATLAS_SIDE}")
+            json_path = png.with_suffix(".json")
+            if not json_path.is_file():
+                issues.append("JSON AUSENTE")
+            else:
+                try:
+                    meta = json.loads(json_path.read_text(encoding="utf-8"))
+                    fw = int(meta["frameWidth"])
+                    fh = int(meta["frameHeight"])
+                    cols = int(meta["cols"])
+                    rows = int(meta["rows"])
+                    fc = int(meta["frameCount"])
+                    if cols * fw != w:
+                        issues.append(f"cols*frameW={cols * fw} != ancho={w}")
+                    if rows * fh != h:
+                        issues.append(f"rows*frameH={rows * fh} != alto={h}")
+                    if cols * rows < fc:
+                        issues.append(f"cols*rows={cols * rows} < frameCount={fc}")
+                except Exception as e:
+                    issues.append(f"JSON inválido ({e})")
+        else:
+            if w > MAX_ATLAS_SIDE or h > MAX_ATLAS_SIDE:
+                issues.append(f"estático {w}x{h} > {MAX_ATLAS_SIDE}")
+
+        if not thumb.is_file():
+            issues.append("thumb ausente")
+
+        if issues:
+            fails.append(f"{fname}: {'; '.join(issues)}")
+            log(f"  FAIL  {fname} ({w}x{h}, {kb(png):.0f}KB) — {'; '.join(issues)}")
+        else:
+            ok_n += 1
+            log(f"  OK    {fname} ({w}x{h}, {kb(png):.0f}KB, {thumb_note})")
+
+    log("-" * 100)
+    log(f"Diagnóstico: {ok_n} OK | {len(fails)} FAIL de {len(files)}")
+    if fails:
+        log("Fallaban / fallan:")
+        for f in fails:
+            log(f"  · {f}")
+    return fails
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -747,6 +994,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     log(f"  sounds_out = {sounds_out}")
     log(f"  logo       = {logo_path}")
     log(f"  dry_run    = {args.dry_run}")
+    log(f"  max_atlas  = {MAX_ATLAS_SIDE}px | frame {TARGET_FRAME_WIDTH}x{TARGET_FRAME_HEIGHT}")
+    log(f"  frames~    = {TARGET_FINAL_FRAMES} (ping-pong) | thumb_w={THUMB_WIDTH}")
 
     if not input_dir.is_dir():
         log(f"ERROR: no existe el directorio de entrada: {input_dir}")
@@ -798,6 +1047,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     print_summary(stats)
 
+    # Diagnóstico post-build de los escenarios referenciados en SfTheme.fullBackgrounds
+    if not args.dry_run:
+        diag_fails = diagnose_theme_backgrounds(images_out)
+    else:
+        diag_fails = []
+
     if logo_img is not None:
         try:
             logo_img.close()
@@ -805,7 +1060,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             pass
 
     if errors:
-        log(f"\nCompletado con {len(errors)} error(es).")
+        log(f"\nCompletado con {len(errors)} error(es) de build.")
+        return 1
+    if diag_fails:
+        log(f"\nBuild OK pero diagnóstico con {len(diag_fails)} fallo(s) de tema.")
         return 1
     log("\nListo.")
     return 0
