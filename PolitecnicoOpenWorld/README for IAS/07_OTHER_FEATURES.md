@@ -932,3 +932,12 @@ enum class ShineCTOInteractable(val label: String) { ... }
 
 ## Tema / Theme (`ui/theme/`)
 `Color.kt`, `Theme.kt`, `Type.kt` — Material 3. Sin lógica de negocio.
+
+### HUELUM VS. GOYA — Fix IA 18l (2026-07-18)
+
+El motor CPU es compartido por práctica, Arcade, IA vs IA y Autoplay. Se corrigió el bloqueo
+permanente de `JUMP_*` al tocar exactamente `STAGE_FLOOR`, el giro al intercambiar lados y la
+búsqueda de zonas BODY/LEGS en colisiones. La dificultad ajusta reacción/defensa/agresión; perfiles
+ligeros por peleador sesgan presión o poderes sin duplicar la IA. Hay memoria de tres ataques,
+cooldowns separados para especiales/poderes, defensa reactiva y escape anti-hit-stun. El auditor
+considera fallo cualquier estancamiento o ronda por tiempo y reporta los totales KO/timeout.

@@ -184,3 +184,9 @@ manda**; luego sincroniza estos docs y, si es user-facing, el README público de
 signatures, state fields, pseudocode and gotchas the public README doesn't. *(Redundant `README.md` (136 KB)
 and `plan.artifact.md` copies were removed from here on 2026-06-22.)* On contradiction, **the code wins**;
 then sync these docs and, if user-facing, the public root README.
+
+**Actualización SF 2026-07-18 (Fix 18l):** la IA de `StreetFighterViewModel` es compartida por
+Arcade/VS/IA-vs-IA/Autoplay; se corrigió el aterrizaje eterno en `JUMP_*`, la orientación tras
+cruces, hitboxes BODY/LEGS, variedad/defensa/cooldowns y el bucle de hit-stun. El auditor ahora
+falla por pasividad o timeout y valida 306 cruces everyone-vs-everyone; detalle en `07` y
+`DISENO_ARCADE_SF_POW.md`.

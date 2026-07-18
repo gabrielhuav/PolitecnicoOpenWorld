@@ -275,9 +275,14 @@ class StreetFighterViewModel @Inject constructor(
     private val cpuLastOffenseMs = LongArray(2) { 0L }
     // Preferencia de “espacio” tras clinch (retrocede un rato en IA vs IA).
     private val cpuWantsSpaceUntilMs = LongArray(2) { 0L }
-    // 🆕 (2026-07-18j) Variedad ofensiva: firma del último golpe (fuerza×tipo, 0..5) por índice
-    // para NO repetir el mismo ataque dos veces seguidas; -1 = sin historial.
-    private val cpuLastAttackSig = IntArray(2) { -1 }
+    // Recuperación tras estancamiento: durante una ventana corta ambos cierran distancia.
+    private val cpuForceEngageUntilMs = LongArray(2) { 0L }
+    // Variedad ofensiva: memoria de los últimos tres golpes (fuerza×tipo, 0..5) por CPU.
+    private val cpuAttackHistory = Array(2) { ArrayDeque<Int>() }
+    // Antibucle de combo: tras tres impactos rápidos, el defensor recibe una ventana de escape.
+    private val lastHitTakenMs = LongArray(2) { Long.MIN_VALUE }
+    private val rapidHitsTaken = IntArray(2)
+    private val comboEscapeUntilMs = LongArray(2)
 
     // 🆕 DIAGNÓSTICO / anti-atasco (2026-07-18h): detecta animaciones que NO terminan (assets sin
     // frame -1 / incompletas → peleador congelado, "se pegan y no se mueven") y estancamientos sin
@@ -297,7 +302,9 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
         SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
         SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
-        SfFighterState.JUMP_START, SfFighterState.JUMP_LAND, SfFighterState.CROUCH_DOWN,
+        SfFighterState.JUMP_START, SfFighterState.JUMP_UP,
+        SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD, SfFighterState.JUMP_LAND,
+        SfFighterState.CROUCH_DOWN,
         SfFighterState.CROUCH_UP, SfFighterState.IDLE_TURN, SfFighterState.CROUCH_TURN,
     ) + SF_BONUS_POWER_STATES
 
@@ -314,6 +321,8 @@ class StreetFighterViewModel @Inject constructor(
     private val gauntletQueue = ArrayDeque<GauntletFight>()
     private var gauntletTotal = 0
     private var gauntletDone = 0
+    private var gauntletKoRounds = 0
+    private var gauntletTimeoutRounds = 0
     private val gauntletFightCapMs = 325000L // tres rounds de 99 s + intros/transiciones
     // Tope de la pelea EN CURSO: en campaña depende de la dificultad; en showcase se calcula
     // por pasos para no cortar HURT/KO/VICTORY ni las metamorfosis con un TIMEOUT falso.
@@ -396,8 +405,13 @@ class StreetFighterViewModel @Inject constructor(
         // 🆕 Especiales: cooldown + tope de proyectiles (PESADILLA spameaba y no se contrarrestaba)
         // Cooldowns de special: cortos para que la pelea se sienta viva (sin muro de proyectiles:
         // el tope por peleadór ya limita a 1 activo).
-        const val SPECIAL_COOLDOWN_MS = 700L
-        const val SPECIAL_COOLDOWN_AIVSAI_MS = 650L
+        const val SPECIAL_COOLDOWN_MS = 1200L
+        const val SPECIAL_COOLDOWN_AIVSAI_MS = 1500L
+        const val BONUS_COOLDOWN_MS = 2600L
+        const val BONUS_COOLDOWN_AIVSAI_MS = 3200L
+        const val RAPID_HIT_WINDOW_MS = 1200L
+        const val COMBO_ESCAPE_MS = 950L
+        const val RAPID_HITS_BEFORE_ESCAPE = 3
         const val MAX_ACTIVE_FIREBALLS_PER_FIGHTER = 1
         const val MAX_FIREBALLS_TOTAL = 4
         // Rangos IA (px): clinch → separar; melee → golpear; mid → footsies
@@ -880,15 +894,25 @@ class StreetFighterViewModel @Inject constructor(
                 SfCpuDifficulty.AVANZADA, SfCpuDifficulty.PESADILLA -> 25000L
             }
             if (noDamageMs > reportAfterMs && now - lastStalemateLogMs > reportAfterMs) {
-                android.util.Log.w(
-                    "SF-DIAG",
+                val issue =
                     "ESTANCAMIENTO ${sim.p0.id.name} vs ${sim.p1.id.name}: " +
-                        "sin daño >${reportAfterMs / 1000}s; watchdog aplicado y pelea en curso",
-                )
+                        "sin daño >${reportAfterMs / 1000}s; " +
+                        "P1 x=${sim.p0.x.toInt()} ${sim.p0.direction}/${sim.p0.state} hp=$hp0; " +
+                        "P2 x=${sim.p1.x.toInt()} ${sim.p1.direction}/${sim.p1.state} hp=$hp1"
+                android.util.Log.w("SF-DIAG", issue)
+                if (gauntletActive) logAssetIssue(issue)
                 lastStalemateLogMs = now
             }
-            cpuLastOffenseMs[0] = 0L; cpuLastOffenseMs[1] = 0L
-            cpuWantsSpaceUntilMs[0] = 0L; cpuWantsSpaceUntilMs[1] = 0L
+            cpuNextDecisionMs[0] = 0L
+            cpuNextDecisionMs[1] = 0L
+            cpuHold[0] = SfInput()
+            cpuHold[1] = SfInput()
+            cpuLastOffenseMs[0] = 0L
+            cpuLastOffenseMs[1] = 0L
+            cpuWantsSpaceUntilMs[0] = 0L
+            cpuWantsSpaceUntilMs[1] = 0L
+            cpuForceEngageUntilMs[0] = now + 3000L
+            cpuForceEngageUntilMs[1] = now + 3000L
         }
     }
 
@@ -939,7 +963,9 @@ class StreetFighterViewModel @Inject constructor(
                 // handleJump: gravedad + aterrizaje
                 val nf = f.copy(velocityY = f.velocityY + SfConstants.GRAVITY * dt)
                 sim.setFighter(idx, nf)
-                if (nf.y > SfConstants.STAGE_FLOOR) {
+                // El clamp del tick anterior deja `y` EXACTAMENTE en el piso. Con `>` nunca
+                // aterrizaba: conservaba JUMP_* para siempre aunque ya estuviera abajo.
+                if (nf.y >= SfConstants.STAGE_FLOOR && nf.velocityY >= 0f) {
                     sim.setFighter(idx, nf.copy(y = SfConstants.STAGE_FLOOR))
                     changeState(sim, idx, SfFighterState.JUMP_LAND, now)
                     // 🆕 CROSS-UP: al aterrizar, ENCARA de inmediato al rival (sin animación de giro).
@@ -1179,9 +1205,9 @@ class StreetFighterViewModel @Inject constructor(
         val ok = changeState(sim, idx, state, now)
         if (ok) {
             specialCooldownUntil[idx.coerceIn(0, 1)] = now + if (_state.value.aiVsAi) {
-                SPECIAL_COOLDOWN_AIVSAI_MS
+                BONUS_COOLDOWN_AIVSAI_MS
             } else {
-                SPECIAL_COOLDOWN_MS
+                BONUS_COOLDOWN_MS
             }
         }
         return ok
@@ -1264,6 +1290,29 @@ class StreetFighterViewModel @Inject constructor(
         if (facing != f.direction) {
             sim.setFighter(idx, f.copy(direction = facing))
             changeState(sim, idx, turnState, now)
+        }
+    }
+
+    /**
+     * Corrige el encaramiento de la CPU antes de interpretar `forward/backward`. Un cross-up o
+     * un empuje puede intercambiar los lados mientras sigue caminando; con la cara vieja, la
+     * siguiente orden de acercarse se convierte en alejarse y la pelea termina estancada.
+     */
+    private fun repairCpuFacing(sim: Sim, idx: Int, now: Long) {
+        val fighter = sim.fighter(idx)
+        val opponent = sim.fighter(1 - idx)
+        val expected = if (fighter.x <= opponent.x) SfDirection.RIGHT else SfDirection.LEFT
+        if (fighter.direction == expected || fighter.isAirborne ||
+            fighter.state == SfFighterState.KO || fighter.state == SfFighterState.VICTORY ||
+            fighter.metamorphosing
+        ) return
+
+        sim.setFighter(idx, fighter.copy(direction = expected))
+        if (fighter.state == SfFighterState.WALK_FORWARD ||
+            fighter.state == SfFighterState.WALK_BACKWARD ||
+            fighter.state == SfFighterState.IDLE_TURN
+        ) {
+            changeState(sim, idx, SfFighterState.IDLE, now)
         }
     }
 
@@ -1355,8 +1404,9 @@ class StreetFighterViewModel @Inject constructor(
         val hurtRows = frameDef(defender).hurt ?: return
         for ((i, area) in SfHurtArea.entries.withIndex()) {
             val hurtBox = SfBox.fromList(hurtRows.getOrNull(i)).toWorld(defender.x, defender.y, defender.direction)
-            // Quirk fiel del JS: si un área NO traslapa, se sale del chequeo completo
-            if (!actualHit.overlaps(hurtBox)) return
+            // Un golpe puede tocar cuerpo o piernas sin tocar cabeza. Salir aquí descartaba
+            // las zonas posteriores y volvía inofensivos muchos ataques válidos.
+            if (!actualHit.overlaps(hurtBox)) continue
 
             var hitX = (actualHit.x + actualHit.width / 2f + hurtBox.x + hurtBox.width / 2f) / 2f
             var hitY = (actualHit.y + hurtBox.y + actualHit.height / 2f + hurtBox.width / 2f) / 2f
@@ -1415,6 +1465,13 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
 
+        // Ventana de salida tras una cadena rápida: el siguiente impacto no vuelve a encerrar
+        // al defensor en HURT. El atacante consume su golpe para que no reintente cada frame.
+        if (now < comboEscapeUntilMs[defenderIdx]) {
+            sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
+            return
+        }
+
         // BLOQUEO (estilo SF): caminar HACIA ATRÁS = cubrirse. El golpe entra "chip":
         // daño /4 (mínimo 1), medio retroceso, sin pose de HURT, sin splash ni puntos.
         val blocked = defender.state == SfFighterState.WALK_BACKWARD
@@ -1432,6 +1489,18 @@ class StreetFighterViewModel @Inject constructor(
             hitPoints = (defender.hitPoints - damage).coerceAtLeast(0),
             direction = attacker.direction.opposite(), // BattleScene: el golpeado queda de frente
         )
+        if (!blocked) {
+            val chained = now - lastHitTakenMs[defenderIdx] <= RAPID_HIT_WINDOW_MS
+            rapidHitsTaken[defenderIdx] = if (chained) rapidHitsTaken[defenderIdx] + 1 else 1
+            lastHitTakenMs[defenderIdx] = now
+            if (rapidHitsTaken[defenderIdx] >= RAPID_HITS_BEFORE_ESCAPE && defender.hitPoints > 0) {
+                comboEscapeUntilMs[defenderIdx] = now + COMBO_ESCAPE_MS
+                rapidHitsTaken[defenderIdx] = 0
+                defender = defender.copy(
+                    slideVelocity = maxOf(defender.slideVelocity, strength.slideVelocity * 1.35f),
+                )
+            }
+        }
         if (!blocked) {
             if (attackerIdx == 0) sim.score0 += strength.score else sim.score1 += strength.score
         }
@@ -1459,6 +1528,7 @@ class StreetFighterViewModel @Inject constructor(
             changeState(sim, defenderIdx, SfFighterState.KO, now)
             sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(victory = true))
             // 🆕 KO = fin de RONDA (mejor de 3); endRound decide si el combate terminó
+            if (gauntletActive && !showcaseMode) gauntletKoRounds++
             endRound(sim, attackerIdx, now)
         } else {
             val hurtState = when (area) {
@@ -1663,6 +1733,13 @@ class StreetFighterViewModel @Inject constructor(
             }
             sim.setFighter(winnerIdx, sim.fighter(winnerIdx).copy(victory = true))
             changeState(sim, 1 - winnerIdx, SfFighterState.KO, now)
+            if (gauntletActive && !showcaseMode) {
+                gauntletTimeoutRounds++
+                logAssetIssue(
+                    "VICTORIA POR TIEMPO ${sim.p0.id.name} vs ${sim.p1.id.name}: " +
+                        "la ronda ${_state.value.roundNumber} no terminó por KO",
+                )
+            }
             endRound(sim, winnerIdx, now) // timeout: ambos lo calculan; los guards evitan doble envío
         }
     }
@@ -1788,6 +1865,7 @@ class StreetFighterViewModel @Inject constructor(
     private fun buildCpuInput(now: Long, sim: Sim, selfIndex: Int): SfInput {
         if (sim.battleEnded) return SfInput()
         val i = selfIndex.coerceIn(0, 1)
+        repairCpuFacing(sim, i, now)
         if (now < cpuNextDecisionMs[i]) return cpuHold[i]
 
         val difficulty = _state.value.cpuDifficulty
@@ -1813,6 +1891,14 @@ class StreetFighterViewModel @Inject constructor(
         val me = sim.fighter(i)
         val foe = sim.fighter(1 - i)
         val dist = abs(me.x - foe.x)
+
+        if (now < cpuForceEngageUntilMs[i] && !me.isAirborne) {
+            decision = if (dist > CPU_MELEE_DIST * 0.75f) {
+                cpuApproach(me, foe)
+            } else {
+                variedCpuAttack(i)
+            }
+        }
 
         // 🆕 (2026-07-18j) Ofensiva REAL: el reloj del watchdog se alimenta del ESTADO del
         // peleadór (está atacando de verdad), no solo de la intención. Antes un ataque decidido
@@ -1864,7 +1950,6 @@ class StreetFighterViewModel @Inject constructor(
             }
         } else if (decision.hasAttackOrSpecial()) {
             cpuStaleApproach[i] = 0
-            cpuLastOffenseMs[i] = now
         }
 
         cpuHold[i] = decision
@@ -1884,7 +1969,6 @@ class StreetFighterViewModel @Inject constructor(
         if (bonusStateReady && bonusPositionReady && bonusCooldownReady &&
             Random.nextFloat() < bonusChance) {
             cpuHold[i] = SfInput(bonusPower = Random.nextInt(1, bonusCount + 1))
-            cpuLastOffenseMs[i] = now
         }
 
         val oneShot = cpuHold[i]
@@ -1946,9 +2030,13 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Muy pegados: NO seguir caminando adentro — retroceder, golpear o brincar fuera. */
     private fun cpuClinchBreak(me: SfFighter, foe: SfFighter, now: Long, selfIndex: Int): SfInput {
-        cpuWantsSpaceUntilMs[selfIndex] = now + Random.nextLong(280L, 520L)
         val roll = Random.nextFloat()
         val aiVs = _state.value.aiVsAi
+        cpuWantsSpaceUntilMs[selfIndex] = now + if (aiVs) {
+            Random.nextLong(160L, 300L)
+        } else {
+            Random.nextLong(280L, 520L)
+        }
         if (aiVs) {
             // 🆕 (2026-07-18j) ROLES ASIMÉTRICOS: antes ambos índices rodaban la MISMA tabla y
             // solían decidir lo mismo (los dos retro o los dos golpe ligero) → se quedaban
@@ -1959,8 +2047,8 @@ class StreetFighterViewModel @Inject constructor(
             return when {
                 attackerTurn && roll < 0.70f -> variedCpuAttack(selfIndex)
                 attackerTurn -> cpuJumpIn(me, foe) // cross-up por encima
-                roll < 0.55f -> cpuRetreatFlags(me, foe)
-                roll < 0.85f -> cpuJumpBack(me, foe)
+                roll < 0.42f -> cpuRetreatFlags(me, foe)
+                roll < 0.68f -> cpuJumpBack(me, foe)
                 else -> variedCpuAttack(selfIndex)
             }
         }
@@ -1983,6 +2071,29 @@ class StreetFighterViewModel @Inject constructor(
 
     private fun ownFireballActive(sim: Sim, selfIndex: Int): Boolean =
         sim.fireballs.any { it.ownerIndex == selfIndex && it.state == SfFireballState.ACTIVE }
+
+    /** Ajuste ligero por personaje sobre el mismo motor: zoners priorizan poderes; rushers presión. */
+    private data class CpuStyle(val specialBias: Float, val pressureBias: Float)
+
+    private fun cpuStyle(id: SfFighterId): CpuStyle = when (id) {
+        SfFighterId.ROBOT,
+        SfFighterId.CHARRO_NEGRO,
+        SfFighterId.LA_LLORONA,
+        SfFighterId.LA_TZITZIMIME,
+        SfFighterId.YOALLI_EHECATL,
+        SfFighterId.LA_PRESIDENTA,
+        -> CpuStyle(specialBias = 1.25f, pressureBias = 0.90f)
+
+        SfFighterId.ESCOMBOY,
+        SfFighterId.ESCOMGIRL,
+        SfFighterId.POLICIA_CDMX_HOMBRE,
+        SfFighterId.POLICIA_CDMX,
+        SfFighterId.POLICIA_GRANADERO_HOMBRE,
+        SfFighterId.POLICIA_GRANADERO_MUJER,
+        -> CpuStyle(specialBias = 0.80f, pressureBias = 1.12f)
+
+        else -> CpuStyle(specialBias = 1f, pressureBias = 1f)
+    }
 
     // ------------------------------------------------------------------
     // Decisiones por dificultad
@@ -2017,6 +2128,7 @@ class StreetFighterViewModel @Inject constructor(
         val dist = abs(me.x - foe.x)
         val roll = Random.nextFloat()
         val corner = isNearStageCorner(me.x)
+        val specialBias = cpuStyle(me.id).specialBias
 
         if (now < cpuWantsSpaceUntilMs[selfIndex] && dist < CPU_MELEE_DIST) {
             return if (roll < 0.7f) cpuRetreatFlags(me, foe) else variedCpuAttack(selfIndex)
@@ -2026,6 +2138,13 @@ class StreetFighterViewModel @Inject constructor(
 
         if (hasIncomingFireball(sim, me, selfIndex, 240f) && !me.isAirborne) {
             return if (roll < 0.7f) cpuJumpIn(me, foe) else cpuRetreatFlags(me, foe)
+        }
+        if (foe.state in cpuThreatStates && dist < 140f) {
+            return when {
+                roll < 0.42f -> cpuRetreatFlags(me, foe)
+                dist < 95f && roll < 0.72f -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
+                else -> cpuJumpBack(me, foe)
+            }
         }
         if (foe.isAirborne && dist < 130f) {
             return cpuAttack(SfAttackStrength.HEAVY, punch = true)
@@ -2042,8 +2161,10 @@ class StreetFighterViewModel @Inject constructor(
                 else -> cpuApproach(me, foe)
             }
             dist > CPU_MELEE_DIST -> when {
-                roll < 0.40f -> cpuApproach(me, foe)
-                roll < 0.72f -> variedCpuAttack(selfIndex)
+                roll < 0.58f -> cpuApproach(me, foe)
+                !ownFireballActive(sim, selfIndex) &&
+                    now >= specialCooldownUntil[selfIndex] &&
+                    roll < 0.58f + 0.10f * specialBias -> SfInput(special = SfAttackStrength.LIGHT)
                 roll < 0.88f -> cpuJumpIn(me, foe)
                 else -> cpuRetreatFlags(me, foe)
             }
@@ -2068,19 +2189,23 @@ class StreetFighterViewModel @Inject constructor(
         val corner = isNearStageCorner(me.x)
         val aiVs = _state.value.aiVsAi
         val ownFb = ownFireballActive(sim, selfIndex)
+        val style = cpuStyle(me.id)
 
-        val specialFar = when {
+        val specialFarBase = when {
             nightmare && aiVs -> 0.24f
             nightmare -> 0.18f
             else -> 0.14f + 0.08f * cpuIntensity
         }
-        val specialMid = when {
+        val specialMidBase = when {
             nightmare && aiVs -> 0.16f
             nightmare -> 0.11f
             else -> 0.08f + 0.05f * cpuIntensity
         }
+        val specialFar = (specialFarBase * style.specialBias).coerceAtMost(0.34f)
+        val specialMid = (specialMidBase * style.specialBias).coerceAtMost(0.24f)
         val blockChance = if (nightmare) 0.55f else 0.72f + 0.1f * cpuIntensity
-        val attackMelee = if (nightmare) 0.78f else 0.70f
+        val attackMelee = ((if (nightmare) 0.78f else 0.70f) * style.pressureBias)
+            .coerceIn(0.62f, 0.88f)
 
         // Espacio pedido tras clinch
         if (now < cpuWantsSpaceUntilMs[selfIndex] && dist < CPU_MID_DIST) {
@@ -2115,7 +2240,8 @@ class StreetFighterViewModel @Inject constructor(
         if (foe.state in cpuThreatStates) {
             when {
                 dist in 95f..190f && roll < blockChance -> return cpuRetreatFlags(me, foe) // block walk-back
-                dist < 95f && roll < 0.60f -> return cpuAttack(SfAttackStrength.LIGHT, punch = true)
+                dist < 95f && roll < 0.28f -> return cpuRetreatFlags(me, foe)
+                dist < 95f && roll < 0.68f -> return cpuAttack(SfAttackStrength.LIGHT, punch = true)
             }
         }
 
@@ -2133,18 +2259,21 @@ class StreetFighterViewModel @Inject constructor(
             dist > CPU_MID_DIST -> when {
                 !corner && !ownFb && now >= specialCooldownUntil[selfIndex] && roll < specialFar ->
                     SfInput(special = SfAttackStrength.entries.random())
-                roll < 0.28f -> cpuJumpIn(me, foe)
-                roll < 0.38f -> cpuRetreatFlags(me, foe) // baitear
+                aiVs && roll < specialFar + 0.22f -> cpuJumpIn(me, foe)
+                !aiVs && roll < 0.28f -> cpuJumpIn(me, foe)
+                !aiVs && roll < 0.38f -> cpuRetreatFlags(me, foe) // baitear
                 else -> cpuApproach(me, foe)
             }
             dist > CPU_MELEE_DIST -> when {
                 !ownFb && now >= specialCooldownUntil[selfIndex] && roll < specialMid ->
                     SfInput(special = SfAttackStrength.MEDIUM)
-                roll < 0.32f -> cpuApproach(me, foe)
-                roll < 0.62f -> variedCpuAttack(selfIndex)
-                roll < 0.80f -> cpuJumpIn(me, foe)
-                roll < 0.92f -> cpuRetreatFlags(me, foe) // spacing
-                else -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
+                aiVs && roll < 0.76f -> cpuApproach(me, foe)
+                aiVs && roll < 0.90f -> cpuJumpIn(me, foe)
+                aiVs -> cpuApproach(me, foe)
+                roll < 0.55f -> cpuApproach(me, foe)
+                roll < 0.72f -> cpuJumpIn(me, foe)
+                roll < 0.86f -> cpuRetreatFlags(me, foe)
+                else -> cpuApproach(me, foe)
             }
             else -> when { // melee range (no clinch)
                 roll < attackMelee + 0.1f * cpuIntensity -> variedCpuAttack(selfIndex)
@@ -2176,8 +2305,10 @@ class StreetFighterViewModel @Inject constructor(
      */
     private fun variedCpuAttack(selfIndex: Int): SfInput {
         val i = selfIndex.coerceIn(0, 1)
-        val sig = (0 until 6).filter { it != cpuLastAttackSig[i] }.random()
-        cpuLastAttackSig[i] = sig
+        val history = cpuAttackHistory[i]
+        val sig = (0 until 6).filterNot(history::contains).ifEmpty { (0 until 6).toList() }.random()
+        history.addLast(sig)
+        while (history.size > 3) history.removeFirst()
         return cpuAttack(SfAttackStrength.entries[sig / 2], punch = sig % 2 == 0)
     }
 
@@ -2498,6 +2629,8 @@ class StreetFighterViewModel @Inject constructor(
         gauntletQueue.addAll(q)
         gauntletTotal = q.size
         gauntletDone = 0
+        gauntletKoRounds = 0
+        gauntletTimeoutRounds = 0
         gauntletActive = true
         _state.update { it.copy(gauntletFinished = false, gauntletReport = emptyList(), gauntletReportPath = null) }
         if (showcaseMode) auditThemeSounds() // 🆕 SFX compartidos del tema (una vez por corrida)
@@ -2637,7 +2770,10 @@ class StreetFighterViewModel @Inject constructor(
         val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
         val file = java.io.File(dir, "sf_diagnostico_$stamp.txt")
         val header = "POW — Diagnóstico IA vs IA (autojuego)\n" +
-            "Peleas: $gauntletDone/$gauntletTotal\nProblemas: ${issues.size}\n\n"
+            "Peleas: $gauntletDone/$gauntletTotal\n" +
+            "Rondas por KO: $gauntletKoRounds\n" +
+            "Rondas por tiempo: $gauntletTimeoutRounds\n" +
+            "Problemas: ${issues.size}\n\n"
         file.writeText(header + if (issues.isEmpty()) "Sin problemas detectados." else issues.joinToString("\n"))
         file.absolutePath
     }.getOrNull()
@@ -2961,8 +3097,13 @@ class StreetFighterViewModel @Inject constructor(
         cpuLastOffenseMs[1] = 0L
         cpuWantsSpaceUntilMs[0] = 0L
         cpuWantsSpaceUntilMs[1] = 0L
-        cpuLastAttackSig[0] = -1
-        cpuLastAttackSig[1] = -1
+        cpuForceEngageUntilMs[0] = 0L
+        cpuForceEngageUntilMs[1] = 0L
+        cpuAttackHistory[0].clear()
+        cpuAttackHistory[1].clear()
+        lastHitTakenMs.fill(Long.MIN_VALUE)
+        rapidHitsTaken.fill(0)
+        comboEscapeUntilMs.fill(0L)
         cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
         pendingAttacks.clear()
         pendingBonusPower = null
@@ -3662,6 +3803,9 @@ class StreetFighterViewModel @Inject constructor(
         cpuHold[1] = SfInput()
         specialCooldownUntil[0] = 0L
         specialCooldownUntil[1] = 0L
+        lastHitTakenMs.fill(Long.MIN_VALUE)
+        rapidHitsTaken.fill(0)
+        comboEscapeUntilMs.fill(0L)
         pendingAttacks.clear()
         pendingBonusPower = null
         controlHistory.clear()

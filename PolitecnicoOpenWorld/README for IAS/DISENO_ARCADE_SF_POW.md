@@ -321,3 +321,20 @@ Más motions/combos/cancels/fluidez. Definir set con el dueño antes de implemen
 Docs 07 (§HUELUM VS. GOYA) + este doc (marcar avance / borrarlo al terminar) + README
 público raíz (EN **y** ES). Arcade es offline → NO toca red. Verificar con Read, balance de
 llaves y CRLF. Listo para Rebuild.
+
+## Fix 18l — IA compartida, aterrizaje y anti-bucle (2026-07-18)
+
+- **Causa raíz del pegado/timeout:** `updateStageConstraints` limita `y` exactamente a
+  `STAGE_FLOOR`, pero el handler de `JUMP_UP/FORWARD/BACKWARD` solo aterrizaba con `y > floor`.
+  El peleador quedaba para siempre en `JUMP_*` aunque visualmente estuviera abajo. Ahora aterriza
+  con `y >= floor && velocityY >= 0`, y los tres estados aéreos están cubiertos por `watchStuck`.
+- `buildCpuInput` usa un solo motor en VS, Arcade, IA vs IA y Autoplay. `repairCpuFacing` se ejecuta
+  para cualquier CPU antes de leer `forward/backward`; dificultad controla cadencia/defensa y
+  `CpuStyle` solo sesga presión o poderes según el personaje.
+- La colisión cuerpo a cuerpo continúa buscando BODY/LEGS si HEAD no traslapa. La CPU no intenta
+  golpes cortos fuera de `CPU_MELEE_DIST`; tras pasividad fuerza acercamiento real.
+- Variedad/justicia: memoria de 3 golpes, cooldown separado para special/bonus, defensa reactiva y
+  ventana `COMBO_ESCAPE_MS` tras 3 impactos rápidos para impedir cadenas de poder sin salida.
+- Auditoría: cada estancamiento y ronda decidida por tiempo es un problema explícito; el `.txt`
+  incluye rondas por KO y por tiempo. Validación principal: **Autoplay everyone vs everyone**
+  (18×17 = 306 combates) en emulador, seguida por las 9 campañas por dificultad.
