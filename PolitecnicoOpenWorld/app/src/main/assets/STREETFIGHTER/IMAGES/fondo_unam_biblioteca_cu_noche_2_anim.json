@@ -1,0 +1,12 @@
+{
+  "frameWidth": 640,
+  "frameHeight": 306,
+  "cols": 5,
+  "rows": 7,
+  "frameCount": 34,
+  "fps": 12.0,
+  "loop": true,
+  "pingPong": true,
+  "slug": "unam_biblioteca_cu_noche_2",
+  "source": "UNAM Biblioteca CU Noche 2.mp4"
+}

@@ -1,0 +1,12 @@
+{
+  "frameWidth": 640,
+  "frameHeight": 320,
+  "cols": 5,
+  "rows": 7,
+  "frameCount": 34,
+  "fps": 12.0,
+  "loop": true,
+  "pingPong": true,
+  "slug": "escom_noche_1",
+  "source": "ESCOM Noche 1.mp4"
+}

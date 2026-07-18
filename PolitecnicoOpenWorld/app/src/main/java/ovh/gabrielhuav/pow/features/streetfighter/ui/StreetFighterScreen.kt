@@ -160,12 +160,10 @@ fun StreetFighterScreen(
         state.onlineStatus != SfOnlineStatus.OFF && state.onlineMapFile != null -> state.onlineMapFile
         else -> chosenBgFile
     }
-    val bgImage = remember(effectiveBgFile) {
-        effectiveBgFile?.let { name ->
-            runCatching {
-                context.assets.open(theme.imagesDir + name).use { BitmapFactory.decodeStream(it) }.asImageBitmap()
-            }.getOrNull()
-        }
+    // Fondo del combate: estático (foto) o ANIMADO (atlas "_anim.png" + JSON). Se decodifica
+    // UNA vez al cambiar de mapa (remember por archivo); RGB_565 para bajar RAM.
+    val stageBg = remember(effectiveBgFile) {
+        effectiveBgFile?.let { loadStageBackground(context, theme.imagesDir, it) }
     }
 
     // ---- Sonidos del tema (SoundPool efectos + MediaPlayer música) ----
@@ -238,7 +236,7 @@ fun StreetFighterScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ---- Escena completa (mundo + HUD) en un Canvas ----
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawScene(theme, state, images, playerData, cpuData, bgImage, roundBannerText, fightBannerText, showHitboxes)
+            drawScene(theme, state, images, playerData, cpuData, stageBg, roundBannerText, fightBannerText, showHitboxes)
         }
 
         // ---- Controles de POW: joystick + diamante Xbox (ocultos durante la selección) ----
@@ -1696,7 +1694,7 @@ private fun DrawScope.drawScene(
     images: Map<String, ImageBitmap>,
     playerData: SfFighterData,
     cpuData: SfFighterData,
-    bgImage: ImageBitmap?,
+    bg: SfStageBackground?,
     roundBannerText: String,
     fightBannerText: String,
     showHitboxes: Boolean = false,
@@ -1712,9 +1710,12 @@ private fun DrawScope.drawScene(
     val stage = images[theme.stageImage] // 🆕 nullable: kenstage.png se quitó (copyright)
     val t = state.gameTimeMs
 
-    if (bgImage != null) {
-        // ---- FONDO POW a pantalla completa (elegido al azar) con parallax de cámara ----
-        drawFullBackground(ctx, bgImage)
+    if (bg is SfStageBackground.Animated) {
+        // ---- FONDO POW ANIMADO (atlas de frames) con parallax de cámara ----
+        drawAnimatedBackground(ctx, bg, t)
+    } else if (bg is SfStageBackground.Static) {
+        // ---- FONDO POW a pantalla completa (foto fija) con parallax de cámara ----
+        drawFullBackground(ctx, bg.image)
     } else if (stage != null) {
         // ---- Fondo del escenario clásico (parallax por capas) ----
         val bob = theme.boatBob[((t / 366) % theme.boatBob.size).toInt()]
@@ -1781,7 +1782,7 @@ private fun DrawScope.drawScene(
     }
 
     // ---- Primer plano (solo con el escenario clásico) ----
-    if (bgImage == null && stage != null) {
+    if (bg == null && stage != null) {
         drawSprite(ctx, stage, theme.ballardLarge, SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING - 147f - ctx.camX / 0.958f, 200f - ctx.camY)
         drawSprite(ctx, stage, theme.ballardLarge, SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING + 147f - ctx.camX / 0.958f, 200f - ctx.camY)
     }
@@ -1815,6 +1816,80 @@ private fun DrawScope.drawScene(
  * Fondo POW a pantalla completa: se escala para cubrir el ALTO de la escena (224) y el
  * ancho sobrante panea con la cámara (parallax 1:1 con el avance por el stage).
  */
+/**
+ * Fondo de escenario POW: estático (una foto) o ANIMADO (atlas de frames tipo "filmstrip"
+ * generado por tools/build_map_backgrounds.py). El atlas es UN solo bitmap; se anima
+ * pintando un sub-rect distinto por frame (col = i % cols, row = i / cols). minSdk=24 → NO
+ * usamos WebP animado (AnimatedImageDrawable es API 28+); el atlas funciona en todas.
+ */
+private sealed interface SfStageBackground {
+    data class Static(val image: ImageBitmap) : SfStageBackground
+    data class Animated(
+        val atlas: ImageBitmap,
+        val frameW: Int,
+        val frameH: Int,
+        val cols: Int,
+        val rows: Int,
+        val frameCount: Int,
+        val fps: Float,
+    ) : SfStageBackground
+}
+
+/**
+ * Decodifica el fondo desde assets. Si el archivo termina en "_anim.png" y existe su JSON
+ * hermano (frameWidth/frameHeight/cols/rows/frameCount/fps), devuelve un fondo ANIMADO;
+ * si no, uno estático. Se decodifica en RGB_565 (fotos sin alpha) para ~mitad de RAM.
+ */
+private fun loadStageBackground(context: Context, imagesDir: String, file: String): SfStageBackground? {
+    return runCatching {
+        val opts = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.RGB_565 }
+        val bmp = context.assets.open(imagesDir + file).use { BitmapFactory.decodeStream(it, null, opts) }
+            ?: return null
+        val jsonName = file.substringBeforeLast('.') + ".json"
+        val meta = runCatching {
+            context.assets.open(imagesDir + jsonName).use { it.readBytes().decodeToString() }
+        }.getOrNull()
+        if (file.endsWith("_anim.png") && meta != null) {
+            val o = org.json.JSONObject(meta)
+            SfStageBackground.Animated(
+                atlas = bmp.asImageBitmap(),
+                frameW = o.getInt("frameWidth"),
+                frameH = o.getInt("frameHeight"),
+                cols = o.getInt("cols"),
+                rows = o.getInt("rows"),
+                frameCount = o.getInt("frameCount"),
+                fps = o.getDouble("fps").toFloat(),
+            )
+        } else {
+            SfStageBackground.Static(bmp.asImageBitmap())
+        }
+    }.getOrNull()
+}
+
+/**
+ * Fondo animado: elige el frame según el tiempo de juego (el ping-pong ya viene embebido en
+ * el atlas, así que basta un loop simple 0→N-1) y lo pinta con el mismo parallax que el fijo.
+ */
+private fun DrawScope.drawAnimatedBackground(ctx: SceneCtx, anim: SfStageBackground.Animated, timeMs: Long) {
+    val frameMs = (1000f / anim.fps).coerceAtLeast(1f)
+    val idx = ((timeMs / frameMs).toLong() % anim.frameCount).toInt().coerceIn(0, anim.frameCount - 1)
+    val col = idx % anim.cols
+    val row = idx / anim.cols
+    val s = SfConstants.SCENE_HEIGHT / anim.frameH.toFloat()
+    val scaledW = anim.frameW * s
+    val camSpan = SfConstants.STAGE_WIDTH - SfConstants.SCENE_WIDTH
+    val progress = ((ctx.camX - SfConstants.STAGE_PADDING) / camSpan).coerceIn(0f, 1f)
+    val offsetX = (scaledW - SfConstants.SCENE_WIDTH).coerceAtLeast(0f) * progress
+    drawImage(
+        image = anim.atlas,
+        srcOffset = IntOffset(col * anim.frameW, row * anim.frameH),
+        srcSize = IntSize(anim.frameW, anim.frameH),
+        dstOffset = IntOffset((ctx.ox - offsetX * ctx.scale).toInt(), ctx.oy.toInt()),
+        dstSize = IntSize((scaledW * ctx.scale).toInt(), (SfConstants.SCENE_HEIGHT * ctx.scale).toInt()),
+        filterQuality = FilterQuality.Low,
+    )
+}
+
 private fun DrawScope.drawFullBackground(ctx: SceneCtx, bg: ImageBitmap) {
     val s = SfConstants.SCENE_HEIGHT / bg.height.toFloat()
     val scaledW = bg.width * s

@@ -1,0 +1,12 @@
+{
+  "frameWidth": 640,
+  "frameHeight": 360,
+  "cols": 5,
+  "rows": 7,
+  "frameCount": 34,
+  "fps": 12.0,
+  "loop": true,
+  "pingPong": true,
+  "slug": "uam_azcapo_noche_2",
+  "source": "UAM Azcapo Noche 2.mp4"
+}

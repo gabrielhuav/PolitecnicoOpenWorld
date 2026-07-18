@@ -119,6 +119,13 @@ val SF_CLASSIC_THEME = SfTheme(
         SfStageBg("fondo_IPN_cecyt9_1.png", "CECyT 9"),
         SfStageBg("fondo_IPN_cecyt2_1.png", "CECyT 2"),
         SfStageBg("fondo_UNAM_bibliotecaCentral_1.png", "Ciudad Universitaria UNAM"),
+        // 🆕 Fondos ANIMADOS (atlas de frames "_anim.png" + JSON, generados por
+        // tools/build_map_backgrounds.py). Se animan en el draw loop (un solo bitmap).
+        SfStageBg("fondo_uam_azcapo_anim.png", "UAM Azcapotzalco"),
+        SfStageBg("fondo_uam_azcapo_noche_1_anim.png", "UAM Azcapotzalco (Noche)"),
+        SfStageBg("fondo_uam_azcapo_noche_2_anim.png", "UAM Azcapotzalco (Noche 2)"),
+        SfStageBg("fondo_islamunecas_anim.png", "Isla de las Muñecas"),
+        SfStageBg("fondo_islamunecas_noche_1_anim.png", "Isla de las Muñecas (Noche)"),
     ),
     stageImage = "kenstage.png",
     stageBackground = listOf(72, 208, 768, 176),

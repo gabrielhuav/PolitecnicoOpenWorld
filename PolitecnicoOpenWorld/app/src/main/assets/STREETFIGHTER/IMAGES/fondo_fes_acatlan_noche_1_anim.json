@@ -1,0 +1,12 @@
+{
+  "frameWidth": 640,
+  "frameHeight": 360,
+  "cols": 5,
+  "rows": 7,
+  "frameCount": 34,
+  "fps": 12.0,
+  "loop": true,
+  "pingPong": true,
+  "slug": "fes_acatlan_noche_1",
+  "source": "Fes Acatlan Noche 1.mp4"
+}
