@@ -658,6 +658,7 @@
     <string name="sf_gauntlet_showcase">Showcase: animaciones y sonidos</string>
     <string name="sf_confirm">Confirmar</string>
     <string name="sf_gauntlet_stop">Detener</string>
+    <string name="sf_showcase_skip">Saltar animación</string>
     <string name="sf_gauntlet_report_title">Reporte del autojuego</string>
     <string name="sf_gauntlet_no_issues">Sin problemas detectados.</string>
     <string name="sf_close">Cerrar</string>

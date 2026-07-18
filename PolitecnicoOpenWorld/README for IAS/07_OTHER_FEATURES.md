@@ -482,8 +482,52 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
 - **🆕 SHOWCASE de assets (2026-07-18h, Claude):** tercer botón `startShowcase`: cada peleador
   recorre por SCRIPT todas sus animaciones (caminar/saltar/agachar/6 golpes/especial L-M-F/poderes)
   reproduciendo sonidos, y chequea que exista `special_<id>.ogg`. Para QA visual/auditiva; los
-  assets rotos los caza `watchStuck`. PENDIENTE (para Fable): que cubra TODAS las animaciones
-  (incluidas HURT/KO/turns, no alcanzables por input simple) y verifique TODOS los SFX.
+  assets rotos los caza `watchStuck`. ~~PENDIENTE: cubrir TODAS las animaciones y TODOS los SFX~~
+  **✅ COMPLETO 2026-07-18j (abajo)**.
+- **🆕 SHOWCASE COMPLETO + AUDITORÍA ESTÁTICA (2026-07-18j, Fable):**
+  - El guion ahora cubre TAMBIÉN los estados inalcanzables por input: `showcaseExtraStates`
+    (IDLE_TURN, CROUCH_TURN, los 6 HURT_*, KO, VICTORY) y — solo La Presidenta — la
+    **metamorfosis** (BONUS_POWER_11 → termina como Yoalli). Se aplican con
+    `forceShowcaseState` (bypass de `validFrom`; si la anim no existe, lo reporta en vez de
+    crashear). `showcaseStepMs` 1600→**2000** (> `stuckLimitMs`=1800: watchStuck alcanza a
+    registrar/rescatar un atasco antes del siguiente paso). Cap por pelea = POR PASOS
+    (`gauntletFightCapCurMs`; el fijo de 60 s cortaba el guion de La Presidenta ~68 s).
+  - En showcase el **timer no corre** (TIME OVER cortaba el guion) y los golpes espejados
+    **no restan vida** (suenan + splash = QA de los .ogg de impacto; antes los 10 poderes de
+    La Presidenta sumaban 200 de daño → KO a media pasarela). `watchStalemate` no aplica.
+  - **Auditoría ESTÁTICA**: `auditFighterAssets(id)` por peleador (todas las claves
+    `SfFighterState.jsKey` — poderes solo hasta su `bonusPowerCount` — faltantes/vacías,
+    frames referenciados inexistentes, `special_<id>.ogg`; Lázaro usa hadouken a propósito) +
+    `auditThemeSounds()` una vez por corrida (todos los `soundKeys` del tema + música). Todo
+    cae al mismo reporte (`.txt` + `GauntletReportOverlay`).
+- **🆕 IA vs IA VARIADA (2026-07-18j, Fable):** causa del "quietos / mismo ataque":
+  - **Ofensiva fantasma:** `cpuLastOffenseMs` se actualizaba con la INTENCIÓN de atacar aunque
+    el input se descartara (cooldown de special, `validFrom`, HURT en curso) → el watchdog creía
+    que había pelea. Ahora se alimenta del **ESTADO real** del peleador (está atacando) y con
+    pasividad extrema (>2× límite) el golpe es OBLIGATORIO en rango → nunca >~2 s sin acción cerca.
+  - **Clinch espejo:** ambos índices rodaban la MISMA tabla → decidían lo mismo y quedaban
+    pegados. `cpuClinchBreak` en IA vs IA usa **roles asimétricos** (alterna por índice+tiempo:
+    uno golpea, el otro se separa/salta) → el clinch siempre se resuelve.
+  - **Variedad:** `variedCpuAttack` (memoria de 1: nunca repite la firma fuerza×tipo anterior)
+    sustituye a `randomCpuAttack` en watchdog/anti-walk-loop/NORMAL/AVANZADA-PESADILLA; el
+    special a rango largo elige fuerza al azar (L/M/H).
+- **🆕 SHOWCASE v2: ritmo, SALTAR, mapas y audio (2026-07-18k, Fable; feedback del dueño):**
+  - **Ritmo:** avance automático — si la animación del paso ya terminó (ambos en IDLE, paso ya
+    disparado, ≥400 ms) no espera los 2 s fijos. Botón **"Saltar animación"** en pantalla
+    (`skipShowcaseStep`, string `sf_showcase_skip` ES+EN; solo visible en showcase vía
+    `state.showcaseRunning`).
+  - **Fix salto perdido:** los pasos de UN toque esperan al IDLE para disparar (el input del
+    SALTO caía durante CROUCH→CROUCH_UP y `JUMP_START` no es válido desde ahí → se perdía).
+    `showcaseInput` ahora recibe el `SfFighter` (no solo el id).
+  - **Mapas:** cada pelea del autojuego usa el **mapa HOGAR** del peleadór en turno
+    (`state.gauntletMapFile`; showcase = día, gauntlets IA vs IA = apocalipsis acorde a
+    PESADILLA). La Screen lo prioriza en `effectiveBgFile`.
+  - **Audio:** los pasos forzados EMITEN sonido reutilizando .ogg correctos (HURT →
+    `<fuerza>-punch-hit`, KO → `heavy-kick-hit`, VICTORY y metamorfosis → voz
+    `special_<id>.ogg`; solo idx 0 para no duplicar volumen). Además, **en pelea real**
+    VICTORY ahora suena con la voz del peleadór (`changeState`). ⚠️ La CALIDAD/corrección de
+    las voces (deepfake con los videos originales) sigue **NO implementada** — es pipeline de
+    assets (ver `SF_SPECIAL_VOICES_SFX.md`), no código; la auditoría reporta los faltantes.
 - **🆕 Botón CONFIRMAR en el selector (2026-07-18h, Claude):** `CharacterSelectOverlay` ahora
   muestra un botón explícito para confirmar el peleador resaltado (antes solo el 2.º toque).
   string `sf_confirm` ES+EN.

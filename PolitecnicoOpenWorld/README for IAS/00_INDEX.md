@@ -80,6 +80,14 @@
   Si en dispositivo aún falla: **`_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md`**.
   Handoff Fable: **`_ARCHIVO/PROMPT_traspaso_Fable_2026-07-18_voces.md`**
   (**prioridad = IA quietos/mismo ataque + Showcase**; voces solo contexto al final).
+- **✅ IA + Showcase 2026-07-18j (Fable):** ofensiva por ESTADO real (no intención), clinch
+  con roles asimétricos, `variedCpuAttack` (sin repetir golpe); showcase COMPLETO (giros,
+  HURT, KO, VICTORY, metamorfosis) + **auditoría estática** de anims/frames/.ogg → reporte.
+  Detalle: 07 §HUELUM + `DISENO_ARCADE_SF_POW.md` §18j. **Pendiente: Rebuild + dispositivo.**
+- **✅ Showcase v2 2026-07-18k (Fable, feedback dueño):** avance automático + botón SALTAR
+  (`sf_showcase_skip`), mapa HOGAR por peleadór (`gauntletMapFile`), audio en pasos forzados
+  (hits/KO/voz en VICTORY-metamorfosis; VICTORY con voz también en pelea real), fix salto
+  perdido. Deepfake voces: SIGUE sin implementar (assets). Detalle: 07 §HUELUM + DISENO §18k.
 
 ### Docs de trabajo / Working docs (no son 00–09)
 

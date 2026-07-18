@@ -25,6 +25,34 @@
   DETENER, y al final escribe un .txt en getExternalFilesDir + reporte en pantalla. Sirve para
   cazar assets rotos: cuando salga el reporte, corregir en la siguiente pasada.
 
+## Fix 2026-07-18j (Fable) — IA variada + showcase completo con auditoría estática
+
+- IA "quietos/mismo ataque": `cpuLastOffenseMs` ahora se alimenta del ESTADO real (atacando),
+  no de la intención (los inputs descartados por cooldown/validFrom/HURT contaban como
+  ofensiva); con pasividad >2× límite el golpe es OBLIGATORIO en rango (≤~2 s sin acción).
+  `cpuClinchBreak` en IA vs IA con ROLES asimétricos (índice+tiempo: uno golpea, otro se
+  separa) — antes ambos rodaban la misma tabla y quedaban pegados. `variedCpuAttack`
+  (no repite la firma fuerza×tipo anterior) sustituye a `randomCpuAttack`; special lejano
+  con fuerza al azar.
+- Showcase COMPLETO: `showcaseExtraStates` (giros, 6 HURT, KO, VICTORY) + metamorfosis de
+  La Presidenta, aplicados con `forceShowcaseState` (bypass validFrom; reporta anims
+  inexistentes). `showcaseStepMs`=2000 (> stuckLimitMs), cap por pasos
+  (`gauntletFightCapCurMs`), timer congelado y golpes sin daño en showcase (solo SFX/splash).
+- Auditoría ESTÁTICA: `auditFighterAssets` (anims faltantes/vacías por `SfFighterState.jsKey`,
+  frames rotos, `special_<id>.ogg`) + `auditThemeSounds` (SFX del tema + música) → mismo
+  reporte .txt/overlay. Detalle en 07 §HUELUM VS. GOYA.
+
+## Fix 2026-07-18k (Fable) — showcase v2 (feedback del dueño en dispositivo)
+
+- Ritmo: avance automático al terminar la animación (ambos IDLE + paso disparado + ≥400 ms) y
+  botón "Saltar animación" (`skipShowcaseStep`, `sf_showcase_skip`, `state.showcaseRunning`).
+- Fix salto perdido: los one-shot esperan IDLE para disparar (`showcaseInput(now, SfFighter)`).
+- Mapas: cada pelea del autojuego en el mapa HOGAR del peleadór (`state.gauntletMapFile`;
+  showcase=día, gauntlet=apocalipsis); la Screen lo prioriza en `effectiveBgFile`.
+- Audio: pasos forzados con .ogg reutilizados (HURT→hit por fuerza, KO→heavy-kick-hit,
+  VICTORY/metamorfosis→voz `special_<id>.ogg`, solo idx 0); VICTORY con voz también en pelea
+  real. Deepfake de voces: SIGUE sin implementar (pipeline de assets, no código).
+
 ## Objetivo
 
 Modo arcade estilo Street Fighter, 100% POW: quitar copyright, **todos los personajes y

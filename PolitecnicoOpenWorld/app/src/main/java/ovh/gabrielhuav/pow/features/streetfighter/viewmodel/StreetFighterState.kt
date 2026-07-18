@@ -86,6 +86,10 @@ data class StreetFighterState(
     val gauntletFinished: Boolean = false,           // terminó → mostrar reporte
     val gauntletReport: List<String> = emptyList(),  // problemas detectados
     val gauntletReportPath: String? = null,          // ruta del .txt escrito
+    // 🆕 (2026-07-18k) El gauntlet en curso es el SHOWCASE (la View muestra el botón SALTAR)
+    val showcaseRunning: Boolean = false,
+    // 🆕 (2026-07-18k) Mapa de la pelea del autojuego (hogar del peleadór en turno)
+    val gauntletMapFile: String? = null,
 
     // ─── 🆕 MODO ARCADE (escalera de 11 peleas, offline; ver SfArcadeLadder) ───
     // Todos los personajes/mapas empiezan bloqueados y se desbloquean derrotando rivales.

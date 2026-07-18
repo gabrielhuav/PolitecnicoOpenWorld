@@ -193,9 +193,10 @@ fun StreetFighterScreen(
     LaunchedEffect(state.inCharacterSelect) {
         if (state.inCharacterSelect) { pendingFighter = null; pendingRival = null; pendingDifficulty = null }
     }
-    // Fondo del combate: ARCADE manda su mapa (ligado al rival); ONLINE el del ANFITRIÓN;
-    // si no, el elegido offline en el selector.
+    // Fondo del combate: AUTOJUEGO/SHOWCASE manda el hogar del peleadór en turno; ARCADE su
+    // mapa (ligado al rival); ONLINE el del ANFITRIÓN; si no, el elegido offline en el selector.
     val effectiveBgFile = when {
+        state.gauntletRunning && state.gauntletMapFile != null -> state.gauntletMapFile
         state.arcadeActive && state.arcadeMapFile != null -> state.arcadeMapFile
         state.onlineStatus != SfOnlineStatus.OFF && state.onlineMapFile != null -> state.onlineMapFile
         else -> chosenBgFile
@@ -393,6 +394,16 @@ fun StreetFighterScreen(
                     color = Color(0xFF8B1538),
                     modifier = Modifier.fillMaxWidth(0.32f),
                 )
+                // 🆕 SALTAR (solo showcase): adelanta a la siguiente animación del guion
+                if (state.showcaseRunning) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    PowButton(
+                        text = stringResource(R.string.sf_showcase_skip),
+                        onClick = viewModel::skipShowcaseStep,
+                        color = Color(0xFF1B5E20),
+                        modifier = Modifier.fillMaxWidth(0.32f),
+                    )
+                }
             }
         }
         if (state.gauntletFinished) {

@@ -203,6 +203,9 @@ class StreetFighterViewModel @Inject constructor(
     private val cpuLastOffenseMs = LongArray(2) { 0L }
     // Preferencia de “espacio” tras clinch (retrocede un rato en IA vs IA).
     private val cpuWantsSpaceUntilMs = LongArray(2) { 0L }
+    // 🆕 (2026-07-18j) Variedad ofensiva: firma del último golpe (fuerza×tipo, 0..5) por índice
+    // para NO repetir el mismo ataque dos veces seguidas; -1 = sin historial.
+    private val cpuLastAttackSig = IntArray(2) { -1 }
 
     // 🆕 DIAGNÓSTICO / anti-atasco (2026-07-18h): detecta animaciones que NO terminan (assets sin
     // frame -1 / incompletas → peleador congelado, "se pegan y no se mueven") y estancamientos sin
@@ -232,13 +235,22 @@ class StreetFighterViewModel @Inject constructor(
     private var gauntletTotal = 0
     private var gauntletDone = 0
     private val gauntletFightCapMs = 60000L // tope por pelea (gameNow reinicia a 0 en cada combate)
+    // 🆕 (2026-07-18j) Tope de la pelea EN CURSO: 60 s en peleas IA vs IA; en showcase se calcula
+    // POR PASOS (el guion completo con HURT/KO/VICTORY — y la metamorfosis de La Presidenta —
+    // dura más de 60 s y el cap fijo lo cortaba con un TIMEOUT falso).
+    private var gauntletFightCapCurMs = 60000L
     // 🆕 SHOWCASE: variante del gauntlet que recorre TODAS las animaciones + sonidos de cada
     // peleador (script de moves), para QA visual/auditiva de los assets (watchStuck loguea los rotos).
     private var showcaseMode = false
     private var showcaseStep = 0
     private var showcaseStepUntilMs = 0L
     private var showcaseFiredStep = -1
-    private val showcaseStepMs = 1600L // ventana por animación (> cooldown de special/bonus)
+    // Ventana por animación: > stuckLimitMs (1800) para que watchStuck alcance a REGISTRAR y
+    // rescatar una anim atascada antes de que el guion fuerce el siguiente estado (y > cooldown
+    // de special/bonus). 🆕 2026-07-18j: era 1600 y enmascaraba atascos en los pasos forzados.
+    private val showcaseStepMs = 2000L
+    // Estado que el paso actual del guion FUERZA (bypass de validFrom); null = paso por input.
+    private var showcaseForcedState: SfFighterState? = null
 
     // ---- batalla ----
     private var hurtFreezeUntilMs = 0L  // hit-freeze (FighterStruckDelay)
@@ -475,8 +487,10 @@ class StreetFighterViewModel @Inject constructor(
             winner = s.winnerIndex, battleEnded = s.battleEnded,
         )
 
-        // El timer NO corre durante el banner "RONDA N / PELEA"
-        if (!sim.battleEnded && now >= roundIntroUntilMs) updateTimer(sim, now)
+        // El timer NO corre durante el banner "RONDA N / PELEA".
+        // 🆕 (2026-07-18j) Tampoco en SHOWCASE: el guion completo (~68 s con la metamorfosis de
+        // La Presidenta) supera los ~66 s reales del timer → TIME OVER cortaba los pasos finales.
+        if (!sim.battleEnded && !showcaseMode && now >= roundIntroUntilMs) updateTimer(sim, now)
 
         if (online) {
             applyRemoteSnapshot(sim, now, dt) // posición/estado/hp del rival (red, interpolado)
@@ -494,8 +508,30 @@ class StreetFighterViewModel @Inject constructor(
             }
             else -> {
                 if (showcaseMode) {
+                    // 🆕 (2026-07-18k) RITMO: si la animación del paso ya terminó (ambos en
+                    // reposo) se adelanta la ventana (~400 ms tras arrancar el paso) en vez de
+                    // esperar los 2 s fijos. KO/VICTORY (nunca vuelven a IDLE) y los pasos
+                    // sostenidos de caminar/agachar (0..2) usan su ventana completa. El botón
+                    // SALTAR de la View (skipShowcaseStep) fuerza el fin en cualquier momento.
+                    // (solo si el paso YA DISPARÓ: si aún espera el IDLE para soltar su input,
+                    // adelantar aquí se lo saltaría)
+                    val stepStart = showcaseStepUntilMs - showcaseStepMs
+                    if (showcaseStep >= 3 && showcaseFiredStep == showcaseStep &&
+                        now > stepStart + 400L &&
+                        sim.p0.state == SfFighterState.IDLE && sim.p1.state == SfFighterState.IDLE
+                    ) {
+                        showcaseStepUntilMs = now
+                    }
                     // SHOWCASE: ambos espejan un script que recorre todas las animaciones + sonidos
-                    val inp = showcaseInput(now, sim.p0.id)
+                    val inp = showcaseInput(now, sim.p0)
+                    // 🆕 (2026-07-18j) Pasos FORZADOS del guion (giros, HURT_*, KO, VICTORY y la
+                    // metamorfosis de La Presidenta): inalcanzables por input — se aplican directo
+                    // (bypass de validFrom) UNA vez por paso; watchStuck los vigila igual.
+                    showcaseForcedState?.let { st ->
+                        forceShowcaseState(sim, 0, st, now)
+                        forceShowcaseState(sim, 1, st, now)
+                        showcaseForcedState = null
+                    }
                     updateFighter(sim, 0, inp, now, dt)
                     updateFighter(sim, 1, inp, now, dt)
                 } else if (s.aiVsAi) {
@@ -660,6 +696,12 @@ class StreetFighterViewModel @Inject constructor(
             }
             else -> Unit // CROUCH / CROUCH_UP / IDLE_TURN / CROUCH_TURN: sin init
         }
+        // 🆕 (2026-07-18k) VICTORY con la VOZ del peleadór (reutiliza su special_<id>.ogg):
+        // la celebración de fin de ronda estaba muda; el dueño pidió reutilizar audios
+        // correctos antes que dejar animaciones sin sonido.
+        if (newState == SfFighterState.VICTORY && f.state != SfFighterState.VICTORY) {
+            emitSpecialVoice(nf.id, now)
+        }
         sim.setFighter(idx, nf)
         return true
     }
@@ -723,7 +765,9 @@ class StreetFighterViewModel @Inject constructor(
      * IA pasiva). Registra el estancamiento y "pica" a ambas CPU para que ataquen ya.
      */
     private fun watchStalemate(sim: Sim, now: Long) {
-        if (sim.battleEnded || now < roundIntroUntilMs) return
+        // 🆕 En showcase NO aplica: es un guion de animaciones, no una pelea (evita
+        // "ESTANCAMIENTO" falso en el reporte).
+        if (sim.battleEnded || showcaseMode || now < roundIntroUntilMs) return
         val hp0 = sim.p0.hitPoints
         val hp1 = sim.p1.hitPoints
         if (lastHpSeen[0] < 0) { lastHpSeen[0] = hp0; lastHpSeen[1] = hp1; lastDamageMs = now; return }
@@ -1205,6 +1249,19 @@ class StreetFighterViewModel @Inject constructor(
         var attacker = sim.fighter(attackerIdx)
         var defender = sim.fighter(defenderIdx)
 
+        // 🆕 (2026-07-18j) SHOWCASE: los golpes/proyectiles espejados NO restan vida ni cambian
+        // el estado (el guion controla las poses; antes los 10 poderes de La Presidenta sumaban
+        // 200 de daño → KO y el combate se cortaba a media pasarela). Solo suenan y hacen splash
+        // (de paso es el QA de los .ogg de impacto).
+        if (showcaseMode) {
+            _soundEvents.tryEmit("${strength.name.lowercase()}-${type.name.lowercase()}-hit")
+            sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
+            hitPos?.let { (x, y) ->
+                sim.splashes.add(SfHitSplash(x = x, y = y, playerId = attackerIdx, strength = strength, animationTimerMs = now))
+            }
+            return
+        }
+
         // Metamorfosis en curso: invulnerable (no se puede “matar” a media anim)
         if (isMetamorphosing(defender)) {
             sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
@@ -1623,6 +1680,12 @@ class StreetFighterViewModel @Inject constructor(
         val foe = sim.fighter(1 - i)
         val dist = abs(me.x - foe.x)
 
+        // 🆕 (2026-07-18j) Ofensiva REAL: el reloj del watchdog se alimenta del ESTADO del
+        // peleadór (está atacando de verdad), no solo de la intención. Antes un ataque decidido
+        // pero DESCARTADO (cooldown de special, validFrom, HURT en curso) contaba como ofensiva
+        // → pasividad larga sin corrección ("se quedan quietos").
+        if (me.state in attackMeta || me.state in SF_BONUS_POWER_STATES) cpuLastOffenseMs[i] = now
+
         // Watchdog: si lleva demasiado tiempo SIN ofensiva → forzar acción.
         // 🆕 (fix 2026-07-18) Antes solo actuaba a < 150 px; en IA vs IA ambos se quedaban
         // CAMINANDO / mirándose a media distancia sin que saltara nunca. Ahora cubre CUALQUIER
@@ -1632,9 +1695,12 @@ class StreetFighterViewModel @Inject constructor(
             val staleMs = now - cpuLastOffenseMs[i]
             val limit = if (aiVs) 420L else 700L
             if (staleMs > limit && !decision.hasAttackOrSpecial()) {
+                // 🆕 (2026-07-18j) Con pasividad extrema (>2×limit) el golpe es OBLIGATORIO en
+                // rango de pelea: garantiza que NUNCA pasen ~2 s sin acción estando cerca.
+                val forceHit = staleMs > limit * 2
                 decision = when {
                     dist < CPU_CLINCH_DIST -> cpuClinchBreak(me, foe, now, i)
-                    dist < 150f -> if (Random.nextFloat() < 0.75f) randomCpuAttack() else cpuJumpIn(me, foe)
+                    dist < 150f -> if (forceHit || Random.nextFloat() < 0.75f) variedCpuAttack(i) else cpuJumpIn(me, foe)
                     else -> cpuApproach(me, foe) // pasivo demasiado tiempo y lejos → acercarse YA
                 }
             }
@@ -1648,7 +1714,7 @@ class StreetFighterViewModel @Inject constructor(
                 decision = if (dist < CPU_CLINCH_DIST) {
                     cpuClinchBreak(me, foe, now, i)
                 } else {
-                    randomCpuAttack()
+                    variedCpuAttack(i)
                 }
                 cpuStaleApproach[i] = 0
             }
@@ -1742,12 +1808,22 @@ class StreetFighterViewModel @Inject constructor(
         cpuWantsSpaceUntilMs[selfIndex] = now + Random.nextLong(280L, 520L)
         val roll = Random.nextFloat()
         val aiVs = _state.value.aiVsAi
+        if (aiVs) {
+            // 🆕 (2026-07-18j) ROLES ASIMÉTRICOS: antes ambos índices rodaban la MISMA tabla y
+            // solían decidir lo mismo (los dos retro o los dos golpe ligero) → se quedaban
+            // "pegados" sin resolverse. Ahora se alterna por índice y tiempo: uno GOLPEA
+            // (variado) mientras el otro SE SEPARA (retro/salto) — el clinch siempre termina
+            // en acción visible.
+            val attackerTurn = ((now / 900L).toInt() + selfIndex) % 2 == 0
+            return when {
+                attackerTurn && roll < 0.70f -> variedCpuAttack(selfIndex)
+                attackerTurn -> cpuJumpIn(me, foe) // cross-up por encima
+                roll < 0.55f -> cpuRetreatFlags(me, foe)
+                roll < 0.85f -> cpuJumpBack(me, foe)
+                else -> variedCpuAttack(selfIndex)
+            }
+        }
         return when {
-            // IA vs IA: prioriza separar y re-entrar (se ve a pelear, no a “pegarse”)
-            aiVs && roll < 0.40f -> cpuRetreatFlags(me, foe)
-            aiVs && roll < 0.62f -> cpuJumpBack(me, foe)
-            aiVs && roll < 0.82f -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
-            aiVs -> cpuAttack(SfAttackStrength.MEDIUM, punch = Random.nextBoolean())
             roll < 0.28f -> cpuRetreatFlags(me, foe)
             roll < 0.48f -> cpuJumpBack(me, foe)
             roll < 0.72f -> cpuAttack(SfAttackStrength.LIGHT, punch = Random.nextBoolean())
@@ -1802,7 +1878,7 @@ class StreetFighterViewModel @Inject constructor(
         val corner = isNearStageCorner(me.x)
 
         if (now < cpuWantsSpaceUntilMs[selfIndex] && dist < CPU_MELEE_DIST) {
-            return if (roll < 0.7f) cpuRetreatFlags(me, foe) else randomCpuAttack()
+            return if (roll < 0.7f) cpuRetreatFlags(me, foe) else variedCpuAttack(selfIndex)
         }
         if (corner && dist > 50f) return cpuApproach(me, foe)
         if (dist < CPU_CLINCH_DIST) return cpuClinchBreak(me, foe, now, selfIndex)
@@ -1826,12 +1902,12 @@ class StreetFighterViewModel @Inject constructor(
             }
             dist > CPU_MELEE_DIST -> when {
                 roll < 0.40f -> cpuApproach(me, foe)
-                roll < 0.72f -> randomCpuAttack()
+                roll < 0.72f -> variedCpuAttack(selfIndex)
                 roll < 0.88f -> cpuJumpIn(me, foe)
                 else -> cpuRetreatFlags(me, foe)
             }
             else -> when { // melee
-                roll < 0.72f + 0.12f * cpuIntensity -> randomCpuAttack()
+                roll < 0.72f + 0.12f * cpuIntensity -> variedCpuAttack(selfIndex)
                 roll < 0.88f -> cpuRetreatFlags(me, foe) // micro-spacing
                 else -> cpuJumpIn(me, foe)
             }
@@ -1869,7 +1945,7 @@ class StreetFighterViewModel @Inject constructor(
         if (now < cpuWantsSpaceUntilMs[selfIndex] && dist < CPU_MID_DIST) {
             return when {
                 roll < 0.55f -> cpuRetreatFlags(me, foe)
-                roll < 0.78f -> randomCpuAttack()
+                roll < 0.78f -> variedCpuAttack(selfIndex)
                 else -> cpuJumpIn(me, foe)
             }
         }
@@ -1910,11 +1986,12 @@ class StreetFighterViewModel @Inject constructor(
             )
         }
 
-        // Footsies / presión por rango
+        // Footsies / presión por rango (🆕 2026-07-18j: golpes con memoria anti-repetición y
+        // fuerza del special al azar — la pelea se ve VARIADA, no el mismo ataque en bucle)
         return when {
             dist > CPU_MID_DIST -> when {
                 !corner && !ownFb && now >= specialCooldownUntil[selfIndex] && roll < specialFar ->
-                    SfInput(special = SfAttackStrength.LIGHT)
+                    SfInput(special = SfAttackStrength.entries.random())
                 roll < 0.28f -> cpuJumpIn(me, foe)
                 roll < 0.38f -> cpuRetreatFlags(me, foe) // baitear
                 else -> cpuApproach(me, foe)
@@ -1923,23 +2000,13 @@ class StreetFighterViewModel @Inject constructor(
                 !ownFb && now >= specialCooldownUntil[selfIndex] && roll < specialMid ->
                     SfInput(special = SfAttackStrength.MEDIUM)
                 roll < 0.32f -> cpuApproach(me, foe)
-                roll < 0.62f -> cpuAttack(
-                    if (Random.nextFloat() < 0.45f) SfAttackStrength.MEDIUM else SfAttackStrength.HEAVY,
-                    punch = Random.nextBoolean(),
-                )
+                roll < 0.62f -> variedCpuAttack(selfIndex)
                 roll < 0.80f -> cpuJumpIn(me, foe)
                 roll < 0.92f -> cpuRetreatFlags(me, foe) // spacing
                 else -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
             }
             else -> when { // melee range (no clinch)
-                roll < attackMelee + 0.1f * cpuIntensity -> cpuAttack(
-                    when {
-                        Random.nextFloat() < 0.40f -> SfAttackStrength.HEAVY
-                        Random.nextFloat() < 0.72f -> SfAttackStrength.MEDIUM
-                        else -> SfAttackStrength.LIGHT
-                    },
-                    punch = Random.nextBoolean(),
-                )
+                roll < attackMelee + 0.1f * cpuIntensity -> variedCpuAttack(selfIndex)
                 roll < 0.90f -> cpuRetreatFlags(me, foe) // tick throw-ish spacing
                 else -> cpuJumpIn(me, foe)
             }
@@ -1961,8 +2028,17 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
-    private fun randomCpuAttack(): SfInput =
-        cpuAttack(SfAttackStrength.entries.random(), punch = Random.nextBoolean())
+    /**
+     * 🆕 (2026-07-18j) Golpe al azar SIN repetir el último (firma fuerza×tipo por peleadór).
+     * Sustituye a randomCpuAttack(): con 6 combos y memoria de 1, la IA mezcla puños/patadas
+     * y fuerzas en vez de encadenar el MISMO ataque una y otra vez.
+     */
+    private fun variedCpuAttack(selfIndex: Int): SfInput {
+        val i = selfIndex.coerceIn(0, 1)
+        val sig = (0 until 6).filter { it != cpuLastAttackSig[i] }.random()
+        cpuLastAttackSig[i] = sig
+        return cpuAttack(SfAttackStrength.entries[sig / 2], punch = sig % 2 == 0)
+    }
 
     // ------------------------------------------------------------------
     // Intenciones de la View
@@ -2226,8 +2302,11 @@ class StreetFighterViewModel @Inject constructor(
 
     /**
      * Bot 3: SHOWCASE de assets — cada peleador recorre TODAS sus animaciones (caminar, saltar,
-     * agacharse, los 6 golpes, especial L/M/F y sus poderes) reproduciendo sus sonidos, para
-     * verlos/oírlos y detectar los rotos. Recorre TODOS los peleadores. (No es pelea real.)
+     * agacharse, giros, los 6 golpes, especial L/M/F, poderes y 🆕 2026-07-18j: también los
+     * HURT_*, KO, VICTORY y la metamorfosis de La Presidenta) reproduciendo sus sonidos, para
+     * verlos/oírlos y detectar los rotos. Además corre una AUDITORÍA ESTÁTICA por peleadór
+     * (animaciones faltantes/vacías, frames rotos, .ogg del special y SFX del tema).
+     * Recorre TODOS los peleadores. (No es pelea real.)
      */
     fun startShowcase() {
         showcaseMode = true
@@ -2257,6 +2336,7 @@ class StreetFighterViewModel @Inject constructor(
         gauntletDone = 0
         gauntletActive = true
         _state.update { it.copy(gauntletFinished = false, gauntletReport = emptyList(), gauntletReportPath = null) }
+        if (showcaseMode) auditThemeSounds() // 🆕 SFX compartidos del tema (una vez por corrida)
         startNextGauntletFight()
     }
 
@@ -2273,24 +2353,50 @@ class StreetFighterViewModel @Inject constructor(
             showcaseStep = -1 // el primer tick lo sube a 0 (paso "caminar")
             showcaseStepUntilMs = 0L
             showcaseFiredStep = -2
-            // Chequeo de sonido: ¿existe special_<id>.ogg? (si no, la View cae a hadouken)
-            runCatching { appContext.assets.open("STREETFIGHTER/SOUNDS/${specialSfxKey(next.first)}.ogg").close() }
-                .onFailure { logAssetIssue("FALTA SONIDO ${specialSfxKey(next.first)}.ogg (${next.first.name})") }
+            showcaseForcedState = null
+            // Cap POR PASOS: el guion completo (con extras/metamorfosis) supera los 60 s fijos
+            gauntletFightCapCurMs = (showcaseTotalSteps(next.first) + 3L) * showcaseStepMs + 4000L
+            // 🆕 Auditoría estática del peleadór (anims + frames + special_<id>.ogg)
+            auditFighterAssets(next.first)
+        } else {
+            gauntletFightCapCurMs = gauntletFightCapMs
         }
-        _state.update { it.copy(gauntletRunning = true, gauntletProgress = "$gauntletDone/$gauntletTotal") }
+        // 🆕 (2026-07-18k) Cada pelea del autojuego usa el MAPA HOGAR del peleadór en turno:
+        // showcase = hogar de DÍA del peleadór mostrado (se ve claro para QA); gauntlets IA vs IA
+        // = hogar del rival en su variante APOCALIPSIS (acorde a PESADILLA). Así el bot también
+        // recorre/prueba los fondos.
+        val mapFile = if (showcaseMode) {
+            SfStageCatalog.homeStage(next.first).file(SfStageCatalog.Lighting.DAY)
+        } else {
+            SfStageCatalog.mapForRival(next.second, SfCpuDifficulty.PESADILLA)
+        }
+        _state.update {
+            it.copy(
+                gauntletRunning = true,
+                gauntletProgress = "$gauntletDone/$gauntletTotal",
+                showcaseRunning = showcaseMode,
+                gauntletMapFile = mapFile,
+            )
+        }
+    }
+
+    /** 🆕 (2026-07-18k) SALTAR (View): termina YA la ventana del paso actual del showcase. */
+    fun skipShowcaseStep() {
+        if (!gauntletActive || !showcaseMode) return
+        showcaseStepUntilMs = 0L
     }
 
     /** Se llama al inicio del tick: encadena la siguiente pelea al terminar el combate o al vencer el tope. */
     private fun maybeAdvanceGauntlet(now: Long): Boolean {
         val showcaseDone = showcaseMode && showcaseStep > showcaseTotalSteps(_state.value.player.id)
         val ended = matchOver && now >= endMenuAtMs
-        val timedOut = now >= gauntletFightCapMs
+        val timedOut = now >= gauntletFightCapCurMs
         if (!showcaseDone && !ended && !timedOut) return false
         if (timedOut && !ended && !showcaseDone) {
             val s = _state.value
             logAssetIssue(
                 "TIMEOUT ${s.player.id.name} vs ${s.cpu.id.name}: la pelea no terminó en " +
-                    "${gauntletFightCapMs / 1000}s (posible atasco/estancamiento)",
+                    "${gauntletFightCapCurMs / 1000}s (posible atasco/estancamiento)",
             )
         }
         startNextGauntletFight()
@@ -2305,6 +2411,8 @@ class StreetFighterViewModel @Inject constructor(
         _state.update {
             it.copy(
                 gauntletRunning = false,
+                showcaseRunning = false,
+                gauntletMapFile = null,
                 gauntletFinished = true,
                 gauntletReport = issues,
                 gauntletReportPath = path,
@@ -2335,21 +2443,47 @@ class StreetFighterViewModel @Inject constructor(
         _state.update { it.copy(gauntletFinished = false) }
     }
 
-    /** Último índice de paso del showcase para [id] (0..12 = moves fijos; 13.. = poderes). */
-    private fun showcaseTotalSteps(id: SfFighterId): Int = 12 + usableBonusPowerCount(id)
+    /**
+     * 🆕 (2026-07-18j) Estados EXTRA del showcase tras los poderes: inalcanzables por input.
+     * Orden pensado: giros primero (terminan en IDLE/CROUCH→sube solo), luego los 6 HURT,
+     * y al final KO (queda tendido) → VICTORY (se levanta a celebrar).
+     */
+    private val showcaseExtraStates = listOf(
+        SfFighterState.IDLE_TURN, SfFighterState.CROUCH_TURN,
+        SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
+        SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
+        SfFighterState.KO, SfFighterState.VICTORY,
+    )
+
+    /**
+     * Último índice de paso del showcase para [id]: 0..12 = moves por input, 13.. = poderes,
+     * luego [showcaseExtraStates] forzados y — SOLO La Presidenta — la metamorfosis final
+     * (BONUS_POWER_11 → termina convertida en Yoalli).
+     */
+    private fun showcaseTotalSteps(id: SfFighterId): Int =
+        12 + usableBonusPowerCount(id) + showcaseExtraStates.size +
+            (if (id == SfFighterId.LA_PRESIDENTA) 1 else 0)
 
     /**
      * Input SCRIPTED del showcase: avanza un paso cada [showcaseStepMs] y ejecuta la animación
      * correspondiente (una vez por paso). Los botones son de un tick (fireNow); las direcciones se
-     * sostienen. watchStuck detecta las animaciones que no terminan.
+     * sostienen. Los pasos EXTRA no emiten input: dejan el estado en [showcaseForcedState] y el
+     * tick lo aplica con [forceShowcaseState]. watchStuck detecta las animaciones que no terminan.
      */
-    private fun showcaseInput(now: Long, id: SfFighterId): SfInput {
+    private fun showcaseInput(now: Long, f: SfFighter): SfInput {
+        val id = f.id
         if (now >= showcaseStepUntilMs) {
             showcaseStep++
             showcaseStepUntilMs = now + showcaseStepMs
         }
         val step = showcaseStep
-        val fireNow = step != showcaseFiredStep
+        // 🆕 (2026-07-18k) Los pasos de UN toque (salto/golpes/specials/poderes) esperan a que
+        // el peleadór esté en IDLE para disparar: p. ej. el SALTO se PERDÍA porque el input caía
+        // mientras aún subía del agachado (CROUCH→CROUCH_UP) y JUMP_START no es válido desde ahí.
+        // Los pasos sostenidos (0..2) y los forzados (extras) disparan de inmediato.
+        val oneShotStep = step in 3..(12 + usableBonusPowerCount(id))
+        val fireNow = step != showcaseFiredStep &&
+            (!oneShotStep || f.state == SfFighterState.IDLE)
         if (fireNow) showcaseFiredStep = step
         return when (step) {
             0 -> SfInput(forward = true)
@@ -2366,11 +2500,112 @@ class StreetFighterViewModel @Inject constructor(
             11 -> if (fireNow) SfInput(special = SfAttackStrength.MEDIUM) else SfInput()
             12 -> if (fireNow) SfInput(special = SfAttackStrength.HEAVY) else SfInput()
             else -> {
+                val usable = usableBonusPowerCount(id)
                 val bp = step - 12 // paso 13 → poder 1
-                if (fireNow && bp in 1..usableBonusPowerCount(id)) SfInput(bonusPower = bp) else SfInput()
+                if (bp in 1..usable) {
+                    if (fireNow) SfInput(bonusPower = bp) else SfInput()
+                } else {
+                    // 🆕 Pasos FORZADOS: giros, HURT_*, KO, VICTORY y metamorfosis Presidenta
+                    if (fireNow) {
+                        val extraIdx = step - 13 - usable
+                        showcaseForcedState = when {
+                            extraIdx in showcaseExtraStates.indices -> showcaseExtraStates[extraIdx]
+                            extraIdx == showcaseExtraStates.size &&
+                                id == SfFighterId.LA_PRESIDENTA -> SfFighterState.BONUS_POWER_11
+                            else -> null
+                        }
+                    }
+                    SfInput()
+                }
             }
         }
     }
+
+    /**
+     * 🆕 (2026-07-18j) Fuerza un estado del guion del showcase saltándose validFrom (QA de
+     * assets, no gameplay). Si la animación NO existe en el JSON del peleadór, lo reporta y
+     * no fuerza nada (evita el crash de animOf con getValue).
+     */
+    private fun forceShowcaseState(sim: Sim, idx: Int, st: SfFighterState, now: Long) {
+        val f = sim.fighter(idx)
+        if (dataFor(f).animations[st.jsKey].isNullOrEmpty()) {
+            logAssetIssue("FALTA ANIM ${f.id.name}: ${st.jsKey}")
+            return
+        }
+        var nf = f.copy(
+            state = st, velocityX = 0f, velocityY = 0f,
+            slideVelocity = 0f, slideFriction = 0f,
+            attackStruck = false, fireballFired = false,
+            y = SfConstants.STAGE_FLOOR,
+        )
+        nf = withAnimationFrame(nf, 0, now)
+        sim.setFighter(idx, nf)
+        // 🆕 (2026-07-18k) AUDIO del guion: los estados forzados NO pasan por applyAttackHit/
+        // changeState, así que su sonido se emite aquí reutilizando los .ogg correctos del tema
+        // (pedido del dueño: mejor repetir un audio correcto que dejar la animación muda).
+        // Solo idx 0: el guion es espejo y emitir dos veces duplicaba el volumen.
+        if (idx == 0) when (st) {
+            SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_BODY_LIGHT ->
+                _soundEvents.tryEmit("light-punch-hit")
+            SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_BODY_MEDIUM ->
+                _soundEvents.tryEmit("medium-punch-hit")
+            SfFighterState.HURT_HEAD_HEAVY, SfFighterState.HURT_BODY_HEAVY ->
+                _soundEvents.tryEmit("heavy-punch-hit")
+            SfFighterState.KO -> _soundEvents.tryEmit("heavy-kick-hit") // golpe final (thud)
+            SfFighterState.VICTORY -> emitSpecialVoice(nf.id, now) // su voz al celebrar
+            SfFighterState.BONUS_POWER_11 -> emitSpecialVoice(nf.id, now) // metamorfosis
+            else -> Unit // giros: sin SFX (tampoco lo tienen en pelea real)
+        }
+    }
+
+    /**
+     * 🆕 AUDITORÍA ESTÁTICA por peleadór (2026-07-18j): recorre TODAS las claves de animación
+     * esperadas (SfFighterState.jsKey, poderes solo hasta su bonusPowerCount) y reporta las que
+     * FALTEN o estén vacías, y las que referencien frames inexistentes; además verifica la voz
+     * de su special (special_<id>.ogg). Corre al armar cada peleadór del showcase.
+     */
+    private fun auditFighterAssets(id: SfFighterId) {
+        val data = runCatching { SfFrameCatalog.load(appContext, id) }.getOrElse {
+            logAssetIssue("JSON ILEGIBLE ${id.name} (${id.jsonAsset}): ${it.message}")
+            return
+        }
+        for (st in SfFighterState.entries) {
+            val bonusIdx = st.bonusPowerIndex()
+            if (bonusIdx != null && bonusIdx > id.bonusPowerCount) continue // poderes que no tiene
+            val anim = data.animations[st.jsKey]
+            if (anim.isNullOrEmpty()) {
+                logAssetIssue("FALTA ANIM ${id.name}: ${st.jsKey}")
+                continue
+            }
+            anim.forEach { fr ->
+                if (fr.frameKey !in data.frames) {
+                    logAssetIssue("FRAME ROTO ${id.name}: ${st.jsKey} usa '${fr.frameKey}' y no existe")
+                }
+            }
+        }
+        // Voz del special (Lázaro usa hadouken.ogg del tema a propósito — no es un faltante)
+        if (id != SfFighterId.LAZARO &&
+            !sfAssetExists("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg")
+        ) {
+            logAssetIssue("FALTA SONIDO ${specialSfxKey(id)}.ogg (${id.name})")
+        }
+    }
+
+    /** 🆕 Verifica los .ogg COMPARTIDOS del tema (golpes/impactos/land/hadouken) + música. */
+    private fun auditThemeSounds() {
+        SF_CLASSIC_THEME.soundKeys.forEach { key ->
+            if (!sfAssetExists("${SF_CLASSIC_THEME.soundsDir}$key.ogg")) {
+                logAssetIssue("FALTA SFX DEL TEMA: $key.ogg")
+            }
+        }
+        if (!sfAssetExists(SF_CLASSIC_THEME.soundsDir + SF_CLASSIC_THEME.musicFile)) {
+            logAssetIssue("FALTA MUSICA DEL TEMA: ${SF_CLASSIC_THEME.musicFile}")
+        }
+    }
+
+    /** ¿Existe el asset? (open+close barato; solo se usa en auditorías puntuales). */
+    private fun sfAssetExists(path: String): Boolean =
+        runCatching { appContext.assets.open(path).close() }.isSuccess
 
     // ------------------------------------------------------------------
     // 🆕 MODO ARCADE (escalera de 11 peleas, OFFLINE). Ver SfArcadeLadder + SfArcadeRepository.
@@ -2522,6 +2757,8 @@ class StreetFighterViewModel @Inject constructor(
         cpuLastOffenseMs[1] = 0L
         cpuWantsSpaceUntilMs[0] = 0L
         cpuWantsSpaceUntilMs[1] = 0L
+        cpuLastAttackSig[0] = -1
+        cpuLastAttackSig[1] = -1
         cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
         pendingAttacks.clear()
         pendingBonusPower = null
