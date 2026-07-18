@@ -29,7 +29,7 @@ object MetrobusRepository {
                     stations.add(MetrobusStation(name, routesList, GeoPoint(coordinates.getDouble(1), coordinates.getDouble(0))))
                 }
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
         return stations
     }
 }

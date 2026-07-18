@@ -48,6 +48,68 @@ autoritativos del servidor** (`MultiplayerInteriores/`); **offline: simulación 
 > `interiores_zombies?startRoom=encb_lobby` (en `MainActivity`, ruta `encb_lobby`); las transiciones internas
 > ocurren dentro del mismo `ZombieGameScreen` (mismo VM). El banner **"Objetivo: Investiga qué pasó"** se pinta
 > cuando `room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS`. Ver 06/07.
+> **🆕 SALÓN DE LA MISIÓN 2 (`ESCOM_SALON_M2_ID="escom_salon_m2"`, 2026-07-03 / rev 2026-07-13):** sala
+> tipo `LOBBY` (fondo reusa `INTERIORS/ENCB/ENCB_salon1.webp`, `playerScaleMul=3f` — 🆕 el multiplicador
+> aplica también a los NPCs ambientales vía `rpSize`, antes se veían diminutos). 🆕 Se entra por el
+> **flujo NORMAL de interiores**: lobby ESCOM → **Edificio Principal** (`za_edificio`, puerta
+> "Salón 2009" arriba-centro, solo ese edificio) → salón; su ÚNICA puerta REGRESA al edificio (ya no
+> `TO_WORLD`, y el redirect de la puerta exterior en `WorldMapInteractions` se ELIMINÓ — el TP dev sí
+> navega directo). ⚠️ El salón es tipo LOBBY pero NO es lobby de campus: edificio→salón NO pide la
+> confirmación "¿volver al lobby?" (excluido en `onInteract`). Está **EN CLASES**: `AMBIENT_ROOM_IDS`
+> incluye la sala → `spawnAmbientNpcs` puebla estudiantes IPN/docente. 🆕 La **LATA APESTOSA es un
+> ÍTEM del inventario** (`KeyDrop.MISSION_2` + `M2_STINK_CAN`; la concede `grantMission2StinkCan` al
+> pasar a la fase MOCHILA, con salvaguarda en AppNavGraph para saves viejos): **X** la lanza solo si
+> la TIENES (la consume; `mission2StinkThrown`) → el tick usa `evacuateAmbientNpcs` (corren a la
+> puerta y desaparecen) en vez de `stepAmbientNpcs`; con el salón VACÍO aparece la **mochila** (asset
+> `CAMPAIGN/MISSION2/mochila_prankedy.png` en `mission2BackpackX/Y`; la lata usa
+> `CAMPAIGN/MISSION2/lata_apestosa.png`, ambas vía `Mission2GroundSprite`); **X** cerca la recoge
+> (`mission2BackpackTaken`) → `ZombieGameScreen` dispara `onMission2BackpackRecovered` →
+> `completeMission2Backpack()` en el VM del mundo (cableado en AppNavGraph). `loadRoom` re-arma la escena
+> al reentrar (si saliste sin la mochila, vuelve a haber clase; la lata NO se re-siembra: es de inventario).
+> El objetivo lo muestra `interiorObjective = M2_RECUPERAR_MOCHILA` (ObjectivesWidget; 🆕 también con
+> `startRoom=lobby_campus` si `mission2Phase==PHASE_BACKPACK`). Ver `CAMPAIGN/02_MISSION_2.md`.
+> **🆕 MISIÓN 2 · FASE 1 "ESCONDERSE" EN EL LOBBY (2026-07-08):** la fase 1 se juega DENTRO del
+> lobby de ESCOM (`LOBBY_ID`): policías **`m2cop_*`** (skin `POLICIA_CDMX`) patrullan como NPCs
+> ambientales (`spawnMission2HideCops`/`stepMission2HideCops` en `ZombieAmbientNpcs.kt`; cada
+> ~7 s UNO barre hacia el jugador). Detección: < `HIDE_DETECT_PX` (120 px) sostenido
+> `HIDE_DETECT_MS` (2.5 s) → `mission2HideFailed`; aguantar `HIDE_DURATION_MS` (35 s) → se
+> rinden y EVACÚAN (reusa `evacuateAmbientNpcs`) → `mission2HideCompleted`. 🆕 (2026-07-13) tope
+> `HIDE_EVAC_TIMEOUT_MS` (10 s): si un policía se atora contra una colisión camino a la puerta,
+> los rezagados desaparecen y la fase CUMPLE igual (antes quedaba sin completar). Countdown en el
+> HUD (`mission2HideRemainingSec` + string `zgame_hide_countdown`); 🆕 el widget de objetivo de
+> interiores se PLIEGA a solo el título tras ~6 s (`ObjectivesWidget(compact)`) para no tapar la
+> acción. El armado es en RUNTIME
+> (`setMission2Hide`, NO Factory param) y los desenlaces van por callbacks
+> `onMission2HideCompleted/Failed` (AppNavGraph → `completeMission2Hide`/`failMission2Hide`).
+> Ver 09 (reglas) y `CAMPAIGN/02_MISSION_2.md`.
+> **🆕 VIDA UNIVERSITARIA 2.0 (2026-07-08):** `ambientCountFor(room)` = lobby 13 / salón M2 8 /
+> default 7; las pláticas siguen **GUIONES coherentes** (`AMBIENT_CONVOS`, elegidos determinista
+> por `pairSeed`; línea actual por `talkStartMs`; strings `amb_convo{1..6}_{1..4}` ES+EN) en vez
+> de frases sueltas; 2 parejas nacen YA platicando en el lobby; `PAIR_CHANCE_PER_TICK` 0.004→0.009.
+> **🆕 MISIÓN 3 · ASALTO A LA ENCB (2026-07-04):** con `mission3Assault=true` (Factory param, lo
+> decide AppNavGraph cuando `startRoom=encb_lobby` y `mission3Phase==PHASE_ASSAULT`), la cadena
+> ENCB se siembra con **zombis** (`ASSAULT_ZOMBIES_PER_ROOM=4`, IGNORA el gate de
+> `zombieModeActivated`) y la **EVIDENCIA 🧪** aparece en `encb_lab1` (`mission3Evidence*` en el
+> estado); recogerla (X) → `onMission3EvidenceRecovered` + **auto-salida** al mapa (2.6 s, la
+> cadena no tiene puerta TO_WORLD). El banner "Investiga qué pasó" se SUPRIME cuando hay
+> `interiorObjective` (el asalto muestra el suyo). **INVENTARIO desbloqueable:** slots usables =
+> `state.inventoryUnlockedSlots` (🆕 2026-07-13: **2 por defecto** — llave M1 + lata M2 conviven —
+> → 4 con la mochila de la M2). 🆕 **Objetos de misión bloqueados** (`missionItemsLocked`, runtime
+> desde AppNavGraph como `mission2Hide`): la llave CORRECTA de la M1 no se puede desechar mientras
+> las misiones 1-2 estén en curso; la lata de la M2 no se desecha nunca (se consume al lanzarla) y
+> el botón PROBAR solo considera llaves de la M1. **ARMA DE FUEGO:** modo RANGED
+> bloqueado en campaña sin `hasFirearm` (recompensa M3); candado 🔒 en el menú de armas.
+> **🆕 COMBATE CONTRA NPCs AMBIENTALES (2026-07-11, paridad con el exterior):** los estudiantes/
+> docentes YA reciben golpes (antes eran intocables). `AmbientNpc` ganó `health/isDying/
+> dyingSinceMs/fleeUntilMs`. Melee: `performPlayerAttack` (ZombieCombat.kt) asusta a los cercanos
+> en CADA golpe (`scareAmbientNpcs`, radio `AMBIENT_FEAR_RADIUS`=150 px — como `triggerFear`
+> exterior) y, si no hay zombi al alcance, daña al más cercano (`hitNearestAmbientNpc`: daño +
+> knockback + miedo `AMBIENT_FLEE_MS`=4 s; a 0 HP → `isDying` ~1 s tirado y desaparece). Los
+> PROYECTILES también les pegan (tick, `workingAmbient`). Con miedo HUYEN corriendo del jugador
+> (rama nueva en `stepAmbientNpcs`; cancela pareja/burbuja). **INMUNES los NPCs de MISIÓN**
+> (`isMissionNpc()`: `m2rumor_`/`m2cop_`) para no romper la M2 — misma protección que Prankedy
+> HIRED. Render: barrita de vida si está dañado y colapso rotado 90° al morir (ZombieGameScreen).
+> Son NPCs LOCALES: nada viaja al servidor.
 
 **EN:** Ring of rooms: a **lobby** with doors to each ESCOM building (7 buildings). Inside a building,
 EXIT doors connect neighbors and a central door returns to the lobby. **Online: zombies and items are
@@ -107,8 +169,13 @@ showExitGuide, nearbyDoorLabel, nearbyItemId, pickupToast,
 keys: List<KeyDrop>, nearbyKeyId, lab1KeyFound, keyMessage, showInventory, inventoryKeys: List<String>,
 controlType(=JOYSTICK), controlsScale,
 swapControls, isLoading, remotePlayers, zombieModeActivated, showZombieCinematic,
-designerMode, designerRows, designerBrushWall, designerDirty, designerTarget(MATRIX/WAYPOINTS),
+designerMode, designerRows, designerBrush(WALL/OCCLUDER/ERASE), designerDirty, designerTarget(MATRIX/WAYPOINTS),
 designerDoors, selectedDoorIndex`.
+
+> **🆕 Pincel del diseñador de matriz = enum `DesignerBrush { WALL, OCCLUDER, ERASE }`** (antes era
+> `designerBrushWall: Boolean`). `setDesignerBrush(brush)` (extensión en `ZombieGameDesigner.kt`) y
+> `paintCellAtWorld` pintan `'#'` / `'^'` / `'.'`. La toolbar tiene 3 botones: **PARED** (rojo), **OBJETO**
+> (azul, `'^'`) y **BORRAR** (verde). `CollisionMatrixDesignerLayer` dibuja `'#'` en rojo y `'^'` en azul.
 
 ```kotlin
 enum class DesignerTarget { MATRIX, WAYPOINTS }
@@ -247,13 +314,22 @@ data class ZombieServerMessage(type, sessionId, id, displayName, roomId, zone, x
 
 ## Render — `ZombieGameScreen.kt` / `ZombieHud.kt`
 - `CameraTransform` consciente del zoom, clamp a límites, `max(viewW/worldW, viewH/worldH)`.
+- **🆕 CAPA DE OCLUSIÓN (profundidad):** tras dibujar al jugador (y dentro de `!designerMode`), una `Canvas`
+  redibuja el trozo del fondo de las celdas `'^'` de `room.collisionMatrix` ENCIMA del jugador cuando el
+  OBJETO está DELANTE (su base al sur de `state.playerY`). Las celdas `'^'` contiguas se agrupan en objetos
+  (4-conexo, `computeOccluders`, memoizado por matriz) para compartir la **Y-base** (borde inferior) → y-sort
+  por objeto, no por celda. Coste ~0 en salas sin `'^'` (no compone la capa). Ocluye al **jugador local**
+  (no a zombis/remotos; ampliable). Los `HUD`/controles se dibujan después → nunca los tapa.
 - FX de daño: screen shake, viñeta roja que **escala con HP perdido** (`damagePulseTrigger`), pulso de
   vida baja, knockback a zombis, recoil del jugador. Iluminación dinámica en interiores oscuros.
 - Pantallas WASTED / Victory. SkillEffects dibujados como iconos Canvas puros.
 - **🆕 Botonera arriba-derecha:** Ajustes (siempre) + el menú de **Opciones**. **"Elegir personaje"**
   (selector de skin, `wm_choose_character` → `toggleSkinSelector`) **ya NO es un botón suelto**: es el
-  **primer ítem del menú de Opciones**. El banner de OBJETIVO de la cadena ENCB sigue arriba-centro
-  (`ENCB_STORY_ROOM_IDS`).
+  **primer ítem del menú de Opciones** (aquí SÍ visible para el jugador; el del MAPA GLOBAL pasó a ser
+  solo de Modo Desarrollador, 2026-07-04b). 🆕 2º ítem (solo campaña): **"Misiones"**
+  (`wm_opt_missions` → callback `onRequestMissionLog`, non-null solo en campaña) abre el REGISTRO DE
+  MISIONES global (`MissionLogHost` a nivel AppNavGraph; ver 09). El banner de OBJETIVO de la cadena
+  ENCB sigue arriba-centro (`ENCB_STORY_ROOM_IDS`).
 - **🆕 Orientación SIEMPRE landscape in-game (solo por RUTA):** el juego (mapa global, interiores y cómics) se
   fuerza a horizontal; solo los **menús de ruta** (`main_menu`, `story_mode`, `settings`, `collectibles`)
   permiten vertical. ÚNICA fuente de verdad: **`MainActivity`** por destino de navegación
@@ -281,20 +357,29 @@ data class ZombieServerMessage(type, sessionId, id, displayName, roomId, zone, x
 que una coordenada local 0-1 cae igual en ambos. La función está **SEPARADA en 3 piezas** (no todo en un archivo):
 
 - **`domain/models/map/CampusParkingCatalog.kt`** — FUENTE ÚNICA de datos: `assetMatch → {navGraphAsset,
-  baseWidthMeters, baseHeightMeters}` + extensión `LandmarkNavGraph.parkingSlots()` → `ParkingSlot(localX, localY,
-  dirX, dirY)` (dir = nodo previo→cajón). Solo lo lee el interior; el exterior queda intacto.
+  baseWidthMeters, baseHeightMeters}` + `parkingCalibrationAsset` (`CONFIG/parking/<assetMatch>.json`) +
+  `loadCalibration()` (lee ese JSON → `ParkingCalibration`) + extensión `LandmarkNavGraph.parkingSlots()` →
+  `ParkingSlot(localX, localY, dirX, dirY)` (dir = nodo previo→cajón). Solo lo lee el interior; el exterior intacto.
 - **`features/interiores/zombies/ui/ParkedCarsLayer.kt`** — ESCENOGRAFÍA (render + carga). Un auto por slot
   `isParkingSlot`, sin colisión ni IA. Posición = `cam.offset + local*worldW/H*cam.scale`; tamaño por metros
   (`CAR_FOOTPRINT_METERS/baseWidthMeters*worldWidth`). Carga+teñido (`VehicleSpriteManager`) en `Dispatchers.IO`
-  vía `produceState`. **Rotación BASE heredada del global:** cada auto arranca con la MISMA orientación que deriva
-  el exterior (`NpcAiManager.spawnParkedCar`: sentido del carril), calculada en el marco del PNG sin rotar
-  (`atan2(dirY*baseH, dirX*baseW)`). Encima se aplica una transformación de GRUPO + volteo por auto.
+  vía `produceState`. `baseFacing = laneFacing + 90°` (`laneFacing = atan2(dirY*baseH, dirX*baseW)`), y **encima la
+  transformación de GRUPO** (heading/offset/scale/selfRot/flip). **⚠️ POR QUÉ EL LOBBY NO REPLICA SOLO EL EXTERIOR
+  (fix 2026-07-13):** las coords crudas del navGraph trazan los **carriles** (curvas alrededor de las islas), no filas
+  de cajones. El **exterior** las acomoda porque su pipeline aplica DOS rotaciones que casan (`toGlobalGeoPoint` gira
+  las **posiciones** por el ángulo del campus + `GroundOverlay.bearing` gira el **asset** lo mismo); el lobby dibuja el
+  asset CRUDO con coords CRUDAS → el CÚMULO entero queda rotado (~-2R) y desplazado. Es un error de **CUERPO RÍGIDO**
+  (rotar+trasladar el grupo), NO un offset de orientación por auto — por eso ningún `baseFacing` por sí solo lo
+  arregla. La corrección es la transformación de grupo, **hallada con el calibrador en vivo y guardada como JSON**
+  (`assets/CONFIG/parking/building_escom.json`: `headingDeg=307.661, offsetX=0.048, offsetY=-0.212, scale=1,
+  selfRotationDeg=271.436`). Verificado en emulador: autos en filas dentro de los cajones, igual que el exterior.
 - **`features/interiores/zombies/ui/ParkingDesignerTool.kt`** — UI de CALIBRACIÓN (solo Modo Desarrollador). Se
-  abre desde el botón "Diseñador" → **selector** (Colisiones/Waypoints | **Estacionamiento**). Edita una
-  transformación de grupo estilo PowerPoint (rotar pivote, girar c/auto sobre su eje, mover fino/grueso, escalar)
-  + **voltear ↑↓ por auto TOCÁNDOLO** (para islas con autos en sentidos opuestos), con **EXPORTAR** (SAF JSON:
-  `headingDeg/selfRotationDeg/offsetX/Y/scale/flipped`) y **CERRAR**. Al diseñar NO se cullea (lote 100% poblado).
-  El estado de calibración vive en `ZombieGameScreen` (provisional; se afinará/persistirá después).
+  abre desde el botón "Diseñador" → **selector** (Colisiones/Waypoints | **Estacionamiento**). Edita la transformación
+  de grupo estilo PowerPoint (rotar pivote, girar c/auto sobre su eje, mover fino/grueso, escalar) + **voltear ↑↓ por
+  auto TOCÁNDOLO**, con **EXPORTAR** (SAF JSON) y **CERRAR**. Al diseñar NO se cullea (lote 100% poblado).
+  **WORKFLOW por campus (interior+exterior):** el exterior ya sale bien solo; para el lobby, calibra en vivo →
+  EXPORTAR → guarda el .json como `assets/CONFIG/parking/<assetMatch>.json`. `ZombieGameScreen` lo carga async al
+  entrar (`CampusParkingCatalog.loadCalibration`) e inicializa el estado del grupo. Sin JSON → identidad (lote crudo).
 
 **EXPANDIBLE (FES, UAM…):** añadir una universidad = 1 línea en `CampusParkingCatalog.campuses` (asset + navGraph
 + baseW/H) + su navGraph en `assets/CONFIG/navgraphs/` + usar su asset top-down como fondo del landmark exterior Y

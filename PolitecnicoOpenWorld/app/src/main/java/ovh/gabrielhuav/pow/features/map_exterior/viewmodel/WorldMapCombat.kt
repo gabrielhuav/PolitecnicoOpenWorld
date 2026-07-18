@@ -16,9 +16,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -337,7 +337,7 @@ internal fun WorldMapViewModel.applyNpcContactDamage(playerLoc: GeoPoint) {
     // Policía de CAMPAÑA (no vive en remoteEntities): si te alcanza A PIE, te pega con cooldown
     // global. Antes no hacían daño al jugador (R8). Solo en escolta/persecución y fuera del coche.
     if (!_uiState.value.isDriving &&
-        (isCampaignEscortActive() || isMission2ChaseActive()) &&
+        (isCampaignEscortActive() || isMission1ChaseActive()) &&
         campaignEscortPolice.copTouching(playerLoc.latitude, playerLoc.longitude, NPC_CONTACT_RADIUS)) {
         val lastCampaign = npcContactCooldowns["CAMPAIGN_COP"] ?: 0L
         if (now - lastCampaign >= NPC_CONTACT_COOLDOWN_MS) {

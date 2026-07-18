@@ -16,12 +16,18 @@
 
 ## Cómo usar / How to use
 
-**ES:**
-1. Sube/pega esta carpeta completa (o solo los archivos relevantes) al asistente.
-2. Pídele la tarea y dile que **siga el MVVM y las convenciones del archivo 09**.
-3. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
+**ES (ORDEN DE LECTURA para una IA nueva — sobre todo si es poco potente):**
+1. `GUIA_mantenimiento_no_senior.md` ← EMPIEZA AQUÍ (las 7 reglas + chuleta + qué NO hacer).
+2. Este índice (mapa de archivos) + `09_CONVENTIONS_GOTCHAS.md` COMPLETO.
+3. El doc del feature que vayas a tocar (03-08 / CAMPAIGN) y su tabla "Key files".
+4. Si vas a REFACTORIZAR: `CHECKPOINT_SENIOR_refactor.md` (programa 2026-07-04 TERMINADO Y
+   AUDITADO: managers+fachada, Hilt, tests, detekt — ahí está la receta y lo que NO se movió).
+   Los `PLAN_*.md` y demás docs de `_ARCHIVO/` están ✅ EJECUTADOS: referencia histórica, NO tareas.
+5. Pídele la tarea y dile que **siga el MVVM y las convenciones del archivo 09** (incluida la
+   política de comentarios y los campos "⚠️ LO POSEE XManager").
+6. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
    y pásale solo ese.
-4. **Tras cualquier cambio, actualiza estos docs (00–09)** y, si es user-facing, el README **público** de la raíz del repo (ver 09).
+7. **Tras cualquier cambio, actualiza estos docs (00–09)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los tests (84, `app/src/test`) deben seguir en verde.
 
 **EN:**
 1. Upload/paste this whole folder (or just the relevant files) to the assistant.
@@ -43,17 +49,70 @@
 | 04 | `04_MAP_EXTERIOR.md` | Open world: WorldMapViewModel + parciales, estado, render, policía |
 | 05 | `05_ZOMBIE_MINIGAME.md` | Minijuego zombi: VM, tick offline/online, constantes, render, diseñador |
 | 06 | `06_INTERIOR_METRO.md` | Interiores ESCOM + metro + CollisionGrid |
-| 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables |
+| 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables, 🥊 HUELUM VS. GOYA (modo pelea 1v1; en CÓDIGO los ids siguen siendo street_fighter/Sf*) |
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
-### Docs de trabajo / Working docs (no son 00–09; tareas en curso)
+### Estado vigente (2026-07-18h) — LÉEME PRIMERO
+
+> **ES:** El estado del modo pelea y del resto del juego vive en **00–09** (sobre todo
+> **07 §HUELUM VS. GOYA**). Los prompts/checkpoints/pendientes de sesiones pasadas están en
+> **`_ARCHIVO/`** → **NO hace falta leerlos** para retomar trabajo (son histórico), salvo el
+> **prompt de traspaso IA** si vas a arreglar la CPU.
+> **EN:** Live state is in **00–09** (esp. **07 §HUELUM VS. GOYA**). Past prompts under
+> **`_ARCHIVO/`** — except the AI handoff prompt if fixing CPU.
+
+**HUELUM VS. GOYA — lo reciente (resumen vivo, detalle en 07 + docs de trabajo):**
+- Modos: **ARCADE** (default) / PRÁCTICA / **IA VS IA** / MULTIJUGADOR (Render / BT / LAN).
+- **Arcade:** peleadór → **Fácil/Medio/Difícil** → escalera 15. Mapas = hogar del **rival** +
+  luz (día / noche / apocalipsis). Tabla peleadór→mapa: **`SF_STAGES_MAPS_UNLOCK.md`**.
+- **Desbloqueos:** peleadór + **3 luces** de su mapa (`SfArcadeRepository`); práctica/MP host
+  solo mapas desbloqueados.
+- **Roster arcade:** 18 dedicados. **NO** arcade: Lázaro / Granadero genérico / Paramédico
+  genérico (alpha+shared).
+- **Gama baja:** tick ~30 fps, atlas ≤2048, thumbs, CARGANDO, sesión arcade al pausar.
+- **SFX especiales:** 21/21 en assets (pack viejo). **Nueva pasada diarizada** en
+  `tools/sf_voice_scrape/out_diarized/` + catálogo `DATA/special_phrases.json` + subtítulos HUD
+  (`emitSpecialVoice`). Fuentes YT y links: **`SF_SPECIAL_VOICES_SFX.md`** (2026-07-18).
+  **Deepfake lab: NO hecho.** Pap5 oficial age-gate pendiente. Lázaro sin frase special.
+- **Presidenta** ≤1/4 vida → meta real a **Yoalli** (50% HP).
+- **IA 2026-07-18i:** reescritura (clinch break, mundo-space, smartCpuDecision, watchdog).
+  Si en dispositivo aún falla: **`_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md`**.
+  Handoff Fable: **`_ARCHIVO/PROMPT_traspaso_Fable_2026-07-18_voces.md`**
+  (**prioridad = IA quietos/mismo ataque + Showcase**; voces solo contexto al final).
+- **✅ IA + Showcase 2026-07-18j (Fable):** ofensiva por ESTADO real (no intención), clinch
+  con roles asimétricos, `variedCpuAttack` (sin repetir golpe); showcase COMPLETO (giros,
+  HURT, KO, VICTORY, metamorfosis) + **auditoría estática** de anims/frames/.ogg → reporte.
+  Detalle: 07 §HUELUM + `DISENO_ARCADE_SF_POW.md` §18j. **Pendiente: Rebuild + dispositivo.**
+- **✅ Showcase v2 2026-07-18k (Fable, feedback dueño):** avance automático + botón SALTAR
+  (`sf_showcase_skip`), mapa HOGAR por peleadór (`gauntletMapFile`), audio en pasos forzados
+  (hits/KO/voz en VICTORY-metamorfosis; VICTORY con voz también en pelea real), fix salto
+  perdido. Su nota de audio pendiente es histórica; Release 1/9 abajo la supera. Detalle: 07
+  §HUELUM + DISENO §18k.
+- **✅ Release 1/9 2026-07-18 (Sol):** audio final **21/21 solo español**, cortes locales de
+  duración individual, contenido hablado verificado con Whisper y hashes reproducibles; Lázaro
+  incluido, Presidenta 8.3 s y banda Granadero completa 27.5 s. Los especiales largos migran a
+  `MediaPlayer`. La nota “deepfake pendiente” de 18k queda SUPERADA: se usan voces auténticas de
+  las fuentes locales y síntesis únicamente para el Robot ficticio. Arte: HURT únicos de Llorona
+  + metamorfosis inversa Yoalli→Presidenta. Auditoría IA: 9 campañas/135 peleas aceleradas y 600
+  configuraciones estructurales. Play Store: `versionCode 12`, `versionName 1.0.0.12`.
+
+### Docs de trabajo / Working docs (no son 00–09)
 
 | Archivo / File | Contenido / Contents |
 |---|---|
-| `PROMPT_nueva_optimizacion.md` | Prompt maestro de reuso: contexto + estado actual + reglas del entorno. Cópialo al iniciar una sesión con una IA y adjunta esta carpeta. |
-| `ANALISIS_codigo.md` | **(2026-06-21)** Informe: clases grandes, duplicación (metro⇄metrobús), MVVM, i18n migrado vs pendiente, perf, mejoras priorizadas por valor/esfuerzo. |
-| `REVISION_repo.md` | **(2026-06-21)** Revisión de TODO el repo: raíz, servidores Node (solo revisión), seguridad (keystore NO comprometido), `.gitignore`, hardening de deploy. |
+| `GUIA_mantenimiento_no_senior.md` | **EMPEZAR AQUÍ si eres IA/dev nuevo:** 7 reglas, chuleta, qué NO hacer. |
+| `DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |
+| **`SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleadór→hogar (tabla dueño), desbloqueos MP.** |
+| `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
+| `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
+| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. |
+| `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo. |
+| `GUIA_generacion_assets_SF.md` | Guía manual de generación de assets. |
+| `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
+| `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). |
+| `CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
+| `_ARCHIVO/` | Histórico + prompts: **`PROMPT_traspaso_GPT56_2026-07-18_git_audio.md`** (SIGUIENTE SESIÓN: **1º git/PR a producción**, 2º audio Llorona/Presidenta), `PROMPT_traspaso_Fable_2026-07-18_voces.md`, `PROMPT_traspaso_IA_CPU_2026-07-18.md`. |
 
 ---
 
@@ -64,8 +123,14 @@
 - **Arquitectura / Architecture:** MVVM estricto por *feature* / strict MVVM by feature
 - **Servidores / Servers:** 2× Node.js + `ws` (open world `Multiplayer/`, zombi `MultiplayerInteriores/`), dockerizados en Render
 - **Room DB:** versión 8 (`MIGRATION_7_8` + destructive fallback)
-- **~120 archivos Kotlin / Kotlin files**, ~36k líneas / lines (2026-06-21). Solo 5 archivos >1000:
-  `WorldMapViewModel`(2114), `NativeOsmMap`(1460), `WorldMapScreen`(1326), `MainActivity`(1064), `ZombieGameScreen`(1035)
+- **~229 archivos Kotlin / Kotlin files**, ~47k líneas / lines (2026-07-16). 8 archivos >1000 (ninguno >2100):
+  `StreetFighterViewModel`(~2145, creció con multijugador BT/LAN+rondas+red SESIÓN 4+IA con 3 dificultades),
+  `ZombieGameScreen`(1591), `WorldMapViewModel`(1583), `WorldMapScreen`(1460), `NativeOsmMap`(1458),
+  `StreetFighterScreen`(~1767 con rondas/LAN/selector de dificultad), `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093)
+- **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/17):** 3 de los 22 peleadores de "HUELUM VS. GOYA"
+  se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
+  en el APK: Lázaro, Granadero y Paramédico. Los otros 17 POW tienen hojas croma
+  dedicadas; Ryu/Ken solo existen en debug. Ver 07 y 09 §12.
 - **Default map provider:** `CARTO_VOYAGER` (web, tiles reales hasta z20 / real tiles up to z20; no persistido / not persisted)
 - **Auth / Autenticación:** Firebase Auth (Google Sign-In) en `data/auth/` (`AuthManager`, `AuthSession`).
   Obligatoria para multijugador; local/Modo Historia sin login. Ambos servidores verifican el ID token

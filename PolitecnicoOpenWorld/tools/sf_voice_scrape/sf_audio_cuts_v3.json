@@ -1,0 +1,158 @@
+{
+  "version": 3,
+  "language": "es-MX",
+  "policy": "Fuentes locales solamente; no volver a descargar YouTube. Las voces identificables usan fragmentos auténticos. La síntesis se limita al Robot ficticio.",
+  "fighters": {
+    "PRANKEDY": {
+      "source": "raw_yt/TIENDA_bestof_FdUblky8bV4.wav",
+      "start": 21.15,
+      "end": 23.85,
+      "phrase_es": "Pero pues yo, o sea, yo vengo en buena onda a notificarle, no vengo a…",
+      "phrase_en": "But I mean, I'm just here in good faith to notify you; I'm not here to…",
+      "tier": "authentic_voice"
+    },
+    "SENOR_TIENDA": {
+      "source": "raw_yt/TIENDA_bestof_FdUblky8bV4.wav",
+      "start": 213.75,
+      "end": 219.15,
+      "phrase_es": "Sí sabes qué, retírate, güey. Te rompo tu madre, güey. Así es derecho. Retírate, cabrón.",
+      "phrase_en": "You know what? Get out. I'll beat you up. That's how it is. Get out.",
+      "tier": "authentic_voice"
+    },
+    "PAPARAZZI_1": {
+      "source": "raw_yt/PAPARAZZI_1_03ea5deaaf02.wav",
+      "start": 29.15,
+      "end": 33.5,
+      "phrase_es": "¿De qué se trata? Contéstame, por favor.",
+      "phrase_en": "What is this about? Please answer me.",
+      "tier": "authentic_voice"
+    },
+    "PAPARAZZI_5": {
+      "source": "raw_yt/PAPARAZZI_5_d4e6acea558a.wav",
+      "start": 7.85,
+      "end": 13.55,
+      "phrase_es": "¿Pero para qué? ¿O qué? ¿De qué se trata? Contéstame, por favor.",
+      "phrase_en": "But what for? What is this about? Please answer me.",
+      "tier": "authentic_voice"
+    },
+    "REY_GRUPERO": {
+      "source": "raw_yt/REY_GRUPERO_VPu6zFKcb7Y.wav",
+      "start": 0.0,
+      "end": 4.45,
+      "phrase_es": "Oye, hermano, ¿me regalas una selfie? Claro, claro, ¿dónde? A ti te conozco de algo, ¿no?",
+      "phrase_en": "Hey, brother, can I get a selfie? Sure, where? I know you from somewhere, right?",
+      "tier": "authentic_voice"
+    },
+    "LAZARO": {
+      "source": "raw_yt/LAZARO_c021f225bb46.wav",
+      "start": 17.8,
+      "end": 22.1,
+      "phrase_es": "Oye, ¿ya viste el Goku que está ahí? Está cagado, ¿no?",
+      "phrase_en": "Hey, did you see that Goku over there? It's hilarious, right?",
+      "tier": "authentic_voice"
+    },
+    "ESCOMBOY": {
+      "source": "raw_yt/ESCOMBOY_2662043961b3.wav",
+      "start": 28.4,
+      "end": 32.45,
+      "phrase_es": "Así que pues estamos aquí para hacer un videoblog, porque eso es lo que son estos videos. Así es.",
+      "phrase_en": "So we're here to make a video blog, because that's what these videos are. That's right.",
+      "tier": "authentic_voice"
+    },
+    "ESCOMGIRL": {
+      "source": "raw_yt/ESCOMGIRL_1189d81d0c35.wav",
+      "start": 27.48,
+      "end": 29.85,
+      "phrase_es": "Dejen, les muestro lo real.",
+      "phrase_en": "Let me show you the real thing.",
+      "tier": "authentic_voice"
+    },
+    "ROBOT": {
+      "synthetic": {
+        "engine": "windows_sapi",
+        "voice": "Microsoft Sabina Desktop",
+        "rate": -1,
+        "text": "Sistema activado. Objetivo localizado."
+      },
+      "phrase_es": "Sistema activado. Objetivo localizado.",
+      "phrase_en": "System activated. Target located.",
+      "tier": "synthetic_fictional",
+      "effect": "robot"
+    },
+    "YOALLI_EHECATL": {
+      "source": "out_diarized/YOALLI_EHECATL/special_yoalli_ehecatl.ogg",
+      "preserve_full_source": true,
+      "tier": "verified_sfx"
+    },
+    "CHARRO_NEGRO": {
+      "source": "out_diarized/CHARRO_NEGRO/special_charro_negro.ogg",
+      "preserve_full_source": true,
+      "tier": "verified_sfx"
+    },
+    "LA_LLORONA": {
+      "source": "out_diarized/LA_LLORONA/special_la_llorona.ogg",
+      "preserve_full_source": true,
+      "tier": "verified_nonverbal_voice"
+    },
+    "LA_TZITZIMIME": {
+      "source": "out_diarized/LA_TZITZIMIME/special_la_tzitzimime.ogg",
+      "preserve_full_source": true,
+      "tier": "verified_sfx"
+    },
+    "LA_PRESIDENTA": {
+      "source": "raw_yt/LA_PRESIDENTA_clip1.webm",
+      "start": 154.2,
+      "end": 162.45,
+      "phrase_es": "Sí. Siempre. Nosotros vamos a actuar siempre en el marco de la ley. Siempre.",
+      "phrase_en": "Yes. Always. We will always act within the law. Always.",
+      "tier": "authentic_voice"
+    },
+    "POLICIA_CDMX": {
+      "source": "raw_yt/POLICIA_GRANADERO_MUJER_8920332391b3.wav",
+      "start": 0.0,
+      "end": 13.75,
+      "phrase_es": "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad, que me tuvieran confianza y que ellos obtuvieran de mí una mejor tranquilidad.",
+      "phrase_en": "As a policewoman, I committed to helping citizens feel safer, trust me and find greater peace of mind through me.",
+      "tier": "authentic_voice"
+    },
+    "POLICIA_CDMX_HOMBRE": {
+      "source": "raw/POLICIA_CDMX_HOMBRE_516c518ed898.mp4",
+      "start": 39.45,
+      "end": 49.25,
+      "phrase_es": "Trabajamos permanentemente en estrategias de seguridad vial, con el fin de salvaguardar y concientizar a los ciudadanos para evitar accidentes automovilísticos.",
+      "phrase_en": "We constantly work on road-safety strategies to protect citizens and prevent traffic accidents.",
+      "tier": "authentic_voice"
+    },
+    "PARAMEDICO_CRUZ_ROJA": {
+      "source": "raw_yt/PARAMEDICO_CRUZ_ROJA_l89qiD3aqVQ.wav",
+      "start": 86.1,
+      "end": 90.1,
+      "phrase_es": "No olvides que saber primeros auxilios marca la diferencia y salva vidas.",
+      "phrase_en": "Remember: knowing first aid makes a difference and saves lives.",
+      "tier": "authentic_voice"
+    },
+    "PARAMEDICO": {
+      "source": "raw/PARAMEDICO_8e56d10b34f2.mp4",
+      "start": 14.65,
+      "end": 19.35,
+      "phrase_es": "Así, los niños y adultos reciben lo estrictamente necesario para su diagnóstico.",
+      "phrase_en": "This way, children and adults receive exactly what is needed for their diagnosis.",
+      "tier": "authentic_voice"
+    },
+    "POLICIA_GRANADERO_HOMBRE": {
+      "source": "raw_yt/GRANADEROS_3_diana_5fN8KeZ2JLA.wav",
+      "preserve_full_source": true,
+      "tier": "full_band"
+    },
+    "POLICIA_GRANADERO_MUJER": {
+      "source": "raw_yt/GRANADEROS_3_diana_5fN8KeZ2JLA.wav",
+      "preserve_full_source": true,
+      "tier": "full_band"
+    },
+    "GRANADERO": {
+      "source": "raw_yt/GRANADEROS_3_diana_5fN8KeZ2JLA.wav",
+      "preserve_full_source": true,
+      "tier": "full_band"
+    }
+  }
+}

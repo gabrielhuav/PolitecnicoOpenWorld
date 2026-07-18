@@ -1,43 +1,18 @@
 package ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.data.network.WebSocketManager
-import ovh.gabrielhuav.pow.data.repository.CollisionMatrixRepository
-import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.domain.models.zombie.ActiveEffect
-import ovh.gabrielhuav.pow.domain.models.zombie.CollisionMatrix
-import ovh.gabrielhuav.pow.domain.models.zombie.CombatMode
 import ovh.gabrielhuav.pow.domain.models.zombie.Projectile
 import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
-import ovh.gabrielhuav.pow.domain.models.zombie.SkillItem
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieEntity
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoom
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieType
-import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
-import kotlin.math.cos
 import kotlin.math.hypot
-import kotlin.math.sin
-import kotlin.random.Random
 
 internal fun ZombieInteriorViewModel.tick() {
         val s = _state.value
@@ -105,6 +80,10 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
 
         val deadZombieIds = mutableListOf<String>()
         val survivingProjectiles = mutableListOf<Projectile>()
+        // 🆕 Los proyectiles también pueden pegarle a los NPCs AMBIENTALES (paridad con el
+        // exterior, 2026-07-11); los de MISIÓN (m2rumor_/m2cop_) son inmunes. Esta lista con
+        // el daño aplicado sustituye a s.ambientNpcs en TODO el resto del tick.
+        var workingAmbient = s.ambientNpcs
         for (p in s.projectiles) {
             if (now - p.bornAtMs > PROJECTILE_LIFETIME_MS) continue
             val nx = p.x + p.dirX * PROJECTILE_SPEED
@@ -116,6 +95,9 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
             val hit = workingZombies.firstOrNull {
                 !it.isDying && hypot(it.x - nx, it.y - ny) <= PROJECTILE_HIT_RADIUS
             }
+            val hitNpc = if (hit == null) workingAmbient.firstOrNull {
+                !it.isDying && !it.isMissionNpc() && hypot(it.x - nx, it.y - ny) <= PROJECTILE_HIT_RADIUS
+            } else null
             if (hit != null) {
                 val newHp = hit.health - PROJECTILE_DAMAGE * playerDamageFactor()
                 // Knockback en la dirección de viaje del proyectil (desde su origen).
@@ -125,6 +107,19 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
                         if (newHp <= 0f) { deadZombieIds.add(z.id); z.copy(health = 0f, isDying = true, x = kx, y = ky) }
                         else z.copy(health = newHp, x = kx, y = ky)
                     } else z
+                }
+            } else if (hitNpc != null) {
+                val newHp = hitNpc.health - PROJECTILE_DAMAGE * playerDamageFactor()
+                val (kx, ky) = knockbackZombie(hitNpc.x, hitNpc.y, p.x, p.y, room, PROJECTILE_KNOCKBACK)
+                workingAmbient = workingAmbient.map { n ->
+                    when {
+                        n.id != hitNpc.id -> n
+                        newHp <= 0f -> n.copy(
+                            health = 0f, isDying = true, dyingSinceMs = now, x = kx, y = ky,
+                            speechRes = null, partnerId = null, mode = AmbientMode.WANDER
+                        )
+                        else -> n.copy(health = newHp, x = kx, y = ky, fleeUntilMs = now + AMBIENT_FLEE_MS)
+                    }
                 }
             } else survivingProjectiles.add(p.copy(x = nx, y = ny))
         }
@@ -139,6 +134,112 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
             hypot(it.x - s.playerX, it.y - s.playerY) <= ITEM_PICKUP_DIST
         }
 
+        // MISIÓN 2 · FASE 1 "ESCONDERSE" (lobby): los policías m2cop_* viven dentro de
+        // ambientNpcs pero se simulan APARTE (patrulla + barridos hacia el jugador); los
+        // estudiantes siguen con su vida universitaria normal.
+        val m2c = ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
+        val hideCops0 = if (s.mission2HideActive)
+            workingAmbient.filter { it.id.startsWith(M2COP_PREFIX) } else emptyList()
+        var students0 = if (hideCops0.isEmpty()) workingAmbient
+            else workingAmbient.filterNot { it.id.startsWith(M2COP_PREFIX) }
+
+        // Si la fase RUMOR está armada, aseguramos que los dos estudiantes estén instanciados.
+        if (mission2RumorArmed && room.id == ZombieRoomCatalog.LOBBY_ID && !isMultiplayer) {
+            val hasRumor = students0.any { it.id.startsWith("m2rumor_") }
+            if (!hasRumor) {
+                students0 = students0.filterNot { it.id.startsWith("m2rumor_") } + spawnMission2RumorStudents(room)
+            }
+        }
+
+        var hideCops = hideCops0
+        var hideFailed = s.mission2HideFailed
+        var hideCompleted = s.mission2HideCompleted
+        var hideRemaining: Int? = s.mission2HideRemainingSec
+        if (s.mission2HideActive && !hideFailed && !hideCompleted) {
+            val elapsed = now - mission2HideStartMs
+            if (elapsed >= m2c.HIDE_DURATION_MS) {
+                // Se RINDIERON: corren a la puerta y desaparecen (reusa la evacuación). Cuando
+                // sale el último, la fase queda CUMPLIDA (ZombieGameScreen avisa al mundo).
+                // 🆕 2026-07-12: el countdown se OCULTA ya (null, no 0): mientras evacúan se
+                // quedaba pegado el mensaje "aguanta 0 s sin que te vean".
+                // 🆕 2026-07-13: TOPE de la retirada — un policía atorado contra una colisión
+                // (autos del lobby) dejaba la fase SIN completar para siempre; pasado el tope,
+                // los rezagados desaparecen y la fase cumple igual.
+                hideCops = if (elapsed >= m2c.HIDE_DURATION_MS + m2c.HIDE_EVAC_TIMEOUT_MS)
+                    emptyList()
+                else
+                    evacuateAmbientNpcs(hideCops0, room)
+                hideRemaining = null
+                if (hideCops.isEmpty()) hideCompleted = true
+            } else if (hideCops0.isNotEmpty()) {
+                hideCops = stepMission2HideCops(hideCops0, room, s.playerX, s.playerY, now)
+                hideRemaining = (((m2c.HIDE_DURATION_MS - elapsed) / 1000L) + 1L).toInt()
+                // ¿Te está VIENDO alguno? Sostenido HIDE_DETECT_MS → te reconoció (fallo).
+                val nearest = hideCops.minOf { hypot(it.x - s.playerX, it.y - s.playerY) }
+                if (nearest < m2c.HIDE_DETECT_PX) {
+                    if (mission2HideDetectSinceMs == 0L) mission2HideDetectSinceMs = now
+                    if (now - mission2HideDetectSinceMs > m2c.HIDE_DETECT_MS) hideFailed = true
+                } else {
+                    mission2HideDetectSinceMs = 0L
+                }
+            }
+        }
+
+        // Lógica de avance de la conversación del rumor de la Misión 2 en interiores.
+        var rumorSpeaker: String? = s.storyConvoSpeaker
+        var rumorText: String? = s.storyConvoText
+        var rumorCompleted = s.mission2RumorCompleted
+        if (mission2RumorArmed && room.id == ZombieRoomCatalog.LOBBY_ID && !isMultiplayer) {
+            val cx = room.worldWidth * 0.5f
+            val cy = room.worldHeight * 0.5f
+            val dist = hypot(s.playerX - cx, s.playerY - cy)
+            if (dist <= 180f) {
+                if (mission2ConvoNextMs == 0L || now >= mission2ConvoNextMs) {
+                    if (mission2ConvoIndex >= m2c.RUMOR_LINES.size) {
+                        rumorSpeaker = null
+                        rumorText = null
+                        rumorCompleted = true
+                    } else {
+                        val (speaker, text) = m2c.RUMOR_LINES[mission2ConvoIndex]
+                        rumorSpeaker = speaker
+                        rumorText = text
+                        mission2ConvoIndex++
+                        mission2ConvoNextMs = now + m2c.CONVO_LINE_MS
+                    }
+                }
+            } else {
+                rumorSpeaker = null
+                rumorText = null
+                mission2ConvoNextMs = 0L
+            }
+        }
+
+        // MISIÓN 2 · SALÓN DE LA MOCHILA: tras la lata apestosa los alumnos EVACÚAN (corren a la
+        // puerta y desaparecen); con el salón vacío APARECE la mochila junto al escritorio.
+        val inM2Salon = room.id == ZombieRoomCatalog.ESCOM_SALON_M2_ID
+        
+        // Separamos los NPCs del rumor para que no se muevan ni platiquen otras cosas
+        val rumorNpcs = students0.filter { it.id.startsWith("m2rumor_") }
+        val otherStudents = students0.filterNot { it.id.startsWith("m2rumor_") }
+
+        val steppedAmbient = (if (inM2Salon && s.mission2StinkThrown)
+            evacuateAmbientNpcs(students0, room)
+        else
+            stepAmbientNpcs(otherStudents, room, now) + rumorNpcs) + hideCops
+
+        val spawnBackpack = inM2Salon && s.mission2StinkThrown && steppedAmbient.isEmpty() &&
+            s.mission2BackpackX == null && !s.mission2BackpackTaken
+        val bpX = if (spawnBackpack) room.worldWidth * 0.50f else s.mission2BackpackX
+        val bpY = if (spawnBackpack) room.worldHeight * 0.42f else s.mission2BackpackY
+        val bpNear = bpX != null && bpY != null && !s.mission2BackpackTaken &&
+            hypot(bpX - s.playerX, bpY - s.playerY) <= ITEM_PICKUP_DIST * 1.6f
+ 
+        // MISIÓN 3 · asalto ENCB: ¿el jugador está sobre la EVIDENCIA 🧪 (encb_lab1)?
+        val evX = s.mission3EvidenceX
+        val evY = s.mission3EvidenceY
+        val evNear = evX != null && evY != null && !s.mission3EvidenceTaken &&
+            hypot(evX - s.playerX, evY - s.playerY) <= ITEM_PICKUP_DIST * 1.6f
+ 
         _state.update {
             it.copy(
                 zombies = workingZombies,
@@ -148,8 +249,26 @@ internal fun ZombieInteriorViewModel.tickOffline(s: ZombieGameState, now: Long) 
                 zombiesRemaining = workingZombies.count { z -> !z.isDying },
                 nearbyItemId = nearItem?.id,
                 nearbyKeyId = nearKey?.id,
-                activeEffects = if (effectsChanged) stillActive else it.activeEffects
+                activeEffects = if (effectsChanged) stillActive else it.activeEffects,
+                ambientNpcs = if (hideFailed) steppedAmbient.filterNot { n ->
+                    n.id.startsWith(M2COP_PREFIX) } else steppedAmbient,
+                // MISIÓN 2 · fase ESCONDERSE: desenlace (los flags los consume ZombieGameScreen).
+                mission2HideActive = it.mission2HideActive && !hideCompleted && !hideFailed,
+                mission2HideRemainingSec = if (hideCompleted || hideFailed) null else hideRemaining,
+                mission2HideCompleted = hideCompleted,
+                mission2HideFailed = hideFailed,
+                mission2BackpackX = bpX,
+                mission2BackpackY = bpY,
+                mission2BackpackNearby = bpNear,
+                mission3EvidenceNearby = evNear,
+                storyConvoSpeaker = rumorSpeaker,
+                storyConvoText = rumorText,
+                mission2RumorCompleted = rumorCompleted
             )
+        }
+        if (spawnBackpack) {
+            soundManager.playItem()
+            showKeyMessage("🎒 ¡El salón quedó vacío! Ahí está la mochila de Prankedy.")
         }
 
         deadZombieIds.forEach { id ->

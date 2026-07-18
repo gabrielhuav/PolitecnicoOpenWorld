@@ -1,15 +1,16 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+// REFACTOR: zoom/pan extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
+// REFACTOR: estas funciones ahora son extensiones (WorldMapDesigner.kt) → requieren import.
 import android.webkit.JavascriptInterface
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-// REFACTOR: zoom/pan extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanStart
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanEnd
-// REFACTOR: estas funciones ahora son extensiones (WorldMapDesigner.kt) → requieren import.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveLandmarkTo
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanEnd
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanStart
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectLandmark
-internal class MapJsBridge(private val vm: WorldMapViewModel) {
+
+internal class MapJsBridge(private val vm: WorldMapViewModel) {
     @JavascriptInterface fun notifyMapPanStart() { vm.onMapPanStart() }
     @JavascriptInterface fun notifyMapPanEnd() { vm.onMapPanEnd() }
     @JavascriptInterface fun notifyMapZoom(zoom: Double) { vm.onMapZoomChanged(zoom) }

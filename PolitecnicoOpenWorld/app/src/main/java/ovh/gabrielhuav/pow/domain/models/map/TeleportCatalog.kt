@@ -19,6 +19,7 @@ object TeleportCatalog {
         TeleportZone("Deportivo - Campo Fútbol", 19.492800, -99.127800),
         TeleportZone("Estadio Azteca", 19.302889, -99.150460),
         TeleportZone("UAM Azcapotzalco", 19.504331, -99.186130),
-        TeleportZone("Autobuses del Norte", 19.479282, -99.139952)
+        TeleportZone("Autobuses del Norte", 19.479282, -99.139952),
+        TeleportZone("Palacio Municipal Neza", 19.408142, -99.018521)
     )
 }

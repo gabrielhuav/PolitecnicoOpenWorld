@@ -95,5 +95,10 @@ style:
     active: true   # útil: detecta el "gemelo muerto" miembro-vs-extensión (ver 09 §12).
   UnusedPrivateProperty:
     active: true
+  # Game-loops/movers del juego usan LEGÍTIMAMENTE varios break/continue (~22 hits en NpcAiManager/
+  # movers/routing/combate). Se desactiva por recomendación de PENDIENTE_calidad.md (es ruido de estilo,
+  # no un bug) para no inflar el baseline con código correcto por diseño.
+  LoopWithTooManyJumpStatements:
+    active: false
   NewLineAtEndOfFile:
     active: false  # EOL/última línea lo gobierna .editorconfig, no 

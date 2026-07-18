@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
     // NOTA: el plugin google-services NO se aplica aquí. Se aplica condicionalmente al final
     // de este archivo SOLO si existe app/google-services.json, para que el proyecto compile
@@ -17,8 +18,8 @@ android {
         applicationId = "ovh.gabrielhuav.pow"
         minSdk = 24
         targetSdk = 36
-        versionCode = System.getenv("APP_VERSION_CODE")?.toIntOrNull() ?: 11
-        versionName = "1.0.0.11"
+        versionCode = System.getenv("APP_VERSION_CODE")?.toIntOrNull() ?: 12
+        versionName = "1.0.0.12"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -44,6 +45,9 @@ android {
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
             // Servidor del minijuego de INTERIORES (lobby + edificios ESCOM; instancia separada en Render)
             buildConfigField("String", "INTERIORS_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
+            // Servidor del modo PELEA 1v1 (MultiplayerSF/; 3a instancia GRATIS en Render —
+            // ajusta la URL al nombre real del servicio tras el primer deploy)
+            buildConfigField("String", "SF_SERVER_URL", "\"wss://politecnicoopenworld-2.onrender.com\"")
         }
         release {
             isMinifyEnabled = false
@@ -57,6 +61,7 @@ android {
             )
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
             buildConfigField("String", "INTERIORS_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
+            buildConfigField("String", "SF_SERVER_URL", "\"wss://politecnicoopenworld-2.onrender.com\"")
         }
     }
 
@@ -102,6 +107,11 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.compose.foundation)
     ksp(libs.androidx.room.compiler)
+
+    // Hilt (DI) — el compilador va por KSP (NO kapt) para no duplicar procesadores.
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
 
     implementation(libs.androidx.preference.ktx)
 

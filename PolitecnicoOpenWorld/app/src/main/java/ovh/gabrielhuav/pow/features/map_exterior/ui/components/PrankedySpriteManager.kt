@@ -7,6 +7,7 @@ import android.graphics.Matrix
 import android.graphics.drawable.BitmapDrawable
 import android.util.LruCache
 import ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager.getDrawable
 
 /**
  * Gestor de sprites para el NPC compañero Prankedy.
@@ -64,9 +65,9 @@ object PrankedySpriteManager {
 
     // ── Caché del proyectil ───────────────────────────────────────────────────
     // Frames en assets/SPRITES/NPC/Prankedy/p_objeto/p_ob_#.webp
-    private val PROJ_FOLDER = "p_objeto"
-    private val PROJ_PREFIX = "p_obj_"
-    private val PROJ_FRAMES = 3
+    private const val PROJ_FOLDER = "p_objeto"
+    private const val PROJ_PREFIX = "p_obj_"
+    private const val PROJ_FRAMES = 3
     private val projDrawableCache = LruCache<String, BitmapDrawable?>(8)
 
     // ─────────────────────────────────────────────────────────────────────────

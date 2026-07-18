@@ -62,8 +62,8 @@ fun ZombieInteriorViewModel.setDesignerTarget(target: DesignerTarget) {
     }
 }
 
-fun ZombieInteriorViewModel.setDesignerBrushWall(wall: Boolean) =
-    _state.update { it.copy(designerBrushWall = wall) }
+fun ZombieInteriorViewModel.setDesignerBrush(brush: DesignerBrush) =
+    _state.update { it.copy(designerBrush = brush) }
 
 // ─── EDICIÓN DE WAYPOINTS (puertas) ────────────────────
 /** Selecciona la puerta cuyo hitbox (fraccionario) contiene (fx,fy). */
@@ -136,7 +136,11 @@ fun ZombieInteriorViewModel.paintCellAtWorld(xWorld: Float, yWorld: Float) {
     if (numCols == 0) return
     val col = ((xWorld / room.worldWidth) * numCols).toInt().coerceIn(0, numCols - 1)
     val row = ((yWorld / room.worldHeight) * numRows).toInt().coerceIn(0, numRows - 1)
-    val ch = if (s.designerBrushWall) '#' else '.'
+    val ch = when (s.designerBrush) {
+        DesignerBrush.WALL -> CollisionMatrix.WALL
+        DesignerBrush.OCCLUDER -> CollisionMatrix.OCCLUDER
+        DesignerBrush.ERASE -> CollisionMatrix.FREE
+    }
     // Normaliza la fila a numCols (rellena con '.') por si el JSON era irregular.
     val current = s.designerRows[row].padEnd(numCols, '.')
     if (current[col] == ch) return

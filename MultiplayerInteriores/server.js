@@ -142,6 +142,13 @@ function safeDamage(v) {
     return (typeof v === 'number' && isFinite(v) && v > 0) ? v : 0;
 }
 
+// PARIDAD con el cliente (2026-07-10): una celda es SÓLIDA si es pared '#' u
+// OBJETO QUE TAPA '^' (oclusión). El cliente ya bloqueaba ambas; el server solo
+// bloqueaba '#' → los zombis autoritativos online atravesaban los objetos '^'.
+function isSolidCell(ch) {
+    return ch === '#' || ch === '^';
+}
+
 function isBlocked(matrix, fx, fy) {
     if (!matrix || matrix.length === 0) return false;
     const rows = matrix.length;
@@ -150,7 +157,7 @@ function isBlocked(matrix, fx, fy) {
     let r = Math.floor(fy * rows);
     if (c < 0) c = 0; if (c >= cols) c = cols - 1;
     if (r < 0) r = 0; if (r >= rows) r = rows - 1;
-    return matrix[r][c] === '#';
+    return isSolidCell(matrix[r][c]);
 }
 
 function playersInRoom(roomId) {
@@ -214,7 +221,7 @@ function isCellBlocked(matrix, c, r) {
     if (r < 0 || r >= matrix.length) return true;
     const row = matrix[r];
     if (c < 0 || c >= row.length) return true;
-    return row[c] === '#';
+    return isSolidCell(row[c]); // '#' y '^' (paridad con el cliente)
 }
 
 // Celda caminable mas cercana (BFS 4-conn) si la dada esta en una pared.

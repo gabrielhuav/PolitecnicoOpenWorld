@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow
 
 import android.app.Application
 import android.util.Log
+import dagger.hilt.android.HiltAndroidApp
 
 /**
  * Application de POW. Punto único de inicialización temprana del proceso.
@@ -12,6 +13,7 @@ import android.util.Log
  * Firebase vía su ContentProvider cuando el json está presente; esta llamada es un respaldo
  * idempotente que garantiza el init antes de que cualquier pantalla use AuthManager.
  */
+@HiltAndroidApp
 class PowApplication : Application() {
     override fun onCreate() {
         super.onCreate()

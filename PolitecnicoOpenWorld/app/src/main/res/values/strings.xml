@@ -14,6 +14,8 @@
     <string name="menu_multiplayer">MULTIJUGADOR</string>
     <string name="menu_settings">AJUSTES</string>
     <string name="menu_collectibles">COLECCIONABLES</string>
+    <string name="menu_street_fighter">HUELUM VS. GOYA</string>
+    <string name="menu_featured_tag">◆ MODO COMBATE ◆</string>
     <string name="menu_mp_dialog_title">Conectar a Servidor</string>
     <string name="menu_mp_username_label">Nombre de Usuario</string>
     <string name="menu_mp_connect">Conectar</string>
@@ -96,6 +98,8 @@
     <string name="settings_coords_widget_desc">Muestra tu posición X/Y/Z en el mundo y en interiores</string>
     <string name="settings_developer_mode">Modo Desarrollador</string>
     <string name="settings_developer_mode_desc">Muestra opciones y botones de prueba reservados para desarrollo</string>
+    <string name="settings_show_hitboxes">Mostrar hitboxes (modo pelea)</string>
+    <string name="settings_show_hitboxes_desc">Dibuja las cajas de colisión sobre los peleadores, como las hitboxes de Minecraft</string>
     <!-- ─── Cuenta / Autenticación (Google Sign-In) ─── -->
     <string name="settings_cat_account">Cuenta</string>
     <string name="settings_account_desc">Inicia sesión con Google para jugar en línea. El juego local y el Modo Historia no requieren cuenta.</string>
@@ -167,6 +171,7 @@
     <string name="wm_fab_map">Mapa</string>
     <string name="wm_fab_center">Centrar en jugador</string>
     <string name="wm_wasted">WASTED</string>
+    <string name="wm_busted">BUSTED</string>
     <string name="wm_designer_parking">Cajón Estac.</string>
     <string name="wm_designer_add_building">Agregar Edificio</string>
 
@@ -384,6 +389,7 @@
     <string name="zhud_inv_empty">Vacío. Busca y recoge una llave.</string>
     <string name="zhud_inv_has_key">Llave guardada. Pruébala en el Lab 2; mantén pulsada la llave para desecharla.</string>
     <string name="zhud_inv_test">Probar</string>
+    <string name="wm_inv_readonly_hint">Objetos de misión. Se usan en su lugar de la historia; aquí solo los consultas.</string>
     <string name="zhud_inv_discard">Desechar</string>
     <string name="zgame_key_prompt">🔑 Hay una llave — pulsa ACCIÓN para inspeccionarla</string>
     <string name="zgame_objective_investigate">Objetivo: Investiga qué pasó</string>
@@ -401,10 +407,11 @@
     <string name="cd_metrobus_player">Jugador Metrobús</string>
     <!-- ─── Diseñador de matrices/waypoints (compartido metro/metrobús/zombi, Modo Desarrollador) ─── -->
     <string name="int_designer">Diseñador</string>
-    <string name="int_grid_paint">Toca o arrastra sobre la rejilla. Rojo = pared.</string>
+    <string name="int_grid_paint">Toca o arrastra. Rojo = pared · Azul = objeto que tapa.</string>
     <string name="int_matrix">MATRIZ</string>
     <string name="int_waypoints">WAYPOINTS</string>
     <string name="int_wall">PARED</string>
+    <string name="int_occluder">OBJETO</string>
     <string name="int_erase">BORRAR</string>
     <string name="int_save">GUARDAR</string>
     <string name="int_w_minus">ANCHO −</string>
@@ -428,6 +435,91 @@
     <string name="obj_ingresar_escom_desc">¡Te persiguen! Entra por la puerta de la ESCOM para ponerte a salvo.</string>
     <string name="obj_buscar_pistas_escom_title">Busca pistas en la ESCOM</string>
     <string name="obj_buscar_pistas_escom_desc">Explora la ESCOM en busca de pistas.</string>
+    <!-- Objetivos de campaña (Misión 2 · "El rumor") -->
+    <string name="obj_m2_esconderse_title">Piérdele a la policía</string>
+    <string name="obj_m2_esconderse_desc">La policía entró a la ESCOM buscándolos. Escóndete DENTRO del lobby y evita que te vean de cerca hasta que se rindan.</string>
+    <string name="obj_m2_pista_rumor_title">Busca pistas en la ESCOM</string>
+    <string name="obj_m2_pista_rumor_desc">Unos estudiantes platican algo raro. Acércate y escucha el rumor COMPLETO.</string>
+    <string name="obj_m2_pista_brote_title">Sigue buscando pistas</string>
+    <string name="obj_m2_pista_brote_desc">Algo está pasando en la explanada de la ESCOM. Ve a investigar.</string>
+    <string name="obj_m2_hablar_prankedy_title">Habla con Prankedy</string>
+    <string name="obj_m2_hablar_prankedy_desc">Prankedy escuchó todo. Acércate a platicar con él.</string>
+    <string name="obj_m2_recuperar_mochila_title">Recupera la mochila de Prankedy</string>
+    <string name="obj_m2_recuperar_mochila_desc">La mochila quedó escondida en un salón de la ESCOM. El salón está en clases: usa la LATA APESTOSA.</string>
+    <!-- Misión 2 · fase 1 "Esconderse" (lobby, interiores) -->
+    <string name="zgame_hide_countdown">🚨 Policía en el lobby: aguanta %1$d s sin que te vean</string>
+    <string name="amb_cop_search_1">¿Dónde se metió?</string>
+    <string name="amb_cop_search_2">Revisen bien, no pudo ir lejos.</string>
+    <string name="amb_cop_alert">¡¿Ese no es…?! ¡Oye, TÚ!</string>
+    <!-- Misión 2 · salón de la mochila (interiores) -->
+    <string name="zgame_stink_prompt">💨 Pulsa ACCIÓN para lanzar la LATA APESTOSA</string>
+    <string name="zgame_backpack_prompt">🎒 Pulsa ACCIÓN para recoger la mochila de Prankedy</string>
+    <!-- Objetivos de campaña (Misión 3 · "Regreso a la ENCB") -->
+    <string name="obj_m3_ir_encb_title">Vuelve a la ENCB</string>
+    <string name="obj_m3_ir_encb_desc">La ENCB está en cuarentena. Vuelve allá y descubre qué esconden.</string>
+    <string name="obj_m3_infiltrarse_title">Infíltrate en la ENCB</string>
+    <string name="obj_m3_infiltrarse_desc">Evade el cordón de granaderos SIN que te vean y llega a la entrada.</string>
+    <string name="obj_m3_evidencia_title">Recupera la evidencia del laboratorio</string>
+    <string name="obj_m3_evidencia_desc">Dentro hay infectados. Encuentra la evidencia 🧪 en el laboratorio y sal con vida.</string>
+    <string name="zgame_evidence_prompt">🧪 Pulsa ACCIÓN para recoger la EVIDENCIA</string>
+    <!-- Registro / selector de misiones (estilo Witcher) -->
+    <string name="wm_opt_missions">Misiones</string>
+    <string name="mlog_title">MISIONES</string>
+    <string name="mlog_follow">SEGUIR ESTA MISIÓN</string>
+    <string name="mlog_unfollow">DEJAR DE SEGUIR</string>
+    <string name="mlog_close">CERRAR</string>
+    <string name="mlog_completed">✔ COMPLETADA</string>
+    <string name="mlog_active">▶ ACTIVA</string>
+    <string name="mlog_available">DISPONIBLE</string>
+    <string name="mlog_locked">🔒 BLOQUEADA</string>
+    <string name="mlog_locked_hint">Completa la misión anterior para desbloquearla.</string>
+    <string name="mlog_free_roam_hint">Sin misión activa: estás en MUNDO LIBRE. Sigue una misión cuando quieras.</string>
+    <string name="mlog_replay">REJUGAR</string>
+    <string name="mlog_tp_objective">TP AL OBJETIVO</string>
+    <string name="mlog_tp_exit_first">El TP mueve al jugador en el MAPA: sal del interior para usarlo.</string>
+    <string name="mission1_title">Misión 1 · El origen del brote</string>
+    <string name="mission1_desc">Investiga la ENCB, escolta a Prankedy hasta la ESCOM y ponte a salvo de la policía.</string>
+    <string name="mission2_title">Misión 2 · El rumor</string>
+    <string name="mission2_desc">Piérdele a la policía, escucha el rumor zombie, presencia el primer brote y recupera la mochila de Prankedy.</string>
+    <string name="mission3_title">Misión 3 · Regreso a la ENCB</string>
+    <string name="mission3_desc">Infíltrate en la ENCB acordonada, sobrevive a los infectados y recupera la evidencia. Recompensa: tu primera arma de fuego.</string>
+    <!-- Vida universitaria: frases de las pláticas de NPCs ambientales (burbujas, interiores) -->
+    <string name="amb_phrase_1">¿Ya hiciste la práctica de compiladores?</string>
+    <string name="amb_phrase_2">El profe volvió a llegar tarde…</string>
+    <string name="amb_phrase_3">¿Vamos por unos tacos saliendo?</string>
+    <string name="amb_phrase_4">Reprobé el parcial de mate…</string>
+    <string name="amb_phrase_5">¿Escuchaste lo de la ENCB? Qué miedo.</string>
+    <string name="amb_phrase_6">Ando desvelado por el proyecto final.</string>
+    <string name="amb_phrase_7">¿Me pasas los apuntes de ayer?</string>
+    <string name="amb_phrase_8">Ya casi es semana de exámenes…</string>
+    <string name="amb_phrase_9">El wifi de la escuela otra vez no sirve.</string>
+    <string name="amb_phrase_10">Dicen que en Zacatenco pasan cosas raras.</string>
+    <string name="amb_phrase_bye">Ahí nos vemos</string>
+    <!-- Vida universitaria: GUIONES de plática coherentes (líneas alternadas A/B/A/B) -->
+    <string name="amb_convo1_1">¿Cómo te fue en el parcial de mate?</string>
+    <string name="amb_convo1_2">Reprobé… el profe puso temas que ni vimos.</string>
+    <string name="amb_convo1_3">Igual yo. ¿Vamos a asesorías mañana?</string>
+    <string name="amb_convo1_4">Va. Dicen que el de quinto piso explica bien.</string>
+    <string name="amb_convo2_1">¿Ya tienen tema para el TT?</string>
+    <string name="amb_convo2_2">Algo de visión por computadora, pero mi asesor no contesta.</string>
+    <string name="amb_convo2_3">Cámbiale de asesor antes del registro.</string>
+    <string name="amb_convo2_4">Ya es tarde… ni modo, a perseguirlo por los pasillos.</string>
+    <string name="amb_convo3_1">Tengo un hambre… ¿vamos a la cafetería?</string>
+    <string name="amb_convo3_2">Está llenísima. Mejor los tacos de la salida.</string>
+    <string name="amb_convo3_3">¿Los de canasta? Ayer me tocó uno frío.</string>
+    <string name="amb_convo3_4">Pues aguántate el hambre hasta tu casa, jaja.</string>
+    <string name="amb_convo4_1">¿Es cierto lo que dicen de la ENCB?</string>
+    <string name="amb_convo4_2">Mi prima vio ambulancias y patrullas toda la mañana.</string>
+    <string name="amb_convo4_3">En el grupo dicen que hay gente MORDIENDO gente, jajaja.</string>
+    <string name="amb_convo4_4">No te rías… mi profe canceló la clase por «contingencia».</string>
+    <string name="amb_convo5_1">¿Te conectas al wifi? Tengo que subir mi práctica.</string>
+    <string name="amb_convo5_2">Ni lo intentes, se cayó desde temprano.</string>
+    <string name="amb_convo5_3">¿Otra vez? La entrega cierra a las tres.</string>
+    <string name="amb_convo5_4">Vete al laboratorio de redes, ahí sí jala.</string>
+    <string name="amb_convo6_1">¿Vas a meter ETS de física?</string>
+    <string name="amb_convo6_2">Sí, ya ni modo. ¿Tú también?</string>
+    <string name="amb_convo6_3">También… nos vemos en el examen entonces.</string>
+    <string name="amb_convo6_4">Va. Un día antes estudiamos juntos, ¿no?</string>
     <!-- Transporte: prompt + mensajes (antes hardcodeados en TransitSystemConfig) -->
     <string name="wm_prompt_metrobus">PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS %1$s</string>
     <string name="transit_metro_msg_ticket">Has recargado tu tarjeta del metro</string>
@@ -439,4 +531,183 @@
     <string name="transit_metrobus_msg_wait">Debes esperar a que llegue otro autobús</string>
     <string name="transit_metrobus_msg_wp_saved">Waypoints del Metrobús guardados</string>
     <string name="transit_msg_exit_turnstile">Has salido de los torniquetes. Ve a la taquilla para recargar tu tarjeta.</string>
+    <!-- Misiones SECUNDARIAS + economía + ciclo día/noche (mundo abierto) -->
+    <string name="mlog_side_badge">SECUNDARIA</string>
+    <string name="side1_title">Secundaria · Suministros médicos</string>
+    <string name="side1_desc">Con el brote creciendo, un paramédico necesita material. Recoge el botiquín y entrégaselo. Recompensa: $150.</string>
+    <string name="side2_title">Secundaria · Contención en Zacatenco</string>
+    <string name="side2_desc">Reportan infectados sueltos cerca del campus. Elimínalos antes de que el brote se extienda. Recompensa: $250.</string>
+    <string name="obj_s1_recoger_title">Recoge el botiquín</string>
+    <string name="obj_s1_recoger_desc">Pasa por el botiquín de suministros médicos.</string>
+    <string name="obj_s1_entregar_title">Entrega los suministros</string>
+    <string name="obj_s1_entregar_desc">Lleva el botiquín al paramédico. Puedes ir en coche.</string>
+    <string name="obj_s2_ir_title">Ve a la zona del reporte</string>
+    <string name="obj_s2_ir_desc">Reportan infectados sueltos al oeste del campus.</string>
+    <string name="obj_s2_eliminar_title">Elimina a los infectados</string>
+    <string name="obj_s2_eliminar_desc">Acaba con todos los infectados de la zona (golpéalos con B).</string>
+    <string name="wm_chip_money">Dinero</string>
+    <string name="wm_chip_clock">Hora</string>
+
+    <!-- Modo Street Fighter (i18n 2026-07-10) -->
+    <string name="sf_choose_fighter">ELIGE A TU PELEADOR</string>
+    <string name="sf_alpha_note">ALPHA = peleador de POW en desarrollo (poses aproximadas)</string>
+    <string name="sf_choose_stage">ELIGE EL ESCENARIO</string>
+    <string name="sf_random">Al azar</string>
+    <string name="sf_change_fighter">← Cambiar peleador</string>
+    <string name="sf_rematch">Revancha</string>
+    <string name="sf_change_character">Cambiar personaje</string>
+    <string name="sf_back_to_menu">Volver al menú</string>
+    <string name="sf_paused">PAUSA</string>
+    <string name="sf_continue">Continuar</string>
+    <string name="sf_controls_hint">X/Y/B: PUÑOS  •  A: PATADA  •  ↓↘→ + X/Y/B: ESPECIAL  •  P: PODER EXTRA</string>
+    <string name="sf_controls_help">X/Y/B = puños ligero, medio y fuerte\nA neutro/adelante/atrás = patada ligera, media y fuerte\n↓ ↘ → + X/Y/B = especial ligero, medio o fuerte</string>
+    <string name="sf_exit_title">Salir de la pelea</string>
+    <string name="sf_exit_message">¿Abandonar la pelea y volver al menú principal?</string>
+    <string name="sf_exit_confirm">Salir</string>
+    <string name="sf_keep_fighting">Seguir peleando</string>
+    <!-- Modo pelea · multijugador 1v1 -->
+    <string name="sf_mp_button">🌐 MULTIJUGADOR</string>
+    <string name="sf_mp_title">MULTIJUGADOR 1v1</string>
+    <string name="sf_mp_create">CREAR SALA</string>
+    <string name="sf_mp_join">UNIRSE</string>
+    <string name="sf_mp_code_label">Código</string>
+    <string name="sf_mp_cancel">Cancelar</string>
+    <string name="sf_mp_connecting_title">CONECTANDO…</string>
+    <string name="sf_mp_connecting_sub">Despertando el servidor (plan gratis de Render): puede tardar hasta un minuto</string>
+    <string name="sf_mp_room">SALA %1$s</string>
+    <string name="sf_mp_waiting_sub">Comparte el código con tu rival; esperando a que se una…</string>
+    <string name="sf_mp_pick_sub">SALA %1$s · elige tu peleador</string>
+    <string name="sf_mp_host_choosing_map">El anfitrión está eligiendo el mapa…</string>
+    <string name="sf_mp_leave_room">Salir de la sala</string>
+    <string name="sf_mp_opp_wants_rematch">El rival quiere la revancha</string>
+    <string name="sf_mp_public">SALA PÚBLICA</string>
+    <string name="sf_mp_queue_title">LISTA DE ESPERA</string>
+    <string name="sf_mp_queue_sub">Buscando rival en salas públicas…</string>
+    <string name="sf_mp_rooms_summary">Salas activas: %1$d · En espera: %2$d</string>
+    <string name="sf_mp_room_waiting">esperando rival · toca para solicitar unirte</string>
+    <string name="sf_mp_room_busy">en pelea</string>
+    <string name="sf_mp_join_request">Un jugador quiere unirse a tu sala. ¿Lo aceptas?</string>
+    <string name="sf_mp_accept">ACEPTAR</string>
+    <string name="sf_mp_reject">RECHAZAR</string>
+    <string name="sf_mp_awaiting_host">Solicitud enviada; esperando la respuesta del anfitrión…</string>
+    <string name="sf_bt_section">BLUETOOTH (sin internet)</string>
+    <string name="sf_bt_host">ANFITRIÓN</string>
+    <string name="sf_bt_scan">BUSCAR RIVAL</string>
+    <string name="sf_bt_host_title">ANFITRIÓN BLUETOOTH</string>
+    <string name="sf_bt_host_sub">Visible por Bluetooth; esperando a que tu rival te encuentre con BUSCAR RIVAL…</string>
+    <string name="sf_bt_connecting_sub">Conectando por Bluetooth con el anfitrión…</string>
+    <string name="sf_bt_pick_title">ELIGE AL ANFITRIÓN</string>
+    <string name="sf_bt_pick_sub">Dispositivos emparejados y cercanos (activa Bluetooth en ambos teléfonos)</string>
+    <string name="sf_bt_none">Buscando dispositivos…</string>
+    <string name="sf_bt_handshake_sub">Conectado; verificando la conexión con el anfitrión…</string>
+    <string name="sf_bt_error_title">SIN CONEXIÓN BLUETOOTH</string>
+    <string name="sf_bt_error_hint">Revisa que ambos tengan Bluetooth encendido, que el anfitrión esté en ANFITRIÓN (visible) y estén cerca. Reintentar vuelve a pedir permisos si hace falta.</string>
+    <string name="sf_bt_retry">REINTENTAR</string>
+    <string name="sf_lan_section">SERVIDOR LOCAL (misma red Wi-Fi)</string>
+    <string name="sf_lan_host">CREAR SERVIDOR</string>
+    <string name="sf_lan_ip_label">IP del anfitrión</string>
+    <string name="sf_lan_host_title">SERVIDOR LOCAL</string>
+    <string name="sf_lan_host_sub">Tu sala está abierta. Comparte esta dirección con tu rival (misma red Wi-Fi o tu hotspot):\n\n%1$s</string>
+    <string name="sf_lan_no_ip">No se detectó red local: conéctate a una red Wi-Fi o enciende tu hotspot y reintenta.</string>
+    <string name="sf_lan_connecting_sub">Conectando con el servidor local…</string>
+    <string name="sf_lan_error_hint">Ambos teléfonos deben estar en la MISMA red Wi-Fi (o uno al hotspot del otro). Verifica la IP que muestra la pantalla del anfitrión y reintenta.</string>
+    <!-- Banner de rondas (fuente arcade: solo A-Z y 0-9, sin acentos ni signos) -->
+    <string name="sf_round_banner">RONDA %1$d</string>
+    <string name="sf_fight_banner">PELEA</string>
+    <string name="sf_choose_rival">Ahora elige al RIVAL (lo controla la CPU)</string>
+    <!-- 🆕 Dificultad de la CPU (paso 3 del flujo offline, 2026-07-16) -->
+    <string name="sf_choose_difficulty">ELIGE LA DIFICULTAD</string>
+    <string name="sf_diff_basic">BÁSICA</string>
+    <string name="sf_diff_basic_desc">Para aprender: reacciona lento y no usa poderes</string>
+    <string name="sf_diff_normal">NORMAL</string>
+    <string name="sf_diff_normal_desc">La pelea clásica de siempre</string>
+    <string name="sf_diff_advanced">AVANZADA</string>
+    <string name="sf_diff_advanced_desc">Bloquea, castiga y lanza muchos poderes. ¿Podrás ganarle?</string>
+    <string name="sf_diff_nightmare">PESADILLA</string>
+    <string name="sf_diff_nightmare_desc">Combos sin parar, esquiva tus golpes y castiga durísimo. Casi imposible.</string>
+    <!-- 🆕 Modo ARCADE (escalera de 11 peleas) -->
+    <string name="sf_arcade_button">ARCADE</string>
+    <string name="sf_arcade_pick_you">Elige tu peleador (desbloqueas más al ganar)</string>
+    <!-- Arcade: Fácil/Medio/Difícil → mapas día / noche / apocalipsis -->
+    <string name="sf_arcade_diff_maps_hint">Los escenarios cambian con la dificultad: día, noche o noche apocalíptica</string>
+    <string name="sf_arcade_diff_easy">FÁCIL</string>
+    <string name="sf_arcade_diff_easy_desc">IA más suave · escenarios de DÍA (mapa de cada rival)</string>
+    <string name="sf_arcade_diff_medium">MEDIO</string>
+    <string name="sf_arcade_diff_medium_desc">IA clásica · escenarios de NOCHE</string>
+    <string name="sf_arcade_diff_hard">DIFÍCIL</string>
+    <string name="sf_arcade_diff_hard_desc">IA agresiva · NOCHE APOCALÍPTICA</string>
+    <string name="sf_back">← Volver</string>
+    <string name="sf_arcade_won">¡GANASTE!</string>
+    <string name="sf_arcade_progress">Pelea %1$d de %2$d</string>
+    <string name="sf_arcade_continue">CONTINUAR</string>
+    <string name="sf_arcade_quit">SALIR</string>
+    <string name="sf_arcade_lost">PERDISTE</string>
+    <string name="sf_arcade_lost_sub">Repite la pelea anterior e inténtalo de nuevo</string>
+    <string name="sf_arcade_retry">REINTENTAR</string>
+    <string name="sf_arcade_champion">¡CAMPEÓN!</string>
+    <string name="sf_arcade_champion_sub">Venciste a todos y derrotaste a Prankedy en la final</string>
+    <string name="sf_arcade_finish">TERMINAR</string>
+    <!-- 🆕 Menú de modos del modo pelea -->
+    <string name="sf_mode_arcade">ARCADE</string>
+    <string name="sf_mode_arcade_desc">Campaña: derrota a todos y desbloquea peleadores</string>
+    <string name="sf_mode_practice">PRÁCTICA</string>
+    <string name="sf_mode_ai_vs_ai">IA VS IA</string>
+    <string name="sf_mode_ai_vs_ai_desc">CPU vs CPU a dificultad PESADILLA (para grabar)</string>
+    <string name="sf_gauntlet_all">Autojuego: todos vs todos</string>
+    <string name="sf_gauntlet_arcade">Auditar las 9 campañas (acelerado)</string>
+    <string name="sf_gauntlet_showcase">Showcase: animaciones y sonidos</string>
+    <string name="sf_confirm">Confirmar</string>
+    <string name="sf_gauntlet_stop">Detener</string>
+    <string name="sf_showcase_skip">Saltar animación</string>
+    <string name="sf_gauntlet_report_title">Reporte del autojuego</string>
+    <string name="sf_gauntlet_no_issues">Sin problemas detectados.</string>
+    <string name="sf_close">Cerrar</string>
+    <string name="sf_ai_vs_ai_pick_a">Elige al peleador 1 (IA)</string>
+    <string name="sf_ai_vs_ai_pick_b">Elige al peleador 2 (IA)</string>
+    <string name="sf_exit">Salir</string>
+    <string name="sf_mode_multiplayer">MULTIJUGADOR</string>
+    <string name="sf_other_modes">↕ Otros modos</string>
+    <!-- Selector de mapa: preview (toca) + confirmar -->
+    <string name="sf_stage_tap_preview">Toca un mapa para previsualizar · animado solo el seleccionado</string>
+    <string name="sf_stage_confirm">Elegir este mapa</string>
+    <string name="sf_loading">CARGANDO</string>
+    <string name="sf_loading_sub">Preparando pelea…</string>
+    <string name="sf_resume_title">Continuar pelea</string>
+    <string name="sf_resume_message">Hay una pelea de arcade a medias. ¿Quieres retomar donde la dejaste?</string>
+    <string name="sf_resume_yes">CONTINUAR</string>
+    <string name="sf_resume_no">Nueva partida</string>
+    <string name="sf_fighter_tap_hint">Toca para enfocar · otra vez para elegir</string>
+
+    <!-- Tutorial de controles (optativo, i18n 2026-07-11) -->
+    <string name="tutorial_prompt_title">Tutorial de controles</string>
+    <string name="tutorial_prompt_msg">¿Quieres un repaso rápido de los controles? Puedes verlo cuando quieras en Ajustes → Controles.</string>
+    <string name="tutorial_prompt_yes">VER TUTORIAL</string>
+    <string name="tutorial_prompt_no">Ahora no</string>
+    <string name="tutorial_next">Siguiente</string>
+    <string name="tutorial_prev">Anterior</string>
+    <string name="tutorial_done">¡Entendido!</string>
+    <string name="tutorial_ext_title">Controles · Mundo abierto</string>
+    <string name="tutorial_int_title">Controles · Interiores</string>
+    <string name="tutorial_page_move_title">Moverte</string>
+    <string name="tutorial_page_move_body">Camina con el D-pad o el joystick. El estilo, tamaño y lado se cambian en Ajustes → Controles.</string>
+    <string name="tutorial_page_run_title">Correr</string>
+    <string name="tutorial_page_run_body">Mantén A mientras te mueves para correr.</string>
+    <string name="tutorial_page_ext_interact_title">Interactuar</string>
+    <string name="tutorial_page_ext_interact_body">Con X entras a edificios (ESCOM, metro, metrobús…), recoges coleccionables y usas objetos de misión.</string>
+    <string name="tutorial_page_ext_attack_title">Golpear</string>
+    <string name="tutorial_page_ext_attack_body">Con B lanzas golpes. Ojo: agredir civiles sube tu nivel de búsqueda y la policía irá por ti.</string>
+    <string name="tutorial_page_ext_vehicle_title">Conducir</string>
+    <string name="tutorial_page_ext_vehicle_body">Con Y subes o bajas del coche más cercano. Al volante, el mismo control de movimiento acelera, frena y gira.</string>
+    <string name="tutorial_page_ext_teleport_title">Teletransporte</string>
+    <string name="tutorial_page_ext_teleport_body">Abre el menú de opciones (arriba a la derecha) → Mapa → Puntos de teletransporte para viajar rápido.</string>
+    <string name="tutorial_page_int_interact_title">Interactuar</string>
+    <string name="tutorial_page_int_interact_body">Con X recoges llaves y objetos, usas objetos de misión (como la lata apestosa) y confirmas acciones.</string>
+    <string name="tutorial_page_int_attack_title">Atacar</string>
+    <string name="tutorial_page_int_attack_body">Con B atacas: golpe cuerpo a cuerpo o disparo, según el modo elegido. Los NPCs también reaccionan a tus golpes.</string>
+    <string name="tutorial_page_int_mode_title">Modo de golpe e inventario</string>
+    <string name="tutorial_page_int_mode_body">Mantén Y para abrir el menú combinado: cambia entre golpe y disparo, y revisa tu inventario.</string>
+    <string name="settings_tutorial_section">Referencia y tutorial</string>
+    <string name="settings_tutorial_hint">Repasa qué hace cada botón en cada mundo. Los ajustes de arriba (estilo, tamaño, lado) cambian cómo se acomodan en pantalla.</string>
+    <string name="settings_tutorial_exterior">TUTORIAL · MUNDO ABIERTO</string>
+    <string name="settings_tutorial_interior">TUTORIAL · INTERIORES</string>
 </resources>

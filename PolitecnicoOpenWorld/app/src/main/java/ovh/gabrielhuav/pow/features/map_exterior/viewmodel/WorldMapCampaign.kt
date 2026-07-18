@@ -6,7 +6,8 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 // depende del mundo abierto (reusa el game loop, snap-to-road, NPCs, etc.); aquí vive su
 // punto de entrada (setStorySpawn). El resto de la lógica de campaña ya está en
 // WorldMapCampaignPolice.kt / WorldMapCampaignRouteNpcs.kt / WorldMapPrankedy.kt /
-// WorldMapSaveGame.kt. El ESTADO (inCampaign, campaign*/mission2*, campaignSchoolId,
+// WorldMapSaveGame.kt / WorldMapMission2.kt. El ESTADO (inCampaign, campaign*/
+// mission1Chase*/mission2*, campaignSchoolId,
 // campaignSlot…) sigue en el ViewModel. NO duplicar como miembro (gana el miembro).
 // ───────────────────────────────────────────────────────────────────────────────────
 
@@ -30,9 +31,22 @@ fun WorldMapViewModel.setStorySpawn(lat: Double, lon: Double) {
     inCampaign = true            // sesión de campaña → habilita el auto-guardado al salir
     prankedyCompanionActivated = false  // re-arma el encendido del acompañante en la ENCB
     campaignPoliceActivated = false     // re-arma la policía de escolta de la Misión 1
-    mission2ChaseActivated = false      // re-arma la persecución de la Misión 2
+    mission1ChaseActivated = false      // re-arma la persecución final de la Misión 1
     campaignEscortPolice.clear()
-    mission2Crowd.clear()
+    mission1ChaseCrowd.clear()
+    // MISIONES 2/3: pizarra limpia. Si se está CARGANDO una partida, restoreSaveData (que corre
+    // DESPUÉS de este spawn) re-aplica las fases guardadas (mission2Phase/mission3Phase).
+    clearMission2Story()
+    mission2Phase = 0
+    clearMission3Story()
+    mission3Phase = 0
+    // MISIONES SECUNDARIAS + EVENTOS DINÁMICOS: pizarra limpia (nada de esto se persiste
+    // aparte del objetivo activo, que restoreSaveData re-aplica si se está CARGANDO).
+    clearSideMissions()
+    clearDynamicEvent()
+    // REPLAY: pizarra limpia también del modo rejugar (COMENZAR/CARGAR cancelan un replay).
+    // ⚠️ replayCampaignMission (M1) y retryCampaignMission lo restauran a propósito después.
+    replayingMissionId = null
     npcWarmupCycles = 0          // re-arma el warm-up de NPCs del gate de carga
     lastNetworkFetchLocation = null  // fuerza el re-fetch de calles alrededor de la escuela
     lastFetchAttemptMs = 0L

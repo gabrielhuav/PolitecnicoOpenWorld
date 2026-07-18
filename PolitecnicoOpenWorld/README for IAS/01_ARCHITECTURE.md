@@ -34,6 +34,16 @@ Cada *feature* se divide en 3 capas / Every feature splits into 3 layers:
   `StateFlow` de solo lectura; corre los game loops con coroutines; orquesta repositorios. El
   estado es un `data class` inmutable actualizado con `_state.update { it.copy(...) }`. / ONE
   `MutableStateFlow<State>` exposed read-only; drives game loops; orchestrates repos. Immutable state via `copy`.
+- **🆕 Managers con sub-estado + fachada `combine` (WorldMapViewModel, Etapa 3 calidad senior):** para no
+  tener un god-object, el estado UI de `WorldMapViewModel` se reparte en **6 managers** propios
+  (`viewmodel/DesignerManager`, `CollectiblesManager`, `CombatManager`, `WantedManager`,
+  `TransitTeleportManager`, `CampaignManager`), cada uno con su `MutableStateFlow<XSubState>` y lógica pura
+  (testeable en JVM). El VM COMPONE el `uiState` con `combine(_uiState, …managers…) { base.copy(campos) }`
+  (anidado: >5 flows) para que las Views sigan viendo UN `WorldMapState`. Combat usa `mutableStateOf` delegado
+  en vez del combine (estado Compose-directo). Los campos poseídos por managers van anotados ⚠️ en
+  `WorldMapState.kt` (no escribirlos con `_uiState.update` → la fachada los sobreescribe; ver 09 §1). El
+  estado de FASE de misión se queda en el VM (corte limpio, entrelazado con el game loop). / Managers own
+  sub-state; VM composes `uiState` via `combine`; see 09 §1.
 - **View** (`features/<name>/ui/`): Compose puro; observa con `collectAsState()`; solo emite
   intenciones al ViewModel. **Nunca toca repos/DAOs.** / Pure Compose; observes via `collectAsState()`; emits intents only. Never touches repos/DAOs.
 
@@ -44,13 +54,19 @@ Cada *feature* se divide en 3 capas / Every feature splits into 3 layers:
 | `WorldMapViewModel`, `SettingsViewModel`, `CollectiblesViewModel` | **Activity** | Sobreviven a la navegación / survive navigation |
 | `InteriorViewModel`, `TransitInteriorViewModel`, `ZombieInteriorViewModel`, `ShineCTOViewModel` | **NavBackStackEntry** | Se reinician al salir / reset on leave |
 
-**DI / Inyección:** manual, vía `ViewModelProvider.Factory` co-localizada con cada ViewModel
-(p. ej. `WorldMapViewModel.Factory(context)`). / Manual DI via co-located factories.
+**DI / Inyección: 🆕 Hilt (Etapa 4 calidad senior; antes `ViewModelProvider.Factory` manual).** `@HiltAndroidApp`
+en `PowApplication`, `@AndroidEntryPoint` en `MainActivity`. Las 9 VMs son `@HiltViewModel @Inject`; las que
+reciben args de navegación (`InteriorViewModel`/`TransitInteriorViewModel`/`ZombieInteriorViewModel`) usan
+`@AssistedInject` + `@AssistedFactory` (`hiltViewModel(creationCallback)`). Las deps (BD Room, cachés,
+repos) las provee `di/AppModule.kt` (`@InstallIn(SingletonComponent)`). El scope se preserva: WorldMap/
+Settings/Collectibles con `by viewModels()` (Activity), el resto con `hiltViewModel()` (NavBackStackEntry).
+El compilador va por **KSP** (no kapt). Ver `_ARCHIVO/PLAN_DI_hilt.md` (histórico). / Hilt DI (KSP); assisted-inject for nav-arg VMs.
 
 ## Árbol del cliente / Client tree
 
 ```text
 app/src/main/java/ovh/gabrielhuav/pow/
+├── di/                  # 🆕 Hilt: AppModule (@InstallIn SingletonComponent) → BD/cachés/repos
 ├── data/                # Capa de datos: Room, cachés, red, repos  → ver 02
 ├── domain/models/       # Modelos puros + IA                       → ver 03
 ├── features/            # Módulos por feature: <name>/ui + <name>/viewmodel
@@ -62,6 +78,7 @@ app/src/main/java/ovh/gabrielhuav/pow/
 │   │   ├── escom/         → ver 06  (interiores simples ESCOM + metro; antes features/interior/)
 │   │   ├── zombies/       → ver 05  (capa de zombis; antes features/zombie_minigame/)
 │   │   └── shinecto/      → ver 07  (easter egg; antes features/shinecto/)
+│   ├── streetfighter/    → ver 07  (🆕 STREET FIGHTER: minijuego 1v1 dev-gated; ui + viewmodel + data; modelos puros en domain/models/streetfighter/; assets en assets/STREETFIGHTER/)
 │   └── settings/         → ver 07
 ├── ui/theme/            # Tema Material 3 (Color.kt, Theme.kt, Type.kt)
 └── MainActivity.kt      # Single-Activity + Compose NavHost
@@ -87,6 +104,7 @@ app/src/main/java/ovh/gabrielhuav/pow/
 | `metro_station_interior/{stationName}?spawnX={spawnX}&spawnY={spawnY}` | `MetroStationInteriorScreen` (`interiores.escom.ui`, ruta parametrizada) |
 | `interiores_zombies?startRoom={startRoom}` | `ZombieGameScreen` (motor de Interiores; `startRoom` = sala inicial, default `lobby_campus`; la puerta FES pasa `fes_interior`) |
 | `shinecto_interior` | `ShineCTOScreen` (`interiores.shinecto.ui`, easter egg) |
+| `street_fighter` | 🆕 `StreetFighterScreen` (`features/streetfighter/`): minijuego **STREET FIGHTER** (port fiel del clon JS StreetFighter-main: Ryu vs Ken CPU, sprites/sonidos originales en `assets/STREETFIGHTER/`). Botón del menú principal visible SOLO con Modo Desarrollador. Landscape (no está en `portraitRoutes`). Ver 07 |
 
 **MainActivity** también: configura osmdroid (`configureOsmdroid`), pide permisos y obtiene la
 ubicación con Fused Location Provider (`checkPermissionsAndFetchLocation`, `fetchCurrentLocation`),
@@ -121,7 +139,12 @@ permissions + Fused Location, and frees sprite caches on `onTrimMemory` (see 09)
   conexión. Con el json, el multijugador exige sesión de Google. El maintainer agrega el json (y configura
   `FIREBASE_SERVICE_ACCOUNT` en los servidores) para habilitar la identidad por cuenta.
 - **URLs de servidor / Server URLs** inyectadas vía Gradle → `BuildConfig.MULTIPLAYER_SERVER_URL`
-  (open world) y `BuildConfig.INTERIORS_SERVER_URL` (zombi). Versión en menú: `BuildConfig.VERSION_NAME`.
+  (open world), `BuildConfig.INTERIORS_SERVER_URL` (zombi) y `BuildConfig.SF_SERVER_URL` (modo
+  pelea). Versión en menú: `BuildConfig.VERSION_NAME`.
+- **🆕 Assets por VARIANTE (2026-07-15):** `app/src/debug/assets/STREETFIGHTER/` lleva los
+  assets del clon SF (Ryu/Ken) SOLO en builds debug (cable); el bundle de Play (release) no
+  los incluye — copyright. Reglas y cierres en 09 §12 y 07 §STREET FIGHTER. / Debug-only
+  source-set assets for the SF clone (Ryu/Ken); release/Play ships without them.
 - **Servidores (separados, ambos escuchan en contenedor `:8080`, `GET /status`, `WS /`):**
   - Open world: `cd Multiplayer && docker compose up -d` (host `:8080`).
   - Zombi: `cd MultiplayerInteriores && docker compose up -d` (host `:8081` → contenedor `:8080`).

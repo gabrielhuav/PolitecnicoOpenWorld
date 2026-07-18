@@ -1,0 +1,776 @@
+{
+  "_meta": {
+    "version": 2,
+    "date": "2026-07-18",
+    "method": "phrase-first multi-source; Prankedy canon playlists; no auto-install to APK",
+    "note": "Paparazzi 1/5 MUST use their own official videos. Multiple sources per fighter."
+  },
+  "fighters": {
+    "PRANKEDY": {
+      "role": "YouTuber real — gritos/risas/reacciones de broma",
+      "phrases": [
+        {
+          "phrase_id": "prank_paparazzi_energy",
+          "label": "Energía de broma callejera (serie Paparazzi — voz de Edy)",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "7Ug2kyQeRHQ",
+              "title": "Paparazzi 1 official 8.1M",
+              "priority": 100
+            },
+            {
+              "kind": "youtube",
+              "id": "6dfQvumn5Ts",
+              "title": "Paparazzi 20 BROMA",
+              "priority": 90
+            },
+            {
+              "kind": "youtube",
+              "id": "XFdRAR8CmZ4",
+              "title": "Smelliest food taco shop",
+              "priority": 85
+            },
+            {
+              "kind": "local",
+              "path": "nuevoMaterial17JUL/Prankedy0Actual.mp3",
+              "priority": 80
+            },
+            {
+              "kind": "local",
+              "path": "nuevoMaterial17JUL/Prankedy2.mp3",
+              "priority": 78
+            }
+          ]
+        },
+        {
+          "phrase_id": "prank_tanque_gas",
+          "label": "Momento tanque de gas / broma pesada icónica",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "zreqHXngBAw",
+              "title": "Tanque de gas camión (reupload)",
+              "priority": 95
+            },
+            {
+              "kind": "youtube",
+              "id": "hRB7ryS4Spg",
+              "title": "Tanque gas broma eliminada",
+              "priority": 90
+            },
+            {
+              "kind": "local",
+              "path": "nuevoMaterial17JUL/Prankedy3.mp3",
+              "priority": 75
+            }
+          ]
+        },
+        {
+          "phrase_id": "prank_drive_negocios",
+          "label": "Otras bromas virales (drive-thru / negocios en casas)",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "S4miJwOryIo",
+              "title": "Drive thru headset prank",
+              "priority": 88
+            },
+            {
+              "kind": "youtube",
+              "id": "wjdu4NofGTE",
+              "title": "Negocios en casas de desconocidos",
+              "priority": 86
+            }
+          ]
+        }
+      ]
+    },
+    "PAPARAZZI_1": {
+      "role": "Personaje de la serie Paparazzi — vídeo 1 canónico del canal",
+      "phrases": [
+        {
+          "phrase_id": "pap1_official",
+          "label": "Paparazzi 1 | Heavy Joke on the Street (oficial ~8.1M)",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "7Ug2kyQeRHQ",
+              "title": "Paparazzi 1 official",
+              "priority": 100
+            },
+            {
+              "kind": "local",
+              "path": "nuevoMaterial17JUL/PAPARAZZI 1!! BROMA.mp3",
+              "priority": 95
+            },
+            {
+              "kind": "youtube",
+              "id": "svPQhmXsyOg",
+              "title": "Paparazzi 2 (contexto serie)",
+              "priority": 70
+            }
+          ]
+        }
+      ]
+    },
+    "PAPARAZZI_5": {
+      "role": "Personaje de la serie Paparazzi — vídeo 5 propio (NO reusar Pap1)",
+      "phrases": [
+        {
+          "phrase_id": "pap5_official",
+          "label": "Paparazzi 5 | joke on the street (oficial ~5.5M)",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "AEmVeK88HIs",
+              "title": "Paparazzi 5 official",
+              "priority": 100
+            },
+            {
+              "kind": "youtube",
+              "id": "ufjkSjGWJlc",
+              "title": "Paparazzi 16 heavy (serie)",
+              "priority": 75
+            },
+            {
+              "kind": "youtube",
+              "id": "6dfQvumn5Ts",
+              "title": "Paparazzi 20",
+              "priority": 72
+            }
+          ]
+        }
+      ]
+    },
+    "SENOR_TIENDA": {
+      "role": "El señor de la tienda (Marcial) — serie larga en canal Prankedy; muchas reacciones/regaños icónicos",
+      "phrases": [
+        {
+          "phrase_id": "tienda_serie_canonica",
+          "label": "Serie canónica Señor de la Tienda (playlist @Prankedy) — varios momentos de regaño/reacción",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "gzXw_4kfZBo",
+              "title": "VISITANDO… (PRANK) ~24M — el más viral",
+              "priority": 100
+            },
+            {
+              "kind": "youtube",
+              "id": "2USZ8cH9Vjg",
+              "title": "ADIOS / GOODBYE TO THE STORE GUY ~17M",
+              "priority": 98
+            },
+            {
+              "kind": "youtube",
+              "id": "0z8RQXE_2NY",
+              "title": "DEMANDO AL SEÑOR DE LA TIENDA ~15M",
+              "priority": 96
+            },
+            {
+              "kind": "youtube",
+              "id": "BWjLyUJtSgE",
+              "title": "BROMA AL SEÑOR DE LA TIENDA 2 ~10M",
+              "priority": 94
+            },
+            {
+              "kind": "youtube",
+              "id": "DZcNCEQH7OY",
+              "title": "THE FAKE COMMERCIAL (PRANK) ~8.7M",
+              "priority": 92
+            },
+            {
+              "kind": "youtube",
+              "id": "uZL4Q7wYNJI",
+              "title": "ROBANDO AL SEÑOR DE LA TIENDA ~8.5M",
+              "priority": 91
+            },
+            {
+              "kind": "youtube",
+              "id": "y8IkFV3ly-w",
+              "title": "PRANK ON THE OWNER OF STORE 1 ~8.2M",
+              "priority": 90
+            },
+            {
+              "kind": "youtube",
+              "id": "AmDjgLtcqDk",
+              "title": "BROMA AL SEÑOR DE LA TIENDA 3 ~8.2M",
+              "priority": 89
+            },
+            {
+              "kind": "youtube",
+              "id": "_Lvp7unX0o4",
+              "title": "CRAZY SELLER PRANK ~6.7M",
+              "priority": 86
+            },
+            {
+              "kind": "youtube",
+              "id": "96pMFpyVM4Q",
+              "title": "I REPORT THE SHOP OWNER… ~4.4M",
+              "priority": 84
+            },
+            {
+              "kind": "youtube",
+              "id": "UEJ0eO9m2eo",
+              "title": "Vacié la tienda del Señor (2025 retorno)",
+              "priority": 88
+            }
+          ]
+        }
+      ]
+    },
+    "REY_GRUPERO": {
+      "role": "Arquetipo grupero / fiesta (menos canon YouTube directo)",
+      "phrases": [
+        {
+          "phrase_id": "grupero_fiesta",
+          "label": "Energía de fiesta/reggaeton callejero (buscar clips)",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "wjdu4NofGTE",
+              "title": "Prankedy negocios (voz callejera)",
+              "priority": 70
+            },
+            {
+              "kind": "local",
+              "path": "nuevoMaterial17JUL/Prankedy3.mp3",
+              "priority": 65
+            }
+          ]
+        }
+      ]
+    },
+    "LA_PRESIDENTA": {
+      "role": "Claudia Sheinbaum — frases de mañanera / voz oficial",
+      "phrases": [
+        {
+          "phrase_id": "presidenta_voz_oficial",
+          "label": "Voz propia en clips oficiales (X/YT) — preferir frases cortas",
+          "sources": [
+            {
+              "kind": "x_note",
+              "note": "Usar clips X @Claudiashein ya descargados si YT bot-block",
+              "priority": 90
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "LA_PRESIDENTA_e181ce2526d8.wav",
+              "priority": 95
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "LA_PRESIDENTA_3b82730cf868.wav",
+              "priority": 88
+            },
+            {
+              "kind": "youtube",
+              "id": "eOH3lUINcXM",
+              "title": "Mañanera (puede fallar bot)",
+              "priority": 80
+            }
+          ]
+        }
+      ]
+    },
+    "LA_LLORONA": {
+      "role": "Leyenda — 'Ay mis hijos' / lamento",
+      "phrases": [
+        {
+          "phrase_id": "llorona_ay_mis_hijos",
+          "label": "Audio icónico Ay mis hijos / grito",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "ZL0LtvysugY",
+              "title": "LA LLORONA AUDIO 5.5M",
+              "priority": 100
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "LA_LLORONA_yt_*.wav",
+              "priority": 90
+            }
+          ]
+        }
+      ]
+    },
+    "CHARRO_NEGRO": {
+      "role": "Leyenda mexicana — narración tenebrosa",
+      "phrases": [
+        {
+          "phrase_id": "charro_leyenda",
+          "label": "Narración leyenda Charro Negro",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "Ru4d6za2BBc",
+              "title": "Draw My Life Charro Negro 9.8M",
+              "priority": 95
+            },
+            {
+              "kind": "youtube",
+              "id": "akF-6ye10A0",
+              "title": "Leyenda Charro Negro corto",
+              "priority": 85
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "CHARRO_NEGRO*.wav",
+              "priority": 80
+            }
+          ]
+        }
+      ]
+    },
+    "LA_TZITZIMIME": {
+      "role": "Horror / monstruo — lamento grave (puede derivar de Llorona + pitch)",
+      "phrases": [
+        {
+          "phrase_id": "tzitzi_horror",
+          "label": "Base horror / grito (transform en curate)",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "ZL0LtvysugY",
+              "title": "Llorona audio base",
+              "priority": 90
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "LA_LLORONA*.wav",
+              "priority": 85
+            }
+          ]
+        }
+      ]
+    },
+    "YOALLI_EHECATL": {
+      "role": "Forma mística — lamento / atmósfera (no speech político)",
+      "phrases": [
+        {
+          "phrase_id": "yoalli_mistico",
+          "label": "Lamento místico (base Llorona o horror)",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "ZL0LtvysugY",
+              "title": "Llorona audio",
+              "priority": 85
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "LA_LLORONA_yt_*.wav",
+              "priority": 80
+            }
+          ]
+        }
+      ]
+    },
+    "POLICIA_CDMX": {
+      "role": "Voz institucional SSC / boletín",
+      "phrases": [
+        {
+          "phrase_id": "ssc_institucional",
+          "label": "Boletín / voz SSC CDMX",
+          "sources": [
+            {
+              "kind": "local_extracted",
+              "glob": "POLICIA_CDMX*.wav",
+              "priority": 90
+            },
+            {
+              "kind": "youtube_search",
+              "query": "SSC CDMX boletín policía",
+              "priority": 70
+            }
+          ]
+        }
+      ]
+    },
+    "POLICIA_CDMX_HOMBRE": {
+      "role": "Voz institucional SSC",
+      "phrases": [
+        {
+          "phrase_id": "ssc_hombre",
+          "label": "Operativo / boletín SSC",
+          "sources": [
+            {
+              "kind": "local_extracted",
+              "glob": "POLICIA_CDMX_HOMBRE*.wav",
+              "priority": 90
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "POLICIA_CDMX*.wav",
+              "priority": 75
+            }
+          ]
+        }
+      ]
+    },
+    "POLICIA_GRANADERO_HOMBRE": {
+      "role": "Granadero / operativo",
+      "phrases": [
+        {
+          "phrase_id": "granadero_h",
+          "label": "Voz operativa (SSC/granaderos)",
+          "sources": [
+            {
+              "kind": "local_extracted",
+              "glob": "POLICIA_GRANADERO*.wav",
+              "priority": 85
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "POLICIA_CDMX*.wav",
+              "priority": 70
+            }
+          ]
+        }
+      ]
+    },
+    "POLICIA_GRANADERO_MUJER": {
+      "role": "Granadera / operativa",
+      "phrases": [
+        {
+          "phrase_id": "granadera",
+          "label": "Voz operativa (SSC)",
+          "sources": [
+            {
+              "kind": "local_extracted",
+              "glob": "POLICIA_GRANADERO_MUJER*.wav",
+              "priority": 85
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "POLICIA_CDMX*.wav",
+              "priority": 70
+            }
+          ]
+        }
+      ]
+    },
+    "PARAMEDICO_CRUZ_ROJA": {
+      "role": "Cruz Roja / voz institucional humanitaria",
+      "phrases": [
+        {
+          "phrase_id": "cruz_roja",
+          "label": "Institucional Cruz Roja Mexicana",
+          "sources": [
+            {
+              "kind": "youtube",
+              "id": "Map1SoqOK_M",
+              "title": "Cruz Roja institucional",
+              "priority": 95
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "PARAMEDICO_CRUZ_ROJA*.wav",
+              "priority": 90
+            }
+          ]
+        }
+      ]
+    },
+    "PARAMEDICO": {
+      "role": "Paramédico genérico",
+      "phrases": [
+        {
+          "phrase_id": "paramed",
+          "label": "Cruz Roja / hospital",
+          "sources": [
+            {
+              "kind": "local_extracted",
+              "glob": "PARAMEDICO*.wav",
+              "priority": 85
+            }
+          ]
+        }
+      ]
+    },
+    "ESCOMBOY": {
+      "role": "Estudiante — sin voz real canónica; candidatos de calle joven",
+      "phrases": [
+        {
+          "phrase_id": "escom_joven",
+          "label": "Voz callejera joven (derivada, no canon)",
+          "sources": [
+            {
+              "kind": "local_extracted",
+              "glob": "ESCOMBOY*.wav",
+              "priority": 70
+            },
+            {
+              "kind": "local",
+              "path": "nuevoMaterial17JUL/Prankedy1.mp3",
+              "priority": 50
+            }
+          ]
+        }
+      ]
+    },
+    "ESCOMGIRL": {
+      "role": "Estudianta — sin voz real canónica",
+      "phrases": [
+        {
+          "phrase_id": "escomgirl",
+          "label": "Voz joven (derivada)",
+          "sources": [
+            {
+              "kind": "local_extracted",
+              "glob": "ESCOMGIRL*.wav",
+              "priority": 70
+            }
+          ]
+        }
+      ]
+    },
+    "ROBOT": {
+      "role": "Robot — voz procesada (candidatos speech + robotize en curate)",
+      "phrases": [
+        {
+          "phrase_id": "robot_base",
+          "label": "Base speech para robotize",
+          "sources": [
+            {
+              "kind": "local_extracted",
+              "glob": "ROBOT*.wav",
+              "priority": 70
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "LA_PRESIDENTA_e181*.wav",
+              "priority": 60
+            }
+          ]
+        }
+      ]
+    },
+    "LAZARO": {
+      "role": "Alpha / no arcade — opcional",
+      "phrases": [
+        {
+          "phrase_id": "lazaro",
+          "label": "Candidatos genéricos",
+          "sources": [
+            {
+              "kind": "local_extracted",
+              "glob": "LAZARO*.wav",
+              "priority": 60
+            }
+          ]
+        }
+      ]
+    },
+    "GRANADERO": {
+      "role": "Alpha shared",
+      "phrases": [
+        {
+          "phrase_id": "granadero_alpha",
+          "label": "Operativo",
+          "sources": [
+            {
+              "kind": "local_extracted",
+              "glob": "GRANADERO*.wav",
+              "priority": 70
+            },
+            {
+              "kind": "local_extracted",
+              "glob": "POLICIA*.wav",
+              "priority": 60
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "paparazzi_playlist_ids": {
+    "playlist": "PLnYLFE_wg_981Xo7tqpmM2Mlrrq51nJxe",
+    "channel": "@Prankedy",
+    "entries": [
+      {
+        "n": 1,
+        "id": "7Ug2kyQeRHQ",
+        "title": "Paparazzi 1",
+        "views": 8100000
+      },
+      {
+        "n": 2,
+        "id": "svPQhmXsyOg",
+        "title": "Paparazzi 2",
+        "views": 4900000
+      },
+      {
+        "n": 3,
+        "id": "cjLoWWgxRpQ",
+        "title": "Paparazzi 3",
+        "views": 3100000
+      },
+      {
+        "n": 4,
+        "id": "o3a925d9PgA",
+        "title": "Paparazzi 4",
+        "views": 3100000
+      },
+      {
+        "n": 5,
+        "id": "AEmVeK88HIs",
+        "title": "Paparazzi 5",
+        "views": 5500000
+      },
+      {
+        "n": 6,
+        "id": "QFYk0ZLHBYE",
+        "title": "Paparazzi 6",
+        "views": 2500000
+      },
+      {
+        "n": 7,
+        "id": "MLNu-N2tOGw",
+        "title": "Paparazzi 7",
+        "views": 4200000
+      },
+      {
+        "n": 8,
+        "id": "dlUBEUV5B7o",
+        "title": "Paparazzi 8",
+        "views": 4100000
+      },
+      {
+        "n": 9,
+        "id": "YZmBGO-JktM",
+        "title": "Paparazzi 9",
+        "views": 4200000
+      },
+      {
+        "n": 10,
+        "id": "nu4wzzv0ZZM",
+        "title": "Paparazzi 10",
+        "views": 3400000
+      },
+      {
+        "n": 11,
+        "id": "4FcPn0oSkBA",
+        "title": "Paparazzi 11",
+        "views": 3800000
+      },
+      {
+        "n": 12,
+        "id": "a4lbYdgxmME",
+        "title": "Paparazzi 12",
+        "views": 3800000
+      },
+      {
+        "n": 13,
+        "id": "frJAADzyxsI",
+        "title": "Paparazzi 13",
+        "views": 4400000
+      },
+      {
+        "n": 14,
+        "id": "2YzsvYFhTr8",
+        "title": "Paparazzi 14",
+        "views": 3400000
+      },
+      {
+        "n": 15,
+        "id": "HAcfa3R8_sw",
+        "title": "Paparazzi 15",
+        "views": 3300000
+      },
+      {
+        "n": 16,
+        "id": "ufjkSjGWJlc",
+        "title": "Paparazzi 16",
+        "views": 5800000
+      },
+      {
+        "n": 17,
+        "id": "dGirKwp4Dhw",
+        "title": "Paparazzi 17",
+        "views": 3800000
+      },
+      {
+        "n": 18,
+        "id": "MIsGFzkK9c4",
+        "title": "Paparazzi 18",
+        "views": 2900000
+      },
+      {
+        "n": 19,
+        "id": "6e9VbyJg9Ks",
+        "title": "Paparazzi 19",
+        "views": 2300000
+      },
+      {
+        "n": 20,
+        "id": "6dfQvumn5Ts",
+        "title": "Paparazzi 20",
+        "views": null
+      }
+    ]
+  },
+  "senor_tienda_playlist": {
+    "playlist": "PLnYLFE_wg_9_G6W2h55Er6W2SkDVsTD40",
+    "channel": "@Prankedy",
+    "entries": [
+      {
+        "id": "y8IkFV3ly-w",
+        "title": "PRANK ON THE OWNER OF STORE 1!!",
+        "views": 8200000
+      },
+      {
+        "id": "BWjLyUJtSgE",
+        "title": "BROMA AL SENOR DE LA TIENDA 2!!",
+        "views": 10000000
+      },
+      {
+        "id": "AmDjgLtcqDk",
+        "title": "BROMA AL SENOR DE LA TIENDA 3!!",
+        "views": 8200000
+      },
+      {
+        "id": "gzXw_4kfZBo",
+        "title": "VISITANDO EL SENOR DE LA TIENDA",
+        "views": 24000000
+      },
+      {
+        "id": "2USZ8cH9Vjg",
+        "title": "ADIOS / GOODBYE TO THE STORE GUY",
+        "views": 17000000
+      },
+      {
+        "id": "0z8RQXE_2NY",
+        "title": "DEMANDO AL SENOR DE LA TIENDA",
+        "views": 15000000
+      },
+      {
+        "id": "_Lvp7unX0o4",
+        "title": "CRAZY SELLER PRANK",
+        "views": 6700000
+      },
+      {
+        "id": "DZcNCEQH7OY",
+        "title": "THE FAKE COMMERCIAL",
+        "views": 8700000
+      },
+      {
+        "id": "uZL4Q7wYNJI",
+        "title": "ROBANDO AL SENOR DE LA TIENDA",
+        "views": 8500000
+      },
+      {
+        "id": "96pMFpyVM4Q",
+        "title": "REPORT SHOP OWNER CLOSE SHOP",
+        "views": 4400000
+      },
+      {
+        "id": "UEJ0eO9m2eo",
+        "title": "Vacié la tienda (retorno 2025)",
+        "views": null
+      }
+    ]
+  }
+}

@@ -1,42 +1,40 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+// REFACTOR: funciones del VM extraídas a parciales (WorldMapProviders/Designer) →
+// ahora son extensiones y requieren import explícito desde el paquete ui.
+// Editor del Debug Interiores: seleccionar herramienta / deshacer / limpiar / exportar (extensiones del VM).
+// REFACTOR: zoom/cámara extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
+// REFACTOR: skin extraído a WorldMapSettings.kt (extensiones) → import explícito.
+// REFACTOR: extensiones del VM extraídas (teleport/puerta ESCOM) → import explícito.
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import com.google.android.gms.location.LocationServices
 import android.content.res.Configuration
-import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -48,7 +46,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
@@ -59,16 +56,17 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -76,139 +74,78 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.android.gms.location.LocationServices
 import com.google.gson.Gson
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.GroundOverlay
-import com.google.maps.android.compose.GroundOverlayPosition
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import org.json.JSONObject
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.GeoPoint
+import kotlinx.coroutines.isActive
 import org.osmdroid.views.MapView
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager
-import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.Overlay
-import org.osmdroid.views.overlay.Polyline
-import ovh.gabrielhuav.pow.domain.models.map.EscomBoundingBox
-import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.domain.models.map.TeleportCatalog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyHireDialog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuGroup
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleJoystickController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.Ps4ActionButtonsController
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DebugEditTool
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_OSM
-// REFACTOR: funciones del VM extraídas a parciales (WorldMapProviders/Designer) →
-// ahora son extensiones y requieren import explícito desde el paquete ui.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.addLandmarkAtPlayer
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.showInitialHealthBar
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.spawnDynamicCarInEscom
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.cancelPendingProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.centerOnPlayer
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearDebugEdits
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearPendingInteriorDestination
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearPendingZombieMinigame
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleInteriorDebugOverlay
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleGlobalZombieMode
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.cancelPendingProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitDebugStroke
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.deleteSelectedLandmark
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportLandmarksToUri
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importLandmarksFromUri
-// Editor del Debug Interiores: seleccionar herramienta / deshacer / limpiar / exportar (extensiones del VM).
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.undoLastDebugShape
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.commitDebugStroke
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.clearDebugEdits
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setDebugEditTool
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DebugEditTool
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCampaignRouteNpcsDebug
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportDebugEditsToUri
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exportLandmarksToUri
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importDebugEditsFromUri
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.importLandmarksFromUri
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadLandmarks
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveSelectedLandmark
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.prepareMapForEntry
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.refreshSkin
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.rotateSelectedLandmark
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveSelectedLandmark
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.scaleXSelectedLandmark
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.scaleYSelectedLandmark
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectLandmark
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.showAssetPicker
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleDesignerMode
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.ZOOM_GAMEPLAY_WEB
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-// REFACTOR: zoom/cámara extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.centerOnPlayer
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.zoomToPlayer
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.continueStoryNow
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.deferStoryToFreeRoam
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.resumeStoryMission
-// REFACTOR: skin extraído a WorldMapSettings.kt (extensiones) → import explícito.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleSkinSelector
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectSkin
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.refreshSkin
-import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import kotlin.math.abs
-import kotlin.math.atan2
-import kotlin.math.pow
-import kotlin.math.round
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
-import android.util.Log
-import androidx.compose.runtime.mutableStateMapOf
-import kotlinx.coroutines.isActive
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
-// REFACTOR: extensiones del VM extraídas (teleport/puerta ESCOM) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setDebugEditTool
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.showAssetPicker
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.showInitialHealthBar
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.spawnDynamicCarInEscom
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportTo
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetroStation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusStation
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCampaignRouteNpcsDebug
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleDesignerMode
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleGlobalZombieMode
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleInteriorDebugOverlay
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleMissionLog
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleSkinSelector
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleTeleportMenu
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onEscomDoorFadeComplete
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.undoLastDebugShape
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.zoomToPlayer
 import kotlin.math.cos
-import androidx.compose.runtime.DisposableEffect
+import kotlin.math.pow
+import kotlin.math.roundToInt
 
 // ─── CULLING DE NPCs POR DISTANCIA ──────────────────────────────────────────
 // Los NPC siguen viviendo en memoria/simulación; solo dibujamos los que caen
@@ -248,7 +185,9 @@ internal fun npcWithinRadius(
 @Composable
 fun WorldMapScreen(
     context: Context,
-    viewModel: WorldMapViewModel = viewModel(factory = WorldMapViewModel.Factory(context)),
+    // ETAPA 4 (Hilt): en runtime el VM se pasa Activity-scoped desde AppNavGraph (SOBREVIVE a la
+    // navegación). Este default (hiltViewModel) es solo un fallback para previews/usos sin el arg.
+    viewModel: WorldMapViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onNavigateToMainMenu: () -> Unit = {},
     onNavigateToSettings: () -> Unit,
     onNavigateToInterior: (String) -> Unit = {},
@@ -290,7 +229,7 @@ fun WorldMapScreen(
     }
     val gson = remember { Gson() }
     val coroutineScope = rememberCoroutineScope()
-    // REFACTOR: `yButtonHoldJob` se movió a WorldMapControls.kt (la pulsación larga de Y/△
+    // REFACTOR: `yButtonHoldJob` se movió a WorldMapControls.kt (la pulsación larga de Y
     // vive ahora junto a los controles).
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -329,7 +268,7 @@ fun WorldMapScreen(
     }
 
     val landmarkBitmapCache = remember { mutableMapOf<String, android.graphics.Bitmap?>() }
-    var hasTriggeredNativePan by remember { mutableStateOf(false) }
+    // (hasTriggeredNativePan vivía aquí sin uso: el estado real está en NativeOsmMap. Eliminado.)
 
     // Nuevos estados para las interacciones del Diseñador
     var showDesignerHint by remember { mutableStateOf(false) }
@@ -798,6 +737,18 @@ fun WorldMapScreen(
             )
         }
 
+        // ─── CICLO DÍA/NOCHE: velo nocturno (renderer-agnóstico) ─────────────────
+        // Capa Compose azul-noche sobre el mapa y el jugador, BAJO el HUD. La intensidad
+        // (nightAlpha) la calcula el game loop (~1 Hz, WorldMapDayNight.kt). No toca los
+        // renderers ni el fog → funciona igual en OSM nativo, Google nativo y web.
+        if (uiState.nightAlpha > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF091126).copy(alpha = uiState.nightAlpha))
+            )
+        }
+
         // ─── BARRA DE VIDA FIJA (HUD) ────────────────────────────────────────────
         // Siempre visible (como en el modo zombis) para que se vea cuánta vida tienes
         // y cuándo te hacen daño. Arriba a la izquierda, bajo el botón de Ajustes.
@@ -861,6 +812,14 @@ fun WorldMapScreen(
             )
         }
 
+        // ─── MENÚ DE LA TIENDA (Fase 2) ──────────────────────────────────────────
+        if (uiState.showVendorMenu) {
+            VendorMenuDialog(
+                onBuyItem = { itemName -> viewModel.buyItemFromVendor(itemName) },
+                onDismiss = { viewModel.closeVendorMenu() }
+            )
+        }
+
         // ─── MISIÓN FALLIDA (Modo Historia: la policía mató a Prankedy) ──────────
         // Pantalla a pantalla completa, estilo "WASTED", con el texto EN 2 LÍNEAS.
         if (uiState.showMissionFailed) {
@@ -898,45 +857,9 @@ fun WorldMapScreen(
             }
         }
 
-        // ─── R7: ¿CONTINUAR LA HISTORIA O MUNDO LIBRE? (al cumplir la Misión 1) ───
-        // TODO i18n: strings en español por ahora (migrar a values/ + values-en/).
-        if (uiState.showMissionContinueDialog) {
-            Box(
-                modifier = Modifier.fillMaxSize().background(Color(0xCC000000)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth(0.82f)
-                ) {
-                    Text(
-                        text = "¡Misión cumplida!",
-                        color = Color(0xFF4CAF50), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        text = "¿Continuar la historia ahora o seguir explorando en mundo libre? Podrás retomar la misión cuando quieras desde Opciones.",
-                        color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    Spacer(Modifier.height(22.dp))
-                    Button(
-                        onClick = { viewModel.continueStoryNow() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth(0.7f).height(48.dp)
-                    ) { Text("Continuar la historia", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
-                    Spacer(Modifier.height(12.dp))
-                    Button(
-                        onClick = { viewModel.deferStoryToFreeRoam() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3A86FF)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth(0.7f).height(48.dp)
-                    ) { Text("Seguir en mundo libre", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
-                }
-            }
-        }
+        // ─── REGISTRO / SELECTOR DE MISIONES: el diálogo YA NO se hospeda aquí; vive a nivel
+        // AppNavGraph (MissionLogHost, mismo patrón que SaveSlotsDialog) para que un solo
+        // MissionLogDialog sirva en el mapa global Y en interiores. ───
 
         // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────
         uiState.carjackWarning?.let { warn ->
@@ -1019,6 +942,22 @@ fun WorldMapScreen(
                     x = loc?.let { "%.5f".format(it.longitude) } ?: "--",
                     y = loc?.let { "%.5f".format(it.latitude) } ?: "--",
                     z = "GLOBAL"
+                )
+            }
+            // RELOJ del ciclo día/noche (1 min real = 1 h de juego). Dorado de día, azul de noche.
+            CacheChip(
+                label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_clock),
+                text = String.format(java.util.Locale.US, "🕐 %02d:00", uiState.gameHour),
+                color = if (uiState.nightAlpha > 0.05f) Color(0xFF7FB2FF) else Color(0xFFD4AF37),
+                isLoading = false
+            )
+            // DINERO del jugador (coleccionables + recompensas de misión). Aparece al ganar el primero.
+            AnimatedVisibility(visible = uiState.playerMoney > 0, enter = fadeIn(), exit = fadeOut()) {
+                CacheChip(
+                    label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_chip_money),
+                    text = "💵 $" + uiState.playerMoney,
+                    color = Color(0xFF4CAF50),
+                    isLoading = false
                 )
             }
             AnimatedVisibility(visible = uiState.isDesignerMode, enter = fadeIn(), exit = fadeOut()) {
@@ -1122,10 +1061,12 @@ fun WorldMapScreen(
                         OptionMenuGroup(
                             id = "opciones", label = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_fab_options), icon = Icons.Default.Tune,
                             items = buildList {
-                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_change_skin), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
-                                // R7 — "Retomar misión": aparece solo si dejaste la historia en pausa
-                                // (mundo libre). TODO i18n. Retoma el cómic + Misión 2.
-                                if (uiState.pendingResumeMissionId != null) add(OptionMenuItem("Retomar misión", Icons.Default.LocationOn, Color(0xFFFFC107)) { viewModel.resumeStoryMission() })
+                                // "Elegir personaje" del MAPA GLOBAL: solo en Modo Desarrollador (el
+                                // de INTERIORES, en ZombieGameScreen, sigue visible para el jugador).
+                                if (developerMode) add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_change_skin), Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                                // REGISTRO DE MISIONES (estilo Witcher): elegir qué misión seguir,
+                                // ver completadas y bloqueadas. Solo en campaña (Modo Historia).
+                                if (viewModel.inCampaign) add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_missions), Icons.Default.LocationOn, Color(0xFFFFC107)) { viewModel.toggleMissionLog(true) })
                                 // MODO HISTORIA: guardado manual → abre el selector de slots.
                                 add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_save_game), Icons.Default.School, Color(0xFF4CAF50)) {
                                     onRequestSaveGame()
@@ -1516,4 +1457,10 @@ fun WorldMapScreen(
         viewModel = viewModel,
         onNavigateToInterior = onNavigateToInterior
     )
+
+    // 🆕 TUTORIAL de controles (optativo, 2026-07-11): se OFRECE una sola vez, con el mundo ya
+    // cargado (no encima de la pantalla de carga). Se puede re-ver en Ajustes → Controles.
+    if (uiState.isMapReady && uiState.npcsWarmedUp && !uiState.isLoadingLocation) {
+        ovh.gabrielhuav.pow.features.settings.ui.ControlsTutorialFirstRun(interior = false)
+    }
 }

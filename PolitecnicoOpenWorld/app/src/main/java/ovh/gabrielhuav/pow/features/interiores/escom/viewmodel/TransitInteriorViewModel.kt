@@ -3,11 +3,9 @@ package ovh.gabrielhuav.pow.features.interiores.escom.viewmodel
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import java.io.InputStreamReader
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,9 +17,10 @@ import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.NormRect
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor
+import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
-import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
+import java.io.InputStreamReader
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
@@ -36,13 +35,18 @@ import kotlin.math.sin
  * lógica estaba DUPLICADA en dos archivos. Las pantallas crean este VM con la config adecuada vía
  * `Factory(context, config, stationName, spawnX, spawnY)`. Métodos y estado con nombres neutros (sistema-agnósticos).
  */
-class TransitInteriorViewModel(
-    private val context: Context,
+// ETAPA 4 (Hilt): @AssistedInject — config/estación/spawn son args de RUNTIME de la pantalla
+// (@Assisted; los 2 Float llevan qualifier "spawnX"/"spawnY" por ser del mismo tipo). context
+// (@ApplicationContext) y settingsRepository los inyecta Hilt. La pantalla usa el @AssistedFactory
+// vía hiltViewModel(creationCallback). Ver PLAN_DI_hilt.md / CHECKPOINT_SENIOR_refactor.md.
+@dagger.hilt.android.lifecycle.HiltViewModel(assistedFactory = TransitInteriorViewModel.Factory::class)
+class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
-    val config: TransitSystemConfig,
-    private val stationName: String,
-    private val spawnX: Float = -1f,
-    private val spawnY: Float = -1f
+    @dagger.assisted.Assisted val config: TransitSystemConfig,
+    @dagger.assisted.Assisted private val stationName: String,
+    @dagger.assisted.Assisted("spawnX") private val spawnX: Float,
+    @dagger.assisted.Assisted("spawnY") private val spawnY: Float
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -73,7 +77,7 @@ class TransitInteriorViewModel(
 
         var initialRows = if (savedRows != null) {
             try { gson.fromJson<List<String>>(savedRows, object : TypeToken<List<String>>() {}.type) }
-            catch (e: Exception) { null }
+            catch (ignored: Exception) { null }
         } else null
 
         if (initialRows.isNullOrEmpty()) {
@@ -82,7 +86,7 @@ class TransitInteriorViewModel(
                     val json = InputStreamReader(inp).readText()
                     initialRows = gson.fromJson<List<String>>(json, object : TypeToken<List<String>>() {}.type)
                 }
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
         }
 
         val defaultRows = initialRows ?: List(gridRows) { r ->
@@ -95,7 +99,7 @@ class TransitInteriorViewModel(
 
         var initialDoors = if (savedDoors != null) {
             try { gson.fromJson<List<ZoneDoor>>(savedDoors, object : TypeToken<List<ZoneDoor>>() {}.type) }
-            catch (e: Exception) { null }
+            catch (ignored: Exception) { null }
         } else null
 
         if (initialDoors.isNullOrEmpty()) {
@@ -104,7 +108,7 @@ class TransitInteriorViewModel(
                     val json = InputStreamReader(inp).readText()
                     initialDoors = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
                 }
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
         }
 
         val defaultDoors = initialDoors ?: config.defaultDoors
@@ -116,7 +120,7 @@ class TransitInteriorViewModel(
         if (savedGlobalWaypoints != null) {
             try {
                 initialGlobalWaypoints = gson.fromJson<List<ZoneDoor>>(savedGlobalWaypoints, object : TypeToken<List<ZoneDoor>>() {}.type)
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
         }
 
         if (initialGlobalWaypoints.isNullOrEmpty()) {
@@ -125,7 +129,7 @@ class TransitInteriorViewModel(
                     val json = InputStreamReader(inp).readText()
                     initialGlobalWaypoints = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
                 }
-            } catch (e: Exception) { }
+            } catch (ignored: Exception) { }
         }
 
         val allStations = config.loadStations(context)
@@ -466,7 +470,7 @@ class TransitInteriorViewModel(
             context.contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(gson.toJson(_state.value.designerRows).toByteArray())
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun importMatricesFromUri(uri: Uri) {
@@ -480,7 +484,7 @@ class TransitInteriorViewModel(
                     updateCollisionGrid(rows)
                 }
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun exportWaypointsToUri(uri: Uri) {
@@ -488,7 +492,7 @@ class TransitInteriorViewModel(
             context.contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(gson.toJson(_state.value.doors).toByteArray())
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun importWaypointsFromUri(uri: Uri) {
@@ -497,7 +501,7 @@ class TransitInteriorViewModel(
                 val ds = gson.fromJson<List<ZoneDoor>>(InputStreamReader(inp).readText(), object : TypeToken<List<ZoneDoor>>() {}.type)
                 if (ds != null) _state.update { it.copy(doors = ds, designerDirty = true) }
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun exportGlobalWaypointsToUri(uri: Uri) {
@@ -505,7 +509,7 @@ class TransitInteriorViewModel(
             context.contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(gson.toJson(_state.value.globalWaypoints).toByteArray())
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun importGlobalWaypointsFromUri(uri: Uri) {
@@ -517,7 +521,7 @@ class TransitInteriorViewModel(
                     saveGlobalWaypoints()
                 }
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
 
     fun resetDesignerMatrix() {
@@ -663,23 +667,16 @@ class TransitInteriorViewModel(
         collisionGrid = CollisionGrid(g)
     }
 
-    class Factory(
-        private val context: Context,
-        private val config: TransitSystemConfig,
-        private val stationName: String,
-        private val spawnX: Float,
-        private val spawnY: Float
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return TransitInteriorViewModel(
-                context = context.applicationContext,
-                settingsRepository = SettingsRepository(context.applicationContext),
-                config = config,
-                stationName = stationName,
-                spawnX = spawnX,
-                spawnY = spawnY
-            ) as T
-        }
+    // ETAPA 4 (Hilt): @AssistedFactory — reemplaza al ViewModelProvider.Factory manual. La pantalla
+    // lo invoca vía hiltViewModel<TransitInteriorViewModel, Factory>(creationCallback = {
+    //   it.create(TransitSystems.METRO, stationName, spawnX, spawnY) }).
+    @dagger.assisted.AssistedFactory
+    interface Factory {
+        fun create(
+            config: TransitSystemConfig,
+            stationName: String,
+            @dagger.assisted.Assisted("spawnX") spawnX: Float,
+            @dagger.assisted.Assisted("spawnY") spawnY: Float
+        ): TransitInteriorViewModel
     }
 }

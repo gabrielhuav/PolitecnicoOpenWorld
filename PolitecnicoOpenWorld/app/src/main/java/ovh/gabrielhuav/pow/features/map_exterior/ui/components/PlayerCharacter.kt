@@ -12,7 +12,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,8 +24,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -232,14 +236,16 @@ fun PlayerCharacter(
                 }
 
                 currentImage?.let { img ->
-                    // 📏 ESTÁNDAR DE TAMAÑO: el CUERPO (parte opaca) mide SIEMPRE
-                    // PlayerSkin.PLAYER_BODY_STANDARD_DP en pantalla, sin importar la skin ni la
-                    // animación. DETERMINISTA: usa la fracción opaca PRECALCULADA por acción
-                    // (PlayerSkin.bodyFraction) en vez de medirla en runtime. Antes se medía async
-                    // (fallback 0.6 + desfase de un frame): Lázaro/Robot —que varían mucho entre
-                    // idle/caminar/correr— se "encogían" al correr. Ahora todas quedan al MISMO tamaño.
-                    val frac = skin.bodyFraction(action).coerceIn(0.05f, 1f)
-                    val boxHeightDp = (PlayerSkin.PLAYER_BODY_STANDARD_DP / frac).dp
+                    // Los sets croma normalizados YA comparten lienzo y densidad. Para ellos la caja
+                    // de UI es fija en todas las acciones: no se agranda Run/Walk por estar agachado
+                    // ni Special por incluir un objeto. Las skins antiguas, con lienzos heterogeneos,
+                    // conservan la compensacion por fraccion opaca.
+                    val boxHeightDp = if (skin.uniform512Canvas) {
+                        PlayerSkin.UNIFORM_512_CANVAS_DP.dp
+                    } else {
+                        val frac = skin.bodyFraction(action).coerceIn(0.05f, 1f)
+                        (PlayerSkin.PLAYER_BODY_STANDARD_DP / frac).dp
+                    }
                     val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
                     val boxWidthDp = boxHeightDp * aspect
                     Image(

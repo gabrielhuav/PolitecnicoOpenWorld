@@ -32,7 +32,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "9.4.1"
+          # "wrapper" = la version de gradle-wrapper.properties (sincronizada con el repo;
+          # el pin fijo quedaba atras en cada upgrade de AGP/Gradle — fallo 2026-07-15).
+          gradle-version: wrapper
       - name: Create secrets.properties file
         run: |
           echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
@@ -74,7 +76,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "9.4.1"
+          # "wrapper" = la version de gradle-wrapper.properties (sincronizada con el repo;
+          # el pin fijo quedaba atras en cada upgrade de AGP/Gradle — fallo 2026-07-15).
+          gradle-version: wrapper
       - name: Create secrets.properties (Maps API key)
         run: |
           echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties

@@ -1,0 +1,29 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:CachingWebViewClient.kt$CachingWebViewClient$url.contains("tile") || url.contains("/vt/") || url.contains("MapServer") || url.contains("cartocdn") || url.contains("arcgisonline") || url.contains("opentopomap")</ID>
+    <ID>UnusedParameter:GameControllers.kt$onClaimCollectiblePressed: () -&gt; Unit // &lt;--- Parámetro recibido</ID>
+    <ID>UnusedParameter:PrankedyManager.kt$PrankedyManager$now: Long = System.currentTimeMillis()</ID>
+    <ID>UnusedParameter:WorldMapCampaignPolice.kt$door: GeoPoint</ID>
+    <ID>UnusedParameter:WorldMapCampaignPolice.kt$playerLoc: GeoPoint</ID>
+    <ID>UnusedParameter:WorldMapMission2.kt$now: Long</ID>
+    <ID>UnusedParameter:WorldMapPrankedy.kt$now: Long = System.currentTimeMillis()</ID>
+    <ID>UnusedParameter:WorldMapWidgets.kt$context: Context</ID>
+    <ID>UnusedPrivateProperty:AuditorioScreen.kt$val context = LocalContext.current</ID>
+    <ID>UnusedPrivateProperty:BibliotecaScreen.kt$val context = LocalContext.current</ID>
+    <ID>UnusedPrivateProperty:CafeteriaScreen.kt$val context = LocalContext.current</ID>
+    <ID>UnusedPrivateProperty:CanchasFutbolScreen.kt$val context = LocalContext.current</ID>
+    <ID>UnusedPrivateProperty:CatSpriteManager.kt$CatSpriteManager$// Grilla del spritesheet private const val SHEET_COLS = 12</ID>
+    <ID>UnusedPrivateProperty:CatSpriteManager.kt$CatSpriteManager$private const val SHEET_ROWS = 8</ID>
+    <ID>UnusedPrivateProperty:DeportivoBeisScreen.kt$val context = LocalContext.current</ID>
+    <ID>UnusedPrivateProperty:DeportivoFutbolScreen.kt$val context = LocalContext.current</ID>
+    <ID>UnusedPrivateProperty:EdificioScreen.kt$val context = LocalContext.current</ID>
+    <ID>UnusedPrivateProperty:EstacionamientoScreen.kt$val context = LocalContext.current</ID>
+    <ID>UnusedPrivateProperty:FesInteriorScreen.kt$val context = LocalContext.current</ID>
+    <ID>UnusedPrivateProperty:NpcAiManager.kt$NpcAiManager$g</ID>
+    <ID>UnusedPrivateProperty:PalapasScreen.kt$val context = LocalContext.current</ID>
+    <ID>UnusedPrivateProperty:RoadRouter.kt$RoadRouter$step</ID>
+    <ID>UnusedPrivateProperty:StoryModeScreen.kt$val context = LocalContext.current</ID>
+  </CurrentIssues>
+</SmellBaseline>

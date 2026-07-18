@@ -3,13 +3,12 @@ package ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel
 import ovh.gabrielhuav.pow.domain.models.zombie.ActiveEffect
 import ovh.gabrielhuav.pow.domain.models.zombie.CombatMode
 import ovh.gabrielhuav.pow.domain.models.zombie.Projectile
-import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
 import ovh.gabrielhuav.pow.domain.models.zombie.SkillItem
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieEntity
+import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin   // ← NUEVO
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget   // tipo compartido (core)
 
 data class ZombieGameState(
     val currentRoomIndex: Int = 0,
@@ -67,12 +66,50 @@ data class ZombieGameState(
     val lab1KeyFound: Boolean = false,
     val keyMessage: String? = null,
 
+    // ─── MISIÓN 2 · FASE 1 "ESCONDERSE" (lobby de la ESCOM) ─────────────────
+    // Policías (skin POLICIA_CDMX) patrullan el lobby como NPCs ambientales (ids "m2cop_*" DENTRO
+    // de ambientNpcs). El jugador debe evitar que lo vean de cerca (Mission2.HIDE_DETECT_PX /
+    // HIDE_DETECT_MS) hasta que se rindan (HIDE_DURATION_MS): entonces corren a la puerta y se
+    // van. Desenlace → ZombieGameScreen dispara onMission2HideCompleted/Failed (AppNavGraph →
+    // completeMission2Hide()/failMission2Hide() del VM del mundo). Timers transitorios en el VM.
+    val mission2HideActive: Boolean = false,      // hay búsqueda en curso en esta sala
+    val mission2HideRemainingSec: Int? = null,    // countdown para el HUD (null = sin countdown)
+    val mission2HideCompleted: Boolean = false,   // aguantaste: policías rendidos y fuera
+    val mission2HideFailed: Boolean = false,      // te reconocieron → misión fallida
+
+    // ─── MISIÓN 2 · SALÓN DE LA MOCHILA (escom_salon_m2) ────────────────────
+    // Lata apestosa: al lanzarla (X), los NPCs ambientales EVACÚAN el salón; cuando queda vacío
+    // aparece la MOCHILA de Prankedy (asset CAMPAIGN/MISSION2/mochila_prankedy.png). Recogerla (X)
+    // marca mission2BackpackTaken → ZombieGameScreen dispara onMission2BackpackRecovered (completa
+    // la Misión 2 en el VM del mundo). Estos campos solo aplican en esa sala.
+    val mission2StinkThrown: Boolean = false,
+    // Dónde CAYÓ la lata (asset CAMPAIGN/MISSION2/lata_apestosa.png, con su vapor integrado).
+    val mission2StinkX: Float? = null,
+    val mission2StinkY: Float? = null,
+    val mission2BackpackX: Float? = null,
+    val mission2BackpackY: Float? = null,
+    val mission2BackpackNearby: Boolean = false,
+    val mission2BackpackTaken: Boolean = false,
+
+    // ─── MISIÓN 3 · ASALTO A LA ENCB (evidencia del laboratorio) ────────────
+    // La evidencia 🧪 aparece en encb_lab1 (solo en modo asalto); recogerla (X) dispara
+    // onMission3EvidenceRecovered en ZombieGameScreen y el auto-regreso al mapa.
+    val mission3EvidenceX: Float? = null,
+    val mission3EvidenceY: Float? = null,
+    val mission3EvidenceNearby: Boolean = false,
+    val mission3EvidenceTaken: Boolean = false,
+
     // ─── INVENTARIO ───────────────────────────────────────────────────────
-    // Por ahora 1 slot DESBLOQUEADO (guarda 1 llave); el resto se muestran bloqueados (rojo) y
-    // se desbloquearán en misiones futuras. `inventoryKeys` = assetPaths de llaves recogidas.
-    // Se GUARDA en las partidas (junto con lab1KeyFound). Se abre manteniendo Y.
+    // `inventoryUnlockedSlots` slots USABLES (2 al inicio — llave M1 + lata M2 conviven —;
+    // TODOS al recuperar la mochila de Prankedy — Misión 2); el resto se muestran bloqueados
+    // (rojo). `inventoryKeys` = entradas "misión|asset" recogidas. Se GUARDA en las partidas
+    // (junto con lab1KeyFound). Abre con Y.
     val showInventory: Boolean = false,
     val inventoryKeys: List<String> = emptyList(),
+    val inventoryUnlockedSlots: Int = 2,
+    // MISIÓN 3 (recompensa): sin arma de fuego, el modo RANGED está BLOQUEADO (solo campaña;
+    // fuera de campaña/multijugador llega true desde AppNavGraph).
+    val firearmUnlocked: Boolean = true,
 
     val controlType: ControlType = ControlType.JOYSTICK,
     val controlsScale: Float = 1.0f,
@@ -81,13 +118,18 @@ data class ZombieGameState(
     val isLoading: Boolean = true,
     val remotePlayers: List<RemoteZombiePlayer> = emptyList(),
     val interiorNpcs: List<RemoteZombiePlayer> = emptyList(),
+    val ambientNpcs: List<AmbientNpc> = emptyList(),
     val zombieModeActivated: Boolean = false,
     val showZombieCinematic: Boolean = false,
+    val storyConvoSpeaker: String? = null,
+    val storyConvoText: String? = null,
+    val mission2RumorCompleted: Boolean = false,
 
     // ─── MODO DISEÑADOR DE LA MATRIZ DE COLISIÓN ───────────
     val designerMode: Boolean = false,
     val designerRows: List<String> = emptyList(),
-    val designerBrushWall: Boolean = true,
+    // Pincel activo: PARED, OBJETO_QUE_TAPA o BORRAR. Antes era Boolean; ahora enum para la oclusion.
+    val designerBrush: DesignerBrush = DesignerBrush.WALL,
     val designerDirty: Boolean = false,
 
     // ─── MODO DISEÑADOR DE WAYPOINTS (puertas) ─────────────
@@ -95,5 +137,8 @@ data class ZombieGameState(
     val designerDoors: List<ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor> = emptyList(),
     val selectedDoorIndex: Int = -1
 )
+
+/** Pincel del Modo Disenador de la MATRIZ: WALL='#', OCCLUDER='^' (tapa+y-sort), ERASE='.'. */
+enum class DesignerBrush { WALL, OCCLUDER, ERASE }
 
 // DesignerTarget y CameraTransform se movieron a

@@ -1,0 +1,14 @@
+{
+  "frameWidth": 480,
+  "frameHeight": 270,
+  "cols": 4,
+  "rows": 7,
+  "frameCount": 28,
+  "fps": 12.0,
+  "loop": true,
+  "pingPong": true,
+  "slug": "zocalo_noche_1",
+  "source": "Zocalo Noche 1.jpg",
+  "maxAtlasSide": 2048,
+  "kenBurns": true
+}

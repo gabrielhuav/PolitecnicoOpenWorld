@@ -21,6 +21,10 @@ data class KeyDrop(
     companion object {
         // Misión 1 (cadena ENCB). Úsalo para etiquetar/filtrar las llaves de esta misión.
         const val MISSION_1 = "mission1"
+        // Misión 2: la LATA APESTOSA que Prankedy te da en la plática vive como ÍTEM del
+        // inventario (slot 2) hasta que la LANZAS en el salón de la mochila (se consume).
+        const val MISSION_2 = "mission2"
+        const val M2_STINK_CAN = "CAMPAIGN/MISSION2/lata_apestosa.png"
         // Las 5 llaves del puzzle (assets reales en CAMPAIGN/KEYS, ojo con el case: "LLave2/4").
         val LAB1_KEY_ASSETS = listOf(
             "CAMPAIGN/KEYS/Llave.png",

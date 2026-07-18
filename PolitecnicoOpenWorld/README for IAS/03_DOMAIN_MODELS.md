@@ -350,9 +350,19 @@ enum class CombatMode { MELEE, RANGED }
 enum class ZoneType { LOBBY, BUILDING }
 enum class DoorKind { GENERIC, EXIT_NEXT, EXIT_PREV, TO_BUILDING, TO_WORLD }
 
-class CollisionMatrix(rows: List<String>) {   // '#'=pared, '.'=libre
-  numRows, numCols; fun isBlockedFrac(fx, fy): Boolean   // O(1) por celda fraccionaria
+class CollisionMatrix(rows: List<String>) {   // '#'=pared, '.'=libre, '^'=OBJETO QUE TAPA
+  numRows, numCols
+  fun cellAt(fx, fy): Char                                // '.' fuera de rango
+  fun isBlockedFrac(fx, fy): Boolean                      // O(1); '#' Y '^' bloquean
+  fun isOccluderFrac(fx, fy): Boolean                     // == '^' (capa de profundidad, y-sort)
+  companion { FREE='.'  WALL='#'  OCCLUDER='^' }
 }
+// '^' = CAPA DE OCLUSIÓN: bloquea igual que una pared PERO el jugador se dibuja DETRÁS cuando está
+// al norte de la celda y DELANTE cuando está al sur (y-sort). El render (05, ZombieGameScreen) redibuja
+// el trozo del fondo de esas celdas sobre el jugador según la Y-base del objeto. La matriz sigue
+// persistiéndose en collision_matrices.json (formato List<String> sin cambios; '^' es un carácter más).
+// ⚠️ El servidor (server.js) hoy solo trata '#' como bloqueo → online los zombis NO respetan '^'
+// (pendiente: añadir '^' al check del server; ver 08/09). El cliente SÍ lo bloquea.
 data class ZombieRoom(id, type: ZoneType, backgroundAsset, displayName, zoom=2.2f,
                       playerSpawnFrac, zombieCount, gridCols?, collisionGridFrac: List<NormRect>, ...) {
   fun isBlockedFrac(fx, fy); fun isBlockedPixel(x, y)

@@ -1,64 +1,18 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 
-import android.content.Context
-import android.util.Log
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.toArgb
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import org.osmdroid.util.GeoPoint
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
-import ovh.gabrielhuav.pow.data.cache.TileCache
-import ovh.gabrielhuav.pow.data.local.room.PowDatabase
-import ovh.gabrielhuav.pow.data.network.WebSocketManager
-import ovh.gabrielhuav.pow.data.repository.OverpassRepository
-import ovh.gabrielhuav.pow.data.repository.SettingsRepository
+import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
-import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
-import ovh.gabrielhuav.pow.domain.models.map.Landmark
-import ovh.gabrielhuav.pow.domain.models.map.LandmarkCatalogManager
-import ovh.gabrielhuav.pow.domain.models.map.LandmarkAssetTemplate
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.floor
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
-import kotlin.math.abs
-import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
-import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import java.io.InputStreamReader
-import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
-import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
+import java.util.UUID
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Interacciones del jugador (intenciones de UI) extraídas de WorldMapViewModel.kt:
@@ -66,6 +20,19 @@ import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
 // teletransporte directo, y el toggle del apocalipsis zombi global (instancing).
 // El ESTADO sigue en el ViewModel; aquí solo hay lógica (extensiones internal).
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─── INVENTARIO EN EL MAPA (mantener Y, 🆕 2026-07-13) ──────────────────────
+// Panel de SOLO LECTURA con los objetos de misión (llave M1 / lata M2): mismos datos que el
+// inventario de interiores (currentInteriorInventory). Probar/desechar siguen siendo de
+// interiores (ahí vive la lógica del puzzle).
+fun WorldMapViewModel.toggleWorldInventory(show: Boolean) {
+    _uiState.update { it.copy(showWorldInventory = show) }
+}
+
+/** Slots desbloqueados para el panel del mapa (mismo gate que AppNavGraph: mochila M2 = 4). */
+fun WorldMapViewModel.worldInventoryUnlockedSlots(): Int =
+    if (mission2Phase >= ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_DONE ||
+        campaignManager.isCompleted(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_2_ID)) 4 else 2
 
 internal fun WorldMapViewModel.onInteractButtonPressed() {
         val loc = _uiState.value.currentLocation ?: return
@@ -130,8 +97,9 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                             try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to boarded.id))) } catch (_: Exception) {}
                         }
                     }
-                    // Subirse a la patrulla pone TODAS las estrellas (5★).
-                    lastCrimeTime = nowMs
+                    // Subirse a la patrulla pone TODAS las estrellas (5★) + marca el delito (reinicia
+                    // el decaimiento). El nivel lo POSEE WantedManager (fachada combine).
+                    wantedManager.setMaxWanted(nowMs)
                     _uiState.update { it.copy(
                         isDriving = true,
                         currentVehicleModel = boarded.carModel,
@@ -139,8 +107,7 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                         vehicleRotation = (boarded.rotationAngle + 90f) % 360f,
                         vehicleSpeed = 0.0,
                         vehicleIsFirstTimeBoarded = false,
-                        isDrivingPoliceCar = true,
-                        wantedLevel = MAX_WANTED_LEVEL
+                        isDrivingPoliceCar = true
                     ) }
                     prankedyManager.onVehicleInteraction()
                     updateNpcsState()
@@ -176,19 +143,20 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
      * navegue a la ruta "interiores_zombies" (modo Interiores → capa zombis).
      */
 internal fun WorldMapViewModel.handleInteraction() {
-        val nearbyMetro = _uiState.value.nearbyMetroStation
+        // Estaciones/fades los POSEE transitTeleportManager (manager 5/6).
+        val nearbyMetro = transitTeleportManager.state.value.nearbyMetroStation
         if (nearbyMetro != null) {
-            _uiState.update { it.copy(showMetroFade = true) }
+            transitTeleportManager.beginMetroFade()
             return
         }
 
-        val nearbyMetrobus = _uiState.value.nearbyMetrobusStation
+        val nearbyMetrobus = transitTeleportManager.state.value.nearbyMetrobusStation
         if (nearbyMetrobus != null) {
-            _uiState.update { it.copy(showMetrobusFade = true) }
+            transitTeleportManager.beginMetrobusFade()
             return
         }
 
-        val nearby = _uiState.value.nearbyCollectible ?: return
+        val nearby = collectiblesManager.state.value.nearbyCollectible ?: return
 
         when {
             nearby.id == "global_zombie_hand" -> toggleGlobalZombieMode()
@@ -208,12 +176,25 @@ internal fun WorldMapViewModel.handleInteraction() {
                 // colocar la puerta en el Diseñador; si nada casa, cae a DEFAULT_ROUTE (lobby
                 // ESCOM). Para añadir un edificio enterable, edita InteriorEntryCatalog. Ver 04/06.
                 val targetRoute = ovh.gabrielhuav.pow.domain.models.map.InteriorEntryCatalog.routeForDoorName(nearby.name)
+                // MISIÓN 2 · fase MOCHILA (🆕 2026-07-13): la puerta de la ESCOM YA NO redirige
+                // al salón — se entra por el flujo normal (lobby → Edificio Principal → salón,
+                // puertas en ZombieRoomCatalog). El TP del modo dev sí va directo (devTpRoute).
                 // MODO HISTORIA · Misión 2 "Ingresa a la ESCOM": se cumple al ENTRAR por la puerta
                 // (este es el momento de "ingresar"). Marca el objetivo cumplido + jingle.
                 if (_uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id
                     && !_uiState.value.objectiveDone) {
                     _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.let { getLocalizedString(it.titleRes) } ?: ""}") }
                     soundManager.playMisionCumplida()
+                    // MISIÓN 1 COMPLETADA (entraste a la ESCOM): se registra en el selector.
+                    markMissionCompleted(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_1_ID)
+                    // 🆕 2026-07-12: la historia SIGUE SOLA — al completar la M1 se sigue la
+                    // Misión 2 automáticamente (su fase 1 "esconderse" se juega justo aquí
+                    // adentro, en el lobby al que estás entrando). Antes quedaba solo DISPONIBLE
+                    // y había que seguirla a mano desde Opciones → Misiones. En un REPLAY de la
+                    // M1 no se encadena (el replay no debe alterar el flujo/progreso).
+                    if (replayingMissionId == null) {
+                        selectCampaignMission(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_2_ID)
+                    }
                 }
                 // Al ENTRAR a la ESCOM, Prankedy ya quedó a salvo dentro: deja de acompañarte para
                 // que NO siga contigo al volver al mapa (Misión 1 terminada). Solo afecta al
@@ -229,18 +210,34 @@ internal fun WorldMapViewModel.handleInteraction() {
                         prankedyDialogue = null
                     ) }
                 }
-                _uiState.update { it.copy(showEscomDoorFade = true, pendingDoorDestination = targetRoute) }
+                transitTeleportManager.beginEscomDoorFade(targetRoute)
             }
 
             nearby.id == ShineCTOLocation.MARKER_ID -> {
                 _uiState.update { it.copy(showShineCTODiscovery = true) }
+            }
+            nearby.id.startsWith("VENDOR_") -> {
+                // Fase 2: Abrir el menú de la tienda en Compose
+                _uiState.update { it.copy(showVendorMenu = true) }
+            }
+            nearby.id.startsWith("CAT_") -> {
+                // Acariciar al gato: +10% de vida
+                soundManager.playItem()
+                playerHealth = (playerHealth + 10f).coerceAtMost(100f)
+                showHealthBar = true
+                
+                _uiState.update { it.copy(interactionPrompt = "¡Miau! ❤️ (+10% Salud)") }
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(2000)
+                    _uiState.update { if (it.interactionPrompt == "¡Miau! ❤️ (+10% Salud)") it.copy(interactionPrompt = null) else it }
+                }
             }
             else -> onClaimCollectiblePressed()
         }
     }
 
 internal fun WorldMapViewModel.onClaimCollectiblePressed() {
-        val itemToClaim = _uiState.value.nearbyCollectible ?: return
+        val itemToClaim = collectiblesManager.state.value.nearbyCollectible ?: return
 
         if (itemToClaim.name == "Objeto Misterioso ESCOM" ||
             itemToClaim.id == ShineCTOLocation.MARKER_ID ||
@@ -252,27 +249,24 @@ internal fun WorldMapViewModel.onClaimCollectiblePressed() {
             withContext(Dispatchers.Main) {
                 promptJob?.cancel()
                 promptJob = null
-                _uiState.update {
-                    it.copy(
-                        activeCollectibles = emptyList(),
-                        nearbyCollectible = null,
-                        interactionPrompt = null,
-                        showClaimedPopupFor = itemToClaim
-                    )
-                }
+                collectiblesManager.claim(itemToClaim)
+                _uiState.update { it.copy(interactionPrompt = null) }
+                // ECONOMÍA: cada coleccionable reclamado da dinero (ver WorldMapEconomy.kt).
+                addMoney(COLLECTIBLE_MONEY)
             }
         }
     }
 
-internal fun WorldMapViewModel.dismissClaimedPopup() { _uiState.update { it.copy(showClaimedPopupFor = null) } }
+internal fun WorldMapViewModel.dismissClaimedPopup() { collectiblesManager.dismissClaimedPopup() }
 
 internal fun WorldMapViewModel.teleportToLocation(newLat: Double, newLon: Double) {
         val insideEscom = isInsideEscom(newLat, newLon)
 
+        // El menú de TP lo POSEE transitTeleportManager (manager 5/6).
+        transitTeleportManager.setTeleportMenu(false)
         _uiState.update { currentState ->
             currentState.copy(
                 currentLocation = GeoPoint(newLat, newLon),
-                showTeleportMenu = false,
                 isRoadNetworkReady = false,
                 isMapReady = false,         // ← re-activa la compuerta de descarga del mapa
                 isUserPanningMap = false,   // ← igual que arriba
@@ -300,7 +294,8 @@ internal fun WorldMapViewModel.clearPendingInteriorDestination() {
 internal fun WorldMapViewModel.clearPendingZombieMinigame() { pendingZombieMinigame = false }
 
 internal fun WorldMapViewModel.toggleInteriorDebugOverlay(show: Boolean) {
-        _uiState.update { it.copy(showInteriorDebugOverlay = show) }
+        // ETAPA 3: el estado del editor de debug vive en el DesignerManager (fachada combine).
+        designerManager.toggleOverlay(show)
     }
 
 internal fun WorldMapViewModel.toggleGlobalZombieMode() = setZombieInstance(!_uiState.value.globalZombieMode)

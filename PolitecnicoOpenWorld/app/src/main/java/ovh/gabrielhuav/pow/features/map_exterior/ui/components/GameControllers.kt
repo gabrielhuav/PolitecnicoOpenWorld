@@ -3,12 +3,14 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,10 +34,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Job
@@ -43,11 +49,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.offset
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -65,6 +66,7 @@ fun JoystickController(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var isDragging by remember { mutableStateOf(false) }
     val latestOffset by rememberUpdatedState(offset)
+    val feedback = rememberInputFeedback()
 
     // Bucle continuo de movimiento a ~30 fps cuando se mantiene arrastrado.
     // La clave es sólo 'isDragging' para que el efecto NO se reinicie con cada cambio de offset;
@@ -89,7 +91,7 @@ fun JoystickController(
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f)))
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { isDragging = true },
+                    onDragStart = { isDragging = true; feedback.tap() },
                     onDragEnd = { isDragging = false; offset = Offset.Zero },
                     onDragCancel = { isDragging = false; offset = Offset.Zero },
                     onDrag = { change, dragAmount ->
@@ -108,13 +110,16 @@ fun JoystickController(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Círculo interior (El "pulgar" del joystick)
+        // Círculo interior (El "pulgar" del joystick). Se ACLARA mientras se arrastra (resalte visual).
         Box(
             modifier = Modifier
                 .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(Color.DarkGray.copy(alpha = 0.8f))
+                .background(
+                    if (isDragging) Color.LightGray.copy(alpha = 0.95f)
+                    else Color.DarkGray.copy(alpha = 0.8f)
+                )
         )
     }
 }
@@ -123,7 +128,7 @@ fun JoystickController(
 // ==========================================
 // Variante del joystick para el MODO MANEJO: el eje X dirige (izquierda/derecha) llamando a
 // steerLeft/steerRight (press/release). Arriba/abajo no se usan (gas/freno viven en el diamante
-// PS4). Así el modo conducción también respeta la preferencia de JOYSTICK (antes solo D-pad).
+// A/B/X/Y). Así el modo conducción también respeta la preferencia de JOYSTICK (antes solo D-pad).
 @Composable
 fun VehicleJoystickController(
     modifier: Modifier = Modifier,
@@ -134,6 +139,7 @@ fun VehicleJoystickController(
     var offset by remember { mutableStateOf(Offset.Zero) }
     // Estado de dirección actual, para emitir press/release solo en los cambios.
     var steering by remember { mutableStateOf(0) } // -1 izq, 0 centro, +1 der
+    val feedback = rememberInputFeedback()
 
     fun setSteer(dir: Int) {
         if (dir == steering) return
@@ -142,6 +148,7 @@ fun VehicleJoystickController(
         if (steering > 0) onSteerRight(false)
         if (dir < 0) onSteerLeft(true)
         if (dir > 0) onSteerRight(true)
+        if (dir != 0) feedback.tap()
         steering = dir
     }
 
@@ -209,12 +216,18 @@ fun DPadController(
 
 @Composable
 private fun DPadButton(icon: ImageVector, onClick: () -> Unit) {
+    val feedback = rememberInputFeedback()
+    var pressed by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .size(48.dp)
+            .scale(if (pressed) 0.88f else 1f)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.DarkGray.copy(alpha = 0.8f))
-            .repeatingClickable(onClick = onClick), // Usamos nuestro modificador especial
+            .background(Color.DarkGray.copy(alpha = if (pressed) 1f else 0.8f))
+            .repeatingClickable(
+                onPress = { p -> pressed = p; if (p) feedback.tap() },
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
@@ -254,13 +267,9 @@ fun ActionButtonsController(
                     text = "X",
                     color = Color(0xFF3498DB),
                     onHoldEvent = { isPressed ->
-                        // Mantiene el comportamiento original de tu juego
+                        // El ViewModel ya centraliza TODA la lógica de interacción (coches, gatos,
+                        // vendedores y coleccionables) al recibir GameAction.X.
                         onActionChanged(GameAction.X, isPressed)
-
-                        // Intenta recoger el coleccionable solo al bajar el dedo
-                        if (isPressed) {
-                            onClaimCollectiblePressed()
-                        }
                     }
                 )
 
@@ -293,14 +302,21 @@ fun ActionButton(
     color: Color,
     onHoldEvent: (Boolean) -> Unit
 ) {
+    val feedback = rememberInputFeedback()
+    var pressed by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .padding(4.dp)
             .size(48.dp)
+            .scale(if (pressed) 0.88f else 1f)
             .clip(CircleShape)
-            .background(color)
+            .background(if (pressed) color.copy(alpha = 0.7f) else color)
             //  INYECTAMOS LA DETECCIÓN DE MANTENER PRESIONADO
-            .detectHoldEvent { isPressed -> onHoldEvent(isPressed) },
+            .detectHoldEvent { isPressed ->
+                pressed = isPressed
+                if (isPressed) feedback.tap()
+                onHoldEvent(isPressed)
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -313,18 +329,18 @@ fun ActionButton(
 }
 
 // ==========================================
-// CONTROLES DE VEHÍCULO (MODO CONDUCCIÓN — ESTILO PS4)
+// CONTROLES DE VEHÍCULO (MODO CONDUCCIÓN — MISMO DIAMANTE XBOX QUE A PIE)
 // ==========================================
 //
-// Misma estructura que el modo a pie (D-pad + diamante de 4 botones), pero el
-// diamante usa los símbolos de PlayStation (△ ○ ✕ □) en vez de letras Xbox.
-// Al ser símbolos de un solo carácter quedan SIEMPRE centrados y nunca se
-// desbordan del botón (que era el problema de los antiguos botones de texto).
+// UN SOLO CONTROL para todo el juego: el diamante de conducción usa las MISMAS letras,
+// colores, tamaños y posiciones Xbox (Y arriba · X izquierda · B derecha · A abajo) que el
+// modo a pie (ActionButtonsController), reutilizando el MISMO composable ActionButton.
+// (Antes era un diamante estilo PS4 con símbolos △ ○ ✕ □; se unificó a Xbox — 2026-07-03.)
 //
 // Mapeo:
 //   D-pad → ARRIBA: gas · ABAJO: freno · IZQUIERDA/DERECHA: girar.
-//   Diamante PS4 → △ (arriba): SALIR · ✕ (abajo): gas · ○ (derecha): freno ·
-//                  □ (izquierda): freno de mano.
+//   Diamante → Y (arriba): SALIR (mantener → teletransporte) · A (abajo): gas ·
+//              B (derecha): freno · X (izquierda): freno de mano.
 //
 // Nota: gas/freno están disponibles tanto en el D-pad como en el diamante
 // (redundancia intencional para poder conducir con cualquier mano).
@@ -359,12 +375,19 @@ fun VehicleDPadController(
 
 @Composable
 private fun VehicleDpadButton(icon: ImageVector, onHold: (Boolean) -> Unit) {
+    val feedback = rememberInputFeedback()
+    var pressed by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .size(48.dp)
+            .scale(if (pressed) 0.88f else 1f)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.DarkGray.copy(alpha = 0.8f))
-            .detectHoldEvent(onHold), // press/release (no repetición discreta)
+            .background(Color.DarkGray.copy(alpha = if (pressed) 1f else 0.8f))
+            .detectHoldEvent { isPressed -> // press/release (no repetición discreta)
+                pressed = isPressed
+                if (isPressed) feedback.tap()
+                onHold(isPressed)
+            },
         contentAlignment = Alignment.Center
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
@@ -372,13 +395,13 @@ private fun VehicleDpadButton(icon: ImageVector, onHold: (Boolean) -> Unit) {
 }
 
 @Composable
-fun Ps4ActionButtonsController(
+fun VehicleActionButtonsController(
     modifier: Modifier = Modifier,
     backgroundAlpha: Float = 0.6f,
-    onAccelerate: (Boolean) -> Unit,  // ✕
-    onBrake: (Boolean) -> Unit,       // ○
-    onHandbrake: (Boolean) -> Unit,   // □ (freno de mano)
-    onExit: (Boolean) -> Unit         // △ (mantener → menú teletransporte)
+    onAccelerate: (Boolean) -> Unit,  // A (abajo) — gas
+    onBrake: (Boolean) -> Unit,       // B (derecha) — freno
+    onHandbrake: (Boolean) -> Unit,   // X (izquierda) — freno de mano
+    onExit: (Boolean) -> Unit         // Y (arriba) — salir (mantener → menú teletransporte)
 ) {
     Box(
         modifier = modifier
@@ -387,43 +410,25 @@ fun Ps4ActionButtonsController(
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
         contentAlignment = Alignment.Center
     ) {
+        // MISMO diamante Xbox que a pie (mismas letras/colores/posiciones, mismo ActionButton):
+        // solo cambia QUÉ HACE cada botón al conducir.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // △ arriba — SALIR (verde PS)
-            Ps4Button(symbol = "△", color = Color(0xFF2ECC71), onHoldEvent = onExit)
+            // Y arriba — SALIR (amarillo, igual que a pie)
+            ActionButton(text = "Y", color = Color(0xFFF1C40F), onHoldEvent = onExit)
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // □ izquierda — FRENO DE MANO (rosa PS)
-                Ps4Button(symbol = "□", color = Color(0xFFE91E63), onHoldEvent = onHandbrake)
+                // X izquierda — FRENO DE MANO (azul, igual que a pie)
+                ActionButton(text = "X", color = Color(0xFF3498DB), onHoldEvent = onHandbrake)
 
                 Spacer(modifier = Modifier.size(48.dp))
 
-                // ○ derecha — FRENO (rojo PS)
-                Ps4Button(symbol = "○", color = Color(0xFFE74C3C), onHoldEvent = onBrake)
+                // B derecha — FRENO (rojo, igual que a pie)
+                ActionButton(text = "B", color = Color(0xFFE74C3C), onHoldEvent = onBrake)
             }
 
-            // ✕ abajo — GAS (azul PS)
-            Ps4Button(symbol = "✕", color = Color(0xFF3498DB), onHoldEvent = onAccelerate)
+            // A abajo — GAS (verde, igual que a pie)
+            ActionButton(text = "A", color = Color(0xFF2ECC71), onHoldEvent = onAccelerate)
         }
-    }
-}
-
-@Composable
-private fun Ps4Button(symbol: String, color: Color, onHoldEvent: (Boolean) -> Unit) {
-    Box(
-        modifier = Modifier
-            .padding(4.dp)
-            .size(48.dp)
-            .clip(CircleShape)
-            .background(color)
-            .detectHoldEvent(onHoldEvent),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = symbol,
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = 22.sp
-        )
     }
 }
 
@@ -434,15 +439,18 @@ private fun Ps4Button(symbol: String, color: Color, onHoldEvent: (Boolean) -> Un
 fun Modifier.repeatingClickable(
     initialDelay: Long = 10,
     delayBetweenClicks: Long = 40, // 40ms = ~25 fps de actualización de movimiento
+    onPress: (Boolean) -> Unit = {},
     onClick: () -> Unit
 ): Modifier = composed {
     val currentClickListener by rememberUpdatedState(onClick)
+    val currentPressListener by rememberUpdatedState(onPress)
     val coroutineScope = rememberCoroutineScope()
     var job: Job? by remember { mutableStateOf(null) }
 
     pointerInput(Unit) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false)
+            currentPressListener(true)
             job = coroutineScope.launch {
                 currentClickListener() // Disparo inicial
                 delay(initialDelay)
@@ -451,8 +459,12 @@ fun Modifier.repeatingClickable(
                     delay(delayBetweenClicks)
                 }
             }
-            waitForUpOrCancellation()
-            job?.cancel() // Se detiene cuando sueltas el dedo
+            try {
+                waitForUpOrCancellation()
+            } finally {
+                job?.cancel() // Se detiene cuando sueltas el dedo (o se cancela el gesto)
+                currentPressListener(false)
+            }
         }
     }
 }

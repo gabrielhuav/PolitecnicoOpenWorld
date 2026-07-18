@@ -37,7 +37,9 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | 🆕 Easter egg ShineCTO + fade de puerta ESCOM | `viewmodel/WorldMapShineCTO.kt` (NUEVO, refactor) |
 | 🆕 Guardado/carga de partida (Modo Historia, JSON) | `viewmodel/WorldMapSaveGame.kt` + `data/repository/SaveGameRepository.kt` |
 | 🆕 Editor del Debug Interiores (líneas rojas/verdes/naranjas) | `viewmodel/WorldMapDebugEditor.kt` + `ui/components/InteriorDebugEditorPanel.kt` |
-| Estado UI / UI state | `viewmodel/WorldMapState.kt` |
+| Estado UI / UI state | `viewmodel/WorldMapState.kt` (⚠️ campos anotados "LOS POSEE XManager" = fachada combine) |
+| 🆕 Managers con SUB-ESTADO propio (Etapa 3 calidad senior; el VM compone `uiState` con `combine`) | `viewmodel/DesignerManager.kt`, `CollectiblesManager.kt`, `CombatManager.kt`, `WantedManager.kt`, `TransitTeleportManager.kt`, `CampaignManager.kt` (tests en `app/src/test/.../viewmodel/*ManagerTest.kt`) |
+| 🆕 DI con Hilt (BD/cachés/repos) | `di/AppModule.kt`; VMs `@HiltViewModel`/`@AssistedInject` (ver 01 + `_ARCHIVO/PLAN_DI_hilt.md`) |
 | Game loop | `WorldMapViewModel.startGameLoop()` (MIEMBRO; `viewmodel/WorldMapGameLoop.kt` = tombstone tras de-dup 2026-06-21) |
 | Multiplayer relay/parse | `viewmodel/WorldMapMultiplayer.kt` (+ `WorldMapMultiplayerModels.kt`) |
 | Red de calles / road network | `viewmodel/WorldMapRoadNetwork.kt` |
@@ -55,7 +57,7 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | 🆕 Rama de render Google Maps nativo (`GoogleMapLayer`) | `ui/WorldMapScreenGoogle.kt` (NUEVO, refactor — composable top-level; cachés LRU por parámetro) |
 | 🆕 Rama de render WEB / Leaflet en WebView (`WebMapLayer`) | `ui/WorldMapScreenWeb.kt` (NUEVO, refactor — composable top-level; cachés base64 + holders de guarda por-frame por parámetro) |
 | 🆕 Overlays/diálogos superpuestos (WASTED, vídeo zombi, prompts, diálogo Prankedy, popup coleccionable, fades puerta ESCOM/metro/metrobús) | `ui/WorldMapScreenOverlays.kt` (NUEVO, refactor) |
-| 🆕 Controles en pantalla (D-pad/joystick/acciones, conducción, salir apocalipsis, pulsación larga Y/△) | `ui/WorldMapScreenControls.kt` (NUEVO, refactor — `BoxScope.WorldMapControls`) |
+| 🆕 Controles en pantalla (D-pad/joystick/acciones, conducción con el MISMO diamante Xbox, salir apocalipsis, pulsación larga Y) | `ui/WorldMapScreenControls.kt` (NUEVO, refactor — `BoxScope.WorldMapControls`) |
 | Render nativo osmdroid (fog, over-zoom, NPCs, landmarks) | `ui/NativeOsmMap.kt` |
 | 🆕 Render de Prankedy en OSM nativo (+ proyectil) | `ui/NativeOsmMapPrankedy.kt` (NUEVO, refactor — `renderPrankedyOnMap`) |
 | 🆕 Overlay de neblina (fog of war) OSM nativo | `ui/NativeOsmMapFog.kt` (NUEVO, refactor — `class FogOverlay`) |
@@ -67,10 +69,19 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Helpers de dibujo / health bar | `ui/WorldMapDrawingUtils.kt` |
 | Sprite jugador / vehículo conducido | `ui/components/PlayerCharacter.kt` |
 | Controles (D-Pad/joystick/A-B-X-Y) | `ui/components/GameControllers.kt` |
+| 🆕 Botón estilo POW compartido (esquinas cortadas + vino; lo usa HUELUM VS. GOYA) | `ui/components/PowButton.kt` |
 | Menú anidado de opciones | `ui/components/OptionsMenu.kt` |
 | Panel del modo diseñador | `ui/components/Designerpanel.kt` |
 | Sprites NPC | `ui/components/CharacterSpriteManager.kt`, `VehicleSpriteManager.kt`, `PoliceSpriteManager.kt` |
 | NPC especial Prankedy (IA/VM/render) | `domain/models/ai/PrankedyManager.kt` (ver 03), `viewmodel/WorldMapPrankedy.kt`, `ui/components/PrankedySpriteManager.kt` |
+| 🆕 MISIÓN 2 "El rumor" (máquina de fases: esconderse/rumor/brote/plática/mochila) | `viewmodel/WorldMapMission2.kt` (guion/constantes en `domain/models/campaign/mission2/Mission2.kt`; ver `CAMPAIGN/02_MISSION_2.md`). ⚠️ 2026-07-08: la fase 1 "esconderse" ya NO corre aquí — se juega DENTRO del lobby (interiores; `completeMission2Hide`/`failMission2Hide` son los callbacks). Ver 09. |
+| 🆕 MISIÓN 3 "Regreso a la ENCB" (viaje/cordón-sigilo/asalto) | `viewmodel/WorldMapMission3.kt` (NUEVO; constantes en `domain/models/campaign/mission3/Mission3.kt`; ver `CAMPAIGN/03_MISSION_3.md`) |
+| 🆕 REGISTRO/SELECTOR de misiones (estilo Witcher) | `viewmodel/WorldMapMissionLog.kt` + `ui/components/MissionLogDialog.kt` (catálogo `MissionCatalog.missions`). 🆕 2026-07-04b: el diálogo se hospeda a nivel **AppNavGraph** (`MissionLogHost`, patrón SaveSlotsDialog) → sirve al mapa Y a interiores; REJUGAR ✔ completadas sin tocar el progreso (`replayingMissionId` transitorio); Modo Dev = seguir 🔒 + "TP al objetivo". Ver 09. |
+| 🆕 MISIONES SECUNDARIAS (side1 entrega / side2 contención) | `viewmodel/WorldMapSideMissions.kt` (tick; SIN fase persistida: el id del objetivo ES el estado) + `domain/models/campaign/side/SideMissions.kt` (coords/objetivos). Badge SECUNDARIA en el registro. Ver `CAMPAIGN/04_SIDE_MISSIONS.md` y 09. |
+| 🆕 EVENTOS DINÁMICOS del mundo (vida urbana: conversación / persecución / mini-brote) | `viewmodel/WorldMapDynamicEvents.kt` (tick del game loop; actores `DYN_*` en `dynamicEventNpcs`, scriptados beeline, no atacables). Mini-brote más probable de NOCHE y con la M3 completada. |
+| 🆕 (2026-07-08) VIDA DE CAMPUS ESCOM (estudiantes ambientales del mapa global) | `viewmodel/WorldMapCampusLife.kt` (NUEVO): ~10 estudiantes `CAMPUS_*` dentro del bbox de la ESCOM — deambulan + corrillos de 3 platicando (💬 alternada). Determinista por cubetas de tiempo (sin estado por NPC). Lista `campusNpcs`; excluidos del guardado; pausados en escolta/chase M1 y zombi global. Ver 09. |
+| 🆕 ECONOMÍA (dinero del jugador) | `viewmodel/WorldMapEconomy.kt` (`addMoney`, `MissionRewards`, `COLLECTIBLE_MONEY`). `WorldMapState.playerMoney` + chip 💵; persistido en `GameSaveData.playerMoney`. Recompensa SOLO la 1ª vez (hook en `markMissionCompleted`). |
+| 🆕 CICLO DÍA/NOCHE | `viewmodel/WorldMapDayNight.kt` (reloj epoch: 1 min real = 1 h juego, ciclo 24 min; `gameHour`/`nightAlpha` en el estado). Velo nocturno = capa Compose renderer-agnóstica en `WorldMapScreen` + chip 🕐. |
 
 ---
 
@@ -125,6 +136,9 @@ data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
   (`Polygon.pointsAsCircle`, tag `route_overlay_tag+600`, culleada por viewport, bajo el icono). Google nativo = pendiente.
 - **Prefetch offline (solo OSM nativo):** `zonePrefetchActive, zonePrefetchProgress, zoneOfflineReady, zoneOfflineWarning`.
 - **Creador de rutas:** `routeDebugWaypoints, isParkingSlotMode, currentWayId(=100)`.
+- **🆕 Economía / día-noche (2026-07-08):** `playerMoney` (persistido en `GameSaveData.playerMoney`;
+  +$25 por coleccionable, recompensas por misión vía `MissionRewards`), `gameHour` (0-23) y
+  `nightAlpha` (0..0.38, velo nocturno). Ver `WorldMapEconomy.kt` / `WorldMapDayNight.kt`.
 
 ---
 
@@ -150,6 +164,8 @@ load roads (Room cache → else Overpass with exponential backoff 1s→30s). The
      acelerar, sigue la carretera. runOverNpcs(loc, v).
 6. applyNpcContactDamage(loc)  // NPCs agresivos en embestida pegan a TU jugador (cada cliente al suyo)
 7. si red lista && !WASTED → runPoliceTick(loc)
+7b. 🆕 tras el `when` de misiones (escolta/chase/M2/M3/SECUNDARIAS): si mundo completo && !WASTED →
+    runDynamicEventsTick(loc) (eventos ambientales); siempre → updateDayNightTick() (throttle ~1 Hz)
 8. maybeRefetchRoadNetwork(loc); cada 5 ticks → updateVisibleRoads(loc)
 9. si red lista, cada 3 ticks → setServerNpcs(npcs remotos) → npcAiManager.updateNpcs(loc, isHost)
      → si soy Host: aplicar pendingDespawns, volcar processedNpcs a remoteEntities → updateNpcsState()
@@ -261,8 +277,13 @@ al pulsarlas despliegan su buscador + estaciones (`metroStations`/`metrobusStati
 para que la lista de TP no crezca de más),
 `takeDamage(amount)`, `heal(amount)`, `onClaimCollectiblePressed`, widgets (`toggleCacheWidget/FpsWidget`).
 
-> **`onInteractButtonPressed` (botón Y, MIEMBRO):** sube/baja del coche. Si no hay coche civil (CAR) en
-> `remoteEntities` dentro de `INTERACT_RADIUS`, ahora intenta **subir a una PATRULLA** (POLICE_CAR) vía
+> **`onInteractButtonPressed` (botón Y, MIEMBRO):** sube/baja del coche. 🆕 (2026-07-13) A PIE el
+> toque corto de Y actúa **al SOLTAR**; **MANTENER Y ~450 ms abre el INVENTARIO del mapa**
+> (`WorldInventoryDialog`, solo lectura: los mismos objetos que interiores vía
+> `currentInteriorInventory`; `showWorldInventory` + `toggleWorldInventory`/`worldInventoryUnlockedSlots`
+> en `WorldMapInteractions.kt`; hold en `WorldMapScreenControls`). `INTERACT_RADIUS` bajó
+> **0.00018→0.00008 (~9 m)**: te subía a autos "medio lejos". Si no hay coche civil (CAR) en
+> `remoteEntities` dentro de `INTERACT_RADIUS`, intenta **subir a una PATRULLA** (POLICE_CAR) vía
 > `policeManager.boardPatrol(id)`: la roba, difunde `POLICE_DESTROY` y fija `wantedLevel=5` (robar una
 > patrulla = máximo nivel de búsqueda). **Skin conducible:** `isDrivingPoliceCar` en `WorldMapState` hace
 > que `PlayerCharacter` dibuje el asset de `PoliceSpriteManager` (overlay común a los 3 renderers).

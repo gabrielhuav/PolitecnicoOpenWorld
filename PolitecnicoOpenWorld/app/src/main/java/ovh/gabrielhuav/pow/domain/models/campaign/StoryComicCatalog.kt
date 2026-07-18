@@ -77,26 +77,117 @@ object StoryComicCatalog {
             boxTopFrac = 0.853f, boxHeightFrac = 0.120f, fontSp = 15f, boxWidthFrac = 0.720f)
     )
 
-    // ─── MISIÓN 2: llegada a la ESCOM (Modo Historia) ────────────────────────
-    // Se reproduce al cumplir la Misión 1 (llegar a la ESCOM con Prankedy). Son 4 paneles
-    // HORIZONTALES en assets/STORY/INTRO/IntroPOW12..15.webp (IntroPOW15 cambia según la skin). EDITA el `text`.
-    // Tras esta secuencia se retoma la jugabilidad con la persecución (6 policías) y el
-    // objetivo "Ingresa a la ESCOM".
-    const val MISSION2_INTRO_ID = "mission2_intro"
+    // ─── MISIÓN 1 · CHASE: llegada a la ESCOM (Modo Historia) ────────────────
+    // Se reproduce al cumplir la escolta de la Misión 1 (llegar a la ESCOM con Prankedy). Son 4
+    // paneles HORIZONTALES en assets/STORY/INTRO/IntroPOW12..15.webp (IntroPOW15 cambia según la
+    // skin). EDITA el `text`. Tras esta secuencia se retoma la jugabilidad con la persecución
+    // final (6 policías) y el objetivo "Ingresa a la ESCOM". (Antes: MISSION2_INTRO_ID.)
+    const val MISSION1_CHASE_INTRO_ID = "mission1_chase_intro"
 
-    private val mission2Intro = listOf(
+    private val mission1ChaseIntro = listOf(
         ComicPanel("STORY/INTRO/IntroPOW12.webp", ""),
         ComicPanel("STORY/INTRO/IntroPOW13.webp", ""),
         ComicPanel("STORY/INTRO/IntroPOW14.webp", ""),
         ComicPanel("STORY/INTRO/IntroPOW15.webp", "")   // 4º panel (cambia según skin)
     )
 
+    // ─── MISIÓN 2 · "La mochila" (al terminar de hablar con Prankedy → fase 5) ──────
+    // Se reproduce cuando la Misión 2 pasa a la fase MOCHILA: explica que hay que ir al salón y
+    // usar la LATA APESTOSA. 🆕 Paneles PLACEHOLDER en assets/STORY/INTRO/IntroPOW16..18.webp
+    // (imágenes horizontales con recuadro blanco para el texto — SUSTITÚYELAS por el arte real).
+    const val MISSION2_BACKPACK_INTRO_ID = "mission2_backpack_intro"
+
+    private val mission2BackpackIntro = listOf(
+        ComicPanel("STORY/INTRO/IntroPOW16.webp",
+            "Toma, es una lata de surströmming.\nApesta a muerto, wey.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f),
+        ComicPanel("STORY/INTRO/IntroPOW17.webp",
+            "El salón está a reventar de alumnos.\nCon esto sale hasta el maestro.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f),
+        ComicPanel("STORY/INTRO/IntroPOW18.webp",
+            "A la cuenta de tres la avientas y agarras la mochila. ¡Órale!",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f)
+    )
+
+    // ─── MISIÓN 3 · "Regreso a la ENCB" (al completar la Misión 2) ─────────────────
+    // Se reproduce al recuperar la mochila (M2 completada): la broma escaló a un brote en la ENCB,
+    // ahora acordonada; hay que colarse. 🆕 Paneles PLACEHOLDER IntroPOW19..22.webp — SUSTITÚYELOS.
+    const val MISSION3_INTRO_ID = "mission3_intro"
+
+    private val mission3Intro = listOf(
+        ComicPanel("STORY/INTRO/IntroPOW19.webp",
+            "La broma se salió de control…\ny todo apunta a la ENCB.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f),
+        ComicPanel("STORY/INTRO/IntroPOW20.webp",
+            "La tienen acordonada con granaderos.\nHay que colarse sin que nos vean.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f),
+        ComicPanel("STORY/INTRO/IntroPOW21.webp",
+            "Yo te acompaño… pero esos infectados me dan mala espina.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f),
+        ComicPanel("STORY/INTRO/IntroPOW22.webp",
+            "Si nos alcanza uno… ni modo, corremos. Vamos por esa evidencia.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f)
+    )
+
+    // ─── MISIÓN 3 · CIERRE (al recuperar la evidencia y salir de la ENCB) ──────────
+    // La prueba está en la mano… pero ¿a quién se la llevas? Gancho directo a la M4.
+    // 🆕 Paneles PLACEHOLDER IntroPOW23..24.webp — SUSTITÚYELOS por el arte real.
+    const val MISSION3_OUTRO_ID = "mission3_outro"
+
+    private val mission3Outro = listOf(
+        ComicPanel("STORY/INTRO/IntroPOW23.webp",
+            "Esto lo prueba todo.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f),
+        ComicPanel("STORY/INTRO/IntroPOW24.webp",
+            "¿Y ahora a QUIÉN se lo llevamos?",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f)
+    )
+
+    // ─── MISIÓN 4 · "Código Rojo en Zacatenco" (PLANEADA — aún sin misión jugable) ──
+    // Secuencias LISTAS en el catálogo con paneles PLACEHOLDER (IntroPOW25..30.webp) para que el
+    // arte y el cableo no bloqueen el diseño de la M4. CABLEAR al crear la misión (mismo patrón
+    // bandera→LaunchedEffect→ruta que MISSION3_INTRO). Guion: nadie les cree la evidencia → la
+    // radio médica confirma mordidas → primera HORDA en Av. IPN → la paramédica jefa recluta al
+    // jugador (evacuación). El outro siembra la M5: un evacuado viene mordido.
+    const val MISSION4_INTRO_ID = "mission4_intro"
+    const val MISSION4_OUTRO_ID = "mission4_outro"
+
+    private val mission4Intro = listOf(
+        ComicPanel("STORY/INTRO/IntroPOW25.webp",
+            "Trai un frasco con moco verde y dice que hay zombis…\nAjá. Siguiente.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f),
+        ComicPanel("STORY/INTRO/IntroPOW26.webp",
+            "…múltiples heridos por MORDEDURA en Av. IPN.\nSolicito apoyo, ¡el que sea!",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f),
+        ComicPanel("STORY/INTRO/IntroPOW27.webp",
+            "¡¡CORRAN!!",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f),
+        ComicPanel("STORY/INTRO/IntroPOW28.webp",
+            "¿Traes pruebas y un fierro? Perfecto.\nAyúdame a evacuar y te consigo a alguien que SÍ te escuche.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f)
+    )
+
+    private val mission4Outro = listOf(
+        ComicPanel("STORY/INTRO/IntroPOW29.webp",
+            "Salimos todos. Buen trabajo, wey.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f),
+        ComicPanel("STORY/INTRO/IntroPOW30.webp",
+            "Doctora… este viene MORDIDO.",
+            boxTopFrac = 0.79f, boxHeightFrac = 0.18f, fontSp = 15f, boxWidthFrac = 0.90f)
+    )
+
     // Devuelve una secuencia narrativa por id (para StoryIntroScreen). ENCB_OUTRO_ID =
-    // segunda parte de la intro; MISSION2_INTRO_ID = llegada a la ESCOM; cualquier otro id
-    // cae al prologo de ESCOM.
+    // segunda parte de la intro; MISSION1_CHASE_INTRO_ID = llegada a la ESCOM; MISSION2_BACKPACK /
+    // MISSION3_INTRO = puentes narrativos M2→M3; MISSION3_OUTRO = cierre de la M3; MISSION4_* =
+    // reservadas para la M4 (aún sin cablear); cualquier otro id cae al prologo de ESCOM.
     fun sequence(sequenceId: String): List<ComicPanel> = when (sequenceId) {
         ENCB_OUTRO_ID -> encbOutro
-        MISSION2_INTRO_ID -> mission2Intro
+        MISSION1_CHASE_INTRO_ID -> mission1ChaseIntro
+        MISSION2_BACKPACK_INTRO_ID -> mission2BackpackIntro
+        MISSION3_INTRO_ID -> mission3Intro
+        MISSION3_OUTRO_ID -> mission3Outro
+        MISSION4_INTRO_ID -> mission4Intro
+        MISSION4_OUTRO_ID -> mission4Outro
         else -> escom
     }
 }

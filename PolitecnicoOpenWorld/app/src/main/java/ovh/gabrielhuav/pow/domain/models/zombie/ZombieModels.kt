@@ -89,11 +89,28 @@ class CollisionMatrix(val rows: List<String>) {
     val numRows: Int = rows.size
     val numCols: Int = if (rows.isEmpty()) 0 else rows[0].length
 
-    fun isBlockedFrac(fx: Float, fy: Float): Boolean {
-        if (numRows == 0 || numCols == 0) return false
+    /** Caracter de la celda fraccionaria (fx,fy). '.' si esta fuera de rango. */
+    fun cellAt(fx: Float, fy: Float): Char {
+        if (numRows == 0 || numCols == 0) return FREE
         val c = (fx * numCols).toInt().coerceIn(0, numCols - 1)
         val r = (fy * numRows).toInt().coerceIn(0, numRows - 1)
-        return rows[r][c] == '#'
+        val row = rows[r]
+        return if (c < row.length) row[c] else FREE
+    }
+
+    /** Bloquea el paso la pared ('#') y el objeto que tapa ('^'). */
+    fun isBlockedFrac(fx: Float, fy: Float): Boolean {
+        val ch = cellAt(fx, fy)
+        return ch == WALL || ch == OCCLUDER
+    }
+
+    /** Es una celda de OBJETO QUE TAPA ('^')? La usa la capa de oclusion del render. */
+    fun isOccluderFrac(fx: Float, fy: Float): Boolean = cellAt(fx, fy) == OCCLUDER
+
+    companion object {
+        const val FREE = '.'
+        const val WALL = '#'
+        const val OCCLUDER = '^'   // objeto que tapa (bloquea + y-sort)
     }
 }
 

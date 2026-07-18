@@ -52,7 +52,7 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
 
         val connectedWays = navGraph.ways.filter { w ->
             w.id != way.id && w.nodes.size >= 2 && !w.nodes.any { it.isParkingSlot } &&
-                    ((npc.type == NpcType.CAR && w.id < 200) || (npc.type == NpcType.PERSON && w.id >= 200)) &&
+                    ((npc.type == NpcType.CAR && w.id < 200) || ((npc.type == NpcType.PERSON || npc.type == NpcType.CAT) && w.id >= 200)) &&
                     run {
                         var isNear = false
                         for (i in 0 until w.nodes.size - 1) {
@@ -91,8 +91,6 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
                 nextWay.nodes.size - 1 -> -1
                 else -> if (Random.nextBoolean()) 1 else -1
             }
-
-            val newTarget = (closestIdx + nextDir).coerceIn(0, nextWay.nodes.size - 1)
 
             return npc.copy(
                 currentLocalWay = nextWay,
@@ -155,10 +153,11 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
     }
 
     return if (dist < actualSpeed) {
-        val pauseTime = if (npc.type == NpcType.PERSON && Random.nextFloat() < 0.08f) {
-            System.currentTimeMillis() + Random.nextLong(800, 1800)
-        } else {
-            npc.chatUntil
+        val pauseTime = when {
+            // Punto de interés (banca, cafetería, palapas...): espera larga de 10-25 s
+            npc.type == NpcType.PERSON && targetLocalNode.isStopPoint ->
+                System.currentTimeMillis() + Random.nextLong(10_000L, 25_000L)
+            else -> npc.chatUntil
         }
 
         npc.copy(
@@ -209,6 +208,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
     }
 
     if (npc.navState == ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MICRO_LANDMARK) {
+        if (npc.chatUntil > now) return npc.copy(isMoving = false)
         return moveLocalNpc(npc)
     }
 

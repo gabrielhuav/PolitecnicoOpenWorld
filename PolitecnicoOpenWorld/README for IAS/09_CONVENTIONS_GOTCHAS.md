@@ -26,9 +26,13 @@ low-end performance) or doc drift.
 > `spawnOustedDriver`, `triggerWastedSequence`, `addRemoteEntity`, `maybeRefetchRoadNetwork`,
 > `updateVisibleRoads`. **Fusionados** (se activó lógica buena que estaba muerta) = `handleMultiplayerMessage`
 > (3 bugfixes: isRemote sync, daño en hilo Main, miedo al combate) y `startGameLoop` (audio del game loop:
-> caminar/correr/coche/zombi). **NO TOCAR** (revertido, cadena de routing interdependiente) =
-> `updateDestinationRoute`+`calculateRouteOnNetwork`. `WorldMapGameLoop.kt` quedó como **tombstone**
-> (startGameLoop volvió a ser solo miembro, con el audio fusionado). Ya NO hay gemelos divergentes vivos.
+> caminar/correr/coche/zombi). ~~**NO TOCAR** = `updateDestinationRoute`+`calculateRouteOnNetwork`~~
+> **✅ RESUELTO (2026-07-04, Etapa 2 de CHECKPOINT_SENIOR_refactor.md):** la cadena de routing se
+> de-duplicó CON red de tests: el algoritmo vive en **`domain/usecases/RoadRouter.kt`** (puro, fijado
+> por `RoadRouterTest`); `updateDestinationRoute` es SOLO miembro y delega en `roadRouter.route`;
+> `calculateRouteOnNetwork`/`nearbyRoadNodes`/`rebuildRoadNodeGrid` ya NO tienen gemelos (tombstones
+> en VM y WorldMapRouting.kt). `WorldMapGameLoop.kt` quedó como **tombstone**
+> (startGameLoop volvió a ser solo miembro, con el audio fusionado). Ya NO hay gemelos vivos.
 >
 > **✅ DE-DUP 2ª TANDA + EXTRACCIÓN DE PARCIALES (2026-06-22):** se de-duplicaron los **4 gemelos restantes**
 > (miembro privado vivo + extensión muerta): `checkCollectibleProximity` (la extensión muerta NO tenía Metrobús ni la
@@ -66,7 +70,7 @@ composables top-level); las extensiones del VM usadas se importan en el archivo 
 **🆕 Progreso (2026-06-20, 3ª pasada):** dos extracciones más:
 - `WorldMapScreen.kt` bajó de ~2354 a **~2255** líneas extrayendo el bloque de controles (vals de
   layout escala/padding según orientación + botón "Salir del apocalipsis" + fila inferior de D-pad/
-  joystick/acciones, incl. la pulsación larga de Y/△ → `yButtonHoldJob`) al composable
+  joystick/acciones, incl. la pulsación larga de Y → `yButtonHoldJob`) al composable
   `BoxScope.WorldMapControls` en `ui/WorldMapScreenControls.kt`. Se invoca dentro del `Box` principal:
   `WorldMapControls(uiState, viewModel, optionsExpanded)`. `yButtonHoldJob` se movió al nuevo archivo.
   Sin gotcha miembro/extensión (composable top-level); importa la extensión `toggleTeleportMenu`.
@@ -185,10 +189,43 @@ extraer composables/clases por sección. Pasos pequeños y verificables, uno por
 - Estado **siempre** como copia inmutable: `_state.update { it.copy(...) }`. Nunca mutar estado Compose
   directamente. / Always immutable copies; never mutate Compose state directly.
 - Views: solo `collectAsState()` + emitir intenciones. **Nunca** tocan repos/DAOs. / Views never touch repos/DAOs.
-- DI manual con `Factory` co-localizada. ViewModels top-level = Activity-scoped; interior/zombi/metro/
-  shinecto = NavBackStackEntry-scoped (ver 01). / Manual DI; scoping per file 01.
+- **DI = Hilt (desde la Etapa 4 de calidad senior, 2026-07-04):** las 9 VMs son `@HiltViewModel`
+  (Interior/Transit/Zombie con `@AssistedInject`); deps en `di/AppModule.kt`. Ya NO existen los
+  `Factory` manuales (tombstones). Scoping intacto: VMs top-level = Activity-scoped (`by viewModels()`;
+  el WorldMapVM se PASA a AppNavGraph — obtenerlo con `hiltViewModel()` en una ruta lo re-crearía y
+  volvería la regresión de recarga del mapa); interior/zombi/metro/shinecto = NavBackStackEntry-scoped
+  vía `hiltViewModel()`. Ver 01 y _ARCHIVO/PLAN_DI_hilt.md (histórico). / DI is Hilt now; scoping per file 01.
 - **Comentarios y strings en español** (incluidos los dos `server.js`). Mantener ese estilo salvo que se
   pida lo contrario. / Comments/strings in Spanish; keep that style.
+- **🆕 POLÍTICA DE COMENTARIOS (2026-07-04) — hay 3 clases; trata cada una distinto:**
+  1. **CARGA ESTRUCTURAL — NUNCA borrar sin OK del dueño:** los `⚠️ LO POSEE XManager` de
+     WorldMapState, los tombstones de código eliminado ("NO recrear el miembro/extensión"), los
+     gotchas que codifican regresiones REALES ("no quitar el umbral", "gana el miembro") y los
+     contratos de funciones. Son la memoria del proyecto: sin ellos, una IA re-introduce los bugs.
+  2. **CONTEXTO ÚTIL — conservar pero PODAR:** cabeceras de archivo y notas de diseño. Regla:
+     máx ~4 líneas; el DETALLE vive en los docs 00-09 (deja un puntero "ver 04/09/CHECKPOINT_X"),
+     no en el código. Si un tombstone/nota pasa de 4 líneas, redúcelo a 1-2 + puntero.
+  3. **RUIDO — borrar al verlo:** narración de lo obvio (`// suma 1 al contador`), código comentado
+     sin tombstone explicativo, e historia de refactors ya consolidada en CHECKPOINT_*/docs.
+  Al PODAR: nunca elimines el "por qué" ni el "no hagas X"; solo el "qué" redundante. Un archivo por
+  pasada, verificado con Read, y compila igual (los comentarios no cambian bytecode, pero un edit
+  descuidado sí puede comerse una llave).
+- **🆕 CAMPOS POSEÍDOS POR MANAGERS (fachada `combine`, Etapa 3 de calidad senior):** varios campos de
+  `WorldMapState` ya NO se escriben en `_uiState`: los POSEE un manager (`DesignerManager`, `CollectiblesManager`,
+  `WantedManager`, `TransitTeleportManager`, `CampaignManager`) con su propio `MutableStateFlow<XSubState>`, y
+  el VM compone `uiState = combine(_uiState, …managers…) { … base.copy(campos del manager) }` (el combine está
+  ANIDADO porque ya pasa de 5 flows: el 5º arg combina `(transit, campaign)` en un `Pair` y el lambda lo
+  desestructura). **Regla:** un campo anotado con `⚠️ LO POSEE XManager` NO se escribe con
+  `_uiState.update { it.copy(campo…) }` (la fachada lo SOBREESCRIBE desde el manager → el write sería IGNORADO
+  = bug sordo); escríbelo por el método del manager (p. ej. `wantedManager.setWantedLevel(…)`,
+  `transitTeleportManager.beginMetroFade()`, `campaignManager.markCompleted(…)`). Y **NO lo leas de
+  `_uiState.value.campo`** (ahí queda el default, nunca actualizado): léelo de `xManager.state.value.campo` o de
+  `uiState.value.campo` (el combinado). Gotcha real: `buildSaveData` leía `_uiState.value.wantedLevel`/
+  `.completedMissions` → con la fachada habría guardado 0/vacío; se redirigió al manager. La LÓGICA muy enredada
+  (game loop/red/policía/IO) se queda como extensión del VM y solo DELEGA los writes (Combat usa `mutableStateOf`
+  delegado en vez de `combine`). El **estado de FASE de campaña** (objetivo/subtítulos/ruta/misión fallida) es un
+  CORTE LIMPIO documentado: se queda en el VM (~26 writers en los ticks de misión; moverlo no bajaría el
+  acoplamiento real). Detalle y receta en `CHECKPOINT_SENIOR_refactor.md`.
 
 ## 2. Controles "staged" / Staged controls
 
@@ -292,6 +329,19 @@ px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo u
     el array vacío es justo lo que LIMPIA los marcadores; saltarlo deja burbujas/calles fantasma. Mover
     `configureOsmdroid` (I/O de `mkdirs`/SharedPrefs en main thread) a background: cambia el orden de
     arranque (osmdroid debe configurarse antes del 1er render) → requiere app para verificar.
+  - **🆕 AUDITORÍA PERF de la ETAPA 3/4 (managers + fachada combine + Hilt), 2026-07-04 — SIN regresión:**
+    la descomposición del VM en 6 managers detrás de `uiState = combine(_uiState, …5 sub-estados…)` añade
+    **exactamente UNA allocation por emisión**: el `base.copy(...)` de la fachada crea un `WorldMapState`
+    nuevo cada vez que emite `_uiState` (~30 Hz por el game loop). Es una copia **SUPERFICIAL** (data class:
+    copia referencias, no contenido) → coste bajo, **aceptado** por diseño (es el precio de migrar sin tocar
+    las Views). Lo demás NO añade coste por-frame: los managers escriben su `StateFlow` **solo cuando el
+    sub-estado cambia** (StateFlow deduplica por `equals`), no cada tick; el `combine` interno `(transit,
+    campaign)→Pair` solo crea el Pair cuando transit/campaign cambian (raro, no por-frame); `mergeAndPrunePoliceShots`
+    retorna temprano si no hay disparos (sin alloc en reposo, con `emptyList()` singleton). Las cachés LRU
+    (`nativeDrawableCache`), los sprite managers y los guards de reenvío web NO se tocaron. **Regla:** al
+    añadir campos a un manager, mantenerlos en el `base.copy` (no crear estructuras nuevas por-frame); si
+    algún día el copy de `WorldMapState` pesa, dividir `uiState` en varios StateFlow por grupo (la UI ya
+    observa por campo) en vez de un solo objeto — pero HOY no hace falta.
 
 ## 7. Mapa web `#map-wrapper` / web map wrapper
 
@@ -345,6 +395,58 @@ exporta `collision_matrices.json` en el formato exacto que lee el servidor (`loa
 matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
+
+- **🆕 GOTCHA BLUETOOTH — `cancelDiscovery()` EXIGE BLUETOOTH_SCAN (2026-07-16):** en Android
+  12+ hasta CANCELAR el discovery pide el permiso SCAN; el flujo de ANFITRIÓN solo pide
+  CONNECT+ADVERTISE → crasheaba con SecurityException al abrir. **Regla:** en `SfBtClient`
+  toda llamada a `cancelDiscovery()` va en `runCatching` (best-effort) y NUNCA asumas SCAN
+  fuera del flujo de BUSCAR RIVAL. Regla hermana: una falla BT pre-pelea pasa por
+  `onBtFailed` (overlay REINTENTAR bloqueante), no por `cancelOnline` — el jugador que eligió
+  BT no debe acabar en el selector offline sin notarlo.
+- **🆕 ASSETS POR VARIANTE — RYU/KEN solo en DEBUG (2026-07-15, copyright):** los assets del
+  clon SF de Ryu/Ken viven en **`app/src/debug/assets/STREETFIGHTER/`** (el merge de source
+  sets los añade SOLO al build debug; release/Play no los lleva). **Reglas:** (a) NADA en
+  `src/main` puede cargar `Ryu.png/Ken.png/ryu.json/ken.json` incondicionalmente — todo acceso
+  va gateado por `BuildConfig.DEBUG` (selector) o saneado si viene de red (`sanitizeNetFighter`
+  → PRANKEDY); el template de los compartidos es `sf_template.json` (main), NO `ryu.json`.
+  (b) El default de peleador en `StreetFighterState` se DECODIFICA al abrir el modo → debe ser
+  SIEMPRE un peleador POW. (c) Al probar: **Rebuild en debug prueba Ryu/Ken; probar TAMBIÉN un
+  build release** (o bundle) para verificar que el modo abre sin ellos. (d) Si se añade otro
+  asset con riesgo de copyright, va al source set debug con el mismo patrón.
+- **🆕 ASSETS COMPARTIDOS SF⇄MUNDO (2026-07-15/17) — reglas:** 3 de los 22 peleadores de
+  "HUELUM VS. GOYA" se arman EN RUNTIME (`SfSharedSheets`) desde los sets del mundo
+  (`SPRITES/PLAYER|NPC/`, convención de `PlayerSkin`). (a) **NO regenerar/committear sheets
+  empaquetados** para personajes que tengan set en el mundo, salvo cuando ya exista un set croma
+  completo con poses reales. Compartidos actuales: **Lázaro, Granadero y Paramédico**;
+  los 17 POW restantes usan croma dedicado y Ryu/Ken se empaquetan solo en debug. (b) El
+  `spriteAsset` de un compartido es VIRTUAL (`RUNTIME/<X>.png`): es solo la KEY del mapa de
+  imágenes de la Screen — **abrirlo con `assets.open()` CRASHEA**; toda hoja pasa por
+  `SfSharedSheets.sheetFor()`. (c) Su `jsonAsset` es el TEMPLATE `sf_template.json` (desde el
+  2026-07-15e; ryu.json vive en el source set debug) — **no borrar sf_template.json ni
+  reordenar sus claves**: el ORDEN define el layout de la rejilla runtime
+  (`templateFrameOrder`). (d) Los LIENZOS fuente son heterogéneos a propósito: la
+  normalización (bbox + escala **POR ANIMACIÓN**, mediana de alturas → TARGET_H; 🆕
+  2026-07-16 — antes era única por personaje y la figura cambiaba de tamaño entre acciones)
+  vive en el CÓDIGO — si cambias
+  el arte de un set del mundo, el peleador SF se actualiza SOLO; si un personaje mira a la
+  IZQUIERDA en su set, márcalo con `SfSharedSet(flip = true)` (actualmente Lázaro). (e) Memoria:
+  la hoja runtime pesa lo mismo que decodificar el PNG que había (2560×2048); cache LRU 3 —
+  no subir el cap sin medir en gama baja (09 §6). (f) El arte DEDICADO de Prankedy se regenera
+  con `slice_sf_chroma_sheets.py` en orden estricto **01→19**: 01 fija la referencia y cada
+  secuencia corrige el zoom desigual de su hoja; 14/15 deben correr
+  después de 07–09 porque sus poses `REFINED` sobrescriben esos nombres. Al terminar,
+  `STREETFIGHTER/GEN/` sale de assets hacia `newSFAssets/`; nunca debe viajar en el APK.
+  Todos los dedicados calibran cada secuencia erguida a **100 px** en celda 256²; mundo =
+  lienzo 512² con cada secuencia a mediana **360 px**, pies Y=456. Para los sets croma,
+  `PlayerSkin.uniform512Canvas` fuerza la misma caja en exterior e interiores: no usar una caja
+  distinta por `bodyFraction` para Idle/Walk/Run/Special. El slicer detecta inversión brusca en KO y guarda `flipX`
+  por frame; `StreetFighterScreen` lo aplica sin excepciones por personaje. Excepción documentada:
+  14/15 son refinamientos opcionales y puede faltar una conservando su hueco (ESCOMBOY tiene 18
+  hojas); ninguna otra hoja puede omitirse. La Llorona ejemplifica el caso bloqueante: sus 18
+  entregas omiten la hoja obligatoria 12 (`SPECIAL HEAVY + PROJECTILE`), por lo que debe quedar
+  sin registrar hasta recibirla y alcanzar 123 cuadros. Antes de entregar ejecutar
+  `tools/validate_sf_chroma_character.py`; protagonistas PLAYER planos usan
+  `--world-base SPRITES/PLAYER --flat-world-folders`.
 
 - **GOTCHA DEL SANDBOX (2) - bash sirve copias TRUNCADAS de archivos EXISTENTES editados con las
   herramientas (Edit/Write) (2026-06-24):** tras editar con Edit/Write un `.kt`/`.md` que YA existia, el
@@ -791,10 +893,197 @@ matrices por defecto son **border-only** hasta reemplazarse.
   devuelve null NO se despawnean (se quedan quietos). Disparo: automático en `maybeSpawnPrankedyCompanion`
   (escolta) y manual con el botón del panel Debug Interiores (`toggleCampaignRouteNpcsDebug`). Se limpian
   en `maybeHideCampaignRouteNearEscom` y en `clearCampaignPolice`.
-- **🆕 REMATE Misión 2: la policía se reúne donde Prankedy SE METIÓ:** al entrar Prankedy a la ESCOM se
-  guarda su posición exacta en `mission2PrankedyExitPoint`; `runMission2Tick` pasa ESE punto a
-  `startResolution` (antes pasaba la puerta del objetivo, unos metros más allá). Se resetea en
-  `startMission2`/`clearCampaignPolice`.
+- **🆕 REMATE de la persecución (Misión 1 · chase): la policía se reúne donde Prankedy SE METIÓ:** al
+  entrar Prankedy a la ESCOM se guarda su posición exacta en `mission1ChasePrankedyExitPoint`;
+  `runMission1ChaseTick` pasa ESE punto a `startResolution` (antes pasaba la puerta del objetivo, unos
+  metros más allá). Se resetea en `startMission1Chase`/`clearCampaignPolice`.
+- **⚠️ RENOMBRE GLOBAL `mission2*` → `mission1Chase*` (2026-07-03):** la persecución final de la Misión 1
+  se llamaba "Misión 2" en el código; al implementar la **Misión 2 REAL** ("El rumor") se renombró TODO:
+  `startMission1Chase`, `runMission1ChaseTick`, `isMission1ChaseActive`, `runMission1ChasePrankedyEscape`,
+  `consumePendingMission1ChaseIntro`, campos `mission1ChaseActivated/PrankedyEntered/PrankedyExitPoint/
+  Crowd/CrowdLastSpawn`, estado `pendingMission1ChaseIntro`, consts `MISSION1_CHASE_*`, cómic
+  `StoryComicCatalog.MISSION1_CHASE_INTRO_ID` y ruta nav `story_mission1_chase`. NO reintroducir los
+  nombres viejos (grep de `mission2Chase|pendingMission2Intro|MISSION2_` debe dar 0 en código).
+- **🆕 MISIÓN 2 · "El rumor" (2026-07-03) — reglas/gotchas:** lógica en `WorldMapMission2.kt`
+  (extensiones SIN gemelo miembro; guion/constantes en `domain/models/campaign/mission2/Mission2.kt`;
+  detalle en `CAMPAIGN/02_MISSION_2.md`). Claves:
+  - La fase vive en `WorldMapViewModel.mission2Phase` y se PERSISTE en **`GameSaveData.mission2Phase`**
+    (Int primitivo → guardados viejos cargan 0 = no iniciada). Los ACTORES (`mission2Npcs`, fusionados en
+    `uiState.npcs` por `updateNpcsState`) NO se guardan: cada tick de fase es **idempotente** y
+    re-spawnea los suyos si el mapa está vacío (cubre CARGAR partida y reintentos).
+  - `buildSaveData` **EXCLUYE** los NPCs de misión (`M2_*`/`CAMPAIGN_COP_*`/`ESCOM_FLOOD_*`) del snapshot
+    `nearbyNpcs` — si no, al CARGAR se re-inyectaban como civiles adoptados por la IA (duplicados/zombie
+    huérfano vagando).
+  - El zombie del brote se crea con **`visualConfig = null`** al convertirse (gotcha de render: un ZOMBIE
+    con visualConfig se dibuja como humano en los 3 renderers).
+  - En la fase PLÁTICA (`PHASE_TALK`) el game loop **NO corre `runPrankedyTick`** (branch dedicado en el
+    `when` de Prankedy del loop MIEMBRO): Prankedy debe quedarse ESTÁTICO; sin el gate te seguiría.
+  - Los SUBTÍTULOS de conversación van en `WorldMapState.storyConvoSpeaker/Text` (overlay nuevo en
+    `WorldMapScreenOverlays`); el rumor se PAUSA si el jugador sale del radio (cursores
+    `mission2ConvoIndex/NextMs` en el VM). Los DIÁLOGOS están hardcodeados en español (convención de
+    textos de historia); los TÍTULOS de objetivos sí son `@StringRes` (`obj_m2_*`, ES+EN).
+  - `retryCampaignMission` (ids con prefijo `m2_`) reinicia la misión COMPLETA desde la fase 1: respawn
+    en `Mission2.RETRY_SPAWN_*` + objetivo INGRESAR_ESCOM marcado done → `maybeStartMission2Story`
+    re-arma. ⚠️ `respawnPrankedyCompanionHere()` NO debe llamarse en el retry de m2 (re-fijaría el
+    objetivo ESCOLTAR_PRANKEDY y rompería el reinicio).
+  - La puerta de la ESCOM REDIRIGE al salón `escom_salon_m2` SOLO con `mission2Phase==PHASE_BACKPACK` y
+    SOLO para la ruta default de ESCOM (`WorldMapInteractions`); las puertas de FES/Neza no se tocan. El
+    salón (lata apestosa, evacuación, mochila 🎒): ver 05. La lata tirada se dibuja como **🥫** (+💨
+    mientras evacúan) en `ZombieGameState.mission2StinkX/Y` — SIN asset dedicado todavía.
+- **🆕 REGISTRO/SELECTOR DE MISIONES (2026-07-04, estilo Witcher) — reglas:** el diálogo R7
+  ("¿Continuar o mundo libre?") se ELIMINÓ (`continueStoryNow`/`deferStoryToFreeRoam`/
+  `resumeStoryMission`/`pendingResumeMissionId`/`showMissionContinueDialog` YA NO EXISTEN — la
+  escolta encadena DIRECTO con el cómic del chase). Las misiones 2/3 ya NO arrancan solas: se
+  SIGUEN desde Opciones → "Misiones" (`MissionLogDialog` + extensiones en `WorldMapMissionLog.kt`:
+  `selectCampaignMission`/`unfollowActiveMission`/`missionLogStatus`/`markMissionCompleted`).
+  "ACTIVA" = fase en curso Y objetivo con el prefijo de la misión (isMission2/3StoryActive lo
+  exige): DEJAR DE SEGUIR limpia el objetivo → los ticks se pausan y el game loop limpia sus NPCs;
+  RE-SEGUIR re-fija el objetivo de la fase (`resumeMission2/3Objective`). Completadas en
+  `WorldMapState.completedMissions` (persistidas; ⚠️ lista de Gson → coalesce NULL al restaurar).
+  M1 se marca completada al cumplir INGRESAR_ESCOM (WorldMapInteractions).
+  - **🆕 (2026-07-04b) El diálogo vive a nivel AppNavGraph, NO en WorldMapScreen:** `MissionLogHost`
+    (en `MissionLogDialog.kt`) se compone DESPUÉS del NavHost (mismo patrón que `SaveSlotsDialog`)
+    con el `worldMapViewModel` Activity-scoped → un solo diálogo sirve al mapa global Y a los
+    interiores (`ZombieGameScreen` ganó el ítem "Misiones" vía callback `onRequestMissionLog`,
+    non-null solo en campaña; MVVM: el VM de interiores NO toca al del mundo). PERF: cerrado, el
+    host solo colecta `showMissionLog` con `map+distinctUntilChanged` (no recompone a 30 Hz). Si
+    sigues una misión de exterior desde un interior, el 🎯 aparece al salir (el objetivo vive en el
+    VM del mundo). NO volver a hospedar el diálogo dentro de una pantalla.
+  - **🆕 (2026-07-04b) "Elegir personaje" del MAPA GLOBAL = solo Modo Desarrollador:**
+    `wm_opt_change_skin` en el menú Opciones de `WorldMapScreen` va gateado por `developerMode`.
+    El "Elegir personaje" de INTERIORES (ZombieGameScreen) sigue visible para el jugador.
+- **🆕 (2026-07-08) MISIÓN 2 · FASE 1 "ESCONDERSE" REDISEÑADA — ahora se juega DENTRO del lobby:**
+  la vieja fase exterior (policías `M2_SEARCH_COP_*` en la entrada) se ELIMINÓ de
+  `WorldMapMission2.kt` (su `when` de `PHASE_HIDE` queda vacío; el 🎯 exterior apunta a la puerta
+  para guiarte a ENTRAR). La búsqueda vive en el motor de INTERIORES: policías **`m2cop_*`**
+  (skin `POLICIA_CDMX`) DENTRO de `ambientNpcs` (`spawnMission2HideCops`/`stepMission2HideCops`
+  en `ZombieAmbientNpcs.kt`; detección + countdown en `ZombieGameTick`; constantes en PÍXELES
+  `HIDE_DETECT_PX`/`HIDE_DURATION_MS`/… en `Mission2.kt`). Reglas:
+  - El armado es en **RUNTIME** (`ZombieInteriorViewModel.setMission2Hide`, llamado por
+    `LaunchedEffect(mission2Hide)` de `ZombieGameScreen`): NO es parámetro assisted del VM —
+    así funciona aunque sigas la M2 desde el registro estando YA dentro del lobby. AppNavGraph
+    calcula `mission2Hide` (inCampaign + fase HIDE + objetivo `m2_esconderse_policia` seguido).
+  - Desenlaces por callback (AppNavGraph): `onMission2HideCompleted → completeMission2Hide()`
+    (avanza a RUMOR y fija su 🎯; el jugador sale del lobby cuando quiera) y
+    `onMission2HideFailed → failMission2Hide()` + `popBackStack` al mapa (ahí vive MISIÓN
+    FALLIDA/REINTENTAR, rama `m2_`, que re-arma desde la fase 1).
+  - El emparejador de la vida universitaria **IGNORA** los ids `m2cop_*` (un policía no platica).
+  - Timers (`mission2HideStartMs/DetectSinceMs`) = vars TRANSITORIAS del VM de interiores; salir
+    del lobby y volver RE-ARMA la búsqueda desde cero (idempotente). Flags de desenlace en
+    `ZombieGameState.mission2Hide*`.
+- **🆕 (2026-07-08) VIDA ESCOM (interior + campus):** interiores: `ambientCountFor(room)` (lobby
+  13 / salón M2 8), GUIONES de plática coherentes (`AMBIENT_CONVOS` + `AmbientNpc.talkStartMs`;
+  strings `amb_convo{1..6}_{1..4}` ES+EN con paridad; ya NO frases sueltas sin hilo) y 2 parejas
+  nacen platicando en el lobby (`spawnAmbientNpcs`). Exterior: **`WorldMapCampusLife.kt`**
+  (NUEVO) mantiene ~10 estudiantes `CAMPUS_*` en el bbox de la ESCOM (deambulan + corrillos de 3
+  con 💬; TODO determinista por cubetas de tiempo, sin estado por NPC); lista `campusNpcs`
+  fusionada en `updateNpcsState` (`WorldMapMultiplayer.kt`), EXCLUIDA de `buildSaveData`
+  (prefijo `CAMPUS_`), pausada durante escolta/chase de M1 y en zombi global. ⚠️ Gotcha nuevo:
+  NO nombrar extensiones como las de stdlib (p. ej. `Set.indexOf` taparía la estándar de
+  `Iterable`) — por eso `campusSlotOf`.
+- **🆕 REJUGAR MISIONES + MODO DEV en el registro (2026-07-04b) — reglas:** las ✔ COMPLETADAS
+  ganan botón **REJUGAR** (`replayCampaignMission`); con `developerMode` además: las 🔒 son
+  seleccionables (`selectCampaignMission(id, force=true)` salta `requiresMissionId`) y cada misión
+  tiene **"TP al objetivo"** (`devTeleportToMissionObjective`). 🆕 2026-07-12 (+refinado
+  2026-07-13): el TP es **TP al CHECKPOINT de la fase ACTUAL con el requisito BLOQUEANTE
+  concedido**: sigue la misión primero (force / replay si ✔) y te lleva al **LUGAR REAL donde se
+  juega la fase** — una SALA de interiores (M1 `ir_encb`→`encb_lab2` CON la llave correcta **en el
+  inventario** (`KeyDrop.LAB1_CORRECT_KEY`) y `currentInteriorLab1KeyFound=true` — así el waypoint
+  dispara el cómic ENCB_OUTRO y lab1 ya no siembra llaves; M1 pistas / M2 rumor→lobby ESCOM; M2
+  mochila→`escom_salon_m2`; M3 asalto→cadena ENCB) o un punto del MAPA (+~40 m N del 🎯; escolta
+  M1 = además warpea a Prankedy contigo, `devEnsurePrankedyEscort`). 🆕 2026-07-13b: en la M2
+  **cada TP CUMPLE la fase actual** (esconderse/rumor/brote/plática → `devCompleteMission2Phase`,
+  que reusa `advanceM2Phase` y consume el cómic de la mochila para no chocar con la navegación
+  del TP) **y te deja en el punto de la SIGUIENTE** — antes el TP te regresaba a la persecución
+  sin salida. La ÚLTIMA fase (mochila) NO se completa: el TP te deja en el salón y la juegas.
+  **NUNCA completa la MISIÓN entera** (⚠️ el comportamiento viejo llamaba
+  `completeMission2Backpack`/`completeMission3Evidence` desde interiores — NO recuperarlo).
+  Funciona desde mapa E interiores: la navegación viaja en
+  `WorldMapState.devTpRoute` (sala o sentinela `DEV_TP_TO_MAP`) y la ejecuta un efecto junto a
+  `MissionLogHost` en AppNavGraph (pop a world_map + navigate; colecta solo ese campo).
+  **REGLA DURA — el replay NO toca el progreso guardado.** Diseño:
+  - `WorldMapViewModel.replayingMissionId` es **TRANSITORIO** (no viaja en `GameSaveData`).
+    `setStorySpawn` lo limpia (COMENZAR/CARGAR cancelan replays); `replayCampaignMission` (M1) y
+    `retryCampaignMission` lo restauran a propósito tras su `setStorySpawn` interno.
+  - Rejugar M2/M3 = `startMission2/3Story` (fase transitoria a la mitad); rejugar M1 = respawn en
+    la escuela de campaña + `setCampaignObjective(first)` **conservando** mission2/3Phase (se
+    capturan alrededor de `setStorySpawn`, que las resetea).
+  - **`buildSaveData` CLAMPA las fases a DONE si la misión está en `completedMissions`** (cubre el
+    replay Y el reset transitorio de `setStorySpawn` en reintentos — antes un retry de la M3
+    podía persistir mission2Phase=0 y "perder" la mochila) y NO guarda el objetivo de un replay
+    (la partida queda como mundo libre). AppNavGraph gatea los slots de inventario también por
+    `completedMissions` (no solo `mission2Phase>=DONE`).
+  - Fin del replay: volver a completar la misión (`markMissionCompleted` apaga el flag; fases ya
+    en DONE; recompensas idempotentes — `completedMissions` no se des-marca, `hasFirearm` no se
+    pierde) o DEJAR DE SEGUIR (`unfollowActiveMission` → `endMissionReplay` restaura la fase a
+    DONE y limpia actores). `missionLogStatus` muestra ACTIVA la misión rejugada mientras su
+    objetivo esté activo. El snapshot de NPCs excluye ahora también `M3_*` (antes solo
+    M2_/CAMPAIGN_COP_/ESCOM_FLOOD_).
+- **🆕 MISIÓN 3 "Regreso a la ENCB" (2026-07-04):** `mission3/Mission3.kt` + `WorldMapMission3.kt`
+  (viaje → cordón de granaderos con SIGILO → asalto interior). Claves: los "granaderos" usan
+  `POLICE_COP` (render exterior premade pendiente); entrada/RE-entrada al interior vía
+  `mission3EnterEncb` (navega WorldMapScreenOverlays a `interiores_zombies?startRoom=encb_lobby`)
+  con HISTÉRESIS `mission3ReentryArmed` (aléjate >2× y vuelve — evita bucle de navegación en la
+  puerta); el interior siembra zombis en la cadena ENCB con `mission3Assault` (Factory param;
+  ignora `zombieModeActivated`) + EVIDENCIA 🧪 en `encb_lab1` con auto-salida al recogerla.
+  Persistencia: `GameSaveData.mission3Phase` + `hasFirearm`. Ver `CAMPAIGN/03_MISSION_3.md`.
+- **🆕 INVENTARIO desbloqueable + ARMA DE FUEGO (2026-07-04):** los slots usables son DINÁMICOS
+  (`ZombieGameState.inventoryUnlockedSlots`, default 1): la MOCHILA de Prankedy los sube a
+  `INVENTORY_TOTAL_SLOTS` (y AppNavGraph pasa 4 en sesiones futuras si `mission2Phase>=DONE`).
+  El modo RANGED se BLOQUEA en campaña sin `hasFirearm` (recompensa de la M3): candado 🔒 en
+  ZombieHud + rechazo con aviso en `selectCombatMode`; fuera de campaña/multijugador AppNavGraph
+  pasa `firearmUnlocked=true` (comportamiento intacto). NO volver a leer `INVENTORY_UNLOCKED_SLOTS`
+  como tope de recogida (usa el estado).
+- **🆕 MISIONES SECUNDARIAS + ECONOMÍA + EVENTOS DINÁMICOS + DÍA/NOCHE (2026-07-08) — reglas:**
+  - **Secundarias (side1/side2, `WorldMapSideMissions.kt` + `side/SideMissions.kt`):** SIN fase
+    persistida (el id del objetivo activo ES el estado; `MissionCatalog.byId` resuelve `s1_/s2_`
+    porque `all` incluye `SideMissions.objectives` — NO quitarlas de ahí o CARGAR una partida a
+    media secundaria pierde el objetivo). Sin "MISIÓN FALLIDA" al morir. Limpieza en el `else`
+    del `when` de misiones del game loop y en `setStorySpawn` (`clearSideMissions`).
+  - **Zombis de side2 = `NpcAiManager.SIDE_ZOMBIE_PREFIX` (`SMZ_`) en `remoteEntities`:** el gate
+    del mover zombi en `updateNpcs` es `(globalZombieMode || id.startsWith(SIDE_ZOMBIE_PREFIX))`.
+    NO quitar el prefijo del gate: un ZOMBIE fuera del apocalipsis cae a `moveNpc` → null →
+    **despawn inmediato** (por eso los zombis scriptados de misión/eventos que NO deben ser
+    atacables van en listas propias, no en remoteEntities).
+  - **ECONOMÍA (`WorldMapEconomy.kt`):** `WorldMapState.playerMoney` es campo PLANO de `_uiState`
+    (ningún manager lo posee) y se persiste en `GameSaveData.playerMoney` (Int primitivo → 0 en
+    guardados viejos). La recompensa de misión la paga `markMissionCompleted` SOLO si la misión
+    NO estaba en `completedMissions` (los REPLAYS no duplican — no mover ese hook después de
+    `campaignManager.markCompleted` o pagaría 0 veces… ni quitarle el guard o pagaría siempre).
+  - **EVENTOS DINÁMICOS (`WorldMapDynamicEvents.kt`):** actores `DYN_*` en `dynamicEventNpcs`
+    (lista propia fusionada por `updateNpcsState`, NO atacables, movimiento scriptado). El tick
+    NO corre con apocalipsis ni durante escenas de misión (escolta/chase/M2/M3) y se cancela si
+    el jugador se aleja >~330 m (teleport). El mini-brote pondera por `nightAlpha` y M3 completada.
+  - **Exclusiones de guardado:** `buildSaveData` excluye TAMBIÉN los prefijos `SM_`/`SMZ_`/`DYN_`
+    del snapshot de NPCs (además de M2_/M3_/CAMPAIGN_COP_/ESCOM_FLOOD_).
+  - **DÍA/NOCHE (`WorldMapDayNight.kt`):** reloj DETERMINISTA del epoch (1 min real = 1 h de
+    juego, ciclo 24 min; nada persistido). `updateDayNightTick` corre cada tick con throttle
+    interno ~1 Hz y solo escribe si cambió. El VELO nocturno es una **capa Compose
+    renderer-agnóstica en WorldMapScreen** (Box alpha=`nightAlpha`, tras el flash de daño, BAJO
+    el HUD) — NO moverlo a un renderer concreto (mismo error que el editor de debug, ver arriba).
+    Chips nuevos del HUD: 🕐 hora (siempre) y 💵 dinero (si `playerMoney > 0`).
+  - **FANTASMITA al morir un NPC (3 renderers):** OSM nativo = fade POR FRAME
+    (`marker.alpha - 0.035f` por tick, sin timestamps ni allocs — el alpha vive en el Marker,
+    NUNCA meterlo al `cacheKey` de `nativeDrawableCache` o explota el LRU); web = fade CSS
+    (`wrapper._ghost` + `transition: opacity 0.85s` en `updateNpcs`); Google nativo ya tenía
+    `alpha = 0.5f` plano con `isDying`. El VM retira el NPC ~1 s tras `isDying=true` (Combat).
+- **🆕 FIX autos del estacionamiento del LOBBY (2026-07-04):** los sprites de coche son FRAMES
+  DIRECCIONALES (48/modelo): el exterior pide el frame del ángulo; el interior pedía el frame 0 y
+  lo giraba con `Modifier.rotate` → autos desalineados de los cajones. `ParkedCarsLayer` ahora
+  resuelve el MISMO frame direccional (facing = base del carril + calibración) y NO rota en
+  Compose. El prefetch de bitmaps se re-hace si cambia la calibración (keys del produceState).
+  NO reintroducir `.rotate(facing)` sobre frames direccionales.
+- **🆕 NPCs AMBIENTALES: vida universitaria + ANTI-ATASCO (2026-07-03, `ZombieAmbientNpcs.kt`):**
+  máquina de modos `AmbientMode` (WANDER/MEETING/TALK/WALK_TOGETHER): parejas que quedan de verse,
+  platican con **burbujas alternadas** (frases `@StringRes` `amb_phrase_1..10` + despedida
+  `amb_phrase_bye` "Ahí nos vemos", ES+EN — NO hardcodear frases nuevas), caminan juntas y se separan.
+  **⚠️ REGLA DE PAREJAS:** toda decisión compartida (duración de plática, ¿caminar juntos?, destino
+  común) se deriva DETERMINISTA de `pairSeed` (mismo valor en ambos): cada NPC se configura A SÍ MISMO
+  — NUNCA escribir al partner desde el tick del otro (carrera por orden de procesamiento; deadlock real
+  detectado en diseño). Pass de CONSISTENCIA al inicio del tick: pareja rota → `unpair`. **ANTI-ATASCO:**
+  checkpoint `stuckX/Y/SinceMs`; sin avance >6 px por 1.6 s → nuevo objetivo (y cancela pareja si la
+  había); el checkpoint se re-arma al moverse (re-detecta atascos futuros). Burbujas: `npc.speechRes`
+  dibujado por `ZombieGameScreen` (Text + stringResource sobre la cabeza).
 - **🆕 Panel Debug Interiores movible + Salir (`InteriorDebugEditorPanel`):** el editor de líneas de
   colisión del mapa global ahora es movible/redimensionable/scroll (mismo patrón que el panel del
   diseñador de matrices: asa con `detectDragGestures`, `graphicsLayer` scale −/+, `heightIn(max=90%)` +
@@ -834,9 +1123,13 @@ matrices por defecto son **border-only** hasta reemplazarse.
   - `StoryIntroScreen`: oculta el botón **"Editar"** (editor del cuadro de texto del cómic).
   - `ZombieGameScreen` (interiores, menú Opciones): oculta **"Diseñador"**; y **"Salir al mapa"** solo cuando
     la sala está en la cadena `ZombieRoomCatalog.ENCB_STORY_ROOM_IDS` (Misión 1) → `developerMode || !inMission1`.
-  - `WorldMapScreen` (mundo, menú Opciones): oculta **"Teletransportarse"**, el grupo **"Diseñador / Debug"**
+  - `WorldMapScreen` (mundo, menú Opciones): oculta **"Elegir personaje"** (🆕 2026-07-04b; el de
+    INTERIORES sigue visible), **"Teletransportarse"**, el grupo **"Diseñador / Debug"**
     (Modo Diseñador + Debug Interiores + Agregar asset), **"Activar/Desactivar Apocalipsis"** y el toggle de
     **Prankedy**.
+  - `MissionLogDialog` (registro de misiones): con el modo ENCENDIDO, las misiones 🔒 son
+    seleccionables (`force=true` salta `requiresMissionId`) y cada misión gana **"TP al objetivo"**
+    (🆕 2026-07-04b; se lee al ABRIR el diálogo, no al entrar a la pantalla).
   Como se lee con `remember` al entrar, el cambio aplica al re-entrar a la pantalla (no en vivo). Strings
   `settings_developer_mode`/`_desc` (es+en).
 - **🆕 Widget de coordenadas X/Y/Z (`showCoordsWidget`, Ajustes → Interfaz, default oculto):** composable
@@ -909,7 +1202,17 @@ matrices por defecto son **border-only** hasta reemplazarse.
   por eso el abordaje se completa.
 - **🆕 Joystick en MODO MANEJO:** `VehicleJoystickController` (dirige izq/der por el eje X, press/release). En
   `WorldMapScreen` la rama de conducción usa joystick si `controlType==JOYSTICK`, si no las flechitas
-  (`VehicleDPadController`). Gas/freno siguen en el diamante PS4.
+  (`VehicleDPadController`). Gas/freno siguen en el diamante de acciones.
+- **🆕 CONTROL UNIFICADO Xbox a pie Y conduciendo (2026-07-03):** el diamante de conducción ya NO es
+  estilo PS4 (`Ps4ActionButtonsController`/`Ps4Button` ELIMINADOS): ahora es
+  **`VehicleActionButtonsController`**, que reutiliza el MISMO `ActionButton` Xbox del modo a pie
+  (mismas letras/colores/posiciones: Y arriba amarillo · X izquierda azul · B derecha rojo · A abajo
+  verde). Mapeo al conducir: **Y = SALIR**, **A = GAS**, **B = FRENO**, **X = freno de mano**.
+  No reintroducir símbolos PS (△○✕□): un solo lenguaje de control en todo el juego.
+  **🆕 (2026-07-12) El "mantener Y 3 s → menú de teletransporte" se RETIRÓ** (a pie Y conduciendo;
+  petición del dueño: el TP tiene su botón propio en el menú Mapa). `yButtonHoldJob` ya no existe —
+  NO recrear la pulsación larga de Y. Además, al abrir el menú de Opciones/Mapa la botonera derecha
+  se desplaza a la izquierda TAMBIÉN en vertical (antes solo horizontal) para no traslaparse.
 - **🆕 Multitud civil de ESCOM (Misión 2) = 50+ desde punto fijo:** `updateEscomCrowd` ahora spawnea desde
   `CROWD_SPAWN` (no la puerta), `CROWD_MAX=55`, intervalo 150 ms; se alejan, se despawnean al salir del fog y se
   reemplazan por nuevos. (Ojo gama baja: son NPCs PERSON; si pesa, baja `CROWD_MAX`.) **🆕 La multitud camina
@@ -964,4 +1267,37 @@ updated **in the same change** that touches the code. Treat it as part of the de
 ### Definición de "hecho" / Definition of done
 El cambio está completo solo cuando: **el código compila/valida** (Android Studio Rebuild; servidores
 `node --check server.js`) **y** los tres conjuntos de docs describen la nueva realidad y concuerdan. Si no
-puedes actualizar los docs, **la tarea no está terminada — dilo explícitamente.** 
+puedes actualizar los docs, **la tarea no está terminada — dilo explícitamente.**
+
+---
+
+## 🆕 Capa de oclusión (profundidad) + Retroalimentación de botones
+
+### Oclusión / depth y-sort (interiores)
+- **Motor de salas (05):** la matriz admite la celda **`'^'` = OBJETO QUE TAPA** (`CollisionMatrix.OCCLUDER`).
+  BLOQUEA igual que `'#'` **y** el render dibuja al jugador **detrás** cuando está al norte de la celda y
+  **delante** cuando está al sur (y-sort). Se pinta en el Diseñador (pincel **OBJETO**, azul) y se persiste en
+  `collision_matrices.json` (formato sin cambios; `'^'` es un carácter más). Render en `ZombieGameScreen`:
+  `computeOccluders` agrupa `'^'` contiguas (4-conexo) → Y-base por objeto; una `Canvas` redibuja el trozo del
+  fondo sobre el jugador. Solo ocluye al **jugador local**.
+- **Interiores simples (06):** `CollisionGrid` usa **valor `2`** (`CollisionGrid.OCCLUDER`) con la misma
+  semántica; `InteriorScreenBase` tiene la misma capa (`computeGridOccluders`). `InteriorViewModel.collisionGrid`
+  es **público** (solo lectura) para que la vista lea los `2`. Sin diseñador aquí → se autora la grid a mano.
+- **✅ RESUELTO (2026-07-10) — paridad de oclusión online:** `server.js` (interiores) ahora bloquea
+  `'#'` **y** `'^'` vía el helper `isSolidCell` (lo usan `isBlocked` e `isCellBlocked` → aplica a
+  zombis autoritativos, civiles, spawns, flow-field y la validación `PLAYER_CORRECT`). Igual que el
+  cliente (`'^'`/`2`). Validado con `node --check`. Requiere REDEPLOY del server de interiores. Ver 08.
+- **⚠️ GOTCHA render:** la capa de oclusión va **DESPUÉS del jugador y DENTRO de `!designerMode`**, antes del
+  HUD (que se dibuja luego y nunca se tapa). En Modo Diseñador NO se ocluye (ves la matriz cruda).
+
+### Retroalimentación de botones (feedback) — `map_exterior/ui/components/InputFeedback.kt`
+- **Compartida por interiores y exterior** (los controles viven en `GameControllers.kt`). Tres canales:
+  **VISUAL** (el botón se hunde `scale 0.88` + se aclara al pulsar; el pulgar del joystick se aclara al
+  arrastrar), **HÁPTICO** (`View.performHapticFeedback(VIRTUAL_KEY)`, respeta ajustes del sistema, **sin
+  permiso VIBRATE**) y **SONIDO** (`AudioManager.playSoundEffect(FX_KEY_CLICK)` a volumen = **SFX de
+  Ajustes→Audio**; 0 = mudo; respeta además "sonidos táctiles" del SO, sin assets).
+- `rememberInputFeedback()` se crea 1 vez por pantalla; lee el volumen SFX al entrar (como otros ajustes).
+  `feedback.tap()` se llama en el **flanco de bajada** de cada botón (`ActionButton`, `DPadButton`,
+  `VehicleDpadButton`, joystick). `repeatingClickable` ganó `onPress:(Boolean)` para el resalte/feedback 1×/toque.
+- **No** añade un toggle de Ajustes propio: el sonido se controla con el slider **Efectos** (Audio) y la
+  vibración con los ajustes hápticos del sistema. (Si se quisiera un toggle dedicado, iría en Ajustes→Interfaz.)

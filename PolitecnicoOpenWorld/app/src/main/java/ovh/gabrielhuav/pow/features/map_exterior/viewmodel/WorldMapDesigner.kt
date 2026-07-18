@@ -301,14 +301,28 @@ fun WorldMapViewModel.deleteSelectedLandmark(context: Context) {
 fun WorldMapViewModel.exportLandmarksToUri(context: Context, uri: android.net.Uri) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            val dao = PowDatabase.getInstance(context).landmarkDao()
-            val entities = dao.getAllLandmarks()
-            val jsonString = Gson().toJson(entities)
+            // Exportar el ESTADO ACTUAL EN MEMORIA (lo que el diseñador ve y acomodó)
+            // en lugar de lo que está en la BD (para evitar exportar datos viejos si olvidó guardar).
+            val currentLandmarks = _uiState.value.landmarks
+            val entities = currentLandmarks.map { lm ->
+                ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity(
+                    id = lm.id,
+                    name = lm.name,
+                    latitude = lm.location.latitude,
+                    longitude = lm.location.longitude,
+                    assetPath = lm.assetPath,
+                    scaleFactor = lm.scaleX, // scaleFactor de legado
+                    rotationAngle = lm.rotationAngle,
+                    scaleX = lm.scaleX,
+                    scaleY = lm.scaleY
+                )
+            }
+            val jsonString = com.google.gson.Gson().toJson(entities)
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                 outputStream.write(jsonString.toByteArray())
             }
         } catch (e: Exception) {
-            Log.e("WorldMapViewModel", "Error al guardar JSON en archivo", e)
+            android.util.Log.e("WorldMapViewModel", "Error al guardar JSON en archivo", e)
         }
     }
 }

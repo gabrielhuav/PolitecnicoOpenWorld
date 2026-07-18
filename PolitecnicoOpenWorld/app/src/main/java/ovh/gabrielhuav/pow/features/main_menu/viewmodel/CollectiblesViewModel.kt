@@ -1,19 +1,18 @@
 package ovh.gabrielhuav.pow.features.main_menu.viewmodel
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
-import ovh.gabrielhuav.pow.data.local.room.PowDatabase
-import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
+import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.data.local.room.entity.CollectibleEntity
+import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 
-class CollectiblesViewModel(
+// ETAPA 4 (Hilt): @HiltViewModel + @Inject; el CollectibleRepository lo provee AppModule.
+@dagger.hilt.android.lifecycle.HiltViewModel
+class CollectiblesViewModel @javax.inject.Inject constructor(
     private val collectibleRepository: CollectibleRepository
 ) : ViewModel() {
 
@@ -32,12 +31,5 @@ class CollectiblesViewModel(
                 initialValue = emptyList()
             )
 
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            val database = PowDatabase.getInstance(context.applicationContext)
-            val repository = CollectibleRepository(database.collectibleDao())
-            return CollectiblesViewModel(repository) as T
-        }
-    }
+    // ETAPA 4 (Hilt): Factory manual eliminado → hiltViewModel()/by viewModels() + inyección.
 }

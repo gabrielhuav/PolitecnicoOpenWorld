@@ -4,20 +4,56 @@ import android.content.res.Configuration
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -29,7 +65,6 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.viewmodel.compose.viewModel
 import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuState
@@ -41,14 +76,17 @@ fun MainMenuScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToCollectibles: () -> Unit,
     onNavigateToStory: () -> Unit,
+    onNavigateToStreetFighter: () -> Unit = {},
     authManager: ovh.gabrielhuav.pow.data.auth.AuthManager? = null
 ) {
-    val viewModel: MainMenuViewModel = viewModel()
+    val viewModel: MainMenuViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
 
     // Nombre de jugador recordado entre sesiones (SharedPreferences). Se prellena al abrir.
     val settingsRepo = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context) }
+    // (2026-07-15) "HUELUM VS. GOYA" ya es PÚBLICO: el botón se muestra siempre. Lo que ahora
+    // gatea el Modo Desarrollador son RYU y KEN dentro del selector (ver StreetFighterViewModel).
     LaunchedEffect(Unit) {
         if (state.playerName.isBlank()) {
             val saved = settingsRepo.getPlayerName()
@@ -113,7 +151,8 @@ fun MainMenuScreen(
                         onNavigateToSettings = onNavigateToSettings,
                         onNavigateToCollectibles = onNavigateToCollectibles,
                         onNavigateToStory = onNavigateToStory,
-                        onMultiplayerClick = onMultiplayer
+                        onMultiplayerClick = onMultiplayer,
+                        onNavigateToStreetFighter = onNavigateToStreetFighter
                     )
                 }
             }
@@ -132,7 +171,8 @@ fun MainMenuScreen(
                     onNavigateToSettings = onNavigateToSettings,
                     onNavigateToCollectibles = onNavigateToCollectibles,
                     onNavigateToStory = onNavigateToStory,
-                    onMultiplayerClick = onMultiplayer
+                    onMultiplayerClick = onMultiplayer,
+                    onNavigateToStreetFighter = onNavigateToStreetFighter
                 )
             }
         }
@@ -274,7 +314,8 @@ fun MenuButtonsList(
     onNavigateToSettings: () -> Unit,
     onNavigateToCollectibles: () -> Unit,
     onNavigateToStory: () -> Unit,
-    onMultiplayerClick: () -> Unit = { viewModel.onMultiplayerPressed() }
+    onMultiplayerClick: () -> Unit = { viewModel.onMultiplayerPressed() },
+    onNavigateToStreetFighter: () -> Unit = {}
 ) {
     // MUNDO LIBRE: el open world sin campaña (antes "Iniciar Juego"). Spawn por defecto.
     MenuButton(
@@ -319,6 +360,90 @@ fun MenuButtonsList(
         enabled = !state.isWarmingUp,
         color = Color(0xFF6B1C3A)
     )
+
+    // 🆕 HUELUM VS. GOYA — MODO PRINCIPAL: botón DESTACADO y ANIMADO (pulso + brillo dorado que
+    // barre + borde y sombra que laten) para que resalte enormemente sobre los demás modos.
+    Spacer(Modifier.height(20.dp))
+    FeaturedStreetFighterButton(
+        text = stringResource(R.string.menu_street_fighter),
+        tag = stringResource(R.string.menu_featured_tag),
+        onClick = onNavigateToStreetFighter,
+        enabled = !state.isWarmingUp,
+    )
+}
+
+/**
+ * Botón ESTELAR del modo pelea: pulso de escala, barrido de brillo dorado, borde y sombra
+ * doradas que laten. Diseñado para gritar "esta es la modalidad principal".
+ */
+@Composable
+private fun FeaturedStreetFighterButton(text: String, tag: String, onClick: () -> Unit, enabled: Boolean) {
+    val shape = CutCornerShape(topStart = 20.dp, bottomEnd = 20.dp)
+    val gold = Color(0xFFFFD54A)
+    val tr = rememberInfiniteTransition(label = "sfFeatured")
+    val scale by tr.animateFloat(
+        1f, 1.05f,
+        infiniteRepeatable(tween(850, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scale",
+    )
+    val glow by tr.animateFloat(
+        0.45f, 1f,
+        infiniteRepeatable(tween(850, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "glow",
+    )
+    val shimmer by tr.animateFloat(
+        0f, 1f,
+        infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Restart), label = "shimmer",
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .height(76.dp)
+            .graphicsLayer { scaleX = if (enabled) scale else 1f; scaleY = if (enabled) scale else 1f }
+            .shadow(elevation = 18.dp, shape = shape, ambientColor = gold, spotColor = gold)
+            .clip(shape)
+            .background(
+                Brush.linearGradient(listOf(Color(0xFF8A0F32), Color(0xFFC4143C), Color(0xFF8A0F32))),
+            )
+            .border(BorderStroke(3.dp, gold.copy(alpha = if (enabled) glow else 0.5f)), shape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Barrido de brillo dorado (detrás del texto)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .drawBehind {
+                    val w = size.width
+                    val hl = w * 0.30f
+                    val x = -hl + (w + hl) * shimmer
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            0f to Color.Transparent,
+                            0.5f to gold.copy(alpha = 0.40f),
+                            1f to Color.Transparent,
+                            startX = x,
+                            endX = x + hl,
+                        ),
+                    )
+                },
+        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "★ $text ★",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = tag,
+                color = gold,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 4.sp,
+            )
+        }
+    }
 }
 
 @Composable

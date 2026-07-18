@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.interiores.zombies.ui
 
+// REFACTOR: funciones del Modo Diseñador extraídas a ZombieGameDesigner.kt (parcial del VM)
+// → ahora son extensiones y requieren import explícito desde el paquete ui. Ver 09 §0.
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,12 +16,34 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -29,7 +53,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -42,9 +75,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -55,56 +92,45 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
-import kotlin.random.Random
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneType
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
 import ovh.gabrielhuav.pow.features.interiores.core.ui.CollisionMatrixDesignerLayer
+import ovh.gabrielhuav.pow.features.interiores.core.ui.InteriorNpcView
+import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerView
+import ovh.gabrielhuav.pow.features.interiores.core.ui.RemotePlayerView
 import ovh.gabrielhuav.pow.features.interiores.core.ui.WaypointDesignerLayer
-import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerView          // vista de jugador compartida (core)
-import ovh.gabrielhuav.pow.features.interiores.core.ui.RemotePlayerView    // vista de jugador remoto/civil (core)
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
 import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.DesignerBrush
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieInteriorViewModel
-// REFACTOR: funciones del Modo Diseñador extraídas a ZombieGameDesigner.kt (parcial del VM)
-// → ahora son extensiones y requieren import explícito desde el paquete ui. Ver 09 §0.
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.toggleDesignerMode
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerTarget
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerBrushWall
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.selectDoorAtWorld
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.exportMatricesToUri
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.exportWaypointsToUri
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importMatricesFromUri
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importWaypointsFromUri
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.moveSelectedDoorToWorld
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.saveDesignerWaypoints
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resetDesignerWaypoints
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.paintCellAtWorld
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resetDesignerMatrix
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resetDesignerWaypoints
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resizeDesignerMatrixBy
 import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.saveDesignerMatrix
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.resetDesignerMatrix
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.exportMatricesToUri
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importMatricesFromUri
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.exportWaypointsToUri
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.importWaypointsFromUri
-import ovh.gabrielhuav.pow.R
-import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
-import kotlin.math.max
-import kotlin.math.hypot
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.saveDesignerWaypoints
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.selectDoorAtWorld
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerBrush
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.setDesignerTarget
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.toggleDesignerMode
 import ovh.gabrielhuav.pow.features.map_exterior.ui.SkinSelectorDialog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
+import ovh.gabrielhuav.pow.features.map_exterior.ui.ZombiVideoPlayer
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
+import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlin.random.Random
 
 private const val ZOMBIE_SPRITE_BASE = 60f
 private const val PLAYER_SPRITE_BASE = 56f
@@ -113,8 +139,8 @@ private const val PLAYER_SPRITE_BASE = 56f
 // en cada drawCircle de cada frame (presión de GC en gama baja).
 private val PLAYER_LIGHT_COLORS = listOf(Color(0x80FFF59D), Color(0x33FFEB3B), Color.Transparent)
 private val ZOMBIE_LIGHT_COLORS = listOf(Color(0x6676FF03), Color(0x2664DD17), Color.Transparent)
-private val PLAYER_LIGHT_RADIUS = PLAYER_SPRITE_BASE * 2.5f
-private val ZOMBIE_LIGHT_RADIUS = ZOMBIE_SPRITE_BASE * 2f
+private const val PLAYER_LIGHT_RADIUS = PLAYER_SPRITE_BASE * 2.5f
+private const val ZOMBIE_LIGHT_RADIUS = ZOMBIE_SPRITE_BASE * 2f
 
 @Composable
 fun ZombieGameScreen(
@@ -127,6 +153,11 @@ fun ZombieGameScreen(
     startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
     // MODO HISTORIA: abre el selector de slots para guardar la partida (también en interiores).
     onRequestSaveGame: () -> Unit = {},
+    // MODO HISTORIA: abre el REGISTRO DE MISIONES (MissionLogDialog, hospedado a nivel
+    // AppNavGraph con el worldMapViewModel Activity-scoped). null = fuera de campaña (se
+    // oculta el ítem "Misiones" del menú de Opciones). MVVM: este VM de interiores NO se
+    // acopla al del mundo; solo emite la intención por callback.
+    onRequestMissionLog: (() -> Unit)? = null,
     // MODO HISTORIA: el waypoint final de ENCB_LAB2 pide reanudar la narrativa (cómic ENCB_OUTRO).
     onPlayStoryOutro: () -> Unit = {},
     // MODO HISTORIA: notifica la sala actual (id de ZombieRoomCatalog) al entrar y en cada
@@ -140,15 +171,42 @@ fun ZombieGameScreen(
     // progreso de ENCB_lab1) y callback para PERSISTIRLO (lo escribe MainActivity en el VM del mundo).
     initialInventoryKeys: List<String> = emptyList(),
     initialLab1KeyFound: Boolean = false,
-    onInteriorProgress: (List<String>, Boolean) -> Unit = { _, _ -> }
+    onInteriorProgress: (List<String>, Boolean) -> Unit = { _, _ -> },
+    // MISIÓN 2 · salón de la mochila: se dispara al RECOGER la mochila de Prankedy (el VM del
+    // mundo completa la Misión 2 vía completeMission2Backpack; lo cablea AppNavGraph).
+    onMission2BackpackRecovered: () -> Unit = {},
+    // MISIÓN 2 (mochila): slots de inventario desbloqueados al entrar (1 → 4 tras la mochila).
+    initialUnlockedSlots: Int = 2,
+    // MISIÓN 3 (recompensa): ¿ya tiene arma de fuego? (gate del modo RANGED; true fuera de campaña).
+    firearmUnlocked: Boolean = true,
+    // MISIÓN 3 (asalto ENCB): siembra zombis en la cadena ENCB + la evidencia 🧪 en encb_lab1.
+    mission3Assault: Boolean = false,
+    // MISIÓN 3: se dispara al RECOGER la evidencia (el mundo completa la misión + arma de fuego).
+    onMission3EvidenceRecovered: () -> Unit = {},
+    // MISIÓN 2 · fase 1 "ESCONDERSE" (lobby): true mientras la fase esté activa y seguida. Se
+    // pasa en RUNTIME (no al crear el VM): así también arma la búsqueda si sigues la Misión 2
+    // desde el registro estando YA dentro del lobby. Desenlaces → callbacks al VM del mundo.
+    mission2Hide: Boolean = false,
+    onMission2HideCompleted: () -> Unit = {},
+    onMission2HideFailed: () -> Unit = {},
+    mission2Rumor: Boolean = false,
+    onMission2RumorCompleted: () -> Unit = {},
+    // 🆕 OBJETOS DE MISIÓN bloqueados contra desechar (llave M1) mientras las misiones 1-2
+    // estén en curso. Runtime, como mission2Hide.
+    missionItemsLocked: Boolean = false
 ) {
     val context = LocalContext.current
     // Modo Desarrollador: si está APAGADO se ocultan botones de prueba (Diseñador, y "Salir al mapa"
     // durante la Misión 1). Se lee una vez al entrar a la pantalla.
     val developerMode = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context).getDeveloperMode() }
     val serverUrl = if (isMultiplayer) ovh.gabrielhuav.pow.BuildConfig.INTERIORS_SERVER_URL else null
-    val viewModel: ZombieInteriorViewModel = viewModel(
-        factory = ZombieInteriorViewModel.Factory(context, serverUrl, playerName, startRoomId, initialInventoryKeys, initialLab1KeyFound)
+    val viewModel: ZombieInteriorViewModel = androidx.hilt.navigation.compose.hiltViewModel<ZombieInteriorViewModel, ZombieInteriorViewModel.Factory>(
+        creationCallback = { factory ->
+            factory.create(
+                serverUrl, playerName, startRoomId, initialInventoryKeys, initialLab1KeyFound,
+                initialUnlockedSlots, firearmUnlocked, mission3Assault
+            )
+        }
     )
     val state by viewModel.state.collectAsState()
     val density = LocalDensity.current
@@ -181,6 +239,28 @@ fun ZombieGameScreen(
     // MODO HISTORIA: salida del motor de interiores hacia el cómic ENCB_OUTRO.
     LaunchedEffect(state.isExitingToStoryOutro) {
         if (state.isExitingToStoryOutro) { viewModel.consumeExit(); onPlayStoryOutro() }
+    }
+    // MISIÓN 2 · salón: al recoger la mochila se avisa al mundo (completa la misión). Una vez.
+    LaunchedEffect(state.mission2BackpackTaken) {
+        if (state.mission2BackpackTaken) onMission2BackpackRecovered()
+    }
+    // MISIÓN 3 · asalto: al recoger la evidencia se avisa al mundo (misión + arma de fuego).
+    LaunchedEffect(state.mission3EvidenceTaken) {
+        if (state.mission3EvidenceTaken) onMission3EvidenceRecovered()
+    }
+    // MISIÓN 2 · fase ESCONDERSE: arma/desarma la búsqueda en el lobby según la fase del mundo
+    // (runtime; ver setMission2Hide) y notifica el desenlace UNA vez.
+    LaunchedEffect(mission2Hide) { viewModel.setMission2Hide(mission2Hide) }
+    LaunchedEffect(state.mission2HideCompleted) {
+        if (state.mission2HideCompleted) onMission2HideCompleted()
+    }
+    LaunchedEffect(state.mission2HideFailed) {
+        if (state.mission2HideFailed) onMission2HideFailed()
+    }
+    LaunchedEffect(mission2Rumor) { viewModel.setMission2Rumor(mission2Rumor) }
+    LaunchedEffect(missionItemsLocked) { viewModel.setMissionItemsLocked(missionItemsLocked) }
+    LaunchedEffect(state.mission2RumorCompleted) {
+        if (state.mission2RumorCompleted) onMission2RumorCompleted()
     }
 
     DisposableEffect(Unit) {
@@ -217,14 +297,30 @@ fun ZombieGameScreen(
     var shakeY by remember { mutableStateOf(0f) }
     // Flash rojo breve al recibir daño.
     var flashAlpha by remember { mutableStateOf(0f) }
-    // Calibración EN VIVO de los autos del estacionamiento del lobby (solo modo desarrollador):
-    // rotación uniforme + offset de grupo. Se ajusta con ParkingTuneTool; defaults en ParkedCarsLayer.
-    var parkAngle by remember { mutableStateOf(0f) }   // ajuste de grupo (0 = igual que el global)
+    // Calibración de los autos del estacionamiento del lobby (transformación de GRUPO estilo
+    // PowerPoint). La FUENTE es un JSON en assets por campus (CONFIG/parking/<assetMatch>.json) que
+    // produce el calibrador en vivo al EXPORTAR; reproduce el acomodo del exterior. Se carga async
+    // (I/O de assets) y llena estos estados; el modo desarrollador (ParkingTuneTool) los re-ajusta en
+    // vivo. Añadir/ajustar un campus = soltar su .json, sin tocar Kotlin.
+    var parkAngle by remember { mutableStateOf(0f) }
     var parkOffX by remember { mutableStateOf(0f) }
     var parkOffY by remember { mutableStateOf(0f) }
     var parkScale by remember { mutableStateOf(1f) }
     var parkSelfAngle by remember { mutableStateOf(0f) }   // giro de cada auto sobre su propio eje
     var parkFlipped by remember { mutableStateOf(setOf<Int>()) }   // autos volteados 180° (identificador ↑↓)
+    LaunchedEffect(room.backgroundAsset) {
+        val campus = ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog.forAsset(room.backgroundAsset)
+            ?: return@LaunchedEffect
+        val calib = withContext(Dispatchers.IO) {
+            ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog.loadCalibration(context, campus)
+        }
+        parkAngle = calib.headingDeg
+        parkOffX = calib.offsetXFrac
+        parkOffY = calib.offsetYFrac
+        parkScale = calib.scale
+        parkSelfAngle = calib.selfRotationDeg
+        parkFlipped = calib.flipped.toSet()
+    }
     // Diseñador de estacionamiento (se abre desde el selector del botón "Diseñador").
     var parkingDesignerActive by remember { mutableStateOf(false) }
     var designerChooserOpen by remember { mutableStateOf(false) }
@@ -464,6 +560,46 @@ fun ZombieGameScreen(
                     )
                 }
 
+                // MISIÓN 2 · salón: mochila de Prankedy en el suelo (asset propio; 2026-07-10,
+                // antes emoji 🎒).
+                run {
+                    val bpX = state.mission2BackpackX
+                    val bpY = state.mission2BackpackY
+                    if (bpX != null && bpY != null && !state.mission2BackpackTaken && onScreen(bpX, bpY)) {
+                        val bpSize = 64f * cam.scale
+                        StoryGroundSprite(
+                            assetPath = "CAMPAIGN/MISSION2/mochila_prankedy.png",
+                            sizePx = bpSize,
+                            fallbackEmoji = "🎒",
+                            contentAlpha = if (state.mission2BackpackNearby) 1f else 0.88f,
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(bpX).toDp() } - with(density) { (bpSize / 2).toDp() },
+                                y = with(density) { toScreenY(bpY).toDp() } - with(density) { (bpSize / 2).toDp() }
+                            )
+                        )
+                    }
+                }
+
+                // MISIÓN 3 · asalto ENCB: la EVIDENCIA del laboratorio (asset propio; 2026-07-10,
+                // antes emoji 🧪).
+                run {
+                    val evX = state.mission3EvidenceX
+                    val evY = state.mission3EvidenceY
+                    if (evX != null && evY != null && !state.mission3EvidenceTaken && onScreen(evX, evY)) {
+                        val evSize = 48f * cam.scale
+                        StoryGroundSprite(
+                            assetPath = "CAMPAIGN/MISSION3/evidencia_frasco.png",
+                            sizePx = evSize,
+                            fallbackEmoji = "🧪",
+                            contentAlpha = if (state.mission3EvidenceNearby) 1f else 0.88f,
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(evX).toDp() } - with(density) { (evSize / 2).toDp() },
+                                y = with(density) { toScreenY(evY).toDp() } - with(density) { (evSize / 2).toDp() }
+                            )
+                        )
+                    }
+                }
+
                 // Proyectiles
                 val bulletSize = 10f * cam.scale
                 state.projectiles.forEach { p ->
@@ -496,8 +632,10 @@ fun ZombieGameScreen(
                     }
                 }
 
-                // Jugadores remotos
-                val rpSize = PLAYER_SPRITE_BASE * cam.scale
+                // Jugadores remotos y NPCs. `room.playerScaleMul` aplica IGUAL que al jugador:
+                // en salas con fondo que achica los sprites (salones ENCB / salón M2, ×3) los
+                // NPCs ambientales se veían diminutos junto al jugador (QA 2026-07-13).
+                val rpSize = PLAYER_SPRITE_BASE * cam.scale * room.playerScaleMul
                 state.remotePlayers.forEach { rp ->
                     if (!onScreen(rp.x, rp.y)) return@forEach
                     key(rp.id) {
@@ -527,6 +665,91 @@ fun ZombieGameScreen(
                             modifier = Modifier.absoluteOffset(
                                 x = with(density) { toScreenX(npc.x).toDp() } - with(density) { (rpSize / 2).toDp() },
                                 y = with(density) { toScreenY(npc.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                            )
+                        )
+                    }
+                }
+
+                // NPCs AMBIENTALES (Modo Historia, offline): estudiantes/docentes que deambulan
+                // por la ESCOM. Render con su SKIN propia (sprite completo), sin nombre ni audio.
+                state.ambientNpcs.forEach { npc ->
+                    if (!onScreen(npc.x, npc.y)) return@forEach
+                    key("anpc_${npc.id}") {
+                        InteriorNpcView(
+                            skin = npc.skin,
+                            action = npc.action,
+                            facingRight = npc.facingRight,
+                            sizePx = rpSize,
+                            modifier = Modifier
+                                .absoluteOffset(
+                                    x = with(density) { toScreenX(npc.x).toDp() } - with(density) { (rpSize / 2).toDp() },
+                                    y = with(density) { toScreenY(npc.y).toDp() } - with(density) { (rpSize / 2).toDp() }
+                                )
+                                // 🆕 COMBATE: colapsado en el piso (rotado + desvanecido) al morir.
+                                .graphicsLayer {
+                                    if (npc.isDying) { rotationZ = 90f; alpha = 0.65f }
+                                }
+                        )
+                        // 🆕 Barrita de vida SOLO si está dañado (paridad con el exterior).
+                        if (!npc.isDying && npc.health < 100f) {
+                            val hbW = 34.dp
+                            Box(
+                                modifier = Modifier
+                                    .absoluteOffset(
+                                        x = with(density) { toScreenX(npc.x).toDp() } - hbW / 2,
+                                        y = with(density) { toScreenY(npc.y).toDp() } -
+                                            with(density) { (rpSize / 2).toDp() } - 8.dp
+                                    )
+                                    .width(hbW)
+                                    .height(4.dp)
+                                    .background(Color(0xAA000000), RoundedCornerShape(2.dp))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(npc.health / 100f)
+                                        .height(4.dp)
+                                        .background(Color(0xFFE53935), RoundedCornerShape(2.dp))
+                                )
+                            }
+                        }
+                        // 🆕 BURBUJA de plática (vida universitaria): frase traducible sobre la
+                        // cabeza mientras el NPC "habla" (la fija/limpia stepAmbientNpcs).
+                        npc.speechRes?.let { res ->
+                            Text(
+                                text = stringResource(res),
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 13.sp,
+                                modifier = Modifier
+                                    .absoluteOffset(
+                                        x = with(density) { toScreenX(npc.x).toDp() } - 70.dp,
+                                        y = with(density) { toScreenY(npc.y).toDp() } -
+                                            with(density) { (rpSize / 2).toDp() } - 34.dp
+                                    )
+                                    .width(140.dp)
+                                    .background(Color(0xD0101018), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                // 🆕 MISIÓN 2: la LATA APESTOSA tirada en el piso (asset propio; 2026-07-10, antes
+                // emoji 🥫). La lata ya trae el vapor apestoso integrado en el sprite.
+                run {
+                    val stX = state.mission2StinkX
+                    val stY = state.mission2StinkY
+                    if (stX != null && stY != null && onScreen(stX, stY)) {
+                        val canSize = 44f * cam.scale
+                        StoryGroundSprite(
+                            assetPath = "CAMPAIGN/MISSION2/lata_apestosa.png",
+                            sizePx = canSize,
+                            fallbackEmoji = "🥫",
+                            modifier = Modifier.absoluteOffset(
+                                x = with(density) { toScreenX(stX).toDp() } - with(density) { (canSize / 2).toDp() },
+                                y = with(density) { toScreenY(stY).toDp() } - with(density) { (canSize / 2).toDp() }
                             )
                         )
                     }
@@ -573,6 +796,51 @@ fun ZombieGameScreen(
                         )
                         .alpha(ghostAlpha)
                 )
+
+                // ─── CAPA DE OCLUSION (profundidad) ──────────────────────────────
+                // Los objetos '^' de la matriz "tapan" al jugador: se REDIBUJA el trozo del fondo de
+                // esas celdas ENCIMA del jugador cuando el objeto esta DELANTE (su base al sur de los
+                // pies del jugador). Asi el jugador pasa POR DETRAS al norte y POR DELANTE al sur.
+                // Decision por OBJETO (celdas '^' contiguas comparten la Y-base), memoizada por matriz.
+                val occRows = room.collisionMatrix?.rows
+                val occBg = background
+                if (occRows != null && occBg != null) {
+                    val occluders = remember(occRows, room.worldWidth, room.worldHeight) {
+                        computeOccluders(occRows, room.worldWidth, room.worldHeight)
+                    }
+                    if (occluders.isNotEmpty()) {
+                        val occCols = occRows.maxOf { it.length }.coerceAtLeast(1)
+                        val occRowsN = occRows.size
+                        val occCellW = room.worldWidth / occCols
+                        val occCellH = room.worldHeight / occRowsN
+                        val feetY = state.playerY
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            translate(cam.offsetX, cam.offsetY) {
+                                scale(cam.scale, cam.scale, pivot = Offset.Zero) {
+                                    occluders.forEach { oc ->
+                                        if (oc.anchorBottomY <= feetY) return@forEach
+                                        val wx0 = oc.col * occCellW
+                                        val wy0 = oc.row * occCellH
+                                        if (!onScreen(wx0 + occCellW / 2f, wy0 + occCellH / 2f)) return@forEach
+                                        val sx = (wx0 / room.worldWidth * occBg.width).toInt().coerceIn(0, occBg.width - 1)
+                                        val sy = (wy0 / room.worldHeight * occBg.height).toInt().coerceIn(0, occBg.height - 1)
+                                        val sw = (occCellW / room.worldWidth * occBg.width).toInt()
+                                            .coerceIn(1, occBg.width - sx)
+                                        val sh = (occCellH / room.worldHeight * occBg.height).toInt()
+                                            .coerceIn(1, occBg.height - sy)
+                                        drawImage(
+                                            image = occBg,
+                                            srcOffset = IntOffset(sx, sy),
+                                            srcSize = IntSize(sw, sh),
+                                            dstOffset = IntOffset(wx0.toInt(), wy0.toInt()),
+                                            dstSize = IntSize(occCellW.toInt() + 1, occCellH.toInt() + 1)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             // ─── Mano zombi fija en el lobby (desaparece tras activar el modo zombie) ──
             // Solo visible en Modo Desarrollador (Interfaz): es la que activa el modo zombi.
@@ -684,11 +952,29 @@ fun ZombieGameScreen(
             // puerta cerrada) tiene prioridad y es transitorio.
             val keyPrompt = if (state.nearbyKeyId != null)
                 stringResource(R.string.zgame_key_prompt) else null
+            // MISIÓN 2 · salón de la mochila: prompt de la LATA APESTOSA (con la clase adentro
+            // Y la lata EN EL INVENTARIO — sin ella el salón es un aula normal) o de RECOGER la
+            // mochila (cuando ya apareció y estás encima).
+            val hasStinkCan = state.inventoryKeys.any {
+                ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.entryAsset(it) ==
+                    ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.M2_STINK_CAN
+            }
+            val m2Prompt = when {
+                room.id == ZombieRoomCatalog.ESCOM_SALON_M2_ID &&
+                    !state.mission2StinkThrown && state.ambientNpcs.isNotEmpty() && hasStinkCan ->
+                    stringResource(R.string.zgame_stink_prompt)
+                state.mission2BackpackNearby && !state.mission2BackpackTaken ->
+                    stringResource(R.string.zgame_backpack_prompt)
+                // MISIÓN 3: recoger la evidencia del laboratorio.
+                state.mission3EvidenceNearby && !state.mission3EvidenceTaken ->
+                    stringResource(R.string.zgame_evidence_prompt)
+                else -> null
+            }
             // Z-ORDER: el panel de INVENTARIO es un modal a pantalla completa (va por ENCIMA de todo).
             // Con el inventario ABIERTO suprimimos los avisos de PROXIMIDAD (puerta "Continuar →" / llave),
             // que se dibujan después del HUD y se traslapaban por encima del inventario. Sí mantenemos
             // keyMessage (resultado de PROBAR la llave) y los toasts: son la retroalimentación de usarlo.
-            val proximityPrompt = if (state.showInventory) null else (state.nearbyDoorLabel ?: keyPrompt)
+            val proximityPrompt = if (state.showInventory) null else (state.nearbyDoorLabel ?: keyPrompt ?: m2Prompt)
             (state.keyMessage ?: proximityPrompt ?: state.pickupToast ?: state.effectToast)?.let { prompt ->
                 Box(Modifier.fillMaxSize().padding(top = 110.dp), Alignment.TopCenter) {
                     Text(prompt.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp,
@@ -697,10 +983,42 @@ fun ZombieGameScreen(
                 }
             }
 
+            // ─── SUBTÍTULOS de la conversación de la Misión 2 (Rumor) ───
+            if (state.storyConvoText != null) {
+                Box(modifier = Modifier.fillMaxSize().padding(bottom = 96.dp), contentAlignment = Alignment.BottomCenter) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .widthIn(max = 340.dp)
+                            .background(color = Color(0xE0101018), shape = RoundedCornerShape(12.dp))
+                            .border(2.dp, Color(0xFFFFCC00), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 18.dp, vertical = 10.dp)
+                    ) {
+                        state.storyConvoSpeaker?.let { speaker ->
+                            Text(
+                                text = speaker,
+                                color = Color(0xFFFFCC00),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        Text(
+                            text = state.storyConvoText ?: "",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
             // ─── OBJETIVO (salas del Modo Historia ENCB) ────────────────────────
-            // Banner superpuesto, siempre visible mientras el jugador esté en la cadena
-            // lineal de la ENCB (lobby → salón → lab1 → lab2).
-            if (room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS) {
+            // Banner superpuesto mientras el jugador esté en la cadena lineal de la ENCB
+            // (lobby → salón → lab1 → lab2). En la MISIÓN 3 (asalto) NO aplica: ahí el objetivo
+            // lo muestra interiorObjective (ObjectivesWidget) y este banner sobraría.
+            if (room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS && interiorObjective == null) {
                 Box(
                     Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
                     Alignment.TopCenter
@@ -719,19 +1037,49 @@ fun ZombieGameScreen(
                 }
             }
 
-            // ─── OBJETIVO DE CAMPAÑA EN INTERIORES (p. ej. ESCOM tras Misión 1) ──
-            // Mismo widget que el mapa exterior, anclado arriba-centro. Sin distancia
-            // (playerLocation=null) → muestra la descripción del objetivo.
-            interiorObjective?.let { obj ->
-                Box(
+            // ─── OBJETIVO DE CAMPAÑA EN INTERIORES + countdown de la fase ESCONDERSE (M2) ──
+            // Mismo widget de objetivo que el mapa exterior (arriba-centro) y, DEBAJO, el countdown
+            // de la búsqueda policial (fase 1 de la M2 en el lobby). Van en un MISMO Column apilado
+            // para que NUNCA se traslapen: el objetivo puede ser de varias líneas (p. ej. "Policía
+            // en el lobby: aguanta X s sin que te vean") y con posiciones fijas se encimaban.
+            if (interiorObjective != null || state.mission2HideRemainingSec != null) {
+                // QA 2026-07-13: la tarjeta completa (etiqueta + título + descripción) encima del
+                // countdown tapaba media pantalla durante la búsqueda policial. Se muestra completa
+                // unos segundos (para leer QUÉ hacer) y luego se PLIEGA a solo el título.
+                var objectiveCompact by remember { mutableStateOf(false) }
+                LaunchedEffect(interiorObjective?.id) {
+                    objectiveCompact = false
+                    if (interiorObjective != null) {
+                        delay(6000)
+                        objectiveCompact = true
+                    }
+                }
+                Column(
                     Modifier.fillMaxSize().systemBarsPadding().padding(top = 12.dp),
-                    Alignment.TopCenter
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
-                        objective = obj,
-                        done = false,
-                        playerLocation = null
-                    )
+                    interiorObjective?.let { obj ->
+                        ovh.gabrielhuav.pow.features.map_exterior.ui.components.ObjectivesWidget(
+                            objective = obj,
+                            done = false,
+                            playerLocation = null,
+                            compact = objectiveCompact
+                        )
+                    }
+                    state.mission2HideRemainingSec?.let { secs ->
+                        Text(
+                            stringResource(R.string.zgame_hide_countdown, secs),
+                            color = Color(0xFFFFCDD2),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .alpha(0.85f)
+                                .background(Color(0xB33B0D1B), RoundedCornerShape(10.dp))
+                                .padding(horizontal = 12.dp, vertical = 5.dp)
+                        )
+                    }
                 }
             }
 
@@ -906,9 +1254,17 @@ fun ZombieGameScreen(
                         val sDesigner = stringResource(R.string.zgame_opt_designer)
                         val sExitMap = stringResource(R.string.zgame_opt_exit_map)
                         val sSaveGame = stringResource(R.string.wm_opt_save_game)
+                        val sMissions = stringResource(R.string.wm_opt_missions)
                         buildList {
-                            // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto.
-                            add(OptionMenuItem(sChar, Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                            // "Elegir personaje" (selector de skin), movido aquí desde el botón suelto. Solo en Modo Dev.
+                            if (developerMode) {
+                                add(OptionMenuItem(sChar, Icons.Default.Person, Color(0xFFD91B5B)) { viewModel.toggleSkinSelector(true) })
+                            }
+                            // MODO HISTORIA: REGISTRO DE MISIONES también en interiores (el diálogo
+                            // vive a nivel AppNavGraph). Solo en campaña (callback non-null).
+                            onRequestMissionLog?.let { openLog ->
+                                add(OptionMenuItem(sMissions, Icons.Default.LocationOn, Color(0xFFFFC107)) { openLog() })
+                            }
                             // "Diseñador": solo en Modo Desarrollador. Abre un selector
                             // (Colisiones/Waypoints | Estacionamiento) en vez de ir directo.
                             if (developerMode) add(OptionMenuItem(sDesigner, Icons.Default.Architecture) { designerChooserOpen = true })
@@ -945,7 +1301,7 @@ fun ZombieGameScreen(
             val gridCols = state.designerRows.maxOfOrNull { it.length } ?: 0
             DesignerToolbar(
                 target = state.designerTarget,
-                brushWall = state.designerBrushWall,
+                brush = state.designerBrush,
                 dirty = state.designerDirty,
                 roomName = room.displayName,
                 hasSelectedDoor = state.selectedDoorIndex >= 0,
@@ -953,7 +1309,7 @@ fun ZombieGameScreen(
                 gridRows = gridRows,
                 onResize = viewModel::resizeDesignerMatrixBy,
                 onSelectTarget = viewModel::setDesignerTarget,
-                onBrush = viewModel::setDesignerBrushWall,
+                onBrush = viewModel::setDesignerBrush,
                 onSave = { if (isWaypoints) viewModel.saveDesignerWaypoints() else viewModel.saveDesignerMatrix() },
                 onReset = { if (isWaypoints) viewModel.resetDesignerWaypoints() else viewModel.resetDesignerMatrix() },
                 onExport = {
@@ -972,6 +1328,12 @@ fun ZombieGameScreen(
                 modifier = Modifier.align(Alignment.BottomStart)
             )
         }
+
+        // 🆕 TUTORIAL de controles de INTERIORES (optativo, 2026-07-11): se OFRECE una sola vez
+        // al entrar por primera vez a un interior. Se puede re-ver en Ajustes → Controles.
+        if (!state.designerMode) {
+            ovh.gabrielhuav.pow.features.settings.ui.ControlsTutorialFirstRun(interior = true)
+        }
     }
 }
 
@@ -983,7 +1345,7 @@ fun ZombieGameScreen(
 @Composable
 private fun DesignerToolbar(
     target: DesignerTarget,
-    brushWall: Boolean,
+    brush: DesignerBrush,
     dirty: Boolean,
     roomName: String,
     hasSelectedDoor: Boolean,
@@ -991,7 +1353,7 @@ private fun DesignerToolbar(
     gridRows: Int,
     onResize: (Int, Int) -> Unit,
     onSelectTarget: (DesignerTarget) -> Unit,
-    onBrush: (Boolean) -> Unit,
+    onBrush: (DesignerBrush) -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
     onExport: () -> Unit,
@@ -1085,8 +1447,9 @@ private fun DesignerToolbar(
         // scrollea JUNTA; solo el asa "⠿ Mover" de arriba queda fija para poder arrastrar siempre.
         if (!isWaypoints) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_wall), brushWall, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(true) }
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_erase), !brushWall, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(false) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_wall), brush == DesignerBrush.WALL, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(DesignerBrush.WALL) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_occluder), brush == DesignerBrush.OCCLUDER, Color(0xFF4FC3F7), Modifier.weight(1f)) { onBrush(DesignerBrush.OCCLUDER) }
+                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_erase), brush == DesignerBrush.ERASE, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(DesignerBrush.ERASE) }
             }
             Text(
                 androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_size_grid, gridCols, gridRows),
@@ -1159,6 +1522,47 @@ private fun ToolButton(label: String, selected: Boolean, color: Color, modifier:
     }
 }
 
+// MODO HISTORIA · sprite de suelo (lata apestosa / mochila de la M2, frasco de evidencia de la M3…).
+// Carga el PNG del asset (submuestreado para gama baja), lo dibuja centrado al tamaño dado
+// conservando su aspecto y, si aún no carga, cae al emoji de respaldo. Reemplaza los emojis
+// 🥫/🎒/🧪 por assets propios (2026-07-10).
+@Composable
+private fun StoryGroundSprite(
+    assetPath: String,
+    sizePx: Float,
+    fallbackEmoji: String,
+    modifier: Modifier = Modifier,
+    contentAlpha: Float = 1f,
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    var bmp by remember(assetPath) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(assetPath) {
+        bmp = withContext(Dispatchers.IO) {
+            try {
+                context.assets.open(assetPath).use {
+                    val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }
+                    android.graphics.BitmapFactory.decodeStream(it, null, o)?.asImageBitmap()
+                }
+            } catch (e: Exception) { null }
+        }
+    }
+    val img = bmp
+    if (img != null) {
+        Image(
+            img,
+            contentDescription = null,
+            modifier = modifier.size(with(density) { sizePx.toDp() }).alpha(contentAlpha)
+        )
+    } else {
+        Text(
+            text = fallbackEmoji,
+            fontSize = with(density) { sizePx.toSp() },
+            modifier = modifier.alpha(contentAlpha)
+        )
+    }
+}
+
 // Llave del puzzle (ENCB_lab1) dibujada en el suelo. Carga el PNG del asset (submuestreado para
 // no gastar memoria en gama baja) y, si el jugador está sobre ella, la resalta con un aro dorado.
 @Composable
@@ -1190,6 +1594,57 @@ private fun KeyGroundItem(assetPath: String, highlighted: Boolean, modifier: Mod
             Text("🔑", fontSize = 26.sp)
         }
     }
+}
+
+/** Celda '^' lista para redibujar: col/fila + la Y-base (inferior, mundo) del OBJETO al que pertenece. */
+private class OccluderCell(val col: Int, val row: Int, val anchorBottomY: Float)
+
+/** Agrupa las celdas '^' contiguas (4-conexo) en objetos y devuelve cada celda con la Y-base de su
+ *  objeto. Asi un mueble alto ocluye como un todo segun su base. Se llama 1 vez por matriz (remember). */
+private fun computeOccluders(rows: List<String>, worldW: Float, worldH: Float): List<OccluderCell> {
+    if (rows.isEmpty() || worldW <= 0f || worldH <= 0f) return emptyList()
+    val numRows = rows.size
+    val numCols = rows.maxOf { it.length }.coerceAtLeast(1)
+    fun isOcc(r: Int, c: Int) = c < rows[r].length && rows[r][c] == '^'
+    val comp = Array(numRows) { IntArray(numCols) { -1 } }
+    val compMaxRow = ArrayList<Int>()
+    var nextComp = 0
+    for (r in 0 until numRows) {
+        for (c in 0 until numCols) {
+            if (!isOcc(r, c) || comp[r][c] != -1) continue
+            val id = nextComp++
+            var maxRow = r
+            val stack = ArrayDeque<Int>()
+            comp[r][c] = id
+            stack.addLast(r * numCols + c)
+            while (stack.isNotEmpty()) {
+                val cell = stack.removeLast()
+                val cr = cell / numCols; val cc = cell % numCols
+                if (cr > maxRow) maxRow = cr
+                val neigh = intArrayOf(cr - 1, cc, cr + 1, cc, cr, cc - 1, cr, cc + 1)
+                var i = 0
+                while (i < neigh.size) {
+                    val nr = neigh[i]; val nc = neigh[i + 1]; i += 2
+                    if (nr in 0 until numRows && nc in 0 until numCols && isOcc(nr, nc) && comp[nr][nc] == -1) {
+                        comp[nr][nc] = id
+                        stack.addLast(nr * numCols + nc)
+                    }
+                }
+            }
+            compMaxRow.add(maxRow)
+        }
+    }
+    if (nextComp == 0) return emptyList()
+    val cellH = worldH / numRows
+    val out = ArrayList<OccluderCell>()
+    for (r in 0 until numRows) {
+        for (c in 0 until numCols) {
+            val id = comp[r][c]
+            if (id < 0) continue
+            out.add(OccluderCell(c, r, (compMaxRow[id] + 1) * cellH))
+        }
+    }
+    return out
 }
 
 private fun computeCamera(

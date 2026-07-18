@@ -1,6 +1,10 @@
 package ovh.gabrielhuav.pow.domain.models.ai
 
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice.Companion.FOLLOW_DISTANCE
+import ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice.Companion.RESOLUTION_TALK_MS
+import ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice.Companion.ROUTE_TTL_MS
+import ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice.Companion.TELEPORT_DIST
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import java.util.concurrent.ConcurrentHashMap

@@ -2,7 +2,6 @@ package ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
@@ -16,16 +15,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
-import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget   // tipo compartido (core)
 import ovh.gabrielhuav.pow.data.repository.CollisionMatrixRepository
-import ovh.gabrielhuav.pow.data.repository.WaypointRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.domain.models.zombie.ActiveEffect
+import ovh.gabrielhuav.pow.data.repository.WaypointRepository
 import ovh.gabrielhuav.pow.domain.models.zombie.CollisionMatrix
 import ovh.gabrielhuav.pow.domain.models.zombie.CombatMode
-import ovh.gabrielhuav.pow.domain.models.zombie.Projectile
-import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
-import ovh.gabrielhuav.pow.domain.models.zombie.SkillItem
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieEntity
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoom
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
@@ -38,22 +32,32 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
-import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 
-class ZombieInteriorViewModel(
-    internal val applicationContext: Context,
+// ETAPA 4 (Hilt): @AssistedInject — casi todos los parámetros son args de RUNTIME que decide la
+// pantalla/AppNavGraph (serverUrl, playerName, sala, inventario, slots, arma, asalto), así que van
+// @Assisted; los que comparten tipo (3 String, 3 Boolean) llevan qualifier para desambiguar. Solo
+// applicationContext (@ApplicationContext) y settingsRepository los inyecta Hilt. La pantalla usa el
+// @AssistedFactory vía hiltViewModel(creationCallback). Ver PLAN_DI_hilt.md.
+@dagger.hilt.android.lifecycle.HiltViewModel(assistedFactory = ZombieInteriorViewModel.Factory::class)
+class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext internal val applicationContext: Context,
     internal val settingsRepository: SettingsRepository,
     // URL del servidor de zombis. null = partida offline (un jugador).
-    internal val serverUrl: String?,
-    internal val playerName: String,
-    // Sala donde arranca la sesión de Interiores. Por defecto el lobby de ESCOM;
-    // la puerta "Entrada FES Aragón" la fija a ZombieRoomCatalog.FES_ID.
-    internal val startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
+    @dagger.assisted.Assisted("serverUrl") internal val serverUrl: String?,
+    @dagger.assisted.Assisted("playerName") internal val playerName: String,
+    // Sala donde arranca la sesión de Interiores (lobby ESCOM / FES / ENCB…).
+    @dagger.assisted.Assisted("startRoomId") internal val startRoomId: String,
     // Estado restaurado al CARGAR partida dentro de un interior: inventario y progreso de ENCB_lab1.
-    internal val initialInventoryKeys: List<String> = emptyList(),
-    internal val initialLab1KeyFound: Boolean = false
+    @dagger.assisted.Assisted internal val initialInventoryKeys: List<String>,
+    @dagger.assisted.Assisted("lab1KeyFound") internal val initialLab1KeyFound: Boolean,
+    // MISIÓN 2 (mochila): slots de inventario DESBLOQUEADOS al entrar. Lo decide AppNavGraph.
+    @dagger.assisted.Assisted internal val initialUnlockedSlots: Int,
+    // MISIÓN 3 (recompensa): ¿el jugador ya tiene ARMA DE FUEGO? En campaña bloquea RANGED.
+    @dagger.assisted.Assisted("firearmUnlocked") internal val firearmUnlockedParam: Boolean,
+    // MISIÓN 3 (asalto): la cadena ENCB se siembra CON zombis + la EVIDENCIA 🧪 en encb_lab1.
+    @dagger.assisted.Assisted("mission3Assault") internal val mission3Assault: Boolean
 ) : ViewModel() {
 
     internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(applicationContext)
@@ -101,9 +105,89 @@ class ZombieInteriorViewModel(
     // INTERIORES EXPANDIBLE: lobby destino del diálogo "volver al lobby" (campus-agnóstico).
     internal var pendingLobbyTarget: String? = null
 
+    // ─── MISIÓN 2 · FASE 1 "ESCONDERSE" (lobby) — timers TRANSITORIOS (no viajan en el estado) ───
+    // Armado en RUNTIME desde ZombieGameScreen (setMission2Hide): así funciona tanto si entras al
+    // lobby con la fase ya activa como si SIGUES la Misión 2 desde el registro estando dentro.
+    internal var mission2HideArmed = false
+    internal var mission2HideStartMs = 0L
+    internal var mission2HideDetectSinceMs = 0L
+
+    internal var mission2RumorArmed = false
+    internal var mission2ConvoIndex = 0
+    internal var mission2ConvoNextMs = 0L
+
+    // 🆕 2026-07-13: OBJETOS DE MISIÓN bloqueados contra desechar. true mientras las misiones
+    // 1-2 estén en curso (lo fija ZombieGameScreen en runtime, como setMission2Hide): la llave
+    // correcta de la M1 no se puede tirar (la lata de la M2 no se tira NUNCA: se consume).
+    internal var missionItemsLocked = false
+    fun setMissionItemsLocked(locked: Boolean) { missionItemsLocked = locked }
+
+    /**
+     * MISIÓN 2 · fase RUMOR: arma/desarma la conversación de los dos estudiantes en el lobby.
+     * Si está armada, spawnea a m2rumor_a y m2rumor_b.
+     */
+    fun setMission2Rumor(enabled: Boolean) {
+        if (enabled == mission2RumorArmed) return
+        mission2RumorArmed = enabled
+        val room = currentRoom()
+        if (enabled && room.id == ZombieRoomCatalog.LOBBY_ID && !isMultiplayer) {
+            mission2ConvoIndex = 0
+            mission2ConvoNextMs = 0L
+            _state.update { st -> st.copy(
+                mission2RumorCompleted = false,
+                storyConvoSpeaker = null,
+                storyConvoText = null,
+                ambientNpcs = st.ambientNpcs.filterNot { it.id.startsWith("m2rumor_") } +
+                    spawnMission2RumorStudents(room)
+            ) }
+        } else if (!enabled) {
+            _state.update { st -> st.copy(
+                storyConvoSpeaker = null,
+                storyConvoText = null,
+                ambientNpcs = st.ambientNpcs.filterNot { it.id.startsWith("m2rumor_") }
+            ) }
+        }
+    }
+
+    /**
+     * MISIÓN 2 · fase ESCONDERSE: arma/desarma la búsqueda policial del lobby. Idempotente.
+     * Al armar (solo en el lobby y si no está ya resuelta) spawnea los policías m2cop_* DENTRO
+     * de ambientNpcs y arranca el countdown; al desarmar los retira.
+     */
+    fun setMission2Hide(enabled: Boolean) {
+        if (enabled == mission2HideArmed) return
+        mission2HideArmed = enabled
+        val room = currentRoom()
+        if (enabled && room.id == ZombieRoomCatalog.LOBBY_ID &&
+            !_state.value.mission2HideCompleted && !isMultiplayer) {
+            mission2HideStartMs = System.currentTimeMillis()
+            mission2HideDetectSinceMs = 0L
+            _state.update { st -> st.copy(
+                mission2HideActive = true,
+                mission2HideFailed = false,
+                mission2HideRemainingSec = (ovh.gabrielhuav.pow.domain.models.campaign.mission2
+                    .Mission2.HIDE_DURATION_MS / 1000L).toInt(),
+                ambientNpcs = st.ambientNpcs.filterNot { it.id.startsWith(M2COP_PREFIX) } +
+                    spawnMission2HideCops(room)
+            ) }
+        } else if (!enabled) {
+            _state.update { st -> st.copy(
+                mission2HideActive = false,
+                mission2HideRemainingSec = null,
+                ambientNpcs = st.ambientNpcs.filterNot { it.id.startsWith(M2COP_PREFIX) }
+            ) }
+        }
+    }
+
     init {
         // Siembra el inventario/progreso restaurado ANTES del primer loadRoom (que los preserva).
-        _state.update { it.copy(isLoading = true, inventoryKeys = initialInventoryKeys, lab1KeyFound = initialLab1KeyFound) }
+        _state.update { it.copy(
+            isLoading = true,
+            inventoryKeys = initialInventoryKeys,
+            lab1KeyFound = initialLab1KeyFound,
+            inventoryUnlockedSlots = initialUnlockedSlots.coerceIn(1, INVENTORY_TOTAL_SLOTS),
+            firearmUnlocked = firearmUnlockedParam
+        ) }
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -364,10 +448,18 @@ class ZombieInteriorViewModel(
         val hasWeapon = _state.value.combatMode == CombatMode.RANGED
 
         // En ONLINE los zombis los crea el servidor (llegan por ZOMBIE_STATE).
+        // MISIÓN 3 · ASALTO: la cadena ENCB (normalmente segura) se siembra CON zombis aunque el
+        // modo zombi global esté apagado (primer combate interior de campaña).
+        val m3Room = mission3Assault && room.id in ZombieRoomCatalog.ENCB_STORY_ROOM_IDS
         val isZombieEligible = room.type == ZoneType.BUILDING ||
-                (room.type == ZoneType.LOBBY && _state.value.zombieModeActivated)
-        val effectiveZombieCount = if (room.type == ZoneType.LOBBY) 5 else room.zombieCount
-        val zombies = if (!isMultiplayer && isZombieEligible && effectiveZombieCount > 0 && _state.value.zombieModeActivated) {
+                (room.type == ZoneType.LOBBY && _state.value.zombieModeActivated) || m3Room
+        val effectiveZombieCount = when {
+            m3Room -> ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.ASSAULT_ZOMBIES_PER_ROOM
+            room.type == ZoneType.LOBBY -> 5
+            else -> room.zombieCount
+        }
+        val zombies = if (!isMultiplayer && isZombieEligible && effectiveZombieCount > 0 &&
+            (_state.value.zombieModeActivated || m3Room)) {
             val lootIndex = Random.nextInt(effectiveZombieCount)
             (0 until effectiveZombieCount).map { i ->
                 val (zx, zy) = spawnAroundPlayer(spawnX, spawnY, room)
@@ -396,6 +488,26 @@ class ZombieInteriorViewModel(
                 pendingSpawnX = null,
                 pendingSpawnY = null,
                 zombies = zombies,
+                // MISIÓN 2 · fase ESCONDERSE: si la búsqueda está ARMADA y esta sala es el lobby,
+                // los policías m2cop_* se (re)siembran junto con los estudiantes (idempotente:
+                // salir del lobby y volver re-arma la búsqueda desde cero).
+                ambientNpcs = spawnAmbientNpcs(room) + (
+                    if (mission2HideArmed && room.id == ZombieRoomCatalog.LOBBY_ID &&
+                        !it.mission2HideCompleted && !isMultiplayer) {
+                        mission2HideStartMs = now
+                        mission2HideDetectSinceMs = 0L
+                        spawnMission2HideCops(room)
+                    } else emptyList()
+                ) + (
+                    if (mission2RumorArmed && room.id == ZombieRoomCatalog.LOBBY_ID && !isMultiplayer) {
+                        mission2ConvoIndex = 0
+                        mission2ConvoNextMs = 0L
+                        spawnMission2RumorStudents(room)
+                    } else emptyList()
+                ),
+                mission2HideActive = mission2HideArmed && room.id == ZombieRoomCatalog.LOBBY_ID &&
+                    !it.mission2HideCompleted && !isMultiplayer,
+                mission2HideRemainingSec = null,
                 items = emptyList(),
                 projectiles = emptyList(),
                 totalZombies = zombies.size,
@@ -405,6 +517,21 @@ class ZombieInteriorViewModel(
                 keys = newKeys,
                 nearbyKeyId = null,
                 keyMessage = null,
+                // MISIÓN 2 · salón: al (re)entrar a cualquier sala se re-arma la escena de la
+                // lata apestosa (si salió sin la mochila, vuelve a haber clase al reentrar).
+                mission2StinkThrown = false,
+                mission2StinkX = null,
+                mission2StinkY = null,
+                mission2BackpackX = null,
+                mission2BackpackY = null,
+                mission2BackpackNearby = false,
+                mission2BackpackTaken = false,
+                // MISIÓN 3 · asalto: la EVIDENCIA 🧪 vive en encb_lab1 (mesa del derrame).
+                mission3EvidenceX = if (mission3Assault && room.id == ZombieRoomCatalog.ENCB_LAB1_ID &&
+                    !it.mission3EvidenceTaken) room.worldWidth * 0.52f else null,
+                mission3EvidenceY = if (mission3Assault && room.id == ZombieRoomCatalog.ENCB_LAB1_ID &&
+                    !it.mission3EvidenceTaken) room.worldHeight * 0.40f else null,
+                mission3EvidenceNearby = false,
                 showVictoryScreen = false,
                 activeEffects = emptyList(),
                 showExitGuide = room.type == ZoneType.BUILDING,
@@ -613,8 +740,9 @@ class ZombieInteriorViewModel(
         val keyId = s.nearbyKeyId
         if (keyId != null) {
             val key = s.keys.firstOrNull { it.id == keyId } ?: return
-            if (s.inventoryKeys.size >= INVENTORY_UNLOCKED_SLOTS) {
-                showKeyMessage("🎒 Inventario lleno (1 slot). Llévala al Laboratorio 2 y pruébala (mantén Y).")
+            // Slots USABLES dinámicos: 1 al inicio; TODOS tras recuperar la mochila (Misión 2).
+            if (s.inventoryKeys.size >= s.inventoryUnlockedSlots) {
+                showKeyMessage("🎒 Inventario lleno (${s.inventoryUnlockedSlots} slot(s)). Prueba o desecha una llave (mantén Y).")
                 return
             }
             soundManager.playItem()
@@ -628,8 +756,54 @@ class ZombieInteriorViewModel(
             clearKeyMessageSoon()
             return
         }
-        // 2b. Mano zombi en lobby
-        if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID) {
+        // 1c. MISIÓN 2 · SALÓN DE LA MOCHILA (escom_salon_m2): lanzar la LATA APESTOSA (vacía el
+        // salón) y, con el salón vacío, RECOGER la mochila de Prankedy. Prioridad sobre puertas.
+        // 🆕 2026-07-13: la lata es un ÍTEM DEL INVENTARIO (te la da Prankedy en la plática):
+        // lanzarla requiere TENERLA y la CONSUME. Sin lata (p. ej. entraste al salón fuera de la
+        // fase), el salón es un aula normal en clases.
+        if (currentRoom().id == ZombieRoomCatalog.ESCOM_SALON_M2_ID) {
+            val kd = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop
+            val stinkEntry = s.inventoryKeys.firstOrNull { kd.entryAsset(it) == kd.M2_STINK_CAN }
+            if (!s.mission2StinkThrown && s.ambientNpcs.isNotEmpty() && stinkEntry != null) {
+                soundManager.playItem()
+                // La lata "cae" un poco adelante del jugador y queda tirada en el piso (🥫).
+                _state.update { it.copy(
+                    mission2StinkThrown = true,
+                    mission2StinkX = s.playerX,
+                    mission2StinkY = s.playerY - 30f,
+                    inventoryKeys = it.inventoryKeys.filter { k -> k != stinkEntry }
+                ) }
+                showKeyMessage("💨 ¡Lanzaste la LATA APESTOSA! El olor es INSOPORTABLE…")
+                return
+            }
+            if (s.mission2BackpackNearby && !s.mission2BackpackTaken) {
+                soundManager.playItem()
+                // 🎒 RECOMPENSA: la mochila de Prankedy DESBLOQUEA los slots del inventario.
+                _state.update { it.copy(
+                    mission2BackpackTaken = true,
+                    mission2BackpackNearby = false,
+                    inventoryUnlockedSlots = INVENTORY_TOTAL_SLOTS
+                ) }
+                showKeyMessage("🎒 ¡Mochila de Prankedy! Inventario DESBLOQUEADO ($INVENTORY_TOTAL_SLOTS slots).")
+                return
+            }
+        }
+
+        // 1d. MISIÓN 3 · ASALTO ENCB: recoger la EVIDENCIA 🧪 del laboratorio (encb_lab1).
+        if (s.mission3EvidenceNearby && !s.mission3EvidenceTaken) {
+            soundManager.playItem()
+            _state.update { it.copy(mission3EvidenceTaken = true, mission3EvidenceNearby = false) }
+            showKeyMessage("🧪 ¡Evidencia recuperada! Saliendo de la ENCB…")
+            // Auto-regreso al mapa: el waypoint de salida no existe en la cadena ENCB.
+            viewModelScope.launch {
+                delay(2600)
+                goToRoom(ZombieRoomCatalog.EXIT_TO_WORLD)
+            }
+            return
+        }
+
+        // 2b. Mano zombi en lobby (solo interactuable en Modo Desarrollador)
+        if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID && settingsRepository.getDeveloperMode()) {
             val handNx = 0.50f
             val handNy = 0.45f
             val room = currentRoom()
@@ -669,7 +843,10 @@ class ZombieInteriorViewModel(
 
         // Puerta de un EDIFICIO hacia el lobby de SU campus (ESCOM o FES): pide confirmación.
         // Generalizado: el destino es cualquier sala LOBBY (antes sólo el lobby de ESCOM).
-        val targetIsLobby = ZombieRoomCatalog.roomById(door.targetRoomId)?.type == ZoneType.LOBBY
+        // ⚠️ El salón de la M2 es tipo LOBBY (zona segura) pero NO es un lobby de campus:
+        // entrar del edificio al salón NO debe pedir confirmación.
+        val targetIsLobby = ZombieRoomCatalog.roomById(door.targetRoomId)?.type == ZoneType.LOBBY &&
+            door.targetRoomId != ZombieRoomCatalog.ESCOM_SALON_M2_ID
         if (targetIsLobby && room.type == ZoneType.BUILDING) {
             pendingLobbyTarget = door.targetRoomId
             _state.update { it.copy(showExitToLobbyDialog = true) }
@@ -765,7 +942,10 @@ class ZombieInteriorViewModel(
         val door = room.doors.firstOrNull {
             it.hitboxFrac.toWorldRect(room.worldWidth, room.worldHeight).contains(px, py)
         }
-        val handLabel = if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID && !_state.value.zombieModeActivated) {
+        val handLabel = if (currentRoom().id == ZombieRoomCatalog.LOBBY_ID &&
+            !_state.value.zombieModeActivated &&
+            settingsRepository.getDeveloperMode()
+        ) {
             val room = currentRoom()
             val handWx = 0.50f * room.worldWidth
             val handWy = 0.45f * room.worldHeight
@@ -836,6 +1016,12 @@ class ZombieInteriorViewModel(
     }
 
     fun selectCombatMode(mode: CombatMode) {
+        // MISIÓN 3 (recompensa): sin ARMA DE FUEGO el modo RANGED está bloqueado (solo campaña;
+        // fuera de campaña firearmUnlocked llega true y no cambia nada).
+        if (mode == CombatMode.RANGED && !_state.value.firearmUnlocked) {
+            showKeyMessage("🔒 Aún no tienes un arma de fuego. Complétala en la Misión 3 (ENCB).")
+            return
+        }
         // El modo de golpe vive en el MENÚ COMBINADO (con el inventario, se abre con Y): elegir
         // un modo NO cierra el menú (el jugador puede ver/usar el inventario en el mismo panel).
         _state.update { it.copy(combatMode = mode) }
@@ -875,13 +1061,24 @@ class ZombieInteriorViewModel(
     /**
      * PUZZLE Misión 1: DESECHA (tira) una llave del inventario para liberar el slot. Se invoca con
      * MANTENER PULSADA la llave en el inventario. Reglas: una llave INCORRECTA se puede desechar
-     * SIEMPRE; la CORRECTA solo DESPUÉS de haberla USADO para abrir la puerta (`lab1KeyFound`), antes no.
+     * SIEMPRE; la CORRECTA solo DESPUÉS de haberla USADO para abrir la puerta (`lab1KeyFound`) Y
+     * con las misiones 1-2 ya completadas (🆕 2026-07-13, `missionItemsLocked`: es objeto de
+     * misión mientras la historia la necesita). La LATA de la M2 nunca se desecha (se consume).
      */
     fun discardInventoryKey(entry: String) {
         val s = _state.value
         if (entry !in s.inventoryKeys) return
-        val asset = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.entryAsset(entry)
-        if (asset == ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop.LAB1_CORRECT_KEY && !s.lab1KeyFound) {
+        val kd = ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop
+        val asset = kd.entryAsset(entry)
+        if (kd.entryMission(entry) == kd.MISSION_2) {
+            showKeyMessage("🔒 Objeto de misión: la lata se usa en el salón de la mochila (X), no se tira.")
+            return
+        }
+        if (asset == kd.LAB1_CORRECT_KEY && missionItemsLocked) {
+            showKeyMessage("🔒 Objeto de misión: no puedes desechar esta llave todavía.")
+            return
+        }
+        if (asset == kd.LAB1_CORRECT_KEY && !s.lab1KeyFound) {
             showKeyMessage("🔒 No puedes desechar esta llave todavía. Pruébala primero en la puerta (Lab 2).")
             return
         }
@@ -890,14 +1087,16 @@ class ZombieInteriorViewModel(
     }
 
     // Mensajes transitorios del puzzle de llaves (se limpian solos a los ~2.8 s).
-    private fun clearKeyMessageSoon() {
+    // `internal` (antes private): también los usa el tick (ZombieGameTick.kt) para los avisos
+    // del salón de la Misión 2 (lata apestosa / mochila).
+    internal fun clearKeyMessageSoon() {
         val msg = _state.value.keyMessage
         viewModelScope.launch {
             delay(2800)
             _state.update { if (it.keyMessage == msg) it.copy(keyMessage = null) else it }
         }
     }
-    private fun showKeyMessage(msg: String) {
+    internal fun showKeyMessage(msg: String) {
         _state.update { it.copy(keyMessage = msg) }
         clearKeyMessageSoon()
     }
@@ -944,25 +1143,21 @@ class ZombieInteriorViewModel(
         wsManager?.disconnect()
     }
 
-    class Factory(
-        private val context: Context,
-        private val serverUrl: String?,
-        private val playerName: String,
-        private val startRoomId: String = ZombieRoomCatalog.LOBBY_ID,
-        private val initialInventoryKeys: List<String> = emptyList(),
-        private val initialLab1KeyFound: Boolean = false
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ZombieInteriorViewModel(
-                context.applicationContext,
-                SettingsRepository(context.applicationContext),
-                serverUrl,
-                playerName,
-                startRoomId,
-                initialInventoryKeys,
-                initialLab1KeyFound
-            ) as T
-        }
+    // ETAPA 4 (Hilt): @AssistedFactory — reemplaza al ViewModelProvider.Factory manual. La pantalla
+    // lo invoca vía hiltViewModel<ZombieInteriorViewModel, Factory>(creationCallback = { it.create(...) }).
+    // Los qualifiers ("serverUrl"/"playerName"/… / "lab1KeyFound"/"firearmUnlocked"/"mission3Assault")
+    // DEBEN coincidir con los @Assisted del constructor.
+    @dagger.assisted.AssistedFactory
+    interface Factory {
+        fun create(
+            @dagger.assisted.Assisted("serverUrl") serverUrl: String?,
+            @dagger.assisted.Assisted("playerName") playerName: String,
+            @dagger.assisted.Assisted("startRoomId") startRoomId: String,
+            initialInventoryKeys: List<String>,
+            @dagger.assisted.Assisted("lab1KeyFound") initialLab1KeyFound: Boolean,
+            initialUnlockedSlots: Int,
+            @dagger.assisted.Assisted("firearmUnlocked") firearmUnlockedParam: Boolean,
+            @dagger.assisted.Assisted("mission3Assault") mission3Assault: Boolean
+        ): ZombieInteriorViewModel
     }
 }

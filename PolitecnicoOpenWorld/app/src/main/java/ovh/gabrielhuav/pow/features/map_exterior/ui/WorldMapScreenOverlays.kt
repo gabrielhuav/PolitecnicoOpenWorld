@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+// REFACTOR: extensiones del VM (Prankedy / fade puerta ESCOM) → import explícito.
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -27,14 +28,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedyHireDialog
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.WorldInventoryDialog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-// REFACTOR: extensiones del VM (Prankedy / fade puerta ESCOM) → import explícito.
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3EnterEncb
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissClaimedPopup
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissPrankedyDialog
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissVideo
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onEscomDoorFadeComplete
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onHirePrankedy
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissVideo
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.dismissClaimedPopup
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleWorldInventory
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.worldInventoryUnlockedSlots
 
 /**
  * Overlays y diálogos superpuestos de [WorldMapScreen] (pantalla WASTED, vídeo zombi,
@@ -56,7 +60,15 @@ fun WorldMapOverlays(
             LaunchedEffect(Unit) {
                 androidx.compose.animation.core.animate(initialValue = 0.5f, targetValue = 1.3f, animationSpec = tween(durationMillis = 3500, easing = LinearOutSlowInEasing)) { value, _ -> scale = value }
             }
-            Text(text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_wasted), color = Color(0xFFD32F2F), fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale))
+            // BUSTED (azul, arresto policial en la Misión 1) vs WASTED (rojo, muerte normal)
+            Text(
+                text = androidx.compose.ui.res.stringResource(
+                    if (uiState.wastedIsBusted) ovh.gabrielhuav.pow.R.string.wm_busted else ovh.gabrielhuav.pow.R.string.wm_wasted
+                ),
+                color = if (uiState.wastedIsBusted) Color(0xFF1E88E5) else Color(0xFFD32F2F),
+                fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Serif,
+                letterSpacing = 6.sp, modifier = Modifier.align(Alignment.Center).scale(scale)
+            )
         }
     }
     if (uiState.showZombiVideo) {
@@ -67,7 +79,10 @@ fun WorldMapOverlays(
     }
 
     uiState.interactionPrompt?.let { promptText ->
-        Box(modifier = Modifier.fillMaxSize().padding(top = 70.dp), contentAlignment = Alignment.TopCenter) {
+        // 🆕 2026-07-12: con un OBJETIVO de campaña visible (widget arriba-centro), el prompt
+        // baja para quedar DEBAJO del widget — antes se encimaban (p. ej. "🧪 TP al checkpoint").
+        val promptTop = if (uiState.currentObjective != null) 170.dp else 70.dp
+        Box(modifier = Modifier.fillMaxSize().padding(top = promptTop), contentAlignment = Alignment.TopCenter) {
             Text(text = promptText, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp, modifier = Modifier.background(color = Color(0xFF3B0D1B).copy(alpha = 0.85f), shape = RoundedCornerShape(8.dp)).padding(horizontal = 24.dp, vertical = 12.dp))
         }
     }
@@ -86,6 +101,39 @@ fun WorldMapOverlays(
                     .border(2.dp, Color(0xFFFFCC00), RoundedCornerShape(12.dp))
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             )
+        }
+    }
+
+    // ─── MISIÓN 2 · SUBTÍTULOS de conversación (rumor / radio policial / plática con Prankedy).
+    // Caja estilo subtítulo abajo-centro: NOMBRE del que habla (amarillo) + la línea. Los fija
+    // WorldMapMission2.kt en el estado (storyConvoSpeaker/Text); aquí solo se dibujan.
+    if (uiState.storyConvoText != null) {
+        Box(modifier = Modifier.fillMaxSize().padding(bottom = 96.dp), contentAlignment = Alignment.BottomCenter) {
+            androidx.compose.foundation.layout.Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .widthIn(max = 340.dp)
+                    .background(color = Color(0xE0101018), shape = RoundedCornerShape(12.dp))
+                    .border(2.dp, Color(0xFFFFCC00), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 18.dp, vertical = 10.dp)
+            ) {
+                uiState.storyConvoSpeaker?.let { speaker ->
+                    Text(
+                        text = speaker,
+                        color = Color(0xFFFFCC00),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 13.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
+                Text(
+                    text = uiState.storyConvoText ?: "",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
         }
     }
 
@@ -172,5 +220,28 @@ fun WorldMapOverlays(
             viewModel.consumeMetrobusFadeComplete()
             onNavigateToInterior("metrobus_station_interior/${station.name}")
         }
+    }
+
+    // ─── MISIÓN 3: entrada al ASALTO interior de la ENCB (cruzaste el cordón) ───
+    LaunchedEffect(uiState.mission3EnterEncb) {
+        if (uiState.mission3EnterEncb) {
+            viewModel.consumeMission3EnterEncb()
+            onNavigateToInterior(
+                "interiores_zombies?startRoom=" +
+                    ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID
+            )
+        }
+    }
+
+    // ─── 🆕 INVENTARIO EN EL MAPA (mantener Y a pie, 2026-07-13) ───────────────
+    // Panel de SOLO LECTURA con los objetos de misión (llave M1 / lata M2); los mismos datos
+    // del inventario de interiores (currentInteriorInventory). Va al FINAL = encima de los
+    // demás overlays.
+    if (uiState.showWorldInventory) {
+        WorldInventoryDialog(
+            inventoryKeys = viewModel.currentInteriorInventory,
+            unlockedSlots = viewModel.worldInventoryUnlockedSlots(),
+            onDismiss = { viewModel.toggleWorldInventory(false) }
+        )
     }
 }

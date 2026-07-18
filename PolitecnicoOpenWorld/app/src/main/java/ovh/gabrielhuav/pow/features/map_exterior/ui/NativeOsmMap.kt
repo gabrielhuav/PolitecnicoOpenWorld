@@ -1,139 +1,46 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
-import android.annotation.SuppressLint
+// REFACTOR: zoom/pan extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
+// REFACTOR: extensiones del VM (WorldMapDesigner.kt) usadas por los lápices del diseñador.
 import android.content.Context
-import android.content.res.Configuration
-import android.webkit.JavascriptInterface
-import android.webkit.WebView
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.*
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Architecture
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MapStyleOptions
-import com.google.gson.Gson
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.GroundOverlay
-import com.google.maps.android.compose.GroundOverlayPosition
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.rememberCameraPositionState
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import org.json.JSONObject
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polyline
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.map.EscomBoundingBox
 import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
+import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import ovh.gabrielhuav.pow.domain.models.map.TeleportCatalog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.AssetPickerDialog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CharacterSpriteManager
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DesignerPanel
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceSpriteManager
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PrankedySpriteManager
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.RoadSource
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.TileSource
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteManager
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.METRO_INTERACT_RADIUS_METERS
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-// REFACTOR: zoom/pan extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanStart
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanEnd
-// REFACTOR: extensiones del VM (WorldMapDesigner.kt) usadas por los lápices del diseñador.
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveSelectedLandmark
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanEnd
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanStart
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectLandmark
-import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import kotlin.math.abs
 import kotlin.math.atan2
-import kotlin.math.pow
-import kotlin.math.round
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
-import android.util.Log
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
-import androidx.compose.runtime.MutableState
-import ovh.gabrielhuav.pow.domain.models.map.MapWay
-import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.METRO_INTERACT_RADIUS_METERS
 
 @Composable
 internal fun NativeOsmMap(
@@ -688,7 +595,27 @@ internal fun NativeOsmMap(
 
                         if (isZoomedIn) {
                             if (npc.isDying) {
-                                marker.setAlpha(0.3f)
+                                // FANTASMITA al morir, en 2 FASES (~30 Hz, sin timestamps: el
+                                // progreso se deriva del alpha del marker; el VM retira el NPC
+                                // ~1 s tras isDying):
+                                //  1) el sprite del NPC se DESVANECE en su lugar;
+                                //  2) se vuelve un 👻 translúcido que SUBE AL CIELO mientras
+                                //     termina de desvanecerse.
+                                marker.alpha = (marker.alpha - 0.035f).coerceAtLeast(0.05f)
+                                val ghostProgress = 1f - marker.alpha
+                                if (ghostProgress >= 0.35f) {
+                                    val ghostPx = (26f * screenDensity).toInt()
+                                    marker.icon = nativeDrawableCache.getOrPut("GHOST_EMOJI_$ghostPx") {
+                                        emojiToDrawable(context, "👻", ghostPx)
+                                    }
+                                    // Sube ~14 m durante el resto del fade ("se va al cielo")
+                                    val riseLat = ((ghostProgress - 0.35f) * 22.0) / 111320.0
+                                    marker.position = GeoPoint(
+                                        npc.location.latitude + riseLat,
+                                        npc.location.longitude
+                                    )
+                                    return@forEach // no re-asignar icono/posición normales
+                                }
                             } else {
                                 marker.setAlpha(1f)
                             }
@@ -713,15 +640,22 @@ internal fun NativeOsmMap(
                                 !npcWithinRadius(npc.location.latitude, npc.location.longitude,
                                     centerCull.latitude, centerCull.longitude, 40.0))
                             if (useEmojiLod) {
-                                val emoji = when (npc.type) {
-                                    NpcType.CAR, NpcType.POLICE_CAR -> "🚗"
-                                    NpcType.ZOMBIE -> "🧟"
-                                    NpcType.POLICE_COP -> "👮"
-                                    else -> "🧍"
-                                }
                                 val px = ((1.0 / metersPerPixel) * screenDensity).toInt().coerceIn(12, 56)
-                                marker.icon = nativeDrawableCache.getOrPut("EMOJI_LOD_${npc.type.name}_$px") {
-                                    emojiToDrawable(context, emoji, px)
+                                if (npc.type == NpcType.CAT) {
+                                    // Los emojis de animales pueden no existir en Androids viejos (cuadrito con cruz)
+                                    marker.icon = nativeDrawableCache.getOrPut("LOD_DOT_CAT_$px") {
+                                        dotDrawable(context, android.graphics.Color.rgb(255, 140, 0), px)
+                                    }
+                                } else {
+                                    val emoji = when (npc.type) {
+                                        NpcType.CAR, NpcType.POLICE_CAR -> "🚗"
+                                        NpcType.ZOMBIE -> "🧟"
+                                        NpcType.POLICE_COP -> "👮"
+                                        else -> "🧍"
+                                    }
+                                    marker.icon = nativeDrawableCache.getOrPut("EMOJI_LOD_${npc.type.name}_$px") {
+                                        emojiToDrawable(context, emoji, px)
+                                    }
                                 }
                                 marker.rotation = 0f
                             } else if (npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin) {
@@ -762,6 +696,32 @@ internal fun NativeOsmMap(
                                             val emoji = emojiToDrawable(context, "👮", exactPixels)
                                             drawHealthBarOnDrawable(context, emoji, npc.health, npc.isDying) ?: emoji
                                         }
+                                }
+                                marker.icon = cachedIcon
+                                marker.rotation = 0f
+                            } else if (npc.type == NpcType.CAT) {
+                                // GATO DEL CAMPUS
+                                val targetPx = ((1.0 / metersPerPixel) * screenDensity).toInt().coerceIn(32, 80)
+                                val currentlyMoving = npc.isMoving
+                                val frameIndex = if (currentlyMoving) ((timeMs / 150L) % 6).toInt() else ((timeMs / 400L) % 5).toInt()
+                                val cacheKey = "CAT_SPRITE_${currentlyMoving}_${frameIndex}_${targetPx}_${npc.facingRight}"
+                                val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
+                                    val catDrawable = try {
+                                        ovh.gabrielhuav.pow.features.map_exterior.ui.components.CatSpriteManager
+                                            .getDrawableForMarker(context, currentlyMoving, timeMs, npc.facingRight, targetPx)
+                                    } catch (e: Exception) { null }
+
+                                    if (catDrawable != null) {
+                                        ExactSizeDrawable(catDrawable, targetPx, targetPx)
+                                    } else {
+                                        val bmp = android.graphics.Bitmap.createBitmap(targetPx, targetPx, android.graphics.Bitmap.Config.ARGB_8888)
+                                        val cv = android.graphics.Canvas(bmp)
+                                        val pt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                                        pt.color = android.graphics.Color.rgb(255, 140, 0)
+                                        cv.drawCircle(targetPx / 2f, targetPx / 2f, targetPx / 2f - 2f, pt)
+                                        val fallback = android.graphics.drawable.BitmapDrawable(context.resources, bmp)
+                                        ExactSizeDrawable(fallback, targetPx, targetPx)
+                                    }
                                 }
                                 marker.icon = cachedIcon
                                 marker.rotation = 0f
@@ -853,7 +813,7 @@ internal fun NativeOsmMap(
                                 }
                                 val exactPixels = ((1.3 / metersPerPixel) * screenDensity * roleSizeMul).toInt().coerceAtLeast(12)
                                 val zFrame = ((timeMs / 220L) % 9L).toInt()
-                                val cacheKey = "ZOMBIE_${npc.zombieRole.name}_${npc.facingRight}_${zFrame}_${exactPixels}_H${npc.health.toInt()}_M${npc.maxHealth.toInt()}_D${npc.isDying}"
+                                val cacheKey = "ZOMBIE_${npc.zombieRole.name}_${npc.facingRight}_${zFrame}_${exactPixels}_H${npc.health.toInt()}_M${npc.maxHealth.toInt()}_D${npc.isDying}_S${npc.zombieSpriteSet}"
 
                                 val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                                     var baseDrawable: android.graphics.drawable.Drawable? = ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.getZombieDrawable(

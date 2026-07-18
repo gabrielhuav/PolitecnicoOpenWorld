@@ -1,0 +1,47 @@
+# Working cache from scrape (large videos/wavs) — do not commit
+# Keep files on disk; only ignore for git / push.
+
+# Raw sources (often >>100MB)
+raw/
+raw_yt/
+raw_curated/
+raw_phrases_v2/
+extracted/
+curated_wav/
+candidates/
+
+# Converted full-length mono WAVs (president liveclips, etc.)
+converted/
+_local_batch/
+
+# Pipeline outputs (ogg/wav intermediates)
+out/
+out_curated/
+out_short/
+out_phrases/
+out_phrases_labeled/
+out_diarized/
+
+# Review packs (MP3/WAV dumps)
+REVIEW_MP3_TODOS/
+
+# Temp dirs
+_tmp_pack/
+_tmp_curate/
+_tmp_verify/
+_tmp_phrases/
+_tmp_short/
+_tmp*/
+
+# Any large PCM/audio dumps under this tree (game assets live elsewhere)
+*.wav
+*.webm
+*.mp4
+*.m4a
+*.mp3
+
+# Keep tiny docs / catalogs trackable
+!*.md
+!*.json
+!*.gitignore
+!README.md

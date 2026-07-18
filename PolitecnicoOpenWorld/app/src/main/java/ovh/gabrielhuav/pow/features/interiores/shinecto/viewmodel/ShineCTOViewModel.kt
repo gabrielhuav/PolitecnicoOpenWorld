@@ -1,8 +1,5 @@
 package ovh.gabrielhuav.pow.features.interiores.shinecto.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -12,7 +9,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
@@ -24,7 +20,10 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-class ShineCTOViewModel(
+// ETAPA 4 (Hilt): @HiltViewModel + @Inject. AndroidViewModel (necesita Application, que Hilt
+// inyecta). settings/collectible repos los provee AppModule.
+@dagger.hilt.android.lifecycle.HiltViewModel
+class ShineCTOViewModel @javax.inject.Inject constructor(
     application: android.app.Application,
     private val settingsRepository: SettingsRepository,
     private val collectibleRepository: CollectibleRepository
@@ -67,9 +66,9 @@ class ShineCTOViewModel(
 
     // ─── Spawn seguro de bebidas ─────────────────────────────────────────────
     // Margen para no spawnear en los bordes ni encima de las puertas/escaleras.
-    private val drinkSafeZones: List<NormZone> = listOf(
-        NormZone(0.08f, 0.08f, 0.70f, 0.70f)   // área interior libre
-    )
+    // private val drinkSafeZones: List<NormZone> = listOf(
+    //    NormZone(0.08f, 0.08f, 0.70f, 0.70f)   // área interior libre
+    // )
 
     private fun randomDrinkPosition(currentDrinks: List<ActiveDrink>): Pair<Float, Float> {
         repeat(30) {
@@ -349,19 +348,7 @@ class ShineCTOViewModel(
     }
 
 
-    // ─── Factory ────────────────────────────────────────────────────────────────
-
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            val db = PowDatabase.getInstance(context.applicationContext)
-            return ShineCTOViewModel(
-                context.applicationContext as android.app.Application,
-                SettingsRepository(context.applicationContext),
-                CollectibleRepository(db.collectibleDao())
-            ) as T
-        }
-    }
+    // ETAPA 4 (Hilt): Factory manual eliminado → hiltViewModel() + inyección (AppModule).
 
     /** Normalised rectangular hitbox. */
     private data class NormZone(val l: Float, val t: Float, val r: Float, val b: Float) {

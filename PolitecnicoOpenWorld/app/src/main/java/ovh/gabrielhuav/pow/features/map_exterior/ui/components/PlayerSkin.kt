@@ -63,7 +63,13 @@ enum class PlayerSkin(
      */
     val idleBodyFraction: Float = -1f,
     val runBodyFraction: Float = -1f,
-    val specialBodyFraction: Float = -1f
+    val specialBodyFraction: Float = -1f,
+    /**
+     * El set completo usa lienzos cuadrados 512x512 y una densidad comun de 360 px de
+     * personaje. En estas skins la UI debe dibujar SIEMPRE el mismo lienzo, sin volver a
+     * ampliar Walk/Run/Special a partir de su bbox opaco.
+     */
+    val uniform512Canvas: Boolean = false
 ) {
     LAZARO(
         displayName = "Lázaro",
@@ -81,34 +87,85 @@ enum class PlayerSkin(
         displayName = "Estudianta",
         skinFolder  = "escomgirl",
         skinPrefix  = "escomgirl_",
-        idleFrames   = 6,   // tienes 6
-        walkFrames   = 5,   // tienes 5
-        runFrames    = 4,   // tienes 4
-        specialFrames = 6,  // tienes 6
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
         comicSuffix = "Girl",
-        walkBodyFraction = 0.94f,
-        idleBodyFraction = 0.953f, runBodyFraction = 0.932f, specialBodyFraction = 0.909f
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     robot(
         displayName = "Robot Estudiantx",
         skinFolder  = "robot",
         skinPrefix  = "robot_",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
         comicSuffix = "Robot",
-        walkBodyFraction = 0.62f,
-        idleBodyFraction = 0.710f, runBodyFraction = 0.679f, specialBodyFraction = 0.650f
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    YOALLI_EHECATL(
+        displayName = "Yoalli Ehécatl",
+        skinFolder  = "YoalliEhecatl/",
+        skinPrefix  = "yeh_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    CHARRO_NEGRO(
+        displayName = "El Charro Negro",
+        skinFolder  = "CharroNegro/",
+        skinPrefix  = "cn_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    LA_TZITZIMIME(
+        displayName = "La Tzitzimime",
+        skinFolder  = "LaTzitzimime/",
+        skinPrefix  = "ltz_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    LA_PRESIDENTA(
+        displayName = "La Presidenta",
+        skinFolder  = "LaPresidenta/",
+        skinPrefix  = "lpr_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     escomboy(
         displayName = "Estudiante",
         skinFolder  = "escomboy",
         skinPrefix  = "escomboy_",
-        idleFrames   = 16,  // tienes 16
-        walkFrames   = 25,  // tienes 25
-        runFrames    = 16,  // tienes 16
-        specialFrames = 16, // tienes 16
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
         comicSuffix = "Boy", // sin assets IntroPOW*Boy → cae al panel por defecto (hombre)
-        renderScale = 1.8f,  // (legado) ya NO se usa para el cuerpo en exterior; ahora normaliza el estándar
-        walkBodyFraction = 0.41f,
-        idleBodyFraction = 0.406f, runBodyFraction = 0.407f, specialBodyFraction = 0.412f
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
 
     // ── 🆕 PERSONAJES NUEVOS (sprites bajo SPRITES/NPC/<Char>/, recortados con
@@ -121,25 +178,29 @@ enum class PlayerSkin(
         skinFolder  = "SenorTienda/",
         skinPrefix  = "st_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 4, runFrames = 8, specialFrames = 3,  // special = ESCOBAZO (golpe)
-        walkBodyFraction = 0.865f
+        // Set croma unificado: lienzos 512², secuencias calibradas a 360 px y caja UI fija.
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
-    REY_BROMAS(
-        displayName = "El Rey de las Bromas",
-        skinFolder  = "ReyBromas/",
-        skinPrefix  = "rb_",
+    REY_GRUPERO(
+        displayName = "REY Grupero",
+        skinFolder  = "ReyGrupero/",
+        skinPrefix  = "rg_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 6, runFrames = 8, specialFrames = 4,  // special = bromas (spray/megáfono/globo)
-        walkBodyFraction = 0.865f
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
-    PEPE_REY(
-        displayName = "Pepe del Rey de las Bromas",
-        skinFolder  = "PepeRey/",
-        skinPrefix  = "pr_",
-        basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 4, runFrames = 8, specialFrames = 3,  // special = BROMA CON TANQUE (golpe)
-        walkBodyFraction = 0.865f
-    ),
+    // 🚫 ELIMINADOS por diseño (2026-07-16): REY_BROMAS y PEPE_REY ya no son personajes del
+    //    juego. Sus assets siguen en SPRITES/NPC/ReyBromas|PepeRey por si acaso, pero NO hay
+    //    entrada de skin. "Rey de las Bromas" sobrevive SOLO como título en la historia (Mission2).
     // PRANKEDY jugable: reutiliza sus sprites (copiados de SPRITES/NPC/Prankedy/ a la convención de
     // skin en SPRITES/NPC/PrankedyPlayable/). Lienzos 512² uniformes → fracciones por acción medidas.
     PRANKEDY(
@@ -147,9 +208,13 @@ enum class PlayerSkin(
         skinFolder  = "PrankedyPlayable/",
         skinPrefix  = "pk_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 9, runFrames = 8, specialFrames = 5,
-        walkBodyFraction = 0.740f,
-        idleBodyFraction = 0.717f, runBodyFraction = 0.736f, specialBodyFraction = 0.711f
+        // Set regenerado desde croma: Idle relajado, secuencias a 360 px y caja UI fija.
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
 
     // ── 🆕 5 PERSONAJES (paparazzis, policías, paramédico) — recortados con tools/_slice5.py.
@@ -160,24 +225,84 @@ enum class PlayerSkin(
         skinFolder  = "PaparazziN1/",
         skinPrefix  = "pn1_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 6, runFrames = 10, specialFrames = 4,  // special = TOMAR FOTO
-        walkBodyFraction = 0.865f
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     PAPARAZZI_N5(
         displayName = "Paparazzi #5",
         skinFolder  = "PaparazziN5/",
         skinPrefix  = "pn5_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 3, walkFrames = 7, runFrames = 10, specialFrames = 4,  // special = TOMAR FOTO
-        walkBodyFraction = 0.865f
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     POLICIA_CDMX(
         displayName = "Policía CDMX",
         skinFolder  = "PoliciaCDMX/",
         skinPrefix  = "pcd_",
         basePath    = "SPRITES/NPC/",
-        idleFrames = 4, walkFrames = 7, runFrames = 11, specialFrames = 3,  // special = DISPARAR (3 frames)
-        walkBodyFraction = 0.865f
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    POLICIA_CDMX_HOMBRE(
+        displayName = "Policía CDMX (Hombre)",
+        skinFolder  = "PoliciaMasculinoCDMX/",
+        skinPrefix  = "pcm_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    PARAMEDICO_CRUZ_ROJA(
+        displayName = "Paramédico Cruz Roja",
+        skinFolder  = "ParamedicoCruzRoja/",
+        skinPrefix  = "pcr_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    POLICIA_GRANADERO_HOMBRE(
+        displayName = "Policía Granadero CDMX (Hombre)",
+        skinFolder  = "PoliciaGranaderoMasculinoCDMX/",
+        skinPrefix  = "pgm_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
+    POLICIA_GRANADERO_MUJER(
+        displayName = "Policía Granadero CDMX (Mujer)",
+        skinFolder  = "PoliciaGranaderoFemeninoCDMX/",
+        skinPrefix  = "pgf_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
     ),
     GRANADERO(
         displayName = "Granadero",
@@ -194,6 +319,90 @@ enum class PlayerSkin(
         basePath    = "SPRITES/NPC/",
         idleFrames = 4, walkFrames = 6, runFrames = 8, specialFrames = 3,  // special = COMUNICAR POR RADIO
         walkBodyFraction = 0.865f
+    ),
+    // ── 🆕 NPCs de INTERIOR (Modo Historia): estudiantes IPN + docentes, recortados a
+    //    SPRITES/NPC/NPCS/. Solo se usan como NPCs ambientales (InteriorNpcView/AMBIENT_SKINS);
+    //    NO seleccionables (van en devOnlySkins). Recorte uniforme → walkBodyFraction 0.86.
+    IPN_1(
+        displayName = "Estudiante IPN 1",
+        skinFolder  = "Ipn1/",
+        skinPrefix  = "ipn1_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 25, runFrames = 25, specialFrames = 25,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    IPN_2(
+        displayName = "Estudiante IPN 2",
+        skinFolder  = "Ipn2/",
+        skinPrefix  = "ipn2_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 20, runFrames = 20, specialFrames = 15,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    IPN_3(
+        displayName = "Estudiante IPN 3",
+        skinFolder  = "Ipn3/",
+        skinPrefix  = "ipn3_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 16, runFrames = 16, specialFrames = 20,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    IPN_4(
+        displayName = "Estudiante IPN 4",
+        skinFolder  = "Ipn4/",
+        skinPrefix  = "ipn4_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 20, runFrames = 20, specialFrames = 20,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    IPN_5(
+        displayName = "Estudiante IPN 5",
+        skinFolder  = "Ipn5/",
+        skinPrefix  = "ipn5_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 20, runFrames = 20, specialFrames = 20,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    IPN_6(
+        displayName = "Estudiante IPN 6",
+        skinFolder  = "Ipn6/",
+        skinPrefix  = "ipn6_",
+        basePath    = "SPRITES/NPC/NPCS/NPCSIPN/",
+        idleFrames = 1, walkFrames = 20, runFrames = 20, specialFrames = 20,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    // NPC generico aleatorio (interior + exterior), recortado al estandar como los IPN.
+    RND_1(
+        displayName = "NPC Random 1",
+        skinFolder  = "Random1/",
+        skinPrefix  = "rnd1_",
+        basePath    = "SPRITES/NPC/NPCS/",
+        idleFrames = 1, walkFrames = 16, runFrames = 16, specialFrames = 16,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    DOC_1(
+        displayName = "Docente 1",
+        skinFolder  = "Doc1/",
+        skinPrefix  = "doc1_",
+        basePath    = "SPRITES/NPC/NPCS/",
+        idleFrames = 1, walkFrames = 16, runFrames = 16, specialFrames = 19,  // sheet completo (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    EST_H1(
+        displayName = "EST_H1",
+        skinFolder  = "EstH1/",
+        skinPrefix  = "esth1_",
+        basePath    = "SPRITES/NPC/NPCS/",
+        idleFrames = 1, walkFrames = 16, runFrames = 16, specialFrames = 16,  // estudiante (estandar)
+        walkBodyFraction = 0.803f
+    ),
+    EST_M1(
+        displayName = "EST_M1",
+        skinFolder  = "EstM1/",
+        skinPrefix  = "estm1_",
+        basePath    = "SPRITES/NPC/NPCS/",
+        idleFrames = 1, walkFrames = 16, runFrames = 16, specialFrames = 16,  // estudiante (estandar)
+        walkBodyFraction = 0.803f
     ),
     // ── Agrega aquí nuevas skins ──────────────────────────────────────────
     // Ejemplo con una skin "Ana":
@@ -220,6 +429,9 @@ enum class PlayerSkin(
     }.let { if (it > 0f) it else walkBodyFraction }
 
     companion object {
+        /** Altura opaca objetivo (360) respecto al lienzo uniforme (512). */
+        const val WORLD_BODY_CANVAS_FRACTION = 360f / 512f
+
         /**
          * Estándar ÚNICO de tamaño del jugador a pie (mapa exterior): alto en pantalla, en dp, que
          * debe ocupar el CUERPO (parte opaca) del personaje, IGUAL para TODAS las skins y TODAS las
@@ -227,5 +439,8 @@ enum class PlayerSkin(
          * Sube/baja este único valor para agrandar/encoger a TODOS por igual.
          */
         const val PLAYER_BODY_STANDARD_DP = 23.5f
+
+        /** Caja fija para un lienzo 512² normalizado; 360 px opacos equivalen a 23.5 dp. */
+        const val UNIFORM_512_CANVAS_DP = PLAYER_BODY_STANDARD_DP / WORLD_BODY_CANVAS_FRACTION
     }
 }

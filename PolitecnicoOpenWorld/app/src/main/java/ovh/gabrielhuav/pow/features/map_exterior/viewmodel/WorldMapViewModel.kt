@@ -2,64 +2,51 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import android.content.Context
 import android.util.Log
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import org.osmdroid.util.GeoPoint
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.osmdroid.util.GeoPoint
 import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
 import ovh.gabrielhuav.pow.data.cache.TileCache
-import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
+import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.domain.models.map.CarModel
-import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
+import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
+import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
+import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
-import ovh.gabrielhuav.pow.domain.models.map.Landmark
-import ovh.gabrielhuav.pow.domain.models.map.LandmarkCatalogManager
-import ovh.gabrielhuav.pow.domain.models.map.LandmarkAssetTemplate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.floor
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
 import kotlin.math.abs
-import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
-import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import java.io.InputStreamReader
-import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
-import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
-import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
+import kotlin.math.floor
+import kotlin.math.pow
+import kotlin.math.sqrt
 
-class WorldMapViewModel(
+// ETAPA 4 (Hilt): @HiltViewModel + @Inject. Es AndroidViewModel (necesita Application) y se
+// scopea a la ACTIVITY desde MainActivity (by viewModels()) para SOBREVIVIR a la navegación
+// (el game loop / gate isMapReady NO se reinician — ver 09 §12). Sus 5 deps las provee AppModule.
+@dagger.hilt.android.lifecycle.HiltViewModel
+class WorldMapViewModel @javax.inject.Inject constructor(
     application: android.app.Application,
     internal val roadNetworkCache: RoadNetworkCache,
     val tileCache: TileCache,
@@ -69,33 +56,33 @@ class WorldMapViewModel(
 
     internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(application)
 
-    var playerHealth by mutableStateOf(100f)
-        internal set
-    val maxPlayerHealth = 100f
+    // ─── VIDA / FX DE IMPACTO → los POSEE CombatManager (Etapa 3, manager 3/6) ──────────
+    // ⚠️ Estos NO son campos de WorldMapState (no van por la fachada combine): son Compose
+    // mutableStateOf que las Views leen DIRECTO (viewModel.playerHealth…). El backing store se
+    // mudó a CombatManager; el VM conserva estos miembros DELEGANTES para NO tocar las Views ni
+    // las extensiones de combate/vida (siguen escribiendo estos nombres → delegan). Ver
+    // CombatManager.kt y CHECKPOINT_SENIOR_refactor.md.
+    var playerHealth: Float
+        get() = combatManager.playerHealth
+        internal set(value) { combatManager.playerHealth = value }
+    val maxPlayerHealth get() = combatManager.maxPlayerHealth
 
-    // FX DE IMPACTO: cada incremento dispara un destello/💥 en pantalla. Lo usamos para
-    // que se NOTE una colisión (NPC que te golpea, o atropello al conducir).
-    var impactEffectTrigger by mutableStateOf(0)
-        internal set
-    // Throttle del 💥: con muchos zombis/NPCs golpeándote, applyNpcContactDamage llamaba a
-    // fireImpactEffect cada mordida (~cada 900 ms por atacante) y el 💥 central se veía "a cada
-    // rato". Limitamos a uno cada IMPACT_EFFECT_THROTTLE_MS para que siga marcando colisiones
-    // notables sin spamear.
-    private var lastImpactEffectMs = 0L
-    private val IMPACT_EFFECT_THROTTLE_MS = 900L
-    // Última horda migratoria avisada al jugador (para no repetir el aviso del HUD).
+    var impactEffectTrigger: Int
+        get() = combatManager.impactEffectTrigger
+        internal set(value) { combatManager.impactEffectTrigger = value }
+    var showHealthBar: Boolean
+        get() = combatManager.showHealthBar
+        internal set(value) { combatManager.showHealthBar = value }
+    var damagePulseTrigger: Int
+        get() = combatManager.damagePulseTrigger
+        internal set(value) { combatManager.damagePulseTrigger = value }
+
+    // 💥 con throttle: delega en el manager (que mantiene su lastImpactEffectMs).
+    internal fun fireImpactEffect() = combatManager.fireImpactEffect()
+
+    // Última horda migratoria avisada al jugador (para no repetir el aviso del HUD). NO es
+    // estado de combate/vida → se queda en el VM.
     private var lastHordeSeenMs = 0L
-    internal fun fireImpactEffect() {
-        val now = System.currentTimeMillis()
-        if (now - lastImpactEffectMs < IMPACT_EFFECT_THROTTLE_MS) return
-        lastImpactEffectMs = now
-        impactEffectTrigger++
-    }
-
-    var showHealthBar by mutableStateOf(false)
-        internal set
-    var damagePulseTrigger by mutableStateOf(0)
-        internal set
 
     // Timestamp hasta el cual el jugador es inmune al daño (post-respawn / teletransporte).
     // Mientras System.currentTimeMillis() < respawnImmunityUntilMs, takeDamage es un no-op.
@@ -111,42 +98,20 @@ class WorldMapViewModel(
     var pendingZombieMinigame: Boolean = false
         internal set
 
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (!modelClass.isAssignableFrom(WorldMapViewModel::class.java)) {
-                throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-            }
-            val appCtx = context.applicationContext
-            val database = PowDatabase.getInstance(appCtx)
-            val vm = WorldMapViewModel(
-                application = appCtx as android.app.Application,
-                roadNetworkCache = RoadNetworkCache(database.roadNetworkDao()),
-                tileCache        = TileCache(database.mapTileDao()),
-                settingsRepository = SettingsRepository(appCtx),
-                collectibleRepository = CollectibleRepository(database.collectibleDao())
-            )
-            // GAMA DEL TELÉFONO: escala la población de NPCs (menos en equipos débiles, más en
-            // gama alta). Combina con la densidad urbana (urbanFactor) y el ajuste del usuario.
-            vm.npcAiManager.deviceTierFactor = computeDeviceTierFactor(appCtx)
-            vm.npcAiManager.userPopulationFactor = vm.settingsRepository.getNpcDensity()
-            return vm as T
+    // RAM total (y isLowRamDevice) → factor de población. No persiste; se calcula al crear el VM.
+    // (ANTES vivía en el Factory manual; con Hilt el VM lo aplica en su init, ver abajo.)
+    private fun computeDeviceTierFactor(ctx: Context): Float = try {
+        val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val mi = android.app.ActivityManager.MemoryInfo()
+        am.getMemoryInfo(mi)
+        val gb = mi.totalMem / (1024.0 * 1024.0 * 1024.0)
+        when {
+            am.isLowRamDevice || gb <= 2.2 -> 0.6f   // gama baja (≤2 GB / Android Go)
+            gb <= 4.2 -> 1.0f                         // gama media (≤4 GB)
+            gb <= 6.2 -> 1.3f                         // gama alta (≤6 GB)
+            else       -> 1.5f                        // tope (no saturar gama alta)
         }
-
-        // RAM total (y isLowRamDevice) → factor de población. No persiste; se calcula al crear el VM.
-        private fun computeDeviceTierFactor(ctx: Context): Float = try {
-            val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            val mi = android.app.ActivityManager.MemoryInfo()
-            am.getMemoryInfo(mi)
-            val gb = mi.totalMem / (1024.0 * 1024.0 * 1024.0)
-            when {
-                am.isLowRamDevice || gb <= 2.2 -> 0.6f   // gama baja (≤2 GB / Android Go)
-                gb <= 4.2 -> 1.0f                         // gama media (≤4 GB)
-                gb <= 6.2 -> 1.3f                         // gama alta (≤6 GB)
-                else       -> 1.5f                        // tope (no saturar gama alta)
-            }
-        } catch (e: Exception) { 1.0f }
-    }
+    } catch (e: Exception) { 1.0f }
 
     internal val _uiState = MutableStateFlow(
         WorldMapState(
@@ -163,11 +128,89 @@ class WorldMapViewModel(
     )
     // Guardaremos el grafo de ESCOM en memoria para no leer el archivo cada vez
     internal var escomNavGraph: LandmarkNavGraph? = null // usado por WorldMapDesigner.kt
-    val uiState: StateFlow<WorldMapState> = _uiState.asStateFlow()
+
+    // ─── ETAPA 3 · MANAGERS CON SUB-ESTADO PROPIO (descomposición del god-object) ────
+    // Cada manager posee su MutableStateFlow<XSubState>; el VM los COMPONE en `uiState`
+    // (fachada combine, abajo). Ver PLAN_descomponer_WorldMapViewModel.md y CHECKPOINT_SENIOR.
+    internal val designerManager = DesignerManager()
+    // Manager 2/6: posee el sub-estado UI de COLECCIONABLES (activos/cercano/popup). Los ítems
+    // de ESCOM, isZombieHandSpawned e isSpawningCollectible se quedan en el VM (no-UI/game loop).
+    internal val collectiblesManager = CollectiblesManager()
+    // Manager 3/6: posee el estado UI de VIDA + FX DE IMPACTO (Compose mutableStateOf, NO campos
+    // de WorldMapState). El VM expone miembros delegantes (arriba); la lógica de combate/vida
+    // sigue como extensiones del VM y delega los writes aquí.
+    internal val combatManager = CombatManager()
+    // Manager 4/6: posee el sub-estado UI del NIVEL DE BÚSQUEDA (estrellas), el aviso de CARJACK
+    // y los DISPAROS de policía visibles + los timers/constantes del subsistema (lógica pura y
+    // testeable). La ORQUESTACIÓN (runPoliceTick/handleCarjack/anyAggressorAdjacent/forceExitVehicle)
+    // se queda en WorldMapWanted.kt y solo delega los writes. Envuelve conceptualmente a PoliceManager.
+    internal val wantedManager = WantedManager()
+    // Manager 5/6: posee el sub-estado UI de las TRANSICIONES DE PANTALLA (menú de teletransporte,
+    // estaciones de metro/metrobús + fades, fade de la puerta ESCOM). La ORQUESTACIÓN (teleportTo,
+    // proximidad, handleInteraction, repos IO) se queda en los parciales y delega los writes.
+    internal val transitTeleportManager = TransitTeleportManager()
+    // Manager 6/6 (PARTE A): posee el sub-estado UI del REGISTRO DE MISIONES (showMissionLog +
+    // completedMissions). El estado de FASE de misión (objetivo/subtítulos/ruta/…) sigue en el VM
+    // (entrelazado con el game loop — PARTE B, ver CHECKPOINT_SENIOR_refactor.md).
+    internal val campaignManager = CampaignManager()
+
+    // FACHADA COMBINADA: la UI sigue viendo UN WorldMapState con la MISMA forma; los campos
+    // poseídos por managers se SOBREESCRIBEN desde su sub-estado (sus copias en _uiState ya
+    // no se escriben — los writers viven en el manager). Eagerly: siempre caliente, igual que
+    // el asStateFlow anterior.
+    // combine tiene overloads tipados SOLO hasta 5 flows; ya son 6 managers → se ANIDA: el 5º
+    // argumento combina (transit, campaign) en un Pair, y el lambda lo desestructura (sigue 100%
+    // tipado, sin casts). Al extraer el siguiente manager: mete su flow en ese combine anidado.
+    val uiState: StateFlow<WorldMapState> =
+        combine(
+            _uiState,
+            designerManager.state,
+            collectiblesManager.state,
+            wantedManager.state,
+            combine(transitTeleportManager.state, campaignManager.state) { transit, campaign -> transit to campaign }
+        ) { base, designer, coll, wanted, transitAndCampaign ->
+            val (transit, campaign) = transitAndCampaign
+            base.copy(
+                showInteriorDebugOverlay = designer.showInteriorDebugOverlay,
+                debugEditTool = designer.debugEditTool,
+                debugEditWalls = designer.debugEditWalls,
+                debugEditBlocks = designer.debugEditBlocks,
+                debugEditNavPed = designer.debugEditNavPed,
+                debugEditNavCar = designer.debugEditNavCar,
+                activeCollectibles = coll.activeCollectibles,
+                nearbyCollectible = coll.nearbyCollectible,
+                showClaimedPopupFor = coll.showClaimedPopupFor,
+                wantedLevel = wanted.wantedLevel,
+                carjackWarning = wanted.carjackWarning,
+                policeShots = wanted.policeShots,
+                showTeleportMenu = transit.showTeleportMenu,
+                metroStations = transit.metroStations,
+                nearbyMetroStation = transit.nearbyMetroStation,
+                showMetroFade = transit.showMetroFade,
+                metroFadeCompleteStation = transit.metroFadeCompleteStation,
+                metrobusStations = transit.metrobusStations,
+                nearbyMetrobusStation = transit.nearbyMetrobusStation,
+                showMetrobusFade = transit.showMetrobusFade,
+                metrobusFadeCompleteStation = transit.metrobusFadeCompleteStation,
+                showEscomDoorFade = transit.showEscomDoorFade,
+                escomDoorFadeComplete = transit.escomDoorFadeComplete,
+                pendingDoorDestination = transit.pendingDoorDestination,
+                showMissionLog = campaign.showMissionLog,
+                completedMissions = campaign.completedMissions
+            )
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, _uiState.value)
 
     internal val npcAiManager      = NpcAiManager()
     internal val overpassRepository = OverpassRepository()
     internal var roadNetwork: List<MapWay> = emptyList()
+
+    // ETAPA 4 (Hilt): lo que ANTES hacía el Factory manual tras construir el VM. Va en un init
+    // DESPUÉS de declarar npcAiManager (orden de inicialización de Kotlin). GAMA DEL TELÉFONO:
+    // escala la población de NPCs; se combina con urbanFactor (densidad urbana) y el ajuste del usuario.
+    init {
+        npcAiManager.deviceTierFactor = computeDeviceTierFactor(getApplication<android.app.Application>())
+        npcAiManager.userPopulationFactor = settingsRepository.getNpcDensity()
+    }
 
     // ─── Red de calles expuesta a la UI ──────────────────────────────────────
     // La WorldMapScreen consume este Flow para pintar las Polylines de los
@@ -176,6 +219,9 @@ class WorldMapViewModel(
     val roadNetworkFlow: StateFlow<List<MapWay>> = _roadNetworkFlow.asStateFlow()
 
     internal var roadNetworkNodeGrid: Map<Pair<Int, Int>, List<GeoPoint>> = emptyMap()
+    // ETAPA 2 (de-dup routing): algoritmo de routing PURO y TESTEADO (RoadRouterTest). Los
+    // gemelos miembro/extensión van delegando aquí uno por uno; ver CHECKPOINT_SENIOR_refactor.md.
+    internal val roadRouter = ovh.gabrielhuav.pow.domain.usecases.RoadRouter()
 
     // ─── Grafo de calles para A* (pathfinding de la policía) ─────────────────
     // Adyacencia por id de nodo (calles que comparten nodo = intersección conectada),
@@ -215,7 +261,7 @@ class WorldMapViewModel(
     internal val MAX_SPEED = 0.000017
     internal val ACCELERATION = 0.0000003
     internal val BRAKING_FRICTION = 0.000001
-    internal val INTERACT_RADIUS = 0.00018   // ~18 m: hay que estar realmente junto al auto
+    internal val INTERACT_RADIUS = 0.00008   // ~9 m (🆕 2026-07-13, antes ~18 m: te subía a autos "medio lejos")
 
     internal val PLAYER_PUNCH_DAMAGE = 15f
     internal var lastAttackTime = 0L
@@ -253,7 +299,7 @@ class WorldMapViewModel(
 
     // ─── NIVEL DE BÚSQUEDA / POLICÍA ─────────────────────────────────────────
     internal val policeManager = ovh.gabrielhuav.pow.domain.models.ai.PoliceManager()
-    internal val MAX_WANTED_LEVEL = 5
+    // MAX_WANTED_LEVEL se MOVIÓ a WantedManager.MAX_WANTED_LEVEL (manager 4/6). Úsalo vía el manager.
 
     // ─── POLICÍA DE LA CAMPAÑA (Modo Historia · Misión 1) ────────────────────
     // SEPARADA del sistema de búsqueda del mundo libre para que no choquen los comportamientos.
@@ -261,17 +307,98 @@ class WorldMapViewModel(
     internal val campaignEscortPolice = ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice()
     // Spawn diferido (una vez por activación); setStorySpawn la re-arma en cada entrada de campaña.
     internal var campaignPoliceActivated = false
-    // MISIÓN 2: persecución de 6 policías + multitud saliendo de la ESCOM (ver WorldMapCampaignPolice.kt).
-    internal var mission2ChaseActivated = false
-    // MISIÓN 2: true una vez que Prankedy ENTRA a la ESCOM (huyendo); deja de animarse a partir de ahí.
-    internal var mission2PrankedyEntered = false
-    // MISIÓN 2: posición EXACTA donde Prankedy desespawneó al meterse a la ESCOM. La policía del REMATE
+    // MISIÓN 1 · CHASE (persecución final): 6 policías + multitud saliendo de la ESCOM
+    // (ver WorldMapCampaignPolice.kt). Antes se llamaba "mission2*" en el código; se renombró
+    // a mission1Chase* al crear la Misión 2 REAL (el rumor y la mochila, WorldMapMission2.kt).
+    internal var mission1ChaseActivated = false
+    // CHASE: true una vez que Prankedy ENTRA a la ESCOM (huyendo); deja de animarse a partir de ahí.
+    internal var mission1ChasePrankedyEntered = false
+    // CHASE: posición EXACTA donde Prankedy desespawneó al meterse a la ESCOM. La policía del REMATE
     // se reúne AQUÍ a "platicar" (no en la puerta del objetivo, que queda unos metros más allá).
-    internal var mission2PrankedyExitPoint: org.osmdroid.util.GeoPoint? = null
+    internal var mission1ChasePrankedyExitPoint: org.osmdroid.util.GeoPoint? = null
     // Multitud de NPCs que SALEN de la puerta de la ESCOM (hora de salida) y se despawnean al
     // salir de tu fog of war. Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs.
-    internal val mission2Crowd = ConcurrentHashMap<String, Npc>()
-    internal var mission2CrowdLastSpawn = 0L
+    internal val mission1ChaseCrowd = ConcurrentHashMap<String, Npc>()
+    internal var mission1ChaseCrowdLastSpawn = 0L
+
+    // ─── VIDA DE CAMPUS (ESCOM, mapa global) — lógica en WorldMapCampusLife.kt ────
+    // Estudiantes ambientales del campus (ids CAMPUS_*): deambulan y forman corrillos de 3
+    // platicando. Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs vía
+    // updateNpcsState. EFÍMEROS: buildSaveData los excluye y no se persisten.
+    internal val campusNpcs = ConcurrentHashMap<String, Npc>()
+
+    // ─── MISIÓN 2 · "El rumor" (Modo Historia) — lógica en WorldMapMission2.kt ────
+    // Fase de la máquina de estados (Mission2.PHASE_*): 0 = no iniciada, 1 = esconderse de la
+    // policía, 2 = rumor, 3 = brote, 4 = plática con Prankedy, 5 = mochila, 6 = completada.
+    // Se PERSISTE en la partida (GameSaveData.mission2Phase); los timers NO (el tick re-arma).
+    internal var mission2Phase = 0
+    // NPCs propios de la Misión 2 (policías de búsqueda, estudiantes del rumor, actores del
+    // brote). Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs.
+    internal val mission2Npcs = ConcurrentHashMap<String, Npc>()
+    // Timers/cursores internos del tick de la Misión 2 (ver WorldMapMission2.kt).
+    internal var mission2DetectSinceMs = 0L
+    internal var mission2SafeSinceMs = 0L
+    internal var mission2ConvoIndex = 0
+    internal var mission2ConvoNextMs = 0L
+    internal var mission2EventStage = 0
+    internal var mission2EventStageMs = 0L
+    internal var mission2PhaseTransitionMs = 0L
+
+    // ─── MISIÓN 3 · "Regreso a la ENCB" — lógica en WorldMapMission3.kt ────
+    // Fase (Mission3.PHASE_*): 0 no iniciada, 1 viaje, 2 infiltración, 3 asalto interior,
+    // 4 completada. PERSISTIDA en GameSaveData.mission3Phase.
+    internal var mission3Phase = 0
+    // NPCs del cordón (granaderos) + paparazzi. Se fusionan en uiState.npcs (updateNpcsState).
+    internal val mission3Npcs = ConcurrentHashMap<String, Npc>()
+    internal var mission3DetectSinceMs = 0L
+    // ── BROTE en el cordón (fase 2): zombis rondando la ENCB que pueden CONVERTIR a Prankedy ──
+    // (WorldMapMission3.kt). Prankedy te escolta; si un zombi lo alcanza y lo mantiene el tiempo
+    // de conversión, se vuelve el "PRANKEDY zombi" INMORTAL que te persigue hasta matarte (=misión
+    // fallida). Timers/banderas transitorios (no se serializan; se re-arman al reintentar).
+    internal var mission3PrankedyDetectSinceMs = 0L   // contacto sostenido zombi↔Prankedy
+    internal var mission3PrankedyConverted = false     // Prankedy ya se convirtió (one-shot por intento)
+    internal var mission3ZombieHitCooldownMs = 0L      // cooldown del daño por contacto al jugador
+    // El brote (zombis + contención policial) solo se ARMA cuando el jugador llega MUY cerca de la
+    // ENCB (no al armarse el cordón lejano). One-shot por intento; se re-arma en stopM3PrankedyEscort.
+    internal var mission3BroteArmed = false
+    // Histéresis de RE-ENTRADA al asalto (fase 3): tras salir del interior hay que ALEJARSE del
+    // centro de la ENCB y volver para re-entrar (evita el bucle de navegación en la puerta).
+    internal var mission3ReentryArmed = false
+    // RECOMPENSA de la Misión 3: primera arma de fuego (desbloquea RANGED en interiores de
+    // campaña). PERSISTIDA en GameSaveData.hasFirearm.
+    internal var hasFirearm = false
+
+    // ─── REJUGAR MISIONES (registro de misiones) — lógica en WorldMapMissionLog.kt ────
+    // Id de la misión ✔ COMPLETADA que se está REJUGANDO, o null. TRANSITORIO: NO se persiste
+    // (no viaja en GameSaveData); buildSaveData clampa las fases a DONE mientras se rejuega y
+    // setStorySpawn lo limpia (pizarra limpia al COMENZAR/CARGAR). Ver endMissionReplay.
+    internal var replayingMissionId: String? = null
+
+    // ─── MISIONES SECUNDARIAS (side1/side2) — lógica en WorldMapSideMissions.kt ────
+    // SIN fase persistida: el id del objetivo activo ES el estado. Actores propios en
+    // sideMissionNpcs (fusionados en uiState.npcs); los zombis de side2 van en remoteEntities
+    // (prefijo NpcAiManager.SIDE_ZOMBIE_PREFIX → atacables + mover zombi sin apocalipsis).
+    internal val sideMissionNpcs = ConcurrentHashMap<String, Npc>()
+    internal var sideMissionTransitionMs = 0L
+    internal var side2Spawned = false
+    internal var side2LastPromptMs = 0L
+
+    // ─── EVENTOS DINÁMICOS del mundo (vida urbana) — lógica en WorldMapDynamicEvents.kt ────
+    // Escenas ambientales efímeras (conversación / persecución / mini-brote) cerca del
+    // jugador. Actores en dynamicEventNpcs (prefijo DYN_, fusionados en uiState.npcs);
+    // NADA se persiste. Tipo/etapa/timers del tick:
+    internal val dynamicEventNpcs = ConcurrentHashMap<String, Npc>()
+    internal var dynamicEventType = 0
+    internal var dynamicEventStage = 0
+    internal var dynamicEventStageMs = 0L
+    internal var dynamicEventLat = 0.0
+    internal var dynamicEventLon = 0.0
+    internal var nextDynamicEventMs = 0L
+    internal var dynEvtAngle = 0.0
+
+    // ─── CICLO DÍA/NOCHE — lógica en WorldMapDayNight.kt ────
+    // Throttle del tick (~1 Hz). El reloj es derivado del epoch (nada que persistir).
+    internal var lastDayNightUpdateMs = 0L
 
     // ─── PRANKEDY (NPC compañero) ─────────────────────────────────────────────
     internal val prankedyManager = ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager()
@@ -279,22 +406,19 @@ class WorldMapViewModel(
     internal val remotePolice = ConcurrentHashMap<String, Npc>()
     internal val remotePoliceSeen = ConcurrentHashMap<String, Long>()
     internal val REMOTE_POLICE_STALE_MS = 5000L
-    // Decaimiento: el nivel baja si no cometes delitos durante un rato.
-    @Volatile internal var lastCrimeTime = 0L
-    @Volatile internal var lastWantedDecayTime = 0L
+    // Decaimiento del nivel (lastCrimeTime/lastWantedDecayTime) y sus constantes (WANTED_DECAY_*)
+    // se MOVIERON a WantedManager (manager 4/6): la lógica de subida/decaimiento es pura y testeable.
     @Volatile internal var lastPoliceBroadcast = 0L
     @Volatile internal var lastDodgeTime = 0L
     internal val POLICE_BROADCAST_MS = 120L   // ~8 Hz por la red (la simulación sigue a 30 Hz)
-    internal val WANTED_DECAY_GRACE_MS = 25000L   // tiempo sin delito antes de empezar a bajar
-    internal val WANTED_DECAY_STEP_MS = 15000L    // cada cuánto baja una estrella
 
     // ─── NIVEL DE BÚSQUEDA / POLICÍA / CARJACK (REFACTOR) ─────────────────────
-    // raiseWantedLevel / tickWantedDecay / anyAggressorAdjacent / handleCarjack /
-    // forceExitVehicle / runPoliceTick viven en WorldMapWanted.kt. Aquí queda solo
-    // el ESTADO que esas extensiones usan:
-    internal val CARJACK_MS = 2500L                 // tiempo quieto antes de que te bajen
-    internal val CARJACK_ADJ_RADIUS = 0.00009       // ~10 m: NPC agresivo pegado al coche
-    @Volatile internal var carjackStartTime = 0L
+    // El SUB-ESTADO (wantedLevel/carjackWarning/policeShots) + los timers (lastCrimeTime/
+    // lastWantedDecayTime/carjackStartTime) + constantes (MAX_WANTED_LEVEL/WANTED_DECAY_*/CARJACK_MS)
+    // viven ahora en WantedManager (manager 4/6). La ORQUESTACIÓN (raiseWantedLevel/tickWantedDecay/
+    // anyAggressorAdjacent/handleCarjack/forceExitVehicle/runPoliceTick) sigue en WorldMapWanted.kt y
+    // delega los writes al manager. Aquí queda solo lo que esa orquestación necesita del lado del VM:
+    internal val CARJACK_ADJ_RADIUS = 0.00009       // ~10 m: NPC agresivo pegado al coche (recorre remoteEntities)
     // ¿El mapa global está en primer plano? El game loop es Activity-scoped y SIGUE corriendo cuando
     // entras a un interior (solo se detiene en onCleared). Sin esto, el audio del loop (stopWalk cada
     // tick con el jugador exterior quieto) PISABA el sonido de pasos de los interiores. WorldMapScreen
@@ -534,6 +658,8 @@ class WorldMapViewModel(
                             checkObjectiveProgress(location)
                             maybeSpawnPrankedyCompanion(location)
                             maybeHideCampaignRouteNearEscom(location)
+                            // (Las Misiones 2 y 3 ya NO arrancan solas: se SIGUEN desde el
+                            // registro de misiones — Opciones → "Misiones". Ver WorldMapMissionLog.kt.)
                         }
 
                         checkDestinationArrival()
@@ -604,7 +730,6 @@ class WorldMapViewModel(
                             // REBASE AUTOMÁTICO Y COLISIONES:
                             // Comportamiento variado según velocidad y movimientos:
                             val absSpeed = kotlin.math.abs(currentSpeed)
-                            val isGoingVeryFast = absSpeed > MAX_SPEED * 0.95
                             val isSteeringSharply = isSteeringLeftPressed || isSteeringRightPressed
 
                             val overtakeRadius = 0.00008
@@ -758,11 +883,15 @@ class WorldMapViewModel(
                         // mete (huyendo de la policía, que lo persigue por detrás). Tras entrar, no
                         // se le anima más. Fuera de eso, corre su seguimiento normal.
                         val nowMs = System.currentTimeMillis()
-                        val m2 = isMission2ChaseActive()
+                        val m1c = isMission1ChaseActive()
                         when {
-                            m2 && mission2PrankedyEntered -> { /* ya entró: no animar a Prankedy */ }
-                            m2 && prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED ->
-                                runMission2PrankedyEscape(location, nowMs)
+                            m1c && mission1ChasePrankedyEntered -> { /* ya entró: no animar a Prankedy */ }
+                            m1c && prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED ->
+                                runMission1ChasePrankedyEscape(location, nowMs)
+                            // MISIÓN 2 · fase PLÁTICA: Prankedy está ESTÁTICO esperando que te
+                            // acerques a hablar (WorldMapMission2.kt lo spawneó y lo despide).
+                            // Sin este gate, runPrankedyTick lo haría SEGUIRTE por el campus.
+                            mission2Phase == ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_TALK -> { }
                             else -> runPrankedyTick(location, nowMs)
                         }
 
@@ -775,7 +904,7 @@ class WorldMapViewModel(
                                 val l = npcAiManager.pendingPoliceShots.toList(); npcAiManager.pendingPoliceShots.clear(); l
                             }
                             if (shots.isNotEmpty()) {
-                                _uiState.update { st -> st.copy(policeShots = st.policeShots + shots.map { PoliceShot(it.first, it.second, nowS) }) }
+                                wantedManager.addPoliceShots(shots.map { PoliceShot(it.first, it.second, nowS) })
                             }
                         }
 
@@ -785,7 +914,7 @@ class WorldMapViewModel(
                         // la policía normal del mundo libre. Al terminar la escolta (o salir de la
                         // campaña) se limpia la policía de campaña.
                         // El objetivo de la ESCOM apunta a la PUERTA real (landmark) más cercana.
-                        if (isCampaignEscortActive() || isMission2ChaseActive()) syncObjectiveToEscomDoor(location)
+                        if (isCampaignEscortActive() || isMission1ChaseActive()) syncObjectiveToEscomDoor(location)
                         when {
                             // MISIÓN 1: escolta (2 a pie, te siguen a distancia).
                             isCampaignEscortActive() -> {
@@ -793,21 +922,62 @@ class WorldMapViewModel(
                                     runCampaignEscortTick(location)
                                 }
                             }
-                            // MISIÓN 2: persecución (6 policías) + multitud saliendo de la ESCOM.
-                            isMission2ChaseActive() -> {
+                            // MISIÓN 1 · CHASE: persecución (6 policías) + multitud saliendo de la ESCOM.
+                            isMission1ChaseActive() -> {
                                 if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
-                                    runMission2Tick(location)
+                                    runMission1ChaseTick(location)
                                 }
                             }
-                            // Fuera de la campaña / misión cumplida: limpia la policía de campaña y
-                            // corre la policía normal del mundo libre.
+                            // MISIÓN 2 · "El rumor": máquina de fases (esconderse/rumor/brote/
+                            // plática/mochila) sobre el campus de la ESCOM. Ver WorldMapMission2.kt.
+                            isMission2StoryActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runMission2StoryTick(location)
+                                }
+                            }
+                            // MISIÓN 3 · "Regreso a la ENCB": viaje + cordón de granaderos
+                            // (sigilo) + entrada al asalto interior. Ver WorldMapMission3.kt.
+                            isMission3StoryActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runMission3StoryTick(location)
+                                }
+                            }
+                            // MISIONES SECUNDARIAS (side1 entrega / side2 contención): tick propio;
+                            // la policía normal SIGUE corriendo (son misiones de mundo abierto).
+                            // Ver WorldMapSideMissions.kt.
+                            isSideMissionStoryActive() -> {
+                                if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
+                                    runSideMissionTick(location)
+                                    runPoliceTick(location)
+                                }
+                            }
+                            // Fuera de la campaña / misión cumplida / misión SIN SEGUIR: limpia la
+                            // policía de campaña y corre la policía normal del mundo libre. Los NPCs
+                            // de misión se limpian si su misión ya no se está siguiendo.
                             else -> {
-                                if (campaignPoliceActivated || mission2ChaseActivated) clearCampaignPolice()
+                                if (campaignPoliceActivated || mission1ChaseActivated) clearCampaignPolice()
+                                if (mission2Npcs.isNotEmpty() && !isMission2StoryActive()) clearMission2Story()
+                                if (mission3Npcs.isNotEmpty() && !isMission3StoryActive()) clearMission3Story()
+                                if ((sideMissionNpcs.isNotEmpty() || side2Spawned) && !isSideMissionStoryActive()) {
+                                    clearSideMissions()
+                                }
                                 if (_uiState.value.isRoadNetworkReady && !_uiState.value.showWastedScreen) {
                                     runPoliceTick(location)
                                 }
                             }
                         }
+
+                        // EVENTOS DINÁMICOS del mundo (vida urbana: conversaciones, persecuciones,
+                        // mini-brotes) + CICLO DÍA/NOCHE. Ambos ticks son baratos (early-outs y
+                        // throttle interno ~1 Hz el reloj). Ver WorldMapDynamicEvents/DayNight.kt.
+                        if (_uiState.value.isRoadNetworkReady && _uiState.value.isMapReady &&
+                            !_uiState.value.showWastedScreen) {
+                            runDynamicEventsTick(location)
+                            // VIDA DE CAMPUS (ESCOM): estudiantes ambientales del campus.
+                            // Ver WorldMapCampusLife.kt (early-outs baratos fuera del campus).
+                            runCampusLifeTick(location)
+                        }
+                        updateDayNightTick()
 
                         maybeRefetchRoadNetwork(location)
                         if (_uiState.value.showRoadNetwork) {
@@ -820,7 +990,11 @@ class WorldMapViewModel(
                         if (_uiState.value.isRoadNetworkReady && _uiState.value.isMapReady) {
                             tickCount++
                             if (tickCount % 3 == 0L) {
-                                val npcOnlyList = remoteEntities.values.filter { it.displayName.isNullOrEmpty() }
+                                // Los gatos (CAT_) tienen displayName="Gato" pero NO son jugadores remotos.
+                                // Los excluimos del feed de la IA junto con los displayName vacíos.
+                                val npcOnlyList = remoteEntities.values.filter {
+                                    it.displayName.isNullOrEmpty() || it.id.startsWith("CAT_")
+                                }
                                 npcAiManager.setServerNpcs(npcOnlyList)
 
                                 // Pasamos los landmarks (edificios) con sus navGraphs al motor
@@ -837,6 +1011,12 @@ class WorldMapViewModel(
                                         kotlinx.coroutines.delay(3500)
                                         _uiState.update { if (it.interactionPrompt == "🧟 ¡UNA HORDA SE ACERCA!") it.copy(interactionPrompt = null) else it }
                                     }
+                                }
+
+                                // Siempre publicamos los gatos en remoteEntities para que lleguen al renderer,
+                                // independientemente de si somos host o no.
+                                processedNpcs.filter { it.id.startsWith("CAT_") }.forEach {
+                                    remoteEntities[it.id] = it
                                 }
 
                                 if (isServerDelegatedHost) {
@@ -1065,7 +1245,7 @@ class WorldMapViewModel(
 
     // ─── CAMPAÑA / MODO HISTORIA → WorldMapCampaign.kt ──────────────────────
     // setStorySpawn(lat,lon) (punto de entrada del spawn de campaña) vive en
-    // WorldMapCampaign.kt. El ESTADO de campaña (inCampaign, campaign*/mission2*)
+    // WorldMapCampaign.kt. El ESTADO de campaña (inCampaign, campaign*/mission1Chase*/mission2*)
     // sigue aquí abajo. Lógica de misiones: WorldMapCampaignPolice/Prankedy/SaveGame.
 
     fun updateActionState(action: GameAction, isPressed: Boolean) {
@@ -1172,8 +1352,8 @@ class WorldMapViewModel(
     // teleportToMetrobusStation / loadMetrobusStations / toggleTeleportMenu
     // viven en WorldMapTeleport.kt. El ESTADO usado sigue en el ViewModel.
 
-    // Cualquier control de conducción (girar/acelerar/frenar = X, ○, □) recentra en el
-    // jugador si el mapa estaba descentrado. El botón △ (SALIR) NO recentra: bajarse del
+    // Cualquier control de conducción (girar/acelerar/frenar = A, B, X) recentra en el
+    // jugador si el mapa estaba descentrado. El botón Y (SALIR) NO recentra: bajarse del
     // coche es otra acción (onInteractButtonPressed).
     fun steerLeft(pressed: Boolean) { isSteeringLeftPressed = pressed; if (pressed) recenterIfPanning() }
     fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed; if (pressed) recenterIfPanning() }
@@ -1233,7 +1413,14 @@ class WorldMapViewModel(
         routeCalculationJob = viewModelScope.launch(Dispatchers.Default) {
             try {
                 Log.d("Navigation", "Calculando ruta...")
-                val route = calculateRouteOnNetwork(currentLoc, destination, roadNetwork)
+                // ETAPA 2 (de-dup routing): la ruta la calcula el RoadRouter PURO (fijado por
+                // RoadRouterTest). Matiz documentado: los extremos se snapean SIN el pase-libre
+                // por landmarks (cosmético: el 1er/último tramo une jugador/destino con la calle).
+                val route = roadRouter.route(
+                    roadNetwork,
+                    ovh.gabrielhuav.pow.domain.usecases.LatLng(currentLoc.latitude, currentLoc.longitude),
+                    ovh.gabrielhuav.pow.domain.usecases.LatLng(destination.latitude, destination.longitude)
+                ).map { GeoPoint(it.lat, it.lon) }
                 Log.d("Navigation", "Ruta calculada con ${route.size} puntos")
                 withContext(Dispatchers.Main) {
                     _uiState.update { it.copy(routeWaypoints = if (route.isNotEmpty()) route else listOf(currentLoc, destination)) }
@@ -1245,72 +1432,11 @@ class WorldMapViewModel(
         }
     }
 
-    private fun calculateRouteOnNetwork(from: GeoPoint, to: GeoPoint, network: List<MapWay>): List<GeoPoint> {
-        if (network.isEmpty()) return listOf(from, to)
-        val route = mutableListOf<GeoPoint>()
-        route.add(from)
-        val startPoint = getNearestPointOnNetwork(from)
-        val endPoint = getNearestPointOnNetwork(to)
-        var current = startPoint
-        val visitedNodes = mutableSetOf<String>()
-        val maxSteps = 20
-        for (step in 0 until maxSteps) {
-            val distToTarget = distance(current, endPoint)
-            if (distToTarget < 0.0005) break
-            var bestNext: GeoPoint? = null
-            var bestDist = distToTarget
-            val candidateNodes = nearbyRoadNodes(current)
-            for (nodePt in candidateNodes) {
-                val nodeKey = "${nodePt.latitude},${nodePt.longitude}"
-                if (visitedNodes.contains(nodeKey)) continue
-                val dFromCurrent = distance(current, nodePt)
-                if (dFromCurrent < 0.003) {
-                    val dToTarget = distance(nodePt, endPoint)
-                    if (dToTarget < bestDist) {
-                        bestDist = dToTarget
-                        bestNext = nodePt
-                    }
-                }
-            }
-            if (bestNext != null) {
-                current = bestNext
-                visitedNodes.add("${current.latitude},${current.longitude}")
-                route.add(current)
-            } else break
-        }
-        route.add(endPoint)
-        route.add(to)
-        return route.distinctBy { "${it.latitude},${it.longitude}" }
-    }
+    // TOMBSTONE: `calculateRouteOnNetwork` eliminado; canónico = `RoadRouter.route` (puro + tests).
+    // NO recrear el miembro (ver 09 §12).
 
-    private fun rebuildRoadNodeGrid(network: List<MapWay>) {
-        val uniqueNodes = linkedMapOf<String, GeoPoint>()
-        network.forEach { way ->
-            way.nodes.forEach { node ->
-                val key = "${node.lat},${node.lon}"
-                if (!uniqueNodes.containsKey(key)) uniqueNodes[key] = GeoPoint(node.lat, node.lon)
-            }
-        }
-        roadNetworkNodeGrid = uniqueNodes.values.groupBy { point ->
-            val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-            val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-            latCell to lonCell
-        }
-    }
-
-    private fun nearbyRoadNodes(point: GeoPoint): List<GeoPoint> {
-        if (roadNetworkNodeGrid.isEmpty()) return emptyList()
-        val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-        val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-        val nearby = mutableListOf<GeoPoint>()
-        for (latOffset in -1..1) {
-            for (lonOffset in -1..1) {
-                roadNetworkNodeGrid[(latCell + latOffset) to (lonCell + lonOffset)]?.let { nearby.addAll(it) }
-            }
-        }
-        if (nearby.isNotEmpty()) return nearby
-        return roadNetworkNodeGrid.values.flatten()
-    }
+    // TOMBSTONE: los miembros `rebuildRoadNodeGrid` y `nearbyRoadNodes` se ELIMINARON; la única
+    // implementación vive en `RoadRouter` (delegada vía WorldMapRouting.kt). NO recrearlos (09 §12).
 
     // ─── APOCALIPSIS ZOMBI GLOBAL → WorldMapInteractions.kt ───────────────
 
@@ -1405,38 +1531,53 @@ class WorldMapViewModel(
     // viven en WorldMapShineCTO.kt.
 
     // ─── Metro Stations Fade ───────────────────────────────────────────────────
+    // El sub-estado de fade/estación lo POSEE transitTeleportManager (manager 5/6); estos
+    // miembros delegan y limpian el interactionPrompt (de OTRO grupo) cuando el fade dispara.
     fun onMetroFadeComplete() {
-        val station = _uiState.value.nearbyMetroStation
-        if (station != null) {
-            _uiState.update {
-                it.copy(
-                    showMetroFade = false,
-                    metroFadeCompleteStation = station,
-                    nearbyMetroStation = null,
-                    interactionPrompt = null
-                )
-            }
+        if (transitTeleportManager.onMetroFadeComplete()) {
+            _uiState.update { it.copy(interactionPrompt = null) }
         }
     }
 
     fun consumeMetroFadeComplete() {
-        _uiState.update { it.copy(metroFadeCompleteStation = null) }
+        transitTeleportManager.consumeMetroFadeComplete()
     }
     fun onMetrobusFadeComplete() {
-        val station = _uiState.value.nearbyMetrobusStation
-        if (station != null) {
-            _uiState.update {
-                it.copy(
-                    showMetrobusFade = false,
-                    metrobusFadeCompleteStation = station,
-                    nearbyMetrobusStation = null,
-                    interactionPrompt = null
-                )
-            }
+        if (transitTeleportManager.onMetrobusFadeComplete()) {
+            _uiState.update { it.copy(interactionPrompt = null) }
         }
     }
 
     fun consumeMetrobusFadeComplete() {
-        _uiState.update { it.copy(metrobusFadeCompleteStation = null) }
+        transitTeleportManager.consumeMetrobusFadeComplete()
+    }
+
+    // ─── TIENDA (VENDEDORES) ─────────────────────────────────────────────────
+    fun closeVendorMenu() {
+        _uiState.update { it.copy(showVendorMenu = false) }
+    }
+
+    fun buyItemFromVendor(itemName: String) {
+        // Reproducir sonido de compra/consumir
+        soundManager.playItem()
+        
+        // Curar al jugador y mostrar mensaje
+        playerHealth = 100f
+        showHealthBar = true
+        damagePulseTrigger++ // Forzar recomposición visual si es necesario
+        
+        _uiState.update {
+            it.copy(
+                showVendorMenu = false, // Cerrar menú
+                interactionPrompt = "¡Compraste y consumiste $itemName! Salud al máximo."
+            )
+        }
+        
+        // Ocultar mensaje después de unos segundos
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(3000)
+            _uiState.update { if (it.interactionPrompt?.startsWith("¡Compraste") == true) it.copy(interactionPrompt = null) else it }
+        }
     }
 }
+

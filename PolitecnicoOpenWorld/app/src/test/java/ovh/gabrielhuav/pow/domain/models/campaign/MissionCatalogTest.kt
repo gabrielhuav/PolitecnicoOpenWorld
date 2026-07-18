@@ -5,6 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
 import ovh.gabrielhuav.pow.domain.models.campaign.mission1.Mission1
+import ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
 
 /**
  * Tests de lógica PURA (sin Android) para el catálogo de misiones de la campaña.
@@ -62,10 +63,77 @@ class MissionCatalogTest {
     }
 
     @Test
+    fun mission2_has_five_objectives_in_order_with_m2_prefix() {
+        val ids = Mission2.objectives.map { it.id }
+        assertEquals(
+            listOf(
+                "m2_esconderse_policia", "m2_pista_rumor", "m2_pista_brote",
+                "m2_hablar_prankedy", "m2_recuperar_mochila"
+            ),
+            ids
+        )
+        // El prefijo m2_ lo usan los checks genéricos (misión fallida al morir, retry).
+        ids.forEach { id -> assertEquals(true, id.startsWith(Mission2.OBJECTIVE_ID_PREFIX)) }
+    }
+
+    @Test
+    fun mission2_objectives_are_narrative_zero_radius_and_reachable_by_id() {
+        // TODOS los objetivos de la Misión 2 se cumplen por NARRATIVA (tick de
+        // WorldMapMission2.kt), nunca por llegada: radio 0 (mismo patrón que INGRESAR_ESCOM).
+        Mission2.objectives.forEach { obj ->
+            assertEquals(0.0, obj.arriveRadiusMeters, 0.0)
+            assertSame(obj, MissionCatalog.byId(obj.id))
+        }
+    }
+
+    @Test
     fun escom_door_constants_are_shared_by_objectives() {
         assertEquals(19.50490, MissionCatalog.ESCOM_DOOR_LAT, 0.0)
         assertEquals(-99.14674, MissionCatalog.ESCOM_DOOR_LON, 0.0)
         assertEquals(MissionCatalog.ESCOM_DOOR_LAT, MissionCatalog.ESCOLTAR_PRANKEDY.targetLat, 0.0)
         assertEquals(MissionCatalog.ESCOM_DOOR_LON, MissionCatalog.ESCOLTAR_PRANKEDY.targetLon, 0.0)
+    }
+
+    // ─── REGISTRO/SELECTOR DE MISIONES (2026-07-04) ─────────────────────────
+
+    @Test
+    fun mission_selector_chain_is_m1_then_m2_then_m3() {
+        // PRINCIPALES en orden. Las SECUNDARIAS (side=true, añadidas con la M2) van DESPUÉS
+        // de las principales en el registro y no participan en la cadena M1→M2→M3.
+        val main = MissionCatalog.missions.filter { !it.side }
+        assertEquals(
+            listOf(MissionCatalog.MISSION_1_ID, MissionCatalog.MISSION_2_ID, MissionCatalog.MISSION_3_ID),
+            main.map { it.id }
+        )
+        // Cadena de desbloqueo: M1 libre; M2 requiere M1; M3 requiere M2 (la salta el Modo Dev).
+        assertNull(main[0].requiresMissionId)
+        assertEquals(MissionCatalog.MISSION_1_ID, main[1].requiresMissionId)
+        assertEquals(MissionCatalog.MISSION_2_ID, main[2].requiresMissionId)
+        // SECUNDARIAS: side1 se desbloquea con la M2 y side2 con la M3.
+        val sides = MissionCatalog.missions.filter { it.side }
+        assertEquals(listOf(MissionCatalog.SIDE_1_ID, MissionCatalog.SIDE_2_ID), sides.map { it.id })
+        assertEquals(MissionCatalog.MISSION_2_ID, sides[0].requiresMissionId)
+        assertEquals(MissionCatalog.MISSION_3_ID, sides[1].requiresMissionId)
+    }
+
+    @Test
+    fun missionIdForObjective_maps_each_missions_objectives() {
+        // Cada objetivo se atribuye a SU misión (lo usan missionLogStatus y el clamp de guardado).
+        Mission1.objectives.forEach {
+            assertEquals(MissionCatalog.MISSION_1_ID, MissionCatalog.missionIdForObjective(it.id))
+        }
+        Mission2.objectives.forEach {
+            assertEquals(MissionCatalog.MISSION_2_ID, MissionCatalog.missionIdForObjective(it.id))
+        }
+        assertNull(MissionCatalog.missionIdForObjective(null))
+        assertNull(MissionCatalog.missionIdForObjective("objetivo_desconocido"))
+    }
+
+    @Test
+    fun firstObjectiveOf_returns_the_entry_point_of_each_mission() {
+        // Lo usa el "TP al objetivo" del Modo Desarrollador cuando la misión no está activa.
+        assertSame(Mission1.objectives.first(), MissionCatalog.firstObjectiveOf(MissionCatalog.MISSION_1_ID))
+        assertSame(Mission2.objectives.first(), MissionCatalog.firstObjectiveOf(MissionCatalog.MISSION_2_ID))
+        assertNull(MissionCatalog.firstObjectiveOf("mission99"))
     }
 }

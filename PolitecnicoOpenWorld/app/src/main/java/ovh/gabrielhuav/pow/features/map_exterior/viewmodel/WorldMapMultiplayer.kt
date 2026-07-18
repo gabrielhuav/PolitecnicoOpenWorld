@@ -1,60 +1,15 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
-import android.content.Context
 import android.util.Log
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.toArgb
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import org.osmdroid.util.GeoPoint
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
-import ovh.gabrielhuav.pow.data.cache.TileCache
-import ovh.gabrielhuav.pow.data.local.room.PowDatabase
-import ovh.gabrielhuav.pow.data.network.WebSocketManager
-import ovh.gabrielhuav.pow.data.repository.OverpassRepository
-import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.domain.models.map.CarModel
-import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
-import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
-import ovh.gabrielhuav.pow.domain.models.map.Landmark
-import ovh.gabrielhuav.pow.domain.models.map.LandmarkCatalogManager
-import ovh.gabrielhuav.pow.domain.models.map.LandmarkAssetTemplate
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.atan2
 import kotlin.math.cos
-import kotlin.math.floor
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
-import kotlin.math.abs
-import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
-import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
 
 // DE-DUP (2026-06-21, par 7): versión CANÓNICA FUSIONADA (antes el miembro de WorldMapViewModel.kt
 // la sombreaba). Esta extensión ya traía 3 arreglos que estaban MUERTOS: (1) MASTER_SYNC_CHECK solo
@@ -314,8 +269,13 @@ internal fun WorldMapViewModel.addRemoteEntity(remote: MultiplayerNpc) {
 
 internal fun WorldMapViewModel.updateNpcsState() {
         // Civiles/jugadores remotos + policía propia (simulada) + policía remota (solo render)
-        // + policía de la CAMPAÑA (escolta de la Misión 1, clase aparte; ver WorldMapCampaignPolice.kt).
+        // + policía de la CAMPAÑA (escolta/chase de la Misión 1; ver WorldMapCampaignPolice.kt)
+        // + NPCs de la MISIÓN 2 (búsqueda/rumor/brote; ver WorldMapMission2.kt)
+        // + actores de MISIONES SECUNDARIAS y de EVENTOS DINÁMICOS (vida urbana).
         val combined = remoteEntities.values + policeManager.activeUnits() +
-            remotePolice.values + campaignEscortPolice.activeUnits() + mission2Crowd.values
+            remotePolice.values + campaignEscortPolice.activeUnits() + mission1ChaseCrowd.values +
+            mission2Npcs.values + mission3Npcs.values +
+            sideMissionNpcs.values + dynamicEventNpcs.values +
+            campusNpcs.values   // vida de campus ESCOM (WorldMapCampusLife.kt)
         _uiState.update { it.copy(npcs = combined.toList()) }
     }

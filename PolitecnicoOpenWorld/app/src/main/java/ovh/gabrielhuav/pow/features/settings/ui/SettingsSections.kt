@@ -4,40 +4,53 @@ import android.content.res.Configuration
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import ovh.gabrielhuav.pow.R
-import ovh.gabrielhuav.pow.i18n.LocaleHelper
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
-import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsState
+import ovh.gabrielhuav.pow.i18n.LocaleHelper
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Secciones de Ajustes extraídas de SettingsScreen.kt (refactor de tamaño). Son composables
@@ -322,6 +335,45 @@ internal fun ControlsSettingsConfig(
             )
         }
 
+        // 🆕 4. Referencia y TUTORIAL de controles (optativo, 2026-07-11): además del que se
+        // ofrece la primera vez en cada mundo, aquí se puede RE-VER cuando se quiera.
+        var tutorialWorld by remember { mutableStateOf<Int?>(null) }   // null = cerrado; 0 = exterior; 1 = interiores
+        Column {
+            Text(stringResource(R.string.settings_tutorial_section), color = Color.White, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.settings_tutorial_hint), color = Color.Gray, fontSize = 12.sp)
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { tutorialWorld = 0 },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21))
+                ) {
+                    Text(stringResource(R.string.settings_tutorial_exterior), color = Color.White, fontSize = 11.sp)
+                }
+                Button(
+                    onClick = { tutorialWorld = 1 },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21))
+                ) {
+                    Text(stringResource(R.string.settings_tutorial_interior), color = Color.White, fontSize = 11.sp)
+                }
+            }
+        }
+        if (tutorialWorld != null) {
+            // Dialog a pantalla completa (usePlatformDefaultWidth=false) para que el overlay
+            // no quede constreñido por la columna scrolleable de Ajustes.
+            Dialog(
+                onDismissRequest = { tutorialWorld = null },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                ControlsTutorialOverlay(
+                    titleRes = if (tutorialWorld == 1) R.string.tutorial_int_title else R.string.tutorial_ext_title,
+                    pages = if (tutorialWorld == 1) interiorTutorialPages() else exteriorTutorialPages(),
+                    onDismiss = { tutorialWorld = null }
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
@@ -531,12 +583,14 @@ internal fun DiagnosticWidgetsSetting(
     speedometerEnabled: Boolean,
     coordsWidgetEnabled: Boolean,
     developerModeEnabled: Boolean,
+    hitboxesEnabled: Boolean,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
     onZoomWidgetToggled: (Boolean) -> Unit,
     onSpeedometerToggled: (Boolean) -> Unit,
     onCoordsWidgetToggled: (Boolean) -> Unit,
     onDeveloperModeToggled: (Boolean) -> Unit,
+    onHitboxesToggled: (Boolean) -> Unit,
     currentLanguage: String,
     onLanguageChanged: (String) -> Unit
 ) {
@@ -554,6 +608,20 @@ internal fun DiagnosticWidgetsSetting(
             Switch(
                 checked = developerModeEnabled,
                 onCheckedChange = onDeveloperModeToggled,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+            )
+        }
+
+        // 🆕 Mostrar hitboxes del modo pelea (estilo Minecraft F3+B): dibuja las cajas
+        // push/hurt/hit sobre los peleadores. Útil para ver dónde "vive" cada asset.
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_show_hitboxes), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_show_hitboxes_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
+            }
+            Switch(
+                checked = hitboxesEnabled,
+                onCheckedChange = onHitboxesToggled,
                 colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
             )
         }

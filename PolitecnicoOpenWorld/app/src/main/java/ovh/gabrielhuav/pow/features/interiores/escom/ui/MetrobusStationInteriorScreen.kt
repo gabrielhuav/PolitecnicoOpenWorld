@@ -13,14 +13,40 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -39,10 +65,13 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import ovh.gabrielhuav.pow.features.interiores.core.ui.CollisionMatrixDesignerLayer
+import ovh.gabrielhuav.pow.features.interiores.core.ui.WaypointDesignerLayer
+import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
+import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitInteriorState
 import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitInteriorViewModel
 import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitSystems
@@ -52,13 +81,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickControlle
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.features.interiores.core.ui.CollisionMatrixDesignerLayer
-import ovh.gabrielhuav.pow.features.interiores.core.ui.WaypointDesignerLayer
-import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.CameraTransform
-import ovh.gabrielhuav.pow.features.interiores.core.viewmodel.DesignerTarget
 
 private val MB_RED = Color(0xFFC21D24)
-private val BACKGROUND_MB_ASSET = "TRANSIT/METROBUS/inside.png"
+private const val BACKGROUND_MB_ASSET = "TRANSIT/METROBUS/inside.png"
 
 @Composable
 fun MetrobusStationInteriorScreen(
@@ -69,8 +94,8 @@ fun MetrobusStationInteriorScreen(
     onTeleportToStation: (String, Float, Float) -> Unit
 ) {
     val context = LocalContext.current
-    val viewModel: TransitInteriorViewModel = viewModel(
-        factory = TransitInteriorViewModel.Factory(context, TransitSystems.METROBUS, stationName, spawnX, spawnY)
+    val viewModel: TransitInteriorViewModel = androidx.hilt.navigation.compose.hiltViewModel<TransitInteriorViewModel, TransitInteriorViewModel.Factory>(
+        creationCallback = { factory -> factory.create(TransitSystems.METROBUS, stationName, spawnX, spawnY) }
     )
     val state by viewModel.state.collectAsState()
     val configuration = LocalConfiguration.current

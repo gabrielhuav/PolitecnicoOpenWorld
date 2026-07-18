@@ -1,19 +1,22 @@
 # 08 · Servidores Node.js + Protocolo de red / Node.js servers + Wire protocol
 
-**ES:** Dos servidores **independientes** `Node.js 18 + Express + ws`, ambos dockerizados, ambos
-escuchan en contenedor **`:8080`** (`GET /status`, `WS /`). Comparten el mismo `WebSocketManager` en el
-cliente. Comentarios en español (mantener). Validar: `node --check server.js`.
-**EN:** Two **independent** `Node.js 18 + Express + ws` servers, both dockerized, both listen on
-container **`:8080`** (`GET /status`, `WS /`). Both use the same client `WebSocketManager`. Spanish
-comments (keep). Validate: `node --check server.js`.
+**ES:** Tres servidores **independientes** `Node.js 18 + Express + ws`, todos dockerizados, todos
+escuchan en contenedor **`:8080`** (`GET /status`, `WS /`). Los dos primeros comparten el mismo
+`WebSocketManager` en el cliente; el del modo pelea usa su propio `SfMatchClient` (ver §3).
+Comentarios en español (mantener). Validar: `node --check server.js`.
+**EN:** Three **independent** `Node.js 18 + Express + ws` servers, all dockerized, all listen on
+container **`:8080`** (`GET /status`, `WS /`). The first two share the client `WebSocketManager`;
+the fight mode uses its own `SfMatchClient` (§3). Spanish comments (keep). Validate: `node --check server.js`.
 
 ```bash
 cd Multiplayer       && docker compose up -d   # host :8080
 cd MultiplayerInteriores && docker compose up -d   # host :8081 → contenedor :8080
+cd MultiplayerSF     && docker compose up -d   # host :8082 → contenedor :8080 (modo pelea)
 ```
-URLs inyectadas / injected: `BuildConfig.MULTIPLAYER_SERVER_URL`, `BuildConfig.INTERIORS_SERVER_URL`.
+URLs inyectadas / injected: `BuildConfig.MULTIPLAYER_SERVER_URL`, `BuildConfig.INTERIORS_SERVER_URL`,
+`BuildConfig.SF_SERVER_URL` (⚠️ placeholder hasta el 1er deploy en Render / placeholder until 1st deploy).
 
-> **🆕 AUTENTICACIÓN (Firebase) en AMBOS servidores (`auth.js`):** cada servidor tiene un módulo
+> **🆕 AUTENTICACIÓN (Firebase) en los TRES servidores (`auth.js`):** cada servidor tiene un módulo
 > **`auth.js`** (`initFirebaseAuth`, `verifyClient`) que verifica el **ID token de Firebase** que el
 > cliente manda en el **handshake** del WebSocket (cabecera `Authorization: Bearer <token>`, o `?token=`
 > de respaldo). Se pasa como opción `verifyClient` a `new WebSocket.Server({ server, verifyClient })`, así
@@ -174,7 +177,10 @@ stepZombie(z, target, def, st, now):
   + separationNudge: empuja zombis cercanos (<SEPARATION_FRAC) para que no se apilen.
 ```
 Funciones núcleo / core: `borderOnly`, `loadMatrixOverrides`, `makeRoomDef`, `zoneOf`, `clampFrac`,
-`safeFrac`, `safeDamage`, `isBlocked`, `isCellBlocked`, `cellOf`, `cellCenterFrac`, `nearestWalkable`,
+`safeFrac`, `safeDamage`, 🆕 `isSolidCell` (**2026-07-10: `'#'` Y `'^'` bloquean — paridad de
+oclusión con el cliente**; antes el server solo bloqueaba `'#'` y los zombis online atravesaban
+los objetos `'^'`), `isBlocked`, `isCellBlocked` (ambos delegan en `isSolidCell`), `cellOf`,
+`cellCenterFrac`, `nearestWalkable`,
 `class MinHeap`, `buildFlowField(def, goalCell)` (Dijkstra 8-conn sin corte de esquina),
 `getField(st, def, goalCell, now)` (cache+TTL), `gradientTarget(field, def, zCell, tx, ty)`,
 `hasLineOfSight(def, ax, ay, bx, by)`, `moveToward`, `fallbackWander`, `separationNudge`, `stepZombie`,
@@ -206,7 +212,57 @@ el cable **no cambia**. / AI state lives in non-serialized fields; the `ZOMBIE_S
 
 ---
 
-## 3) CI/CD Android → Play Store (GitHub Actions) — `.github/workflows/android-release.yml`
+## 3) Servidor 1v1 del modo pelea "HUELUM VS. GOYA" — `MultiplayerSF/server.js` (~340 líneas)
+
+**ES:** **RELAY PURO** (tercer servidor; mismo patrón `Dockerfile`/`auth.js` modo suave/`GET /status`
+para warmup): NO simula la pelea — cada cliente simula a SU peleador y el DAÑO lo aplica el RECEPTOR.
+Protocolo completo, decisiones de autoridad, riesgos y deploy GRATIS en Render: **`AUDIT_SF_MULTIPLAYER.md`**.
+Resumen: salas por código de 4 letras (`CREATE_ROOM`/`JOIN_ROOM`), **SALA PÚBLICA** (`publicQueue`:
+`QUICK_MATCH` empareja al llegar el 2º — el que esperaba es p1/anfitrión —, `CANCEL_QUEUE`, `QUEUED`),
+resumen de partidas `LIST_ROOMS` → `ROOMS_LIST{rooms:[{code,players,phase}], queue}`, selección de
+personaje/mapa, countdown 3-2-1, `PLAYER_STATE`/`PLAYER_DAMAGE` (siempre al rival del emisor),
+`MATCH_ENDED`, revancha BILATERAL y victoria por abandono. Salas expiran a 5 min sin actividad
+(cualquier mensaje en sala refresca `lastActivityMs`). 🆕 (2026-07-15) el cliente en LISTA DE ESPERA
+re-pide `LIST_ROOMS` cada 5 s y pinta las salas en `waiting` como **tarjetas tocables** (unirse directo:
+`CANCEL_QUEUE` + `JOIN_ROOM`); el server saca al ws de la cola en `JOIN_ROOM`/`CREATE_ROOM` y el
+matchmaker poda de la cola a quien ya está en sala (`!wsToRoom.has(w)`) para no emparejar doble.
+Cliente Kotlin: `features/streetfighter/data/SfMatchClient.kt` (OkHttp WS, ping 20 s, HEARTBEAT 45 s,
+`warmupBlocking` ≤90 s).
+🆕 (2026-07-15b) **Lobby con APROBACIÓN (estilo AoE2):** tocar una sala de la lista SOLICITA unirse:
+`REQUEST_JOIN{code}` → `JOIN_REQUESTED` al host → `RESPOND_JOIN{accept}` → aceptar reusa
+`ROOM_JOINED`/`OPPONENT_JOINED`; rechazo/lleno = `JOIN_REJECTED{message}` (soft; el invitado re-encola
+con `QUICK_MATCH`) y `JOIN_REQUEST_CANCELLED` si el solicitante se desconecta (`room.pendingJoin`,
+UNA solicitud a la vez). Unirse por CÓDIGO sigue directo. 🆕 Además existe un transporte
+**BLUETOOTH local SIN servidor** (`SfBtClient` vía la interfaz común `SfNetTransport`): mismos
+mensajes JSON sobre RFCOMM; el HOST genera localmente lo que aquí manda el relay. Ver
+`AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 3b").
+🆕 (2026-07-16) **RONDAS mejor-de-3:** mensaje nuevo **`ROUND_ENDED{winner}`** (relay puro a
+AMBOS, NO toca la fase — la pelea sigue); `MATCH_ENDED` queda solo para el combate decidido
+(2 rondas). ⚠️ Requiere redeploy. Y **tercer transporte local: Servidor LAN** (`SfLanClient`,
+TCP puerto fijo 47645, unirse por IP del host, cero permisos nuevos) — junto con BT comparten
+la base `SfStreamPeer` (mismos mensajes JSON sin server).
+🆕 (2026-07-16b, SESIÓN 4) **BUGFIX crítico del relay:** el reenvío de `PLAYER_STATE` era
+`{ type: 'OPPONENT_STATE', ...msg }` — el spread DESPUÉS del type lo sobrescribía con
+'PLAYER_STATE' y el cliente ignoraba el snapshot (rival CONGELADO en online; BT/LAN no lo
+sufrían: `SfStreamPeer` usa `msg.copy`). Corregido a `{ ...msg, type: 'OPPONENT_STATE' }`.
+**Regla: en relays con spread, el `type` nuevo va SIEMPRE al FINAL.** Además `PLAYER_STATE`
+ganó el campo opcional `timer` (sincronía del reloj: solo lo manda el HOST; pasa por el
+spread sin tocar el server). Sale en el 1er deploy.
+**EN:** 🆕 AoE2-style approval lobby (`REQUEST_JOIN`/`RESPOND_JOIN`/`JOIN_REJECTED`, one pending
+request per room; code join stays direct), serverless local **Bluetooth transport**
+(`SfBtClient`) and 🆕 **LAN server transport** (`SfLanClient`, fixed TCP port 47645, join by the
+host's IP) — both extend the shared `SfStreamPeer` base (same JSON messages over a stream).
+🆕 Best-of-3 **rounds**: new `ROUND_ENDED` relay message (doesn't touch room phase); redeploy needed.
+**EN:** Pure-relay 1v1 fight-mode server (3rd server, same Docker/auth/warmup pattern); it does NOT
+simulate the fight (each client simulates its own fighter; the RECEIVER applies incoming damage). Full
+protocol + free Render deploy: `AUDIT_SF_MULTIPLAYER.md`. 4-letter code rooms + public queue
+(quick match) + room list; 🆕 the waiting-list client polls `LIST_ROOMS` every 5 s and shows `waiting`
+rooms as tappable cards (direct join); the server dequeues on `JOIN_ROOM`/`CREATE_ROOM` and skips
+queued players already in a room. Kotlin client: `SfMatchClient.kt`.
+
+---
+
+## 4) CI/CD Android → Play Store (GitHub Actions) — `.github/workflows/android-release.yml`
 
 Dos disparadores:
 - **PR mergeado a `main`** → build **APK debug** + GitHub Release (`debug-latest`). [flujo original]
@@ -234,8 +290,29 @@ Repo en el navegador → **Settings** → **Secrets and variables** → **Action
 ### Caveats (Play Store)
 - El **primer** release de un track se crea **a mano** una vez en Play Console (ya hecho: la app está en producción/prueba cerrada). La API ya puede subir a la pista existente.
 - La service account necesita permiso **"Release apps to testing tracks"**.
-- `versionCode` SIEMPRE mayor que el último subido a Play (va a mano en `build.gradle.kts`); súbelo en cada PR de release.
+- `versionCode` SIEMPRE mayor que el último subido a Play (va a mano en `build.gradle.kts`, hoy = 11, con override por env `APP_VERSION_CODE`); súbelo en cada PR de release.
 - Si tu pista cerrada tiene **nombre propio** (no "alpha"), cámbialo en `track:` del workflow.
 - ⚠️ **El workflow nuevo debe estar EN `main`** para que dispare en merges futuros (como cualquier cambio de workflow):
   mergéalo una vez y a partir de ahí cada PR mergeado a `main` sube su AAB. **Recuerda subir el `versionCode` en cada PR**
   que quieras publicar; si mergeas sin subirlo, el job de Play falla por versionCode duplicado (el APK debug sí se genera).
+- 🆕 (2026-07-15) **`gradle-version: wrapper` en los 3 jobs** (gate + release + playstore): usa la versión de
+  `gradle-wrapper.properties`. El pin fijo `"9.4.1"` rompió el CI cuando el repo subió a AGP 9.3.0 + Gradle 9.5.0
+  (AGP 9.3 exige Gradle ≥ 9.5) — NO volver a fijar la versión a mano. En el gate, el unzip de detekt lleva `-o`
+  (su zip trae entradas duplicadas; el prompt interactivo moría con EOF → exit 1).
+
+### 🔑 Firebase · huellas SHA (Play App Signing + cambiar de PC) — PENDIENTE del dueño
+El login con Google (Firebase Auth) valida la firma del APK contra las huellas registradas en Firebase.
+Hay que registrar **TODAS** estas huellas en **Firebase Console → Project settings → General → app Android
+(`ovh.gabrielhuav.pow`) → "Add fingerprint"** (SHA-1 **y** SHA-256 de cada una):
+
+1. **La clave de FIRMA DE PLAY (App Signing)** — ⚠️ la más importante y la que faltaba: Play RE-FIRMA el AAB
+   con su propia clave, así que los builds instalados desde la prueba cerrada NO llevan tu firma de upload.
+   Cópialas de **Play Console → (tu app) → Setup → App integrity → App signing → "App signing key
+   certificate"** (SHA-1 y SHA-256). Sin esto, el login con Google FALLA en los builds bajados de Play.
+2. **Tu clave de UPLOAD/release** (`llave_pow.jks`): `keytool -list -v -keystore llave_pow.jks -alias <alias>`.
+3. **El debug.keystore de CADA PC de desarrollo** (cada máquina genera el suyo en `%USERPROFILE%\.android\`):
+   `keytool -list -v -keystore "%USERPROFILE%\.android\debug.keystore" -alias androiddebugkey -storepass android`.
+   Alternativa al cambiar de PC: copiar el `debug.keystore` viejo a la máquina nueva (misma huella, cero altas).
+
+Tras agregar huellas: **re-descargar `google-services.json`** desde Firebase, reemplazar `app/google-services.json`
+local y actualizar el secret `GOOGLE_SERVICES_JSON` (base64) — el json incluye los certificate_hash.

@@ -20,36 +20,45 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.Ps4ActionButtonsController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleJoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-// REFACTOR: extensión del VM (menú de teletransporte) → import explícito.
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleTeleportMenu
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onInteractButtonPressed
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exitGlobalZombieMode
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.handleInteraction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveCharacter
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveCharacterByAngle
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.handleInteraction
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onClaimCollectiblePressed
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.exitGlobalZombieMode
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onInteractButtonPressed
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleWorldInventory
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
+
+// MANTENER Y (a pie) este tiempo = abrir el INVENTARIO del mapa (paridad con interiores,
+// petición del dueño 2026-07-13). Un toque más corto = subir/bajar del auto (al SOLTAR).
+private const val Y_HOLD_INVENTORY_MS = 450L
 
 /**
  * Controles en pantalla del mundo abierto (extraído de WorldMapScreen.kt para reducir su
  * tamaño): vals de layout (escala/padding según orientación), botón "Salir del apocalipsis"
- * y la fila inferior de controles (D-pad/joystick de movimiento o conducción + botones de
- * acción A/B/X/Y o diamante PS4). Es una extensión de [BoxScope] porque usa `align`.
- * MVVM: solo observa `uiState` y emite intenciones al VM. La pulsación larga de Y/△
- * (mantener 3 s → menú de teletransporte) se gestiona aquí con `yButtonHoldJob` local.
+ * y la fila inferior de controles (D-pad/joystick de movimiento o conducción + el MISMO
+ * diamante Xbox A/B/X/Y a pie y conduciendo). Es una extensión de [BoxScope] porque usa `align`.
+ * MVVM: solo observa `uiState` y emite intenciones al VM.
+ * TOMBSTONE (2026-07-12): el "mantener Y 3 s → menú de TELETRANSPORTE" (`yButtonHoldJob`) se
+ * RETIRÓ a petición del dueño — el teletransporte tiene su propio botón en el menú Mapa. NO
+ * recrear ESE menú en Y. 🆕 2026-07-13 (también petición del dueño): mantener Y (~450 ms, a
+ * pie) ahora abre el INVENTARIO del mapa (paridad con interiores) — es un uso distinto, no el
+ * teletransporte; el toque corto de Y (al soltar) sigue siendo subir/bajar del auto.
  *
- * @param optionsExpanded si el menú de Opciones está abierto (en horizontal desplaza el
- *   control de la derecha para no taparlo).
+ * @param optionsExpanded si el menú de Opciones está abierto (desplaza el control de la
+ *   derecha a la izquierda — en horizontal Y en vertical — para no taparlo).
  */
 @Composable
 fun BoxScope.WorldMapControls(
@@ -57,8 +66,6 @@ fun BoxScope.WorldMapControls(
     viewModel: WorldMapViewModel,
     optionsExpanded: Boolean
 ) {
-    val coroutineScope = rememberCoroutineScope()
-    var yButtonHoldJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
@@ -70,13 +77,17 @@ fun BoxScope.WorldMapControls(
     val sidePadding = if (isPortrait) 8.dp else 32.dp
     val bottomPadding = if (isPortrait) 32.dp else 20.dp
 
-    // En HORIZONTAL, al abrir el menú de Opciones, este (arriba a la derecha) se
-    // extiende hacia abajo y choca con el control de la derecha (D-pad/diamante).
-    // Desplazamos ese control hacia la izquierda mientras el menú está abierto para
-    // que el usuario pueda usar el menú (con su scroll) sin que tape los botones.
-    val isMenuOpenLandscape = optionsExpanded && !isPortrait
+    // Al abrir el menú de Opciones/Mapa (arriba a la derecha), sus entradas se extienden
+    // hacia abajo y chocan con el control de la derecha (D-pad/diamante). Desplazamos ese
+    // control hacia la izquierda mientras el menú está abierto para que el usuario pueda
+    // usar el menú (con su scroll) sin que tape los botones. 🆕 2026-07-12: aplica TAMBIÉN
+    // en VERTICAL (antes solo horizontal; en vertical el menú se encimaba con A/B/X/Y).
     val rightCtrlShift by animateDpAsState(
-        targetValue = if (isMenuOpenLandscape) (-150).dp else 0.dp,
+        targetValue = when {
+            optionsExpanded && !isPortrait -> (-150).dp
+            optionsExpanded && isPortrait -> (-120).dp
+            else -> 0.dp
+        },
         label = "rightCtrlShift"
     )
     val rightShiftMod = Modifier.offset(x = rightCtrlShift)
@@ -98,7 +109,7 @@ fun BoxScope.WorldMapControls(
             // a propósito — gas y freno viven únicamente en el diamante PS4.
             val drivingDpad = @Composable { m: Modifier ->
                 // Respeta la preferencia de control: JOYSTICK = joystick de dirección (izq/der);
-                // D-pad = flechitas. Gas/freno siempre en el diamante PS4 (drivingActions).
+                // D-pad = flechitas. Gas/freno siempre en el diamante A/B/X/Y (drivingActions).
                 if (uiState.controlType == ControlType.JOYSTICK)
                     VehicleJoystickController(
                         modifier = m.scale(effectiveScale),
@@ -114,19 +125,18 @@ fun BoxScope.WorldMapControls(
                         onRight = { viewModel.steerRight(it) }
                     )
             }
-            // Diamante estilo PS4: △ SALIR · ✕ gas · ○ freno · □ freno de mano.
+            // MISMO diamante Xbox que a pie (control unificado, 2026-07-03):
+            // Y SALIR del coche · A gas · B freno · X freno de mano.
+            // 🆕 2026-07-12: se RETIRÓ el "mantener Y 3 s → menú de teletransporte" (petición del
+            // dueño): el teletransporte ya tiene su propio botón en el menú Mapa. NO recrearlo.
             val drivingActions = @Composable { m: Modifier ->
-                Ps4ActionButtonsController(
+                VehicleActionButtonsController(
                     modifier = m.scale(effectiveScale),
                     onAccelerate = { viewModel.accelerate(it) },
                     onBrake = { viewModel.brake(it) },
                     onHandbrake = { viewModel.brake(it) },
                     onExit = { isPressed ->
-                        if (isPressed) {
-                            viewModel.onInteractButtonPressed()
-                            yButtonHoldJob?.cancel()
-                            yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
-                        } else { yButtonHoldJob?.cancel() }
+                        if (isPressed) viewModel.onInteractButtonPressed()
                     }
                 )
             }
@@ -137,6 +147,11 @@ fun BoxScope.WorldMapControls(
                     if (uiState.controlType == ControlType.DPAD) DPadController(modifier = m.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
                     else JoystickController(modifier = m.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
                 }
+                // 🆕 2026-07-13: Y a pie tiene DOS usos — toque corto (al SOLTAR) = subir al
+                // auto; MANTENER ~450 ms = abrir el INVENTARIO del mapa (paridad con interiores).
+                val yScope = rememberCoroutineScope()
+                var yHoldJob by remember { mutableStateOf<Job?>(null) }
+                var yPressedAtMs by remember { mutableStateOf(0L) }
                 val actionComponent = @Composable { m: Modifier ->
                     ActionButtonsController(
                         modifier = m.scale(effectiveScale),
@@ -146,11 +161,17 @@ fun BoxScope.WorldMapControls(
                             }
                             if (action == GameAction.Y) {
                                 if (isPressed) {
-                                    viewModel.onInteractButtonPressed()
-                                    yButtonHoldJob?.cancel()
-                                    yButtonHoldJob = coroutineScope.launch { kotlinx.coroutines.delay(3000); viewModel.toggleTeleportMenu(true) }
+                                    yPressedAtMs = System.currentTimeMillis()
+                                    yHoldJob?.cancel()
+                                    yHoldJob = yScope.launch {
+                                        delay(Y_HOLD_INVENTORY_MS)
+                                        viewModel.toggleWorldInventory(true)
+                                    }
                                 } else {
-                                    yButtonHoldJob?.cancel()
+                                    yHoldJob?.cancel()
+                                    if (System.currentTimeMillis() - yPressedAtMs < Y_HOLD_INVENTORY_MS) {
+                                        viewModel.onInteractButtonPressed()
+                                    }
                                 }
                             }
                             viewModel.updateActionState(action, isPressed)

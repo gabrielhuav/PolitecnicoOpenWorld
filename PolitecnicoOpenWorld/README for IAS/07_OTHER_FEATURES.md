@@ -24,6 +24,558 @@ Menú principal; título ligado a `BuildConfig.VERSION_NAME` con auto-shrink que
 **Botones (renombrados):** `menu_start_game` ahora es **"MUNDO LIBRE"** (open world sin campaña, spawn por
 defecto) y `menu_load_game` es **"MODO HISTORIA"** (antes deshabilitado; ahora navega a `story_mode` vía
 `onNavigateToStory`).
+**🆕 Botón "HUELUM VS. GOYA" (`menu_street_fighter`, 2026-07-09 · PÚBLICO desde 2026-07-15):**
+SIEMPRE visible (el gate por Modo Desarrollador se INVIRTIÓ: ahora el dev mode solo desbloquea a
+RYU/KEN dentro del selector, ver §GATE INVERTIDO abajo); navega a la ruta `street_fighter`
+(callback `onNavigateToStreetFighter` con default `{}`).
+
+---
+
+## 🥊 HUELUM VS. GOYA — modo de pelea 1v1 (`features/streetfighter/`) — 🆕 2026-07-09 · PÚBLICO desde 2026-07-15 (RYU/KEN dev-only)
+
+> **NOMBRES:** en UI/UX el modo se llama **"HUELUM VS. GOYA"** (strings `menu_street_fighter`
+> ES+EN); en CÓDIGO se conserva el nombre técnico (paquete `features/streetfighter/`, ruta
+> `street_fighter`, clases `Sf*`/`StreetFighter*`) — NO renombrar el código. Los docs usan el
+> nombre de UI; "Street Fighter" a secas se refiere al CLON original del que se portó el motor.
+
+**ES:** Port FIEL del clon JS `StreetFighter-main/` (hermano del repo): pelea 1v1 clásica **Ryu
+(jugador) vs Ken (CPU)** con los **sprites, escenario, HUD y sonidos originales**. Los assets viven en
+**`app/src/main/assets/STREETFIGHTER/`** (`IMAGES/` 7 png, `SOUNDS/` 12 ogg, `DATA/` ryu.json+ken.json).
+Los JSON se generaron **automáticamente desde Ryu.js/Ken.js** (77/78 frames con recorte+origen+pushbox+
+hurtbox+hitbox POR FRAME y las 30 animaciones con sus frame-delays); regenerables con el conversor
+**`tools/convert_streetfighter_frames.py`** (parsea el JS con ast; ajusta las rutas si mueves los repos). *(La 1ª iteración fue un port del
+fork StreetFighter-Maths con quiz; se descartó — el tombstone `SfMathQuiz.kt` se BORRÓ el 2026-07-16.)*
+**EN:** Faithful port of the sibling `StreetFighter-main/` JS clone: classic Ryu vs Ken (CPU) with the
+original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations converted to JSON from the JS.
+
+| Tema / Concern | Archivo / File |
+|---|---|
+| Modelos puros (constantes, enums de estados 1:1 con el JS, SfBox, snapshots, SfInput) | `domain/models/streetfighter/SfModels.kt` |
+| Carga del frame data JSON (Gson, cache estático; 🆕 remap a rejilla runtime para compartidos) | `features/streetfighter/data/SfFrameCatalog.kt` |
+| 🆕 HOJAS COMPARTIDAS con el mundo (armado runtime desde SPRITES/*, normaliza lienzos heterogéneos, LRU 3) | `features/streetfighter/data/SfSharedSheets.kt` |
+| 🆕 Transporte común del multijugador (interfaz; WS online / BT / LAN local) | `features/streetfighter/data/SfNetTransport.kt`, `SfMatchClient.kt`, `SfStreamPeer.kt` (base de stream), `SfBtClient.kt`, `SfLanClient.kt` |
+| 🆕 TEMA intercambiable (escenario/HUD/sombra/splashes/proyectil/sonidos como DATOS; hoy `SF_CLASSIC_THEME`) | `features/streetfighter/data/SfTheme.kt` |
+| Estado UI (peleadores, fireballs, splashes, cámara, timer, fin de pelea) | `features/streetfighter/viewmodel/StreetFighterState.kt` |
+| VM `@HiltViewModel` (port de Fighter.js/BattleScene.js/Fireball.js: máquina de 30 estados, animación por frame-delays, cajas por frame, hit-freeze 15 frames, hadouken ↓↘→+P, IA CPU con 3 dificultades 🆕, timer 99, sonidos por SharedFlow) | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` |
+| View (Canvas: sprite sheets con flip por ancla, escenario de Ken con parallax/bandera/barco, sombras, HUD de hud.png, winnerText; SoundPool + tema de Ken en loop; joystick POW + 6 botones) | `features/streetfighter/ui/StreetFighterScreen.kt` |
+
+- **Reloj de juego VIRTUAL:** `gameNow` solo avanza si no hay pausa/diálogo → los timers absolutos
+  (animaciones, timer, hit-freeze) NO se desplazan al pausar. `requestAnimationFrame` → coroutine 16 ms.
+- **Controles (2026-07-09b, MISMO diamante Xbox de POW):** joystick (←→ caminar, ↑ saltar, ↓ agacharse;
+  secuencia ↓ ↘ → + puño = **especial/hadouken**, ventana 800 ms) + diamante A/B/X/Y idéntico a
+  `ActionButtonsController`: **X = puño ligero · Y = puño medio · B = puño fuerte · A = patada**
+  (fuerza de la patada según el joystick: neutro = ligera, adelante = media, atrás = fuerte;
+  `onKickPressed` en el VM). El joystick no emite release → timeout 150 ms.
+- **🆕 SEPARACIÓN motor⇄assets (2026-07-09b):** la View ya no conoce recortes/rutas — todo viene del
+  `SfTheme` (data). Migrar a assets propios de POW (Prankedy, escenario ESCOM, sin copyright) = nuevos
+  PNG+JSON+tema, CERO lógica. **Receta completa + prompts de generación (QWEN/ChatGPT):**
+  `ASSETS_STREETFIGHTER_MIGRACION.md` (esta carpeta).
+- **🆕 PRANKEDY JUGABLE (2026-07-10):** P1 ya es **`SfFighterId.PRANKEDY`** (sheet
+  `IMAGES/Prankedy.png` + `DATA/prankedy.json`, generados con el pipeline del doc de migración);
+  la CPU sigue siendo Ken. VM y View cargan frame data/sheets **por identidad** (cache perezoso).
+  Su especial lanza la **broma del tanque** con confeti: frames `proj-*` del JSON del dueño
+  (fallback al fireball del tema). `winnerRows` por personaje (Prankedy aún sin fila → sin texto).
+- **🆕 PRANKEDY REGENERADO POR CROMA (2026-07-16):** sus 19 hojas originales alimentan un único
+  arte para pelea y mundo mediante `tools/slice_sf_chroma_sheets.py` (orden obligatorio 01→19;
+  14/15 refinan y sobrescriben puños/patadas). SF queda en 123 frames/30 animaciones, incluido el
+  proyectil de confeti; el mundo usa Idle relajado 6, Walk 6, Run 8, Special 5 y Talk 4. Fuente e
+  intermedios viven fuera del APK en `newSFAssets/`; receta: `GUIA_regeneracion_sprites_croma.md`.
+- **🆕 SEÑOR DE LA TIENDA REGENERADO POR CROMA (2026-07-16):** deja `sharedSet` y usa
+  `IMAGES/SenorTienda.png` + `DATA/senortienda.json` propios (123 frames/30 animaciones/proyectil
+  de barrido-polvo); mundo Idle 6, Walk 6, Run 8, Special 5, Talk 4. Prankedy y Tienda ya no son
+  ALPHA. Ambos dedicados fuerzan cuerpo 100 px en SF; mundo croma = 512²/cuerpo base 360 px.
+  El detector genérico de continuidad KO marca `fall-4/fall-5.flipX` y la UI los espeja al tenderse.
+- **🆕 REY GRUPERO + PAPARAZZI 1 REGENERADOS POR CROMA (2026-07-16):** ambos dejan
+  `sharedSet` y usan hojas/JSON propios de 123 frames y 30 animaciones. Sus sets del mundo quedan
+  uniformes: Idle 6, Walk 6, Run 8, Special 5 y Talk 4, todos en lienzo 512² con cuerpo base
+  360 px. En SF, idle/caminatas = 100 px y el agachado usa alturas fijas 90→80→68 px sin
+  encoger cabeza/torso. Paparazzi acepta PROJECTILE de 4 efectos y duplica con seguridad el
+  cuadro central para completar 2 de vuelo + 3 de impacto. Ambos pierden badge ALPHA.
+- **🆕 COMBATE CROMA COMPLETO (2026-07-16/17):** los trece dedicados aprovechan 123/123 cuadros:
+  puños y patadas conservan preparación/contacto/recuperación completos, salto atrás y aterrizaje
+  usan sus hojas reales, STUN recorre sus tres poses y SPECIAL L/M/H usa cinco cuadros distintos.
+  Cada JSON trae `events.projectile` por fuerza (`frame`, `offset`, `scale`), por lo que el efecto
+  nace del tanque/escoba/megáfono/cámara/haz policial propio y ya no de un frame/offset global hardcodeado. La UI muestra
+  permanentemente el comando `↓↘→ + X/Y/B` y la pausa explica las seis fuerzas.
+- **🆕 SELECTOR DE PERSONAJE + 7 JUGABLES (2026-07-10b):** el modo arranca en
+  `inCharacterSelect=true` (el reloj de juego NO corre) con un overlay de tarjetas
+  (`CharacterSelectOverlay`; preview animado = regiones del Idle completo vía
+  **BitmapRegionDecoder** + trim de transparencia — NO se decodifican los sheets completos).
+  Roster: Ryu, Ken, **Prankedy, El Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero**;
+  los cinco POW ya tienen poses completas y no llevan badge ALPHA. `selectCharacter(id)` arranca la pelea (CPU = Ken,
+  o Ryu si eliges a Ken); el menú de fin ganó **"Cambiar personaje"** (`backToCharacterSelect`).
+  Los 5 POW se generaron originalmente con **`tools/gen_sf_frames_from_npc.py`** (77 poses desde el
+  set NPC estándar Idle/Walk/Run/Special, con rotaciones/aplastados para golpes/reacciones/caídas
+  y filtro de cuadros corruptos — `rg_w_4.webp` era 4×13 px) + `pack_sf_character.py` (parcheado:
+  ya NO empaqueta `proj-*` inexistentes → esos personajes usan el fireball del tema). Prankedy,
+  Tienda, ambos Paparazzi y Rey ya sustituyeron esas aproximaciones por sus hojas croma dedicadas.
+- **🆕 RENOMBRE + MEJORAS ONLINE (2026-07-11b):** el modo se llama **"HUELUM VS. GOYA"**
+  (solo strings user-facing; los ids internos siguen siendo street_fighter/Sf*). Online ganó
+  **SALA PÚBLICA** (lista de espera; el server empareja con `QUICK_MATCH`) y **resumen de
+  partidas activas**. Botones con estilo POW (`PowButton`, esquinas cortadas + vino).
+  Offline: ahora también se ELIGE AL RIVAL (flujo de 3 pasos: peleador → rival → mapa;
+  `selectCharacter(id, rivalId?)`). Detalle: `AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 2").
+- **🆕 SESIÓN 3 ONLINE (2026-07-15) — los 6 pendientes del AUDIT resueltos:** la LISTA DE
+  ESPERA pública muestra el resumen (`sf_mp_rooms_summary`; estado `activeRooms`/`queueCount`)
+  y las **salas activas como TARJETAS tocables** (las 'waiting' con hueco te unen directo:
+  `joinRoomFromQueue` = `CANCEL_QUEUE`+`JOIN_ROOM`), con refresh de `LIST_ROOMS` cada 5 s;
+  `cancelOnline` avisa (`CANCEL_QUEUE`+`LEAVE_ROOM`) antes de cerrar el WS; **`PowButton` se
+  movió COMPARTIDO a `map_exterior/ui/components/PowButton.kt`**; sweep visual vino/dorado
+  (`OutlinedTextField`, `TextButton`, diálogo de salida). Server: `JOIN_ROOM`/`CREATE_ROOM`
+  sacan de la cola pública y el matchmaker no empareja a quien ya está en sala. Detalle:
+  `AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 3").
+- **🆕 SESIÓN 3b (2026-07-15) — LOBBY con APROBACIÓN + BLUETOOTH local:** (1) tocar una sala
+  de la lista ahora **SOLICITA unirse** (estilo AoE2): el HOST ve ACEPTAR/RECHAZAR
+  (`REQUEST_JOIN`/`RESPOND_JOIN`/`JOIN_REJECTED`; unirse por CÓDIGO sigue directo).
+  (2) **Multijugador por BLUETOOTH sin internet:** interfaz común
+  **`data/SfNetTransport.kt`** (el VM solo habla con `transport`) + **`data/SfBtClient.kt`**
+  (RFCOMM, UUID fijo; el HOST genera localmente los mensajes del relay). Sección
+  "BLUETOOTH (sin internet)" en el menú 🌐: ANFITRIÓN (visible+accept) / BUSCAR RIVAL
+  (emparejados+discovery). Permisos BT en Manifest (SCAN con `neverForLocation`;
+  runtime solo al tocar la sección, Android 12+; SIN foreground service). Detalle y
+  protocolo: `AUDIT_SF_MULTIPLAYER.md` (banner "SESIÓN 3b").
+- **🆕 MULTIJUGADOR 1v1 (2026-07-11):** 3er servidor **`MultiplayerSF/`** (relay puro en
+  Render FREE; salas por código de 4 letras). Cada cliente simula a SU peleador; el rival
+  llega por red (~15 Hz) y el daño lo aplica el RECEPTOR (decide bloqueo con su estado real).
+  Cliente: `data/SfMatchClient.kt` (OkHttp WS + warmup del free tier) + `SfOnlineStatus` en el
+  estado + botón 🌐 en el selector (crear/unir), el anfitrión elige el mapa, countdown 3-2-1
+  del server, revancha bilateral y victoria por abandono. `BuildConfig.SF_SERVER_URL`.
+  **Detalle completo + protocolo + cómo desplegar: `AUDIT_SF_MULTIPLAYER.md`.**
+- **🆕 MÚSICA de Prankedy + SELECTOR DE MAPA (2026-07-10e/f):** el tema del clon SF se
+  reemplazó por **`SOUNDS/prankedy-persecucion.mp3`** ("Persecución", la de sus videos; vol 0.3).
+  `SfTheme.fullBackgrounds` = lista de `SfStageBg(file, name)` con 6 fondos de pantalla completa
+  (**ESCOM, Queso IPN, ESIME Azcapotzalco, CECyT 9, CECyT 2, Biblioteca UNAM** en
+  `IMAGES/fondo_*.png`). La selección pre-pelea ahora es en **2 pasos**: PELEADOR → **MAPA**
+  (`StageSelectOverlay`: miniaturas submuestreadas `inSampleSize=8` + tarjeta "Al azar" 🎲 +
+  "← Cambiar peleador"; el flujo vive en la View — `pendingFighter`/`chosenBgFile` — porque el
+  fondo es solo presentación). Se decodifica SOLO el fondo elegido; se dibuja con **parallax de
+  cámara** (`drawFullBackground`) y sin las capas del muelle clásico. Lista vacía = escenario
+  clásico (fallback).
+- **🆕 BLOQUEO estilo SF (2026-07-10d):** caminar HACIA ATRÁS = cubrirse. En `applyAttackHit`
+  (VM), si el defensor está en `WALK_BACKWARD` el golpe entra "chip": daño /4 (mín 1), medio
+  retroceso, SIN pose de HURT ni splash ni puntos, hit-freeze corto y sonido "land". Aplica
+  igual a melee y proyectiles. El chip PUEDE noquear (KO clásico por chip).
+- **🆕 FUENTE arcade del HUD (2026-07-10d):** `SfTheme.letterFont` expone el abecedario A-Z +
+  dígitos que ya venían dentro de `hud.png` (filas score del StatusBar.js). Con
+  `drawFontText` se dibujan los TAGS de nombre (por `SfFighterId.shortName`, campo nuevo),
+  los marcadores P1/P2 y el **"<PERSONAJE> WINS" de CUALQUIER peleador** — `winnerText.png` y
+  los campos `nameTags`/`winnerRows` del tema se RETIRARON (el png se BORRÓ de assets el 2026-07-16).
+- **🆕 Anchura por sección (2026-07-10d):** `place()` ganó `stretch_x`; el idle de Rey Grupero
+  (1.25) y Señor Tienda (1.15) se ensancha porque su hoja fuente los dibuja más grandes y al
+  normalizar por altura quedaban flacos respecto a su caminata.
+- **🆕 PAUSA AUTOMÁTICA (2026-07-10c):** al bloquear el celular/minimizar (`ON_PAUSE` del
+  lifecycle, patrón de WorldMapScreen), el VM hace `forcePause()` (nunca des-pausa; no aplica en
+  selector/fin de pelea) y la música se pausa (`ON_RESUME` la reanuda). Overlay "PAUSA" con
+  botón Continuar (`togglePause`). El reloj de juego virtual ya se detenía solo.
+- **Quirks del JS portados a propósito:** el chequeo de hitbox SALE al primer hurtbox que no traslapa;
+  los ataques ligeros se re-disparan desde el frame 2; LEGS cae a estados de cabeza; empate del timer lo
+  gana el jugador (>=).
+- **🆕 POLICÍAS CDMX CROMA (2026-07-16):** la policía femenina usa
+  `PoliciaCDMX.png`/`policiacdmx.json` y el policía masculino es una identidad independiente con
+  `PoliciaCDMXHombre.png`/`policiacdmxhombre.json`. Ambos tienen 123 cuadros, especial de haz
+  anclado al cuerpo y sets de mundo 512² (Idle 6, Walk 6, Run 8, Special 5, Talk 4). El masculino
+  recupera sus cinco efectos reales de proyectil, incluidas las partículas finales dispersas.
+- **🆕 PARAMÉDICO CRUZ ROJA CROMA (2026-07-16):** identidad dedicada independiente del
+  `PARAMEDICO` genérico compartido. Usa `ParamedicoCruzRoja.png`/`paramedicocruzroja.json`
+  (123 cuadros, 30 animaciones, descarga eléctrica con cinco efectos) y un set mundial 512²
+  de Idle 6, Walk 6, Run 8, Special 5 y Talk 4. El KO corrige `fall-5` con `flipX` automático.
+- **🆕 POLICÍA GRANADERO HOMBRE CROMA (2026-07-17):** identidad dedicada independiente del
+  `GRANADERO` genérico compartido. Usa `PoliciaGranaderoHombre.png`/
+  `policiagranaderohombre.json` (123 cuadros, 30 animaciones y pulso sónico de megáfono) y el
+  set mundial `PoliciaGranaderoMasculinoCDMX` 512²: Idle 6, Walk 6, Run 8, Special 5, Talk 4.
+  El KO no necesitó `flipX`. El pipeline ganó partición A→B para hojas con ambos grupos en una
+  sola fila y `tools/validate_sf_chroma_character.py` para validar futuras entregas.
+- **🆕 ESCOMBOY CROMA CON 18 HOJAS (2026-07-17):** deja de ser ALPHA/compartido y usa
+  `EscomBoy.png`/`escomboy.json` propios (123 cuadros, 30 animaciones y portal tecnológico con
+  proyectil USB). Falta solo la hoja opcional 15 de patadas refinadas; conserva las patadas base
+  completas de 08/09 y mantiene el hueco numérico. Su mundo reemplaza ciclos antiguos
+  16/25/16/16 por Idle 6, Walk 6, Run 8, Special 5 y Talk 4, todos 512²/360 px.
+- **🆕 ESCOMGIRL CROMA (2026-07-17):** deja de ser ALPHA/compartida y conserva el mismo enum
+  y progreso arcade, ahora con `EscomGirl.png`/`escomgirl.json` propios (123 cuadros,
+  30 animaciones y portal tecnológico con cinco efectos). Sus 19 hojas incluyen ambos refuerzos
+  14/15. Mundo reemplaza 6/5/4/6 por Idle 6, Walk 6, Run 8, Special 5 y Talk 4, 512²/360 px.
+- **🆕 POLICÍA GRANADERO MUJER CROMA (2026-07-17):** identidad independiente con
+  `PoliciaGranaderoMujer.png`/`policiagranaderomujer.json` (123 cuadros, 30 animaciones y
+  cápsula de humo rosa con cinco efectos). Mundo `PoliciaGranaderoFemeninoCDMX` usa Idle 6,
+  Walk 6, Run 8, Special 5 y Talk 4 en 512²/360 px. KO no necesitó `flipX`.
+- **🆕 ESCOMROBOT CROMA (2026-07-17):** conserva el enum `ROBOT`, desbloqueos y progreso
+  arcade, pero deja ALPHA/compartido por `Robot.png`/`robot.json` dedicados (123 cuadros,
+  30 animaciones y pulso energético con cinco efectos). Mundo reemplaza cuatro ciclos de
+  25 cuadros por Idle 6, Walk 6, Run 8, Special 5 y Talk 4, todos 512²/360 px.
+- **🆕 YOALLI EHÉCATL CROMA (2026-07-17):** identidad femenina nueva con
+  `YoalliEhecatl.png`/`yoalliehecatl.json` dedicados (173 cuadros, 40 animaciones,
+  diez poderes; el décimo es la metamorfosis inversa a Presidenta). Mundo `YoalliEhecatl` usa Idle 6, Walk 6, Run 8,
+  Special 5 y Talk 4 en lienzos 512², cuerpo mediano 360 px y caja UI uniforme.
+- **🆕 CHARRO NEGRO CROMA (2026-07-17):** identidad nueva con
+  `CharroNegro.png`/`charronegro.json` dedicados (123 cuadros, 30 animaciones y energía
+  verde-negra con cinco efectos). Mundo `CharroNegro` usa Idle 6, Walk 6, Run 8, Special 5
+  y Talk 4 en lienzos 512²; `flipX` corrige únicamente dos transiciones de su KO.
+- **🆕 LA TZITZIMIME CROMA (2026-07-17):** identidad nueva con
+  `LaTzitzimime.png`/`latzitzimime.json` dedicados (148 cuadros, 35 animaciones, eclipse base
+  y cinco poderes Grok). Mundo `LaTzitzimime` usa Idle 6, Walk 6, Run 8, Special 5 y Talk 4
+  en lienzos 512²/360 px; su KO no necesita `flipX`.
+- **🆕 LA PRESIDENTA CROMA (2026-07-17):** identidad nueva con
+  `LaPresidenta.png`/`lapresidenta.json` dedicados (178 cuadros, 41 animaciones, once poderes
+  extra y metamorfosis final a Yoalli Ehécatl).
+  Mundo `LaPresidenta`: Idle 6, Walk 6, Run 8, Special 5 y Talk 4, 512²/360 px.
+- **🆕 PODERES GROK (2026-07-17):** botón central `P`, cinco poderes para La Tzitzimime y
+  diez para Yoalli, y once para La Presidenta. Yoalli usa fuerza HEAVY, Tzitzimime MEDIUM;
+  La Presidenta usa MEDIUM salvo `bonusPower11` (metamorfosis Presidenta → Yoalli), que es HEAVY. `Stellar Dominion`,
+  `Void Reaver` y `Lich Ascendant` muestran sus metamorfosis. Son estados reales utilizables
+  por jugador/IA y sincronizables online, no assets decorativos sin uso.
+- **✅ LA LLORONA (2026-07-18):** las 19 hojas están completas, incluida la 12
+  `SPECIAL HEAVY + PROJECTILE`; está empacada en 123 cuadros/30 animaciones y en el roster.
+  Sus HURT de cabeza/cuerpo usan ahora 3–4 poses únicas; no confundir este caso con la omisión segura
+  de una hoja refinada 14/15.
+- **🆕 ASSETS COMPARTIDOS CON EL MUNDO — hojas armadas EN RUNTIME (2026-07-15d/16):** el roster
+  se mantiene en **22** (20 sin Modo Dev) y **3 peleadores ya NO tienen sprite sheet propio en el
+  APK**: su hoja se ARMA EN RUNTIME desde los MISMOS assets que usa el mundo abierto
+  (`SPRITES/PLAYER/` y `SPRITES/NPC/`) — un solo juego de sprites alimenta AMBAS modalidades.
+  Compartidos: **Lázaro, Granadero y Paramédico**.
+  Paparazzi 5, Policía CDMX y los tres estudiantes ESCOM dejaron este grupo al recibir hojas croma;
+  Policía CDMX (Hombre), Paramédico Cruz Roja y Policía Granadero Hombre nacieron directamente
+  como dedicados. Piezas:
+  - `SfFighterId.sharedSet: SfSharedSet(basePath, folder, prefix, flip)` — misma convención
+    que `PlayerSkin`; `flip=true` en lázaro/escomboy (dibujados a la IZQUIERDA; SF exige DERECHA).
+    Su `jsonAsset` apunta al TEMPLATE `sf_template.json` y su `spriteAsset` es VIRTUAL `RUNTIME/<X>.png`
+    (solo key del mapa de imágenes — NUNCA abrirlo como asset).
+  - **`data/SfSharedSheets.kt` (NUEVO):** port Kotlin de `gen_sf_frames_from_npc.py` +
+    `pack_sf_character.py` — recorta cada cuadro a su bbox, **normaliza los LIENZOS
+    HETEROGÉNEOS por código** 🆕 **POR ANIMACIÓN (2026-07-16)**: cada animación se mide
+    (mediana de alturas de sus cuadros) y se escala a 100 px — antes la escala era única por
+    personaje (medida del idle) y si el set traía otra acción dibujada a otra escala (lázaro
+    idle 338×422 vs run 256², escomgirl run 542×681…) la figura CRECÍA/ENCOGÍA al caminar/
+    correr/atacar; ahora mide lo MISMO en todas las acciones (`normalizeAnim`; el rebote
+    natural DENTRO de una animación se conserva). Aproxima las 77 poses (rotaciones/
+    aplastados, ALPHA) y pega la hoja 2560×2048 (misma RAM que decodificar el PNG que había).
+    Cache LRU 3. Preview del selector = 1er cuadro del Idle del set del mundo (barato).
+  - `SfFrameCatalog`: para compartidos parsea `ryu.json` y REMAPEA `src` a la rejilla runtime
+    (`templateFrameOrder` fija el layout; cajas/timings de Ryu se conservan, igual que el packer).
+  - **Quedan EMPAQUETADOS Ryu, Ken** (clon original/debug) y los diecisiete croma dedicados:
+    **Prankedy, Señor de la Tienda, Rey Grupero, Paparazzi 1, Paparazzi 5, ambas policías CDMX,
+    Paramédico Cruz Roja, ambos Policías Granadero, los tres estudiantes ESCOM, Yoalli Ehécatl,
+    el Charro Negro, La Tzitzimime y La Presidenta**
+    (19 hojas por identidad + `proj-*`; escala común 100 px y KO con `flipX` automático).
+  - **Rey de las Bromas y Pepe NO entran** (no jugables por diseño; comentados en `PlayerSkin`).
+  - **Se BORRARON** los 11 sheets+JSON duplicados originales; Señor de la Tienda volvió después
+    con arte dedicado completo. `STREETFIGHTER/GEN/` siempre sale del APK. Los tools offline siguen sirviendo para personajes
+    con ARTE PROPIO (hoja de referencia → `pack_sf_character.py`, como Prankedy);
+    `gen_sf_frames_from_npc.py` ganó `PLAYER:<skin>` y flag `flip` por si se quiere volver a
+    empaquetar offline.
+- **🆕 RONDAS ESTILO SF — MEJOR DE 3 (2026-07-16):** cada combate son hasta 3 rondas; gana
+  quien tome 2 (`ROUNDS_TO_WIN`). Una ronda termina por KO o por TIMEOUT (más vida gana;
+  **EMPATE exacto → AZAR**: offline `Random` real; online azar DETERMINISTA con semilla
+  compartida `roundNumber+wins` para que ambos lados sorteen al MISMO ganador sin mensajes).
+  Entre rondas: "X WINS" congelado ~3.5 s → reset de ronda (HP/posiciones/timer frescos,
+  mismos peleadores y mapa) → banner **"RONDA N / PELEA"** (~1.8 s, input y timer congelados,
+  fuente arcade → strings `sf_round_banner`/`sf_fight_banner` SIN acentos). HUD: cuadritos
+  dorados bajo cada nombre = rondas ganadas. El menú de fin SOLO al decidirse el combate.
+  ONLINE/BT/LAN: nuevo mensaje **`ROUND_ENDED{winner}`** (relay puro, NO toca la fase de la
+  sala) reconcilia las rondas intermedias; `MATCH_ENDED` queda solo para el combate decidido;
+  gracia post-reset (`ROUND_GRACE_MS`) ignora snapshots/daño en vuelo de la ronda anterior.
+  ⚠️ Requiere REDEPLOY de `MultiplayerSF/` (case nuevo). El quirk viejo "empate del timer lo
+  gana el jugador (>=)" quedó SUSTITUIDO por el azar.
+- **🆕 SERVIDOR LOCAL LAN — el jugador HOSTEA su sala (2026-07-16):** tercera vía de
+  multijugador, estilo LAN party y SIN servidor: sección **"SERVIDOR LOCAL (misma red
+  Wi-Fi)"** en el menú 🌐 — **CREAR SERVIDOR** (abre un `ServerSocket` TCP en el puerto fijo
+  `SF_LAN_PORT=47645` y muestra TU IP para compartir) / **UNIRSE** (tecleas la IP del host;
+  botón habilitado con IPv4 completa). Piezas: base común **`data/SfStreamPeer.kt`** (extraída
+  de SfBtClient para no duplicar: sesión de stream, handshake HELLO→WELCOME verificado,
+  heartbeat 10 s, "server" local del host, reintentos) + **`data/SfLanClient.kt`** (TCP,
+  `tcpNoDelay`, `localIpAddress()` sin permisos vía `NetworkInterface`). Reusa TODO el flujo
+  del VM (`roomCode="LAN"`, `lanMode/lanLocalIp/lanHostAddress` en el estado) y el overlay de
+  REINTENTAR de BT (hint propio `sf_lan_error_hint`). **⚠️ PLAY STORE: cero permisos nuevos
+  (solo INTERNET ya declarado), sin foreground service, tráfico device-to-device efímero → NO
+  cambia Data Safety ni formularios.** Requisito de red: misma Wi-Fi o hotspot de uno de los
+  dos (el aislamiento AP de algunas redes públicas puede bloquearlo → hint del overlay).
+- **🆕 BT CONFIABLE E INTUITIVO (2026-07-16, fix del crash de permisos):** en dispositivo,
+  ANFITRIÓN crasheaba con `Need android.permission.BLUETOOTH_SCAN … cancelDiscovery()`: ese
+  flujo solo pide CONNECT+ADVERTISE y `cancelDiscovery()` EXIGE SCAN en Android 12+ → ahora
+  TODA llamada a `cancelDiscovery()` es best-effort (`runCatching`, 3 sitios). Además el flujo
+  BT se rediseñó para ser a prueba de dudas: (1) **HANDSHAKE de verificación** `BT_HELLO` →
+  `BT_WELCOME` — `ROOM_JOINED`/`OPPONENT_JOINED` solo se entregan con la conexión VERIFICADA
+  en ambos sentidos (watchdog de 6 s si el host no contesta; sockets "a medias" ya no crean
+  sala); (2) el connect del invitado **reintenta ×3** (el 1º suele morir con el diálogo de
+  emparejamiento); (3) UI por etapas: "Conectando…" → "verificando la conexión…"
+  (`BT_HANDSHAKE`/`btHandshaking`); (4) **si BT falla, JAMÁS se cae en silencio al selector
+  offline** (regla: elegiste BT → nada de acabar peleando vs la IA): overlay BLOQUEANTE
+  `BtRetryOverlay` (consume los toques) con el error claro + **REINTENTAR** (repite ANFITRIÓN
+  o la conexión al mismo rival, RE-PIDIENDO permisos si hace falta) + Cancelar como única
+  salida explícita. VM: `btError/btRetryAddress/btHandshaking` + `onBtFailed`/`dismissBtError`;
+  el host ignora intentos de conexión muertos sin handshake (sigue aceptando). (5) **BT
+  apagado → SIEMPRE se pide encenderlo** (`ACTION_REQUEST_ENABLE`, diálogo del sistema) en la
+  cadena `withBtPerms → whenBtEnabled → acción` de la Screen — cubre ANFITRIÓN, BUSCAR RIVAL
+  y REINTENTAR; si el jugador lo niega, el siguiente toque lo vuelve a pedir (igual que los
+  permisos). Gotcha del launcher: capturar y LIMPIAR `pendingBtAction` ANTES de invocarla
+  (la acción re-encola el paso "encender BT"; un null posterior rompía la cadena).
+- **🆕 COPYRIGHT: RYU/KEN SOLO EN BUILDS DEBUG (2026-07-15e):** sus assets (`Ryu.png`,
+  `Ken.png`, `ryu.json`, `ken.json` + `kens-theme.ogg` sin uso) se MOVIERON al source set
+  **`app/src/debug/assets/STREETFIGHTER/`** → el build por CABLE (Android Studio, debug) los
+  tiene y funcionan como siempre; el **bundle de Play Store (release) NO los incluye**.
+  Cierres para que release no crashee: (1) `SF_CLASSIC_THEME.imageFiles` ya NO precarga
+  Ryu.png/Ken.png (las hojas las resuelve `SfSharedSheets` por peleador); (2) el default de la
+  CPU en `StreetFighterState` pasó de KEN a REY_GRUPERO (el default se decodifica al abrir el
+  modo); (3) `classicFightersUnlocked` exige **`BuildConfig.DEBUG` + Modo Desarrollador** (en
+  release ni el dev mode los muestra); (4) los COMPARTIDOS usan el template
+  **`DATA/sf_template.json`** (copia de cajas/timings que SÍ viaja en release; `ryu.json` ya
+  no se toca en release); (5) `sanitizeNetFighter` (VM): si un rival con build de cable elige
+  Ryu/Ken online/BT, el lado release lo pinta como PRANKEDY (mismatch visual entre lados,
+  aceptado). Sigue PENDIENTE del clon en release: hud.png (fuente/barras), sonidos, sombra,
+  splashes, fireball y kenstage (fallback) — ver `ASSETS_STREETFIGHTER_MIGRACION.md`.
+- **🆕 GATE INVERTIDO (2026-07-15c):** el modo ya es **PÚBLICO** (botón del menú principal
+  SIEMPRE visible, `MainMenuScreen` sin `developerMode`); ahora el **Modo Desarrollador solo
+  desbloquea a RYU y KEN** (los del clon original) en el selector:
+  `StreetFighterViewModel.selectableFighters` (snapshot al crear el VM, scope NavBackStackEntry
+  → se relee al re-entrar al modo) y `classicFightersUnlocked` para el rival default offline
+  (sin dev: Prankedy, o Rey Grupero si eliges a Prankedy — nunca Ryu/Ken). Los 3
+  `CharacterSelectOverlay` reciben `fighters` del VM. Online, si un jugador CON dev elige a
+  Ryu/Ken, el rival sin dev lo VE igual (los assets van en el APK; solo se bloquea elegirlos).
+- **🆕 BT ROBUSTECIDO (2026-07-15c, "persistencia"):** `SfBtClient` ganó **HEARTBEAT cada 10 s**
+  (el receptor lo ignora; NO sube al VM) + **cierre del socket al fallar una ESCRITURA** (destraba
+  el readLoop de inmediato → el abandono se detecta en segundos aunque el stack BT no reporte);
+  `onPeerConnected` resetea TODA la "sala" local (incl. `char1` — un rival nuevo ya no dispara
+  CHARACTERS_SELECTED con la selección vieja del host); visibilidad del host 120→**300 s**; y el
+  VM al recibir `OPPONENT_JOINED` con `battleEnded`/pelea corrida hace **reset limpio** a
+  SELECTING (como REMATCH_ACCEPTED) — antes quedaba el selector sobre el fin de pelea.
+- **🆕 SESIÓN 4 — pulido de red + HUD (2026-07-16b; detalle: `AUDIT_SF_MULTIPLAYER.md`
+  banner "SESIÓN 4"):** (1) **BUGFIX server:** el relay de PLAYER_STATE devolvía el type
+  equivocado (`{ type: 'OPPONENT_STATE', ...msg }` — el spread DESPUÉS pisaba el type) → el
+  rival se veía CONGELADO en online; BT/LAN no lo sufrían. Corregido (spread PRIMERO); sale
+  en el 1er deploy. (2) **Interpolación del rival:** lerp exponencial de x/y por tick
+  (`NET_LERP_RATE=14`, snap a >80 px = reset de ronda/teleport); proyectiles remotos
+  EXTRAPOLADOS por la edad del snapshot (tope 0.25 s). (3) **Sincronía del timer:** campo
+  `timer` en PLAYER_STATE (interfaz + WS + SfStreamPeer→BT/LAN); solo lo manda el HOST y el
+  invitado re-ancla si drift ≥2 s, gateado por la gracia de ronda. (4) **Fireball-vs-fireball**
+  (`collideFireballPairs`: dos ACTIVE de dueños opuestos se revientan; offline y online
+  simétrico). (5) **Roll-up del HUD** (`displayHp0/1`: la barra drena a 200 HP/s hacia el HP
+  real; subir instantáneo → el reset de ronda rellena solo; `drawHud` pinta con estos).
+- **🆕 DIFICULTAD DE LA CPU — 3 niveles (2026-07-16c):** el flujo offline pre-pelea ahora es de
+  **4 pasos**: peleador → rival → **DIFICULTAD** (`DifficultySelectOverlay`, 3 `PowButton` con
+  descripción) → mapa. Enum **`SfCpuDifficulty`** (`SfModels.kt`): **BASICA** (decisiones cada
+  ~0.8-1.5 s, camina/espera, solo golpes LIGEROS esporádicos; jamás bloquea/salta/lanza poderes —
+  para aprender), **NORMAL** (la IA clásica del port, ~280-620 ms) y **AVANZADA** (reactiva cada
+  ~90-180 ms, casi imposible: BLOQUEA tus ataques a rango (~85%), ANTI-AÉREO fuerte, CASTIGA tu
+  recuperación (HURT/JUMP_LAND/CROUCH), brinca o contra-poderea hadoukens entrantes y lanza
+  MUCHOS poderes — 55% lejos, 25% a media distancia, incluso a quemarropa). Vive en
+  `state.cpuDifficulty` (default NORMAL; la fija `selectCharacter(id, rivalId, difficulty)` →
+  `startBattle`); `resetRound` (s.copy) y la revancha la CONSERVAN. Solo offline: online el rival
+  es humano y `buildCpuInput` no corre. La IA se partió en `basicCpuDecision`/`normalCpuDecision`/
+  `advancedCpuDecision` + helper `cpuAttack` (VM); sets `cpuThreatStates`/`cpuPunishStates`.
+  Strings `sf_choose_difficulty`/`sf_diff_*` (ES+EN, paridad). **🆕 (2026-07-17) 4ª dificultad
+  `PESADILLA`** (`pesadillaCpuDecision`): combos casi constantes, ESQUIVA (salto/dash atrás) además
+  de bloquear, castigo durísimo, reacción ~50-110 ms. El FINAL del arcade (Prankedy) la usa.
+  **Modo Desarrollador** (Ajustes, `getDeveloperMode`) → `devUnlockAll()` desbloquea TODO
+  (personajes y mapas). **Preview del selector** más lento (`PREVIEW_SLOWDOWN`/`PREVIEW_MIN_MS`) y
+  ahora anima IDLE + `walkForwards` como complemento. **Ajustes → "Mostrar hitboxes"**
+  (`SettingsRepository.getShowHitboxes`, estilo Minecraft F3+B): `drawFighter` dibuja las cajas
+  push (blanca), hurt (cian) y hit (rojo) sobre los peleadores — diagnóstico del "cambio de
+  tamaño" de los assets (la caja marca dónde debería estar). ⚠️ Al calibrar el fix del
+  STUN-LOCK (ver `PENDIENTES_SF_2026-07-16.md` ②) probar también vs AVANZADA (castiga rápido).
+- **🆕 IA VS IA — CPU vs CPU a PESADILLA (2026-07-18):** modo espectáculo/grabación en el
+  menú de modos (`SfModeMenuOverlay` → "IA VS IA"). Eliges **dos peleadores** (roster =
+  `selectableFighters()`; completo con Modo Desarrollador) y arranca
+  `startAiVsAi(a, b)`: `state.aiVsAi = true`, `cpuDifficulty = PESADILLA`,
+  `cpuIntensity = 1f` (máxima, como la final del arcade). La IA se generalizó a
+  `buildCpuInput(now, sim, selfIndex)` con `cpuNextDecisionMs[]`/`cpuHold[]` **por
+  índice** (0 y 1); en VS normal solo corre el índice 1 → comportamiento idéntico al de
+  siempre. En pelea se **ocultan** joystick/botones y solo queda "Salir" al menú
+  (`backToCharacterSelect`). Solo OFFLINE; arcade/práctica/online no cambian.
+  Strings `sf_mode_ai_vs_ai`/`sf_exit`/`sf_ai_vs_ai_pick_*` (ES+EN).
+- **🆕 FONDOS ANIMADOS CAPADOS A 2048 + THUMBS (2026-07-18):**
+  `tools/build_map_backgrounds.py` regenera atlases con **CAP DURO ≤ 2048 px** por lado
+  (GPU de gama baja topan ahí; >2048 no se veían), frames ~480×270 crop-to-fill 16:9,
+  ~28 frames con ping-pong embebido, logo RGBA, y **miniatura**
+  `<archivo>_thumb.png` (~256 px) por mapa. `loadStageBackground` /
+  `drawAnimatedBackground` (combate) no cambian (leen el JSON; un frame por tick).
+- **🆕 SELECTOR DE MAPA CON PREVIEW ANIMADO (2026-07-18b) — lógica SEPARADA:**
+  archivo **`ui/SfStageSelectOverlay.kt`** (fuera del monstruo `StreetFighterScreen.kt`).
+  Flujo: **tocar = focus/preview** → borde dorado → **"Elegir este mapa"** confirma
+  (`onSelect`). Cada tarjeta muestra la **thumb estática**; **solo el focused** con
+  `_anim.png` carga UN atlas submuestreado (`inSampleSize=4`) y pinta **un sub-rect de
+  frame** a la vez (`StageAnimFrameView` + `fps` del JSON) — **nunca** el filmstrip/
+  spreadsheet completo ni 48 atlases a la vez. Estáticos focused = solo thumb + borde.
+  "Al azar" = focus especial → `onSelect(null)`. Strings `sf_stage_tap_preview` /
+  `sf_stage_confirm` (ES+EN).
+- **🆕 GAMA BAJA + GUARDADO DE PELEA (2026-07-18c):**
+  - **`SfDeviceTier`**: LOW si `isLowRamDevice` o ≤2.2 GB. En LOW: tick pelea **~30 fps**
+    (33 ms), atlas de fondo `inSampleSize=2`, fps de fondo ×0.66, **sin** medición de
+    contenido opaco por frame (era un scan al cargar = lag).
+  - **Selector de personaje**: solo anima el **focused** (2.º toque confirma); en LOW
+    **ningún** card anima (1 frame idle). Hojas de pelea **no** se decodifican en el
+    selector (solo al pelear).
+  - **CARGANDO**: overlay con fuente POW (`sf_hud_pow` letterFont) mientras se decodifica
+    el atlas al entrar a pelea.
+  - **Guardar/pausar arcade**: `SfArcadeRepository.saveSession` (JSON mínimo ids+rondas)
+    en `forcePause`/salir — **no** cada tick. Al reabrir: diálogo CONTINUAR / Nueva partida
+    (`resumeArcadeSession` / `discardArcadeSession`).
+  - **PRIORIDAD copyright:** sustituir **`hadouken.ogg`** (+ golpes legacy) por SFX propios;
+    Ken/Ryu ya NO están en el enum (solo restos de comentario/debug assets).
+  - **🆕 Arcade Fácil/Medio/Difícil + mapas por rival (2026-07-18g/h):**
+    - Flujo: peleadór → **Fácil / Medio / Difícil** (`startArcade(id, diff)`).
+    - Mapas = `SfStageCatalog.homeStage(rival)` + día/noche/apocalipsis. Tabla dueño:
+      **`SF_STAGES_MAPS_UNLOCK.md`** (REY_GRUPERO→FES Aragón, ESCOMGIRL→ESCOM, …).
+    - Unlock peleadór → 3 luces del mapa (práctica + host MP BT/LAN/Render).
+    - Fix parcial movimiento: `IDLE_TURN` cancelable; WALK en pushableStates.
+    - Fix parcial IA: `cpuStaleApproach`, rates subidos, cooldowns ~700/650 ms.
+    - **🆕 IA 2026-07-18i (mejora masiva pre-traspaso):**
+      - Aproximación/retirada en **coords mundo** (no solo “forward” de la cara).
+      - **Clinch break** si dist &lt; 58 px: retroceder, jump-back, golpes ligeros (IA vs IA prioriza separar).
+      - Rangos clinch/melee/mid; footsies, block walk-back, anti-air, punish recovery.
+      - Watchdog ofensivo (~420 ms IA vs IA); desync de decisiones P0/P1; `attackValidFrom` + IDLE_TURN.
+      - Núcleo unificado `smartCpuDecision` (AVANZADA/PESADILLA).
+      - Si aún falla en dispositivo: `_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md`.
+- **🆕 Especiales por personaje (voces scrapeadas + curadas, 2026-07-18f/g) — 21/21 OK:**
+    - **2026-07-18 voces v2:** diarización de hablantes (`diarize_special_voices.py`), best-of
+      tienda `FdUblky8bV4` (Señor rank1 / Prankedy rank0), 3 de diana granaderos, policías
+      H/M en `ASgdaRKHon8`, Cruz Roja `l89qiD3aqVQ` (t≥60s), Charro nahual, Rey `VPu6zFKcb7Y`.
+      Salida nueva: `tools/sf_voice_scrape/out_diarized/`. Subtítulos: `SfSpecialPhrases` +
+      `emitSpecialVoice`. **Deepfake lab NO implementado.** Pap5 `AEmVeK88HIs` age-gate.
+    - Pipeline legacy: X (`scrape_sf_voices.py`) + **YouTube** (`scrape_sf_voices_youtube.py` / yt-dlp)
+      + **curación pelea** `curate_sf_special_sfx.py --install` → `special_<fighter>.ogg` (21).
+    - Curación: gritos/frases de broma (Prankedy, Paparazzi, Señor Tienda), speech Presidenta,
+      **horror** (Llorona “Ay mis hijos”, Tzitzimime, Charro, Yoalli), radio policía, medic Cruz Roja.
+    - Fuentes: YT @Prankedy, X @Claudiashein/@SSC_CDMX, audio Llorona, `nuevoMaterial17JUL/`.
+    - VM emite `special_<id>`; View fallback `hadouken`.
+    - **📘 Doc de trabajo futuro (completo):** `README for IAS/SF_SPECIAL_VOICES_SFX.md`
+      (pipeline, recetas, gotchas, backlog P0–P3, cómo añadir peleadór). Tools: `tools/sf_voice_scrape/`.
+- **🆕 IA vs IA: no salir de pantalla + menos spam de poderes (2026-07-18d):**
+  - Clamp duro de X/Y al escenario (`STAGE_X_MIN/MAX`, piso) tras constraints; NaN → centro.
+  - Especiales: cooldown 0.9 s (1.4 s en IA vs IA), **máx 1 proyectil activo por peleador**,
+    tope global 4 fireballs (antes se acumulaban y lag + muro imbloqueable).
+  - PESADILLA: al ver proyectil **prioriza salto/bloqueo** (no contra-spamear); rates de
+    special bajados; bonus powers 3% (antes 10%).
+  - Auditoría assets: `tools/audit_sf_fighters.py` (18 dedicados OK, 0 OOB / 0 miss anim).
+  - **No se puede “probar todos vs todos” en emulador desde esta sesión de tooling**; el
+    script de auditoría cubre integridad de frames. Prueba en dispositivo: IA vs IA con
+    varios pares y mira clamp + cooldowns.
+- **🆕 LA PRESIDENTA → YOALLI (metamorfosis real, 2026-07-18e):**
+  - Al bajar a **≤1/4 de vida** (o daño letal), **no KO**: anima `bonusPower11` (invulnerable)
+    y al terminar el **id pasa a `YOALLI_EHECATL` con 50% HP** (`metamorphosed=true`).
+  - P11 **no** se elige con el botón P ni por la IA (solo 1..10); la transformación inicial
+    es automática por umbral de vida. Ya como Yoalli, `bonusPower10` reproduce en reversa los
+    cinco cuadros de P11 y vuelve a La Presidenta conservando HP.
+  - Draw: fallback idle si falta frame; poderes/metamorfosis **sin** reescalado de contenido
+    (evita “cambio de skin” / recortes raros); la Screen precarga ambas hojas en cualquiera
+    de las dos direcciones.
+- **🆕 IA melee-first (2026-07-18f):** deja de acampar en esquinas spameando poderes.
+  - Si está en borde del stage → **siempre** camina hacia el rival.
+  - AVANZADA/PESADILLA: special ~4–12% (antes mucho más); bonus solo cerca y raro.
+  - Presión cuerpo a cuerpo (forward + combos). IA vs IA se ve pelear; vs Presidenta se puede ganar.
+- **🆕 FIX regresiones IA/input (2026-07-18g, Claude):** arregla el downgrade reportado tras 18i.
+  - **Jugador atascado en arcade / CPU congelada:** `isAnimationCompleted` ahora también da por
+    terminada la animación al llegar al ÚLTIMO frame, no solo con el frame `-1`. Varias hojas
+    ALPHA/compartidas (estudiantes del arcade) no traían el `-1` y `withAnimationFrame` hacía wrap
+    a 0 → bucle infinito → estado atascado. No acorta animaciones bien formadas (su `-1` es el último).
+  - **IA vs IA dejaba de pelear:** el watchdog ofensivo ya no se limita a `dist < 150`; a cualquier
+    distancia, si pasa demasiado tiempo sin ofensiva fuerza **acercarse** (lejos) o **atacar/clinch**
+    (en rango). Se acabó el "caminan y se miran".
+  - Sin tocar red/online; MVVM y CRLF conservados. Tuning fino de agresividad: mejor con grabación IA vs IA.
+- **🆕 RED DE SEGURIDAD + DIAGNÓSTICO (2026-07-18h, Claude):** `watchStuck` desatasca cualquier
+  estado transitorio cuya animación no termine (asset sin frame `-1`) sacándolo a IDLE y lo
+  registra; `watchStalemate` detecta peleas sin daño >12 s y pica a la IA. Los problemas se
+  loguean en logcat (tag `SF-DIAG`) y en `diagnosticsReport()`.
+- **🆕 AUTOJUEGO / GAUNTLET (2026-07-18h, Claude):** en el menú de modos, dos bots CPU vs CPU que
+  recorren peleas encadenadas para PROBAR todos los peleadores y detectar assets rotos:
+  **"Todos vs todos"** (round-robin, `startGauntletRoundRobin`) y **"Arcade (rotando)"**
+  (`startGauntletArcade`: la escalera en orden rotando el peleador). Tope de 60 s por pelea
+  (auto-avanza y loguea TIMEOUT), barra de progreso + botón DETENER, y al terminar escribe un
+  `.txt` en `getExternalFilesDir` y muestra el reporte en pantalla (`GauntletReportOverlay`).
+  strings `sf_gauntlet_*`/`sf_close` ES+EN.
+- **🆕 SHOWCASE de assets (2026-07-18h, Claude):** tercer botón `startShowcase`: cada peleador
+  recorre por SCRIPT todas sus animaciones (caminar/saltar/agachar/6 golpes/especial L-M-F/poderes)
+  reproduciendo sonidos, y chequea que exista `special_<id>.ogg`. Para QA visual/auditiva; los
+  assets rotos los caza `watchStuck`. ~~PENDIENTE: cubrir TODAS las animaciones y TODOS los SFX~~
+  **✅ COMPLETO 2026-07-18j (abajo)**.
+- **🆕 SHOWCASE COMPLETO + AUDITORÍA ESTÁTICA (2026-07-18j, Fable):**
+  - El guion ahora cubre TAMBIÉN los estados inalcanzables por input: `showcaseExtraStates`
+    (IDLE_TURN, CROUCH_TURN, los 6 HURT_*, KO, VICTORY) y — solo La Presidenta — la
+    **metamorfosis** (BONUS_POWER_11 → termina como Yoalli). Se aplican con
+    `forceShowcaseState` (bypass de `validFrom`; si la anim no existe, lo reporta en vez de
+    crashear). `showcaseStepMs` 1600→**2000** (> `stuckLimitMs`=1800: watchStuck alcanza a
+    registrar/rescatar un atasco antes del siguiente paso). Cap por pelea = POR PASOS
+    (`gauntletFightCapCurMs`; el fijo de 60 s cortaba el guion de La Presidenta ~68 s).
+  - En showcase el **timer no corre** (TIME OVER cortaba el guion) y los golpes espejados
+    **no restan vida** (suenan + splash = QA de los .ogg de impacto; antes los 10 poderes de
+    La Presidenta sumaban 200 de daño → KO a media pasarela). `watchStalemate` no aplica.
+  - **Auditoría ESTÁTICA**: `auditFighterAssets(id)` por peleador (todas las claves
+    `SfFighterState.jsKey` — poderes solo hasta su `bonusPowerCount` — faltantes/vacías,
+    frames referenciados inexistentes, `special_<id>.ogg`; Lázaro usa hadouken a propósito) +
+    `auditThemeSounds()` una vez por corrida (todos los `soundKeys` del tema + música). Todo
+    cae al mismo reporte (`.txt` + `GauntletReportOverlay`).
+- **🆕 IA vs IA VARIADA (2026-07-18j, Fable):** causa del "quietos / mismo ataque":
+  - **Ofensiva fantasma:** `cpuLastOffenseMs` se actualizaba con la INTENCIÓN de atacar aunque
+    el input se descartara (cooldown de special, `validFrom`, HURT en curso) → el watchdog creía
+    que había pelea. Ahora se alimenta del **ESTADO real** del peleador (está atacando) y con
+    pasividad extrema (>2× límite) el golpe es OBLIGATORIO en rango → nunca >~2 s sin acción cerca.
+  - **Clinch espejo:** ambos índices rodaban la MISMA tabla → decidían lo mismo y quedaban
+    pegados. `cpuClinchBreak` en IA vs IA usa **roles asimétricos** (alterna por índice+tiempo:
+    uno golpea, el otro se separa/salta) → el clinch siempre se resuelve.
+  - **Variedad:** `variedCpuAttack` (memoria de 1: nunca repite la firma fuerza×tipo anterior)
+    sustituye a `randomCpuAttack` en watchdog/anti-walk-loop/NORMAL/AVANZADA-PESADILLA; el
+    special a rango largo elige fuerza al azar (L/M/H).
+- **🆕 SHOWCASE v2: ritmo, SALTAR, mapas y audio (2026-07-18k, Fable; feedback del dueño):**
+  - **Ritmo:** avance automático — si la animación del paso ya terminó (ambos en IDLE, paso ya
+    disparado, ≥400 ms) no espera los 2 s fijos. Botón **"Saltar animación"** en pantalla
+    (`skipShowcaseStep`, string `sf_showcase_skip` ES+EN; solo visible en showcase vía
+    `state.showcaseRunning`).
+  - **Fix salto perdido:** los pasos de UN toque esperan al IDLE para disparar (el input del
+    SALTO caía durante CROUCH→CROUCH_UP y `JUMP_START` no es válido desde ahí → se perdía).
+    `showcaseInput` ahora recibe el `SfFighter` (no solo el id).
+  - **Mapas:** cada pelea del autojuego usa el **mapa HOGAR** del peleadór en turno
+    (`state.gauntletMapFile`; showcase = día, gauntlets IA vs IA = apocalipsis acorde a
+    PESADILLA). La Screen lo prioriza en `effectiveBgFile`.
+  - **Audio:** los pasos forzados EMITEN sonido reutilizando .ogg correctos (HURT →
+    `<fuerza>-punch-hit`, KO → `heavy-kick-hit`, VICTORY y metamorfosis → voz
+    `special_<id>.ogg`; solo idx 0 para no duplicar volumen). Además, **en pelea real**
+    VICTORY ahora suena con la voz del peleadór (`changeState`). La nota de 18k sobre audio
+    pendiente es histórica y queda superada por RELEASE 1/9 inmediatamente abajo.
+- **✅ RELEASE 1/9: audio final, arte y auditoría completa de IA (2026-07-18, Sol):**
+  - **Audio 21/21:** `sf_audio_cuts_v3.json` es la verdad canónica. Los cortes provienen solo de
+    material ya local (`raw_yt/`, `out_diarized/`, material nuevo); no se re-scrapeó YouTube.
+    Cada duración se decidió por contenido: voces ~2.4–13.8 s y la banda completa de Granadero
+    27.5 s. Presidenta = voz auténtica de Claudia, 8.3 s; Lázaro ya no cae a hadouken.
+  - **Contenido:** `transcribe_sf_voice_sources.py` genera transcripciones con timestamps;
+    `verify_sf_audio_content.py` vuelve a transcribir los OGG finales y exige idioma español y
+    coincidencia con `phrase_es`. `audio_final_audit.json` queda PASS técnico + contenido 21/21.
+    Los SFX no verbales (Yoalli, Charro, Llorona, Tzitzimime y banda) no tienen frases inventadas.
+  - **Reproducción:** `special_*.ogg` pasa por `MediaPlayer`, uno por asset y liberado en
+    completion/error/pause/dispose. `SoundPool` queda para impactos cortos; así una banda de
+    27.5 s termina completa. El audio es único en español; `phrase_en` traduce solo subtítulos.
+  - **Política de voz:** no se clonaron voces identificables. Al existir audio auténtico, el
+    recorte verificado es más fiel que un deepfake; únicamente el Robot ficticio usa SAPI + FX.
+    Esto SUPERA la nota pendiente de 18k.
+  - **Arte:** Llorona `hurtHeadLight`/`hurtBodyLight`/`hurtBodyMedium` usan poses visibles únicas;
+    Yoalli suma `bonusPower10`, inversión real de Presidenta P11, y termina como La Presidenta
+    conservando HP. Ambas hojas y JSON se regeneraron/validaron.
+  - **IA/campaña:** `startGauntletArcade` ya no rota una muestra: ejecuta 3 protagonistas × 3
+    dificultades × 15 escalones = **135 peleas**, respetando dificultad, intensidad y mapa de
+    cada paso. El bot QA simula 6 ticks estables por frame, cediendo la UI entre ellos, y su
+    límite permite las tres rondas completas (325 s virtuales) para evitar falsos TIMEOUT.
+    `watchStalemate` sigue picando a la IA tras 12 s y deja telemetría recuperable tras 45/35/25 s
+    según dificultad, pero no la mezcla con fallos de assets/TIMEOUT; sus relojes se reinician
+    en cada pelea para no arrastrar falsos avisos.
+    En BÁSICA el watchdog ofensivo se habilita únicamente cuando ambos lados son bots (3.5 s,
+    solo golpes LIGHT); contra el jugador conserva su comportamiento lento y aprendible.
+    `SfArcadeCampaignAuditTest` revisa además 600 órdenes/configuraciones y todos
+    los assets de rival/mapa/voz. La auditoría estática detecta animaciones relleno estrictas.
+- **🆕 Botón CONFIRMAR en el selector (2026-07-18h, Claude):** `CharacterSelectOverlay` ahora
+  muestra un botón explícito para confirmar el peleador resaltado (antes solo el 2.º toque).
+  string `sf_confirm` ES+EN.
+- **🆕 MODO ARCADE POW — escalera de 11 peleas (2026-07-17):** botón **ARCADE** en el selector.
+  El jugador elige uno de los 3 estudiantes DESBLOQUEADOS (ESCOMBOY/ESCOMGIRL/ROBOT) + dificultad
+  base; pelea una escalera FIJA (`SfArcadeLadder.build`): 1-2 los otros 2 estudiantes (azar), 3-5
+  Paramédico CR/Señor Tienda/Paparazzi 1 (azar), 6-9 Policía CDMX H/M + Granadero×2 (placeholder),
+  10 semifinal **Rey Grupero**, 11 final **Prankedy**. **Dificultad HÍBRIDA** (base + rampa a los
+  jefes = AVANZADA) + **IA POR FASES** (`cpuIntensity` 0→1 según el avance: reacciona más rápido y
+  bloquea/ataca más entre más lejos llegas; en VS = 0, sin cambios). Al GANAR desbloquea al rival + su mapa y **guarda LOCAL** (`SfArcadeRepository`,
+  SharedPreferences `pow_sf_arcade`); al PERDER retrocede 1 pelea (`ArcadeResultOverlay`:
+  GANASTE/PERDISTE/CAMPEÓN). **Todo bloqueado hasta ganarlo:** `selectableFighters()` (ahora
+  función) devuelve solo desbloqueados, y `CharacterCard`/`StageCard` pintan los bloqueados con
+  **candado 🔒**. Estado: `arcade*` + enum `SfArcadeOutcome`. Solo OFFLINE (no toca red). Diseño y
+  pendientes (assets Granadero H/M, mapa↔rival, quitar RYU/KEN del enum): `DISENO_ARCADE_SF_POW.md`.
+- **Pendiente:** reconexión a sala tras caída, espectadores y anti-cheat (conscientes, ver
+  AUDIT §4). *(i18n ✅ 2026-07-11; abrirlo sin dev ✅ 2026-07-15; fireball-vs-fireball y
+  roll-up del HUD ✅ 2026-07-16 SESIÓN 4; ARCADE ✅ 2026-07-17.)*
 
 ---
 
@@ -103,15 +655,41 @@ IntroPOW1..8**. Si una imagen falta, se muestra un panel oscuro con el texto (no
   estado) y **"Salir al menú"**. Al reintentar, **Prankedy vuelve contigo** (`respawnPrankedyCompanionHere`,
   no depende del gate de vecindario ENCB del game loop). Callback `onRetryMission` (WorldMapScreen→MainActivity).
 - **🆕 MORIR en una misión = MISIÓN FALLIDA (checkpoint):** si te matan estando en una misión de campaña
-  (`inCampaign` && objetivo `ESCOLTAR_PRANKEDY`/`INGRESAR_ESCOM`), `triggerWastedSequence` NO hace el respawn
-  normal cerca del lugar de muerte: tras un WASTED breve pone `showMissionFailed = true` → reintentas desde el
-  **último checkpoint** (mismo botón REINTENTAR). Fuera de misión, respawn normal a ~77 m.
-- **🆕 Misión 2 = HUIDA de Prankedy:** al arrancar la Misión 2, Prankedy ya **no te sigue**: `runMission2Prankedy
-  Escape` (en vez de `runPrankedyTick`) lo hace **CORRER hacia la puerta de la ESCOM** (reusa `tickFollow` con la
-  puerta como objetivo); la **policía lo persigue** (en `runMission2Tick`, `target` = Prankedy mientras está
-  vivo; aparecen por el **lado contrario a la puerta**) y la **multitud sale** de la puerta. Al llegar (~20 m,
-  `MISSION2_PRANKEDY_ENTER_DEG`) **ENTRA** (desaparece) con el diálogo **"Ahí nos vemos"** y `mission2Prankedy
-  Entered=true` (deja de animarse; la policía pasa a perseguir al jugador).
+  (`inCampaign` && objetivo `ESCOLTAR_PRANKEDY`/`INGRESAR_ESCOM`/cualquier `m2_*`), `triggerWastedSequence`
+  NO hace el respawn normal cerca del lugar de muerte: tras un WASTED breve pone `showMissionFailed = true`
+  → reintentas desde el **último checkpoint** (mismo botón REINTENTAR). Fuera de misión, respawn normal a ~77 m.
+- **🆕 Persecución final de la Misión 1 = HUIDA de Prankedy (⚠️ RENOMBRADA `mission2*`→`mission1Chase*`,
+  2026-07-03):** al arrancar la persecución, Prankedy ya **no te sigue**: `runMission1ChasePrankedyEscape`
+  (en vez de `runPrankedyTick`) lo hace **CORRER hacia la puerta de la ESCOM** (reusa `tickFollow` con la
+  puerta como objetivo); la **policía lo persigue** (en `runMission1ChaseTick`, `target` = Prankedy mientras
+  está vivo; aparecen por el **lado contrario a la puerta**) y la **multitud sale** de la puerta. Al llegar
+  (~6.6 m, `MISSION1_CHASE_PRANKEDY_ENTER_DEG`) **ENTRA** (desaparece) con el diálogo **"Ahí nos vemos"** y
+  `mission1ChasePrankedyEntered=true` (deja de animarse; la policía pasa a perseguir al jugador). Renombres:
+  `startMission1Chase`, `isMission1ChaseActive`, `consumePendingMission1ChaseIntro`, estado
+  `pendingMission1ChaseIntro`, crowd `mission1ChaseCrowd`, cómic `MISSION1_CHASE_INTRO_ID`, ruta nav
+  `story_mission1_chase`.
+- **🆕 REGISTRO/SELECTOR DE MISIONES (2026-07-04, estilo Witcher):** el diálogo R7 tras la escolta
+  se ELIMINÓ (la escolta encadena directo con el cómic + chase). El jugador SIEMPRE está en mundo
+  libre; sigue/pausa misiones desde **Opciones → "Misiones"** (`MissionLogDialog`; estados
+  bloqueada/disponible/activa/completada; `completedMissions` persistida). Las misiones 2 y 3 ya
+  NO arrancan solas. Ver `CAMPAIGN/00_OVERVIEW` y 09.
+  - **🆕 (2026-07-04b):** "Misiones" también en el menú de Opciones de **INTERIORES** — el diálogo
+    se hospeda a nivel `AppNavGraph` (`MissionLogHost`, patrón SaveSlotsDialog, VM del mundo
+    Activity-scoped). Las ✔ completadas ganan **REJUGAR** (sin tocar el progreso guardado:
+    `replayingMissionId` transitorio + clamp de fases en `buildSaveData`). Con Modo Desarrollador:
+    seguir misiones 🔒 y **"TP al objetivo"**. Además, "Elegir personaje" del MAPA GLOBAL ahora es
+    solo de Modo Desarrollador (el de interiores se queda). Detalle en 09.
+- **🆕 MISIÓN 3 · "Regreso a la ENCB" (2026-07-04):** cordón de granaderos con sigilo + asalto
+  interior ENCB con zombis + evidencia 🧪 → recompensa **primera ARMA DE FUEGO** (`hasFirearm`,
+  desbloquea RANGED en campaña). La mochila de la M2 ahora **desbloquea los 4 slots** del
+  inventario. Ver `CAMPAIGN/03_MISSION_3.md`.
+- **🆕 MISIÓN 2 · "El rumor" (2026-07-03):** campaña REAL post-Misión 1, 5 fases sobre el campus ESCOM:
+  esconderse de la policía de búsqueda → rumor zombie (2 estudiantes, conversación con subtítulos que se
+  PAUSA si te alejas) → primer brote público (conversión + sometimiento + radio "refuerzos en la ENCB") →
+  plática con Prankedy (REY GRUPERO + mochila) → salón `escom_salon_m2` con LATA APESTOSA y mochila 🎒.
+  Fase persistida en `GameSaveData.mission2Phase` (JSON). Guion/constantes: `mission2/Mission2.kt`; tick:
+  `WorldMapMission2.kt`; subtítulos: `WorldMapState.storyConvoSpeaker/Text` (overlay en
+  `WorldMapScreenOverlays`). Detalle completo: `CAMPAIGN/02_MISSION_2.md`.
 - **🆕 Controles EN VIVO:** al **Guardar** D-pad/joystick (escala/swap) en Ajustes, un `LaunchedEffect` de
   `MainActivity` (key = settings COMMITTEADOS) llama `updateControlSettings`, así el cambio se aplica sin salir
   al menú y volver a entrar.
@@ -236,6 +814,16 @@ fields and **only apply on SAVE**; leaving discards.
   `tempControlType/tempControlsScale/tempSwapControls`.
 - `saveControlsSettings()` (commit + persiste vía `SettingsRepository` + empuja al mapa),
   `discardControlsChanges()` (al salir).
+- **🆕 TUTORIAL DE CONTROLES optativo (2026-07-11, `settings/ui/ControlsTutorial.kt`):** overlay
+  paginado (páginas con el botón A/B/X/Y dibujado con su color real + título + explicación) en dos
+  variantes: `exteriorTutorialPages()` (mover/correr/X interactuar/B golpe/Y coche/Y-hold teleport)
+  e `interiorTutorialPages()` (sin conducción; B ataque, Y-hold menú de golpe+inventario).
+  `ControlsTutorialFirstRun(interior)` se monta al final del Box raíz de `WorldMapScreen` (gated a
+  mundo cargado) y de `ZombieGameScreen`: OFRECE el tutorial UNA vez por mundo (diálogo "¿Ver
+  tutorial?"; flags `TUTORIAL_EXTERIOR/INTERIOR_SEEN` en `SettingsRepository`, se marcan acepte o
+  no). En **Ajustes → Controles** hay sección "Referencia y tutorial" con 2 botones que lo re-abren
+  cuando se quiera (en un `Dialog` fullscreen). Strings `tutorial_*`/`settings_tutorial_*` (ES+EN).
+  Composables SIN VM (overlays puros); la lectura puntual de prefs sigue el patrón MissionLogDialog.
 - `toggleRoadNetwork(show)`. `Factory(context)`.
 - **Jugabilidad / Gameplay:** `changeNpcDensity(v: Float)` (0.4–1.6, persiste al instante),
   `toggleNpcEmojiLod(b)` y `toggleNpcFullEmoji(b)`. La pestaña **Jugabilidad** tiene:

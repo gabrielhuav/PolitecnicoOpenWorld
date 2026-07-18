@@ -1,8 +1,6 @@
 package ovh.gabrielhuav.pow.features.settings.viewmodel
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,7 +10,9 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
 
-class SettingsViewModel(private val repository: SettingsRepository) : ViewModel() {
+// ETAPA 4 (Hilt): @HiltViewModel + @Inject; el SettingsRepository lo provee AppModule.
+@dagger.hilt.android.lifecycle.HiltViewModel
+class SettingsViewModel @javax.inject.Inject constructor(private val repository: SettingsRepository) : ViewModel() {
 
     // Inicializa el estado leyendo la base de datos de preferencias
     private val _state = MutableStateFlow(
@@ -29,6 +29,7 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
                 showSpeedometer = repository.getShowSpeedometer(),
                 showCoordsWidget = repository.getShowCoordsWidget(),
                 developerMode = repository.getDeveloperMode(),
+                showHitboxes = repository.getShowHitboxes(),
                 musicVolume = repository.getMusicVolume(),
                 sfxVolume = repository.getSfxVolume(),
                 npcDensity = repository.getNpcDensity(),
@@ -65,6 +66,11 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun toggleDeveloperMode(enabled: Boolean) {
         _state.update { it.copy(developerMode = enabled) }
         repository.saveDeveloperMode(enabled)
+    }
+    // 🆕 Mostrar hitboxes del modo pelea (estilo Minecraft). Persiste al instante.
+    fun toggleHitboxes(enabled: Boolean) {
+        _state.update { it.copy(showHitboxes = enabled) }
+        repository.saveShowHitboxes(enabled)
     }
 
     // Audio: persisten al instante; MainActivity los empuja en vivo al SoundManager.
@@ -140,14 +146,6 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
         )
     }
 
-    // Factory para inyectar el contexto
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (!modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-                throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-            }
-            return SettingsViewModel(SettingsRepository(context.applicationContext)) as T
-        }
-    }
+    // ETAPA 4 (Hilt): el Factory manual se eliminó — el VM se obtiene con hiltViewModel() /
+    // by viewModels() y Hilt inyecta el SettingsRepository (AppModule).
 }

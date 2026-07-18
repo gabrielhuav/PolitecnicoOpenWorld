@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -77,6 +76,8 @@ internal fun PlayerHealthBarFixed(health: Float) {
 // (REF / skin.walkBodyFraction) para que el cuerpo mida lo mismo: antes el interior dibujaba con
 // fillMaxSize y la chica (0.94) salía mucho más grande que hombre/robot. Ver PlayerSkin.walkBodyFraction.
 private const val INTERIOR_PLAYER_BODY_REF_FRACTION = 0.62f
+private const val UNIFORM_512_INTERIOR_SCALE =
+    INTERIOR_PLAYER_BODY_REF_FRACTION / PlayerSkin.WORLD_BODY_CANVAS_FRACTION
 
 // PlayerView — recibe skin: PlayerSkin y usa sus paths y frame counts.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -148,8 +149,13 @@ fun PlayerView(
             // Antes se usaba fillMaxSize; como cada skin llena distinta fracción del lienzo
             // (escomgirl 0.94 vs lázaro/robot ~0.61), la chica se veía MUCHO más grande. Reescalamos
             // por la fracción opaca estática walkBodyFraction respecto a la de referencia (hombre/robot).
-            val ref = skin.walkBodyFraction.coerceIn(0.05f, 1f)
-            val hDp = sizeDp * (INTERIOR_PLAYER_BODY_REF_FRACTION / ref).coerceIn(0.5f, 3f)
+            val canvasScale = if (skin.uniform512Canvas) {
+                UNIFORM_512_INTERIOR_SCALE
+            } else {
+                val ref = skin.walkBodyFraction.coerceIn(0.05f, 1f)
+                (INTERIOR_PLAYER_BODY_REF_FRACTION / ref).coerceIn(0.5f, 3f)
+            }
+            val hDp = sizeDp * canvasScale
             val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
             val wDp = hDp * aspect
             Image(
@@ -221,4 +227,71 @@ private fun PlayerSkin.playerViewPath(action: PlayerAction, frame: Int): String 
     PlayerAction.WALK    -> walkPath(frame)
     PlayerAction.RUN     -> runPath(frame)
     PlayerAction.SPECIAL -> specialPath(frame)
+}
+
+// Vista de NPC AMBIENTAL de interiores: como RemotePlayerView pero con SKIN propia (sprite
+// completo) y SIN audio de pasos. Usa los paths/frame counts de la skin y normaliza el tamano
+// del cuerpo igual que PlayerView (walkBodyFraction). La usan los NPCs locales de la ESCOM.
+@Composable
+fun InteriorNpcView(
+    skin: PlayerSkin,
+    action: PlayerAction,
+    facingRight: Boolean,
+    sizePx: Float,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val sizeDp = with(density) { sizePx.toDp() }
+    var frame by remember { mutableIntStateOf(1) }
+    var image by remember { mutableStateOf<ImageBitmap?>(null) }
+    val cache = remember { mutableMapOf<String, ImageBitmap?>() }
+
+    LaunchedEffect(action, skin) {
+        frame = 1
+        while (true) {
+            // Caminado ambiental: si la skin tiene mas frames de CORRER que de CAMINAR (hojas de
+            // NPC con walk corto, p.ej. 2), usa los de correr para que no se vea congelado.
+            val animAct = if (action == PlayerAction.WALK && skin.runFrames > skin.walkFrames)
+                PlayerAction.RUN else action
+            val maxFrames = when (animAct) {
+                PlayerAction.IDLE    -> skin.idleFrames
+                PlayerAction.WALK    -> skin.walkFrames
+                PlayerAction.RUN     -> skin.runFrames
+                PlayerAction.SPECIAL -> skin.specialFrames
+            }.coerceAtLeast(1)
+            val path = skin.playerViewPath(animAct, frame)
+            if (!cache.containsKey(path)) {
+                cache[path] = withContext(Dispatchers.IO) {
+                    try { context.assets.open(path).use { BitmapFactory.decodeStream(it)?.asImageBitmap() } }
+                    catch (e: Exception) { null }
+                }
+            }
+            image = cache[path]
+            delay(if (animAct == PlayerAction.IDLE) 1000L else (760L / maxFrames).coerceIn(40L, 140L))
+            frame = (frame % maxFrames) + 1
+        }
+    }
+
+    Box(modifier = modifier.size(sizeDp), contentAlignment = Alignment.Center) {
+        val img = image
+        if (img != null) {
+            val canvasScale = if (skin.uniform512Canvas) {
+                UNIFORM_512_INTERIOR_SCALE
+            } else {
+                val ref = skin.walkBodyFraction.coerceIn(0.05f, 1f)
+                (INTERIOR_PLAYER_BODY_REF_FRACTION / ref).coerceIn(0.5f, 3f)
+            }
+            val hDp = sizeDp * canvasScale
+            val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
+            val wDp = hDp * aspect
+            Image(
+                img,
+                androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_player_remote),
+                modifier = Modifier.requiredSize(wDp, hDp).graphicsLayer { scaleX = if (facingRight) 1f else -1f }
+            )
+        } else {
+            Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFF8D6E63)).border(2.dp, Color.White, CircleShape))
+        }
+    }
 }

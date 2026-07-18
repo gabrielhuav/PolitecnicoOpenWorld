@@ -11,7 +11,7 @@ import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
 
 fun WorldMapViewModel.spawnShineCTOMarker() {
-    if (_uiState.value.activeCollectibles.none { it.id == ShineCTOLocation.MARKER_ID }) {
+    if (collectiblesManager.state.value.activeCollectibles.none { it.id == ShineCTOLocation.MARKER_ID }) {
         val marker = ActiveCollectible(
             id          = ShineCTOLocation.MARKER_ID,
             name        = ShineCTOLocation.MARKER_NAME,
@@ -20,17 +20,17 @@ fun WorldMapViewModel.spawnShineCTOMarker() {
             latitude    = ShineCTOLocation.LAT,
             longitude   = ShineCTOLocation.LON
         )
-        _uiState.update { it.copy(activeCollectibles = it.activeCollectibles + marker) }
+        collectiblesManager.addActive(marker)
     }
 }
 
 fun WorldMapViewModel.onShineCTODiscoveryConfirmed() {
     // El marker es persistente: NO se elimina de activeCollectibles.
+    collectiblesManager.clearNearby()
     _uiState.update { s ->
         s.copy(
             showShineCTODiscovery = false,
             navigateToShineCTO   = true,
-            nearbyCollectible    = null,
             interactionPrompt    = null
         )
     }
@@ -44,18 +44,12 @@ fun WorldMapViewModel.dismissShineCTODiscovery() {
     _uiState.update { it.copy(showShineCTODiscovery = false) }
 }
 fun WorldMapViewModel.onEscomDoorFadeComplete() {
-    _uiState.update {
-        it.copy(
-            showEscomDoorFade    = false,
-            escomDoorFadeComplete = true,
-            nearbyCollectible    = null,
-            interactionPrompt    = null
-        )
-    }
+    collectiblesManager.clearNearby()
+    // El fade/flag de la puerta ESCOM lo POSEE transitTeleportManager (manager 5/6); el
+    // interactionPrompt (de OTRO grupo) se limpia aquí.
+    transitTeleportManager.onEscomDoorFadeComplete()
+    _uiState.update { it.copy(interactionPrompt = null) }
 }
 
-fun WorldMapViewModel.consumeEscomDoorNavigation(): String? {
-    val dest = _uiState.value.pendingDoorDestination
-    _uiState.update { it.copy(escomDoorFadeComplete = false, pendingDoorDestination = null) }
-    return dest
-}
+fun WorldMapViewModel.consumeEscomDoorNavigation(): String? =
+    transitTeleportManager.consumeEscomDoorNavigation()

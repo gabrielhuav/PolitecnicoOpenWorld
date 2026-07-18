@@ -1,27 +1,16 @@
 package ovh.gabrielhuav.pow
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Bundle
-import androidx.activity.ComponentActivity
+import android.content.pm.ActivityInfo
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import android.content.pm.ActivityInfo
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -29,70 +18,76 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.preference.PreferenceManager
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
-import org.osmdroid.config.Configuration
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import ovh.gabrielhuav.pow.data.repository.CampaignRepository
+import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
+import ovh.gabrielhuav.pow.domain.models.campaign.SchoolCatalog
+import ovh.gabrielhuav.pow.features.campaign.ui.StoryIntroScreen
+import ovh.gabrielhuav.pow.features.campaign.ui.StoryModeScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.AuditorioScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.BibliotecaScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.CafeteriaScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.CanchasFutbolScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoBeisScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoFutbolScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.EdificioScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.EstacionamientoScreen
+import ovh.gabrielhuav.pow.features.interiores.escom.ui.FesInteriorScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.MetroStationInteriorScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.MetrobusStationInteriorScreen
 import ovh.gabrielhuav.pow.features.interiores.escom.ui.PalapasScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoBeisScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.DeportivoFutbolScreen
+import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.EasterEggDiscoveryDialog
+import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.ShineCTOScreen
+import ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
-import ovh.gabrielhuav.pow.features.interiores.escom.ui.FesInteriorScreen
-import ovh.gabrielhuav.pow.features.campaign.ui.StoryModeScreen
-import ovh.gabrielhuav.pow.features.campaign.ui.StoryIntroScreen
-import ovh.gabrielhuav.pow.domain.models.campaign.SchoolCatalog
-import ovh.gabrielhuav.pow.data.repository.CampaignRepository
+import ovh.gabrielhuav.pow.features.streetfighter.ui.StreetFighterScreen
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCacheWidget
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleFpsWidget
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleZoomWidget
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleSpeedometer
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCoordsWidget
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Backpack
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Hide
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission2Rumor
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.completeMission3Evidence
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeDevTpRoute
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeEscomDoorNavigation
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeNavigateToShineCTO
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission2BackpackComic
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3IntroComic
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeMission3OutroComic
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission1ChaseIntro
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectCampaignMission
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.failMission2Hide
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.grantMission2StinkCan
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onShineCTODiscoveryConfirmed
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.retryCampaignMission
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectSkin
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setNpcDensity
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setNpcEmojiLod
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setNpcFullEmoji
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectSkin
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.requestMapProvider
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setMapProvider
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.loadGame
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.retryCampaignMission
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampaignObjective
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumePendingMission2Intro
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission2
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setStorySpawn
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.startMission1Chase
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetroStation
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusStation
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onShineCTODiscoveryConfirmed
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeNavigateToShineCTO
-import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.consumeEscomDoorNavigation
-import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCacheWidget
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCoordsWidget
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleFpsWidget
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleMissionLog
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleSpeedometer
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleZoomWidget
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
-import ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieGameScreen
-import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
-import java.io.File
-import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.EasterEggDiscoveryDialog
-import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.ShineCTOScreen
-import androidx.compose.runtime.Composable
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Grafo de navegación de la app (NavHost) + orquestación de ajustes/orientación/guardado,
@@ -243,6 +238,9 @@ fun AppNavGraph(
                                 },
                                 onNavigateToStory = {
                                     navController.navigate("story_mode")
+                                },
+                                onNavigateToStreetFighter = {
+                                    navController.navigate("street_fighter")
                                 },
                                 authManager = authManager
                             )
@@ -415,6 +413,10 @@ fun AppNavGraph(
                                 debugHitboxes = false,
                                 startRoomId = ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID,
                                 onRequestSaveGame = { showSaveDialog = true },
+                                // "Misiones" también en el lobby ENCB de campaña (diálogo global).
+                                onRequestMissionLog = if (worldMapViewModel.inCampaign) {
+                                    { worldMapViewModel.toggleMissionLog(true) }
+                                } else null,
                                 // Recuerda en qué sala de interiores está el jugador (para el guardado).
                                 onRoomChanged = { roomId -> worldMapViewModel.currentInteriorRoomId = roomId },
                                 // Waypoint final de ENCB_LAB2 → reanuda la narrativa (cómic
@@ -433,7 +435,9 @@ fun AppNavGraph(
                                 onInteriorProgress = { keys, found ->
                                     worldMapViewModel.currentInteriorInventory = keys
                                     worldMapViewModel.currentInteriorLab1KeyFound = found
-                                }
+                                },
+                                // Cadena ENCB = siempre Misión 1 en curso → la llave es objeto de misión.
+                                missionItemsLocked = true
                             )
                         }
 
@@ -474,21 +478,66 @@ fun AppNavGraph(
 
                         // ─── MODO HISTORIA · Misión 2 (llegada a la ESCOM: IntroPOW12..14) ──
                         // Cómic que se reproduce al cumplir la Misión 1. Al terminar, arranca la
-                        // Misión 2 (objetivo "Ingresa a la ESCOM" + persecución de 6 policías +
-                        // multitud saliendo de la ESCOM) y vuelve al mundo (popBackStack a world_map,
-                        // que sigue debajo en el backstack).
-                        composable(route = "story_mission2") {
+                        // persecución final de la Misión 1 (objetivo "Ingresa a la ESCOM" + 6
+                        // policías + multitud saliendo de la ESCOM) y vuelve al mundo (popBackStack
+                        // a world_map, que sigue debajo en el backstack).
+                        composable(route = "story_mission1_chase") {
                             StoryIntroScreen(
                                 school = SchoolCatalog.default,
-                                sequenceId = ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog.MISSION2_INTRO_ID,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog.MISSION1_CHASE_INTRO_ID,
                                 onBegin = {
-                                    worldMapViewModel.startMission2()
+                                    worldMapViewModel.startMission1Chase()
                                     navController.popBackStack("world_map", inclusive = false)
                                 },
                                 onBack = {
-                                    worldMapViewModel.startMission2()
+                                    worldMapViewModel.startMission1Chase()
                                     navController.popBackStack("world_map", inclusive = false)
                                 }
+                            )
+                        }
+
+                        // ─── MODO HISTORIA · Misión 2 "La mochila" (IntroPOW16..18) ──────────
+                        // Puente narrativo tras hablar con Prankedy (fase MOCHILA). Al terminar,
+                        // vuelve al mundo con el objetivo "recupera la mochila" ya fijado.
+                        composable(route = "story_mission2_backpack") {
+                            val goBack: () -> Unit = { navController.popBackStack("world_map", inclusive = false) }
+                            StoryIntroScreen(
+                                school = SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog.MISSION2_BACKPACK_INTRO_ID,
+                                onBegin = goBack,
+                                onBack = goBack
+                            )
+                        }
+
+                        // 🆕 ─── MODO HISTORIA · CIERRE de la Misión 3 (IntroPOW23..24) ─────────
+                        // Se reproduce al completar la M3 (evidencia + arma). Solo vuelve al
+                        // mundo: el gancho a la M4 queda sembrado ("¿a quién se lo llevamos?").
+                        composable(route = "story_mission3_outro") {
+                            val goBack: () -> Unit = { navController.popBackStack("world_map", inclusive = false) }
+                            StoryIntroScreen(
+                                school = SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog.MISSION3_OUTRO_ID,
+                                onBegin = goBack,
+                                onBack = goBack
+                            )
+                        }
+
+                        // ─── MODO HISTORIA · Misión 3 "Regreso a la ENCB" (IntroPOW19..22) ──
+                        // Puente narrativo al completar la M2. Al terminar, SIGUE la Misión 3
+                        // (fija su 🎯) y vuelve al mundo para que la historia continúe.
+                        composable(route = "story_mission3_intro") {
+                            val goM3: () -> Unit = {
+                                worldMapViewModel.selectCampaignMission(
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_3_ID,
+                                    force = true
+                                )
+                                navController.popBackStack("world_map", inclusive = false)
+                            }
+                            StoryIntroScreen(
+                                school = SchoolCatalog.default,
+                                sequenceId = ovh.gabrielhuav.pow.domain.models.campaign.StoryComicCatalog.MISSION3_INTRO_ID,
+                                onBegin = goM3,
+                                onBack = goM3
                             )
                         }
 
@@ -524,6 +573,7 @@ fun AppNavGraph(
                                     worldMapViewModel.toggleCoordsWidget(it)
                                 },
                                 onDeveloperModeToggled = { settingsViewModel.toggleDeveloperMode(it) },
+                                onHitboxesToggled = { settingsViewModel.toggleHitboxes(it) },
                                 // Audio: persisten en Ajustes Y se aplican en vivo al SoundManager.
                                 onMusicVolumeChanged = {
                                     settingsViewModel.changeMusicVolume(it)
@@ -707,16 +757,54 @@ fun AppNavGraph(
                             }
 
                             // MODO HISTORIA · Misión 1 cumplida (llegaste a la ESCOM) → cómic
-                            // IntroPOW12..14; al volver arranca la persecución de la Misión 2.
-                            LaunchedEffect(uiState.pendingMission2Intro) {
-                                if (uiState.pendingMission2Intro) {
+                            // IntroPOW12..15; al volver arranca la persecución final (chase).
+                            LaunchedEffect(uiState.pendingMission1ChaseIntro) {
+                                if (uiState.pendingMission1ChaseIntro) {
                                     // OJO: NO consumir el flag ANTES del delay; al cambiar el flag
                                     // se cancela este LaunchedEffect y el cómic nunca se lanzaba.
                                     // Deja sonar el jingle de "misión cumplida" un momento y LUEGO
                                     // navega al cómic (consumir + navigate van seguidos, sin suspensión).
                                     kotlinx.coroutines.delay(2200)
-                                    worldMapViewModel.consumePendingMission2Intro()
-                                    navController.navigate("story_mission2")
+                                    worldMapViewModel.consumePendingMission1ChaseIntro()
+                                    navController.navigate("story_mission1_chase")
+                                }
+                            }
+
+                            // MODO HISTORIA · M2 fase MOCHILA → cómic "La mochila" (IntroPOW16..18).
+                            // Se dispara en el mapa (tras hablar con Prankedy); al volver sigue la fase 5.
+                            LaunchedEffect(uiState.pendingMission2BackpackComic) {
+                                if (uiState.pendingMission2BackpackComic) {
+                                    kotlinx.coroutines.delay(2200)
+                                    worldMapViewModel.consumeMission2BackpackComic()
+                                    navController.navigate("story_mission2_backpack")
+                                }
+                            }
+
+                            // MODO HISTORIA · M2 completada → cómic "Regreso a la ENCB" (IntroPOW19..22).
+                            // La bandera se pone a true DENTRO del salón (al recoger la mochila): se
+                            // ESPERA a estar en el mapa (no en un interior) para no navegar encima de él.
+                            LaunchedEffect(uiState.pendingMission3IntroComic) {
+                                if (uiState.pendingMission3IntroComic) {
+                                    while (worldMapViewModel.currentInteriorRoomId != null) {
+                                        kotlinx.coroutines.delay(200)
+                                    }
+                                    kotlinx.coroutines.delay(600)
+                                    worldMapViewModel.consumeMission3IntroComic()
+                                    navController.navigate("story_mission3_intro")
+                                }
+                            }
+
+                            // 🆕 MODO HISTORIA · M3 completada (evidencia) → cómic de CIERRE
+                            // "mission3_outro" (IntroPOW23..24). La bandera se pone DENTRO de la
+                            // ENCB (auto-salida 2.6 s después): se espera a estar en el mapa.
+                            LaunchedEffect(uiState.pendingMission3OutroComic) {
+                                if (uiState.pendingMission3OutroComic) {
+                                    while (worldMapViewModel.currentInteriorRoomId != null) {
+                                        kotlinx.coroutines.delay(200)
+                                    }
+                                    kotlinx.coroutines.delay(600)
+                                    worldMapViewModel.consumeMission3OutroComic()
+                                    navController.navigate("story_mission3_outro")
                                 }
                             }
 
@@ -755,6 +843,16 @@ fun AppNavGraph(
                                 onBack = {
                                     navController.popBackStack()
                                 }
+                            )
+                        }
+
+                        // ─── STREET FIGHTER (minijuego dev, port fiel de StreetFighter-main) ───
+                        // Pelea 1v1 clásica Ryu vs Ken (CPU) con los sprites/sonidos originales
+                        // (assets/STREETFIGHTER). Se entra desde el menú principal SOLO con Modo
+                        // Desarrollador. La ruta NO está en portraitRoutes → landscape. Ver 07.
+                        composable(route = "street_fighter") {
+                            StreetFighterScreen(
+                                onExitToMap = { navController.popBackStack() }
                             )
                         }
 
@@ -885,17 +983,66 @@ fun AppNavGraph(
                             )
                         ) { backStackEntry ->
                             val wmState by worldMapViewModel.uiState.collectAsState()
-                            val startRoom = backStackEntry.arguments?.getString("startRoom")
+val startRoom = backStackEntry.arguments?.getString("startRoom")
                                 ?: ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID
                             // MODO HISTORIA: tras la Misión 1 (INGRESAR_ESCOM cumplida), al entrar al
                             // interior de la ESCOM (lobby) se muestra el objetivo "Busca pistas en la ESCOM".
                             // El objetivo exterior NO cambia (allá sigue "Ingresa a la ESCOM, Cumplido").
-                            val interiorObjective = if (
+                            // MISIÓN 3 · ASALTO: entrar a la cadena ENCB durante la fase 3 siembra
+                            // zombis + la evidencia (la navegación la disparó WorldMapMission3).
+                            val mission3Assault = worldMapViewModel.inCampaign &&
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ENCB_LOBBY_ID &&
+                                worldMapViewModel.mission3Phase ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission3.Mission3.PHASE_ASSAULT
+                            // MISIÓN 2 · fase 1 "ESCONDERSE": se juega DENTRO del lobby de la ESCOM.
+                            val mission2Hide = worldMapViewModel.inCampaign &&
+                                worldMapViewModel.mission2Phase ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_HIDE &&
+                                wmState.currentObjective?.id ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_ESCONDERSE_POLICIA.id
+                            val mission2Rumor = worldMapViewModel.inCampaign &&
+                                worldMapViewModel.mission2Phase ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_RUMOR &&
+                                wmState.currentObjective?.id ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_PISTA_RUMOR.id
+                            // 🥫 Salvaguarda: en la fase MOCHILA la lata debe ir en el inventario
+                            // (cubre partidas guardadas ANTES de que la lata fuera un ítem).
+                            if (worldMapViewModel.inCampaign && worldMapViewModel.mission2Phase ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_BACKPACK) {
+                                worldMapViewModel.grantMission2StinkCan()
+                            }
+                            val interiorObjective = when {
+                                // MISIÓN 2 · fase ESCONDERSE: el lobby muestra su objetivo (prioridad
+                                // sobre "Busca pistas": la búsqueda policial está en curso).
+                                mission2Hide &&
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_ESCONDERSE_POLICIA
+                                mission2Rumor &&
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_PISTA_RUMOR
                                 worldMapViewModel.inCampaign &&
                                 startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID &&
                                 wmState.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id &&
-                                wmState.objectiveDone
-                            ) ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.BUSCAR_PISTAS_ESCOM else null
+                                wmState.objectiveDone ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.BUSCAR_PISTAS_ESCOM
+                                // MISIÓN 2 · fase MOCHILA: el salón muestra su propio objetivo.
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.ESCOM_SALON_M2_ID ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_RECUPERAR_MOCHILA
+                                // MISIÓN 2 · fase MOCHILA por el flujo NORMAL (🆕 2026-07-13): entras
+                                // por el lobby y navegas lobby → Edificio Principal → salón; el
+                                // objetivo guía toda la sesión de interiores.
+                                worldMapViewModel.inCampaign &&
+                                startRoom == ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog.LOBBY_ID &&
+                                worldMapViewModel.mission2Phase ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_BACKPACK &&
+                                wmState.currentObjective?.id ==
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_RECUPERAR_MOCHILA.id ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M2_RECUPERAR_MOCHILA
+                                // MISIÓN 3 · ASALTO: la cadena ENCB muestra "Recupera la evidencia".
+                                mission3Assault ->
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.M3_RECUPERAR_EVIDENCIA
+                                else -> null
+                            }
                             ZombieGameScreen(
                                 onExitToWorld = {
                                     worldMapViewModel.currentInteriorRoomId = null
@@ -910,6 +1057,13 @@ fun AppNavGraph(
                                 // "Guardar partida" disponible también en interiores (mismo selector
                                 // de slots; el estado del mundo se conserva en el worldMapViewModel).
                                 onRequestSaveGame = { showSaveDialog = true },
+                                // "Misiones" también en interiores (abre el MissionLogDialog global,
+                                // hospedado tras el NavHost). Solo en campaña. Si desde aquí se sigue
+                                // una misión de exterior, su 🎯 se ve al salir al mapa (el objetivo
+                                // vive en el worldMapViewModel).
+                                onRequestMissionLog = if (worldMapViewModel.inCampaign) {
+                                    { worldMapViewModel.toggleMissionLog(true) }
+                                } else null,
                                 // Recuerda la sala actual (para el guardado / reentrada al CARGAR).
                                 onRoomChanged = { roomId -> worldMapViewModel.currentInteriorRoomId = roomId },
                                 // Si se CARGA una partida directamente en la cadena ENCB y se llega al
@@ -929,7 +1083,51 @@ fun AppNavGraph(
                                 onInteriorProgress = { keys, found ->
                                     worldMapViewModel.currentInteriorInventory = keys
                                     worldMapViewModel.currentInteriorLab1KeyFound = found
-                                }
+                                },
+                                // MISIÓN 2 · fase MOCHILA: al recoger la mochila de Prankedy en el
+                                // salón, se completa la Misión 2 en el VM del mundo.
+                                onMission2BackpackRecovered = {
+                                    worldMapViewModel.completeMission2Backpack()
+                                },
+                                // MISIÓN 2: la mochila desbloquea TODOS los slots del inventario
+                                // (persistido vía mission2Phase). REJUGAR: durante un replay la fase
+                                // va a la mitad en memoria, pero los slots NO se pierden → también
+                                // gatea por completedMissions. MISIÓN 3: gate del arma de fuego
+                                // (solo campaña) + modo asalto ENCB + callback de la evidencia.
+                                // 🆕 2026-07-13: default 2 slots (llave M1 + lata M2 conviven).
+                                initialUnlockedSlots = if (worldMapViewModel.mission2Phase >=
+                                    ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2.PHASE_DONE ||
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_2_ID in
+                                        wmState.completedMissions) 4 else 2,
+                                firearmUnlocked = !worldMapViewModel.inCampaign || worldMapViewModel.hasFirearm,
+                                mission3Assault = mission3Assault,
+                                onMission3EvidenceRecovered = {
+                                    worldMapViewModel.completeMission3Evidence()
+                                },
+                                // MISIÓN 2 · fase ESCONDERSE (lobby): armado en runtime + desenlaces.
+                                mission2Hide = mission2Hide,
+                                onMission2HideCompleted = {
+                                    // Aguantaste: avanza a la fase RUMOR (el jugador sale cuando quiera;
+                                    // al salir, el 🎯 ya apunta a la escena del rumor en el campus).
+                                    worldMapViewModel.completeMission2Hide()
+                                },
+                                onMission2HideFailed = {
+                                    // Te reconocieron: MISIÓN FALLIDA. Se sale al mapa global, donde
+                                    // vive la pantalla de fallo + REINTENTAR (re-arma desde la fase 1).
+                                    worldMapViewModel.failMission2Hide()
+                                    worldMapViewModel.currentInteriorRoomId = null
+                                    ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(activity).stopInvestigarMusic()
+                                    navController.popBackStack("world_map", inclusive = false)
+                                },
+                                mission2Rumor = mission2Rumor,
+                                onMission2RumorCompleted = {
+                                    worldMapViewModel.completeMission2Rumor()
+                                },
+                                // 🆕 OBJETOS DE MISIÓN: la llave de la M1 no se desecha mientras
+                                // las misiones 1-2 estén en curso (M2 completada implica M1).
+                                missionItemsLocked = worldMapViewModel.inCampaign &&
+                                    ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_2_ID !in
+                                        wmState.completedMissions
                             )
                         }
 
@@ -940,5 +1138,32 @@ fun AppNavGraph(
                                 }
                             )
                         }
+                    }
+
+                    // ─── REGISTRO / SELECTOR DE MISIONES a nivel Activity (mismo patrón que el
+                    // SaveSlotsDialog de arriba): un solo MissionLogDialog sirve al MAPA GLOBAL y a
+                    // los INTERIORES (estado showMissionLog en el worldMapViewModel, Activity-scoped).
+                    // Va DESPUÉS del NavHost para dibujarse ENCIMA de la pantalla actual (es un
+                    // overlay Compose, no un Dialog de ventana). MissionLogHost solo colecta
+                    // showMissionLog mientras está cerrado (no recompone a 30 Hz).
+                    ovh.gabrielhuav.pow.features.map_exterior.ui.components.MissionLogHost(worldMapViewModel)
+
+                    // ─── MODO DEV · "TP al objetivo" por CHECKPOINTS (2026-07-12): ejecuta la
+                    // navegación pendiente (WorldMapState.devTpRoute) desde CUALQUIER pantalla:
+                    // pop a world_map y, si el checkpoint es una SALA, navigate al interior.
+                    // Coroutine pura sobre el flow (colecta SOLO devTpRoute, sin recomponer a
+                    // 30 Hz — mismo espíritu que MissionLogHost). Ver WorldMapMissionLog.kt.
+                    LaunchedEffect(Unit) {
+                        worldMapViewModel.uiState
+                            .map { it.devTpRoute }
+                            .distinctUntilChanged()
+                            .collect { route ->
+                                if (route == null) return@collect
+                                worldMapViewModel.consumeDevTpRoute()
+                                navController.popBackStack("world_map", inclusive = false)
+                                if (route != ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DEV_TP_TO_MAP) {
+                                    navController.navigate(route)
+                                }
+                            }
                     }
 }

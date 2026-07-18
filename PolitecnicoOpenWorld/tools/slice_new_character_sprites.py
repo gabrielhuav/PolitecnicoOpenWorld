@@ -49,6 +49,9 @@ CONFIG = {
     "rey_bromas": {"sheet": "sprites_el_rey_de_las_bromas-Photoroom.png", "char": "ReyBromas", "prefix": "rb",
         "regions": {"idle": (0.0, 0.045, 0.330, 0.305, 3), "walk": (0.0, 0.325, 0.665, 0.515, 6),
                     "run": (0.0, 0.540, 0.665, 0.710, 8), "special": (0.0, 0.776, 0.665, 0.965, 6)}},       # BROMAS
+    "rey_grupero": {"sheet": "rey_grupero_1.png", "char": "ReyGrupero", "prefix": "rg", "special_split": True,
+        "regions": {"idle": (0.020, 0.040, 0.255, 0.295, 3), "walk": (0.020, 0.325, 0.670, 0.535, 8),
+                    "run": (0.020, 0.555, 0.700, 0.740, 8), "special": (0.020, 0.775, 0.715, 0.985, 6)}},     # BROMAS/ACCIONES
 }
 
 
@@ -116,7 +119,7 @@ def process(key):
         sd, lt = ANIM[anim]; od = os.path.join(ASSETS, cfg["char"], sd); os.makedirs(od, exist_ok=True)
         reg = arr[int(y0*H):int(y1*H), int(x0*W):int(x1*W)]; rmask = mask[int(y0*H):int(y1*H), int(x0*W):int(x1*W)]
         Rh = reg.shape[0]; mont = []; idx = 0
-        if anim == "special":
+        if anim == "special" and not cfg.get("special_split", False):
             # Segmentación por FIGURA: gap_runs + filtro de ALTURA (descarta objetos sueltos como
             # tanque/globo/chispa/mist) + SEPARA runs anchos (figuras pegadas, p.ej. spray+megáfono
             # del Rey) + main_block (quita etiquetas). Robusto para las filas de ATAQUE/BROMAS.

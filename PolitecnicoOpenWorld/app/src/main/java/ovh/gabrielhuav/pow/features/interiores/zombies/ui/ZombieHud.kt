@@ -2,21 +2,44 @@ package ovh.gabrielhuav.pow.features.interiores.zombies.ui
 
 import android.content.res.Configuration
 import android.graphics.BitmapFactory
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +51,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -38,27 +62,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.zombie.CombatMode
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.KeyDrop
 import ovh.gabrielhuav.pow.domain.models.zombie.SkillEffect
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieType
+import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerHealthBarFixed
+import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieGameState
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin          // ← NUEVO
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel.ZombieGameState
-import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerHealthBarFixed   // barra de vida compartida (core)
-import ovh.gabrielhuav.pow.R
 
 @Composable
 fun ZombieHud(
@@ -203,12 +222,19 @@ fun ZombieHud(
                     // — Modo de golpe —
                     Text(stringResource(R.string.zhud_combat_mode), color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     WeaponMenuButton(stringResource(R.string.zhud_mode_melee), state.combatMode == CombatMode.MELEE) { onSelectMode(CombatMode.MELEE) }
-                    WeaponMenuButton(stringResource(R.string.zhud_mode_ranged), state.combatMode == CombatMode.RANGED) { onSelectMode(CombatMode.RANGED) }
+                    // MISIÓN 3 (recompensa): sin arma de fuego, A DISTANCIA sale con candado (el
+                    // VM rechaza la selección con un aviso; aquí solo se marca visualmente).
+                    WeaponMenuButton(
+                        (if (state.firearmUnlocked) "" else "🔒 ") + stringResource(R.string.zhud_mode_ranged),
+                        state.combatMode == CombatMode.RANGED
+                    ) { onSelectMode(CombatMode.RANGED) }
                     // — Inventario —
                     Text(stringResource(R.string.zhud_inventory), color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         val totalSlots = 4
-                        val unlockedSlots = 1
+                        // Slots USABLES dinámicos: 1 al inicio; TODOS al recuperar la mochila de
+                        // Prankedy (Misión 2). Lo decide el VM (state.inventoryUnlockedSlots).
+                        val unlockedSlots = state.inventoryUnlockedSlots
                         for (i in 0 until totalSlots) {
                             val unlocked = i < unlockedSlots
                             val heldKey = state.inventoryKeys.getOrNull(i)
@@ -249,7 +275,8 @@ fun ZombieHud(
                     // PUZZLE Misión 1: con una llave guardada SIN confirmar aún, el botón PROBAR la
                     // prueba (solo abre en Lab 2). DESECHAR ya NO es un botón: se MANTIENE PULSADA la
                     // llave en su slot (arriba). Al CONFIRMAR la correcta (lab1KeyFound) PROBAR desaparece.
-                    state.inventoryKeys.firstOrNull()?.let { heldKey ->
+                    // Solo aplica a LLAVES de la M1 (la lata de la M2 no se "prueba").
+                    state.inventoryKeys.firstOrNull { KeyDrop.entryMission(it) == KeyDrop.MISSION_1 }?.let { heldKey ->
                         if (!state.lab1KeyFound) {
                             Button(
                                 onClick = { onTestKey(heldKey) },

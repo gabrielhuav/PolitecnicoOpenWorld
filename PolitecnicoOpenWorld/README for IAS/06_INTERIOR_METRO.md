@@ -16,14 +16,22 @@ a Compose screen over a background, with movement validated by a `CollisionGrid`
 ## CollisionGrid — `viewmodel/CollisionGrid.kt`
 
 ```kotlin
-class CollisionGrid(val grid: Array<IntArray>) {       // 0=libre, !=0=bloqueado
-  fun isWalkable(normalizedX: Float, normalizedY: Float): Boolean
-  fun cellValueAt(normalizedX: Float, normalizedY: Float): Int
-  companion object { fun emptyWithBorder(): CollisionGrid }   // por defecto: solo borde
+class CollisionGrid(val grid: Array<IntArray>) {       // 0=pared, 1=libre, 2=OBJETO QUE TAPA, 3+=reservado
+  fun isWalkable(normalizedX, normalizedY): Boolean    // NO caminables: 0 y 2
+  fun isOccluder(normalizedX, normalizedY): Boolean    // == 2 (capa de profundidad, y-sort)
+  fun cellValueAt(normalizedX, normalizedY): Int
+  companion object { const OCCLUDER = 2; fun emptyWithBorder(): CollisionGrid }   // por defecto: solo borde
 }
 ```
 **ES:** Los interiores usan `emptyWithBorder()` por defecto (matrices de colisión ricas = pendiente).
 **EN:** Interiors use `emptyWithBorder()` by default (content-rich collision matrices = not yet implemented).
+
+> **🆕 CAPA DE OCLUSIÓN (valor `2`):** `InteriorScreenBase` dibuja, tras el jugador, una `Canvas` que redibuja
+> el trozo del fondo de las celdas `2` ENCIMA del jugador cuando el objeto está DELANTE (su fila base al sur de
+> `state.playerY`). Celdas `2` contiguas se agrupan en objetos (4-conexo, `computeGridOccluders`) para compartir
+> la fila base (y-sort por objeto). `InteriorViewModel.collisionGrid` es público (solo lectura) para que la vista
+> lea los `2`. Como los interiores simples usan `emptyWithBorder()` (sin `2`), la capa queda LISTA pero sin efecto
+> hasta que un edificio inyecte una matriz con objetos. (Sin diseñador de matriz aquí: se autora a mano en la grid.)
 
 ---
 

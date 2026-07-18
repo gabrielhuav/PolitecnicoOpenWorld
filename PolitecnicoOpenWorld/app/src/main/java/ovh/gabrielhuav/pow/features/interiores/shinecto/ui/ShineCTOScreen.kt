@@ -13,51 +13,66 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.map.ShineCTOFloor
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.*
+import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerHealthBarFixed
+import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerView
+import ovh.gabrielhuav.pow.features.interiores.shinecto.viewmodel.ShineCTOViewModel
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
+import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.features.interiores.shinecto.viewmodel.ShineCTOInteractable
-import ovh.gabrielhuav.pow.features.interiores.shinecto.viewmodel.ShineCTOViewModel
-import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerHealthBarFixed
-import ovh.gabrielhuav.pow.features.interiores.core.ui.PlayerView
-import androidx.compose.ui.res.stringResource
-import ovh.gabrielhuav.pow.R
 import kotlin.math.max
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 
 // Zoom that creates the "large venue" feeling (lower = more zoomed-out)
 private const val INTERIOR_ZOOM = 1.3f
@@ -65,7 +80,7 @@ private const val INTERIOR_ZOOM = 1.3f
 @Composable
 fun ShineCTOScreen(onExitToWorld: () -> Unit) {
     val context = LocalContext.current
-    val vm: ShineCTOViewModel = viewModel(factory = ShineCTOViewModel.Factory(context))
+    val vm: ShineCTOViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val state by vm.state.collectAsState()
     val density = LocalDensity.current
     // Respeta la skin elegida (antes ShineCTO siempre dibujaba a Lázaro porque no pasaba skin).
@@ -145,7 +160,7 @@ fun ShineCTOScreen(onExitToWorld: () -> Unit) {
 
             // ── Player sprite ────────────────────────────────────────────────
             val pSizePx = 56f * camScale
-            val pSizeDp = with(density) { pSizePx.toDp() }
+            // val pSizeDp = with(density) { pSizePx.toDp() }
             val pScreenX = offsetX + state.playerX * worldW * camScale
             val pScreenY = offsetY + state.playerY * worldH * camScale
 
@@ -317,7 +332,7 @@ private fun ShineCTOHud(
     onSpecial: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
-    val shape = CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp)
+    // val shape = CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp)
 
     Box(modifier = Modifier.fillMaxSize()) {
 

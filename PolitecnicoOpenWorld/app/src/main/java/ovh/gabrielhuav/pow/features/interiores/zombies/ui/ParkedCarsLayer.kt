@@ -11,7 +11,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -42,10 +41,14 @@ private val CAR_PALETTE = intArrayOf(
 )
 
 /**
- * Un auto aparcado ya resuelto: posición fraccionaria 0-1 sobre el asset, su rotación BASE anclada
- * (la misma que deriva el global del sentido del carril) y su bitmap (base, sin rotar).
+ * Un auto aparcado ya resuelto: posición fraccionaria 0-1 sobre el asset y su bitmap YA con la
+ * orientación correcta. ⚠️ Los sprites de coche son FRAMES DIRECCIONALES pre-renderizados (48 por
+ * modelo): el exterior pide el FRAME del ángulo (`getTintedCarNpc(headingAngle…)`). Antes el
+ * interior pedía el frame 0 y lo giraba con `Modifier.rotate(...)` → TODOS los autos quedaban con
+ * la orientación del frame 0 girada en plano ("mal colocados" vs el exterior). Ahora el interior
+ * resuelve el MISMO frame direccional que el exterior y NO rota en Compose (fix 2026-07-04).
  */
-private data class ParkedCar(val xFrac: Float, val yFrac: Float, val baseFacingDeg: Float, val bitmap: ImageBitmap)
+private data class ParkedCar(val xFrac: Float, val yFrac: Float, val bitmap: ImageBitmap)
 
 /**
  * Dibuja los autos "presentes" del estacionamiento en el LOBBY interior (escenografía pura), en las
@@ -76,9 +79,16 @@ fun ParkedCarsLayer(
     val context = LocalContext.current
     val density = LocalDensity.current
 
-    val cars by produceState(emptyList<ParkedCar>(), campus?.navGraphAsset) {
+    // El bitmap depende del FACING final (frame direccional), así que el prefetch se re-hace si
+    // cambia la calibración de orientación (heading/selfRotation/flips). En juego normal esos
+    // valores son constantes (defaults del catálogo) → un solo prefetch, como antes.
+    val cars by produceState(
+        emptyList<ParkedCar>(), campus?.navGraphAsset, headingDeg, selfRotationDeg, flipped
+    ) {
         value = if (campus == null) emptyList()
-        else withContext(Dispatchers.IO) { buildParkedCars(context, campus) }
+        else withContext(Dispatchers.IO) {
+            buildParkedCars(context, campus, headingDeg, selfRotationDeg, flipped)
+        }
     }
     if (campus == null || cars.isEmpty()) return
 
@@ -111,10 +121,8 @@ fun ParkedCarsLayer(
         val screenX = cam.offsetX + worldX * cam.scale
         val screenY = cam.offsetY + worldY * cam.scale
         val sizePx = carWorldPx * cam.scale
-        // Orientación = BASE anclada del global (sentido del carril) + grupo (pivote) + giro propio
-        // + VOLTEO 180° por auto. Con grupo/giro en 0 arranca IGUAL que el global; solo volteas los ↑↓.
-        val facing = car.baseFacingDeg + headingDeg + selfRotationDeg + (if (i in flipped) 180f else 0f)
-
+        // La ORIENTACIÓN ya viene HORNEADA en el bitmap (frame direccional resuelto en
+        // buildParkedCars, igual que el exterior). Aquí NO se rota nada.
         Image(
             bitmap = car.bitmap,
             contentDescription = null,
@@ -124,19 +132,21 @@ fun ParkedCarsLayer(
                     y = with(density) { (screenY - sizePx / 2f).toDp() }
                 )
                 .size(with(density) { sizePx.toDp() })
-                // Al diseñar: TOCAR un auto lo voltea 180° (marca ↑ vs ↓). El tap usa el cuadro sin rotar.
+                // Al diseñar: TOCAR un auto lo voltea 180° (marca ↑ vs ↓).
                 .then(if (designing) Modifier.pointerInput(i) { detectTapGestures { onToggleFlip(i) } } else Modifier)
-                .rotate(facing)
         )
     }
 }
 
 /**
  * Carga el navGraph del campus, extrae sus plazas y resuelve un auto por cada una (modelo/color
- * deterministas por índice + rotación BASE del sentido del carril; bitmap base SIN rotar). Bloqueante:
- * invócalo en [Dispatchers.IO].
+ * deterministas por índice + el FRAME DIRECCIONAL del facing final, IGUAL que el exterior:
+ * base del carril + grupo + giro propio + volteo). Bloqueante: invócalo en [Dispatchers.IO].
  */
-private fun buildParkedCars(context: Context, campus: CampusParking): List<ParkedCar> {
+private fun buildParkedCars(
+    context: Context, campus: CampusParking,
+    headingDeg: Float, selfRotationDeg: Float, flipped: Set<Int>
+): List<ParkedCar> {
     val navGraph = try {
         context.assets.open(campus.navGraphAsset).use { ins ->
             Gson().fromJson(InputStreamReader(ins), LandmarkNavGraph::class.java)
@@ -153,16 +163,28 @@ private fun buildParkedCars(context: Context, campus: CampusParking): List<Parke
     return slots.mapIndexedNotNull { i, slot ->
         val model = models[i % models.size]
         val color = CAR_PALETTE[(i * 5) % CAR_PALETTE.size]
-        // Rotación BASE = la MISMA que deriva el global (sentido del carril nodo previo→cajón), en el
-        // marco del PNG SIN rotar (aspecto baseW/baseH). Así el interior HEREDA la orientación del global.
-        val baseFacing = Math.toDegrees(
+        // Dirección del CARRIL del cajón (nodo previo→plaza) en el marco NATIVO del PNG (aspecto
+        // baseW/baseH, +X derecha, +Y abajo; localY crece hacia abajo = igual que la pantalla).
+        val laneFacing = Math.toDegrees(
             atan2((slot.dirY * campus.baseHeightMeters).toDouble(), (slot.dirX * campus.baseWidthMeters).toDouble())
         ).toFloat()
+        // ⚠️ ORIENTACIÓN (fix 2026-07-13, calibrado EN VIVO): +90°. El vector del navGraph
+        // (prev→plaza) va A LO LARGO del CARRIL de circulación, pero un auto ESTACIONADO se coloca
+        // PERPENDICULAR al carril (de morro dentro del cajón). Con offset 0 los autos quedaban "en
+        // fila india" a lo largo del carril (mal); sumando 90° quedan perpendiculares, encajados en
+        // los cajones (igual que el exterior: cajón vertical → auto vertical). Valor hallado con el
+        // calibrador en vivo del lobby (Diseñador → Estacionamiento, "girar c/auto"): 90° alinea; 0°
+        // los deja tumbados a lo largo del carril. (Los intentos analíticos previos -R/-2R/0 fallaban
+        // porque asumían que el carril YA apuntaba dentro del cajón; no es así.)
+        val baseFacing = laneFacing + 90f
+        // Facing FINAL (base + calibración de grupo/propio + volteo) → se pide el FRAME direccional
+        // de ese ángulo. NADA se rota después en Compose.
+        val facing = baseFacing + headingDeg + selfRotationDeg + (if (i in flipped) 180f else 0f)
         // Tintado (palette-swap píxel a píxel) a MENOR resolución (0.5×): son escenografía pequeña en
         // el lobby, no necesitan resolución completa. Reduce ~4× el trabajo por plaza (estaba en 1.0×,
         // serializado por @Synchronized → tardaba en "verse bien" la imagen 2D al entrar/zoom — R4).
-        val drawable = VehicleSpriteManager.getTintedCarNpc(context, 0f, color, 0.5f, model)
+        val drawable = VehicleSpriteManager.getTintedCarNpc(context, facing, color, 0.5f, model)
         val bitmap = (drawable as? BitmapDrawable)?.bitmap?.asImageBitmap() ?: return@mapIndexedNotNull null
-        ParkedCar(slot.localX, slot.localY, baseFacing, bitmap)
+        ParkedCar(slot.localX, slot.localY, bitmap)
     }
 }

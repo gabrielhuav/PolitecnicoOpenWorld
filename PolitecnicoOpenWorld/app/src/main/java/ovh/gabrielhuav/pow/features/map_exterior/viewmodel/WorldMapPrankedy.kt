@@ -2,7 +2,6 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import kotlinx.coroutines.flow.update
 import org.osmdroid.util.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.ai.PrankedyManager
 import ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase
 
 /**
@@ -227,8 +226,8 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
  */
 internal fun WorldMapViewModel.onPrankedyInteract(now: Long = System.currentTimeMillis()) {
     val pm = prankedyManager
-    val isHireable = pm.isHireable(now)
-    val secs = pm.hireableInSeconds(now)
+    val isHireable = pm.isHireable
+    val secs = pm.hireableInSeconds
     _uiState.update {
         it.copy(
             showPrankedyHireDialog  = true,

@@ -1,0 +1,123 @@
+{
+  "version": 3,
+  "default_lang": "es",
+  "supported_langs": [
+    "es",
+    "en"
+  ],
+  "audio_language": "es-MX",
+  "fighters": {
+    "PRANKEDY": {
+      "phrase_es": "Pero pues yo, o sea, yo vengo en buena onda a notificarle, no vengo a…",
+      "phrase_en": "But I mean, I'm just here in good faith to notify you; I'm not here to…",
+      "phrase_hud": "PERO PUES YO O SEA YO VENGO EN BUENA ONDA A NOTIFICARLE NO VENGO A",
+      "audio": "special_prankedy.ogg",
+      "subtitle_ms": 3100,
+      "tier": "authentic_voice"
+    },
+    "SENOR_TIENDA": {
+      "phrase_es": "Sí sabes qué, retírate, güey. Te rompo tu madre, güey. Así es derecho. Retírate, cabrón.",
+      "phrase_en": "You know what? Get out. I'll beat you up. That's how it is. Get out.",
+      "phrase_hud": "SI SABES QUE RETIRATE GUEY TE ROMPO TU MADRE GUEY ASI ES DERECHO RETIRATE CABRON",
+      "audio": "special_senor_tienda.ogg",
+      "subtitle_ms": 5800,
+      "tier": "authentic_voice"
+    },
+    "PAPARAZZI_1": {
+      "phrase_es": "¿De qué se trata? Contéstame, por favor.",
+      "phrase_en": "What is this about? Please answer me.",
+      "phrase_hud": "DE QUE SE TRATA CONTESTAME POR FAVOR",
+      "audio": "special_paparazzi_1.ogg",
+      "subtitle_ms": 4800,
+      "tier": "authentic_voice"
+    },
+    "PAPARAZZI_5": {
+      "phrase_es": "¿Pero para qué? ¿O qué? ¿De qué se trata? Contéstame, por favor.",
+      "phrase_en": "But what for? What is this about? Please answer me.",
+      "phrase_hud": "PERO PARA QUE O QUE DE QUE SE TRATA CONTESTAME POR FAVOR",
+      "audio": "special_paparazzi_5.ogg",
+      "subtitle_ms": 6100,
+      "tier": "authentic_voice"
+    },
+    "REY_GRUPERO": {
+      "phrase_es": "Oye, hermano, ¿me regalas una selfie? Claro, claro, ¿dónde? A ti te conozco de algo, ¿no?",
+      "phrase_en": "Hey, brother, can I get a selfie? Sure, where? I know you from somewhere, right?",
+      "phrase_hud": "OYE HERMANO ME REGALAS UNA SELFIE CLARO CLARO DONDE A TI TE CONOZCO DE ALGO NO",
+      "audio": "special_rey_grupero.ogg",
+      "subtitle_ms": 4900,
+      "tier": "authentic_voice"
+    },
+    "LAZARO": {
+      "phrase_es": "Oye, ¿ya viste el Goku que está ahí? Está cagado, ¿no?",
+      "phrase_en": "Hey, did you see that Goku over there? It's hilarious, right?",
+      "phrase_hud": "OYE YA VISTE EL GOKU QUE ESTA AHI ESTA CAGADO NO",
+      "audio": "special_lazaro.ogg",
+      "subtitle_ms": 4700,
+      "tier": "authentic_voice"
+    },
+    "ESCOMBOY": {
+      "phrase_es": "Así que pues estamos aquí para hacer un videoblog, porque eso es lo que son estos videos. Así es.",
+      "phrase_en": "So we're here to make a video blog, because that's what these videos are. That's right.",
+      "phrase_hud": "ASI QUE PUES ESTAMOS AQUI PARA HACER UN VIDEOBLOG PORQUE ESO ES LO QUE SON ESTOS VIDEOS ASI ES",
+      "audio": "special_escomboy.ogg",
+      "subtitle_ms": 4500,
+      "tier": "authentic_voice"
+    },
+    "ESCOMGIRL": {
+      "phrase_es": "Dejen, les muestro lo real.",
+      "phrase_en": "Let me show you the real thing.",
+      "phrase_hud": "DEJEN LES MUESTRO LO REAL",
+      "audio": "special_escomgirl.ogg",
+      "subtitle_ms": 2770,
+      "tier": "authentic_voice"
+    },
+    "ROBOT": {
+      "phrase_es": "Sistema activado. Objetivo localizado.",
+      "phrase_en": "System activated. Target located.",
+      "phrase_hud": "SISTEMA ACTIVADO OBJETIVO LOCALIZADO",
+      "audio": "special_robot.ogg",
+      "subtitle_ms": 5000,
+      "tier": "synthetic_fictional"
+    },
+    "LA_PRESIDENTA": {
+      "phrase_es": "Sí. Siempre. Nosotros vamos a actuar siempre en el marco de la ley. Siempre.",
+      "phrase_en": "Yes. Always. We will always act within the law. Always.",
+      "phrase_hud": "SI SIEMPRE NOSOTROS VAMOS A ACTUAR SIEMPRE EN EL MARCO DE LA LEY SIEMPRE",
+      "audio": "special_la_presidenta.ogg",
+      "subtitle_ms": 8700,
+      "tier": "authentic_voice"
+    },
+    "POLICIA_CDMX": {
+      "phrase_es": "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad, que me tuvieran confianza y que ellos obtuvieran de mí una mejor tranquilidad.",
+      "phrase_en": "As a policewoman, I committed to helping citizens feel safer, trust me and find greater peace of mind through me.",
+      "phrase_hud": "SI DICES POLICIA ME COMPROMETI COMO MUJER A QUE LA CIUDADANIA SINTIERA UNA MEJOR SEGURIDAD QUE ME TUVIERAN CONFIANZA Y QUE ELLOS OBTUVIERAN DE MI UNA MEJOR TRANQUILIDAD",
+      "audio": "special_policia_cdmx.ogg",
+      "subtitle_ms": 14200,
+      "tier": "authentic_voice"
+    },
+    "POLICIA_CDMX_HOMBRE": {
+      "phrase_es": "Trabajamos permanentemente en estrategias de seguridad vial, con el fin de salvaguardar y concientizar a los ciudadanos para evitar accidentes automovilísticos.",
+      "phrase_en": "We constantly work on road-safety strategies to protect citizens and prevent traffic accidents.",
+      "phrase_hud": "TRABAJAMOS PERMANENTEMENTE EN ESTRATEGIAS DE SEGURIDAD VIAL CON EL FIN DE SALVAGUARDAR Y CONCIENTIZAR A LOS CIUDADANOS PARA EVITAR ACCIDENTES AUTOMOVILISTICOS",
+      "audio": "special_policia_cdmx_hombre.ogg",
+      "subtitle_ms": 10200,
+      "tier": "authentic_voice"
+    },
+    "PARAMEDICO_CRUZ_ROJA": {
+      "phrase_es": "No olvides que saber primeros auxilios marca la diferencia y salva vidas.",
+      "phrase_en": "Remember: knowing first aid makes a difference and saves lives.",
+      "phrase_hud": "NO OLVIDES QUE SABER PRIMEROS AUXILIOS MARCA LA DIFERENCIA Y SALVA VIDAS",
+      "audio": "special_paramedico_cruz_roja.ogg",
+      "subtitle_ms": 4400,
+      "tier": "authentic_voice"
+    },
+    "PARAMEDICO": {
+      "phrase_es": "Así, los niños y adultos reciben lo estrictamente necesario para su diagnóstico.",
+      "phrase_en": "This way, children and adults receive exactly what is needed for their diagnosis.",
+      "phrase_hud": "ASI LOS NINOS Y ADULTOS RECIBEN LO ESTRICTAMENTE NECESARIO PARA SU DIAGNOSTICO",
+      "audio": "special_paramedico.ogg",
+      "subtitle_ms": 5100,
+      "tier": "authentic_voice"
+    }
+  }
+}

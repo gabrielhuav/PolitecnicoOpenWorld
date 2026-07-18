@@ -1,60 +1,11 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
-import android.content.Context
-import android.util.Log
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.toArgb
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import org.osmdroid.util.GeoPoint
-import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
-import ovh.gabrielhuav.pow.data.cache.TileCache
-import ovh.gabrielhuav.pow.data.local.room.PowDatabase
-import ovh.gabrielhuav.pow.data.network.WebSocketManager
-import ovh.gabrielhuav.pow.data.repository.OverpassRepository
-import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.domain.models.map.CarModel
-import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
-import ovh.gabrielhuav.pow.domain.models.map.Npc
-import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
-import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
-import ovh.gabrielhuav.pow.domain.models.map.Landmark
-import ovh.gabrielhuav.pow.domain.models.map.LandmarkCatalogManager
-import ovh.gabrielhuav.pow.domain.models.map.LandmarkAssetTemplate
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.atan2
-import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
-import kotlin.math.abs
-import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
-import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
 
 private typealias Seg = WorldMapViewModel.Seg
 
@@ -159,75 +110,9 @@ internal fun WorldMapViewModel.project(p: GeoPoint, v: GeoPoint, w: GeoPoint): G
             v.longitude + t * (w.longitude - v.longitude))
     }
 
-internal fun WorldMapViewModel.updateDestinationRoute() {
-        val destination = _uiState.value.destinationMarker ?: return
-        val currentLoc = _uiState.value.currentLocation ?: return
-        if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) {
-            if (routeRetryJob?.isActive == true) return
-            routeRetryJob = viewModelScope.launch {
-                delay(1000)
-                routeRetryJob = null
-                if (_uiState.value.destinationMarker != null) updateDestinationRoute()
-            }
-            return
-        }
-        if (routeCalculationJob?.isActive == true) return
-        routeRetryJob?.cancel()
-        routeRetryJob = null
-        routeCalculationJob = viewModelScope.launch(Dispatchers.Default) {
-            try {
-                Log.d("Navigation", "Calculando ruta...")
-                val route = calculateRouteOnNetwork(currentLoc, destination, roadNetwork)
-                Log.d("Navigation", "Ruta calculada con ${route.size} puntos")
-                withContext(Dispatchers.Main) {
-                    _uiState.update { it.copy(routeWaypoints = if (route.isNotEmpty()) route else listOf(currentLoc, destination)) }
-                    val distToDestinationMeters = currentLoc.distanceToAsDouble(destination)
-                    if (distToDestinationMeters <= _uiState.value.destinationArrivalThreshold) clearDestinationMarker()
-                }
-            } catch (e: Exception) { Log.e("Navigation", "Error calculando ruta: ${e.message}") }
-            finally { routeCalculationJob = null }
-        }
-    }
-
-internal fun WorldMapViewModel.calculateRouteOnNetwork(from: GeoPoint, to: GeoPoint, network: List<MapWay>): List<GeoPoint> {
-        if (network.isEmpty()) return listOf(from, to)
-        val route = mutableListOf<GeoPoint>()
-        route.add(from)
-        val startPoint = getNearestPointOnNetwork(from)
-        val endPoint = getNearestPointOnNetwork(to)
-        var current = startPoint
-        // Pair<lat, lon> en lugar de String concatenado: evita allocs de String y
-        // presión de GC en cada paso del routing.
-        val visitedNodes = mutableSetOf<Pair<Double, Double>>()
-        val maxSteps = 20
-        for (step in 0 until maxSteps) {
-            val distToTarget = distance(current, endPoint)
-            if (distToTarget < 0.0005) break
-            var bestNext: GeoPoint? = null
-            var bestDist = distToTarget
-            val candidateNodes = nearbyRoadNodes(current)
-            for (nodePt in candidateNodes) {
-                val nodeKey = nodePt.latitude to nodePt.longitude
-                if (visitedNodes.contains(nodeKey)) continue
-                val dFromCurrent = distance(current, nodePt)
-                if (dFromCurrent < 0.003) {
-                    val dToTarget = distance(nodePt, endPoint)
-                    if (dToTarget < bestDist) {
-                        bestDist = dToTarget
-                        bestNext = nodePt
-                    }
-                }
-            }
-            if (bestNext != null) {
-                current = bestNext
-                visitedNodes.add(current.latitude to current.longitude)
-                route.add(current)
-            } else break
-        }
-        route.add(endPoint)
-        route.add(to)
-        return route.distinctBy { it.latitude to it.longitude }
-    }
+// TOMBSTONE: `updateDestinationRoute`/`calculateRouteOnNetwork` (extensiones muertas) se ELIMINARON;
+// el canónico es el miembro del VM, que delega en `RoadRouter.route` (puro + tests). NO recrearlas.
+// Detalle: CHECKPOINT_SENIOR_refactor.md (Etapa 2) y 09 §12.
 
 // ─── GRAFO DE CALLES + A* (pathfinding de la policía) ───────────────────────────
 // Construye, a partir de la red, la adyacencia por id de nodo (dos nodos consecutivos
@@ -331,31 +216,14 @@ internal fun WorldMapViewModel.findRoadRoute(from: GeoPoint, to: GeoPoint): List
     return out
 }
 
+// ETAPA 2 · paso 1 (de-dup routing, ver CHECKPOINT_SENIOR_refactor.md): esta extensión es ahora
+// la ÚNICA implementación (el miembro privado del VM, que estaba MUERTO — nada dentro de la clase
+// lo llamaba, detekt lo confirmó — se ELIMINÓ) y DELEGA en el RoadRouter puro (testeado en
+// RoadRouterTest). La conversión LatLng→GeoPoint solo ocurre al (re)construir la red (rara vez).
 internal fun WorldMapViewModel.rebuildRoadNodeGrid(network: List<MapWay>) {
-        val uniqueNodes = linkedMapOf<String, GeoPoint>()
-        network.forEach { way ->
-            way.nodes.forEach { node ->
-                val key = "${node.lat},${node.lon}"
-                if (!uniqueNodes.containsKey(key)) uniqueNodes[key] = GeoPoint(node.lat, node.lon)
-            }
-        }
-        roadNetworkNodeGrid = uniqueNodes.values.groupBy { point ->
-            val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-            val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-            latCell to lonCell
+        roadNetworkNodeGrid = roadRouter.buildNodeGrid(network).mapValues { (_, points) ->
+            points.map { GeoPoint(it.lat, it.lon) }
         }
     }
 
-internal fun WorldMapViewModel.nearbyRoadNodes(point: GeoPoint): List<GeoPoint> {
-        if (roadNetworkNodeGrid.isEmpty()) return emptyList()
-        val latCell = floor(point.latitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-        val lonCell = floor(point.longitude / ROAD_NODE_GRID_SIZE_DEG).toInt()
-        val nearby = mutableListOf<GeoPoint>()
-        for (latOffset in -1..1) {
-            for (lonOffset in -1..1) {
-                roadNetworkNodeGrid[(latCell + latOffset) to (lonCell + lonOffset)]?.let { nearby.addAll(it) }
-            }
-        }
-        if (nearby.isNotEmpty()) return nearby
-        return roadNetworkNodeGrid.values.flatten()
-    }
+// TOMBSTONE: `nearbyRoadNodes` (extensión) eliminada; canónico = `RoadRouter.nearbyNodes`. NO recrear.

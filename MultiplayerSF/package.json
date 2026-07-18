@@ -1,0 +1,16 @@
+{
+  "name": "pow-streetfighter-server",
+  "version": "1.0.0",
+  "description": "Servidor WebSocket del modo multijugador Street Fighter para Politécnico Open World",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "firebase-admin": "^12.7.0",
+    "uuid": "^9.0.1",
+    "ws": "^8.16.0"
+  }
+}

@@ -1,30 +1,42 @@
 package ovh.gabrielhuav.pow.features.campaign.ui
 
+// MenuButton sigue viviendo en main_menu (UI compartida del menú) → import explícito tras mover.
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.campaign.CampaignSchool
 import ovh.gabrielhuav.pow.domain.models.campaign.SchoolCatalog
 import ovh.gabrielhuav.pow.features.campaign.viewmodel.StoryModeViewModel
-// MenuButton sigue viviendo en main_menu (UI compartida del menú) → import explícito tras mover.
 import ovh.gabrielhuav.pow.features.main_menu.ui.MenuButton
 
 /**
@@ -39,8 +51,7 @@ fun StoryModeScreen(
     onLoadCampaign: () -> Unit,   // abre el diálogo de slots para CARGAR
     onBack: () -> Unit
 ) {
-    val context = LocalContext.current
-    val viewModel: StoryModeViewModel = viewModel(factory = StoryModeViewModel.Factory(context))
+    val viewModel: StoryModeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val state by viewModel.state.collectAsState()
 
     val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))

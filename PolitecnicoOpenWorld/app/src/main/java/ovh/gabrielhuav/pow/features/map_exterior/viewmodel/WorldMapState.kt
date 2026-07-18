@@ -1,16 +1,16 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState
+import ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase
 import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.Landmark
+import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState
-import ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase
 
 const val ZOOM_LOADING = 18.0
 const val ZOOM_GAMEPLAY_OSM = 22.0  // Nivel de zoom para OSMDroid Nativo (máximo por defecto)
@@ -120,6 +120,8 @@ data class WorldMapState(
     // en vez de un auto normal. Se pone al abordar una POLICE_CAR y se limpia al bajarse.
     val isDrivingPoliceCar: Boolean = false,
     val landmarks: List<Landmark> = emptyList(),
+    // ⚠️ LO POSEE TransitTeleportManager (manager 5/6) — escribir vía setTeleportMenu/
+    // clearTransitOnTeleport (ver el bloque de metro/metrobús más abajo).
     val showTeleportMenu: Boolean = false,
 
     val isUserPanningMap: Boolean = false,
@@ -137,15 +139,31 @@ data class WorldMapState(
     val showAssetPicker: Boolean = false,
 
     // Coleccionables
+    // ⚠️ LOS POSEE CollectiblesManager (Etapa 3, manager 2/6) — NO escribirlos con
+    // _uiState.update: la fachada combine los SOBREESCRIBE desde collectiblesManager.state
+    // (un write directo aquí sería ignorado = bug sordo). Escríbelos vía el manager.
     val activeCollectibles: List<ActiveCollectible> = emptyList(),
     val nearbyCollectible: ActiveCollectible? = null,
     val showClaimedPopupFor: ActiveCollectible? = null,
     val interactionPrompt: String? = null,
     val showWastedScreen: Boolean = false,
+    // MISIÓN 1: si te atrapa la POLICÍA en la escolta/ingreso, la pantalla dice "BUSTED"
+    // (te ARRESTAN, estilo GTA) en vez de "WASTED". Solo cambia el rótulo; el flujo de
+    // misión fallida es el mismo.
+    val wastedIsBusted: Boolean = false,
+    val showVendorMenu: Boolean = false,
     // MODO HISTORIA: pantalla "MISIÓN FALLIDA" (cuando la policía mata a Prankedy en la escolta).
     val showMissionFailed: Boolean = false,
+    // 🆕 INVENTARIO EN EL MAPA (2026-07-13): panel de solo lectura con los objetos de misión
+    // (llaves/lata; mismos datos que interiores vía currentInteriorInventory). Abre MANTENIENDO
+    // Y a pie; el toque corto de Y sigue siendo subir/bajar del auto.
+    val showWorldInventory: Boolean = false,
 
     // ─── NIVEL DE BÚSQUEDA (estilo GTA) ──────────────────────────────────────
+    // ⚠️ LOS POSEE WantedManager (Etapa 3, manager 4/6) — NO escribirlos con _uiState.update:
+    // la fachada combine los SOBREESCRIBE desde wantedManager.state (un write directo aquí sería
+    // ignorado = bug sordo). Escríbelos vía el manager (raiseWantedLevel/setWantedLevel/setMaxWanted/
+    // clearWanted/armCarjack/clearCarjack/addPoliceShots/mergeAndPrunePoliceShots).
     // Sube al golpear NPCs; mientras sea > 0 aparecen patrullas que te persiguen.
     val wantedLevel: Int = 0,
     // Aviso cuando un perseguidor (policía o NPC) está por bajarte del vehículo.
@@ -173,6 +191,8 @@ data class WorldMapState(
     // ─── MODO DEBUG DE INTERIORES ────────────────────────────────────────
     // Cuando está activado, se pintan los 6 marcadores fijos de los edificios
     // y el bounding box de ESCOM sobre el mapa, para ajustar coordenadas.
+    // ⚠️ ETAPA 3: este campo LO POSEE `DesignerManager` — su valor en uiState viene de la
+    // fachada combine del VM. NO escribirlo con _uiState.update (sería sobreescrito/ignorado).
     val showInteriorDebugOverlay: Boolean = false,
     // Colisiones del exterior (polígonos = zonas NO caminables, p. ej. el edificio ESCOM;
     // walls = bardas). Se exponen para dibujarlas en el overlay de Debug Interiores.
@@ -188,6 +208,8 @@ data class WorldMapState(
     // arrastras para una línea (WALL/NAV_*) o un rectángulo (BLOCK) y se "commitea" a la lista
     // del color/tipo. Se dibujan en vivo (NativeOsmMap) y se exportan/importan a JSON
     // (formato exterior_collisions + navPaths).
+    // ⚠️ ETAPA 3: estos 5 campos LOS POSEE `DesignerManager` (fachada combine del VM).
+    // NO escribirlos con _uiState.update — usa las extensiones de WorldMapDebugEditor.kt.
     val debugEditTool: DebugEditTool = DebugEditTool.NONE,
     val debugEditWalls: List<ovh.gabrielhuav.pow.domain.models.map.CollisionWall> = emptyList(),     // bardas ROJAS editadas
     val debugEditBlocks: List<ovh.gabrielhuav.pow.domain.models.map.CollisionPolygon> = emptyList(), // zonas ROJAS editadas
@@ -199,16 +221,55 @@ data class WorldMapState(
     // (título + distancia) siempre que haya uno. `objectiveDone` se marca al llegar.
     val currentObjective: ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective? = null,
     val objectiveDone: Boolean = false,
-    // MODO HISTORIA · Misión 2: al cumplir la Misión 1 (llegar a la ESCOM) se pone a true para
-    // que MainActivity reproduzca el cómic IntroPOW12..14 y luego arranque la persecución.
-    // MainActivity lo consume (lo vuelve a false) al navegar al cómic.
-    val pendingMission2Intro: Boolean = false,
-    // R7 — MUNDO LIBRE / diferir misiones: al cumplir la Misión 1 se muestra un diálogo para ELEGIR
-    // entre continuar la historia ya, o seguir en MUNDO LIBRE y retomar la misión después.
-    val showMissionContinueDialog: Boolean = false,
-    // Si != null, hay una misión pendiente de RETOMAR (id de la siguiente). Habilita "Retomar misión"
-    // en el menú de Opciones. Mundo libre = currentObjective == null && pendingResumeMissionId != null.
-    val pendingResumeMissionId: String? = null,
+    // MODO HISTORIA · Misión 1 (persecución final "chase"): al cumplir la escolta (llegar a la
+    // ESCOM) se pone a true para que AppNavGraph reproduzca el cómic IntroPOW12..15 y luego
+    // arranque la persecución. Se consume (vuelve a false) al navegar al cómic.
+    // (Antes se llamaba pendingMission2Intro; se renombró al crear la Misión 2 real.)
+    val pendingMission1ChaseIntro: Boolean = false,
+    // 🆕 PUENTES NARRATIVOS M2→M3 (mismo patrón que pendingMission1ChaseIntro): AppNavGraph observa
+    // estas banderas y reproduce el cómic correspondiente, luego las consume.
+    //  - backpack: al pasar la M2 a la fase MOCHILA (tras hablar con Prankedy) → cómic "La mochila".
+    //  - m3intro:  al completar la M2 (mochila recuperada) → cómic "Regreso a la ENCB" (arranca M3).
+    val pendingMission2BackpackComic: Boolean = false,
+    val pendingMission3IntroComic: Boolean = false,
+    // 🆕 Cierre de la M3 (2026-07-12): al recuperar la evidencia → cómic "mission3_outro"
+    // (IntroPOW23..24). Mismo patrón; espera a estar en el MAPA (la evidencia se recoge dentro).
+    val pendingMission3OutroComic: Boolean = false,
+    // 🆕 MODO DEV · "TP al objetivo" por CHECKPOINTS (2026-07-12): navegación pendiente que
+    // ejecuta AppNavGraph (efecto junto a MissionLogHost, activo desde CUALQUIER pantalla).
+    // Valores: ruta "interiores_zombies?startRoom=<sala>" o DEV_TP_TO_MAP ("world_map" = solo
+    // volver al mapa). Se consume con consumeDevTpRoute(). Ver WorldMapMissionLog.kt.
+    val devTpRoute: String? = null,
+    // MISIÓN 2 · "El rumor" — SUBTÍTULOS de conversación (rumor de estudiantes, radio policial,
+    // plática con Prankedy). Los fija WorldMapMission2.kt línea por línea; la View solo los
+    // dibuja (overlay estilo subtítulo en WorldMapScreenOverlays). null = sin conversación.
+    val storyConvoSpeaker: String? = null,
+    val storyConvoText: String? = null,
+    // ─── SELECTOR DE MISIONES (estilo Witcher; sustituye al viejo diálogo R7 "¿Continuar la
+    // historia o mundo libre?"). SIEMPRE puedes hacer mundo libre: una misión solo corre si la
+    // SIGUES desde el registro (Opciones → "Misiones"). `completedMissions` = ids del selector
+    // (MissionCatalog.MISSION_*_ID) ya terminadas; se PERSISTE en el guardado JSON. ───
+    // ⚠️ LOS POSEE CampaignManager (Etapa 3, manager 6/6 · Parte A) — NO escribirlos con
+    // _uiState.update: la fachada combine los SOBREESCRIBE desde campaignManager.state. Escríbelos
+    // vía el manager (setShowMissionLog/markCompleted/setCompletedMissions). NOTA: el resto del
+    // estado de campaña (currentObjective/objectiveDone/storyConvo*/showMissionFailed/…) sigue en
+    // el VM (Parte B — entrelazado con los ticks de misión; ver CHECKPOINT_SENIOR_refactor.md).
+    val showMissionLog: Boolean = false,
+    val completedMissions: List<String> = emptyList(),
+    // MISIÓN 3: al alcanzar la entrada de la ENCB durante la infiltración, pide navegar al
+    // interior (cadena ENCB en modo ASALTO). La View lo consume y navega (WorldMapScreenOverlays).
+    val mission3EnterEncb: Boolean = false,
+
+    // ─── ECONOMÍA: dinero del jugador ────────────────────────────────────────
+    // Se gana con coleccionables y al completar misiones (WorldMapEconomy.kt). Se PERSISTE
+    // en GameSaveData.playerMoney (Modo Historia). Chip 💵 en el HUD (WorldMapScreen).
+    val playerMoney: Int = 0,
+
+    // ─── CICLO DÍA/NOCHE (WorldMapDayNight.kt) ───────────────────────────────
+    // Hora de juego (0-23; 1 min real = 1 h de juego) y alpha del velo nocturno (0 = día).
+    // El velo se dibuja como capa Compose renderer-agnóstica en WorldMapScreen.
+    val gameHour: Int = 12,
+    val nightAlpha: Float = 0f,
 
     // Easter Eggs y Opciones extra
     val showRoadNetwork: Boolean = true,
@@ -227,6 +288,13 @@ data class WorldMapState(
     val showShineCTODiscovery: Boolean = false,
     val navigateToShineCTO: Boolean = false,
 
+    // ⚠️ LOS POSEE TransitTeleportManager (Etapa 3, manager 5/6) — NO escribirlos con
+    // _uiState.update: la fachada combine los SOBREESCRIBE desde transitTeleportManager.state
+    // (un write directo aquí sería ignorado = bug sordo). Escríbelos vía el manager
+    // (setTeleportMenu/setMetro(bus)Stations/setNearbyMetro(bus)/beginMetro(bus)Fade/
+    // on/consumeMetro(bus)FadeComplete/beginEscomDoorFade/onEscomDoorFadeComplete/
+    // consumeEscomDoorNavigation/clearTransitOnTeleport). Aplica a los 11 campos de este bloque
+    // (puerta ESCOM + metro + metrobús) + showTeleportMenu (más arriba en el data class).
     // ─── ESCOM Door transition ───────────────────────────────────────────────
     val showEscomDoorFade: Boolean = false,
     val escomDoorFadeComplete: Boolean = false,
@@ -238,7 +306,7 @@ data class WorldMapState(
     val showMetroFade: Boolean = false,
     val metroFadeCompleteStation: ovh.gabrielhuav.pow.domain.models.map.MetroStation? = null,
 
-    
+
     // ─── Metrobús Stations ────────────────────────────────────────────────────
     val metrobusStations: List<ovh.gabrielhuav.pow.domain.models.map.MetrobusStation> = emptyList(),
     val nearbyMetrobusStation: ovh.gabrielhuav.pow.domain.models.map.MetrobusStation? = null,

@@ -549,10 +549,12 @@ class PrankedyManager {
     }
 
     /** Estado de la IA de combate. */
-    fun isHireable(now: Long = System.currentTimeMillis()): Boolean = false
+    @Suppress("UnusedParameter")
+    val isHireable: Boolean = false
 
     /** (Legado) */
-    fun hireableInSeconds(now: Long = System.currentTimeMillis()): Int = 0
+    @Suppress("UnusedParameter")
+    val hireableInSeconds: Int = 0
 
     /** Activa un diálogo flotante sobre el NPC. */
     fun triggerDialogue(text: String, now: Long, durationMs: Long = 3000L) {
