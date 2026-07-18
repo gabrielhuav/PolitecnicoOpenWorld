@@ -15,6 +15,7 @@
     <string name="menu_settings">SETTINGS</string>
     <string name="menu_collectibles">COLLECTIBLES</string>
     <string name="menu_street_fighter">HUELUM VS. GOYA</string>
+    <string name="menu_featured_tag">◆ COMBAT MODE ◆</string>
     <string name="menu_mp_dialog_title">Connect to Server</string>
     <string name="menu_mp_username_label">Username</string>
     <string name="menu_mp_connect">Connect</string>
@@ -636,6 +637,12 @@
     <string name="sf_arcade_champion">CHAMPION!</string>
     <string name="sf_arcade_champion_sub">You beat everyone and defeated Prankedy in the final</string>
     <string name="sf_arcade_finish">FINISH</string>
+    <!-- 🆕 Fight mode menu -->
+    <string name="sf_mode_arcade">ARCADE</string>
+    <string name="sf_mode_arcade_desc">Campaign: beat everyone and unlock fighters</string>
+    <string name="sf_mode_practice">PRACTICE</string>
+    <string name="sf_mode_multiplayer">MULTIPLAYER</string>
+    <string name="sf_other_modes">↕ Other modes</string>
 
     <!-- Controls tutorial (optional, i18n 2026-07-11) -->
     <string name="tutorial_prompt_title">Controls tutorial</string>

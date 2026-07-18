@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -56,8 +57,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -274,7 +277,13 @@ fun StreetFighterScreen(
 
         // ---- Selección pre-pelea: paso 1 PELEADOR, paso 2 MAPA (offline y online) ----
         var showOnlineMenu by remember { mutableStateOf(false) }
-        var arcadeSetup by remember { mutableStateOf(false) } // 🆕 flujo de arranque del ARCADE
+        // 🆕 ARCADE es el modo POR DEFECTO al entrar (se ven los personajes, más llamativo).
+        var arcadeSetup by remember { mutableStateOf(true) }
+        // Menú de MODOS (PRÁCTICA/MULTIJUGADOR) = SECUNDARIO, se abre con "Otros modos".
+        var sfMenu by remember { mutableStateOf(false) }
+        LaunchedEffect(state.inCharacterSelect) {
+            if (state.inCharacterSelect) { arcadeSetup = true; sfMenu = false }
+        }
         if (state.inCharacterSelect) {
             when (state.onlineStatus) {
                 SfOnlineStatus.CONNECTING -> OnlineInfoOverlay(
@@ -349,38 +358,36 @@ fun StreetFighterScreen(
                     val rival = pendingRival
                     val difficulty = pendingDifficulty
                     when {
-                        // 🆕 ARCADE: TU peleador (de los DESBLOQUEADOS) → dificultad base → arranca la escalera
-                        arcadeSetup -> when (fighter) {
-                            null -> CharacterSelectOverlay(
-                                fighters = viewModel.selectableFighters(),
-                                lockedFighters = viewModel.lockedFighters(),
-                                subtitle = stringResource(R.string.sf_arcade_pick_you),
-                                onSelect = { pendingFighter = it },
-                                onBack = { arcadeSetup = false; pendingFighter = null },
-                            )
-                            else -> DifficultySelectOverlay(
-                                onSelect = { base ->
-                                    viewModel.startArcade(fighter, base)
-                                    arcadeSetup = false
-                                    pendingFighter = null
-                                },
-                                onBack = { pendingFighter = null },
-                            )
-                        }
-                        // VERSUS offline: flujo de 4 pasos — TU peleador → el RIVAL → DIFICULTAD → mapa
+                        // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, MULTIJUGADOR
+                        sfMenu -> SfModeMenuOverlay(
+                            onArcade = { sfMenu = false; arcadeSetup = true },
+                            onPractice = { sfMenu = false },
+                            onMultiplayer = { showOnlineMenu = true },
+                            onBack = onExitToMap,
+                        )
+                        // ARCADE: SOLO eliges peleador (dificultad fija, sube sola) → arranca la escalera
+                        arcadeSetup -> CharacterSelectOverlay(
+                            fighters = viewModel.selectableFighters(),
+                            lockedFighters = viewModel.lockedFighters(),
+                            subtitle = stringResource(R.string.sf_arcade_pick_you),
+                            onSelect = { viewModel.startArcade(it) },
+                            onBack = { arcadeSetup = false; sfMenu = true },
+                            backText = stringResource(R.string.sf_other_modes),
+                        )
+                        // PRÁCTICA (versus): peleador → RIVAL → DIFICULTAD → mapa
                         fighter == null -> CharacterSelectOverlay(
                             fighters = viewModel.selectableFighters(),
                             lockedFighters = viewModel.lockedFighters(),
                             subtitle = state.onlineError,
                             onSelect = { pendingFighter = it },
-                            onOnline = { showOnlineMenu = true },
-                            onArcade = { arcadeSetup = true },
+                            onBack = { sfMenu = true },
                         )
                         rival == null -> CharacterSelectOverlay(
                             fighters = viewModel.selectableFighters(),
                             lockedFighters = viewModel.lockedFighters(),
                             subtitle = stringResource(R.string.sf_choose_rival),
                             onSelect = { pendingRival = it },
+                            onBack = { pendingFighter = null },
                         )
                         difficulty == null -> DifficultySelectOverlay(
                             onSelect = { pendingDifficulty = it },
@@ -648,6 +655,72 @@ fun StreetFighterScreen(
 }
 
 // ------------------------------------------------------------------
+// 🆕 Menú de MODOS del modo pelea (estilo POW): al entrar, en vez del selector directo,
+// se muestra ARCADE (principal), PRÁCTICA y MULTIJUGADOR. Arcade = solo eliges peleador.
+// ------------------------------------------------------------------
+
+@Composable
+private fun SfModeMenuOverlay(
+    onArcade: () -> Unit,
+    onPractice: () -> Unit,
+    onMultiplayer: () -> Unit,
+    onBack: () -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.menu_street_fighter),
+                color = Color(0xFFD4AF37),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            // ARCADE — modalidad PRINCIPAL (grande y destacada)
+            PowButton(
+                text = "★ ${stringResource(R.string.sf_mode_arcade)} ★",
+                onClick = onArcade,
+                color = Color(0xFFB8143A),
+                modifier = Modifier.fillMaxWidth(0.82f).height(66.dp),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.sf_mode_arcade_desc),
+                color = Color(0xFFFFD54A),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+            // Otras modalidades
+            PowButton(
+                text = stringResource(R.string.sf_mode_practice),
+                onClick = onPractice,
+                color = Color(0xFF1C4A6B),
+                modifier = Modifier.fillMaxWidth(0.68f),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            PowButton(
+                text = stringResource(R.string.sf_mode_multiplayer),
+                onClick = onMultiplayer,
+                color = Color(0xFF1C4A6B),
+                modifier = Modifier.fillMaxWidth(0.68f),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            TextButton(onClick = onBack) {
+                Text(stringResource(R.string.sf_back), color = Color(0xFFD4AF37))
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
 // Selector de personaje (pre-pelea): tarjetas con preview del sprite
 // (BitmapRegionDecoder: decodifica SOLO el recorte idle-1 de cada sheet,
 // no los 7 sheets completos — cuidado con la RAM en gama baja, ver 09 §6)
@@ -663,6 +736,7 @@ private fun CharacterSelectOverlay(
     onOnline: (() -> Unit)? = null,
     onArcade: (() -> Unit)? = null,                  // 🆕 abre el flujo de ARCADE
     onBack: (() -> Unit)? = null,                    // 🆕 volver (p. ej. salir del setup de arcade)
+    backText: String? = null,                        // 🆕 etiqueta del botón volver (default "← Volver")
 ) {
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
@@ -710,7 +784,7 @@ private fun CharacterSelectOverlay(
             }
             onBack?.let {
                 TextButton(onClick = it) {
-                    Text(stringResource(R.string.sf_back), color = Color(0xFFD4AF37))
+                    Text(backText ?: stringResource(R.string.sf_back), color = Color(0xFFD4AF37))
                 }
             }
         }
@@ -1282,26 +1356,37 @@ private fun BtDevicePickerOverlay(
     }
 }
 
+/** Reduce el bitmap a `targetW` px (nearest, sin filtro) → efecto PIXELADO al re-escalarlo grande. */
+private fun pixelateBitmap(src: ImageBitmap, targetW: Int): ImageBitmap {
+    val bmp = src.asAndroidBitmap()
+    val w = targetW.coerceAtLeast(1)
+    val h = (w.toFloat() * bmp.height / bmp.width).toInt().coerceAtLeast(1)
+    return Bitmap.createScaledBitmap(bmp, w, h, false).asImageBitmap()
+}
+
 @Composable
 private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit, locked: Boolean = false) {
     val preview = rememberAnimatedFighterPreview(id)
+    // 🆕 BLOQUEADO: no debes saber quién es. Misma animación pero PIXELADA (baja resolución) y
+    // repintada en NEGRO (silueta) → shape se mueve pero no se distingue el personaje.
+    val shown = if (locked && preview != null) remember(preview) { pixelateBitmap(preview, 12) } else preview
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xFF23233A))
             .clickable(enabled = !locked) { onSelect(id) }
-            .padding(8.dp)
-            .alpha(if (locked) 0.45f else 1f),
+            .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(modifier = Modifier.size(86.dp), contentAlignment = Alignment.BottomCenter) {
-            if (preview != null) {
+            if (shown != null) {
                 Image(
-                    bitmap = preview,
-                    contentDescription = id.displayName,
+                    bitmap = shown,
+                    contentDescription = if (locked) "???" else id.displayName,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit,
                     filterQuality = FilterQuality.None,
+                    colorFilter = if (locked) ColorFilter.tint(Color(0xFF15151F)) else null,
                 )
             } else {
                 Text("?", color = Color.White, fontSize = 40.sp)
@@ -1314,7 +1399,7 @@ private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit, lock
                     modifier = Modifier.align(Alignment.TopStart),
                 )
             }
-            if (id.isAlpha) {
+            if (id.isAlpha && !locked) {
                 Text(
                     text = "ALPHA",
                     color = Color.Black,
@@ -1330,8 +1415,8 @@ private fun CharacterCard(id: SfFighterId, onSelect: (SfFighterId) -> Unit, lock
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = id.displayName,
-            color = Color.White,
+            text = if (locked) "???" else id.displayName, // oculta la identidad hasta desbloquear
+            color = if (locked) Color(0xFFFFD54A) else Color.White,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -1624,13 +1709,13 @@ private fun DrawScope.drawScene(
         camX = state.cameraX,
         camY = state.cameraY,
     )
-    val stage = images.getValue(theme.stageImage)
+    val stage = images[theme.stageImage] // 🆕 nullable: kenstage.png se quitó (copyright)
     val t = state.gameTimeMs
 
     if (bgImage != null) {
         // ---- FONDO POW a pantalla completa (elegido al azar) con parallax de cámara ----
         drawFullBackground(ctx, bgImage)
-    } else {
+    } else if (stage != null) {
         // ---- Fondo del escenario clásico (parallax por capas) ----
         val bob = theme.boatBob[((t / 366) % theme.boatBob.size).toInt()]
         drawSprite(ctx, stage, theme.stageBackground, 16f - ctx.camX / 2.157303f, -ctx.camY)
@@ -1645,6 +1730,13 @@ private fun DrawScope.drawScene(
         drawSprite(ctx, stage, theme.ballardSmall, 468f - 92f - ctx.camX / 1.54f, 166f - ctx.camY)
         drawSprite(ctx, stage, theme.ballardSmall, 468f + 92f - ctx.camX / 1.54f, 166f - ctx.camY)
         drawSprite(ctx, stage, theme.sideBarrels, SfConstants.STAGE_PADDING + SfConstants.STAGE_WIDTH - 152f - ctx.camX, 120f - ctx.camY)
+    } else {
+        // Sin fondo POW ni escenario clásico (kenstage quitado) → relleno oscuro
+        drawRect(
+            color = Color(0xFF0E0E16),
+            topLeft = Offset(ctx.ox, ctx.oy),
+            size = Size(SfConstants.SCENE_WIDTH * scale, SfConstants.SCENE_HEIGHT * scale),
+        )
     }
 
     // ---- Sombras ----
@@ -1676,13 +1768,9 @@ private fun DrawScope.drawScene(
                     spriteScale = effectScale,
                 )
             }
-        } else {
-            val frames = if (fb.state == SfFireballState.ACTIVE) theme.fireballActive else theme.fireballCollided
-            val frame = frames[fb.animationFrame.coerceIn(0, frames.size - 1)]
-            if (frame.src[2] > 0) {
-                drawSpriteAnchored(ctx, images.getValue(theme.fireballImage), frame.src, frame.origin, fb.x, fb.y, fb.direction)
-            }
         }
+        // (Antes había un fallback al hadouken de Ken.png; ELIMINADO por copyright — todos los
+        // peleadores tienen sus propios frames proj-*. Si alguno no los trae, no se dibuja proyectil.)
     }
 
     // ---- Splashes de impacto ----
@@ -1693,7 +1781,7 @@ private fun DrawScope.drawScene(
     }
 
     // ---- Primer plano (solo con el escenario clásico) ----
-    if (bgImage == null) {
+    if (bgImage == null && stage != null) {
         drawSprite(ctx, stage, theme.ballardLarge, SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING - 147f - ctx.camX / 0.958f, 200f - ctx.camY)
         drawSprite(ctx, stage, theme.ballardLarge, SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING + 147f - ctx.camX / 0.958f, 200f - ctx.camY)
     }

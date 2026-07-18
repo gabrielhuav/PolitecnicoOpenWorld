@@ -4,7 +4,17 @@ import android.content.res.Configuration
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,10 +47,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -348,16 +361,89 @@ fun MenuButtonsList(
         color = Color(0xFF6B1C3A)
     )
 
-    // HUELUM VS. GOYA (minijuego 1v1 clásico, port fiel de StreetFighter-main con sprites reales).
-    // (2026-07-15) PÚBLICO para todos; el Modo Desarrollador solo desbloquea a RYU/KEN en el
-    // selector (StreetFighterViewModel.selectableFighters).
-    Spacer(Modifier.height(16.dp))
-    MenuButton(
+    // 🆕 HUELUM VS. GOYA — MODO PRINCIPAL: botón DESTACADO y ANIMADO (pulso + brillo dorado que
+    // barre + borde y sombra que laten) para que resalte enormemente sobre los demás modos.
+    Spacer(Modifier.height(20.dp))
+    FeaturedStreetFighterButton(
         text = stringResource(R.string.menu_street_fighter),
+        tag = stringResource(R.string.menu_featured_tag),
         onClick = onNavigateToStreetFighter,
         enabled = !state.isWarmingUp,
-        color = Color(0xFF1C4A6B)
     )
+}
+
+/**
+ * Botón ESTELAR del modo pelea: pulso de escala, barrido de brillo dorado, borde y sombra
+ * doradas que laten. Diseñado para gritar "esta es la modalidad principal".
+ */
+@Composable
+private fun FeaturedStreetFighterButton(text: String, tag: String, onClick: () -> Unit, enabled: Boolean) {
+    val shape = CutCornerShape(topStart = 20.dp, bottomEnd = 20.dp)
+    val gold = Color(0xFFFFD54A)
+    val tr = rememberInfiniteTransition(label = "sfFeatured")
+    val scale by tr.animateFloat(
+        1f, 1.05f,
+        infiniteRepeatable(tween(850, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scale",
+    )
+    val glow by tr.animateFloat(
+        0.45f, 1f,
+        infiniteRepeatable(tween(850, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "glow",
+    )
+    val shimmer by tr.animateFloat(
+        0f, 1f,
+        infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Restart), label = "shimmer",
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .height(76.dp)
+            .graphicsLayer { scaleX = if (enabled) scale else 1f; scaleY = if (enabled) scale else 1f }
+            .shadow(elevation = 18.dp, shape = shape, ambientColor = gold, spotColor = gold)
+            .clip(shape)
+            .background(
+                Brush.linearGradient(listOf(Color(0xFF8A0F32), Color(0xFFC4143C), Color(0xFF8A0F32))),
+            )
+            .border(BorderStroke(3.dp, gold.copy(alpha = if (enabled) glow else 0.5f)), shape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Barrido de brillo dorado (detrás del texto)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .drawBehind {
+                    val w = size.width
+                    val hl = w * 0.30f
+                    val x = -hl + (w + hl) * shimmer
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            0f to Color.Transparent,
+                            0.5f to gold.copy(alpha = 0.40f),
+                            1f to Color.Transparent,
+                            startX = x,
+                            endX = x + hl,
+                        ),
+                    )
+                },
+        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "★ $text ★",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = tag,
+                color = gold,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 4.sp,
+            )
+        }
+    }
 }
 
 @Composable

@@ -114,7 +114,6 @@ class StreetFighterViewModel @Inject constructor(
 
     // Estado interno de la escalera de arcade en curso (la lista pesada NO va al UiState).
     private var arcadeLadder: List<SfArcadeLadder.Step> = emptyList()
-    private var arcadeBase: SfCpuDifficulty = SfCpuDifficulty.NORMAL
     private var arcadeMapCurrent: String? = null
     private var arcadePlayer: SfFighterId = SfFighterId.ESCOMBOY
 
@@ -1530,10 +1529,10 @@ class StreetFighterViewModel @Inject constructor(
     // ------------------------------------------------------------------
 
     /** Arranca el arcade con el `playerId` elegido (un estudiante) y una dificultad base. */
-    fun startArcade(playerId: SfFighterId, base: SfCpuDifficulty) {
+    // 🆕 El arcade NO elige dificultad (es fija y sube sola con el avance). Solo eliges peleador.
+    fun startArcade(playerId: SfFighterId) {
         arcadePlayer = playerId
         arcadeLadder = SfArcadeLadder.build(playerId)
-        arcadeBase = base
         arcadeMapCurrent = SfArcadeLadder.MAP_FIRST
         startArcadeStep(1)
     }
@@ -1546,9 +1545,9 @@ class StreetFighterViewModel @Inject constructor(
         // Mapa "ligado al rival": si el escalón trae mapa, cámbialo; si no, conserva el vigente.
         arcadeMapCurrent = stepData.mapFile ?: arcadeMapCurrent
         resetInternals()
-        // 🆕 IA POR FASES: la intensidad sube 0→1 conforme avanzas en la escalera (pelea 1 = 0,
-        // final = 1). Se suma a la dificultad de tier (arcadeDifficulty) → cada pelea más dura.
-        cpuIntensity = if (arcadeLadder.size > 1) (idx - 1).toFloat() / (arcadeLadder.size - 1) else 1f
+        // 🆕 IA POR FASES: intensidad con PISO 0.25 (la 1ª pelea NO es trivial) subiendo a 1.0 en
+        // la última. Se suma al tier (arcadeDifficulty) → cada pelea más dura que la anterior.
+        cpuIntensity = if (arcadeLadder.size > 1) 0.25f + 0.75f * (idx - 1).toFloat() / (arcadeLadder.size - 1) else 1f
         roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA"
         val base = StreetFighterState()
         _state.value = base.copy(
@@ -1566,18 +1565,12 @@ class StreetFighterViewModel @Inject constructor(
         )
     }
 
-    /** Dificultad HÍBRIDA: la base elegida + rampa hacia los jefes (tope AVANZADA). */
-    private fun arcadeDifficulty(step: SfArcadeLadder.Step): SfCpuDifficulty {
-        // Rampa sobre la base elegida: FINAL (Prankedy) = +2 (llega a PESADILLA con base NORMAL);
-        // semifinal y 2ª mitad = +1; primeras = base. Cap en PESADILLA.
-        val bump = when {
-            step.index >= SfArcadeLadder.TOTAL_FIGHTS -> 2
-            step.isBoss -> 1
-            step.index >= 6 -> 1
-            else -> 0
-        }
-        val i = (arcadeBase.ordinal + bump).coerceAtMost(SfCpuDifficulty.entries.lastIndex)
-        return SfCpuDifficulty.entries[i]
+    /** Dificultad FIJA del arcade por escalón (no elegible): sube con el avance. */
+    private fun arcadeDifficulty(step: SfArcadeLadder.Step): SfCpuDifficulty = when {
+        step.isFinal -> SfCpuDifficulty.PESADILLA     // La Presidenta
+        step.isBoss -> SfCpuDifficulty.AVANZADA       // Tzitzímime / Yoalli
+        step.index >= 8 -> SfCpuDifficulty.AVANZADA   // 2ª mitad ya dura
+        else -> SfCpuDifficulty.NORMAL                // primeras: NORMAL (nunca BÁSICA)
     }
 
     /**

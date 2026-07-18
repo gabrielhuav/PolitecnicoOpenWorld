@@ -15,6 +15,7 @@
     <string name="menu_settings">AJUSTES</string>
     <string name="menu_collectibles">COLECCIONABLES</string>
     <string name="menu_street_fighter">HUELUM VS. GOYA</string>
+    <string name="menu_featured_tag">◆ MODO COMBATE ◆</string>
     <string name="menu_mp_dialog_title">Conectar a Servidor</string>
     <string name="menu_mp_username_label">Nombre de Usuario</string>
     <string name="menu_mp_connect">Conectar</string>
@@ -638,6 +639,12 @@
     <string name="sf_arcade_champion">¡CAMPEÓN!</string>
     <string name="sf_arcade_champion_sub">Venciste a todos y derrotaste a Prankedy en la final</string>
     <string name="sf_arcade_finish">TERMINAR</string>
+    <!-- 🆕 Menú de modos del modo pelea -->
+    <string name="sf_mode_arcade">ARCADE</string>
+    <string name="sf_mode_arcade_desc">Campaña: derrota a todos y desbloquea peleadores</string>
+    <string name="sf_mode_practice">PRÁCTICA</string>
+    <string name="sf_mode_multiplayer">MULTIJUGADOR</string>
+    <string name="sf_other_modes">↕ Otros modos</string>
 
     <!-- Tutorial de controles (optativo, i18n 2026-07-11) -->
     <string name="tutorial_prompt_title">Tutorial de controles</string>

@@ -137,6 +137,61 @@ Los locked salen con candado; el fondo del muelle SF queda de fallback.
   fin en arcade; fondo desde `arcadeMapFile`; candado 🔒 en `CharacterCard` y `StageCard`.
   + strings ES+EN (`sf_arcade_*`, `sf_back`).
 
+## Añadidos 2026-07-17d (implementado)
+
+- **La Llorona INTEGRADA:** pipeline corrido (19 hojas croma → `slice_sf_chroma_sheets.py` →
+  `pack_sf_character.py lallorona LaLlorona`) → `IMAGES/LaLlorona.png` + `DATA/lallorona.json`
+  (incluye proyectil de la hoja 12, que era JPG → sprite algo tosco; regenerar como PNG para
+  nitidez). Enum `LA_LLORONA`. Escalera **15 peleas**: bloque 11-12 = {Charro, Llorona} azar.
+- **Copyright SF fuera del HUD:** `hud.png`→`sf_hud_pow.png` (fuente+barra+KO+timer), `decals.png`
+  →`sf_decals_pow.png`, `Ken.png`(fireball) y `kenstage.png` eliminados. Los 3 SF + 5 fuente
+  `ChatGPT*.png` se movieron a `newSFAssets/_hud_src/`. Falta reemplazar sonidos (`hadouken.ogg`
+  + golpes). Atlas armados por script (chroma-key + recorte + normalización).
+- **Botón menú principal** (`MainMenuScreen.FeaturedStreetFighterButton`): destacado + animado
+  (pulso, brillo dorado que barre, borde/sombra que laten), tag `◆ MODO COMBATE ◆`.
+- **Menú de modos POW** al entrar (`SfModeMenuOverlay`): ARCADE (principal) / PRÁCTICA /
+  MULTIJUGADOR. Arcade = SOLO eliges peleador (dificultad FIJA, `startArcade(playerId)` sin base).
+- **Dificultad arcade** (`arcadeDifficulty`, fija): NORMAL peleas 1-7, AVANZADA 8-12, AVANZADA
+  jefes (Tzitzímime/Yoalli), PESADILLA final (La Presidenta). `cpuIntensity` con PISO 0.25 (la
+  pelea 1 no es trivial) → 1.0 en la final.
+
+## PENDIENTE — siguiente sesión
+
+> ✅ **(2026-07-17e) HECHOS los puntos 1, 2 y 3** (arcade por defecto al entrar + "↕ Otros modos";
+> bloqueados en silueta NEGRA PIXELADA con nombre "???"; rival siempre visible). Queda SOLO el 4.
+
+1. **ARCADE por defecto al entrar** al modo SF: en vez del `SfModeMenuOverlay` primero, mostrar
+   directo el **selector de peleador del ARCADE** (que se vean los personajes, más llamativo).
+   PRÁCTICA y MULTIJUGADOR pasan a un botón secundario (p. ej. "Otros modos" que abre el menú
+   actual). Archivo: `StreetFighterScreen.kt` (flujo `sfMenu`/`arcadeSetup`).
+2. **Bloqueados con identidad OCULTA:** en el selector, los personajes bloqueados deben verse
+   como **silueta** — su misma animación de preview pero **repintada en negro / escala de grises
+   y PIXELADA** (baja resolución) para NO distinguir quién es hasta desbloquearlo. Hoy solo salen
+   atenuados + 🔒 (se reconoce quién es). Archivos: `CharacterCard` +
+   `rememberAnimatedFighterPreview` (aplicar ColorMatrix grayscale/negro + submuestreo pixelado
+   al bitmap del preview cuando `locked`).
+3. **Rival SÍ se ve claro:** el ocultamiento es SOLO en el selector de TU peleador. El RIVAL de
+   cada pelea (y un posible cartel "VS / siguiente rival") se muestra NORMAL, para que veas
+   contra quién peleas. (Recordatorio: pelea 1 = **Paramédico Cruz Roja**.)
+4. **Combate estilo SF original** (grande): más controles, más **motions**/moves (además del
+   hadouken ↓↘→), **combos/cancels** (encadenar normales→especiales) y mayor **fluidez**
+   (transiciones/frame-data). Toca input (`onJoystickMove`/`onAttackPressed`/`onKickPressed`),
+   `buildCpuInput` y la máquina de estados del VM. Definir el set de moves con el dueño.
+
+## Añadidos 2026-07-17c
+
+- **Escalera NUEVA (14 peleas; 15 con La Llorona)** en `SfArcadeLadder`: 1 Paramédico CR · 2-4
+  {Paparazzi1, Paparazzi5, Señor Tienda} azar · 5-6 {Rey Grupero, Prankedy} azar · 7-10 policías
+  (fijo) · 11 Charro Negro *(+ La Llorona azar cuando tenga assets → sube a 15)* · 12 Tzitzímime
+  · 13 Yoalli Ehécatl · **14 La Presidenta (FINAL, PESADILLA)**. Los estudiantes YA NO son
+  enemigos. `arcadeDifficulty`: final = PESADILLA, jefes (Tzitzímime/Yoalli) = AVANZADA, resto
+  base +1 en la 2ª mitad.
+- **Copyright:** `fireballImage` (Ken.png) ELIMINADO (todos tienen `proj-*` propios);
+  **`kenstage.png`** quitado de `imageFiles` + `drawScene` (⚠️ **borrar el archivo físico
+  `assets/STREETFIGHTER/IMAGES/kenstage.png`**, no se pudo desde la sesión). Pendiente del dueño:
+  reemplazar la fuente + 3 piezas del HUD (barra/KO/timer) y el `hadouken.ogg`; sonidos de golpe
+  se quedan con nota. La Llorona: faltan assets empacados (hoja croma _12 = SPECIAL HEAVY).
+
 ## Añadidos 2026-07-17b
 
 - **Dificultad `PESADILLA`** (4ª): combos casi constantes, esquiva, castiga; el FINAL del arcade

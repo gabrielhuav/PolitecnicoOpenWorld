@@ -71,11 +71,6 @@ data class SfTheme(
     val shadowImage: String,
     val shadowFrame: SfSpriteFrame,
 
-    // ---- Proyectil especial (hadouken): sheet + frames ----
-    val fireballImage: String,
-    val fireballActive: List<SfSpriteFrame>,
-    val fireballCollided: List<SfSpriteFrame>,
-
     // ---- Splashes de impacto (fila por playerId) ----
     val splashImage: String,
     val splashFrames: Map<SfAttackStrength, List<List<SfSpriteFrame>>>,
@@ -103,7 +98,9 @@ val SF_CLASSIC_THEME = SfTheme(
     // ⚠️ (2026-07-15) SIN Ryu.png/Ken.png: las hojas de PELEADOR ya no se precargan aquí — las
     // resuelve SfSharedSheets por peleador elegido. Además Ryu/Ken viven SOLO en el source set
     // DEBUG (app/src/debug/assets/): precargarlos aquí CRASHEARÍA el release de Play Store.
-    imageFiles = listOf("kenstage.png", "shadow.png", "decals.png", "hud.png"),
+    // 🆕 kenstage.png ELIMINADO (copyright). hud.png (SF original) REEMPLAZADO por sf_hud_pow.png
+    // (fuente + barra + KO + timer POW, generado con GPT). Ver GUIA / build_hud.
+    imageFiles = listOf("shadow.png", "sf_decals_pow.png", "sf_hud_pow.png"),
     soundKeys = listOf(
         "light-attack", "medium-attack", "heavy-attack",
         "light-punch-hit", "medium-punch-hit", "heavy-punch-hit",
@@ -148,21 +145,9 @@ val SF_CLASSIC_THEME = SfTheme(
     shadowImage = "shadow.png",
     shadowFrame = SfSpriteFrame(listOf(0, 0, 43, 9), listOf(21, 7)),
 
-    // Los sprites del hadouken del clon viven dentro de Ken.png
-    fireballImage = "Ken.png",
-    fireballActive = listOf(
-        SfSpriteFrame(listOf(400, 2756, 43, 32), listOf(25, 16)),
-        SfSpriteFrame(listOf(0, 0, 0, 0), listOf(0, 0)), // frame de parpadeo (invisible)
-        SfSpriteFrame(listOf(460, 2761, 56, 28), listOf(37, 14)),
-        SfSpriteFrame(listOf(0, 0, 0, 0), listOf(0, 0)),
-    ),
-    fireballCollided = listOf(
-        SfSpriteFrame(listOf(543, 2767, 26, 20), listOf(13, 10)),
-        SfSpriteFrame(listOf(590, 2766, 15, 25), listOf(9, 13)),
-        SfSpriteFrame(listOf(625, 2764, 28, 28), listOf(26, 14)),
-    ),
+    // (Proyectil de Ken.png ELIMINADO por copyright — cada peleador usa sus propios frames proj-*.)
 
-    splashImage = "decals.png",
+    splashImage = "sf_decals_pow.png", // 🆕 chispas POW (reemplaza decals.png de SF, copyright)
     splashFrames = mapOf(
         SfAttackStrength.LIGHT to listOf(
             listOf(
@@ -208,31 +193,28 @@ val SF_CLASSIC_THEME = SfTheme(
         ),
     ),
 
-    hudImage = "hud.png",
-    healthBar = listOf(16, 18, 145, 11),
-    koWhite = listOf(161, 16, 32, 14),
-    koBlack = listOf(161, 1, 32, 14),
-    timeDigits = SfDigitStrip(x0 = 16, dx = 16, y = 32, w = 14, h = 16),
-    timeDigitsFlash = SfDigitStrip(x0 = 16, dx = 16, y = 192, w = 14, h = 16),
-    // Abecedario + dígitos del hud.png (coordenadas del StatusBar.js original)
-    letterFont = buildMap {
-        // Dígitos (fila y=101, paso 12; el '4' mide 11)
-        for (d in 0..9) put('0' + d, listOf(17 + 12 * d, 101, if (d == 4) 11 else 10, 10))
-        // A-O (fila y=113)
-        put('A', listOf(29, 113, 11, 10)); put('B', listOf(41, 113, 10, 10))
-        put('C', listOf(53, 113, 10, 10)); put('D', listOf(65, 113, 10, 10))
-        put('E', listOf(77, 113, 10, 10)); put('F', listOf(89, 113, 10, 10))
-        put('G', listOf(101, 113, 10, 10)); put('H', listOf(113, 113, 10, 10))
-        put('I', listOf(125, 113, 9, 10)); put('J', listOf(136, 113, 10, 10))
-        put('K', listOf(149, 113, 10, 10)); put('L', listOf(161, 113, 10, 10))
-        put('M', listOf(173, 113, 10, 10)); put('N', listOf(185, 113, 11, 10))
-        put('O', listOf(197, 113, 10, 10))
-        // P-Z (fila y=125)
-        put('P', listOf(17, 125, 10, 10)); put('Q', listOf(29, 125, 10, 10))
-        put('R', listOf(41, 125, 10, 10)); put('S', listOf(53, 125, 10, 10))
-        put('T', listOf(65, 125, 10, 10)); put('U', listOf(77, 125, 10, 10))
-        put('V', listOf(89, 125, 10, 10)); put('W', listOf(101, 125, 10, 10))
-        put('X', listOf(113, 125, 10, 10)); put('Y', listOf(125, 125, 10, 10))
-        put('Z', listOf(136, 125, 10, 10))
-    },
+    // 🆕 Atlas POW (sf_hud_pow.png): fuente + barra + KO + timer, generado desde las imágenes
+    // de GPT (chroma-key + recorte + normalización). Reemplaza al hud.png de SF (copyright).
+    hudImage = "sf_hud_pow.png",
+    healthBar = listOf(2, 16, 145, 11),
+    koWhite = listOf(2, 29, 32, 14),
+    koBlack = listOf(42, 29, 32, 14),
+    timeDigits = SfDigitStrip(x0 = 2, dx = 16, y = 45, w = 14, h = 16),
+    timeDigitsFlash = SfDigitStrip(x0 = 2, dx = 16, y = 63, w = 14, h = 16),
+    // Fuente arcade POW (A-Z/0-9): recortes dentro de sf_hud_pow.png (alto 10, avance 12).
+    letterFont = mapOf(
+        '0' to listOf(2, 2, 7, 10), '1' to listOf(11, 2, 5, 10), '2' to listOf(18, 2, 8, 10),
+        '3' to listOf(28, 2, 7, 10), '4' to listOf(37, 2, 8, 10), '5' to listOf(47, 2, 7, 10),
+        '6' to listOf(56, 2, 7, 10), '7' to listOf(65, 2, 8, 10), '8' to listOf(75, 2, 7, 10),
+        '9' to listOf(84, 2, 7, 10),
+        'A' to listOf(93, 2, 8, 10), 'B' to listOf(103, 2, 8, 10), 'C' to listOf(113, 2, 8, 10),
+        'D' to listOf(123, 2, 8, 10), 'E' to listOf(133, 2, 8, 10), 'F' to listOf(143, 2, 8, 10),
+        'G' to listOf(153, 2, 7, 10), 'H' to listOf(162, 2, 9, 10), 'I' to listOf(173, 2, 6, 10),
+        'J' to listOf(181, 2, 8, 10), 'K' to listOf(191, 2, 8, 10), 'L' to listOf(201, 2, 8, 10),
+        'M' to listOf(211, 2, 10, 10), 'N' to listOf(223, 2, 8, 10), 'O' to listOf(233, 2, 7, 10),
+        'P' to listOf(242, 2, 8, 10), 'Q' to listOf(252, 2, 8, 10), 'R' to listOf(262, 2, 8, 10),
+        'S' to listOf(272, 2, 7, 10), 'T' to listOf(281, 2, 8, 10), 'U' to listOf(291, 2, 8, 10),
+        'V' to listOf(301, 2, 8, 10), 'W' to listOf(311, 2, 10, 10), 'X' to listOf(323, 2, 8, 10),
+        'Y' to listOf(333, 2, 8, 10), 'Z' to listOf(343, 2, 8, 10),
+    ),
 )

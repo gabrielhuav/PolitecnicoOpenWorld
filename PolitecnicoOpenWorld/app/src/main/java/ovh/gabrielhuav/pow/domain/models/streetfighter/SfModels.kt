@@ -155,6 +155,10 @@ enum class SfFighterId(
         "El Charro Negro", "CHARRO",
         "STREETFIGHTER/DATA/charronegro.json", "STREETFIGHTER/IMAGES/CharroNegro.png",
     ),
+    LA_LLORONA(
+        "La Llorona", "LLORONA",
+        "STREETFIGHTER/DATA/lallorona.json", "STREETFIGHTER/IMAGES/LaLlorona.png",
+    ),
     LA_TZITZIMIME(
         "La Tzitzimime", "TZITZIMIME",
         "STREETFIGHTER/DATA/latzitzimime.json", "STREETFIGHTER/IMAGES/LaTzitzimime.png",

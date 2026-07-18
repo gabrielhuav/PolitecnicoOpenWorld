@@ -3,99 +3,92 @@ package ovh.gabrielhuav.pow.domain.models.streetfighter
 import kotlin.random.Random
 
 /**
- * ESCALERA del MODO ARCADE (HUELUM VS. GOYA, versión POW). 11 peleas, DATA-DRIVEN: dado el
- * peleador que ELIGIÓ el jugador (uno de los 3 estudiantes de arranque), devuelve la
- * secuencia ORDENADA de rivales + el mapa ligado a cada escalón. Aislado y puro (sin
- * Android) para poder cambiarse sin tocar el VM. Ver README for IAS/DISENO_ARCADE_SF_POW.md.
+ * ESCALERA del MODO ARCADE (HUELUM VS. GOYA, versión POW). DATA-DRIVEN: dado el peleador que
+ * ELIGIÓ el jugador (uno de los 3 estudiantes ESCOM, que YA NO son enemigos), devuelve la
+ * secuencia ORDENADA de rivales + el mapa por escalón. Aislado y puro (sin Android).
+ * Ver README for IAS/DISENO_ARCADE_SF_POW.md.
  *
- * Estructura (el jugador elige 1 de {ESCOMBOY, ESCOMGIRL, ROBOT}):
- *   1-2  : los OTROS 2 estudiantes (orden ALEATORIO)
- *   3-5  : PARAMEDICO_CRUZ_ROJA, SENOR_TIENDA, PAPARAZZI_1 (orden ALEATORIO)
- *   6-9  : POLICIA_CDMX_HOMBRE, POLICIA_CDMX (mujer), POLICIA_GRANADERO_HOMBRE,
- *          POLICIA_GRANADERO_MUJER (orden FIJO). Ya con arte dedicado (2026-07-17).
- *   10   : REY_GRUPERO (SEMIFINAL)
- *   11   : PRANKEDY (FINAL)
+ * Estructura (2026-07-17, dada por el dueño; ≤16 peleas):
+ *   1     : PARAMEDICO_CRUZ_ROJA (siempre)
+ *   2-4   : PAPARAZZI_1, PAPARAZZI_5, SENOR_TIENDA (orden ALEATORIO)
+ *   5-6   : REY_GRUPERO, PRANKEDY (orden ALEATORIO) — 2 peleas para quedar en <16
+ *   7-10  : POLICIA_CDMX_HOMBRE, POLICIA_CDMX (mujer), POLICIA_GRANADERO_HOMBRE,
+ *           POLICIA_GRANADERO_MUJER (orden FIJO)
+ *   11-12 : CHARRO_NEGRO, LA_LLORONA (orden ALEATORIO)
+ *   13    : LA_TZITZIMIME (jefe)
+ *   14    : YOALLI_EHECATL (jefe)
+ *   15    : LA_PRESIDENTA (FINAL; su metamorfosis a Yoalli es un power/anim, no una 2ª fase)
  *
- * Mapas: "ligado al rival" pero solo hay 6 mapas para 11 peleas, y la asociación intermedia
- * la dará el dueño. Por ahora FIJOS: escalón 1 = Queso IPN (ya desbloqueado) y escalón 11
- * (final) = CU UNAM. Los intermedios llevan `mapFile = null` (TBD): el VM mantiene el mapa
- * anterior hasta que se defina cuál desbloquea cada rival.
+ * Mapas: FIJOS escalón 1 = Queso IPN y escalón FINAL = CU UNAM; intermedios `null` (TBD).
  */
 object SfArcadeLadder {
 
     const val MAP_FIRST = "fondo_IPN_QUESO_1.png"                 // Queso IPN (escalón 1)
-    const val MAP_FINAL = "fondo_UNAM_bibliotecaCentral_1.png"    // "Ciudad Universitaria UNAM" (escalón 11)
+    const val MAP_FINAL = "fondo_UNAM_bibliotecaCentral_1.png"    // "Ciudad Universitaria UNAM" (final)
 
-    /** Los 3 estudiantes desbloqueados de arranque; el jugador elige uno. */
+    /** Los 3 estudiantes desbloqueados de arranque; el jugador elige uno (NO son enemigos). */
     val STARTERS = listOf(SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT)
 
     /**
-     * TODOS los personajes que participan en el arcade (desbloqueables jugando), en orden de
-     * aparición aproximado. Lo usa el selector para pintar los bloqueados con candado 🔒.
+     * TODOS los personajes del arcade (estudiantes + enemigos). Lo usa el selector para pintar
+     * los bloqueados con candado 🔒. (La Llorona entra cuando tenga assets.)
      */
     val ALL_PARTICIPANTS = listOf(
         SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT,
-        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1,
+        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
+        SfFighterId.SENOR_TIENDA, SfFighterId.REY_GRUPERO, SfFighterId.PRANKEDY,
         SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_CDMX,
         SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.POLICIA_GRANADERO_MUJER,
-        SfFighterId.REY_GRUPERO, SfFighterId.PRANKEDY,
+        SfFighterId.CHARRO_NEGRO, SfFighterId.LA_LLORONA, SfFighterId.LA_TZITZIMIME,
+        SfFighterId.YOALLI_EHECATL, SfFighterId.LA_PRESIDENTA,
     )
 
-    /** Un escalón de la escalera: rival, mapa (null = conservar el anterior) y si es jefe. */
+    /** Un escalón: rival, mapa (null = conservar el anterior), si es jefe y si es el FINAL. */
     data class Step(
-        val index: Int,               // 1..11 (para HUD "PELEA N / 11")
+        val index: Int,               // 1..TOTAL (para HUD "PELEA N / T")
         val rival: SfFighterId,
         val mapFile: String?,         // null = TBD (el VM conserva el mapa vigente)
-        val isBoss: Boolean = false,  // semifinal o final → dificultad tope + banner especial
+        val isBoss: Boolean = false,  // jefes (Tzitzímime/Yoalli/Presidenta) → dificultad tope
+        val isFinal: Boolean = false, // La Presidenta → PESADILLA + banner especial
     )
 
-    /** Total de peleas de la escalera. */
-    const val TOTAL_FIGHTS = 11
+    /** Total de peleas (15). */
+    const val TOTAL_FIGHTS = 15
 
     /**
-     * Arma la secuencia de 11 rivales para el `player` elegido. `rng` inyectable para que
-     * online/tests sean deterministas; por defecto azar real. Si `player` no es uno de los
-     * 3 estudiantes, se asume ESCOMBOY (defensivo).
+     * Arma la secuencia de escalones para el `player` elegido. `rng` inyectable para tests.
+     * (`player` solo fija a QUIÉN juegas; no aparece como rival.)
      */
-    fun build(player: SfFighterId, rng: Random = Random.Default): List<Step> {
-        val steps = mutableListOf<SfFighterId>()
+    fun build(@Suppress("UNUSED_PARAMETER") player: SfFighterId, rng: Random = Random.Default): List<Step> {
+        val rivals = mutableListOf<SfFighterId>()
 
-        // 1-2: los otros 2 estudiantes (aleatorio)
-        val others = STARTERS.filter { it != player }.let {
-            if (it.size == 2) it else listOf(SfFighterId.ESCOMGIRL, SfFighterId.ROBOT)
-        }
-        steps += others.shuffled(rng)
-
-        // 3-5: trío intermedio (aleatorio)
-        steps += listOf(
-            SfFighterId.PARAMEDICO_CRUZ_ROJA,
-            SfFighterId.SENOR_TIENDA,
-            SfFighterId.PAPARAZZI_1,
+        rivals += SfFighterId.PARAMEDICO_CRUZ_ROJA                                    // 1
+        rivals += listOf(                                                             // 2-4
+            SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5, SfFighterId.SENOR_TIENDA,
         ).shuffled(rng)
-
-        // 6-9: policías + granaderos (ORDEN FIJO). Ya con arte dedicado (2026-07-17).
-        steps += listOf(
-            SfFighterId.POLICIA_CDMX_HOMBRE,
-            SfFighterId.POLICIA_CDMX,
-            SfFighterId.POLICIA_GRANADERO_HOMBRE,
-            SfFighterId.POLICIA_GRANADERO_MUJER,
+        rivals += listOf(SfFighterId.REY_GRUPERO, SfFighterId.PRANKEDY).shuffled(rng) // 5-6
+        rivals += listOf(                                                             // 7-10
+            SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_CDMX,
+            SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.POLICIA_GRANADERO_MUJER,
         )
+        rivals += listOf(SfFighterId.CHARRO_NEGRO, SfFighterId.LA_LLORONA).shuffled(rng) // 11-12
+        rivals += SfFighterId.LA_TZITZIMIME  // 13
+        rivals += SfFighterId.YOALLI_EHECATL // 14
+        rivals += SfFighterId.LA_PRESIDENTA  // 15 (FINAL)
 
-        // 10-11: jefes
-        steps += SfFighterId.REY_GRUPERO   // semifinal
-        steps += SfFighterId.PRANKEDY      // final
-
-        return steps.mapIndexed { i, rival ->
+        val total = rivals.size
+        return rivals.mapIndexed { i, rival ->
             val n = i + 1
             Step(
                 index = n,
                 rival = rival,
                 mapFile = when (n) {
                     1 -> MAP_FIRST
-                    TOTAL_FIGHTS -> MAP_FINAL
-                    else -> null            // TBD: asociación mapa↔rival intermedia (dueño)
+                    total -> MAP_FINAL
+                    else -> null
                 },
-                isBoss = n >= TOTAL_FIGHTS - 1, // 10 (semifinal) y 11 (final)
+                isBoss = n >= total - 2, // los 3 últimos: Tzitzímime, Yoalli, Presidenta
+                isFinal = n == total,    // La Presidenta
             )
         }
     }
