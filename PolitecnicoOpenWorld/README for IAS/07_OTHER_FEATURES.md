@@ -391,7 +391,7 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   archivo **`ui/SfStageSelectOverlay.kt`** (fuera del monstruo `StreetFighterScreen.kt`).
   Flujo: **tocar = focus/preview** → borde dorado → **"Elegir este mapa"** confirma
   (`onSelect`). Cada tarjeta muestra la **thumb estática**; **solo el focused** con
-  `_anim.png` carga UN atlas submuestreado (`inSampleSize=4`) y pinta **un sub-rect de
+  `_anim.webp` carga UN atlas submuestreado (`inSampleSize=4`) y pinta **un sub-rect de
   frame** a la vez (`StageAnimFrameView` + `fps` del JSON) — **nunca** el filmstrip/
   spreadsheet completo ni 48 atlases a la vez. Estáticos focused = solo thumb + borde.
   "Al azar" = focus especial → `onSelect(null)`. Strings `sf_stage_tap_preview` /
@@ -517,7 +517,8 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   - **Ritmo:** avance automático — si la animación del paso ya terminó (ambos en IDLE, paso ya
     disparado, ≥400 ms) no espera los 2 s fijos. Botón **"Saltar animación"** en pantalla
     (`skipShowcaseStep`, string `sf_showcase_skip` ES+EN; solo visible en showcase vía
-    `state.showcaseRunning`).
+    `state.showcaseRunning`). En el hotfix de entrega ya no corta solo la pose: marca terminado
+    el bloque del peleador y su timer para avanzar en el tick siguiente.
   - **Fix salto perdido:** los pasos de UN toque esperan al IDLE para disparar (el input del
     SALTO caía durante CROUCH→CROUCH_UP y `JUMP_START` no es válido desde ahí → se perdía).
     `showcaseInput` ahora recibe el `SfFighter` (no solo el id).
@@ -558,6 +559,14 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     solo golpes LIGHT); contra el jugador conserva su comportamiento lento y aprendible.
     `SfArcadeCampaignAuditTest` revisa además 600 órdenes/configuraciones y todos
     los assets de rival/mapa/voz. La auditoría estática detecta animaciones relleno estrictas.
+- **✅ HOTFIX ENTREGA 1.0.0.12 — peso, skip y CI (2026-07-18, Sol):** el primer AAB se firmó
+  pero Play rechazó `base` por exceder 500 MB. Los 48 atlas `fondo_*_anim` migraron a WebP
+  lossless `-exact` y cada RGBA fue comparado contra su PNG; 29 fondos fijos heredados sin
+  referencias runtime se conservan en `_ORPHAN_ASSETS/STREETFIGHTER/legacy_static_backgrounds`.
+  AAB comprobado: **434.47 MiB**; `base` comprimido: **433.84 MiB (454.91 MB)**; margen: **45.09 MB** bajo el límite decimal de Play.
+  El botón SALTAR ahora termina peleador+timer. Workflows: Actions Node 24 actuales,
+  `tracks: alpha`, notas `distribution/whatsnew`, chequeo preventivo 500 MB y AAB firmado
+  descargable; label `manual-play-upload` omite únicamente el envío automático.
 - **🆕 Botón CONFIRMAR en el selector (2026-07-18h, Claude):** `CharacterSelectOverlay` ahora
   muestra un botón explícito para confirmar el peleador resaltado (antes solo el 2.º toque).
   string `sf_confirm` ES+EN.

@@ -2466,10 +2466,17 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
-    /** 🆕 (2026-07-18k) SALTAR (View): termina YA la ventana del paso actual del showcase. */
+    /**
+     * SALTAR (View): da por terminado el bloque del peleador actual y avanza en el siguiente
+     * tick. No basta con cortar la pose: el tope temporal también debe quedar satisfecho para
+     * que el showcase no espere el resto del guion con el personaje inmóvil.
+     */
     fun skipShowcaseStep() {
         if (!gauntletActive || !showcaseMode) return
-        showcaseStepUntilMs = 0L
+        showcaseForcedState = null
+        showcaseStep = showcaseTotalSteps(_state.value.player.id) + 1
+        showcaseFiredStep = showcaseStep
+        showcaseStepUntilMs = _state.value.gameTimeMs
     }
 
     /** Se llama al inicio del tick: encadena la siguiente pelea al terminar el combate o al vencer el tope. */

@@ -291,7 +291,7 @@ Repo en el navegador → **Settings** → **Secrets and variables** → **Action
 - El **primer** release de un track se crea **a mano** una vez en Play Console (ya hecho: la app está en producción/prueba cerrada). La API ya puede subir a la pista existente.
 - La service account necesita permiso **"Release apps to testing tracks"**.
 - `versionCode` SIEMPRE mayor que el último subido a Play (va a mano en `build.gradle.kts`, hoy = 11, con override por env `APP_VERSION_CODE`); súbelo en cada PR de release.
-- Si tu pista cerrada tiene **nombre propio** (no "alpha"), cámbialo en `track:` del workflow.
+- Si tu pista cerrada tiene **nombre propio** (no "alpha"), cámbialo en `tracks:` del workflow.
 - ⚠️ **El workflow nuevo debe estar EN `main`** para que dispare en merges futuros (como cualquier cambio de workflow):
   mergéalo una vez y a partir de ahí cada PR mergeado a `main` sube su AAB. **Recuerda subir el `versionCode` en cada PR**
   que quieras publicar; si mergeas sin subirlo, el job de Play falla por versionCode duplicado (el APK debug sí se genera).

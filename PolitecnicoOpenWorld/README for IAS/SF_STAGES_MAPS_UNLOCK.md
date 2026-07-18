@@ -12,22 +12,22 @@
 
 | # | Nombre | Día (archivo) |
 |---|--------|----------------|
-| 1 | ESCOM | `fondo_escom_anim.png` |
-| 2 | Queso IPN | `fondo_queso_ipn_anim.png` |
-| 3 | ESIME Azcapotzalco | `fondo_esime_azc_anim.png` |
-| 4 | CECyT 9 | `fondo_cecyt_9_anim.png` |
-| 5 | CECyT 2 | `fondo_cecyt_2_anim.png` |
-| 6 | CU UNAM | `fondo_unam_biblioteca_cu_anim.png` |
-| 7 | FES Acatlán | `fondo_fes_acatlan_anim.png` |
-| 8 | FES Aragón | `fondo_fes_aragon_anim.png` |
-| 9 | UAM Azcapotzalco | `fondo_uam_azcapo_anim.png` |
-| 10 | UAM Cuajimalpa | `fondo_uam_cuajimalpa_anim.png` |
-| 11 | Isla de las Muñecas | `fondo_islamunecas_anim.png` |
-| 12 | Mictlán | `fondo_mictlan_anim.png` |
-| 13 | Campos de Agave Jalisco | `fondo_campos_agave_jalisco_anim.png` |
-| 14 | Facultad de Medicina | `fondo_facultad_medicina_anim.png` |
-| 15 | Pirámide del Sol | `fondo_piramidesol_anim.png` |
-| 16 | Zócalo | `fondo_zocalo_anim.png` |
+| 1 | ESCOM | `fondo_escom_anim.webp` |
+| 2 | Queso IPN | `fondo_queso_ipn_anim.webp` |
+| 3 | ESIME Azcapotzalco | `fondo_esime_azc_anim.webp` |
+| 4 | CECyT 9 | `fondo_cecyt_9_anim.webp` |
+| 5 | CECyT 2 | `fondo_cecyt_2_anim.webp` |
+| 6 | CU UNAM | `fondo_unam_biblioteca_cu_anim.webp` |
+| 7 | FES Acatlán | `fondo_fes_acatlan_anim.webp` |
+| 8 | FES Aragón | `fondo_fes_aragon_anim.webp` |
+| 9 | UAM Azcapotzalco | `fondo_uam_azcapo_anim.webp` |
+| 10 | UAM Cuajimalpa | `fondo_uam_cuajimalpa_anim.webp` |
+| 11 | Isla de las Muñecas | `fondo_islamunecas_anim.webp` |
+| 12 | Mictlán | `fondo_mictlan_anim.webp` |
+| 13 | Campos de Agave Jalisco | `fondo_campos_agave_jalisco_anim.webp` |
+| 14 | Facultad de Medicina | `fondo_facultad_medicina_anim.webp` |
+| 15 | Pirámide del Sol | `fondo_piramidesol_anim.webp` |
+| 16 | Zócalo | `fondo_zocalo_anim.webp` |
 
 Variantes: `_noche_1_anim` = noche · `_noche_2_anim` = apocalipsis.
 

@@ -96,6 +96,12 @@
   las fuentes locales y síntesis únicamente para el Robot ficticio. Arte: HURT únicos de Llorona
   + metamorfosis inversa Yoalli→Presidenta. Auditoría IA: 9 campañas/135 peleas aceleradas y 600
   configuraciones estructurales. Play Store: `versionCode 12`, `versionName 1.0.0.12`.
+- **✅ Hotfix de entrega 1.0.0.12 (Sol):** el primer upload llegó firmado pero Play rechazó
+  `base` por superar 500 MB. Los 48 atlas de mapas pasaron PNG→WebP lossless con hash RGBA
+  idéntico y 29 fondos fijos sin referencias se archivaron en `_ORPHAN_ASSETS`; AAB real
+  **434.47 MiB**, `base` comprimido **433.84 MiB**. SALTAR termina peleador+timer. CI usa
+  Actions Node 24, `tracks`, notas ES/EN y entrega AAB firmado; label `manual-play-upload`
+  omite solo el upload automático.
 
 ### Docs de trabajo / Working docs (no son 00–09)
 

@@ -41,6 +41,20 @@ class SfArcadeCampaignAuditTest {
         assertEquals(1f, SfArcadeLadder.intensityForStep(SfArcadeLadder.TOTAL_FIGHTS, SfArcadeLadder.TOTAL_FIGHTS), FLOAT_TOLERANCE)
     }
 
+    @Test
+    fun `el catalogo resuelve webp y migra mapas png guardados`() {
+        val day = "fondo_escom_anim.webp"
+        val night = "fondo_escom_noche_1_anim.webp"
+        val apocalypse = "fondo_escom_noche_2_anim.webp"
+
+        assertEquals(SfStageCatalog.ESCOM, SfStageCatalog.stageForFile(day))
+        assertEquals(SfStageCatalog.ESCOM, SfStageCatalog.stageForFile(night))
+        assertEquals(SfStageCatalog.ESCOM, SfStageCatalog.stageForFile(apocalypse))
+        assertEquals(day, SfStageCatalog.normalizeFile("fondo_escom_anim.png"))
+        assertEquals(night, SfStageCatalog.normalizeFile("fondo_escom_noche_1_anim.png"))
+        assertTrue(SfStageCatalog.allBackgroundFiles().all { it.endsWith(".webp") })
+    }
+
     private fun auditCampaign(player: SfFighterId, difficulty: SfCpuDifficulty, seed: Int) {
         val ladder = SfArcadeLadder.build(player, difficulty, Random(seed))
         assertEquals(SfArcadeLadder.TOTAL_FIGHTS, ladder.size)

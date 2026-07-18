@@ -70,6 +70,21 @@
 - CI: errores `ComplexCondition`/`UnusedParameter` corregidos; detekt bloqueante local PASS;
   debug APK, unit tests y release AAB compilan con AGP/Gradle actuales. Versión 1.0.0.12.
 
+## Hotfix de entrega 2026-07-18 — límite Play, skip real y AAB manual
+
+- El primer upload de 1.0.0.12 llegó con firma/versionCode válidos, pero Play rechazó el módulo
+  `base` por superar 500 MB comprimidos.
+- Los 48 atlas de escenario pasaron de PNG a WebP lossless exacto; se verificó hash RGBA idéntico
+  por archivo. Los 29 fondos fijos heredados sin referencias runtime se movieron a
+  `_ORPHAN_ASSETS/STREETFIGHTER/legacy_static_backgrounds` (preservados, fuera del AAB).
+- Resultado real de `bundleRelease`: AAB **434.47 MiB**, `base` comprimido **433.84 MiB
+  (454.91 MB)**, margen preventivo **45.09 MB** bajo el límite decimal. Las 21 voces y los
+  WAV generales no se recomprimieron.
+- `skipShowcaseStep` marca completado el bloque del peleador y su timer; el tick siguiente
+  encadena al siguiente peleador sin esperar el resto del guion.
+- CI migra a Actions Node 24, `tracks: alpha`, notas ES/EN y validación 500 MB. El AAB firmado
+  se guarda como artefacto; `manual-play-upload` permite la entrega manual sin doble publicación.
+
 ## Objetivo
 
 Modo arcade estilo Street Fighter, 100% POW: quitar copyright, **todos los personajes y
@@ -118,8 +133,8 @@ historia (Rey Grupero compite por él), no el personaje.
    **jefe final (Prankedy)**. Los intermedios se desbloquean según salga cada rival
    (aleatorio). Candado **🔒 en la esquina superior** de los mapas bloqueados en el selector
    (motiva a seguir jugando).
-8. **Mapa "Ciudad Universitaria UNAM" = renombrar "Biblioteca UNAM"** (mismo asset
-   `fondo_UNAM_bibliotecaCentral_1.png`, solo cambia el nombre visible). Está en CU.
+8. **Mapa "Ciudad Universitaria UNAM" = renombrar "Biblioteca UNAM"** (asset runtime
+   `fondo_unam_biblioteca_cu_anim.webp`; el PNG fijo histórico quedó archivado). Está en CU.
 
 ## ESCALERA — 11 peleas (CERRADA con el dueño 2026-07-16)
 

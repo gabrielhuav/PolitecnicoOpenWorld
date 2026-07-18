@@ -25,8 +25,8 @@ import kotlin.random.Random
 object SfArcadeLadder {
 
     // Fallbacks legacy (sesión guardada vieja / tests)
-    const val MAP_FIRST = "fondo_queso_ipn_anim.png"
-    const val MAP_FINAL = "fondo_zocalo_anim.png"
+    const val MAP_FIRST = "fondo_queso_ipn_anim.webp"
+    const val MAP_FINAL = "fondo_zocalo_anim.webp"
 
     /** Los 3 estudiantes desbloqueados de arranque; el jugador elige uno (NO son enemigos). */
     val STARTERS = listOf(SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT)

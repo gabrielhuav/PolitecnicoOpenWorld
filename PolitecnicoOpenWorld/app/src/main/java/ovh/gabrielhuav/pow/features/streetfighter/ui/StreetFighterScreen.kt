@@ -447,7 +447,7 @@ fun StreetFighterScreen(
                     color = Color(0xFF8B1538),
                     modifier = Modifier.fillMaxWidth(0.32f),
                 )
-                // 🆕 SALTAR (solo showcase): adelanta a la siguiente animación del guion
+                // SALTAR (solo showcase): termina el peleador actual y avanza sin esperar el timer.
                 if (state.showcaseRunning) {
                     Spacer(modifier = Modifier.height(6.dp))
                     PowButton(
@@ -2290,7 +2290,7 @@ private sealed interface SfStageBackground {
 }
 
 /**
- * Decodifica el fondo desde assets. Si el archivo termina en "_anim.png" y existe su JSON
+ * Decodifica el fondo desde assets. Si el archivo termina en "_anim.webp" y existe su JSON
  * hermano, devuelve un fondo ANIMADO; si no, uno estático.
  * RGB_565 (sin alpha). En [lowEnd] usa inSampleSize=2 (~¼ de RAM de textura) y deriva
  * frameW/H del atlas real (no del JSON a full-res).
@@ -2317,7 +2317,7 @@ private fun loadStageBackground(
         val meta = runCatching {
             context.assets.open(imagesDir + jsonName).use { it.readBytes().decodeToString() }
         }.getOrNull()
-        if (file.endsWith("_anim.png") && meta != null) {
+        if (file.endsWith("_anim.webp") && meta != null) {
             val o = org.json.JSONObject(meta)
             val cols = o.getInt("cols").coerceAtLeast(1)
             val rows = o.getInt("rows").coerceAtLeast(1)
