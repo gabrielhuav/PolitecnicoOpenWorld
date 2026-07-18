@@ -567,6 +567,24 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   El botón SALTAR ahora termina peleador+timer. Workflows: Actions Node 24 actuales,
   `tracks: alpha`, notas `distribution/whatsnew`, chequeo preventivo 500 MB y AAB firmado
   descargable; label `manual-play-upload` omite únicamente el envío automático.
+- **✅ HOTFIX FONDOS/SHOWCASE/LALLORONA (2026-07-18, Sol):**
+  - **Fondos:** causa raíz = el pipeline tomaba 15 cuadros contiguos a 12 fps, solo 1.25 s del
+    centro de videos de ~10 s; técnicamente eran distintos, pero visualmente parecían fijos.
+    Ahora distribuye 15 cuadros fuente sobre 5 s y reproduce a 6 fps en ping-pong. Auditoría:
+    48/48 WebP decodificables, 15 únicos/28 pasos; 16 día, 16 noche y 16 noche tenebrosa.
+    `logoPOW.png` se compone en cada cuadro antes del atlas. Los PNG fijos/intermedios viven en
+    `additional_assets/STREETFIGHTER/`, fuera de `PolitecnicoOpenWorld/` y del AAB.
+  - **Showcase visual:** `Siguiente animación` expira solo el paso actual y conserva personaje;
+    `Siguiente personaje` termina su bloque; `Velocidad` cicla 1×/2×/4× sobre tiempo virtual;
+    `Repetir audio` vuelve a emitir la voz del peleador actual.
+  - **Showcase de audio:** botón independiente recorre los 21 `special_*.ogg`, muestra progreso,
+    peleador y frase española, y espera la duración real del OGG mediante
+    `MediaMetadataRetriever`; detener libera los `MediaPlayer` activos.
+  - **La Llorona:** la hoja 09 entregaba 14 HURT HEAD pegados como siete componentes; dos
+    `hit-face-*` contenían dos personajes. `maybe_split` usa ahora el paso horizontal esperado,
+    separa 14/14 y el pack elige cuatro poses completas. El validador rechaza un cuerpo HURT
+    anormalmente ancho. Resultado: 123 frames/30 animaciones y contrato croma OK.
+  - **Peso final:** AAB 438.52 MiB; `base` comprimido 459.16 MB; 40.84 MB de margen Play.
 - **🆕 Botón CONFIRMAR en el selector (2026-07-18h, Claude):** `CharacterSelectOverlay` ahora
   muestra un botón explícito para confirmar el peleador resaltado (antes solo el 2.º toque).
   string `sf_confirm` ES+EN.

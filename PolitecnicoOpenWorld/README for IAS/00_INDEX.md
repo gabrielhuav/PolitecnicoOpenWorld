@@ -103,6 +103,15 @@
   Actions Node 24, `tracks`, notas ES/EN y entrega AAB firmado; label `manual-play-upload`
   omite solo el upload automático.
 
+- **✅ Hotfix animación/showcase/Llorona (Sol):** los 48 fondos se regeneraron como WebP
+  lossless con 15 cuadros únicos distribuidos en 5 s y playback 6 fps: **16 día + 16 noche +
+  16 noche tenebrosa**, todos con `logoPOW.png` aplicado por frame. Los auxiliares fijos salen a
+  `additional_assets/`, fuera del proyecto Android compilable. Showcase separa siguiente
+  animación/personaje, velocidad 1×/2×/4×, repetición de voz y recorrido audio-only 21/21.
+  La hoja 09 de La Llorona ahora separa 14 poses pegadas; `hit-face-*` ya no contiene dos
+  cuerpos y el validador detecta cuerpos fusionados. `bundleRelease` final: **438.52 MiB**,
+  `base` comprimido **459.16 MB**, margen Play **40.84 MB**.
+
 ### Docs de trabajo / Working docs (no son 00–09)
 
 | Archivo / File | Contenido / Contents |

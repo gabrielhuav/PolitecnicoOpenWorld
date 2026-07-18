@@ -85,6 +85,19 @@
 - CI migra a Actions Node 24, `tracks: alpha`, notas ES/EN y validación 500 MB. El AAB firmado
   se guarda como artefacto; `manual-play-upload` permite la entrega manual sin doble publicación.
 
+## Hotfix 2026-07-18 · fondos realmente animados + QA acelerado + La Llorona
+
+- Pipeline de mapas: 15 cuadros fuente repartidos en 5 s, playback 6 fps y ping-pong de 28
+  pasos. Matriz cerrada 16×3: día, noche y noche tenebrosa; logo POW aplicado por fotograma.
+  Los auxiliares se escriben en `additional_assets/`, fuera del proyecto Android interno.
+- Showcase: salto de animación (mismo personaje), salto de personaje, velocidad 1×/2×/4×,
+  repetir voz y showcase audio-only de los 21 OGG con duración real.
+- La Llorona: la hoja 09 fusionaba 14 figuras HURT HEAD en siete blobs. El slicer calcula el
+  ancho esperado de pose, separa 14/14 y selecciona cuatro cuadros completos; el validador
+  rechaza cuerpos HURT anormalmente anchos. Atlas final: 123 frames, 30 animaciones.
+- Verificación release AGP 9.3/Gradle 9.5/JBR: AAB 438.52 MiB, `base` 459.16 MB comprimidos,
+  margen 40.84 MB bajo Play. `additional_assets` tiene cero entradas en el bundle.
+
 ## Objetivo
 
 Modo arcade estilo Street Fighter, 100% POW: quitar copyright, **todos los personajes y

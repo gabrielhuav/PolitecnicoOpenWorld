@@ -4,10 +4,12 @@
   "cols": 4,
   "rows": 7,
   "frameCount": 28,
-  "fps": 12.0,
+  "fps": 6.0,
   "loop": true,
   "pingPong": true,
   "slug": "unam_biblioteca_cu_noche_1",
   "source": "UNAM Biblioteca CU Noche 1.mp4",
-  "maxAtlasSide": 2048
+  "maxAtlasSide": 2048,
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

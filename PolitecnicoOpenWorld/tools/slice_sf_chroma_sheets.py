@@ -68,7 +68,7 @@ SHEETS = {
     8:  [("LIGHT KICK",     6, (nums("light-kick", 6), "even"), None),
          ("MEDIUM KICK",    5, (nums("med-kick", 5), "even"), None)],
     9:  [("HEAVY KICK",     6, (nums("heavy-kick", 6), "even"),  None),
-         ("HURT HEAD",     14, (nums("hit-face", 4), "first_half"),    None)],
+         ("HURT HEAD",     14, (nums("hit-face", 4), "hurt_head_poses"), None)],
     10: [("HURT BODY",     13, (nums("hit-stomach", 4), "first_half"), None),
          ("STUN",           3, (nums("stun", 3), "even"),       None)],
     11: [("SPECIAL LIGHT",  5, (nums("special-light", 5), "even"), None),
@@ -143,11 +143,17 @@ def maybe_split(grp, lbl, raw, n_expected):
     grp = sorted(grp, key=lambda bl: bl[0])
     if not grp:
         return grp
+    # No uses la mediana de los blobs detectados como ancho de referencia: cuando
+    # casi toda una fila viene solapada (La Llorona HURT HEAD: 7 componentes para
+    # 14 poses), esa mediana ya representa dos o tres personajes y el algoritmo se
+    # detiene sin separarlos. El paso horizontal esperado de la fila sí permanece
+    # estable aunque las siluetas se toquen.
+    row_span = max(bl[2] for bl in grp) - min(bl[0] for bl in grp)
+    expected_width = row_span / max(n_expected, 1)
     while len(grp) < n_expected:
-        widths = sorted(bl[2] - bl[0] for bl in grp)
-        med = widths[len(widths) // 2]
-        cand = max(grp, key=lambda bl: bl[2] - bl[0])
-        if (cand[2] - cand[0]) < 1.6 * med: break
+        cand = max(grp, key=lambda bl: (bl[2] - bl[0]) / expected_width)
+        if (cand[2] - cand[0]) < 1.45 * expected_width:
+            break
         x0, y0, x1, y1, bid = cand
         m = (lbl[y0:y1, x0:x1] == bid) & raw[y0:y1, x0:x1]
         cols = m.sum(axis=0)
@@ -214,6 +220,11 @@ def cut(im, lbl, raw, blob):
 def pick(frames, k, mode):
     n = len(frames)
     if n == 0: return []
+    # La hoja de La Llorona trae catorce reacciones muy juntas. Estas cuatro poses
+    # recorren el primer arco de daño y evitan las siluetas que el dibujo original
+    # dejó parcialmente ocultas por su vecina.
+    if mode == "hurt_head_poses" and n >= 7 and k == 4:
+        return [frames[i] for i in (0, 3, 4, 6)]
     if mode == "first": return frames[:k]
     if mode == "mid":   return [frames[n // 2]] if k == 1 else pick(frames, k, "even")
     # Ataque de dos cuadros = preparacion + CONTACTO. "even" elegia primero y

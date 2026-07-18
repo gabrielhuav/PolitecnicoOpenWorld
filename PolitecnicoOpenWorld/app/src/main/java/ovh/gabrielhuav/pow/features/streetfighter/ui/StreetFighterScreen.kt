@@ -104,6 +104,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SF_STOP_SPECIALS_EVENT
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewModel
 
@@ -301,7 +302,9 @@ fun StreetFighterScreen(
     val activeSpecialPlayers = remember { mutableMapOf<String, MediaPlayer>() }
     LaunchedEffect(soundIds) {
         viewModel.soundEvents.collect { key ->
-            if (key.startsWith("special_")) {
+            if (key == SF_STOP_SPECIALS_EVENT) {
+                releaseSfSpecials(activeSpecialPlayers)
+            } else if (key.startsWith("special_")) {
                 val played = playSfSpecial(
                     context = context,
                     assetPath = "${theme.soundsDir}$key.ogg",
@@ -450,12 +453,38 @@ fun StreetFighterScreen(
                 // SALTAR (solo showcase): termina el peleador actual y avanza sin esperar el timer.
                 if (state.showcaseRunning) {
                     Spacer(modifier = Modifier.height(6.dp))
-                    PowButton(
-                        text = stringResource(R.string.sf_showcase_skip),
-                        onClick = viewModel::skipShowcaseStep,
-                        color = Color(0xFF1B5E20),
-                        modifier = Modifier.fillMaxWidth(0.32f),
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        PowButton(
+                            text = stringResource(R.string.sf_showcase_next_animation),
+                            onClick = viewModel::skipToNextShowcaseAnimation,
+                            color = Color(0xFF1B5E20),
+                            modifier = Modifier.width(156.dp),
+                        )
+                        PowButton(
+                            text = stringResource(R.string.sf_showcase_next_fighter),
+                            onClick = viewModel::skipShowcaseFighter,
+                            color = Color(0xFF7B3F00),
+                            modifier = Modifier.width(156.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        PowButton(
+                            text = stringResource(
+                                R.string.sf_showcase_speed,
+                                "${state.showcaseSpeed.toInt()}x",
+                            ),
+                            onClick = viewModel::cycleShowcaseSpeed,
+                            color = Color(0xFF1565C0),
+                            modifier = Modifier.width(156.dp),
+                        )
+                        PowButton(
+                            text = stringResource(R.string.sf_showcase_replay_audio),
+                            onClick = viewModel::replayCurrentShowcaseAudio,
+                            color = Color(0xFF6A1B9A),
+                            modifier = Modifier.width(156.dp),
+                        )
+                    }
                 }
             }
         }
@@ -561,7 +590,13 @@ fun StreetFighterScreen(
                     when {
                         // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, IA VS IA, MULTIJUGADOR
                         sfMenu -> SfModeMenuOverlay(
+                            audioShowcaseRunning = state.audioShowcaseRunning,
+                            audioShowcaseIndex = state.audioShowcaseIndex,
+                            audioShowcaseTotal = state.audioShowcaseTotal,
+                            audioShowcaseFighter = state.audioShowcaseFighter,
+                            audioShowcasePhrase = state.audioShowcasePhrase,
                             onArcade = {
+                                viewModel.stopAudioShowcase()
                                 sfMenu = false
                                 arcadeSetup = true
                                 aiVsAiSetup = false
@@ -570,6 +605,7 @@ fun StreetFighterScreen(
                                 pendingDifficulty = null
                             },
                             onPractice = {
+                                viewModel.stopAudioShowcase()
                                 sfMenu = false
                                 arcadeSetup = false
                                 aiVsAiSetup = false
@@ -578,6 +614,7 @@ fun StreetFighterScreen(
                                 pendingDifficulty = null
                             },
                             onAiVsAi = {
+                                viewModel.stopAudioShowcase()
                                 sfMenu = false
                                 arcadeSetup = false
                                 aiVsAiSetup = true
@@ -585,19 +622,27 @@ fun StreetFighterScreen(
                                 pendingRival = null
                                 pendingDifficulty = null
                             },
-                            onMultiplayer = { showOnlineMenu = true },
+                            onMultiplayer = {
+                                viewModel.stopAudioShowcase()
+                                showOnlineMenu = true
+                            },
                             onGauntletAll = {
+                                viewModel.stopAudioShowcase()
                                 sfMenu = false
                                 viewModel.startGauntletRoundRobin()
                             },
                             onGauntletArcade = {
+                                viewModel.stopAudioShowcase()
                                 sfMenu = false
                                 viewModel.startGauntletArcade()
                             },
                             onGauntletShowcase = {
+                                viewModel.stopAudioShowcase()
                                 sfMenu = false
                                 viewModel.startShowcase()
                             },
+                            onAudioShowcase = viewModel::startAudioShowcase,
+                            onAudioShowcaseStop = viewModel::stopAudioShowcase,
                             onBack = onExitToMap,
                         )
                         // ARCADE: peleadór → Fácil/Medio/Difícil (día / noche / apocalipsis)
@@ -1056,6 +1101,11 @@ private fun GauntletReportOverlay(
 
 @Composable
 private fun SfModeMenuOverlay(
+    audioShowcaseRunning: Boolean,
+    audioShowcaseIndex: Int,
+    audioShowcaseTotal: Int,
+    audioShowcaseFighter: SfFighterId?,
+    audioShowcasePhrase: String,
     onArcade: () -> Unit,
     onPractice: () -> Unit,
     onAiVsAi: () -> Unit,
@@ -1063,6 +1113,8 @@ private fun SfModeMenuOverlay(
     onGauntletAll: () -> Unit,
     onGauntletArcade: () -> Unit,
     onGauntletShowcase: () -> Unit,
+    onAudioShowcase: () -> Unit,
+    onAudioShowcaseStop: () -> Unit,
     onBack: () -> Unit,
 ) {
     Box(
@@ -1141,6 +1193,41 @@ private fun SfModeMenuOverlay(
                 color = Color(0xFF6A1B9A),
                 modifier = Modifier.fillMaxWidth(0.68f),
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            PowButton(
+                text = stringResource(
+                    if (audioShowcaseRunning) {
+                        R.string.sf_audio_showcase_stop
+                    } else {
+                        R.string.sf_audio_showcase_all
+                    },
+                ),
+                onClick = if (audioShowcaseRunning) onAudioShowcaseStop else onAudioShowcase,
+                color = Color(0xFF00695C),
+                modifier = Modifier.fillMaxWidth(0.68f),
+            )
+            if (audioShowcaseRunning && audioShowcaseFighter != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = stringResource(
+                        R.string.sf_audio_showcase_progress,
+                        audioShowcaseIndex,
+                        audioShowcaseTotal,
+                        audioShowcaseFighter.shortName,
+                    ),
+                    color = Color(0xFFFFD54A),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = audioShowcasePhrase,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(0.82f),
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             PowButton(
                 text = stringResource(R.string.sf_mode_multiplayer),

@@ -4,11 +4,12 @@
   "cols": 4,
   "rows": 7,
   "frameCount": 28,
-  "fps": 12.0,
+  "fps": 6.0,
   "loop": true,
   "pingPong": true,
   "slug": "facultad_medicina_noche_2",
   "source": "Facultad Medicina Noche 2.jpg",
   "maxAtlasSide": 2048,
-  "kenBurns": true
+  "kenBurns": true,
+  "logoApplied": true
 }

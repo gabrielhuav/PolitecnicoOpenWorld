@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -58,6 +59,12 @@ import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.random.Random
 
+internal const val SF_STOP_SPECIALS_EVENT = "__sf_stop_specials__"
+
+private const val AUDIO_SHOWCASE_GAP_MS = 500L
+private const val AUDIO_SHOWCASE_FALLBACK_MS = 5000L
+private val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
+
 // ViewModel del modo STREET FIGHTER: port fiel de Fighter.js/BattleScene.js/Fireball.js.
 // - requestAnimationFrame → coroutine a ~60 fps con dt medido y RELOJ DE JUEGO VIRTUAL
 //   (gameNow avanza solo si no hay pausa → los timers absolutos no necesitan desplazarse).
@@ -78,6 +85,8 @@ class StreetFighterViewModel @Inject constructor(
     /** Claves de sonido (nombre base del .ogg en STREETFIGHTER/SOUNDS). */
     private val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val soundEvents: SharedFlow<String> = _soundEvents.asSharedFlow()
+
+    private var audioShowcaseJob: Job? = null
 
     /**
      * SFX del especial/bonus por peleador: `special_<sf_fighter_id_lower>.ogg`
@@ -102,6 +111,71 @@ class StreetFighterViewModel @Inject constructor(
                 specialSubtitleUntilMs = until,
             )
         }
+    }
+
+    /** Reproduce otra vez la voz completa del peleador visible en el showcase. */
+    fun replayCurrentShowcaseAudio() {
+        if (!gauntletActive || !showcaseMode) return
+        emitSpecialVoice(_state.value.player.id, gameNow)
+    }
+
+    /** Recorre las 21 voces completas respetando la duración real de cada OGG. */
+    fun startAudioShowcase() {
+        if (audioShowcaseJob?.isActive == true) return
+        val fighters = SfArcadeLadder.ALL_PARTICIPANTS.filter { it in specialPhrases }
+        _soundEvents.tryEmit(SF_STOP_SPECIALS_EVENT)
+        audioShowcaseJob = viewModelScope.launch {
+            try {
+                fighters.forEachIndexed { index, id ->
+                    val phrase = specialPhrases.getValue(id)
+                    _state.update {
+                        it.copy(
+                            audioShowcaseRunning = true,
+                            audioShowcaseIndex = index + 1,
+                            audioShowcaseTotal = fighters.size,
+                            audioShowcaseFighter = id,
+                            audioShowcasePhrase = phrase.phraseEs,
+                        )
+                    }
+                    _soundEvents.emit(specialSfxKey(id))
+                    delay(specialAudioDurationMs(id) + AUDIO_SHOWCASE_GAP_MS)
+                }
+            } finally {
+                _state.update {
+                    it.copy(
+                        audioShowcaseRunning = false,
+                        audioShowcaseIndex = 0,
+                        audioShowcaseTotal = 0,
+                        audioShowcaseFighter = null,
+                        audioShowcasePhrase = "",
+                    )
+                }
+            }
+        }
+    }
+
+    /** Detiene el recorrido auditivo y también el MediaPlayer que esté hablando. */
+    fun stopAudioShowcase() {
+        audioShowcaseJob?.cancel()
+        audioShowcaseJob = null
+        _soundEvents.tryEmit(SF_STOP_SPECIALS_EVENT)
+    }
+
+    private fun specialAudioDurationMs(id: SfFighterId): Long {
+        val fallbackMs = specialPhrases[id]?.subtitleMs ?: AUDIO_SHOWCASE_FALLBACK_MS
+        return runCatching {
+            val retriever = MediaMetadataRetriever()
+            try {
+                appContext.assets.openFd("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg").use { fd ->
+                    retriever.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+                }
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull()
+                    ?: fallbackMs
+            } finally {
+                retriever.release()
+            }
+        }.getOrDefault(fallbackMs)
     }
 
     // 🆕 Progreso del ARCADE (guardado LOCAL). Define qué peleadores/mapas están desbloqueados.
@@ -250,6 +324,7 @@ class StreetFighterViewModel @Inject constructor(
     private var showcaseStep = 0
     private var showcaseStepUntilMs = 0L
     private var showcaseFiredStep = -1
+    private var showcaseSpeed = 1f
     // Ventana por animación: > stuckLimitMs (1800) para que watchStuck alcance a REGISTRAR y
     // rescatar una anim atascada antes de que el guion fuerce el siguiente estado (y > cooldown
     // de special/bonus). 🆕 2026-07-18j: era 1600 y enmascaraba atascos en los pasos forzados.
@@ -458,8 +533,10 @@ class StreetFighterViewModel @Inject constructor(
                 val auditSteps = if (gauntletActive && !showcaseMode) gauntletAuditSteps else 1
                 for (step in 0 until auditSteps) {
                     if (step > 0 && !gauntletActive) break
-                    gameNow += dtMs
-                    tick(gameNow, dtMs / 1000f)
+                    val speed = if (showcaseMode) showcaseSpeed else 1f
+                    val scaledDtMs = (dtMs * speed).toLong().coerceAtLeast(1L)
+                    gameNow += scaledDtMs
+                    tick(gameNow, scaledDtMs / 1000f)
                     if (step + 1 < auditSteps) yield()
                 }
             }
@@ -525,7 +602,7 @@ class StreetFighterViewModel @Inject constructor(
                     // reposo) se adelanta la ventana (~400 ms tras arrancar el paso) en vez de
                     // esperar los 2 s fijos. KO/VICTORY (nunca vuelven a IDLE) y los pasos
                     // sostenidos de caminar/agachar (0..2) usan su ventana completa. El botón
-                    // SALTAR de la View (skipShowcaseStep) fuerza el fin en cualquier momento.
+                    // SALTAR de la View fuerza el fin en cualquier momento.
                     // (solo si el paso YA DISPARÓ: si aún espera el IDLE para soltar su input,
                     // adelantar aquí se lo saltaría)
                     val stepStart = showcaseStepUntilMs - showcaseStepMs
@@ -2379,6 +2456,7 @@ class StreetFighterViewModel @Inject constructor(
      */
     fun startShowcase() {
         showcaseMode = true
+        showcaseSpeed = 1f
         val q = ArrayDeque<GauntletFight>()
         SfArcadeLadder.ALL_PARTICIPANTS.forEach {
             q.add(GauntletFight(it, it)) // Espejo: se ve la animación en ambos.
@@ -2461,6 +2539,7 @@ class StreetFighterViewModel @Inject constructor(
                 gauntletRunning = true,
                 gauntletProgress = "$gauntletDone/$gauntletTotal",
                 showcaseRunning = showcaseMode,
+                showcaseSpeed = showcaseSpeed,
                 gauntletMapFile = mapFile,
             )
         }
@@ -2471,13 +2550,52 @@ class StreetFighterViewModel @Inject constructor(
      * tick. No basta con cortar la pose: el tope temporal también debe quedar satisfecho para
      * que el showcase no espere el resto del guion con el personaje inmóvil.
      */
-    fun skipShowcaseStep() {
+    fun skipShowcaseFighter() {
         if (!gauntletActive || !showcaseMode) return
         showcaseForcedState = null
         showcaseStep = showcaseTotalSteps(_state.value.player.id) + 1
         showcaseFiredStep = showcaseStep
         showcaseStepUntilMs = _state.value.gameTimeMs
     }
+
+    /** Termina solo la animación actual y conserva al mismo peleador para el paso siguiente. */
+    fun skipToNextShowcaseAnimation() {
+        if (!gauntletActive || !showcaseMode) return
+        val now = _state.value.gameTimeMs
+        showcaseForcedState = null
+        showcaseFiredStep = -2
+        showcaseStepUntilMs = now
+        _state.update {
+            it.copy(
+                player = resetShowcaseFighter(it.player, now),
+                cpu = resetShowcaseFighter(it.cpu, now),
+            )
+        }
+    }
+
+    /** Alterna 1x → 2x → 4x para acelerar todo el showcase visual. */
+    fun cycleShowcaseSpeed() {
+        if (!gauntletActive || !showcaseMode) return
+        val index = SHOWCASE_SPEEDS.indexOf(showcaseSpeed).coerceAtLeast(0)
+        showcaseSpeed = SHOWCASE_SPEEDS[(index + 1) % SHOWCASE_SPEEDS.size]
+        _state.update { it.copy(showcaseSpeed = showcaseSpeed) }
+    }
+
+    private fun resetShowcaseFighter(fighter: SfFighter, now: Long): SfFighter =
+        withAnimationFrame(
+            fighter.copy(
+                state = SfFighterState.IDLE,
+                velocityX = 0f,
+                velocityY = 0f,
+                slideVelocity = 0f,
+                slideFriction = 0f,
+                attackStruck = false,
+                fireballFired = false,
+                y = SfConstants.STAGE_FLOOR,
+            ),
+            frame = 0,
+            now = now,
+        )
 
     /** Se llama al inicio del tick: encadena la siguiente pelea al terminar el combate o al vencer el tope. */
     private fun maybeAdvanceGauntlet(now: Long): Boolean {

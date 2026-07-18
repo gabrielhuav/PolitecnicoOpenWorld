@@ -657,6 +657,13 @@
     <string name="sf_confirm">Confirm</string>
     <string name="sf_gauntlet_stop">Stop</string>
     <string name="sf_showcase_skip">Skip animation</string>
+    <string name="sf_showcase_next_animation">Next animation</string>
+    <string name="sf_showcase_next_fighter">Next fighter</string>
+    <string name="sf_showcase_speed">Speed %1$s</string>
+    <string name="sf_showcase_replay_audio">Replay audio</string>
+    <string name="sf_audio_showcase_all">Showcase: all audio</string>
+    <string name="sf_audio_showcase_stop">Stop audio</string>
+    <string name="sf_audio_showcase_progress">Audio %1$d/%2$d · %3$s</string>
     <string name="sf_gauntlet_report_title">Autoplay report</string>
     <string name="sf_gauntlet_no_issues">No issues detected.</string>
     <string name="sf_close">Close</string>
