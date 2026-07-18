@@ -8,8 +8,8 @@
   "loop": true,
   "pingPong": true,
   "slug": "fes_aragon_noche_2",
-  "source": "FES Aragon Noche 2.jpg",
+  "source": "Fes Aragon Noche 2.mp4",
   "maxAtlasSide": 2048,
-  "kenBurns": true,
-  "logoApplied": true
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

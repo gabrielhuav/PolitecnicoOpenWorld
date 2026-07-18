@@ -8,8 +8,8 @@
   "loop": true,
   "pingPong": true,
   "slug": "uam_cuajimalpa",
-  "source": "UAM Cuajimalpa.png",
+  "source": "UAM Cuajimalpa.mp4",
   "maxAtlasSide": 2048,
-  "kenBurns": true,
-  "logoApplied": true
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

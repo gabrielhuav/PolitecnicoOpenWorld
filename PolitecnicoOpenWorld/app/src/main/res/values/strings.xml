@@ -629,13 +629,13 @@
     <string name="sf_arcade_button">ARCADE</string>
     <string name="sf_arcade_pick_you">Elige tu peleador (desbloqueas más al ganar)</string>
     <!-- Arcade: Fácil/Medio/Difícil → mapas día / noche / apocalipsis -->
-    <string name="sf_arcade_diff_maps_hint">Los escenarios cambian con la dificultad: día, noche o noche apocalíptica</string>
+    <string name="sf_arcade_diff_maps_hint">Gana en MEDIO para desbloquear al personaje; en FÁCIL solo su mapa</string>
     <string name="sf_arcade_diff_easy">FÁCIL</string>
-    <string name="sf_arcade_diff_easy_desc">IA más suave · escenarios de DÍA (mapa de cada rival)</string>
+    <string name="sf_arcade_diff_easy_desc">IA más suave · desbloquea el mapa del rival</string>
     <string name="sf_arcade_diff_medium">MEDIO</string>
-    <string name="sf_arcade_diff_medium_desc">IA clásica · escenarios de NOCHE</string>
+    <string name="sf_arcade_diff_medium_desc">IA clásica · desbloquea al personaje</string>
     <string name="sf_arcade_diff_hard">DIFÍCIL</string>
-    <string name="sf_arcade_diff_hard_desc">IA agresiva · NOCHE APOCALÍPTICA</string>
+    <string name="sf_arcade_diff_hard_desc">IA agresiva · recompensas próximamente</string>
     <string name="sf_back">← Volver</string>
     <string name="sf_arcade_won">¡GANASTE!</string>
     <string name="sf_arcade_progress">Pelea %1$d de %2$d</string>
@@ -657,6 +657,7 @@
     <string name="sf_gauntlet_arcade">Auditar las 9 campañas (acelerado)</string>
     <string name="sf_gauntlet_showcase">Showcase: animaciones y sonidos</string>
     <string name="sf_confirm">Confirmar</string>
+    <string name="sf_dev_tools_header">HERRAMIENTAS (Modo Desarrollador)</string>
     <string name="sf_gauntlet_stop">Detener</string>
     <string name="sf_showcase_skip">Saltar animación</string>
     <string name="sf_showcase_next_animation">Siguiente animación</string>

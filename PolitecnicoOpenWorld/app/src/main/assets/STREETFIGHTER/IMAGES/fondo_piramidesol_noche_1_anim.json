@@ -8,8 +8,8 @@
   "loop": true,
   "pingPong": true,
   "slug": "piramidesol_noche_1",
-  "source": "PiramideSol Noche 1.jpg",
+  "source": "piramidesol Noche 1.mp4",
   "maxAtlasSide": 2048,
-  "kenBurns": true,
-  "logoApplied": true
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

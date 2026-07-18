@@ -8,8 +8,8 @@
   "loop": true,
   "pingPong": true,
   "slug": "fes_aragon",
-  "source": "FES Aragon.png",
+  "source": "Fes Aragon.mp4",
   "maxAtlasSide": 2048,
-  "kenBurns": true,
-  "logoApplied": true
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

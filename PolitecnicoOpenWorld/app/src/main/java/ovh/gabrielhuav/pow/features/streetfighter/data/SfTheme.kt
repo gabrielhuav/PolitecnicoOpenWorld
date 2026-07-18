@@ -44,8 +44,16 @@ data class SfTheme(
     val imageFiles: List<String>,
     /** Claves de sonido (nombre base .ogg) que emite el VM. */
     val soundKeys: List<String>,
+    /** Música por defecto / respaldo (se usa si [lobbyMusic]/[battleMusic] están vacías). */
     val musicFile: String,
     val musicVolume: Float,
+    // 🆕 (2026-07-18) MÚSICA POR PROGRESIÓN (tema de Prankedy, ordenado por dificultad):
+    // - [lobbyMusic] suena en el SELECTOR de personaje (lobby de peleas).
+    // - [battleMusic] son las pistas de PELEA en orden de dificultad (fácil→difícil): la que
+    //   suena escala con el nivel de la pelea (arcade: avance de la escalera; práctica: la
+    //   dificultad de la CPU; IA vs IA: la más dura). Vacías → se usa [musicFile].
+    val lobbyMusic: String = "",
+    val battleMusic: List<String> = emptyList(),
 
     // ---- Escenario ----
     /**
@@ -112,6 +120,14 @@ val SF_CLASSIC_THEME = SfTheme(
     // Música de Prankedy (Persecución, la de sus videos) en vez del tema del clon SF
     musicFile = "prankedy-persecucion.mp3",
     musicVolume = 0.3f,
+    // 🆕 (2026-07-18) Tema de Prankedy por PROGRESIÓN. Lobby = pista del selector; batalla en
+    // orden de dificultad (fácil→difícil). Fuente: nuevoMaterial18JUL (Prankedy5Actual=lobby,
+    // Prankedy1..4 + Prankedy6Actual = batalla; Prankedy0Actual era duplicado de 6, descartado).
+    lobbyMusic = "prankedy_lobby.mp3",
+    battleMusic = listOf(
+        "prankedy_battle_1.mp3", "prankedy_battle_2.mp3", "prankedy_battle_3.mp3",
+        "prankedy_battle_4.mp3", "prankedy_battle_5.mp3",
+    ),
 
     // Fondos POW (IPN/UNAM), elegibles en el selector de mapa; el muelle SF queda de fallback
     // 🆕 Fondos POW. Los "_anim.webp" son ATLAS de frames (con su JSON) generados por

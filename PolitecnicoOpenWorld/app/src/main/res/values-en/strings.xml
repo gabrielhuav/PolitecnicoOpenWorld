@@ -627,13 +627,13 @@
     <string name="sf_arcade_button">ARCADE</string>
     <string name="sf_arcade_pick_you">Choose your fighter (win to unlock more)</string>
     <!-- Arcade: Easy/Medium/Hard → day / night / apocalypse stages -->
-    <string name="sf_arcade_diff_maps_hint">Stages follow difficulty: day, night, or apocalyptic night</string>
+    <string name="sf_arcade_diff_maps_hint">Win on MEDIUM to unlock the fighter; on EASY only their map</string>
     <string name="sf_arcade_diff_easy">EASY</string>
-    <string name="sf_arcade_diff_easy_desc">Softer AI · DAY stages (each rival\'s home map)</string>
+    <string name="sf_arcade_diff_easy_desc">Softer AI · unlocks the rival\'s map</string>
     <string name="sf_arcade_diff_medium">MEDIUM</string>
-    <string name="sf_arcade_diff_medium_desc">Classic AI · NIGHT stages</string>
+    <string name="sf_arcade_diff_medium_desc">Classic AI · unlocks the fighter</string>
     <string name="sf_arcade_diff_hard">HARD</string>
-    <string name="sf_arcade_diff_hard_desc">Aggressive AI · APOCALYPTIC NIGHT</string>
+    <string name="sf_arcade_diff_hard_desc">Aggressive AI · rewards coming soon</string>
     <string name="sf_back">← Back</string>
     <string name="sf_arcade_won">YOU WON!</string>
     <string name="sf_arcade_progress">Fight %1$d of %2$d</string>
@@ -655,6 +655,7 @@
     <string name="sf_gauntlet_arcade">Audit all 9 campaigns (fast)</string>
     <string name="sf_gauntlet_showcase">Showcase: animations and sounds</string>
     <string name="sf_confirm">Confirm</string>
+    <string name="sf_dev_tools_header">TOOLS (Developer Mode)</string>
     <string name="sf_gauntlet_stop">Stop</string>
     <string name="sf_showcase_skip">Skip animation</string>
     <string name="sf_showcase_next_animation">Next animation</string>

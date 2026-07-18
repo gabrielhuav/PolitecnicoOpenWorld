@@ -317,10 +317,42 @@ fun StreetFighterScreen(
             }
         }
     }
+    // 🆕 (2026-07-18) MÚSICA POR PROGRESIÓN: lobby en el selector; en pelea, la pista escala con
+    // el NIVEL (arcade = avance de la escalera; práctica = dificultad de la CPU; IA vs IA = la más
+    // dura). Al cambiar de pista (entrar a pelea, subir de escalón…) el MediaPlayer se recarga.
+    val musicFileForState = remember(
+        state.inCharacterSelect, state.aiVsAi, state.arcadeActive,
+        state.arcadeStep, state.arcadeTotal, state.cpuDifficulty,
+    ) {
+        val battle = theme.battleMusic
+        when {
+            theme.lobbyMusic.isBlank() && battle.isEmpty() -> theme.musicFile // legado: pista única
+            state.inCharacterSelect -> theme.lobbyMusic.ifBlank { theme.musicFile }
+            battle.isEmpty() -> theme.lobbyMusic.ifBlank { theme.musicFile }
+            else -> {
+                val n = battle.size
+                val frac = when {
+                    state.aiVsAi -> 1f
+                    state.arcadeActive && state.arcadeTotal > 1 ->
+                        (state.arcadeStep - 1).toFloat() / (state.arcadeTotal - 1)
+                    else -> when (state.cpuDifficulty) {
+                        SfCpuDifficulty.BASICA -> 0f
+                        SfCpuDifficulty.NORMAL -> 0.34f
+                        SfCpuDifficulty.AVANZADA -> 0.67f
+                        SfCpuDifficulty.PESADILLA -> 1f
+                    }
+                }
+                // índice = round(frac*(n-1)) sin roundToInt (aritmética entera)
+                battle[((frac * (n - 1)) + 0.5f).toInt().coerceIn(0, n - 1)]
+            }
+        }
+    }
     val musicPlayer = remember { MediaPlayer() }
-    DisposableEffect(Unit) {
+    // (Re)carga y arranca la pista cuando cambia la selección (lobby ⇄ batalla / nivel).
+    LaunchedEffect(musicFileForState) {
         runCatching {
-            context.assets.openFd(theme.soundsDir + theme.musicFile).use { fd ->
+            musicPlayer.reset()
+            context.assets.openFd(theme.soundsDir + musicFileForState).use { fd ->
                 musicPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
             }
             musicPlayer.isLooping = true
@@ -328,6 +360,8 @@ fun StreetFighterScreen(
             musicPlayer.prepare()
             musicPlayer.start()
         }
+    }
+    DisposableEffect(Unit) {
         onDispose {
             runCatching { musicPlayer.stop() }
             musicPlayer.release()
@@ -374,7 +408,7 @@ fun StreetFighterScreen(
                 drawScene(
                     theme, state, images, playerData, cpuData, stageBg,
                     roundBannerText, fightBannerText, showHitboxes,
-                    playerContentH, cpuContentH,
+                    playerContentH, cpuContentH, effectiveBgFile,
                 )
             }
         }
@@ -590,6 +624,7 @@ fun StreetFighterScreen(
                     when {
                         // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, IA VS IA, MULTIJUGADOR
                         sfMenu -> SfModeMenuOverlay(
+                            devMode = viewModel.devUnlockAll(),
                             audioShowcaseRunning = state.audioShowcaseRunning,
                             audioShowcaseIndex = state.audioShowcaseIndex,
                             audioShowcaseTotal = state.audioShowcaseTotal,
@@ -679,6 +714,8 @@ fun StreetFighterScreen(
                             fighters = viewModel.selectableFighters(),
                             lockedFighters = viewModel.lockedFighters(),
                             subtitle = stringResource(R.string.sf_ai_vs_ai_pick_b),
+                            allyId = fighter,        // 🆕 flecha AZUL sobre el P1 elegido
+                            showPickArrow = true,    // 🆕 flecha ROJA sobre el P2 resaltado
                             onSelect = { b ->
                                 val a = fighter!!
                                 // Fondo al azar entre mapas DESBLOQUEADOS (o todos en Modo Dev)
@@ -713,6 +750,8 @@ fun StreetFighterScreen(
                             fighters = viewModel.selectableFighters(),
                             lockedFighters = viewModel.lockedFighters(),
                             subtitle = stringResource(R.string.sf_choose_rival),
+                            allyId = fighter,        // 🆕 flecha AZUL sobre el P1 elegido
+                            showPickArrow = true,    // 🆕 flecha ROJA sobre el P2 resaltado
                             onSelect = { pendingRival = it },
                             onBack = { pendingFighter = null },
                             lowEnd = lowEnd,
@@ -1101,6 +1140,8 @@ private fun GauntletReportOverlay(
 
 @Composable
 private fun SfModeMenuOverlay(
+    // 🆕 (2026-07-18) Autojuego/Showcase son EXCLUSIVOS del Modo Desarrollador (QA interno).
+    devMode: Boolean,
     audioShowcaseRunning: Boolean,
     audioShowcaseIndex: Int,
     audioShowcaseTotal: Int,
@@ -1171,62 +1212,71 @@ private fun SfModeMenuOverlay(
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            // 🆕 AUTOJUEGO: bots que recorren TODAS las peleas y reportan assets rotos (grabación/QA).
-            PowButton(
-                text = stringResource(R.string.sf_gauntlet_all),
-                onClick = onGauntletAll,
-                color = Color(0xFF6A1B9A),
-                modifier = Modifier.fillMaxWidth(0.68f),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            PowButton(
-                text = stringResource(R.string.sf_gauntlet_arcade),
-                onClick = onGauntletArcade,
-                color = Color(0xFF6A1B9A),
-                modifier = Modifier.fillMaxWidth(0.68f),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            PowButton(
-                text = stringResource(R.string.sf_gauntlet_showcase),
-                onClick = onGauntletShowcase,
-                color = Color(0xFF6A1B9A),
-                modifier = Modifier.fillMaxWidth(0.68f),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            PowButton(
-                text = stringResource(
-                    if (audioShowcaseRunning) {
-                        R.string.sf_audio_showcase_stop
-                    } else {
-                        R.string.sf_audio_showcase_all
-                    },
-                ),
-                onClick = if (audioShowcaseRunning) onAudioShowcaseStop else onAudioShowcase,
-                color = Color(0xFF00695C),
-                modifier = Modifier.fillMaxWidth(0.68f),
-            )
-            if (audioShowcaseRunning && audioShowcaseFighter != null) {
-                Spacer(modifier = Modifier.height(6.dp))
+            // 🆕 AUTOJUEGO / SHOWCASE: QA interno, SOLO con Modo Desarrollador (Ajustes).
+            if (devMode) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = stringResource(
-                        R.string.sf_audio_showcase_progress,
-                        audioShowcaseIndex,
-                        audioShowcaseTotal,
-                        audioShowcaseFighter.shortName,
-                    ),
+                    text = stringResource(R.string.sf_dev_tools_header),
                     color = Color(0xFFFFD54A),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = audioShowcasePhrase,
-                    color = Color.White.copy(alpha = 0.8f),
                     fontSize = 11.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(0.82f),
+                    fontWeight = FontWeight.Bold,
                 )
+                Spacer(modifier = Modifier.height(6.dp))
+                PowButton(
+                    text = stringResource(R.string.sf_gauntlet_all),
+                    onClick = onGauntletAll,
+                    color = Color(0xFF6A1B9A),
+                    modifier = Modifier.fillMaxWidth(0.68f),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                PowButton(
+                    text = stringResource(R.string.sf_gauntlet_arcade),
+                    onClick = onGauntletArcade,
+                    color = Color(0xFF6A1B9A),
+                    modifier = Modifier.fillMaxWidth(0.68f),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                PowButton(
+                    text = stringResource(R.string.sf_gauntlet_showcase),
+                    onClick = onGauntletShowcase,
+                    color = Color(0xFF6A1B9A),
+                    modifier = Modifier.fillMaxWidth(0.68f),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                PowButton(
+                    text = stringResource(
+                        if (audioShowcaseRunning) {
+                            R.string.sf_audio_showcase_stop
+                        } else {
+                            R.string.sf_audio_showcase_all
+                        },
+                    ),
+                    onClick = if (audioShowcaseRunning) onAudioShowcaseStop else onAudioShowcase,
+                    color = Color(0xFF00695C),
+                    modifier = Modifier.fillMaxWidth(0.68f),
+                )
+                if (audioShowcaseRunning && audioShowcaseFighter != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.sf_audio_showcase_progress,
+                            audioShowcaseIndex,
+                            audioShowcaseTotal,
+                            audioShowcaseFighter.shortName,
+                        ),
+                        color = Color(0xFFFFD54A),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = audioShowcasePhrase,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(0.82f),
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             PowButton(
@@ -1250,6 +1300,35 @@ private fun SfModeMenuOverlay(
 // y aviso ALPHA para los peleadores POW con poses aproximadas.
 // ------------------------------------------------------------------
 
+/**
+ * 🆕 (2026-07-18) Cabecera de flechas sobre un card del selector:
+ *  - AZUL "P1 ▼": el peleador YA elegido (jugador 1), visible al elegir al rival.
+ *  - ROJA "P2 ▼": el card que estás resaltando al elegir al jugador 2.
+ * Alto FIJO (reserva el espacio aunque no haya flecha) para que los cards no salten.
+ */
+@Composable
+private fun SelectArrowHeader(showAlly: Boolean, showPick: Boolean) {
+    Box(
+        modifier = Modifier.height(22.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            showPick -> Text(
+                text = "P2 ▼",
+                color = Color(0xFFE53935), // rojo
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+            )
+            showAlly -> Text(
+                text = "P1 ▼",
+                color = Color(0xFF2196F3), // azul
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+            )
+        }
+    }
+}
+
 @Composable
 private fun CharacterSelectOverlay(
     fighters: List<SfFighterId>, // DESBLOQUEADOS (RYU/KEN solo con Modo Desarrollador)
@@ -1262,6 +1341,10 @@ private fun CharacterSelectOverlay(
     backText: String? = null,                        // 🆕 etiqueta del botón volver (default "← Volver")
     /** Gama baja: previews siempre estáticos (sin animar ningún card). */
     lowEnd: Boolean = false,
+    // 🆕 (2026-07-18) Al elegir al PELEADOR 2/rival: FLECHA AZUL sobre el P1 ya elegido y
+    // FLECHA ROJA sobre el que estás resaltando (además de la animación del card).
+    allyId: SfFighterId? = null,      // P1 ya elegido → flecha AZUL ("P1")
+    showPickArrow: Boolean = false,   // true en el paso de elegir P2 → flecha ROJA en el focused
 ) {
     // 🆕 Solo el focused anima (y solo si NO es gama baja). 2.º toque confirma.
     var focusedId by remember(fighters) { mutableStateOf(fighters.firstOrNull()) }
@@ -1286,19 +1369,29 @@ private fun CharacterSelectOverlay(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 fighters.forEach { id ->
-                    CharacterCard(
-                        id = id,
-                        selected = id == focusedId,
-                        animate = !lowEnd && id == focusedId,
-                        onSelect = {
-                            if (lowEnd || id == focusedId) onSelect(id)
-                            else focusedId = id
-                        },
-                    )
+                    // 🆕 Cada card con un espacio ARRIBA para las flechas P1 (azul) / P2 (roja).
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        SelectArrowHeader(
+                            showAlly = id == allyId,
+                            showPick = showPickArrow && id == focusedId,
+                        )
+                        CharacterCard(
+                            id = id,
+                            selected = id == focusedId,
+                            animate = !lowEnd && id == focusedId,
+                            onSelect = {
+                                if (lowEnd || id == focusedId) onSelect(id)
+                                else focusedId = id
+                            },
+                        )
+                    }
                 }
                 // Bloqueados: estáticos (nunca animar)
                 lockedFighters.forEach { id ->
-                    CharacterCard(id = id, onSelect = {}, locked = true, animate = false, selected = false)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        SelectArrowHeader(showAlly = false, showPick = false)
+                        CharacterCard(id = id, onSelect = {}, locked = true, animate = false, selected = false)
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
@@ -2223,7 +2316,9 @@ private fun DrawScope.drawScene(
     showHitboxes: Boolean = false,
     playerContentH: Map<String, Int> = emptyMap(),
     cpuContentH: Map<String, Int> = emptyMap(),
+    bgFile: String? = null,
 ) {
+    val framing = framingForBg(bgFile) // 🆕 zoom/anclaje por escenario (Facultad de Medicina…)
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
     val ctx = SceneCtx(
         scale = scale,
@@ -2237,10 +2332,10 @@ private fun DrawScope.drawScene(
 
     if (bg is SfStageBackground.Animated) {
         // ---- FONDO POW ANIMADO (atlas de frames) con parallax de cámara ----
-        drawAnimatedBackground(ctx, bg, t)
+        drawAnimatedBackground(ctx, bg, t, framing)
     } else if (bg is SfStageBackground.Static) {
         // ---- FONDO POW a pantalla completa (foto fija) con parallax de cámara ----
-        drawFullBackground(ctx, bg.image)
+        drawFullBackground(ctx, bg.image, framing)
     } else if (stage != null) {
         // ---- Fondo del escenario clásico (parallax por capas) ----
         val bob = theme.boatBob[((t / 366) % theme.boatBob.size).toInt()]
@@ -2377,6 +2472,34 @@ private sealed interface SfStageBackground {
 }
 
 /**
+ * 🆕 (2026-07-18) Encuadre por ESCENARIO: por defecto el fondo se escala para que su ALTO
+ * completo entre en la escena (224). En algunos mapas eso deja a los peleadores "flotando"
+ * (mucho cielo/edificio arriba y el piso muy abajo) y se ve cuadrado. [zoom] > 1 amplía el
+ * fondo ANCLÁNDOLO AL PISO (recorta el cielo por arriba) → se ve panorámico y los peleadores
+ * quedan sobre el suelo. [offsetY] (unidades de escena, + = baja la imagen) afina el anclaje.
+ * NO regenera el asset: solo cambia cómo se dibuja.
+ */
+private data class SfBgFraming(val zoom: Float = 1f, val offsetY: Float = 0f)
+
+/**
+ * Ajustes por SUBSTRING del archivo de fondo (cubre las 3 luces: día/noche_1/noche_2, que
+ * comparten la base `fondo_<slug>_...`). Sin entrada = sin ajuste (zoom 1, sin offset).
+ */
+private val SF_BG_FRAMING: List<Pair<String, SfBgFraming>> = listOf(
+    // 🆕 (2026-07-18) Mapas NUEVOS (material regenerado): se aplica la técnica panorámica
+    // (zoom anclado al piso) SOLO a estos; los 11 ya aprobados NO se tocan. Valores tuneables
+    // en dispositivo (subir/bajar zoom u offsetY si el piso no queda exacto).
+    "facultad_medicina" to SfBgFraming(zoom = 1.35f),
+    "fes_aragon" to SfBgFraming(zoom = 1.30f),
+    "piramidesol" to SfBgFraming(zoom = 1.30f),
+    "uam_cuajimalpa" to SfBgFraming(zoom = 1.30f),
+    "zocalo" to SfBgFraming(zoom = 1.30f),
+)
+
+private fun framingForBg(file: String?): SfBgFraming =
+    file?.let { f -> SF_BG_FRAMING.firstOrNull { f.contains(it.first) }?.second } ?: SfBgFraming()
+
+/**
  * Decodifica el fondo desde assets. Si el archivo termina en "_anim.webp" y existe su JSON
  * hermano, devuelve un fondo ANIMADO; si no, uno estático.
  * RGB_565 (sin alpha). En [lowEnd] usa inSampleSize=2 (~¼ de RAM de textura) y deriva
@@ -2482,38 +2605,53 @@ private fun SfLoadingOverlay(theme: SfTheme) {
  * Fondo animado: elige el frame según el tiempo de juego (el ping-pong ya viene embebido en
  * el atlas, así que basta un loop simple 0→N-1) y lo pinta con el mismo parallax que el fijo.
  */
-private fun DrawScope.drawAnimatedBackground(ctx: SceneCtx, anim: SfStageBackground.Animated, timeMs: Long) {
+private fun DrawScope.drawAnimatedBackground(
+    ctx: SceneCtx,
+    anim: SfStageBackground.Animated,
+    timeMs: Long,
+    framing: SfBgFraming = SfBgFraming(),
+) {
     val frameMs = (1000f / anim.fps).coerceAtLeast(1f)
     val idx = ((timeMs / frameMs).toLong() % anim.frameCount).toInt().coerceIn(0, anim.frameCount - 1)
     val col = idx % anim.cols
     val row = idx / anim.cols
-    val s = SfConstants.SCENE_HEIGHT / anim.frameH.toFloat()
+    // 🆕 zoom por escenario: >1 amplía y ANCLA AL PISO (scaledH = SCENE_HEIGHT * zoom).
+    val s = (SfConstants.SCENE_HEIGHT / anim.frameH.toFloat()) * framing.zoom
     val scaledW = anim.frameW * s
+    val scaledH = anim.frameH * s
     val camSpan = SfConstants.STAGE_WIDTH - SfConstants.SCENE_WIDTH
     val progress = ((ctx.camX - SfConstants.STAGE_PADDING) / camSpan).coerceIn(0f, 1f)
     val offsetX = (scaledW - SfConstants.SCENE_WIDTH).coerceAtLeast(0f) * progress
+    // Base de la imagen al fondo de la escena (recorta cielo arriba); offsetY afina.
+    val dstY = ctx.oy + (SfConstants.SCENE_HEIGHT - scaledH + framing.offsetY) * ctx.scale
     drawImage(
         image = anim.atlas,
         srcOffset = IntOffset(col * anim.frameW, row * anim.frameH),
         srcSize = IntSize(anim.frameW, anim.frameH),
-        dstOffset = IntOffset((ctx.ox - offsetX * ctx.scale).toInt(), ctx.oy.toInt()),
-        dstSize = IntSize((scaledW * ctx.scale).toInt(), (SfConstants.SCENE_HEIGHT * ctx.scale).toInt()),
+        dstOffset = IntOffset((ctx.ox - offsetX * ctx.scale).toInt(), dstY.toInt()),
+        dstSize = IntSize((scaledW * ctx.scale).toInt(), (scaledH * ctx.scale).toInt()),
         filterQuality = FilterQuality.Low,
     )
 }
 
-private fun DrawScope.drawFullBackground(ctx: SceneCtx, bg: ImageBitmap) {
-    val s = SfConstants.SCENE_HEIGHT / bg.height.toFloat()
+private fun DrawScope.drawFullBackground(
+    ctx: SceneCtx,
+    bg: ImageBitmap,
+    framing: SfBgFraming = SfBgFraming(),
+) {
+    val s = (SfConstants.SCENE_HEIGHT / bg.height.toFloat()) * framing.zoom
     val scaledW = bg.width * s
+    val scaledH = bg.height * s
     val camSpan = SfConstants.STAGE_WIDTH - SfConstants.SCENE_WIDTH
     val progress = ((ctx.camX - SfConstants.STAGE_PADDING) / camSpan).coerceIn(0f, 1f)
     val offsetX = (scaledW - SfConstants.SCENE_WIDTH).coerceAtLeast(0f) * progress
+    val dstY = ctx.oy + (SfConstants.SCENE_HEIGHT - scaledH + framing.offsetY) * ctx.scale
     drawImage(
         image = bg,
         srcOffset = IntOffset(0, 0),
         srcSize = IntSize(bg.width, bg.height),
-        dstOffset = IntOffset((ctx.ox - offsetX * ctx.scale).toInt(), ctx.oy.toInt()),
-        dstSize = IntSize((scaledW * ctx.scale).toInt(), (SfConstants.SCENE_HEIGHT * ctx.scale).toInt()),
+        dstOffset = IntOffset((ctx.ox - offsetX * ctx.scale).toInt(), dstY.toInt()),
+        dstSize = IntSize((scaledW * ctx.scale).toInt(), (scaledH * ctx.scale).toInt()),
         filterQuality = FilterQuality.Low, // foto: bilineal se ve mejor que None
     )
 }

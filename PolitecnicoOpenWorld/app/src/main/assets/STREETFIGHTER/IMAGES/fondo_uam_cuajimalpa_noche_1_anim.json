@@ -8,8 +8,8 @@
   "loop": true,
   "pingPong": true,
   "slug": "uam_cuajimalpa_noche_1",
-  "source": "UAM Cuajimalpa Noche 1.jpg",
+  "source": "UAM Cuajimalpa Noche 1.mp4",
   "maxAtlasSide": 2048,
-  "kenBurns": true,
-  "logoApplied": true
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

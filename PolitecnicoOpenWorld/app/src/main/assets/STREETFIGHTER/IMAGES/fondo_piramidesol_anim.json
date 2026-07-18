@@ -8,8 +8,8 @@
   "loop": true,
   "pingPong": true,
   "slug": "piramidesol",
-  "source": "PiramideSol.png",
+  "source": "piramidesol.mp4",
   "maxAtlasSide": 2048,
-  "kenBurns": true,
-  "logoApplied": true
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

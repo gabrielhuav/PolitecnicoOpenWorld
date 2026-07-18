@@ -26,6 +26,22 @@
   DETENER, y al final escribe un .txt en getExternalFilesDir + reporte en pantalla. Sirve para
   cazar assets rotos: cuando salga el reporte, corregir en la siguiente pasada.
 
+## Cambios 2026-07-18m (Fable) — desbloqueo por dificultad, dev-tools, flechas P1/P2, dificultad sin escenario
+
+- **Desbloqueo por dificultad ELEGIDA** (`handleArcadeMatchEnd`, key = `arcadeChosenDifficulty`):
+  FÁCIL (BASICA) → SOLO el mapa del rival; MEDIO (NORMAL) → el PELEADÓR + su mapa (mínimo para
+  tener al personaje); DIFÍCIL (AVANZADA/apocalíptica) → NADA por ahora (próx.: animaciones/
+  poderes). La escalera siempre avanza al ganar. Antes: cualquier victoria desbloqueaba peleadór+mapa.
+- **"ELIGE DIFICULTAD" sin escenario:** los strings `sf_arcade_diff_*_desc` + `_maps_hint` ya NO
+  dicen día/noche/apocalíptica; ahora describen el AI y el desbloqueo (ES+EN).
+- **Flechas P1/P2 en el selector:** `SelectArrowHeader` + params `allyId`/`showPickArrow` en
+  `CharacterSelectOverlay`. Al elegir al P2/rival (práctica + IA vs IA): flecha AZUL "P1 ▼" sobre
+  el ya elegido y flecha ROJA "P2 ▼" sobre el resaltado (además de la animación del card).
+- **Autojuego/Showcase = SOLO Modo Desarrollador:** los 4 botones (todos vs todos, 9 campañas,
+  showcase animaciones/sonidos, showcase audios) se envuelven en `if (devMode)` dentro de
+  `SfModeMenuOverlay` (param `devMode = viewModel.devUnlockAll()`), bajo header
+  `sf_dev_tools_header`. Los usuarios normales solo ven Arcade/Práctica/IA vs IA/Multijugador.
+
 ## Fix 2026-07-18j (Fable) — IA variada + showcase completo con auditoría estática
 
 - IA "quietos/mismo ataque": `cpuLastOffenseMs` ahora se alimenta del ESTADO real (atacando),

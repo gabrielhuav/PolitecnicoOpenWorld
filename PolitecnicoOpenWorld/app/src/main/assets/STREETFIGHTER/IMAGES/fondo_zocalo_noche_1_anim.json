@@ -8,8 +8,8 @@
   "loop": true,
   "pingPong": true,
   "slug": "zocalo_noche_1",
-  "source": "Zocalo Noche 1.jpg",
+  "source": "Zocalo Noche 1.mp4",
   "maxAtlasSide": 2048,
-  "kenBurns": true,
-  "logoApplied": true
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

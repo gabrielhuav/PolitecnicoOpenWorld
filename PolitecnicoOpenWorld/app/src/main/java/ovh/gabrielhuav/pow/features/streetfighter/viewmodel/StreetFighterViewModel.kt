@@ -2955,6 +2955,13 @@ class StreetFighterViewModel @Inject constructor(
         if (!sfAssetExists(SF_CLASSIC_THEME.soundsDir + SF_CLASSIC_THEME.musicFile)) {
             logAssetIssue("FALTA MUSICA DEL TEMA: ${SF_CLASSIC_THEME.musicFile}")
         }
+        // 🆕 (2026-07-18k) Música por progresión (lobby + pistas de batalla de Prankedy)
+        (listOfNotNull(SF_CLASSIC_THEME.lobbyMusic.takeIf { it.isNotBlank() }) +
+            SF_CLASSIC_THEME.battleMusic).forEach { m ->
+            if (!sfAssetExists(SF_CLASSIC_THEME.soundsDir + m)) {
+                logAssetIssue("FALTA MUSICA (progresión): $m")
+            }
+        }
     }
 
     /** ¿Existe el asset? (open+close barato; solo se usa en auditorías puntuales). */
@@ -3022,18 +3029,32 @@ class StreetFighterViewModel @Inject constructor(
         SfArcadeLadder.difficultyForStep(arcadeChosenDifficulty, step)
 
     /**
-     * Fin del COMBATE en arcade (offline): si GANASTE, desbloquea al rival vencido + su mapa y
+     * Fin del COMBATE en arcade (offline): si GANASTE, desbloquea según la DIFICULTAD ELEGIDA y
      * guarda el progreso; si perdiste, marca la derrota. El overlay lo dibuja la View según
      * `arcadeOutcome`. Lo llama endRound cuando alguien llega a ROUNDS_TO_WIN.
+     *
+     * 🆕 (2026-07-18) REGLAS DE DESBLOQUEO por [arcadeChosenDifficulty] (decisión del dueño):
+     *  - FÁCIL (BASICA)   → SOLO el MAPA del rival (día). El peleadór NO se desbloquea.
+     *  - MEDIO (NORMAL)   → el PELEADÓR + su mapa (noche). Es el mínimo para tener al personaje.
+     *  - DIFÍCIL (AVANZADA/apocalíptica) → NADA por ahora (próximamente: animaciones/poderes).
+     * La escalera SIEMPRE avanza al ganar (independiente del desbloqueo).
      */
     private fun handleArcadeMatchEnd(winnerIdx: Int) {
         val s = _state.value
         val step = arcadeLadder.getOrNull(s.arcadeStep - 1) ?: return
         val outcome = if (winnerIdx == 0) {
-            // Peleadór + su mapa hogar (día/noche/apocalipsis) para práctica y multiplayer
-            arcadeRepo.unlockFighter(step.rival.name)
-            // Por si el mapa de la pelea (variante de luz) no era el “hogar” base
-            step.mapFile?.let { arcadeRepo.unlockMap(it) }
+            when (arcadeChosenDifficulty) {
+                SfCpuDifficulty.BASICA -> {
+                    // Solo el mapa del rival (variante de la pelea = día)
+                    step.mapFile?.let { arcadeRepo.unlockMap(it) }
+                }
+                SfCpuDifficulty.NORMAL -> {
+                    // Peleadór + su mapa (noche): mínimo para desbloquear al personaje
+                    arcadeRepo.unlockFighter(step.rival.name)
+                    step.mapFile?.let { arcadeRepo.unlockMap(it) }
+                }
+                else -> Unit // AVANZADA/PESADILLA (apocalíptica): aún no desbloquea nada
+            }
             arcadeRepo.setLadderStep(s.arcadeStep)
             if (s.arcadeStep >= arcadeLadder.size) SfArcadeOutcome.COMPLETED else SfArcadeOutcome.WON
         } else {

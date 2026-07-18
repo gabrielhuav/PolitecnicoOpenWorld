@@ -8,8 +8,8 @@
   "loop": true,
   "pingPong": true,
   "slug": "facultad_medicina_noche_2",
-  "source": "Facultad Medicina Noche 2.jpg",
+  "source": "Facultad Medicina Noche 2.mp4",
   "maxAtlasSide": 2048,
-  "kenBurns": true,
-  "logoApplied": true
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

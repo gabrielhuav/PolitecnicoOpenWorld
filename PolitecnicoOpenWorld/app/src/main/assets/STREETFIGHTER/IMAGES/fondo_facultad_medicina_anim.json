@@ -8,8 +8,8 @@
   "loop": true,
   "pingPong": true,
   "slug": "facultad_medicina",
-  "source": "Facultad Medicina.png",
+  "source": "Facultad Medicina.mp4",
   "maxAtlasSide": 2048,
-  "kenBurns": true,
-  "logoApplied": true
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }
