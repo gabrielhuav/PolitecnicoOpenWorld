@@ -104,7 +104,7 @@
 | `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). |
 | `CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
-| `_ARCHIVO/` | Histórico + prompts: **`PROMPT_traspaso_Fable_2026-07-18_voces.md`** (Fable: **1º IA+Showcase**, 2º contexto voces), `PROMPT_traspaso_IA_CPU_2026-07-18.md`. |
+| `_ARCHIVO/` | Histórico + prompts: **`PROMPT_traspaso_GPT56_2026-07-18_git_audio.md`** (SIGUIENTE SESIÓN: **1º git/PR a producción**, 2º audio Llorona/Presidenta), `PROMPT_traspaso_Fable_2026-07-18_voces.md`, `PROMPT_traspaso_IA_CPU_2026-07-18.md`. |
 
 ---
 
