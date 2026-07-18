@@ -152,13 +152,16 @@ Los locked salen con candado; el fondo del muelle SF queda de fallback.
 - **Menú de modos POW** al entrar (`SfModeMenuOverlay`): ARCADE (principal) / PRÁCTICA /
   **IA VS IA** / MULTIJUGADOR. Arcade = SOLO eliges peleador (dificultad FIJA, `startArcade(playerId)` sin base).
 - **Dificultad arcade (2026-07-18g):** el jugador elige **Fácil / Medio / Difícil** al
-  arrancar. Mapas = **hogar del rival** (`SfStageCatalog`) + iluminación:
-  Fácil→día, Medio→noche_1, Difícil→noche_2 (apocalipsis). La IA base es la elegida;
-  jefes/final suben 1–2 escalones. `cpuIntensity` con PISO 0.20 (la
-  pelea 1 no es trivial) → 1.0 en la final.
-- **🆕 IA VS IA (2026-07-18):** CPU vs CPU a PESADILLA + `cpuIntensity = 1f` para grabar en
-  video. `state.aiVsAi`; IA por índice (`buildCpuInput(..., selfIndex)`); controles táctiles
-  ocultos, solo "Salir". No desbloquea arcade. Solo offline.
+  arrancar (`ArcadeDifficultyOverlay` → `startArcade(id, difficulty)`). Mapas = **hogar del
+  rival** (`SfStageCatalog.homeStage` + `mapForRival`) + iluminación:
+  Fácil→día, Medio→noche_1, Difícil→noche_2. IA base = elegida; jefes/final +1/+2 ordinal.
+  `cpuIntensity` piso 0.20 → 1.0 en la final.
+- **Tabla peleadór→mapa (dueño, 2026-07-18h):** ver **`SF_STAGES_MAPS_UNLOCK.md`**.
+  REY_GRUPERO → FES Aragón; ESCOMGIRL → ESCOM; etc. Desbloquear peleadór desbloquea las 3
+  luces de su mapa (`SfArcadeRepository.unlockFighter` → práctica + MP host BT/LAN/Render).
+- **🆕 IA VS IA (2026-07-18):** CPU vs CPU a PESADILLA + `cpuIntensity = 1f`. Controles
+  ocultos, solo "Salir". **⚠️ REGRESIÓN reportada:** a menudo dejan de pelear; ver
+  `_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md` (prioridad siguiente sesión).
 - **🆕 Fondos cap 2048 + thumbs (2026-07-18):** atlas ≤2048 (gama baja), frames ~480×270
   crop-to-fill, ~28 frames ping-pong, `_thumb.png` ~256 px. Tool `build_map_backgrounds.py`.
 - **🆕 Selector de mapa (`SfStageSelectOverlay.kt`, 2026-07-18b):** preview **estático** en
@@ -167,26 +170,22 @@ Los locked salen con candado; el fondo del muelle SF queda de fallback.
 
 ## PENDIENTE — siguiente sesión
 
-> ✅ **(2026-07-17e) HECHOS los puntos 1, 2 y 3** (arcade por defecto al entrar + "↕ Otros modos";
-> bloqueados en silueta NEGRA PIXELADA con nombre "???"; rival siempre visible). Queda SOLO el 4.
+> ✅ Hechos (2026-07-17e…18h): arcade por defecto; bloqueados ???; rival visible; mapas×3;
+> Fácil/Medio/Difícil; peleadór→mapa dueño; unlock peleadór→mapa; specials 21/21.
+> Parches parciales de movimiento/IA (IDLE_TURN, stale approach) — **no suficientes**.
 
-1. **ARCADE por defecto al entrar** al modo SF: en vez del `SfModeMenuOverlay` primero, mostrar
-   directo el **selector de peleador del ARCADE** (que se vean los personajes, más llamativo).
-   PRÁCTICA y MULTIJUGADOR pasan a un botón secundario (p. ej. "Otros modos" que abre el menú
-   actual). Archivo: `StreetFighterScreen.kt` (flujo `sfMenu`/`arcadeSetup`).
-2. **Bloqueados con identidad OCULTA:** en el selector, los personajes bloqueados deben verse
-   como **silueta** — su misma animación de preview pero **repintada en negro / escala de grises
-   y PIXELADA** (baja resolución) para NO distinguir quién es hasta desbloquearlo. Hoy solo salen
-   atenuados + 🔒 (se reconoce quién es). Archivos: `CharacterCard` +
-   `rememberAnimatedFighterPreview` (aplicar ColorMatrix grayscale/negro + submuestreo pixelado
-   al bitmap del preview cuando `locked`).
-3. **Rival SÍ se ve claro:** el ocultamiento es SOLO en el selector de TU peleador. El RIVAL de
-   cada pelea (y un posible cartel "VS / siguiente rival") se muestra NORMAL, para que veas
-   contra quién peleas. (Recordatorio: pelea 1 = **Paramédico Cruz Roja**.)
-4. **Combate estilo SF original** (grande): más controles, más **motions**/moves (además del
-   hadouken ↓↘→), **combos/cancels** (encadenar normales→especiales) y mayor **fluidez**
-   (transiciones/frame-data). Toca input (`onJoystickMove`/`onAttackPressed`/`onKickPressed`),
-   `buildCpuInput` y la máquina de estados del VM. Definir el set de moves con el dueño.
+### 🔥 P0 — IA de pelea (traspaso Claude 4.8)
+
+Ver **`_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md`**.
+
+1. Jugador a veces **no se mueve** en arcade (input / estados / push).
+2. **IA vs IA** deja de pelear (solo camina).
+3. CPU **menos agresiva** que antes del anti-spam (upgrade real, no solo rates al azar).
+4. Mantener: 1 fireball activa, sin muro de proyectiles, sin salir de stage.
+
+### P1 — Combate “SF original” (grande, después de P0)
+
+Más motions/combos/cancels/fluidez. Definir set con el dueño antes de implementar.
 
 ## Añadidos 2026-07-17c
 

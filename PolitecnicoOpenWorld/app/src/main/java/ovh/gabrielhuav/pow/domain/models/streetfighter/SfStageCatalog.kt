@@ -70,11 +70,10 @@ object SfStageCatalog {
      * (`SfArcadeLadder.ALL_PARTICIPANTS`) son formales.
      *
      * Compartidos:
-     * - ESIME Azc: PRANKEDY + REY_GRUPERO
      * - CU UNAM: PAPARAZZI_1 + POLICIA_GRANADERO_MUJER
      * - Zócalo: POLICIA_GRANADERO_HOMBRE + LA_PRESIDENTA
      *
-     * Mapa base **sin** peleadór hogar: [FES_ARAGON] (sigue en práctica/MP si se desbloquea).
+     * Los 16 mapas base tienen al menos un peleadór hogar.
      * Alpha/shared (LÁZARO, etc.): fallback solo para Modo Dev.
      */
     fun homeStage(id: SfFighterId): Stage = when (id) {
@@ -84,7 +83,7 @@ object SfStageCatalog {
         SfFighterId.ROBOT -> CECYT_2
         // ── Universo Prankedy / calle ──
         SfFighterId.PRANKEDY -> ESIME_AZC
-        SfFighterId.REY_GRUPERO -> ESIME_AZC // comparte con Prankedy
+        SfFighterId.REY_GRUPERO -> FES_ARAGON
         SfFighterId.SENOR_TIENDA -> QUESO_IPN
         SfFighterId.PAPARAZZI_1 -> UNAM_CU
         SfFighterId.PAPARAZZI_5 -> UAM_AZCAPO

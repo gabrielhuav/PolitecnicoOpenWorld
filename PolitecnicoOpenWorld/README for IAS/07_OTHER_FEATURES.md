@@ -410,13 +410,20 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     (`resumeArcadeSession` / `discardArcadeSession`).
   - **PRIORIDAD copyright:** sustituir **`hadouken.ogg`** (+ golpes legacy) por SFX propios;
     Ken/Ryu ya NO están en el enum (solo restos de comentario/debug assets).
-  - **🆕 Arcade Fácil/Medio/Difícil + mapas por rival (2026-07-18g):**
-  - Flujo: peleadór → **Fácil / Medio / Difícil** (no más dificultad fija invisible).
-  - Mapas = `SfStageCatalog.homeStage(rival)` + iluminación: día / `noche_1` / `noche_2`.
-  - 16 bases × 3 = 48 fondos animados. Catálogo en `SfStageCatalog.kt`.
-  - Fix movimiento: cancelar `IDLE_TURN` con input; push en WALK no congela.
-  - Fix IA / IA vs IA: más agresiva, anti-estancamiento (forzar golpe si solo camina),
-    cooldowns de special más cortos, rates de ataque/special restaurados.
+  - **🆕 Arcade Fácil/Medio/Difícil + mapas por rival (2026-07-18g/h):**
+    - Flujo: peleadór → **Fácil / Medio / Difícil** (`startArcade(id, diff)`).
+    - Mapas = `SfStageCatalog.homeStage(rival)` + día/noche/apocalipsis. Tabla dueño:
+      **`SF_STAGES_MAPS_UNLOCK.md`** (REY_GRUPERO→FES Aragón, ESCOMGIRL→ESCOM, …).
+    - Unlock peleadór → 3 luces del mapa (práctica + host MP BT/LAN/Render).
+    - Fix parcial movimiento: `IDLE_TURN` cancelable; WALK en pushableStates.
+    - Fix parcial IA: `cpuStaleApproach`, rates subidos, cooldowns ~700/650 ms.
+    - **🆕 IA 2026-07-18i (mejora masiva pre-traspaso):**
+      - Aproximación/retirada en **coords mundo** (no solo “forward” de la cara).
+      - **Clinch break** si dist &lt; 58 px: retroceder, jump-back, golpes ligeros (IA vs IA prioriza separar).
+      - Rangos clinch/melee/mid; footsies, block walk-back, anti-air, punish recovery.
+      - Watchdog ofensivo (~420 ms IA vs IA); desync de decisiones P0/P1; `attackValidFrom` + IDLE_TURN.
+      - Núcleo unificado `smartCpuDecision` (AVANZADA/PESADILLA).
+      - Si aún falla en dispositivo: `_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md`.
 - **🆕 Especiales por personaje (voces scrapeadas + curadas, 2026-07-18f/g) — 21/21 OK:**
     - Pipeline: X (`scrape_sf_voices.py`) + **YouTube** (`scrape_sf_voices_youtube.py` / yt-dlp)
       + **curación pelea** `curate_sf_special_sfx.py --install` → `special_<fighter>.ogg` (21).

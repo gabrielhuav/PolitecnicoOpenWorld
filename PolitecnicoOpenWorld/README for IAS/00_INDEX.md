@@ -53,24 +53,28 @@
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
-### Estado vigente (2026-07-18) — LÉEME PRIMERO
+### Estado vigente (2026-07-18h) — LÉEME PRIMERO
 
 > **ES:** El estado del modo pelea y del resto del juego vive en **00–09** (sobre todo
 > **07 §HUELUM VS. GOYA**). Los prompts/checkpoints/pendientes de sesiones pasadas están en
-> **`_ARCHIVO/`** → **NO hace falta leerlos** para retomar trabajo (son histórico).
-> **EN:** Live state is in **00–09** (esp. **07 §HUELUM VS. GOYA**). Past session prompts live
-> under **`_ARCHIVO/`** — **do not read them** to resume work.
+> **`_ARCHIVO/`** → **NO hace falta leerlos** para retomar trabajo (son histórico), salvo el
+> **prompt de traspaso IA** si vas a arreglar la CPU.
+> **EN:** Live state is in **00–09** (esp. **07 §HUELUM VS. GOYA**). Past prompts under
+> **`_ARCHIVO/`** — except the AI handoff prompt if fixing CPU.
 
-**HUELUM VS. GOYA — lo reciente (resumen vivo, detalle en 07):**
-- Modos: ARCADE (default) / PRÁCTICA / **IA VS IA** / MULTIJUGADOR.
-- **Gama baja:** tick ~30 fps, atlas sample 2, selector sin animar todos los cards, CARGANDO
-  al entrar a pelea, **guardado de sesión arcade** al pausar (retomar al reabrir).
-- Fondos: todos `_anim` ≤2048; selector de mapa = thumbs + 1 preview animado.
-- **PRIORIDAD:** reemplazar SFX residuales de golpe/land; **especiales por personaje 21/21**
-  (`special_*.ogg` — doc completo **`SF_SPECIAL_VOICES_SFX.md`**, tools `sf_voice_scrape/` +
-  `curate_sf_special_sfx.py`). `hadouken.ogg` solo fallback. Ken/Ryu fuera del juego.
-- **La Presidenta:** a ≤1/4 vida → metamorfosis real a **Yoalli** (50% HP); no muere en el KO.
-- Arcade: escalera + desbloqueos; ver `DISENO_ARCADE_SF_POW.md`.
+**HUELUM VS. GOYA — lo reciente (resumen vivo, detalle en 07 + docs de trabajo):**
+- Modos: **ARCADE** (default) / PRÁCTICA / **IA VS IA** / MULTIJUGADOR (Render / BT / LAN).
+- **Arcade:** peleadór → **Fácil/Medio/Difícil** → escalera 15. Mapas = hogar del **rival** +
+  luz (día / noche / apocalipsis). Tabla peleadór→mapa: **`SF_STAGES_MAPS_UNLOCK.md`**.
+- **Desbloqueos:** peleadór + **3 luces** de su mapa (`SfArcadeRepository`); práctica/MP host
+  solo mapas desbloqueados.
+- **Roster arcade:** 18 dedicados. **NO** arcade: Lázaro / Granadero genérico / Paramédico
+  genérico (alpha+shared).
+- **Gama baja:** tick ~30 fps, atlas ≤2048, thumbs, CARGANDO, sesión arcade al pausar.
+- **SFX especiales:** 21/21 `special_*.ogg` — **`SF_SPECIAL_VOICES_SFX.md`**. `hadouken` fallback.
+- **Presidenta** ≤1/4 vida → meta real a **Yoalli** (50% HP).
+- **IA 2026-07-18i:** reescritura (clinch break, mundo-space, smartCpuDecision, watchdog).
+  Si en dispositivo aún falla: **`_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md`**.
 
 ### Docs de trabajo / Working docs (no son 00–09)
 
@@ -78,15 +82,16 @@
 |---|---|
 | `GUIA_mantenimiento_no_senior.md` | **EMPEZAR AQUÍ si eres IA/dev nuevo:** 7 reglas, chuleta, qué NO hacer. |
 | `DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |
+| **`SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleadór→hogar (tabla dueño), desbloqueos MP.** |
 | `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
-| **`SF_SPECIAL_VOICES_SFX.md`** | **Voces/SFX de especial por peleadór:** scrape X+YT, curación, cableado, backlog de mejora. |
+| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX de especial por peleadór (scrape, curación, backlog). |
 | `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo. |
 | `GUIA_generacion_assets_SF.md` | Guía manual de generación de assets. |
 | `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). |
 | `CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
-| `_ARCHIVO/` | **Histórico ✅** (prompts, pendientes viejos, checkpoints). **No leer como tareas.** |
+| `_ARCHIVO/` | Histórico + **`PROMPT_traspaso_IA_CPU_2026-07-18.md`** (Claude 4.8 / IA pelea). |
 
 ---
 

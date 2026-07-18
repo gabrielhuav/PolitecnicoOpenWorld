@@ -177,6 +177,10 @@ class StreetFighterViewModel @Inject constructor(
     private var cpuIntensity = 0f
     // Contador de “solo caminar sin atacar” por índice: si se atascan cerca sin golpear, forzamos ataque.
     private val cpuStaleApproach = IntArray(2) { 0 }
+    // gameNow del último golpe/special emitido por la IA (watchdog anti “congelados”).
+    private val cpuLastOffenseMs = LongArray(2) { 0L }
+    // Preferencia de “espacio” tras clinch (retrocede un rato en IA vs IA).
+    private val cpuWantsSpaceUntilMs = LongArray(2) { 0L }
 
     // ---- batalla ----
     private var hurtFreezeUntilMs = 0L  // hit-freeze (FighterStruckDelay)
@@ -246,6 +250,10 @@ class StreetFighterViewModel @Inject constructor(
         const val SPECIAL_COOLDOWN_AIVSAI_MS = 650L
         const val MAX_ACTIVE_FIREBALLS_PER_FIGHTER = 1
         const val MAX_FIREBALLS_TOTAL = 4
+        // Rangos IA (px): clinch → separar; melee → golpear; mid → footsies
+        const val CPU_CLINCH_DIST = 58f
+        const val CPU_MELEE_DIST = 105f
+        const val CPU_MID_DIST = 175f
         // Límites mundiales del escenario (padding + stage). Mantienen a los peleadores visibles.
         val STAGE_X_MIN = SfConstants.STAGE_PADDING + 24f
         val STAGE_X_MAX = SfConstants.STAGE_PADDING + SfConstants.STAGE_WIDTH - 24f
@@ -282,6 +290,7 @@ class StreetFighterViewModel @Inject constructor(
     // validFrom del JS (Fighter.js states + los specials que añade el constructor de Ryu/Ken)
     private val specialValidFrom = setOf(
         SfFighterState.IDLE, SfFighterState.IDLE_TURN, SfFighterState.WALK_FORWARD,
+        SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
         SfFighterState.CROUCH_UP, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH,
         SfFighterState.CROUCH_TURN, SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH,
         SfFighterState.HEAVY_PUNCH,
@@ -289,6 +298,8 @@ class StreetFighterViewModel @Inject constructor(
 
     private val attackValidFrom = setOf(
         SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
+        // Tras giro: la IA/jugador debe poder golpear sin esperar a completar IDLE_TURN
+        SfFighterState.IDLE_TURN, SfFighterState.JUMP_LAND, SfFighterState.CROUCH_UP,
     )
 
     private val validFrom: Map<SfFighterState, Set<SfFighterState>> = mapOf(
@@ -681,14 +692,22 @@ class StreetFighterViewModel @Inject constructor(
             }
             SfFighterState.CROUCH_UP -> if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
             SfFighterState.IDLE_TURN -> {
-                // 🆕 Cancelar giro con input: si no, el jugador se siente “trabado” durante el turn.
-                val wantsAction = input.forward || input.backward || input.up || input.down ||
-                    input.lightPunch || input.mediumPunch || input.heavyPunch ||
+                // Cancelar giro con input (jugador + IA). Si el input es ataque, puede salir
+                // directo al golpe (validFrom incluye IDLE_TURN) sin pasar por IDLE.
+                val wantsMove = input.forward || input.backward || input.up || input.down
+                val wantsOffense = input.lightPunch || input.mediumPunch || input.heavyPunch ||
                     input.lightKick || input.mediumKick || input.heavyKick ||
                     input.special != null || input.bonusPower != null
                 when {
-                    wantsAction -> {
-                        // direction ya se aplicó al entrar a IDLE_TURN; salir a IDLE y procesar input
+                    wantsOffense -> {
+                        if (input.bonusPower != null && tryBonusPower(sim, idx, input.bonusPower, now)) return
+                        if (input.special != null && trySpecial(sim, idx, input.special, now)) return
+                        if (tryAttacks(sim, idx, input, now)) return
+                        if (changeState(sim, idx, SfFighterState.IDLE, now)) {
+                            handleCommonNeutral(sim, idx, input, now)
+                        }
+                    }
+                    wantsMove -> {
                         if (changeState(sim, idx, SfFighterState.IDLE, now)) {
                             handleCommonNeutral(sim, idx, input, now)
                         }
@@ -1439,287 +1458,354 @@ class StreetFighterViewModel @Inject constructor(
     /**
      * IA de UN peleador (`selfIndex` 0 o 1). En VS normal solo se llama con 1 (CPU);
      * en IA vs IA se llama para 0 y 1. Cadencia e intención sostenida son POR índice.
+     *
+     * 2026-07-18i: rangos SF (clinch/melee/mid/far), aproximación en **mundo** (no solo
+     * “forward” de la cara), separación al pegarse, desync IA vs IA, watchdog ofensivo.
      */
     private fun buildCpuInput(now: Long, sim: Sim, selfIndex: Int): SfInput {
         if (sim.battleEnded) return SfInput()
         val i = selfIndex.coerceIn(0, 1)
         if (now < cpuNextDecisionMs[i]) return cpuHold[i]
 
-        // Cadencia: NORMAL/AVANZADA/PESADILLA reaccionan con ritmo de pelea (no “dormidas”).
-        // Intensidad del arcade acelera hasta ~40% más.
         val difficulty = _state.value.cpuDifficulty
+        val aiVs = _state.value.aiVsAi
+        // Desync en IA vs IA: P1 piensa un poco desfasado → no se copian el espejo eterno
+        val desync = if (aiVs) (i * 17L) else 0L
         val baseDelay = when (difficulty) {
-            SfCpuDifficulty.BASICA -> Random.nextLong(700L, 1200L)
-            SfCpuDifficulty.NORMAL -> Random.nextLong(200L, 420L)
-            SfCpuDifficulty.AVANZADA -> Random.nextLong(70L, 140L)
-            SfCpuDifficulty.PESADILLA -> Random.nextLong(40L, 90L)
+            SfCpuDifficulty.BASICA -> Random.nextLong(650L, 1100L)
+            SfCpuDifficulty.NORMAL -> Random.nextLong(160L, 340L)
+            SfCpuDifficulty.AVANZADA -> Random.nextLong(55L, 120L)
+            SfCpuDifficulty.PESADILLA -> Random.nextLong(35L, 75L)
         }
-        cpuNextDecisionMs[i] = now + (baseDelay * (1f - 0.40f * cpuIntensity)).toLong().coerceAtLeast(35L)
+        cpuNextDecisionMs[i] = now + desync +
+            (baseDelay * (1f - 0.42f * cpuIntensity)).toLong().coerceAtLeast(30L)
+
         var decision = when (difficulty) {
-            SfCpuDifficulty.BASICA -> basicCpuDecision(sim, i)
-            SfCpuDifficulty.NORMAL -> normalCpuDecision(sim, i)
-            SfCpuDifficulty.AVANZADA -> advancedCpuDecision(sim, i)
-            SfCpuDifficulty.PESADILLA -> pesadillaCpuDecision(sim, i)
+            SfCpuDifficulty.BASICA -> basicCpuDecision(sim, i, now)
+            SfCpuDifficulty.NORMAL -> normalCpuDecision(sim, i, now)
+            SfCpuDifficulty.AVANZADA -> smartCpuDecision(sim, i, now, nightmare = false)
+            SfCpuDifficulty.PESADILLA -> smartCpuDecision(sim, i, now, nightmare = true)
         }
+
         val me = sim.fighter(i)
         val foe = sim.fighter(1 - i)
-        val distToFoe = abs(me.x - foe.x)
-        // Anti-estancamiento: si solo camina hacia el rival de cerca sin golpear, forzar ataque.
-        val onlyWalk = decision.forward && !decision.hasAttackOrSpecial()
-        if (onlyWalk && distToFoe < 110f) {
+        val dist = abs(me.x - foe.x)
+
+        // Watchdog: sin ofensiva reciente a rango de pelea → forzar golpe o reset de clinch
+        if (difficulty != SfCpuDifficulty.BASICA && dist < 150f) {
+            val staleMs = now - cpuLastOffenseMs[i]
+            val limit = if (aiVs) 420L else 700L
+            if (staleMs > limit && !decision.hasAttackOrSpecial()) {
+                decision = when {
+                    dist < CPU_CLINCH_DIST -> cpuClinchBreak(me, foe, now, i)
+                    Random.nextFloat() < 0.75f -> randomCpuAttack()
+                    else -> cpuJumpIn(me, foe)
+                }
+            }
+        }
+
+        // Anti-walk-loop: caminar hacia el rival sin golpear de cerca
+        val onlyWalkIn = decision.isOnlyWalkToward(me, foe)
+        if (onlyWalkIn && dist < 120f) {
             cpuStaleApproach[i]++
-            if (cpuStaleApproach[i] >= 3) {
-                decision = randomCpuAttack()
+            if (cpuStaleApproach[i] >= 2) {
+                decision = if (dist < CPU_CLINCH_DIST) {
+                    cpuClinchBreak(me, foe, now, i)
+                } else {
+                    randomCpuAttack()
+                }
                 cpuStaleApproach[i] = 0
             }
         } else if (decision.hasAttackOrSpecial()) {
             cpuStaleApproach[i] = 0
+            cpuLastOffenseMs[i] = now
         }
+
         cpuHold[i] = decision
-        // Bonus powers: un poco más frecuentes en IA vs IA (show), raros vs humano en BÁSICA
+
+        // Bonus powers (show en IA vs IA; raros vs humano)
         val bonusCount = usableBonusPowerCount(me.id)
-        val aiVs = _state.value.aiVsAi
         val bonusChance = when {
             difficulty == SfCpuDifficulty.BASICA -> 0f
-            distToFoe > 160f -> if (aiVs) 0.03f else 0.015f
-            me.id == SfFighterId.LA_PRESIDENTA && !aiVs -> 0.03f
-            aiVs -> 0.06f
-            else -> 0.04f
+            dist > 170f -> if (aiVs) 0.04f else 0.02f
+            me.id == SfFighterId.LA_PRESIDENTA && !aiVs -> 0.035f
+            aiVs -> 0.07f
+            else -> 0.045f
         }
         if (bonusCount > 0 &&
-            me.state == SfFighterState.IDLE &&
+            me.state in attackValidFrom &&
             !me.metamorphosing &&
             !isNearStageCorner(me.x) &&
+            dist in 70f..200f &&
             now >= specialCooldownUntil[i] &&
             Random.nextFloat() < bonusChance
         ) {
             cpuHold[i] = SfInput(bonusPower = Random.nextInt(1, bonusCount + 1))
+            cpuLastOffenseMs[i] = now
         }
-        // Los botones son de UN tick: se entregan una vez y la intención queda solo direccional
+
         val oneShot = cpuHold[i]
-        cpuHold[i] = cpuHold[i].copy(
+        // Sostener direcciones (presión / walk-back); botones y salto = un tick
+        cpuHold[i] = oneShot.copy(
             lightPunch = false, mediumPunch = false, heavyPunch = false,
-            lightKick = false, mediumKick = false, heavyKick = false, special = null,
-            bonusPower = null,
+            lightKick = false, mediumKick = false, heavyKick = false,
+            special = null, bonusPower = null, up = false,
         )
         return oneShot
     }
 
-    /** ¿La intención CPU trae golpe o especial (no solo caminar)? */
     private fun SfInput.hasAttackOrSpecial(): Boolean =
         lightPunch || mediumPunch || heavyPunch || lightKick || mediumKick || heavyKick ||
             special != null || bonusPower != null
 
-    /**
-     * BÁSICA — para APRENDER los controles: reacciona lento (~0.8-1.5 s), camina mucho,
-     * se queda quieta seguido y solo tira golpes LIGEROS de vez en cuando. NUNCA lanza
-     * poderes, NUNCA salta y NUNCA se cubre a propósito.
-     */
-    private fun basicCpuDecision(sim: Sim, selfIndex: Int): SfInput {
-        val me = sim.fighter(selfIndex)
-        val opp = sim.fighter(1 - selfIndex)
-        val dist = abs(me.x - opp.x)
-        val roll = Random.nextFloat()
-        return when {
-            dist > 190f -> if (roll < 0.65f) SfInput(forward = true) else SfInput()
-            dist > 90f -> when {
-                roll < 0.45f -> SfInput(forward = true)
-                roll < 0.75f -> SfInput()
-                else -> SfInput(backward = true)
-            }
-            else -> when {
-                roll < 0.22f -> cpuAttack(SfAttackStrength.LIGHT, punch = Random.nextBoolean())
-                roll < 0.60f -> SfInput()
-                else -> SfInput(backward = true)
-            }
-        }
+    private fun SfInput.isOnlyWalkToward(me: SfFighter, foe: SfFighter): Boolean {
+        if (hasAttackOrSpecial() || up || down) return false
+        val toward = cpuMoveTowardFlags(me, foe)
+        return (forward && toward.forward && !backward) || (backward && toward.backward && !forward)
     }
 
-    /** NORMAL — se acerca a pelear y golpea; special ocasional. */
-    private fun normalCpuDecision(sim: Sim, selfIndex: Int): SfInput {
-        val me = sim.fighter(selfIndex)
-        val opp = sim.fighter(1 - selfIndex)
-        val dist = abs(me.x - opp.x)
-        val roll = Random.nextFloat()
-        if (isNearStageCorner(me.x) && dist > 60f) return cpuApproach(me, opp)
-        return when {
-            dist > 190f -> when {
-                roll < 0.14f -> SfInput(special = SfAttackStrength.LIGHT)
-                roll < 0.28f -> SfInput(up = true, forward = true)
-                else -> cpuApproach(me, opp)
-            }
-            dist > 90f -> when {
-                roll < 0.55f -> cpuApproach(me, opp)
-                roll < 0.78f -> randomCpuAttack()
-                roll < 0.90f -> SfInput(up = true, forward = true)
-                else -> SfInput(backward = true)
-            }
-            else -> when {
-                roll < 0.70f + 0.15f * cpuIntensity -> randomCpuAttack()
-                roll < 0.88f -> cpuApproach(me, opp)
-                else -> SfInput(up = true)
-            }
-        }
-    }
-
-    /** ¿Está pegado a un borde del stage? (evita “acampada” en esquina spameando poderes). */
+    /** ¿Borde del stage? */
     private fun isNearStageCorner(x: Float): Boolean =
-        x <= STAGE_X_MIN + 48f || x >= STAGE_X_MAX - 48f
+        x <= STAGE_X_MIN + 52f || x >= STAGE_X_MAX - 52f
 
-    /**
-     * Camina HACIA el rival (presión). Si estoy en esquina, SIEMPRE salir hacia el centro/rival
-     * — no quedarse a spamear hadoukens de esquina (se ve poco profesional, sobre todo IA vs IA).
-     */
+    /** Flags de input para moverse HACIA el rival en coordenadas del mundo (corrige cara invertida). */
+    private fun cpuMoveTowardFlags(me: SfFighter, foe: SfFighter): SfInput {
+        val wantRight = foe.x > me.x
+        val faceRight = me.direction == SfDirection.RIGHT
+        return if (wantRight == faceRight) SfInput(forward = true) else SfInput(backward = true)
+    }
+
+    /** Alejarse del rival (crear espacio / clinch break). */
+    private fun cpuRetreatFlags(me: SfFighter, foe: SfFighter): SfInput {
+        val wantRight = foe.x > me.x
+        val faceRight = me.direction == SfDirection.RIGHT
+        // Invertir “hacia”
+        return if (wantRight == faceRight) SfInput(backward = true) else SfInput(forward = true)
+    }
+
     private fun cpuApproach(me: SfFighter, foe: SfFighter): SfInput {
-        // Si la cara no apunta al rival, “adelante” se interpreta tras maybeTurn en IDLE;
-        // forzar forward sigue siendo lo correcto cuando ya miran al oponente.
-        if (isNearStageCorner(me.x)) return SfInput(forward = true)
-        return SfInput(forward = true)
+        if (isNearStageCorner(me.x) && abs(me.x - foe.x) > 40f) {
+            // Salir de esquina hacia el centro/rival
+            return cpuMoveTowardFlags(me, foe)
+        }
+        return cpuMoveTowardFlags(me, foe)
     }
 
-    /**
-     * AVANZADA — reactiva, pero PRIORIZA pelea cuerpo a cuerpo (acercarse + golpes).
-     * Poderes: raros y solo de lejos, nunca como plan A en esquina.
-     */
-    private fun advancedCpuDecision(sim: Sim, selfIndex: Int): SfInput {
-        val me = sim.fighter(selfIndex)
-        val foe = sim.fighter(1 - selfIndex)
-        val dist = abs(me.x - foe.x)
-        val roll = Random.nextFloat()
-        val corner = isNearStageCorner(me.x)
-        val ownActive = sim.fireballs.any {
-            it.ownerIndex == selfIndex && it.state == SfFireballState.ACTIVE
-        }
-
-        // (0) Esquina → salir y pelear (nunca spamear desde el borde)
-        if (corner && dist > 70f) return cpuApproach(me, foe)
-
-        // (1) Proyectil entrante → saltar / bloquear (casi nunca contra-poder)
-        val oppIndex = 1 - selfIndex
-        val incoming = sim.fireballs.any { fb ->
-            fb.ownerIndex == oppIndex && fb.state == SfFireballState.ACTIVE &&
-                abs(fb.x - me.x) < 260f && (me.x - fb.x) * fb.direction.sign > 0f
-        }
-        if (incoming && !me.isAirborne) {
-            return if (roll < 0.80f) SfInput(up = true, forward = true)
-            else SfInput(backward = true)
-        }
-        // (2) Anti-aéreo
-        if (foe.isAirborne && dist < 140f) return cpuAttack(SfAttackStrength.HEAVY, punch = true)
-        // (3) Bloqueo solo a media distancia (de cerca: intercambiar golpes)
-        if (foe.state in cpuThreatStates && dist in 90f..170f &&
-            roll < 0.70f + 0.10f * cpuIntensity
-        ) {
-            return SfInput(backward = true)
-        }
-        // (4) Castigo
-        if (foe.state in cpuPunishStates && dist < 120f) {
-            return cpuAttack(SfAttackStrength.HEAVY, punch = Random.nextBoolean())
-        }
-        // (5) Por distancia: presión melee + special ocasional (vuelve a ser amenazante)
-        return when {
-            dist > 160f -> when {
-                !corner && !ownActive && roll < 0.22f + 0.10f * cpuIntensity ->
-                    SfInput(special = SfAttackStrength.LIGHT)
-                roll < 0.28f -> SfInput(up = true, forward = true)
-                else -> cpuApproach(me, foe)
-            }
-            dist > 70f -> when {
-                roll < 0.45f -> cpuApproach(me, foe)
-                roll < 0.72f -> cpuAttack(SfAttackStrength.MEDIUM, punch = Random.nextBoolean())
-                roll < 0.88f -> SfInput(up = true, forward = true)
-                !ownActive && roll < 0.95f -> SfInput(special = SfAttackStrength.MEDIUM)
-                else -> SfInput(backward = true)
-            }
-            else -> when { // cuerpo a cuerpo — ataca casi siempre
-                roll < 0.85f + 0.08f * cpuIntensity -> cpuAttack(
-                    if (Random.nextFloat() < 0.55f) SfAttackStrength.HEAVY else SfAttackStrength.MEDIUM,
-                    punch = Random.nextBoolean(),
-                )
-                roll < 0.94f -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
-                else -> SfInput(forward = true)
-            }
-        }
+    private fun cpuJumpIn(me: SfFighter, foe: SfFighter): SfInput {
+        val t = cpuMoveTowardFlags(me, foe)
+        return t.copy(up = true)
     }
 
-    /**
-     * PESADILLA — agresiva de CERCA: avanza, comboa, castiga. Casi no acampa ni spamea
-     * proyectiles (IA vs IA debe verse a pelear, no a intercambiar hadoukens desde esquinas).
-     * Como rival humano (p. ej. Presidenta) sigue siendo dura pero se puede ganar acercándose.
-     */
-    private fun pesadillaCpuDecision(sim: Sim, selfIndex: Int): SfInput {
-        val me = sim.fighter(selfIndex)
-        val foe = sim.fighter(1 - selfIndex)
-        val dist = abs(me.x - foe.x)
+    private fun cpuJumpBack(me: SfFighter, foe: SfFighter): SfInput {
+        val t = cpuRetreatFlags(me, foe)
+        return t.copy(up = true)
+    }
+
+    /** Muy pegados: NO seguir caminando adentro — retroceder, golpear o brincar fuera. */
+    private fun cpuClinchBreak(me: SfFighter, foe: SfFighter, now: Long, selfIndex: Int): SfInput {
+        cpuWantsSpaceUntilMs[selfIndex] = now + Random.nextLong(280L, 520L)
         val roll = Random.nextFloat()
-        val corner = isNearStageCorner(me.x)
-        val ownActive = sim.fireballs.any {
-            it.ownerIndex == selfIndex && it.state == SfFireballState.ACTIVE
-        }
         val aiVs = _state.value.aiVsAi
-        // IA vs IA: más show (special + melee). Vs humano: agresiva pero jugable.
-        val specialFar = if (aiVs) 0.22f else 0.14f
-        val specialMid = if (aiVs) 0.14f else 0.08f
-
-        // (0) Esquina → SIEMPRE salir hacia el rival
-        if (corner) return cpuApproach(me, foe)
-
-        // (1) Proyectil entrante → saltar adelante / bloquear (no contra-spam)
-        val oppIndex = 1 - selfIndex
-        val incoming = sim.fireballs.any { fb ->
-            fb.ownerIndex == oppIndex && fb.state == SfFireballState.ACTIVE &&
-                abs(fb.x - me.x) < 300f && (me.x - fb.x) * fb.direction.sign > 0f
+        return when {
+            // IA vs IA: prioriza separar y re-entrar (se ve a pelear, no a “pegarse”)
+            aiVs && roll < 0.40f -> cpuRetreatFlags(me, foe)
+            aiVs && roll < 0.62f -> cpuJumpBack(me, foe)
+            aiVs && roll < 0.82f -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
+            aiVs -> cpuAttack(SfAttackStrength.MEDIUM, punch = Random.nextBoolean())
+            roll < 0.28f -> cpuRetreatFlags(me, foe)
+            roll < 0.48f -> cpuJumpBack(me, foe)
+            roll < 0.72f -> cpuAttack(SfAttackStrength.LIGHT, punch = Random.nextBoolean())
+            roll < 0.88f -> cpuAttack(SfAttackStrength.MEDIUM, punch = true)
+            else -> cpuJumpIn(me, foe) // cross-up / saltar por encima
         }
-        if (incoming && !me.isAirborne) {
-            return when {
-                roll < 0.55f -> SfInput(up = true, forward = true)
-                roll < 0.80f -> SfInput(up = true)
-                else -> SfInput(backward = true)
+    }
+
+    private fun hasIncomingFireball(sim: Sim, me: SfFighter, selfIndex: Int, range: Float): Boolean {
+        val opp = 1 - selfIndex
+        return sim.fireballs.any { fb ->
+            fb.ownerIndex == opp && fb.state == SfFireballState.ACTIVE &&
+                abs(fb.x - me.x) < range && (me.x - fb.x) * fb.direction.sign > 0f
+        }
+    }
+
+    private fun ownFireballActive(sim: Sim, selfIndex: Int): Boolean =
+        sim.fireballs.any { it.ownerIndex == selfIndex && it.state == SfFireballState.ACTIVE }
+
+    // ------------------------------------------------------------------
+    // Decisiones por dificultad
+    // ------------------------------------------------------------------
+
+    /** BÁSICA — aprendible: lenta, pocos golpes, sin poderes. */
+    private fun basicCpuDecision(sim: Sim, selfIndex: Int, now: Long): SfInput {
+        val me = sim.fighter(selfIndex)
+        val foe = sim.fighter(1 - selfIndex)
+        val dist = abs(me.x - foe.x)
+        val roll = Random.nextFloat()
+        if (dist < CPU_CLINCH_DIST && roll < 0.55f) return cpuRetreatFlags(me, foe)
+        return when {
+            dist > 190f -> if (roll < 0.7f) cpuApproach(me, foe) else SfInput()
+            dist > 95f -> when {
+                roll < 0.5f -> cpuApproach(me, foe)
+                roll < 0.78f -> SfInput()
+                else -> cpuRetreatFlags(me, foe)
+            }
+            else -> when {
+                roll < 0.28f -> cpuAttack(SfAttackStrength.LIGHT, punch = Random.nextBoolean())
+                roll < 0.55f -> cpuRetreatFlags(me, foe)
+                else -> SfInput()
             }
         }
-        // (2) Anti-aéreo
-        if (foe.isAirborne && dist < 165f) return cpuAttack(SfAttackStrength.HEAVY, punch = true)
-        // (3) Amenaza a media distancia: a veces bloquea; de cerca tradea
-        if (foe.state in cpuThreatStates && dist in 100f..185f && roll < 0.40f) {
-            return SfInput(backward = true)
+    }
+
+    /** NORMAL — pelea real: acerca, golpea, special raro, clinch break. */
+    private fun normalCpuDecision(sim: Sim, selfIndex: Int, now: Long): SfInput {
+        val me = sim.fighter(selfIndex)
+        val foe = sim.fighter(1 - selfIndex)
+        val dist = abs(me.x - foe.x)
+        val roll = Random.nextFloat()
+        val corner = isNearStageCorner(me.x)
+
+        if (now < cpuWantsSpaceUntilMs[selfIndex] && dist < CPU_MELEE_DIST) {
+            return if (roll < 0.7f) cpuRetreatFlags(me, foe) else randomCpuAttack()
         }
-        if (foe.state in cpuThreatStates && dist < 100f && roll < 0.55f) {
-            return cpuAttack(SfAttackStrength.LIGHT, punch = true)
+        if (corner && dist > 50f) return cpuApproach(me, foe)
+        if (dist < CPU_CLINCH_DIST) return cpuClinchBreak(me, foe, now, selfIndex)
+
+        if (hasIncomingFireball(sim, me, selfIndex, 240f) && !me.isAirborne) {
+            return if (roll < 0.7f) cpuJumpIn(me, foe) else cpuRetreatFlags(me, foe)
         }
-        // (4) Castigo
-        if (foe.state in cpuPunishStates && dist < 140f) {
-            return cpuAttack(SfAttackStrength.HEAVY, punch = Random.nextBoolean())
+        if (foe.isAirborne && dist < 130f) {
+            return cpuAttack(SfAttackStrength.HEAVY, punch = true)
         }
-        // (5) Presión — melee-first, special frecuente a media/larga (tope 1 proyectil ya limita spam)
+        if (foe.state in cpuPunishStates && dist < CPU_MELEE_DIST) {
+            return cpuAttack(SfAttackStrength.MEDIUM, punch = Random.nextBoolean())
+        }
+
         return when {
-            dist > 150f -> when {
-                !ownActive && roll < specialFar ->
+            dist > CPU_MID_DIST -> when {
+                !ownFireballActive(sim, selfIndex) && roll < 0.16f ->
                     SfInput(special = SfAttackStrength.LIGHT)
-                roll < 0.25f -> SfInput(up = true, forward = true)
+                roll < 0.30f -> cpuJumpIn(me, foe)
                 else -> cpuApproach(me, foe)
             }
-            dist > 65f -> when {
-                !ownActive && roll < specialMid ->
+            dist > CPU_MELEE_DIST -> when {
+                roll < 0.40f -> cpuApproach(me, foe)
+                roll < 0.72f -> randomCpuAttack()
+                roll < 0.88f -> cpuJumpIn(me, foe)
+                else -> cpuRetreatFlags(me, foe)
+            }
+            else -> when { // melee
+                roll < 0.72f + 0.12f * cpuIntensity -> randomCpuAttack()
+                roll < 0.88f -> cpuRetreatFlags(me, foe) // micro-spacing
+                else -> cpuJumpIn(me, foe)
+            }
+        }
+    }
+
+    /**
+     * AVANZADA + PESADILLA — núcleo SF:
+     * defense (fireball/anti-air/block) → punish → clinch/spacing → pressure por rango.
+     * @param nightmare más agresivo (PESADILLA / IA vs IA show).
+     */
+    private fun smartCpuDecision(sim: Sim, selfIndex: Int, now: Long, nightmare: Boolean): SfInput {
+        val me = sim.fighter(selfIndex)
+        val foe = sim.fighter(1 - selfIndex)
+        val dist = abs(me.x - foe.x)
+        val roll = Random.nextFloat()
+        val corner = isNearStageCorner(me.x)
+        val aiVs = _state.value.aiVsAi
+        val ownFb = ownFireballActive(sim, selfIndex)
+
+        val specialFar = when {
+            nightmare && aiVs -> 0.24f
+            nightmare -> 0.18f
+            else -> 0.14f + 0.08f * cpuIntensity
+        }
+        val specialMid = when {
+            nightmare && aiVs -> 0.16f
+            nightmare -> 0.11f
+            else -> 0.08f + 0.05f * cpuIntensity
+        }
+        val blockChance = if (nightmare) 0.55f else 0.72f + 0.1f * cpuIntensity
+        val attackMelee = if (nightmare) 0.78f else 0.70f
+
+        // Espacio pedido tras clinch
+        if (now < cpuWantsSpaceUntilMs[selfIndex] && dist < CPU_MID_DIST) {
+            return when {
+                roll < 0.55f -> cpuRetreatFlags(me, foe)
+                roll < 0.78f -> randomCpuAttack()
+                else -> cpuJumpIn(me, foe)
+            }
+        }
+
+        // Esquina: salir hacia el rival (nunca spamear desde el borde)
+        if (corner && dist > 45f) return cpuApproach(me, foe)
+
+        // Clinch / “pegaditos”
+        if (dist < CPU_CLINCH_DIST) return cpuClinchBreak(me, foe, now, selfIndex)
+
+        // Fireball entrante
+        if (hasIncomingFireball(sim, me, selfIndex, if (nightmare) 300f else 260f) && !me.isAirborne) {
+            return when {
+                roll < 0.50f -> cpuJumpIn(me, foe)
+                roll < 0.78f -> SfInput(up = true) // jump neutral
+                else -> cpuRetreatFlags(me, foe) // block / walk-back
+            }
+        }
+
+        // Anti-aéreo
+        if (foe.isAirborne && dist < (if (nightmare) 170f else 145f)) {
+            return cpuAttack(SfAttackStrength.HEAVY, punch = true)
+        }
+
+        // Bloqueo ante amenaza (mid); de cerca tradea
+        if (foe.state in cpuThreatStates) {
+            when {
+                dist in 95f..190f && roll < blockChance -> return cpuRetreatFlags(me, foe) // block walk-back
+                dist < 95f && roll < 0.60f -> return cpuAttack(SfAttackStrength.LIGHT, punch = true)
+            }
+        }
+
+        // Castigo recovery
+        if (foe.state in cpuPunishStates && dist < (if (nightmare) 145f else 125f)) {
+            return cpuAttack(
+                if (nightmare || roll < 0.55f) SfAttackStrength.HEAVY else SfAttackStrength.MEDIUM,
+                punch = Random.nextBoolean(),
+            )
+        }
+
+        // Footsies / presión por rango
+        return when {
+            dist > CPU_MID_DIST -> when {
+                !corner && !ownFb && now >= specialCooldownUntil[selfIndex] && roll < specialFar ->
+                    SfInput(special = SfAttackStrength.LIGHT)
+                roll < 0.28f -> cpuJumpIn(me, foe)
+                roll < 0.38f -> cpuRetreatFlags(me, foe) // baitear
+                else -> cpuApproach(me, foe)
+            }
+            dist > CPU_MELEE_DIST -> when {
+                !ownFb && now >= specialCooldownUntil[selfIndex] && roll < specialMid ->
                     SfInput(special = SfAttackStrength.MEDIUM)
-                roll < 0.35f -> cpuApproach(me, foe)
-                roll < 0.75f -> cpuAttack(
-                    if (Random.nextFloat() < 0.5f) SfAttackStrength.MEDIUM else SfAttackStrength.HEAVY,
+                roll < 0.32f -> cpuApproach(me, foe)
+                roll < 0.62f -> cpuAttack(
+                    if (Random.nextFloat() < 0.45f) SfAttackStrength.MEDIUM else SfAttackStrength.HEAVY,
                     punch = Random.nextBoolean(),
                 )
-                roll < 0.90f -> SfInput(up = true, forward = true)
-                else -> SfInput(forward = true)
+                roll < 0.80f -> cpuJumpIn(me, foe)
+                roll < 0.92f -> cpuRetreatFlags(me, foe) // spacing
+                else -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
             }
-            else -> when { // rango de pelea real — casi siempre golpea
-                roll < 0.90f -> cpuAttack(
+            else -> when { // melee range (no clinch)
+                roll < attackMelee + 0.1f * cpuIntensity -> cpuAttack(
                     when {
-                        Random.nextFloat() < 0.45f -> SfAttackStrength.HEAVY
-                        Random.nextFloat() < 0.75f -> SfAttackStrength.MEDIUM
+                        Random.nextFloat() < 0.40f -> SfAttackStrength.HEAVY
+                        Random.nextFloat() < 0.72f -> SfAttackStrength.MEDIUM
                         else -> SfAttackStrength.LIGHT
                     },
                     punch = Random.nextBoolean(),
                 )
-                roll < 0.96f -> SfInput(forward = true)
-                else -> SfInput(backward = true)
+                roll < 0.90f -> cpuRetreatFlags(me, foe) // tick throw-ish spacing
+                else -> cpuJumpIn(me, foe)
             }
         }
     }
@@ -2133,6 +2219,10 @@ class StreetFighterViewModel @Inject constructor(
         specialCooldownUntil[1] = 0L
         cpuStaleApproach[0] = 0
         cpuStaleApproach[1] = 0
+        cpuLastOffenseMs[0] = 0L
+        cpuLastOffenseMs[1] = 0L
+        cpuWantsSpaceUntilMs[0] = 0L
+        cpuWantsSpaceUntilMs[1] = 0L
         cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
         pendingAttacks.clear()
         pendingBonusPower = null
